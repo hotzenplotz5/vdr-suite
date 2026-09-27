@@ -381,16 +381,23 @@ after exact-head CI #9337 / run `36341522122` succeeded.
 
 ## 69.F Timer live single-route hardening
 
-The seventh bounded 69.F candidate is
+The seventh bounded 69.F slice is accepted via PR #375:
 [Phase 69.F Timer Live Single-Route Hardening](phase-69f-timer-live-fallback-removal.md).
-The fresh post-#374 audit proves the last Client API fallback is not an alias:
-`/api/vdr/timers/live` reads current VDR timers while `/api/vdr/timers` reads
-the snapshot service. The browser uses the live owner for Timer presentation and
-EPG Timer synchronization, and the live controller already owns its explicit
-service-unavailable snapshot decision. The client therefore issues one live
-request and preserves structured failure instead of retrying different snapshot
-semantics after arbitrary errors. No public-v1 resource, server-route removal,
-deprecation or native Timer mutation change is introduced.
+It removes the final browser catch-all route fallback. PR #375 merged as
+`19077e7110fdb8111aead43e15b6962767ac6234` after exact-head CI #9339 /
+run `36343460569` succeeded 6/6.
+
+## 69.F public-v1 discovery reference client
+
+The eighth bounded 69.F candidate is
+[Phase 69.F Public-v1 Discovery Reference Client](phase-69f-public-v1-discovery-reference-client.md).
+The fresh post-#375 audit finds no `clients/` layer, OpenAPI description or
+public-v1 SDK/reference implementation, while the browser route matrix correctly
+prohibits substituting its richer pre-v1 Backend/Channel/Timer semantics. The
+candidate therefore adds a transport-injected, DOM-free JavaScript reference
+client for only the already-stable discovery resources `/api/v1`,
+`/api/v1/capabilities` and `/api/v1/backends`. It is a reference seam, not
+a published package and not a claim that browser-private routes are public.
 
 ## 69.C completion
 

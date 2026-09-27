@@ -8,6 +8,7 @@
 - [Phase 69.F Public Backend Collection](phase-69f-public-backend-collection.md)
 - [Phase 69.F Home EPG Single-Route Hardening](phase-69f-home-epg-fallback-removal.md)
 - [Phase 69.F Timer Live Single-Route Hardening](phase-69f-timer-live-fallback-removal.md)
+- [Phase 69.F Public-v1 Discovery Reference Client](phase-69f-public-v1-discovery-reference-client.md)
 - [Current Project Status](current-status.md)
 - [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 - [Parity Audit and Frontend Gap Roadmap](../planning/parity-audit-and-frontend-gap-roadmap.md)
@@ -208,6 +209,11 @@ snapshot route remains pre-v1 and available to its own consumers; it is no
 longer a browser retry target after arbitrary live-request failure. The server
 retains ownership of its explicit live-service-unavailable snapshot decision.
 
+
+The separate [Public-v1 Discovery Reference Client](phase-69f-public-v1-discovery-reference-client.md)
+is deliberately **not** another Web Client API wrapper. It consumes only stable
+public discovery contracts and therefore must not be used as justification to
+replace richer browser Backend/Channel/Timer semantics.
 
 ## Current Direct Fetch Inventory
 

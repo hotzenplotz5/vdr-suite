@@ -22,6 +22,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Phase 69.F Public Backend Collection](development/phase-69f-public-backend-collection.md)
 - [Phase 69.F Home EPG Single-Route Hardening](development/phase-69f-home-epg-fallback-removal.md)
 - [Phase 69.F Timer Live Single-Route Hardening](development/phase-69f-timer-live-fallback-removal.md)
+- [Phase 69.F Public-v1 Discovery Reference Client](development/phase-69f-public-v1-discovery-reference-client.md)
 - [Phase 69.E Compatibility Policy Foundation](development/phase-69e-compatibility-policy-foundation.md)
 - [Phase 69.E Retained Legacy Route Classification](development/phase-69e-legacy-route-classification.md)
 - [Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md)
@@ -140,14 +141,18 @@ semantically distinct `/api/vdr/events` route while preserving fail-soft
 empty-event behavior and without rebuilding Home/LiveTV lifecycle.
 
 The [Phase 69.F Timer Live Single-Route Hardening](development/phase-69f-timer-live-fallback-removal.md)
-candidate is the seventh bounded 69.F slice. The fresh post-#374 audit proves
-that `fetchClientTimers()` is a live/current-state owner used both by the Timer
-module and EPG Timer detail synchronization, while `/api/vdr/timers` is a
-separate snapshot read. The server-side `getLiveTimers()` already owns the
-explicit live-service-unavailable fallback to snapshot data. The browser
-therefore stops retrying the snapshot route after arbitrary request failure,
-removing the final catch-all Client API route fallback without changing either
-server route or creating a new public-v1 Timer-list contract.
+is the accepted seventh bounded 69.F slice via PR #375. It removes the final
+catch-all browser route fallback while preserving the server-owned explicit
+live-service-unavailable Timer snapshot decision.
+
+The [Phase 69.F Public-v1 Discovery Reference Client](development/phase-69f-public-v1-discovery-reference-client.md)
+candidate is the eighth bounded 69.F slice. A fresh post-#375 audit proves that
+the repository has stable public-v1 discovery contracts but no client/SDK seam
+that consumes them. The candidate adds a browser-independent JavaScript
+reference client for only `GET /api/v1`, `GET /api/v1/capabilities` and
+`GET /api/v1/backends`. It does not migrate the richer bundled browser,
+publish a package, invent authentication, or promote EPG/Recording/SearchTimer
+routes into public-v1.
 
 69.C is completed. Its closeout records the accepted public revision/ETag,
 strong If-Match, durable Idempotency-Key and no-blind-fallback contracts, plus
