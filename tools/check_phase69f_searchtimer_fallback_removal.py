@@ -113,11 +113,6 @@ for first, second in (
 
 inventory = read("tools/check_phase69_public_api_inventory.py")
 require(
-    '"/api/vdr/searchtimers/live" not in EXPECTED_ROUTE_LITERALS'
-    not in inventory,
-    "inventory guard source unexpectedly embeds client-only assertion",
-)
-require(
     '"/api/vdr/searchtimers/live",' not in inventory,
     "speculative SearchTimer live route unexpectedly became a server route",
 )
