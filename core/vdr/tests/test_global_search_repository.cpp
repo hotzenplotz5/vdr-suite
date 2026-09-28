@@ -133,6 +133,36 @@ int main()
     assert(sqlite3_total_changes(database.handle()) == writesAfterFirstSchema);
     sqlite3_trace_v2(database.handle(), 0, nullptr, nullptr);
     assert(repository.ready());
+
+    {
+        Database restartDatabase;
+        assert(restartDatabase.open(":memory:"));
+        createExistingSchemas(restartDatabase);
+        insertFixtures(restartDatabase);
+        execute(
+            restartDatabase,
+            "CREATE TABLE epg_scraper_metadata_people("
+            "backend_id TEXT NOT NULL,channel_id TEXT NOT NULL,event_id TEXT NOT NULL,"
+            "ordinal INTEGER NOT NULL,role TEXT NOT NULL DEFAULT 'unknown',"
+            "name TEXT NOT NULL,name_folded TEXT NOT NULL,"
+            "character_name TEXT NOT NULL DEFAULT '',character_name_folded TEXT NOT NULL DEFAULT '',"
+            "PRIMARY KEY(backend_id,channel_id,event_id,ordinal));"
+            "INSERT INTO epg_scraper_metadata_people VALUES("
+            "'default','channel-1','event-1',0,'actor','John Travolta',"
+            "'john travolta','Vincent Vega','vincent vega');");
+
+        GlobalSearchRepository restartRepository(restartDatabase);
+        TraceState restartTrace;
+        assert(sqlite3_trace_v2(
+            restartDatabase.handle(),
+            SQLITE_TRACE_STMT,
+            traceSql,
+            &restartTrace) == SQLITE_OK);
+        assert(restartRepository.ensureSchema());
+        assert(restartTrace.legacyPeopleBackfills == 0);
+        sqlite3_trace_v2(restartDatabase.handle(), 0, nullptr, nullptr);
+    }
+
     assert(GlobalSearchRepository::foldText("MÜNCHEN") == "muenchen");
 
     const int writesBefore = sqlite3_total_changes(database.handle());
