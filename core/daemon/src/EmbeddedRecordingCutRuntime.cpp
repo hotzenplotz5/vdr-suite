@@ -8,6 +8,7 @@
 #include <chrono>
 #include <sstream>
 #include <utility>
+#include <vector>
 
 namespace
 {
@@ -86,6 +87,72 @@ EmbeddedRecordingCutRuntime::EmbeddedRecordingCutRuntime(
 bool EmbeddedRecordingCutRuntime::ensureSchema()
 {
     return repository_.ensureSchema();
+}
+
+std::string EmbeddedRecordingCutRuntime::deleteBlockReason(
+    const std::string& recordingKey)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    if (!VdrRecordingNativeIdentity::isValidKey(recordingKey))
+        return "recording_identity_unavailable_delete_blocked";
+
+    std::vector<EmbeddedRecordingCutRecord> records;
+    if (!repository_.listForBackend(backendId_, records))
+        return "recording_cut_journal_unavailable_delete_blocked";
+
+    for (auto& record : records)
+    {
+        BackendAgentRecordingCutPayload payload;
+        std::string reason;
+        if (!backendAgentRecordingCutParsePayload(
+                record.payload,
+                payload,
+                reason))
+        {
+            return "recording_cut_journal_invalid_delete_blocked";
+        }
+
+        if (payload.recordingKey != recordingKey)
+            continue;
+
+        if (record.state == "verified" ||
+            record.state == "rejected")
+        {
+            continue;
+        }
+
+        if (record.state == "accepted" &&
+            VdrRecordingNativeIdentity::isValidKey(
+                record.editedRecordingKey))
+        {
+            const auto native =
+                resolver_.resolve(recordingKey);
+
+            if (daemonRecordingCutResultMatches(
+                    recordingKey,
+                    record.editedRecordingKey,
+                    native))
+            {
+                record.state = "verified";
+                if (!repository_.update(record))
+                    return "recording_cut_journal_unavailable_delete_blocked";
+                continue;
+            }
+        }
+
+        if (record.state == "starting" ||
+            record.state == "accepted" ||
+            record.state == "unknown" ||
+            record.state == "uncertain")
+        {
+            return "recording_cut_operation_pending_delete_blocked";
+        }
+
+        return "recording_cut_journal_invalid_delete_blocked";
+    }
+
+    return std::string();
 }
 
 RecordingCutDispatchResult EmbeddedRecordingCutRuntime::dispatch(
