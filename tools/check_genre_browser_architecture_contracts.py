@@ -179,10 +179,18 @@ require(
 )
 require(
     "epg-browse-taxonomy-v7" in live_parity
-    and "version=10" in live_parity
-    and "version=11" in live_parity
-    and "version=12" in live_parity,
+    and "applyEpgBrowseSchemaMigration" in live_parity
+    and "10," in live_parity
+    and "11," in live_parity
+    and "12," in live_parity
+    and "metadataSchemaVersionExists" in helpers,
     "fiction-confirmed EPG browse taxonomy v7 migrations are missing",
+)
+require(
+    "DELETE FROM suite_metadata_genre_assignments" in helpers
+    and "WHERE source_kind='epg-browse-content-class'" in helpers
+    and "metadataSchemaVersionExists" in helpers,
+    "completed EPG browse migrations must be gated before the large assignment delete",
 )
 require(
     "liveParityStrongNewsTitle" in live_parity
