@@ -89,17 +89,20 @@ bool EmbeddedRecordingCutRuntime::ensureSchema()
     return repository_.ensureSchema();
 }
 
-std::string EmbeddedRecordingCutRuntime::deleteBlockReason(
+std::string EmbeddedRecordingCutRuntime::operationState(
     const std::string& recordingKey)
 {
     std::lock_guard<std::mutex> lock(mutex_);
 
     if (!VdrRecordingNativeIdentity::isValidKey(recordingKey))
-        return "recording_identity_unavailable_delete_blocked";
+        return "identity_unavailable";
 
     std::vector<EmbeddedRecordingCutRecord> records;
     if (!repository_.listForBackend(backendId_, records))
-        return "recording_cut_journal_unavailable_delete_blocked";
+        return "journal_unavailable";
+
+    bool verified = false;
+    bool rejected = false;
 
     for (auto& record : records)
     {
@@ -110,15 +113,21 @@ std::string EmbeddedRecordingCutRuntime::deleteBlockReason(
                 payload,
                 reason))
         {
-            return "recording_cut_journal_invalid_delete_blocked";
+            return "journal_invalid";
         }
 
         if (payload.recordingKey != recordingKey)
             continue;
 
-        if (record.state == "verified" ||
-            record.state == "rejected")
+        if (record.state == "verified")
         {
+            verified = true;
+            continue;
+        }
+
+        if (record.state == "rejected")
+        {
+            rejected = true;
             continue;
         }
 
@@ -136,7 +145,8 @@ std::string EmbeddedRecordingCutRuntime::deleteBlockReason(
             {
                 record.state = "verified";
                 if (!repository_.update(record))
-                    return "recording_cut_journal_unavailable_delete_blocked";
+                    return "journal_unavailable";
+                verified = true;
                 continue;
             }
         }
@@ -146,11 +156,39 @@ std::string EmbeddedRecordingCutRuntime::deleteBlockReason(
             record.state == "unknown" ||
             record.state == "uncertain")
         {
-            return "recording_cut_operation_pending_delete_blocked";
+            return record.state;
         }
 
-        return "recording_cut_journal_invalid_delete_blocked";
+        return "journal_invalid";
     }
+
+    if (verified)
+        return "verified";
+    if (rejected)
+        return "rejected";
+    return "none";
+}
+
+std::string EmbeddedRecordingCutRuntime::deleteBlockReason(
+    const std::string& recordingKey)
+{
+    const std::string state =
+        operationState(recordingKey);
+
+    if (state == "starting" ||
+        state == "accepted" ||
+        state == "unknown" ||
+        state == "uncertain")
+    {
+        return "recording_cut_operation_pending_delete_blocked";
+    }
+
+    if (state == "identity_unavailable")
+        return "recording_identity_unavailable_delete_blocked";
+    if (state == "journal_unavailable")
+        return "recording_cut_journal_unavailable_delete_blocked";
+    if (state == "journal_invalid")
+        return "recording_cut_journal_invalid_delete_blocked";
 
     return std::string();
 }
