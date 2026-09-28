@@ -1743,6 +1743,17 @@ img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
   padding: 0.75rem 0.95rem;
 }
 
+.epg-detail-live-status {
+  margin: -0.25rem 0.95rem 0.75rem;
+  color: #a7f3d0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.epg-detail-live-status.error {
+  color: #fecaca;
+}
+
 .epg-detail-action {
   padding: 0.5rem 0.55rem;
   border-radius: 0.72rem;
