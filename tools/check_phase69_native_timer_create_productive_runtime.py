@@ -56,6 +56,8 @@ required = {
         "VdrManagedTimerCreateReadbackEvidenceBuilder::build(",
         "agent->backendGeneration != expectation.backendGeneration",
         "nativeCreateReadbackCache",
+        "catch (const std::exception& error)",
+        "Native Timer CREATE readback unavailable for backend",
     ],
     "operation_h": [
         "listByActionFamilyAndStates(",
@@ -149,6 +151,11 @@ if not (0 <= accepted_pos < reserve_pos < outcome_unknown_pos):
         "outcome_unknown is reconciliation-only")
 
 polling = contents["polling"]
+if "context->service->getTimers();" in polling and \
+        "catch (const std::exception& error)" not in polling:
+    raise SystemExit(
+        "Native Timer CREATE readback transport exceptions must remain contained")
+
 poll_pos = polling.find("backendPollingCoordinator_->pollAll();")
 advance_pos = polling.find("advanceNativeTimerCreateRuntimeOnce(")
 if not (0 <= poll_pos < advance_pos):
