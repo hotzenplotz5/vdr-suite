@@ -55,6 +55,39 @@
       value.addEventListener('click', function () { if (!value.disabled && !destroyed) action(); }); (parent || actions).appendChild(value); return value;
     }
     function group(label, className) { const value = node('div'); value.className = 'recordings2-marks-editor-group ' + className; value.setAttribute('role', 'group'); value.setAttribute('aria-label', label); actions.appendChild(value); return value; }
+    function cutPending() { return Boolean(pending && pending.path && pending.path.endsWith('/cut')); }
+    function clearCutStateTimer() { if (cutStateTimer !== null && typeof global.clearTimeout === 'function') global.clearTimeout(cutStateTimer); cutStateTimer = null; }
+    function cutStateActive() { return Boolean(cutPending() || (cutState && (Number(cutState.handlerUsage) > 0 || (cutState.editedDestinationExists === true && cutState.editedRecordingFound !== true) || (cutState.editedRecordingFound === true && !cutState.editedRecording)))); }
+    function renderCutState() {
+      cutStateView.replaceChildren(); cutStateView.className = 'recordings2-cut-state';
+      if (!cutState && !cutPending()) return;
+      if (cutState && cutState.editedRecordingFound === true) {
+        cutStateView.classList.add('recordings2-cut-variant'); cutStateView.appendChild(node('strong', 'Schnittfassung'));
+        cutStateView.appendChild(node('p', cutState.editedRecording ? 'Die geschnittene Fassung wurde von VDR bestätigt. Das Original bleibt erhalten.' : 'Die geschnittene Fassung wurde von VDR bestätigt und wird in der Aufnahmeliste aufgelöst.'));
+        if (cutState.editedRecording) {
+          const controls = node('div'); controls.className = 'recordings2-cut-state-actions';
+          button('Schnittfassung öffnen', function () { const owner = global.VdrSuiteRecordings2; if (owner && typeof owner.openRecording === 'function') owner.openRecording(cutState.editedRecording, {backendId: identity.backendId, backLabel: '← Zurück zur Originalfassung'}); }, false, controls, 'primary');
+          cutStateView.appendChild(controls);
+        }
+        cutStateView.appendChild(node('p', 'Original löschen: „Aufnahmeaktionen“ öffnen und die vorhandene sichere Papierkorb-Aktion verwenden.'));
+        return;
+      }
+      cutStateView.appendChild(node('strong', 'Schnitt läuft …'));
+      const progress = node('progress'); progress.className = 'recordings2-cut-progress'; progress.setAttribute('aria-label', 'Nativer VDR-Schnitt läuft'); cutStateView.appendChild(progress);
+      cutStateView.appendChild(node('p', cutState && Number(cutState.handlerUsage) > 0 ? 'VDR schneidet die Aufnahme. Der native Cutter liefert keinen verlässlichen Prozentwert.' : cutState && cutState.editedDestinationExists === true ? 'VDR finalisiert die geschnittene Fassung. Der Abschluss wird automatisch erkannt.' : 'Schnittauftrag angenommen. Warte auf den nativen VDR-Cutter …'));
+    }
+    function scheduleCutStatePoll() {
+      clearCutStateTimer(); if (destroyed || !cutStateActive() || typeof global.setTimeout !== 'function') return;
+      cutStateTimer = global.setTimeout(function () { cutStateTimer = null; syncCutState().catch(function () { if (!destroyed) scheduleCutStatePoll(); }); }, 1500);
+    }
+    function syncCutState() {
+      return request('/api/vdr/recordings/cut').then(function (next) {
+        if (destroyed) return null;
+        if (!next || next.availability !== 'available' || next.backendId !== identity.backendId || String(next.recordingId) !== identity.recordingId) throw new Error('recording_cut_state_invalid');
+        cutState = next; renderCutState(); scheduleCutStatePoll(); return next;
+      });
+    }
+    function syncOperationState(operation) { return operation && operation.path && operation.path.endsWith('/cut') ? Promise.all([syncCanonical(operation), syncCutState()]).then(function (values) { return values[0]; }) : syncCanonical(operation); }
     function frame(value) { const number = Number(value); return String(value).trim() && Number.isSafeInteger(number) && number >= 0 && number <= 2147483647 ? number : null; }
     function editable() { return !busy && !pending && payload && payload.availability === 'available' && payload.inUse === false; }
     function playback() { return root.__vdrSuiteRecordingPlaybackOwner; }
