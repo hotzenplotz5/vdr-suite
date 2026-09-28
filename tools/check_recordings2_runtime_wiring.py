@@ -93,6 +93,8 @@ required_tokens = {
         'VdrSuiteRecordings2MetadataDetail',
         'metadataDetail.enhance',
         'root.__vdrSuiteRecordingPlaybackOwner = activePlayback',
+        "typeof currentState.detailHome === 'function'",
+        'options.goHome',
     ),
     'marks_detail': (
         'global.VdrSuiteRecordings2MarksDetail',
@@ -166,6 +168,9 @@ required_tokens = {
         'data-module="recordings2"',
         'browserView.create',
         'refreshDetailAddon',
+        'detailHome',
+        'goHomeDetail',
+        "if (typeof state.detailHome === 'function')",
     ),
 }
 for owner, tokens in required_tokens.items():
