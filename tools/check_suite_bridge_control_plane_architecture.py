@@ -7,6 +7,7 @@ client_h=read("core/agent/include/SuiteBridgeLocalControlTransport.h")
 client_cpp=read("core/agent/src/SuiteBridgeLocalControlTransport.cpp")
 server=read("vdr-plugin-suite-bridge/suitebridge_control_plane.cpp")
 plugin=read("vdr-plugin-suite-bridge/suitebridge.cpp")
+hbbtv_input_handoff=read("vdr-plugin-suite-bridge/suitebridge_hbbtv_main_thread_input.cpp")
 runtime=read("core/daemon/src/RecordingMediaHttpRuntime.cpp")
 agent_main=read("apps/agent/main.cpp")
 daemon_context=read("core/daemon/include/BackendRuntimeContext.h")
@@ -42,6 +43,10 @@ for marker in ("Operation::CapabilityDiscovery","Operation::OsdSnapshot","Operat
     if marker not in plugin: raise SystemExit(f"Legacy OSD plugin local-control wiring missing {marker}")
 for marker in ("Operation::HbbtvDiscovery","Operation::HbbtvRuntime","Operation::HbbtvPresentation","Operation::HbbtvMedia","hbbtvCommand_.Handle"):
     if marker not in plugin: raise SystemExit(f"HbbTV plugin local-control wiring missing {marker}")
+for marker in ('payload.rfind("INPUT ", 0) == 0',"hbbtvMainThreadInput_.Submit(payload)","hbbtvMainThreadInput_.Drain","hbbtvMainThreadInput_.Stop()"):
+    if marker not in plugin: raise SystemExit(f"HbbTV INPUT main-thread handoff missing {marker}")
+for marker in ("wait_for","hbbtv_input_main_thread_timeout","hbbtv_input_main_thread_queue_full","abandoned"):
+    if marker not in hbbtv_input_handoff: raise SystemExit(f"HbbTV INPUT bounded handoff guard missing {marker}")
 for marker in ("SuiteBridgePrioritizedHbbtvTransport","SuiteBridgeHbbtvTransportStatus::Unavailable"):
     if marker not in client_h: raise SystemExit(f"HbbTV prioritized local-control transport missing {marker}")
 for marker in ("hbbtvLocalControlTransport","hbbtvTransport","effectiveHbbtvTransport"):
