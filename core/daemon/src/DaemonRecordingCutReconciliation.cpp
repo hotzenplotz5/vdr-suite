@@ -12,6 +12,7 @@ bool daemonRecordingCutResultMatches(
         state.availability == VdrRecordingNativeCutStateAvailability::Available &&
         state.found &&
         state.recordingKey == expectedSourceRecordingKey &&
+        state.handlerUsage == 0 &&
         state.editedRecordingFound &&
         state.editedDestinationExists &&
         state.editedRecordingKey == expectedEditedRecordingKey;

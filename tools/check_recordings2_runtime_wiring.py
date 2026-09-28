@@ -116,7 +116,7 @@ required_tokens = {
         'keinen verlässlichen Prozentwert',
         'Schnittfassung öffnen',
         'owner.openRecording(cutState.editedRecording',
-        'vorhandene sichere Papierkorb-Aktion',
+        'nativeCutRunning()',
     ),
     'marks_timeline': (
         'global.VdrSuiteRecordings2MarksTimeline',
@@ -173,10 +173,13 @@ for owner, tokens in required_tokens.items():
         if token not in runtimes[owner]:
             raise SystemExit(f'missing Recordings 2 {owner} contract: {token}')
 
+if 'Original löschen:' in runtimes['marks_editor']:
+    raise SystemExit('cut completion must not imply delete permission')
+
 if "progress.value" in runtimes['marks_editor'] or "progressPercent" in runtimes['marks_editor']:
     raise SystemExit('native cut UI must not fabricate percentage progress')
 
-if "Number(cutState.handlerUsage)" in runtimes['marks_editor']:
+if "Number(cutState.handlerUsage)" in runtimes['marks_editor'] and "(cutState.operationPending === true || cutState.operationVerified === true) && Number(cutState.handlerUsage)" not in runtimes['marks_editor']:
     raise SystemExit('native cut UI must not infer operation ownership from handlerUsage')
 if "cutState.editedDestinationExists === true && cutState.editedRecordingFound !== true" in runtimes['marks_editor']:
     raise SystemExit('native cut UI must not infer operation ownership from edited destination state')

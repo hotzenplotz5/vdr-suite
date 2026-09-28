@@ -496,6 +496,11 @@ async function run() {
     editedRecordingKey: 'b'.repeat(32),
     editedRecording
   };
+  cutStateOverride.handlerUsage = 36;
+  await fireNextTimer();
+  assert(allText(root).includes('Schnitt läuft'), 'existing result and legacy verified journal must not hide a running cutter');
+  assert(!allText(root).includes('Schnittfassung öffnen'));
+  cutStateOverride.handlerUsage = 0;
   await fireNextTimer();
   assert(allText(root).includes('Schnittfassung'));
   assert(button('Schnittfassung öffnen'));
@@ -506,7 +511,7 @@ async function run() {
   openedCutVariant = null;
   openedCutVariantOptions.onClose();
   assert.strictEqual(openedCutVariant.id, '7');
-  assert(allText(root).includes('Aufnahmeaktionen'));
+  assert(!allText(root).includes('Original löschen'));
 
   mode = 'verified';
   for (let attempt = 0; attempt < 3 && !allText(root).includes('Native geschnittene Ausgabe bestätigt'); ++attempt) await fireNextTimer();

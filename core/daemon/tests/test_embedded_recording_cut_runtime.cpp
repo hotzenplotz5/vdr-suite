@@ -19,6 +19,7 @@ struct Resolver final :
     IVdrRecordingNativeCutStateResolver
 {
     bool complete = false;
+    int handlerUsage = 0;
 
     VdrRecordingNativeCutState resolve(
         const std::string& requested) override
@@ -28,6 +29,7 @@ struct Resolver final :
             VdrRecordingNativeCutStateAvailability::
                 Available;
         state.found = true;
+        state.handlerUsage = handlerUsage;
         state.recordingKey = requested;
         state.marksReadable = true;
         state.marksRevision = marksRevision;
@@ -216,6 +218,12 @@ int main()
     assert(runtime.deleteBlockReason(std::string(32, 'f')).empty());
 
     resolver.complete = true;
+    resolver.handlerUsage = 36;
+    assert(!runtime.dispatch(cut).verified);
+    assert(runtime.operationState(sourceKey) == "accepted");
+    assert(runtime.deleteBlockReason(sourceKey) == "recording_cut_operation_pending_delete_blocked");
+    assert(transport.calls == 1);
+    resolver.handlerUsage = 0;
 
     // Delete safety itself reconciles an accepted cut to verified once
     // native readback proves the exact edited Recording. Browser timing is
@@ -228,6 +236,18 @@ int main()
     assert(result.replayed);
     assert(result.verified);
     assert(result.editedRecordingKey == editedKey);
+    assert(transport.calls == 1);
+
+    // Revalidate persisted verification from older daemon versions, including replay.
+    resolver.handlerUsage = 36;
+    assert(!runtime.dispatch(cut).verified);
+    assert(runtime.operationState(sourceKey) == "accepted");
+    resolver.handlerUsage = 0;
+    assert(runtime.operationState(sourceKey) == "verified");
+    resolver.handlerUsage = 36;
+    assert(runtime.operationState(sourceKey) == "accepted");
+    resolver.handlerUsage = 0;
+    assert(runtime.dispatch(cut).verified);
     assert(transport.calls == 1);
 
     auto conflict = cut;

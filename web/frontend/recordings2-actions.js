@@ -82,7 +82,7 @@
   function actionError(result, fallback) { const errors = stringList(result && result.errors);
     if (errors.some(function (value) { return value === 'recording_cut_operation_pending_delete_blocked' || value === 'recording_cut_active_delete_blocked'; })) return 'Original kann während des laufenden Schnitts nicht gelöscht werden.';
     if (errors.some(function (value) { return ['recording_cut_state_unavailable_delete_blocked', 'recording_cut_journal_unavailable_delete_blocked', 'recording_cut_journal_invalid_delete_blocked', 'recording_identity_unavailable_delete_blocked'].includes(value); })) return 'Löschen ist gesperrt, weil der Schnittstatus nicht sicher bestätigt werden kann.';
-    return String(result && (result.message || result.error) || fallback || 'Aktion wurde abgelehnt.');
+    return errors.join('; ') || String(result && (result.message || result.error) || fallback || 'Aktion wurde abgelehnt.');
   }
   function actionPayload(recording, backendId, action, extra) {
     const payload = {
@@ -137,14 +137,14 @@
       return shared.clientApi();
     }
 
-    function requestFolder(path) {
+    function requestFolder(path, backendId) {
       const api = clientApi();
       if (!api || typeof api.fetchClientRecordingFolder !== 'function') {
         return Promise.reject(new Error('Aufnahmeordner-API ist nicht verfügbar.'));
       }
       return api.fetchClientRecordingFolder({
         query: {
-          backend: state().backendId || shared.selectedBackendId(),
+          backend: backendId || state().backendId || shared.selectedBackendId(),
           path: targetFolderPath(path),
           limit: shared.PAGE_SIZE,
           offset: 0,
@@ -167,10 +167,11 @@
       });
     }
 
-    function findMatchingRecording(data, expected, leafName) {
-      const direct = shared.recordingList(data).find(function (candidate) {
-        return candidateMatches(candidate, expected);
-      });
+    function findMatchingRecording(data, expected, leafName, exactNative, backendId) {
+      function matches(candidate) {
+        return exactNative ? String(shared.first(candidate, ['backendNativeId', 'nativePath', 'path', 'fileName'], '')) === exactNative : candidateMatches(candidate, expected);
+      }
+      const direct = shared.recordingList(data).find(matches);
       if (direct) return Promise.resolve(direct);
 
       const normalizedLeaf = String(leafName || '').trim().toLocaleLowerCase('de-DE');
@@ -181,21 +182,15 @@
         return shared.number(entry.recordingCount, 0) === 1 && name === normalizedLeaf;
       });
       if (!folder) return Promise.resolve(null);
-      return requestFolder(shared.first(folder, ['path'], '')).then(function (child) {
-        return shared.recordingList(child).find(function (candidate) {
-          return candidateMatches(candidate, expected);
-        }) || null;
+      return requestFolder(shared.first(folder, ['path'], ''), backendId).then(function (child) {
+        return shared.recordingList(child).find(matches) || null;
       });
     }
 
     function run(mode, recording, action, extra) {
       const api = clientApi();
-      const payload = actionPayload(
-        recording,
-        state().backendId || shared.selectedBackendId(),
-        action,
-        extra
-      );
+      const backendId = recording.backendId || state().backendId || shared.selectedBackendId();
+      const payload = actionPayload(recording, backendId, action, extra);
       if (!api) return Promise.reject(new Error('Recording-Action-API ist nicht verfügbar.'));
       if (mode === 'execute') {
         if (typeof api.fetchClientRecordingActionExecution !== 'function') {
@@ -294,7 +289,7 @@
           return run('execute', recording, action, Object.assign({dryRun: true}, extra || {}))
             .then(function (safetyResult) {
               if (!safetyCheck(safetyResult)) {
-                throw new Error('Die Backend-Sicherheitsprüfung hat die Aktion nicht freigegeben.');
+                throw new Error(actionError(safetyResult, 'Die Backend-Sicherheitsprüfung hat die Aktion nicht freigegeben.'));
               }
               return safetyResult;
             });
@@ -339,11 +334,8 @@
             throw new Error(actionError(result, 'Das Backend hat die Aktion abgelehnt.'));
           }
           setStatus(status, 'success', 'Aufnahme wurde in den VDR-Papierkorb verschoben.');
-          if (typeof config.completeDelete === 'function') {
-            config.completeDelete(recording);
-          } else {
-            finishAction();
-          }
+          if (typeof config.completeDelete === 'function') config.completeDelete(recording);
+          else finishAction();
           return result;
         })
         .catch(function (error) {
@@ -354,13 +346,13 @@
     }
 
     function waitForDeleteSettlement(recording, sourcePath) {
-      const expected = identity(recording);
+      const native = String(shared.first(recording, ['backendNativeId', 'nativePath', 'path', 'fileName'], ''));
       let attempts = 0;
       return new Promise(function (resolve, reject) {
         function check() {
           attempts += 1;
-          requestFolder(sourcePath).then(function (data) {
-            return findMatchingRecording(data, expected, expected.title);
+          requestFolder(sourcePath, recording.backendId).then(function (data) {
+            return findMatchingRecording(data, identity(recording), localTitle(recording), native, recording.backendId);
           }).then(function (candidate) {
             if (!candidate) {
               resolve();
@@ -383,8 +375,8 @@
       });
     }
 
-    function enqueueDelete(recording, status, button) {
-      const backendId = String(state().backendId || shared.selectedBackendId() || 'default');
+    function enqueueDelete(recording, status, button, confirmDelete) {
+      const backendId = recording.backendId;
       const sourcePath = state().path || '';
       let queue = DELETE_QUEUE_BY_BACKEND.get(backendId);
       if (!queue) {
@@ -395,16 +387,20 @@
       const wasQueued = queue.pending > 0;
       queue.pending += 1;
       button.disabled = true;
-      if (wasQueued) {
-        setStatus(status, 'pending', 'Löschen vorgemerkt – wartet auf vorherige Papierkorb-Aktion …');
-      }
+      if (wasQueued) setStatus(status, 'pending', 'Löschen vorgemerkt – wartet auf vorherige Papierkorb-Aktion …');
       const execution = previous.then(function () {
         return validate(recording, 'DELETE', {}, status, button, isDryRunReady)
           .then(function () {
+            button.disabled = true;
+            if (!confirmDelete()) {
+              setStatus(status, '', 'Papierkorb-Aktion abgebrochen.');
+              return null;
+            }
             return executeDelete(recording, status, button);
           });
       });
       const settled = execution.then(function (result) {
+        if (!result) return null;
         return waitForDeleteSettlement(recording, sourcePath).then(function () {
           return result;
         });
@@ -427,7 +423,7 @@
       const body = document.createElement('div');
       body.className = 'recordings2-action-body';
       details.appendChild(body);
-      return {details: details, body: body};
+      return {details, body};
     }
 
     function textInput(body, labelText, value) {
@@ -559,41 +555,45 @@
 
     function createDeleteEditor(recording) {
       const ui = editor('In Papierkorb verschieben');
-      ui.body.appendChild(shared.node(
-        'p',
-        'recordings2-action-copy',
-        'Die Sicherheitsprüfung läuft automatisch. Zum Löschen ist genau eine Bestätigung erforderlich.'
-      ));
-      const status = shared.node('p', 'recordings2-action-status', 'Bereit für Papierkorb-Aktion.');
+      ui.body.appendChild(shared.node('p', 'recordings2-action-copy',
+        'Die Freigabe wird beim Öffnen geprüft. Erst danach kannst du das Verschieben bestätigen.'));
+      const status = shared.node('p', 'recordings2-action-status', 'Freigabe noch nicht geprüft.');
       const buttons = document.createElement('div');
       buttons.className = 'recordings2-action-buttons';
+      let busy = false, ready = false;
+      function current() { return ui.details.isConnected && String(state().backendId || shared.selectedBackendId() || 'default') === recording.backendId; }
       const apply = shared.createButton('In Papierkorb verschieben', function () {
-        if (!global.confirm(
-          'Aufnahme „' + localTitle(recording) + '“ in den VDR-Papierkorb verschieben?'
-        )) {
-          setStatus(status, '', 'Papierkorb-Aktion abgebrochen.');
-          return;
-        }
-        enqueueDelete(recording, status, apply)
-          .catch(function () {
-            apply.disabled = false;
-          });
+        if (busy || !ready || !current()) return;
+        busy = true; ready = false; retry.disabled = true;
+        enqueueDelete(recording, status, apply, function () {
+          return current() && global.confirm('Aufnahme „' + localTitle(recording) + '“ in den VDR-Papierkorb verschieben?');
+        }).catch(function () {}).finally(function () {
+          busy = false; apply.disabled = true; retry.disabled = false;
+        });
       }, 'danger');
-      buttons.appendChild(apply);
+      apply.disabled = true;
+      function check() {
+        if (busy || !current()) return;
+        busy = true; ready = false; retry.disabled = true;
+        validate(recording, 'DELETE', {}, status, apply, isDryRunReady)
+          .then(function () { ready = current(); apply.disabled = !ready; })
+          .catch(function () {}).finally(function () { busy = false; retry.disabled = false; });
+      }
+      const retry = shared.createButton('Freigabe erneut prüfen', check);
+      ui.details.addEventListener('toggle', function () { if (ui.details.open) check(); });
+      buttons.append(retry, apply);
       ui.body.append(status, buttons);
       return ui.details;
     }
 
     function createPanel(recording) {
+      recording = Object.freeze(Object.assign({}, recording, {backendId: String(recording.backendId || state().backendId || shared.selectedBackendId() || 'default')}));
       installStyles();
       const panel = document.createElement('details');
       panel.className = 'recordings2-actions';
       panel.appendChild(shared.node('summary', '', 'Aufnahmeaktionen'));
-      panel.appendChild(shared.node(
-        'p',
-        'recordings2-action-copy',
-        'Umbenennen, Verschieben und Papierkorb verwenden die vorhandene serverseitige Recording-Action-Schnittstelle.'
-      ));
+      panel.appendChild(shared.node('p', 'recordings2-action-copy',
+        'Aufnahme umbenennen, verschieben oder in den Papierkorb legen.'));
       const editors = document.createElement('div');
       editors.className = 'recordings2-action-list';
       editors.append(createRenameEditor(recording), createMoveEditor(recording), createDeleteEditor(recording));

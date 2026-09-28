@@ -154,6 +154,7 @@ for label, content, tokens in (
         "state.editedRecordingFound",
         "state.editedDestinationExists",
         "state.editedRecordingKey == expectedEditedRecordingKey",
+        "state.handlerUsage == 0",
     )),
     ("daemon cut reconciliation", daemon_cut, (
         "recordingCutReconciliationCandidates",

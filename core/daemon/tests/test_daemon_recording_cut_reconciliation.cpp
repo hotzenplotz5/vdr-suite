@@ -18,6 +18,10 @@ int main()
     state.editedRecordingFound = true;
     assert(daemonRecordingCutResultMatches(source, edited, state));
 
+    state.handlerUsage = 36;
+    assert(!daemonRecordingCutResultMatches(source, edited, state));
+    state.handlerUsage = 0;
+
     state.editedRecordingFound = false;
     assert(!daemonRecordingCutResultMatches(source, edited, state));
     state.editedRecordingFound = true;

@@ -119,19 +119,13 @@ std::string EmbeddedRecordingCutRuntime::operationState(
         if (payload.recordingKey != recordingKey)
             continue;
 
-        if (record.state == "verified")
-        {
-            verified = true;
-            continue;
-        }
-
         if (record.state == "rejected")
         {
             rejected = true;
             continue;
         }
 
-        if (record.state == "accepted" &&
+        if ((record.state == "accepted" || record.state == "verified") &&
             VdrRecordingNativeIdentity::isValidKey(
                 record.editedRecordingKey))
         {
@@ -148,6 +142,13 @@ std::string EmbeddedRecordingCutRuntime::operationState(
                     return "journal_unavailable";
                 verified = true;
                 continue;
+            }
+            // Older versions could persist verification while the cutter ran.
+            if (record.state == "verified")
+            {
+                record.state = "accepted";
+                if (!repository_.update(record))
+                    return "journal_unavailable";
             }
         }
 
@@ -467,7 +468,7 @@ RecordingCutDispatchResult EmbeddedRecordingCutRuntime::dispatch(
         return failure(
             "recording_cut_rejected");
 
-    if (state == "accepted")
+    if (state == "accepted" || state == "verified")
     {
         const auto native =
             resolver_.resolve(
@@ -483,6 +484,12 @@ RecordingCutDispatchResult EmbeddedRecordingCutRuntime::dispatch(
             if (!persist())
                 return failure(
                     "recording_cut_journal_unavailable");
+        }
+        else if (state == "verified")
+        {
+            state = "accepted";
+            if (!persist())
+                return failure("recording_cut_journal_unavailable");
         }
     }
 

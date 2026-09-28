@@ -95,8 +95,8 @@ Automated coverage must prove:
   `editedRecordingKey`;
 - the confirmed cut result appears as `Schnittfassung`;
 - opening the variant delegates to the existing Recordings 2 owner;
-- the original remains present and deletion is only referenced through the
-  existing safe Recording action workflow;
+- the original remains present; cut completion never suggests deletion;
+- the separate Recording action obtains backend permission before confirmation;
 - existing marks and playback ownership remain unchanged.
 
 Phase 70 remains not started.
@@ -133,3 +133,32 @@ could consequently hide its successor. The regression now proves that matching
 uses backend plus native identity, removes the original even if its list ID
 changed, and retains a different Recording reusing the old ID. This is a
 projection fix, not evidence that the reported native trash target was wrong.
+
+## Premature completion and deletion permission, 2026-09-28
+
+VDR journal evidence for Million Dollar Baby: the native cutter started at
+14:06:04 CEST and ended at 14:08:13. RCUT reported source
+`7b250cd1fd1ae0e5235eb69c2b55a210`, handler usage 36, and edited result
+`51712793791949d50c62cce6dbae58a2` already present while cutting. A trash
+preview occurred at 14:07:06; actual source deletion occurred at 14:09:32,
+after cutter completion. The embedded journal stored verified result identity.
+The completion predicate checked existence/identity but omitted handler usage;
+it could therefore verify before native completion, while the independent
+trash safety check still correctly blocked the active source.
+
+Completion now requires the exact result plus zero handler usage. Embedded
+replay and read-only reconciliation recheck previously persisted verification;
+the UI also retains progress for a journal-owned cut with an active handler.
+No handler activity alone establishes ownership of a Suite cut.
+
+The cut banner has no deletion suggestion. Opening the separate trash editor
+checks backend permission with the existing validation and dry-run endpoints.
+The delete button stays disabled on denial and preserves the backend reason.
+Execution rechecks permission before the single explicit confirmation. Detached
+owners cannot confirm delayed responses; requests retain the frozen source
+identity and backend. Regression tests cover denial, changed permission,
+cancellation, duplicate clicks, owner detachment and exact source identity.
+
+This correction changes daemon and frontend code. Deploy the daemon and the
+existing concatenated Recordings 2 bundle plus actions/editor assets; no
+SuiteBridge rebuild or VDR restart is required.
