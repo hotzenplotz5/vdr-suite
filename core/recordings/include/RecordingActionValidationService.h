@@ -5,6 +5,7 @@
 
 #include <functional>
 #include <string>
+#include <utility>
 
 class RecordingActionValidationService
 {
