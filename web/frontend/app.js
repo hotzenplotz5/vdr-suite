@@ -3992,7 +3992,13 @@ function renderBackend(backend) {
 }
 
 document.querySelectorAll('.module-tab').forEach(button => {
-  button.addEventListener('click', () => selectModule(button.dataset.module));
+  button.addEventListener('click', () => {
+    const moduleName = button.dataset.module;
+    selectModule(moduleName);
+    if (moduleName === 'overview' && typeof window.scrollTo === 'function') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }
+  });
 });
 
 document.querySelectorAll('[data-brand-module]').forEach(button => {
