@@ -191,5 +191,7 @@ The corrected contract is:
 
 The same acceptance restart also exposed that the Global Search legacy EPG
 people backfill was executed on every daemon start. It is now guarded by a
-persistent schema-version marker so a completed legacy backfill is not repeated
-during later startups.
+persistent schema-version marker. Existing installations that already have the
+pre-versioned people table are marked migrated without repeating the expensive
+legacy scan; a genuinely older installation without that table performs the
+backfill once and then records the marker.
