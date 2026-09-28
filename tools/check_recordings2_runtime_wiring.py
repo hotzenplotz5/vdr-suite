@@ -338,22 +338,29 @@ if recording_action_callback_end < 0:
 recording_action_callback_source = daemon[
     recording_action_callback:recording_action_callback_end
 ]
-delete_async_fence = (
-    'if (request.type == RecordingActionType::Delete) {\n'
-    '                return false;\n'
-    '            }'
+delete_fence_offset = recording_action_callback_source.find(
+    'if (request.type == RecordingActionType::Delete) {'
 )
-if delete_async_fence not in recording_action_callback_source:
-    raise SystemExit(
-        'Recording DELETE must queue cache reconciliation without synchronous refresh'
-    )
-delete_fence_offset = recording_action_callback_source.index(delete_async_fence)
 full_refresh_offset = recording_action_callback_source.find(
     'snapshotBuilder->buildRecordings()'
 )
-if full_refresh_offset < 0 or delete_fence_offset >= full_refresh_offset:
+if delete_fence_offset < 0 or full_refresh_offset < 0 or delete_fence_offset >= full_refresh_offset:
     raise SystemExit(
         'Recording DELETE async fence must precede any synchronous full Recording rebuild'
+    )
+for token in (
+    'removeByBackendNativeId(',
+    'removeRecordingForBackend(',
+    'recordingPresentationChangeQueue_.request(backendId);',
+    'recordingCacheRefreshQueue_.request(backendId);',
+):
+    if token not in recording_action_callback_source:
+        raise SystemExit(
+            f'Recording DELETE targeted projection/reconcile contract missing: {token}'
+        )
+if 'recordingCacheRefreshQueue_.request(backendId, 8)' in recording_action_callback_source:
+    raise SystemExit(
+        'Recording actions must not fan one mutation out into eight full cache rebuilds'
     )
 
 runtime_assets = (
