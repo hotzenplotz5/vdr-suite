@@ -93,6 +93,10 @@ for state in ("empty", "too-short", "loading", "error", "Keine Treffer"):
     require(state in frontend, f"visible frontend state is missing: {state}")
 require("state.scrollTop" in frontend and "state.query" in frontend, "search return state is not retained")
 require("global-search-scroll" in frontend and "overflow-y:auto" in frontend, "mobile search scrolling is missing")
+require("homeLabel: '⌂ Home'" in frontend and "onHome: returnHome" in frontend,
+        "search Recording detail must expose an explicit Home exit")
+require("global.selectModule('overview')" in frontend and "global.scrollTo({top: 0, left: 0, behavior: 'auto'})" in frontend,
+        "search Home exit must return to the canonical Home top")
 
 remote_placeholder = index.find('<article class="brand-feature">', index.find('data-brand-module="epg"'))
 search_card = index.find('data-brand-module="search"', remote_placeholder)
