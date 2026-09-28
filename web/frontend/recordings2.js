@@ -169,7 +169,7 @@
   }
   function leaveExternalDetail(callback) { if (view && typeof view.destroy === 'function') view.destroy(); state.requestSequence += 1; state.selectedRecording = null; clearExternalDetailReturn(); if (typeof callback !== 'function') return false; stopFolderRefresh(); state.active = false; callback(); return true; }
   function closeDetail() { const detailReturn = state.detailReturn; if (leaveExternalDetail(detailReturn)) return; render(); scheduleFolderRefresh(0); }
-  function goHomeDetail() { const detailHome = state.detailHome; if (leaveExternalDetail(detailHome)) return; closeDetail(); }
+  function goHomeDetail() { const detailHome = state.detailHome; if (leaveExternalDetail(detailHome)) return; leaveExternalDetail(function () { if (typeof global.selectModule === 'function') global.selectModule('overview'); if (typeof global.scrollTo === 'function') global.scrollTo({top: 0, left: 0, behavior: 'auto'}); }); }
   function reload() {
     if (state.selectedRecording && state.detailReturn) {
       render();
@@ -228,6 +228,7 @@
       state.detailReturnLabel = config.backLabel || '← Zurück zum Genre';
       state.detailHome = typeof config.onHome === 'function' ? config.onHome : null; state.detailHomeLabel = config.homeLabel || '⌂ Home';
       render();
+      if (config.focusNavigation === true && typeof global.setTimeout === 'function') global.setTimeout(function () { const target = shared.mountTarget(); const control = target && typeof target.querySelector === 'function' ? target.querySelector('.recordings2-toolbar button') : null; if (control && typeof control.focus === 'function') control.focus({preventScroll: true}); }, 0);
       scheduleFolderRefresh();
     },
     refreshDetailAddon: function () { if (!state.active || !state.selectedRecording) return; const metadataDetail = global.VdrSuiteRecordings2MetadataDetail; const target = shared.mountTarget(); const root = target && typeof target.querySelector === 'function' ? target.querySelector('.recordings2-detail') : null; if (metadataDetail && typeof metadataDetail.enhance === 'function' && root && root.dataset && root.dataset.recordings2MetadataDetail !== 'true') { metadataDetail.enhance(root, state.selectedRecording, state.backendId); return; } render(); },
