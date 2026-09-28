@@ -107,8 +107,7 @@ std::string EmbeddedRecordingCutRuntime::operationState(
     if (!repository_.listForBackend(backendId_, records))
         return "journal_unavailable";
 
-    bool verified = false;
-    bool rejected = false;
+    std::string terminalState;
 
     for (auto& record : records)
     {
@@ -125,9 +124,10 @@ std::string EmbeddedRecordingCutRuntime::operationState(
         if (payload.recordingKey != recordingKey)
             continue;
 
-        if (record.state == "rejected")
+        if (record.state == "rejected" ||
+            record.state == "failed")
         {
-            rejected = true;
+            terminalState = record.state;
             continue;
         }
 
@@ -146,7 +146,7 @@ std::string EmbeddedRecordingCutRuntime::operationState(
                 record.state = "verified";
                 if (!repository_.update(record))
                     return "journal_unavailable";
-                verified = true;
+                terminalState = "verified";
                 continue;
             }
 
@@ -156,7 +156,7 @@ std::string EmbeddedRecordingCutRuntime::operationState(
                     record.editedRecordingKey,
                     native))
             {
-                verified = true;
+                terminalState = "verified";
                 continue;
             }
 
@@ -171,7 +171,8 @@ std::string EmbeddedRecordingCutRuntime::operationState(
                 record.state = "failed";
                 if (!repository_.update(record))
                     return "journal_unavailable";
-                return "failed";
+                terminalState = "failed";
+                continue;
             }
 
             // Older versions could persist verification while the cutter ran.
@@ -194,11 +195,9 @@ std::string EmbeddedRecordingCutRuntime::operationState(
         return "journal_invalid";
     }
 
-    if (verified)
-        return "verified";
-    if (rejected)
-        return "rejected";
-    return "none";
+    return terminalState.empty()
+        ? "none"
+        : terminalState;
 }
 
 std::string EmbeddedRecordingCutRuntime::deleteBlockReason(
