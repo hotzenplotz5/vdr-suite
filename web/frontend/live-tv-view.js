@@ -50,6 +50,8 @@
     hbbtvMediaState: 'none',
     hbbtvMediaFullscreen: true,
     hbbtvMediaGeometry: {x: 0, y: 0, width: 0, height: 0},
+    hbbtvMediaAttached: false,
+    hbbtvMediaVideoStyle: null,
     hbbtvMediaSwitchTail: Promise.resolve(),
     hbbtvInputTail: Promise.resolve(),
     hbbtvInputSequence: 0,
@@ -526,6 +528,12 @@
         typeof slot.getBoundingClientRect !== 'function' ||
         typeof video.getBoundingClientRect !== 'function') return false;
 
+    // HbbTV broadband media deliberately reuses the canonical Live-TV video.
+    // Measure that video's stable presentation viewport, not a previously
+    // transformed media rectangle, otherwise every presentation poll would
+    // recursively shrink/move both the video and the application canvas.
+    restoreHbbtvMediaVideoComposition();
+
     const slotRect = slot.getBoundingClientRect();
     const videoRect = video.getBoundingClientRect();
     if (!videoRect || !(videoRect.width > 0) || !(videoRect.height > 0)) {
@@ -536,6 +544,7 @@
     canvas.style.top = Math.max(0, videoRect.top - slotRect.top) + 'px';
     canvas.style.width = videoRect.width + 'px';
     canvas.style.height = videoRect.height + 'px';
+    applyHbbtvMediaVideoComposition(canvas, video, videoRect);
     return true;
   }
 
@@ -652,6 +661,8 @@
     state.hbbtvMediaState = 'none';
     state.hbbtvMediaFullscreen = true;
     state.hbbtvMediaGeometry = {x: 0, y: 0, width: 0, height: 0};
+    state.hbbtvMediaAttached = false;
+    restoreHbbtvMediaVideoComposition();
     state.hbbtvInputTail = Promise.resolve();
     state.hbbtvInputSequence += 1;
     state.hbbtvInputDiagnostic = null;
@@ -855,6 +866,133 @@
     };
   }
 
+  function hbbtvMediaCompositionTarget(
+    frameWidth,
+    frameHeight,
+    fullscreen,
+    geometry
+  ) {
+    const width = Math.trunc(Number(frameWidth));
+    const height = Math.trunc(Number(frameHeight));
+    if (!(width > 0) || !(height > 0)) return null;
+
+    if (fullscreen === true) {
+      return {x: 0, y: 0, width: width, height: height};
+    }
+
+    const value = geometry && typeof geometry === 'object' ? geometry : {};
+    const x = Math.trunc(Number(value.x));
+    const y = Math.trunc(Number(value.y));
+    const targetWidth = Math.trunc(Number(value.width));
+    const targetHeight = Math.trunc(Number(value.height));
+    if (!Number.isFinite(x) || !Number.isFinite(y) ||
+        !Number.isFinite(targetWidth) || !Number.isFinite(targetHeight) ||
+        x < 0 || y < 0 || targetWidth <= 0 || targetHeight <= 0 ||
+        x + targetWidth > width || y + targetHeight > height) {
+      return null;
+    }
+
+    return {
+      x: x,
+      y: y,
+      width: targetWidth,
+      height: targetHeight
+    };
+  }
+
+  function snapshotHbbtvMediaVideoStyle(video) {
+    if (!video || !video.style || state.hbbtvMediaVideoStyle) return;
+    const properties = [
+      'position',
+      'z-index',
+      'transform',
+      'transform-origin',
+      'pointer-events'
+    ];
+    state.hbbtvMediaVideoStyle = {
+      video: video,
+      properties: properties.map(function(name) {
+        return {
+          name: name,
+          value: video.style.getPropertyValue(name),
+          priority: video.style.getPropertyPriority(name)
+        };
+      })
+    };
+  }
+
+  function restoreHbbtvMediaVideoComposition() {
+    const snapshot = state.hbbtvMediaVideoStyle;
+    if (!snapshot || !snapshot.video || !snapshot.video.style) {
+      state.hbbtvMediaVideoStyle = null;
+      return;
+    }
+
+    snapshot.properties.forEach(function(property) {
+      if (property.value) {
+        snapshot.video.style.setProperty(
+          property.name,
+          property.value,
+          property.priority || ''
+        );
+      } else {
+        snapshot.video.style.removeProperty(property.name);
+      }
+    });
+    state.hbbtvMediaVideoStyle = null;
+  }
+
+  function applyHbbtvMediaVideoComposition(canvas, video, baseVideoRect) {
+    if (!state.hbbtvMediaAttached ||
+        !state.hbbtvMediaSessionId ||
+        (state.hbbtvMediaState !== 'streaming' &&
+         state.hbbtvMediaState !== 'paused') ||
+        !canvas || !video || !video.style || !baseVideoRect) {
+      return false;
+    }
+
+    const frameWidth = Number(canvas.width);
+    const frameHeight = Number(canvas.height);
+    const target = hbbtvMediaCompositionTarget(
+      frameWidth,
+      frameHeight,
+      state.hbbtvMediaFullscreen,
+      state.hbbtvMediaGeometry
+    );
+    if (!target) return false;
+
+    snapshotHbbtvMediaVideoStyle(video);
+    video.style.setProperty('position', 'relative');
+    video.style.setProperty('z-index', '13');
+    video.style.setProperty('transform-origin', '0 0');
+    // HbbTV owns input while its broadband medium is active. The browser video
+    // must be visible but must not steal pointer input from the application
+    // canvas/normalized remote-control path.
+    video.style.setProperty('pointer-events', 'none');
+
+    const scaleX = target.width / frameWidth;
+    const scaleY = target.height / frameHeight;
+    const translateX =
+      (target.x / frameWidth) * Number(baseVideoRect.width || 0);
+    const translateY =
+      (target.y / frameHeight) * Number(baseVideoRect.height || 0);
+
+    const identity =
+      target.x === 0 &&
+      target.y === 0 &&
+      target.width === frameWidth &&
+      target.height === frameHeight;
+    video.style.setProperty(
+      'transform',
+      identity
+        ? 'none'
+        : 'translate(' +
+          translateX + 'px,' + translateY + 'px) scale(' +
+          scaleX + ',' + scaleY + ')'
+    );
+    return true;
+  }
+
   function queueHbbtvMediaTransition(sequence, action) {
     state.hbbtvMediaSwitchTail = Promise.resolve(state.hbbtvMediaSwitchTail)
       .catch(function() {})
@@ -872,6 +1010,8 @@
     state.hbbtvMediaState = 'none';
     state.hbbtvMediaFullscreen = true;
     state.hbbtvMediaGeometry = {x: 0, y: 0, width: 0, height: 0};
+    state.hbbtvMediaAttached = false;
+    restoreHbbtvMediaVideoComposition();
   }
 
   function restoreBroadcastAfterHbbtv(sequence) {
@@ -951,6 +1091,7 @@
           playback && typeof playback.setExternalPaused === 'function') {
         playback.setExternalPaused(mediaState === 'paused');
       }
+      if (state.hbbtvMediaAttached) alignHbbtvCanvas();
       return Promise.resolve(true);
     }
 
@@ -1008,6 +1149,7 @@
           }
         )).then(function(switched) {
           if (!switched) throw new Error('hbbtv_media_player_switch_failed');
+          state.hbbtvMediaAttached = true;
           state.hbbtvMediaError = '';
           alignHbbtvCanvas();
           updateHbbtvSessionUi();
@@ -1015,6 +1157,8 @@
         });
       }).catch(function(error) {
         if (sequence === state.hbbtvSessionSequence) {
+          state.hbbtvMediaAttached = false;
+          restoreHbbtvMediaVideoComposition();
           state.hbbtvMediaError =
             error && error.message
               ? error.message
@@ -2273,7 +2417,7 @@
     startChannel,
     stop,
     snapshot,
-    __test: Object.freeze({channelId, channelName, channelIsRadio, channelHasEncryptionInfo, channelIsEncrypted, channelAvailabilityText, liveErrorForChannel, currentEventForChannel, eventArtwork, applyChannels, applyPrograms, render, synchronizePlaybackState, playbackMountedIn, prefersReducedMotion, scrollPlayerIntoView, hbbtvControlCode, launchableHbbtvApplication, keyboardHbbtvAction, alignHbbtvCanvas, setActive: function(value) { state.active = Boolean(value); }})
+    __test: Object.freeze({channelId, channelName, channelIsRadio, channelHasEncryptionInfo, channelIsEncrypted, channelAvailabilityText, liveErrorForChannel, currentEventForChannel, eventArtwork, applyChannels, applyPrograms, render, synchronizePlaybackState, playbackMountedIn, prefersReducedMotion, scrollPlayerIntoView, hbbtvControlCode, launchableHbbtvApplication, keyboardHbbtvAction, alignHbbtvCanvas, hbbtvMediaCompositionTarget, setActive: function(value) { state.active = Boolean(value); }})
   });
 
   global.VdrSuiteLiveTvView = api;
