@@ -24,7 +24,7 @@ required = (
     (live, "function applyHbbtvMediaVideoComposition(canvas, video, baseVideoRect)"),
     (live, "function restoreHbbtvMediaVideoComposition()"),
     (live, "hbbtvMediaAttached: false"),
-    (live, "video.style.setProperty('z-index', '13')"),
+    (live, "video.style.setProperty('z-index', '11')"),
     (live, "video.style.setProperty('pointer-events', 'none')"),
     (live, "vdr-suite-hbbtv-overlay"),
     (live, "vdr-suite-hbbtv-remote"),
