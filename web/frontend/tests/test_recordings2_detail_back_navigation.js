@@ -184,7 +184,13 @@ let root = target.children[0];
 let header = root.children[0];
 let toolbar = header.children[1];
 let backButton = toolbar.children[0];
+let homeButton = toolbar.children[1];
 assert.strictEqual(backButton.textContent, '← Zum Ordner');
+assert.strictEqual(homeButton.textContent, '⌂ Home');
+assert(homeButton.classList.contains('recordings2-home'));
+homeButton.click();
+assert.strictEqual(homeCount, 1,
+  'every Recording detail must expose the canonical Home exit');
 backButton.click();
 assert.strictEqual(closeCount, 1, 'detail Back must use the canonical closeDetail owner');
 
@@ -223,17 +229,19 @@ root = target.children[0];
 header = root.children[0];
 toolbar = header.children[1];
 backButton = toolbar.children[0];
-const homeButton = toolbar.children[1];
+homeButton = toolbar.children[1];
 assert.strictEqual(backButton.textContent, '← Zurück zur Suche');
 assert.strictEqual(homeButton.textContent, '⌂ Home');
 homeButton.click();
-assert.strictEqual(homeCount, 1,
+assert.strictEqual(homeCount, 2,
   'external Recording detail Home must use the canonical Home exit owner');
 
 const source = fs.readFileSync('web/frontend/recordings2-browser-view.js', 'utf8');
 const runtimeSource = fs.readFileSync('web/frontend/recordings2.js', 'utf8');
 assert(runtimeSource.includes("if (typeof state.detailHome === 'function')"));
-assert(runtimeSource.includes('goHomeDetail();'));
+assert(runtimeSource.includes("global.selectModule('overview')"));
+assert(runtimeSource.includes("config.focusNavigation === true"));
+assert(runtimeSource.includes("target.querySelector('.recordings2-toolbar button')"));
 assert(!source.includes('history.pushState'));
 assert(!source.includes('history.replaceState'));
 assert(!source.includes('popstate'));
