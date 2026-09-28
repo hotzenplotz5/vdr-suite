@@ -12,7 +12,10 @@ function element(tag) {
   const value = {
     tagName: String(tag || '').toUpperCase(), id: '', className: '', dataset: {},
     children: [], textContent: '', attributes: {}, style: {}, parentNode: null,
-    title: '', classList: {add() {}, remove() {}}, disabled: false, value: '', listeners: {},
+    title: '', classList: {
+      add(name) { if (!hasClass(value.className, name)) value.className = (value.className + ' ' + name).trim(); },
+      remove(name) { value.className = value.className.split(/\s+/).filter(item => item && item !== name).join(' '); }
+    }, disabled: false, value: '', listeners: {},
     addEventListener(name, fn) { this.listeners[name] = fn; },
     click() { if (!this.disabled && this.listeners.click) this.listeners.click(); },
     removeChild(child) { this.children = this.children.filter(value => value !== child); child.parentNode = null; },
@@ -96,6 +99,8 @@ async function run() {
   let native = initial;
   let mode = 'queued';
   let previewReady = true;
+  let cutStateOverride = {};
+  let openedCutVariant = null;
   let revisionCounter = 11;
   let deferredMutation = null;
   const requests = [];
@@ -152,6 +157,9 @@ async function run() {
       number: (value, fallback) => Number(value) || fallback
     },
     VdrSuiteRecordingPlaybackRestartChoice: {install() {}},
+    VdrSuiteRecordings2: {
+      openRecording(recording) { openedCutVariant = recording; }
+    },
     VdrSuiteRecordings2Playback: {createPanel() {
       playbackCreations += 1;
       const start = element('button'); start.textContent = 'Start im Playback-Owner';
@@ -162,7 +170,13 @@ async function run() {
       const body = config.body && JSON.parse(config.body);
       requests.push({path, config, body});
       if (!body) return Promise.resolve(path.endsWith('/cut')
-        ? Object.assign({}, native, {ready: previewReady, editedDestinationExists: !previewReady}) : native);
+        ? Object.assign({}, native, {
+            availability: 'available',
+            ready: previewReady,
+            editedDestinationExists: !previewReady,
+            editedRecordingFound: false,
+            handlerUsage: 0
+          }, cutStateOverride, {marksRevision: native.marksRevision}) : native);
       if (deferredMutation) return deferredMutation.promise;
       if (mode === 'lease') return Promise.reject(new Error('active_agent_lease_required'));
       if (mode === 'lost') return Promise.reject(new Error('connection lost'));
