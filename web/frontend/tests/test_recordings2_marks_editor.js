@@ -413,41 +413,22 @@ async function run() {
   assert.strictEqual(playbackCreations, 1, 'editing never creates another playback owner');
 
   mode = 'verified';
-  const cutReadsBeforeTimeout = requests.filter(request => !request.body && request.path === '/api/vdr/recordings/cut').length;
+  const beforeCut = posts().length;
+  const cutReadsBeforePreview = requests.filter(request => !request.body && request.path === '/api/vdr/recordings/cut').length;
   deferredRead = Object.assign({path: '/api/vdr/recordings/cut'}, deferred());
   button('Schneiden …').click(); await flush();
-  assert(button('Schneiden …').disabled, 'pending cut preview disables duplicate cut input only while the request is bounded');
-  assert(button('Neu laden').disabled, 'pending cut preview reproduces the reported busy UI state');
-  assert(!findButton('Bestätigen'), 'confirmation cannot appear before cut-state readback');
-  await fireNextTimer();
-  assert(!button('Schneiden …').disabled, 'timed-out cut preview must release the editor again');
-  assert(!button('Neu laden').disabled, 'timed-out cut preview must never strand the whole editor in busy state');
-  assert(allText(root).includes('antwortet auf den Bearbeitungsstatus nicht rechtzeitig'), 'timeout must be visible instead of looking like a dead button');
-  assert.strictEqual(requests.filter(request => !request.body && request.path === '/api/vdr/recordings/cut').length, cutReadsBeforeTimeout + 1);
-  deferredRead = null;
-
-  mode = 'verified';
-  const beforeCut = posts().length;
-  button('Schneiden …').click(); await flush();
+  assert.strictEqual(
+    requests.filter(request => !request.body && request.path === '/api/vdr/recordings/cut').length,
+    cutReadsBeforePreview,
+    'cut preview must not synchronously depend on cut-state telemetry'
+  );
   assert.strictEqual(posts().length, beforeCut, 'preview never starts a cut');
+  assert(findButton('Bestätigen'), 'cut confirmation must appear immediately from canonical marks state');
+  assert(!button('Neu laden').disabled, 'opening cut confirmation must never strand the editor in busy state');
   assert(allText(root).includes('Original'));
   button('Abbrechen').click();
   assert.strictEqual(posts().length, beforeCut, 'cancel never starts a cut');
-  previewReady = false;
-  cutStateOverride = {
-    handlerUsage: 4,
-    editedDestinationExists: true,
-    editedRecordingFound: false,
-    operationState: 'none',
-    operationPending: false,
-    operationVerified: false
-  };
-  button('Schneiden …').click(); await flush();
-  assert(!allText(root).includes('Schnitt läuft'));
-  assert(allText(root).includes('es läuft aber kein bestätigter Suite-Schnitt'));
-  assert.strictEqual(posts().length, beforeCut);
-  previewReady = true;
-  cutStateOverride = {};
+
   button('Schneiden …').click(); await flush();
   mode = 'queued';
   cutStateOverride = {
@@ -462,12 +443,14 @@ async function run() {
   button('Bestätigen').click(); await flush();
   assert.strictEqual(posts().length, beforeCut + 1, 'explicit confirmation starts exactly once');
   assert.strictEqual(posts().at(-1).path, '/api/vdr/recordings/cut');
+  assert(!button('Neu laden').disabled, 'stalled cut-state telemetry must not keep the editor busy after dispatch');
   assert(allText(root).includes('Schnitt läuft'));
   assert(allText(root).includes('keinen verlässlichen Prozentwert'));
   assert(
     allText(root).includes('automatisch überwacht'),
     'accepted native cut must remain visibly monitored'
   );
+  deferredRead = null;
 
   const editedRecording = {
     id: 'cut-7',
