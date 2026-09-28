@@ -25,8 +25,7 @@
     if (/permission|forbidden|read.only|denied|Authentication|CSRF/.test(code)) return 'Keine Schreibberechtigung oder Anmeldung abgelaufen. Bitte Anmeldung und Backend-Zugriff prüfen.';
     if (/destination|result.*exist/.test(code)) return 'Eine geschnittene Ausgabe existiert bereits.';
     if (/active_agent_lease_required|capability|unavailable/.test(code)) return 'Die native Bearbeitung ist derzeit nicht verfügbar.';
-    if (/native_readback_invalid|operation_response_invalid/.test(code)) return 'Die Backend-Antwort konnte nicht sicher bestätigt werden. Bitte den aktuellen VDR-Stand neu laden.';
-    if (/recording_editor_request_timeout/.test(code)) return 'VDR antwortet auf den Bearbeitungsstatus nicht rechtzeitig. Die Oberfläche wurde wieder freigegeben; bitte erneut versuchen.';
+    if (/native_readback_invalid|operation_response_invalid/.test(code)) return 'Die Backend-Antwort konnte nicht sicher bestätigt werden. Bitte den aktuellen VDR-Stand neu laden.'; if (/recording_editor_request_timeout/.test(code)) return 'VDR antwortet auf den Bearbeitungsstatus nicht rechtzeitig. Die Oberfläche wurde wieder freigegeben; bitte erneut versuchen.';
     return 'Änderung noch nicht bestätigt. Derselbe Auftrag wird weiter geprüft; bitte keine neue Änderung starten.';
   }
   function attach(root, panel, recording, backendId, initial, options) {
@@ -50,16 +49,6 @@
         config.body = JSON.stringify(body);
       } else config.query = {backend: identity.backendId, recordingId: identity.recordingId};
       return api.requestJson(path, config);
-    }
-    function boundedPreviewRequest(promise) {
-      if (!promise || typeof promise.then !== 'function' || typeof global.setTimeout !== 'function' || typeof global.clearTimeout !== 'function') return Promise.resolve(promise);
-      let timeoutId = null;
-      const timeout = new Promise(function (_, reject) {
-        timeoutId = global.setTimeout(function () { timeoutId = null; reject(new Error('recording_editor_request_timeout')); }, REQUEST_TIMEOUT_MS);
-      });
-      return Promise.race([Promise.resolve(promise), timeout]).finally(function () {
-        if (timeoutId !== null) global.clearTimeout(timeoutId);
-      });
     }
     function button(label, action, disabled, parent, className) {
       const value = node('button', label); value.type = 'button'; value.disabled = Boolean(disabled); if (className) value.className = className;
@@ -193,7 +182,7 @@
     }
     function previewCut() {
       if (!editable()) return; busy = true; confirmation.replaceChildren(); render();
-      boundedPreviewRequest(request('/api/vdr/recordings/cut')).then(function (preview) {
+      (function () { const previewRequest = request('/api/vdr/recordings/cut'); if (!previewRequest || typeof previewRequest.then !== 'function' || typeof global.setTimeout !== 'function' || typeof global.clearTimeout !== 'function') return Promise.resolve(previewRequest); let timeoutId = null; const timeout = new Promise(function (_, reject) { timeoutId = global.setTimeout(function () { timeoutId = null; reject(new Error('recording_editor_request_timeout')); }, REQUEST_TIMEOUT_MS); }); return Promise.race([Promise.resolve(previewRequest), timeout]).finally(function () { if (timeoutId !== null) global.clearTimeout(timeoutId); }); }()).then(function (preview) {
         if (destroyed) return; busy = false;
         if (!preview || preview.backendId !== identity.backendId || String(preview.recordingId) !== identity.recordingId || preview.marksRevision !== payload.marksRevision) throw new Error('recording_marks_revision_conflict');
         cutState = preview; renderCutState(); scheduleCutStatePoll();
