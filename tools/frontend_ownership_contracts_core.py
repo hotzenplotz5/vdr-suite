@@ -291,6 +291,10 @@ def check_epg_current_context_live_action_contract(app_js: str) -> None:
         "epgTimelinePercent(nowSeconds, bounds)" in app_js,
         "EPG Now marker must use the canonical event time-axis percentage function",
     )
+    require(
+        "until: bounds.end + EPG_TIMELINE_CONTEXT_BEFORE_SECONDS" in app_js,
+        "EPG cache window must cover the tail introduced by contextual display shifting",
+    )
 
     live_start = app_js.find("function openEpgChannelLive(detail, channel, button) {")
     live_end = app_js.find("function createEpgEventDetailCard", live_start)
