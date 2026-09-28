@@ -36,6 +36,10 @@ def require(text, token, label):
     if token not in text:
         raise SystemExit(f"missing {label}: {token}")
 
+def require_any(text, tokens, label):
+    if not any(token in text for token in tokens):
+        raise SystemExit(f"missing {label}: one of {tokens}")
+
 def forbid(text, token, label):
     if token in text:
         raise SystemExit(f"stale {label}: {token}")
@@ -103,12 +107,15 @@ for token in (
     require(classification_guard, token, "retained classification guard")
 
 current = read("current")
-require(
-    current,
-    "Current active runtime slice:\n69.F - First-party and third-party client hardening",
-    "CURRENT active 69.F",
-)
 require(current, "[Phase 69.E Closeout]", "CURRENT 69.E closeout link")
+require_any(
+    current,
+    (
+        "Current active runtime slice:\n69.F - First-party and third-party client hardening",
+        "[Phase 69 Closeout](development/phase-69-closeout.md)",
+    ),
+    "CURRENT 69.F successor/Phase-69 closeout",
+)
 forbid(
     current,
     "Current active runtime slice:\n69.E - Compatibility and deprecation policy",
@@ -116,70 +123,85 @@ forbid(
 )
 
 status = read("status")
-require(
-    status,
-    "Current active runtime slice: **69.F - First-party and third-party client hardening**",
-    "current-status active 69.F",
-)
 require(status, "[Phase 69.E Closeout]", "current-status 69.E closeout link")
+require_any(
+    status,
+    (
+        "Current active runtime slice: **69.F - First-party and third-party client hardening**",
+        "[Phase 69 Closeout](phase-69-closeout.md)",
+    ),
+    "current-status 69.F successor/Phase-69 closeout",
+)
 
 roadmap = read("roadmap")
-require(
+require_any(
     roadmap,
-    "Status: **Active — 69.F First-party and third-party client hardening.**",
-    "roadmap Phase 69 status",
+    (
+        "Status: **Active — 69.F First-party and third-party client hardening.**",
+        "Status: **Completed.** Durable evidence: [Phase 69 Closeout]",
+    ),
+    "roadmap Phase 69 active/completed status",
 )
 require(
     roadmap,
     "#### 69.E — Compatibility and deprecation policy\n\nStatus: **Completed.** Durable evidence: [Phase 69.E Closeout]",
     "roadmap 69.E completion",
 )
-require(
+require_any(
     roadmap,
-    "#### 69.F — First-party and third-party client hardening\n\nStatus: **Active.**",
-    "roadmap 69.F activation",
+    (
+        "#### 69.F — First-party and third-party client hardening\n\nStatus: **Active.**",
+        "#### 69.F — First-party and third-party client hardening\n\nStatus: **Completed.**",
+    ),
+    "roadmap 69.F active/completed status",
 )
 
 phase_map = read("phase_map")
-require(phase_map, "| 6 | Phase 69 | Active — 69.F |", "phase-map 69.F row")
+require_any(
+    phase_map,
+    ("| 6 | Phase 69 | Active — 69.F |", "| 6 | Phase 69 | Completed |"),
+    "phase-map Phase 69 active/completed row",
+)
 
 planning_index = read("planning_index")
-require(
+require_any(
     planning_index,
-    "active at 69.F First-party and third-party client hardening",
-    "planning index 69.F",
+    (
+        "active at 69.F First-party and third-party client hardening",
+        "completed numbered planning boundary is now Phase 69",
+    ),
+    "planning index Phase 69 transition",
 )
 require(planning_index, "[Phase 69.E Closeout]", "planning index 69.E closeout")
 
 dashboard = read("dashboard")
-require(
+require_any(
     dashboard,
-    "| Stable public API/SDK | Active — 69.F client hardening |",
-    "dashboard 69.F",
+    (
+        "| Stable public API/SDK | Active — 69.F client hardening |",
+        "| Stable public API/SDK | Completed numbered domain |",
+    ),
+    "dashboard Phase 69 status",
 )
 
 completed = read("completed")
-require(
+require_any(
     completed,
-    "Current slice: 69.F - First-party and third-party client hardening",
-    "completed-phases current slice",
-)
-require(
-    completed,
-    "Accepted slices: 69.A, 69.B, 69.C, 69.D, 69.E",
-    "completed-phases accepted slices",
+    (
+        "Current slice: 69.F - First-party and third-party client hardening",
+        "Phase 69.A-F are completed and accepted",
+    ),
+    "completed-phases Phase 69 state",
 )
 
 handoff = read("handoff")
-require(
+require_any(
     handoff,
-    "Current active runtime slice: **69.F - First-party and third-party client hardening**",
-    "handoff 69.F",
-)
-require(
-    handoff,
-    "continue from slice 69.F First-party and third-party client hardening",
-    "handoff action",
+    (
+        "Current active runtime slice: **69.F - First-party and third-party client hardening**",
+        "Current active runtime slice: **none - Phase 70 - Recommendation and Content Knowledge Graph not started**",
+    ),
+    "handoff 69.F successor state",
 )
 require(
     handoff,
@@ -188,17 +210,15 @@ require(
 )
 
 kickoff = read("kickoff")
-require(
-    kickoff,
-    "69.A, 69.B, 69.C, 69.D and 69.E are accepted on `main`",
-    "kickoff accepted 69.E",
-)
-require(
-    kickoff,
-    "current slice: 69.F First-party and third-party client hardening",
-    "kickoff active 69.F",
-)
 require(kickoff, "[Phase 69.E Closeout]", "kickoff 69.E closeout link")
+require_any(
+    kickoff,
+    (
+        "current slice: 69.F First-party and third-party client hardening",
+        "[Phase 69 Closeout](phase-69-closeout.md)",
+    ),
+    "kickoff 69.F successor/closeout state",
+)
 
 phase_make = read("phase_make")
 require(phase_make, ".PHONY: test-phase69e-closeout", "closeout make target")

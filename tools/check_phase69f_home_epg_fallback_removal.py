@@ -59,9 +59,9 @@ require(
 )
 candidate = matrix.get("derivedNextRuntimeCandidate", {})
 require(
-    candidate.get("domain") == "phase69f-closeout-audit"
+    candidate.get("domain") in {"phase69f-closeout-audit", "phase69-complete"}
     and candidate.get("proposedTemplate") is None,
-    "Home EPG hardening must allow closeout audit without preselecting a public resource",
+    "Home EPG hardening must allow closeout/final state without preselecting a public resource",
 )
 resources = {
     (item.get("method"), item.get("template"))

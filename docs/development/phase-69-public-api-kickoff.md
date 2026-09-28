@@ -433,20 +433,24 @@ run `36367430072` succeeded 6/6.
 
 ## 69.F public-v1 Operation reference client
 
-The thirteenth bounded 69.F candidate is
+The thirteenth bounded 69.F slice is accepted via PR #381:
 [Phase 69.F Public-v1 Operation Reference Client](phase-69f-public-v1-operation-reference-client.md).
-The fresh post-#380 audit finds exactly one stable public-v1 contract absent
-from the reference seam: the actor-owned durable Operation item returned by
-Timer CREATE admission. The candidate adds one explicit revisioned GET with
-opaque ETag and `If-None-Match -> 304`. It adds no Operation collection,
-mutation, cancellation or automatic polling. Completion of this candidate gives
-the reference seam exact coverage of all eight currently stable public-v1
-method/resource contracts; the successor is a closeout audit rather than a new
-route slice.
+It adds the final stable public-v1 contract to the independent reference seam.
+PR #381 merged as `4171574f76eeb2d1a7aad9861a81de90451b820a`
+after exact-head CI #9357 / run `36369528246` succeeded 6/6.
+
+## Phase 69 completion
+
+[Phase 69 Closeout](phase-69-closeout.md) records 69.A-F as completed. The
+accepted reference seam covers all eight declared stable public-v1
+method/resource contracts exactly, the browser has no remaining arbitrary-error
+route fallback probing, and pre-v1/private domains remain explicitly outside
+the compatibility promise. Phase 70 is not started and requires its own
+accepted runtime ADR before implementation.
 
 ## 69.C completion
 
-PR #361 closed the productive Timer CREATE boundary on exact head `9316fb48a49f3e61ff89d3c01a225915003fa8e8`, merged as `a38e2363929c2a1f1b60984f6176aa88446a9054`, with CI #9285 / run `36275800779` SUCCESS (6/6) and exact-head real yaVDR acceptance. See [Phase 69.C Closeout](phase-69c-closeout.md). 69.D subsequently completed its bounded collection and federation contracts; [Phase 69.D Closeout](phase-69d-closeout.md) records the accepted evidence. 69.F is now active.
+PR #361 closed the productive Timer CREATE boundary on exact head `9316fb48a49f3e61ff89d3c01a225915003fa8e8`, merged as `a38e2363929c2a1f1b60984f6176aa88446a9054`, with CI #9285 / run `36275800779` SUCCESS (6/6) and exact-head real yaVDR acceptance. See [Phase 69.C Closeout](phase-69c-closeout.md). 69.D subsequently completed its bounded collection and federation contracts; [Phase 69.D Closeout](phase-69d-closeout.md) records the accepted evidence. 69.F and Phase 69 are completed; see [Phase 69 Closeout](phase-69-closeout.md).
 
 ## 69.A acceptance
 

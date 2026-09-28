@@ -7,6 +7,7 @@
 - [Current State](../CURRENT.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
 - [Strict Roadmap](../planning/roadmap.md)
+- [Phase 69 Closeout](phase-69-closeout.md)
 - [Phase 69.F Client Error and Mutation-Fallback Safety](phase-69f-client-error-mutation-fallback.md)
 - [Phase 69.F SearchTimer Client Fallback Removal](phase-69f-searchtimer-fallback-removal.md)
 - [Phase 69.F Same-Handler Read Alias Fallback Removal](phase-69f-read-alias-fallback-removal.md)
@@ -35,6 +36,7 @@ This is a stable navigation page for development contracts and evidence. It does
 - [Architecture Map](architecture-map.md)
 - [Strict Roadmap](../planning/roadmap.md)
 - [Frontend Playback Integration Contract](frontend-playback-integration-contract.md)
+- [Phase 69 Closeout](phase-69-closeout.md) — completed public API/client compatibility phase.
 - [Phase 67 Closeout](phase-67-closeout.md) — completed Teletext + HbbTV Broadcast Companion phase.
 - [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md) — completed Teletext vertical.
 - [Phase 66 Closeout](phase-66-closeout.md)

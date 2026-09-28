@@ -3,14 +3,14 @@
 ## Latest completed numbered runtime phase
 
 ```text
-Phase 68 - Legacy OSD Compatibility Bridge
+Phase 69 - Public API and Client Compatibility Hardening
 ```
 
 Phase 68 is completed for the accepted 68.A-G scope. The final real yaVDR
 runtime candidate is `7ae51d090cbe06570b8a70e787137232df83f124` and produced
 `RESULT=PHASE68G_REAL_NATIVE_OSD_INPUT_PASS`.
 
-See [Phase 68 Closeout](phase-68-closeout.md).
+See [Phase 69 Closeout](phase-69-closeout.md).
 
 ## Latest completed non-numbered Home work
 
@@ -37,14 +37,14 @@ See [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 ## Current active numbered runtime phase
 
 ```text
-Phase 69 - Public API and Client Compatibility Hardening
-Current slice: 69.F - First-party and third-party client hardening
-Accepted slices: 69.A, 69.B, 69.C, 69.D, 69.E
+none - Phase 70 - Recommendation and Content Knowledge Graph not started
+Next strict numbered runtime phase:
+Phase 70 - Recommendation and Content Knowledge Graph
 ```
 
-Phase 69 has explicitly started; 69.A, 69.B, 69.C, 69.D and 69.E are accepted and bounded Slice 69.F is active. Phase-68 completion does
-not authorize work outside the accepted Phase-69 public/client compatibility
-scope.
+Phase 69.A-F are completed and accepted. The stable public-v1 reference seam
+covers all eight declared method/resource contracts exactly. Phase 70 remains
+not started and requires its own accepted runtime ADR before implementation.
 
 ## Evidence boundary
 

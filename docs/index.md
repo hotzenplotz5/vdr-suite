@@ -20,6 +20,7 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md) — mandatory new-session entry point.
 - [Current Project Status](development/current-status.md) — stable narrative platform context.
 - [Current Architecture State](development/current-architecture-state.md) — implemented durable ownership/capability boundaries.
+- [Phase 69 Closeout](development/phase-69-closeout.md) — completed public API/client compatibility boundary.
 - [Post-Phase-66 Home Rebuild Closeout](development/post-phase66-home-rebuild-closeout.md) — current consolidated Home truth after the merged rebuild/hardening work.
 - [Post-Phase-66 Recording Detail Closeout](development/post-phase66-recording-detail-closeout.md) — current accepted cinematic Recordings 2 detail, playback-prewarm and poster-selection evidence.
 - [Phase 68 Closeout](development/phase-68-closeout.md)
@@ -54,6 +55,7 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 - [Completed Phases](development/completed-phases.md)
 - [Latest Completed Marker](development/completed-phases-latest.md)
 - [Completed Phase Archive](development/completed-phases/README.md)
+- [Phase 69 Closeout](development/phase-69-closeout.md)
 - [Post-Phase-66 Home Rebuild Closeout](development/post-phase66-home-rebuild-closeout.md)
 - [Post-Phase-66 Recording Detail Closeout](development/post-phase66-recording-detail-closeout.md)
 - [Phase 67 Closeout](development/phase-67-closeout.md)

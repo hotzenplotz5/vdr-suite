@@ -19,13 +19,13 @@ GitHub-first does not weaken review safety: keep updates fast-forward-only, do n
 
 ## Platform position
 
-Latest completed numbered runtime phase: **Phase 68 - Legacy OSD Compatibility Bridge**.
+Latest completed numbered runtime phase: **Phase 69 - Public API and Client Compatibility Hardening**.
 
-Current active numbered runtime phase: **Phase 69 - Public API and Client Compatibility Hardening**.
+Current active numbered runtime phase: **none - Phase 70 - Recommendation and Content Knowledge Graph not started**.
 
-Next strict numbered runtime phase: **Phase 69 - Public API and Client Compatibility Hardening**.
+Next strict numbered runtime phase: **Phase 70 - Recommendation and Content Knowledge Graph**.
 
-Current active runtime slice: **69.F - First-party and third-party client hardening**.
+Current active runtime slice: **none - Phase 70 - Recommendation and Content Knowledge Graph not started**.
 
 69.D is completed; durable evidence is in
 [Phase 69.D Closeout](phase-69d-closeout.md). PR #363 accepted the backend-scoped
@@ -40,10 +40,12 @@ machine-readable compatibility/deprecation policy and PR #367 classified the
 complete retained unversioned route surface without inventing a successor or
 deprecation.
 
-69.F is active. It owns first-/third-party client hardening, including common
-client error representation, elimination of fallback probing after arbitrary
-errors and migration of wrappers only where genuine stable v1 contracts exist.
-The 69.E inventory remains the evidence baseline for that work.
+69.F and Phase 69 are completed; durable evidence is in
+[Phase 69 Closeout](phase-69-closeout.md). The accepted browser hardening
+eliminates arbitrary-error route fallback probing, and the independent
+public-v1 JavaScript reference client exactly covers all eight stable
+method/resource contracts without promoting private or pre-v1 domains.
+Phase 70 is not started and requires its own accepted runtime ADR.
 
 Phase 69.C remains completed; durable evidence is in
 [Phase 69.C Closeout](phase-69c-closeout.md). The accepted 69.D collection

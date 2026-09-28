@@ -17,6 +17,9 @@ def read(name):
     return p.read_text(encoding="utf-8")
 def require(text, token, label):
     if token not in text: raise SystemExit(f"missing {label}: {token}")
+def require_any(text, tokens, label):
+    if not any(token in text for token in tokens):
+        raise SystemExit(f"missing {label}: one of {tokens}")
 def forbid(text, token, label):
     if token in text: raise SystemExit(f"stale {label}: {token}")
 closeout=read("closeout")
@@ -38,14 +41,29 @@ forbid(roadmap,"Phase 69 has not started","roadmap pre-start Phase 69 marker")
 forbid(roadmap,"Phase 69 is next but has not started","roadmap pre-start Phase 69 prose")
 
 phase_map=read("phase_map")
-require(phase_map,"| 6 | Phase 69 | Active —","phase-map active Phase 69 row")
+require_any(
+    phase_map,
+    ("| 6 | Phase 69 | Active —", "| 6 | Phase 69 | Completed |"),
+    "phase-map Phase 69 active/completed row",
+)
 
 completed=read("completed")
 require(completed,"Phase 69 - Public API and Client Compatibility Hardening","completed-phases Phase 69 marker")
-require(completed,"Accepted slices: 69.A, 69.B, 69.C","completed-phases accepted 69.C marker")
+require_any(
+    completed,
+    ("Accepted slices: 69.A, 69.B, 69.C", "Phase 69.A-F are completed and accepted"),
+    "completed-phases accepted 69.C/final marker",
+)
 
 handoff=read("handoff")
-require(handoff,"Treat Phase 69 - Public API and Client Compatibility Hardening as the active numbered runtime phase","handoff active Phase 69 instruction")
+require_any(
+    handoff,
+    (
+        "Treat Phase 69 - Public API and Client Compatibility Hardening as the active numbered runtime phase",
+        "Treat Phase 69 - Public API and Client Compatibility Hardening as completed",
+    ),
+    "handoff Phase 69 active/completed instruction",
+)
 forbid(handoff,"Treat Phase 68 - Legacy OSD Compatibility Bridge as the active numbered runtime phase","handoff stale Phase 68 instruction")
 
 productive=read("productive")

@@ -285,6 +285,28 @@ stable public-v1 method/resource contracts exactly. The next justified work is
 therefore a fresh 69.F/Phase-69 closeout audit, not another inferred public
 route.
 
+## 69.F closeout state
+
+The accepted reference-client resource union now equals the stable public-v1
+method/resource inventory exactly:
+
+```text
+8 stable public-v1 contracts
+8 reference-covered contracts
+0 uncovered stable contracts
+0 extra inferred public contracts
+```
+
+All explicit browser route fallbacks inventoried by 69.E/69.F are retired.
+Domains still classified `missing-public-v1` remain intentionally pre-v1;
+Phase 69 does not manufacture Recording, ProgramEvent/EPG, SearchTimer,
+metadata/person, global-search or Genre public resources merely to expand the
+surface.
+
+The live post-#381 audit therefore finds no further bounded 69.F runtime/client
+slice. The successor is [Phase 69 Closeout](phase-69-closeout.md). Phase 70 is
+not started by this result.
+
 ## Explicit fallback debt and successor status
 
 No catch-all browser route fallback remains in the current Client API.

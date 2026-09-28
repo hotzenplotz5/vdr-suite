@@ -8,7 +8,7 @@ This is the compact authoritative entry point for completed implementation. Deta
 
 ```text
 Latest completed numbered runtime phase:
-Phase 68 - Legacy OSD Compatibility Bridge
+Phase 69 - Public API and Client Compatibility Hardening
 
 Phase-66 closeout merge:
 PR #264 -> de12956ecc283663c820865bb577e7dcf6c5f0ee
@@ -22,7 +22,10 @@ Teletext -> PR #293 -> d92e7907637122368908ce4c7564a0332db9c487
 HbbTV / numbered closeout -> PR #300 -> 5fe2b73abaeb85f2b5c2cecf7c0c86753aef3d30
 
 Current active numbered runtime phase:
-Phase 69 - Public API and Client Compatibility Hardening
+none - Phase 70 - Recommendation and Content Knowledge Graph not started
+
+Next strict numbered runtime phase:
+Phase 70 - Recommendation and Content Knowledge Graph
 ```
 
 See [Phase 66 Closeout](phase-66-closeout.md) for the numbered completion gate and [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md) for the subsequent Home correctness/performance completion record.
@@ -48,6 +51,7 @@ See [Phase 66 Closeout](phase-66-closeout.md) for the numbered completion gate a
 | Phase 66 | Completed | Responsive Media Home, Live hero/preview, Continue Watching, discovery/history and Golden desktop/mobile acceptance. | [Phase 66 closeout](phase-66-closeout.md) |
 | Phase 67 | Completed | Broadcast Companion Services: normalized Teletext plus fenced HbbTV discovery/application-session/presentation-media runtime; Golden Journeys 8 and 9 accepted. | [Phase 67 closeout](phase-67-closeout.md) |
 | Phase 68 | Completed | Legacy OSD compatibility: semantic observation, authenticated transport, authorized view sessions, bounded viewers, exclusive controller lease and allowlisted fenced native input. | [Phase 68 closeout](phase-68-closeout.md) |
+| Phase 69 | Completed | Stable public-v1 API/client compatibility: errors, revisions/idempotency, collections/federation, compatibility/deprecation policy, fallback hardening and exact reference-client coverage of all eight stable contracts. | [Phase 69 closeout](phase-69-closeout.md) |
 | Phase 67 Teletext vertical | Completed | Domain-first Teletext service/page path, embedded generation fencing, authorized API, first-party rendering and Golden Journey 8. | [Phase 67 Teletext closeout](phase-67-teletext-closeout.md) |
 | Post-Phase-66 Home hardening/rebuild | Completed, non-numbered | Home performance, Recording Discovery, Series metadata/artwork/hierarchy, preview caching, EPG recovery, Movies/Genres presentation and canonical folder artwork. | [Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md) |
 | Post-Phase-66 native Recording editing | Completed, non-numbered | VDR-native marks and cutting through Suite safety boundaries. | [Recording Editing Closeout](post-phase66-recording-editing-closeout.md) |
@@ -87,6 +91,7 @@ The final branch included the canonical folder-poster correction after the broad
 - Phase 66 is not reopened by bounded Home correctness/performance work after its accepted closeout.
 - Historical runtime fingerprints remain distinct from later daemon/browser evidence.
 - Phase 68 is not reopened by later renderer/output-client or public-API work that consumes the bounded Legacy OSD contracts.
+- Phase 69 is not reopened merely because later clients consume its stable public contracts or because a future domain is intentionally promoted into a new public API version/surface.
 - ADR acceptance remains separate from runtime completion.
 
 ## Next work
@@ -96,7 +101,8 @@ Phase 67 - Broadcast Companion Services: Teletext and HbbTV [COMPLETED]
 Teletext vertical [COMPLETED]
 HbbTV discovery/session/presentation-media runtime [COMPLETED]
 Phase 68 - Legacy OSD Compatibility Bridge [COMPLETED]
-Phase 69 - Public API and Client Compatibility Hardening [ACTIVE: 69.A]
+Phase 69 - Public API and Client Compatibility Hardening [COMPLETED]
+Phase 70 - Recommendation and Content Knowledge Graph [NEXT; NOT STARTED]
 ```
 
 ADR-0054 remains binding as the completed Broadcast Companion architecture. Phase-67 numbered evidence is recorded in [Phase 67 Closeout](phase-67-closeout.md).

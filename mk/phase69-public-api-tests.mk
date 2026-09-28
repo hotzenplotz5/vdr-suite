@@ -496,3 +496,9 @@ test-phase69f-public-v1-timer-create-reference-client:
 test-phase69f-public-v1-operation-reference-client:
 	node clients/reference-js/tests/test_public_v1_operation_client.js
 	python3 tools/check_phase69f_public_v1_operation_reference_client.py
+
+
+.PHONY: test-phase69-closeout
+
+test-phase69-closeout:
+	python3 tools/check_phase69_closeout.py
