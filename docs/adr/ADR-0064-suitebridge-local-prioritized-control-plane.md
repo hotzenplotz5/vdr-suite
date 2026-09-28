@@ -225,11 +225,15 @@ provider-specific audit proved that its service reads copy bounded snapshot
 state under the provider mutex and perform the 25x40 render/normalization after
 releasing that mutex, with no network/filesystem I/O or borrowed VDR pointer. Its SuiteBridge adapter synchronously calls
 `vdr-plugin-web` services. Provider discovery/media reads are bounded
-mutex-protected snapshots, runtime control retains the provider's existing
-VDR-main-context scheduling, and presentation may perform QOI encoding while
-holding provider presentation state. HbbTV therefore uses one dedicated serial
-External Plugin Interactive worker. This isolates provider latency without
-asserting provider re-entrancy or parallel Service-call safety.
+mutex-protected snapshots. A later real-runtime audit corrected the original
+runtime assumption: LAUNCH already performs provider-owned VDR main-context
+scheduling, but INPUT reaches `browserClient->ProcessKey()` synchronously in the
+caller's thread. HbbTV therefore keeps one dedicated serial External Plugin
+Interactive worker for transport/admission while INPUT alone uses a bounded VDR
+main-thread handoff before the provider service call. Presentation may perform
+QOI encoding while holding provider presentation state. This isolates provider
+latency without asserting provider re-entrancy, worker-thread input safety or
+parallel Service-call safety.
 
 #### Native mutation
 
