@@ -224,6 +224,9 @@ function navigate(next) {
   assert.strictEqual(recordingReads, beforeExit);
   backend = 'B';
   navigate('overview');
+  (listeners['vdr-suite:home-resume'] || []).forEach(fn => fn({
+    detail: {backendId: backend}
+  }));
   await tick();
   await tick();
   const third = sources[sources.length - 1];
