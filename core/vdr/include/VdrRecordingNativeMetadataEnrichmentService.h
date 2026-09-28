@@ -18,6 +18,7 @@ struct VdrRecordingNativeMetadataEnrichmentConfig
     std::int64_t negativeTtlSeconds = 6 * 60 * 60;
     std::int64_t retryInitialSeconds = 30;
     std::int64_t retryMaximumSeconds = 30 * 60;
+    std::int64_t exhaustedRetrySeconds = 6 * 60 * 60;
     int maximumRetryCount = 5;
     std::size_t maximumQueuedRecordings = 2048;
     int maximumBatchSize = 4;
