@@ -756,13 +756,11 @@ bool DaemonRuntime::initialize()
                         ? std::string()
                         : nativeId->second;
 
-                bool projected = false;
                 if (!backendNativeId.empty() &&
                     vdrRecordingCacheRepository_) {
-                    projected =
-                        vdrRecordingCacheRepository_->removeByBackendNativeId(
-                            backendId,
-                            backendNativeId);
+                    vdrRecordingCacheRepository_->removeByBackendNativeId(
+                        backendId,
+                        backendNativeId);
                 }
 
                 if (!backendNativeId.empty() && snapshotCacheService_) {
@@ -771,10 +769,9 @@ bool DaemonRuntime::initialize()
                         backendNativeId);
                 }
 
-                if (projected) {
-                    recordingPresentationChangeQueue_.request(backendId);
-                }
-
+                // The mutation is authoritative even if a local cache row was
+                // already absent. Home still needs one immediate invalidation.
+                recordingPresentationChangeQueue_.request(backendId);
                 recordingCacheRefreshQueue_.request(backendId);
                 return false;
             }
