@@ -155,6 +155,9 @@ for label, content, tokens in (
         "state.editedDestinationExists",
         "state.editedRecordingKey == expectedEditedRecordingKey",
         "state.handlerUsage == 0",
+        "daemonRecordingCutVerifiedResultWasRemoved",
+        "!state.editedDestinationExists",
+        "!state.editedRecordingFound",
     )),
     ("daemon cut reconciliation", daemon_cut, (
         "recordingCutReconciliationCandidates",
@@ -204,6 +207,8 @@ for label, content, tokens in (
         'record.state == "unknown"',
         'record.state == "uncertain"',
         'record.state = "verified"',
+        "daemonRecordingCutVerifiedResultWasRemoved(",
+        "Deleting the result must never resurrect the old cut",
     )),
     ("embedded cut journal", embedded_cut_repository, (
         "listForBackend(",
