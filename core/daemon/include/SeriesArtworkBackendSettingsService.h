@@ -102,6 +102,7 @@ public:
 
     SeriesArtworkImageResult tmdbCandidateImage(
         const std::string& backendId,
+        const std::string& externalNamespace,
         const std::string& externalId,
         const std::string& posterReference) const;
 
@@ -142,11 +143,13 @@ private:
         const std::string& backendId,
         const std::string& seriesKey,
         const std::string& posterPath,
+        const std::string& externalNamespace,
         const std::string& externalId,
         const std::string& posterReference) const;
 
     std::string materializeTmdbSeriesPoster(
         const std::string& backendId,
+        const std::string& externalNamespace,
         const std::string& externalId,
         const std::string& posterReference) const;
 
