@@ -36,14 +36,14 @@ bool recordingMetadataCapabilityAvailable(
             "recording-metadata");
 }
 
-void runRecordingMetadataEnrichment(
+bool runRecordingMetadataEnrichment(
     BackendRuntimeContext& context,
     const std::vector<VdrRecording>& recordings,
     std::atomic<bool>& stopRequested,
     const std::string& reason)
 {
     if (!context.recordingMetadataEnrichmentService) {
-        return;
+        return false;
     }
 
     const std::int64_t now = recordingMetadataEpochSeconds();
@@ -54,7 +54,7 @@ void runRecordingMetadataEnrichment(
             now);
 
     if (stopRequested.load() || queued == 0) {
-        return;
+        return false;
     }
 
     if (!recordingMetadataCapabilityAvailable(context)) {
@@ -70,14 +70,21 @@ void runRecordingMetadataEnrichment(
                 << std::endl;
         }
 
-        return;
+        return false;
     }
+
+    const VdrRecordingNativeMetadataEnrichmentStatus before =
+        context.recordingMetadataEnrichmentService->status();
 
     const int processed =
         context.recordingMetadataEnrichmentService->processBatch(now);
 
     const VdrRecordingNativeMetadataEnrichmentStatus status =
         context.recordingMetadataEnrichmentService->status();
+
+    const bool presentationChanged =
+        status.resolvedFound > before.resolvedFound ||
+        status.resolvedNotFound > before.resolvedNotFound;
 
     std::cout
         << "Recording metadata enrichment finished: reason="
@@ -90,7 +97,11 @@ void runRecordingMetadataEnrichment(
         << processed
         << ", remaining="
         << status.queuedCount
+        << ", presentationChanged="
+        << (presentationChanged ? "true" : "false")
         << std::endl;
+
+    return presentationChanged;
 }
 }
 
@@ -211,11 +222,14 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
                         vdrRecordingCacheRepository_->findAllForBackend(
                             backendRuntimeContext->backendId);
 
-                    runRecordingMetadataEnrichment(
-                        *backendRuntimeContext,
-                        recordings,
-                        recordingCacheWarmupStopRequested_,
-                        "periodic");
+                    if (runRecordingMetadataEnrichment(
+                            *backendRuntimeContext,
+                            recordings,
+                            recordingCacheWarmupStopRequested_,
+                            "periodic")) {
+                        recordingPresentationChangeQueue_.request(
+                            backendRuntimeContext->backendId);
+                    }
 
                     GenreBrowserApiRuntime::instance()
                         .refreshRecordingIndex(
@@ -305,11 +319,14 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
 
                 recordingCacheRefreshQueue_.completed(backendRuntimeContext->backendId);
 
-                runRecordingMetadataEnrichment(
-                    *backendRuntimeContext,
-                    recordings,
-                    recordingCacheWarmupStopRequested_,
-                    reason);
+                if (runRecordingMetadataEnrichment(
+                        *backendRuntimeContext,
+                        recordings,
+                        recordingCacheWarmupStopRequested_,
+                        reason)) {
+                    recordingPresentationChangeQueue_.request(
+                        backendRuntimeContext->backendId);
+                }
 
                 genreIndexed = GenreBrowserApiRuntime::instance()
                     .refreshRecordingIndex(
