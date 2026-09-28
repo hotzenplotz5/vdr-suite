@@ -42,7 +42,14 @@ assert(!indexSource.includes('startPositionSeconds'));
 assert(appSource.includes("let selectedModule = 'overview';"));
 assert(appSource.includes('function selectModule(moduleName)'));
 assert(appSource.includes("document.querySelectorAll('.module-tab').forEach(button =>"));
-assert(appSource.includes("button.addEventListener('click', () => selectModule(button.dataset.module));"));
+assert(appSource.includes("button.addEventListener('click', () => {"));
+assert(appSource.includes("const moduleName = button.dataset.module;"));
+assert(appSource.includes("if (moduleName === 'overview' && typeof window.scrollTo === 'function')"));
+assert(appSource.includes("window.scrollTo({ top: 0, left: 0, behavior: 'auto' });"));
+assert(!discoverySource.includes("target.closest('[data-brand-module=\"overview\"], .module-tab[data-module=\"overview\"], #backends')"),
+  'Home clicks must not re-arm discovery after app.js scrolls to top');
+assert(discoverySource.includes("target.closest('#backends')"),
+  'backend selection may still schedule Home discovery');
 assert(appSource.includes("document.querySelectorAll('[data-brand-module]').forEach(button =>"));
 assert(appSource.includes('selectModule(moduleName);'));
 assert(appSource.includes("button.classList.toggle('active', button.dataset.module === moduleName);"));
@@ -122,8 +129,13 @@ const bindingEnd = appSource.indexOf('\nrefreshDetailButton.addEventListener(', 
 assert(selectStart >= 0 && selectEnd > selectStart);
 assert(bindingStart >= 0 && bindingEnd > bindingStart);
 
-const detailDataElement = {scrollIntoView() { this.scrolled = true; }};
+let detailDataScrolls = 0;
+let homeTopScrolls = 0;
+const detailDataElement = {
+  scrollIntoView() { detailDataScrolls += 1; }
+};
 let homeResumeEvents = 0;
+let renderSelectedModuleCalls = 0;
 const document = {
   dispatchEvent(event) {
     if (event && event.type === 'vdr-suite:home-resume') homeResumeEvents += 1;
@@ -138,6 +150,12 @@ const document = {
 const context = {
   window: {
     VdrSuiteChannels2: null,
+    scrollTo(options) {
+      assert.strictEqual(options.top, 0);
+      assert.strictEqual(options.left, 0);
+      assert.strictEqual(options.behavior, 'auto');
+      homeTopScrolls += 1;
+    },
     CustomEvent: function CustomEvent(type, options) {
       this.type = type;
       this.detail = options && options.detail;
@@ -145,11 +163,11 @@ const context = {
   },
   document,
   detailDataElement,
-  currentSnapshot: null,
+  currentSnapshot: {backendId: 'default'},
   selectedBackendId: 'default',
   selectedModule: 'overview',
   homeResumeBackendId: '',
-  renderSelectedModule() {}
+  renderSelectedModule() { renderSelectedModuleCalls += 1; }
 };
 vm.createContext(context);
 vm.runInContext(
@@ -167,19 +185,52 @@ function brandButton(name) {
 brandButton('recordings2').dispatch('click');
 assert(moduleTab('recordings2').classList.contains('active'));
 assert(!moduleTab('overview').classList.contains('active'));
-assert.strictEqual(detailDataElement.scrolled, true);
+assert.strictEqual(detailDataScrolls, 1);
 
 brandButton('overview').dispatch('keydown', {key: 'Enter'});
 assert(moduleTab('overview').classList.contains('active'));
 assert(!moduleTab('recordings2').classList.contains('active'));
 assert.strictEqual(homeResumeEvents, 1,
   'canonical Home navigation must publish exactly one Home-resume lifecycle event');
+assert.strictEqual(homeTopScrolls, 1,
+  'Home navigation must scroll to the top of Home');
+assert.strictEqual(detailDataScrolls, 1,
+  'Home navigation must not scroll the lower detail-data region into view');
 
+const rendersBeforeBrandHomeReselect = renderSelectedModuleCalls;
 brandButton('overview').dispatch('click');
 assert.strictEqual(
   homeResumeEvents,
   1,
   'reselecting already-active Home must not publish another Home-resume lifecycle event'
+);
+assert.strictEqual(homeTopScrolls, 2,
+  'reselecting Home must still return the user to the top');
+assert.strictEqual(detailDataScrolls, 1,
+  'reselecting Home must never jump to the lower Home detail-data region');
+assert.strictEqual(
+  renderSelectedModuleCalls,
+  rendersBeforeBrandHomeReselect,
+  'reselecting active Home from the brand launcher must not rebuild Home'
+);
+
+moduleTab('recordings2').dispatch('click');
+assert(moduleTab('recordings2').classList.contains('active'));
+moduleTab('overview').dispatch('click');
+assert(moduleTab('overview').classList.contains('active'));
+assert.strictEqual(homeTopScrolls, 3,
+  'the visible Home module tab must return to the top too');
+assert.strictEqual(detailDataScrolls, 1,
+  'the visible Home module tab must never reveal lower detail-data');
+
+const rendersBeforeModuleHomeReselect = renderSelectedModuleCalls;
+moduleTab('overview').dispatch('click');
+assert.strictEqual(homeTopScrolls, 4,
+  'reselecting the visible Home tab must return to the top');
+assert.strictEqual(
+  renderSelectedModuleCalls,
+  rendersBeforeModuleHomeReselect,
+  'reselecting the visible Home tab must not rebuild Home before scrolling'
 );
 
 brandButton('settings').dispatch('keydown', {key: ' '});

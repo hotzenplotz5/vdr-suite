@@ -3,6 +3,7 @@
 #include "Database.h"
 
 #include <string>
+#include <vector>
 
 struct EmbeddedRecordingCutRecord
 {
@@ -33,6 +34,10 @@ public:
         const std::string& backendId,
         const std::string& operationId,
         EmbeddedRecordingCutRecord& record);
+
+    bool listForBackend(
+        const std::string& backendId,
+        std::vector<EmbeddedRecordingCutRecord>& records);
 
     bool insert(const EmbeddedRecordingCutRecord& record);
     bool update(const EmbeddedRecordingCutRecord& record);

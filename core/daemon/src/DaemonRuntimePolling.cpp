@@ -5,6 +5,8 @@
 #include "VdrManagedTimerCreateReadbackEvidenceBuilder.h"
 
 #include <chrono>
+#include <exception>
+#include <iostream>
 #include <map>
 #include <optional>
 #include <string>
@@ -53,30 +55,49 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
                     !context->service)
                     continue;
 
-                const std::vector<VdrTimer> timers =
-                    context->service->getTimers();
-                const std::int64_t observedAt =
-                    std::chrono::duration_cast<std::chrono::seconds>(
-                        std::chrono::system_clock::now()
-                            .time_since_epoch()).count();
-                if (observedAt <= 0)
-                    break;
+                try
+                {
+                    const std::vector<VdrTimer> timers =
+                        context->service->getTimers();
+                    const std::int64_t observedAt =
+                        std::chrono::duration_cast<std::chrono::seconds>(
+                            std::chrono::system_clock::now()
+                                .time_since_epoch()).count();
+                    if (observedAt <= 0)
+                        break;
 
-                vdrsuite::vdr::RestfulApiNativeTimerInventoryReader reader(
-                    *context->httpClient);
-                vdrsuite::vdr::RestfulApiNativeTimerInventoryReadRequest request;
-                request.backendId = expectation.backendId;
-                request.backendGeneration = expectation.backendGeneration;
-                request.observedAt = observedAt;
-                const auto inventory = reader.read(request);
-                if (!inventory.ok())
-                    break;
+                    vdrsuite::vdr::RestfulApiNativeTimerInventoryReader reader(
+                        *context->httpClient);
+                    vdrsuite::vdr::RestfulApiNativeTimerInventoryReadRequest request;
+                    request.backendId = expectation.backendId;
+                    request.backendGeneration = expectation.backendGeneration;
+                    request.observedAt = observedAt;
+                    const auto inventory = reader.read(request);
+                    if (!inventory.ok())
+                        break;
 
-                const auto built =
-                    VdrManagedTimerCreateReadbackEvidenceBuilder::build(
-                        inventory.evidence, timers);
-                if (built.ok())
-                    evidence = built.evidence;
+                    const auto built =
+                        VdrManagedTimerCreateReadbackEvidenceBuilder::build(
+                            inventory.evidence, timers);
+                    if (built.ok())
+                        evidence = built.evidence;
+                }
+                catch (const std::exception& error)
+                {
+                    std::cerr
+                        << "[WARNING] Native Timer CREATE readback unavailable for backend "
+                        << expectation.backendId
+                        << ": " << error.what()
+                        << std::endl;
+                }
+                catch (...)
+                {
+                    std::cerr
+                        << "[WARNING] Native Timer CREATE readback unavailable for backend "
+                        << expectation.backendId
+                        << ": unknown exception"
+                        << std::endl;
+                }
                 break;
             }
 

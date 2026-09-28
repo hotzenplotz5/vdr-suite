@@ -74,7 +74,7 @@ bool RecordingActionExecutionController::refreshAfterSuccessfulExecution(
     const RecordingActionExecutionResult& result,
     const RecordingActionRequest& resolvedRequest) const
 {
-    if (!result.success)
+    if (!result.success || resolvedRequest.dryRun)
     {
         return false;
     }

@@ -149,5 +149,27 @@ int main()
     assert(executionAdapter->capturedPayload.jobType == "recording.delete");
     assert(!executionAdapter->capturedPayload.dryRun);
 
+    RecordingActionExecutionService guardedService;
+    guardedService.setValidationRequestGuard(
+        [](const RecordingActionRequest& request) -> std::string {
+            return request.type == RecordingActionType::Delete
+                ? "recording_cut_active_delete_blocked"
+                : std::string();
+        });
+
+    RecordingActionBackendExecutorAdapterRegistry guardedRegistry;
+    auto guardedAdapter =
+        std::make_shared<CapturingBackendExecutorAdapter>("living-room");
+    guardedRegistry.registerAdapter(guardedAdapter);
+
+    const RecordingActionExecutionResult blockedDelete =
+        guardedService.execute(executeRequest, guardedRegistry);
+    assert(!blockedDelete.success);
+    assert(blockedDelete.hasErrors());
+    assert(!guardedAdapter->called);
+    assert(
+        blockedDelete.errors.at(0) ==
+        "recording_cut_active_delete_blocked");
+
     return 0;
 }

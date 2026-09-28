@@ -18,6 +18,10 @@ function first(object, keys, fallback) {
 function element() {
   return {
     id: '',
+    isConnected: true,
+    disabled: false,
+    handlers: {},
+    click() { if (!this.disabled && this.handlers.click) this.handlers.click(); },
     className: '',
     dataset: {},
     style: {},
@@ -30,7 +34,7 @@ function element() {
     setAttribute() {},
     appendChild(child) { this.children.push(child); return child; },
     append() { this.children.push(...arguments); },
-    addEventListener() {}
+    addEventListener(name, fn) { this.handlers[name] = fn; }
   };
 }
 
@@ -65,8 +69,8 @@ const shared = {
   PAGE_SIZE: 50,
   folderList(data) { return data && Array.isArray(data.folders) ? data.folders : []; },
   recordingList(data) { return data && Array.isArray(data.recordings) ? data.recordings : []; },
-  node() { return element(); },
-  createButton() { return element(); }
+  node(tag, cls, text) { return Object.assign(element(), {className: cls, textContent: text}); },
+  createButton(text, fn) { const e = Object.assign(element(), {textContent: text}); e.addEventListener('click', fn); return e; }
 };
 
 const window = {
@@ -202,7 +206,7 @@ async function main() {
   assert(!actionsSource.includes('deleteReadback(recording)'));
   assert(actionsSource.includes('const DELETE_QUEUE_BY_BACKEND = new Map();'));
   assert(actionsSource.includes('function waitForDeleteSettlement(recording, sourcePath)'));
-  assert(actionsSource.includes('function enqueueDelete(recording, status, button)'));
+  assert(actionsSource.includes('function enqueueDelete(recording, status, button, confirmDelete)'));
   assert(actionsSource.includes("validate(recording, 'DELETE', {}, status, button, isDryRunReady)"));
   assert(actionsSource.includes('return executeDelete(recording, status, button);'));
   assert(actionsSource.includes("Löschen vorgemerkt – wartet auf vorherige Papierkorb-Aktion"));
@@ -253,6 +257,76 @@ async function main() {
     errors: []
   }), true);
   assert.strictEqual(test.isDryRunReady({success: true}), false);
+  assert.strictEqual(
+    test.actionError({
+      errors: ['recording_cut_operation_pending_delete_blocked']
+    }, 'fallback'),
+    'Original kann während des laufenden Schnitts nicht gelöscht werden.'
+  );
+  assert.strictEqual(
+    test.actionError({
+      errors: ['recording_cut_journal_unavailable_delete_blocked']
+    }, 'fallback'),
+    'Löschen ist gesperrt, weil der Schnittstatus nicht sicher bestätigt werden kann.'
+  );
+
+
+  // Exercise the production panel controls, including delayed safety readback.
+  const flush = async () => { for (let i = 0; i < 30; ++i) await Promise.resolve(); };
+  const calls = [];
+  let release, allow = false, confirmAnswer = true, completed = null;
+  const current = {backendId: 'default', path: ''};
+  shared.clientApi = () => ({
+    fetchClientRecordingActionValidation({payload}) {
+      calls.push({kind: 'validate', payload}); return Promise.resolve({valid: true});
+    },
+    fetchClientRecordingActionExecution({payload}) {
+      calls.push({kind: payload.dryRun ? 'preview' : 'delete', payload});
+      if (!payload.dryRun) return Promise.resolve({success: true});
+      return new Promise(resolve => { release = () => resolve(allow ? {
+        success: false, message: 'dry-run backend execution skipped', warnings: ['dry-run only'], errors: []
+      } : {success: false, errors: ['recording_cut_active_delete_blocked']}); });
+    },
+    fetchClientRecordingFolder() { return Promise.resolve({recordings: []}); }
+  });
+  window.confirm = () => { calls.push({kind: 'confirm'}); return confirmAnswer; };
+  const panel = window.VdrSuiteRecordings2Actions.create({
+    getState: () => current, completeDelete: value => { completed = value; }
+  }).createPanel(recording);
+  const deletion = panel.children.at(-1).children.at(-1);
+  const body = deletion.children[1], status = body.children[1];
+  const [retry, apply] = body.children[2].children;
+  assert(apply.disabled);
+  deletion.open = true; deletion.handlers.toggle(); await flush();
+  assert(apply.disabled); assert(!calls.some(c => c.kind === 'confirm'));
+  release(); await flush();
+  assert(apply.disabled); assert(status.textContent.includes('laufenden Schnitts'));
+  apply.click(); await flush(); assert(!calls.some(c => c.kind === 'delete'));
+  allow = true; retry.click(); await flush(); release(); await flush();
+  assert(!apply.disabled);
+  // A newly blocked cutter must prevent confirmation even after a previous approval.
+  allow = false; apply.click(); apply.click(); await flush(); release(); await flush();
+  assert(apply.disabled); assert(!calls.some(c => c.kind === 'confirm'));
+  allow = true; retry.click(); await flush(); release(); await flush();
+  confirmAnswer = false; apply.click(); await flush(); release(); await flush();
+  assert.strictEqual(calls.filter(c => c.kind === 'confirm').length, 1);
+  assert(!calls.some(c => c.kind === 'delete'));
+  retry.click(); await flush(); release(); await flush();
+  confirmAnswer = true; apply.click(); await flush();
+  // Mutable list IDs and owner removal must not redirect or authorize a late result.
+  const sourceNative = recording.backendNativeId;
+  recording.backendNativeId = '/different.rec'; recording.recordingId = 'recycled';
+  deletion.isConnected = false; release(); await flush();
+  assert(!calls.some(c => c.kind === 'delete'));
+  deletion.isConnected = true; retry.click(); await flush(); release(); await flush();
+  apply.click(); await flush(); release(); await flush();
+  assert.strictEqual(calls.filter(c => c.kind === 'delete').length, 1);
+  assert.strictEqual(calls.at(-2).kind, 'confirm');
+  assert.strictEqual(calls.at(-1).kind, 'delete');
+  assert(calls.filter(c => c.payload).every(c => c.payload.backendNativeId === sourceNative && c.payload.recordingId === 'default:4711' && c.payload.backendId === 'default'));
+  assert.strictEqual(completed.backendNativeId, sourceNative);
+  current.backendId = 'other'; retry.click(); await flush();
+  assert.strictEqual(calls.filter(c => c.kind === 'delete').length, 1);
 
   console.log('recordings2 actions, genre and leaf resolution runtime ok');
 }

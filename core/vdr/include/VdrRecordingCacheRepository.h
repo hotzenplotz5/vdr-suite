@@ -60,6 +60,10 @@ public:
         const std::string& backendId,
         const std::vector<VdrRecording>& recordings);
 
+    bool removeByBackendNativeId(
+        const std::string& backendId,
+        const std::string& backendNativeId);
+
     std::vector<VdrRecording> findAllForBackend(
         const std::string& backendId) const;
 

@@ -62,6 +62,10 @@ for marker in ("SuiteBridgePrioritizedArtworkTransport","SuiteBridgePrioritizedM
     if marker not in client_h: raise SystemExit(f"background provider local transport missing {marker}")
 if "SuiteBridgeReadTransportStatus::Unavailable" not in client_cpp:
     raise SystemExit("background provider fallback must be pre-dispatch Unavailable-only")
+if "VdrRecordingNativeIdentity::isValidKey(recordingKey)" not in client_cpp:
+    raise SystemExit("RMETA local transport must validate the canonical 32-byte Recording identity contract")
+if "recordingKey.size()!=64" in client_cpp:
+    raise SystemExit("RMETA local transport contains stale 64-byte Recording identity validation")
 for marker in ("providerLocalControlTransport","epgArtworkTransport","epgMetadataTransport","recordingMetadataTransport","epgTypeSnapshotTransport"):
     if marker not in daemon_context: raise SystemExit(f"background provider daemon context wiring missing {marker}")
 for marker in ("SuiteBridgePrioritizedArtworkTransport","SuiteBridgePrioritizedMetadataTransport","SuiteBridgePrioritizedRecordingMetadataTransport","SuiteBridgePrioritizedEpgTypeSnapshotTransport","providerLocalControlTransport"):

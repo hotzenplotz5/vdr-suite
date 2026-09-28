@@ -144,6 +144,40 @@ int main()
                "movies/785533/poster.jpg");
         assert(recording.metadata.artwork.front().width == 680);
         assert(recording.metadata.artwork.front().height == 1000);
+
+        VdrRecording weakerRefresh = recording;
+        weakerRefresh.metadata.native.shortText =
+            "Aktualisierter nativer Kurztext";
+        weakerRefresh.metadata.provider = {};
+        weakerRefresh.metadata.artwork.clear();
+
+        assert(repository.replaceRecordingsForBackend(
+            "default",
+            {weakerRefresh}));
+
+        const std::vector<VdrRecording> afterWeakerRefresh =
+            repository.findAllForBackend("default");
+        assert(afterWeakerRefresh.size() == 1);
+        assert(afterWeakerRefresh.front().metadata.native.shortText ==
+               "Aktualisierter nativer Kurztext");
+        assert(afterWeakerRefresh.front().metadata.provider.hasData());
+        assert(afterWeakerRefresh.front().metadata.provider.movieId ==
+               "785533");
+        assert(afterWeakerRefresh.front().metadata.artwork.size() == 1);
+        assert(afterWeakerRefresh.front().metadata.artwork.front().reference ==
+               "movies/785533/poster.jpg");
+
+        const VdrRecordingFolderPage browse =
+            repository.folderPageForBackend(
+                "default",
+                "Movies/Zero",
+                10,
+                0);
+        assert(browse.recordings.size() == 1);
+        assert(browse.recordings.front().metadata.provider.hasData());
+        assert(browse.recordings.front().metadata.artwork.size() == 1);
+        assert(browse.recordings.front().metadata.artwork.front().reference ==
+               "movies/785533/poster.jpg");
     }
 
     std::cout

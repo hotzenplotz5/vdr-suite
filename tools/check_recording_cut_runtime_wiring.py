@@ -35,6 +35,8 @@ plugin_svdrp = text("vdr-plugin-suite-bridge/suitebridge_svdrp.cpp")
 plugin_capabilities = text("vdr-plugin-suite-bridge/suitebridge_capabilities.cpp")
 daemon_match = text("core/daemon/src/DaemonRecordingCutReconciliation.cpp")
 daemon_cut = text("core/daemon/src/DaemonRuntimeRecordingCut.cpp")
+embedded_cut_runtime = text("core/daemon/src/EmbeddedRecordingCutRuntime.cpp")
+embedded_cut_repository = text("core/agent/src/EmbeddedRecordingCutRepository.cpp")
 daemon_editing = text("core/daemon/src/DaemonRuntimeRecordingEditing.cpp")
 daemon_runtime = (
     text("core/daemon/src/DaemonRuntime.cpp") + "\n" +
@@ -152,6 +154,12 @@ for label, content, tokens in (
         "state.editedRecordingFound",
         "state.editedDestinationExists",
         "state.editedRecordingKey == expectedEditedRecordingKey",
+        "state.handlerUsage == 0",
+        "daemonRecordingCutVerifiedResultWasRemoved",
+        "daemonRecordingCutAcceptedStartExpired",
+        "StartGraceSeconds = 30",
+        "!state.editedDestinationExists",
+        "!state.editedRecordingFound",
     )),
     ("daemon cut reconciliation", daemon_cut, (
         "recordingCutReconciliationCandidates",
@@ -183,6 +191,36 @@ for label, content, tokens in (
         "state.ready",
         "replayOnly",
         "readback_required",
+        "exactEditedRecording",
+        "state.editedRecordingKey",
+        '",\\\"editedRecording\\\":"',
+        "appendRecordingProjection",
+        "operationStateResolver",
+        "\\\"operationState\\\"",
+        "\\\"operationPending\\\"",
+        "\\\"operationVerified\\\"",
+    )),
+    ("embedded cut lifecycle", embedded_cut_runtime, (
+        "operationState(",
+        "deleteBlockReason(",
+        "repository_.listForBackend",
+        'record.state == "starting"',
+        'record.state == "accepted"',
+        'record.state == "unknown"',
+        'record.state == "uncertain"',
+        'record.state = "verified"',
+        "daemonRecordingCutVerifiedResultWasRemoved(",
+        "daemonRecordingCutAcceptedStartExpired(",
+        'record.state == "verified" &&',
+        'record.state = "failed"',
+        '"recording_cut_not_running"',
+        'terminalState = "verified";',
+    )),
+    ("embedded cut journal", embedded_cut_repository, (
+        "listForBackend(",
+        "embedded_recording_cut_commands",
+        "state",
+        "edited_recording_key",
     )),
     ("recording cut HTTP security", security_gate, (
         "isRecordingCutAction",
@@ -274,6 +312,36 @@ if "startCut(" in local_state:
     errors.append("cut local-state recovery must never redispatch native cut")
 if "startCut(" in daemon_cut or "NCUT" in daemon_cut:
     errors.append("daemon cut reconciliation must never redispatch native cut")
+
+# Destructive-action and UI lifecycle ownership must come from the durable
+# cut operation journal, not from transient native handler/destination facts.
+for token in (
+    "embeddedCutRuntime->deleteBlockReason(",
+    "embeddedCutRuntime->operationState(",
+):
+    if token not in daemon_cut:
+        errors.append(f"durable cut lifecycle/delete daemon binding missing: {token}")
+
+for token in (
+    "recording_cut_operation_pending_delete_blocked",
+    "recording_identity_unavailable_delete_blocked",
+    'record.state == "starting"',
+    'record.state == "accepted"',
+    'record.state == "unknown"',
+    'record.state == "uncertain"',
+):
+    if token not in embedded_cut_runtime:
+        errors.append(f"durable cut lifecycle/delete journal guard missing: {token}")
+
+# Native VDR exposes cut lifecycle/result facts but no reliable percent. Keep
+# HTTP and frontend projection free of invented progress fields.
+for forbidden in (
+    '"progressPercent"',
+    '"progressFrames"',
+    '"progressBytes"',
+):
+    if forbidden in api_runtime:
+        errors.append(f"recording cut API invents unsupported progress: {forbidden}")
 
 # The HTTP owner may dispatch only through the typed Control Plane assignment;
 # it must never know or emit NCUT, VDR paths, or native cutter calls.

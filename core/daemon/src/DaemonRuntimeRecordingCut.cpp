@@ -176,6 +176,103 @@ void startRecordingCutReconciliation(
 }
 }
 
+std::string daemonRecordingCutDeleteBlockReason(
+    VdrRecordingCacheRepository& recordingCacheRepository,
+    const std::vector<std::unique_ptr<BackendRuntimeContext>>& backendRuntimeContexts,
+    const std::string& backendId,
+    const std::string& recordingId)
+{
+    if (recordingId.empty())
+        return "recording_identity_unavailable_delete_blocked";
+
+    const std::string normalizedBackendId =
+        backendId.empty() ? "default" : backendId;
+
+    const auto recordings =
+        recordingCacheRepository.findAllForBackend(
+            normalizedBackendId);
+
+    const VdrRecording* selected = nullptr;
+    std::size_t matches = 0U;
+    for (const auto& recording : recordings)
+    {
+        if (recording.backendId != normalizedBackendId ||
+            recording.id != recordingId)
+        {
+            continue;
+        }
+
+        selected = &recording;
+        ++matches;
+    }
+
+    if (matches != 1U || selected == nullptr ||
+        selected->backendNativeId.empty())
+    {
+        return "recording_identity_unavailable_delete_blocked";
+    }
+
+    const std::string recordingKey =
+        VdrRecordingNativeIdentity::keyForNativeId(
+            selected->backendNativeId);
+    if (!VdrRecordingNativeIdentity::isValidKey(recordingKey))
+        return "recording_identity_unavailable_delete_blocked";
+
+    for (const auto& context : backendRuntimeContexts)
+    {
+        if (!context ||
+            context->backendId != normalizedBackendId)
+        {
+            continue;
+        }
+
+        if (context->embeddedCutRuntime)
+        {
+            // The embedded local owner has a durable operation journal.
+            // Do not mix it with transient RCUT handler/destination facts:
+            // the journal is the destructive-action truth for this path.
+            return context->embeddedCutRuntime->deleteBlockReason(
+                recordingKey);
+        }
+
+        if (!context->suiteBridgeAgentRuntime)
+            return "recording_cut_state_unavailable_delete_blocked";
+
+        const auto health =
+            context->suiteBridgeAgentRuntime->health();
+        if (!health.running ||
+            !health.observation.hasDiscovery ||
+            !health.observation.discovery.capabilityAvailable(
+                "recording-cut-state"))
+        {
+            return "recording_cut_state_unavailable_delete_blocked";
+        }
+
+        SuiteBridgeRecordingCutStateResolver* const resolver =
+            context->ensureRecordingCutStateResolver();
+        if (resolver == nullptr)
+            return "recording_cut_state_unavailable_delete_blocked";
+
+        const VdrRecordingNativeCutState state =
+            resolver->resolve(recordingKey);
+
+        if (state.availability ==
+                VdrRecordingNativeCutStateAvailability::TransportError ||
+            state.availability ==
+                VdrRecordingNativeCutStateAvailability::InvalidPayload)
+        {
+            return "recording_cut_state_unavailable_delete_blocked";
+        }
+
+        if (daemonRecordingCutStateBlocksSourceDelete(state))
+            return "recording_cut_active_delete_blocked";
+
+        return std::string();
+    }
+
+    return "recording_cut_state_unavailable_delete_blocked";
+}
+
 bool configureDaemonRecordingCutRuntime(
     VdrRecordingCacheRepository& recordingCacheRepository,
     const std::vector<std::unique_ptr<BackendRuntimeContext>>& backendRuntimeContexts,
@@ -397,6 +494,35 @@ bool configureDaemonRecordingCutRuntime(
                     assigned.assignment.requestFingerprint;
             }
             return dispatch;
+        },
+        [runtimeContexts, commands](
+            const std::string& backendId,
+            const std::string& recordingKey) {
+            for (const auto& context : *runtimeContexts)
+            {
+                if (!context ||
+                    context->backendId != backendId)
+                {
+                    continue;
+                }
+
+                if (context->embeddedCutRuntime)
+                    return context->embeddedCutRuntime->operationState(
+                        recordingKey);
+                break;
+            }
+
+            for (const auto& candidate :
+                    commands->recordingCutReconciliationCandidates())
+            {
+                if (candidate.assignment.backendId == backendId &&
+                    candidate.recordingKey == recordingKey)
+                {
+                    return std::string("accepted");
+                }
+            }
+
+            return std::string("none");
         });
 
     if (!configured) return false;

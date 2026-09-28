@@ -407,6 +407,20 @@ async function run() {
   assert.strictEqual(deleteState.data.recordingCount, 1);
   assert.strictEqual(deleteRefresh.forgetRecording({recordingId: 'missing'}), false);
 
+  // VDR reuses list IDs after deletion; a late completion must not hide its successor.
+  const successor = {backendId: 'default', recordingId: '576', backendNativeId: '/srv/vdr/video/successor.rec'};
+  const source = {backendId: 'default', recordingId: '576', backendNativeId: '/srv/vdr/video/source.rec'};
+  deleteState.serverRecordings = [successor, {...source, recordingId: '580'}];
+  deleteState.serverRecordingCount = 2;
+  deleteState.data.recordings = deleteState.serverRecordings.slice();
+  deleteRefresh.updatePresentedFolderState();
+  assert.strictEqual(deleteRefresh.sameRecordingIdentity(successor, source), false);
+  assert.strictEqual(deleteRefresh.sameRecordingIdentity({...source, backendId: 'other'}, source), false);
+  assert.strictEqual(deleteRefresh.forgetRecording(source), true);
+  assert.deepStrictEqual(Array.from(deleteState.recordings), [successor]);
+  assert.deepStrictEqual(Array.from(deleteState.data.recordings), [successor]);
+  assert.strictEqual(deleteState.serverRecordingCount, 1);
+
   console.log('recordings2 modular runtime ok');
 }
 

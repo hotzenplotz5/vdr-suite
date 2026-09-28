@@ -11,10 +11,17 @@
 #include "RecordingActionValidationService.h"
 
 #include <algorithm>
+#include <utility>
 
 class RecordingActionExecutionService
 {
 public:
+    void setValidationRequestGuard(
+        RecordingActionValidationService::RequestGuard guard)
+    {
+        validationService_.setRequestGuard(std::move(guard));
+    }
+
     RecordingActionSafetyResult evaluateSafety(
         RecordingActionType action,
         const RecordingActionSafetyContext& context) const

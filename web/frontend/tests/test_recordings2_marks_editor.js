@@ -4,6 +4,33 @@ const assert = require('assert');
 const fs = require('fs');
 const vm = require('vm');
 
+const marksEditorSource = fs.readFileSync(
+  'web/frontend/recordings2-marks-editor.js',
+  'utf8'
+);
+const heroDetailSource = fs.readFileSync(
+  'web/frontend/recordings2-hero-detail.js',
+  'utf8'
+);
+const cutLayer = marksEditorSource.match(
+  /\.recordings2-cut-state\{[^}]*top:([0-9.]+)rem;z-index:(\d+)/
+);
+const heroBackLayer = heroDetailSource.match(
+  /\.recordings2-hero-mode-back\{[^}]*z-index:(\d+)/
+);
+assert(cutLayer, 'cut-state sticky offset/layer contract missing');
+assert(heroBackLayer, 'Hero mode back layer contract missing');
+assert(Number(cutLayer[1]) >= 4.5,
+  'running cut state must stay below the fixed Home/Back navigation');
+assert(Number(cutLayer[2]) < Number(heroBackLayer[1]),
+  'running cut state must never cover the fixed Home/Back navigation');
+assert(marksEditorSource.includes('cutPending() && verificationAttempts >= VERIFY_ATTEMPTS'),
+  'cut mutation replay verification must be bounded');
+assert(marksEditorSource.includes('cutPending() ? VERIFY_DELAY_MS'),
+  'cut mutation replay must stay on the bounded fast verification path');
+assert(marksEditorSource.includes("next.operationState === 'failed' && cutPending()"),
+  'native failed cut state must clear transient pending UI');
+
 function hasClass(value, className) {
   return String(value || '').split(/\s+/).filter(Boolean).includes(className);
 }
@@ -12,7 +39,13 @@ function element(tag) {
   const value = {
     tagName: String(tag || '').toUpperCase(), id: '', className: '', dataset: {},
     children: [], textContent: '', attributes: {}, style: {}, parentNode: null,
-    title: '', classList: {add() {}, remove() {}}, disabled: false, value: '', listeners: {},
+    title: '', classList: {
+      add(name) { if (!hasClass(value.className, name)) value.className = (value.className + ' ' + name).trim(); },
+      remove(name) { value.className = value.className.split(/\s+/).filter(item => item && item !== name).join(' '); }
+    }, disabled: false, value: '', listeners: {},
+    focus() { this.focused = true; },
+    scrollIntoView() { this.scrolledIntoView = true; },
+    insertBefore(child, before) { child.parentNode = this; const index = this.children.indexOf(before); this.children.splice(index < 0 ? 0 : index, 0, child); return child; },
     addEventListener(name, fn) { this.listeners[name] = fn; },
     click() { if (!this.disabled && this.listeners.click) this.listeners.click(); },
     removeChild(child) { this.children = this.children.filter(value => value !== child); child.parentNode = null; },
@@ -29,6 +62,7 @@ function element(tag) {
       child.parentNode = this.parentNode; this.parentNode.children.splice(index + 1, 0, child); return child;
     },
     querySelector(selector) {
+      if (selector.startsWith('.') && hasClass(this.className, selector.slice(1))) return this;
       if (selector === '.recordings2-detail' && hasClass(this.className, 'recordings2-detail')) return this;
       if (selector === '.recordings2-marks-detail' && hasClass(this.className, 'recordings2-marks-detail')) return this;
       if (selector === '.recordings2-marks-timeline' && hasClass(this.className, 'recordings2-marks-timeline')) return this;
@@ -45,6 +79,7 @@ function element(tag) {
       const result = [];
       function collect(current) {
         if (!current) return;
+        if (selector.startsWith('.') && hasClass(current.className, selector.slice(1))) result.push(current);
         if (selector === 'input[aria-label="Wiedergabeposition"]' &&
             current.tagName === 'INPUT' && current.attributes['aria-label'] === 'Wiedergabeposition') result.push(current);
         (current.children || []).forEach(collect);
@@ -96,8 +131,12 @@ async function run() {
   let native = initial;
   let mode = 'queued';
   let previewReady = true;
+  let cutStateOverride = {};
+  let openedCutVariant = null;
+  let openedCutVariantOptions = null;
   let revisionCounter = 11;
   let deferredMutation = null;
+  let deferredRead = null;
   const requests = [];
   const appliedOperations = new Set();
   const timers = new Map();
@@ -133,6 +172,7 @@ async function run() {
     setTimeout(fn) { const id = nextTimerId++; timers.set(id, fn); return id; },
     clearTimeout(id) { timers.delete(id); },
     VdrSuiteBrowserSession: {csrfHeaders: () => ({'X-CSRF-Token': 'test-only'})},
+    VdrSuiteRecordings2HeroDetail: {enhance(root) { return root; }},
     VdrSuiteRecordings2MarksTimeline: {
       render(root, recording, payload, interaction) {
         if (interaction) timelineInteraction = interaction;
@@ -152,6 +192,9 @@ async function run() {
       number: (value, fallback) => Number(value) || fallback
     },
     VdrSuiteRecordingPlaybackRestartChoice: {install() {}},
+    VdrSuiteRecordings2: {
+      openRecording(recording, options) { openedCutVariant = recording; openedCutVariantOptions = options || null; }
+    },
     VdrSuiteRecordings2Playback: {createPanel() {
       playbackCreations += 1;
       const start = element('button'); start.textContent = 'Start im Playback-Owner';
@@ -161,8 +204,18 @@ async function run() {
     VdrSuiteClientApi: {requestJson(path, config) {
       const body = config.body && JSON.parse(config.body);
       requests.push({path, config, body});
+      if (!body && deferredRead && deferredRead.path === path) return deferredRead.promise;
       if (!body) return Promise.resolve(path.endsWith('/cut')
-        ? Object.assign({}, native, {ready: previewReady, editedDestinationExists: !previewReady}) : native);
+        ? Object.assign({}, native, {
+            availability: 'available',
+            ready: previewReady,
+            editedDestinationExists: !previewReady,
+            editedRecordingFound: false,
+            handlerUsage: 0,
+            operationState: 'none',
+            operationPending: false,
+            operationVerified: false
+          }, cutStateOverride, {marksRevision: native.marksRevision}) : native);
       if (deferredMutation) return deferredMutation.promise;
       if (mode === 'lease') return Promise.reject(new Error('active_agent_lease_required'));
       if (mode === 'lost') return Promise.reject(new Error('connection lost'));
@@ -185,7 +238,8 @@ async function run() {
   for (const path of [
     'web/frontend/recordings2-browser-view.js',
     'web/frontend/recordings2-marks-editor.js',
-    'web/frontend/recordings2-marks-detail.js'
+    'web/frontend/recordings2-marks-detail.js',
+    'web/frontend/recordings2-hero-visibility.js'
   ]) vm.runInContext(fs.readFileSync(path, 'utf8'), context, {filename: path});
 
   const view = window.VdrSuiteRecordings2BrowserView.create({getState: () => ({
@@ -394,20 +448,124 @@ async function run() {
 
   mode = 'verified';
   const beforeCut = posts().length;
+  const cutReadsBeforePreview = requests.filter(request => !request.body && request.path === '/api/vdr/recordings/cut').length;
+  deferredRead = Object.assign({path: '/api/vdr/recordings/cut'}, deferred());
   button('Schneiden …').click(); await flush();
+  assert.strictEqual(
+    requests.filter(request => !request.body && request.path === '/api/vdr/recordings/cut').length,
+    cutReadsBeforePreview,
+    'cut preview must not synchronously depend on cut-state telemetry'
+  );
   assert.strictEqual(posts().length, beforeCut, 'preview never starts a cut');
+  assert(findButton('Bestätigen'), 'cut confirmation must appear immediately from canonical marks state');
+  assert(button('Bestätigen').focused, 'explicit cut confirmation must receive focus');
+  assert(button('Bestätigen').parentNode.scrolledIntoView, 'confirmation must be brought into view');
+  assert(!button('Neu laden').disabled, 'opening cut confirmation must never strand the editor in busy state');
   assert(allText(root).includes('Original'));
   button('Abbrechen').click();
   assert.strictEqual(posts().length, beforeCut, 'cancel never starts a cut');
-  previewReady = false;
+
   button('Schneiden …').click(); await flush();
-  assert(allText(root).includes('existiert bereits'));
-  assert.strictEqual(posts().length, beforeCut);
-  previewReady = true;
-  button('Schneiden …').click(); await flush();
-  button('Bestätigen').click(); await flush();
+  mode = 'queued';
+  cutStateOverride = {
+    ready: false,
+    editedDestinationExists: true,
+    editedRecordingFound: false,
+    handlerUsage: 4,
+    operationState: 'accepted',
+    operationPending: true,
+    operationVerified: false
+  };
+  deferredMutation = deferred();
+  button('Bestätigen').click();
+  const cutView = root.children.find(child => hasClass(child.className, 'recordings2-cut-state'));
+  assert(cutView, 'cut progress belongs to the detail owner, outside the hidden playback/marks subtree');
+  const progress = cutView.children.find(child => child.tagName === 'PROGRESS');
+  assert(progress, 'indeterminate progress is visible before the POST or completion readback resolves');
+  assert.strictEqual(progress.attributes.value, undefined);
+  for (const mode of ['playback', 'detail', 'actions', 'metadata']) {
+    root.dataset.recordings2HeroMode = mode;
+    window.VdrSuiteRecordings2HeroDetail.enhance(root);
+    assert(!cutView.hidden, 'cut state survives the production visibility owner in ' + mode);
+    assert.strictEqual(root.querySelector('.recordings2-marks-detail').hidden, mode !== 'playback');
+  }
+  publish({transition: 'session-replaced', sessionId: 'three', state: 'playing'});
+  assert.strictEqual(cutView.parentNode, root);
+  deferredMutation.resolve({accepted: true, operationId: posts().at(-1).body.operationId, verification: 'readback_required'});
+  deferredMutation = null;
+  await flush();
   assert.strictEqual(posts().length, beforeCut + 1, 'explicit confirmation starts exactly once');
   assert.strictEqual(posts().at(-1).path, '/api/vdr/recordings/cut');
+  assert(!button('Neu laden').disabled, 'stalled cut-state telemetry must not keep the editor busy after dispatch');
+  assert(allText(root).includes('Schnitt läuft'));
+  assert(allText(root).includes('keinen verlässlichen Prozentwert'));
+  assert(
+    allText(root).includes('automatisch überwacht'),
+    'accepted native cut must remain visibly monitored'
+  );
+  deferredRead = null;
+
+  const editedRecording = {
+    id: 'cut-7',
+    recordingId: 'cut-7',
+    backendId: 'default',
+    title: 'Testaufnahme (geschnitten)',
+    backendNativeId: '/srv/vdr/video/%Testaufnahme/cut.rec'
+  };
+  cutStateOverride = {
+    ready: false,
+    editedDestinationExists: true,
+    editedRecordingFound: true,
+    handlerUsage: 0,
+    operationState: 'verified',
+    operationPending: false,
+    operationVerified: true,
+    editedRecordingKey: 'b'.repeat(32),
+    editedRecording
+  };
+  cutStateOverride.handlerUsage = 36;
+  await fireNextTimer();
+  assert(allText(root).includes('Schnitt läuft'), 'existing result and legacy verified journal must not hide a running cutter');
+  assert(!allText(root).includes('Schnittfassung öffnen'));
+  cutStateOverride.handlerUsage = 0;
+  await fireNextTimer();
+  assert(allText(root).includes('Schnittfassung'));
+  assert(button('Schnittfassung öffnen'));
+  button('Schnittfassung öffnen').click();
+  assert.strictEqual(openedCutVariant, editedRecording);
+  assert.strictEqual(openedCutVariantOptions.backLabel, '← Zurück zur Originalfassung');
+  assert.strictEqual(typeof openedCutVariantOptions.onClose, 'function');
+  openedCutVariant = null;
+  openedCutVariantOptions.onClose();
+  assert.strictEqual(openedCutVariant.id, '7');
+  assert(!allText(root).includes('Original löschen'));
+
+  mode = 'verified';
+  for (let attempt = 0; attempt < 3 && !allText(root).includes('Native geschnittene Ausgabe bestätigt'); ++attempt) await fireNextTimer();
+  assert.deepStrictEqual(posts().at(-1).body.operationId, posts()[beforeCut].body.operationId);
+  assert(allText(root).includes('Native geschnittene Ausgabe bestätigt'));
+  assert(!allText(root).includes('100 %'), 'native cutter progress must never be fabricated');
+
+  // Once the derived cut Recording was exactly verified, deleting that
+  // derivative later must not make the source look like it is cutting again.
+  root.__vdrSuiteMarksEditor.destroy();
+  cutStateOverride = {
+    ready: true,
+    editedDestinationExists: false,
+    editedRecordingFound: false,
+    handlerUsage: 0,
+    operationState: 'verified',
+    operationPending: false,
+    operationVerified: true
+  };
+  view.renderDetail(); await flush();
+  root = mount.querySelector('.recordings2-detail');
+  const removedVariantCutState = root.children.find(child =>
+    hasClass(child.className, 'recordings2-cut-state'));
+  assert(removedVariantCutState);
+  assert(!allText(removedVariantCutState).includes('Schnitt läuft'),
+    'deleting an already verified cut result must not resurrect progress UI');
+  assert(!allText(removedVariantCutState).includes('Schnittfassung'));
 
   native = Object.assign({}, native, {inUse: true});
   button('Neu laden').click(); await flush();
@@ -419,6 +577,19 @@ async function run() {
   publish({transition: 'destroyed', state: 'destroyed'});
   assert.strictEqual(listeners.size, 0);
   assert.strictEqual(timers.size, 0);
+  const postsBeforeReload = posts().length;
+  snapshot = {transition: 'snapshot', state: 'idle', sessionId: null};
+  cutStateOverride = {operationState: 'accepted', operationPending: true, operationVerified: false, editedRecordingFound: false};
+  view.renderDetail(); await flush();
+  root = mount.querySelector('.recordings2-detail');
+  window.VdrSuiteRecordings2HeroDetail.enhance(root);
+  const restored = root.children.find(child => hasClass(child.className, 'recordings2-cut-state'));
+  assert(restored && !restored.hidden && allText(restored).includes('Schnitt läuft'), 'reload recovers running state even in detail mode');
+  assert.strictEqual(posts().length, postsBeforeReload, 'reload must not submit another mutation');
+  assert(requests.filter(request => request.path.endsWith('/cut')).every(request =>
+    (request.body || request.config.query).recordingId === '7'), 'cut and variant navigation keep the source identity');
+  assert(posts().every(request => request.path === '/api/vdr/recordings/cut' || request.path === '/api/vdr/recordings/marks'), 'cut never invokes Delete/Trash');
+  root.__vdrSuiteMarksEditor.destroy();
   console.log('native marks editor add/delete/reset/move/navigation/readback/external-sync and failure-state hardening ok');
 }
 

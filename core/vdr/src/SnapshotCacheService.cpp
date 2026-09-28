@@ -206,6 +206,37 @@ void SnapshotCacheService::updateRecordingsForBackend(
     incrementGeneration();
 }
 
+void SnapshotCacheService::removeRecordingForBackend(
+    const std::string& backendId,
+    const std::string& backendNativeId)
+{
+    if (backendNativeId.empty())
+    {
+        return;
+    }
+
+    VdrSnapshot snapshot = snapshotForBackendOrEmpty(backendId);
+    const auto before = snapshot.recordings.size();
+
+    snapshot.recordings.erase(
+        std::remove_if(
+            snapshot.recordings.begin(),
+            snapshot.recordings.end(),
+            [&backendNativeId](const VdrRecording& recording)
+            {
+                return recording.backendNativeId == backendNativeId;
+            }),
+        snapshot.recordings.end());
+
+    if (snapshot.recordings.size() == before)
+    {
+        return;
+    }
+
+    cache_.updateForBackend(backendId, snapshot);
+    incrementGeneration();
+}
+
 void SnapshotCacheService::updateTimersForBackend(
     const std::string& backendId,
     const std::vector<VdrTimer>& timers)

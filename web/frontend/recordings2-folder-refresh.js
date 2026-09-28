@@ -90,14 +90,15 @@
     }
 
     function sameRecordingIdentity(candidate, recording) {
-      const candidateId = String(options.shared.first(candidate, ['recordingId', 'id', 'nativeId'], ''));
-      const recordingId = String(options.shared.first(recording, ['recordingId', 'id', 'nativeId'], ''));
-      if (candidateId && recordingId) return candidateId === recordingId;
+      const candidateBackend = String(candidate.backendId || state().backendId || 'default');
+      const recordingBackend = String(recording.backendId || state().backendId || 'default');
+      if (candidateBackend !== recordingBackend) return false;
       const candidateNative = String(options.shared.first(candidate, ['backendNativeId', 'nativePath', 'path'], ''));
       const recordingNative = String(options.shared.first(recording, ['backendNativeId', 'nativePath', 'path'], ''));
-      return Boolean(
-        candidateNative && recordingNative && candidateNative === recordingNative
-      );
+      if (candidateNative || recordingNative) return Boolean(candidateNative && recordingNative && candidateNative === recordingNative);
+      const candidateId = String(options.shared.first(candidate, ['recordingId', 'id', 'nativeId'], ''));
+      const recordingId = String(options.shared.first(recording, ['recordingId', 'id', 'nativeId'], ''));
+      return Boolean(candidateId && recordingId && candidateId === recordingId);
     }
 
     function forgetRecording(recording) {

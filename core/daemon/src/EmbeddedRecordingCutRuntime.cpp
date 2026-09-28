@@ -8,6 +8,7 @@
 #include <chrono>
 #include <sstream>
 #include <utility>
+#include <vector>
 
 namespace
 {
@@ -36,6 +37,12 @@ RecordingCutDispatchResult failure(
     RecordingCutDispatchResult result;
     result.reasonCode = reason;
     return result;
+}
+
+std::int64_t currentUnixSeconds()
+{
+    return std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
 bool editedKeyFromEvidence(
@@ -86,6 +93,135 @@ EmbeddedRecordingCutRuntime::EmbeddedRecordingCutRuntime(
 bool EmbeddedRecordingCutRuntime::ensureSchema()
 {
     return repository_.ensureSchema();
+}
+
+std::string EmbeddedRecordingCutRuntime::operationState(
+    const std::string& recordingKey)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    if (!VdrRecordingNativeIdentity::isValidKey(recordingKey))
+        return "identity_unavailable";
+
+    std::vector<EmbeddedRecordingCutRecord> records;
+    if (!repository_.listForBackend(backendId_, records))
+        return "journal_unavailable";
+
+    std::string terminalState;
+
+    for (auto& record : records)
+    {
+        BackendAgentRecordingCutPayload payload;
+        std::string reason;
+        if (!backendAgentRecordingCutParsePayload(
+                record.payload,
+                payload,
+                reason))
+        {
+            return "journal_invalid";
+        }
+
+        if (payload.recordingKey != recordingKey)
+            continue;
+
+        if (record.state == "rejected" ||
+            record.state == "failed")
+        {
+            terminalState = record.state;
+            continue;
+        }
+
+        if ((record.state == "accepted" || record.state == "verified") &&
+            VdrRecordingNativeIdentity::isValidKey(
+                record.editedRecordingKey))
+        {
+            const auto native =
+                resolver_.resolve(recordingKey);
+
+            if (daemonRecordingCutResultMatches(
+                    recordingKey,
+                    record.editedRecordingKey,
+                    native))
+            {
+                record.state = "verified";
+                if (!repository_.update(record))
+                    return "journal_unavailable";
+                terminalState = "verified";
+                continue;
+            }
+
+            if (record.state == "verified" &&
+                daemonRecordingCutVerifiedResultWasRemoved(
+                    recordingKey,
+                    record.editedRecordingKey,
+                    native))
+            {
+                terminalState = "verified";
+                continue;
+            }
+
+            if (record.state == "accepted" &&
+                daemonRecordingCutAcceptedStartExpired(
+                    recordingKey,
+                    record.editedRecordingKey,
+                    payload.controlPlaneClaimedAt,
+                    currentUnixSeconds(),
+                    native))
+            {
+                record.state = "failed";
+                if (!repository_.update(record))
+                    return "journal_unavailable";
+                terminalState = "failed";
+                continue;
+            }
+
+            // Older versions could persist verification while the cutter ran.
+            if (record.state == "verified")
+            {
+                record.state = "accepted";
+                if (!repository_.update(record))
+                    return "journal_unavailable";
+            }
+        }
+
+        if (record.state == "starting" ||
+            record.state == "accepted" ||
+            record.state == "unknown" ||
+            record.state == "uncertain")
+        {
+            return record.state;
+        }
+
+        return "journal_invalid";
+    }
+
+    return terminalState.empty()
+        ? "none"
+        : terminalState;
+}
+
+std::string EmbeddedRecordingCutRuntime::deleteBlockReason(
+    const std::string& recordingKey)
+{
+    const std::string state =
+        operationState(recordingKey);
+
+    if (state == "starting" ||
+        state == "accepted" ||
+        state == "unknown" ||
+        state == "uncertain")
+    {
+        return "recording_cut_operation_pending_delete_blocked";
+    }
+
+    if (state == "identity_unavailable")
+        return "recording_identity_unavailable_delete_blocked";
+    if (state == "journal_unavailable")
+        return "recording_cut_journal_unavailable_delete_blocked";
+    if (state == "journal_invalid")
+        return "recording_cut_journal_invalid_delete_blocked";
+
+    return std::string();
 }
 
 RecordingCutDispatchResult EmbeddedRecordingCutRuntime::dispatch(
@@ -362,7 +498,11 @@ RecordingCutDispatchResult EmbeddedRecordingCutRuntime::dispatch(
         return failure(
             "recording_cut_rejected");
 
-    if (state == "accepted")
+    if (state == "failed")
+        return failure(
+            "recording_cut_not_running");
+
+    if (state == "accepted" || state == "verified")
     {
         const auto native =
             resolver_.resolve(
@@ -378,6 +518,35 @@ RecordingCutDispatchResult EmbeddedRecordingCutRuntime::dispatch(
             if (!persist())
                 return failure(
                     "recording_cut_journal_unavailable");
+        }
+        else if (state == "verified" &&
+                 daemonRecordingCutVerifiedResultWasRemoved(
+                     request.recordingKey,
+                     editedRecordingKey,
+                     native))
+        {
+            // A deliberately removed derived Recording is terminal history.
+        }
+        else if (state == "accepted" &&
+                 daemonRecordingCutAcceptedStartExpired(
+                     request.recordingKey,
+                     editedRecordingKey,
+                     payload.controlPlaneClaimedAt,
+                     currentUnixSeconds(),
+                     native))
+        {
+            state = "failed";
+            if (!persist())
+                return failure(
+                    "recording_cut_journal_unavailable");
+            return failure(
+                "recording_cut_not_running");
+        }
+        else if (state == "verified")
+        {
+            state = "accepted";
+            if (!persist())
+                return failure("recording_cut_journal_unavailable");
         }
     }
 

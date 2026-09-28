@@ -104,14 +104,14 @@
       heading.appendChild(copy);
       header.appendChild(heading);
 
-      const toolbar = document.createElement('div');
-      toolbar.className = 'recordings2-toolbar';
+      const toolbar = document.createElement('div'); toolbar.className = 'recordings2-toolbar';
       if (currentState.selectedRecording) {
         toolbar.appendChild(shared.createButton(
           currentState.detailReturnLabel || '← Zum Ordner',
           options.closeDetail,
           'recordings2-primary'
         ));
+        if (typeof options.goHome === 'function') toolbar.appendChild(shared.createButton(currentState.detailHomeLabel || '⌂ Home', options.goHome, 'recordings2-primary recordings2-home'));
       } else if (currentState.path) {
         toolbar.appendChild(shared.createButton(
           '← Zurück',

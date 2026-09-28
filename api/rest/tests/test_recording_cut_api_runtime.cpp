@@ -29,7 +29,25 @@ VdrRecording recording()
     VdrRecording value;
     value.id = "recording-1";
     value.backendId = "default";
+    value.title = "Original";
+    value.path = "Test/Original";
     value.backendNativeId = "/srv/vdr/video/Test/2026-09-06.12.00.00-0.rec";
+    return value;
+}
+
+VdrRecording editedRecording()
+{
+    VdrRecording value;
+    value.id = "recording-cut-1";
+    value.backendId = "default";
+    value.title = "Original (geschnitten)";
+    value.path = "Test/Original (geschnitten)";
+    value.backendNativeId =
+        "/srv/vdr/video/Test/%Original/2026-09-06.12.00.00-0.rec";
+    value.startTime = "1788696000";
+    value.durationSeconds = 1800;
+    value.recordingDurationKnown = true;
+    value.sizeMb = 1400;
     return value;
 }
 
@@ -45,7 +63,9 @@ VdrRecordingNativeCutState readyState()
     state.marksFilePresent = true;
     state.markCount = 4;
     state.sequenceCount = 2;
-    state.editedRecordingKey = "fedcba9876543210fedcba9876543210";
+    state.editedRecordingKey =
+        VdrRecordingNativeIdentity::keyForNativeId(
+            editedRecording().backendNativeId);
     return state;
 }
 
@@ -105,6 +125,11 @@ int main()
             result.requestFingerprint = "fp1:cut";
             result.reasonCode = "recording_cut_assigned";
             return result;
+        },
+        [](const std::string& backendId, const std::string& recordingKey) {
+            assert(backendId == "default");
+            assert(VdrRecordingNativeIdentity::isValidKey(recordingKey));
+            return std::string("accepted");
         });
     assert(configured);
     assert(runtime.configured());
@@ -120,6 +145,99 @@ int main()
     assert(response.body.find(
         "\"marksRevision\":\"0123456789abcdef0123456789abcdef\"") !=
         std::string::npos);
+    assert(response.body.find("\"editedRecording\":") == std::string::npos);
+    assert(response.body.find("\"operationState\":\"accepted\"") !=
+        std::string::npos);
+    assert(response.body.find("\"operationPending\":true") !=
+        std::string::npos);
+    assert(response.body.find("\"operationVerified\":false") !=
+        std::string::npos);
+
+    resolver.state = readyState();
+    resolver.state.ready = false;
+    resolver.state.reason = "edited-destination-exists";
+    resolver.state.editedDestinationExists = true;
+    resolver.state.editedRecordingFound = true;
+    runtime.reset();
+    assert(runtime.configure(
+        [](const std::string&) {
+            return std::vector<VdrRecording>{recording(), editedRecording()};
+        },
+        [&resolver](const std::string&) {
+            return RecordingCutBackendAccess{
+                RecordingCutBackendAvailability::Available, &resolver};
+        },
+        [](const std::string&) {
+            RecordingCutBackendWriteAccess access;
+            access.allowed = true;
+            access.statusCode = 200;
+            return access;
+        },
+        [](const RecordingCutStartRequest&) {
+            return RecordingCutDispatchResult{};
+        },
+        [](const std::string&, const std::string&) {
+            return std::string("verified");
+        }));
+    response = {};
+    assert(runtime.tryHandleGet(
+        "/api/vdr/recordings/cut?backend=default&recordingId=recording-1",
+        response));
+    assert(response.statusCode == 200);
+    assert(response.body.find("\"editedRecordingFound\":true") !=
+        std::string::npos);
+    assert(response.body.find("\"editedRecording\":{") != std::string::npos);
+    assert(response.body.find("\"recordingId\":\"recording-cut-1\"") !=
+        std::string::npos);
+    assert(response.body.find(
+        "\"title\":\"Original (geschnitten)\"") != std::string::npos);
+    assert(response.body.find("\"durationSeconds\":1800") !=
+        std::string::npos);
+    assert(response.body.find("\"operationState\":\"verified\"") !=
+        std::string::npos);
+    assert(response.body.find("\"operationPending\":false") !=
+        std::string::npos);
+    assert(response.body.find("\"operationVerified\":true") !=
+        std::string::npos);
+
+    runtime.reset();
+    resolver.state = readyState();
+    assert(runtime.configure(
+        [](const std::string& backendId) {
+            return backendId == "default"
+                ? std::vector<VdrRecording>{recording()}
+                : std::vector<VdrRecording>{};
+        },
+        [&resolver](const std::string& backendId) {
+            return backendId == "default"
+                ? RecordingCutBackendAccess{
+                    RecordingCutBackendAvailability::Available, &resolver}
+                : RecordingCutBackendAccess{
+                    RecordingCutBackendAvailability::BackendNotFound, nullptr};
+        },
+        [](const std::string& backendId) {
+            RecordingCutBackendWriteAccess access;
+            access.allowed = backendId == "default";
+            access.statusCode = access.allowed ? 200 : 404;
+            access.reasonCode = access.allowed
+                ? "recording_cut_backend_write_allowed"
+                : "backend_not_found";
+            return access;
+        },
+        [&dispatched](const RecordingCutStartRequest& request) {
+            dispatched.push_back(request);
+            RecordingCutDispatchResult result;
+            if (request.replayOnly)
+            {
+                result.reasonCode = "recording_cut_assignment_not_found";
+                return result;
+            }
+            result.accepted = true;
+            result.commandId = "cmd_cut_1";
+            result.requestFingerprint = "fp1:cut";
+            result.reasonCode = "recording_cut_assigned";
+            return result;
+        }));
 
     response = {};
     assert(runtime.tryHandlePost(

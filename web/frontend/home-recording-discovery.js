@@ -277,19 +277,24 @@
     candidate
   ) {
     const id = text(backendId) || 'default';
-
+    const externalNamespace =
+      text(candidate && candidate.externalNamespace) || 'tv';
     const externalId =
       text(candidate && candidate.externalId);
-
     const posterReference =
       text(candidate && candidate.posterReference);
 
-    if (!externalId || !posterReference) {
+    if (!externalId ||
+        !posterReference ||
+        (externalNamespace !== 'tv' &&
+         externalNamespace !== 'tv-season')) {
       return '';
     }
 
     return seriesCoverSettingsPath(id) +
-      '/candidate-image?externalId=' +
+      '/candidate-image?externalNamespace=' +
+      encodeURIComponent(externalNamespace) +
+      '&externalId=' +
       encodeURIComponent(externalId) +
       '&posterReference=' +
       encodeURIComponent(posterReference);
@@ -346,6 +351,61 @@
           candidate.providerId === 'tmdb' &&
           candidate.kind === 'series' &&
           text(candidate.externalNamespace) === 'tv' &&
+          text(candidate.externalId) &&
+          text(candidate.posterReference);
+      });
+    });
+  }
+
+  function loadSeriesCoverSeasons(
+    backendId,
+    seriesCandidate
+  ) {
+    const client = clientApi();
+    const id = text(backendId) || 'default';
+    const seriesExternalId =
+      text(seriesCandidate && seriesCandidate.externalId);
+
+    if (!client ||
+        typeof client.requestJson !== 'function') {
+      return Promise.reject(
+        new Error('Client API ist nicht verfügbar.')
+      );
+    }
+
+    if (text(seriesCandidate && seriesCandidate.providerId) !== 'tmdb' ||
+        text(seriesCandidate && seriesCandidate.externalNamespace) !== 'tv' ||
+        !seriesExternalId) {
+      return Promise.reject(
+        new Error('Dieser Serien-Treffer ist ungültig.')
+      );
+    }
+
+    const path =
+      '/api/backends/' +
+      encodeURIComponent(id) +
+      '/recordings/metadata/seasons';
+
+    return Promise.resolve(
+      client.requestJson(
+        path,
+        seriesCoverMutationOptions({
+          seriesExternalId: seriesExternalId,
+          limit: 20
+        })
+      )
+    ).then(function (result) {
+      return (
+        Array.isArray(result && result.candidates)
+          ? result.candidates
+          : []
+      ).filter(function (candidate) {
+        return candidate &&
+          candidate.providerId === 'tmdb' &&
+          candidate.kind === 'season' &&
+          text(candidate.externalNamespace) === 'tv-season' &&
+          text(candidate.parentExternalId) === seriesExternalId &&
+          Number(candidate.seasonNumber) > 0 &&
           text(candidate.externalId) &&
           text(candidate.posterReference);
       });
@@ -522,8 +582,12 @@
     };
 
     if (selected) {
+      const externalNamespace =
+        text(selected.externalNamespace);
+
       if (text(selected.providerId) !== 'tmdb' ||
-          text(selected.externalNamespace) !== 'tv' ||
+          (externalNamespace !== 'tv' &&
+           externalNamespace !== 'tv-season') ||
           !text(selected.externalId) ||
           !text(selected.posterReference)) {
         return Promise.reject(
@@ -534,7 +598,8 @@
       }
 
       payload.providerId = 'tmdb';
-      payload.externalNamespace = 'tv';
+      payload.externalNamespace =
+        externalNamespace;
       payload.externalId =
         text(selected.externalId);
       payload.posterReference =
@@ -2397,7 +2462,147 @@
 
     picker.appendChild(results);
 
-    function renderResults(candidates) {
+    function appendCandidate(
+      candidate,
+      label,
+      details,
+      action
+    ) {
+      const card =
+        doc.createElement('button');
+
+      card.type = 'button';
+      card.className =
+        'media-home-series-cover-search-result';
+
+      const image =
+        doc.createElement('img');
+
+      image.loading = 'lazy';
+      image.alt = '';
+      image.src =
+        seriesCoverCandidateImageUrl(
+          backendId,
+          candidate
+        );
+
+      card.appendChild(image);
+
+      const copy =
+        doc.createElement('span');
+
+      const candidateTitle =
+        doc.createElement('strong');
+
+      candidateTitle.textContent =
+        text(label) ||
+        text(candidate && candidate.title) ||
+        'Ohne Titel';
+
+      copy.appendChild(
+        candidateTitle
+      );
+
+      if (text(details)) {
+        const small =
+          doc.createElement('small');
+
+        small.textContent =
+          text(details);
+
+        copy.appendChild(small);
+      }
+
+      card.appendChild(copy);
+
+      card.addEventListener(
+        'click',
+        function () {
+          action(card);
+        }
+      );
+
+      results.appendChild(card);
+    }
+
+    function saveCandidate(
+      candidate,
+      card
+    ) {
+      card.disabled = true;
+
+      status.textContent =
+        text(candidate.externalNamespace) === 'tv-season'
+          ? 'Staffelcover wird gespeichert …'
+          : 'Seriencover wird gespeichert …';
+
+      updateSeriesCoverOverride(
+        view.series,
+        backendId,
+        candidate
+      ).then(function () {
+        picker.hidden = true;
+      }).catch(function (error) {
+        card.disabled = false;
+
+        status.textContent =
+          error && error.message
+            ? error.message
+            : 'Seriencover konnte nicht gespeichert werden.';
+      });
+    }
+
+    function renderCoverChoices(
+      seriesCandidate,
+      seasons
+    ) {
+      results.replaceChildren();
+
+      status.textContent =
+        seasons.length
+          ? 'Serienposter oder Staffelcover auswählen'
+          : 'Serienposter auswählen';
+
+      appendCandidate(
+        seriesCandidate,
+        'Serienposter',
+        [
+          text(seriesCandidate.title),
+          text(seriesCandidate.releaseDate).slice(0, 4)
+        ].filter(Boolean).join(' · '),
+        function (card) {
+          saveCandidate(
+            seriesCandidate,
+            card
+          );
+        }
+      );
+
+      seasons.forEach(function (candidate) {
+        const number =
+          Number(candidate.seasonNumber);
+
+        appendCandidate(
+          candidate,
+          'Staffel ' + String(number),
+          [
+            text(candidate.title) !==
+              'Staffel ' + String(number)
+              ? text(candidate.title)
+              : '',
+            text(candidate.releaseDate).slice(0, 4)
+          ].filter(Boolean).join(' · '),
+          function (card) {
+            saveCandidate(
+              candidate,
+              card
+            );
+          }
+        );
+      });
+    }
+
+    function renderSeriesResults(candidates) {
       results.replaceChildren();
 
       if (!candidates.length) {
@@ -2408,44 +2613,10 @@
 
       status.textContent =
         String(candidates.length) +
-        ' Treffer';
+        ' Serien-Treffer – Serie auswählen';
 
       candidates.forEach(
         function (candidate) {
-          const card =
-            doc.createElement('button');
-
-          card.type = 'button';
-          card.className =
-            'media-home-series-cover-search-result';
-
-          const image =
-            doc.createElement('img');
-
-          image.loading = 'lazy';
-          image.alt = '';
-          image.src =
-            seriesCoverCandidateImageUrl(
-              backendId,
-              candidate
-            );
-
-          card.appendChild(image);
-
-          const copy =
-            doc.createElement('span');
-
-          const candidateTitle =
-            doc.createElement('strong');
-
-          candidateTitle.textContent =
-            text(candidate.title) ||
-            'Ohne Titel';
-
-          copy.appendChild(
-            candidateTitle
-          );
-
           const details = [
             text(candidate.releaseDate)
               .slice(0, 4),
@@ -2456,44 +2627,69 @@
               : ''
           ].filter(Boolean).join(' · ');
 
-          if (details) {
-            const small =
-              doc.createElement('small');
-
-            small.textContent = details;
-            copy.appendChild(small);
-          }
-
-          card.appendChild(copy);
-
-          card.addEventListener(
-            'click',
-            function () {
+          appendCandidate(
+            candidate,
+            text(candidate.title) ||
+              'Ohne Titel',
+            details,
+            function (card) {
               card.disabled = true;
 
               status.textContent =
-                'Seriencover wird gespeichert …';
+                'Staffelcover werden geladen …';
 
-              updateSeriesCoverOverride(
-                view.series,
+              loadSeriesCoverSeasons(
                 backendId,
                 candidate
-              ).then(function () {
-                picker.hidden = true;
-              }).catch(function (error) {
-                card.disabled = false;
-
+              ).then(function (seasons) {
+                renderCoverChoices(
+                  candidate,
+                  seasons
+                );
+              }).catch(function () {
+                renderCoverChoices(
+                  candidate,
+                  []
+                );
                 status.textContent =
-                  error && error.message
-                    ? error.message
-                    : 'Seriencover konnte nicht gespeichert werden.';
+                  'Staffelcover konnten nicht geladen werden; das Serienposter bleibt auswählbar.';
               });
             }
           );
-
-          results.appendChild(card);
         }
       );
+
+      const exactQuery =
+        text(input.value).trim().toLocaleLowerCase('de-DE');
+
+      const exactCandidate =
+        candidates.find(function (candidate) {
+          return text(candidate && candidate.title)
+            .trim()
+            .toLocaleLowerCase('de-DE') === exactQuery;
+        });
+
+      if (exactCandidate) {
+        status.textContent =
+          'Exakte Serie gefunden – Staffelcover werden geladen …';
+
+        loadSeriesCoverSeasons(
+          backendId,
+          exactCandidate
+        ).then(function (seasons) {
+          renderCoverChoices(
+            exactCandidate,
+            seasons
+          );
+        }).catch(function () {
+          renderCoverChoices(
+            exactCandidate,
+            []
+          );
+          status.textContent =
+            'Staffelcover konnten nicht geladen werden; das Serienposter bleibt auswählbar.';
+        });
+      }
     }
 
     function runSearch() {
@@ -2512,7 +2708,7 @@
         query
       ).then(function (candidates) {
         searchButton.disabled = false;
-        renderResults(candidates);
+        renderSeriesResults(candidates);
       }).catch(function (error) {
         searchButton.disabled = false;
 
@@ -4503,7 +4699,7 @@
           invalidateSeriesForHomeExit(state.generation);
           return;
         }
-        if (target.closest('[data-brand-module="overview"], .module-tab[data-module="overview"], #backends')) {
+        if (target.closest('#backends')) {
           global.setTimeout(scheduleForHome, 0);
         }
       });
@@ -4541,6 +4737,7 @@
       seriesCoverPosterUrl: seriesCoverPosterUrl,
       seriesCoverCandidateImageUrl: seriesCoverCandidateImageUrl,
       searchSeriesCoverCandidates: searchSeriesCoverCandidates,
+      loadSeriesCoverSeasons: loadSeriesCoverSeasons,
       applySeriesProjection: applySeriesProjection,
       fetchAllSeriesRecordings: fetchAllSeriesRecordings,
       fetchBoundedRandomGenreRecordings: fetchBoundedRandomGenreRecordings,

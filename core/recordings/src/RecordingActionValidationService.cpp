@@ -84,6 +84,17 @@ RecordingActionValidationResult RecordingActionValidationService::validate(
         result.errors.push_back("newName is required for rename");
     }
 
+    if (result.errors.empty() && requestGuard_)
+    {
+        const std::string runtimeBlocker =
+            requestGuard_(request);
+
+        if (!runtimeBlocker.empty())
+        {
+            result.errors.push_back(runtimeBlocker);
+        }
+    }
+
     if (request.dryRun)
     {
         result.warnings.push_back("dry-run only");

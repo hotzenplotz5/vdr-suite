@@ -66,6 +66,7 @@ SQLITE_ALLOWED_CONTRACT_TESTS = {
     "core/daemon/tests/test_daemon_sqlite_shutdown_cancellation.cpp",
     "core/daemon/tests/test_series_artwork_backend_settings_service.cpp",
     "core/metadata/tests/test_genre_epg_refresh_fast_path.cpp",
+    "core/metadata/tests/test_genre_index_repository.cpp",
     "core/metadata/tests/test_genre_recording_sync_noop.cpp",
     "core/metadata/tests/test_genre_write_batching.cpp",
     "core/metadata/tests/test_manual_recording_metadata_assignment_repository.cpp",

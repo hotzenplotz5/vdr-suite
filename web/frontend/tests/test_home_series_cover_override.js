@@ -36,7 +36,8 @@ function functionBody(name, nextName) {
 assert(source.includes("'Cover ändern'"));
 assert(source.includes("'set-series-cover-tmdb'"));
 assert(source.includes("/recordings/metadata/search"));
-assert(source.includes("/candidate-image?externalId="));
+assert(source.includes("/candidate-image?externalNamespace="));
+assert(source.includes("/recordings/metadata/seasons"));
 assert(
   !source.includes('function seriesCoverCandidates('),
   'Series cover picker must never derive candidates from episode artwork'
@@ -268,6 +269,30 @@ assert(
   ),
   'Cover ändern must use TMDB Series search'
 );
+assert(
+  pickerBody.includes(
+    'loadSeriesCoverSeasons'
+  ),
+  'Cover ändern must expose TMDB season posters after selecting a Series'
+);
+assert(
+  pickerBody.includes(
+    'Exakte Serie gefunden – Staffelcover werden geladen …'
+  ),
+  'an exact Series title search must auto-expand to Staffel covers'
+);
+assert(
+  pickerBody.includes(
+    '.toLocaleLowerCase(\'de-DE\') === exactQuery'
+  ),
+  'exact Series auto-expand must compare normalized titles'
+);
+assert(
+  pickerBody.includes(
+    "'Staffel ' + String(number)"
+  ),
+  'season cover choices must identify their Staffel explicitly'
+);
 
 assert(
   !pickerBody.includes(
@@ -287,13 +312,18 @@ assert.strictEqual(
   typeof api.seriesCoverCandidateImageUrl,
   'function'
 );
+assert.strictEqual(
+  typeof api.loadSeriesCoverSeasons,
+  'function'
+);
 
 const previewUrl =
   api.seriesCoverCandidateImageUrl(
     'default',
     {
-      externalId: '1396',
-      posterReference: '/series.jpg'
+      externalNamespace: 'tv-season',
+      externalId: '3624',
+      posterReference: '/season2.jpg'
     }
   );
 
@@ -305,13 +335,18 @@ assert(
 
 assert(
   previewUrl.includes(
-    'externalId=1396'
+    'externalNamespace=tv-season'
+  )
+);
+assert(
+  previewUrl.includes(
+    'externalId=3624'
   )
 );
 
 assert(
   previewUrl.includes(
-    'posterReference=%2Fseries.jpg'
+    'posterReference=%2Fseason2.jpg'
   )
 );
 
@@ -538,5 +573,52 @@ assert.strictEqual(
 console.log(
   'TMDB persisted Series cover image URL allowlist ok'
 );
+
+context.VdrSuiteClientApi = {
+  requestJson(path, options) {
+    assert(path.endsWith('/recordings/metadata/seasons'));
+    const body = JSON.parse(options.body);
+    assert.strictEqual(body.seriesExternalId, '1399');
+    assert.strictEqual(body.limit, 20);
+    return Promise.resolve({
+      candidates: [
+        {
+          providerId: 'tmdb',
+          kind: 'season',
+          externalNamespace: 'tv-season',
+          externalId: '3624',
+          parentExternalId: '1399',
+          seasonNumber: 2,
+          title: 'Season 2',
+          posterReference: '/season2.jpg'
+        },
+        {
+          providerId: 'tmdb',
+          kind: 'season',
+          externalNamespace: 'tv-season',
+          externalId: 'bad-special',
+          parentExternalId: '1399',
+          seasonNumber: 0,
+          title: 'Specials',
+          posterReference: '/specials.jpg'
+        }
+      ]
+    });
+  }
+};
+
+api.loadSeriesCoverSeasons('default', {
+  providerId: 'tmdb',
+  externalNamespace: 'tv',
+  externalId: '1399'
+}).then(function (seasons) {
+  assert.strictEqual(seasons.length, 1);
+  assert.strictEqual(seasons[0].seasonNumber, 2);
+  assert.strictEqual(seasons[0].externalNamespace, 'tv-season');
+  console.log('home TMDB Series -> Staffel cover discovery ok');
+}).catch(function (error) {
+  console.error(error);
+  process.exitCode = 1;
+});
 
 console.log('home Series cover override and hierarchy invariance ok');

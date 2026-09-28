@@ -127,6 +127,44 @@ static void test_update_recordings_updates_only_recordings_domain()
     assert(service.cache().snapshot().recordings[0].id == "recording-1");
 }
 
+static void test_remove_recording_for_backend_is_targeted()
+{
+    SnapshotCache cache;
+    SnapshotCacheService service(cache);
+
+    VdrSnapshot snapshot;
+    snapshot.backendId = "home-vdr";
+
+    VdrRecording keep;
+    keep.id = "recording-keep";
+    keep.backendNativeId = "/srv/vdr/video/keep.rec";
+
+    VdrRecording remove;
+    remove.id = "recording-remove";
+    remove.backendNativeId = "/srv/vdr/video/remove.rec";
+
+    snapshot.recordings = {keep, remove};
+    service.updateSnapshotForBackend("home-vdr", snapshot);
+    const int generationBeforeRemove = service.generation();
+
+    service.removeRecordingForBackend(
+        "home-vdr",
+        remove.backendNativeId);
+
+    const VdrSnapshot* updated =
+        service.cache().snapshotForBackend("home-vdr");
+
+    assert(updated != nullptr);
+    assert(updated->recordings.size() == 1);
+    assert(updated->recordings.front().backendNativeId == keep.backendNativeId);
+    assert(service.generation() == generationBeforeRemove + 1);
+
+    service.removeRecordingForBackend(
+        "home-vdr",
+        "/srv/vdr/video/missing.rec");
+    assert(service.generation() == generationBeforeRemove + 1);
+}
+
 static void test_update_timers_updates_only_timers_domain()
 {
     SnapshotCache cache;
@@ -325,6 +363,7 @@ int main()
     test_service_exposes_backend_identity();
     test_update_status_updates_only_status_domain();
     test_update_recordings_updates_only_recordings_domain();
+    test_remove_recording_for_backend_is_targeted();
     test_update_timers_updates_only_timers_domain();
     test_update_channels_updates_only_channels_domain();
     test_update_events_updates_only_events_domain();

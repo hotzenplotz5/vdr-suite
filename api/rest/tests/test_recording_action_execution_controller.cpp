@@ -363,5 +363,21 @@ int main()
     assert(queuedRefreshResponse.body.find("\"snapshotRefreshed\":false") != std::string::npos);
     assert(queuedRefreshCount.load() == 1);
 
+    const std::string dryRunBody =
+        "{"
+        "\"backendId\":\"living-room\","
+        "\"recordingId\":\"recording-3\","
+        "\"action\":\"DELETE\","
+        "\"dryRun\":true"
+        "}";
+
+    const ApiResponse dryRunResponse =
+        queuedRefreshController.executeBody(dryRunBody);
+
+    assert(dryRunResponse.statusCode == 200);
+    assert(dryRunResponse.body.find("\"success\":true") != std::string::npos);
+    assert(dryRunResponse.body.find("\"snapshotRefreshed\":false") != std::string::npos);
+    assert(queuedRefreshCount.load() == 1);
+
     return 0;
 }

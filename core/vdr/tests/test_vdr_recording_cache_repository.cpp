@@ -202,6 +202,57 @@ static void test_recording_cache_repository_replace_removes_stale_recordings()
     assert(cached.at(0).sizeMb == 4100);
 }
 
+static void test_recording_cache_repository_removes_one_native_recording()
+{
+    std::remove("/tmp/test_vdr_recording_cache_repository_remove.db");
+
+    Database database;
+    assert(database.open("/tmp/test_vdr_recording_cache_repository_remove.db"));
+
+    VdrRecordingCacheRepository repository(database);
+
+    const VdrRecording keep = makeRecording(
+        "1",
+        "/srv/vdr/video/Movies/Keep/2026-07-01.18.00.1-0.rec",
+        "Keep",
+        "/Movies/Keep/2026-07-01.18.00.1-0.rec",
+        "1782928800",
+        7200,
+        8192);
+    const VdrRecording remove = makeRecording(
+        "2",
+        "/srv/vdr/video/Movies/Remove/2026-07-01.20.15.1-0.rec",
+        "Remove",
+        "/Movies/Remove/2026-07-01.20.15.1-0.rec",
+        "1782936900",
+        3600,
+        4096);
+
+    assert(repository.replaceRecordingsForBackend(
+        "home-vdr",
+        {keep, remove}));
+    assert(repository.warmBrowseSnapshotForBackend("home-vdr"));
+
+    assert(repository.removeByBackendNativeId(
+        "home-vdr",
+        remove.backendNativeId));
+    assert(repository.countForBackend("home-vdr") == 1);
+
+    VdrRecording found;
+    assert(!repository.findByBackendNativeId(
+        "home-vdr",
+        remove.backendNativeId,
+        found));
+    assert(repository.findByBackendNativeId(
+        "home-vdr",
+        keep.backendNativeId,
+        found));
+
+    const VdrRecordingFolderPage root =
+        repository.folderPageForBackend("home-vdr", "", 50, 0);
+    assert(root.totalCount == 1);
+}
+
 static void test_recording_cache_repository_normalizes_empty_backend()
 {
     std::remove("/tmp/test_vdr_recording_cache_repository_default.db");
@@ -240,6 +291,7 @@ int main()
     test_recording_cache_repository_migrates_duration_authority();
     test_recording_cache_repository_upserts_and_reads_recordings();
     test_recording_cache_repository_replace_removes_stale_recordings();
+    test_recording_cache_repository_removes_one_native_recording();
     test_recording_cache_repository_normalizes_empty_backend();
 
     std::cout

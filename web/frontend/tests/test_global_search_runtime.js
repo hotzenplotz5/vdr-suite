@@ -30,13 +30,21 @@ const document = {
   createElement: function () { throw new Error('DOM creation is not expected in this contract test'); }
 };
 
+const selectedModules = [];
+const scrollCalls = [];
 const window = {
   AbortController,
   Promise,
   Date,
   Intl,
   setTimeout,
-  clearTimeout
+  clearTimeout,
+  selectModule(moduleName) {
+    selectedModules.push(moduleName);
+  },
+  scrollTo(options) {
+    scrollCalls.push(options);
+  }
 };
 window.window = window;
 
@@ -56,6 +64,15 @@ const testApi = window.VdrSuiteGlobalSearch.__test;
 assert.strictEqual(testApi.minimumQueryLength, 2);
 assert.strictEqual(testApi.debounceMs, 280);
 assert.strictEqual(testApi.requestTimeoutMs, 12000);
+assert(source.includes("homeLabel: '⌂ Home'"));
+assert(source.includes('focusNavigation: true'));
+assert(source.includes('onHome: returnHome'));
+testApi.returnHome();
+assert.deepStrictEqual(selectedModules, ['overview']);
+assert.strictEqual(scrollCalls.length, 1);
+assert.strictEqual(scrollCalls[0].top, 0);
+assert.strictEqual(scrollCalls[0].left, 0);
+assert.strictEqual(scrollCalls[0].behavior, 'auto');
 
 (async function run() {
   const first = deferred();

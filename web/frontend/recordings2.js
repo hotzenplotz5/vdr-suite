@@ -21,8 +21,8 @@
     serverRecordingCount: 0,
     serverSignature: '',
     selectedRecording: null,
-    detailReturn: null,
-    detailReturnLabel: '',
+    detailReturn: null, detailHome: null,
+    detailReturnLabel: '', detailHomeLabel: '',
     loading: false,
     loadingMore: false,
     error: null,
@@ -102,7 +102,7 @@
     if (!append) state.promotedRecordings = [];
     updatePresentedFolderState();
   }
-  function clearExternalDetailReturn() { state.detailReturn = null; state.detailReturnLabel = ''; }
+  function clearExternalDetailReturn() { state.detailReturn = null; state.detailReturnLabel = ''; state.detailHome = null; state.detailHomeLabel = ''; }
   function loadFolder(path) {
     stopFolderRefresh();
     state.active = true;
@@ -167,21 +167,9 @@
     render();
     scheduleFolderRefresh();
   }
-  function closeDetail() {
-    const detailReturn = state.detailReturn;
-    if (view && typeof view.destroy === 'function') view.destroy();
-    state.requestSequence += 1;
-    state.selectedRecording = null;
-    clearExternalDetailReturn();
-    if (typeof detailReturn === 'function') {
-      stopFolderRefresh();
-      state.active = false;
-      detailReturn();
-      return;
-    }
-    render();
-    scheduleFolderRefresh(0);
-  }
+  function leaveExternalDetail(callback) { if (view && typeof view.destroy === 'function') view.destroy(); state.requestSequence += 1; state.selectedRecording = null; clearExternalDetailReturn(); if (typeof callback !== 'function') return false; stopFolderRefresh(); state.active = false; callback(); return true; }
+  function closeDetail() { const detailReturn = state.detailReturn; if (leaveExternalDetail(detailReturn)) return; render(); scheduleFolderRefresh(0); }
+  function goHomeDetail() { const detailHome = state.detailHome; if (leaveExternalDetail(detailHome)) return; leaveExternalDetail(function () { if (typeof global.selectModule === 'function') global.selectModule('overview'); if (typeof global.scrollTo === 'function') global.scrollTo({top: 0, left: 0, behavior: 'auto'}); }); }
   function reload() {
     if (state.selectedRecording && state.detailReturn) {
       render();
@@ -192,11 +180,9 @@
   }
   view = browserView.create({
     getState: function () { return state; },
-    openFolder: loadFolder,
-    loadMore: loadMore,
-    selectRecording: selectRecording,
-    closeDetail: closeDetail,
-    reload: reload, completeDelete: function (recording) { forgetRecording(recording); closeDetail(); }
+    openFolder: loadFolder, loadMore: loadMore, selectRecording: selectRecording,
+    closeDetail: closeDetail, goHome: goHomeDetail, reload: reload,
+    completeDelete: function (recording) { forgetRecording(recording); if (typeof state.detailHome === 'function') return goHomeDetail(); closeDetail(); }
   });
   const moduleApi = Object.freeze({
     activate: function () {
@@ -240,7 +226,9 @@
       state.selectedRecording = normalizeRecording(recording);
       state.detailReturn = typeof config.onClose === 'function' ? config.onClose : null;
       state.detailReturnLabel = config.backLabel || '← Zurück zum Genre';
+      state.detailHome = typeof config.onHome === 'function' ? config.onHome : null; state.detailHomeLabel = config.homeLabel || '⌂ Home';
       render();
+      if (config.focusNavigation === true && typeof global.setTimeout === 'function') global.setTimeout(function () { const target = shared.mountTarget(); const control = target && typeof target.querySelector === 'function' ? target.querySelector('.recordings2-toolbar button') : null; if (control && typeof control.focus === 'function') control.focus({preventScroll: true}); }, 0);
       scheduleFolderRefresh();
     },
     refreshDetailAddon: function () { if (!state.active || !state.selectedRecording) return; const metadataDetail = global.VdrSuiteRecordings2MetadataDetail; const target = shared.mountTarget(); const root = target && typeof target.querySelector === 'function' ? target.querySelector('.recordings2-detail') : null; if (metadataDetail && typeof metadataDetail.enhance === 'function' && root && root.dataset && root.dataset.recordings2MetadataDetail !== 'true') { metadataDetail.enhance(root, state.selectedRecording, state.backendId); return; } render(); },

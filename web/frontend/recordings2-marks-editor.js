@@ -12,6 +12,7 @@
 .recordings2-marks-editor-list{display:flex;flex-wrap:wrap;gap:.35rem;width:100%;min-width:0}.recordings2-marks-editor-row{display:grid;grid-template-columns:minmax(7rem,auto) minmax(0,1fr);gap:.35rem .75rem;align-items:center;padding:.25rem .4rem;border:1px solid rgba(148,163,184,.28);border-radius:.65rem;background:rgba(15,23,42,.48)}.recordings2-marks-editor-row.selected{border-color:#60a5fa;background:rgba(30,64,175,.2)}
 .recordings2-marks-editor-row>span{color:#cbd5e1;font-size:.8rem;line-height:1.35}.recordings2-marks-editor-mark{min-width:7rem;text-align:left;font-weight:800}.recordings2-marks-editor-confirmation{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}.recordings2-marks-editor-confirmation:empty{display:none}
 .recordings2-marks-editor-status{min-height:1.35rem;margin:0;padding:.2rem .4rem;border:1px solid rgba(148,163,184,.2);border-radius:.62rem;background:rgba(30,41,59,.55);color:#cbd5e1;font-size:.8rem;line-height:1.4}.recordings2-marks-editor-status:empty{display:none}.recordings2-marks-editor-status.error{border-color:rgba(248,113,113,.5);color:#fecaca}.recordings2-marks-editor-status.success{border-color:rgba(34,197,94,.45);color:#bbf7d0}.recordings2-marks-editor-status.pending{border-color:rgba(56,189,248,.45);color:#bae6fd}
+.recordings2-cut-state{align-self:start;position:sticky;top:5rem;z-index:10;display:grid;gap:.45rem;padding:.65rem;border:1px solid rgba(56,189,248,.42);border-radius:.72rem;background:#082f49}.recordings2-cut-state:empty{display:none}.recordings2-cut-state strong{color:#e0f2fe}.recordings2-cut-state p{margin:0;color:#bae6fd;font-size:.8rem;line-height:1.4}.recordings2-cut-progress{width:100%;height:.7rem;accent-color:#38bdf8}.recordings2-cut-variant{border-color:rgba(34,197,94,.42);background:#052e16}.recordings2-cut-variant p{color:#bbf7d0}.recordings2-cut-state-actions{display:flex;flex-wrap:wrap;gap:.45rem}
 @media(max-width:720px){.recordings2-marks-editor-group{display:grid;grid-template-columns:1fr 1fr}.recordings2-marks-editor-group button{width:100%}.recordings2-marks-editor-row{grid-template-columns:1fr}.recordings2-marks-editor-mark{width:100%}}
 `; global.document.head.appendChild(style);
   }
@@ -23,21 +24,23 @@
     if (/in_use/.test(code)) return 'Die Aufnahme wird gerade verwendet. Bearbeiten ist derzeit gesperrt.';
     if (/permission|forbidden|read.only|denied|Authentication|CSRF/.test(code)) return 'Keine Schreibberechtigung oder Anmeldung abgelaufen. Bitte Anmeldung und Backend-Zugriff prüfen.';
     if (/destination|result.*exist/.test(code)) return 'Eine geschnittene Ausgabe existiert bereits.';
+    if (/recording_cut_not_running|recording_cut_rejected/.test(code)) return 'Der native Schnittauftrag läuft nicht mehr; es wurde keine Schnittfassung bestätigt.';
     if (/active_agent_lease_required|capability|unavailable/.test(code)) return 'Die native Bearbeitung ist derzeit nicht verfügbar.';
     if (/native_readback_invalid|operation_response_invalid/.test(code)) return 'Die Backend-Antwort konnte nicht sicher bestätigt werden. Bitte den aktuellen VDR-Stand neu laden.';
     return 'Änderung noch nicht bestätigt. Derselbe Auftrag wird weiter geprüft; bitte keine neue Änderung starten.';
   }
   function attach(root, panel, recording, backendId, initial, options) {
     if (root.__vdrSuiteMarksEditor) return root.__vdrSuiteMarksEditor;
+    recording = Object.freeze(Object.assign({}, recording));
     installStyles();
     panel.editor = true; options.renderPayload(panel, initial);
     const identity = {backendId: String(backendId), recordingId: String(recording.recordingId || recording.id)};
-    const controls = node('div'), positionHint = node('p', ''), selectionHint = node('p', ''), actions = node('div'), confirmation = node('div'), status = node('p', '');
+    const controls = node('div'), positionHint = node('p', ''), selectionHint = node('p', ''), actions = node('div'), confirmation = node('div'), cutStateView = node('div'), status = node('p', '');
     controls.className = 'recordings2-marks-editor'; positionHint.className = 'recordings2-marks-editor-hint'; selectionHint.className = 'recordings2-marks-editor-selection';
-    actions.className = 'recordings2-marks-editor-actions'; confirmation.className = 'recordings2-marks-editor-confirmation'; status.className = 'recordings2-marks-editor-status';
-    confirmation.setAttribute('role', 'group'); confirmation.setAttribute('aria-label', 'Schnitt bestätigen'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
-    panel.section.appendChild(controls); controls.appendChild(positionHint); controls.appendChild(selectionHint); controls.appendChild(actions); controls.appendChild(confirmation); controls.appendChild(status);
-    let payload = initial, busy = false, pending = null, selectedFrame = null, destroyed = false, unsubscribe = null, owner = null, lifecycleKey = '', verificationTimer = null, verificationAttempts = 0, externalRefreshPending = false;
+    actions.className = 'recordings2-marks-editor-actions'; confirmation.className = 'recordings2-marks-editor-confirmation'; cutStateView.className = 'recordings2-cut-state'; status.className = 'recordings2-marks-editor-status';
+    confirmation.setAttribute('role', 'group'); confirmation.setAttribute('aria-label', 'Schnitt bestätigen'); cutStateView.setAttribute('role', 'status'); cutStateView.setAttribute('aria-live', 'polite'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
+    root.insertBefore(cutStateView, root.firstChild); panel.section.appendChild(controls); controls.appendChild(positionHint); controls.appendChild(selectionHint); controls.appendChild(status); controls.appendChild(actions); controls.appendChild(confirmation);
+    let payload = initial, busy = false, pending = null, cutState = null, selectedFrame = null, destroyed = false, unsubscribe = null, owner = null, lifecycleKey = '', verificationTimer = null, cutStateTimer = null, verificationAttempts = 0, externalRefreshPending = false;
     function setStatus(type, text) { status.className = 'recordings2-marks-editor-status' + (type ? ' ' + type : ''); status.textContent = String(text || ''); }
     function request(path, body) {
       const api = global.VdrSuiteClientApi; if (!api || typeof api.requestJson !== 'function') return Promise.reject(new Error('client_unavailable'));
@@ -54,6 +57,22 @@
       value.addEventListener('click', function () { if (!value.disabled && !destroyed) action(); }); (parent || actions).appendChild(value); return value;
     }
     function group(label, className) { const value = node('div'); value.className = 'recordings2-marks-editor-group ' + className; value.setAttribute('role', 'group'); value.setAttribute('aria-label', label); actions.appendChild(value); return value; }
+    function cutPending() { return Boolean(pending && pending.path && pending.path.endsWith('/cut')); }
+    function clearCutStateTimer() { if (cutStateTimer !== null && typeof global.clearTimeout === 'function') global.clearTimeout(cutStateTimer); cutStateTimer = null; }
+    function nativeCutRunning() { return Boolean(cutState && (cutState.operationPending === true || cutState.operationVerified === true) && Number(cutState.handlerUsage) > 0); }
+    function cutStateActive() { return Boolean(cutPending() || nativeCutRunning() || (cutState && (cutState.operationPending === true || (cutState.operationVerified === true && cutState.editedRecordingFound === true && !cutState.editedRecording)))); }
+    function renderCutState() {
+      cutStateView.replaceChildren(); cutStateView.className = 'recordings2-cut-state'; const verifiedVariant = Boolean(cutState && cutState.operationVerified === true && cutState.editedRecordingFound === true && !nativeCutRunning()), running = Boolean(nativeCutRunning() || cutPending() || (cutState && cutState.operationPending === true)); if (!verifiedVariant && !running) return;
+      if (verifiedVariant) {
+        cutStateView.classList.add('recordings2-cut-variant'); cutStateView.appendChild(node('strong', 'Schnittfassung')); cutStateView.appendChild(node('p', cutState.editedRecording ? 'Die geschnittene Fassung wurde von VDR bestätigt. Das Original bleibt erhalten.' : 'Die geschnittene Fassung wurde von VDR bestätigt und wird in der Aufnahmeliste aufgelöst.'));
+        if (cutState.editedRecording) { const controls = node('div'); controls.className = 'recordings2-cut-state-actions'; button('Schnittfassung öffnen', function () { const owner = global.VdrSuiteRecordings2; if (owner && typeof owner.openRecording === 'function') owner.openRecording(cutState.editedRecording, {backendId: identity.backendId, backLabel: '← Zurück zur Originalfassung', onClose: function () { owner.openRecording(recording, {backendId: identity.backendId}); }}); }, false, controls, 'primary'); cutStateView.appendChild(controls); }
+        return;
+      }
+      cutStateView.appendChild(node('strong', 'Schnitt läuft …')); const progress = node('progress'); progress.className = 'recordings2-cut-progress'; progress.setAttribute('aria-label', 'Nativer VDR-Schnitt läuft'); cutStateView.appendChild(progress); cutStateView.appendChild(node('p', 'Der gestartete Schnitt für genau diese Aufnahme ist noch nicht verifiziert abgeschlossen. Der native Cutter liefert keinen verlässlichen Prozentwert.'));
+    }
+    function scheduleCutStatePoll() { clearCutStateTimer(); if (destroyed || !cutStateActive() || typeof global.setTimeout !== 'function') return; cutStateTimer = global.setTimeout(function () { cutStateTimer = null; syncCutState().catch(function () { if (!destroyed) scheduleCutStatePoll(); }); }, 1500); }
+    function syncCutState() { return request('/api/vdr/recordings/cut').then(function (next) { if (destroyed) return null; if (!next || next.availability !== 'available' || next.backendId !== identity.backendId || String(next.recordingId) !== identity.recordingId) throw new Error('recording_cut_state_invalid'); if (next.operationState === 'failed' && cutPending()) { pending = null; clearVerificationTimer(); verificationAttempts = 0; setStatus('error', 'Der native Schnittauftrag läuft nicht mehr; es wurde keine Schnittfassung bestätigt.'); } cutState = next; renderCutState(); scheduleCutStatePoll(); return next; }); }
+    function syncOperationState(operation) { if (!operation || !operation.path || !operation.path.endsWith('/cut')) return syncCanonical(operation); return syncCanonical(operation).then(function (next) { syncCutState().catch(function () {}); return next; }); }
     function frame(value) { const number = Number(value); return String(value).trim() && Number.isSafeInteger(number) && number >= 0 && number <= 2147483647 ? number : null; }
     function editable() { return !busy && !pending && payload && payload.availability === 'available' && payload.inUse === false; }
     function playback() { return root.__vdrSuiteRecordingPlaybackOwner; }
@@ -117,10 +136,11 @@
     function clearVerificationTimer() { if (verificationTimer !== null && typeof global.clearTimeout === 'function') global.clearTimeout(verificationTimer); verificationTimer = null; }
     function scheduleVerification() {
       if (!pending || destroyed || verificationTimer !== null) return;
-      if (typeof global.setTimeout !== 'function') return;
-      verificationTimer = global.setTimeout(function () { verificationTimer = null; check(true); }, verificationAttempts < VERIFY_ATTEMPTS ? VERIFY_DELAY_MS : 5000);
+      if ((cutPending() && verificationAttempts >= VERIFY_ATTEMPTS) || typeof global.setTimeout !== 'function') return;
+      const delay = cutPending() ? VERIFY_DELAY_MS : (verificationAttempts < VERIFY_ATTEMPTS ? VERIFY_DELAY_MS : 5000);
+      verificationTimer = global.setTimeout(function () { verificationTimer = null; check(true); }, delay);
     }
-    function definitiveFailure(error) { return /active_agent_lease_required|capability_unavailable|assignment_not_found|assignment_conflict|backend_write_unavailable|recording_marks_modify_rejected|revision_conflict|recording_in_use|permission|forbidden|read.only|denied|Authentication|CSRF/.test(String(error && error.message || error || '')); }
+    function definitiveFailure(error) { return /recording_cut_not_running|recording_cut_rejected|active_agent_lease_required|capability_unavailable|assignment_not_found|assignment_conflict|backend_write_unavailable|recording_marks_modify_rejected|revision_conflict|recording_in_use|permission|forbidden|read.only|denied|Authentication|CSRF/.test(String(error && error.message || error || '')); }
     function submit(path, fields) {
       if (!editable()) return;
       try { pending = {path: path, body: Object.assign({}, identity, {operationId: token(), operationRevision: '1', expectedMarksRevision: payload.marksRevision}, fields || {})}; }
@@ -134,14 +154,17 @@
         if (destroyed || pending !== operation) return null;
         if (!result || result.operationId !== operation.body.operationId || result.accepted !== true) throw new Error('operation_response_invalid');
         if (result.verification !== 'verified') {
-          return syncCanonical(operation).catch(function () { return null; }).then(function () {
-            if (destroyed || pending !== operation) return; setStatus('pending', 'Änderung an VDR übergeben. Der aktuelle native Stand wird angezeigt; die Bestätigung wird automatisch geprüft.'); scheduleVerification();
+          return syncOperationState(operation).catch(function () { return null; }).then(function () {
+            if (destroyed || pending !== operation) return;
+            setStatus('pending', operation.path.endsWith('/cut') ? 'Schnittauftrag angenommen. Der native VDR-Schnitt wird automatisch überwacht.' : 'Änderung an VDR übergeben. Der aktuelle native Stand wird angezeigt; die Bestätigung wird automatisch geprüft.');
+            renderCutState(); scheduleVerification();
           });
         }
-        return syncCanonical(operation).then(function (next) {
+        return syncOperationState(operation).then(function (next) {
           if (destroyed || pending !== operation || !next) return; pending = null; clearVerificationTimer(); verificationAttempts = 0;
           setStatus('success', operation.path.endsWith('/cut') ? 'Native geschnittene Ausgabe bestätigt. Das Original bleibt erhalten.' :
             (next.marksRevision === result.canonicalMarksRevision ? 'Schnittmarken von VDR bestätigt.' : 'Auftrag bestätigt; danach wurden die nativen Marken erneut geändert. Der aktuelle VDR-Stand wird angezeigt.'));
+          renderCutState();
         });
       }).catch(function (error) {
         if (destroyed || pending !== operation) return;
@@ -149,22 +172,23 @@
           pending = null; clearVerificationTimer(); verificationAttempts = 0;
           return syncCanonical(null).catch(function () { return null; }).then(function () { if (!destroyed) setStatus('error', message(error)); });
         }
-        setStatus('error', message(error)); scheduleVerification();
+        if (operation.path.endsWith('/cut')) {
+          setStatus('pending', 'Schnittstatus konnte kurzzeitig nicht bestätigt werden. Derselbe Auftrag wird weiter geprüft.');
+          syncCutState().catch(function () {});
+        } else setStatus('error', message(error));
+        scheduleVerification();
       }).finally(finishBusy);
     }
     function confirm(label, action) {
       confirmation.replaceChildren(node('p', label));
-      button('Bestätigen', function () { confirmation.replaceChildren(); action(); }, !editable(), confirmation, 'primary');
+      const accept = button('Bestätigen', function () { confirmation.replaceChildren(); action(); }, !editable(), confirmation, 'primary');
       button('Abbrechen', function () { confirmation.replaceChildren(); }, false, confirmation);
+      if (typeof confirmation.scrollIntoView === 'function') confirmation.scrollIntoView({block: 'nearest'});
+      if (typeof accept.focus === 'function') accept.focus({preventScroll: true});
     }
     function previewCut() {
-      if (!editable()) return; busy = true; confirmation.replaceChildren(); render();
-      request('/api/vdr/recordings/cut').then(function (preview) {
-        if (destroyed) return; busy = false;
-        if (!preview || preview.backendId !== identity.backendId || String(preview.recordingId) !== identity.recordingId || preview.marksRevision !== payload.marksRevision) throw new Error('recording_marks_revision_conflict');
-        if (!preview.ready) { setStatus('error', preview.editedDestinationExists ? 'Eine geschnittene Ausgabe existiert bereits.' : preview.inUse ? 'Die Aufnahme wird gerade verwendet.' : 'VDR kann diese Markensequenz derzeit nicht schneiden.'); return; }
-        confirm('„' + String(recording.title || 'Aufnahme') + '“ mit ' + preview.sequenceCount + ' Schnittbereichen nativ schneiden? VDR erstellt eine neue Ausgabe und erhält das Original.', function () { submit('/api/vdr/recordings/cut'); });
-      }).catch(function (error) { if (!destroyed) setStatus('error', message(error)); }).finally(finishBusy);
+      if (!editable()) return;
+      confirm('„' + String(recording.title || 'Aufnahme') + '“ mit ' + String(payload.sequenceCount || 0) + ' Schnittbereichen nativ schneiden? VDR erstellt eine neue Ausgabe und erhält das Original.', function () { submit('/api/vdr/recordings/cut'); });
     }
     function selectAndSeek(mark) {
       selectedFrame = Number(mark.positionFrame); render(); const active = playback(), state = snapshot();
@@ -225,7 +249,7 @@
         const choose = button(String(mark.timecode || ('Marke ' + String(index + 1))), function () { selectAndSeek(mark); }, false, row, 'recordings2-marks-editor-mark'); choose.setAttribute('aria-pressed', selectedNow ? 'true' : 'false');
         row.appendChild(node('span', 'Frame ' + String(mark.positionFrame) + (index % 2 === 0 ? ' · Behalten ab hier' : ' · Entfernen ab hier')));
       });
-      renderTimeline();
+      renderTimeline(); renderCutState();
     }
     function observe() {
       const current = playback(); if (current === owner) return; if (unsubscribe) unsubscribe(); owner = current;
@@ -234,8 +258,8 @@
         const key = JSON.stringify([state && state.sessionId, state && state.state, state && state.transition]); if (!destroyed && key !== lifecycleKey) { lifecycleKey = key; render(); }
       }) : null;
     }
-    function destroy() { destroyed = true; externalRefreshPending = false; clearVerificationTimer(); if (unsubscribe) unsubscribe(); unsubscribe = null; confirmation.replaceChildren(); }
-    const result = Object.freeze({reload: reload, destroy: destroy, observe: observe, notifyExternalMarksChanged: notifyExternalMarksChanged}); root.__vdrSuiteMarksEditor = result; observe(); render(); return result;
+    function destroy() { destroyed = true; externalRefreshPending = false; clearVerificationTimer(); clearCutStateTimer(); if (unsubscribe) unsubscribe(); unsubscribe = null; confirmation.replaceChildren(); }
+    const result = Object.freeze({reload: reload, destroy: destroy, observe: observe, notifyExternalMarksChanged: notifyExternalMarksChanged}); root.__vdrSuiteMarksEditor = result; observe(); render(); syncCutState().catch(function () {}); return result;
   }
   global.VdrSuiteRecordings2MarksEditor = Object.freeze({attach: attach});
 }(window));

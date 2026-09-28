@@ -19,6 +19,7 @@ struct Resolver final :
     IVdrRecordingNativeCutStateResolver
 {
     bool complete = false;
+    int handlerUsage = 0;
 
     VdrRecordingNativeCutState resolve(
         const std::string& requested) override
@@ -28,6 +29,7 @@ struct Resolver final :
             VdrRecordingNativeCutStateAvailability::
                 Available;
         state.found = true;
+        state.handlerUsage = handlerUsage;
         state.recordingKey = requested;
         state.marksReadable = true;
         state.marksRevision = marksRevision;
@@ -210,8 +212,23 @@ int main()
     assert(!result.verified);
     assert(transport.calls == 1);
     assert(transport.effects == 1);
+    assert(
+        runtime.deleteBlockReason(sourceKey) ==
+        "recording_cut_operation_pending_delete_blocked");
+    assert(runtime.deleteBlockReason(std::string(32, 'f')).empty());
 
     resolver.complete = true;
+    resolver.handlerUsage = 36;
+    assert(!runtime.dispatch(cut).verified);
+    assert(runtime.operationState(sourceKey) == "accepted");
+    assert(runtime.deleteBlockReason(sourceKey) == "recording_cut_operation_pending_delete_blocked");
+    assert(transport.calls == 1);
+    resolver.handlerUsage = 0;
+
+    // Delete safety itself reconciles an accepted cut to verified once
+    // native readback proves the exact edited Recording. Browser timing is
+    // therefore not part of the destructive-action safety boundary.
+    assert(runtime.deleteBlockReason(sourceKey).empty());
 
     result = runtime.dispatch(cut);
 
@@ -219,6 +236,31 @@ int main()
     assert(result.replayed);
     assert(result.verified);
     assert(result.editedRecordingKey == editedKey);
+    assert(transport.calls == 1);
+
+    // Deleting the already verified derived Recording later must not resurrect
+    // this historical cut as pending or block deletion of the source.
+    resolver.complete = false;
+    resolver.handlerUsage = 0;
+    assert(runtime.operationState(sourceKey) == "verified");
+    assert(runtime.deleteBlockReason(sourceKey).empty());
+    result = runtime.dispatch(cut);
+    assert(result.accepted);
+    assert(result.replayed);
+    assert(result.verified);
+    assert(result.editedRecordingKey == editedKey);
+    resolver.complete = true;
+
+    // Revalidate persisted verification from older daemon versions, including replay.
+    resolver.handlerUsage = 36;
+    assert(!runtime.dispatch(cut).verified);
+    assert(runtime.operationState(sourceKey) == "accepted");
+    resolver.handlerUsage = 0;
+    assert(runtime.operationState(sourceKey) == "verified");
+    resolver.handlerUsage = 36;
+    assert(runtime.operationState(sourceKey) == "accepted");
+    resolver.handlerUsage = 0;
+    assert(runtime.dispatch(cut).verified);
     assert(transport.calls == 1);
 
     auto conflict = cut;
@@ -278,6 +320,9 @@ int main()
 
     assert(result.accepted);
     assert(!result.verified);
+    assert(
+        runtime.deleteBlockReason(sourceKey) ==
+        "recording_cut_operation_pending_delete_blocked");
 
     const int effectsAfterLostReply =
         transport.effects;

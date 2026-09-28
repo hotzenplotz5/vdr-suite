@@ -1,34 +1,59 @@
 bool executeGenreSchema(Database& database)
 {
-    if (!executeGenreSchemaV2(database)) return false;
-    return database.execute(
-        "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
-        "(7,'Live-aligned fused DVB and TVScraper EPG browse classification');"
-        "DELETE FROM suite_metadata_genre_assignments "
-        "WHERE source_kind='epg-browse-content-class' "
-        "AND NOT EXISTS(SELECT 1 FROM suite_metadata_schema_versions WHERE version=8);"
-        "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
-        "(8,'Live-aligned title guards and last-known-good TVScraper EPG types');"
-        "DELETE FROM suite_metadata_genre_assignments "
-        "WHERE source_kind='epg-browse-content-class' "
-        "AND NOT EXISTS(SELECT 1 FROM suite_metadata_schema_versions WHERE version=9);"
-        "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
-        "(9,'Strict specific-genre DVB movie fallback reconciliation');"
-        "DELETE FROM suite_metadata_genre_assignments "
-        "WHERE source_kind='epg-browse-content-class' "
-        "AND NOT EXISTS(SELECT 1 FROM suite_metadata_schema_versions WHERE version=10);"
-        "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
-        "(10,'Migrate epg-browse-taxonomy-v4 classifications to documentary-first v5');"
-        "DELETE FROM suite_metadata_genre_assignments "
-        "WHERE source_kind='epg-browse-content-class' "
-        "AND NOT EXISTS(SELECT 1 FROM suite_metadata_schema_versions WHERE version=11);"
-        "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
-        "(11,'Add generic Nachrichten title guard to epg-browse-taxonomy-v6');"
-        "DELETE FROM suite_metadata_genre_assignments "
-        "WHERE source_kind='epg-browse-content-class' "
-        "AND NOT EXISTS(SELECT 1 FROM suite_metadata_schema_versions WHERE version=12);"
-        "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
-        "(12,'Migrate epg-browse-taxonomy-v6 to fiction-confirmed v7 series');");
+    if (!executeGenreSchemaV2(database))
+    {
+        return false;
+    }
+
+    if (!applyEpgBrowseSchemaMigration(
+            database,
+            7,
+            "Live-aligned fused DVB and TVScraper EPG browse classification",
+            false))
+    {
+        return false;
+    }
+
+    const struct
+    {
+        int version;
+        const char* description;
+    } migrations[] = {
+        {
+            8,
+            "Live-aligned title guards and last-known-good TVScraper EPG types"
+        },
+        {
+            9,
+            "Strict specific-genre DVB movie fallback reconciliation"
+        },
+        {
+            10,
+            "Migrate epg-browse-taxonomy-v4 classifications to documentary-first v5"
+        },
+        {
+            11,
+            "Add generic Nachrichten title guard to epg-browse-taxonomy-v6"
+        },
+        {
+            12,
+            "Migrate epg-browse-taxonomy-v6 to fiction-confirmed v7 series"
+        }
+    };
+
+    for (const auto& migration : migrations)
+    {
+        if (!applyEpgBrowseSchemaMigration(
+                database,
+                migration.version,
+                migration.description,
+                true))
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 std::string liveParityAsciiLower(const std::string& value)

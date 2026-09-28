@@ -3992,7 +3992,21 @@ function renderBackend(backend) {
 }
 
 document.querySelectorAll('.module-tab').forEach(button => {
-  button.addEventListener('click', () => selectModule(button.dataset.module));
+  button.addEventListener('click', () => {
+    const moduleName = button.dataset.module;
+    if (moduleName === 'overview' && selectedModule === 'overview') {
+      if (typeof window.scrollTo === 'function') {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      }
+      return;
+    }
+
+    selectModule(moduleName);
+
+    if (moduleName === 'overview' && typeof window.scrollTo === 'function') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }
+  });
 });
 
 document.querySelectorAll('[data-brand-module]').forEach(button => {
@@ -4002,7 +4016,16 @@ document.querySelectorAll('[data-brand-module]').forEach(button => {
       return;
     }
 
-    selectModule(moduleName);
+    if (!(moduleName === 'overview' && selectedModule === 'overview')) {
+      selectModule(moduleName);
+    }
+
+    if (moduleName === 'overview') {
+      if (typeof window.scrollTo === 'function') {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      }
+      return;
+    }
 
     if (detailDataElement && typeof detailDataElement.scrollIntoView === 'function') {
       detailDataElement.scrollIntoView({ behavior: 'smooth', block: 'start' });

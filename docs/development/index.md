@@ -8,6 +8,7 @@
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
 - [Strict Roadmap](../planning/roadmap.md)
 - [Phase 69 Closeout](phase-69-closeout.md)
+- [Post-Phase-69 Recording Cut Progress and Variant Hardening](post-phase69-recording-cut-progress-variant.md)
 - [Post-Phase-69 EPG Current Context and Live Action Hardening](post-phase69-epg-current-context-live-action.md)
 - [Phase 69.F Client Error and Mutation-Fallback Safety](phase-69f-client-error-mutation-fallback.md)
 - [Phase 69.F SearchTimer Client Fallback Removal](phase-69f-searchtimer-fallback-removal.md)

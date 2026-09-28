@@ -93,6 +93,8 @@ required_tokens = {
         'VdrSuiteRecordings2MetadataDetail',
         'metadataDetail.enhance',
         'root.__vdrSuiteRecordingPlaybackOwner = activePlayback',
+        "'recordings2-primary recordings2-home'",
+        'options.goHome',
     ),
     'marks_detail': (
         'global.VdrSuiteRecordings2MarksDetail',
@@ -104,6 +106,22 @@ required_tokens = {
         'view.renderDetail()',
         "'/frontend/recordings2-marks-timeline.js'",
         'timeline.bind(root, recording, payload)',
+    ),
+    'marks_editor': (
+        'global.VdrSuiteRecordings2MarksEditor',
+        "'/api/vdr/recordings/cut'",
+        'operationPending',
+        'operationVerified',
+        'editedRecordingFound',
+        'Schnitt läuft …',
+        "node('progress')",
+        'keinen verlässlichen Prozentwert',
+        'Schnittfassung öffnen',
+        'owner.openRecording(cutState.editedRecording',
+        'nativeCutRunning()',
+        'verificationAttempts >= VERIFY_ATTEMPTS',
+        "next.operationState === 'failed' && cutPending()",
+        'recording_cut_not_running',
     ),
     'marks_timeline': (
         'global.VdrSuiteRecordings2MarksTimeline',
@@ -153,12 +171,29 @@ required_tokens = {
         'data-module="recordings2"',
         'browserView.create',
         'refreshDetailAddon',
+        'detailHome',
+        'goHomeDetail',
+        "if (typeof state.detailHome === 'function')",
+        "global.selectModule('overview')",
+        "config.focusNavigation === true",
+        "target.querySelector('.recordings2-toolbar button')",
     ),
 }
 for owner, tokens in required_tokens.items():
     for token in tokens:
         if token not in runtimes[owner]:
             raise SystemExit(f'missing Recordings 2 {owner} contract: {token}')
+
+if 'Original löschen:' in runtimes['marks_editor']:
+    raise SystemExit('cut completion must not imply delete permission')
+
+if "progress.value" in runtimes['marks_editor'] or "progressPercent" in runtimes['marks_editor']:
+    raise SystemExit('native cut UI must not fabricate percentage progress')
+
+if "Number(cutState.handlerUsage)" in runtimes['marks_editor'] and "(cutState.operationPending === true || cutState.operationVerified === true) && Number(cutState.handlerUsage)" not in runtimes['marks_editor']:
+    raise SystemExit('native cut UI must not infer operation ownership from handlerUsage')
+if "cutState.editedDestinationExists === true && cutState.editedRecordingFound !== true" in runtimes['marks_editor']:
+    raise SystemExit('native cut UI must not infer operation ownership from edited destination state')
 
 for external_scheme in ('http://', 'https://'):
     if external_scheme in runtimes['folder_artwork']:
@@ -314,22 +349,29 @@ if recording_action_callback_end < 0:
 recording_action_callback_source = daemon[
     recording_action_callback:recording_action_callback_end
 ]
-delete_async_fence = (
-    'if (request.type == RecordingActionType::Delete) {\n'
-    '                return false;\n'
-    '            }'
+delete_fence_offset = recording_action_callback_source.find(
+    'if (request.type == RecordingActionType::Delete) {'
 )
-if delete_async_fence not in recording_action_callback_source:
-    raise SystemExit(
-        'Recording DELETE must queue cache reconciliation without synchronous refresh'
-    )
-delete_fence_offset = recording_action_callback_source.index(delete_async_fence)
 full_refresh_offset = recording_action_callback_source.find(
     'snapshotBuilder->buildRecordings()'
 )
-if full_refresh_offset < 0 or delete_fence_offset >= full_refresh_offset:
+if delete_fence_offset < 0 or full_refresh_offset < 0 or delete_fence_offset >= full_refresh_offset:
     raise SystemExit(
         'Recording DELETE async fence must precede any synchronous full Recording rebuild'
+    )
+for token in (
+    'removeByBackendNativeId(',
+    'removeRecordingForBackend(',
+    'recordingPresentationChangeQueue_.request(backendId);',
+    'recordingCacheRefreshQueue_.request(backendId);',
+):
+    if token not in recording_action_callback_source:
+        raise SystemExit(
+            f'Recording DELETE targeted projection/reconcile contract missing: {token}'
+        )
+if 'recordingCacheRefreshQueue_.request(backendId, 8)' in recording_action_callback_source:
+    raise SystemExit(
+        'Recording actions must not fan one mutation out into eight full cache rebuilds'
     )
 
 runtime_assets = (
