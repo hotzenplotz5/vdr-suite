@@ -39,6 +39,12 @@ RecordingCutDispatchResult failure(
     return result;
 }
 
+std::int64_t currentUnixSeconds()
+{
+    return std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
 bool editedKeyFromEvidence(
     const std::string& evidence,
     const std::string& commandId,
@@ -150,14 +156,22 @@ std::string EmbeddedRecordingCutRuntime::operationState(
                     record.editedRecordingKey,
                     native))
             {
-                /*
-                 * A cut that was already exactly verified remains terminal
-                 * after the derived cut Recording is later deleted. Deleting
-                 * the result must never resurrect the old cut as "pending"
-                 * or block deletion of the still-existing source Recording.
-                 */
                 verified = true;
                 continue;
+            }
+
+            if (record.state == "accepted" &&
+                daemonRecordingCutAcceptedStartExpired(
+                    recordingKey,
+                    record.editedRecordingKey,
+                    payload.controlPlaneClaimedAt,
+                    currentUnixSeconds(),
+                    native))
+            {
+                record.state = "failed";
+                if (!repository_.update(record))
+                    return "journal_unavailable";
+                return "failed";
             }
 
             // Older versions could persist verification while the cutter ran.
@@ -485,6 +499,10 @@ RecordingCutDispatchResult EmbeddedRecordingCutRuntime::dispatch(
         return failure(
             "recording_cut_rejected");
 
+    if (state == "failed")
+        return failure(
+            "recording_cut_not_running");
+
     if (state == "accepted" || state == "verified")
     {
         const auto native =
@@ -501,6 +519,29 @@ RecordingCutDispatchResult EmbeddedRecordingCutRuntime::dispatch(
             if (!persist())
                 return failure(
                     "recording_cut_journal_unavailable");
+        }
+        else if (state == "verified" &&
+                 daemonRecordingCutVerifiedResultWasRemoved(
+                     request.recordingKey,
+                     editedRecordingKey,
+                     native))
+        {
+            // A deliberately removed derived Recording is terminal history.
+        }
+        else if (state == "accepted" &&
+                 daemonRecordingCutAcceptedStartExpired(
+                     request.recordingKey,
+                     editedRecordingKey,
+                     payload.controlPlaneClaimedAt,
+                     currentUnixSeconds(),
+                     native))
+        {
+            state = "failed";
+            if (!persist())
+                return failure(
+                    "recording_cut_journal_unavailable");
+            return failure(
+                "recording_cut_not_running");
         }
         else if (state == "verified")
         {
