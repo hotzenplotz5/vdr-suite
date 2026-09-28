@@ -40,6 +40,19 @@ int main()
 
     state.editedDestinationExists = false;
     assert(!daemonRecordingCutResultMatches(source, edited, state));
+    assert(daemonRecordingCutVerifiedResultWasRemoved(source, edited, state));
+
+    state.handlerUsage = 4;
+    assert(!daemonRecordingCutVerifiedResultWasRemoved(source, edited, state));
+    state.handlerUsage = 0;
+
+    state.editedRecordingKey = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    assert(!daemonRecordingCutVerifiedResultWasRemoved(source, edited, state));
+    state.editedRecordingKey = edited;
+
+    state.editedDestinationExists = true;
+    assert(!daemonRecordingCutVerifiedResultWasRemoved(source, edited, state));
+    state.editedDestinationExists = false;
 
     state.availability = VdrRecordingNativeCutStateAvailability::Available;
     state.found = true;
