@@ -104,8 +104,7 @@
       heading.appendChild(copy);
       header.appendChild(heading);
 
-      const toolbar = document.createElement('div');
-      toolbar.className = 'recordings2-toolbar';
+      const toolbar = document.createElement('div'); toolbar.className = 'recordings2-toolbar';
       if (currentState.selectedRecording) {
         toolbar.appendChild(shared.createButton(
           currentState.detailReturnLabel || '← Zum Ordner',
