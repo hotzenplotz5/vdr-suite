@@ -94,6 +94,7 @@ struct TraceState
 {
     int manualSearchReads = 0;
     int schemaStatements = 0;
+    int legacyPeopleBackfills = 0;
 };
 
 int traceSql(unsigned int kind, void* context, void* statement, void*)
@@ -105,6 +106,9 @@ int traceSql(unsigned int kind, void* context, void* statement, void*)
     TraceState& state = *static_cast<TraceState*>(context);
     if (std::strstr(sql, "WITH active_manual AS")) ++state.manualSearchReads;
     if (std::strstr(sql, "CREATE TABLE")) ++state.schemaStatements;
+    if (std::strstr(sql, "INSERT OR IGNORE INTO epg_scraper_metadata_people") &&
+        std::strstr(sql, "json_each"))
+        ++state.legacyPeopleBackfills;
     return 0;
 }
 }
@@ -117,10 +121,17 @@ int main()
     insertFixtures(database);
 
     GlobalSearchRepository repository(database);
+    TraceState startupTrace;
+    assert(sqlite3_trace_v2(
+        database.handle(), SQLITE_TRACE_STMT, traceSql, &startupTrace) == SQLITE_OK);
     assert(repository.ensureSchema());
+    assert(startupTrace.legacyPeopleBackfills == 1);
     const int writesAfterFirstSchema = sqlite3_total_changes(database.handle());
+    startupTrace.legacyPeopleBackfills = 0;
     assert(repository.ensureSchema());
+    assert(startupTrace.legacyPeopleBackfills == 0);
     assert(sqlite3_total_changes(database.handle()) == writesAfterFirstSchema);
+    sqlite3_trace_v2(database.handle(), 0, nullptr, nullptr);
     assert(repository.ready());
     assert(GlobalSearchRepository::foldText("MÜNCHEN") == "muenchen");
 
