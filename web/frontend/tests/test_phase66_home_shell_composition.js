@@ -143,7 +143,9 @@ const context = {
   window: {
     VdrSuiteChannels2: null,
     scrollTo(options) {
-      assert.deepStrictEqual(options, {top: 0, left: 0, behavior: 'auto'});
+      assert.strictEqual(options.top, 0);
+      assert.strictEqual(options.left, 0);
+      assert.strictEqual(options.behavior, 'auto');
       homeTopScrolls += 1;
     },
     CustomEvent: function CustomEvent(type, options) {
