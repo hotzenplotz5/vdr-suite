@@ -122,7 +122,11 @@ const bindingEnd = appSource.indexOf('\nrefreshDetailButton.addEventListener(', 
 assert(selectStart >= 0 && selectEnd > selectStart);
 assert(bindingStart >= 0 && bindingEnd > bindingStart);
 
-const detailDataElement = {scrollIntoView() { this.scrolled = true; }};
+let detailDataScrolls = 0;
+let homeTopScrolls = 0;
+const detailDataElement = {
+  scrollIntoView() { detailDataScrolls += 1; }
+};
 let homeResumeEvents = 0;
 const document = {
   dispatchEvent(event) {
@@ -138,6 +142,10 @@ const document = {
 const context = {
   window: {
     VdrSuiteChannels2: null,
+    scrollTo(options) {
+      assert.deepStrictEqual(options, {top: 0, left: 0, behavior: 'auto'});
+      homeTopScrolls += 1;
+    },
     CustomEvent: function CustomEvent(type, options) {
       this.type = type;
       this.detail = options && options.detail;
@@ -167,13 +175,17 @@ function brandButton(name) {
 brandButton('recordings2').dispatch('click');
 assert(moduleTab('recordings2').classList.contains('active'));
 assert(!moduleTab('overview').classList.contains('active'));
-assert.strictEqual(detailDataElement.scrolled, true);
+assert.strictEqual(detailDataScrolls, 1);
 
 brandButton('overview').dispatch('keydown', {key: 'Enter'});
 assert(moduleTab('overview').classList.contains('active'));
 assert(!moduleTab('recordings2').classList.contains('active'));
 assert.strictEqual(homeResumeEvents, 1,
   'canonical Home navigation must publish exactly one Home-resume lifecycle event');
+assert.strictEqual(homeTopScrolls, 1,
+  'Home navigation must scroll to the top of Home');
+assert.strictEqual(detailDataScrolls, 1,
+  'Home navigation must not scroll the lower detail-data region into view');
 
 brandButton('overview').dispatch('click');
 assert.strictEqual(
@@ -181,6 +193,10 @@ assert.strictEqual(
   1,
   'reselecting already-active Home must not publish another Home-resume lifecycle event'
 );
+assert.strictEqual(homeTopScrolls, 2,
+  'reselecting Home must still return the user to the top');
+assert.strictEqual(detailDataScrolls, 1,
+  'reselecting Home must never jump to the lower Home detail-data region');
 
 brandButton('settings').dispatch('keydown', {key: ' '});
 assert(!moduleTab('overview').classList.contains('active'));
