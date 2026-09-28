@@ -208,7 +208,8 @@ for label, content, tokens in (
         'record.state == "uncertain"',
         'record.state = "verified"',
         "daemonRecordingCutVerifiedResultWasRemoved(",
-        "Deleting the result must never resurrect the old cut",
+        'record.state == "verified" &&',
+        "verified = true;",
     )),
     ("embedded cut journal", embedded_cut_repository, (
         "listForBackend(",
