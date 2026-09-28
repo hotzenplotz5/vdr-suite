@@ -295,6 +295,14 @@ bool GlobalSearchRepository::registerFoldFunction() const
 bool GlobalSearchRepository::ensureSchema()
 {
     if (!registerFoldFunction()) return false;
+
+    // If the people table already existed before this schema check, the
+    // pre-versioned runtime has already run the legacy backfill at least once.
+    // Do not repeat that potentially large json_each scan during startup merely
+    // to establish the new migration marker.
+    const bool peopleTableExisted =
+        database_.tableExists("epg_scraper_metadata_people");
+
     if (!database_.execute(
             "CREATE TABLE IF NOT EXISTS epg_scraper_metadata_people("
             "backend_id TEXT NOT NULL,channel_id TEXT NOT NULL,event_id TEXT NOT NULL,"
@@ -340,7 +348,7 @@ bool GlobalSearchRepository::ensureSchema()
         return true;
     }
 
-    if (!backfillEpgPeople())
+    if (!peopleTableExisted && !backfillEpgPeople())
     {
         return false;
     }
