@@ -2,6 +2,7 @@
 
 const assert = require('assert');
 const fs = require('fs');
+const vm = require('vm');
 
 const live = fs.readFileSync('web/frontend/live-tv-view.js', 'utf8');
 const client = fs.readFileSync('web/frontend/api/client-api.js', 'utf8');
@@ -14,6 +15,9 @@ for (const token of [
   'function pollHbbtvMedia(sequence)',
   'function startHbbtvMediaPlayback(media, sequence)',
   'function stopHbbtvMediaPlayback(sequence, notifyServer, restoreBroadcast)',
+  'function hbbtvMediaCompositionTarget(',
+  'function applyHbbtvMediaVideoComposition(canvas, video, baseVideoRect)',
+  'function restoreHbbtvMediaVideoComposition()',
   'function sendHbbtvInput(action)',
   'function alignHbbtvCanvas()',
   'function drawHbbtvPresentation(frame)',
@@ -99,6 +103,76 @@ for (const forbidden of [
 }
 
 assert(!live.includes('fetch('));
+
+for (const token of [
+  'hbbtvMediaAttached: false',
+  'hbbtvMediaVideoStyle: null',
+  "video.style.setProperty('z-index', '13')",
+  "video.style.setProperty('pointer-events', 'none')",
+  "video.style.setProperty('transform-origin', '0 0')",
+  'state.hbbtvMediaAttached = true;',
+  'state.hbbtvMediaGeometry',
+  'applyHbbtvMediaVideoComposition(canvas, video, videoRect);'
+]) {
+  assert(live.includes(token), token);
+}
+
+const compositionStart = live.indexOf('function hbbtvMediaCompositionTarget(');
+const compositionEnd = live.indexOf(
+  '\n  function snapshotHbbtvMediaVideoStyle',
+  compositionStart
+);
+assert(compositionStart >= 0 && compositionEnd > compositionStart);
+const compositionTarget = vm.runInNewContext(
+  '(' + live.slice(compositionStart, compositionEnd).trim() + ')'
+);
+
+assert.strictEqual(
+  JSON.stringify(compositionTarget(
+    1280,
+    720,
+    true,
+    {x: 100, y: 50, width: 640, height: 360}
+  )),
+  JSON.stringify({x: 0, y: 0, width: 1280, height: 720}),
+  'fullscreen HbbTV broadband video must occupy the whole presentation viewport'
+);
+assert.strictEqual(
+  JSON.stringify(compositionTarget(
+    1280,
+    720,
+    false,
+    {x: 100, y: 50, width: 640, height: 360}
+  )),
+  JSON.stringify({x: 100, y: 50, width: 640, height: 360}),
+  'windowed HbbTV broadband video must honor provider presentation geometry'
+);
+assert.strictEqual(
+  compositionTarget(
+    1280,
+    720,
+    false,
+    {x: -1, y: 50, width: 640, height: 360}
+  ),
+  null,
+  'invalid provider geometry must fail closed instead of covering application UI'
+);
+
+const attachPosition = live.indexOf('state.hbbtvMediaAttached = true;');
+const switchSuccessPosition = live.indexOf(
+  "if (!switched) throw new Error('hbbtv_media_player_switch_failed');"
+);
+assert(
+  switchSuccessPosition >= 0 && attachPosition > switchSuccessPosition,
+  'the browser video plane may only be raised after canonical external-stream attachment succeeds'
+);
+
+const measurePosition = live.indexOf('restoreHbbtvMediaVideoComposition();', live.indexOf('function alignHbbtvCanvas()'));
+const videoRectPosition = live.indexOf('const videoRect = video.getBoundingClientRect();', live.indexOf('function alignHbbtvCanvas()'));
+assert(
+  measurePosition >= 0 && videoRectPosition > measurePosition,
+  'canvas alignment must measure the untransformed canonical video viewport'
+);
 
 for (const token of [
   'hbbtvPresentationInFlight: false',
