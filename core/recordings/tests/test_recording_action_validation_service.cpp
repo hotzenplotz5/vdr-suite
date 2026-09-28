@@ -125,6 +125,25 @@ int main()
     assert(deleteResult.requiredCapabilities.at(0) == "recording.action.delete");
     assert(deleteResult.requiredPermissions.at(0) == "recording.permission.delete");
 
+    service.setRequestGuard(
+        [](const RecordingActionRequest& request) -> std::string {
+            return request.type == RecordingActionType::Delete
+                ? "recording_cut_active_delete_blocked"
+                : std::string();
+        });
+
+    const RecordingActionValidationResult blockedDelete =
+        service.validate(deleteRequest);
+    assert(!blockedDelete.valid);
+    assert(blockedDelete.errors.size() == 1);
+    assert(
+        blockedDelete.errors.at(0) ==
+        "recording_cut_active_delete_blocked");
+
+    const RecordingActionValidationResult guardedMove =
+        service.validate(moveRequest);
+    assert(guardedMove.valid);
+
     std::cout
         << "test_recording_action_validation_service passed"
         << std::endl;
