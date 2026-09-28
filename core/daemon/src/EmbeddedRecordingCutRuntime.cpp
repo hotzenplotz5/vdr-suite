@@ -143,6 +143,23 @@ std::string EmbeddedRecordingCutRuntime::operationState(
                 verified = true;
                 continue;
             }
+
+            if (record.state == "verified" &&
+                daemonRecordingCutVerifiedResultWasRemoved(
+                    recordingKey,
+                    record.editedRecordingKey,
+                    native))
+            {
+                /*
+                 * A cut that was already exactly verified remains terminal
+                 * after the derived cut Recording is later deleted. Deleting
+                 * the result must never resurrect the old cut as "pending"
+                 * or block deletion of the still-existing source Recording.
+                 */
+                verified = true;
+                continue;
+            }
+
             // Older versions could persist verification while the cutter ran.
             if (record.state == "verified")
             {
