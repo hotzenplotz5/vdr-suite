@@ -176,6 +176,107 @@ void startRecordingCutReconciliation(
 }
 }
 
+bool daemonRecordingCutStateBlocksSourceDelete(
+    const VdrRecordingNativeCutState& state)
+{
+    if (state.availability !=
+            VdrRecordingNativeCutStateAvailability::Available ||
+        !state.found)
+    {
+        return false;
+    }
+
+    return state.handlerUsage != 0 ||
+        (state.editedDestinationExists &&
+         !state.editedRecordingFound);
+}
+
+std::string daemonRecordingCutDeleteBlockReason(
+    VdrRecordingCacheRepository& recordingCacheRepository,
+    const std::vector<std::unique_ptr<BackendRuntimeContext>>& backendRuntimeContexts,
+    const std::string& backendId,
+    const std::string& recordingId)
+{
+    if (recordingId.empty())
+        return std::string();
+
+    const std::string normalizedBackendId =
+        backendId.empty() ? "default" : backendId;
+
+    const auto recordings =
+        recordingCacheRepository.findAllForBackend(
+            normalizedBackendId);
+
+    const VdrRecording* selected = nullptr;
+    std::size_t matches = 0U;
+    for (const auto& recording : recordings)
+    {
+        if (recording.backendId != normalizedBackendId ||
+            recording.id != recordingId)
+        {
+            continue;
+        }
+
+        selected = &recording;
+        ++matches;
+    }
+
+    if (matches != 1U || selected == nullptr ||
+        selected->backendNativeId.empty())
+    {
+        return std::string();
+    }
+
+    const std::string recordingKey =
+        VdrRecordingNativeIdentity::keyForNativeId(
+            selected->backendNativeId);
+    if (!VdrRecordingNativeIdentity::isValidKey(recordingKey))
+        return std::string();
+
+    for (const auto& context : backendRuntimeContexts)
+    {
+        if (!context ||
+            context->backendId != normalizedBackendId ||
+            !context->suiteBridgeAgentRuntime)
+        {
+            continue;
+        }
+
+        const auto health =
+            context->suiteBridgeAgentRuntime->health();
+        if (!health.running ||
+            !health.observation.hasDiscovery ||
+            !health.observation.discovery.capabilityAvailable(
+                "recording-cut-state"))
+        {
+            return std::string();
+        }
+
+        SuiteBridgeRecordingCutStateResolver* const resolver =
+            context->ensureRecordingCutStateResolver();
+        if (resolver == nullptr)
+            return "recording_cut_state_unavailable_delete_blocked";
+
+        const VdrRecordingNativeCutState state =
+            resolver->resolve(recordingKey);
+
+        if (state.availability ==
+                VdrRecordingNativeCutStateAvailability::TransportError ||
+            state.availability ==
+                VdrRecordingNativeCutStateAvailability::InvalidPayload)
+        {
+            return "recording_cut_state_unavailable_delete_blocked";
+        }
+
+        if (daemonRecordingCutStateBlocksSourceDelete(state))
+            return "recording_cut_active_delete_blocked";
+
+        return std::string();
+    }
+
+    return std::string();
+}
+
 bool configureDaemonRecordingCutRuntime(
     VdrRecordingCacheRepository& recordingCacheRepository,
     const std::vector<std::unique_ptr<BackendRuntimeContext>>& backendRuntimeContexts,
