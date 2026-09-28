@@ -424,6 +424,66 @@ bool VdrRecordingCacheRepository::replaceRecordingsForBackend(
     const std::string normalizedBackendId =
         normalizeBackendId(backendId);
 
+    // A fresh VDR inventory is authoritative for Recording identity/liveness,
+    // but it may temporarily carry less provider/artwork metadata than the
+    // already enriched persistent cache. Preserve that richer presentation
+    // evidence for unchanged Recording identities instead of degrading Home
+    // until the enrichment worker catches up again.
+    std::map<std::string, VdrRecording> existingByKey;
+    for (const VdrRecording& existing :
+         findAllForBackend(normalizedBackendId))
+    {
+        existingByKey.emplace(
+            cacheKeyForRecording(existing),
+            existing);
+    }
+
+    std::vector<VdrRecording> mergedRecordings = recordings;
+    for (VdrRecording& recording : mergedRecordings)
+    {
+        const std::string cacheKey =
+            cacheKeyForRecording(recording);
+        const auto existing = existingByKey.find(cacheKey);
+        if (existing == existingByKey.end())
+        {
+            continue;
+        }
+
+        if (!recording.metadata.hasProviderData() &&
+            existing->second.metadata.hasProviderData())
+        {
+            recording.metadata.provider =
+                existing->second.metadata.provider;
+        }
+
+        for (const VdrRecordingArtworkRef& previousArtwork :
+             existing->second.metadata.artwork)
+        {
+            if (!previousArtwork.isValid())
+            {
+                continue;
+            }
+
+            const bool kindAlreadyPresent =
+                std::any_of(
+                    recording.metadata.artwork.begin(),
+                    recording.metadata.artwork.end(),
+                    [&previousArtwork](
+                        const VdrRecordingArtworkRef& currentArtwork)
+                    {
+                        return currentArtwork.isValid() &&
+                            currentArtwork.kind ==
+                                previousArtwork.kind;
+                    });
+
+            if (!kindAlreadyPresent)
+            {
+                recording.metadata.artwork.push_back(
+                    previousArtwork);
+            }
+        }
+    }
+
     auto transactionLease = database_.acquireTransactionLease();
     if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
     {
@@ -462,7 +522,7 @@ bool VdrRecordingCacheRepository::replaceRecordingsForBackend(
 
     if (!upsertRecordingsForBackendLocked(
             normalizedBackendId,
-            recordings))
+            mergedRecordings))
     {
         database_.execute("ROLLBACK;");
         return false;
@@ -476,7 +536,7 @@ bool VdrRecordingCacheRepository::replaceRecordingsForBackend(
 
     storeBrowseSnapshotLocked(
         normalizedBackendId,
-        recordings);
+        mergedRecordings);
 
     return true;
 }
