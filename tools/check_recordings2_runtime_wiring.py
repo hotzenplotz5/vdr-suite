@@ -108,7 +108,6 @@ required_tokens = {
     'marks_editor': (
         'global.VdrSuiteRecordings2MarksEditor',
         "'/api/vdr/recordings/cut'",
-        'operationState',
         'operationPending',
         'operationVerified',
         'editedRecordingFound',
