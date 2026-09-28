@@ -37,7 +37,7 @@
     controls.className = 'recordings2-marks-editor'; positionHint.className = 'recordings2-marks-editor-hint'; selectionHint.className = 'recordings2-marks-editor-selection';
     actions.className = 'recordings2-marks-editor-actions'; confirmation.className = 'recordings2-marks-editor-confirmation'; cutStateView.className = 'recordings2-cut-state'; status.className = 'recordings2-marks-editor-status';
     confirmation.setAttribute('role', 'group'); confirmation.setAttribute('aria-label', 'Schnitt bestätigen'); cutStateView.setAttribute('role', 'status'); cutStateView.setAttribute('aria-live', 'polite'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
-    panel.section.appendChild(controls); controls.appendChild(positionHint); controls.appendChild(selectionHint); controls.appendChild(actions); controls.appendChild(confirmation); controls.appendChild(cutStateView); controls.appendChild(status);
+    panel.section.appendChild(controls); controls.appendChild(positionHint); controls.appendChild(selectionHint); controls.appendChild(cutStateView); controls.appendChild(status); controls.appendChild(actions); controls.appendChild(confirmation);
     let payload = initial, busy = false, pending = null, cutState = null, selectedFrame = null, destroyed = false, unsubscribe = null, owner = null, lifecycleKey = '', verificationTimer = null, cutStateTimer = null, verificationAttempts = 0, externalRefreshPending = false;
     function setStatus(type, text) { status.className = 'recordings2-marks-editor-status' + (type ? ' ' + type : ''); status.textContent = String(text || ''); }
     function request(path, body) {
