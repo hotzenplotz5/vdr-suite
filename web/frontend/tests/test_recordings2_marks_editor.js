@@ -4,6 +4,27 @@ const assert = require('assert');
 const fs = require('fs');
 const vm = require('vm');
 
+const marksEditorSource = fs.readFileSync(
+  'web/frontend/recordings2-marks-editor.js',
+  'utf8'
+);
+const heroDetailSource = fs.readFileSync(
+  'web/frontend/recordings2-hero-detail.js',
+  'utf8'
+);
+const cutLayer = marksEditorSource.match(
+  /\.recordings2-cut-state\{[^}]*top:([0-9.]+)rem;z-index:(\d+)/
+);
+const heroBackLayer = heroDetailSource.match(
+  /\.recordings2-hero-mode-back\{[^}]*z-index:(\d+)/
+);
+assert(cutLayer, 'cut-state sticky offset/layer contract missing');
+assert(heroBackLayer, 'Hero mode back layer contract missing');
+assert(Number(cutLayer[1]) >= 4.5,
+  'running cut state must stay below the fixed Home/Back navigation');
+assert(Number(cutLayer[2]) < Number(heroBackLayer[1]),
+  'running cut state must never cover the fixed Home/Back navigation');
+
 function hasClass(value, className) {
   return String(value || '').split(/\s+/).filter(Boolean).includes(className);
 }
