@@ -136,6 +136,11 @@ def main() -> int:
         )
 
     require(
+        "return firstMediaReported ? 'playing' : 'starting';" in fast_owner
+        and "publishLifecycle('play-requested'" in fast_owner,
+        "Recording owner must not publish playing before the browser confirms first media",
+    )
+    require(
         "publishLifecycle('transport-replaced'" in fast_owner
         and "followFallbackLifecycle(fallbackPanel)" in fast_owner,
         "persistent owner must publish progressive-to-HLS transport replacement and follow child lifecycle",
@@ -247,6 +252,13 @@ def main() -> int:
         "Volume/Mute must retain confirmed page-local state across clean owner replacement",
     )
     require(
+        "recordings2-playback-fullscreen" in volume_owner
+        and "video.requestFullscreen()" in volume_owner
+        and "{fullscreen: true}" in volume_owner
+        and "{fullscreen: false}" in volume_owner,
+        "Recording fullscreen must stay on the stable owner, target the active video and not duplicate the Live control",
+    )
+    require(
         "video.volume" in volume_owner
         and "video.muted" in volume_owner
         and "volumechange" in volume_owner,
@@ -288,6 +300,10 @@ def main() -> int:
         ("replacement Live owner must keep confirmed volume", "volume test must exercise clean Live owner replacement handoff"),
         ("runtime.metrics.startCalls(), 0", "volume test must prove changes do not start/restart playback"),
         ("volume decorator must not create a second media element", "volume test must prove single-media-element ownership"),
+        ("Recording owner must expose one stable fullscreen control", "volume test must prove Recording fullscreen is exposed on the stable owner"),
+        ("stable Recording fullscreen control must follow the active replacement video", "volume test must prove fullscreen follows progressive-to-HLS replacement"),
+        ("Live owner must keep its established dedicated fullscreen presentation control", "volume test must not duplicate the established Live fullscreen control"),
+        ("fullscreen must not start or replace the Recording MediaSession", "fullscreen test must prove no playback/session mutation"),
         ("ignoreVolumeWrites", "volume test must cover capability/read-back failure handling"),
     ):
         require(token in volume_lifecycle_test, message)

@@ -1610,6 +1610,20 @@
       status.classList.toggle('error', Boolean(error));
     }
 
+    function playbackActivityLabel() {
+      if (!firstMediaReported) {
+        return video.paused ? 'Wiedergabe bereit' : 'Wiedergabe startet';
+      }
+      return video.paused ? 'Aufnahme pausiert' : 'Aufnahme läuft';
+    }
+
+    function setSeekCapabilityStatus(message) {
+      setStatus(
+        playbackActivityLabel() + (message ? ' · ' + message : ''),
+        false
+      );
+    }
+
     function clearIndexStatusPoll() {
       if (indexStatusTimer !== null && typeof global.clearTimeout === 'function') {
         try { global.clearTimeout(indexStatusTimer); } catch (error) {}
@@ -1706,18 +1720,18 @@
         indexStatusFailures = 0;
         if (seekSupported) {
           clearIndexStatusPoll();
-          setStatus('Aufnahme läuft · Index erstellt · Seek bereit.', false);
+          setSeekCapabilityStatus('Spulen/Springen bereit.');
           updateControls();
           return true;
         }
         if (seekPreparing) {
-          setStatus('Aufnahme läuft · Index wird erstellt …', false);
+          setSeekCapabilityStatus('Spulen/Springen wird vorbereitet …');
           scheduleIndexStatusPoll();
           return false;
         }
 
         clearIndexStatusPoll();
-        setStatus('Aufnahme läuft · Index konnte nicht für Seek bereitgestellt werden.', true);
+        setSeekCapabilityStatus('Spulen/Springen derzeit nicht verfügbar.');
         updateControls();
         return false;
       }).catch(function () {
@@ -1727,11 +1741,11 @@
         if (indexStatusFailures >= RECORDING_INDEX_STATUS_MAX_FAILURES) {
           seekPreparing = false;
           clearIndexStatusPoll();
-          setStatus('Aufnahme läuft · Indexstatus konnte nicht ermittelt werden.', true);
+          setSeekCapabilityStatus('Spulen/Springen derzeit nicht verfügbar.');
           updateControls();
           return false;
         }
-        setStatus('Aufnahme läuft · Index wird erstellt …', false);
+        setSeekCapabilityStatus('Spulen/Springen wird vorbereitet …');
         scheduleIndexStatusPoll();
         return false;
       });
@@ -1939,7 +1953,7 @@
         const playRequest = connectRecordingStream(shouldAutoPlay, true);
 
         if (seekPreparing) {
-          setStatus('Direktstream verbunden · Index wird im Hintergrund erstellt …', false);
+          setStatus('Direktstream verbunden · Spulen/Springen wird vorbereitet …', false);
           scheduleIndexStatusPoll();
         }
         else if (!shouldAutoPlay) {
@@ -1985,7 +1999,12 @@
       if (!started || destroyed || stopped || fallbackPanel || seekInFlight) return false;
       clearWaitingLiveness();
       try { video.pause(); } catch (error) { return false; }
-      setStatus(seekPreparing ? 'Aufnahme pausiert · Index wird erstellt …' : 'Aufnahme pausiert.', false);
+      setStatus(
+        seekPreparing
+          ? 'Aufnahme pausiert · Spulen/Springen wird vorbereitet …'
+          : 'Aufnahme pausiert.',
+        false
+      );
       updateControls();
       publishLifecycle('pause', {state: 'paused', sessionId: activeSessionId, transport: 'progressive-fmp4'});
       return true;
@@ -2135,7 +2154,8 @@
       if (stopped) return 'stopped';
       if (seekInFlight) return 'seeking';
       if (!started) return 'idle';
-      return video.paused ? 'paused' : 'playing';
+      if (video.paused) return 'paused';
+      return firstMediaReported ? 'playing' : 'starting';
     }
 
     function destroy() {
@@ -2176,7 +2196,7 @@
         const elapsed = Math.max(0, nowMilliseconds() - startupStartedAt);
         setStatus(
           seekPreparing
-            ? 'Aufnahme läuft · Start ' + (elapsed / 1000).toFixed(2) + ' s · Index wird erstellt …'
+            ? 'Aufnahme läuft · Start ' + (elapsed / 1000).toFixed(2) + ' s · Spulen/Springen wird vorbereitet …'
             : 'Aufnahme läuft · Start ' + (elapsed / 1000).toFixed(2) + ' s',
           false
         );
@@ -2188,14 +2208,23 @@
         }
       }
       else {
-        setStatus(seekPreparing ? 'Aufnahme läuft · Index wird erstellt …' : 'Aufnahme läuft.', false);
+        setStatus(
+          seekPreparing
+            ? 'Aufnahme läuft · Spulen/Springen wird vorbereitet …'
+            : 'Aufnahme läuft.',
+          false
+        );
       }
       updateControls();
     });
     video.addEventListener('play', function () {
       updateControls();
       if (!destroyed && !fallbackPanel && !stopped) {
-        publishLifecycle('play', {state: 'playing', sessionId: activeSessionId, transport: 'progressive-fmp4'});
+        publishLifecycle('play-requested', {
+          state: firstMediaReported ? 'playing' : 'starting',
+          sessionId: activeSessionId,
+          transport: 'progressive-fmp4'
+        });
       }
     });
     video.addEventListener('pause', function () {
@@ -2214,7 +2243,12 @@
     });
     video.addEventListener('waiting', function () {
       if (!destroyed && !fallbackPanel && !stopped && firstMediaReported) {
-        setStatus(seekPreparing ? 'Aufnahme wartet auf Daten · Index wird erstellt …' : 'Aufnahme wartet auf Daten …', false);
+        setStatus(
+          seekPreparing
+            ? 'Aufnahme wartet auf Daten · Spulen/Springen wird vorbereitet …'
+            : 'Aufnahme wartet auf Daten …',
+          false
+        );
         scheduleWaitingLivenessCheck();
       }
     });

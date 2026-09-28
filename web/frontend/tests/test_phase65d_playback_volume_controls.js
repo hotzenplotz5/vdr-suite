@@ -15,6 +15,7 @@ function createRuntime() {
   let mediaElementsCreated = 0;
   let startCalls = 0;
   let destroyCalls = 0;
+  let fullscreenCalls = 0;
   let assignedFacade = {};
 
   function isWithin(node, root) {
@@ -131,6 +132,10 @@ function createRuntime() {
 
     if (value.tagName === 'VIDEO') {
       mediaElementsCreated += 1;
+      value.requestFullscreen = function () {
+        fullscreenCalls += 1;
+        return Promise.resolve();
+      };
       let volume = 1;
       let muted = false;
       value.ignoreVolumeWrites = false;
@@ -277,7 +282,8 @@ function createRuntime() {
     metrics: {
       mediaElementsCreated: () => mediaElementsCreated,
       startCalls: () => startCalls,
-      destroyCalls: () => destroyCalls
+      destroyCalls: () => destroyCalls,
+      fullscreenCalls: () => fullscreenCalls
     }
   };
 }
@@ -320,9 +326,24 @@ function createRuntime() {
   assert.strictEqual(runtime.observers[0].options.subtree, true);
 
   const recordingVideo = recording.element.querySelector('video');
+  const recordingFullscreen = runtime.find(
+    recording.element,
+    'recordings2-playback-fullscreen'
+  );
   const recordingRange = runtime.find(recording.element, 'recordings2-volume-range');
   const recordingMute = runtime.find(recording.element, 'recordings2-volume-mute');
   const recordingOutput = runtime.find(recording.element, 'recordings2-volume-output');
+
+  assert(recordingFullscreen, 'Recording owner must expose one stable fullscreen control');
+  assert.strictEqual(recordingFullscreen.hidden, false);
+  recordingFullscreen.dispatch('click');
+  await Promise.resolve();
+  assert.strictEqual(runtime.metrics.fullscreenCalls(), 1);
+  assert.strictEqual(
+    runtime.metrics.startCalls(),
+    0,
+    'fullscreen must not start or replace the Recording MediaSession'
+  );
 
   const notificationsBeforeVolume = runtime.observers[0].notifications;
   recordingRange.value = '35';
@@ -363,6 +384,13 @@ function createRuntime() {
   assert.strictEqual(replacementVideo.muted, true, 'replacement video must inherit confirmed owner mute state');
   assert.strictEqual(recordingRange.value, '62');
   assert.strictEqual(recordingMute.getAttribute('aria-pressed'), 'true');
+  recordingFullscreen.dispatch('click');
+  await Promise.resolve();
+  assert.strictEqual(
+    runtime.metrics.fullscreenCalls(),
+    2,
+    'stable Recording fullscreen control must follow the active replacement video'
+  );
 
   // The common client-local owner spans clean factory/owner replacement too.
   // This is the shape used when the persistent Live shell hands off from one
@@ -370,6 +398,11 @@ function createRuntime() {
   const live = facade.createLivePanel({id: 'S19.2E-1-1011-11100'}, 'default');
   assert.strictEqual(live.__vdrSuiteVolumeControlsDecorated, true);
   assert(runtime.find(live.element, 'recordings2-volume-controls'));
+  assert.strictEqual(
+    runtime.find(live.element, 'recordings2-playback-fullscreen'),
+    undefined,
+    'Live owner must keep its established dedicated fullscreen presentation control'
+  );
   const liveVideo = live.element.querySelector('video');
   const liveRange = runtime.find(live.element, 'recordings2-volume-range');
   const liveMute = runtime.find(live.element, 'recordings2-volume-mute');

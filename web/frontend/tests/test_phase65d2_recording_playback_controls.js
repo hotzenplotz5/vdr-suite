@@ -53,11 +53,22 @@ assert.ok(
 
 function node(tagName) {
   const listeners = {};
+  const classes = new Set();
   const value = {
     tagName: String(tagName || '').toUpperCase(),
     children: [],
     className: '',
-    classList: {toggle() {}, add() {}, remove() {}},
+    classList: {
+      toggle(name, force) {
+        const enabled = force === undefined ? !classes.has(name) : Boolean(force);
+        if (enabled) classes.add(name);
+        else classes.delete(name);
+        return enabled;
+      },
+      add(name) { classes.add(name); },
+      remove(name) { classes.delete(name); },
+      contains(name) { return classes.has(name); }
+    },
     style: {},
     dataset: {},
     textContent: '',
@@ -361,10 +372,20 @@ function createRuntime(options) {
   assert.strictEqual(playback.sessionId(), id);
   assert.strictEqual(playback.duration(), 5530);
   assert.strictEqual(playback.position(), 0);
-  assert.strictEqual(playback.state(), 'playing');
+  assert.strictEqual(
+    playback.state(),
+    'starting',
+    'play() alone must not claim playing before the browser confirms first media'
+  );
   assert.strictEqual(runtime.videos.length, 1);
   const video = runtime.videos[0];
   assert.strictEqual(video.src, '/vdr-suite/api/media/sessions/' + id + '/recording/stream.mp4');
+  video.dispatch('playing');
+  assert.strictEqual(
+    playback.state(),
+    'playing',
+    'the canonical owner becomes playing only after the real media playing event'
+  );
 
   const timeline = find(playback.element, item => item.tagName === 'INPUT' && item.type === 'range');
   assert.ok(timeline, 'timeline must exist');
@@ -452,6 +473,49 @@ function createRuntime(options) {
   await assert.rejects(unsupportedPlayback.seekAbsolute(10));
   assert.strictEqual(unsupported.requests.length, beforeUnsupportedSeek);
   unsupportedPlayback.destroy();
+
+  const unavailableIndex = createRuntime({
+    indexPreparing: true,
+    seekSupported: false,
+    immediateTimers: true
+  });
+  const unavailableIndexPlayback =
+    unavailableIndex.window.VdrSuiteRecordings2Playback.createPanel(
+      {id: 'recording-index-unavailable'},
+      'living-room'
+    );
+  await unavailableIndexPlayback.start();
+  await flush();
+  await flush();
+  const unavailableIndexStatus = find(
+    unavailableIndexPlayback.element,
+    item => item.className === 'recordings2-playback-status'
+  );
+  assert.strictEqual(
+    unavailableIndexPlayback.state(),
+    'starting',
+    'a successful play request without first media must remain starting'
+  );
+  assert.strictEqual(
+    unavailableIndexStatus.textContent,
+    'Wiedergabe startet · Spulen/Springen derzeit nicht verfügbar.',
+    'missing seek/index capability must not fabricate active playback'
+  );
+  assert.strictEqual(
+    unavailableIndexStatus.classList.contains('error'),
+    false,
+    'missing seek capability is a control limitation, not a playback failure'
+  );
+  assert.ok(
+    !unavailableIndexStatus.textContent.includes('Index'),
+    'user-facing seek limitation must not expose internal index terminology'
+  );
+  unavailableIndex.videos[0].dispatch('playing');
+  assert.ok(
+    unavailableIndexStatus.textContent.startsWith('Aufnahme läuft'),
+    'real playing event must still promote the visible status'
+  );
+  unavailableIndexPlayback.destroy();
 
   const preparing = createRuntime({indexPreparing: true, immediateTimers: true});
   const preparingPlayback = preparing.window.VdrSuiteRecordings2Playback.createPanel(

@@ -56,7 +56,8 @@
     style.textContent = `
 .recordings2-volume-owner-shell{display:grid;gap:.65rem}
 .recordings2-volume-controls{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;margin-top:.1rem;padding:.55rem .65rem;border:1px solid rgba(148,163,184,.22);border-radius:.72rem;background:rgba(15,23,42,.58)}
-.recordings2-volume-mute{min-height:2.75rem;min-width:5.5rem;padding:.45rem .7rem}
+.recordings2-playback-fullscreen,.recordings2-volume-mute{min-height:2.75rem;min-width:5.5rem;padding:.45rem .7rem}
+.recordings2-volume-owner-shell video:fullscreen{width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;margin:0!important;object-fit:contain!important;background:#000!important}
 .recordings2-volume-range-label{display:flex;align-items:center;gap:.55rem;flex:1 1 15rem;min-width:0;color:#cbd5e1;font-size:.86rem;font-weight:700}
 .recordings2-volume-range{min-height:2.75rem;min-width:8rem;flex:1 1 12rem;touch-action:pan-y}
 .recordings2-volume-output{min-width:3.7rem;color:#f8fafc;text-align:right;font-variant-numeric:tabular-nums}
@@ -72,9 +73,11 @@
     return typeof root.querySelector === 'function' ? root.querySelector('video') : null;
   }
 
-  function decoratePanel(panel) {
+  function decoratePanel(panel, options) {
     if (!panel || !panel.element || panel.__vdrSuiteVolumeControlsDecorated === true) return panel;
 
+    const settings = options && typeof options === 'object' ? options : {};
+    const exposeFullscreen = settings.fullscreen === true;
     installStyles();
     const document = global.document;
     const shell = document.createElement('div');
@@ -84,7 +87,22 @@
     const controls = document.createElement('div');
     controls.className = 'recordings2-volume-controls';
     controls.setAttribute('role', 'group');
-    controls.setAttribute('aria-label', 'Lautstärke');
+    controls.setAttribute(
+      'aria-label',
+      exposeFullscreen ? 'Wiedergabe und Lautstärke' : 'Lautstärke'
+    );
+
+    let fullscreenButton = null;
+    if (exposeFullscreen) {
+      fullscreenButton = document.createElement('button');
+      fullscreenButton.type = 'button';
+      fullscreenButton.className = 'recordings2-playback-fullscreen';
+      fullscreenButton.textContent = 'Vollbild';
+      fullscreenButton.title = 'Aufnahme im Vollbild anzeigen';
+      fullscreenButton.setAttribute('aria-label', fullscreenButton.title);
+      fullscreenButton.hidden = true;
+      controls.appendChild(fullscreenButton);
+    }
 
     const muteButton = document.createElement('button');
     muteButton.type = 'button';
@@ -138,6 +156,11 @@
 
     function updateUiFromVideo() {
       const video = activeVideo;
+      if (fullscreenButton) {
+        fullscreenButton.hidden = !Boolean(
+          video && typeof video.requestFullscreen === 'function'
+        );
+      }
       if (!video) {
         range.disabled = true;
         muteButton.disabled = true;
@@ -291,6 +314,18 @@
       unbindVideo();
     }
 
+    if (fullscreenButton) {
+      fullscreenButton.addEventListener('click', function () {
+        const video = bindCurrentVideo();
+        if (!video || typeof video.requestFullscreen !== 'function') return;
+        try {
+          const request = video.requestFullscreen();
+          if (request && typeof request.catch === 'function') {
+            request.catch(function () {});
+          }
+        } catch (error) {}
+      });
+    }
     range.addEventListener('input', function () {
       setVolumePercent(range.value);
     });
@@ -359,7 +394,10 @@
     if (typeof value.createPanel === 'function') {
       const recordingFactory = value.createPanel;
       decorated.createPanel = function () {
-        return decoratePanel(recordingFactory.apply(value, arguments));
+        return decoratePanel(
+          recordingFactory.apply(value, arguments),
+          {fullscreen: true}
+        );
       };
     }
     if (typeof value.createLivePanel === 'function') {
@@ -368,7 +406,7 @@
         const panel = liveFactory.apply(value, arguments);
         const options = arguments.length > 2 ? arguments[2] : null;
         if (options && options.ownerIntent === 'preview') return panel;
-        return decoratePanel(panel);
+        return decoratePanel(panel, {fullscreen: false});
       };
     }
     decorated.__vdrSuitePlaybackVolumeDecorated = true;
