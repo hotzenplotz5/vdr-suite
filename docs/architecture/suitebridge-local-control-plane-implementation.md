@@ -113,15 +113,13 @@ replayed over SVDRP.
 That preserves the PR #350 rule: missing fresh evidence is indeterminate, not a
 terminal Live-session result.
 
-The daemon HbbTV resolvers use the same selection rule through
-\`SuiteBridgePrioritizedHbbtvTransport\`: the Unix endpoint is preferred and
-SVDRP is used only for a pre-dispatch \`Unavailable\` result. Timeout or other
-uncertainty after local selection is never replayed, including HbbTV LAUNCH,
-INPUT or CLOSE. The transport remains local for INPUT; only its native execution
-is handed from the External Plugin Interactive worker to VDR's
-\`MainThreadHook()\` through a finite queue with a bounded wait. This restores the
-pre-PR-355 execution context without restoring the SVDRP transport or adding a
-second dispatch path.
+The daemon HbbTV resolvers use \`SuiteBridgePrioritizedHbbtvTransport\`.
+Discovery, presentation, media and LAUNCH/STATUS/CLOSE prefer the Unix endpoint
+and use SVDRP only after a pre-dispatch \`Unavailable\` result; post-selection
+timeout or uncertainty is never replayed. INPUT is the deliberate exception:
+the prioritized transport selects typed SVDRP directly before any local
+dispatch, restoring the exact pre-PR-355 execution path. This is one transport
+selection, not a local attempt followed by fallback or retry.
 
 ETYPES follows the same compatibility rule through
 `SuiteBridgePrioritizedEpgTypeSnapshotTransport`. The Unix endpoint is tried
