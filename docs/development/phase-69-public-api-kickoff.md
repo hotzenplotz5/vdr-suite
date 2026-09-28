@@ -415,13 +415,23 @@ run `36364060778` succeeded 6/6.
 
 ## 69.F public-v1 TimerAssignment item reference client
 
-The eleventh bounded 69.F candidate is
+The eleventh bounded 69.F slice is accepted via PR #379:
 [Phase 69.F Public-v1 TimerAssignment Item Reference Client](phase-69f-public-v1-timer-assignment-item-reference-client.md).
-The fresh post-#378 audit chooses the already-stable TimerAssignment item before
-the durable Operation item because the collection directly supplies both item
-identity and backend scope. The candidate consumes the accepted strong opaque
-ETag and `If-None-Match -> 304` safe-read contract only. Mutation `If-Match`,
-Timer CREATE and Operation client semantics stay outside this slice.
+It adds the revisioned TimerAssignment item read to the independent reference
+seam. PR #379 merged as
+`28eb3301215bea17958c3c1b2f49f1e8c7705445` after exact-head CI #9348 /
+run `36366447485` succeeded 6/6.
+
+## 69.F public-v1 Timer CREATE admission reference client
+
+The twelfth bounded 69.F candidate is
+[Phase 69.F Public-v1 Timer CREATE Admission Reference Client](phase-69f-public-v1-timer-create-reference-client.md).
+The fresh post-#379 audit orders the remaining stable public contracts by their
+actual data dependency: the TimerAssignment POST consumes the already available
+item identity + ETag and returns the durable Operation identity/Location used by
+the final Operation read. The candidate therefore adds one caller-controlled
+POST with mandatory `If-Match` and `Idempotency-Key`, no generated key, no
+automatic retry and no automatic operation polling.
 
 ## 69.C completion
 

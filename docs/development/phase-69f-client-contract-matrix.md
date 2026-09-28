@@ -218,6 +218,8 @@ client responsibilities.
 
 ## Public-v1 TimerAssignment item reference extension
 
+The TimerAssignment item reference extension is accepted via PR #379.
+
 The fresh post-#378 audit selects the existing public TimerAssignment item as
 the next bounded external-client read. The accepted collection gives the client
 the exact pair required by the item contract:
@@ -234,6 +236,27 @@ not an HTTP error. The client does not decode or manufacture ETags.
 
 This slice does not add mutation `If-Match`, Timer CREATE, native Timer
 semantics or durable Operation reads.
+
+## Public-v1 Timer CREATE admission reference extension
+
+The fresh post-#379 audit proves the remaining stable mutation/read pair has a
+strict dependency order:
+
+```text
+TimerAssignment item GET
+  -> caller holds opaque ETag
+  -> POST /api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}
+     If-Match: <opaque ETag>
+     Idempotency-Key: <caller-owned key>
+  -> 202 + Location + operationId + Operation ETag
+  -> durable Operation GET (separate successor)
+```
+
+The reference client therefore consumes the accepted Timer CREATE admission
+before adding Operation reconciliation. It does not generate idempotency keys,
+decode ETags, retry failed/unknown submissions, or poll the returned Operation
+automatically. Exact replay remains an explicit caller action using the same
+If-Match and Idempotency-Key as required by the accepted server contract.
 
 ## Explicit fallback debt and successor status
 
