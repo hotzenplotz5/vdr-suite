@@ -243,6 +243,25 @@
     return '?' + params.toString();
   }
 
+
+
+  function timerAssignmentItemPath(options) {
+    if (!options || typeof options !== 'object' || Array.isArray(options)) {
+      throw new Error('TimerAssignment item options must be an object');
+    }
+    if (typeof options.timerAssignmentId !== 'string' || options.timerAssignmentId === '') {
+      throw new Error('TimerAssignment item timerAssignmentId must be a non-empty string');
+    }
+    if (/[\/?#]/.test(options.timerAssignmentId)) {
+      throw new Error('TimerAssignment item timerAssignmentId contains a path delimiter');
+    }
+    if (typeof options.backendId !== 'string' || options.backendId === '') {
+      throw new Error('TimerAssignment item backendId must be a non-empty string');
+    }
+    return '/api/v1/timer-assignments/' + options.timerAssignmentId
+      + '?backend=' + encodeURIComponent(options.backendId);
+  }
+
   function createClient(config) {
     const normalized = config && typeof config === 'object' ? config : {};
     const baseUrl = normalizeBaseUrl(normalized.baseUrl);
@@ -280,6 +299,55 @@
       });
     }
 
+
+    function requestRevisioned(path, options) {
+      const requestOptions = options && typeof options === 'object' ? options : {};
+      if (requestOptions.ifNoneMatch !== undefined
+          && (typeof requestOptions.ifNoneMatch !== 'string'
+              || requestOptions.ifNoneMatch === '')) {
+        throw new Error('ifNoneMatch must be a non-empty string');
+      }
+
+      const headers = Object.assign(
+        {Accept: 'application/json'},
+        defaultHeaders,
+        copyHeaders(requestOptions.headers)
+      );
+      if (requestOptions.ifNoneMatch !== undefined) {
+        headers['If-None-Match'] = requestOptions.ifNoneMatch;
+      }
+
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'GET',
+        headers: headers,
+        credentials: requestOptions.credentials !== undefined
+          ? requestOptions.credentials
+          : normalized.credentials,
+        cache: requestOptions.cache,
+        signal: requestOptions.signal
+      }).then(function (response) {
+        const entityTag = headerValue(response, 'ETag');
+        if (response.status === 304) {
+          return {
+            status: 304,
+            etag: entityTag,
+            data: null
+          };
+        }
+
+        return parseJsonBody(response).then(function (payload) {
+          if (!response.ok) {
+            throw new VdrSuitePublicClientError(path, response.status, payload, response);
+          }
+          return {
+            status: response.status,
+            etag: entityTag,
+            data: payload
+          };
+        });
+      });
+    }
+
     return Object.freeze({
       getApiRoot(options) {
         return request('/api/v1', options);
@@ -299,6 +367,13 @@
         const normalizedOptions = options && typeof options === 'object' ? options : {};
         return request(
           '/api/v1/timer-assignments' + timerAssignmentCollectionQuery(normalizedOptions.query),
+          normalizedOptions
+        );
+      },
+      getTimerAssignment(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return requestRevisioned(
+          timerAssignmentItemPath(normalizedOptions),
           normalizedOptions
         );
       }

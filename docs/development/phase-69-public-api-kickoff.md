@@ -406,13 +406,22 @@ after exact-head CI #9344 / run `36346772858` succeeded 6/6.
 
 ## 69.F public-v1 TimerAssignment collection reference client
 
-The tenth bounded 69.F candidate is
+The tenth bounded 69.F slice is accepted via PR #378:
 [Phase 69.F Public-v1 TimerAssignment Collection Reference Client](phase-69f-public-v1-timer-assignment-collection-reference-client.md).
-The fresh post-#377 audit chooses the stable single-backend TimerAssignment
-collection before the TimerAssignment item and Operation item. Backend
-discovery supplies its scope identity, the collection is a Suite-owned read,
-and it carries no collection ETag or mutation/operation lifecycle. Item ETag,
-conditional GET and mutation semantics remain separate successor work.
+It adds the accepted single-backend TimerAssignment keyset collection to the
+reference seam. PR #378 merged as
+`7a2c8f651ed895148d5520f2ac5820781b917e49` after exact-head CI #9346 /
+run `36364060778` succeeded 6/6.
+
+## 69.F public-v1 TimerAssignment item reference client
+
+The eleventh bounded 69.F candidate is
+[Phase 69.F Public-v1 TimerAssignment Item Reference Client](phase-69f-public-v1-timer-assignment-item-reference-client.md).
+The fresh post-#378 audit chooses the already-stable TimerAssignment item before
+the durable Operation item because the collection directly supplies both item
+identity and backend scope. The candidate consumes the accepted strong opaque
+ETag and `If-None-Match -> 304` safe-read contract only. Mutation `If-Match`,
+Timer CREATE and Operation client semantics stay outside this slice.
 
 ## 69.C completion
 

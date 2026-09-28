@@ -65,6 +65,7 @@ reference = next(
 )
 require(reference is not None, "TimerAssignment collection reference disappeared")
 require(reference.get("path") == "clients/reference-js/public-v1-client.js", "TimerAssignment collection reference path drifted")
+require(reference.get("status") == "accepted", "TimerAssignment collection reference acceptance drifted")
 require(
     reference.get("resources") == ["GET /api/v1/timer-assignments?backend={backendId}"],
     "TimerAssignment collection reference resource drifted",

@@ -266,7 +266,7 @@
   "derivedNextRuntimeCandidate": {
     "domain": "pending-live-audit",
     "proposedTemplate": null,
-    "reason": "The reference client now covers discovery, federated Channels and the stable TimerAssignment collection. TimerAssignment item, Operation item and any mutation client semantics remain separate candidates selected only by a fresh live dependency audit."
+    "reason": "The reference client now covers discovery, Channels, TimerAssignment collection and TimerAssignment revisioned item read. Durable Operation read and mutation submission semantics remain separate candidates selected only by a fresh live dependency audit."
   },
   "publicClientReferences": [
     {
@@ -292,11 +292,20 @@
     {
       "id": "reference-js-timer-assignment-collection",
       "path": "clients/reference-js/public-v1-client.js",
-      "status": "candidate",
+      "status": "accepted",
       "resources": [
         "GET /api/v1/timer-assignments?backend={backendId}"
       ],
       "note": "Single-backend Suite-owned TimerAssignment keyset collection; no collection ETag, no backend I/O and no native Timer fallback."
+    },
+    {
+      "id": "reference-js-timer-assignment-item",
+      "path": "clients/reference-js/public-v1-client.js",
+      "status": "candidate",
+      "resources": [
+        "GET /api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}"
+      ],
+      "note": "Revisioned backend-scoped TimerAssignment item GET with opaque ETag exposure and caller-supplied If-None-Match; no If-Match or mutation."
     }
   ]
 }

@@ -11,6 +11,7 @@
 - [Phase 69.F Public-v1 Discovery Reference Client](phase-69f-public-v1-discovery-reference-client.md)
 - [Phase 69.F Public-v1 Channel Reference Client](phase-69f-public-v1-channel-reference-client.md)
 - [Phase 69.F Public-v1 TimerAssignment Collection Reference Client](phase-69f-public-v1-timer-assignment-collection-reference-client.md)
+- [Phase 69.F Public-v1 TimerAssignment Item Reference Client](phase-69f-public-v1-timer-assignment-item-reference-client.md)
 - [Current Project Status](current-status.md)
 - [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 - [Parity Audit and Frontend Gap Roadmap](../planning/parity-audit-and-frontend-gap-roadmap.md)
@@ -226,6 +227,11 @@ The [Public-v1 TimerAssignment Collection Reference Client](phase-69f-public-v1-
 adds the already-stable Suite-owned TimerAssignment collection to the independent
 reference seam. It does not replace the browser's native Timer list or imply
 that TimerAssignment and legacy/native Timer representations are equivalent.
+
+The [Public-v1 TimerAssignment Item Reference Client](phase-69f-public-v1-timer-assignment-item-reference-client.md)
+adds the accepted revisioned TimerAssignment item read with ETag/
+`If-None-Match` handling. It remains separate from the browser native-Timer
+surface and from public Timer mutation submission.
 
 ## Current Direct Fetch Inventory
 

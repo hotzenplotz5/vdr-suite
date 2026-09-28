@@ -15,10 +15,15 @@ The accepted next bounded read extension adds:
 - `GET /api/v1/channels?backendId=...` with explicit 1–16 source selection,
   keyset pagination and unchanged partial-source metadata.
 
-The next candidate read extension adds:
+The accepted TimerAssignment collection extension adds:
 
 - `GET /api/v1/timer-assignments?backend=...` as a single-backend Suite-owned
   keyset collection with no collection ETag and no native-VDR fallback.
+
+The next candidate read extension adds:
+
+- `GET /api/v1/timer-assignments/{timerAssignmentId}?backend=...` with the
+  accepted opaque ETag and `If-None-Match -> 304` contract.
 
 The caller supplies the Suite origin, transport and any authentication headers
 or credentials. The reference client does not invent login/session behavior,
