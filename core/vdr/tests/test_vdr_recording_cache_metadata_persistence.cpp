@@ -109,6 +109,25 @@ int main()
         assert(repository.replaceRecordingsForBackend(
             "default",
             {recording}));
+
+        VdrRecording weakerRestartSnapshot = recording;
+        weakerRestartSnapshot.metadata = VdrRecordingMetadata{};
+
+        assert(repository.replaceRecordingsForBackend(
+            "default",
+            {weakerRestartSnapshot}));
+
+        const std::vector<VdrRecording> preservedAfterRefresh =
+            repository.findAllForBackend("default");
+        assert(preservedAfterRefresh.size() == 1);
+        assert(preservedAfterRefresh.front().metadata.native.shortText ==
+               "Fernsehfilm Deutschland 2021");
+        assert(preservedAfterRefresh.front().metadata.provider.hasData());
+        assert(preservedAfterRefresh.front().metadata.provider.movieId ==
+               "785533");
+        assert(preservedAfterRefresh.front().metadata.hasArtwork());
+        assert(preservedAfterRefresh.front().metadata.artwork.front().reference ==
+               "movies/785533/poster.jpg");
     }
 
     {

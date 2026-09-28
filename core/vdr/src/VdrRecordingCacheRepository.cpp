@@ -250,6 +250,50 @@ std::vector<VdrRecording> uniqueRecordingsByNormalizedPath(
     return result;
 }
 
+
+bool sameStableRecordingIdentity(
+    const VdrRecording& existing,
+    const VdrRecording& incoming)
+{
+    if (!existing.backendNativeId.empty() ||
+        !incoming.backendNativeId.empty())
+    {
+        return !existing.backendNativeId.empty() &&
+            existing.backendNativeId == incoming.backendNativeId;
+    }
+
+    return !existing.id.empty() &&
+        existing.id == incoming.id;
+}
+
+void preserveMetadataWhenIncomingIsWeaker(
+    const VdrRecording& existing,
+    VdrRecording& incoming)
+{
+    if (!sameStableRecordingIdentity(existing, incoming))
+    {
+        return;
+    }
+
+    if (!incoming.metadata.native.hasText() &&
+        existing.metadata.native.hasText())
+    {
+        incoming.metadata.native = existing.metadata.native;
+    }
+
+    if (!incoming.metadata.provider.hasData() &&
+        existing.metadata.provider.hasData())
+    {
+        incoming.metadata.provider = existing.metadata.provider;
+    }
+
+    if (!incoming.metadata.hasArtwork() &&
+        existing.metadata.hasArtwork())
+    {
+        incoming.metadata.artwork = existing.metadata.artwork;
+    }
+}
+
 std::string lastSegment(
     const std::string& path)
 {
@@ -424,6 +468,35 @@ bool VdrRecordingCacheRepository::replaceRecordingsForBackend(
     const std::string normalizedBackendId =
         normalizeBackendId(backendId);
 
+    std::vector<VdrRecording> mergedRecordings = recordings;
+    const std::vector<VdrRecording> existingRecordings =
+        findAllForBackend(normalizedBackendId);
+
+    std::map<std::string, VdrRecording> existingByCacheKey;
+    for (const VdrRecording& existing : existingRecordings)
+    {
+        const std::string cacheKey =
+            cacheKeyForRecording(existing);
+        if (!cacheKey.empty())
+        {
+            existingByCacheKey.emplace(cacheKey, existing);
+        }
+    }
+
+    for (VdrRecording& incoming : mergedRecordings)
+    {
+        const std::string cacheKey =
+            cacheKeyForRecording(incoming);
+        const auto existing =
+            existingByCacheKey.find(cacheKey);
+        if (existing != existingByCacheKey.end())
+        {
+            preserveMetadataWhenIncomingIsWeaker(
+                existing->second,
+                incoming);
+        }
+    }
+
     auto transactionLease = database_.acquireTransactionLease();
     if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
     {
@@ -462,7 +535,7 @@ bool VdrRecordingCacheRepository::replaceRecordingsForBackend(
 
     if (!upsertRecordingsForBackendLocked(
             normalizedBackendId,
-            recordings))
+            mergedRecordings))
     {
         database_.execute("ROLLBACK;");
         return false;
@@ -476,7 +549,7 @@ bool VdrRecordingCacheRepository::replaceRecordingsForBackend(
 
     storeBrowseSnapshotLocked(
         normalizedBackendId,
-        recordings);
+        mergedRecordings);
 
     return true;
 }

@@ -305,7 +305,10 @@ bool GlobalSearchRepository::ensureSchema()
             "CREATE INDEX IF NOT EXISTS idx_epg_scraper_metadata_people_name "
             "ON epg_scraper_metadata_people(backend_id,name_folded,channel_id,event_id);"
             "CREATE INDEX IF NOT EXISTS idx_epg_scraper_metadata_people_event "
-            "ON epg_scraper_metadata_people(backend_id,channel_id,event_id);"))
+            "ON epg_scraper_metadata_people(backend_id,channel_id,event_id);"
+            "CREATE TABLE IF NOT EXISTS global_search_runtime_migration("
+            "name TEXT PRIMARY KEY,"
+            "applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);"))
     {
         return false;
     }
@@ -314,26 +317,148 @@ bool GlobalSearchRepository::ensureSchema()
 
 bool GlobalSearchRepository::backfillEpgPeople() const
 {
-    if (!database_.tableExists("epg_scraper_metadata_cache")) return true;
-    sqlite3_stmt* statement = nullptr;
-    const char* sql =
-        "INSERT OR IGNORE INTO epg_scraper_metadata_people("
-        "backend_id,channel_id,event_id,ordinal,role,name,name_folded,character_name,character_name_folded) "
-        "SELECT c.backend_id,c.channel_id,c.event_id,CAST(j.key AS INTEGER),"
-        "COALESCE(json_extract(j.value,'$.role'),'unknown'),"
-        "COALESCE(json_extract(j.value,'$.name'),''),"
-        "vdr_suite_fold(COALESCE(json_extract(j.value,'$.name'),'')),"
-        "COALESCE(json_extract(j.value,'$.characterName'),''),"
-        "vdr_suite_fold(COALESCE(json_extract(j.value,'$.characterName'),'')) "
-        "FROM epg_scraper_metadata_cache c,json_each(c.public_json,'$.people') j "
-        "WHERE json_valid(c.public_json) AND COALESCE(json_extract(j.value,'$.name'),'')<>'';";
-    if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK)
+    if (!database_.tableExists("epg_scraper_metadata_cache"))
     {
         return true;
     }
-    const bool ok = sqlite3_step(statement) == SQLITE_DONE;
-    sqlite3_finalize(statement);
-    return ok;
+
+    static const char* migrationName =
+        "epg-people-json-backfill-v1";
+
+    sqlite3_stmt* marker = nullptr;
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            "SELECT 1 FROM global_search_runtime_migration "
+            "WHERE name=? LIMIT 1;",
+            -1,
+            &marker,
+            nullptr) != SQLITE_OK)
+    {
+        return false;
+    }
+    sqlite3_bind_text(
+        marker,
+        1,
+        migrationName,
+        -1,
+        SQLITE_STATIC);
+    const bool alreadyApplied =
+        sqlite3_step(marker) == SQLITE_ROW;
+    sqlite3_finalize(marker);
+
+    if (alreadyApplied)
+    {
+        return true;
+    }
+
+    sqlite3_stmt* missing = nullptr;
+    const char* missingSql =
+        "SELECT 1 FROM epg_scraper_metadata_cache c "
+        "WHERE json_array_length("
+        "CASE WHEN json_valid(c.public_json) "
+        "THEN c.public_json ELSE '{\"people\":[]}' END,"
+        "'$.people')>0 "
+        "AND NOT EXISTS("
+        "SELECT 1 FROM epg_scraper_metadata_people p "
+        "WHERE p.backend_id=c.backend_id "
+        "AND p.channel_id=c.channel_id "
+        "AND p.event_id=c.event_id"
+        ") LIMIT 1;";
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            missingSql,
+            -1,
+            &missing,
+            nullptr) != SQLITE_OK)
+    {
+        return false;
+    }
+
+    const bool needsBackfill =
+        sqlite3_step(missing) == SQLITE_ROW;
+    sqlite3_finalize(missing);
+
+    auto transactionLease =
+        database_.acquireTransactionLease();
+    if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
+    {
+        return false;
+    }
+
+    if (needsBackfill)
+    {
+        sqlite3_stmt* statement = nullptr;
+        const char* sql =
+            "INSERT OR IGNORE INTO epg_scraper_metadata_people("
+            "backend_id,channel_id,event_id,ordinal,role,name,name_folded,character_name,character_name_folded) "
+            "SELECT c.backend_id,c.channel_id,c.event_id,CAST(j.key AS INTEGER),"
+            "COALESCE(json_extract(j.value,'$.role'),'unknown'),"
+            "COALESCE(json_extract(j.value,'$.name'),''),"
+            "vdr_suite_fold(COALESCE(json_extract(j.value,'$.name'),'')),"
+            "COALESCE(json_extract(j.value,'$.characterName'),''),"
+            "vdr_suite_fold(COALESCE(json_extract(j.value,'$.characterName'),'')) "
+            "FROM epg_scraper_metadata_cache c,"
+            "json_each("
+            "CASE WHEN json_valid(c.public_json) "
+            "THEN c.public_json ELSE '{\"people\":[]}' END,"
+            "'$.people') j "
+            "WHERE COALESCE(json_extract(j.value,'$.name'),'')<>'' "
+            "AND NOT EXISTS("
+            "SELECT 1 FROM epg_scraper_metadata_people p "
+            "WHERE p.backend_id=c.backend_id "
+            "AND p.channel_id=c.channel_id "
+            "AND p.event_id=c.event_id"
+            ");";
+        if (sqlite3_prepare_v2(
+                database_.handle(),
+                sql,
+                -1,
+                &statement,
+                nullptr) != SQLITE_OK)
+        {
+            database_.execute("ROLLBACK;");
+            return false;
+        }
+
+        const bool ok =
+            sqlite3_step(statement) == SQLITE_DONE;
+        sqlite3_finalize(statement);
+        if (!ok)
+        {
+            database_.execute("ROLLBACK;");
+            return false;
+        }
+    }
+
+    sqlite3_stmt* mark = nullptr;
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            "INSERT OR IGNORE INTO global_search_runtime_migration(name) "
+            "VALUES(?);",
+            -1,
+            &mark,
+            nullptr) != SQLITE_OK)
+    {
+        database_.execute("ROLLBACK;");
+        return false;
+    }
+    sqlite3_bind_text(
+        mark,
+        1,
+        migrationName,
+        -1,
+        SQLITE_STATIC);
+    const bool marked =
+        sqlite3_step(mark) == SQLITE_DONE;
+    sqlite3_finalize(mark);
+
+    if (!marked || !database_.execute("COMMIT;"))
+    {
+        database_.execute("ROLLBACK;");
+        return false;
+    }
+
+    return true;
 }
 
 bool GlobalSearchRepository::ready() const

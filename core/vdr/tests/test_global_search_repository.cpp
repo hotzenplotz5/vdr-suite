@@ -94,6 +94,7 @@ struct TraceState
 {
     int manualSearchReads = 0;
     int schemaStatements = 0;
+    int epgPeopleBackfills = 0;
 };
 
 int traceSql(unsigned int kind, void* context, void* statement, void*)
@@ -105,6 +106,11 @@ int traceSql(unsigned int kind, void* context, void* statement, void*)
     TraceState& state = *static_cast<TraceState*>(context);
     if (std::strstr(sql, "WITH active_manual AS")) ++state.manualSearchReads;
     if (std::strstr(sql, "CREATE TABLE")) ++state.schemaStatements;
+    if (std::strstr(sql, "json_each(") &&
+        std::strstr(sql, "epg_scraper_metadata_people"))
+    {
+        ++state.epgPeopleBackfills;
+    }
     return 0;
 }
 }
@@ -119,8 +125,18 @@ int main()
     GlobalSearchRepository repository(database);
     assert(repository.ensureSchema());
     const int writesAfterFirstSchema = sqlite3_total_changes(database.handle());
+
+    TraceState repeatedStartupTrace;
+    assert(sqlite3_trace_v2(
+        database.handle(),
+        SQLITE_TRACE_STMT,
+        traceSql,
+        &repeatedStartupTrace) == SQLITE_OK);
     assert(repository.ensureSchema());
+    sqlite3_trace_v2(database.handle(), 0, nullptr, nullptr);
+
     assert(sqlite3_total_changes(database.handle()) == writesAfterFirstSchema);
+    assert(repeatedStartupTrace.epgPeopleBackfills == 0);
     assert(repository.ready());
     assert(GlobalSearchRepository::foldText("MÜNCHEN") == "muenchen");
 
