@@ -144,6 +144,8 @@ outside the platform resource contract.
 
 ## Public-v1 discovery reference client
 
+The initial reference seam is accepted via PR #376.
+
 After the dedicated fallback-hardening successors, the fresh live audit found a
 different gap: the repository had stable public-v1 resources but no client/SDK
 seam that consumed them. Blindly migrating the bundled browser remains invalid
@@ -166,6 +168,28 @@ browser-session/cache/provider routes, performs no fallback/retry, and does not
 publish a package. Its purpose is to prove that the stable public boundary can
 be consumed independently before language/platform-specific TV, mobile,
 desktop or Kodi clients are implemented.
+
+## Public-v1 Channel reference extension
+
+The fresh post-#376 audit selects the existing public Channel collection as the
+next bounded external-client read. It is already stabilized by Phase 69.D and
+forms a direct dependency chain after Backend discovery:
+
+```text
+GET /api/v1/backends
+  -> choose 1..16 authorized backendId values
+  -> GET /api/v1/channels?backendId=...
+```
+
+The reference client preserves the existing Channel contract rather than
+inventing a simpler browser-like route: explicit source selection is mandatory,
+ordering remains `backendId ASC, channelId ASC`, keyset cursor semantics stay
+opaque, and `meta.partial` / per-source failure evidence is returned unchanged.
+No retry, source substitution or legacy `/api/vdr/channels` fallback is added.
+
+TimerAssignment and Operation reads are intentionally not bundled into this
+slice because they introduce separate backend-scope/ETag/operation-lifecycle
+client responsibilities.
 
 ## Explicit fallback debt and successor status
 

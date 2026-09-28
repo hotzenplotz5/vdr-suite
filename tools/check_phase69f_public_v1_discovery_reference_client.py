@@ -17,8 +17,12 @@ def require(condition: bool, message: str) -> None:
 client = read("clients/reference-js/public-v1-client.js")
 routes = set(re.findall(r"['\"](/api/[^'\"]+)['\"]", client))
 require(
-    routes == {"/api/v1", "/api/v1/capabilities", "/api/v1/backends"},
-    "reference client route set drifted: " + repr(sorted(routes)),
+    {"/api/v1", "/api/v1/capabilities", "/api/v1/backends"}.issubset(routes),
+    "accepted discovery routes disappeared: " + repr(sorted(routes)),
+)
+require(
+    all(route.startswith("/api/v1") for route in routes),
+    "non-public-v1 route entered reference client: " + repr(sorted(routes)),
 )
 for forbidden in (
     "/api/vdr/",
@@ -50,10 +54,10 @@ for route in ("/api/v1", "/api/v1/capabilities", "/api/v1/backends"):
 matrix = json.loads(read("docs/development/phase-69f-client-contract-matrix.json"))
 require(len(matrix.get("publicV1Resources", [])) == 8, "stable public-v1 contract count drifted")
 references = matrix.get("publicClientReferences", [])
-require(len(references) == 1, "expected one public client reference")
-reference = references[0]
-require(reference.get("id") == "reference-js-discovery", "reference id drifted")
+reference = next((r for r in references if r.get("id") == "reference-js-discovery"), None)
+require(reference is not None, "accepted discovery reference disappeared")
 require(reference.get("path") == "clients/reference-js/public-v1-client.js", "reference path drifted")
+require(reference.get("status") == "accepted", "discovery reference acceptance drifted")
 require(
     set(reference.get("resources", [])) == {
         "GET /api/v1",

@@ -9,6 +9,7 @@
 - [Phase 69.F Home EPG Single-Route Hardening](phase-69f-home-epg-fallback-removal.md)
 - [Phase 69.F Timer Live Single-Route Hardening](phase-69f-timer-live-fallback-removal.md)
 - [Phase 69.F Public-v1 Discovery Reference Client](phase-69f-public-v1-discovery-reference-client.md)
+- [Phase 69.F Public-v1 Channel Reference Client](phase-69f-public-v1-channel-reference-client.md)
 - [Current Project Status](current-status.md)
 - [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 - [Parity Audit and Frontend Gap Roadmap](../planning/parity-audit-and-frontend-gap-roadmap.md)
@@ -214,6 +215,11 @@ The separate [Public-v1 Discovery Reference Client](phase-69f-public-v1-discover
 is deliberately **not** another Web Client API wrapper. It consumes only stable
 public discovery contracts and therefore must not be used as justification to
 replace richer browser Backend/Channel/Timer semantics.
+
+The [Public-v1 Channel Reference Client](phase-69f-public-v1-channel-reference-client.md)
+extends that independent seam with the already-stable federated Channel read.
+It preserves explicit backend-source and partial-result semantics and does not
+replace the browser's non-equivalent Channel wrapper.
 
 ## Current Direct Fetch Inventory
 

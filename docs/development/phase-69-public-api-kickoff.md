@@ -389,15 +389,22 @@ run `36343460569` succeeded 6/6.
 
 ## 69.F public-v1 discovery reference client
 
-The eighth bounded 69.F candidate is
+The eighth bounded 69.F slice is accepted via PR #376:
 [Phase 69.F Public-v1 Discovery Reference Client](phase-69f-public-v1-discovery-reference-client.md).
-The fresh post-#375 audit finds no `clients/` layer, OpenAPI description or
-public-v1 SDK/reference implementation, while the browser route matrix correctly
-prohibits substituting its richer pre-v1 Backend/Channel/Timer semantics. The
-candidate therefore adds a transport-injected, DOM-free JavaScript reference
-client for only the already-stable discovery resources `/api/v1`,
-`/api/v1/capabilities` and `/api/v1/backends`. It is a reference seam, not
-a published package and not a claim that browser-private routes are public.
+It establishes the transport-injected, DOM-free JavaScript reference seam for
+`/api/v1`, `/api/v1/capabilities` and `/api/v1/backends`. PR #376 merged as
+`88b7e01d5fb327fea3f54d43f31202dc7e303d98` after exact-head CI #9341 /
+run `36344690345` succeeded 6/6.
+
+## 69.F public-v1 Channel reference client
+
+The ninth bounded 69.F candidate is
+[Phase 69.F Public-v1 Channel Reference Client](phase-69f-public-v1-channel-reference-client.md).
+The fresh post-#376 audit chooses the already-stable federated Channel
+collection as the next reference-client read: it composes directly after
+Backend discovery, requires no new identity or server route, preserves explicit
+multi-backend partial-result semantics, and has no ETag or mutation dependency.
+TimerAssignment and Operation client methods remain separate successor work.
 
 ## 69.C completion
 
