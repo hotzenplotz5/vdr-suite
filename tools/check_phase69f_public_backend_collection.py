@@ -157,9 +157,9 @@ require(
 )
 candidate = matrix.get("derivedNextRuntimeCandidate", {})
 require(
-    candidate.get("domain") == "pending-live-audit"
+    candidate.get("domain") == "phase69f-closeout-audit"
     and candidate.get("proposedTemplate") is None,
-    "matrix must require a fresh live audit for the next public runtime candidate",
+    "complete public-v1 reference coverage must require closeout audit without a preselected route",
 )
 require(
     "Stable public-v1 method/resource contracts: 8." in matrix_guard,
