@@ -244,6 +244,11 @@ int main()
     resolver.handlerUsage = 0;
     assert(runtime.operationState(sourceKey) == "verified");
     assert(runtime.deleteBlockReason(sourceKey).empty());
+    result = runtime.dispatch(cut);
+    assert(result.accepted);
+    assert(result.replayed);
+    assert(result.verified);
+    assert(result.editedRecordingKey == editedKey);
     resolver.complete = true;
 
     // Revalidate persisted verification from older daemon versions, including replay.
