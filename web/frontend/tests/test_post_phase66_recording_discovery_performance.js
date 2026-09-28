@@ -302,6 +302,11 @@ function createHarness(initialMetadataMode) {
     fireHomeClick() {
       fireModuleClick('overview');
     },
+    fireHomeResume() {
+      (documentListeners['vdr-suite:home-resume'] || []).forEach((handler) => handler({
+        detail: {backendId: backendId}
+      }));
+    },
     seriesCalls(requestBackendId) {
       return genreCalls.filter((call) =>
         call.genreId === 'series' &&
@@ -548,6 +553,7 @@ async function proveWarmProductionReturnAndForcedRefresh() {
 
   harness.setBackend('secondary');
   harness.fireHomeClick();
+  harness.fireHomeResume();
   await flush();
 
   assert.strictEqual(
