@@ -44,7 +44,7 @@ for token in (
     "hidden.statusCode == 404",
     "missing.statusCode == 404",
     "unavailable.statusCode == 503",
-    '\"state\":\"queued\"',
+    'result.operation.state = "queued";',
 ):
     require(token in server_test, "accepted Operation server contract drifted: " + token)
 
