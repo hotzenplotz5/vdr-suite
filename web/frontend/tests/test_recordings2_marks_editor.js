@@ -483,7 +483,7 @@ async function run() {
   assert(allText(root).includes('Aufnahmeaktionen'));
 
   mode = 'verified';
-  await fireNextTimer();
+  for (let attempt = 0; attempt < 3 && !allText(root).includes('Native geschnittene Ausgabe bestätigt'); ++attempt) await fireNextTimer();
   assert.deepStrictEqual(posts().at(-1).body.operationId, posts()[beforeCut].body.operationId);
   assert(allText(root).includes('Native geschnittene Ausgabe bestätigt'));
   assert(!allText(root).includes('100 %'), 'native cutter progress must never be fabricated');
