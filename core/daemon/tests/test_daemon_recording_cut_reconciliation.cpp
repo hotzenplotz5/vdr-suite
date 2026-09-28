@@ -37,6 +37,29 @@ int main()
     state.editedDestinationExists = false;
     assert(!daemonRecordingCutResultMatches(source, edited, state));
 
+    state.availability = VdrRecordingNativeCutStateAvailability::Available;
+    state.found = true;
+    state.handlerUsage = 4;
+    state.editedDestinationExists = false;
+    state.editedRecordingFound = false;
+    assert(daemonRecordingCutStateBlocksSourceDelete(state));
+
+    state.handlerUsage = 0;
+    state.editedDestinationExists = true;
+    state.editedRecordingFound = false;
+    assert(daemonRecordingCutStateBlocksSourceDelete(state));
+
+    state.editedRecordingFound = true;
+    assert(!daemonRecordingCutStateBlocksSourceDelete(state));
+
+    state.editedDestinationExists = false;
+    state.editedRecordingFound = false;
+    assert(!daemonRecordingCutStateBlocksSourceDelete(state));
+
+    state.availability = VdrRecordingNativeCutStateAvailability::TransportError;
+    state.handlerUsage = 4;
+    assert(!daemonRecordingCutStateBlocksSourceDelete(state));
+
     assert(!daemonRecordingCutResultMatches("/srv/vdr/video/source.rec", edited, state));
     assert(!daemonRecordingCutResultMatches(source, "/srv/vdr/video/edited.rec", state));
 
