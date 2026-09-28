@@ -1,6 +1,7 @@
 .PHONY: test-ci-fast test-ci-frontend test-ci-packaging test-all test-vdr test-manual-real test-make-inventory
 
 CI_FAST_TESTS := \
+	test-phase69f-public-v1-operation-reference-client \
 	test-phase69f-public-v1-timer-create-reference-client \
 	test-phase69f-public-v1-timer-assignment-item-reference-client \
 	test-phase69f-public-v1-timer-assignment-collection-reference-client \

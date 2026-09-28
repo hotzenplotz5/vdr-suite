@@ -264,9 +264,9 @@
   ],
   "explicitDeferredFallbacks": [],
   "derivedNextRuntimeCandidate": {
-    "domain": "pending-live-audit",
+    "domain": "phase69f-closeout-audit",
     "proposedTemplate": null,
-    "reason": "The reference client now covers all stable discovery/Channel/TimerAssignment reads plus Timer CREATE admission. The remaining stable public-v1 client gap is the durable Operation item read, to be selected only after fresh post-admission audit."
+    "reason": "All eight currently stable public-v1 method/resource contracts are covered by the reference client after the Operation item candidate. No additional route is preselected; the next justified step is a fresh 69.F/Phase-69 closeout audit."
   },
   "publicClientReferences": [
     {
@@ -310,11 +310,20 @@
     {
       "id": "reference-js-timer-create-admission",
       "path": "clients/reference-js/public-v1-client.js",
-      "status": "candidate",
+      "status": "accepted",
       "resources": [
         "POST /api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}"
       ],
       "note": "Caller-owned If-Match + Idempotency-Key protected Timer CREATE admission; exactly one POST returning Operation identity/Location/ETag with no automatic retry or polling."
+    },
+    {
+      "id": "reference-js-operation-item",
+      "path": "clients/reference-js/public-v1-client.js",
+      "status": "candidate",
+      "resources": [
+        "GET /api/v1/operations/{operationId}"
+      ],
+      "note": "Actor-owned durable Operation item GET with opaque ETag exposure and caller-supplied If-None-Match; explicit one-shot reconciliation read with no polling or mutation helper."
     }
   ]
 }

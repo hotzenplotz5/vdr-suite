@@ -424,14 +424,25 @@ run `36366447485` succeeded 6/6.
 
 ## 69.F public-v1 Timer CREATE admission reference client
 
-The twelfth bounded 69.F candidate is
+The twelfth bounded 69.F slice is accepted via PR #380:
 [Phase 69.F Public-v1 Timer CREATE Admission Reference Client](phase-69f-public-v1-timer-create-reference-client.md).
-The fresh post-#379 audit orders the remaining stable public contracts by their
-actual data dependency: the TimerAssignment POST consumes the already available
-item identity + ETag and returns the durable Operation identity/Location used by
-the final Operation read. The candidate therefore adds one caller-controlled
-POST with mandatory `If-Match` and `Idempotency-Key`, no generated key, no
-automatic retry and no automatic operation polling.
+It adds the caller-controlled Timer CREATE admission to the independent
+reference seam. PR #380 merged as
+`afd0e04708622d99a3ee82532e7d8608495d3f6b` after exact-head CI #9352 /
+run `36367430072` succeeded 6/6.
+
+## 69.F public-v1 Operation reference client
+
+The thirteenth bounded 69.F candidate is
+[Phase 69.F Public-v1 Operation Reference Client](phase-69f-public-v1-operation-reference-client.md).
+The fresh post-#380 audit finds exactly one stable public-v1 contract absent
+from the reference seam: the actor-owned durable Operation item returned by
+Timer CREATE admission. The candidate adds one explicit revisioned GET with
+opaque ETag and `If-None-Match -> 304`. It adds no Operation collection,
+mutation, cancellation or automatic polling. Completion of this candidate gives
+the reference seam exact coverage of all eight currently stable public-v1
+method/resource contracts; the successor is a closeout audit rather than a new
+route slice.
 
 ## 69.C completion
 

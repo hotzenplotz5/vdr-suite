@@ -25,12 +25,18 @@ The accepted revisioned item extension adds:
 - `GET /api/v1/timer-assignments/{timerAssignmentId}?backend=...` with the
   accepted opaque ETag and `If-None-Match -> 304` contract.
 
-The next candidate mutation extension adds:
+The accepted mutation extension adds:
 
 - `POST /api/v1/timer-assignments/{timerAssignmentId}?backend=...` for the
   accepted Timer CREATE admission. The caller supplies the item ETag and
   Idempotency-Key; the reference client performs one POST and returns the
   accepted Operation representation without retrying or polling automatically.
+
+The final stable-contract read extension adds:
+
+- `GET /api/v1/operations/{operationId}` with the accepted opaque ETag and
+  `If-None-Match -> 304` contract. It is an explicit one-shot read; the
+  reference client does not add a polling loop.
 
 The caller supplies the Suite origin, transport and any authentication headers
 or credentials. The reference client does not invent login/session behavior,

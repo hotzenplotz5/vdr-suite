@@ -111,7 +111,7 @@ require('if (path == "/api/backends")' in api_router, "pre-v1 backend discovery 
 require('if (path == "/api/backends/default")' in api_router, "pre-v1 default-backend route disappeared")
 
 references = matrix.get("publicClientReferences", [])
-require(len(references) == 5, "expected exactly five bounded public client reference slices")
+require(len(references) == 6, "expected exactly six bounded public client reference slices")
 discovery_reference = next((r for r in references if r.get("id") == "reference-js-discovery"), None)
 require(discovery_reference is not None, "public discovery reference disappeared")
 require(discovery_reference.get("path") == "clients/reference-js/public-v1-client.js", "public discovery reference path drifted")
@@ -171,10 +171,40 @@ require(
     ],
     "public Timer CREATE reference resource drifted",
 )
+require(
+    timer_create_reference.get("status") == "accepted",
+    "public Timer CREATE reference must remain accepted",
+)
+operation_reference = next(
+    (r for r in references if r.get("id") == "reference-js-operation-item"),
+    None,
+)
+require(operation_reference is not None, "public Operation reference disappeared")
+require(
+    operation_reference.get("resources") == ["GET /api/v1/operations/{operationId}"],
+    "public Operation reference resource drifted",
+)
+
+public_contracts = {
+    resource["method"] + " " + resource["template"]
+    for resource in matrix.get("publicV1Resources", [])
+}
+reference_contracts = {
+    contract
+    for reference in references
+    for contract in reference.get("resources", [])
+}
+require(
+    reference_contracts == public_contracts,
+    "reference client must cover exactly the stable public-v1 contract set",
+)
 
 candidate = matrix.get("derivedNextRuntimeCandidate", {})
-require(candidate.get("domain") == "pending-live-audit", "next runtime candidate must require a fresh live audit")
-require(candidate.get("proposedTemplate") is None, "no next public route may be preselected after Backend stabilization")
+require(
+    candidate.get("domain") == "phase69f-closeout-audit",
+    "all stable public-v1 coverage must lead to closeout audit",
+)
+require(candidate.get("proposedTemplate") is None, "closeout audit must not preselect another public route")
 
 backend_group = next((g for g in groups if g.get("domain") == "backends"), None)
 require(
