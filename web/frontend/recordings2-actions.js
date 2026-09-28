@@ -627,6 +627,7 @@
       identity: identity,
       candidateMatches: candidateMatches,
       isDryRunReady: isDryRunReady,
+      actionError: actionError,
       actionPayload: actionPayload
     })
   });
