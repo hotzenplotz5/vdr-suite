@@ -3,6 +3,7 @@
 #include <sqlite3.h>
 
 #include <memory>
+#include <utility>
 
 namespace
 {
@@ -111,6 +112,53 @@ bool EmbeddedRecordingCutRepository::find(
     record.editedRecordingKey = text(row.get(), 7);
 
     return true;
+}
+
+bool EmbeddedRecordingCutRepository::listForBackend(
+    const std::string& backendId,
+    std::vector<EmbeddedRecordingCutRecord>& records)
+{
+    records.clear();
+
+    auto lease = database_.acquireTransactionLease();
+
+    auto row = prepare(
+        database_,
+        "SELECT operation_id,request_identity,command_id,fingerprint,payload,"
+        "instance_id,state,evidence,edited_recording_key "
+        "FROM embedded_recording_cut_commands "
+        "WHERE backend_id=? ORDER BY rowid ASC;");
+
+    if (!row ||
+        !bindText(row.get(), 1, backendId))
+    {
+        return false;
+    }
+
+    for (;;)
+    {
+        const int step = sqlite3_step(row.get());
+
+        if (step == SQLITE_DONE)
+            return true;
+
+        if (step != SQLITE_ROW)
+            return false;
+
+        EmbeddedRecordingCutRecord record;
+        record.found = true;
+        record.backendId = backendId;
+        record.operationId = text(row.get(), 0);
+        record.requestIdentity = text(row.get(), 1);
+        record.commandId = text(row.get(), 2);
+        record.fingerprint = text(row.get(), 3);
+        record.payload = text(row.get(), 4);
+        record.instanceId = text(row.get(), 5);
+        record.state = text(row.get(), 6);
+        record.evidence = text(row.get(), 7);
+        record.editedRecordingKey = text(row.get(), 8);
+        records.push_back(std::move(record));
+    }
 }
 
 bool EmbeddedRecordingCutRepository::insert(
