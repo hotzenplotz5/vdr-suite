@@ -73,7 +73,23 @@ function node(tag) {
     },
     getContext() { return {
       createImageData(w, h) { return {data: new Uint8ClampedArray(w * h * 4)}; },
-      clearRect() {}, putImageData(image) { value.pixels = image.data; }
+      clearRect(x = 0, y = 0, w = value.width || 0, h = value.height || 0) {
+        if (!value.pixels || !(value.width > 0) || !(value.height > 0)) return;
+        const left = Math.max(0, Math.trunc(x));
+        const top = Math.max(0, Math.trunc(y));
+        const right = Math.min(value.width, left + Math.max(0, Math.trunc(w)));
+        const bottom = Math.min(value.height, top + Math.max(0, Math.trunc(h)));
+        for (let row = top; row < bottom; ++row) {
+          for (let column = left; column < right; ++column) {
+            const offset = (row * value.width + column) * 4;
+            value.pixels[offset] = 0;
+            value.pixels[offset + 1] = 0;
+            value.pixels[offset + 2] = 0;
+            value.pixels[offset + 3] = 0;
+          }
+        }
+      },
+      putImageData(image) { value.pixels = image.data; }
     }; }
   };
   if (tag === 'video') videos.push(value);
@@ -85,11 +101,13 @@ function matches(value, selector) {
   return value.tagName.toLowerCase() === selector;
 }
 function qoiFrame() {
-  // A transparent sample plus a changed opaque application pixel after OK.
-  // The QOI decoder and putImageData path are production code, including alpha.
-  // This synthetic frame does not model ZDF's native-control visibility.
+  // The pre-media application frame is opaque on purpose. After input a newer
+  // provider frame contains a transparent video hole plus one opaque control.
   const bytes = [113, 111, 105, 102, 0, 0, 0, 16, 0, 0, 0, 9, 4, 0];
-  for (let i = 0; i < 144; ++i) bytes.push(255, 255, 255, 255, frameRevision > 1 && i === 143 ? 255 : 0);
+  for (let i = 0; i < 144; ++i) {
+    const alpha = frameRevision === 1 ? 255 : (i === 143 ? 255 : 0);
+    bytes.push(255, 255, 255, 255, alpha);
+  }
   bytes.push(0, 0, 0, 0, 0, 0, 0, 1);
   return new Uint8Array(bytes);
 }
@@ -182,17 +200,20 @@ async function run() {
   assert.strictEqual(canvas.style.height, '360px', 'application viewport must not inherit the 150px metadata-less video height');
   assert.strictEqual(canvas.style.width, '640px');
 
+  assert.strictEqual(canvas.pixels[3], 255, 'pre-media application frame is deliberately opaque');
   mediaActive = true; await tick();
   assert(video.src.includes('hbbtv_media_test'), 'actual canonical owner attached the external stream');
   assert.strictEqual(video.videoWidth, 0, 'external attach reset intrinsic metadata again');
   assert.strictEqual(canvas.style.height, '360px');
+  assert.strictEqual(canvas.pixels[3], 0, 'media attach clears stale application pixels over the video rectangle');
+  const canvasZ = Number(liveSource.match(/\.vdr-suite-hbbtv-overlay\{[^}]*z-index:(\d+)/)[1]);
+  assert(Number(video.style.getPropertyValue('z-index')) < canvasZ, 'broadband video must remain BELOW the HbbTV application plane');
   remote('ok').click(); await flush(); await tick();
   assert.deepStrictEqual({...requests.find(v => v.kind === 'input').payload},
     {backendId: 'default', sessionId: 'app_1', action: 'ok'});
-  assert.strictEqual(canvas.pixels[3], 0, 'transparent provider video hole survives QOI decode');
-  assert.strictEqual(canvas.pixels[143 * 4 + 3], 255, 'OK can produce a newer opaque application pixel in the synthetic frame');
-  const canvasZ = Number(liveSource.match(/\.vdr-suite-hbbtv-overlay\{[^}]*z-index:(\d+)/)[1]);
-  assert(Number(video.style.getPropertyValue('z-index')) > canvasZ, 'real external media must remain ABOVE the captured application plane');
+  assert.strictEqual(canvas.pixels[3], 0, 'fresh provider frame keeps the video hole transparent');
+  assert.strictEqual(canvas.pixels[143 * 4 + 3], 255, 'fresh provider frame paints an opaque control pixel above video');
+  assert(Number(video.style.getPropertyValue('z-index')) < canvasZ, 'native controls stay above the visible broadband video');
   assert.strictEqual(video.style.getPropertyValue('pointer-events'), 'none');
   for (const key of ['Enter', 'g', 'r', 'ArrowLeft']) {
     let prevented = false;

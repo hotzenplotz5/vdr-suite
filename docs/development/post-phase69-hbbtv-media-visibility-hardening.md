@@ -6,11 +6,11 @@
 
 Phase 69 remains completed. Phase 70 remains not started and is not authorized by this work.
 
-This hardening covers HbbTV media/application composition and startup layout in the first-party Live-TV browser surface. Real ZDF/yaVDR acceptance on September 28 invalidated the synthetic assumption that the captured application plane could safely stay above the external media plane. The candidate therefore retains the startup/layout hardening but restores the last real-video-visible media ordering.
+This hardening covers HbbTV media/application composition, input execution and startup layout in the first-party Live-TV browser surface. Real ZDF/yaVDR acceptance on September 28 proved two VDR-Suite regressions: PR #355 moved INPUT into an unsafe worker-thread execution context, and commit `709914c2` solved a stale presentation-frame problem by putting the complete broadband video above the application canvas, which necessarily covered later native controls. The candidate keeps the fast local transport and canonical player while restoring application-over-video composition with an explicit stale-frame fence.
 
 ## User-visible failure
 
-Two separate failures are involved. Starting the application before Live video metadata is available can compress its presentation into a shallow horizontal strip. Separately, ZDF broadband media can play audio while its external video or native application controls are not visible. Real acceptance of head `384f5315be2b5368bebd987f5024ee02e0fc91bd` showed that lowering the external media below the captured application plane regresses the formerly visible video without restoring the controls.
+Three symptoms share two concrete regressions. Starting the application before Live video metadata is available can compress its presentation into a shallow horizontal strip. PR #355 can make all HbbTV keys ineffective because INPUT executes `browserClient->ProcessKey()` directly on the new External Plugin worker. Commit `709914c2` then raises broadband video above the application canvas to escape a stale opaque frame; that makes the video visible but prevents later native player controls in the application frame from being visible over it.
 
 ## Root cause
 
@@ -35,7 +35,7 @@ The existing production chain is:
 5. The provider maps its normalized OK action to Enter and sends it to the HbbTV browser. `DaemonHbbtvRuntime` supplies the resolver/authorization wiring; it does not own browser layout. `HbbtvMediaSessionRuntime` owns authorized media issuance, not key routing.
 6. The response kicks the existing presentation read; QOI is decoded and drawn into the application canvas.
 
-At the audited base, `applyHbbtvMediaVideoComposition()` raises the external video to z-index 13 while the captured application canvas is at 12. That ordering is required for real ZDF media visibility with the current browser/provider behavior. It does mean that controls cannot be recovered merely by moving the complete captured application plane above the video. The ordinary Suite Remote navigation module does not participate in this HbbTV control path.
+At the audited base, `applyHbbtvMediaVideoComposition()` raises the external video to z-index 13 while the application canvas is at 12. Git history shows that this ordering was introduced only by `709914c2` on September 28; the earlier working frontend kept the application plane above the canonical video. The actual problem that commit encountered was a stale pre-media presentation frame: lowering the video again without clearing/fencing that stale opaque frame naturally hides the video. The fix must therefore restore the earlier layer ownership and remove the stale frame, not keep the whole video permanently above application UI. The ordinary Suite Remote navigation module does not participate in this HbbTV control path.
 
 The live-fetched provider branch `hotzenplotz5/vdr-plugin-web:work/vdr-suite-hbbtv-runtime-v1` remained at `1b3d2e785a1caf2d9f991fafa9752a433c5a86ae`. Its `VdrSuiteHbbtvPresentationStore::ApplyBgraPatch()` preserves whatever alpha the browser sends, and its unit regression proves only that an explicitly transparent test pixel survives QOI encoding. That does not establish that a real ZDF player frame is transparent over its media area.
 
@@ -53,11 +53,14 @@ The candidate keeps the existing canonical Live-TV `<video>` and MediaSession li
 
 When external HbbTV media has successfully attached:
 
-- fullscreen media uses the exact canonical video plane above the captured application canvas (video 13, canvas 12), preserving the last real-video-visible behavior;
-- windowed media retains the existing provider-geometry transform above the captured application canvas;
+- fullscreen media uses the canonical video plane below the HbbTV application canvas (video 11, canvas 12);
+- windowed media retains the provider-geometry transform on that lower media plane;
+- the current presentation revision is captured as a baseline and only the provider-declared media rectangle is cleared from the stale canvas, immediately exposing the broadband video without erasing unrelated application UI;
+- an in-flight presentation frame at or below that baseline is ignored, so it cannot repaint the stale opaque media rectangle after attach;
+- the next newer provider frame is accepted in full, allowing its transparent video hole and native controls to coexist above the video;
 - pointer input stays owned by the HbbTV application/normalized remote path;
 - application-canvas alignment always measures the untransformed canonical video viewport, preventing recursive geometry drift;
-- stopping/failing HbbTV media restores the exact previous inline video style before broadcast playback is restored.
+- stopping/failing HbbTV media restores the exact previous inline video style and presentation fence before broadcast playback is restored.
 
 While an application frame is available, its dimensions supply the canonical video's application aspect ratio, with automatic height and contained media. These temporary surface styles are independent of the media transform and restored on application close/stop or view deactivation. A `ResizeObserver` tracks the mounted video and slot, aligns on final layout without a network request, and disconnects on replacement/deactivation/teardown. Its callbacks verify current ownership. No startup sleep or second media element is introduced. A late media-attach completion is fenced against the current view/session/playback owner.
 
@@ -81,12 +84,14 @@ Focused coverage must prove:
 - fullscreen HbbTV media targets the complete presentation viewport;
 - windowed HbbTV media honors provider geometry;
 - invalid geometry fails closed;
-- the video plane is composed only after canonical external-stream attachment succeeds and remains above the captured application plane until the cefbrowser/provider boundary can preserve native controls separately;
+- the video plane is composed only after canonical external-stream attachment succeeds and remains below the application plane;
+- media attach clears exactly the stale provider media rectangle and fences older in-flight presentation frames;
+- a newer provider frame can restore opaque controls above the still-visible video;
 - application-canvas alignment measures the untransformed canonical video viewport;
 - the existing HbbTV overlay/public-surface architecture guard requires the composition boundary.
 
-`test_phase67_hbbtv_surface_lifecycle.js` executes the production Live view, canonical `session-frontend-sync` playback owner and real QOI decoder. It covers rapid launch before metadata, external attachment resetting metadata, OK/Enter/color/arrow input, media-plane visibility ordering, final resize without polling, owner-preserving refresh, close/broadcast restoration, immediate relaunch, stale queued input and observer cleanup. It deliberately no longer claims that a synthetic transparent QOI pixel proves native broadcaster controls can overlay the external video. Existing Home composition/navigation-retention and Live playback/stability tests remain in place. Home, cover and Recording-cut product sources are unchanged.
+`test_phase67_hbbtv_surface_lifecycle.js` executes the production Live view, canonical `session-frontend-sync` playback owner and real QOI decoder. It now starts with an opaque pre-media application frame, proves that broadband attach clears the stale media rectangle, keeps video below the application plane, then accepts a newer frame containing a transparent video hole plus an opaque control pixel above the video. It also covers rapid launch before metadata, OK/Enter/color/arrow input, final resize without polling, owner-preserving refresh, close/broadcast restoration, immediate relaunch, stale queued input and observer cleanup. Existing Home composition/navigation-retention and Live playback/stability tests remain in place. Home, cover and Recording-cut product sources are unchanged.
 
 A local headless Chromium experiment loaded the same production view/owner with controlled Suite responses. It remains valid evidence for the startup geometry fix: before metadata, the base produced a 614 x 150 canvas while the candidate produced 614 x 345.375, and a later container resize reached 874 x 491.625 without another HTTP tick. Its synthetic alpha/control composition is not accepted as evidence for real ZDF layering; real yaVDR acceptance remains authoritative for video/control composition.
 
-Real ZDF/yaVDR acceptance was performed against head `384f5315be2b5368bebd987f5024ee02e0fc91bd` and failed: broadband audio ran, the external video became hidden after the z-index change, and OK still did not expose native player controls. Head `f5dc0b7ae428ff821c88235f4a78ea47abd62860` restored real video visibility and startup geometry, but all HbbTV keys still had no application effect. Because the cefbrowser/provider build was unchanged from the earlier working state, the remaining regression was traced to PR #355's changed INPUT execution context. The current candidate therefore adds the bounded SuiteBridge main-thread INPUT handoff while retaining the local transport. Real ZDF acceptance must now prove both application key effect and native controls before this work is accepted.
+Real ZDF/yaVDR acceptance was performed against head `384f5315be2b5368bebd987f5024ee02e0fc91bd` and failed: broadband audio ran, the external video became hidden after placing media below an uncleared stale canvas, and OK still did not expose native player controls. Head `f5dc0b7ae428ff821c88235f4a78ea47abd62860` restored real video visibility and startup geometry, but all HbbTV keys still had no application effect. The SuiteBridge main-thread INPUT handoff now restores the pre-PR-355 execution context without reverting to SVDRP. The final composition candidate additionally removes `709914c2`'s permanent video-above-app workaround by clearing/fencing the stale media rectangle before restoring application-over-video layering. Real ZDF acceptance must now prove video visibility, key effect and native controls together before this work is accepted.

@@ -107,7 +107,10 @@ assert(!live.includes('fetch('));
 for (const token of [
   'hbbtvMediaAttached: false',
   'hbbtvMediaVideoStyle: null',
-  "video.style.setProperty('z-index', '13')",
+  "video.style.setProperty('z-index', '11')",
+  'hbbtvMediaPresentationBaselineRevision: 0',
+  'hbbtvMediaPresentationReady: false',
+  'function clearHbbtvMediaPresentationHole()',
   "video.style.setProperty('pointer-events', 'none')",
   "video.style.setProperty('transform-origin', '0 0')",
   'state.hbbtvMediaAttached = true;',
@@ -164,7 +167,19 @@ const switchSuccessPosition = live.indexOf(
 );
 assert(
   switchSuccessPosition >= 0 && attachPosition > switchSuccessPosition,
-  'the browser video plane may only be raised after canonical external-stream attachment succeeds'
+  'the browser video plane may only be composed after canonical external-stream attachment succeeds'
+);
+assert(
+  live.indexOf('clearHbbtvMediaPresentationHole();', attachPosition) > attachPosition,
+  'external-media attach must clear the stale presentation media rectangle'
+);
+assert(
+  live.includes('revision <= state.hbbtvMediaPresentationBaselineRevision'),
+  'stale in-flight presentation frames must not repaint the cleared media rectangle'
+);
+assert(
+  live.includes('state.hbbtvMediaPresentationReady = true;'),
+  'a newer provider frame must release the presentation fence'
 );
 
 const measurePosition = live.indexOf('restoreHbbtvMediaVideoComposition();', live.indexOf('function alignHbbtvCanvas()'));

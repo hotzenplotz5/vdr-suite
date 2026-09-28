@@ -52,6 +52,8 @@
     hbbtvMediaGeometry: {x: 0, y: 0, width: 0, height: 0},
     hbbtvMediaAttached: false,
     hbbtvMediaVideoStyle: null,
+    hbbtvMediaPresentationBaselineRevision: 0,
+    hbbtvMediaPresentationReady: false,
     hbbtvSurfaceStyle: null,
     hbbtvSurfaceObserver: null,
     hbbtvMediaSwitchTail: Promise.resolve(),
@@ -719,6 +721,8 @@
     state.hbbtvMediaFullscreen = true;
     state.hbbtvMediaGeometry = {x: 0, y: 0, width: 0, height: 0};
     state.hbbtvMediaAttached = false;
+    state.hbbtvMediaPresentationBaselineRevision = 0;
+    state.hbbtvMediaPresentationReady = false;
     restoreHbbtvMediaVideoComposition();
     state.hbbtvInputTail = Promise.resolve();
     state.hbbtvInputSequence += 1;
@@ -749,6 +753,14 @@
       return false;
     }
 
+    const revision = Number(frame.revision) || 0;
+    if (state.hbbtvMediaAttached &&
+        !state.hbbtvMediaPresentationReady &&
+        revision > 0 &&
+        revision <= state.hbbtvMediaPresentationBaselineRevision) {
+      return false;
+    }
+
     const decoded = decoder.decode(frame.bytes);
     if ((frame.width && frame.width !== decoded.width) ||
         (frame.height && frame.height !== decoded.height)) {
@@ -775,7 +787,11 @@
     if (canvas.dataset) {
       canvas.dataset.hbbtvRevision = String(frame.revision || 0);
     }
-    state.hbbtvFrameRevision = Number(frame.revision) || 0;
+    state.hbbtvFrameRevision = revision;
+    if (state.hbbtvMediaAttached &&
+        revision > state.hbbtvMediaPresentationBaselineRevision) {
+      state.hbbtvMediaPresentationReady = true;
+    }
     noteHbbtvInputFrame(frame);
     alignHbbtvCanvas();
     updateHbbtvSessionUi();
@@ -848,7 +864,12 @@
       if (frame && frame.status === 200) {
         drawHbbtvPresentation(frame);
       } else if (frame && frame.status === 204 && Number(frame.revision) > 0) {
-        state.hbbtvFrameRevision = Number(frame.revision);
+        const revision = Number(frame.revision);
+        if (!(state.hbbtvMediaAttached &&
+              !state.hbbtvMediaPresentationReady &&
+              revision > state.hbbtvMediaPresentationBaselineRevision)) {
+          state.hbbtvFrameRevision = revision;
+        }
       }
 
       state.hbbtvPresentationError = '';
@@ -957,6 +978,23 @@
     };
   }
 
+  function clearHbbtvMediaPresentationHole() {
+    const canvas = hbbtvCanvas();
+    if (!canvas || typeof canvas.getContext !== 'function') return false;
+    const target = hbbtvMediaCompositionTarget(
+      Number(canvas.width),
+      Number(canvas.height),
+      state.hbbtvMediaFullscreen,
+      state.hbbtvMediaGeometry
+    );
+    if (!target) return false;
+    const context = canvas.getContext('2d');
+    if (!context || typeof context.clearRect !== 'function') return false;
+    context.clearRect(target.x, target.y, target.width, target.height);
+    canvas.hidden = false;
+    return true;
+  }
+
   function snapshotHbbtvMediaVideoStyle(video) {
     if (!video || !video.style || state.hbbtvMediaVideoStyle) return;
     const properties = [
@@ -1020,12 +1058,11 @@
 
     snapshotHbbtvMediaVideoStyle(video);
     video.style.setProperty('position', 'relative');
-    // Real ZDF/yaVDR acceptance disproved the synthetic alpha-composition
-    // assumption: the captured browser plane can remain opaque while external
-    // HbbTV media is active. Keep the canonical media plane above that capture,
-    // matching the last real-video-visible behavior. Native broadcaster
-    // controls need to be preserved at the cefbrowser/provider boundary.
-    video.style.setProperty('z-index', '13');
+    // Keep broadband media below the HbbTV application plane. On attach we
+    // explicitly clear only the stale media rectangle and fence any older
+    // in-flight presentation frame; the next fresh provider frame can therefore
+    // paint native controls above the still-visible video.
+    video.style.setProperty('z-index', '11');
     video.style.setProperty('transform-origin', '0 0');
     // HbbTV owns input while its broadband medium is active. The browser video
     // must be visible but must not steal pointer input from the application
@@ -1073,6 +1110,8 @@
     state.hbbtvMediaFullscreen = true;
     state.hbbtvMediaGeometry = {x: 0, y: 0, width: 0, height: 0};
     state.hbbtvMediaAttached = false;
+    state.hbbtvMediaPresentationBaselineRevision = 0;
+    state.hbbtvMediaPresentationReady = false;
     restoreHbbtvMediaVideoComposition();
   }
 
@@ -1214,14 +1253,21 @@
               playback !== hbbtvPlaybackController()) return false;
           if (!switched) throw new Error('hbbtv_media_player_switch_failed');
           state.hbbtvMediaAttached = true;
+          state.hbbtvMediaPresentationBaselineRevision =
+            Number(state.hbbtvFrameRevision) || 0;
+          state.hbbtvMediaPresentationReady = false;
+          clearHbbtvMediaPresentationHole();
           state.hbbtvMediaError = '';
           alignHbbtvCanvas();
+          kickHbbtvPresentation(sequence);
           updateHbbtvSessionUi();
           return true;
         });
       }).catch(function(error) {
         if (sequence === state.hbbtvSessionSequence) {
           state.hbbtvMediaAttached = false;
+          state.hbbtvMediaPresentationBaselineRevision = 0;
+          state.hbbtvMediaPresentationReady = false;
           restoreHbbtvMediaVideoComposition();
           state.hbbtvMediaError =
             error && error.message
