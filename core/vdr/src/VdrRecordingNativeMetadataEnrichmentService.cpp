@@ -36,6 +36,9 @@ VdrRecordingNativeMetadataEnrichmentService::VdrRecordingNativeMetadataEnrichmen
     config_.negativeTtlSeconds = std::max<std::int64_t>(1, config_.negativeTtlSeconds);
     config_.retryInitialSeconds = std::max<std::int64_t>(1, config_.retryInitialSeconds);
     config_.retryMaximumSeconds = std::max(config_.retryInitialSeconds, config_.retryMaximumSeconds);
+    config_.exhaustedRetrySeconds = std::max(
+        config_.retryMaximumSeconds,
+        config_.exhaustedRetrySeconds);
     config_.maximumRetryCount = std::max(1, config_.maximumRetryCount);
     config_.maximumQueuedRecordings = std::max<std::size_t>(1, config_.maximumQueuedRecordings);
     config_.maximumBatchSize = std::max(1, config_.maximumBatchSize);
@@ -125,7 +128,9 @@ std::size_t VdrRecordingNativeMetadataEnrichmentService::reconcileInventory(
             continue;
         }
 
-        if (record.exists() && record.retryCount >= config_.maximumRetryCount)
+        if (record.exists() &&
+            record.retryCount >= config_.maximumRetryCount &&
+            record.nextRetryAt > now)
         {
             ++status_.exhaustedRecordings;
             continue;
@@ -149,8 +154,16 @@ bool VdrRecordingNativeMetadataEnrichmentService::shouldQueue(
 
     if (record.retryCount > 0)
     {
-        return record.retryCount < config_.maximumRetryCount &&
-            record.nextRetryAt > 0 && record.nextRetryAt <= now;
+        if (record.retryCount >= config_.maximumRetryCount)
+        {
+            // Historical exhausted rows stored next_retry_at=0 and became
+            // permanently poisoned. Treat those as due once after upgrade.
+            return record.nextRetryAt <= 0 ||
+                record.nextRetryAt <= now;
+        }
+
+        return record.nextRetryAt > 0 &&
+            record.nextRetryAt <= now;
     }
 
     if (record.contentState == "found")
@@ -250,10 +263,12 @@ bool VdrRecordingNativeMetadataEnrichmentService::persistResult(
     }
 
     const VdrRecordingNativeMetadataRecord previous = repository_.find(backendId_, entry.recordingKey);
-    const int retryCount = std::min(previous.retryCount + 1, config_.maximumRetryCount);
-    const std::int64_t nextRetryAt = retryCount >= config_.maximumRetryCount
-        ? 0
-        : now + retryDelaySeconds(retryCount);
+    const int retryCount =
+        std::min(previous.retryCount + 1, config_.maximumRetryCount);
+    const std::int64_t nextRetryAt =
+        retryCount >= config_.maximumRetryCount
+            ? now + config_.exhaustedRetrySeconds
+            : now + retryDelaySeconds(retryCount);
     const std::string diagnostic = metadata.diagnostic.empty()
         ? "recording metadata resolution failed"
         : metadata.diagnostic;
