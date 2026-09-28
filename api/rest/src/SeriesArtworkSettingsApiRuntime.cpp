@@ -289,6 +289,12 @@ std::string serialize(
         json +=
             "{\"seriesKey\":\"" + jsonEscape(value.seriesKey) +
             "\",\"posterUrl\":\"" + jsonEscape(value.posterUrl) +
+            "\",\"providerId\":\"" + jsonEscape(value.providerId) +
+            "\",\"externalNamespace\":\"" +
+            jsonEscape(value.externalNamespace) +
+            "\",\"externalId\":\"" + jsonEscape(value.externalId) +
+            "\",\"posterReference\":\"" +
+            jsonEscape(value.posterReference) +
             "\",\"revision\":" + std::to_string(value.revision) +
             "}";
     }
@@ -542,6 +548,16 @@ bool SeriesArtworkSettingsApiRuntime::tryHandleGet(
             return true;
         }
 
+        std::string externalNamespace =
+            queryValue(
+                requestTarget,
+                "externalNamespace");
+
+        if (externalNamespace.empty())
+        {
+            externalNamespace = "tv";
+        }
+
         const std::string externalId =
             queryValue(
                 requestTarget,
@@ -555,6 +571,7 @@ bool SeriesArtworkSettingsApiRuntime::tryHandleGet(
         const SeriesArtworkImageResult image =
             service->tmdbCandidateImage(
                 backendId,
+                externalNamespace,
                 externalId,
                 posterReference);
 
