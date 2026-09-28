@@ -431,6 +431,9 @@ int main()
         std::istreambuf_iterator<char>());
     assert(storedToken == "test.token_value-123");
 
+    const std::size_t fallbackRequestStart =
+        transport.requests.size();
+
     transport.responses = {
         jsonResponse(
             "{\"backdrops\":[{"
@@ -458,14 +461,23 @@ int main()
     assert(artwork.artwork.provider == "tmdb");
     assert(artwork.artwork.width == 1920);
     assert(artwork.artwork.height == 1080);
-    assert(transport.requests.size() == 3U);
-    assert(transport.requests[1].url.find("/tv/108148/images?") !=
-           std::string::npos);
-    assert(transport.requests[1].url.find("/find/") ==
-           std::string::npos);
-    assert(transport.requests[1].bearerToken ==
-           "test.token_value-123");
-    assert(transport.requests[2].bearerToken.empty());
+    assert(
+        transport.requests.size() ==
+        fallbackRequestStart + 2U);
+    assert(
+        transport.requests[fallbackRequestStart].url.find(
+            "/tv/108148/images?") !=
+        std::string::npos);
+    assert(
+        transport.requests[fallbackRequestStart].url.find(
+            "/find/") ==
+        std::string::npos);
+    assert(
+        transport.requests[fallbackRequestStart].bearerToken ==
+        "test.token_value-123");
+    assert(
+        transport.requests[fallbackRequestStart + 1U]
+            .bearerToken.empty());
 
     SeriesArtworkBackendSettingsUpdate forbiddenClear;
     forbiddenClear.backendId = "default";
