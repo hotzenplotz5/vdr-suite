@@ -417,10 +417,19 @@ void appendRecordingProjection(
          << "}";
 }
 
+bool cutOperationPending(const std::string& state)
+{
+    return state == "starting" ||
+        state == "accepted" ||
+        state == "unknown" ||
+        state == "uncertain";
+}
+
 ApiResponse serializeAvailable(
     const Request& request,
     const VdrRecordingNativeCutState& state,
-    const VdrRecording* editedRecording)
+    const VdrRecording* editedRecording,
+    const std::string& operationState)
 {
     std::ostringstream json;
     json << "{\"backendId\":\"" << jsonEscape(request.backendId)
@@ -440,7 +449,12 @@ ApiResponse serializeAvailable(
          << ",\"editedDestinationExists\":"
          << (state.editedDestinationExists ? "true" : "false")
          << ",\"editedRecordingFound\":"
-         << (state.editedRecordingFound ? "true" : "false");
+         << (state.editedRecordingFound ? "true" : "false")
+         << ",\"operationState\":\"" << jsonEscape(operationState) << "\""
+         << ",\"operationPending\":"
+         << (cutOperationPending(operationState) ? "true" : "false")
+         << ",\"operationVerified\":"
+         << (operationState == "verified" ? "true" : "false");
     if (state.editedRecordingFound)
     {
         json << ",\"editedRecordingKey\":\""
@@ -623,7 +637,8 @@ bool RecordingCutApiRuntime::configure(
     RecordingLookup recordingLookup,
     BackendResolver backendResolver,
     BackendWritePolicy backendWritePolicy,
-    StartDispatcher startDispatcher)
+    StartDispatcher startDispatcher,
+    OperationStateResolver operationStateResolver)
 {
     if (!recordingLookup || !backendResolver) return false;
 
@@ -632,6 +647,7 @@ bool RecordingCutApiRuntime::configure(
     backendResolver_ = std::move(backendResolver);
     backendWritePolicy_ = std::move(backendWritePolicy);
     startDispatcher_ = std::move(startDispatcher);
+    operationStateResolver_ = std::move(operationStateResolver);
     return true;
 }
 
@@ -642,6 +658,7 @@ void RecordingCutApiRuntime::reset()
     backendResolver_ = {};
     backendWritePolicy_ = {};
     startDispatcher_ = {};
+    operationStateResolver_ = {};
 }
 
 bool RecordingCutApiRuntime::configured() const
@@ -675,10 +692,12 @@ bool RecordingCutApiRuntime::tryHandleGet(
 
     RecordingLookup recordingLookup;
     BackendResolver backendResolver;
+    OperationStateResolver operationStateResolver;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         recordingLookup = recordingLookup_;
         backendResolver = backendResolver_;
+        operationStateResolver = operationStateResolver_;
     }
 
     if (!recordingLookup || !backendResolver)
@@ -710,7 +729,15 @@ bool RecordingCutApiRuntime::tryHandleGet(
             state);
     }
 
-    response = serializeAvailable(request, state, editedRecording);
+    const std::string operationState = operationStateResolver
+        ? operationStateResolver(request.backendId, recordingKey)
+        : "none";
+
+    response = serializeAvailable(
+        request,
+        state,
+        editedRecording,
+        operationState);
     return true;
 }
 
