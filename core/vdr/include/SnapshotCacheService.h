@@ -37,6 +37,7 @@ public:
     void updateSnapshotForBackend(const std::string& backendId, const VdrSnapshot& snapshot);
     void updateStatusForBackend(const std::string& backendId, const VdrStatus& status);
     void updateRecordingsForBackend(const std::string& backendId, const std::vector<VdrRecording>& recordings);
+    void removeRecordingForBackend(const std::string& backendId, const std::string& backendNativeId);
     void updateTimersForBackend(const std::string& backendId, const std::vector<VdrTimer>& timers);
     void updateChannelsForBackend(const std::string& backendId, const std::vector<VdrChannel>& channels);
     void updateEventsForBackend(const std::string& backendId, const std::vector<VdrEvent>& events);
