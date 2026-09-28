@@ -131,6 +131,7 @@ const detailDataElement = {
   scrollIntoView() { detailDataScrolls += 1; }
 };
 let homeResumeEvents = 0;
+let renderSelectedModuleCalls = 0;
 const document = {
   dispatchEvent(event) {
     if (event && event.type === 'vdr-suite:home-resume') homeResumeEvents += 1;
@@ -158,11 +159,11 @@ const context = {
   },
   document,
   detailDataElement,
-  currentSnapshot: null,
+  currentSnapshot: {backendId: 'default'},
   selectedBackendId: 'default',
   selectedModule: 'overview',
   homeResumeBackendId: '',
-  renderSelectedModule() {}
+  renderSelectedModule() { renderSelectedModuleCalls += 1; }
 };
 vm.createContext(context);
 vm.runInContext(
@@ -192,6 +193,7 @@ assert.strictEqual(homeTopScrolls, 1,
 assert.strictEqual(detailDataScrolls, 1,
   'Home navigation must not scroll the lower detail-data region into view');
 
+const rendersBeforeBrandHomeReselect = renderSelectedModuleCalls;
 brandButton('overview').dispatch('click');
 assert.strictEqual(
   homeResumeEvents,
@@ -202,6 +204,11 @@ assert.strictEqual(homeTopScrolls, 2,
   'reselecting Home must still return the user to the top');
 assert.strictEqual(detailDataScrolls, 1,
   'reselecting Home must never jump to the lower Home detail-data region');
+assert.strictEqual(
+  renderSelectedModuleCalls,
+  rendersBeforeBrandHomeReselect,
+  'reselecting active Home from the brand launcher must not rebuild Home'
+);
 
 moduleTab('recordings2').dispatch('click');
 assert(moduleTab('recordings2').classList.contains('active'));
@@ -211,6 +218,16 @@ assert.strictEqual(homeTopScrolls, 3,
   'the visible Home module tab must return to the top too');
 assert.strictEqual(detailDataScrolls, 1,
   'the visible Home module tab must never reveal lower detail-data');
+
+const rendersBeforeModuleHomeReselect = renderSelectedModuleCalls;
+moduleTab('overview').dispatch('click');
+assert.strictEqual(homeTopScrolls, 4,
+  'reselecting the visible Home tab must return to the top');
+assert.strictEqual(
+  renderSelectedModuleCalls,
+  rendersBeforeModuleHomeReselect,
+  'reselecting the visible Home tab must not rebuild Home before scrolling'
+);
 
 brandButton('settings').dispatch('keydown', {key: ' '});
 assert(!moduleTab('overview').classList.contains('active'));
