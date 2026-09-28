@@ -2658,6 +2658,38 @@
           );
         }
       );
+
+      const exactQuery =
+        text(input.value).trim().toLocaleLowerCase('de-DE');
+
+      const exactCandidate =
+        candidates.find(function (candidate) {
+          return text(candidate && candidate.title)
+            .trim()
+            .toLocaleLowerCase('de-DE') === exactQuery;
+        });
+
+      if (exactCandidate) {
+        status.textContent =
+          'Exakte Serie gefunden – Staffelcover werden geladen …';
+
+        loadSeriesCoverSeasons(
+          backendId,
+          exactCandidate
+        ).then(function (seasons) {
+          renderCoverChoices(
+            exactCandidate,
+            seasons
+          );
+        }).catch(function () {
+          renderCoverChoices(
+            exactCandidate,
+            []
+          );
+          status.textContent =
+            'Staffelcover konnten nicht geladen werden; das Serienposter bleibt auswählbar.';
+        });
+      }
     }
 
     function runSearch() {
