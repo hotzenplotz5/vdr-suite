@@ -830,7 +830,7 @@ int main()
             recordingMetadataCompatibility);
 
     const std::string recordingKey =
-        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        "0123456789abcdef0123456789abcdef";
     const auto recordingMetadataReply =
         recordingMetadataRouted.requestRecordingMetadata(recordingKey);
     assert(recordingMetadataReply.transportSucceeded);
@@ -838,6 +838,11 @@ int main()
         SuiteBridgeReadTransportStatus::Success);
     assert(recordingMetadataCompatibility.calls.load() == 0);
     recordingMetadataServer.join();
+
+    const auto invalidLegacyWidth =
+        recordingMetadataDedicated.requestRecordingMetadata(
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
+    assert(!invalidLegacyWidth.transportSucceeded);
 
     SuiteBridgeLocalControlTransportConfig recordingMetadataMissingConfig;
     recordingMetadataMissingConfig.socketPath =
