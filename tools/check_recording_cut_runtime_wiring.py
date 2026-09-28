@@ -35,6 +35,8 @@ plugin_svdrp = text("vdr-plugin-suite-bridge/suitebridge_svdrp.cpp")
 plugin_capabilities = text("vdr-plugin-suite-bridge/suitebridge_capabilities.cpp")
 daemon_match = text("core/daemon/src/DaemonRecordingCutReconciliation.cpp")
 daemon_cut = text("core/daemon/src/DaemonRuntimeRecordingCut.cpp")
+embedded_cut_runtime = text("core/daemon/src/EmbeddedRecordingCutRuntime.cpp")
+embedded_cut_repository = text("core/agent/src/EmbeddedRecordingCutRepository.cpp")
 daemon_editing = text("core/daemon/src/DaemonRuntimeRecordingEditing.cpp")
 daemon_runtime = (
     text("core/daemon/src/DaemonRuntime.cpp") + "\n" +
@@ -187,6 +189,26 @@ for label, content, tokens in (
         "state.editedRecordingKey",
         '",\\\"editedRecording\\\":"',
         "appendRecordingProjection",
+        "operationStateResolver",
+        "\\\"operationState\\\"",
+        "\\\"operationPending\\\"",
+        "\\\"operationVerified\\\"",
+    )),
+    ("embedded cut lifecycle", embedded_cut_runtime, (
+        "operationState(",
+        "deleteBlockReason(",
+        "repository_.listForBackend",
+        'record.state == "starting"',
+        'record.state == "accepted"',
+        'record.state == "unknown"',
+        'record.state == "uncertain"',
+        'record.state = "verified"',
+    )),
+    ("embedded cut journal", embedded_cut_repository, (
+        "listForBackend(",
+        "embedded_recording_cut_commands",
+        "state",
+        "edited_recording_key",
     )),
     ("recording cut HTTP security", security_gate, (
         "isRecordingCutAction",
@@ -278,6 +300,17 @@ if "startCut(" in local_state:
     errors.append("cut local-state recovery must never redispatch native cut")
 if "startCut(" in daemon_cut or "NCUT" in daemon_cut:
     errors.append("daemon cut reconciliation must never redispatch native cut")
+
+# Destructive-action and UI lifecycle ownership must come from the durable
+# cut operation journal, not from transient native handler/destination facts.
+for token in (
+    "embeddedCutRuntime->deleteBlockReason(",
+    "embeddedCutRuntime->operationState(",
+    "recording_cut_operation_pending_delete_blocked",
+    "recording_identity_unavailable_delete_blocked",
+):
+    if token not in daemon_cut:
+        errors.append(f"durable cut lifecycle/delete guard missing: {token}")
 
 # Native VDR exposes cut lifecycle/result facts but no reliable percent. Keep
 # HTTP and frontend projection free of invented progress fields.
