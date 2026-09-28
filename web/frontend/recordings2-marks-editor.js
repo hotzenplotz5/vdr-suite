@@ -168,14 +168,17 @@
         if (destroyed || pending !== operation) return null;
         if (!result || result.operationId !== operation.body.operationId || result.accepted !== true) throw new Error('operation_response_invalid');
         if (result.verification !== 'verified') {
-          return syncCanonical(operation).catch(function () { return null; }).then(function () {
-            if (destroyed || pending !== operation) return; setStatus('pending', 'Änderung an VDR übergeben. Der aktuelle native Stand wird angezeigt; die Bestätigung wird automatisch geprüft.'); scheduleVerification();
+          return syncOperationState(operation).catch(function () { return null; }).then(function () {
+            if (destroyed || pending !== operation) return;
+            setStatus('pending', operation.path.endsWith('/cut') ? 'Schnittauftrag angenommen. Der native VDR-Schnitt wird automatisch überwacht.' : 'Änderung an VDR übergeben. Der aktuelle native Stand wird angezeigt; die Bestätigung wird automatisch geprüft.');
+            renderCutState(); scheduleVerification();
           });
         }
-        return syncCanonical(operation).then(function (next) {
+        return syncOperationState(operation).then(function (next) {
           if (destroyed || pending !== operation || !next) return; pending = null; clearVerificationTimer(); verificationAttempts = 0;
           setStatus('success', operation.path.endsWith('/cut') ? 'Native geschnittene Ausgabe bestätigt. Das Original bleibt erhalten.' :
             (next.marksRevision === result.canonicalMarksRevision ? 'Schnittmarken von VDR bestätigt.' : 'Auftrag bestätigt; danach wurden die nativen Marken erneut geändert. Der aktuelle VDR-Stand wird angezeigt.'));
+          renderCutState();
         });
       }).catch(function (error) {
         if (destroyed || pending !== operation) return;
@@ -183,7 +186,11 @@
           pending = null; clearVerificationTimer(); verificationAttempts = 0;
           return syncCanonical(null).catch(function () { return null; }).then(function () { if (!destroyed) setStatus('error', message(error)); });
         }
-        setStatus('error', message(error)); scheduleVerification();
+        if (operation.path.endsWith('/cut')) {
+          setStatus('pending', 'Schnittstatus konnte kurzzeitig nicht bestätigt werden. Derselbe Auftrag wird weiter geprüft.');
+          syncCutState().catch(function () {});
+        } else setStatus('error', message(error));
+        scheduleVerification();
       }).finally(finishBusy);
     }
     function confirm(label, action) {
@@ -196,7 +203,11 @@
       request('/api/vdr/recordings/cut').then(function (preview) {
         if (destroyed) return; busy = false;
         if (!preview || preview.backendId !== identity.backendId || String(preview.recordingId) !== identity.recordingId || preview.marksRevision !== payload.marksRevision) throw new Error('recording_marks_revision_conflict');
-        if (!preview.ready) { setStatus('error', preview.editedDestinationExists ? 'Eine geschnittene Ausgabe existiert bereits.' : preview.inUse ? 'Die Aufnahme wird gerade verwendet.' : 'VDR kann diese Markensequenz derzeit nicht schneiden.'); return; }
+        cutState = preview; renderCutState(); scheduleCutStatePoll();
+        if (!preview.ready) {
+          setStatus(preview.editedRecordingFound ? 'success' : preview.editedDestinationExists || Number(preview.handlerUsage) > 0 ? 'pending' : 'error', preview.editedRecordingFound ? 'Eine bestätigte Schnittfassung ist bereits vorhanden.' : preview.editedDestinationExists || Number(preview.handlerUsage) > 0 ? 'Ein nativer Schnitt läuft bereits oder wird finalisiert.' : preview.inUse ? 'Die Aufnahme wird gerade verwendet.' : 'VDR kann diese Markensequenz derzeit nicht schneiden.');
+          return;
+        }
         confirm('„' + String(recording.title || 'Aufnahme') + '“ mit ' + preview.sequenceCount + ' Schnittbereichen nativ schneiden? VDR erstellt eine neue Ausgabe und erhält das Original.', function () { submit('/api/vdr/recordings/cut'); });
       }).catch(function (error) { if (!destroyed) setStatus('error', message(error)); }).finally(finishBusy);
     }
@@ -259,7 +270,7 @@
         const choose = button(String(mark.timecode || ('Marke ' + String(index + 1))), function () { selectAndSeek(mark); }, false, row, 'recordings2-marks-editor-mark'); choose.setAttribute('aria-pressed', selectedNow ? 'true' : 'false');
         row.appendChild(node('span', 'Frame ' + String(mark.positionFrame) + (index % 2 === 0 ? ' · Behalten ab hier' : ' · Entfernen ab hier')));
       });
-      renderTimeline();
+      renderTimeline(); renderCutState();
     }
     function observe() {
       const current = playback(); if (current === owner) return; if (unsubscribe) unsubscribe(); owner = current;
@@ -268,8 +279,8 @@
         const key = JSON.stringify([state && state.sessionId, state && state.state, state && state.transition]); if (!destroyed && key !== lifecycleKey) { lifecycleKey = key; render(); }
       }) : null;
     }
-    function destroy() { destroyed = true; externalRefreshPending = false; clearVerificationTimer(); if (unsubscribe) unsubscribe(); unsubscribe = null; confirmation.replaceChildren(); }
-    const result = Object.freeze({reload: reload, destroy: destroy, observe: observe, notifyExternalMarksChanged: notifyExternalMarksChanged}); root.__vdrSuiteMarksEditor = result; observe(); render(); return result;
+    function destroy() { destroyed = true; externalRefreshPending = false; clearVerificationTimer(); clearCutStateTimer(); if (unsubscribe) unsubscribe(); unsubscribe = null; confirmation.replaceChildren(); }
+    const result = Object.freeze({reload: reload, destroy: destroy, observe: observe, notifyExternalMarksChanged: notifyExternalMarksChanged}); root.__vdrSuiteMarksEditor = result; observe(); render(); syncCutState().catch(function () {}); return result;
   }
   global.VdrSuiteRecordings2MarksEditor = Object.freeze({attach: attach});
 }(window));
