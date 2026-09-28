@@ -4016,7 +4016,9 @@ document.querySelectorAll('[data-brand-module]').forEach(button => {
       return;
     }
 
-    selectModule(moduleName);
+    if (!(moduleName === 'overview' && selectedModule === 'overview')) {
+      selectModule(moduleName);
+    }
 
     if (moduleName === 'overview') {
       if (typeof window.scrollTo === 'function') {
