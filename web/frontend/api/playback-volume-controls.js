@@ -57,6 +57,7 @@
 .recordings2-volume-owner-shell{display:grid;gap:.65rem}
 .recordings2-volume-controls{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;margin-top:.1rem;padding:.55rem .65rem;border:1px solid rgba(148,163,184,.22);border-radius:.72rem;background:rgba(15,23,42,.58)}
 .recordings2-playback-fullscreen,.recordings2-volume-mute{min-height:2.75rem;min-width:5.5rem;padding:.45rem .7rem}
+.recordings2-volume-owner-shell video:fullscreen{width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;margin:0!important;object-fit:contain!important;background:#000!important}
 .recordings2-volume-range-label{display:flex;align-items:center;gap:.55rem;flex:1 1 15rem;min-width:0;color:#cbd5e1;font-size:.86rem;font-weight:700}
 .recordings2-volume-range{min-height:2.75rem;min-width:8rem;flex:1 1 12rem;touch-action:pan-y}
 .recordings2-volume-output{min-width:3.7rem;color:#f8fafc;text-align:right;font-variant-numeric:tabular-nums}
@@ -86,7 +87,10 @@
     const controls = document.createElement('div');
     controls.className = 'recordings2-volume-controls';
     controls.setAttribute('role', 'group');
-    controls.setAttribute('aria-label', 'Lautstärke');
+    controls.setAttribute(
+      'aria-label',
+      exposeFullscreen ? 'Wiedergabe und Lautstärke' : 'Lautstärke'
+    );
 
     let fullscreenButton = null;
     if (exposeFullscreen) {
