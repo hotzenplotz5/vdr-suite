@@ -62,6 +62,10 @@ public:
         std::function<RecordingCutBackendWriteAccess(const std::string& backendId)>;
     using StartDispatcher =
         std::function<RecordingCutDispatchResult(const RecordingCutStartRequest& request)>;
+    using OperationStateResolver =
+        std::function<std::string(
+            const std::string& backendId,
+            const std::string& recordingKey)>;
 
     static RecordingCutApiRuntime& instance();
 
@@ -69,7 +73,8 @@ public:
         RecordingLookup recordingLookup,
         BackendResolver backendResolver,
         BackendWritePolicy backendWritePolicy = {},
-        StartDispatcher startDispatcher = {});
+        StartDispatcher startDispatcher = {},
+        OperationStateResolver operationStateResolver = {});
 
     void reset();
     bool configured() const;
@@ -92,4 +97,5 @@ private:
     BackendResolver backendResolver_;
     BackendWritePolicy backendWritePolicy_;
     StartDispatcher startDispatcher_;
+    OperationStateResolver operationStateResolver_;
 };
