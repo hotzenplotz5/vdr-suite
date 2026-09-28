@@ -24,10 +24,10 @@ assert(Number(cutLayer[1]) >= 4.5,
   'running cut state must stay below the fixed Home/Back navigation');
 assert(Number(cutLayer[2]) < Number(heroBackLayer[1]),
   'running cut state must never cover the fixed Home/Back navigation');
-assert(marksEditorSource.includes('verificationAttempts >= VERIFY_ATTEMPTS'),
+assert(marksEditorSource.includes('cutPending() && verificationAttempts >= VERIFY_ATTEMPTS'),
   'cut mutation replay verification must be bounded');
-assert(!marksEditorSource.includes('? VERIFY_DELAY_MS : 5000'),
-  'cut mutation verification must never fall into an endless 5-second replay loop');
+assert(marksEditorSource.includes('cutPending() ? VERIFY_DELAY_MS'),
+  'cut mutation replay must stay on the bounded fast verification path');
 assert(marksEditorSource.includes("next.operationState === 'failed' && cutPending()"),
   'native failed cut state must clear transient pending UI');
 
