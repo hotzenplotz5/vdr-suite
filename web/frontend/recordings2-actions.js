@@ -79,25 +79,11 @@
       stringList(result.errors).length === 0;
   }
 
-  function actionError(result, fallback) {
-    const errors = stringList(result && result.errors);
-    if (errors.some(function (value) {
-      return value === 'recording_cut_operation_pending_delete_blocked' ||
-        value === 'recording_cut_active_delete_blocked';
-    })) {
-      return 'Original kann während des laufenden Schnitts nicht gelöscht werden.';
-    }
-    if (errors.some(function (value) {
-      return value === 'recording_cut_state_unavailable_delete_blocked' ||
-        value === 'recording_cut_journal_unavailable_delete_blocked' ||
-        value === 'recording_cut_journal_invalid_delete_blocked' ||
-        value === 'recording_identity_unavailable_delete_blocked';
-    })) {
-      return 'Löschen ist gesperrt, weil der Schnittstatus nicht sicher bestätigt werden kann.';
-    }
+  function actionError(result, fallback) { const errors = stringList(result && result.errors);
+    if (errors.some(function (value) { return value === 'recording_cut_operation_pending_delete_blocked' || value === 'recording_cut_active_delete_blocked'; })) return 'Original kann während des laufenden Schnitts nicht gelöscht werden.';
+    if (errors.some(function (value) { return ['recording_cut_state_unavailable_delete_blocked', 'recording_cut_journal_unavailable_delete_blocked', 'recording_cut_journal_invalid_delete_blocked', 'recording_identity_unavailable_delete_blocked'].includes(value); })) return 'Löschen ist gesperrt, weil der Schnittstatus nicht sicher bestätigt werden kann.';
     return String(result && (result.message || result.error) || fallback || 'Aktion wurde abgelehnt.');
   }
-
   function actionPayload(recording, backendId, action, extra) {
     const payload = {
       backendId: String(backendId || 'default'),
