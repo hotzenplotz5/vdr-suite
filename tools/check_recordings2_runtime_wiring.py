@@ -93,7 +93,7 @@ required_tokens = {
         'VdrSuiteRecordings2MetadataDetail',
         'metadataDetail.enhance',
         'root.__vdrSuiteRecordingPlaybackOwner = activePlayback',
-        "typeof currentState.detailHome === 'function'",
+        "'recordings2-primary recordings2-home'",
         'options.goHome',
     ),
     'marks_detail': (
@@ -119,6 +119,9 @@ required_tokens = {
         'Schnittfassung öffnen',
         'owner.openRecording(cutState.editedRecording',
         'nativeCutRunning()',
+        'verificationAttempts >= VERIFY_ATTEMPTS',
+        "next.operationState === 'failed' && cutPending()",
+        'recording_cut_not_running',
     ),
     'marks_timeline': (
         'global.VdrSuiteRecordings2MarksTimeline',
@@ -171,6 +174,9 @@ required_tokens = {
         'detailHome',
         'goHomeDetail',
         "if (typeof state.detailHome === 'function')",
+        "global.selectModule('overview')",
+        "config.focusNavigation === true",
+        "target.querySelector('.recordings2-toolbar button')",
     ),
 }
 for owner, tokens in required_tokens.items():
