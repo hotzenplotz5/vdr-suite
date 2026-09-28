@@ -306,11 +306,20 @@ if "startCut(" in daemon_cut or "NCUT" in daemon_cut:
 for token in (
     "embeddedCutRuntime->deleteBlockReason(",
     "embeddedCutRuntime->operationState(",
-    "recording_cut_operation_pending_delete_blocked",
-    "recording_identity_unavailable_delete_blocked",
 ):
     if token not in daemon_cut:
-        errors.append(f"durable cut lifecycle/delete guard missing: {token}")
+        errors.append(f"durable cut lifecycle/delete daemon binding missing: {token}")
+
+for token in (
+    "recording_cut_operation_pending_delete_blocked",
+    "recording_identity_unavailable_delete_blocked",
+    'record.state == "starting"',
+    'record.state == "accepted"',
+    'record.state == "unknown"',
+    'record.state == "uncertain"',
+):
+    if token not in embedded_cut_runtime:
+        errors.append(f"durable cut lifecycle/delete journal guard missing: {token}")
 
 # Native VDR exposes cut lifecycle/result facts but no reliable percent. Keep
 # HTTP and frontend projection free of invented progress fields.
