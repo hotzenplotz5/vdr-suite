@@ -204,6 +204,7 @@
         backendId: selectedBackendId(),
         backLabel: '← Zurück zur Suche',
         homeLabel: '⌂ Home',
+        focusNavigation: true,
         onClose: openDialog,
         onHome: returnHome
       });
