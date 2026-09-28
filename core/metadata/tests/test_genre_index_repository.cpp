@@ -4,12 +4,49 @@
 
 #include <cassert>
 #include <cstdio>
+#include <cstring>
 #include <iostream>
+
+#include <sqlite3.h>
 #include <string>
 #include <vector>
 
 namespace
 {
+struct GenreStartupTrace
+{
+    int browseClassificationDeletes = 0;
+};
+
+int traceGenreStartup(
+    unsigned int,
+    void* context,
+    void* statementPointer,
+    void*)
+{
+    auto& state =
+        *static_cast<GenreStartupTrace*>(context);
+    sqlite3_stmt* statement =
+        static_cast<sqlite3_stmt*>(statementPointer);
+    const char* sql =
+        statement == nullptr
+            ? nullptr
+            : sqlite3_sql(statement);
+
+    if (sql != nullptr &&
+        std::strstr(
+            sql,
+            "DELETE FROM suite_metadata_genre_assignments") != nullptr &&
+        std::strstr(
+            sql,
+            "epg-browse-content-class") != nullptr)
+    {
+        ++state.browseClassificationDeletes;
+    }
+
+    return 0;
+}
+
 void createSourceSchemas(Database& database)
 {
     assert(database.execute(
@@ -357,6 +394,24 @@ int main()
     {
         Database database;
         assert(database.open(filename));
+
+        GenreStartupTrace startupTrace;
+        assert(sqlite3_trace_v2(
+            database.handle(),
+            SQLITE_TRACE_STMT,
+            traceGenreStartup,
+            &startupTrace) == SQLITE_OK);
+
+        GenreIndexRepository startupRepository(database);
+        assert(startupRepository.ensureSchema());
+        assert(startupTrace.browseClassificationDeletes == 0);
+
+        sqlite3_trace_v2(
+            database.handle(),
+            0,
+            nullptr,
+            nullptr);
+
         GenreIndexRepository repository(database);
         GenreEpgPage persisted = repository.epgByBrowse(
             "a", "series", "", 900, 8000, 50, 0);
