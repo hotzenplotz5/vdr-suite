@@ -238,6 +238,14 @@ int main()
     assert(result.editedRecordingKey == editedKey);
     assert(transport.calls == 1);
 
+    // Deleting the already verified derived Recording later must not resurrect
+    // this historical cut as pending or block deletion of the source.
+    resolver.complete = false;
+    resolver.handlerUsage = 0;
+    assert(runtime.operationState(sourceKey) == "verified");
+    assert(runtime.deleteBlockReason(sourceKey).empty());
+    resolver.complete = true;
+
     // Revalidate persisted verification from older daemon versions, including replay.
     resolver.handlerUsage = 36;
     assert(!runtime.dispatch(cut).verified);
