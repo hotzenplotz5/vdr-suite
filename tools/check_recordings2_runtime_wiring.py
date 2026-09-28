@@ -108,8 +108,9 @@ required_tokens = {
     'marks_editor': (
         'global.VdrSuiteRecordings2MarksEditor',
         "'/api/vdr/recordings/cut'",
-        'handlerUsage',
-        'editedDestinationExists',
+        'operationState',
+        'operationPending',
+        'operationVerified',
         'editedRecordingFound',
         'Schnitt läuft …',
         "node('progress')",
@@ -175,6 +176,11 @@ for owner, tokens in required_tokens.items():
 
 if "progress.value" in runtimes['marks_editor'] or "progressPercent" in runtimes['marks_editor']:
     raise SystemExit('native cut UI must not fabricate percentage progress')
+
+if "Number(cutState.handlerUsage)" in runtimes['marks_editor']:
+    raise SystemExit('native cut UI must not infer operation ownership from handlerUsage')
+if "cutState.editedDestinationExists === true && cutState.editedRecordingFound !== true" in runtimes['marks_editor']:
+    raise SystemExit('native cut UI must not infer operation ownership from edited destination state')
 
 for external_scheme in ('http://', 'https://'):
     if external_scheme in runtimes['folder_artwork']:
