@@ -208,6 +208,42 @@ int main()
     assert(response.contentType == "image/jpeg");
     assert(response.body == "fake-series-cover-jpeg");
 
+    const std::string seasonBody =
+        "{"
+        "\"backendId\":\"default\","
+        "\"operation\":\"set-series-cover-tmdb\","
+        "\"seriesKey\":\"folder:serien/true-detective\","
+        "\"providerId\":\"tmdb\","
+        "\"externalNamespace\":\"tv-season\","
+        "\"externalId\":\"3624\","
+        "\"posterReference\":\"/true-detective-season-2.jpg\""
+        "}";
+
+    assert(runtime.tryHandlePost(
+        "/api/backends/default/settings/series-artwork",
+        seasonBody,
+        response));
+
+    assert(response.statusCode == 200);
+    assert(response.body.find("\"providerId\":\"tmdb\"") !=
+           std::string::npos);
+    assert(response.body.find("\"externalNamespace\":\"tv-season\"") !=
+           std::string::npos);
+    assert(response.body.find("\"externalId\":\"3624\"") !=
+           std::string::npos);
+
+    assert(runtime.tryHandleGet(
+        "/api/backends/default/settings/series-artwork/"
+        "candidate-image?"
+        "externalNamespace=tv-season&"
+        "externalId=3624&"
+        "posterReference=%2Ftrue-detective-season-2.jpg",
+        response));
+
+    assert(response.statusCode == 200);
+    assert(response.contentType == "image/jpeg");
+    assert(response.body == "fake-series-cover-jpeg");
+
     assert(runtime.tryHandleGet(
         "/api/backends/default/settings/series-artwork/image?"
         "seriesKey=folder%3Aserien%2Ftestserie",
