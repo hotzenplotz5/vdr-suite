@@ -2646,13 +2646,13 @@
                   candidate,
                   seasons
                 );
-              }).catch(function (error) {
-                card.disabled = false;
-
+              }).catch(function () {
+                renderCoverChoices(
+                  candidate,
+                  []
+                );
                 status.textContent =
-                  error && error.message
-                    ? error.message
-                    : 'Staffelcover konnten nicht geladen werden.';
+                  'Staffelcover konnten nicht geladen werden; das Serienposter bleibt auswählbar.';
               });
             }
           );
