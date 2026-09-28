@@ -125,6 +125,11 @@ int main()
             result.requestFingerprint = "fp1:cut";
             result.reasonCode = "recording_cut_assigned";
             return result;
+        },
+        [](const std::string& backendId, const std::string& recordingKey) {
+            assert(backendId == "default");
+            assert(VdrRecordingNativeIdentity::isValidKey(recordingKey));
+            return std::string("accepted");
         });
     assert(configured);
     assert(runtime.configured());
@@ -141,6 +146,12 @@ int main()
         "\"marksRevision\":\"0123456789abcdef0123456789abcdef\"") !=
         std::string::npos);
     assert(response.body.find("\"editedRecording\":") == std::string::npos);
+    assert(response.body.find("\"operationState\":\"accepted\"") !=
+        std::string::npos);
+    assert(response.body.find("\"operationPending\":true") !=
+        std::string::npos);
+    assert(response.body.find("\"operationVerified\":false") !=
+        std::string::npos);
 
     resolver.state = readyState();
     resolver.state.ready = false;
@@ -164,6 +175,9 @@ int main()
         },
         [](const RecordingCutStartRequest&) {
             return RecordingCutDispatchResult{};
+        },
+        [](const std::string&, const std::string&) {
+            return std::string("verified");
         }));
     response = {};
     assert(runtime.tryHandleGet(
@@ -178,6 +192,12 @@ int main()
     assert(response.body.find(
         "\"title\":\"Original (geschnitten)\"") != std::string::npos);
     assert(response.body.find("\"durationSeconds\":1800") !=
+        std::string::npos);
+    assert(response.body.find("\"operationState\":\"verified\"") !=
+        std::string::npos);
+    assert(response.body.find("\"operationPending\":false") !=
+        std::string::npos);
+    assert(response.body.find("\"operationVerified\":true") !=
         std::string::npos);
 
     runtime.reset();
