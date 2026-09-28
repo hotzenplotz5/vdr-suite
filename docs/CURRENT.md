@@ -26,6 +26,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Phase 69.F Public-v1 Channel Reference Client](development/phase-69f-public-v1-channel-reference-client.md)
 - [Phase 69.F Public-v1 TimerAssignment Collection Reference Client](development/phase-69f-public-v1-timer-assignment-collection-reference-client.md)
 - [Phase 69.F Public-v1 TimerAssignment Item Reference Client](development/phase-69f-public-v1-timer-assignment-item-reference-client.md)
+- [Phase 69.F Public-v1 Timer CREATE Admission Reference Client](development/phase-69f-public-v1-timer-create-reference-client.md)
 - [Phase 69.E Compatibility Policy Foundation](development/phase-69e-compatibility-policy-foundation.md)
 - [Phase 69.E Retained Legacy Route Classification](development/phase-69e-legacy-route-classification.md)
 - [Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md)
@@ -165,12 +166,17 @@ reference seam with the stable single-backend TimerAssignment keyset collection
 without native Timer fallback or collection ETag.
 
 The [Phase 69.F Public-v1 TimerAssignment Item Reference Client](development/phase-69f-public-v1-timer-assignment-item-reference-client.md)
-candidate is the eleventh bounded 69.F slice. A fresh post-#378 audit selects
-the already-stable TimerAssignment item before the Operation item because the
-accepted collection directly supplies both `timerAssignmentId` and
-`backendId`. The reference client gains only the revisioned GET with opaque
-ETag exposure and `If-None-Match -> 304`; mutation `If-Match`, Timer CREATE
-and Operation reads remain separate.
+is the accepted eleventh bounded 69.F slice via PR #379. It adds the accepted
+revisioned TimerAssignment item GET with opaque ETag exposure and
+`If-None-Match -> 304`.
+
+The [Phase 69.F Public-v1 Timer CREATE Admission Reference Client](development/phase-69f-public-v1-timer-create-reference-client.md)
+candidate is the twelfth bounded 69.F slice. A fresh post-#379 audit proves the
+stable TimerAssignment POST must precede the remaining durable Operation GET:
+the mutation requires the already available item identity + ETag and returns
+the `operationId`/Location needed for reconciliation. The reference client
+therefore adds only caller-keyed Timer CREATE admission with no automatic retry
+or polling.
 
 69.C is completed. Its closeout records the accepted public revision/ETag,
 strong If-Match, durable Idempotency-Key and no-blind-fallback contracts, plus

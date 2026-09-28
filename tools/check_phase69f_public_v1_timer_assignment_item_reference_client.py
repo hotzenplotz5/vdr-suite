@@ -29,12 +29,17 @@ for token in (
 for forbidden in (
     "/api/vdr/timers",
     "/api/vdr/timers/live",
-    "If-Match",
     "NativeTimerBinding",
     "requestJsonWithFallback",
     "requestJsonWithFallbacks",
 ):
-    require(forbidden not in client, "mutation/native/legacy surface entered TimerAssignment item client: " + forbidden)
+    require(forbidden not in client, "native/legacy surface entered public reference client: " + forbidden)
+
+revisioned_start = client.find("function requestRevisioned(path, options)")
+revisioned_end = client.find("function requestTimerCreate(path, options)", revisioned_start)
+require(revisioned_start >= 0 and revisioned_end > revisioned_start, "revisioned GET helper boundary drifted")
+revisioned_get = client[revisioned_start:revisioned_end]
+require("If-Match" not in revisioned_get, "TimerAssignment GET must not send mutation If-Match")
 
 server_test = read("api/rest/tests/test_public_timer_assignment_resource.cpp")
 for token in (
@@ -66,6 +71,7 @@ reference = next(
 )
 require(reference is not None, "TimerAssignment item reference disappeared")
 require(reference.get("path") == "clients/reference-js/public-v1-client.js", "TimerAssignment item reference path drifted")
+require(reference.get("status") == "accepted", "TimerAssignment item reference acceptance drifted")
 require(
     reference.get("resources") == [
         "GET /api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}"

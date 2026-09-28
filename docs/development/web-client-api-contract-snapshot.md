@@ -12,6 +12,7 @@
 - [Phase 69.F Public-v1 Channel Reference Client](phase-69f-public-v1-channel-reference-client.md)
 - [Phase 69.F Public-v1 TimerAssignment Collection Reference Client](phase-69f-public-v1-timer-assignment-collection-reference-client.md)
 - [Phase 69.F Public-v1 TimerAssignment Item Reference Client](phase-69f-public-v1-timer-assignment-item-reference-client.md)
+- [Phase 69.F Public-v1 Timer CREATE Admission Reference Client](phase-69f-public-v1-timer-create-reference-client.md)
 - [Current Project Status](current-status.md)
 - [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 - [Parity Audit and Frontend Gap Roadmap](../planning/parity-audit-and-frontend-gap-roadmap.md)
@@ -231,7 +232,12 @@ that TimerAssignment and legacy/native Timer representations are equivalent.
 The [Public-v1 TimerAssignment Item Reference Client](phase-69f-public-v1-timer-assignment-item-reference-client.md)
 adds the accepted revisioned TimerAssignment item read with ETag/
 `If-None-Match` handling. It remains separate from the browser native-Timer
-surface and from public Timer mutation submission.
+surface.
+
+The [Public-v1 Timer CREATE Admission Reference Client](phase-69f-public-v1-timer-create-reference-client.md)
+adds the accepted protected Timer CREATE POST to the independent reference seam.
+The caller owns the opaque ETag and Idempotency-Key; the client neither retries
+the mutation nor polls the returned Operation automatically.
 
 ## Current Direct Fetch Inventory
 

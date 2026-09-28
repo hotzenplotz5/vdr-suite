@@ -348,6 +348,52 @@
       });
     }
 
+
+
+    function requestTimerCreate(path, options) {
+      const requestOptions = options && typeof options === 'object' ? options : {};
+      if (typeof requestOptions.ifMatch !== 'string' || requestOptions.ifMatch === '') {
+        throw new Error('ifMatch must be a non-empty opaque ETag');
+      }
+      if (typeof requestOptions.idempotencyKey !== 'string'
+          || requestOptions.idempotencyKey === '') {
+        throw new Error('idempotencyKey must be a non-empty caller-owned key');
+      }
+
+      const headers = Object.assign(
+        {Accept: 'application/json'},
+        defaultHeaders,
+        copyHeaders(requestOptions.headers)
+      );
+      headers['Content-Type'] = 'application/json';
+      headers['If-Match'] = requestOptions.ifMatch;
+      headers['Idempotency-Key'] = requestOptions.idempotencyKey;
+
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST',
+        headers: headers,
+        credentials: requestOptions.credentials !== undefined
+          ? requestOptions.credentials
+          : normalized.credentials,
+        signal: requestOptions.signal,
+        body: '{}'
+      }).then(function (response) {
+        const entityTag = headerValue(response, 'ETag');
+        const location = headerValue(response, 'Location');
+        return parseJsonBody(response).then(function (payload) {
+          if (!response.ok) {
+            throw new VdrSuitePublicClientError(path, response.status, payload, response);
+          }
+          return {
+            status: response.status,
+            location: location,
+            etag: entityTag,
+            data: payload
+          };
+        });
+      });
+    }
+
     return Object.freeze({
       getApiRoot(options) {
         return request('/api/v1', options);
@@ -373,6 +419,13 @@
       getTimerAssignment(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
         return requestRevisioned(
+          timerAssignmentItemPath(normalizedOptions),
+          normalizedOptions
+        );
+      },
+      submitTimerCreate(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return requestTimerCreate(
           timerAssignmentItemPath(normalizedOptions),
           normalizedOptions
         );

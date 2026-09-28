@@ -482,3 +482,10 @@ test-phase69f-public-v1-timer-assignment-collection-reference-client:
 test-phase69f-public-v1-timer-assignment-item-reference-client:
 	node clients/reference-js/tests/test_public_v1_timer_assignment_item_client.js
 	python3 tools/check_phase69f_public_v1_timer_assignment_item_reference_client.py
+
+
+.PHONY: test-phase69f-public-v1-timer-create-reference-client
+
+test-phase69f-public-v1-timer-create-reference-client:
+	node clients/reference-js/tests/test_public_v1_timer_create_client.js
+	python3 tools/check_phase69f_public_v1_timer_create_reference_client.py
