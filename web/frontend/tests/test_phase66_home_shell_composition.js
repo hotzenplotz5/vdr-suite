@@ -200,6 +200,15 @@ assert.strictEqual(homeTopScrolls, 2,
 assert.strictEqual(detailDataScrolls, 1,
   'reselecting Home must never jump to the lower Home detail-data region');
 
+moduleTab('recordings2').dispatch('click');
+assert(moduleTab('recordings2').classList.contains('active'));
+moduleTab('overview').dispatch('click');
+assert(moduleTab('overview').classList.contains('active'));
+assert.strictEqual(homeTopScrolls, 3,
+  'the visible Home module tab must return to the top too');
+assert.strictEqual(detailDataScrolls, 1,
+  'the visible Home module tab must never reveal lower detail-data');
+
 brandButton('settings').dispatch('keydown', {key: ' '});
 assert(!moduleTab('overview').classList.contains('active'));
 assert(moduleTabs.every(node => !node.classList.contains('active')));
