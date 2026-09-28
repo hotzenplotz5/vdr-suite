@@ -101,6 +101,7 @@ async function run() {
   let previewReady = true;
   let cutStateOverride = {};
   let openedCutVariant = null;
+  let openedCutVariantOptions = null;
   let revisionCounter = 11;
   let deferredMutation = null;
   const requests = [];
@@ -158,7 +159,7 @@ async function run() {
     },
     VdrSuiteRecordingPlaybackRestartChoice: {install() {}},
     VdrSuiteRecordings2: {
-      openRecording(recording) { openedCutVariant = recording; }
+      openRecording(recording, options) { openedCutVariant = recording; openedCutVariantOptions = options || null; }
     },
     VdrSuiteRecordings2Playback: {createPanel() {
       playbackCreations += 1;
@@ -457,6 +458,11 @@ async function run() {
   assert(button('Schnittfassung öffnen'));
   button('Schnittfassung öffnen').click();
   assert.strictEqual(openedCutVariant, editedRecording);
+  assert.strictEqual(openedCutVariantOptions.backLabel, '← Zurück zur Originalfassung');
+  assert.strictEqual(typeof openedCutVariantOptions.onClose, 'function');
+  openedCutVariant = null;
+  openedCutVariantOptions.onClose();
+  assert.strictEqual(openedCutVariant.id, '7');
   assert(allText(root).includes('Aufnahmeaktionen'));
 
   mode = 'verified';
