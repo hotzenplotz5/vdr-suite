@@ -85,8 +85,9 @@ function matches(value, selector) {
   return value.tagName.toLowerCase() === selector;
 }
 function qoiFrame() {
-  // A transparent video hole plus an opaque control pixel after OK. The QOI
-  // decoder and putImageData path are production code, including alpha.
+  // A transparent sample plus a changed opaque application pixel after OK.
+  // The QOI decoder and putImageData path are production code, including alpha.
+  // This synthetic frame does not model ZDF's native-control visibility.
   const bytes = [113, 111, 105, 102, 0, 0, 0, 16, 0, 0, 0, 9, 4, 0];
   for (let i = 0; i < 144; ++i) bytes.push(255, 255, 255, 255, frameRevision > 1 && i === 143 ? 255 : 0);
   bytes.push(0, 0, 0, 0, 0, 0, 0, 1);
