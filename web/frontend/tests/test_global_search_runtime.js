@@ -68,7 +68,10 @@ assert(source.includes("homeLabel: '⌂ Home'"));
 assert(source.includes('onHome: returnHome'));
 testApi.returnHome();
 assert.deepStrictEqual(selectedModules, ['overview']);
-assert.deepStrictEqual(scrollCalls, [{top: 0, left: 0, behavior: 'auto'}]);
+assert.strictEqual(scrollCalls.length, 1);
+assert.strictEqual(scrollCalls[0].top, 0);
+assert.strictEqual(scrollCalls[0].left, 0);
+assert.strictEqual(scrollCalls[0].behavior, 'auto');
 
 (async function run() {
   const first = deferred();
