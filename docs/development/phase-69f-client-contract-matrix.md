@@ -195,6 +195,8 @@ client responsibilities.
 
 ## Public-v1 TimerAssignment collection reference extension
 
+The TimerAssignment collection reference extension is accepted via PR #378.
+
 The fresh post-#377 audit selects the existing single-backend public
 TimerAssignment collection as the next bounded external-client read:
 
@@ -213,6 +215,25 @@ pagination, multi-backend aggregation or a legacy native-Timer fallback.
 TimerAssignment item ETag/conditional reads and Operation reads remain separate
 successor slices because they introduce resource-revision or mutation-lifecycle
 client responsibilities.
+
+## Public-v1 TimerAssignment item reference extension
+
+The fresh post-#378 audit selects the existing public TimerAssignment item as
+the next bounded external-client read. The accepted collection gives the client
+the exact pair required by the item contract:
+
+```text
+timerAssignmentId + backendId
+  -> GET /api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}
+```
+
+The item is revisioned. The reference client therefore exposes the strong opaque
+`ETag` returned by the server and supports caller-supplied
+`If-None-Match`. A bodyless `304` is a successful conditional-read result,
+not an HTTP error. The client does not decode or manufacture ETags.
+
+This slice does not add mutation `If-Match`, Timer CREATE, native Timer
+semantics or durable Operation reads.
 
 ## Explicit fallback debt and successor status
 

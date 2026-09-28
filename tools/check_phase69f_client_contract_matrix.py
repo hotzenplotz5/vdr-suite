@@ -111,7 +111,7 @@ require('if (path == "/api/backends")' in api_router, "pre-v1 backend discovery 
 require('if (path == "/api/backends/default")' in api_router, "pre-v1 default-backend route disappeared")
 
 references = matrix.get("publicClientReferences", [])
-require(len(references) == 3, "expected exactly three bounded public client reference slices")
+require(len(references) == 4, "expected exactly four bounded public client reference slices")
 discovery_reference = next((r for r in references if r.get("id") == "reference-js-discovery"), None)
 require(discovery_reference is not None, "public discovery reference disappeared")
 require(discovery_reference.get("path") == "clients/reference-js/public-v1-client.js", "public discovery reference path drifted")
@@ -140,6 +140,21 @@ require(timer_collection_reference is not None, "public TimerAssignment collecti
 require(
     timer_collection_reference.get("resources") == ["GET /api/v1/timer-assignments?backend={backendId}"],
     "public TimerAssignment collection reference drifted",
+)
+require(
+    timer_collection_reference.get("status") == "accepted",
+    "public TimerAssignment collection reference must remain accepted",
+)
+timer_item_reference = next(
+    (r for r in references if r.get("id") == "reference-js-timer-assignment-item"),
+    None,
+)
+require(timer_item_reference is not None, "public TimerAssignment item reference disappeared")
+require(
+    timer_item_reference.get("resources") == [
+        "GET /api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}"
+    ],
+    "public TimerAssignment item reference drifted",
 )
 
 candidate = matrix.get("derivedNextRuntimeCandidate", {})
