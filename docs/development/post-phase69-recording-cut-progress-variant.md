@@ -195,3 +195,23 @@ persistent schema-version marker. Existing installations that already have the
 pre-versioned people table are marked migrated without repeating the expensive
 legacy scan; a genuinely older installation without that table performs the
 backfill once and then records the marker.
+
+
+## Real-system startup profiling follow-up
+
+Real yaVDR startup profiling on the production database showed that the first
+Global Search migration fix reduced HTTP-listener readiness from roughly
+55 seconds to roughly 16 seconds, but did not eliminate the remaining startup
+stall.
+
+The production database contained roughly 1.7 million
+`suite_metadata_genre_assignments` rows while all Genre schema migration
+markers through version 12 were already present. The Genre schema initializer
+still issued the historical `DELETE FROM suite_metadata_genre_assignments ...
+AND NOT EXISTS(schema-version)` migration statements on every daemon start.
+
+Those migrations are now gated in C++ before any destructive migration SQL is
+issued. Completed schema versions return immediately and therefore do not ask
+SQLite to consider the large assignment table at startup. A repository restart
+regression test traces SQL and requires zero EPG browse-classification DELETE
+statements after the migration markers have been persisted.
