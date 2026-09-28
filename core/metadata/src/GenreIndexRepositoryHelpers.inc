@@ -92,6 +92,73 @@ bool stepDone(sqlite3_stmt* statement)
     return sqlite3_step(statement) == SQLITE_DONE;
 }
 
+bool metadataSchemaVersionExists(
+    sqlite3* database,
+    int version)
+{
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT 1 FROM suite_metadata_schema_versions "
+        "WHERE version=? LIMIT 1;";
+    if (sqlite3_prepare_v2(
+            database,
+            sql,
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return false;
+    }
+
+    sqlite3_bind_int(statement, 1, version);
+    const bool exists =
+        sqlite3_step(statement) == SQLITE_ROW;
+    sqlite3_finalize(statement);
+    return exists;
+}
+
+bool applyEpgBrowseSchemaMigration(
+    Database& database,
+    int version,
+    const std::string& description,
+    bool clearExistingBrowseClassification)
+{
+    if (metadataSchemaVersionExists(
+            database.handle(),
+            version))
+    {
+        return true;
+    }
+
+    if (clearExistingBrowseClassification &&
+        !database.execute(
+            "DELETE FROM suite_metadata_genre_assignments "
+            "WHERE source_kind='epg-browse-content-class';"))
+    {
+        return false;
+    }
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "INSERT OR IGNORE INTO suite_metadata_schema_versions "
+        "(version,description) VALUES (?,?);";
+    if (sqlite3_prepare_v2(
+            database.handle(),
+            sql,
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return false;
+    }
+
+    sqlite3_bind_int(statement, 1, version);
+    bindText(statement, 2, description);
+    const bool inserted = stepDone(statement);
+    sqlite3_finalize(statement);
+    return inserted;
+}
+
 std::uint64_t fnv1a64(const std::string& value, std::uint64_t seed)
 {
     std::uint64_t hash = seed;
