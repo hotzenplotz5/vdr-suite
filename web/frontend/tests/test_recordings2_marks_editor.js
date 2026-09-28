@@ -540,6 +540,27 @@ async function run() {
   assert(allText(root).includes('Native geschnittene Ausgabe bestätigt'));
   assert(!allText(root).includes('100 %'), 'native cutter progress must never be fabricated');
 
+  // Once the derived cut Recording was exactly verified, deleting that
+  // derivative later must not make the source look like it is cutting again.
+  root.__vdrSuiteMarksEditor.destroy();
+  cutStateOverride = {
+    ready: true,
+    editedDestinationExists: false,
+    editedRecordingFound: false,
+    handlerUsage: 0,
+    operationState: 'verified',
+    operationPending: false,
+    operationVerified: true
+  };
+  view.renderDetail(); await flush();
+  root = mount.querySelector('.recordings2-detail');
+  const removedVariantCutState = root.children.find(child =>
+    hasClass(child.className, 'recordings2-cut-state'));
+  assert(removedVariantCutState);
+  assert(!allText(removedVariantCutState).includes('Schnitt läuft'),
+    'deleting an already verified cut result must not resurrect progress UI');
+  assert(!allText(removedVariantCutState).includes('Schnittfassung'));
+
   native = Object.assign({}, native, {inUse: true});
   button('Neu laden').click(); await flush();
   assert(button('Schneiden …').disabled);
