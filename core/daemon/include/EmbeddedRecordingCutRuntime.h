@@ -22,6 +22,9 @@ public:
     RecordingCutDispatchResult dispatch(
         const RecordingCutStartRequest& request);
 
+    std::string operationState(
+        const std::string& recordingKey);
+
     std::string deleteBlockReason(
         const std::string& recordingKey);
 
