@@ -8,3 +8,6 @@ bool daemonRecordingCutResultMatches(
     const std::string& expectedSourceRecordingKey,
     const std::string& expectedEditedRecordingKey,
     const VdrRecordingNativeCutState& state) noexcept;
+
+bool daemonRecordingCutStateBlocksSourceDelete(
+    const VdrRecordingNativeCutState& state) noexcept;
