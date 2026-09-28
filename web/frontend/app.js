@@ -3994,7 +3994,15 @@ function renderBackend(backend) {
 document.querySelectorAll('.module-tab').forEach(button => {
   button.addEventListener('click', () => {
     const moduleName = button.dataset.module;
+    if (moduleName === 'overview' && selectedModule === 'overview') {
+      if (typeof window.scrollTo === 'function') {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      }
+      return;
+    }
+
     selectModule(moduleName);
+
     if (moduleName === 'overview' && typeof window.scrollTo === 'function') {
       window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     }
