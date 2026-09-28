@@ -38,6 +38,10 @@ const positionSource = functionSlice(
   'epgEventPositionForBounds',
   'appendEpgTimelineTicks'
 );
+const windowBoundsSource = functionSlice(
+  'epgWindowBounds',
+  'formatEpgCacheTimestamp'
+);
 const liveActionSource = functionSlice(
   'openEpgChannelLive',
   'createEpgEventDetailCard'
@@ -51,6 +55,12 @@ assert(source.includes('const EPG_TIMELINE_CONTEXT_BEFORE_SECONDS = 60 * 60;'));
 assert(source.includes('const EPG_TIMELINE_MIN_CONTEXT_BEFORE_SECONDS = 30 * 60;'));
 assert(nowLineSource.includes('epgTimelinePercent(nowSeconds, bounds)'));
 assert(positionSource.includes('epgTimelinePercent(visibleStart, bounds)'));
+assert(
+  windowBoundsSource.includes(
+    'until: bounds.end + EPG_TIMELINE_CONTEXT_BEFORE_SECONDS'
+  ),
+  'cache fetch must cover the tail introduced by the contextual display shift'
+);
 
 const context = vm.createContext({
   Math,
