@@ -54,7 +54,7 @@ The initial registry is deliberately small:
 | OSDINPUT | Interactive Control/Read | migrated |
 | HBBAPPS | External Plugin Interactive | migrated |
 | HBBRUN LAUNCH/STATUS/CLOSE | External Plugin Interactive | migrated |
-| HBBRUN INPUT | External Plugin Interactive -> bounded VDR main-thread handoff | migrated; worker-thread execution prohibited |
+| HBBRUN INPUT | typed SVDRP | direct per-operation selection; no local dispatch/replay |
 | HBBPRES META/CHUNK | External Plugin Interactive | migrated |
 | HBBMEDIA | External Plugin Interactive | migrated |
 | TTXC | External Plugin Interactive | migrated |
@@ -162,13 +162,7 @@ discovery/runtime contracts after real yaVDR acceptance exposed a regression in
 PR #355's worker-thread assumption. Discovery and media state are
 mutex-protected bounded reads. LAUNCH already schedules its UI work through the
 provider's VDR remote/main-context path, but INPUT calls
-`browserClient->ProcessKey()` synchronously in the caller's thread. Therefore
-the local control worker must not execute INPUT directly. SuiteBridge keeps the
-AF_UNIX transport and serial External Plugin Interactive admission, then hands
-only INPUT to VDR's `MainThreadHook()` through a finite, bounded-wait queue.
-STATUS and the existing provider-managed LAUNCH/CLOSE behavior remain on the
-local lane. No same-provider re-entrancy assumption or SVDRP replay is
-introduced.
+`browserClient->ProcessKey()` synchronously in the caller's thread. Therefore the local control worker must not execute INPUT directly. The prioritized HbbTV transport selects the existing typed SVDRP path for INPUT before local dispatch; STATUS and the existing provider-managed LAUNCH/CLOSE behavior remain on the local lane. There is no local attempt followed by SVDRP replay, so one request still has one authority and one dispatch.
 
 Presentation is deliberately isolated from Legacy OSD. On the first read of a
 new frame, the provider can perform BGRA-to-RGBA conversion and QOI encoding
@@ -179,10 +173,7 @@ that work from blocking either Critical Live/native-probe control or Legacy OSD.
 The lane regression deliberately blocks HbbTV presentation and requires both
 Live capability and OSD snapshot to complete inside the bounded test budget.
 The transport regression separately proves that a local HbbTV timeout is not
-replayed through SVDRP. The HbbTV main-thread-input regression proves that
-INPUT waits for execution on the draining thread, preserves the returned
-provider result, rejects queue overflow, abandons timed-out input without later
-execution, and wakes pending input during stop.
+replayed through SVDRP. The HbbTV transport regression proves that normal runtime STATUS remains local-first, a local timeout is not replayed, and INPUT bypasses even a timeout-capable local transport to select typed SVDRP exactly once.
 
 ## Teletext provider/thread audit
 

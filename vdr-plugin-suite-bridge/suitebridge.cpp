@@ -191,8 +191,6 @@ bool cPluginSuiteBridge::Start(void)
                   payload.c_str());
             }
             if (operation == Operation::HbbtvRuntime) {
-              if (payload.rfind("INPUT ", 0) == 0)
-                return hbbtvMainThreadInput_.Submit(payload);
               return hbbtvCommand_.Handle(
                   "HBBRUN",
                   payload.c_str());
@@ -350,7 +348,6 @@ void cPluginSuiteBridge::Stop(void)
         lifecycle_.StateName(),
         SuiteBridgePluginIdentity::Version);
 
-    hbbtvMainThreadInput_.Stop();
     controlPlane_.Stop();
     const auto controlMetrics = controlPlane_.SnapshotMetrics();
     isyslog(
@@ -429,10 +426,6 @@ void cPluginSuiteBridge::Stop(void)
 
 void cPluginSuiteBridge::MainThreadHook(void)
 {
-  hbbtvMainThreadInput_.Drain(
-      [this](const std::string &payload) {
-        return hbbtvCommand_.Handle("HBBRUN", payload.c_str());
-      });
   statusMonitor_.ObserveRecordingListState();
 }
 

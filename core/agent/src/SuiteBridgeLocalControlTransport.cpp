@@ -304,7 +304,11 @@ SuiteBridgeCommandReply SuiteBridgePrioritizedLegacyOsdInputTransport::executeLe
      request,requestFingerprint);
 }
 SuiteBridgeHbbtvCommandReply SuiteBridgePrioritizedHbbtvTransport::discoverHbbtv(const std::string& channelId){return select([&](auto&t){return t.discoverHbbtv(channelId);});}
-SuiteBridgeHbbtvCommandReply SuiteBridgePrioritizedHbbtvTransport::controlHbbtv(const SuiteBridgeHbbtvRuntimeRequest&r){return select([&](auto&t){return t.controlHbbtv(r);});}
+SuiteBridgeHbbtvCommandReply SuiteBridgePrioritizedHbbtvTransport::controlHbbtv(const SuiteBridgeHbbtvRuntimeRequest&r){
+ if(r.operation==SuiteBridgeHbbtvRuntimeOperation::Input)
+  return compatibility_.controlHbbtv(r);
+ return select([&](auto&t){return t.controlHbbtv(r);});
+}
 SuiteBridgeHbbtvCommandReply SuiteBridgePrioritizedHbbtvTransport::readHbbtvPresentation(const SuiteBridgeHbbtvPresentationRequest&r){return select([&](auto&t){return t.readHbbtvPresentation(r);});}
 SuiteBridgeHbbtvCommandReply SuiteBridgePrioritizedHbbtvTransport::readHbbtvMedia(const SuiteBridgeHbbtvMediaRequest&r){return select([&](auto&t){return t.readHbbtvMedia(r);});}
 SuiteBridgeTeletextCommandReply SuiteBridgePrioritizedTeletextTransport::discoverTeletext(){return select([](auto&t){return t.discoverTeletext();});}

@@ -7,7 +7,6 @@
 #include "suitebridge_live_source.h"
 #include "suitebridge_hbbtv_adapter.h"
 #include "suitebridge_hbbtv_command.h"
-#include "suitebridge_hbbtv_main_thread_input.h"
 #include "suitebridge_native_probe.h"
 #include "suitebridge_osd_input.h"
 #include "suitebridge_native_timer_create.h"
@@ -58,7 +57,6 @@ private:
   SuiteBridgeLiveSourceService liveSource_;
   SuiteBridgeHbbtvAdapter hbbtvAdapter_;
   SuiteBridgeHbbtvCommandService hbbtvCommand_;
-  SuiteBridgeHbbtvMainThreadInput hbbtvMainThreadInput_;
   SuiteBridgeTeletextAdapter teletextAdapter_;
   SuiteBridgeTeletextCommandService teletextCommand_;
   SuiteBridgeNativeTimerCreateVdrMutationCallback nativeTimerCreateVdrMutation_;

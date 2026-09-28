@@ -224,16 +224,7 @@ The first member is HbbTV. Teletext joins the same serial lane after a
 provider-specific audit proved that its service reads copy bounded snapshot
 state under the provider mutex and perform the 25x40 render/normalization after
 releasing that mutex, with no network/filesystem I/O or borrowed VDR pointer. Its SuiteBridge adapter synchronously calls
-`vdr-plugin-web` services. Provider discovery/media reads are bounded
-mutex-protected snapshots. A later real-runtime audit corrected the original
-runtime assumption: LAUNCH already performs provider-owned VDR main-context
-scheduling, but INPUT reaches `browserClient->ProcessKey()` synchronously in the
-caller's thread. HbbTV therefore keeps one dedicated serial External Plugin
-Interactive worker for transport/admission while INPUT alone uses a bounded VDR
-main-thread handoff before the provider service call. Presentation may perform
-QOI encoding while holding provider presentation state. This isolates provider
-latency without asserting provider re-entrancy, worker-thread input safety or
-parallel Service-call safety.
+`vdr-plugin-web` services. Provider discovery/media reads are bounded mutex-protected snapshots. Real-runtime acceptance corrected the original runtime assumption: LAUNCH already performs provider-owned VDR main-context scheduling, but INPUT reaches `browserClient->ProcessKey()` synchronously in the caller's thread. A bounded MainThreadHook experiment still produced no real application effect, so INPUT retains the exact typed SVDRP execution path proven on yaVDR before PR #355. This is direct per-operation selection, not local dispatch plus fallback. HbbTV discovery, presentation, media and LAUNCH/STATUS/CLOSE keep the dedicated serial External Plugin Interactive lane. Presentation may perform QOI encoding while holding provider presentation state.
 
 #### Native mutation
 
