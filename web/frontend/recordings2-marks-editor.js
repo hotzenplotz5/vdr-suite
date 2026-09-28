@@ -59,17 +59,13 @@
     function clearCutStateTimer() { if (cutStateTimer !== null && typeof global.clearTimeout === 'function') global.clearTimeout(cutStateTimer); cutStateTimer = null; }
     function cutStateActive() { return Boolean(cutPending() || (cutState && (cutState.operationPending === true || (cutState.operationVerified === true && cutState.editedRecordingFound === true && !cutState.editedRecording)))); }
     function renderCutState() {
-      cutStateView.replaceChildren(); cutStateView.className = 'recordings2-cut-state';
-      const verifiedVariant = Boolean(cutState && cutState.operationVerified === true && cutState.editedRecordingFound === true);
-      const running = Boolean(cutPending() || (cutState && cutState.operationPending === true));
-      if (!verifiedVariant && !running) return;
+      cutStateView.replaceChildren(); cutStateView.className = 'recordings2-cut-state'; const verifiedVariant = Boolean(cutState && cutState.operationVerified === true && cutState.editedRecordingFound === true), running = Boolean(cutPending() || (cutState && cutState.operationPending === true)); if (!verifiedVariant && !running) return;
       if (verifiedVariant) {
         cutStateView.classList.add('recordings2-cut-variant'); cutStateView.appendChild(node('strong', 'Schnittfassung')); cutStateView.appendChild(node('p', cutState.editedRecording ? 'Die geschnittene Fassung wurde von VDR bestätigt. Das Original bleibt erhalten.' : 'Die geschnittene Fassung wurde von VDR bestätigt und wird in der Aufnahmeliste aufgelöst.'));
         if (cutState.editedRecording) { const controls = node('div'); controls.className = 'recordings2-cut-state-actions'; button('Schnittfassung öffnen', function () { const owner = global.VdrSuiteRecordings2; if (owner && typeof owner.openRecording === 'function') owner.openRecording(cutState.editedRecording, {backendId: identity.backendId, backLabel: '← Zurück zur Originalfassung', onClose: function () { owner.openRecording(recording, {backendId: identity.backendId}); }}); }, false, controls, 'primary'); cutStateView.appendChild(controls); }
         cutStateView.appendChild(node('p', 'Original löschen: „Aufnahmeaktionen“ öffnen und die vorhandene sichere Papierkorb-Aktion verwenden.')); return;
       }
-      cutStateView.appendChild(node('strong', 'Schnitt läuft …')); const progress = node('progress'); progress.className = 'recordings2-cut-progress'; progress.setAttribute('aria-label', 'Nativer VDR-Schnitt läuft'); cutStateView.appendChild(progress);
-      cutStateView.appendChild(node('p', 'Der gestartete Schnitt für genau diese Aufnahme ist noch nicht verifiziert abgeschlossen. Der native Cutter liefert keinen verlässlichen Prozentwert.'));
+      cutStateView.appendChild(node('strong', 'Schnitt läuft …')); const progress = node('progress'); progress.className = 'recordings2-cut-progress'; progress.setAttribute('aria-label', 'Nativer VDR-Schnitt läuft'); cutStateView.appendChild(progress); cutStateView.appendChild(node('p', 'Der gestartete Schnitt für genau diese Aufnahme ist noch nicht verifiziert abgeschlossen. Der native Cutter liefert keinen verlässlichen Prozentwert.'));
     }
     function scheduleCutStatePoll() { clearCutStateTimer(); if (destroyed || !cutStateActive() || typeof global.setTimeout !== 'function') return; cutStateTimer = global.setTimeout(function () { cutStateTimer = null; syncCutState().catch(function () { if (!destroyed) scheduleCutStatePoll(); }); }, 1500); }
     function syncCutState() { return request('/api/vdr/recordings/cut').then(function (next) { if (destroyed) return null; if (!next || next.availability !== 'available' || next.backendId !== identity.backendId || String(next.recordingId) !== identity.recordingId) throw new Error('recording_cut_state_invalid'); cutState = next; renderCutState(); scheduleCutStatePoll(); return next; }); }
@@ -191,21 +187,9 @@
         if (!preview || preview.backendId !== identity.backendId || String(preview.recordingId) !== identity.recordingId || preview.marksRevision !== payload.marksRevision) throw new Error('recording_marks_revision_conflict');
         cutState = preview; renderCutState(); scheduleCutStatePoll();
         if (!preview.ready) {
-          const operationPending = preview.operationPending === true;
-          const verifiedVariant = preview.operationVerified === true && preview.editedRecordingFound === true;
-          setStatus(
-            verifiedVariant ? 'success' : operationPending ? 'pending' : 'error',
-            verifiedVariant
-              ? 'Eine bestätigte Schnittfassung ist bereits vorhanden.'
-              : operationPending
-                ? 'Für genau diese Aufnahme läuft bereits ein nativer Schnitt.'
-                : preview.editedDestinationExists
-                  ? 'Das native Ziel für eine Schnittfassung existiert bereits; es läuft aber kein bestätigter Suite-Schnitt.'
-                  : preview.inUse
-                    ? 'Die Aufnahme wird gerade verwendet.'
-                    : 'VDR kann diese Markensequenz derzeit nicht schneiden.'
-          );
-          return;
+          const operationPending = preview.operationPending === true, verifiedVariant = preview.operationVerified === true && preview.editedRecordingFound === true;
+          const statusMessage = verifiedVariant ? 'Eine bestätigte Schnittfassung ist bereits vorhanden.' : operationPending ? 'Für genau diese Aufnahme läuft bereits ein nativer Schnitt.' : preview.editedDestinationExists ? 'Das native Ziel für eine Schnittfassung existiert bereits; es läuft aber kein bestätigter Suite-Schnitt.' : preview.inUse ? 'Die Aufnahme wird gerade verwendet.' : 'VDR kann diese Markensequenz derzeit nicht schneiden.';
+          setStatus(verifiedVariant ? 'success' : operationPending ? 'pending' : 'error', statusMessage); return;
         }
         confirm('„' + String(recording.title || 'Aufnahme') + '“ mit ' + preview.sequenceCount + ' Schnittbereichen nativ schneiden? VDR erstellt eine neue Ausgabe und erhält das Original.', function () { submit('/api/vdr/recordings/cut'); });
       }).catch(function (error) { if (!destroyed) setStatus('error', message(error)); }).finally(finishBusy);
