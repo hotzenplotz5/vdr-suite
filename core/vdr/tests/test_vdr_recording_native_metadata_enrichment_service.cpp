@@ -115,6 +115,7 @@ int main()
     config.negativeTtlSeconds = 20;
     config.retryInitialSeconds = 10;
     config.retryMaximumSeconds = 40;
+    config.exhaustedRetrySeconds = 120;
     config.maximumRetryCount = 3;
     config.maximumQueuedRecordings = 2;
     config.maximumBatchSize = 2;
@@ -249,7 +250,18 @@ int main()
     resolver.replies[exhaustedKey].push_back(failure(
         exhaustedKey,
         VdrRecordingNativeMetadataAvailability::TransportError,
-        "always failing"));
+        "failing one"));
+    resolver.replies[exhaustedKey].push_back(failure(
+        exhaustedKey,
+        VdrRecordingNativeMetadataAvailability::TransportError,
+        "failing two"));
+    resolver.replies[exhaustedKey].push_back(failure(
+        exhaustedKey,
+        VdrRecordingNativeMetadataAvailability::TransportError,
+        "failing three"));
+    resolver.replies[exhaustedKey].push_back(found(
+        exhaustedKey,
+        "Recovered after cooldown"));
     const std::vector<VdrRecording> exhaustedInventory = {
         recording(exhaustedNative, "Exhausted")
     };
@@ -259,11 +271,45 @@ int main()
     assert(service.processBatch(3010) == 1);
     assert(service.reconcileInventory(exhaustedInventory, 3030) == 1);
     assert(service.processBatch(3030) == 1);
-    const auto exhausted = repository.find("default", exhaustedKey);
+    auto exhausted = repository.find("default", exhaustedKey);
     assert(exhausted.retryCount == 3);
-    assert(exhausted.nextRetryAt == 0);
-    assert(service.reconcileInventory(exhaustedInventory, 9999) == 0);
+    assert(exhausted.nextRetryAt == 3150);
+    assert(service.reconcileInventory(exhaustedInventory, 3149) == 0);
     assert(service.status().exhaustedRecordings >= 1);
+    assert(service.reconcileInventory(exhaustedInventory, 3150) == 1);
+    assert(service.processBatch(3150) == 1);
+    exhausted = repository.find("default", exhaustedKey);
+    assert(exhausted.contentState == "found");
+    assert(exhausted.retryCount == 0);
+    assert(exhausted.metadata.title == "Recovered after cooldown");
+
+    // Pre-fix exhausted rows used next_retry_at=0 and must get one recovery
+    // probe after upgrade instead of staying poisoned forever.
+    const std::string legacyNative =
+        "/srv/vdr/video/LegacyExhausted/2026-07-21.02.30.1-0.rec";
+    const std::string legacyKey =
+        VdrRecordingNativeIdentity::keyForNativeId(legacyNative);
+    assert(repository.recordFailure(
+        "default",
+        legacyNative,
+        legacyKey,
+        VdrRecordingNativeMetadataAvailability::TransportError,
+        "legacy exhausted",
+        config.maximumRetryCount,
+        0));
+    resolver.replies[legacyKey].push_back(found(
+        legacyKey,
+        "Legacy Recovery"));
+    const std::vector<VdrRecording> legacyInventory = {
+        recording(legacyNative, "Legacy Exhausted")
+    };
+    assert(service.reconcileInventory(legacyInventory, 3200) == 1);
+    assert(service.processBatch(3200) == 1);
+    const auto recoveredLegacy =
+        repository.find("default", legacyKey);
+    assert(recoveredLegacy.contentState == "found");
+    assert(recoveredLegacy.retryCount == 0);
+    assert(recoveredLegacy.metadata.title == "Legacy Recovery");
 
     // Invalid identities are never sent to SuiteBridge.
     const int callsBeforeInvalid = resolver.calls[""];
