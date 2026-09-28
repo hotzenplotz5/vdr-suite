@@ -214,7 +214,7 @@ for label, content, tokens in (
         'record.state == "verified" &&',
         'record.state = "failed"',
         '"recording_cut_not_running"',
-        "verified = true;",
+        'terminalState = "verified";',
     )),
     ("embedded cut journal", embedded_cut_repository, (
         "listForBackend(",
