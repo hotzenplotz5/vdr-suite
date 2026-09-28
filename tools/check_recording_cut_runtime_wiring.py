@@ -183,6 +183,10 @@ for label, content, tokens in (
         "state.ready",
         "replayOnly",
         "readback_required",
+        "exactEditedRecording",
+        "state.editedRecordingKey",
+        '",\\\"editedRecording\\\":"',
+        "appendRecordingProjection",
     )),
     ("recording cut HTTP security", security_gate, (
         "isRecordingCutAction",
@@ -274,6 +278,16 @@ if "startCut(" in local_state:
     errors.append("cut local-state recovery must never redispatch native cut")
 if "startCut(" in daemon_cut or "NCUT" in daemon_cut:
     errors.append("daemon cut reconciliation must never redispatch native cut")
+
+# Native VDR exposes cut lifecycle/result facts but no reliable percent. Keep
+# HTTP and frontend projection free of invented progress fields.
+for forbidden in (
+    '"progressPercent"',
+    '"progressFrames"',
+    '"progressBytes"',
+):
+    if forbidden in api_runtime:
+        errors.append(f"recording cut API invents unsupported progress: {forbidden}")
 
 # The HTTP owner may dispatch only through the typed Control Plane assignment;
 # it must never know or emit NCUT, VDR paths, or native cutter calls.
