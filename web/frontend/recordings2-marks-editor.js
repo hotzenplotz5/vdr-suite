@@ -136,8 +136,9 @@
     function clearVerificationTimer() { if (verificationTimer !== null && typeof global.clearTimeout === 'function') global.clearTimeout(verificationTimer); verificationTimer = null; }
     function scheduleVerification() {
       if (!pending || destroyed || verificationTimer !== null) return;
-      if (verificationAttempts >= VERIFY_ATTEMPTS || typeof global.setTimeout !== 'function') return;
-      verificationTimer = global.setTimeout(function () { verificationTimer = null; check(true); }, VERIFY_DELAY_MS);
+      if ((cutPending() && verificationAttempts >= VERIFY_ATTEMPTS) || typeof global.setTimeout !== 'function') return;
+      const delay = cutPending() ? VERIFY_DELAY_MS : (verificationAttempts < VERIFY_ATTEMPTS ? VERIFY_DELAY_MS : 5000);
+      verificationTimer = global.setTimeout(function () { verificationTimer = null; check(true); }, delay);
     }
     function definitiveFailure(error) { return /recording_cut_not_running|recording_cut_rejected|active_agent_lease_required|capability_unavailable|assignment_not_found|assignment_conflict|backend_write_unavailable|recording_marks_modify_rejected|revision_conflict|recording_in_use|permission|forbidden|read.only|denied|Authentication|CSRF/.test(String(error && error.message || error || '')); }
     function submit(path, fields) {
