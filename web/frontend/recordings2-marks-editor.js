@@ -41,16 +41,6 @@
     panel.section.appendChild(controls); controls.appendChild(positionHint); controls.appendChild(selectionHint); controls.appendChild(cutStateView); controls.appendChild(status); controls.appendChild(actions); controls.appendChild(confirmation);
     let payload = initial, busy = false, pending = null, cutState = null, selectedFrame = null, destroyed = false, unsubscribe = null, owner = null, lifecycleKey = '', verificationTimer = null, cutStateTimer = null, verificationAttempts = 0, externalRefreshPending = false;
     function setStatus(type, text) { status.className = 'recordings2-marks-editor-status' + (type ? ' ' + type : ''); status.textContent = String(text || ''); }
-    function boundedRequest(promise) {
-      if (!promise || typeof promise.then !== 'function' || typeof global.setTimeout !== 'function' || typeof global.clearTimeout !== 'function') return Promise.resolve(promise);
-      let timeoutId = null;
-      const timeout = new Promise(function (_, reject) {
-        timeoutId = global.setTimeout(function () { timeoutId = null; reject(new Error('recording_editor_request_timeout')); }, REQUEST_TIMEOUT_MS);
-      });
-      return Promise.race([Promise.resolve(promise), timeout]).finally(function () {
-        if (timeoutId !== null) global.clearTimeout(timeoutId);
-      });
-    }
     function request(path, body) {
       const api = global.VdrSuiteClientApi; if (!api || typeof api.requestJson !== 'function') return Promise.reject(new Error('client_unavailable'));
       const config = {cache: 'no-store', credentials: 'same-origin'};
@@ -59,7 +49,17 @@
         config.headers = Object.assign({'Content-Type': 'application/json'}, session && typeof session.csrfHeaders === 'function' ? session.csrfHeaders() : {});
         config.body = JSON.stringify(body);
       } else config.query = {backend: identity.backendId, recordingId: identity.recordingId};
-      return boundedRequest(api.requestJson(path, config));
+      return api.requestJson(path, config);
+    }
+    function boundedPreviewRequest(promise) {
+      if (!promise || typeof promise.then !== 'function' || typeof global.setTimeout !== 'function' || typeof global.clearTimeout !== 'function') return Promise.resolve(promise);
+      let timeoutId = null;
+      const timeout = new Promise(function (_, reject) {
+        timeoutId = global.setTimeout(function () { timeoutId = null; reject(new Error('recording_editor_request_timeout')); }, REQUEST_TIMEOUT_MS);
+      });
+      return Promise.race([Promise.resolve(promise), timeout]).finally(function () {
+        if (timeoutId !== null) global.clearTimeout(timeoutId);
+      });
     }
     function button(label, action, disabled, parent, className) {
       const value = node('button', label); value.type = 'button'; value.disabled = Boolean(disabled); if (className) value.className = className;
@@ -193,7 +193,7 @@
     }
     function previewCut() {
       if (!editable()) return; busy = true; confirmation.replaceChildren(); render();
-      request('/api/vdr/recordings/cut').then(function (preview) {
+      boundedPreviewRequest(request('/api/vdr/recordings/cut')).then(function (preview) {
         if (destroyed) return; busy = false;
         if (!preview || preview.backendId !== identity.backendId || String(preview.recordingId) !== identity.recordingId || preview.marksRevision !== payload.marksRevision) throw new Error('recording_marks_revision_conflict');
         cutState = preview; renderCutState(); scheduleCutStatePoll();
