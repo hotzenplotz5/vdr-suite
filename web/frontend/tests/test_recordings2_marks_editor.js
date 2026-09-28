@@ -176,7 +176,10 @@ async function run() {
             ready: previewReady,
             editedDestinationExists: !previewReady,
             editedRecordingFound: false,
-            handlerUsage: 0
+            handlerUsage: 0,
+            operationState: 'none',
+            operationPending: false,
+            operationVerified: false
           }, cutStateOverride, {marksRevision: native.marksRevision}) : native);
       if (deferredMutation) return deferredMutation.promise;
       if (mode === 'lease') return Promise.reject(new Error('active_agent_lease_required'));
@@ -415,8 +418,17 @@ async function run() {
   button('Abbrechen').click();
   assert.strictEqual(posts().length, beforeCut, 'cancel never starts a cut');
   previewReady = false;
+  cutStateOverride = {
+    handlerUsage: 4,
+    editedDestinationExists: true,
+    editedRecordingFound: false,
+    operationState: 'none',
+    operationPending: false,
+    operationVerified: false
+  };
   button('Schneiden …').click(); await flush();
-  assert(allText(root).includes('läuft bereits oder wird finalisiert'));
+  assert(!allText(root).includes('Schnitt läuft'));
+  assert(allText(root).includes('es läuft aber kein bestätigter Suite-Schnitt'));
   assert.strictEqual(posts().length, beforeCut);
   previewReady = true;
   cutStateOverride = {};
@@ -426,7 +438,10 @@ async function run() {
     ready: false,
     editedDestinationExists: true,
     editedRecordingFound: false,
-    handlerUsage: 4
+    handlerUsage: 4,
+    operationState: 'accepted',
+    operationPending: true,
+    operationVerified: false
   };
   button('Bestätigen').click(); await flush();
   assert.strictEqual(posts().length, beforeCut + 1, 'explicit confirmation starts exactly once');
@@ -450,6 +465,9 @@ async function run() {
     editedDestinationExists: true,
     editedRecordingFound: true,
     handlerUsage: 0,
+    operationState: 'verified',
+    operationPending: false,
+    operationVerified: true,
     editedRecordingKey: 'b'.repeat(32),
     editedRecording
   };
