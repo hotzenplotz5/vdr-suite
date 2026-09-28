@@ -481,6 +481,60 @@ bool VdrRecordingCacheRepository::replaceRecordingsForBackend(
     return true;
 }
 
+bool VdrRecordingCacheRepository::removeByBackendNativeId(
+    const std::string& backendId,
+    const std::string& backendNativeId)
+{
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+
+    if (backendNativeId.empty() || !ensureSchema())
+    {
+        return false;
+    }
+
+    const std::string normalizedBackendId =
+        normalizeBackendId(backendId);
+
+    auto transactionLease = database_.acquireTransactionLease();
+    if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
+    {
+        return false;
+    }
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "DELETE FROM vdr_recording_cache "
+        "WHERE backend_id = ? AND backend_native_id = ?;";
+
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        database_.execute("ROLLBACK;");
+        return false;
+    }
+
+    bindText(statement, 1, normalizedBackendId);
+    bindText(statement, 2, backendNativeId);
+
+    const bool deleted =
+        sqlite3_step(statement) == SQLITE_DONE;
+
+    sqlite3_finalize(statement);
+
+    if (!deleted || !database_.execute("COMMIT;"))
+    {
+        database_.execute("ROLLBACK;");
+        return false;
+    }
+
+    return rebuildBrowseSnapshotFromPersistentCacheLocked(
+        normalizedBackendId);
+}
+
 bool VdrRecordingCacheRepository::upsertRecordingsForBackendLocked(
     const std::string& normalizedBackendId,
     const std::vector<VdrRecording>& recordings)
