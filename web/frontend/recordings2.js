@@ -23,6 +23,8 @@
     selectedRecording: null,
     detailReturn: null,
     detailReturnLabel: '',
+    detailHome: null,
+    detailHomeLabel: '',
     loading: false,
     loadingMore: false,
     error: null,
@@ -102,7 +104,12 @@
     if (!append) state.promotedRecordings = [];
     updatePresentedFolderState();
   }
-  function clearExternalDetailReturn() { state.detailReturn = null; state.detailReturnLabel = ''; }
+  function clearExternalDetailReturn() {
+    state.detailReturn = null;
+    state.detailReturnLabel = '';
+    state.detailHome = null;
+    state.detailHomeLabel = '';
+  }
   function loadFolder(path) {
     stopFolderRefresh();
     state.active = true;
@@ -167,20 +174,29 @@
     render();
     scheduleFolderRefresh();
   }
-  function closeDetail() {
-    const detailReturn = state.detailReturn;
+  function leaveExternalDetail(callback) {
     if (view && typeof view.destroy === 'function') view.destroy();
     state.requestSequence += 1;
     state.selectedRecording = null;
     clearExternalDetailReturn();
-    if (typeof detailReturn === 'function') {
+    if (typeof callback === 'function') {
       stopFolderRefresh();
       state.active = false;
-      detailReturn();
-      return;
+      callback();
+      return true;
     }
+    return false;
+  }
+  function closeDetail() {
+    const detailReturn = state.detailReturn;
+    if (leaveExternalDetail(detailReturn)) return;
     render();
     scheduleFolderRefresh(0);
+  }
+  function goHomeDetail() {
+    const detailHome = state.detailHome;
+    if (leaveExternalDetail(detailHome)) return;
+    closeDetail();
   }
   function reload() {
     if (state.selectedRecording && state.detailReturn) {
@@ -196,7 +212,16 @@
     loadMore: loadMore,
     selectRecording: selectRecording,
     closeDetail: closeDetail,
-    reload: reload, completeDelete: function (recording) { forgetRecording(recording); closeDetail(); }
+    goHome: goHomeDetail,
+    reload: reload,
+    completeDelete: function (recording) {
+      forgetRecording(recording);
+      if (typeof state.detailHome === 'function') {
+        goHomeDetail();
+        return;
+      }
+      closeDetail();
+    }
   });
   const moduleApi = Object.freeze({
     activate: function () {
@@ -240,6 +265,8 @@
       state.selectedRecording = normalizeRecording(recording);
       state.detailReturn = typeof config.onClose === 'function' ? config.onClose : null;
       state.detailReturnLabel = config.backLabel || '← Zurück zum Genre';
+      state.detailHome = typeof config.onHome === 'function' ? config.onHome : null;
+      state.detailHomeLabel = config.homeLabel || '⌂ Home';
       render();
       scheduleFolderRefresh();
     },
