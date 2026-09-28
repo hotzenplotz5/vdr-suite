@@ -357,9 +357,8 @@ bool GlobalSearchRepository::backfillEpgPeople() const
         "WHERE json_array_length("
         "CASE WHEN json_valid(c.public_json) "
         "THEN c.public_json ELSE '{\"people\":[]}' END,"
-        "'$.people')>0 "
-        "AND NOT EXISTS("
-        "SELECT 1 FROM epg_scraper_metadata_people p "
+        "'$.people')>"
+        "(SELECT COUNT(*) FROM epg_scraper_metadata_people p "
         "WHERE p.backend_id=c.backend_id "
         "AND p.channel_id=c.channel_id "
         "AND p.event_id=c.event_id"
@@ -402,13 +401,7 @@ bool GlobalSearchRepository::backfillEpgPeople() const
             "CASE WHEN json_valid(c.public_json) "
             "THEN c.public_json ELSE '{\"people\":[]}' END,"
             "'$.people') j "
-            "WHERE COALESCE(json_extract(j.value,'$.name'),'')<>'' "
-            "AND NOT EXISTS("
-            "SELECT 1 FROM epg_scraper_metadata_people p "
-            "WHERE p.backend_id=c.backend_id "
-            "AND p.channel_id=c.channel_id "
-            "AND p.event_id=c.event_id"
-            ");";
+            "WHERE COALESCE(json_extract(j.value,'$.name'),'')<>'';";
         if (sqlite3_prepare_v2(
                 database_.handle(),
                 sql,

@@ -128,6 +128,42 @@ int main()
         assert(preservedAfterRefresh.front().metadata.hasArtwork());
         assert(preservedAfterRefresh.front().metadata.artwork.front().reference ==
                "movies/785533/poster.jpg");
+
+        VdrRecording weakerStillSnapshot = recording;
+        weakerStillSnapshot.metadata = VdrRecordingMetadata{};
+        VdrRecordingArtworkRef weakStill;
+        weakStill.kind = VdrRecordingArtworkKind::Still;
+        weakStill.source =
+            VdrRecordingMetadataSource::RestfulApiScraperBridge;
+        weakStill.reference = "recordings/zero/still.jpg";
+        weakStill.width = 1280;
+        weakStill.height = 720;
+        weakerStillSnapshot.metadata.artwork.push_back(weakStill);
+
+        assert(repository.replaceRecordingsForBackend(
+            "default",
+            {weakerStillSnapshot}));
+
+        const std::vector<VdrRecording> preservedPosterAfterWeakStill =
+            repository.findAllForBackend("default");
+        assert(preservedPosterAfterWeakStill.size() == 1);
+
+        bool posterPreserved = false;
+        bool stillRetained = false;
+        for (const VdrRecordingArtworkRef& artwork :
+             preservedPosterAfterWeakStill.front().metadata.artwork)
+        {
+            posterPreserved =
+                posterPreserved ||
+                (artwork.kind == VdrRecordingArtworkKind::Poster &&
+                 artwork.reference == "movies/785533/poster.jpg");
+            stillRetained =
+                stillRetained ||
+                (artwork.kind == VdrRecordingArtworkKind::Still &&
+                 artwork.reference == "recordings/zero/still.jpg");
+        }
+        assert(posterPreserved);
+        assert(stillRetained);
     }
 
     {

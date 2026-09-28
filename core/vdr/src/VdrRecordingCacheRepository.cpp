@@ -266,6 +266,46 @@ bool sameStableRecordingIdentity(
         existing.id == incoming.id;
 }
 
+bool providerIdentityCompatible(
+    const VdrRecordingProviderMetadata& existing,
+    const VdrRecordingProviderMetadata& incoming)
+{
+    if (!existing.hasData() || !incoming.hasData())
+    {
+        return true;
+    }
+
+    if (existing.contentKind != VdrRecordingContentKind::Unknown &&
+        incoming.contentKind != VdrRecordingContentKind::Unknown &&
+        existing.contentKind != incoming.contentKind)
+    {
+        return false;
+    }
+
+    const auto conflicts = [](
+        const std::string& left,
+        const std::string& right)
+    {
+        return !left.empty() &&
+            !right.empty() &&
+            left != right;
+    };
+
+    return !conflicts(existing.movieId, incoming.movieId) &&
+        !conflicts(existing.seriesId, incoming.seriesId) &&
+        !conflicts(existing.episodeId, incoming.episodeId);
+}
+
+void fillMissingString(
+    std::string& value,
+    const std::string& fallback)
+{
+    if (value.empty())
+    {
+        value = fallback;
+    }
+}
+
 void preserveMetadataWhenIncomingIsWeaker(
     const VdrRecording& existing,
     VdrRecording& incoming)
@@ -275,22 +315,91 @@ void preserveMetadataWhenIncomingIsWeaker(
         return;
     }
 
-    if (!incoming.metadata.native.hasText() &&
-        existing.metadata.native.hasText())
-    {
-        incoming.metadata.native = existing.metadata.native;
-    }
+    fillMissingString(
+        incoming.metadata.native.eventTitle,
+        existing.metadata.native.eventTitle);
+    fillMissingString(
+        incoming.metadata.native.shortText,
+        existing.metadata.native.shortText);
+    fillMissingString(
+        incoming.metadata.native.description,
+        existing.metadata.native.description);
 
-    if (!incoming.metadata.provider.hasData() &&
-        existing.metadata.provider.hasData())
-    {
-        incoming.metadata.provider = existing.metadata.provider;
-    }
+    const bool compatibleProvider =
+        providerIdentityCompatible(
+            existing.metadata.provider,
+            incoming.metadata.provider);
 
-    if (!incoming.metadata.hasArtwork() &&
-        existing.metadata.hasArtwork())
+    if (compatibleProvider)
     {
-        incoming.metadata.artwork = existing.metadata.artwork;
+        VdrRecordingProviderMetadata& target =
+            incoming.metadata.provider;
+        const VdrRecordingProviderMetadata& fallback =
+            existing.metadata.provider;
+
+        if (target.source == VdrRecordingMetadataSource::None)
+        {
+            target.source = fallback.source;
+        }
+        if (target.contentKind == VdrRecordingContentKind::Unknown)
+        {
+            target.contentKind = fallback.contentKind;
+        }
+
+        fillMissingString(target.movieId, fallback.movieId);
+        fillMissingString(target.seriesId, fallback.seriesId);
+        fillMissingString(target.episodeId, fallback.episodeId);
+        fillMissingString(target.title, fallback.title);
+        fillMissingString(target.originalTitle, fallback.originalTitle);
+        fillMissingString(target.tagline, fallback.tagline);
+        fillMissingString(target.overview, fallback.overview);
+        fillMissingString(target.genreText, fallback.genreText);
+        fillMissingString(target.releaseDate, fallback.releaseDate);
+        fillMissingString(target.seriesTitle, fallback.seriesTitle);
+        fillMissingString(target.episodeTitle, fallback.episodeTitle);
+
+        if (target.seasonNumber <= 0)
+        {
+            target.seasonNumber = fallback.seasonNumber;
+        }
+        if (target.episodeNumber <= 0)
+        {
+            target.episodeNumber = fallback.episodeNumber;
+        }
+        if (target.runtimeMinutes <= 0)
+        {
+            target.runtimeMinutes = fallback.runtimeMinutes;
+        }
+        if (target.rating <= 0.0)
+        {
+            target.rating = fallback.rating;
+        }
+
+        for (const VdrRecordingArtworkRef& preserved :
+             existing.metadata.artwork)
+        {
+            if (!preserved.isValid())
+            {
+                continue;
+            }
+
+            bool kindAlreadyPresent = false;
+            for (const VdrRecordingArtworkRef& current :
+                 incoming.metadata.artwork)
+            {
+                if (current.isValid() &&
+                    current.kind == preserved.kind)
+                {
+                    kindAlreadyPresent = true;
+                    break;
+                }
+            }
+
+            if (!kindAlreadyPresent)
+            {
+                incoming.metadata.artwork.push_back(preserved);
+            }
+        }
     }
 }
 
