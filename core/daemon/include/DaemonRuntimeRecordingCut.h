@@ -2,7 +2,6 @@
 
 #include "BackendRuntimeContext.h"
 #include "VdrRecordingCacheRepository.h"
-#include "VdrRecordingNativeCutState.h"
 
 #include <memory>
 #include <string>
@@ -12,9 +11,6 @@ class BackendAccessPolicy;
 class BackendAgentCommandRepository;
 class BackendAgentRepository;
 class BackendRegistryService;
-
-bool daemonRecordingCutStateBlocksSourceDelete(
-    const VdrRecordingNativeCutState& state);
 
 std::string daemonRecordingCutDeleteBlockReason(
     VdrRecordingCacheRepository& recordingCacheRepository,
