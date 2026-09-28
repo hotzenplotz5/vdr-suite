@@ -228,11 +228,11 @@ std::string daemonRecordingCutDeleteBlockReason(
 
         if (context->embeddedCutRuntime)
         {
-            const std::string journalBlocker =
-                context->embeddedCutRuntime->deleteBlockReason(
-                    recordingKey);
-            if (!journalBlocker.empty())
-                return journalBlocker;
+            // The embedded local owner has a durable operation journal.
+            // Do not mix it with transient RCUT handler/destination facts:
+            // the journal is the destructive-action truth for this path.
+            return context->embeddedCutRuntime->deleteBlockReason(
+                recordingKey);
         }
 
         if (!context->suiteBridgeAgentRuntime)
