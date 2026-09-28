@@ -52,7 +52,11 @@ require("fetchClientTimers({ cache: 'no-store' })" in sync_body and "epgLiveTime
 matrix = json.loads(read("docs/development/phase-69f-client-contract-matrix.json"))
 require(matrix.get("explicitDeferredFallbacks") == [], "no deferred browser route fallback may remain after the Timer successor")
 candidate = matrix.get("derivedNextRuntimeCandidate", {})
-require(candidate.get("domain") == "phase69f-closeout-audit" and candidate.get("proposedTemplate") is None, "Timer hardening must allow closeout audit without preselecting a public resource")
+require(
+    candidate.get("domain") in {"phase69f-closeout-audit", "phase69-complete"}
+    and candidate.get("proposedTemplate") is None,
+    "Timer hardening must allow closeout/final state without preselecting a public resource",
+)
 require(len(matrix.get("publicV1Resources", [])) == 8, "Timer client hardening must not change the stable public-v1 method/resource count")
 
 runtime_test = read("web/frontend/tests/test_phase69f_timer_live_fallback_removal.js")

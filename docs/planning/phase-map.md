@@ -126,6 +126,7 @@ make test-phase
 
 - [Current State](../CURRENT.md)
 - [Roadmap](roadmap.md)
+- [Phase 69 Closeout](../development/phase-69-closeout.md)
 - [Phase 67 Closeout](../development/phase-67-closeout.md)
 - [Phase 67 Teletext Closeout](../development/phase-67-teletext-closeout.md)
 - [Phase 66 Closeout](../development/phase-66-closeout.md)
