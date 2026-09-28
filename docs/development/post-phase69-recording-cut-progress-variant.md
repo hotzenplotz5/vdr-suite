@@ -68,10 +68,16 @@ The Recording detail polls the existing read-only cut state while any of these
 conditions is true:
 
 - the local protected cut operation is still pending;
-- VDR reports active Recording handler usage;
-- the edited destination exists but the edited Recording has not yet appeared;
-- VDR found the edited Recording but the current canonical Recording projection
-  has not caught up yet.
+- the persisted operation journal reports a pending cut for this source;
+- a verified cut result exists but its canonical Recording projection has not
+  caught up yet.
+
+Handler usage or an existing destination alone does not establish a Suite cut.
+The progress/result surface belongs directly to the existing detail root, outside
+the playback/marks subtree hidden by the hero visibility owner. It remains
+visible in detail, playback, metadata and Recording-action modes. The explicit
+cut confirmation receives focus and is scrolled into view. Local pending state
+renders indeterminate progress synchronously, before the POST/readback resolves.
 
 Polling stops once the exact edited Recording projection is available and the
 protected operation has settled. Reloading the detail during a running cut
@@ -94,3 +100,36 @@ Automated coverage must prove:
 - existing marks and playback ownership remain unchanged.
 
 Phase 70 remains not started.
+
+## Runtime investigation, 2026-09-28
+
+The installed editor fingerprint was
+`261315b13834e8235a2efc6ba451f8b8c94335d1610f1456965db151bd34baf5`,
+matching `626ee33814e5b983c5d8a62bf899fe68ddad8276`.
+Before changes, the PR was at `bcb5e2fbc3b88b9f5bad99916104f3793fffafde`:
+`92c2d96` had already removed the blocking preview-read dependency and
+`bcb5e2f` adjusted the corresponding timer regression.
+
+For the reported 13:32 CEST attempt, nginx records GET cut-state requests for
+backend `default`, Recording ID `576`, but no POST cut request. VDR records
+RCUT source key `f8a789ed0abb6e2a720338db43d445e7`, ready with handler usage zero.
+At 13:32:44/48/51 the separate Recording actions validation/execution requests
+appear; accountability records `recordings.delete`, and VDR records the source
+being renamed from `.rec` to `.del` at 13:32:51. The native marks reads and
+deletion name the same Recording. There is no corresponding new embedded cut
+command, agent cut reservation, or NCUT start in this interval, so there is no
+edited-result key to attribute to this attempt. A later timeout-bounded RCUT
+read reports source not found; filesystem and LSTR no longer contain it.
+
+This proves a real trash operation, not just a missing cache projection. The
+logs do not retain request bodies or browser click history, and cannot establish
+why the cut confirmation was not submitted. No claim of a cutter deleting a
+different source is supported by this evidence.
+
+A separate reproducible projection defect used the numeric Recording ID before
+native identity in `forgetRecording`. The runtime cache demonstrated reuse of
+ID `576` for another native Recording after deletion. A late delete completion
+could consequently hide its successor. The regression now proves that matching
+uses backend plus native identity, removes the original even if its list ID
+changed, and retains a different Recording reusing the old ID. This is a
+projection fix, not evidence that the reported native trash target was wrong.

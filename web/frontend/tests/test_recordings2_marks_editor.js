@@ -16,6 +16,9 @@ function element(tag) {
       add(name) { if (!hasClass(value.className, name)) value.className = (value.className + ' ' + name).trim(); },
       remove(name) { value.className = value.className.split(/\s+/).filter(item => item && item !== name).join(' '); }
     }, disabled: false, value: '', listeners: {},
+    focus() { this.focused = true; },
+    scrollIntoView() { this.scrolledIntoView = true; },
+    insertBefore(child, before) { child.parentNode = this; const index = this.children.indexOf(before); this.children.splice(index < 0 ? 0 : index, 0, child); return child; },
     addEventListener(name, fn) { this.listeners[name] = fn; },
     click() { if (!this.disabled && this.listeners.click) this.listeners.click(); },
     removeChild(child) { this.children = this.children.filter(value => value !== child); child.parentNode = null; },
@@ -32,6 +35,7 @@ function element(tag) {
       child.parentNode = this.parentNode; this.parentNode.children.splice(index + 1, 0, child); return child;
     },
     querySelector(selector) {
+      if (selector.startsWith('.') && hasClass(this.className, selector.slice(1))) return this;
       if (selector === '.recordings2-detail' && hasClass(this.className, 'recordings2-detail')) return this;
       if (selector === '.recordings2-marks-detail' && hasClass(this.className, 'recordings2-marks-detail')) return this;
       if (selector === '.recordings2-marks-timeline' && hasClass(this.className, 'recordings2-marks-timeline')) return this;
@@ -48,6 +52,7 @@ function element(tag) {
       const result = [];
       function collect(current) {
         if (!current) return;
+        if (selector.startsWith('.') && hasClass(current.className, selector.slice(1))) result.push(current);
         if (selector === 'input[aria-label="Wiedergabeposition"]' &&
             current.tagName === 'INPUT' && current.attributes['aria-label'] === 'Wiedergabeposition') result.push(current);
         (current.children || []).forEach(collect);
@@ -140,6 +145,7 @@ async function run() {
     setTimeout(fn) { const id = nextTimerId++; timers.set(id, fn); return id; },
     clearTimeout(id) { timers.delete(id); },
     VdrSuiteBrowserSession: {csrfHeaders: () => ({'X-CSRF-Token': 'test-only'})},
+    VdrSuiteRecordings2HeroDetail: {enhance(root) { return root; }},
     VdrSuiteRecordings2MarksTimeline: {
       render(root, recording, payload, interaction) {
         if (interaction) timelineInteraction = interaction;
@@ -205,7 +211,8 @@ async function run() {
   for (const path of [
     'web/frontend/recordings2-browser-view.js',
     'web/frontend/recordings2-marks-editor.js',
-    'web/frontend/recordings2-marks-detail.js'
+    'web/frontend/recordings2-marks-detail.js',
+    'web/frontend/recordings2-hero-visibility.js'
   ]) vm.runInContext(fs.readFileSync(path, 'utf8'), context, {filename: path});
 
   const view = window.VdrSuiteRecordings2BrowserView.create({getState: () => ({
@@ -424,6 +431,8 @@ async function run() {
   );
   assert.strictEqual(posts().length, beforeCut, 'preview never starts a cut');
   assert(findButton('Bestätigen'), 'cut confirmation must appear immediately from canonical marks state');
+  assert(button('Bestätigen').focused, 'explicit cut confirmation must receive focus');
+  assert(button('Bestätigen').parentNode.scrolledIntoView, 'confirmation must be brought into view');
   assert(!button('Neu laden').disabled, 'opening cut confirmation must never strand the editor in busy state');
   assert(allText(root).includes('Original'));
   button('Abbrechen').click();
@@ -440,7 +449,24 @@ async function run() {
     operationPending: true,
     operationVerified: false
   };
-  button('Bestätigen').click(); await flush();
+  deferredMutation = deferred();
+  button('Bestätigen').click();
+  const cutView = root.children.find(child => hasClass(child.className, 'recordings2-cut-state'));
+  assert(cutView, 'cut progress belongs to the detail owner, outside the hidden playback/marks subtree');
+  const progress = cutView.children.find(child => child.tagName === 'PROGRESS');
+  assert(progress, 'indeterminate progress is visible before the POST or completion readback resolves');
+  assert.strictEqual(progress.attributes.value, undefined);
+  for (const mode of ['playback', 'detail', 'actions', 'metadata']) {
+    root.dataset.recordings2HeroMode = mode;
+    window.VdrSuiteRecordings2HeroDetail.enhance(root);
+    assert(!cutView.hidden, 'cut state survives the production visibility owner in ' + mode);
+    assert.strictEqual(root.querySelector('.recordings2-marks-detail').hidden, mode !== 'playback');
+  }
+  publish({transition: 'session-replaced', sessionId: 'three', state: 'playing'});
+  assert.strictEqual(cutView.parentNode, root);
+  deferredMutation.resolve({accepted: true, operationId: posts().at(-1).body.operationId, verification: 'readback_required'});
+  deferredMutation = null;
+  await flush();
   assert.strictEqual(posts().length, beforeCut + 1, 'explicit confirmation starts exactly once');
   assert.strictEqual(posts().at(-1).path, '/api/vdr/recordings/cut');
   assert(!button('Neu laden').disabled, 'stalled cut-state telemetry must not keep the editor busy after dispatch');
@@ -498,6 +524,19 @@ async function run() {
   publish({transition: 'destroyed', state: 'destroyed'});
   assert.strictEqual(listeners.size, 0);
   assert.strictEqual(timers.size, 0);
+  const postsBeforeReload = posts().length;
+  snapshot = {transition: 'snapshot', state: 'idle', sessionId: null};
+  cutStateOverride = {operationState: 'accepted', operationPending: true, operationVerified: false, editedRecordingFound: false};
+  view.renderDetail(); await flush();
+  root = mount.querySelector('.recordings2-detail');
+  window.VdrSuiteRecordings2HeroDetail.enhance(root);
+  const restored = root.children.find(child => hasClass(child.className, 'recordings2-cut-state'));
+  assert(restored && !restored.hidden && allText(restored).includes('Schnitt läuft'), 'reload recovers running state even in detail mode');
+  assert.strictEqual(posts().length, postsBeforeReload, 'reload must not submit another mutation');
+  assert(requests.filter(request => request.path.endsWith('/cut')).every(request =>
+    (request.body || request.config.query).recordingId === '7'), 'cut and variant navigation keep the source identity');
+  assert(posts().every(request => request.path === '/api/vdr/recordings/cut' || request.path === '/api/vdr/recordings/marks'), 'cut never invokes Delete/Trash');
+  root.__vdrSuiteMarksEditor.destroy();
   console.log('native marks editor add/delete/reset/move/navigation/readback/external-sync and failure-state hardening ok');
 }
 

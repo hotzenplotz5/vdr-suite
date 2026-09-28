@@ -12,7 +12,7 @@
 .recordings2-marks-editor-list{display:flex;flex-wrap:wrap;gap:.35rem;width:100%;min-width:0}.recordings2-marks-editor-row{display:grid;grid-template-columns:minmax(7rem,auto) minmax(0,1fr);gap:.35rem .75rem;align-items:center;padding:.25rem .4rem;border:1px solid rgba(148,163,184,.28);border-radius:.65rem;background:rgba(15,23,42,.48)}.recordings2-marks-editor-row.selected{border-color:#60a5fa;background:rgba(30,64,175,.2)}
 .recordings2-marks-editor-row>span{color:#cbd5e1;font-size:.8rem;line-height:1.35}.recordings2-marks-editor-mark{min-width:7rem;text-align:left;font-weight:800}.recordings2-marks-editor-confirmation{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}.recordings2-marks-editor-confirmation:empty{display:none}
 .recordings2-marks-editor-status{min-height:1.35rem;margin:0;padding:.2rem .4rem;border:1px solid rgba(148,163,184,.2);border-radius:.62rem;background:rgba(30,41,59,.55);color:#cbd5e1;font-size:.8rem;line-height:1.4}.recordings2-marks-editor-status:empty{display:none}.recordings2-marks-editor-status.error{border-color:rgba(248,113,113,.5);color:#fecaca}.recordings2-marks-editor-status.success{border-color:rgba(34,197,94,.45);color:#bbf7d0}.recordings2-marks-editor-status.pending{border-color:rgba(56,189,248,.45);color:#bae6fd}
-.recordings2-cut-state{display:grid;gap:.45rem;padding:.65rem;border:1px solid rgba(56,189,248,.42);border-radius:.72rem;background:rgba(3,105,161,.12)}.recordings2-cut-state:empty{display:none}.recordings2-cut-state strong{color:#e0f2fe}.recordings2-cut-state p{margin:0;color:#bae6fd;font-size:.8rem;line-height:1.4}.recordings2-cut-progress{width:100%;height:.7rem;accent-color:#38bdf8}.recordings2-cut-variant{border-color:rgba(34,197,94,.42);background:rgba(22,101,52,.13)}.recordings2-cut-variant p{color:#bbf7d0}.recordings2-cut-state-actions{display:flex;flex-wrap:wrap;gap:.45rem}
+.recordings2-cut-state{position:sticky;top:0;z-index:30;display:grid;gap:.45rem;padding:.65rem;border:1px solid rgba(56,189,248,.42);border-radius:.72rem;background:#082f49}.recordings2-cut-state:empty{display:none}.recordings2-cut-state strong{color:#e0f2fe}.recordings2-cut-state p{margin:0;color:#bae6fd;font-size:.8rem;line-height:1.4}.recordings2-cut-progress{width:100%;height:.7rem;accent-color:#38bdf8}.recordings2-cut-variant{border-color:rgba(34,197,94,.42);background:#052e16}.recordings2-cut-variant p{color:#bbf7d0}.recordings2-cut-state-actions{display:flex;flex-wrap:wrap;gap:.45rem}
 @media(max-width:720px){.recordings2-marks-editor-group{display:grid;grid-template-columns:1fr 1fr}.recordings2-marks-editor-group button{width:100%}.recordings2-marks-editor-row{grid-template-columns:1fr}.recordings2-marks-editor-mark{width:100%}}
 `; global.document.head.appendChild(style);
   }
@@ -30,6 +30,7 @@
   }
   function attach(root, panel, recording, backendId, initial, options) {
     if (root.__vdrSuiteMarksEditor) return root.__vdrSuiteMarksEditor;
+    recording = Object.freeze(Object.assign({}, recording));
     installStyles();
     panel.editor = true; options.renderPayload(panel, initial);
     const identity = {backendId: String(backendId), recordingId: String(recording.recordingId || recording.id)};
@@ -37,7 +38,7 @@
     controls.className = 'recordings2-marks-editor'; positionHint.className = 'recordings2-marks-editor-hint'; selectionHint.className = 'recordings2-marks-editor-selection';
     actions.className = 'recordings2-marks-editor-actions'; confirmation.className = 'recordings2-marks-editor-confirmation'; cutStateView.className = 'recordings2-cut-state'; status.className = 'recordings2-marks-editor-status';
     confirmation.setAttribute('role', 'group'); confirmation.setAttribute('aria-label', 'Schnitt bestätigen'); cutStateView.setAttribute('role', 'status'); cutStateView.setAttribute('aria-live', 'polite'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
-    panel.section.appendChild(controls); controls.appendChild(positionHint); controls.appendChild(selectionHint); controls.appendChild(cutStateView); controls.appendChild(status); controls.appendChild(actions); controls.appendChild(confirmation);
+    root.insertBefore(cutStateView, root.firstChild); panel.section.appendChild(controls); controls.appendChild(positionHint); controls.appendChild(selectionHint); controls.appendChild(status); controls.appendChild(actions); controls.appendChild(confirmation);
     let payload = initial, busy = false, pending = null, cutState = null, selectedFrame = null, destroyed = false, unsubscribe = null, owner = null, lifecycleKey = '', verificationTimer = null, cutStateTimer = null, verificationAttempts = 0, externalRefreshPending = false;
     function setStatus(type, text) { status.className = 'recordings2-marks-editor-status' + (type ? ' ' + type : ''); status.textContent = String(text || ''); }
     function request(path, body) {
@@ -177,8 +178,10 @@
     }
     function confirm(label, action) {
       confirmation.replaceChildren(node('p', label));
-      button('Bestätigen', function () { confirmation.replaceChildren(); action(); }, !editable(), confirmation, 'primary');
+      const accept = button('Bestätigen', function () { confirmation.replaceChildren(); action(); }, !editable(), confirmation, 'primary');
       button('Abbrechen', function () { confirmation.replaceChildren(); }, false, confirmation);
+      if (typeof confirmation.scrollIntoView === 'function') confirmation.scrollIntoView({block: 'nearest'});
+      if (typeof accept.focus === 'function') accept.focus({preventScroll: true});
     }
     function previewCut() {
       if (!editable()) return;
