@@ -253,6 +253,18 @@ async function main() {
     errors: []
   }), true);
   assert.strictEqual(test.isDryRunReady({success: true}), false);
+  assert.strictEqual(
+    test.actionError({
+      errors: ['recording_cut_operation_pending_delete_blocked']
+    }, 'fallback'),
+    'Original kann während des laufenden Schnitts nicht gelöscht werden.'
+  );
+  assert.strictEqual(
+    test.actionError({
+      errors: ['recording_cut_journal_unavailable_delete_blocked']
+    }, 'fallback'),
+    'Löschen ist gesperrt, weil der Schnittstatus nicht sicher bestätigt werden kann.'
+  );
 
   console.log('recordings2 actions, genre and leaf resolution runtime ok');
 }
