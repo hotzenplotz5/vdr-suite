@@ -2,14 +2,25 @@
 
 #include "BackendRuntimeContext.h"
 #include "VdrRecordingCacheRepository.h"
+#include "VdrRecordingNativeCutState.h"
 
 #include <memory>
+#include <string>
 #include <vector>
 
 class BackendAccessPolicy;
 class BackendAgentCommandRepository;
 class BackendAgentRepository;
 class BackendRegistryService;
+
+bool daemonRecordingCutStateBlocksSourceDelete(
+    const VdrRecordingNativeCutState& state);
+
+std::string daemonRecordingCutDeleteBlockReason(
+    VdrRecordingCacheRepository& recordingCacheRepository,
+    const std::vector<std::unique_ptr<BackendRuntimeContext>>& backendRuntimeContexts,
+    const std::string& backendId,
+    const std::string& recordingId);
 
 bool configureDaemonRecordingCutRuntime(
     VdrRecordingCacheRepository& recordingCacheRepository,
