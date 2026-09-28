@@ -24,6 +24,7 @@
     if (/in_use/.test(code)) return 'Die Aufnahme wird gerade verwendet. Bearbeiten ist derzeit gesperrt.';
     if (/permission|forbidden|read.only|denied|Authentication|CSRF/.test(code)) return 'Keine Schreibberechtigung oder Anmeldung abgelaufen. Bitte Anmeldung und Backend-Zugriff prüfen.';
     if (/destination|result.*exist/.test(code)) return 'Eine geschnittene Ausgabe existiert bereits.';
+    if (/recording_cut_not_running|recording_cut_rejected/.test(code)) return 'Der native Schnittauftrag läuft nicht mehr; es wurde keine Schnittfassung bestätigt.';
     if (/active_agent_lease_required|capability|unavailable/.test(code)) return 'Die native Bearbeitung ist derzeit nicht verfügbar.';
     if (/native_readback_invalid|operation_response_invalid/.test(code)) return 'Die Backend-Antwort konnte nicht sicher bestätigt werden. Bitte den aktuellen VDR-Stand neu laden.';
     return 'Änderung noch nicht bestätigt. Derselbe Auftrag wird weiter geprüft; bitte keine neue Änderung starten.';
@@ -70,7 +71,7 @@
       cutStateView.appendChild(node('strong', 'Schnitt läuft …')); const progress = node('progress'); progress.className = 'recordings2-cut-progress'; progress.setAttribute('aria-label', 'Nativer VDR-Schnitt läuft'); cutStateView.appendChild(progress); cutStateView.appendChild(node('p', 'Der gestartete Schnitt für genau diese Aufnahme ist noch nicht verifiziert abgeschlossen. Der native Cutter liefert keinen verlässlichen Prozentwert.'));
     }
     function scheduleCutStatePoll() { clearCutStateTimer(); if (destroyed || !cutStateActive() || typeof global.setTimeout !== 'function') return; cutStateTimer = global.setTimeout(function () { cutStateTimer = null; syncCutState().catch(function () { if (!destroyed) scheduleCutStatePoll(); }); }, 1500); }
-    function syncCutState() { return request('/api/vdr/recordings/cut').then(function (next) { if (destroyed) return null; if (!next || next.availability !== 'available' || next.backendId !== identity.backendId || String(next.recordingId) !== identity.recordingId) throw new Error('recording_cut_state_invalid'); cutState = next; renderCutState(); scheduleCutStatePoll(); return next; }); }
+    function syncCutState() { return request('/api/vdr/recordings/cut').then(function (next) { if (destroyed) return null; if (!next || next.availability !== 'available' || next.backendId !== identity.backendId || String(next.recordingId) !== identity.recordingId) throw new Error('recording_cut_state_invalid'); if (next.operationState === 'failed' && cutPending()) { pending = null; clearVerificationTimer(); verificationAttempts = 0; setStatus('error', 'Der native Schnittauftrag läuft nicht mehr; es wurde keine Schnittfassung bestätigt.'); } cutState = next; renderCutState(); scheduleCutStatePoll(); return next; }); }
     function syncOperationState(operation) { if (!operation || !operation.path || !operation.path.endsWith('/cut')) return syncCanonical(operation); return syncCanonical(operation).then(function (next) { syncCutState().catch(function () {}); return next; }); }
     function frame(value) { const number = Number(value); return String(value).trim() && Number.isSafeInteger(number) && number >= 0 && number <= 2147483647 ? number : null; }
     function editable() { return !busy && !pending && payload && payload.availability === 'available' && payload.inUse === false; }
@@ -135,10 +136,10 @@
     function clearVerificationTimer() { if (verificationTimer !== null && typeof global.clearTimeout === 'function') global.clearTimeout(verificationTimer); verificationTimer = null; }
     function scheduleVerification() {
       if (!pending || destroyed || verificationTimer !== null) return;
-      if (typeof global.setTimeout !== 'function') return;
-      verificationTimer = global.setTimeout(function () { verificationTimer = null; check(true); }, verificationAttempts < VERIFY_ATTEMPTS ? VERIFY_DELAY_MS : 5000);
+      if (verificationAttempts >= VERIFY_ATTEMPTS || typeof global.setTimeout !== 'function') return;
+      verificationTimer = global.setTimeout(function () { verificationTimer = null; check(true); }, VERIFY_DELAY_MS);
     }
-    function definitiveFailure(error) { return /active_agent_lease_required|capability_unavailable|assignment_not_found|assignment_conflict|backend_write_unavailable|recording_marks_modify_rejected|revision_conflict|recording_in_use|permission|forbidden|read.only|denied|Authentication|CSRF/.test(String(error && error.message || error || '')); }
+    function definitiveFailure(error) { return /recording_cut_not_running|recording_cut_rejected|active_agent_lease_required|capability_unavailable|assignment_not_found|assignment_conflict|backend_write_unavailable|recording_marks_modify_rejected|revision_conflict|recording_in_use|permission|forbidden|read.only|denied|Authentication|CSRF/.test(String(error && error.message || error || '')); }
     function submit(path, fields) {
       if (!editable()) return;
       try { pending = {path: path, body: Object.assign({}, identity, {operationId: token(), operationRevision: '1', expectedMarksRevision: payload.marksRevision}, fields || {})}; }
