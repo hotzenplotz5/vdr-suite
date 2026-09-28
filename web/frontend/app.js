@@ -2877,7 +2877,10 @@ function epgWindowBounds() {
 
   return {
     from: bounds.start,
-    until: bounds.end
+    // The rendered current-page start may move forward by up to the bounded
+    // context interval. Fetch the same tail overlap so the visible 24-hour
+    // projection never ends in an artificial cache gap.
+    until: bounds.end + EPG_TIMELINE_CONTEXT_BEFORE_SECONDS
   };
 }
 
