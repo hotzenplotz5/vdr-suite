@@ -162,10 +162,12 @@ let currentState = {
   error:null
 };
 let closeCount = 0;
+let homeCount = 0;
 
 const view = window.VdrSuiteRecordings2BrowserView.create({
   getState() { return currentState; },
   closeDetail() { closeCount += 1; },
+  goHome() { homeCount += 1; },
   reload() {},
   openFolder() {},
   selectRecording() {},
@@ -211,7 +213,9 @@ assert.strictEqual(scrollCalls.length, 2);
 
 currentState = Object.assign({}, currentState, {
   selectedRecording:recording,
-  detailReturnLabel:'← Zurück zu Home'
+  detailReturnLabel:'← Zurück zur Suche',
+  detailHome:function () {},
+  detailHomeLabel:'⌂ Home'
 });
 view.renderDetail();
 assert.strictEqual(scrollCalls.length, 3, 'folder -> detail must reveal the detail start again');
@@ -219,9 +223,17 @@ root = target.children[0];
 header = root.children[0];
 toolbar = header.children[1];
 backButton = toolbar.children[0];
-assert.strictEqual(backButton.textContent, '← Zurück zu Home');
+const homeButton = toolbar.children[1];
+assert.strictEqual(backButton.textContent, '← Zurück zur Suche');
+assert.strictEqual(homeButton.textContent, '⌂ Home');
+homeButton.click();
+assert.strictEqual(homeCount, 1,
+  'external Recording detail Home must use the canonical Home exit owner');
 
 const source = fs.readFileSync('web/frontend/recordings2-browser-view.js', 'utf8');
+const runtimeSource = fs.readFileSync('web/frontend/recordings2.js', 'utf8');
+assert(runtimeSource.includes("if (typeof state.detailHome === 'function')"));
+assert(runtimeSource.includes('goHomeDetail();'));
 assert(!source.includes('history.pushState'));
 assert(!source.includes('history.replaceState'));
 assert(!source.includes('popstate'));
