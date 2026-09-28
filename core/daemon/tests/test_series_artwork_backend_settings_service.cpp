@@ -214,6 +214,7 @@ int main()
     SeriesArtworkBackendSettingsConfig config;
     config.defaultProvider = "tvmaze";
     config.secretRoot = (root / "secrets").string();
+    config.seriesCoverCacheRoot = (root / "series-covers").string();
     config.tmdb.incomingRoot = (root / "incoming").string();
     config.tvmaze.incomingRoot = (root / "incoming").string();
 
@@ -233,6 +234,11 @@ int main()
         database,
         "backend_series_artwork_overrides",
         "provider_id"));
+
+    assert(columnExists(
+        database,
+        "backend_series_artwork_overrides",
+        "external_namespace"));
 
     assert(columnExists(
         database,
@@ -341,6 +347,62 @@ int main()
            "https://api.themoviedb.org/3/configuration");
     assert(transport.requests.front().bearerToken ==
            "test.token_value-123");
+
+    transport.responses = {
+        imageResponse("true-detective-season-2")
+    };
+
+    SeriesArtworkBackendSettingsUpdate seasonCover;
+    seasonCover.backendId = "default";
+    seasonCover.operation = "set-series-cover-tmdb";
+    seasonCover.seriesKey = "folder:serien/true_detective";
+    seasonCover.providerId = "tmdb";
+    seasonCover.externalNamespace = "tv-season";
+    seasonCover.externalId = "3624";
+    seasonCover.posterReference = "/true-detective-season-2.jpg";
+
+    const auto seasonCoverSet =
+        service.update(seasonCover);
+
+    assert(seasonCoverSet.success);
+    assert(seasonCoverSet.statusCode == 200);
+    assert(seasonCoverSet.settings.coverOverrides.size() == 1U);
+    assert(seasonCoverSet.settings.coverOverrides[0].seriesKey ==
+           seasonCover.seriesKey);
+    assert(seasonCoverSet.settings.coverOverrides[0].providerId == "tmdb");
+    assert(seasonCoverSet.settings.coverOverrides[0].externalNamespace ==
+           "tv-season");
+    assert(seasonCoverSet.settings.coverOverrides[0].externalId == "3624");
+    assert(seasonCoverSet.settings.coverOverrides[0].posterReference ==
+           "/true-detective-season-2.jpg");
+    assert(transport.requests.back().url.find("image.tmdb.org") !=
+           std::string::npos);
+
+    const SeriesArtworkImageResult seasonCandidateImage =
+        service.tmdbCandidateImage(
+            "default",
+            "tv-season",
+            "3624",
+            "/true-detective-season-2.jpg");
+    assert(seasonCandidateImage.success);
+    assert(seasonCandidateImage.body == "true-detective-season-2");
+
+    SeriesArtworkBackendSettingsUpdate replaceSeasonWithLocal = setCover;
+    replaceSeasonWithLocal.seriesKey = seasonCover.seriesKey;
+    replaceSeasonWithLocal.posterUrl = firstCover;
+    const auto localAfterSeason =
+        service.update(replaceSeasonWithLocal);
+    assert(localAfterSeason.success);
+    assert(localAfterSeason.settings.coverOverrides.size() == 1U);
+    assert(localAfterSeason.settings.coverOverrides[0].posterUrl == firstCover);
+    assert(localAfterSeason.settings.coverOverrides[0].providerId.empty());
+    assert(localAfterSeason.settings.coverOverrides[0].externalNamespace.empty());
+
+    SeriesArtworkBackendSettingsUpdate clearSeasonCover;
+    clearSeasonCover.backendId = "default";
+    clearSeasonCover.operation = "clear-series-cover";
+    clearSeasonCover.seriesKey = seasonCover.seriesKey;
+    assert(service.update(clearSeasonCover).success);
 
     assert(scalar(
         database,
