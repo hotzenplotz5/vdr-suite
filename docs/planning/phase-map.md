@@ -27,13 +27,13 @@ Phase 58 remains a historical umbrella label only.
 
 ```text
 Latest completed numbered runtime phase:
-Phase 68 - Legacy OSD Compatibility Bridge
+Phase 69 - Public API and Client Compatibility Hardening
 
 Current active numbered runtime phase:
-Phase 69 - Public API and Client Compatibility Hardening
+none - Phase 70 - Recommendation and Content Knowledge Graph not started
 
 Next strict numbered runtime phase:
-Phase 69 - Public API and Client Compatibility Hardening
+Phase 70 - Recommendation and Content Knowledge Graph
 
 Completed Phase-67 verticals:
 Teletext + HbbTV discovery/application-session/presentation-media runtime
@@ -50,8 +50,8 @@ Phase 66 closed through PR #264. Post-phase Home/Recording work subsequently mer
 | 3 | Phase 66 | Completed | Media Home and Browse Experience | Responsive Home and accepted Golden journeys. |
 | 4 | Phase 67 | Completed | Broadcast Companion Services: Teletext and HbbTV | Teletext and HbbTV Journeys 8/9 accepted. |
 | 5 | Phase 68 | Completed | Legacy OSD Compatibility Bridge | 68.A-G accepted through fenced allowlisted native OSD input; Golden Journey 10 accepted. |
-| 6 | Phase 69 | Active — 69.F | Public API and Client Compatibility Hardening | 69.A-E are accepted; first-party/third-party client hardening is active. |
-| 7 | Phase 70 | Vision | Recommendation and Content Knowledge Graph | Explainable provenance-aware recommendations. |
+| 6 | Phase 69 | Completed | Public API and Client Compatibility Hardening | 69.A-F accepted; eight stable public-v1 contracts have exact accepted reference-client coverage. |
+| 7 | Phase 70 | Next — not started | Recommendation and Content Knowledge Graph | Requires its own accepted runtime ADR before implementation. |
 
 ## Phase 64 compact boundary
 

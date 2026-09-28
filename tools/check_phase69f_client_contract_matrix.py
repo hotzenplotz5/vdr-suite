@@ -184,6 +184,10 @@ require(
     operation_reference.get("resources") == ["GET /api/v1/operations/{operationId}"],
     "public Operation reference resource drifted",
 )
+require(
+    operation_reference.get("status") == "accepted",
+    "public Operation reference must remain accepted",
+)
 
 public_contracts = {
     resource["method"] + " " + resource["template"]
@@ -201,10 +205,10 @@ require(
 
 candidate = matrix.get("derivedNextRuntimeCandidate", {})
 require(
-    candidate.get("domain") == "phase69f-closeout-audit",
-    "all stable public-v1 coverage must lead to closeout audit",
+    candidate.get("domain") == "phase69-complete",
+    "accepted exact public-v1 coverage must leave Phase 69 complete",
 )
-require(candidate.get("proposedTemplate") is None, "closeout audit must not preselect another public route")
+require(candidate.get("proposedTemplate") is None, "Phase-69 closeout must not preselect another public route")
 
 backend_group = next((g for g in groups if g.get("domain") == "backends"), None)
 require(
@@ -326,4 +330,4 @@ require("test-phase69f-client-contract-matrix" in test_groups, "fast CI must inc
 print("Phase 69.F client-contract matrix guard passed.")
 print("Classified browser Client API operations: 62 exactly once.")
 print("Stable public-v1 method/resource contracts: 8.")
-print("Backend discovery is stabilized; next runtime candidate requires a fresh live audit.")
+print("All eight stable public-v1 contracts have exact accepted reference-client coverage; Phase 69 is closed.")

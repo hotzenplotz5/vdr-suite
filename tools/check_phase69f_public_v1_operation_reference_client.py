@@ -59,6 +59,7 @@ reference = next(
 )
 require(reference is not None, "Operation reference slice disappeared")
 require(reference.get("path") == "clients/reference-js/public-v1-client.js", "Operation reference path drifted")
+require(reference.get("status") == "accepted", "Operation reference acceptance drifted")
 require(
     reference.get("resources") == ["GET /api/v1/operations/{operationId}"],
     "Operation reference resource drifted",
@@ -77,8 +78,11 @@ require(reference_contracts == public_contracts, "reference/public-v1 exact cove
 require(len(reference_contracts) == 8, "reference client must cover exactly eight stable contracts")
 
 candidate = matrix.get("derivedNextRuntimeCandidate", {})
-require(candidate.get("domain") == "phase69f-closeout-audit", "Operation coverage must lead to closeout audit")
-require(candidate.get("proposedTemplate") is None, "closeout audit must not invent another public route")
+require(
+    candidate.get("domain") in {"phase69f-closeout-audit", "phase69-complete"},
+    "Operation coverage must lead to or remain inside Phase-69 closeout",
+)
+require(candidate.get("proposedTemplate") is None, "closeout state must not invent another public route")
 
 test = read("clients/reference-js/tests/test_public_v1_operation_client.js")
 for token in (

@@ -14,6 +14,7 @@
 - [Phase 69.F Public-v1 TimerAssignment Item Reference Client](phase-69f-public-v1-timer-assignment-item-reference-client.md)
 - [Phase 69.F Public-v1 Timer CREATE Admission Reference Client](phase-69f-public-v1-timer-create-reference-client.md)
 - [Phase 69.F Public-v1 Operation Reference Client](phase-69f-public-v1-operation-reference-client.md)
+- [Phase 69 Closeout](phase-69-closeout.md)
 - [Current Project Status](current-status.md)
 - [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 - [Parity Audit and Frontend Gap Roadmap](../planning/parity-audit-and-frontend-gap-roadmap.md)
@@ -244,6 +245,12 @@ The [Public-v1 Operation Reference Client](phase-69f-public-v1-operation-referen
 adds the accepted durable Operation item GET as the final stable public-v1
 reference gap. It supports explicit ETag conditional reads but deliberately
 adds no timer/polling loop or Operation mutation surface.
+
+The completed [Phase 69 Closeout](phase-69-closeout.md) freezes only the
+deliberately stable public-v1 set. The independent reference client covers all
+eight accepted public method/resource contracts exactly; missing-public-v1
+browser domains remain transition/private surfaces rather than inferred public
+API.
 
 ## Current Direct Fetch Inventory
 

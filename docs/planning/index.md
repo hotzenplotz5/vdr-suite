@@ -33,8 +33,8 @@ Phase 62 — Identity, RBAC and Accountability [COMPLETED]
   -> Phase 66 — Media Home and Browse Experience [COMPLETED]
   -> Phase 67 — Broadcast Companion Services: Teletext and HbbTV [COMPLETED]
   -> Phase 68 — Legacy OSD Compatibility Bridge [COMPLETED]
-  -> Phase 69 — Public API and Client Compatibility Hardening
-  -> Phase 70 — Recommendation and Content Knowledge Graph
+  -> Phase 69 — Public API and Client Compatibility Hardening [COMPLETED]
+  -> Phase 70 — Recommendation and Content Knowledge Graph [NOT STARTED]
 ```
 
 Current completed/active/next state belongs only in [Current State](../CURRENT.md).
@@ -43,7 +43,7 @@ Current completed/active/next state belongs only in [Current State](../CURRENT.m
 
 Phase 66 is completed, including its Golden Home journeys. Later non-numbered Home rebuild/hardening is also complete for the merged accepted scope and is recorded in [Post-Phase-66 Home Rebuild Closeout](../development/post-phase66-home-rebuild-closeout.md).
 
-The completed numbered planning boundary remains Phase 68; Phase 69 is now active at 69.F First-party and third-party client hardening, with 69.A, 69.B, 69.C, 69.D and 69.E accepted:
+The completed numbered planning boundary is now Phase 69; 69.A-F are accepted. Phase 70 is the next strict numbered phase but is not started and requires its own accepted runtime ADR:
 
 - [ADR-0047](../adr/ADR-0047-legacy-osd-compatibility-bridge.md) — completed Legacy OSD compatibility architecture;
 - [Phase 68 Closeout](../development/phase-68-closeout.md) — accepted 68.A-G runtime evidence;
@@ -52,8 +52,9 @@ The completed numbered planning boundary remains Phase 68; Phase 69 is now activ
 - [Phase 69.C Closeout](../development/phase-69c-closeout.md) — accepted revision/precondition/idempotency and productive Timer CREATE evidence;
 - [Phase 69.D Closeout](../development/phase-69d-closeout.md) — accepted collection envelope, keyset pagination and federated partial-result evidence;
 - [Phase 69.E Closeout](../development/phase-69e-closeout.md) — accepted compatibility/deprecation policy, complete retained-route classification and explicit client-fallback debt boundary.
+- [Phase 69 Closeout](../development/phase-69-closeout.md) — completed 69.F client hardening and numbered Phase-69 acceptance evidence.
 
-For Phase-69 work, re-read live `main`, CURRENT, the Strict Roadmap, the Phase-69 kickoff and ADR-0048 before repository changes.
+For successor planning, re-read live `main`, CURRENT, the Strict Roadmap and the Phase-69 closeout. Do not start Phase 70 until its required runtime ADR is accepted.
 
 ## Planning cautions
 

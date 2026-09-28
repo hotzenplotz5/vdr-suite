@@ -11,6 +11,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md)
+- [Phase 69 Closeout](development/phase-69-closeout.md)
 - [Phase 69.B Closeout](development/phase-69b-closeout.md)
 - [Phase 69.C Closeout](development/phase-69c-closeout.md)
 - [Phase 69.D Closeout](development/phase-69d-closeout.md)
@@ -69,13 +70,13 @@ Latest accepted post-phase runtime merge checkpoint:
 2b0d0990974244eac90e9be711843678c77e301d
 
 Latest completed numbered runtime phase:
-Phase 68 - Legacy OSD Compatibility Bridge
+Phase 69 - Public API and Client Compatibility Hardening
 
 Current active numbered runtime phase:
-Phase 69 - Public API and Client Compatibility Hardening
+none - Phase 70 - Recommendation and Content Knowledge Graph not started
 
 Next strict numbered runtime phase:
-Phase 69 - Public API and Client Compatibility Hardening
+Phase 70 - Recommendation and Content Knowledge Graph
 
 Completed Phase-67 verticals:
 Teletext read path / browser-TV view / page navigation
@@ -91,7 +92,7 @@ Accepted Phase-68 verticals:
 68.G - Allowlisted native OSD input
 
 Current active runtime slice:
-69.F - First-party and third-party client hardening
+none - Phase 70 - Recommendation and Content Knowledge Graph not started
 
 69.D is completed. [Phase 69.D Closeout](development/phase-69d-closeout.md)
 records the accepted collection boundary:
@@ -177,13 +178,16 @@ Timer CREATE admission and returns the durable `operationId`/Location without
 automatic retry or polling.
 
 The [Phase 69.F Public-v1 Operation Reference Client](development/phase-69f-public-v1-operation-reference-client.md)
-candidate is the thirteenth bounded 69.F slice. A fresh post-#380 audit proves
-that durable Operation GET is the only stable public-v1 method/resource contract
-not yet consumed by the reference client. The candidate adds one revisioned
-actor-owned Operation GET with opaque ETag and `If-None-Match -> 304`, no
-polling helper and no Operation mutation. After this slice the reference seam
-covers all eight currently stable public-v1 contracts; the only justified
-successor is a fresh 69.F/Phase-69 closeout audit.
+is the accepted thirteenth bounded 69.F slice via PR #381. It adds the final
+stable public-v1 contract to the independent reference seam: one actor-owned,
+revisioned durable Operation GET with opaque ETag and `If-None-Match -> 304`.
+
+[Phase 69 Closeout](development/phase-69-closeout.md) records the completed
+69.A-F acceptance boundary. All eight stable public-v1 method/resource contracts
+are exactly covered by accepted reference-client methods, every explicit browser
+route fallback inventoried by 69.F is retired, and no additional Phase-69
+runtime gap is justified. Phase 70 remains not started and requires its own
+accepted runtime ADR before implementation.
 
 69.C is completed. Its closeout records the accepted public revision/ETag,
 strong If-Match, durable Idempotency-Key and no-blind-fallback contracts, plus

@@ -48,16 +48,16 @@ A roadmap entry is never automatic permission to implement the next possible dif
 
 ```text
 Latest completed numbered runtime phase:
-Phase 68 - Legacy OSD Compatibility Bridge
+Phase 69 - Public API and Client Compatibility Hardening
 
 Current active numbered runtime phase:
-Phase 69 - Public API and Client Compatibility Hardening
+none - Phase 70 - Recommendation and Content Knowledge Graph not started
 
 Next strict numbered runtime phase:
-Phase 69 - Public API and Client Compatibility Hardening
+Phase 70 - Recommendation and Content Knowledge Graph
 ```
 
-Phase 65, Phase 66, Phase 67 and Phase 68 are completed. Durable Legacy OSD evidence lives in [Phase 68 Closeout](../development/phase-68-closeout.md) and [Phase 68 Kickoff](../development/phase-68-legacy-osd-kickoff.md). Durable Broadcast Companion evidence remains in [Phase 67 Closeout](../development/phase-67-closeout.md). Phase 69 is active at 69.E; 69.A, 69.B, 69.C and 69.D are accepted.
+Phases 65 through 69 are completed. Durable Phase-69 evidence lives in [Phase 69 Closeout](../development/phase-69-closeout.md). Phase 70 is the next strict numbered phase but is not started and has no runtime authorization until its required ADR is accepted.
 
 Future order: Phase 67 Broadcast Companion -> Phase 68 Legacy OSD -> Phase 69 Public API hardening -> Phase 70 Recommendation / Knowledge Graph.
 
@@ -759,9 +759,9 @@ The bridge remains visibly legacy/compatibility functionality and never becomes 
 
 ## Phase 69 — Public API and Client Compatibility Hardening
 
-Status: **Active — 69.F First-party and third-party client hardening.**
+Status: **Completed.** Durable evidence: [Phase 69 Closeout](../development/phase-69-closeout.md).
 
-Phase 69 has explicitly started after completed Phase 68. Slices 69.A, 69.B, 69.C and 69.D are accepted; the active bounded slice is 69.E compatibility and deprecation policy. No existing pre-v1 route is thereby declared stable or deprecated.
+Phase 69 is completed through 69.A-F. The completed boundary stabilizes the deliberately declared public-v1 set, preserves pre-v1/private separation, hardens first-party fallback behavior and provides an executable independent reference-client seam without promoting unrelated domains by analogy.
 
 Binding architecture: [ADR-0048: Public API Versioning, Error and Compatibility Contract](../adr/ADR-0048-public-api-versioning-error-compatibility-contract.md).
 
@@ -839,7 +839,7 @@ and
 
 #### 69.F — First-party and third-party client hardening
 
-Status: **Active.**
+Status: **Completed.** Durable evidence: [Phase 69 Closeout](../development/phase-69-closeout.md).
 
 - common client error representation;
 - no fallback probing after arbitrary errors;
@@ -858,13 +858,20 @@ Status: **Active.**
 - migration from supported aliases is documented and rollback-safe;
 - media/OSD/broadcast data planes remain separately versioned where appropriate.
 
+**Gate status: satisfied.** 69.A-F collectively satisfy the declared Phase-69
+gate. The accepted independent reference client covers all eight stable
+public-v1 method/resource contracts exactly; retained pre-v1/private domains
+remain explicitly non-public; the productive Timer CREATE native-effect path
+retains its exact-head real-yaVDR acceptance from 69.C. See
+[Phase 69 Closeout](../development/phase-69-closeout.md).
+
 ---
 
 ---
 
 ## Phase 70 — Recommendation and Content Knowledge Graph
 
-Status: **Later vision; no runtime authorization.**
+Status: **Next; not started.**
 
 A dedicated accepted ADR is required before implementation.
 
