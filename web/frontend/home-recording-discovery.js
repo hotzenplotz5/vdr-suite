@@ -278,18 +278,26 @@
   ) {
     const id = text(backendId) || 'default';
 
+    const externalNamespace =
+      text(candidate && candidate.externalNamespace) ||
+      'tv';
+
     const externalId =
       text(candidate && candidate.externalId);
 
     const posterReference =
       text(candidate && candidate.posterReference);
 
-    if (!externalId || !posterReference) {
+    if (!externalId || !posterReference ||
+        (externalNamespace !== 'tv' &&
+         externalNamespace !== 'tv-season')) {
       return '';
     }
 
     return seriesCoverSettingsPath(id) +
-      '/candidate-image?externalId=' +
+      '/candidate-image?externalNamespace=' +
+      encodeURIComponent(externalNamespace) +
+      '&externalId=' +
       encodeURIComponent(externalId) +
       '&posterReference=' +
       encodeURIComponent(posterReference);
@@ -348,6 +356,67 @@
           text(candidate.externalNamespace) === 'tv' &&
           text(candidate.externalId) &&
           text(candidate.posterReference);
+      });
+    });
+  }
+
+  function loadSeriesCoverSeasons(
+    backendId,
+    seriesCandidate
+  ) {
+    const client = clientApi();
+    const id = text(backendId) || 'default';
+    const seriesExternalId =
+      text(seriesCandidate && seriesCandidate.externalId);
+
+    if (!client ||
+        typeof client.requestJson !== 'function') {
+      return Promise.reject(
+        new Error(
+          'Client API ist nicht verfügbar.'
+        )
+      );
+    }
+
+    if (text(seriesCandidate && seriesCandidate.providerId) !== 'tmdb' ||
+        text(seriesCandidate && seriesCandidate.externalNamespace) !== 'tv' ||
+        !seriesExternalId) {
+      return Promise.reject(
+        new Error(
+          'Dieser Serien-Treffer ist ungültig.'
+        )
+      );
+    }
+
+    const path =
+      '/api/backends/' +
+      encodeURIComponent(id) +
+      '/recordings/metadata/seasons';
+
+    return Promise.resolve(
+      client.requestJson(
+        path,
+        seriesCoverMutationOptions({
+          seriesExternalId: seriesExternalId,
+          limit: 20
+        })
+      )
+    ).then(function (result) {
+      return (
+        Array.isArray(
+          result && result.candidates
+        )
+          ? result.candidates
+          : []
+      ).filter(function (candidate) {
+        return candidate &&
+          candidate.providerId === 'tmdb' &&
+          candidate.kind === 'season' &&
+          text(candidate.externalNamespace) === 'tv-season' &&
+          text(candidate.parentExternalId) === seriesExternalId &&
+          text(candidate.externalId) &&
+          text(candidate.posterReference) &&
+          Number(candidate.seasonNumber) >= 0;
       });
     });
   }
@@ -522,8 +591,12 @@
     };
 
     if (selected) {
+      const externalNamespace =
+        text(selected.externalNamespace);
+
       if (text(selected.providerId) !== 'tmdb' ||
-          text(selected.externalNamespace) !== 'tv' ||
+          (externalNamespace !== 'tv' &&
+           externalNamespace !== 'tv-season') ||
           !text(selected.externalId) ||
           !text(selected.posterReference)) {
         return Promise.reject(
@@ -534,7 +607,8 @@
       }
 
       payload.providerId = 'tmdb';
-      payload.externalNamespace = 'tv';
+      payload.externalNamespace =
+        externalNamespace;
       payload.externalId =
         text(selected.externalId);
       payload.posterReference =
