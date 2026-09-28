@@ -122,7 +122,7 @@ for (const token of [
 
 const compositionStart = live.indexOf('function hbbtvMediaCompositionTarget(');
 const compositionEnd = live.indexOf(
-  '\n  function snapshotHbbtvMediaVideoStyle',
+  '\n  function clearHbbtvMediaPresentationHole',
   compositionStart
 );
 assert(compositionStart >= 0 && compositionEnd > compositionStart);
