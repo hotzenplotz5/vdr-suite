@@ -742,20 +742,46 @@ bool DaemonRuntime::initialize()
                     ? "default"
                     : request.backendId;
 
-            recordingCacheRefreshQueue_.request(backendId, 8);
-            externalVdrChangeHint_.store(true);
-
-            // Delete already has an authoritative successful VDR mutation result.
-            // Do not keep the HTTP request open while rebuilding a potentially
-            // large Recording inventory. The existing backend-scoped refresh
-            // worker reconciles cache, metadata and live-update state afterward.
+            // A successful DELETE already has authoritative mutation evidence.
+            // Project that one Recording out of the Suite caches immediately,
+            // publish one backend-scoped presentation invalidation, and let one
+            // asynchronous provider read reconcile the authoritative inventory.
+            // Never turn one mutation (or its dry-run preview) into a burst of
+            // complete Recording inventory rebuilds.
             if (request.type == RecordingActionType::Delete) {
+                const auto nativeId =
+                    request.parameters.find("backendNativeId");
+                const std::string backendNativeId =
+                    nativeId == request.parameters.end()
+                        ? std::string()
+                        : nativeId->second;
+
+                bool projected = false;
+                if (!backendNativeId.empty() &&
+                    vdrRecordingCacheRepository_) {
+                    projected =
+                        vdrRecordingCacheRepository_->removeByBackendNativeId(
+                            backendId,
+                            backendNativeId);
+                }
+
+                if (!backendNativeId.empty() && snapshotCacheService_) {
+                    snapshotCacheService_->removeRecordingForBackend(
+                        backendId,
+                        backendNativeId);
+                }
+
+                if (projected) {
+                    recordingPresentationChangeQueue_.request(backendId);
+                }
+
+                recordingCacheRefreshQueue_.request(backendId);
                 return false;
             }
 
             // Rename and move change backend-native identity. Keep their
-            // synchronous refresh so an immediate follow-up action resolves the
-            // new path rather than a stale pre-mutation snapshot.
+            // single synchronous refresh so an immediate follow-up action resolves
+            // the new path rather than a stale pre-mutation snapshot.
             for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
                 if (!backendRuntimeContext ||
                     backendRuntimeContext->backendId != backendId ||
@@ -779,6 +805,7 @@ bool DaemonRuntime::initialize()
                         static_cast<int>(recordings.size()));
                 }
 
+                recordingPresentationChangeQueue_.request(backendId);
                 return true;
             }
 
