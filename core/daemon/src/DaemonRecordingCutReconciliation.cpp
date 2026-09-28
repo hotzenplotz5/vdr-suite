@@ -16,3 +16,12 @@ bool daemonRecordingCutResultMatches(
         state.editedDestinationExists &&
         state.editedRecordingKey == expectedEditedRecordingKey;
 }
+
+bool daemonRecordingCutStateBlocksSourceDelete(
+    const VdrRecordingNativeCutState& state) noexcept
+{
+    return state.availability == VdrRecordingNativeCutStateAvailability::Available &&
+        state.found &&
+        (state.handlerUsage != 0 ||
+         (state.editedDestinationExists && !state.editedRecordingFound));
+}
