@@ -55,6 +55,26 @@ int main()
     assert(!daemonRecordingCutVerifiedResultWasRemoved(source, edited, state));
     state.editedDestinationExists = false;
 
+    state.ready = true;
+    state.editedRecordingFound = false;
+    state.handlerUsage = 0;
+    assert(!daemonRecordingCutAcceptedStartExpired(
+        source, edited, 100, 129, state));
+    assert(daemonRecordingCutAcceptedStartExpired(
+        source, edited, 100, 130, state));
+    state.handlerUsage = 4;
+    assert(!daemonRecordingCutAcceptedStartExpired(
+        source, edited, 100, 200, state));
+    state.handlerUsage = 0;
+    state.editedDestinationExists = true;
+    assert(!daemonRecordingCutAcceptedStartExpired(
+        source, edited, 100, 200, state));
+    state.editedDestinationExists = false;
+    state.ready = false;
+    assert(!daemonRecordingCutAcceptedStartExpired(
+        source, edited, 100, 200, state));
+    state.ready = true;
+
     state.availability = VdrRecordingNativeCutStateAvailability::Available;
     state.found = true;
     state.handlerUsage = 4;
