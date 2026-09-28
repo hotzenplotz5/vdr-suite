@@ -494,6 +494,35 @@ bool configureDaemonRecordingCutRuntime(
                     assigned.assignment.requestFingerprint;
             }
             return dispatch;
+        },
+        [runtimeContexts, commands](
+            const std::string& backendId,
+            const std::string& recordingKey) {
+            for (const auto& context : *runtimeContexts)
+            {
+                if (!context ||
+                    context->backendId != backendId)
+                {
+                    continue;
+                }
+
+                if (context->embeddedCutRuntime)
+                    return context->embeddedCutRuntime->operationState(
+                        recordingKey);
+                break;
+            }
+
+            for (const auto& candidate :
+                    commands->recordingCutReconciliationCandidates())
+            {
+                if (candidate.assignment.backendId == backendId &&
+                    candidate.recordingKey == recordingKey)
+                {
+                    return std::string("accepted");
+                }
+            }
+
+            return std::string("none");
         });
 
     if (!configured) return false;
