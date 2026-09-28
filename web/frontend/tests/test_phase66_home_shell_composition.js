@@ -46,6 +46,10 @@ assert(appSource.includes("button.addEventListener('click', () => {"));
 assert(appSource.includes("const moduleName = button.dataset.module;"));
 assert(appSource.includes("if (moduleName === 'overview' && typeof window.scrollTo === 'function')"));
 assert(appSource.includes("window.scrollTo({ top: 0, left: 0, behavior: 'auto' });"));
+assert(!discoverySource.includes("target.closest('[data-brand-module=\"overview\"], .module-tab[data-module=\"overview\"], #backends')"),
+  'Home clicks must not re-arm discovery after app.js scrolls to top');
+assert(discoverySource.includes("target.closest('#backends')"),
+  'backend selection may still schedule Home discovery');
 assert(appSource.includes("document.querySelectorAll('[data-brand-module]').forEach(button =>"));
 assert(appSource.includes('selectModule(moduleName);'));
 assert(appSource.includes("button.classList.toggle('active', button.dataset.module === moduleName);"));
