@@ -1,5 +1,7 @@
 #include "DaemonRuntime.h"
 
+#include "DaemonRuntimeRecordingCut.h"
+
 #include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "RecordingArtworkHttpServer.h"
@@ -677,6 +679,26 @@ bool DaemonRuntime::initialize()
         << std::endl;
 
     recordingActionValidationService_ = std::make_unique<RecordingActionValidationService>();
+
+    RecordingActionValidationService::RequestGuard
+        recordingActionRuntimeGuard =
+            [this](const RecordingActionRequest& request) -> std::string {
+                if (request.type != RecordingActionType::Delete ||
+                    !vdrRecordingCacheRepository_)
+                {
+                    return std::string();
+                }
+
+                return daemonRecordingCutDeleteBlockReason(
+                    *vdrRecordingCacheRepository_,
+                    backendRuntimeContexts_,
+                    request.backendId,
+                    request.recordingId);
+            };
+
+    recordingActionValidationService_->setRequestGuard(
+        recordingActionRuntimeGuard);
+
     recordingActionValidationResultJsonSerializer_ = std::make_unique<RecordingActionValidationResultJsonSerializer>();
     recordingActionValidationRequestParser_ = std::make_unique<RecordingActionValidationRequestParser>();
     recordingActionValidationController_ = std::make_unique<RecordingActionValidationController>(
@@ -685,6 +707,8 @@ bool DaemonRuntime::initialize()
         *recordingActionValidationRequestParser_);
 
     recordingActionExecutionService_ = std::make_unique<RecordingActionExecutionService>();
+    recordingActionExecutionService_->setValidationRequestGuard(
+        recordingActionRuntimeGuard);
     recordingActionExecutionResultJsonSerializer_ = std::make_unique<RecordingActionExecutionResultJsonSerializer>();
     recordingActionBackendExecutorAdapterRegistry_ = std::make_unique<RecordingActionBackendExecutorAdapterRegistry>();
 
