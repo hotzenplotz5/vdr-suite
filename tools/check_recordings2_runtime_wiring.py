@@ -105,6 +105,19 @@ required_tokens = {
         "'/frontend/recordings2-marks-timeline.js'",
         'timeline.bind(root, recording, payload)',
     ),
+    'marks_editor': (
+        'global.VdrSuiteRecordings2MarksEditor',
+        "'/api/vdr/recordings/cut'",
+        'handlerUsage',
+        'editedDestinationExists',
+        'editedRecordingFound',
+        'Schnitt läuft …',
+        "node('progress')",
+        'keinen verlässlichen Prozentwert',
+        'Schnittfassung öffnen',
+        'owner.openRecording(cutState.editedRecording',
+        'vorhandene sichere Papierkorb-Aktion',
+    ),
     'marks_timeline': (
         'global.VdrSuiteRecordings2MarksTimeline',
         'input[aria-label="Wiedergabeposition"]',
@@ -159,6 +172,9 @@ for owner, tokens in required_tokens.items():
     for token in tokens:
         if token not in runtimes[owner]:
             raise SystemExit(f'missing Recordings 2 {owner} contract: {token}')
+
+if "progress.value" in runtimes['marks_editor'] or "progressPercent" in runtimes['marks_editor']:
+    raise SystemExit('native cut UI must not fabricate percentage progress')
 
 for external_scheme in ('http://', 'https://'):
     if external_scheme in runtimes['folder_artwork']:
