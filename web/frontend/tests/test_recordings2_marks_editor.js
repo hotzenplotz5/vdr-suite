@@ -415,13 +415,55 @@ async function run() {
   assert.strictEqual(posts().length, beforeCut, 'cancel never starts a cut');
   previewReady = false;
   button('Schneiden …').click(); await flush();
-  assert(allText(root).includes('existiert bereits'));
+  assert(allText(root).includes('läuft bereits oder wird finalisiert'));
   assert.strictEqual(posts().length, beforeCut);
   previewReady = true;
+  cutStateOverride = {};
   button('Schneiden …').click(); await flush();
+  mode = 'queued';
+  cutStateOverride = {
+    ready: false,
+    editedDestinationExists: true,
+    editedRecordingFound: false,
+    handlerUsage: 4
+  };
   button('Bestätigen').click(); await flush();
   assert.strictEqual(posts().length, beforeCut + 1, 'explicit confirmation starts exactly once');
   assert.strictEqual(posts().at(-1).path, '/api/vdr/recordings/cut');
+  assert(allText(root).includes('Schnitt läuft'));
+  assert(allText(root).includes('keinen verlässlichen Prozentwert'));
+  assert(
+    allText(root).includes('automatisch überwacht'),
+    'accepted native cut must remain visibly monitored'
+  );
+
+  const editedRecording = {
+    id: 'cut-7',
+    recordingId: 'cut-7',
+    backendId: 'default',
+    title: 'Testaufnahme (geschnitten)',
+    backendNativeId: '/srv/vdr/video/%Testaufnahme/cut.rec'
+  };
+  cutStateOverride = {
+    ready: false,
+    editedDestinationExists: true,
+    editedRecordingFound: true,
+    handlerUsage: 0,
+    editedRecordingKey: 'b'.repeat(32),
+    editedRecording
+  };
+  await fireNextTimer();
+  assert(allText(root).includes('Schnittfassung'));
+  assert(button('Schnittfassung öffnen'));
+  button('Schnittfassung öffnen').click();
+  assert.strictEqual(openedCutVariant, editedRecording);
+  assert(allText(root).includes('Aufnahmeaktionen'));
+
+  mode = 'verified';
+  await fireNextTimer();
+  assert.deepStrictEqual(posts().at(-1).body.operationId, posts()[beforeCut].body.operationId);
+  assert(allText(root).includes('Native geschnittene Ausgabe bestätigt'));
+  assert(!allText(root).includes('100 %'), 'native cutter progress must never be fabricated');
 
   native = Object.assign({}, native, {inUse: true});
   button('Neu laden').click(); await flush();
