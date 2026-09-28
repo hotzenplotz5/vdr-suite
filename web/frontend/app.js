@@ -4004,6 +4004,13 @@ document.querySelectorAll('[data-brand-module]').forEach(button => {
 
     selectModule(moduleName);
 
+    if (moduleName === 'overview') {
+      if (typeof window.scrollTo === 'function') {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      }
+      return;
+    }
+
     if (detailDataElement && typeof detailDataElement.scrollIntoView === 'function') {
       detailDataElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
