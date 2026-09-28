@@ -191,7 +191,20 @@
         if (!preview || preview.backendId !== identity.backendId || String(preview.recordingId) !== identity.recordingId || preview.marksRevision !== payload.marksRevision) throw new Error('recording_marks_revision_conflict');
         cutState = preview; renderCutState(); scheduleCutStatePoll();
         if (!preview.ready) {
-          setStatus(preview.editedRecordingFound ? 'success' : preview.editedDestinationExists || Number(preview.handlerUsage) > 0 ? 'pending' : 'error', preview.editedRecordingFound ? 'Eine bestätigte Schnittfassung ist bereits vorhanden.' : preview.editedDestinationExists || Number(preview.handlerUsage) > 0 ? 'Ein nativer Schnitt läuft bereits oder wird finalisiert.' : preview.inUse ? 'Die Aufnahme wird gerade verwendet.' : 'VDR kann diese Markensequenz derzeit nicht schneiden.');
+          const operationPending = preview.operationPending === true;
+          const verifiedVariant = preview.operationVerified === true && preview.editedRecordingFound === true;
+          setStatus(
+            verifiedVariant ? 'success' : operationPending ? 'pending' : 'error',
+            verifiedVariant
+              ? 'Eine bestätigte Schnittfassung ist bereits vorhanden.'
+              : operationPending
+                ? 'Für genau diese Aufnahme läuft bereits ein nativer Schnitt.'
+                : preview.editedDestinationExists
+                  ? 'Das native Ziel für eine Schnittfassung existiert bereits; es läuft aber kein bestätigter Suite-Schnitt.'
+                  : preview.inUse
+                    ? 'Die Aufnahme wird gerade verwendet.'
+                    : 'VDR kann diese Markensequenz derzeit nicht schneiden.'
+          );
           return;
         }
         confirm('„' + String(recording.title || 'Aufnahme') + '“ mit ' + preview.sequenceCount + ' Schnittbereichen nativ schneiden? VDR erstellt eine neue Ausgabe und erhält das Original.', function () { submit('/api/vdr/recordings/cut'); });
