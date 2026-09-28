@@ -210,8 +210,17 @@ int main()
     assert(!result.verified);
     assert(transport.calls == 1);
     assert(transport.effects == 1);
+    assert(
+        runtime.deleteBlockReason(sourceKey) ==
+        "recording_cut_operation_pending_delete_blocked");
+    assert(runtime.deleteBlockReason(std::string(32, 'f')).empty());
 
     resolver.complete = true;
+
+    // Delete safety itself reconciles an accepted cut to verified once
+    // native readback proves the exact edited Recording. Browser timing is
+    // therefore not part of the destructive-action safety boundary.
+    assert(runtime.deleteBlockReason(sourceKey).empty());
 
     result = runtime.dispatch(cut);
 
@@ -278,6 +287,9 @@ int main()
 
     assert(result.accepted);
     assert(!result.verified);
+    assert(
+        runtime.deleteBlockReason(sourceKey) ==
+        "recording_cut_operation_pending_delete_blocked");
 
     const int effectsAfterLostReply =
         transport.effects;
