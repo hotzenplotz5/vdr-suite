@@ -65,6 +65,7 @@ assert.strictEqual(testApi.minimumQueryLength, 2);
 assert.strictEqual(testApi.debounceMs, 280);
 assert.strictEqual(testApi.requestTimeoutMs, 12000);
 assert(source.includes("homeLabel: '⌂ Home'"));
+assert(source.includes('focusNavigation: true'));
 assert(source.includes('onHome: returnHome'));
 testApi.returnHome();
 assert.deepStrictEqual(selectedModules, ['overview']);
