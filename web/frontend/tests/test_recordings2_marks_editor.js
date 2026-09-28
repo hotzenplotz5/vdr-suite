@@ -104,6 +104,7 @@ async function run() {
   let openedCutVariantOptions = null;
   let revisionCounter = 11;
   let deferredMutation = null;
+  let deferredRead = null;
   const requests = [];
   const appliedOperations = new Set();
   const timers = new Map();
@@ -170,6 +171,7 @@ async function run() {
     VdrSuiteClientApi: {requestJson(path, config) {
       const body = config.body && JSON.parse(config.body);
       requests.push({path, config, body});
+      if (!body && deferredRead && deferredRead.path === path) return deferredRead.promise;
       if (!body) return Promise.resolve(path.endsWith('/cut')
         ? Object.assign({}, native, {
             availability: 'available',
@@ -409,6 +411,20 @@ async function run() {
   publish({transition: 'session-replaced', sessionId: 'two', state: 'playing'});
   assert.strictEqual(root.__vdrSuiteMarksEditor, editor);
   assert.strictEqual(playbackCreations, 1, 'editing never creates another playback owner');
+
+  mode = 'verified';
+  const cutReadsBeforeTimeout = requests.filter(request => !request.body && request.path === '/api/vdr/recordings/cut').length;
+  deferredRead = Object.assign({path: '/api/vdr/recordings/cut'}, deferred());
+  button('Schneiden …').click(); await flush();
+  assert(button('Schneiden …').disabled, 'pending cut preview disables duplicate cut input only while the request is bounded');
+  assert(button('Neu laden').disabled, 'pending cut preview reproduces the reported busy UI state');
+  assert(!findButton('Bestätigen'), 'confirmation cannot appear before cut-state readback');
+  await fireNextTimer();
+  assert(!button('Schneiden …').disabled, 'timed-out cut preview must release the editor again');
+  assert(!button('Neu laden').disabled, 'timed-out cut preview must never strand the whole editor in busy state');
+  assert(allText(root).includes('antwortet auf den Bearbeitungsstatus nicht rechtzeitig'), 'timeout must be visible instead of looking like a dead button');
+  assert.strictEqual(requests.filter(request => !request.body && request.path === '/api/vdr/recordings/cut').length, cutReadsBeforeTimeout + 1);
+  deferredRead = null;
 
   mode = 'verified';
   const beforeCut = posts().length;

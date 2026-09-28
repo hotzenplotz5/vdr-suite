@@ -1,7 +1,7 @@
 // Native editing controls attached to the existing Recording detail/playback owner.
 (function (global) {
   'use strict';
-  const VERIFY_ATTEMPTS = 16, VERIFY_DELAY_MS = 350;
+  const VERIFY_ATTEMPTS = 16, VERIFY_DELAY_MS = 350, REQUEST_TIMEOUT_MS = 5000;
   const STYLE_ID = 'vdr-suite-recordings2-marks-editor-style';
   function installStyles() {
     if (!global.document || !global.document.head || global.document.getElementById(STYLE_ID)) return;
@@ -26,6 +26,7 @@
     if (/destination|result.*exist/.test(code)) return 'Eine geschnittene Ausgabe existiert bereits.';
     if (/active_agent_lease_required|capability|unavailable/.test(code)) return 'Die native Bearbeitung ist derzeit nicht verfügbar.';
     if (/native_readback_invalid|operation_response_invalid/.test(code)) return 'Die Backend-Antwort konnte nicht sicher bestätigt werden. Bitte den aktuellen VDR-Stand neu laden.';
+    if (/recording_editor_request_timeout/.test(code)) return 'VDR antwortet auf den Bearbeitungsstatus nicht rechtzeitig. Die Oberfläche wurde wieder freigegeben; bitte erneut versuchen.';
     return 'Änderung noch nicht bestätigt. Derselbe Auftrag wird weiter geprüft; bitte keine neue Änderung starten.';
   }
   function attach(root, panel, recording, backendId, initial, options) {
@@ -40,6 +41,16 @@
     panel.section.appendChild(controls); controls.appendChild(positionHint); controls.appendChild(selectionHint); controls.appendChild(cutStateView); controls.appendChild(status); controls.appendChild(actions); controls.appendChild(confirmation);
     let payload = initial, busy = false, pending = null, cutState = null, selectedFrame = null, destroyed = false, unsubscribe = null, owner = null, lifecycleKey = '', verificationTimer = null, cutStateTimer = null, verificationAttempts = 0, externalRefreshPending = false;
     function setStatus(type, text) { status.className = 'recordings2-marks-editor-status' + (type ? ' ' + type : ''); status.textContent = String(text || ''); }
+    function boundedRequest(promise) {
+      if (!promise || typeof promise.then !== 'function' || typeof global.setTimeout !== 'function' || typeof global.clearTimeout !== 'function') return Promise.resolve(promise);
+      let timeoutId = null;
+      const timeout = new Promise(function (_, reject) {
+        timeoutId = global.setTimeout(function () { timeoutId = null; reject(new Error('recording_editor_request_timeout')); }, REQUEST_TIMEOUT_MS);
+      });
+      return Promise.race([Promise.resolve(promise), timeout]).finally(function () {
+        if (timeoutId !== null) global.clearTimeout(timeoutId);
+      });
+    }
     function request(path, body) {
       const api = global.VdrSuiteClientApi; if (!api || typeof api.requestJson !== 'function') return Promise.reject(new Error('client_unavailable'));
       const config = {cache: 'no-store', credentials: 'same-origin'};
@@ -48,7 +59,7 @@
         config.headers = Object.assign({'Content-Type': 'application/json'}, session && typeof session.csrfHeaders === 'function' ? session.csrfHeaders() : {});
         config.body = JSON.stringify(body);
       } else config.query = {backend: identity.backendId, recordingId: identity.recordingId};
-      return api.requestJson(path, config);
+      return boundedRequest(api.requestJson(path, config));
     }
     function button(label, action, disabled, parent, className) {
       const value = node('button', label); value.type = 'button'; value.disabled = Boolean(disabled); if (className) value.className = className;
