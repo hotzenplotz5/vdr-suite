@@ -171,6 +171,8 @@ desktop or Kodi clients are implemented.
 
 ## Public-v1 Channel reference extension
 
+The Channel reference extension is accepted via PR #377.
+
 The fresh post-#376 audit selects the existing public Channel collection as the
 next bounded external-client read. It is already stabilized by Phase 69.D and
 forms a direct dependency chain after Backend discovery:
@@ -189,6 +191,27 @@ No retry, source substitution or legacy `/api/vdr/channels` fallback is added.
 
 TimerAssignment and Operation reads are intentionally not bundled into this
 slice because they introduce separate backend-scope/ETag/operation-lifecycle
+client responsibilities.
+
+## Public-v1 TimerAssignment collection reference extension
+
+The fresh post-#377 audit selects the existing single-backend public
+TimerAssignment collection as the next bounded external-client read:
+
+```text
+GET /api/v1/backends
+  -> choose one authorized backendId
+  -> GET /api/v1/timer-assignments?backend=...
+```
+
+This collection is Suite-owned and performs no backend/provider/native-VDR I/O.
+The reference client preserves the accepted `timerAssignmentId ASC` keyset
+contract, bounded `limit`, opaque `cursor`, `meta.partial=false`, and
+structured repository failure. It does not invent collection ETags, offset
+pagination, multi-backend aggregation or a legacy native-Timer fallback.
+
+TimerAssignment item ETag/conditional reads and Operation reads remain separate
+successor slices because they introduce resource-revision or mutation-lifecycle
 client responsibilities.
 
 ## Explicit fallback debt and successor status

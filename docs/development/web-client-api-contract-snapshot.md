@@ -10,6 +10,7 @@
 - [Phase 69.F Timer Live Single-Route Hardening](phase-69f-timer-live-fallback-removal.md)
 - [Phase 69.F Public-v1 Discovery Reference Client](phase-69f-public-v1-discovery-reference-client.md)
 - [Phase 69.F Public-v1 Channel Reference Client](phase-69f-public-v1-channel-reference-client.md)
+- [Phase 69.F Public-v1 TimerAssignment Collection Reference Client](phase-69f-public-v1-timer-assignment-collection-reference-client.md)
 - [Current Project Status](current-status.md)
 - [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 - [Parity Audit and Frontend Gap Roadmap](../planning/parity-audit-and-frontend-gap-roadmap.md)
@@ -220,6 +221,11 @@ The [Public-v1 Channel Reference Client](phase-69f-public-v1-channel-reference-c
 extends that independent seam with the already-stable federated Channel read.
 It preserves explicit backend-source and partial-result semantics and does not
 replace the browser's non-equivalent Channel wrapper.
+
+The [Public-v1 TimerAssignment Collection Reference Client](phase-69f-public-v1-timer-assignment-collection-reference-client.md)
+adds the already-stable Suite-owned TimerAssignment collection to the independent
+reference seam. It does not replace the browser's native Timer list or imply
+that TimerAssignment and legacy/native Timer representations are equivalent.
 
 ## Current Direct Fetch Inventory
 

@@ -191,6 +191,58 @@
     return '?' + parts.join('&');
   }
 
+
+
+  function timerAssignmentCollectionQuery(query) {
+    if (!query || typeof query !== 'object' || Array.isArray(query)) {
+      throw new Error('TimerAssignment collection query must be an object');
+    }
+
+    const allowed = new Set(['backendId', 'limit', 'cursor', 'sort', 'order']);
+    Object.keys(query).forEach(function (key) {
+      if (!allowed.has(key)) {
+        throw new Error('unsupported TimerAssignment collection query field: ' + key);
+      }
+    });
+
+    if (typeof query.backendId !== 'string' || query.backendId === '') {
+      throw new Error('TimerAssignment collection backendId must be a non-empty string');
+    }
+
+    const params = new URLSearchParams();
+    params.set('backend', query.backendId);
+
+    if (query.limit !== undefined) {
+      if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) {
+        throw new Error('TimerAssignment collection limit must be an integer from 1 to 100');
+      }
+      params.set('limit', String(query.limit));
+    }
+
+    if (query.cursor !== undefined) {
+      if (typeof query.cursor !== 'string' || query.cursor === '') {
+        throw new Error('TimerAssignment collection cursor must be a non-empty string');
+      }
+      params.set('cursor', query.cursor);
+    }
+
+    if (query.sort !== undefined) {
+      if (query.sort !== 'timerAssignmentId') {
+        throw new Error('TimerAssignment collection sort must be timerAssignmentId');
+      }
+      params.set('sort', query.sort);
+    }
+
+    if (query.order !== undefined) {
+      if (query.order !== 'asc') {
+        throw new Error('TimerAssignment collection order must be asc');
+      }
+      params.set('order', query.order);
+    }
+
+    return '?' + params.toString();
+  }
+
   function createClient(config) {
     const normalized = config && typeof config === 'object' ? config : {};
     const baseUrl = normalizeBaseUrl(normalized.baseUrl);
@@ -242,6 +294,13 @@
       getChannels(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
         return request('/api/v1/channels' + channelQuery(normalizedOptions.query), normalizedOptions);
+      },
+      getTimerAssignments(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return request(
+          '/api/v1/timer-assignments' + timerAssignmentCollectionQuery(normalizedOptions.query),
+          normalizedOptions
+        );
       }
     });
   }
