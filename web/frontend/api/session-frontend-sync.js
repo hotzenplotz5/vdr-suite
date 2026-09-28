@@ -2154,7 +2154,8 @@
       if (stopped) return 'stopped';
       if (seekInFlight) return 'seeking';
       if (!started) return 'idle';
-      return video.paused ? 'paused' : 'playing';
+      if (video.paused) return 'paused';
+      return firstMediaReported ? 'playing' : 'starting';
     }
 
     function destroy() {
@@ -2219,7 +2220,11 @@
     video.addEventListener('play', function () {
       updateControls();
       if (!destroyed && !fallbackPanel && !stopped) {
-        publishLifecycle('play', {state: 'playing', sessionId: activeSessionId, transport: 'progressive-fmp4'});
+        publishLifecycle('play-requested', {
+          state: firstMediaReported ? 'playing' : 'starting',
+          sessionId: activeSessionId,
+          transport: 'progressive-fmp4'
+        });
       }
     });
     video.addEventListener('pause', function () {
