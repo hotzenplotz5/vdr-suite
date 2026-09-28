@@ -112,6 +112,14 @@
           options.closeDetail,
           'recordings2-primary'
         ));
+        if (typeof currentState.detailHome === 'function' &&
+            typeof options.goHome === 'function') {
+          toolbar.appendChild(shared.createButton(
+            currentState.detailHomeLabel || '⌂ Home',
+            options.goHome,
+            'recordings2-primary'
+          ));
+        }
       } else if (currentState.path) {
         toolbar.appendChild(shared.createButton(
           '← Zurück',
