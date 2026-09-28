@@ -305,11 +305,50 @@ bool GlobalSearchRepository::ensureSchema()
             "CREATE INDEX IF NOT EXISTS idx_epg_scraper_metadata_people_name "
             "ON epg_scraper_metadata_people(backend_id,name_folded,channel_id,event_id);"
             "CREATE INDEX IF NOT EXISTS idx_epg_scraper_metadata_people_event "
-            "ON epg_scraper_metadata_people(backend_id,channel_id,event_id);"))
+            "ON epg_scraper_metadata_people(backend_id,channel_id,event_id);"
+            "CREATE TABLE IF NOT EXISTS vdr_global_search_schema_versions("
+            "version INTEGER PRIMARY KEY,description TEXT NOT NULL,"
+            "applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);"))
     {
         return false;
     }
-    return backfillEpgPeople();
+
+    sqlite3_stmt* marker = nullptr;
+    const bool markerPrepared =
+        sqlite3_prepare_v2(
+            database_.handle(),
+            "SELECT 1 FROM vdr_global_search_schema_versions WHERE version=1 LIMIT 1;",
+            -1,
+            &marker,
+            nullptr) == SQLITE_OK;
+
+    bool legacyPeopleBackfillApplied = false;
+    if (markerPrepared)
+    {
+        legacyPeopleBackfillApplied =
+            sqlite3_step(marker) == SQLITE_ROW;
+    }
+    sqlite3_finalize(marker);
+
+    if (!markerPrepared)
+    {
+        return false;
+    }
+
+    if (legacyPeopleBackfillApplied)
+    {
+        return true;
+    }
+
+    if (!backfillEpgPeople())
+    {
+        return false;
+    }
+
+    return database_.execute(
+        "INSERT OR IGNORE INTO vdr_global_search_schema_versions("
+        "version,description) VALUES("
+        "1,'Legacy EPG scraper people backfill');");
 }
 
 bool GlobalSearchRepository::backfillEpgPeople() const
