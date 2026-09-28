@@ -4667,7 +4667,7 @@
           invalidateSeriesForHomeExit(state.generation);
           return;
         }
-        if (target.closest('[data-brand-module="overview"], .module-tab[data-module="overview"], #backends')) {
+        if (target.closest('#backends')) {
           global.setTimeout(scheduleForHome, 0);
         }
       });
