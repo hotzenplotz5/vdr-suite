@@ -357,6 +357,7 @@ def main() -> int:
         core.check_epg_timeline_channel_loading_client_api_contract(app_js)
         core.check_epg_cache_status_client_api_contract(app_js)
         core.check_epg_cache_window_client_api_contract(app_js)
+        core.check_epg_current_context_live_action_contract(app_js)
         core.check_timer_loading_client_api_contract(app_js)
         core.check_searchtimer_loading_client_api_contract(app_js)
         core.check_timer_conflict_loading_client_api_contract(app_js)

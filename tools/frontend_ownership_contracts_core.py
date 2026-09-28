@@ -264,6 +264,82 @@ def check_app_direct_api_fetch_contract(app_js: str) -> None:
         )
 
 
+def check_epg_current_context_live_action_contract(app_js: str) -> None:
+    require(
+        "const EPG_TIMELINE_CONTEXT_BEFORE_SECONDS = 60 * 60;" in app_js
+        and "const EPG_TIMELINE_MIN_CONTEXT_BEFORE_SECONDS = 30 * 60;" in app_js,
+        "EPG current window must retain bounded 30-60 minute temporal context",
+    )
+    require(
+        "function epgTimelineDisplayBounds(nowSeconds, visibleChannels, events)" in app_js
+        and "function epgTimelineCurrentWindowEvents(events, nowSeconds)" in app_js,
+        "EPG current-window display helpers must remain explicit",
+    )
+    render_start = app_js.find("function renderEpgTimeView(channelData, eventData) {")
+    render_end = app_js.find("function renderEpgTimelineModePlaceholder", render_start)
+    require(
+        render_start >= 0 and render_end > render_start,
+        "EPG time renderer boundary must remain detectable",
+    )
+    render_body = app_js[render_start:render_end]
+    require(
+        "epgTimelineDisplayBounds(nowSeconds, visibleChannels, events)" in render_body
+        and "epgTimelineCurrentWindowEvents(events, nowSeconds)" in render_body,
+        "EPG renderer must project bounded current context before indexing events",
+    )
+    require(
+        "epgTimelinePercent(nowSeconds, bounds)" in app_js,
+        "EPG Now marker must use the canonical event time-axis percentage function",
+    )
+    require(
+        "until: bounds.end + EPG_TIMELINE_CONTEXT_BEFORE_SECONDS" in app_js,
+        "EPG cache window must cover the tail introduced by contextual display shifting",
+    )
+
+    live_start = app_js.find("function openEpgChannelLive(detail, channel, button) {")
+    live_end = app_js.find("function createEpgEventDetailCard", live_start)
+    require(
+        live_start >= 0 and live_end > live_start,
+        "EPG detail Live action boundary must remain detectable",
+    )
+    live_body = app_js[live_start:live_end]
+    require(
+        "window.VdrSuiteLiveTvView" in live_body
+        and "liveEntry.click();" in live_body
+        and "liveOwner.startChannel(channel)" in live_body,
+        "EPG detail Live action must delegate to the canonical Live-TV owner",
+    )
+    for forbidden in (
+        "VdrSuiteClientApi",
+        "/api/media/sessions",
+        "createLivePanel",
+        "VdrSuiteHbbtv",
+    ):
+        require(
+            forbidden not in live_body,
+            "EPG detail Live action must not create a parallel playback/HbbTV lifecycle: "
+            + forbidden,
+        )
+
+    detail_start = live_end
+    detail_end = app_js.find("function renderEpgSideDetail", detail_start)
+    require(
+        detail_end > detail_start,
+        "EPG detail renderer boundary must remain detectable",
+    )
+    detail_body = app_js[detail_start:detail_end]
+    require(
+        "'Sender live'" in detail_body
+        and "openEpgChannelLive(detail, channel" in detail_body,
+        "EPG detail card must expose the canonical Sender-live action",
+    )
+    require(
+        "createEpgDetailAction('HbbTV'" not in detail_body
+        and "createEpgDetailAction('EPG'" not in detail_body,
+        "EPG detail card must not duplicate its own EPG context or invent pre-tune HbbTV launch",
+    )
+
+
 def check_timer_loading_client_api_contract(app_js: str) -> None:
     start = app_js.find("function loadTimers() {")
     require(start >= 0, "app.js must define loadTimers()")

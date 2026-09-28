@@ -145,7 +145,8 @@ configurePlatformRuntimeContextBoundary();
 
 const EPG_TIMELINE_VISIBLE_SECONDS = 24 * 60 * 60;
 const EPG_TIMELINE_TICK_SECONDS = 2 * 60 * 60;
-const EPG_TIMELINE_CONTEXT_BEFORE_SECONDS = 0;
+const EPG_TIMELINE_CONTEXT_BEFORE_SECONDS = 60 * 60;
+const EPG_TIMELINE_MIN_CONTEXT_BEFORE_SECONDS = 30 * 60;
 const EPG_TIMELINE_WINDOW_ANCHOR_SECONDS = 30 * 60;
 const EPG_TIMELINE_MAX_PAGE_OFFSET = 1;
 const EPG_VISIBLE_CHANNEL_LIMIT = 15;
@@ -1287,6 +1288,79 @@ function createEpgDetailAction(label, hint, onClick) {
   return button;
 }
 
+function setEpgLiveActionStatus(detail, message, error) {
+  if (!detail || typeof detail.querySelector !== 'function') return;
+  const status = detail.querySelector('[data-epg-live-status="true"]');
+  if (!status) return;
+  status.textContent = String(message || '');
+  status.hidden = status.textContent === '';
+  status.classList.toggle('error', Boolean(error));
+}
+
+function openEpgChannelLive(detail, channel, button) {
+  const liveOwner = window.VdrSuiteLiveTvView;
+  const liveEntry = document.querySelector('[data-brand-module="livetv"]')
+    || document.querySelector('[data-brand-module="channels2"]');
+  const originalLabel = button ? button.textContent : 'Sender live';
+
+  if (!liveOwner ||
+      typeof liveOwner.startChannel !== 'function' ||
+      !liveEntry ||
+      typeof liveEntry.click !== 'function') {
+    setEpgLiveActionStatus(
+      detail,
+      'Live-TV Navigation ist derzeit nicht verfügbar.',
+      true
+    );
+    return Promise.resolve(null);
+  }
+
+  if (button) {
+    button.disabled = true;
+    button.classList.add('pending');
+    button.textContent = 'Live-TV startet …';
+  }
+  setEpgLiveActionStatus(
+    detail,
+    'Öffne ' + epgChannelTitle(channel, 0) + ' im Live-TV …',
+    false
+  );
+
+  liveEntry.click();
+
+  let request = null;
+  try {
+    request = liveOwner.startChannel(channel);
+  } catch (error) {
+    request = Promise.reject(error);
+  }
+
+  return Promise.resolve(request)
+    .then(playback => {
+      if (!playback) {
+        throw new Error('Live-TV konnte für diesen Sender nicht gestartet werden.');
+      }
+      setEpgLiveActionStatus(detail, 'Live-TV gestartet.', false);
+      return playback;
+    })
+    .catch(error => {
+      setEpgLiveActionStatus(
+        detail,
+        error && error.message
+          ? error.message
+          : 'Live-TV konnte nicht gestartet werden.',
+        true
+      );
+      return null;
+    })
+    .finally(() => {
+      if (!button) return;
+      button.disabled = false;
+      button.classList.remove('pending');
+      button.textContent = originalLabel;
+    });
+}
+
 function createEpgEventDetailCard(event, channel) {
   const start = parseFrontendEventEpoch(firstValue(event, ['startTime', 'start', 'beginTime'], ''));
   const end = frontendEventEnd(event, start);
@@ -1349,6 +1423,15 @@ function createEpgEventDetailCard(event, channel) {
   actions.className = 'epg-detail-actions';
   actions.setAttribute('aria-label', 'EPG Aktionen');
 
+  const liveAction = createEpgDetailAction(
+    'Sender live',
+    'Diesen Sender im bestehenden Live-TV-Player öffnen.',
+    clickEvent => openEpgChannelLive(detail, channel, clickEvent.currentTarget)
+  );
+  liveAction.classList.add('primary');
+  liveAction.dataset.epgLiveAction = 'true';
+  actions.appendChild(liveAction);
+
   const createTimerAction = createEpgDetailAction(
     'Timer erstellen',
     'Timer aus dieser EPG-Sendung auf dem ausgewählten VDR erstellen.',
@@ -1367,6 +1450,13 @@ function createEpgEventDetailCard(event, channel) {
   actions.appendChild(createEpgDetailAction('Mehr …', 'Weitere EPG-Aktionen werden später angebunden.'));
 
   detail.appendChild(actions);
+
+  const liveStatus = document.createElement('p');
+  liveStatus.className = 'epg-detail-live-status';
+  liveStatus.dataset.epgLiveStatus = 'true';
+  liveStatus.setAttribute('role', 'status');
+  liveStatus.hidden = true;
+  detail.appendChild(liveStatus);
 
   const eventId = syncEventId;
   const channelId = syncChannelId;
@@ -1571,6 +1661,69 @@ function epgTimelineBounds(nowSeconds) {
   };
 }
 
+function epgTimelineDisplayBounds(nowSeconds, visibleChannels, events) {
+  const fetched = epgTimelineBounds(nowSeconds);
+  const pageOffset = Math.max(
+    0,
+    Math.min(EPG_TIMELINE_MAX_PAGE_OFFSET, Number(epgTimeWindowPageOffset || 0))
+  );
+
+  if (pageOffset !== 0) {
+    return fetched;
+  }
+
+  const visibleChannelIds = new Set(
+    (Array.isArray(visibleChannels) ? visibleChannels : [])
+      .map(frontendChannelId)
+      .filter(Boolean)
+  );
+
+  let earliestCurrentStart = 0;
+  (Array.isArray(events) ? events : []).forEach(event => {
+    const channelId = frontendEventChannelId(event);
+    if (!visibleChannelIds.has(channelId)) return;
+
+    const start = parseFrontendEventEpoch(
+      firstValue(event, ['startTime', 'start', 'beginTime'], '')
+    );
+    const end = frontendEventEnd(event, start);
+    if (!(start > 0 && end > nowSeconds && start <= nowSeconds)) return;
+
+    if (earliestCurrentStart === 0 || start < earliestCurrentStart) {
+      earliestCurrentStart = start;
+    }
+  });
+
+  const minimumContextStart =
+    nowSeconds - EPG_TIMELINE_MIN_CONTEXT_BEFORE_SECONDS;
+  const maximumContextStart =
+    nowSeconds - EPG_TIMELINE_CONTEXT_BEFORE_SECONDS;
+  const desiredStart = earliestCurrentStart > 0
+    ? Math.min(earliestCurrentStart, minimumContextStart)
+    : minimumContextStart;
+  const start = Math.max(maximumContextStart, desiredStart);
+
+  return {
+    start,
+    end: start + EPG_TIMELINE_VISIBLE_SECONDS,
+    duration: EPG_TIMELINE_VISIBLE_SECONDS
+  };
+}
+
+function epgTimelineCurrentWindowEvents(events, nowSeconds) {
+  if (Number(epgTimeWindowPageOffset || 0) !== 0) {
+    return Array.isArray(events) ? events : [];
+  }
+
+  return (Array.isArray(events) ? events : []).filter(event => {
+    const start = parseFrontendEventEpoch(
+      firstValue(event, ['startTime', 'start', 'beginTime'], '')
+    );
+    const end = frontendEventEnd(event, start);
+    return end > nowSeconds;
+  });
+}
+
 function epgTimelinePercent(epochSeconds, bounds) {
   return ((epochSeconds - bounds.start) / bounds.duration) * 100;
 }
@@ -1595,7 +1748,9 @@ function epgEventPositionForBounds(entry, bounds) {
 }
 
 function appendEpgTimelineTicks(track, bounds, withLabels) {
-  for (let tick = bounds.start; tick <= bounds.end; tick += EPG_TIMELINE_TICK_SECONDS) {
+  const firstTick = Math.ceil(bounds.start / EPG_TIMELINE_TICK_SECONDS)
+    * EPG_TIMELINE_TICK_SECONDS;
+  for (let tick = firstTick; tick <= bounds.end; tick += EPG_TIMELINE_TICK_SECONDS) {
     const left = epgTimelinePercent(tick, bounds);
 
     const line = document.createElement('div');
@@ -1631,7 +1786,9 @@ function appendEpgNowLine(track, bounds, nowSeconds, withLabel) {
 }
 
 function appendEpgVerticalTimelineTicks(track, bounds, withLabels) {
-  for (let tick = bounds.start; tick <= bounds.end; tick += EPG_TIMELINE_TICK_SECONDS) {
+  const firstTick = Math.ceil(bounds.start / EPG_TIMELINE_TICK_SECONDS)
+    * EPG_TIMELINE_TICK_SECONDS;
+  for (let tick = firstTick; tick <= bounds.end; tick += EPG_TIMELINE_TICK_SECONDS) {
     const top = epgTimelinePercent(tick, bounds);
 
     const line = document.createElement('div');
@@ -2301,7 +2458,6 @@ function renderEpgTimeView(channelData, eventData) {
     epgTimeAxisMode = 'horizontal';
   }
 
-  const bounds = epgTimelineBounds(nowSeconds);
   const limit = Math.max(1, EPG_VISIBLE_CHANNEL_LIMIT);
   const maxChannelOffset = Math.max(0, Math.floor(Math.max(0, channels.length - 1) / limit) * limit);
 
@@ -2310,7 +2466,13 @@ function renderEpgTimeView(channelData, eventData) {
   }
 
   const visibleChannels = channels.slice(epgChannelOffset, epgChannelOffset + limit);
-  const visibleEventIndex = buildEpgVisibleEventIndex(visibleChannels, events, bounds);
+  const bounds = epgTimelineDisplayBounds(nowSeconds, visibleChannels, events);
+  const visibleEvents = epgTimelineCurrentWindowEvents(events, nowSeconds);
+  const visibleEventIndex = buildEpgVisibleEventIndex(
+    visibleChannels,
+    visibleEvents,
+    bounds
+  );
 
   detailDataElement.replaceChildren();
 
@@ -2715,7 +2877,10 @@ function epgWindowBounds() {
 
   return {
     from: bounds.start,
-    until: bounds.end
+    // The rendered current-page start may move forward by up to the bounded
+    // context interval. Fetch the same tail overlap so the visible 24-hour
+    // projection never ends in an artificial cache gap.
+    until: bounds.end + EPG_TIMELINE_CONTEXT_BEFORE_SECONDS
   };
 }
 
