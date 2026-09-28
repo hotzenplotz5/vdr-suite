@@ -47,9 +47,9 @@ for token in (
     "captured.idempotencyKey",
     "replay.statusCode == 202",
     "stale.statusCode == 412",
-    '\"code\":\"revision_conflict\"',
+    r'\\"code\\":\\"revision_conflict\\"',
     "idemConflict.statusCode == 409",
-    '\"code\":\"idempotency_conflict\"',
+    r'\\"code\\":\\"idempotency_conflict\\"',
 ):
     require(token in server_test, "accepted Timer CREATE server contract drifted: " + token)
 
