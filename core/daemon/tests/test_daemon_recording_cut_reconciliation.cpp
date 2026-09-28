@@ -39,6 +39,7 @@ int main()
     state.availability = VdrRecordingNativeCutStateAvailability::Available;
 
     state.editedDestinationExists = false;
+    state.editedRecordingFound = false;
     assert(!daemonRecordingCutResultMatches(source, edited, state));
     assert(daemonRecordingCutVerifiedResultWasRemoved(source, edited, state));
 
