@@ -183,7 +183,7 @@ std::string daemonRecordingCutDeleteBlockReason(
     const std::string& recordingId)
 {
     if (recordingId.empty())
-        return std::string();
+        return "recording_identity_unavailable_delete_blocked";
 
     const std::string normalizedBackendId =
         backendId.empty() ? "default" : backendId;
@@ -209,23 +209,34 @@ std::string daemonRecordingCutDeleteBlockReason(
     if (matches != 1U || selected == nullptr ||
         selected->backendNativeId.empty())
     {
-        return std::string();
+        return "recording_identity_unavailable_delete_blocked";
     }
 
     const std::string recordingKey =
         VdrRecordingNativeIdentity::keyForNativeId(
             selected->backendNativeId);
     if (!VdrRecordingNativeIdentity::isValidKey(recordingKey))
-        return std::string();
+        return "recording_identity_unavailable_delete_blocked";
 
     for (const auto& context : backendRuntimeContexts)
     {
         if (!context ||
-            context->backendId != normalizedBackendId ||
-            !context->suiteBridgeAgentRuntime)
+            context->backendId != normalizedBackendId)
         {
             continue;
         }
+
+        if (context->embeddedCutRuntime)
+        {
+            const std::string journalBlocker =
+                context->embeddedCutRuntime->deleteBlockReason(
+                    recordingKey);
+            if (!journalBlocker.empty())
+                return journalBlocker;
+        }
+
+        if (!context->suiteBridgeAgentRuntime)
+            return "recording_cut_state_unavailable_delete_blocked";
 
         const auto health =
             context->suiteBridgeAgentRuntime->health();
@@ -234,7 +245,7 @@ std::string daemonRecordingCutDeleteBlockReason(
             !health.observation.discovery.capabilityAvailable(
                 "recording-cut-state"))
         {
-            return std::string();
+            return "recording_cut_state_unavailable_delete_blocked";
         }
 
         SuiteBridgeRecordingCutStateResolver* const resolver =
@@ -259,7 +270,7 @@ std::string daemonRecordingCutDeleteBlockReason(
         return std::string();
     }
 
-    return std::string();
+    return "recording_cut_state_unavailable_delete_blocked";
 }
 
 bool configureDaemonRecordingCutRuntime(
