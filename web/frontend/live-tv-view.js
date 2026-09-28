@@ -1020,9 +1020,12 @@
 
     snapshotHbbtvMediaVideoStyle(video);
     video.style.setProperty('position', 'relative');
-    // Provider QOI preserves application alpha, including controls over video.
-    // The media rectangle belongs BELOW that application plane (z-index: 12).
-    video.style.setProperty('z-index', '11');
+    // Real ZDF/yaVDR acceptance disproved the synthetic alpha-composition
+    // assumption: the captured browser plane can remain opaque while external
+    // HbbTV media is active. Keep the canonical media plane above that capture,
+    // matching the last real-video-visible behavior. Native broadcaster
+    // controls need to be preserved at the cefbrowser/provider boundary.
+    video.style.setProperty('z-index', '13');
     video.style.setProperty('transform-origin', '0 0');
     // HbbTV owns input while its broadband medium is active. The browser video
     // must be visible but must not steal pointer input from the application

@@ -107,7 +107,7 @@ assert(!live.includes('fetch('));
 for (const token of [
   'hbbtvMediaAttached: false',
   'hbbtvMediaVideoStyle: null',
-  "video.style.setProperty('z-index', '11')",
+  "video.style.setProperty('z-index', '13')",
   "video.style.setProperty('pointer-events', 'none')",
   "video.style.setProperty('transform-origin', '0 0')",
   'state.hbbtvMediaAttached = true;',

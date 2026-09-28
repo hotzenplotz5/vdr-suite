@@ -189,9 +189,9 @@ async function run() {
   assert.deepStrictEqual({...requests.find(v => v.kind === 'input').payload},
     {backendId: 'default', sessionId: 'app_1', action: 'ok'});
   assert.strictEqual(canvas.pixels[3], 0, 'transparent provider video hole survives QOI decode');
-  assert.strictEqual(canvas.pixels[143 * 4 + 3], 255, 'OK produces an opaque application control');
+  assert.strictEqual(canvas.pixels[143 * 4 + 3], 255, 'OK can produce a newer opaque application pixel in the synthetic frame');
   const canvasZ = Number(liveSource.match(/\.vdr-suite-hbbtv-overlay\{[^}]*z-index:(\d+)/)[1]);
-  assert(Number(video.style.getPropertyValue('z-index')) < canvasZ, 'the control plane must remain ABOVE the playing video');
+  assert(Number(video.style.getPropertyValue('z-index')) > canvasZ, 'real external media must remain ABOVE the captured application plane');
   assert.strictEqual(video.style.getPropertyValue('pointer-events'), 'none');
   for (const key of ['Enter', 'g', 'r', 'ArrowLeft']) {
     let prevented = false;
@@ -242,6 +242,6 @@ async function run() {
   width = 320; observer.fn();
   assert.strictEqual(canvas.style.width, oldWidth, 'late observer callback cannot revive a detached surface');
   assert.strictEqual(videos.length, 1, 'HbbTV never constructs a second video owner');
-  console.log('HbbTV production input/alpha composition, early layout, final resize and teardown ok');
+  console.log('HbbTV production input, media visibility, early layout, final resize and teardown ok');
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });
