@@ -162,3 +162,34 @@ cancellation, duplicate clicks, owner detachment and exact source identity.
 This correction changes daemon and frontend code. Deploy the daemon and the
 existing concatenated Recordings 2 bundle plus actions/editor assets; no
 SuiteBridge rebuild or VDR restart is required.
+
+
+## Real-system follow-up: Recording action reconciliation
+
+Real yaVDR acceptance also exposed an older Recording-action cache fan-out that
+was independent of the cutter itself but became visible while exercising the
+new cut/delete flow.
+
+The generic successful-action callback still requested eight complete
+Recording-cache reconciliation passes. Worse, successful dry-run previews also
+reached the same post-success callback. Opening and confirming a destructive
+action could therefore enqueue repeated full Recording inventory rebuilds before
+and after the real mutation.
+
+The corrected contract is:
+
+- dry-run Recording actions never trigger post-mutation cache work;
+- a committed DELETE removes only the affected backend-native Recording from
+  the persistent Recording cache and the in-memory snapshot immediately;
+- that committed DELETE publishes one backend-scoped Recording presentation
+  invalidation so Home can drop the card without waiting for a full inventory
+  rebuild;
+- one asynchronous authoritative Recording inventory read remains as
+  reconciliation;
+- Rename/Move keep their single synchronous identity refresh and no longer
+  schedule an additional eight-pass fan-out.
+
+The same acceptance restart also exposed that the Global Search legacy EPG
+people backfill was executed on every daemon start. It is now guarded by a
+persistent schema-version marker so a completed legacy backfill is not repeated
+during later startups.
