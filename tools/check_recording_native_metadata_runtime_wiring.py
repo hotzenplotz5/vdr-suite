@@ -144,6 +144,11 @@ def main() -> int:
         "recording metadata retry cadence must remain explicit and bounded",
     )
     require(
+        "presentationChanged" in recording_runtime
+        and "recordingPresentationChangeQueue_.request(" in recording_runtime,
+        "successful Recording metadata recovery must invalidate Home presentation immediately",
+    )
+    require(
         "VdrRecordingNativePersonSearchService" in initialization_runtime,
         "daemon initialization must wire the persistent recording person search service",
     )
