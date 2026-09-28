@@ -176,21 +176,6 @@ void startRecordingCutReconciliation(
 }
 }
 
-bool daemonRecordingCutStateBlocksSourceDelete(
-    const VdrRecordingNativeCutState& state)
-{
-    if (state.availability !=
-            VdrRecordingNativeCutStateAvailability::Available ||
-        !state.found)
-    {
-        return false;
-    }
-
-    return state.handlerUsage != 0 ||
-        (state.editedDestinationExists &&
-         !state.editedRecordingFound);
-}
-
 std::string daemonRecordingCutDeleteBlockReason(
     VdrRecordingCacheRepository& recordingCacheRepository,
     const std::vector<std::unique_ptr<BackendRuntimeContext>>& backendRuntimeContexts,
