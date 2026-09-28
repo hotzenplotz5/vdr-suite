@@ -621,6 +621,7 @@ bool SeriesArtworkBackendSettingsService::ensureSchemaLocked() const
             "poster_url TEXT NOT NULL DEFAULT '',"
             "poster_path TEXT NOT NULL DEFAULT '',"
             "provider_id TEXT NOT NULL DEFAULT '',"
+            "external_namespace TEXT NOT NULL DEFAULT '',"
             "external_id TEXT NOT NULL DEFAULT '',"
             "poster_reference TEXT NOT NULL DEFAULT '',"
             "revision INTEGER NOT NULL DEFAULT 1,"
@@ -641,6 +642,10 @@ bool SeriesArtworkBackendSettingsService::ensureSchemaLocked() const
             database_,
             "provider_id",
             "provider_id TEXT NOT NULL DEFAULT ''") &&
+        ensureSeriesArtworkOverrideColumn(
+            database_,
+            "external_namespace",
+            "external_namespace TEXT NOT NULL DEFAULT ''") &&
         ensureSeriesArtworkOverrideColumn(
             database_,
             "external_id",
@@ -733,7 +738,7 @@ SeriesArtworkBackendSettingsService::loadCoverOverridesLocked(
 
     const char* sql =
         "SELECT series_key,poster_url,revision,"
-        "poster_path,provider_id,external_id,poster_reference "
+        "poster_path,provider_id,external_namespace,external_id,poster_reference "
         "FROM backend_series_artwork_overrides "
         "WHERE backend_id=? ORDER BY series_key;";
 
@@ -777,11 +782,14 @@ SeriesArtworkBackendSettingsService::loadCoverOverridesLocked(
         const std::string providerId =
             columnText(statement, 4);
 
-        const std::string externalId =
+        const std::string externalNamespace =
             columnText(statement, 5);
 
-        const std::string posterReference =
+        const std::string externalId =
             columnText(statement, 6);
+
+        const std::string posterReference =
+            columnText(statement, 7);
 
         if (!validSeriesKey(value.seriesKey) ||
             value.revision <= 0)
@@ -790,6 +798,9 @@ SeriesArtworkBackendSettingsService::loadCoverOverridesLocked(
         }
 
         if (providerId == "tmdb" &&
+            (externalNamespace.empty() ||
+             externalNamespace == "tv" ||
+             externalNamespace == "tv-season") &&
             digitsOnly(externalId) &&
             validTmdbPosterReference(
                 posterReference) &&
@@ -797,6 +808,14 @@ SeriesArtworkBackendSettingsService::loadCoverOverridesLocked(
                 posterPath,
                 config_.seriesCoverCacheRoot))
         {
+            value.providerId = providerId;
+            value.externalNamespace =
+                externalNamespace.empty()
+                    ? "tv"
+                    : externalNamespace;
+            value.externalId = externalId;
+            value.posterReference =
+                posterReference;
             value.posterUrl =
                 seriesArtworkCoverImageUrl(
                     backendId,
@@ -868,6 +887,7 @@ bool SeriesArtworkBackendSettingsService::storeTmdbCoverOverrideLocked(
     const std::string& backendId,
     const std::string& seriesKey,
     const std::string& posterPath,
+    const std::string& externalNamespace,
     const std::string& externalId,
     const std::string& posterReference) const
 {
@@ -884,13 +904,14 @@ bool SeriesArtworkBackendSettingsService::storeTmdbCoverOverrideLocked(
     const char* sql =
         "INSERT INTO backend_series_artwork_overrides "
         "(backend_id,series_key,poster_url,poster_path,"
-        "provider_id,external_id,poster_reference,"
+        "provider_id,external_namespace,external_id,poster_reference,"
         "revision,updated_at) "
-        "VALUES(?,?,'',?,'tmdb',?,?,1,CURRENT_TIMESTAMP) "
+        "VALUES(?,?,'',?,'tmdb',?,?,?,1,CURRENT_TIMESTAMP) "
         "ON CONFLICT(backend_id,series_key) DO UPDATE SET "
         "poster_url='',"
         "poster_path=excluded.poster_path,"
         "provider_id='tmdb',"
+        "external_namespace=excluded.external_namespace,"
         "external_id=excluded.external_id,"
         "poster_reference=excluded.poster_reference,"
         "revision=backend_series_artwork_overrides.revision+1,"
@@ -910,8 +931,9 @@ bool SeriesArtworkBackendSettingsService::storeTmdbCoverOverrideLocked(
         bindText(statement, 1, backendId) &&
         bindText(statement, 2, seriesKey) &&
         bindText(statement, 3, posterPath) &&
-        bindText(statement, 4, externalId) &&
-        bindText(statement, 5, posterReference) &&
+        bindText(statement, 4, externalNamespace) &&
+        bindText(statement, 5, externalId) &&
+        bindText(statement, 6, posterReference) &&
         sqlite3_step(statement) ==
             SQLITE_DONE;
 
@@ -956,10 +978,13 @@ bool SeriesArtworkBackendSettingsService::removeCoverOverrideLocked(
 std::string
 SeriesArtworkBackendSettingsService::materializeTmdbSeriesPoster(
     const std::string& backendId,
+    const std::string& externalNamespace,
     const std::string& externalId,
     const std::string& posterReference) const
 {
     if (!validBackendId(backendId) ||
+        (externalNamespace != "tv" &&
+         externalNamespace != "tv-season") ||
         !digitsOnly(externalId) ||
         !validTmdbPosterReference(
             posterReference))
@@ -1007,7 +1032,7 @@ SeriesArtworkBackendSettingsService::materializeTmdbSeriesPoster(
         std::move(config));
 
     return provider.materializePoster(
-        "tv",
+        externalNamespace,
         externalId,
         posterReference);
 }
@@ -1015,12 +1040,14 @@ SeriesArtworkBackendSettingsService::materializeTmdbSeriesPoster(
 SeriesArtworkImageResult
 SeriesArtworkBackendSettingsService::tmdbCandidateImage(
     const std::string& backendId,
+    const std::string& externalNamespace,
     const std::string& externalId,
     const std::string& posterReference) const
 {
     const std::string path =
         materializeTmdbSeriesPoster(
             backendId,
+            externalNamespace,
             externalId,
             posterReference);
 
@@ -1373,7 +1400,8 @@ SeriesArtworkBackendSettingsService::update(
         }
 
         if (request.providerId != "tmdb" ||
-            request.externalNamespace != "tv" ||
+            (request.externalNamespace != "tv" &&
+             request.externalNamespace != "tv-season") ||
             !digitsOnly(
                 request.externalId) ||
             !validTmdbPosterReference(
@@ -1390,6 +1418,7 @@ SeriesArtworkBackendSettingsService::update(
         const std::string posterPath =
             materializeTmdbSeriesPoster(
                 request.backendId,
+                request.externalNamespace,
                 request.externalId,
                 request.posterReference);
 
@@ -1411,6 +1440,7 @@ SeriesArtworkBackendSettingsService::update(
                     request.backendId,
                     request.seriesKey,
                     posterPath,
+                    request.externalNamespace,
                     request.externalId,
                     request.posterReference))
             {
