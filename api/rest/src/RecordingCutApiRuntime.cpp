@@ -365,9 +365,62 @@ std::string preconditionReasonCode(const std::string& nativeReason)
     return result;
 }
 
+const VdrRecording* exactEditedRecording(
+    const std::vector<VdrRecording>& recordings,
+    const std::string& backendId,
+    const VdrRecordingNativeCutState& state)
+{
+    if (!state.editedRecordingFound ||
+        !VdrRecordingNativeIdentity::isValidKey(state.editedRecordingKey))
+    {
+        return nullptr;
+    }
+
+    const VdrRecording* match = nullptr;
+    std::size_t matches = 0U;
+    for (const VdrRecording& recording : recordings)
+    {
+        if (recording.backendId != backendId ||
+            recording.backendNativeId.empty())
+        {
+            continue;
+        }
+
+        const std::string key =
+            VdrRecordingNativeIdentity::keyForNativeId(
+                recording.backendNativeId);
+        if (key != state.editedRecordingKey) continue;
+
+        match = &recording;
+        ++matches;
+        if (matches > 1U) return nullptr;
+    }
+
+    return matches == 1U ? match : nullptr;
+}
+
+void appendRecordingProjection(
+    std::ostringstream& json,
+    const VdrRecording& recording)
+{
+    json << "{\"id\":\"" << jsonEscape(recording.id)
+         << "\",\"recordingId\":\"" << jsonEscape(recording.id)
+         << "\",\"backendId\":\"" << jsonEscape(recording.backendId)
+         << "\",\"title\":\"" << jsonEscape(recording.title)
+         << "\",\"path\":\"" << jsonEscape(recording.path)
+         << "\",\"recordingPath\":\"" << jsonEscape(recording.path)
+         << "\",\"backendNativeId\":\""
+         << jsonEscape(recording.backendNativeId)
+         << "\",\"startTime\":\"" << jsonEscape(recording.startTime)
+         << "\",\"durationSeconds\":" << recording.durationSeconds
+         << ",\"sizeMb\":" << recording.sizeMb
+         << "}";
+}
+
 ApiResponse serializeAvailable(
     const Request& request,
-    const VdrRecordingNativeCutState& state)
+    const VdrRecordingNativeCutState& state,
+    const VdrRecording* editedRecording)
 {
     std::ostringstream json;
     json << "{\"backendId\":\"" << jsonEscape(request.backendId)
@@ -392,6 +445,11 @@ ApiResponse serializeAvailable(
     {
         json << ",\"editedRecordingKey\":\""
              << jsonEscape(state.editedRecordingKey) << "\"";
+    }
+    if (editedRecording != nullptr)
+    {
+        json << ",\"editedRecording\":";
+        appendRecordingProjection(json, *editedRecording);
     }
     json << "}";
 
@@ -641,7 +699,18 @@ bool RecordingCutApiRuntime::tryHandleGet(
     if (!validateNativeState(recordingKey, access, state, response))
         return true;
 
-    response = serializeAvailable(request, state);
+    std::vector<VdrRecording> recordings;
+    const VdrRecording* editedRecording = nullptr;
+    if (state.editedRecordingFound)
+    {
+        recordings = recordingLookup(request.backendId);
+        editedRecording = exactEditedRecording(
+            recordings,
+            request.backendId,
+            state);
+    }
+
+    response = serializeAvailable(request, state, editedRecording);
     return true;
 }
 
