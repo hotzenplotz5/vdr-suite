@@ -27,6 +27,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Phase 69.F Public-v1 TimerAssignment Collection Reference Client](development/phase-69f-public-v1-timer-assignment-collection-reference-client.md)
 - [Phase 69.F Public-v1 TimerAssignment Item Reference Client](development/phase-69f-public-v1-timer-assignment-item-reference-client.md)
 - [Phase 69.F Public-v1 Timer CREATE Admission Reference Client](development/phase-69f-public-v1-timer-create-reference-client.md)
+- [Phase 69.F Public-v1 Operation Reference Client](development/phase-69f-public-v1-operation-reference-client.md)
 - [Phase 69.E Compatibility Policy Foundation](development/phase-69e-compatibility-policy-foundation.md)
 - [Phase 69.E Retained Legacy Route Classification](development/phase-69e-legacy-route-classification.md)
 - [Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md)
@@ -171,12 +172,18 @@ revisioned TimerAssignment item GET with opaque ETag exposure and
 `If-None-Match -> 304`.
 
 The [Phase 69.F Public-v1 Timer CREATE Admission Reference Client](development/phase-69f-public-v1-timer-create-reference-client.md)
-candidate is the twelfth bounded 69.F slice. A fresh post-#379 audit proves the
-stable TimerAssignment POST must precede the remaining durable Operation GET:
-the mutation requires the already available item identity + ETag and returns
-the `operationId`/Location needed for reconciliation. The reference client
-therefore adds only caller-keyed Timer CREATE admission with no automatic retry
-or polling.
+is the accepted twelfth bounded 69.F slice via PR #380. It adds caller-keyed
+Timer CREATE admission and returns the durable `operationId`/Location without
+automatic retry or polling.
+
+The [Phase 69.F Public-v1 Operation Reference Client](development/phase-69f-public-v1-operation-reference-client.md)
+candidate is the thirteenth bounded 69.F slice. A fresh post-#380 audit proves
+that durable Operation GET is the only stable public-v1 method/resource contract
+not yet consumed by the reference client. The candidate adds one revisioned
+actor-owned Operation GET with opaque ETag and `If-None-Match -> 304`, no
+polling helper and no Operation mutation. After this slice the reference seam
+covers all eight currently stable public-v1 contracts; the only justified
+successor is a fresh 69.F/Phase-69 closeout audit.
 
 69.C is completed. Its closeout records the accepted public revision/ETag,
 strong If-Match, durable Idempotency-Key and no-blind-fallback contracts, plus

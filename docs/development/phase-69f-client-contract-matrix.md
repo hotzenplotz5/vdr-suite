@@ -239,6 +239,8 @@ semantics or durable Operation reads.
 
 ## Public-v1 Timer CREATE admission reference extension
 
+The Timer CREATE admission reference extension is accepted via PR #380.
+
 The fresh post-#379 audit proves the remaining stable mutation/read pair has a
 strict dependency order:
 
@@ -257,6 +259,31 @@ before adding Operation reconciliation. It does not generate idempotency keys,
 decode ETags, retry failed/unknown submissions, or poll the returned Operation
 automatically. Exact replay remains an explicit caller action using the same
 If-Match and Idempotency-Key as required by the accepted server contract.
+
+## Public-v1 durable Operation reference extension
+
+The fresh post-#380 audit selects the durable Operation item as the final
+stable-contract reference-client gap:
+
+```text
+POST Timer CREATE admission
+  -> 202 + operationId + Location + Operation ETag
+  -> GET /api/v1/operations/{operationId}
+     [If-None-Match: <opaque Operation ETag>]
+```
+
+The read remains explicit and actor-owned. The reference client exposes the
+server ETag, supports caller-supplied `If-None-Match`, and represents a
+bodyless `304` as a successful conditional-read result. It does not interpret
+HTTP 200 as mutation success; callers inspect the public Operation `state`.
+
+No Operation collection, cancellation endpoint, mutation helper, timer or
+polling loop is added.
+
+After this candidate, the union of reference-client resources equals the eight
+stable public-v1 method/resource contracts exactly. The next justified work is
+therefore a fresh 69.F/Phase-69 closeout audit, not another inferred public
+route.
 
 ## Explicit fallback debt and successor status
 

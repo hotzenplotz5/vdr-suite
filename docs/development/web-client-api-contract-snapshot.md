@@ -13,6 +13,7 @@
 - [Phase 69.F Public-v1 TimerAssignment Collection Reference Client](phase-69f-public-v1-timer-assignment-collection-reference-client.md)
 - [Phase 69.F Public-v1 TimerAssignment Item Reference Client](phase-69f-public-v1-timer-assignment-item-reference-client.md)
 - [Phase 69.F Public-v1 Timer CREATE Admission Reference Client](phase-69f-public-v1-timer-create-reference-client.md)
+- [Phase 69.F Public-v1 Operation Reference Client](phase-69f-public-v1-operation-reference-client.md)
 - [Current Project Status](current-status.md)
 - [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 - [Parity Audit and Frontend Gap Roadmap](../planning/parity-audit-and-frontend-gap-roadmap.md)
@@ -238,6 +239,11 @@ The [Public-v1 Timer CREATE Admission Reference Client](phase-69f-public-v1-time
 adds the accepted protected Timer CREATE POST to the independent reference seam.
 The caller owns the opaque ETag and Idempotency-Key; the client neither retries
 the mutation nor polls the returned Operation automatically.
+
+The [Public-v1 Operation Reference Client](phase-69f-public-v1-operation-reference-client.md)
+adds the accepted durable Operation item GET as the final stable public-v1
+reference gap. It supports explicit ETag conditional reads but deliberately
+adds no timer/polling loop or Operation mutation surface.
 
 ## Current Direct Fetch Inventory
 

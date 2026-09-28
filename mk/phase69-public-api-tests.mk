@@ -489,3 +489,10 @@ test-phase69f-public-v1-timer-assignment-item-reference-client:
 test-phase69f-public-v1-timer-create-reference-client:
 	node clients/reference-js/tests/test_public_v1_timer_create_client.js
 	python3 tools/check_phase69f_public_v1_timer_create_reference_client.py
+
+
+.PHONY: test-phase69f-public-v1-operation-reference-client
+
+test-phase69f-public-v1-operation-reference-client:
+	node clients/reference-js/tests/test_public_v1_operation_client.js
+	python3 tools/check_phase69f_public_v1_operation_reference_client.py

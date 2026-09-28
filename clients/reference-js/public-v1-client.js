@@ -262,6 +262,21 @@
       + '?backend=' + encodeURIComponent(options.backendId);
   }
 
+
+
+  function operationItemPath(options) {
+    if (!options || typeof options !== 'object' || Array.isArray(options)) {
+      throw new Error('Operation item options must be an object');
+    }
+    if (typeof options.operationId !== 'string' || options.operationId === '') {
+      throw new Error('Operation item operationId must be a non-empty string');
+    }
+    if (/[\/?#]/.test(options.operationId)) {
+      throw new Error('Operation item operationId contains a path delimiter');
+    }
+    return '/api/v1/operations/' + options.operationId;
+  }
+
   function createClient(config) {
     const normalized = config && typeof config === 'object' ? config : {};
     const baseUrl = normalizeBaseUrl(normalized.baseUrl);
@@ -427,6 +442,13 @@
         const normalizedOptions = options && typeof options === 'object' ? options : {};
         return requestTimerCreate(
           timerAssignmentItemPath(normalizedOptions),
+          normalizedOptions
+        );
+      },
+      getOperation(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return requestRevisioned(
+          operationItemPath(normalizedOptions),
           normalizedOptions
         );
       }

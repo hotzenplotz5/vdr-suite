@@ -72,6 +72,7 @@ reference = next(
 )
 require(reference is not None, "Timer CREATE reference slice disappeared")
 require(reference.get("path") == "clients/reference-js/public-v1-client.js", "Timer CREATE reference path drifted")
+require(reference.get("status") == "accepted", "Timer CREATE reference acceptance drifted")
 require(
     reference.get("resources") == [
         "POST /api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}"

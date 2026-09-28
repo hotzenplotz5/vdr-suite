@@ -19,6 +19,7 @@
 - [Phase 69.F Public-v1 TimerAssignment Collection Reference Client](phase-69f-public-v1-timer-assignment-collection-reference-client.md)
 - [Phase 69.F Public-v1 TimerAssignment Item Reference Client](phase-69f-public-v1-timer-assignment-item-reference-client.md)
 - [Phase 69.F Public-v1 Timer CREATE Admission Reference Client](phase-69f-public-v1-timer-create-reference-client.md)
+- [Phase 69.F Public-v1 Operation Reference Client](phase-69f-public-v1-operation-reference-client.md)
 
 ---
 
