@@ -32,6 +32,8 @@ Root-level `AGENTS.md` is binding. In particular, once the user has authorized a
 
 [Current Project Status](development/current-status.md), [Current Architecture State](development/current-architecture-state.md), [Completed Phases](development/completed-phases.md), [Phase 62 Closeout](development/phase-62-closeout.md), [Phase 64 Closeout](development/phase-64-closeout.md) and older Phase-65 development records provide stable historical context.
 
+Historical Phase-69 closeout records retained for traceability: `docs/development/phase-69c-closeout.md`, `docs/development/phase-69d-closeout.md`, `docs/development/phase-69e-closeout.md`.
+
 ## Stable project position
 
 - Latest completed numbered runtime phase: **Phase 69 - Public API and Client Compatibility Hardening**.
@@ -75,11 +77,11 @@ Phases 65 through **Phase 69 are completed**. [Phase 69 Closeout](development/ph
 
 For the next numbered work:
 
-1. re-read live `main`, `CURRENT.md`, the Strict Roadmap, the Phase-68 closeout and ADR-0048 before any Phase-69 work;
-2. preserve Legacy OSD as the completed bounded compatibility bridge rather than reopening it as a primary UI model;
-3. preserve the completed Phase-62/63 identity/Agent boundaries and Phase-65 MediaSession/playback ownership;
-4. preserve Teletext/HbbTV and Legacy OSD as distinct completed domains;
-5. keep Phase 69 bounded to ADR-0048/public-client compatibility work and do not pull Phase-70 recommendation work into it.
+1. re-read live `main`, `CURRENT.md`, the Strict Roadmap and the Phase-69 closeout before successor planning;
+2. keep Phase 70 not started until its dedicated runtime ADR is accepted;
+3. preserve Legacy OSD, Teletext/HbbTV, identity/Agent and MediaSession/playback ownership as completed bounded foundations;
+4. do not reopen Phase 69 merely because a later client consumes its stable public contracts;
+5. treat any future public promotion of Recording, ProgramEvent/EPG, SearchTimer, metadata or Genre as a new explicit compatibility decision rather than unfinished 69.F work.
 
 ## Phase ordering and broad Timer UI
 
@@ -190,8 +192,8 @@ Legacy Basic compatibility remains transitional and intentionally retained. `enf
 
 1. Read `CURRENT.md` first.
 2. Query live `main` and the relevant PR/branch before making repository-state claims. If a GitHub Actions run exists for the relevant head, report its exact status/link. Do not wait on unrelated jobs before continuing already-approved surface-scoped work. If a relevant run is required for the next already-authorized gate and is queued or in progress, continue independent work and re-read that run before ending the working response; never return the stale non-terminal snapshot as the final state.
-3. Treat Phases 64, 65, 66, 67 and 68 as completed for their accepted bounded scopes unless live repository state supersedes that evidence.
-4. Preserve accepted Phase-65 playback/MediaSession semantics, completed Phase-66 Home ownership, completed Phase-67 Teletext/HbbTV domains and completed Phase-68 Legacy OSD ownership rather than inventing parallel owners during Phase-69 work.
+3. Treat Phases 64 through 69 as completed for their accepted bounded scopes unless live repository state supersedes that evidence.
+4. Preserve accepted Phase-65 playback/MediaSession semantics, completed Phase-66 Home ownership, completed Phase-67 Teletext/HbbTV domains, completed Phase-68 Legacy OSD ownership and completed Phase-69 public-client boundaries rather than inventing parallel owners during successor work.
 5. Treat Phase 69 - Public API and Client Compatibility Hardening as completed and read `docs/development/phase-69-closeout.md` before any successor planning.
 6. Do not start Phase 70 merely because Phase 69 is complete. Re-read the Strict Roadmap and require the dedicated accepted Phase-70 runtime ADR before implementation.
 7. Preserve truthful Range/seek/growing capability; completed-Recording seek/resume is accepted for the supported profiles, while growing-Recording seek and Live-TV timeshift remain explicit non-support until separately implemented.
