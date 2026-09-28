@@ -277,6 +277,18 @@ assert(
 );
 assert(
   pickerBody.includes(
+    'Exakte Serie gefunden – Staffelcover werden geladen …'
+  ),
+  'an exact Series title search must auto-expand to Staffel covers'
+);
+assert(
+  pickerBody.includes(
+    '.toLocaleLowerCase(\'de-DE\') === exactQuery'
+  ),
+  'exact Series auto-expand must compare normalized titles'
+);
+assert(
+  pickerBody.includes(
     "'Staffel ' + String(number)"
   ),
   'season cover choices must identify their Staffel explicitly'
