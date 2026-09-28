@@ -22,6 +22,9 @@ public:
     RecordingCutDispatchResult dispatch(
         const RecordingCutStartRequest& request);
 
+    std::string deleteBlockReason(
+        const std::string& recordingKey);
+
 private:
     EmbeddedRecordingCutRepository repository_;
     std::string backendId_;
