@@ -182,6 +182,16 @@
     if (scroll) state.scrollTop = scroll.scrollTop;
   }
 
+  function returnHome() {
+    closeDialog(false);
+    if (typeof global.selectModule === 'function') {
+      global.selectModule('overview');
+    }
+    if (typeof global.scrollTo === 'function') {
+      global.scrollTo({top: 0, left: 0, behavior: 'auto'});
+    }
+  }
+
   function openRecording(recording) {
     rememberScroll();
     closeDialog(false);
@@ -193,7 +203,9 @@
       owner.openRecording(recording, {
         backendId: selectedBackendId(),
         backLabel: '← Zurück zur Suche',
-        onClose: openDialog
+        homeLabel: '⌂ Home',
+        onClose: openDialog,
+        onHome: returnHome
       });
     }).catch(showNavigationError);
   }
@@ -534,6 +546,7 @@
       minimumQueryLength: MINIMUM_QUERY_LENGTH,
       debounceMs: DEBOUNCE_MS,
       requestTimeoutMs: REQUEST_TIMEOUT_MS,
+      returnHome: returnHome,
       state: state
     })
   });
