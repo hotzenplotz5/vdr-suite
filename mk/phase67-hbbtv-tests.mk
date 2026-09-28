@@ -125,6 +125,8 @@ test-phase67-hbbtv-frontend:
 	python3 tools/check_frontend_ownership_contracts.py
 	$(MAKE) test-phase67-teletext-frontend
 
+test-ci-frontend: test-phase67-hbbtv-frontend
+
 test-phase67-hbbtv-daemon-build:
 	$(MAKE) daemon
 

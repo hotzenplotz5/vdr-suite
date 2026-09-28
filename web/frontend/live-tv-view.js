@@ -526,7 +526,7 @@
     const canvas = hbbtvCanvas();
     const slot = hbbtvPlayerSlot();
     const video = hbbtvVideo();
-    if (!state.active || !state.hbbtvFrameRevision || !canvas || !slot || !video ||
+    if (!state.active || !canvas || !canvas.dataset || !canvas.dataset.hbbtvRevision || !slot || !video ||
         typeof slot.getBoundingClientRect !== 'function' ||
         typeof video.getBoundingClientRect !== 'function') return false;
 

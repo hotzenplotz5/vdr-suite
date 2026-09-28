@@ -14,6 +14,7 @@ const videos = [];
 let nextTimer = 0;
 let width = 640;
 let frameRevision = 1;
+let frameAvailable = true;
 let mediaActive = false;
 let sessionNumber = 0;
 let session;
@@ -127,6 +128,7 @@ const client = {
   },
   fetchClientHbbtvSessionClose() { mediaActive = false; session = {...session, state: 'closed'}; return Promise.resolve(session); },
   fetchClientHbbtvPresentation() {
+    if (!frameAvailable) return Promise.resolve({status: 204, revision: frameRevision});
     return Promise.resolve({status: 200, revision: frameRevision, width: 16, height: 9, bytes: qoiFrame()});
   },
   fetchClientHbbtvMedia() { return Promise.resolve({sessionId: session.sessionId, backendId: 'default',
@@ -216,9 +218,11 @@ async function run() {
   assert.strictEqual(video.style.getPropertyValue('aspect-ratio'), originalRatio, 'close restores the broadcast layout');
   assert.strictEqual(video.style.getPropertyValue('z-index'), '');
   assert(video.src.includes('live_session_test'), 'close restores broadcast through the same owner');
-  frameRevision = 1; mediaActive = false;
+  frameRevision = 1; mediaActive = false; frameAvailable = false;
   find('.vdr-suite-hbbtv-session-toggle').click(); await flush(); await tick();
   assert.strictEqual(live.snapshot().hbbtvSessionId, 'app_2');
+  assert.strictEqual(video.style.getPropertyValue('aspect-ratio'), originalRatio, 'revision-only response cannot reuse old or default canvas geometry');
+  frameAvailable = true; await tick();
   assert.strictEqual(find('video'), video);
   assert.strictEqual(canvas.style.height, '540px', 'immediate relaunch derives fresh layout');
   remote('ok').click(); await flush();
