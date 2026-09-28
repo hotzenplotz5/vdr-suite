@@ -79,6 +79,25 @@
       stringList(result.errors).length === 0;
   }
 
+  function actionError(result, fallback) {
+    const errors = stringList(result && result.errors);
+    if (errors.some(function (value) {
+      return value === 'recording_cut_operation_pending_delete_blocked' ||
+        value === 'recording_cut_active_delete_blocked';
+    })) {
+      return 'Original kann während des laufenden Schnitts nicht gelöscht werden.';
+    }
+    if (errors.some(function (value) {
+      return value === 'recording_cut_state_unavailable_delete_blocked' ||
+        value === 'recording_cut_journal_unavailable_delete_blocked' ||
+        value === 'recording_cut_journal_invalid_delete_blocked' ||
+        value === 'recording_identity_unavailable_delete_blocked';
+    })) {
+      return 'Löschen ist gesperrt, weil der Schnittstatus nicht sicher bestätigt werden kann.';
+    }
+    return String(result && (result.message || result.error) || fallback || 'Aktion wurde abgelehnt.');
+  }
+
   function actionPayload(recording, backendId, action, extra) {
     const payload = {
       backendId: String(backendId || 'default'),
@@ -282,7 +301,7 @@
       return run('validate', recording, action, Object.assign({dryRun: true}, extra || {}))
         .then(function (result) {
           if (!result || result.valid !== true) {
-            throw new Error(String(result && (result.message || result.error) || 'Validierung nicht freigegeben.'));
+            throw new Error(actionError(result, 'Validierung nicht freigegeben.'));
           }
           if (!safetyCheck) return result;
           setStatus(status, 'pending', 'Backend-Sicherheit wird als Dry-Run geprüft …');
@@ -312,7 +331,7 @@
       return run('execute', recording, action, Object.assign({dryRun: false}, extra || {}))
         .then(function (result) {
           if (!result || result.success !== true) {
-            throw new Error(String(result && (result.message || result.error) || 'Das Backend hat die Aktion abgelehnt.'));
+            throw new Error(actionError(result, 'Das Backend hat die Aktion abgelehnt.'));
           }
           setStatus(status, 'pending', 'Backend bestätigt. Recording-Cache wird abgeglichen …');
           poll(readback, status, successMessage);
@@ -331,7 +350,7 @@
       return run('execute', recording, 'DELETE', {dryRun: false})
         .then(function (result) {
           if (!result || result.success !== true) {
-            throw new Error(String(result && (result.message || result.error) || 'Das Backend hat die Aktion abgelehnt.'));
+            throw new Error(actionError(result, 'Das Backend hat die Aktion abgelehnt.'));
           }
           setStatus(status, 'success', 'Aufnahme wurde in den VDR-Papierkorb verschoben.');
           if (typeof config.completeDelete === 'function') {
