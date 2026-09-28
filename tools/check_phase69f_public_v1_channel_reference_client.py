@@ -61,6 +61,7 @@ reference = next(
 )
 require(reference is not None, "Channel reference slice disappeared")
 require(reference.get("path") == "clients/reference-js/public-v1-client.js", "Channel reference path drifted")
+require(reference.get("status") == "accepted", "Channel reference acceptance drifted")
 require(
     reference.get("resources") == ["GET /api/v1/channels?backendId={backendId}"],
     "Channel reference resource drifted",

@@ -24,6 +24,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Phase 69.F Timer Live Single-Route Hardening](development/phase-69f-timer-live-fallback-removal.md)
 - [Phase 69.F Public-v1 Discovery Reference Client](development/phase-69f-public-v1-discovery-reference-client.md)
 - [Phase 69.F Public-v1 Channel Reference Client](development/phase-69f-public-v1-channel-reference-client.md)
+- [Phase 69.F Public-v1 TimerAssignment Collection Reference Client](development/phase-69f-public-v1-timer-assignment-collection-reference-client.md)
 - [Phase 69.E Compatibility Policy Foundation](development/phase-69e-compatibility-policy-foundation.md)
 - [Phase 69.E Retained Legacy Route Classification](development/phase-69e-legacy-route-classification.md)
 - [Phase 69.D first public collection](development/phase-69d-timer-assignment-collection.md)
@@ -153,12 +154,17 @@ browser-independent JavaScript reference seam for `GET /api/v1`,
 richer bundled browser.
 
 The [Phase 69.F Public-v1 Channel Reference Client](development/phase-69f-public-v1-channel-reference-client.md)
-candidate is the ninth bounded 69.F slice. A fresh post-#376 audit selects the
-already-stable federated Channel collection as the next external read because
-it follows Backend discovery, is provider-neutral and read-only, and introduces
-no ETag/mutation/operation dependency. The reference client gains only
-`GET /api/v1/channels` with explicit source selection and existing
-pagination/partial-result semantics.
+is the accepted ninth bounded 69.F slice via PR #377. It extends the independent
+reference seam with the stable federated Channel collection while preserving
+explicit source selection and partial-result semantics.
+
+The [Phase 69.F Public-v1 TimerAssignment Collection Reference Client](development/phase-69f-public-v1-timer-assignment-collection-reference-client.md)
+candidate is the tenth bounded 69.F slice. A fresh post-#377 audit selects the
+already-stable single-backend TimerAssignment collection ahead of item/Operation
+reads because Backend discovery supplies its only scope dependency and the
+collection has no ETag, mutation or operation-lifecycle requirement. The
+reference client gains only `GET /api/v1/timer-assignments?backend=...` with
+the accepted keyset query contract.
 
 69.C is completed. Its closeout records the accepted public revision/ETag,
 strong If-Match, durable Idempotency-Key and no-blind-fallback contracts, plus

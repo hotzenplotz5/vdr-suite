@@ -10,10 +10,15 @@ The accepted initial discovery slice covers:
 - `GET /api/v1/capabilities`;
 - `GET /api/v1/backends`.
 
-The next bounded read extension adds:
+The accepted next bounded read extension adds:
 
 - `GET /api/v1/channels?backendId=...` with explicit 1–16 source selection,
   keyset pagination and unchanged partial-source metadata.
+
+The next candidate read extension adds:
+
+- `GET /api/v1/timer-assignments?backend=...` as a single-backend Suite-owned
+  keyset collection with no collection ETag and no native-VDR fallback.
 
 The caller supplies the Suite origin, transport and any authentication headers
 or credentials. The reference client does not invent login/session behavior,

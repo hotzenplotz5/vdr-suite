@@ -266,7 +266,7 @@
   "derivedNextRuntimeCandidate": {
     "domain": "pending-live-audit",
     "proposedTemplate": null,
-    "reason": "The reference client now covers public discovery plus the stable federated Channel collection. TimerAssignment, Operation and any new public domain remain separate candidates selected only by a fresh live dependency audit."
+    "reason": "The reference client now covers discovery, federated Channels and the stable TimerAssignment collection. TimerAssignment item, Operation item and any mutation client semantics remain separate candidates selected only by a fresh live dependency audit."
   },
   "publicClientReferences": [
     {
@@ -283,11 +283,20 @@
     {
       "id": "reference-js-channel-collection",
       "path": "clients/reference-js/public-v1-client.js",
-      "status": "candidate",
+      "status": "accepted",
       "resources": [
         "GET /api/v1/channels?backendId={backendId}"
       ],
       "note": "Read-only federated Channel collection extension with explicit 1–16 backend sources, keyset pagination and unchanged partial-source metadata."
+    },
+    {
+      "id": "reference-js-timer-assignment-collection",
+      "path": "clients/reference-js/public-v1-client.js",
+      "status": "candidate",
+      "resources": [
+        "GET /api/v1/timer-assignments?backend={backendId}"
+      ],
+      "note": "Single-backend Suite-owned TimerAssignment keyset collection; no collection ETag, no backend I/O and no native Timer fallback."
     }
   ]
 }

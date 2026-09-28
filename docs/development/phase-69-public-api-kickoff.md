@@ -398,13 +398,21 @@ run `36344690345` succeeded 6/6.
 
 ## 69.F public-v1 Channel reference client
 
-The ninth bounded 69.F candidate is
+The ninth bounded 69.F slice is accepted via PR #377:
 [Phase 69.F Public-v1 Channel Reference Client](phase-69f-public-v1-channel-reference-client.md).
-The fresh post-#376 audit chooses the already-stable federated Channel
-collection as the next reference-client read: it composes directly after
-Backend discovery, requires no new identity or server route, preserves explicit
-multi-backend partial-result semantics, and has no ETag or mutation dependency.
-TimerAssignment and Operation client methods remain separate successor work.
+It extends the independent reference seam with the accepted federated Channel
+read. PR #377 merged as `7704d3826aa426a4cb5e48c4ba07e372614b86fe`
+after exact-head CI #9344 / run `36346772858` succeeded 6/6.
+
+## 69.F public-v1 TimerAssignment collection reference client
+
+The tenth bounded 69.F candidate is
+[Phase 69.F Public-v1 TimerAssignment Collection Reference Client](phase-69f-public-v1-timer-assignment-collection-reference-client.md).
+The fresh post-#377 audit chooses the stable single-backend TimerAssignment
+collection before the TimerAssignment item and Operation item. Backend
+discovery supplies its scope identity, the collection is a Suite-owned read,
+and it carries no collection ETag or mutation/operation lifecycle. Item ETag,
+conditional GET and mutation semantics remain separate successor work.
 
 ## 69.C completion
 
