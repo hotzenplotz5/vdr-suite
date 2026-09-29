@@ -29,7 +29,7 @@ for marker in (
     "Capability never grants permission",
     "Fresh-install bootstrap",
     "Pairing reuses, rather than replaces, identity",
-    "must not synthesize Accounts from every \`ActorType::User\` row",
+    "must not synthesize Accounts from every `ActorType::User` row",
 ):
     require(adr, marker)
 
@@ -70,9 +70,9 @@ require("core/security/include/BrowserSessionIssuanceService.h", "DefaultLifetim
 index = read("docs/adr/index.md")
 if "ADR-0065: Human Account, Profile and Device Identity Boundary" not in index:
     errors.append("ADR index does not list ADR-0065")
-if "Canonical ADR sequence currently runs through:\n\n\`\`\`text\nADR-0065" not in index:
+if "Canonical ADR sequence currently runs through:\n\n```text\nADR-0065" not in index:
     errors.append("ADR index canonical sequence does not run through ADR-0065")
-if "Next available canonical ADR:\n\n\`\`\`text\nADR-0066" not in index:
+if "Next available canonical ADR:\n\n```text\nADR-0066" not in index:
     errors.append("ADR index next available canonical number is not ADR-0066")
 
 if errors:
