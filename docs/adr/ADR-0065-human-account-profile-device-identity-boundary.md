@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed architecture.
+Accepted architecture.
 
 Date: 2026-09-29
 
