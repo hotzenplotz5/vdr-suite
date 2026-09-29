@@ -8,6 +8,7 @@ const vm = require('vm');
 const frontendRoot = path.join(__dirname, '..');
 const indexSource = fs.readFileSync(path.join(frontendRoot, 'index.html'), 'utf8');
 const appSource = fs.readFileSync(path.join(frontendRoot, 'app.js'), 'utf8');
+const discoverySource = fs.readFileSync(path.join(frontendRoot, 'home-recording-discovery.js'), 'utf8');
 
 function occurrences(source, needle) {
   return source.split(needle).length - 1;
