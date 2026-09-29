@@ -3,10 +3,17 @@
 ## Navigation
 
 - [Strict Roadmap](roadmap.md)
+- [Phase Map](phase-map.md)
+- [Architecture Audit Gap Matrix](architecture-audit-gap-matrix.md)
+- [Target Platform Architecture](../architecture/target-platform-architecture.md)
+- [Security and Identity Foundation](../architecture/security-identity-foundation.md)
 - [ADR Index](../adr/index.md)
 - [ADR-0013 Permission Model](../adr/ADR-0013-permission-model.md)
 - [ADR-0020 Multi-Source Federation Architecture](../adr/ADR-0020-multi-source-federation-architecture.md)
 - [ADR-0037 Packaging, Install Layout and API Boundary](../adr/ADR-0037-packaging-install-api-boundary.md)
+- [ADR-0041 Authentication, Agent Trust and Multi-Site Transport](../adr/ADR-0041-authentication-agent-trust-multi-site-transport.md)
+- [ADR-0048 Public API Versioning, Error and Compatibility Contract](../adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)
+- [ADR-0049 Audit and Security Event Model](../adr/ADR-0049-audit-security-event-model.md)
 - [ADR-0060 Federated VDR-Suite Sharing and Reciprocal Site Trust](../adr/ADR-0060-federated-vdr-suite-sharing-reciprocal-site-trust.md)
 - [ADR-0061 Actor Permissions, Federation and Client Access](../adr/ADR-0061-actor-permissions-federation-client-access.md)
 - [ADR-0062 First-Party Living-Room Output Client](../adr/ADR-0062-first-party-living-room-output-client.md)
@@ -16,28 +23,380 @@
 
 ## Purpose
 
-This document makes four productization topics explicit without changing their long-standing architecture:
+This document is the binding cross-cutting productization plan after Phase 69.
 
-1. **Federated MultiBackend sharing between independent VDR-Suite installations**, including reciprocal but directional trust and granular rights;
-2. the concrete sharing permission model for Recordings, Live TV, Timers and destructive/editing operations;
-3. the first-party television/living-room output client;
-4. release-grade Debian/Ubuntu packaging.
+Phase 69 completed the stable independent-client boundary. Productization now turns that boundary into a modern, client-independent media platform without reopening completed phases or inventing a second roadmap.
 
-The first two items continue ADR-0013 and ADR-0020. They are not a new interpretation of MultiBackend.
+VDR-Suite remains VDR-centered, but it is not defined as a modern VDR Web frontend. The target product is a Suite-owned platform whose browser, TV, Android, Kodi, desktop and later clients consume the same stable public contract.
 
-ADR-0013 already states that a remote VDR-Suite instance is an Actor and gives the exact product example that Remote Suite B may see selected recordings from House A while Live TV and Timer creation are denied. ADR-0020 already allows a BackendNode to wrap a remote VDR-Suite instance.
+Plex and Jellyfin are useful product/reife comparisons for breadth, administration, multi-user behavior and client quality. They are not architecture templates and their internal ownership or protocol choices are not copied by default.
 
-The still-open gap is the production federation layer between **independent Control Planes**. ADR-0041 intentionally did not define that protocol.
+## Platform product direction
 
-These product milestones do **not** silently start Phase 68.
+~~~text
+TV / Android / Kodi / Desktop / Web / later clients
+                         |
+                         v
+                    stable /api/v1
+                         |
+                         v
+                   Control Plane
+                         |
+       +-----------------+------------------+
+       |                 |                  |
+Identity / Users /   Library / Metadata   MediaSession /
+Profiles / Grants    / History            Streaming /
+                                          Transcoding
+                         |
+                         v
+                Backend orchestration
+                         |
+                         v
+                Backend Agents / VDR
+~~~
 
----
+Binding rules:
 
-## 1. Federated MultiBackend / neighbor-house sharing
+- the existing Web frontend remains a full browser client, reference client and important administration surface;
+- it must remain stable, fast and functional, but productization does not require a framework rewrite before platform work;
+- no first-party or third-party client may establish private VDR, SuiteBridge, RESTfulAPI, Agent or provider shapes as public contracts;
+- a missing general client capability is evaluated first as a platform/API capability, not solved as a proprietary client bypass;
+- platform-appropriate mature player engines are preferred over a universal Suite-owned decoder/player core;
+- provider, Agent and VDR-local credentials or URLs never become permanent client credentials or public media contracts.
+
+## Existing identity foundation — reuse, do not reinvent
+
+Phase 62 already provides a real persistent security foundation:
+
+- Actor identity and actor type;
+- Device identity;
+- Session identity;
+- Credential identity and verifier storage;
+- browser-session issuance, revocation, expiry and CSRF;
+- exact actor permission grants and backend scope;
+- fixed role expansion;
+- server-side authorization;
+- accountability evidence.
+
+The production repositories already persist security actors, devices, sessions, credentials, credential verifiers, browser-session credentials and actor permission grants. Managed Basic and browser sessions resolve into the same persistent security context. Legacy Basic remains an explicitly transitional compatibility mode.
+
+This is the security-principal foundation for productization. It is not yet the complete household/user/profile product model.
+
+### Identity concepts that must remain distinct
+
+~~~text
+Actor
+  security principal used for authentication, authorization and accountability
+
+Human User / Account
+  human-owned account and administrative lifecycle
+
+Profile
+  household/media persona with personal media and UI state
+
+Credential
+  secret/verifier/certificate binding used to authenticate an identity
+
+Session
+  bounded authenticated runtime context
+
+Device / Client
+  revocable client/device identity and policy context
+
+Permission / Grant
+  allowed operation over an explicit resource scope
+
+Backend / Library / Content Scope
+  resources to which a grant applies
+
+Capability
+  technical ability of a backend or client; never authorization
+~~~
+
+An Actor is not synonymous with a Human User or Profile. Actors may also represent API clients, services, remote VDR-Suite peers or other technical identities.
+
+No second identity authority may be created beside the Phase-62 repositories and authorization path. Productization must extend or explicitly map the existing authority.
+
+## Binding productization sequence
+
+These steps are cross-cutting product work. They do not renumber the strict numbered phase sequence.
+
+### P0 — Platform Direction / Documentation Alignment
+
+Status: **this documentation slice**.
+
+- reflect Phase-69 completion in current planning authorities;
+- make backend-first/client-platform direction explicit;
+- keep Plex/Jellyfin as product/reife comparisons only;
+- define Web as browser/admin/reference client;
+- make stable /api/v1 the supported independent-client boundary.
+
+### P1 — Identity Model Audit
+
+Before product code, inventory live main and prove the gap between the existing security Actor model and a human household/multiuser model.
+
+Inventory at minimum:
+
+- Actor and actor types;
+- Human User/Account representation, if any;
+- Credential;
+- Device;
+- Session;
+- Role;
+- Grant;
+- Backend scope;
+- persistence ownership;
+- lifecycle, revocation and recovery rules;
+- later changes made after Phase 62.
+
+The first implementation slice must be chosen only after this audit. It must not create a parallel identity store or treat Actor as a synonym for User.
+
+### P2 — Account Administration Read Model
+
+Expose stable administrative read resources for the existing authority first, when that is the smallest coherent boundary:
+
+- human accounts and supported actor identities;
+- roles;
+- grants;
+- backend access;
+- credential metadata without secrets;
+- sessions;
+- devices.
+
+Read-only is preferred for the first slice if mutation lifecycle, revision or bootstrap decisions are not yet complete.
+
+### P3 — Account / Grant Administration
+
+Productize the existing Roadmap milestone **Account and Backend Access Administration**:
+
+- create, update, disable and recover supported human accounts;
+- grant/revoke roles and permissions;
+- manage backend scopes;
+- rotate/revoke supported credentials;
+- use revision-safe and fully accountable mutations;
+- never return stored password material or reusable verifier secrets.
+
+This step also owns the product bootstrap/recovery contract described below. Generic user administration belongs to the persistent Suite identity store, not to /etc/vdr-suite.
+
+### P4 — Household / Profile Model
+
+Add a media persona layer separate from security Actors.
+
+Example profiles may include Holger, Partner, Kind and Gast. Managed/child profiles may be supported, but exact parental policy is a later bounded decision.
+
+A Profile may be selected after authentication without silently becoming an independent authentication authority.
+
+### P5 — Per-Profile Media State
+
+Move personal media state behind Profile identity before personalized recommendations.
+
+At minimum:
+
+- Continue Watching;
+- playback position;
+- Recently Watched / History.
+
+Later extensions may include Favorites, preferences and recommendation input.
+
+Required truth:
+
+~~~text
+Profile Holger:
+  Recording A = 38 minutes
+
+Profile B:
+  Recording A = 4 minutes
+~~~
+
+Global shared playback/history state is not sufficient for personalized Phase-70 recommendation work.
+
+**Phase 70 personalized recommendation implementation is blocked until P5 has a stable profile-scoped media-state contract.**
+
+### P6 — Device & Session Management
+
+Make client/device state visible and revocable for devices such as:
+
+- living-room TV;
+- VIDAA TV;
+- Android TV;
+- Kodi;
+- smartphone;
+- browser;
+- desktop client.
+
+Device trust, session state, User/Profile selection and permissions remain distinct.
+
+Device capability may constrain media delivery but never grants authorization.
+
+### P7 — Scoped Content Access
+
+Extend existing backend scope only after the core account/profile model is stable.
+
+Potential scopes include:
+
+- Library scope;
+- Recording folder/collection scope;
+- Channel group scope;
+- other explicit content scopes proven by a real product requirement.
+
+Example child profile policy may allow a children library and streaming while denying Recording deletion and Timer mutation.
+
+### P8 — Remote Access Contract
+
+Remote access uses the same platform boundary as local access:
+
+- authenticated identity;
+- Device trust;
+- User/Profile context;
+- permission and content policy;
+- MediaSession;
+- short-lived MediaAccessGrant.
+
+Remote access must not be implemented as a permanent Streamdev/VDR/provider URL, exposed private plugin port or provider-specific client hack.
+
+Independent VDR-Suite federation remains the separate reciprocal-site model from ADR-0060/0061 and reuses the same owner-side authorization principles.
+
+### P9 — Client Contract / SDK Layer
+
+Publish and maintain stable /api/v1 models and client semantics for:
+
+- TV;
+- Android;
+- Kodi;
+- desktop;
+- Web;
+- later supported clients.
+
+SDK/helpers may normalize public API usage, errors, pagination, revisions, sessions and MediaSession semantics. They must not encode private backend knowledge.
+
+### P10 — First-party Client Rollout
+
+Roll out high-quality clients only on the stable platform boundary.
+
+Kodi target:
+
+~~~text
+Kodi UI / Kodi Player
+        |
+        v
+VDR-Suite Add-on
+        |
+        v
+      /api/v1
+        |
+        v
+   MediaSession
+~~~
+
+TV, VIDAA, Android and desktop clients follow the same ownership rule. Platform-native or mature player engines remain behind Suite playback semantics.
+
+## Admin bootstrap and installation direction
+
+The current Legacy Basic and Managed Basic mechanisms are compatibility/foundation mechanisms, not the final human-account product workflow.
+
+Target direction for fresh production installs:
+
+- no default administrator credential;
+- no permanent product default such as admin / vdr-suite;
+- /etc/vdr-suite contains system/deployment configuration such as Security Mode, listen address, TLS, database path, session policy and external identity-provider configuration;
+- normal human accounts, credentials, grants, devices and sessions live in the persistent Suite identity store;
+- password-based local accounts store only modern salted one-way verifiers, never plaintext or reversible passwords.
+
+First administrator bootstrap target:
+
+~~~text
+apt install vdr-suite
+        |
+        v
+unclaimed server
+        |
+        v
+root/operator starts one-time bootstrap
+        |
+        v
+short-lived setup code
+        |
+        v
+Web setup
+        |
+        v
+first administrator account
+        |
+        v
+bootstrap credential permanently invalidated
+~~~
+
+Source installation and Debian/Ubuntu packages must use the same Suite identity/bootstrap lifecycle. Packaging may invoke or document the bootstrap but must not create a package-specific user database.
+
+Local root/operator recovery should create a short-lived, auditable recovery flow. Manual SQLite editing is not a product recovery workflow.
+
+The exact bootstrap credential format, expiry, endpoint and recovery mutation contract require their own bounded implementation decision in P3; this roadmap defines ownership and safety direction, not a hidden second authentication protocol.
+
+## TV / app pairing direction
+
+First-party living-room and device clients should support a bounded approval flow:
+
+~~~text
+TV app first start
+   |
+   v
+server discovery / selection
+   |
+   v
+short-lived pairing request
+   |
+   v
+QR code + human code
+   |
+   v
+trusted browser / phone approval
+   |
+   v
+server registers device
+   |
+   v
+TV receives revocable device credential
+~~~
+
+Rules:
+
+- the QR code does not contain a permanent credential;
+- pairing never grants administrator rights by itself;
+- Device Trust, User Identity, Profile and Permission are separate;
+- a device may narrow effective policy but never broaden the User/Profile grants;
+- sensitive destructive/admin actions may later require PIN or re-authentication.
+
+Conceptually:
+
+~~~text
+effective authorization
+  = user/actor permission
+  INTERSECT device policy
+  INTERSECT backend/content policy
+  INTERSECT capability availability
+~~~
+
+Capability here means technical ability such as H.264, HEVC, AV1, AC3, resolution or HDR. Capability is never permission.
+
+A household TV may present a post-authentication profile picker such as:
+
+~~~text
+Who is watching?
+
+[ Holger ] [ Partner ] [ Kind ]
+~~~
+
+Personal devices may bind directly to an allowed default User/Profile when policy permits.
+
+The exact device-pairing credential schema and approval lifecycle must be finalized in P6 against the existing Phase-62 Device/Credential/Session authority.
+
+## Federation / neighbor-house sharing
+
+The existing federation direction remains valid and separate from ordinary remote client access.
 
 ### Product model
 
-```text
+~~~text
 House A
 VDR A + VDR-Suite A
         |
@@ -46,243 +405,77 @@ VDR A + VDR-Suite A
         |
 House B
 VDR B + VDR-Suite B
-```
+~~~
 
-Both installations remain autonomous.
+Both installations remain autonomous. Pairing itself grants nothing.
 
-House A decides what House B may do on A.
-House B independently decides what House A may do on B.
-
-Pairing itself grants nothing.
-
-### Example
-
-```text
-House A grants House B:
-  Recordings list/view       YES
-  Recordings stream          YES
-  Live TV                    YES
-  Timer create               YES
-  Timer modify/delete        NO
-  Marks/cutting              YES
-  Recording delete/purge     NO
-
-House B grants House A:
-  Recordings list/view       YES
-  Recordings stream          YES
-  Live TV                    NO
-  Timer create               NO
-  Marks/cutting              NO
-```
-
-The product must support asymmetric grants like this.
-
-### Existing foundations reused
-
-- ADR-0013 Actor/Permission architecture;
-- ADR-0020 remote VDR-Suite as backend/source;
-- Phase-62 actor identity/RBAC/accountability;
-- Phase-63 Backend Agent and secure multi-site trust primitives;
-- Phase-64 Timer orchestration;
-- Phase-65 MediaSession/Gateway;
-- ADR-0059 native Recording marks/cutting authority.
-
-Backend Agent multi-site and independent VDR-Suite federation are related but not identical:
-
-```text
-Agent model:
-one Control Plane owns/orchestrates a remote backend
-
-Federation model:
-two Control Planes remain independent and authorize each other as peers/actors
-```
-
-### Required product workflow
+Required workflow:
 
 - create a one-time peer invitation/pairing request;
 - approve it on the other VDR-Suite;
 - establish revocable authenticated site identity;
-- exchange only bounded capabilities/identity needed for federation;
 - configure A->B and B->A grants separately;
 - optionally approve delegated remote users;
-- show remote permitted resources in normal backend-aware views;
+- expose only owner-authorized Suite resources;
 - revoke/rotate peer trust without exposing raw VDR/plugin credentials.
 
-### Media
+Remote Recording/Live playback goes through the owner site's MediaSession/Gateway. Protected mutations execute through the owner site's normal authorization, revision, idempotency, accountability and reconciliation paths.
 
-Remote Recording/Live playback goes through the **owner site's** MediaSession/Gateway. A peer never receives permanent Streamdev/SuiteBridge/provider credentials.
+Binding architecture: [ADR-0060](../adr/ADR-0060-federated-vdr-suite-sharing-reciprocal-site-trust.md) and [ADR-0061](../adr/ADR-0061-actor-permissions-federation-client-access.md).
 
-### Mutations
+## First-party living-room client
 
-Remote Timer, marks/cut, rename/move/delete operations execute through the **owner site's** normal protected mutation path and are authorized there.
+The browser remains a supported first-party client, but it is not the only product presentation target.
 
-### Local backend catalog
+A VDR output plugin may be used as a thin integration/hosting boundary, never as a second Control Plane, media authority or private-provider client.
 
-A durable local catalog remains useful implementation infrastructure for local backends, Agent-managed remote backends and registered federated peers. It is **not the definition of MultiBackend federation**.
-
-Binding architecture: [ADR-0060](../adr/ADR-0060-federated-vdr-suite-sharing-reciprocal-site-trust.md).
-
----
-
-## 2. Federation permissions
-
-The permission model is operation- and resource-scoped, continuing ADR-0013.
-
-At minimum the product must distinguish:
-
-- Recording view/list;
-- Recording stream/play;
-- marks;
-- cut;
-- rename/move;
-- trash/restore/delete/purge;
-- Live TV;
-- Timer view/create/modify/delete;
-- SearchTimer/automation rights where exposed;
-- later Legacy OSD view/control separately.
-
-The owner may additionally restrict Recording folders, channels/channel groups and backend scope.
-
-A frontend is not the security authority. Web, television, Kodi/mobile or another client only presents the effective grants; the owning server enforces them.
-
-Pure clients are first-class permissioned consumers. A browser, VDR output/living-room frontend, Android app, TV app, Kodi/mobile client or other API client may authenticate/pair and receive scoped rights **without providing a VDR, BackendNode or reciprocal federation source**. Federation is additional capability, not a prerequisite for access.
-
-Binding architecture: [ADR-0061](../adr/ADR-0061-actor-permissions-federation-client-access.md).
-
-
-## 3. First-party VDR output / living-room client
-
-### Product goal
-
-Provide a first-party television client that can replace the browser as the primary living-room presentation while preserving VDR-Suite ownership.
-
-The intended user-facing capability includes:
-
-- Live TV;
-- Recordings and resume;
-- EPG, Home and search;
-- playback controls and track selection;
-- Teletext and HbbTV integration through their existing Suite domains;
-- later Legacy OSD compatibility through Phase 68;
-- remote-control/key input mapped to normalized Suite actions;
-- hardware-accelerated decode/rendering on supported hardware.
-
-### Architecture
-
-```text
-VDR-Suite domains / stable client contract
-  -> first-party living-room client
-  -> Suite MediaSession / MediaPlaybackContract
-  -> platform playback engine
-  -> DRM/KMS/Wayland/X11/audio output as selected by the client implementation
-```
-
-A VDR output plugin is a supported integration direction, but it must remain a **thin host/integration boundary**. It must not become:
-
-- a second MediaSession owner;
-- a second authorization/control plane;
-- a direct SQLite client;
-- a direct RESTfulAPI/SuiteBridge client for normal product behavior;
-- a provider-selector;
-- a place where long-running network/transcode work executes under VDR locks.
-
-If implementation evidence shows that decode/render lifecycle is safer in a companion process, the VDR plugin may be paired with that process while the Suite client contract remains unchanged.
-
-### Hardware direction
-
-The architecture is not tied to one GPU vendor. The current yaVDR reference system with Intel Gemini Lake/UHD 605 and VAAPI is a required real-system acceptance target for the first Linux implementation. Legacy VDPAU-only hardware such as GT 210 is compatibility/legacy scope, not the primary design center.
-
-### Sequencing
-
-Development experiments may happen earlier, but a **supported first-party client contract** is gated on Phase 69 so the client is not built against transitional private endpoints.
+The first Linux/yaVDR implementation continues to target mature hardware-accelerated playback on the supported Intel reference system, with platform-specific engines hidden behind MediaPlaybackContract semantics.
 
 Binding architecture: [ADR-0062](../adr/ADR-0062-first-party-living-room-output-client.md).
 
----
+## Debian/Ubuntu release packaging
 
-## 4. Debian/Ubuntu release packaging
+ADR-0037 remains the install-layout authority. Phase 69 has now satisfied the public-contract gate that previously blocked release-grade packaging.
 
-ADR-0037 already established staged install layout and the rule that internal C++ modules are not a promised public ABI. The remaining work is real distribution packaging.
+Required package work includes:
 
-### Gate
-
-Release-grade Debian/Ubuntu packaging starts after Phase 69 Public API and Client Compatibility Hardening.
-
-Reason: packaging should freeze supported service/client/install contracts, not transitional internals. This does not prevent maintaining `make install DESTDIR=...` readiness before Phase 69.
-
-### Required package work
-
-The packaging milestone must add and validate:
-
-- canonical `debian/` packaging metadata;
-- `dpkg-buildpackage`/equivalent reproducible package build;
-- Build-Depends and runtime Depends/Recommends/Suggests;
-- architecture declarations and supported Debian/Ubuntu baseline;
-- systemd units and enable/start policy;
-- tmpfiles/runtime-directory ownership where needed;
-- conffile policy under `/etc/vdr-suite`;
-- state/cache/log ownership under FHS-compatible paths;
-- database schema migration behavior during upgrades;
-- upgrade from at least one previous supported package version;
-- rollback/reinstall recovery strategy;
+- canonical Debian packaging metadata;
+- reproducible package build;
+- dependencies and architecture declarations;
+- systemd lifecycle;
+- conffile policy under /etc/vdr-suite;
+- state/cache/log ownership;
+- schema migration and upgrade behavior;
 - remove versus purge semantics;
-- package ownership of SuiteBridge, Backend Agent, Web assets and optional living-room client/plugin artifacts;
-- dependency handling for FFmpeg, VDR plugin ABI/package versions and optional hardware acceleration;
-- clean-install acceptance on a fresh Debian/Ubuntu host;
-- package-upgrade acceptance on the real yaVDR target;
-- staged install parity: package contents must come from the same supported install contract rather than a parallel hand-maintained file list;
-- lint/build-policy checks appropriate to the target distributions;
-- source-package and binary-package artifact documentation.
+- SuiteBridge/Agent/Web/client artifact ownership;
+- fresh-install and upgrade acceptance on supported Debian/Ubuntu/yaVDR targets.
 
-### Package-boundary principles
-
-Exact binary package names remain a packaging decision until the manifest is implemented, but the conceptual split is:
-
-```text
-server/runtime
-web assets
-CLI/admin tooling
-Backend Agent
-VDR-local SuiteBridge integration
-optional first-party living-room/output integration
-documentation
-optional test/debug tooling (not installed by default)
-```
-
-No `-dev` package or public C++ ABI is implied unless a future ADR explicitly creates one.
-
-### Acceptance
-
-The release package is not accepted until:
-
-1. a fresh install produces a bootable, enabled/disabled-as-documented service state;
-2. configuration survives package upgrades correctly;
-3. database migration succeeds without losing recordings/timers/metadata policy state;
-4. uninstall leaves user data according to documented remove semantics;
-5. purge removes only package-owned configuration/state according to documented policy;
-6. package install does not overwrite locally managed secrets;
-7. SuiteBridge/plugin ABI compatibility failure is detected rather than silently starting an incompatible runtime;
-8. the packaged result passes the same real yaVDR Golden paths used by source installs.
+Package boundaries must not introduce a second account database or secret store. The package participates in the same bootstrap/recovery and persistent identity lifecycle described above.
 
 Binding install boundary: [ADR-0037](../adr/ADR-0037-packaging-install-api-boundary.md).
 
----
-
 ## Execution relationship to numbered phases
 
-These milestones are binding productization work but are intentionally not inserted as surprise numbered runtime phases.
+~~~text
+Phase 69 Public API hardening [COMPLETED]
+  -> P0 documentation/platform direction
+  -> P1 Identity Model Audit
+  -> P2 Account Administration Read Model
+  -> P3 Account / Grant Administration
+  -> P4 Household / Profile Model
+  -> P5 Per-Profile Media State
+  -> P6 Device & Session Management
+  -> P7 Scoped Content Access
+  -> P8 Remote Access Contract
+  -> P9 Client Contract / SDK Layer
+  -> P10 First-party Client Rollout
 
-```text
-Phase 68 Legacy OSD
-  -> Phase 69 Public API hardening
-       -> stable independent-client boundary
-       -> supported living-room client rollout
-       -> release-grade Debian/Ubuntu packaging
+Phase 70 Recommendation / Content Knowledge Graph
+  -> remains the next strict numbered phase
+  -> is not started by this roadmap
+  -> personalized recommendation work requires P5 first
+~~~
 
-Federation + permissioned-client product work
-  -> may be implemented as explicit cross-cutting product work
-  -> must preserve Phase 62/63/64 authority and fencing
-  -> must not silently advance Phase 68/69
-```
+Adjacent cross-cutting milestones remain valid where they do not conflict with this sequence: Broad Timer Product UI, audit/security/operations surfaces, Legacy Basic retirement, federation and release packaging.
 
-Any implementation still requires an explicit kickoff and current-main evidence before code changes.
+Every implementation slice still requires a live-main audit and its own bounded authorization. Historical Phase documents remain historical evidence and are not rewritten by this plan.
