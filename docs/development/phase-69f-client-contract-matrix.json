@@ -272,7 +272,7 @@
   "derivedNextRuntimeCandidate": {
     "domain": "phase69-complete",
     "proposedTemplate": null,
-    "reason": "All eight stable public-v1 method/resource contracts are exactly covered by accepted reference-client methods, all explicit browser route fallbacks are retired, and the live closeout audit found no remaining bounded Phase-69 runtime gap. Phase 70 is not started and requires its own accepted runtime ADR before implementation."
+    "reason": "Phase 69 closed with eight stable public-v1 method/resource contracts and exact accepted reference-client coverage. Post-Phase-69 additive contracts must preserve that baseline, keep exact current reference coverage, and must not reopen Phase 69. Phase 70 remains independent."
   },
   "publicClientReferences": [
     {
