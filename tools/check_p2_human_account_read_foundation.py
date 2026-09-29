@@ -68,7 +68,7 @@ def main():
     )
     require(
         "doc",
-        "No public /api/v1/accounts route is added in this slice.",
+        "No public `/api/v1/accounts` route is added in this slice.",
     )
     require(
         "make",
