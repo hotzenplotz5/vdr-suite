@@ -33,7 +33,7 @@ The Strict Roadmap owns future phase sequencing. ADRs own stable architecture an
 Canonical ADR sequence currently runs through:
 
 ```text
-ADR-0064
+ADR-0065
 ```
 
 Latest accepted ADRs at the end of the sequence:
@@ -55,7 +55,7 @@ Latest accepted ADRs at the end of the sequence:
 Next available canonical ADR:
 
 ```text
-ADR-0065
+ADR-0066
 ```
 
 Rules:
@@ -151,7 +151,7 @@ Rules:
 
 ## Proposed Canonical ADRs
 
-None.
+- [ADR-0065: Human Account, Profile and Device Identity Boundary](ADR-0065-human-account-profile-device-identity-boundary.md)
 
 ---
 

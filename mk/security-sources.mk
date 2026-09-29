@@ -30,6 +30,7 @@ BROWSER_SESSION_HTTP_SRC := \
 
 test-security-architecture:
 	python3 tools/check_security_identity_architecture.py
+	python3 tools/check_p1_identity_authority_audit.py
 	python3 tools/check_browser_session_issuance_architecture.py
 	python3 tools/check_browser_session_issuer_binding.py
 	python3 tools/check_browser_session_concurrency_limit.py
