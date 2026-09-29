@@ -119,7 +119,10 @@ int main()
         assert(!decision.allowed);
         assert(decision.rejection.statusCode == 403);
         assert(decision.rejection.body.find(
-            "permission_denied") != std::string::npos);
+            "\"code\":\"forbidden\"") != std::string::npos);
+        assert(hasDecisionEvent(
+            fixture.accountabilityRepository,
+            "permission_denied"));
     }
 
     {
