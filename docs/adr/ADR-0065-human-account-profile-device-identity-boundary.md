@@ -86,7 +86,14 @@ Capability describes technical ability such as codec, HDR or resolution; it neve
 
 Independent clients consume stable `/api/v1` contracts. Human-account administration must not expose private VDR, SuiteBridge, Agent, provider, RESTfulAPI or SVDRP identities as public client authority.
 
-No Account endpoint is introduced until explicit Human Account persistence exists.
+Architecture prerequisite: No Account endpoint is introduced until explicit Human Account persistence exists.
+
+Explicit Human Account persistence now exists in the Suite security authority. A
+stable read-only Account collection may therefore expose the secret-free Account
+read model through `/api/v1`, provided the Security gate authorizes the global
+`accounts.view@*` permission before dispatch. This does not authorize Account
+mutation, credential exposure, Profile conflation or direct SQLite access from
+the HTTP layer.
 
 ## Consequences
 

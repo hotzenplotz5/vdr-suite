@@ -50,6 +50,8 @@
 #include "Database.h"
 #include "IHttpClient.h"
 #include "ISearchTimerDiscoveryProvider.h"
+#include "HumanAccountReadService.h"
+#include "HumanAccountRepository.h"
 #include "IVdrAdapter.h"
 #include "IHttpServer.h"
 #include "JobDashboardService.h"
@@ -231,6 +233,8 @@ private:
     std::unique_ptr<JobRepository> jobRepository_;
     std::unique_ptr<RecordingRepository> recordingRepository_;
     std::unique_ptr<MetadataRepository> metadataRepository_;
+    std::unique_ptr<HumanAccountRepository> humanAccountRepository_;
+    std::unique_ptr<HumanAccountReadService> humanAccountReadService_;
 
     std::unique_ptr<JobDashboardService> jobDashboardService_;
     std::unique_ptr<RecordingDashboardService> recordingDashboardService_;

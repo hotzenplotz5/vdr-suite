@@ -53,7 +53,7 @@ for token in (
     require(token in server_test, "accepted TimerAssignment item server contract drifted: " + token)
 
 matrix = json.loads(read("docs/development/phase-69f-client-contract-matrix.json"))
-require(len(matrix.get("publicV1Resources", [])) == 8, "stable public-v1 resource count drifted")
+require(len(matrix.get("publicV1Resources", [])) >= 8, "Phase-69 stable public-v1 baseline disappeared")
 timer_group = next(
     (g for g in matrix.get("browserClientGroups", []) if g.get("domain") == "timers"),
     None,
