@@ -60,7 +60,7 @@ A gap is not closed by an ADR alone. Closure requires implementation, tests and 
 | G-22 | Agent authentication and credential lifecycle | Closed foundation | Agent identity, enrolled trust and credential generation/lifecycle are established. | ADR-0041 |
 | G-23 | Explicit multi-site trust boundary | Closed foundation | Agent/backend/site identity and generation fencing provide the platform trust boundary; media and later domains must reuse it. | ADR-0039-0041 |
 | G-24 | Accountability and security events | Closed foundation | Append-only authorization/mutation accountability exists; broader audit reader/export/redaction/retention is a cross-cutting product milestone. | ADR-0049 |
-| G-25 | Stable public API version/error/compatibility contract | Active — Phase 69.C | 69.A inventory and 69.B common request/error foundations are accepted; revision/precondition/idempotency exposure is active before broader resource migration. | ADR-0048 / Phase 69 kickoff / Phase 69.B closeout |
+| G-25 | Stable public API version/error/compatibility contract | Closed foundation | Phase 69.A-F is completed: the declared stable public-v1 set has accepted compatibility/error/revision/collection semantics and exact independent reference-client coverage. Pre-v1/private domains remain intentionally separate. | ADR-0048 / Phase 69 Closeout |
 | G-26 | Provider capability degradation and disablement | Strong foundation | Explicit provider ownership/capability rules exist; every new provider operation must fail closed when unsafe/unavailable. | ADR-0007, ADR-0012, ADR-0048 |
 | G-27 | epgd/epg2vdr/provider expansion | Deferred | New providers must feed Suite-owned identity/evidence boundaries rather than shared DB/public-provider coupling. | ADR-0038, ADR-0045 |
 | G-28 | Shared/remote Recording storage semantics | Deferred/partial | Path equality is not shared-storage identity; cross-site storage mutation needs explicit ownership. | ADR-0014, ADR-0042, future storage decision |
@@ -72,33 +72,53 @@ A gap is not closed by an ADR alone. Closure requires implementation, tests and 
 | G-34 | Client playback engine / media adaptation boundary | Closed foundation | Phase 65 completed browser Recording/Live playback, least-transformation selection, persistent ownership, seek/restart, normalized tracks, Volume/Mute, bounded fMP4 buffering and sync-safe exact HLS resume without another player core. | ADR-0053, ADR-0055 / Phase 65.D |
 | G-35 | Golden vertical product acceptance | Strong planning foundation | Component CI is complemented by real end-to-end Timer/media/failure journeys as capabilities land. | Golden User Journeys |
 | G-36 | Broad Timer Product UI | Planned cross-cutting milestone | Phase-64 engine is complete, but intent-first polished UI remains gated on required account/backend access administration. | Phase 62 + Phase 64 + Roadmap milestone |
-| G-37 | Account/backend access administration product | Planned cross-cutting milestone | Core RBAC exists; generic user/grant/backend administration surfaces were intentionally deferred from Phase 62. | Phase 62 foundation |
+| G-37 | Account/backend access administration product | Planned — P1-P3 | Core RBAC exists; productization must first audit Actor versus Human User/Profile, then add stable admin reads and audited account/grant/backend-scope lifecycle without a second identity authority. | Phase 62 foundation / Productization P1-P3 |
 | G-38 | Teletext domain service | Closed foundation | Canonical service/page/subpage domain, fenced provider/Agent path, authorized HTTP reads and first-party 25 x 40 browser/TV rendering are implemented and accepted on real yaVDR. | ADR-0054 / Phase 67 Teletext closeout |
 | G-39 | HbbTV broadcast application domain/runtime | Closed foundation | Canonical HbbTV discovery, authorized application session, normalized input and presentation/media runtime are implemented without public raw plugin/browser commands and accepted on real yaVDR. | ADR-0054 / Phase 67 closeout |
 | G-40 | Legacy Basic retirement | Deferred deployment migration | Transitional compatibility remains until enforced-mode rollout, recovery and upgrade/rollback are proven. | Phase 62 closeout / deployment milestone |
-| G-41 | Recommendation/content graph | Deferred vision | Requires stable identities, privacy/preferences, provenance and Phase-69 public resource semantics plus a dedicated ADR. | future ADR / Phase 70 |
+| G-41 | Recommendation/content graph | Deferred — Phase 70 | Requires stable content identity/provenance, completed Phase-69 public semantics and P5 Profile-scoped media state before personalized recommendation implementation, plus a dedicated accepted runtime ADR. | Productization P5 / future ADR / Phase 70 |
 | G-42 | Normalized playback presentation/timeline/continuity/failure semantics | Closed foundation | ADR-0056 mandatory semantics are completed: provider-free `MediaPlaybackContract`, canonical owner lifecycle publication, explicit presentation generation/discontinuity and classified failures. | ADR-0056 / Phase 65.D |
-| G-43 | Responsive Media Home / browse-first preview composition | Planned; architecture accepted | ADR-0058 and the Phase-66 contract define responsive Home composition, Live hero browsing, deferred preview, truthful Continue Watching, discovery rails and desktop/mobile Golden Journeys. Runtime has not started. | ADR-0058 / Phase 66 |
+| G-43 | Responsive Media Home / browse-first preview composition | Closed foundation for accepted scope | Phase 66 and later bounded hardening implemented responsive Home, Live hero/deferred preview, Continue Watching, discovery/history and accepted desktop/mobile journeys. Future per-Profile state is a separate P5 productization gap. | ADR-0058 / Phase 66 Closeout |
+| G-44 | Security Actor versus Human User / Profile model | Open — P1 audit | Phase 62 persists security principals and lifecycle state, but the live product model must prove how Human User/Account and Profile map to Actor without treating them as synonyms or creating a second identity authority. | Productization P1 / ADR-0013 / ADR-0041 |
+| G-45 | Household/Profile and per-Profile media state | Open — P4-P5 | Current Continue Watching/playback/history foundations are not yet a proven household Profile authority. Personal playback/history must be Profile-scoped before personalized recommendation. | Productization P4-P5 / Phase 66 foundations |
+| G-46 | Device/session administration and TV/app pairing | Open — P6 | Device/session identity exists, but product-visible revocation, device policy and short-lived approval/pairing for living-room clients remain unproductized. Device trust must not grant User/Profile permissions. | Productization P6 / ADR-0041 / ADR-0061 / ADR-0062 |
+| G-47 | Scoped content access beyond backend scope | Open — P7 | Backend-scoped grants exist. Library, Recording-folder/collection and Channel-group scopes require explicit resource ownership and server-side enforcement before product exposure. | Productization P7 / ADR-0013 / ADR-0061 |
+| G-48 | First-admin bootstrap and operator recovery | Open — P3 / packaging | Legacy/Managed Basic are foundation/compatibility mechanisms, not the final account bootstrap. Fresh installs need no default admin, one-time claim/bootstrap and auditable local recovery using the same persistent identity authority. | Productization P3 / ADR-0037 / ADR-0041 |
+| G-49 | Remote client access contract | Open — P8 | Remote clients must reuse authentication, device/profile policy, permissions, MediaSession and short-lived MediaAccessGrant rather than exposed private VDR/plugin/provider endpoints. | Productization P8 / ADR-0041 / ADR-0046 / ADR-0061 |
+| G-50 | Public client contract / SDK layer | Planned — P9 | Phase 69 stabilizes the declared public-v1 seam. Supported TV/Android/Kodi/Desktop/Web client helpers and models must stay provider-free and public-contract-only. | Productization P9 / ADR-0048 / ADR-0062 |
 
 ## Priority view
 
-### Next numbered runtime product domain — Phase 66
+### Completed platform gates
 
-Media Home / Browse architecture is accepted via ADR-0058; runtime remains not started and requires a separate explicit kickoff. Slice 66.1 is Home Shell and Responsive Information Architecture. Later slices add Live hero browsing, deferred canonical preview, truthful Continue Watching, Recording discovery rails, explicit history semantics if needed, accessibility/polish and real desktop/mobile acceptance.
+Phase 68 Legacy OSD and Phase 69 Public API/Client Compatibility Hardening are completed. G-25 is therefore a closed public-contract foundation, not active Phase-69 work.
 
-Phase 66 preserves completed Phase-65 MediaSession/playback ownership and existing Channel/ProgramEvent/Recording/Metadata/Genre/artwork truth. Browse focus remains independent of preview state; stale preview must be canceled/relinquished; browser-local state is not fabricated into cross-client authority.
+### Next cross-cutting productization boundary — P1
 
-### Current television product domain — Phase 67
+P1 — Identity Model Audit is the next planned productization boundary after documentation alignment.
 
-Phase 67 is completed. Teletext and HbbTV discovery/application-session/presentation-media runtime are implemented and accepted. Phase 68 Legacy OSD is also completed through fenced allowlisted native input.
+The audit must inventory the live Phase-62-and-later Actor, Credential, Device, Session, Role, Grant and backend-scope authority and prove the missing Human User/Profile model before implementation. No second identity store or Actor=User shortcut is permitted.
 
-### Later compatibility/platform work
+### Productization dependency chain
 
-Legacy OSD (Phase 68), public API hardening (Phase 69), storage federation and Recommendation/Content Graph (Phase 70) remain separate.
+~~~text
+P1 Identity Model Audit
+  -> P2 Account Administration Read Model
+  -> P3 Account / Grant Administration + bootstrap/recovery
+  -> P4 Household / Profile Model
+  -> P5 Per-Profile Media State
+  -> P6 Device & Session Management
+  -> P7 Scoped Content Access
+  -> P8 Remote Access Contract
+  -> P9 Client Contract / SDK Layer
+  -> P10 First-party Client Rollout
+~~~
 
-### Cross-cutting product work
+Broad Timer UI, audit/operations, federation, Legacy Basic retirement and packaging remain adjacent cross-cutting work and must reuse the same identity/public-API authorities.
 
-Account/backend access administration, broad Timer UI, audit/operations and client-family rollout may progress when their own prerequisites are met without advancing the numbered phase.
+### Phase 70 gate
+
+Phase 70 remains the next strict numbered runtime phase and is not started. Personalized recommendation work additionally requires P5 Profile-scoped media state so recommendation input is not derived from one globally shared playback/history state.
 
 ## Maintenance rules
 
