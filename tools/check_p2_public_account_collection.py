@@ -92,11 +92,11 @@ def main():
             forbid(name, forbidden)
 
     for marker in (
-        '"accountId"',
-        '"actorId"',
-        '"displayName"',
-        '"active"',
-        '"hasMore"',
+        "accountId",
+        "actorId",
+        "displayName",
+        "active",
+        "hasMore",
         "ac1_",
         "limit=101",
         "sort=displayName",
