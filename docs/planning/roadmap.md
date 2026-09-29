@@ -873,30 +873,31 @@ retains its exact-head real-yaVDR acceptance from 69.C. See
 
 Status: **Next; not started.**
 
-A dedicated accepted ADR is required before implementation.
+A dedicated accepted ADR is required before implementation. Phase 70 remains the next strict numbered runtime phase, but personalized recommendation work is additionally gated by the cross-cutting productization sequence below.
 
 ### Prerequisites
 
 - stable Recording/ProgramEvent/MetadataEntity identity and provenance;
-- mature people/genre/metadata graph foundations;
-- actor privacy/preferences and authorization;
+- stable public resource semantics from completed Phase 69;
+- explicit Human User/Profile ownership rather than treating security Actor as the media persona;
+- P5 per-Profile Continue Watching, playback position and history;
+- privacy/preferences and authorization over the selected Profile;
 - accountability boundaries;
-- stable public resource semantics from Phase 69;
 - explicit correction and explainability behavior.
 
 ### Direction
 
 Potential domain flow:
 
-```text
+~~~text
 stable content identities
   -> provenance-aware facts and relations
-  -> actor-scoped preferences/history
+  -> Profile-scoped preferences/history
   -> deterministic baseline ranking
   -> explainable recommendation
   -> optional provider-neutral AI enrichment
   -> user correction / feedback
-```
+~~~
 
 ### Hard boundary
 
@@ -914,26 +915,44 @@ Any later automation using recommendation evidence must enter the owning domain 
 
 # Cross-cutting product milestones
 
-These milestones are intentionally **not inserted as numbered runtime phases**. They may progress when their prerequisites are satisfied without blocking unrelated numbered work.
+These milestones are one binding productization sequence, not a second numbered roadmap. Detailed ownership, bootstrap, pairing and client rules live in [Platform Productization Roadmap](platform-productization-roadmap.md).
+
+Phase 69 is complete. The next planned cross-cutting boundary is **P1 — Identity Model Audit**. No P1 product implementation may assume Actor equals Human User/Profile or create a second identity authority.
+
+| Order | Productization step | Status / purpose |
+| ---: | --- | --- |
+| P0 | Platform Direction / Documentation Alignment | Current documentation alignment after Phase 69. |
+| P1 | Identity Model Audit | Next; inventory Actor/User/Credential/Device/Session/Role/Grant/backend scope and prove the human-account gap. |
+| P2 | Account Administration Read Model | Stable administrative reads first where that is the smallest coherent boundary. |
+| P3 | Account / Grant Administration | Productize account lifecycle, grants, backend scope, bootstrap/recovery and audited revision-safe mutations. |
+| P4 | Household / Profile Model | Separate media personas from security Actors. |
+| P5 | Per-Profile Media State | Profile-scoped Continue Watching, playback position and history; prerequisite for personalized Phase 70. |
+| P6 | Device & Session Management | Visible/revocable TV, Kodi, Android, phone, browser and desktop devices/sessions. |
+| P7 | Scoped Content Access | Extend backend scope with justified library/folder/channel-group scopes. |
+| P8 | Remote Access Contract | Reuse auth/device/profile/permission/MediaSession boundaries; never expose permanent private provider URLs. |
+| P9 | Client Contract / SDK Layer | Stable /api/v1 models for supported TV/Android/Kodi/Desktop/Web clients. |
+| P10 | First-party Client Rollout | High-quality clients on the same public platform contract and mature platform player engines. |
 
 ## Milestone A — Account and Backend Access Administration
 
-Status: **Planned; prerequisite for broad Timer mutation UI.**
+Status: **Planned; realized through P1-P3.**
 
-Phase 62 established the underlying identity/RBAC model but intentionally deferred generic administration product surfaces.
+Phase 62 established persistent Actor/Device/Session/Credential identity, backend-scoped grants, browser security and accountability. It intentionally did not define the complete human-account/profile product.
 
-Required product capability:
+P1 must first inventory the live authority and prove the gap. P2 then establishes stable administrative read models. P3 owns account lifecycle, grant/backend-scope administration, first-admin bootstrap and audited recovery.
 
-- list/manage users or supported actor identities;
-- inspect backend-scoped access grants;
-- grant/revoke supported backend permissions according to policy;
-- Admin and Read-only semantics remain fixed and server-enforced;
-- credential/session management exposes only safe administrative metadata;
-- CSRF, accountability and backend scope remain mandatory;
-- no secret material is returned after issuance where the credential contract forbids it;
-- operator recovery/migration is documented.
+Required invariants:
 
-This milestone may proceed alongside numbered runtime work when implemented as a coherent security/admin product slice.
+- Actor remains the security principal and is not silently renamed into Human User/Profile;
+- the existing persistent Suite identity/authorization authority is extended rather than duplicated;
+- credential/session administration exposes safe metadata only;
+- password material is stored only as modern salted one-way verifiers;
+- no default product administrator or permanent admin / vdr-suite credential is created;
+- /etc/vdr-suite remains deployment/system configuration, not the human user database;
+- CSRF, accountability, backend scope and revision-safe mutations remain mandatory;
+- recovery is an auditable local operator flow, not manual SQLite editing.
+
+This milestone is the prerequisite for Broad Timer Product UI and later scoped-content administration.
 
 ## Milestone B — Broad Timer Product UI
 
@@ -1008,16 +1027,14 @@ This is a deployment compatibility milestone, not a prerequisite for Streaming u
 
 ## Milestone E — First-party client family rollout
 
-Status: **Progressive.**
+Status: **Progressive; mapped to P9-P10 after completed Phase 69.**
 
-- Browser is the first Phase-65 playback validator.
-- Browser/TV surfaces should reuse the same Suite media and broadcast companion semantics.
-- Android/Android TV should use a mature platform engine such as Media3/ExoPlayer behind the Suite playback abstraction.
-- Kodi integration should obtain authorized Suite resources and delegate playback to Kodi's own player; Kodi VideoPlayer is not vendored as the Suite player core.
-- Desktop/Apple/native clients select mature platform-appropriate engines.
-- Independent/third-party client compatibility becomes a formal Phase-69 contract.
-
----
+- Web remains a full browser client plus reference/admin surface; no framework rewrite is a prerequisite for platform work.
+- Android/Android TV uses a mature platform engine such as Media3/ExoPlayer behind Suite playback semantics.
+- Kodi integration consumes /api/v1 and MediaSession, then delegates playback to Kodi's player; Kodi VideoPlayer is not vendored as Suite's universal decoder core.
+- TV/VIDAA and desktop clients use the same stable public contract and platform-appropriate playback engines.
+- no client creates private RESTfulAPI/SuiteBridge/SVDRP/Agent/provider behavior as a supported public contract.
+- missing general client capability is first evaluated as platform/API work rather than a client-only bypass.
 
 # Cross-cutting completion gates
 
@@ -1094,44 +1111,29 @@ A user-visible milestone is not complete from component CI alone.
 
 # Revised forward sequence
 
-```text
+~~~text
 Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
   -> Phase 65 - Streaming Gateway and Media Sessions [COMPLETED]
   -> Phase 66 - Media Home and Browse Experience [COMPLETED]
   -> Phase 67 - Broadcast Companion Services: Teletext and HbbTV [COMPLETED]
   -> Phase 68 - Legacy OSD Compatibility Bridge [COMPLETED]
-  -> Phase 69 - Public API and Client Compatibility Hardening
-  -> Phase 70 - Recommendation and Content Knowledge Graph
-```
+  -> Phase 69 - Public API and Client Compatibility Hardening [COMPLETED]
+  -> Phase 70 - Recommendation and Content Knowledge Graph [NEXT; NOT STARTED]
+~~~
 
-Cross-cutting, non-numbered product milestones:
-
-```text
-Account / Backend Access Administration
-  -> enables Broad Timer Product UI
-
-Audit / Security / Operations product surfaces
-Legacy Basic retirement
-First-party client family rollout
-```
-
-This ordering intentionally places Teletext/HbbTV **before** Legacy OSD because they are ordinary television-domain capabilities and should be modeled domain-first. Legacy OSD remains the compatibility fallback for functions that still lack a proper Suite domain.
-
----
+Cross-cutting productization now proceeds P0 -> P10 as documented above. This does not renumber Phase 70. Personalized Phase-70 work is gated by P5 per-Profile media state.
 
 ## Next authorization boundary
 
-Phase 65, Phase 66 and Phase 67 are completed for their accepted bounded scopes. Phase-67 durable completion evidence is in [Phase 67 Closeout](../development/phase-67-closeout.md).
+The next planned cross-cutting boundary after this documentation alignment is **P1 — Identity Model Audit**.
 
-**Phase 68 - Legacy OSD Compatibility Bridge is active.** Continue from [Phase 68 Kickoff](../development/phase-68-legacy-osd-kickoff.md) and the latest branch evidence after verifying live `main`. Accepted Phase-68 work now covers 68.A through 68.E. The active coherent vertical is 68.F exclusive controller leasing and `osd.control` fencing; native input remains 68.G. Preserve Teletext/HbbTV as structured Phase-67 domains rather than folding them back into Legacy OSD.
+P1 must begin from live main and inventory the existing Phase-62 and later identity/security runtime before choosing any implementation slice. It must prove the gap between Security Actor and Human User/Profile, preserve one identity authority and avoid package/client-specific account stores.
 
-Completed-Recording arbitrary time-seek and stop/resume are accepted for the supported progressive-fMP4 and HLS restart-seek profiles. Growing-Recording seek, Live-TV timeshift and broader VDR-index mapping not required by those accepted paths remain deferred and must stay explicit/fail-safe until separately justified.
+Phase 70 remains not started. This roadmap does not authorize Recommendation/Knowledge-Graph implementation.
 
-Bounded post-Phase-66 performance/correctness hardening does not reopen Phase 66 and does not authorize Phase 67.
+Completed-Recording seek/resume, post-Phase-66 hardening and post-Phase-69 fixes retain their accepted boundaries and do not reopen completed phases.
 
----
-
-## Related documents
+## Related documents## Related documents
 
 - [Current State](../CURRENT.md)
 - [Phase Map](phase-map.md)
@@ -1169,47 +1171,21 @@ Bounded post-Phase-66 performance/correctness hardening does not reopen Phase 66
 
 # Cross-cutting platform productization roadmap
 
-The following milestones are binding product work but do not silently start or renumber Phase 68/69.
+The binding post-Phase-69 sequence is maintained in [Platform Productization Roadmap](platform-productization-roadmap.md):
 
-Detailed plan: [Platform Productization Roadmap](platform-productization-roadmap.md).
+~~~text
+P0 documentation alignment
+  -> P1 Identity Model Audit
+  -> P2 Account Administration Read Model
+  -> P3 Account / Grant Administration
+  -> P4 Household / Profile Model
+  -> P5 Per-Profile Media State
+  -> P6 Device & Session Management
+  -> P7 Scoped Content Access
+  -> P8 Remote Access Contract
+  -> P9 Client Contract / SDK Layer
+  -> P10 First-party Client Rollout
+~~~
 
-## Federated MultiBackend sharing
-
-This continues the architecture already defined by:
-
-- [ADR-0013 Permission Model](../adr/ADR-0013-permission-model.md), where a remote VDR-Suite instance is an Actor and Remote Suite B may have selected Recording rights while Live TV/Timer rights are denied;
-- [ADR-0020 Multi-Source Federation Architecture](../adr/ADR-0020-multi-source-federation-architecture.md), where a BackendNode may wrap a remote VDR-Suite instance.
-
-Binding completion architecture:
-
-- [ADR-0060: Federated VDR-Suite Sharing and Reciprocal Site Trust](../adr/ADR-0060-federated-vdr-suite-sharing-reciprocal-site-trust.md)
-- [ADR-0061: Actor Permissions, Federation and Client Access](../adr/ADR-0061-actor-permissions-federation-client-access.md)
-
-The target product is two autonomous VDR-Suite installations that explicitly pair and then grant rights in **each direction independently**.
-
-Required rights include granular owner-side control over Recording visibility/streaming, marks/cutting and destructive actions, Live TV, Timer view/create/modify/delete, and later other domain operations. Folder/channel/backend scopes remain possible.
-
-Backend Agent multi-site is not redefined as federation: one Control Plane managing a remote Agent/backend remains a supported topology, while independent Control Plane federation adds the long-planned Suite-to-Suite actor/source relationship.
-
-Pairing grants no content rights automatically; capabilities never substitute for permission; the owner site always performs final authorization and native/media execution.
-
-Pure clients are equally valid permissioned actors: a browser, Android app, television app or first-party output/living-room client may receive scoped access without providing any VDR/backend or reciprocal federation service.
-
-## First-party VDR output / living-room client
-
-Binding architecture: [ADR-0062: First-Party Living-Room Output Client](../adr/ADR-0062-first-party-living-room-output-client.md).
-
-The supported product direction is a first-party television client using Suite domain and MediaSession semantics. A VDR output plugin is a supported integration path, but it must remain a thin integration boundary rather than a second control/media plane.
-
-Supported rollout depends on Phase 69's stable client/API contract. The initial Linux real-hardware acceptance targets the current yaVDR Intel Gemini Lake/UHD 605 system and a mature hardware-accelerated playback engine; legacy VDPAU hardware is not the primary architecture target.
-
-## Debian/Ubuntu package productization
-
-Binding install boundary: [ADR-0037: Packaging, Install Layout and API Boundary](../adr/ADR-0037-packaging-install-api-boundary.md).
-
-Phase 56 established staged install readiness only. Release-grade Debian/Ubuntu packaging remains open and is explicitly scheduled **after Phase 69 Public API and Client Compatibility Hardening**.
-
-The packaging milestone must add real `debian/` metadata, reproducible package build, dependencies, systemd/conffile/state ownership, database migration/upgrade behavior, remove-versus-purge semantics, SuiteBridge/Agent/Web/output-client ownership, clean-install and upgrade acceptance, and parity with the supported `make install DESTDIR=...` contract.
-
-No public C++ ABI or `-dev` package is implied.
+Federated MultiBackend sharing, release-grade packaging, Broad Timer UI and audit/operations surfaces remain adjacent cross-cutting product work. They must reuse the same Actor/permission, public API, MediaSession, Agent and accountability authorities and may not establish parallel user/security/client contracts.
 
