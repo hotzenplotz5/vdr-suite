@@ -132,9 +132,9 @@ require(
     "Phase 69 inventory must include /api/v1/backends",
 )
 require(
-    'len(EXPECTED_ROUTE_LITERALS) == 125' in legacy_guard
-    and 'len(EXPECTED_PUBLIC_V1_ROUTE_LITERALS) == 7' in legacy_guard,
-    "69.E successor-aware route counts drifted",
+    'len(EXPECTED_ROUTE_LITERALS) >= 125' in legacy_guard
+    and 'len(EXPECTED_PUBLIC_V1_ROUTE_LITERALS) >= 7' in legacy_guard,
+    "69.E additive route baseline drifted",
 )
 
 resources = {
