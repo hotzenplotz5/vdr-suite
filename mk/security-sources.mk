@@ -7,6 +7,7 @@ SECURITY_REPOSITORY_SRC := \
 	core/security/src/BrowserSessionRetentionRepository.cpp \
 	core/security/src/SecurityPermissionGrantRepository.cpp \
 	core/security/src/CredentialVerifierRepository.cpp \
+	core/security/src/HumanAccountRepository.cpp \
 	core/security/src/SecurityIdentityIssuanceRepository.cpp \
 	core/security/src/SecurityIdentityProvisioningRepository.cpp \
 	core/security/src/SecurityIdentityRepository.cpp \
@@ -16,7 +17,8 @@ SECURITY_SERVICE_SRC := \
 	core/security/src/BrowserSessionHttpGate.cpp \
 	core/security/src/BrowserSessionIssuanceService.cpp \
 	core/security/src/BrowserSessionLifecycleService.cpp \
-	core/security/src/BrowserSessionRetentionService.cpp
+	core/security/src/BrowserSessionRetentionService.cpp \
+	core/security/src/HumanAccountReadService.cpp
 
 SECURITY_SRC := \
 	$(SECURITY_REPOSITORY_SRC) \
@@ -26,11 +28,12 @@ BROWSER_SESSION_HTTP_SRC := \
 	core/http/src/BrowserSessionCsrfRecoveryService.cpp \
 	core/http/src/BrowserSessionHttpService.cpp
 
-.PHONY: test-security test-security-architecture test-security-authorization test-security-configuration test-security-accountability-event-repository test-security-identity-repository test-security-permission-grant-repository test-security-managed-basic-authenticator test-security-browser-session-authenticator test-security-browser-session-issuer-binding test-security-browser-session-issuance-service test-security-browser-session-concurrency-limit test-security-browser-session-idle-expiry test-security-browser-session-retention-cleanup test-security-browser-session-http-service test-security-browser-session-csrf-recovery test-security-browser-session-http-gate test-security-http-gate test-security-recording-marks test-security-series-artwork-route-scope test-security-teletext-read test-security-hbbtv-read test-security-hbbtv-session test-security-osd-session test-security-searchtimer-maintenance test-security-searchtimer-execution test-security-native-fuzzy-refresh test-security-safe-post test-security-manual-recording-metadata
+.PHONY: test-security test-security-architecture test-security-authorization test-security-configuration test-security-accountability-event-repository test-security-identity-repository test-security-permission-grant-repository test-security-human-account-read-foundation test-security-managed-basic-authenticator test-security-browser-session-authenticator test-security-browser-session-issuer-binding test-security-browser-session-issuance-service test-security-browser-session-concurrency-limit test-security-browser-session-idle-expiry test-security-browser-session-retention-cleanup test-security-browser-session-http-service test-security-browser-session-csrf-recovery test-security-browser-session-http-gate test-security-http-gate test-security-recording-marks test-security-series-artwork-route-scope test-security-teletext-read test-security-hbbtv-read test-security-hbbtv-session test-security-osd-session test-security-searchtimer-maintenance test-security-searchtimer-execution test-security-native-fuzzy-refresh test-security-safe-post test-security-manual-recording-metadata
 
 test-security-architecture:
 	python3 tools/check_security_identity_architecture.py
 	python3 tools/check_p1_identity_authority_audit.py
+	python3 tools/check_p2_human_account_read_foundation.py
 	python3 tools/check_browser_session_issuance_architecture.py
 	python3 tools/check_browser_session_issuer_binding.py
 	python3 tools/check_browser_session_concurrency_limit.py
@@ -85,6 +88,18 @@ test-security-permission-grant-repository:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_security_permission_grant_repository
 	$(BUILD_DIR)/test_security_permission_grant_repository
+
+
+test-security-human-account-read-foundation:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/security/src/SecurityIdentityRepository.cpp \
+		core/security/src/HumanAccountRepository.cpp \
+		core/security/src/HumanAccountReadService.cpp \
+		core/security/tests/test_human_account_read_foundation.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_human_account_read_foundation
+	$(BUILD_DIR)/test_human_account_read_foundation
 
 
 test-security-managed-basic-authenticator:
@@ -316,6 +331,7 @@ test-security: \
 	test-security-accountability-event-repository \
 	test-security-identity-repository \
 	test-security-permission-grant-repository \
+	test-security-human-account-read-foundation \
 	test-security-managed-basic-authenticator \
 	test-security-browser-session-authenticator \
 	test-security-browser-session-issuer-binding \
