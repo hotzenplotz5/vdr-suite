@@ -195,6 +195,23 @@ bool DaemonRuntime::initialize()
         return false;
     }
 
+    humanAccountRepository_ =
+        std::make_unique<HumanAccountRepository>(database_);
+    if (!humanAccountRepository_->ensureSchema())
+    {
+        std::cerr
+            << "failed to initialize Human Account schema"
+            << std::endl;
+        return false;
+    }
+    humanAccountReadService_ =
+        std::make_unique<HumanAccountReadService>(
+            *humanAccountRepository_);
+
+    std::cout
+        << "Human Account read runtime initialized"
+        << std::endl;
+
     backendAgentNativeTimerCreateReservationService_ =
         std::make_unique<
             vdrsuite::agent::BackendAgentNativeTimerCreateReservationService>(
@@ -1051,6 +1068,53 @@ bool DaemonRuntime::initialize()
                         PublicTimerAssignmentCollectionStatus::unavailable;
                     return result;
             }
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerAccountCollectionLookup(
+        [this](const PublicAccountCollectionRequest& request)
+        {
+            PublicAccountCollectionResult result;
+            if (!humanAccountReadService_ ||
+                request.limit == 0U ||
+                request.limit > 100U)
+            {
+                result.status =
+                    PublicAccountCollectionStatus::unavailable;
+                return result;
+            }
+
+            const HumanAccountListResult listed =
+                humanAccountReadService_->list();
+            if (listed.status != HumanAccountRepositoryStatus::ok)
+            {
+                result.status =
+                    PublicAccountCollectionStatus::unavailable;
+                return result;
+            }
+
+            std::vector<PublicAccountCollectionItem> eligible;
+            for (const HumanAccountRecord& account : listed.accounts)
+            {
+                if (!request.afterAccountId.empty() &&
+                    account.accountId <= request.afterAccountId)
+                {
+                    continue;
+                }
+
+                PublicAccountCollectionItem item;
+                item.accountId = account.accountId;
+                item.actorId = account.actorId;
+                item.displayName = account.displayName;
+                item.active = account.active;
+                eligible.push_back(std::move(item));
+            }
+
+            result.hasMore = eligible.size() > request.limit;
+            if (result.hasMore)
+                eligible.resize(request.limit);
+            result.accounts = std::move(eligible);
+            result.status = PublicAccountCollectionStatus::ok;
             return result;
         });
 
