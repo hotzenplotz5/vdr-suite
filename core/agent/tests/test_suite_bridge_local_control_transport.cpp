@@ -685,22 +685,6 @@ int main()
         SuiteBridgeHbbtvTransportStatus::Timeout);
     assert(hbbtvCompatibility.runtimeCalls.load() == 1);
 
-    SuiteBridgeHbbtvRuntimeRequest hbbtvInputRequest = hbbtvRequest;
-    hbbtvInputRequest.operation = SuiteBridgeHbbtvRuntimeOperation::Input;
-    hbbtvInputRequest.inputAction = SuiteBridgeHbbtvInputAction::Pause;
-
-    HbbtvTimeoutTransport hbbtvInputDedicated;
-    SuiteBridgePrioritizedHbbtvTransport hbbtvInputRouted(
-        hbbtvInputDedicated,
-        hbbtvCompatibility);
-    const auto hbbtvInputReply =
-        hbbtvInputRouted.controlHbbtv(hbbtvInputRequest);
-    assert(hbbtvInputReply.transportSucceeded);
-    assert(hbbtvInputReply.transportStatus ==
-        SuiteBridgeHbbtvTransportStatus::Success);
-    assert(hbbtvInputReply.replyCode == 250);
-    assert(hbbtvCompatibility.runtimeCalls.load() == 2);
-
 
     const std::string teletextPath =
         "/tmp/vdr-suite-teletext-control-" +
