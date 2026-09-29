@@ -52,7 +52,7 @@ for route in ("/api/v1", "/api/v1/capabilities", "/api/v1/backends"):
     require(route in runtime, "reference client route missing from public runtime: " + route)
 
 matrix = json.loads(read("docs/development/phase-69f-client-contract-matrix.json"))
-require(len(matrix.get("publicV1Resources", [])) == 8, "stable public-v1 contract count drifted")
+require(len(matrix.get("publicV1Resources", [])) >= 8, "Phase-69 stable public-v1 baseline disappeared")
 references = matrix.get("publicClientReferences", [])
 reference = next((r for r in references if r.get("id") == "reference-js-discovery"), None)
 require(reference is not None, "accepted discovery reference disappeared")

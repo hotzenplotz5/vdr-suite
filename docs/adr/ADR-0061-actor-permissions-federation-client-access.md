@@ -83,6 +83,9 @@ SearchTimers / automation
   searchtimers.create_or_modify
   searchtimers.delete
 
+Human Accounts / identity administration
+  accounts.view                         [global scope "*"]
+
 Compatibility / remote control where implemented
   osd.view
   osd.control
@@ -96,7 +99,10 @@ In particular:
 - marks/cutting is separate from deletion/purge;
 - viewing Live TV is separate from Timer creation;
 - reading Timers is separate from changing them;
-- OSD viewing is separate from OSD control.
+- OSD viewing is separate from OSD control;
+- Human Account discovery is a global identity-management read and therefore uses
+  `accounts.view@*`; a backend-scoped grant or backend-scoped administrator role
+  does not imply visibility of the global Account collection.
 
 ### Resource scopes
 

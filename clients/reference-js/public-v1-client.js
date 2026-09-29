@@ -134,6 +134,55 @@
 
 
 
+  function accountQuery(query) {
+    if (query === undefined || query === null) return '';
+    if (typeof query !== 'object' || Array.isArray(query)) {
+      throw new Error('account query must be an object');
+    }
+
+    const allowed = new Set(['limit', 'cursor', 'sort', 'order']);
+    Object.keys(query).forEach(function (key) {
+      if (!allowed.has(key)) {
+        throw new Error('unsupported account query field: ' + key);
+      }
+    });
+
+    const params = new URLSearchParams();
+
+    if (query.limit !== undefined) {
+      if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) {
+        throw new Error('account query limit must be an integer from 1 to 100');
+      }
+      params.set('limit', String(query.limit));
+    }
+
+    if (query.cursor !== undefined) {
+      if (typeof query.cursor !== 'string' || query.cursor === '') {
+        throw new Error('account query cursor must be a non-empty string');
+      }
+      params.set('cursor', query.cursor);
+    }
+
+    if (query.sort !== undefined) {
+      if (query.sort !== 'accountId') {
+        throw new Error('account query sort must be accountId');
+      }
+      params.set('sort', query.sort);
+    }
+
+    if (query.order !== undefined) {
+      if (query.order !== 'asc') {
+        throw new Error('account query order must be asc');
+      }
+      params.set('order', query.order);
+    }
+
+    const encoded = params.toString();
+    return encoded === '' ? '' : ('?' + encoded);
+  }
+
+
+
   function channelQuery(query) {
     if (!query || typeof query !== 'object' || Array.isArray(query)) {
       throw new Error('channel query must be an object');
@@ -419,6 +468,10 @@
       getBackends(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
         return request('/api/v1/backends' + backendQuery(normalizedOptions.query), normalizedOptions);
+      },
+      getAccounts(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/accounts' + accountQuery(normalizedOptions.query), normalizedOptions);
       },
       getChannels(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};

@@ -67,7 +67,7 @@ resources = {
     (item.get("method"), item.get("template"))
     for item in matrix.get("publicV1Resources", [])
 }
-require(len(resources) == 8, "stable public-v1 contract count drifted")
+require(len(resources) >= 8, "Phase-69 stable public-v1 baseline disappeared")
 for absent in ("/api/v1/recordings", "/api/v1/program-events"):
     require(
         not any(absent in (template or "") for _, template in resources),

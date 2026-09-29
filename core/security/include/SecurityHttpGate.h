@@ -355,6 +355,11 @@ public:
         const bool isPublicBackendRead =
             request.method == "GET" &&
             isPublicBackendCollection;
+        const bool isPublicAccountCollection =
+            path == "/api/v1/accounts";
+        const bool isPublicAccountRead =
+            request.method == "GET" &&
+            isPublicAccountCollection;
         const bool isPublicChannelCollection =
             path == "/api/v1/channels";
         std::vector<std::string> publicChannelBackendIds;
@@ -448,6 +453,7 @@ public:
             (path == "/api/v1" ||
              path == "/api/v1/capabilities" ||
              isPublicBackendCollection ||
+             isPublicAccountCollection ||
              isPublicChannelCollection ||
              isPublicTimerAssignmentCollection ||
              isPublicOperationResource);
@@ -604,6 +610,49 @@ public:
                     messageForReason(decision.reasonCode),
                     gate.context,
                     authenticationFailure(decision));
+                return gate;
+            }
+
+            gate.authorizationDecision = decision;
+            gate.allowed = true;
+            return gate;
+        }
+
+        if (isPublicAccountRead)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+
+            AuthorizationRequest accountReadRequest;
+            accountReadRequest.permission = "accounts.view";
+            accountReadRequest.backendId = "*";
+            accountReadRequest.action = "accounts.view";
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(
+                    gate.context,
+                    accountReadRequest);
+
+            if (!appendDecisionEvent(gate.context, decision, ""))
+            {
+                gate.rejection = errorResponse(
+                    503,
+                    "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+
+            if (!decision.allowed)
+            {
+                const int statusCode =
+                    authenticationFailure(decision) ? 401 : 403;
+                gate.rejection = errorResponse(
+                    statusCode,
+                    decision.reasonCode,
+                    messageForReason(decision.reasonCode),
+                    gate.context,
+                    authenticationFailure(decision),
+                    gate.publicApiV1);
                 return gate;
             }
 

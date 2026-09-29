@@ -155,6 +155,34 @@ struct PublicBackendCollectionResult
     bool hasMore = false;
 };
 
+enum class PublicAccountCollectionStatus
+{
+    ok,
+    unavailable,
+};
+
+struct PublicAccountCollectionItem
+{
+    std::string accountId;
+    std::string actorId;
+    std::string displayName;
+    bool active = false;
+};
+
+struct PublicAccountCollectionRequest
+{
+    std::string afterAccountId;
+    std::size_t limit = 50U;
+};
+
+struct PublicAccountCollectionResult
+{
+    PublicAccountCollectionStatus status =
+        PublicAccountCollectionStatus::unavailable;
+    std::vector<PublicAccountCollectionItem> accounts;
+    bool hasMore = false;
+};
+
 enum class PublicTimerCreateAdmissionStatus
 {
     accepted,
@@ -212,6 +240,10 @@ public:
         std::function<PublicBackendCollectionResult(
             const PublicBackendCollectionRequest& request)>;
 
+    using AccountCollectionLookup =
+        std::function<PublicAccountCollectionResult(
+            const PublicAccountCollectionRequest& request)>;
+
     using TimerCreateAdmission =
         std::function<PublicTimerCreateAdmissionResult(
             const PublicTimerCreateAdmissionRequest& request)>;
@@ -249,6 +281,13 @@ public:
     bool backendCollectionLookupConfigured() const;
     PublicBackendCollectionResult lookupBackendCollection(
         const PublicBackendCollectionRequest& request) const;
+
+    void registerAccountCollectionLookup(
+        AccountCollectionLookup lookup);
+    void resetAccountCollectionLookup();
+    bool accountCollectionLookupConfigured() const;
+    PublicAccountCollectionResult lookupAccountCollection(
+        const PublicAccountCollectionRequest& request) const;
 
     void registerTimerCreateAdmission(TimerCreateAdmission admission);
     void resetTimerCreateAdmission();
@@ -304,6 +343,9 @@ private:
 
     mutable std::mutex backendCollectionLookupMutex_;
     BackendCollectionLookup backendCollectionLookup_;
+
+    mutable std::mutex accountCollectionLookupMutex_;
+    AccountCollectionLookup accountCollectionLookup_;
 
     mutable std::mutex timerCreateAdmissionMutex_;
     TimerCreateAdmission timerCreateAdmission_;

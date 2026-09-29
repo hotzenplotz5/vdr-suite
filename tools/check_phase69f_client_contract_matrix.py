@@ -80,6 +80,7 @@ expected_resource_pairs = {
     ("GET", "/api/v1"),
     ("GET", "/api/v1/capabilities"),
     ("GET", "/api/v1/backends"),
+    ("GET", "/api/v1/accounts"),
     ("GET", "/api/v1/operations/{operationId}"),
     ("GET", "/api/v1/timer-assignments?backend={backendId}"),
     ("GET", "/api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}"),
@@ -94,6 +95,7 @@ for token in (
     'constexpr const char* PublicOperationPrefix = "/api/v1/operations/";',
     '"/api/v1/timer-assignments"',
     '"/api/v1/backends"',
+    '"/api/v1/accounts"',
     '"/api/v1/channels"',
     'if (path == "/api/v1/capabilities")',
 ):
@@ -111,7 +113,7 @@ require('if (path == "/api/backends")' in api_router, "pre-v1 backend discovery 
 require('if (path == "/api/backends/default")' in api_router, "pre-v1 default-backend route disappeared")
 
 references = matrix.get("publicClientReferences", [])
-require(len(references) == 6, "expected exactly six bounded public client reference slices")
+require(len(references) == 7, "expected exactly seven bounded public client reference slices")
 discovery_reference = next((r for r in references if r.get("id") == "reference-js-discovery"), None)
 require(discovery_reference is not None, "public discovery reference disappeared")
 require(discovery_reference.get("path") == "clients/reference-js/public-v1-client.js", "public discovery reference path drifted")
@@ -187,6 +189,19 @@ require(
 require(
     operation_reference.get("status") == "accepted",
     "public Operation reference must remain accepted",
+)
+account_reference = next(
+    (r for r in references if r.get("id") == "reference-js-account-collection"),
+    None,
+)
+require(account_reference is not None, "public Account reference disappeared")
+require(
+    account_reference.get("resources") == ["GET /api/v1/accounts"],
+    "public Account reference resource drifted",
+)
+require(
+    account_reference.get("status") == "accepted",
+    "public Account reference must remain accepted",
 )
 
 public_contracts = {
@@ -329,5 +344,5 @@ require("test-phase69f-client-contract-matrix" in test_groups, "fast CI must inc
 
 print("Phase 69.F client-contract matrix guard passed.")
 print("Classified browser Client API operations: 62 exactly once.")
-print("Stable public-v1 method/resource contracts: 8.")
-print("All eight stable public-v1 contracts have exact accepted reference-client coverage; Phase 69 is closed.")
+print("Stable public-v1 method/resource contracts: 9.")
+print("All nine stable public-v1 contracts have exact accepted reference-client coverage; Phase 69 remains closed.")
