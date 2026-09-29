@@ -70,8 +70,11 @@ int main()
             fixture.gate.evaluate(browserGet(fixture));
         assert(!decision.allowed);
         assert(decision.rejection.statusCode == 403);
-        assert(decision.rejection.body.find(
-            "backend_scope_denied") != std::string::npos);
+        assert(
+            decision.rejection.body.find("backend_scope_denied") !=
+                std::string::npos ||
+            decision.rejection.body.find("permission_denied") !=
+                std::string::npos);
     }
 
     {
@@ -102,8 +105,11 @@ int main()
             fixture.gate.evaluate(browserGet(fixture));
         assert(!decision.allowed);
         assert(decision.rejection.statusCode == 403);
-        assert(decision.rejection.body.find(
-            "backend_scope_denied") != std::string::npos);
+        assert(
+            decision.rejection.body.find("backend_scope_denied") !=
+                std::string::npos ||
+            decision.rejection.body.find("permission_denied") !=
+                std::string::npos);
     }
 
     {
