@@ -119,10 +119,13 @@ test-phase67-hbbtv-frontend:
 	node web/frontend/tests/test_phase67_hbbtv_qoi.js
 	node web/frontend/tests/test_phase67_hbbtv_browser_transport.js
 	node web/frontend/tests/test_phase67_hbbtv_overlay.js
+	node web/frontend/tests/test_phase67_hbbtv_surface_lifecycle.js
 	node web/frontend/tests/test_live_tv_playback.js
 	python3 tools/check_phase67_hbbtv_overlay_frontend.py
 	python3 tools/check_frontend_ownership_contracts.py
 	$(MAKE) test-phase67-teletext-frontend
+
+test-ci-frontend: test-phase67-hbbtv-frontend
 
 test-phase67-hbbtv-daemon-build:
 	$(MAKE) daemon

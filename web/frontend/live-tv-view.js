@@ -52,6 +52,10 @@
     hbbtvMediaGeometry: {x: 0, y: 0, width: 0, height: 0},
     hbbtvMediaAttached: false,
     hbbtvMediaVideoStyle: null,
+    hbbtvMediaPresentationBaselineRevision: 0,
+    hbbtvMediaPresentationReady: false,
+    hbbtvSurfaceStyle: null,
+    hbbtvSurfaceObserver: null,
     hbbtvMediaSwitchTail: Promise.resolve(),
     hbbtvInputTail: Promise.resolve(),
     hbbtvInputSequence: 0,
@@ -524,7 +528,7 @@
     const canvas = hbbtvCanvas();
     const slot = hbbtvPlayerSlot();
     const video = hbbtvVideo();
-    if (!canvas || !slot || !video ||
+    if (!state.active || !canvas || !canvas.dataset || !canvas.dataset.hbbtvRevision || !slot || !video ||
         typeof slot.getBoundingClientRect !== 'function' ||
         typeof video.getBoundingClientRect !== 'function') return false;
 
@@ -533,6 +537,7 @@
     // transformed media rectangle, otherwise every presentation poll would
     // recursively shrink/move both the video and the application canvas.
     restoreHbbtvMediaVideoComposition();
+    prepareHbbtvSurface(video, canvas);
 
     const slotRect = slot.getBoundingClientRect();
     const videoRect = video.getBoundingClientRect();
@@ -548,7 +553,61 @@
     return true;
   }
 
+  function restoreHbbtvSurface() {
+    const snapshot = state.hbbtvSurfaceStyle;
+    if (!snapshot) return;
+    snapshot.properties.forEach(function(property) {
+      if (property.value) {
+        snapshot.video.style.setProperty(property.name, property.value, property.priority);
+      } else {
+        snapshot.video.style.removeProperty(property.name);
+      }
+    });
+    state.hbbtvSurfaceStyle = null;
+  }
+
+  function prepareHbbtvSurface(video, canvas) {
+    if (!(canvas.width > 0) || !(canvas.height > 0)) return;
+    if (state.hbbtvSurfaceStyle && state.hbbtvSurfaceStyle.video !== video) {
+      restoreHbbtvSurface();
+    }
+    if (!state.hbbtvSurfaceStyle) {
+      state.hbbtvSurfaceStyle = {
+        video: video,
+        properties: ['aspect-ratio', 'height', 'object-fit'].map(function(name) {
+          return {name: name, value: video.style.getPropertyValue(name),
+            priority: video.style.getPropertyPriority(name)};
+        })
+      };
+    }
+    // The application frame owns its viewport, even while load()/MSE attach
+    // removes the video's intrinsic dimensions. Never freeze that transient box.
+    video.style.setProperty('aspect-ratio', canvas.width + ' / ' + canvas.height);
+    video.style.setProperty('height', 'auto');
+    video.style.setProperty('object-fit', 'contain');
+  }
+
+  function disconnectHbbtvSurfaceObserver() {
+    if (state.hbbtvSurfaceObserver) state.hbbtvSurfaceObserver.disconnect();
+    state.hbbtvSurfaceObserver = null;
+  }
+
+  function observeHbbtvSurface() {
+    disconnectHbbtvSurfaceObserver();
+    const slot = hbbtvPlayerSlot();
+    const video = hbbtvVideo();
+    if (!slot || !video || typeof global.ResizeObserver !== 'function') return;
+    const observer = new global.ResizeObserver(function() {
+      if (state.hbbtvSurfaceObserver === observer && state.active &&
+          slot === hbbtvPlayerSlot() && video === hbbtvVideo()) alignHbbtvCanvas();
+    });
+    state.hbbtvSurfaceObserver = observer;
+    observer.observe(slot);
+    observer.observe(video);
+  }
+
   function clearHbbtvOverlay() {
+    restoreHbbtvSurface();
     const canvas = hbbtvCanvas();
     if (!canvas) return;
     if (typeof canvas.getContext === 'function') {
@@ -662,6 +721,8 @@
     state.hbbtvMediaFullscreen = true;
     state.hbbtvMediaGeometry = {x: 0, y: 0, width: 0, height: 0};
     state.hbbtvMediaAttached = false;
+    state.hbbtvMediaPresentationBaselineRevision = 0;
+    state.hbbtvMediaPresentationReady = false;
     restoreHbbtvMediaVideoComposition();
     state.hbbtvInputTail = Promise.resolve();
     state.hbbtvInputSequence += 1;
@@ -692,6 +753,14 @@
       return false;
     }
 
+    const revision = Number(frame.revision) || 0;
+    if (state.hbbtvMediaAttached &&
+        !state.hbbtvMediaPresentationReady &&
+        revision > 0 &&
+        revision <= state.hbbtvMediaPresentationBaselineRevision) {
+      return false;
+    }
+
     const decoded = decoder.decode(frame.bytes);
     if ((frame.width && frame.width !== decoded.width) ||
         (frame.height && frame.height !== decoded.height)) {
@@ -718,7 +787,11 @@
     if (canvas.dataset) {
       canvas.dataset.hbbtvRevision = String(frame.revision || 0);
     }
-    state.hbbtvFrameRevision = Number(frame.revision) || 0;
+    state.hbbtvFrameRevision = revision;
+    if (state.hbbtvMediaAttached &&
+        revision > state.hbbtvMediaPresentationBaselineRevision) {
+      state.hbbtvMediaPresentationReady = true;
+    }
     noteHbbtvInputFrame(frame);
     alignHbbtvCanvas();
     updateHbbtvSessionUi();
@@ -791,7 +864,12 @@
       if (frame && frame.status === 200) {
         drawHbbtvPresentation(frame);
       } else if (frame && frame.status === 204 && Number(frame.revision) > 0) {
-        state.hbbtvFrameRevision = Number(frame.revision);
+        const revision = Number(frame.revision);
+        if (!(state.hbbtvMediaAttached &&
+              !state.hbbtvMediaPresentationReady &&
+              revision > state.hbbtvMediaPresentationBaselineRevision)) {
+          state.hbbtvFrameRevision = revision;
+        }
       }
 
       state.hbbtvPresentationError = '';
@@ -900,6 +978,23 @@
     };
   }
 
+  function clearHbbtvMediaPresentationHole() {
+    const canvas = hbbtvCanvas();
+    if (!canvas || typeof canvas.getContext !== 'function') return false;
+    const target = hbbtvMediaCompositionTarget(
+      Number(canvas.width),
+      Number(canvas.height),
+      state.hbbtvMediaFullscreen,
+      state.hbbtvMediaGeometry
+    );
+    if (!target) return false;
+    const context = canvas.getContext('2d');
+    if (!context || typeof context.clearRect !== 'function') return false;
+    context.clearRect(target.x, target.y, target.width, target.height);
+    canvas.hidden = false;
+    return true;
+  }
+
   function snapshotHbbtvMediaVideoStyle(video) {
     if (!video || !video.style || state.hbbtvMediaVideoStyle) return;
     const properties = [
@@ -963,7 +1058,11 @@
 
     snapshotHbbtvMediaVideoStyle(video);
     video.style.setProperty('position', 'relative');
-    video.style.setProperty('z-index', '13');
+    // Keep broadband media below the HbbTV application plane. On attach we
+    // explicitly clear only the stale media rectangle and fence any older
+    // in-flight presentation frame; the next fresh provider frame can therefore
+    // paint native controls above the still-visible video.
+    video.style.setProperty('z-index', '11');
     video.style.setProperty('transform-origin', '0 0');
     // HbbTV owns input while its broadband medium is active. The browser video
     // must be visible but must not steal pointer input from the application
@@ -1011,6 +1110,8 @@
     state.hbbtvMediaFullscreen = true;
     state.hbbtvMediaGeometry = {x: 0, y: 0, width: 0, height: 0};
     state.hbbtvMediaAttached = false;
+    state.hbbtvMediaPresentationBaselineRevision = 0;
+    state.hbbtvMediaPresentationReady = false;
     restoreHbbtvMediaVideoComposition();
   }
 
@@ -1148,16 +1249,25 @@
             paused: mediaState === 'paused'
           }
         )).then(function(switched) {
+          if (!state.active || sequence !== state.hbbtvSessionSequence ||
+              playback !== hbbtvPlaybackController()) return false;
           if (!switched) throw new Error('hbbtv_media_player_switch_failed');
           state.hbbtvMediaAttached = true;
+          state.hbbtvMediaPresentationBaselineRevision =
+            Number(state.hbbtvFrameRevision) || 0;
+          state.hbbtvMediaPresentationReady = false;
+          clearHbbtvMediaPresentationHole();
           state.hbbtvMediaError = '';
           alignHbbtvCanvas();
+          kickHbbtvPresentation(sequence);
           updateHbbtvSessionUi();
           return true;
         });
       }).catch(function(error) {
         if (sequence === state.hbbtvSessionSequence) {
           state.hbbtvMediaAttached = false;
+          state.hbbtvMediaPresentationBaselineRevision = 0;
+          state.hbbtvMediaPresentationReady = false;
           restoreHbbtvMediaVideoComposition();
           state.hbbtvMediaError =
             error && error.message
@@ -1984,6 +2094,7 @@
     // element is disconnected, which violates the persistent-player contract.
     if (playbackMountedIn(mount)) return;
 
+    disconnectHbbtvSurfaceObserver();
     mount.replaceChildren();
     if (mount.classList) {
       mount.classList.remove('channels2-mount');
@@ -2035,6 +2146,7 @@
       root.appendChild(warning);
     }
     mount.appendChild(root);
+    observeHbbtvSurface();
 
     if (hbbtvSessionId() &&
         text(state.hbbtvSession && state.hbbtvSession.channelId) === state.liveChannelId) {
@@ -2252,6 +2364,9 @@
   function deactivate() {
     if (!state.active) return false;
     state.active = false;
+    disconnectHbbtvSurfaceObserver();
+    restoreHbbtvMediaVideoComposition();
+    restoreHbbtvSurface();
     state.requestSequence += 1;
     state.hbbtvRequestSequence += 1;
     state.hbbtvChannelId = '';
@@ -2290,6 +2405,7 @@
     clearVisibleModuleTabs();
     synchronizePlaybackState();
     render();
+    if (!state.hbbtvSurfaceObserver) observeHbbtvSurface();
     if (hbbtvSessionId() &&
         text(state.hbbtvSession && state.hbbtvSession.channelId) === state.liveChannelId) {
       startHbbtvPresentationPolling(state.hbbtvSessionSequence);

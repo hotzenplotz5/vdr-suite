@@ -42,6 +42,12 @@ for marker in ("Operation::CapabilityDiscovery","Operation::OsdSnapshot","Operat
     if marker not in plugin: raise SystemExit(f"Legacy OSD plugin local-control wiring missing {marker}")
 for marker in ("Operation::HbbtvDiscovery","Operation::HbbtvRuntime","Operation::HbbtvPresentation","Operation::HbbtvMedia","hbbtvCommand_.Handle"):
     if marker not in plugin: raise SystemExit(f"HbbTV plugin local-control wiring missing {marker}")
+for marker in (
+    "r.operation==SuiteBridgeHbbtvRuntimeOperation::Input",
+    "return compatibility_.controlHbbtv(r);",
+):
+    if marker not in client_cpp:
+        raise SystemExit(f"HbbTV INPUT exact SVDRP selection missing {marker}")
 for marker in ("SuiteBridgePrioritizedHbbtvTransport","SuiteBridgeHbbtvTransportStatus::Unavailable"):
     if marker not in client_h: raise SystemExit(f"HbbTV prioritized local-control transport missing {marker}")
 for marker in ("hbbtvLocalControlTransport","hbbtvTransport","effectiveHbbtvTransport"):
