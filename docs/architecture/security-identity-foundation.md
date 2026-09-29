@@ -36,7 +36,23 @@ Frontends do not own authentication, role, scope or CSRF decisions. Private prov
 - exact permission grants and backend scopes;
 - request ID and optional correlation ID.
 
-Actor types represent users, services, agents and system work. Legacy Basic, Managed Basic and browser sessions construct the same transport-neutral context and pass it through persistent lifecycle resolution.
+Actor types represent security principals such as users, services, agents and system work. Legacy Basic, Managed Basic and browser sessions construct the same transport-neutral context and pass it through persistent lifecycle resolution.
+
+The Phase-62 Actor is the authorization/accountability principal, not a declaration that `Actor == Human User == Profile`. Post-Phase-69 productization must keep at least these concepts distinct:
+
+- Actor;
+- Human User / Account;
+- Profile;
+- Credential;
+- Session;
+- Device / Client;
+- Permission / Grant;
+- Backend / Library / Content Scope;
+- Capability.
+
+Technical Actors may represent API clients, services, remote VDR-Suite peers or other non-human identities. P1 — Identity Model Audit must inventory the live schema and lifecycle before deciding how Human User/Account and Profile map onto this security authority.
+
+No productization slice may create a parallel identity authority merely to add human accounts or profiles.
 
 ## Persistent lifecycle
 
@@ -52,6 +68,8 @@ Suite-owned repositories persist and validate:
 - append-only accountability events.
 
 Missing, inactive, expired, revoked or cross-owner lifecycle state fails closed.
+
+This persistent Suite identity store is the authority to extend for Human User/account administration, device/session administration and future pairing. `/etc/vdr-suite` remains system/deployment configuration and is not the normal human-user/password database.
 
 ## Authentication mechanisms
 
@@ -156,6 +174,22 @@ evidence_directory=/var/backups/vdr-suite-phase62-slice2x-20260802T145043Z-47625
 
 The final pass proved protected HTTP 200 success and deterministic HTTP 500 failure event pairs, context continuity, secret-free evidence, isolated database use, production database preservation, removed systemd override and active final service.
 
+## Productization direction
+
+Legacy Basic and Managed Basic prove compatibility and persistent credential handling; they are not the final human-account bootstrap UX.
+
+The target fresh-install lifecycle has no permanent default administrator credential. A fresh server is claimed through a bounded local operator bootstrap that issues only short-lived setup material, creates the first administrator inside the persistent Suite identity authority and permanently invalidates the bootstrap material. Debian/Ubuntu packaging and source installation use the same identity lifecycle rather than package-specific user storage.
+
+Password-based Human User accounts, when implemented, persist only modern salted one-way verifier material. Plaintext or reversible passwords are never persistent configuration.
+
+Operator recovery is a local, short-lived and accountable flow. Manual SQLite editing is not a supported product recovery workflow.
+
+Living-room/client pairing similarly reuses persistent Device/Credential/Session authority. Pairing approval never implies administrator permission, and QR/human setup codes are short-lived approval material rather than reusable device credentials.
+
+These are productization ownership/safety requirements. Exact Human User/Profile mapping, bootstrap endpoint/schema, setup-code lifecycle and device-pairing credential shape remain bounded implementation decisions for P1/P3/P6 and are not invented by Phase 62.
+
+See [Platform Productization Roadmap](../planning/platform-productization-roadmap.md).
+
 ## Compatibility-retirement decision
 
 Immediate removal of Legacy Basic is not deployment-ready because `legacy-basic` remains the code default and packaged configuration does not mandate operator migration to `enforced`.
@@ -164,14 +198,19 @@ Phase 62 therefore closes with Legacy Basic retained as an explicitly transition
 
 ## Deferred capabilities
 
-Not required for Phase 62:
+Not required for Phase 62 and now owned by explicit post-69 productization work where applicable:
 
 - protected audit read/export/filter/redaction/retention product;
-- generic actor, credential, grant or role administration API/UI;
+- P1-P3 Human User/account and generic actor/credential/grant/role administration;
+- P4 Household/Profile model;
+- P5 Profile-scoped playback/history state;
+- P6 product-visible device/session management and pairing;
+- P7 content scopes beyond established backend scope;
 - native/service credential enrollment before a concrete consumer exists;
 - universal revision/idempotency/durable-operation infrastructure;
-- transactional Outbox;
-- Phase 63-67 runtime.
+- transactional Outbox.
+
+Completed later phases remain authoritative for their own accepted runtime foundations; this document does not reopen Phase 62.
 
 ## Related documents
 
