@@ -141,5 +141,5 @@ require("test-phase69-closeout" in maintenance, "phase group must include Phase 
 require("test-phase69-closeout" in read("mk/test-groups.mk"), "fast CI must include Phase 69 closeout")
 
 print("Phase 69 closeout guard passed.")
-print("69.A-F are completed; stable public-v1 reference coverage is exactly 8/8.")
+print("69.A-F are completed; the eight-contract Phase-69 baseline remains present and current stable public-v1 reference coverage stays exact.")
 print("Phase 70 remains next but not started and requires its own accepted runtime ADR.")
