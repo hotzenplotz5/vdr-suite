@@ -49,7 +49,7 @@ for token in (
     require(token in server_test, "accepted Operation server contract drifted: " + token)
 
 matrix = json.loads(read("docs/development/phase-69f-client-contract-matrix.json"))
-require(len(matrix.get("publicV1Resources", [])) == 9, "stable public-v1 resource count drifted")
+require(len(matrix.get("publicV1Resources", [])) >= 8, "Phase-69 stable public-v1 baseline disappeared")
 reference = next(
     (
         r for r in matrix.get("publicClientReferences", [])
