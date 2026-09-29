@@ -162,7 +162,7 @@ require(
     "complete public-v1 reference coverage must allow closeout/final state without a preselected route",
 )
 require(
-    "Stable public-v1 method/resource contracts: 8." in matrix_guard,
+    "Stable public-v1 method/resource contracts: 9." in matrix_guard,
     "client matrix guard must count the Backend contract",
 )
 
