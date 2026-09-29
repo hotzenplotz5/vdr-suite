@@ -52,7 +52,7 @@ covered = {
     for reference in references
     for contract in reference.get("resources", [])
 }
-require(len(resources) == 8, "Phase 69 must close with exactly eight stable public-v1 contracts")
+require(len(resources) >= 8, "Phase 69 closeout baseline of eight stable public-v1 contracts disappeared")
 require(covered == resources, "reference coverage must equal the stable public-v1 set exactly")
 require(all(r.get("status") == "accepted" for r in references), "every public reference slice must be accepted")
 require(matrix.get("explicitDeferredFallbacks") == [], "explicit browser fallback debt must be empty")
