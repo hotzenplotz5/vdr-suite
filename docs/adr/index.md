@@ -146,12 +146,13 @@ Rules:
 - [ADR-0049: Audit and Security Event Model](ADR-0049-audit-security-event-model.md)
 - [ADR-0063: Mutation Complexity Proportionality and Reuse](ADR-0063-mutation-complexity-proportionality-reuse.md)
 - [ADR-0064: SuiteBridge Local Prioritized Control Plane](ADR-0064-suitebridge-local-prioritized-control-plane.md)
+- [ADR-0065: Human Account, Profile and Device Identity Boundary](ADR-0065-human-account-profile-device-identity-boundary.md)
 
 ---
 
 ## Proposed Canonical ADRs
 
-- [ADR-0065: Human Account, Profile and Device Identity Boundary](ADR-0065-human-account-profile-device-identity-boundary.md)
+None.
 
 ---
 
