@@ -63,8 +63,8 @@ require("core/security/include/SecurityConfiguration.h", "SecurityMode::LegacyBa
 require("core/security/include/SecurityConfiguration.h", "Basic YWRtaW46dmRyLXN1aXRl")
 require("packaging/systemd/vdr-suite-daemon.service", "EnvironmentFile=-/etc/default/vdr-suite-daemon")
 require("packaging/systemd/vdr-suite-daemon.service", "VDR_SUITE_DATABASE_PATH=/var/lib/vdr-suite/vdr-suite.db")
-require("core/security/include/ManagedBasicAuthenticator.h", 'hash.rfind("$y$", 0) == 0')
-require("core/security/include/ManagedBasicAuthenticator.h", 'hash.rfind("$6$", 0) == 0')
+require("core/security/include/ManagedBasicAuthenticator.h", 'passwordHash.rfind("$y$", 0) == 0')
+require("core/security/include/ManagedBasicAuthenticator.h", 'passwordHash.rfind("$6$", 0) == 0')
 require("core/security/include/BrowserSessionIssuanceService.h", "DefaultLifetimeSeconds = 28800")
 
 index = read("docs/adr/index.md")
