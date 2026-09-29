@@ -51,7 +51,6 @@ Latest accepted ADRs at the end of the sequence:
 - [ADR-0062: First-Party Living-Room Output Client](ADR-0062-first-party-living-room-output-client.md)
 - [ADR-0063: Mutation Complexity Proportionality and Reuse](ADR-0063-mutation-complexity-proportionality-reuse.md)
 - [ADR-0064: SuiteBridge Local Prioritized Control Plane](ADR-0064-suitebridge-local-prioritized-control-plane.md)
-- [ADR-0065: Human Account, Profile and Device Identity Boundary](ADR-0065-human-account-profile-device-identity-boundary.md)
 
 Next available canonical ADR:
 
