@@ -23,47 +23,51 @@ A target box or accepted ADR is not proof that its runtime implementation is com
 ## Platform and trust boundary
 
 ```text
-Web / Desktop / Mobile / TV / Automation clients
+TV / Android / Kodi / Desktop / Web / later clients
                          |
-                         | authenticated Suite client contracts
+                         | stable authenticated /api/v1 client contracts
                          v
-+---------------------------------------------------------------+
-| VDR-Suite Control Plane                                       |
-|                                                               |
-| actor identity, sessions, authorization and policy            |
-| Suite-owned domain services and repositories                  |
-| backend observations and read-model projection                |
-| operations, jobs, protected writes and reconciliation         |
-| metadata, people, Genres and search                           |
-| TimerIntent scheduling and assignments                        |
-| MediaSession / OSD session policy                             |
-| accountability and security-event linkage                     |
-+--------------------------+------------------------------------+
++----------------------------------------------------------------+
+| VDR-Suite Control Plane                                        |
+|                                                                |
+| Actor identity / Human Users / Profiles / permissions          |
+| credentials / sessions / devices / policy                      |
+| Library / metadata / history / Suite-owned read models         |
+| operations, jobs, protected writes and reconciliation          |
+| TimerIntent scheduling and assignments                         |
+| MediaSession / streaming / adaptation / transcoding policy     |
+| accountability and security-event linkage                      |
++--------------------------+-------------------------------------+
                            | protected Agent protocol
                            v
-+---------------------------------------------------------------+
-| Backend Agent                                                 |
-| enrolled identity, generation, heartbeat, lease, capabilities |
-| observations, commands, receipts, results and local fencing   |
-| explicit local provider ownership/selection and cleanup       |
-+--------------------------+------------------------------------+
++----------------------------------------------------------------+
+| Backend Agent                                                  |
+| enrolled identity, generation, heartbeat, lease, capabilities  |
+| observations, commands, receipts, results and local fencing    |
+| explicit local provider ownership/selection and cleanup        |
++--------------------------+-------------------------------------+
                            | local/private adapter contracts
                            v
-+---------------------------------------------------------------+
-| VDR site                                                      |
-| VDR Core | SuiteBridge | RESTfulAPI | SVDRP | Streamdev       |
-| epgsearch | TVScraper | native files and databases            |
-+---------------------------------------------------------------+
++----------------------------------------------------------------+
+| VDR site                                                       |
+| VDR Core | SuiteBridge | RESTfulAPI | SVDRP | Streamdev        |
+| epgsearch | TVScraper | native files and databases             |
++----------------------------------------------------------------+
 ```
+
+VDR-Suite is VDR-centered but is a client-independent media platform rather than a Web frontend wrapped around VDR transports. The bundled Web frontend remains a full browser client and an important reference/administration surface. It is not privileged to turn private server/provider behavior into a public contract, and a framework rewrite is not a prerequisite for backend/platform productization.
 
 Rules:
 
 - VDR remains authoritative for VDR-native runtime state and execution.
-- The Control Plane owns external identity, authorization, policy, orchestration, reconciliation and client contracts.
+- The Control Plane owns external identity, authorization, policy, orchestration, reconciliation and public client contracts.
 - Backend Agents own bounded site-local observation/execution and local provider access, not global policy.
-- Private plugins/providers are never the public security or compatibility boundary.
+- Stable independent clients use `/api/v1`; private Agent/plugin/provider transports remain independently versioned implementation boundaries.
+- Private VDR, SuiteBridge, RESTfulAPI, SVDRP, Streamdev, Agent and provider details are never the public security or compatibility boundary.
+- A missing general client capability is first evaluated as a Suite platform/API capability rather than solved by a client-private bypass.
 - Reachability does not grant provider authority.
 - Clients receive no permanent VDR/plugin/Agent/provider credentials or private provider URLs.
+- Mature platform playback engines remain replaceable behind Suite MediaSession/MediaPlaybackContract semantics; VDR-Suite does not build one universal decoder core.
 
 ## Contract separation
 
@@ -193,6 +197,61 @@ Mutation invariants:
 - stale Agent generations, stale claims and stale provider epochs cannot complete current work;
 - an unknown outcome remains unknown until evidence permits reconciliation.
 
+## Product identity and authorization model
+
+Phase 62 is the persistent security-principal foundation. Productization extends that authority; it does not create a second user/security database.
+
+The product model keeps these concepts distinct:
+
+```text
+Actor
+  -> authentication / authorization / accountability principal
+
+Human User / Account
+  -> human account lifecycle and administration
+
+Profile
+  -> household/media persona and personal media/UI state
+
+Credential
+  -> authentication binding / verifier
+
+Session
+  -> bounded authenticated runtime context
+
+Device / Client
+  -> revocable client identity plus device policy
+
+Permission / Grant
+  -> allowed operation over an explicit scope
+
+Backend / Library / Content Scope
+  -> resources to which a grant applies
+
+Capability
+  -> technical ability only
+```
+
+An Actor is not synonymous with a Human User or Profile. Actors may also represent API clients, services, remote VDR-Suite peers or other technical identities. The P1 Identity Model Audit must prove the live mapping and lifecycle gaps before product code chooses a Human User/Profile representation.
+
+Device trust, User identity, Profile selection, permission and capability are separate decisions. A device can narrow effective authorization but cannot broaden grants. Conceptually:
+
+```text
+effective authorization
+  = actor/user permission
+  INTERSECT device policy
+  INTERSECT backend/content policy
+  INTERSECT capability availability
+```
+
+Capability never grants permission. Codec, resolution, HDR or similar client capabilities affect delivery selection only after authorization.
+
+Living-room pairing and remote client access must reuse the same identity/session/device authority. Pairing uses short-lived approval material and yields a revocable device credential; a QR/human code is not a permanent credential and pairing does not imply administrator rights. Remote media remains behind MediaSession and short-lived MediaAccessGrant semantics rather than private provider URLs.
+
+Household Profile identity owns personal media state where productized. Continue Watching, playback position and history must become Profile-scoped before personalized Phase-70 recommendation work uses them.
+
+See [Platform Productization Roadmap](../planning/platform-productization-roadmap.md).
+
 ## Identity and provenance model
 
 ```text
@@ -315,16 +374,20 @@ Viewing and controlling are separate permissions. Legacy OSD compatibility is no
 
 ## Public API target
 
+The stable independent-client namespace is `/api/v1`. Phase 69 completed the deliberately declared first public-v1 set; future domains enter that namespace only through the same compatibility discipline.
+
 A resource enters the stable public API only when these are explicit:
 
-- stable Suite identity and backend scope;
-- actor authorization and redaction;
+- stable Suite identity and backend/content scope;
+- Actor/User/Profile authorization and redaction appropriate to the resource;
 - resource revision and conditional mutation rules;
 - structured errors and request/correlation IDs;
 - pagination and partial-result semantics;
 - operation/idempotency behaviour;
 - accountability producer/outcome evidence;
 - compatibility and deprecation policy.
+
+TV, Android, Kodi, desktop, Web and later clients consume public Suite resources rather than VDR/provider implementation details. Client SDK/helper layers may normalize the public contract but may not create a second private compatibility surface.
 
 The public API version, Agent protocol version, media protocol version and plugin-local contract remain independently evolvable.
 
@@ -343,6 +406,8 @@ See [Golden User Journeys](../planning/golden-user-journeys.md).
 ## Implementation-order rule
 
 The binding numbered phase sequence and completion gates are maintained in the [Strict Roadmap](../planning/roadmap.md). The current completed/active/next phase position is maintained only in [Current State](../CURRENT.md).
+
+Cross-cutting post-Phase-69 productization order is maintained in the [Platform Productization Roadmap](../planning/platform-productization-roadmap.md). In particular, P1 audits the existing identity authority before new account/profile code, and P5 Profile-scoped media state precedes personalized Phase-70 recommendation implementation.
 
 This target architecture must not duplicate active PR tips or exact repository heads.
 
