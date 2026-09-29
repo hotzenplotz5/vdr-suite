@@ -1133,7 +1133,7 @@ Phase 70 remains not started. This roadmap does not authorize Recommendation/Kno
 
 Completed-Recording seek/resume, post-Phase-66 hardening and post-Phase-69 fixes retain their accepted boundaries and do not reopen completed phases.
 
-## Related documents## Related documents
+## Related documents
 
 - [Current State](../CURRENT.md)
 - [Phase Map](phase-map.md)
