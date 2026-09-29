@@ -94,6 +94,14 @@ Accepted Phase-68 verticals:
 Current active runtime slice:
 none - Phase 70 - Recommendation and Content Knowledge Graph not started
 
+Post-Phase-69 cross-cutting productization is now documented separately from the
+numbered runtime sequence. P0 is documentation/platform alignment; the next
+planned productization boundary is **P1 - Identity Model Audit**. It must inspect
+the live Phase-62-and-later Actor/Credential/Device/Session/Role/Grant/backend-
+scope authority before any Human User/Profile implementation is chosen. P5
+Profile-scoped playback/history state is a prerequisite for personalized
+Phase-70 recommendation work. This does not start Phase 70.
+
 69.D is completed. [Phase 69.D Closeout](development/phase-69d-closeout.md)
 records the accepted collection boundary:
 PR #363 established the standard single-source collection envelope, stable
@@ -112,10 +120,10 @@ same-handler alias groups / 54 alias members and 64 standalone transition
 literals, with 0 deprecated aliases because no classified alias has a stabilized
 public-v1 successor.
 
-69.F is active. It owns first-/third-party client hardening: common client error
-representation, removal of fallback probing after arbitrary errors, wrapper
-migration to genuine stabilized v1 contracts and a documented stable boundary
-for browser, TV, mobile, desktop and Kodi integrations. The
+69.F is completed. Its accepted first-/third-party client hardening covers
+common client error representation, removal of fallback probing after arbitrary
+errors, wrapper migration to genuine stabilized v1 contracts and a documented
+stable boundary for browser, TV, mobile, desktop and Kodi integrations. The
 [Phase 69.F Client Error and Mutation-Fallback Safety](development/phase-69f-client-error-mutation-fallback.md)
 candidate is the first bounded 69.F slice: it preserves structured HTTP error
 evidence in the browser client and removes alternate-path retries from the four
@@ -411,6 +419,8 @@ Recording-detail enrichment and playback prewarm must remain scoped to the selec
 - **Phase 64 - Timer Intent and Multi-Backend Orchestration** remains authoritative for `TimerIntent -> TimerAssignment -> NativeTimerBinding`, managed fulfillment and controlled reassignment/failover.
 - **Phase 65 - Streaming Gateway and Media Sessions** remains authoritative for Recording/Live MediaSession, least-transformation delivery and normalized playback ownership.
 - **Phase 66 - Media Home and Browse Experience** remains the completed numbered Home/browse phase; later Home/Recording/Live work is non-numbered hardening.
+- **Phase 69 - Public API and Client Compatibility Hardening** remains authoritative for the declared stable `/api/v1` compatibility boundary and independent reference-client seam.
+- **Post-69 productization** extends the Phase-62 identity authority rather than replacing it: Actor is not assumed to equal Human User/Profile, and client/device/product work must reuse the same authorization/accountability boundary.
 
 ## Completed Phase-67 boundary
 
@@ -430,7 +440,7 @@ Accepted Broadcast Companion capability includes:
 
 Durable evidence is in [Phase 67 Closeout](development/phase-67-closeout.md) and the earlier [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md).
 
-Phase 68 Legacy OSD Compatibility Bridge is **completed for the accepted 68.A-G scope**. The final 68.G real yaVDR acceptance proved fenced allowlisted native OSD input through the authenticated Control Plane -> Agent -> SuiteBridge -> VDR path, including native DOWN/UP effect, idempotent replay and stale-authority rejection. Durable evidence is in [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 public API/client compatibility hardening is active at 69.E Compatibility and deprecation policy; 69.A, 69.B, 69.C and 69.D are accepted. Phase 70 recommendation work remains later.
+Phase 68 Legacy OSD Compatibility Bridge is **completed for the accepted 68.A-G scope**. The final 68.G real yaVDR acceptance proved fenced allowlisted native OSD input through the authenticated Control Plane -> Agent -> SuiteBridge -> VDR path, including native DOWN/UP effect, idempotent replay and stale-authority rejection. Durable evidence is in [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 Public API and Client Compatibility Hardening is also completed through 69.A-F; durable evidence is in [Phase 69 Closeout](development/phase-69-closeout.md). Phase 70 Recommendation and Content Knowledge Graph remains next and not started.
 
 ## Historical evidence rule
 
