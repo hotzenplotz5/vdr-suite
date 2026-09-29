@@ -56,7 +56,7 @@ def main():
         require("adr", marker)
 
     for marker in (
-        "ActorType::User does not mean Human Account",
+        "`ActorType::User` does not mean Human Account",
         "No explicit Human Account entity",
         "admin:vdr-suite",
         "The missing multiuser product boundary is not security persistence",
