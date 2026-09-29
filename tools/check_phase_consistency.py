@@ -9,6 +9,10 @@ HANDOFF = ROOT / "docs" / "NEW-CHAT-HANDOFF.md"
 STATUS = ROOT / "docs" / "development" / "current-status.md"
 ROADMAP = ROOT / "docs" / "planning" / "roadmap.md"
 PHASE_MAP = ROOT / "docs" / "planning" / "phase-map.md"
+PRODUCTIZATION = ROOT / "docs" / "planning" / "platform-productization-roadmap.md"
+GAP_MATRIX = ROOT / "docs" / "planning" / "architecture-audit-gap-matrix.md"
+TARGET = ROOT / "docs" / "architecture" / "target-platform-architecture.md"
+SECURITY_IDENTITY = ROOT / "docs" / "architecture" / "security-identity-foundation.md"
 
 STABLE_CURRENT_DOCS = [
     ROOT / "docs" / "index.md",
@@ -60,7 +64,19 @@ def main():
         return 1
 
     closeout = status_contract.latest_closeout_path
-    required = [CURRENT, README, HANDOFF, STATUS, closeout, ROADMAP, PHASE_MAP] + STABLE_CURRENT_DOCS
+    required = [
+        CURRENT,
+        README,
+        HANDOFF,
+        STATUS,
+        closeout,
+        ROADMAP,
+        PHASE_MAP,
+        PRODUCTIZATION,
+        GAP_MATRIX,
+        TARGET,
+        SECURITY_IDENTITY,
+    ] + STABLE_CURRENT_DOCS
     for path in required:
         if not path.is_file():
             errors.append(f"missing status/planning file: {path.relative_to(ROOT)}")
@@ -140,16 +156,57 @@ def main():
             forbid(errors, path, marker)
 
     # The target architecture must remain architecture, not an operational log.
-    target = ROOT / "docs" / "architecture" / "target-platform-architecture.md"
-    require(errors, target, "Safe mutation and durable execution target")
-    require(errors, target, "fenced Agent/native command")
-    require(errors, target, "authoritative readback and verification")
+    require(errors, TARGET, "Safe mutation and durable execution target")
+    require(errors, TARGET, "fenced Agent/native command")
+    require(errors, TARGET, "authoritative readback and verification")
+    require(errors, TARGET, "stable authenticated /api/v1 client contracts")
+    require(errors, TARGET, "An Actor is not synonymous with a Human User or Profile.")
+    require(errors, TARGET, "Capability never grants permission.")
+    require(errors, TARGET, "P5 Profile-scoped media state precedes personalized Phase-70")
     for marker in [
         "Implemented on merged `main @",
         "Active contract work in Draft PR",
         "Current implementation overlay",
     ]:
-        forbid(errors, target, marker)
+        forbid(errors, TARGET, marker)
+
+    # Post-Phase-69 productization has one planning authority and extends the
+    # Phase-62 identity authority rather than creating a parallel user model.
+    for marker in [
+        "## Binding productization sequence",
+        "### P1 — Identity Model Audit",
+        "### P5 — Per-Profile Media State",
+        "### P10 — First-party Client Rollout",
+        "An Actor is not synonymous with a Human User or Profile.",
+        "no default administrator credential",
+        "QR code does not contain a permanent credential",
+        "Capability is never permission.",
+        "Phase 70 personalized recommendation implementation is blocked until P5",
+    ]:
+        require(errors, PRODUCTIZATION, marker)
+
+    for marker in [
+        "The Phase-62 Actor is the authorization/accountability principal",
+        "No productization slice may create a parallel identity authority",
+        "no permanent default administrator credential",
+        "Manual SQLite editing is not a supported product recovery workflow.",
+    ]:
+        require(errors, SECURITY_IDENTITY, marker)
+
+    require(errors, ROADMAP, "P1 — Identity Model Audit")
+    require(errors, ROADMAP, "P5 — Per-Profile Media State")
+    require(errors, PHASE_MAP, "P0 Platform Direction / Documentation Alignment")
+    require(errors, GAP_MATRIX, "| G-44 | Security Actor versus Human User / Profile model |")
+    require(errors, GAP_MATRIX, "| G-50 | Public client contract / SDK layer |")
+
+    forbid(errors, ROADMAP, "**Phase 68 - Legacy OSD Compatibility Bridge is active.**")
+    forbid(errors, GAP_MATRIX, "Active — Phase 69.C")
+    forbid(errors, CURRENT, "\n69.F is active.")
+    forbid(
+        errors,
+        CURRENT,
+        "Phase 69 public API/client compatibility hardening is active at 69.E",
+    )
 
     # Planning dependency documents describe order, not active authorization.
     implementation_map = ROOT / "docs" / "planning" / "implementation-dependency-map.md"
