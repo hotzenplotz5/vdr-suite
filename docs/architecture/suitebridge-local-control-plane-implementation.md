@@ -53,8 +53,7 @@ The initial registry is deliberately small:
 | OSDSNAP | Interactive Control/Read | migrated |
 | OSDINPUT | Interactive Control/Read | migrated |
 | HBBAPPS | External Plugin Interactive | migrated |
-| HBBRUN LAUNCH/STATUS/CLOSE | External Plugin Interactive | migrated |
-| HBBRUN INPUT | typed SVDRP | direct per-operation selection; no local dispatch/replay |
+| HBBRUN LAUNCH/STATUS/INPUT/CLOSE | External Plugin Interactive | migrated |
 | HBBPRES META/CHUNK | External Plugin Interactive | migrated |
 | HBBMEDIA | External Plugin Interactive | migrated |
 | TTXC | External Plugin Interactive | migrated |
@@ -113,13 +112,11 @@ replayed over SVDRP.
 That preserves the PR #350 rule: missing fresh evidence is indeterminate, not a
 terminal Live-session result.
 
-The daemon HbbTV resolvers use \`SuiteBridgePrioritizedHbbtvTransport\`.
-Discovery, presentation, media and LAUNCH/STATUS/CLOSE prefer the Unix endpoint
-and use SVDRP only after a pre-dispatch \`Unavailable\` result; post-selection
-timeout or uncertainty is never replayed. INPUT is the deliberate exception:
-the prioritized transport selects typed SVDRP directly before any local
-dispatch, restoring the exact pre-PR-355 execution path. This is one transport
-selection, not a local attempt followed by fallback or retry.
+The daemon HbbTV resolvers use the same selection rule through
+\`SuiteBridgePrioritizedHbbtvTransport\`: the Unix endpoint is preferred and
+SVDRP is used only for a pre-dispatch \`Unavailable\` result. Timeout or other
+uncertainty after local selection is never replayed, including HbbTV LAUNCH,
+INPUT or CLOSE.
 
 ETYPES follows the same compatibility rule through
 `SuiteBridgePrioritizedEpgTypeSnapshotTransport`. The Unix endpoint is tried
@@ -155,12 +152,12 @@ semantics. The adapter synchronously invokes `vdr-plugin-web` through
 `cPluginManager::CallFirstService()`, as the previous SVDRP handler already
 did from VDR's SVDRP server thread.
 
-The provider implementation was re-audited against its pinned
-discovery/runtime contracts after real yaVDR acceptance exposed a regression in
-PR #355's worker-thread assumption. Discovery and media state are
-mutex-protected bounded reads. LAUNCH already schedules its UI work through the
-provider's VDR remote/main-context path, but INPUT calls
-`browserClient->ProcessKey()` synchronously in the caller's thread. Therefore the local control worker must not execute INPUT directly. The prioritized HbbTV transport selects the existing typed SVDRP path for INPUT before local dispatch; STATUS and the existing provider-managed LAUNCH/CLOSE behavior remain on the local lane. There is no local attempt followed by SVDRP replay, so one request still has one authority and one dispatch.
+The provider implementation was audited against its pinned discovery/runtime
+contracts. Discovery and media state are mutex-protected bounded reads. Runtime
+state is mutex-protected and UI launch/input/close work uses the provider's
+existing VDR remote/main-context scheduling. HbbTV calls therefore remain
+serialized on one SuiteBridge provider worker; no same-provider re-entrancy
+assumption is introduced.
 
 Presentation is deliberately isolated from Legacy OSD. On the first read of a
 new frame, the provider can perform BGRA-to-RGBA conversion and QOI encoding
@@ -171,7 +168,7 @@ that work from blocking either Critical Live/native-probe control or Legacy OSD.
 The lane regression deliberately blocks HbbTV presentation and requires both
 Live capability and OSD snapshot to complete inside the bounded test budget.
 The transport regression separately proves that a local HbbTV timeout is not
-replayed through SVDRP. The HbbTV transport regression proves that normal runtime STATUS remains local-first, a local timeout is not replayed, and INPUT bypasses even a timeout-capable local transport to select typed SVDRP exactly once.
+replayed through SVDRP.
 
 ## Teletext provider/thread audit
 
