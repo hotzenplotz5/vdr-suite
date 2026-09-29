@@ -194,7 +194,7 @@ def main():
         require(errors, SECURITY_IDENTITY, marker)
 
     require(errors, ROADMAP, "P1 — Identity Model Audit")
-    require(errors, ROADMAP, "P5 — Per-Profile Media State")
+    require(errors, ROADMAP, "| P5 | Per-Profile Media State |")
     require(errors, PHASE_MAP, "P0 Platform Direction / Documentation Alignment")
     require(errors, GAP_MATRIX, "| G-44 | Security Actor versus Human User / Profile model |")
     require(errors, GAP_MATRIX, "| G-50 | Public client contract / SDK layer |")
