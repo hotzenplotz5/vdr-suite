@@ -53,6 +53,15 @@ constexpr const char* PublicBackendCollectionOrder = "asc";
 constexpr const char* PublicBackendCursorPrefix = "be1_";
 constexpr const char* PublicBackendCursorPayloadVersion =
     "backends/1|";
+constexpr const char* PublicAccountCollectionPath =
+    "/api/v1/accounts";
+constexpr std::size_t PublicAccountDefaultLimit = 50U;
+constexpr std::size_t PublicAccountMaximumLimit = 100U;
+constexpr const char* PublicAccountCollectionSort = "accountId";
+constexpr const char* PublicAccountCollectionOrder = "asc";
+constexpr const char* PublicAccountCursorPrefix = "ac1_";
+constexpr const char* PublicAccountCursorPayloadVersion =
+    "accounts/1|";
 constexpr const char* PublicChannelCollectionPath =
     "/api/v1/channels";
 constexpr std::size_t PublicChannelDefaultLimit = 50U;
@@ -266,6 +275,82 @@ bool parsePublicBackendCollectionQuery(
         else if (key == "order")
         {
             if (orderSeen || value != PublicBackendCollectionOrder)
+                return false;
+            orderSeen = true;
+        }
+        else
+        {
+            return false;
+        }
+
+        if (separator == std::string::npos) break;
+        position = separator + 1U;
+    }
+
+    return true;
+}
+
+struct PublicAccountCollectionQuery
+{
+    std::size_t limit = PublicAccountDefaultLimit;
+    std::string cursor;
+};
+
+bool parsePublicAccountCollectionQuery(
+    const std::string& requestTarget,
+    PublicAccountCollectionQuery& query)
+{
+    const std::string encoded = requestQueryString(requestTarget);
+    if (encoded.empty()) return true;
+
+    bool limitSeen = false;
+    bool cursorSeen = false;
+    bool sortSeen = false;
+    bool orderSeen = false;
+    std::size_t position = 0U;
+
+    while (position <= encoded.size())
+    {
+        const std::size_t separator = encoded.find('&', position);
+        const std::string item = encoded.substr(
+            position,
+            separator == std::string::npos
+                ? std::string::npos
+                : separator - position);
+        if (item.empty()) return false;
+
+        const std::size_t equals = item.find('=');
+        if (equals == std::string::npos) return false;
+        const std::string key = item.substr(0U, equals);
+        const std::string value = item.substr(equals + 1U);
+
+        if (key == "limit")
+        {
+            if (limitSeen) return false;
+            limitSeen = true;
+            std::size_t parsed = 0U;
+            if (!decimalSize(value, parsed) ||
+                parsed == 0U ||
+                parsed > PublicAccountMaximumLimit)
+                return false;
+            query.limit = parsed;
+        }
+        else if (key == "cursor")
+        {
+            if (cursorSeen || value.empty() || value.size() > 4096U)
+                return false;
+            cursorSeen = true;
+            query.cursor = value;
+        }
+        else if (key == "sort")
+        {
+            if (sortSeen || value != PublicAccountCollectionSort)
+                return false;
+            sortSeen = true;
+        }
+        else if (key == "order")
+        {
+            if (orderSeen || value != PublicAccountCollectionOrder)
                 return false;
             orderSeen = true;
         }
@@ -560,6 +645,43 @@ PublicBackendCursorDecodeStatus decodePublicBackendCursor(
     return PublicBackendCursorDecodeStatus::ok;
 }
 
+std::string publicAccountCursor(
+    const std::string& lastAccountId)
+{
+    if (lastAccountId.empty()) return "";
+
+    std::string payload(PublicAccountCursorPayloadVersion);
+    appendCursorField(payload, lastAccountId);
+    return std::string(PublicAccountCursorPrefix) + hexEncode(payload);
+}
+
+bool decodePublicAccountCursor(
+    const std::string& cursor,
+    std::string& lastAccountId)
+{
+    const std::string prefix(PublicAccountCursorPrefix);
+    if (cursor.size() <= prefix.size() ||
+        cursor.compare(0U, prefix.size(), prefix) != 0)
+        return false;
+
+    std::string payload;
+    if (!hexDecode(cursor.substr(prefix.size()), payload))
+        return false;
+
+    const std::string version(PublicAccountCursorPayloadVersion);
+    if (payload.compare(0U, version.size(), version) != 0)
+        return false;
+
+    std::size_t position = version.size();
+    if (!readCursorField(payload, position, lastAccountId) ||
+        position != payload.size() ||
+        lastAccountId.empty() ||
+        lastAccountId.size() > 160U)
+        return false;
+
+    return true;
+}
+
 std::string normalizedPublicChannelBackendScope(
     std::vector<std::string> backendIds)
 {
@@ -643,6 +765,20 @@ std::string publicBackendCollectionTarget(
         "?limit=" + std::to_string(limit) +
         "&sort=" + PublicBackendCollectionSort +
         "&order=" + PublicBackendCollectionOrder;
+    if (!cursor.empty())
+        target += "&cursor=" + cursor;
+    return target;
+}
+
+std::string publicAccountCollectionTarget(
+    std::size_t limit,
+    const std::string& cursor)
+{
+    std::string target =
+        std::string(PublicAccountCollectionPath) +
+        "?limit=" + std::to_string(limit) +
+        "&sort=" + PublicAccountCollectionSort +
+        "&order=" + PublicAccountCollectionOrder;
     if (!cursor.empty())
         target += "&cursor=" + cursor;
     return target;
@@ -1247,7 +1383,7 @@ ApiResponse contractRoot(
           "\"legacyUnversioned\":\"transition\"},"
           "\"authentication\":{\"authenticated\":"
         + (authenticated ? "true" : "false")
-        + "},\"links\":{\"self\":\"/api/v1\",\"capabilities\":\"/api/v1/capabilities\",\"backends\":\"/api/v1/backends\"}}",
+        + "},\"links\":{\"self\":\"/api/v1\",\"capabilities\":\"/api/v1/capabilities\",\"backends\":\"/api/v1/backends\",\"accounts\":\"/api/v1/accounts\"}}",
         requestId,
         correlationId);
 }
@@ -1257,6 +1393,7 @@ ApiResponse platformCapabilities(
     const bool timerAssignmentReadAvailable,
     const bool timerCreateAdmissionAvailable,
     const bool backendCollectionAvailable,
+    const bool accountCollectionAvailable,
     const std::string& requestId,
     const std::string& correlationId)
 {
@@ -1274,6 +1411,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.backends-read\",\"version\":1,\"availability\":\"" +
         std::string(backendCollectionAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.accounts-read\",\"version\":1,\"availability\":\"" +
+        std::string(accountCollectionAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.compatibility-policy\",\"version\":1,\"availability\":\"available\"},"
         "{\"id\":\"public-api.deprecation-metadata\",\"version\":1,\"availability\":\"available\"}"
@@ -1560,6 +1700,69 @@ ApiResponse publicBackendCollectionResponse(
         correlationId);
 }
 
+ApiResponse publicAccountCollectionResponse(
+    const PublicAccountCollectionResult& page,
+    const PublicAccountCollectionQuery& query,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    const std::string nextCursor =
+        page.hasMore && !page.accounts.empty()
+            ? publicAccountCursor(page.accounts.back().accountId)
+            : std::string();
+
+    if (page.hasMore && nextCursor.empty())
+        return serviceUnavailableProblem(
+            PublicAccountCollectionPath,
+            requestId,
+            correlationId);
+
+    const std::string self =
+        publicAccountCollectionTarget(query.limit, query.cursor);
+    const std::string next =
+        nextCursor.empty()
+            ? std::string()
+            : publicAccountCollectionTarget(query.limit, nextCursor);
+
+    std::string body = "{\"items\":[";
+    for (std::size_t index = 0U; index < page.accounts.size(); ++index)
+    {
+        if (index > 0U) body += ",";
+        const PublicAccountCollectionItem& account =
+            page.accounts[index];
+        body +=
+            "{\"accountId\":\"" + jsonEscape(account.accountId) +
+            "\",\"actorId\":\"" + jsonEscape(account.actorId) +
+            "\",\"displayName\":\"" + jsonEscape(account.displayName) +
+            "\",\"active\":" +
+            std::string(account.active ? "true" : "false") +
+            "}";
+    }
+
+    body +=
+        "],\"page\":{\"limit\":" +
+        std::to_string(query.limit) +
+        ",\"nextCursor\":";
+    body += nextCursor.empty()
+        ? "null"
+        : "\"" + jsonEscape(nextCursor) + "\"";
+    body +=
+        ",\"hasMore\":" +
+        std::string(page.hasMore ? "true" : "false") +
+        "},\"meta\":{\"partial\":false},"
+        "\"links\":{\"self\":\"" +
+        jsonEscape(self) + "\",\"next\":";
+    body += next.empty()
+        ? "null"
+        : "\"" + jsonEscape(next) + "\"";
+    body += "}}";
+
+    return jsonResponse(
+        body,
+        requestId,
+        correlationId);
+}
+
 ApiResponse publicChannelCollectionResponse(
     const PublicChannelCollectionResult& page,
     const PublicChannelCollectionQuery& query,
@@ -1800,6 +2003,42 @@ PublicApiRuntime::lookupBackendCollection(
     return lookup(request);
 }
 
+void PublicApiRuntime::registerAccountCollectionLookup(
+    AccountCollectionLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(
+        accountCollectionLookupMutex_);
+    accountCollectionLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetAccountCollectionLookup()
+{
+    std::lock_guard<std::mutex> lock(
+        accountCollectionLookupMutex_);
+    accountCollectionLookup_ = {};
+}
+
+bool PublicApiRuntime::accountCollectionLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        accountCollectionLookupMutex_);
+    return static_cast<bool>(accountCollectionLookup_);
+}
+
+PublicAccountCollectionResult
+PublicApiRuntime::lookupAccountCollection(
+    const PublicAccountCollectionRequest& request) const
+{
+    AccountCollectionLookup lookup;
+    {
+        std::lock_guard<std::mutex> lock(
+            accountCollectionLookupMutex_);
+        lookup = accountCollectionLookup_;
+    }
+    if (!lookup) return {};
+    return lookup(request);
+}
+
 void PublicApiRuntime::registerChannelCollectionLookup(
     ChannelCollectionLookup lookup)
 {
@@ -1905,6 +2144,7 @@ bool PublicApiRuntime::tryHandleGet(
             timerAssignmentLookupConfigured(),
             timerCreateAdmissionConfigured(),
             backendCollectionLookupConfigured(),
+            accountCollectionLookupConfigured(),
             requestId,
             correlationId);
         return true;
@@ -2100,6 +2340,94 @@ bool PublicApiRuntime::tryHandleGet(
             }
 
             case PublicBackendCollectionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    if (path == PublicAccountCollectionPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        PublicAccountCollectionQuery query;
+        if (!parsePublicAccountCollectionQuery(
+                requestTarget,
+                query))
+        {
+            response = invalidRequestProblem(
+                path,
+                "The Account collection query is invalid.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        std::string afterAccountId;
+        if (!query.cursor.empty() &&
+            !decodePublicAccountCursor(
+                query.cursor,
+                afterAccountId))
+        {
+            response = invalidRequestProblem(
+                path,
+                "The Account collection cursor is invalid.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        PublicAccountCollectionRequest request;
+        request.afterAccountId = afterAccountId;
+        request.limit = query.limit;
+
+        const PublicAccountCollectionResult page =
+            lookupAccountCollection(request);
+
+        switch (page.status)
+        {
+            case PublicAccountCollectionStatus::ok:
+            {
+                if (page.accounts.size() > query.limit ||
+                    (page.hasMore &&
+                     page.accounts.size() != query.limit))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+
+                std::string previousAccount = afterAccountId;
+                for (const PublicAccountCollectionItem& account :
+                     page.accounts)
+                {
+                    if (account.accountId.empty() ||
+                        account.actorId.empty() ||
+                        account.displayName.empty() ||
+                        (!previousAccount.empty() &&
+                         account.accountId <= previousAccount))
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    previousAccount = account.accountId;
+                }
+
+                response = publicAccountCollectionResponse(
+                    page,
+                    query,
+                    requestId,
+                    correlationId);
+                return true;
+            }
+
+            case PublicAccountCollectionStatus::unavailable:
                 response = serviceUnavailableProblem(
                     path, requestId, correlationId);
                 return true;
@@ -2783,6 +3111,7 @@ bool PublicApiRuntime::tryHandlePost(
     if (path == "/api/v1" ||
         path == "/api/v1/capabilities" ||
         path == PublicBackendCollectionPath ||
+        path == PublicAccountCollectionPath ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         publicOperationPath(path, operationId))
@@ -2829,6 +3158,7 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
     if (path == "/api/v1" ||
         path == "/api/v1/capabilities" ||
         path == PublicBackendCollectionPath ||
+        path == PublicAccountCollectionPath ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         publicOperationPath(path, operationId))
