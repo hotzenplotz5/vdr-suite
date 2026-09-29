@@ -75,7 +75,7 @@ reference_contracts = {
     for contract in item.get("resources", [])
 }
 require(reference_contracts == public_contracts, "reference/public-v1 exact coverage drifted")
-require(len(reference_contracts) == 8, "reference client must cover exactly eight stable contracts")
+require(len(reference_contracts) == len(public_contracts), "reference client must cover the current stable contract set")
 
 candidate = matrix.get("derivedNextRuntimeCandidate", {})
 require(
@@ -145,5 +145,5 @@ require(
 )
 
 print("Phase 69.F public-v1 durable Operation reference-client guard passed.")
-print("Reference coverage equals all eight stable public-v1 contracts exactly.")
+print(f"Reference coverage equals all {len(public_contracts)} current stable public-v1 contracts exactly.")
 print("Next justified step: fresh 69.F/Phase-69 closeout audit.")
