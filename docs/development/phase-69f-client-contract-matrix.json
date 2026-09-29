@@ -64,6 +64,12 @@
       "method": "GET",
       "template": "/api/v1/channels?backendId={backendId}",
       "semantics": "explicit-source federated Channel collection with keyset pagination and partial-source metadata"
+    },
+    {
+      "id": "account-collection",
+      "method": "GET",
+      "template": "/api/v1/accounts",
+      "semantics": "global permission-protected Human Account collection with accountId keyset pagination and secret-free representation"
     }
   ],
   "browserClientGroups": [
@@ -324,6 +330,15 @@
         "GET /api/v1/operations/{operationId}"
       ],
       "note": "Actor-owned durable Operation item GET with opaque ETag exposure and caller-supplied If-None-Match; explicit one-shot reconciliation read with no polling or mutation helper."
+    },
+    {
+      "id": "reference-js-account-collection",
+      "path": "clients/reference-js/public-v1-client.js",
+      "status": "accepted",
+      "resources": [
+        "GET /api/v1/accounts"
+      ],
+      "note": "Read-only global Human Account collection using accounts.view@*; accountId/actorId/displayName/active only, with no credential, session, grant or mutation surface."
     }
   ]
 }
