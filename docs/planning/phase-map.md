@@ -90,18 +90,31 @@ Phase 67 is completed. Teletext merged through PR #293 and the HbbTV discovery/s
 
 ## Later phases
 
-- Phase 68: Legacy OSD Compatibility Bridge — ADR-0047.
-- Phase 69: Public API and Client Compatibility Hardening — ADR-0048.
-- Phase 70: Recommendation / Content Knowledge Graph — requires its own accepted runtime ADR before implementation.
+- Phase 68: Legacy OSD Compatibility Bridge — completed; ADR-0047.
+- Phase 69: Public API and Client Compatibility Hardening — completed; ADR-0048.
+- Phase 70: Recommendation / Content Knowledge Graph — next, not started; requires its own accepted runtime ADR and P5 profile-scoped media-state prerequisite before personalized recommendation implementation.
 
 ## Cross-cutting non-numbered milestones
 
-- Account and Backend Access Administration;
-- Broad Timer Product UI;
-- Audit/Security/Operations surfaces;
-- Legacy Basic retirement migration;
-- first-party client family rollout;
-- bounded post-phase correctness/performance hardening.
+The post-Phase-69 productization sequence is:
+
+~~~text
+P0 Platform Direction / Documentation Alignment
+  -> P1 Identity Model Audit
+  -> P2 Account Administration Read Model
+  -> P3 Account / Grant Administration
+  -> P4 Household / Profile Model
+  -> P5 Per-Profile Media State
+  -> P6 Device & Session Management
+  -> P7 Scoped Content Access
+  -> P8 Remote Access Contract
+  -> P9 Client Contract / SDK Layer
+  -> P10 First-party Client Rollout
+~~~
+
+This sequence does not renumber Phase 70. It extends the existing Account/Backend Access and client-family milestones instead of creating a second roadmap. Actor remains the security principal and is not synonymous with Human User/Profile.
+
+Adjacent cross-cutting work remains Broad Timer Product UI, Audit/Security/Operations surfaces, Legacy Basic retirement, federation, release packaging and bounded post-phase correctness/performance hardening.
 
 ## Product acceptance
 
@@ -109,8 +122,9 @@ Phase 67 is completed. Teletext merged through PR #293 and the HbbTV discovery/s
 - Phase 65: Live-TV and Recording playback journeys.
 - Phase 66: desktop/mobile Media Home journeys — accepted.
 - Phase 67: Teletext Journey 8 and HbbTV Journey 9 — accepted.
-- Phase 68: Legacy OSD compatibility journey.
-- Phase 69: public/client compatibility hardening.
+- Phase 68: Legacy OSD compatibility journey — accepted.
+- Phase 69: public/client compatibility hardening — accepted.
+- Post-69 productization: P1 identity audit before account/profile implementation; P5 profile-scoped media state before personalized Phase 70.
 
 See [Golden User Journeys](golden-user-journeys.md).
 
