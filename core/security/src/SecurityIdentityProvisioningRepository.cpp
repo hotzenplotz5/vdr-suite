@@ -33,6 +33,49 @@ SecurityIdentityProvisioningRepository::~SecurityIdentityProvisioningRepository(
     delete identityRepository_;
 }
 
+bool SecurityIdentityProvisioningRepository::ensureHumanCredentialInActiveTransaction(
+    const std::string& actorId,
+    const std::string& actorDisplayName,
+    const std::string& credentialId,
+    const std::string& credentialType)
+{
+    if (!database_.transactionActive() ||
+        actorId.empty() ||
+        actorDisplayName.empty() ||
+        credentialId.empty() ||
+        credentialType.empty())
+    {
+        return false;
+    }
+
+    if (!insertActorIfMissing(
+            actorId,
+            actorTypeName(ActorType::User),
+            actorDisplayName) ||
+        !insertCredentialIfMissing(
+            credentialId,
+            actorId,
+            credentialType))
+    {
+        return false;
+    }
+
+    const auto actor = identityRepository_->findActor(actorId);
+    const auto credential =
+        identityRepository_->findCredential(credentialId);
+
+    return actor.has_value() &&
+        actor->type == ActorType::User &&
+        actor->active &&
+        !actor->revoked &&
+        credential.has_value() &&
+        credential->actorId == actorId &&
+        credential->credentialType == credentialType &&
+        credential->active &&
+        !credential->expired &&
+        !credential->revoked;
+}
+
 bool SecurityIdentityProvisioningRepository::ensureTechnicalIdentity(
     const std::string& actorId,
     ActorType actorType,
