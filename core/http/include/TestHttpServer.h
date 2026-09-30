@@ -11,6 +11,10 @@
 #include "BrowserSessionLifecycleService.h"
 #include "BrowserSessionRetentionService.h"
 #include "CredentialVerifierRepository.h"
+#include "FirstAdminBootstrapRepository.h"
+#include "FirstAdminClaimHttpService.h"
+#include "FirstAdminClaimService.h"
+#include "HumanAccountRepository.h"
 #include "Database.h"
 #include "IEpgArtworkHttpProvider.h"
 #include "IHttpServer.h"
@@ -65,6 +69,14 @@ private:
         securityIdentityProvisioningRepository_;
     std::unique_ptr<CredentialVerifierRepository>
         credentialVerifierRepository_;
+    std::unique_ptr<HumanAccountRepository>
+        humanAccountRepository_;
+    std::unique_ptr<FirstAdminBootstrapRepository>
+        firstAdminBootstrapRepository_;
+    std::unique_ptr<FirstAdminClaimService>
+        firstAdminClaimService_;
+    std::unique_ptr<FirstAdminClaimHttpService>
+        firstAdminClaimHttpService_;
     std::unique_ptr<BrowserSessionCredentialRepository>
         browserSessionCredentialRepository_;
     std::unique_ptr<SecurityPermissionGrantRepository>
