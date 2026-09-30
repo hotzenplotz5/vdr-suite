@@ -1008,7 +1008,7 @@ defaults file still contains `VDR_SUITE_BASIC_AUTH` or other
 `VDR_SUITE_LEGACY_BASIC_*` inputs. Those compatibility inputs become effective
 only after an explicit `VDR_SUITE_SECURITY_MODE=legacy-basic` rollback.
 
-The guarded real-runtime acceptance now exercises an existing claimed installation across `legacy-basic -> enforced -> legacy-basic -> enforced`, proves Human Account browser login in both modes, proves Legacy Basic denial in enforced mode and restoration in rollback mode, preserves the persistent Human Account/Actor/credential/grant fingerprint, and leaves a successful deployment explicitly on `enforced`.
+The guarded real-runtime acceptance now covers both an already claimed installation and a pre-P2/unclaimed legacy installation across `legacy-basic -> enforced -> legacy-basic -> enforced`. For the pre-P2 shape it can, only with explicit `--bootstrap-first-admin`, let the exact candidate initialize the P2 schema and perform the existing root-bootstrap/atomic-claim flow before the mode migration. It proves Human Account browser login in both modes, Legacy Basic denial in enforced mode and restoration in rollback mode, preserves the persistent Human Account/Actor/credential/grant fingerprint, and leaves a successful deployment explicitly on `enforced`.
 
 The remaining retirement work is narrower:
 

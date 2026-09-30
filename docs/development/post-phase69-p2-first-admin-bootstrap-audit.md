@@ -474,22 +474,29 @@ The acceptance sequence is deliberately
 `legacy-basic -> enforced -> legacy-basic -> enforced`:
 
 1. verify the existing deployment is still effectively in the compatibility
-   mode and that exactly one selected active Human Account administrator has an
-   active `human-password` credential and verifier;
-2. read the Human Account password interactively, never from a command-line
-   argument or environment variable, and verify it against the persisted
-   verifier before changing the running service;
+   mode and classify the production security state as pre-P2, unclaimed or
+   claimed instead of assuming `security_human_accounts` already exists;
+2. for a claimed deployment, resolve exactly one selected active Human Account
+   administrator and verify its interactively entered password against the
+   persisted verifier before mutation; for a pre-P2/unclaimed deployment,
+   require explicit `--bootstrap-first-admin`, fingerprint the exact candidate
+   bootstrap issuer and collect the new First Admin login/display/password
+   interactively;
 3. install only the exact candidate `vdr-suite-daemon`, leaving VDR and the
-   Backend Agent untouched;
-4. under the legacy baseline, prove both Legacy Basic protected access and a
+   Backend Agent untouched; this candidate startup initializes the P2 schema on
+   an older database;
+4. when the server was pre-P2/unclaimed, issue root-only short-lived bootstrap
+   material and atomically claim the First Admin through the existing claim
+   endpoint, then establish the persistent identity fingerprint;
+5. under the legacy baseline, prove both Legacy Basic protected access and a
    complete Human Account browser-session issue/read/logout round trip;
-5. set only `VDR_SUITE_SECURITY_MODE=enforced`, restart only
+6. set only `VDR_SUITE_SECURITY_MODE=enforced`, restart only
    `vdr-suite-daemon.service`, prove the legacy credential now receives HTTP
    401, and prove Human Account login/read/logout still succeeds;
-6. set the mode explicitly to `legacy-basic`, restart only the daemon and
+7. set the mode explicitly to `legacy-basic`, restart only the daemon and
    prove the compatibility credential is restored while Human Account login
    still works;
-7. set the mode back to `enforced`, prove the final legacy denial and Human
+8. set the mode back to `enforced`, prove the final legacy denial and Human
    Account success again, and leave the successful deployment in enforced mode.
 
 The runner preserves every non-mode line in the existing defaults file,
@@ -514,3 +521,14 @@ The runtime evidence report contains identifiers, fingerprints and status codes,
 not the Human Account password, Legacy Basic authorization header, browser
 cookie, CSRF secret or password verifier. Real deployment execution remains the
 external acceptance gate before Legacy Basic implementation deletion.
+
+
+The first real yaVDR execution exposed an upgrade-shape assumption before any
+runtime mutation: the installed production database did not yet contain
+`security_human_accounts`, so the original runner raised a SQLite
+`no such table` exception during read-only preflight. The corrected contract
+treats that as a supported pre-P2 state. It never infers "unclaimed" merely from
+a missing eligible credential; when the Human Account schema exists it uses the
+same Account/Actor/admin-grant authority shape as
+`FirstAdminBootstrapRepository::claimState()` to distinguish claimed from
+unclaimed, then separately resolves the eligible Human Account credential.
