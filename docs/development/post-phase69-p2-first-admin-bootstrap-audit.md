@@ -5,7 +5,7 @@
 Audited against live `main`:
 
 ```text
-69a7b2355e5fd1d75e2381764905ae414fa73c5b
+2937873b856c5f802ef5030504cedff66aee8e22
 ```
 
 The Public-v1 Account collection is already on `main`. This slice deliberately does not modify its runtime, API, client or Phase-69 compatibility surfaces.
