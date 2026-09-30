@@ -94,12 +94,12 @@ def main():
         'verifier->passwordHash.rfind("$y$", 0) == 0',
         'grants.grants[0].permission == "role.admin"',
         '"security.first-admin.claim"',
-        '"DROP TABLE accountability_events;"',
         '"bootstrap-rollback"',
-        '"security_actors") == 0',
-        '"security_credentials") == 0',
-        '"security_basic_credential_verifiers") == 0',
-        '"security_actor_permission_grants") == 0',
+        '"ace_606162636465666768696a6b6c6d6e6f"',
+        '"actor_404142434445464748494a4b4c4d4e4f"',
+        '"credential_505152535455565758595a5b5c5d5e5f"',
+        "rolledBackGrants.grants.empty()",
+        'events[0].eventType == "test.duplicate"',
         "FirstAdminClaimStatus::bootstrapRejected",
         "FirstAdminClaimStatus::claimed",
     ):
@@ -132,6 +132,12 @@ def main():
     forbid("service_h", "sqlite3")
     forbid("account_h", "sqlite3")
     forbid("identity_h", "sqlite3")
+    forbid("test", "sqlite3")
+    forbid("test", "SELECT ")
+    forbid("test", "INSERT ")
+    forbid("test", "UPDATE ")
+    forbid("test", "DELETE ")
+    forbid("test", "DROP TABLE")
 
     print("P2 atomic first-admin claim contracts passed")
     return 0
