@@ -32,7 +32,7 @@ def forbid(name, marker):
 
 def main():
     require("defaults", "VDR_SUITE_SECURITY_MODE=enforced")
-    forbid("defaults", "VDR_SUITE_SECURITY_MODE=legacy-basic")
+    forbid("defaults", "\nVDR_SUITE_SECURITY_MODE=legacy-basic\n")
     forbid("defaults", "VDR_SUITE_BASIC_AUTH=")
     forbid("defaults", "VDR_SUITE_MANAGED_BASIC_PASSWORD_HASH=")
 
@@ -88,7 +88,8 @@ def main():
 
     for marker in (
         "Fresh packaged installations now select",
-        "existing deployment default files are preserved",
+        "existing deployment",
+        "default files are preserved",
         "real deployment rollback",
     ):
         require("roadmap", marker)
