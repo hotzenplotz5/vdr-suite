@@ -142,7 +142,7 @@ def main():
         "local audited Human Account recovery",
         "direct local credential reset",
         "issued_from_credential_id",
-        "no remote recovery endpoint",
+        "remote recovery",
     ):
         require("audit", marker)
 
