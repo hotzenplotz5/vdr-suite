@@ -995,7 +995,7 @@ Do not reopen Phase 62 to implement these surfaces.
 
 ## Milestone D — Legacy Basic Retirement
 
-Status: **Fresh-install migration, enforced runtime fence and real deployment acceptance tooling implemented; real deployment execution remains pending.**
+Status: **Fresh-install migration and enforced runtime fence implemented; real deployment acceptance tooling implemented; real deployment execution remains pending.**
 
 Fresh packaged installations now select `VDR_SUITE_SECURITY_MODE=enforced`.
 The first-admin bootstrap, claim, human-password session bridge and local audited
