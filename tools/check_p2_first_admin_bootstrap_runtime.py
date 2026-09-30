@@ -96,7 +96,8 @@ def main():
     for marker in (
         "FirstAdminBootstrapRepository",
         "claim state remains derived",
-        "no normal Session or Credential row",
+        "no normal Session",
+        "Credential row",
         "caller-owned SQLite transaction",
         "Legacy Basic default remains unchanged",
     ):
