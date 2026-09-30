@@ -332,8 +332,47 @@ int main()
     {
         Fixture fixture;
         fixture.registerBootstrap("bootstrap-rollback");
+        assert(
+            fixture.database.execute(
+                "DROP TABLE accountability_events;"));
 
-        assert(database.execute); // placeholder
+        FirstAdminClaimService service =
+            fixture.service(0x30);
+        const FirstAdminClaimResult result =
+            service.claim(
+                requestFor("bootstrap-rollback"));
+
+        assert(
+            result.status ==
+            FirstAdminClaimStatus::storageError);
+        assert(
+            fixture.bootstraps.findById(
+                "bootstrap-rollback").status ==
+            FirstAdminBootstrapStatus::ok);
+        assert(
+            bootstrapConsumedAt(
+                fixture.database,
+                "bootstrap-rollback").empty());
+        assert(fixture.accounts.listAll().accounts.empty());
+        assert(
+            tableCount(
+                fixture.database,
+                "security_actors") == 0);
+        assert(
+            tableCount(
+                fixture.database,
+                "security_credentials") == 0);
+        assert(
+            tableCount(
+                fixture.database,
+                "security_basic_credential_verifiers") == 0);
+        assert(
+            tableCount(
+                fixture.database,
+                "security_actor_permission_grants") == 0);
+        assert(
+            fixture.bootstraps.claimState() ==
+            FirstAdminClaimState::unclaimed);
     }
 
     return 0;
