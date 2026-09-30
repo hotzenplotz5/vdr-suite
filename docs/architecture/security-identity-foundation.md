@@ -178,7 +178,7 @@ database.
 This completes the bounded fresh-install migration and enforced-mode runtime
 fence required before real deployment acceptance. Guarded retirement runtime acceptance tooling now performs the explicit compatibility migration, rollback and final enforced transition while comparing a persistent Human Account identity fingerprint before and after the mode changes. It restores the prior daemon/configuration on acceptance failure and deliberately leaves a successful deployment in enforced mode.
 
-Full Legacy Basic removal remains deferred. Deleting the compatibility implementation still requires successful real yaVDR execution of that retirement runtime acceptance and retained deployment rollback evidence under the roadmap retirement milestone.
+The full Legacy Basic removal remains deferred. Deleting the compatibility implementation still requires successful real yaVDR execution of that retirement runtime acceptance and retained deployment rollback evidence under the roadmap retirement milestone.
 
 ## Deferred capabilities
 
