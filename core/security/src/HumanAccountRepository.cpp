@@ -4,6 +4,9 @@
 
 #include <sqlite3.h>
 
+#include <algorithm>
+#include <cctype>
+
 namespace
 {
 bool bindText(
@@ -25,6 +28,27 @@ std::string columnText(sqlite3_stmt* statement, int column)
     return text == nullptr
         ? std::string()
         : std::string(reinterpret_cast<const char*>(text));
+}
+
+bool safeAccountPart(
+    const std::string& value,
+    std::size_t maximumLength)
+{
+    if (value.empty() || value.size() > maximumLength)
+    {
+        return false;
+    }
+
+    return std::none_of(
+        value.begin(),
+        value.end(),
+        [](unsigned char character)
+        {
+            return character == '\0' ||
+                character == '\r' ||
+                character == '\n' ||
+                std::iscntrl(character);
+        });
 }
 
 bool readAccount(
@@ -121,6 +145,57 @@ bool HumanAccountRepository::ensureSchema()
                "SELECT RAISE(ABORT, "
                "'bound human account actor must remain user'); "
                "END;");
+}
+
+bool HumanAccountRepository::ensureAccountInActiveTransaction(
+    const std::string& accountId,
+    const std::string& actorId,
+    const std::string& displayName)
+{
+    if (!database_.transactionActive() ||
+        !safeAccountPart(accountId, 128) ||
+        !safeAccountPart(actorId, 128) ||
+        !safeAccountPart(displayName, 256))
+    {
+        return false;
+    }
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "INSERT OR IGNORE INTO security_human_accounts "
+        "(account_id, actor_id, display_name) "
+        "VALUES (?, ?, ?);";
+
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return false;
+    }
+
+    const bool bound =
+        bindText(statement, 1, accountId) &&
+        bindText(statement, 2, actorId) &&
+        bindText(statement, 3, displayName);
+    const int step = bound
+        ? sqlite3_step(statement)
+        : SQLITE_ERROR;
+    sqlite3_finalize(statement);
+
+    if (step != SQLITE_DONE)
+    {
+        return false;
+    }
+
+    const HumanAccountLookupResult stored =
+        findByAccountId(accountId);
+    return stored.status == HumanAccountRepositoryStatus::ok &&
+        stored.account.actorId == actorId &&
+        stored.account.displayName == displayName &&
+        stored.account.active;
 }
 
 HumanAccountLookupResult
