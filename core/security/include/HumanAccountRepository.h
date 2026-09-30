@@ -42,6 +42,11 @@ public:
 
     bool ensureSchema();
 
+    bool ensureAccountInActiveTransaction(
+        const std::string& accountId,
+        const std::string& actorId,
+        const std::string& displayName);
+
     HumanAccountLookupResult findByAccountId(
         const std::string& accountId) const;
 
