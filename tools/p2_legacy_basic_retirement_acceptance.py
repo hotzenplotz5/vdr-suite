@@ -32,6 +32,7 @@ DEFAULT_DAEMON = "/usr/sbin/vdr-suite-daemon"
 DEFAULT_CONFIGURATION = "/etc/default/vdr-suite-daemon"
 DEFAULT_DATABASE = "/var/lib/vdr-suite/vdr-suite.db"
 DEFAULT_BUILT_DAEMON = ".build/vdr-suite-daemon"
+DEFAULT_BUILT_BOOTSTRAP = ".build/vdr-suite-first-admin-bootstrap"
 DEFAULT_BACKUP_ROOT = "/var/backups"
 DEFAULT_HTTP_PORT = 18080
 DEFAULT_LEGACY_AUTHORIZATION = "Basic YWRtaW46dmRyLXN1aXRl"
@@ -236,6 +237,8 @@ def request(
     authorization: str = "",
     cookie: str = "",
     csrf: str = "",
+    body: str = "",
+    content_type: str = "",
 ) -> tuple[int, dict[str, str], str]:
     headers = {
         "Accept": "application/json",
@@ -248,6 +251,8 @@ def request(
         headers["Cookie"] = "vdr_suite_session=" + cookie
     if csrf:
         headers["X-CSRF-Token"] = csrf
+    if content_type:
+        headers["Content-Type"] = content_type
 
     connection = http.client.HTTPConnection(
         "127.0.0.1",
@@ -255,7 +260,12 @@ def request(
         timeout=10,
     )
     try:
-        connection.request(method, path, body=None, headers=headers)
+        connection.request(
+            method,
+            path,
+            body=body if body else None,
+            headers=headers,
+        )
         response = connection.getresponse()
         body = response.read().decode("utf-8", errors="replace")
         response_headers = {
@@ -390,6 +400,80 @@ def legacy_probe(
     return status
 
 
+def bootstrap_output(output: str) -> tuple[str, str]:
+    values: dict[str, str] = {}
+    for line in output.splitlines():
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip()
+    bootstrap_id = values.get("bootstrap_id", "")
+    setup_secret = values.get("setup_secret", "")
+    require(bool(bootstrap_id), "bootstrap_id_missing")
+    require(len(setup_secret) >= 32, "bootstrap_secret_missing")
+    return bootstrap_id, setup_secret
+
+
+def safe_interactive_text(
+    value: str,
+    maximum_length: int,
+    label: str,
+) -> str:
+    require(bool(value), f"{label}_required")
+    require(len(value) <= maximum_length, f"{label}_too_long")
+    require(
+        all(character not in "\r\n\x00" and character.isprintable()
+            for character in value),
+        f"{label}_invalid",
+    )
+    return value
+
+
+def claim_first_admin(
+    root: Path,
+    built_bootstrap: Path,
+    database_path: Path,
+    port: int,
+    login_name: str,
+    display_name: str,
+    password: str,
+) -> None:
+    issued = run(
+        root,
+        str(built_bootstrap),
+        "--database",
+        str(database_path),
+        "--ttl-seconds",
+        "300",
+    )
+    bootstrap_id, setup_secret = bootstrap_output(issued)
+    payload = json.dumps(
+        {
+            "bootstrapId": bootstrap_id,
+            "setupSecret": setup_secret,
+            "loginName": login_name,
+            "password": password,
+            "displayName": display_name,
+        },
+        separators=(",", ":"),
+    )
+    setup_secret = ""
+    status, _, response_body = request(
+        port,
+        "POST",
+        "/api/security/first-admin/claim",
+        "p2-retirement-first-admin-claim",
+        body=payload,
+        content_type="application/json",
+    )
+    payload = ""
+    require(status == 201, f"first_admin_claim_status_{status}")
+    require(
+        '"status":"claimed"' in response_body,
+        "first_admin_claim_response_invalid",
+    )
+
+
 def database_connection(path: Path) -> sqlite3.Connection:
     database = sqlite3.connect(
         f"file:{path}?mode=ro",
@@ -399,6 +483,14 @@ def database_connection(path: Path) -> sqlite3.Connection:
     database.execute("PRAGMA busy_timeout=10000")
     database.execute("PRAGMA foreign_keys=ON")
     return database
+
+
+def table_exists(database: sqlite3.Connection, table: str) -> bool:
+    row = database.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (table,),
+    ).fetchone()
+    return row is not None
 
 
 def verify_database(database: sqlite3.Connection) -> tuple[str, int]:
@@ -605,6 +697,31 @@ def self_test() -> int:
             "self_test_parse_legacy_authorization",
         )
 
+        database_path = Path(directory) / "state.db"
+        with sqlite3.connect(database_path) as database:
+            require(
+                not table_exists(database, "security_human_accounts"),
+                "self_test_pre_p2_schema_detection",
+            )
+            database.execute(
+                "CREATE TABLE security_human_accounts (account_id TEXT PRIMARY KEY)"
+            )
+            require(
+                table_exists(database, "security_human_accounts"),
+                "self_test_human_account_schema_detection",
+            )
+
+        bootstrap_id, bootstrap_secret = bootstrap_output(
+            "bootstrap_id=bootstrap_test\n"
+            "setup_secret=0123456789abcdef0123456789abcdef\n"
+            "expires_at=2099-01-01 00:00:00\n"
+        )
+        require(bootstrap_id == "bootstrap_test", "self_test_bootstrap_id")
+        require(
+            bootstrap_secret == "0123456789abcdef0123456789abcdef",
+            "self_test_bootstrap_secret",
+        )
+
     print("P2_LEGACY_BASIC_RETIREMENT_ACCEPTANCE_SELF_TEST=PASS")
     return 0
 
@@ -620,15 +737,20 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--expected-head")
     parser.add_argument("--expected-installed-daemon-sha256")
     parser.add_argument("--expected-candidate-daemon-sha256")
+    parser.add_argument("--expected-candidate-bootstrap-sha256")
     parser.add_argument("--expected-configuration-sha256")
     parser.add_argument("--expected-service-pid", type=int)
     parser.add_argument("--source-ci-run", type=int)
     parser.add_argument("--source-ci-run-id", type=int)
     parser.add_argument("--human-login", default="")
+    parser.add_argument("--bootstrap-first-admin", action="store_true")
+    parser.add_argument("--first-admin-login", default="")
+    parser.add_argument("--first-admin-display-name", default="")
     parser.add_argument("--backup-root", default=DEFAULT_BACKUP_ROOT)
     parser.add_argument("--service", default=DEFAULT_SERVICE)
     parser.add_argument("--daemon", default=DEFAULT_DAEMON)
     parser.add_argument("--built-daemon", default=DEFAULT_BUILT_DAEMON)
+    parser.add_argument("--built-bootstrap", default=DEFAULT_BUILT_BOOTSTRAP)
     parser.add_argument("--configuration", default=DEFAULT_CONFIGURATION)
     parser.add_argument("--database", default=DEFAULT_DATABASE)
     return parser.parse_args()
@@ -658,6 +780,7 @@ def main() -> int:
     root = Path(arguments.repository).resolve()
     daemon = Path(arguments.daemon)
     built_daemon = (root / arguments.built_daemon).resolve()
+    built_bootstrap = (root / arguments.built_bootstrap).resolve()
     configuration = Path(arguments.configuration)
     database_path = Path(arguments.database)
 
@@ -741,25 +864,95 @@ def main() -> int:
     port = int(port_text)
     require(1 <= port <= 65535, "invalid_http_port")
 
+    account_id = ""
+    actor_id = ""
+    login_name = ""
+    credential_id = ""
+    password_hash = ""
+    identity_before = ""
+    initial_claim_state = "pre-p2"
+    admins: list[tuple[str, str, str, str, str]] = []
+
     with closing(database_connection(database_path)) as database:
         initial_quick, initial_foreign_keys = verify_database(database)
-        admins = eligible_human_admins(database, arguments.human_login)
-        require(len(admins) == 1, f"eligible_human_admin_count_{len(admins)}")
-        account_id, actor_id, login_name, credential_id, password_hash = admins[0]
-        identity_before = identity_fingerprint(
-            database,
-            account_id,
-            actor_id,
-            login_name,
-            credential_id,
-        )
+        if table_exists(database, "security_human_accounts"):
+            try:
+                admins = eligible_human_admins(
+                    database,
+                    arguments.human_login,
+                )
+            except sqlite3.OperationalError as error:
+                raise AcceptanceError(
+                    "human_account_preflight_schema_incomplete"
+                ) from error
+            initial_claim_state = "claimed" if admins else "unclaimed"
 
-    password = getpass.getpass(
-        f"Human Account password for {login_name}: "
-    )
-    require(bool(password), "human_password_required")
-    verify_human_password(password, password_hash)
-    password_hash = ""
+    first_admin_required = not admins
+    if first_admin_required:
+        require(
+            arguments.bootstrap_first_admin,
+            f"first_admin_required:{initial_claim_state}",
+        )
+        require(
+            arguments.expected_candidate_bootstrap_sha256 not in (None, ""),
+            "expected_candidate_bootstrap_sha256_required",
+        )
+        require(
+            built_bootstrap.is_file(),
+            "candidate_bootstrap_tool_missing",
+        )
+        require(
+            sha256(built_bootstrap)
+            == arguments.expected_candidate_bootstrap_sha256,
+            "candidate_bootstrap_tool_fingerprint_changed",
+        )
+        login_name = safe_interactive_text(
+            arguments.first_admin_login.strip()
+            or input("First Human Account login [admin]: ").strip()
+            or "admin",
+            128,
+            "first_admin_login",
+        )
+        display_name = safe_interactive_text(
+            arguments.first_admin_display_name.strip()
+            or input("First Human Account display name [Administrator]: ").strip()
+            or "Administrator",
+            256,
+            "first_admin_display_name",
+        )
+        password = getpass.getpass(
+            f"New Human Account password for {login_name}: "
+        )
+        require(bool(password), "human_password_required")
+        password_confirmation = getpass.getpass(
+            "Repeat new Human Account password: "
+        )
+        require(
+            password == password_confirmation,
+            "human_password_confirmation_mismatch",
+        )
+        password_confirmation = ""
+    else:
+        require(
+            len(admins) == 1,
+            f"eligible_human_admin_count_{len(admins)}",
+        )
+        account_id, actor_id, login_name, credential_id, password_hash = admins[0]
+        with closing(database_connection(database_path)) as database:
+            identity_before = identity_fingerprint(
+                database,
+                account_id,
+                actor_id,
+                login_name,
+                credential_id,
+            )
+        password = getpass.getpass(
+            f"Human Account password for {login_name}: "
+        )
+        require(bool(password), "human_password_required")
+        verify_human_password(password, password_hash)
+        password_hash = ""
+        display_name = ""
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     evidence = Path(arguments.backup_root) / (
@@ -800,6 +993,7 @@ def main() -> int:
     identity_after = ""
     final_quick = ""
     final_foreign_keys = -1
+    first_admin_created = False
 
     try:
         run(root, "systemctl", "stop", arguments.service)
@@ -835,6 +1029,55 @@ def main() -> int:
             200,
             "baseline",
         )
+
+        if first_admin_required:
+            with closing(database_connection(database_path)) as database:
+                require(
+                    table_exists(database, "security_human_accounts"),
+                    "candidate_human_account_schema_missing",
+                )
+                post_start_admins = eligible_human_admins(
+                    database,
+                    login_name,
+                )
+                require(
+                    len(post_start_admins) == 0,
+                    "first_admin_created_concurrently",
+                )
+
+            claim_first_admin(
+                root,
+                built_bootstrap,
+                database_path,
+                port,
+                login_name,
+                display_name,
+                password,
+            )
+            first_admin_created = True
+
+            with closing(database_connection(database_path)) as database:
+                claimed_admins = eligible_human_admins(
+                    database,
+                    login_name,
+                )
+                require(
+                    len(claimed_admins) == 1,
+                    "claimed_human_admin_resolution_failed",
+                )
+                account_id, actor_id, login_name, credential_id, password_hash = (
+                    claimed_admins[0]
+                )
+                verify_human_password(password, password_hash)
+                password_hash = ""
+                identity_before = identity_fingerprint(
+                    database,
+                    account_id,
+                    actor_id,
+                    login_name,
+                    credential_id,
+                )
+
         baseline_human_login_status, _, _ = human_session_roundtrip(
             port,
             login_name,
@@ -954,6 +1197,8 @@ def main() -> int:
                 ("initial_installed_daemon_sha256", arguments.expected_installed_daemon_sha256),
                 ("initial_configuration_sha256", arguments.expected_configuration_sha256),
                 ("initial_effective_mode", configured_mode or "legacy-basic-fallback"),
+                ("initial_claim_state", initial_claim_state),
+                ("first_admin_created", int(first_admin_created)),
                 ("human_account_id", account_id),
                 ("human_actor_id", actor_id),
                 ("human_login", login_name),
@@ -1062,6 +1307,7 @@ def main() -> int:
     print("ROLLBACK_LEGACY_STATUS=200")
     print("FINAL_ENFORCED_LEGACY_STATUS=401")
     print("HUMAN_ACCOUNT_LOGIN=PASS")
+    print(f"FIRST_ADMIN_CREATED={int(first_admin_created)}")
     print("PERSISTENT_IDENTITY_UNCHANGED=PASS")
     print("FINAL_SECURITY_MODE=enforced")
     print(f"EVIDENCE={evidence}")
