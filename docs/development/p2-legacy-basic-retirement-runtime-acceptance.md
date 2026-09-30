@@ -61,8 +61,7 @@ If several Human Account administrators are eligible, pass
 `--human-login <login>` to select one explicitly. Selection happens before any
 service or file mutation.
 
-For an already claimed deployment, the Human Account password is read
-interactively with `getpass` and checked against the persisted one-way verifier
+For an already claimed deployment, the Human Account password is read interactively with `getpass` and checked against the persisted one-way verifier
 before the daemon is stopped.
 
 For a pre-P2 or unclaimed deployment, `--bootstrap-first-admin` is required.
