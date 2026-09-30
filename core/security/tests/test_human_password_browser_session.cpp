@@ -207,7 +207,7 @@ int main()
         response.headers.at("Set-Cookie").find(
             "Secure") != std::string::npos);
     assert(
-        response.body.find("\\\"csrfToken\\\"") !=
+        response.body.find("\"csrfToken\"") !=
         std::string::npos);
     assert(
         response.body.find(HumanPassword) ==
