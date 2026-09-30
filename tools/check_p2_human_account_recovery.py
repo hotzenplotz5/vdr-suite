@@ -134,7 +134,7 @@ def main():
         "Local audited Human Account recovery",
         "same human-password credential",
         "revokes every still-active browser session",
-        "Authentication-default migration remains separate",
+        "Authentication-default migration",
     ):
         require("adr", marker)
 
