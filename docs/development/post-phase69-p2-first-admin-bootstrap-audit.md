@@ -305,7 +305,8 @@ The Legacy Basic default remains unchanged.
 cleared from the service-owned request copy and are never stored.
 
 The service acquires the existing per-database transaction lease and opens one
-`BEGIN IMMEDIATE` SQLite transaction. Inside that single transaction it:
+`BEGIN IMMEDIATE` SQLite transaction. This is the single SQLite transaction
+that owns the complete claim. Inside it the service:
 
 1. proves the server is still unclaimed;
 2. loads and verifies the unexpired, unconsumed bootstrap verifier;
