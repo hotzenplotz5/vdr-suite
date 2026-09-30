@@ -146,6 +146,7 @@ def main():
     ):
         require("adr66", marker)
 
+    audit = " ".join(read("audit").split())
     for marker in (
         "Claim-only browser completion boundary",
         route,
@@ -154,7 +155,10 @@ def main():
         "Legacy Basic default remains unchanged",
         "normal human-password browser authentication",
     ):
-        require("audit", marker)
+        if marker not in audit:
+            raise AssertionError(
+                f"{FILES['audit']} missing normalized marker: {marker}"
+            )
 
     print("P2 first-admin browser claim contracts passed")
     return 0
