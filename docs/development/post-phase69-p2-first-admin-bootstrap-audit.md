@@ -5,7 +5,7 @@
 Audited against live `main`:
 
 ```text
-9ad8b10d11c1d09695b2368690d94b6ddc2e962d
+ac2a664e26a511948b117c2c7d1e57afb77de511
 ```
 
 The Public-v1 Account collection is already on `main`. This slice deliberately does not modify its runtime, API, client or Phase-69 compatibility surfaces.
@@ -122,10 +122,36 @@ The Legacy Basic default remains unchanged. This slice adds no HTTP endpoint,
 no local issuance command, no first-admin account mutation and no recovery
 workflow.
 
+## Implemented local trusted-operator bootstrap issuer
+
+This slice adds the local trusted-operator bootstrap issuer without opening any
+remote or browser-facing authority.
+
+`FirstAdminBootstrapIssuanceService` generates a 128-bit bootstrap identifier,
+a 256-bit raw setup secret and an independent verifier salt from Linux
+`getrandom(2)`. The raw setup secret is returned only in the successful
+in-memory issuance result; the repository receives only the bootstrap ID,
+one-way verifier hash and expiry.
+
+The installed `vdr-suite-first-admin-bootstrap` command is root-only and uses
+the existing Suite security database by default. It prints the raw setup secret
+once to the local operator, then wipes its in-memory result. The command writes
+no secret file and adds no HTTP endpoint, browser session, normal credential or
+permission grant.
+
+Bootstrap lifetime is deliberately short and bounded to 300..3600 seconds with
+a 900-second default. Existing repository fencing remains authoritative for an
+already-claimed server and for an already-active bootstrap issuance.
+
+The Legacy Basic default remains unchanged.
+
 ## Next bounded slice
 
-The next justified slice is the local trusted-operator bootstrap issuer. It may
-generate the raw setup secret once, hash it using the established security
-verifier primitives and register only the verifier plus expiry through this
-repository. Browser completion and atomic first-admin creation remain later
-slices.
+The next justified slice is the atomic first-admin claim service. It must verify
+valid bootstrap material and, inside one caller-owned SQLite transaction, create
+or bind the first Human Account and `ActorType::User`, persist the normal human
+credential verifier, establish initial administrator grants, append
+accountability evidence and consume the bootstrap proof. A failed claim must
+roll back all of those writes together.
+
+Browser completion remains later; this issuer adds no HTTP endpoint.
