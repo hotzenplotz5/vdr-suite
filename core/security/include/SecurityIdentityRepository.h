@@ -40,6 +40,7 @@ struct StoredCredentialIdentity
     std::string credentialId;
     std::string actorId;
     std::string credentialType;
+    std::string rotatedFromCredentialId;
     bool active = false;
     bool expired = false;
     bool revoked = false;
@@ -67,6 +68,12 @@ public:
         const std::string& credentialType,
         const std::string& expiresAt,
         const std::string& issuedFromCredentialId);
+
+    bool rotateCredentialInActiveTransaction(
+        const std::string& priorCredentialId,
+        const std::string& replacementCredentialId,
+        const std::string& actorId,
+        const std::string& credentialType);
 
     std::optional<StoredActorIdentity> findActor(
         const std::string& actorId) const;

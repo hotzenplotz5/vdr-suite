@@ -128,3 +128,53 @@ bool SecurityIdentityRepository::createSessionCredential(
                expiresAt,
                issuedFromCredentialId);
 }
+
+
+bool SecurityIdentityRepository::rotateCredentialInActiveTransaction(
+    const std::string& priorCredentialId,
+    const std::string& replacementCredentialId,
+    const std::string& actorId,
+    const std::string& credentialType)
+{
+    if (!database_.transactionActive() ||
+        priorCredentialId.empty() ||
+        replacementCredentialId.empty() ||
+        priorCredentialId == replacementCredentialId ||
+        actorId.empty() ||
+        credentialType.empty())
+    {
+        return false;
+    }
+
+    const auto prior = findCredential(priorCredentialId);
+    if (!prior.has_value() ||
+        prior->actorId != actorId ||
+        prior->credentialType != credentialType ||
+        !prior->active ||
+        prior->expired ||
+        prior->revoked)
+    {
+        return false;
+    }
+
+    if (!insertCredential(
+            database_,
+            replacementCredentialId,
+            actorId,
+            credentialType,
+            "",
+            priorCredentialId) ||
+        !revokeCredential(priorCredentialId))
+    {
+        return false;
+    }
+
+    const auto replacement = findCredential(replacementCredentialId);
+    return replacement.has_value() &&
+        replacement->actorId == actorId &&
+        replacement->credentialType == credentialType &&
+        replacement->rotatedFromCredentialId == priorCredentialId &&
+        replacement->active &&
+        !replacement->expired &&
+        !replacement->revoked;
+}

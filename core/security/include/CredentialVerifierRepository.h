@@ -26,6 +26,11 @@ public:
         const std::string& credentialId,
         const std::string& loginName,
         const std::string& passwordHash);
+    bool rotateVerifierInActiveTransaction(
+        const std::string& priorCredentialId,
+        const std::string& replacementCredentialId,
+        const std::string& loginName,
+        const std::string& passwordHash);
     std::optional<StoredBasicCredentialVerifier> findByLogin(
         const std::string& loginName) const;
 

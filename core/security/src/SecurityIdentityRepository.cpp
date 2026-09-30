@@ -243,7 +243,8 @@ SecurityIdentityRepository::findCredential(
 {
     sqlite3_stmt* statement = nullptr;
     const char* sql =
-        "SELECT credential_id, actor_id, credential_type, active, "
+        "SELECT credential_id, actor_id, credential_type, "
+        "rotated_from_credential_id, active, "
         "(expires_at <> '' AND expires_at <= CURRENT_TIMESTAMP), "
         "revoked_at <> '' "
         "FROM security_credentials WHERE credential_id = ?;";
@@ -260,9 +261,10 @@ SecurityIdentityRepository::findCredential(
         credential.credentialId = columnText(statement, 0);
         credential.actorId = columnText(statement, 1);
         credential.credentialType = columnText(statement, 2);
-        credential.active = sqlite3_column_int(statement, 3) != 0;
-        credential.expired = sqlite3_column_int(statement, 4) != 0;
-        credential.revoked = sqlite3_column_int(statement, 5) != 0;
+        credential.rotatedFromCredentialId = columnText(statement, 3);
+        credential.active = sqlite3_column_int(statement, 4) != 0;
+        credential.expired = sqlite3_column_int(statement, 5) != 0;
+        credential.revoked = sqlite3_column_int(statement, 6) != 0;
         result = credential;
     }
     sqlite3_finalize(statement);
