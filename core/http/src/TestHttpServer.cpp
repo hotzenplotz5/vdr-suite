@@ -162,6 +162,24 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
         return;
     }
 
+    browserSessionCredentialRepository_ =
+        std::make_unique<BrowserSessionCredentialRepository>(
+            *securityDatabase_);
+
+    if (!browserSessionCredentialRepository_->ensureSchema())
+    {
+        return;
+    }
+
+    securityPermissionGrantRepository_ =
+        std::make_unique<SecurityPermissionGrantRepository>(
+            *securityDatabase_);
+
+    if (!securityPermissionGrantRepository_->ensureSchema())
+    {
+        return;
+    }
+
     humanAccountRepository_ =
         std::make_unique<HumanAccountRepository>(
             *securityDatabase_);
@@ -190,24 +208,6 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
     firstAdminClaimHttpService_ =
         std::make_unique<FirstAdminClaimHttpService>(
             *firstAdminClaimService_);
-
-    browserSessionCredentialRepository_ =
-        std::make_unique<BrowserSessionCredentialRepository>(
-            *securityDatabase_);
-
-    if (!browserSessionCredentialRepository_->ensureSchema())
-    {
-        return;
-    }
-
-    securityPermissionGrantRepository_ =
-        std::make_unique<SecurityPermissionGrantRepository>(
-            *securityDatabase_);
-
-    if (!securityPermissionGrantRepository_->ensureSchema())
-    {
-        return;
-    }
 
     const SecurityConfiguration configuration =
         SecurityConfiguration::fromEnvironment();
