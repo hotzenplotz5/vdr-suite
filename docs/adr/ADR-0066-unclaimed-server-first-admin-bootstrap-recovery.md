@@ -88,13 +88,24 @@ explicit security-mode setting continue through the compatibility behavior of
 `SecurityConfiguration`; the code fallback remains legacy-basic so an upgrade
 cannot silently lock out an operator.
 
+An explicit `enforced` mode is also a hard Legacy Basic runtime boundary.
+`SecurityConfiguration` does not consume `VDR_SUITE_BASIC_AUTH` or the
+`VDR_SUITE_LEGACY_BASIC_*` actor/device/credential/grant inputs in that mode,
+and `LegacyBasicAuthenticator` refuses compatibility authentication even if a
+caller manually constructs a configuration containing a stale Legacy Basic
+header. Consequently an old compatibility secret cannot silently reactivate
+Legacy Basic after an operator selects `enforced`, and the daemon does not
+provision the compatibility identity merely because stale compatibility
+variables remain in an older defaults file.
+
 A controlled compatibility rollback is explicit deployment configuration:
 
 `VDR_SUITE_SECURITY_MODE=legacy-basic`
 
-followed by the normal daemon restart. Rollback changes the authentication mode;
-it does not delete Human Accounts, rotate credentials, restore bootstrap
-material or rewrite identity history.
+followed by the normal daemon restart. Only in that compatibility mode do the
+Legacy Basic environment inputs become effective again. Rollback changes the
+authentication mode; it does not delete Human Accounts, rotate credentials,
+restore bootstrap material or rewrite identity history.
 
 This slice does not remove Legacy Basic implementation support. Full retirement
 still requires deliberate migration of existing installations and real

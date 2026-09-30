@@ -418,3 +418,42 @@ pairing or Phase-70 behavior.
 Full deletion of Legacy Basic compatibility is not claimed here. The roadmap's
 deployment-retirement milestone still requires explicit migration of remaining
 existing deployments and real runtime rollback evidence.
+
+
+## Enforced-mode Legacy Basic runtime fence
+
+The fresh-install migration exposed one remaining compatibility ambiguity before
+real deployment acceptance could be meaningful. Historically,
+`SecurityConfiguration` cleared the built-in compatibility header when
+`VDR_SUITE_SECURITY_MODE=enforced`, but then read `VDR_SUITE_BASIC_AUTH` and
+the remaining `VDR_SUITE_LEGACY_BASIC_*` values afterward. The
+`LegacyBasicAuthenticator` also authenticated solely from the configured
+header without checking the selected security mode. An older deployment carrying
+an explicit Legacy Basic header could therefore select `enforced` while still
+retaining Legacy Basic authentication.
+
+This slice closes that ambiguity without deleting compatibility rollback:
+
+- explicit `enforced` ignores all Legacy Basic credential/identity/grant
+  environment inputs;
+- `LegacyBasicAuthenticator` authenticates only when the selected mode is
+  `LegacyBasicCompatibility`;
+- the daemon's existing compatibility-identity provisioning condition remains
+  tied to a non-empty compatibility header, so enforced startup no longer
+  provisions a Legacy Basic identity from stale environment values;
+- browser sessions, Human Account password login and optional Managed Basic keep
+  their existing independent authentication paths;
+- explicit `legacy-basic` mode still consumes the compatibility variables, so
+  rollback remains available until the retirement milestone is accepted.
+
+Regression coverage proves stale Legacy Basic configuration cannot authenticate
+ordinary protected requests or the browser-session issuance route in enforced
+mode, while browser-session and Managed Basic authentication continue to work.
+
+The code fallback when `VDR_SUITE_SECURITY_MODE` is absent remains
+`legacy-basic` for existing installations that have not yet been deliberately
+migrated. The next retirement gate is therefore real yaVDR acceptance of an
+existing claimed installation across `legacy-basic -> enforced -> legacy-basic`
+rollback, followed by the deliberate final migration to `enforced`. Only after
+that evidence is recorded is deletion of the compatibility implementation
+justified.

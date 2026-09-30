@@ -414,16 +414,33 @@ int main()
     assert(fixture.gate.evaluate(
         legacyUnmigrated).allowed);
 
-    HttpServerRequest remote =
-        fixture.mutationRequest(
-            "/api/vdr/remote/actions",
-            "default");
-    fixture.addLegacyAuthentication(remote);
+    assert(fixture.grantRepository.ensureGrant(
+        fixture.actorId,
+        "remote.control",
+        "default"));
 
     SecurityHttpGate enforcedGate(
         enforcedConfiguration(),
         fixture.accountabilityRepository,
-        &fixture.identityResolver);
+        &fixture.identityResolver,
+        nullptr,
+        &fixture.browserAuthenticator);
+
+    HttpServerRequest legacyRemote =
+        fixture.mutationRequest(
+            "/api/vdr/remote/actions",
+            "default");
+    fixture.addLegacyAuthentication(legacyRemote);
+    const SecurityGateDecision legacyRemoteDenied =
+        enforcedGate.evaluate(legacyRemote);
+    assert(!legacyRemoteDenied.allowed);
+    assert(legacyRemoteDenied.rejection.statusCode == 401);
+
+    HttpServerRequest remote =
+        fixture.mutationRequest(
+            "/api/vdr/remote/actions",
+            "default");
+    fixture.addBrowserAuthentication(remote, true);
 
     const SecurityGateDecision anonymousOperationRead =
         enforcedGate.evaluate(publicOperationGetRequest());
@@ -440,9 +457,19 @@ int main()
         "\"code\":\"unauthorized\"") !=
         std::string::npos);
 
-    HttpServerRequest authenticatedOperationRead =
+    HttpServerRequest legacyOperationRead =
         publicOperationGetRequest();
     fixture.addLegacyAuthentication(
+        legacyOperationRead);
+    const SecurityGateDecision deniedLegacyOperationRead =
+        enforcedGate.evaluate(
+            legacyOperationRead);
+    assert(!deniedLegacyOperationRead.allowed);
+    assert(deniedLegacyOperationRead.rejection.statusCode == 401);
+
+    HttpServerRequest authenticatedOperationRead =
+        publicOperationGetRequest();
+    fixture.addBrowserAuthentication(
         authenticatedOperationRead);
     const SecurityGateDecision allowedOperationRead =
         enforcedGate.evaluate(
@@ -483,7 +510,7 @@ int main()
         fixture.mutationRequest(
             "/api/vdr/remote/actions",
             "house-b");
-    fixture.addLegacyAuthentication(wrongScope);
+    fixture.addBrowserAuthentication(wrongScope, true);
 
     const SecurityGateDecision wrongScopeDecision =
         enforcedGate.evaluate(wrongScope);
@@ -497,7 +524,7 @@ int main()
         fixture.mutationRequest(
             "/api/vdr/remote/actions",
             "");
-    fixture.addLegacyAuthentication(missingBackend);
+    fixture.addBrowserAuthentication(missingBackend, true);
 
     const SecurityGateDecision missingBackendDecision =
         enforcedGate.evaluate(missingBackend);

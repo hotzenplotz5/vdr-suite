@@ -72,6 +72,19 @@ int main()
         "VDR_SUITE_LEGACY_BASIC_PERMISSIONS",
         "remote.control@default, recordings.view@*",
         1);
+    const SecurityConfiguration enforcedWithLegacyEnvironment =
+        SecurityConfiguration::fromEnvironment();
+    assert(
+        enforcedWithLegacyEnvironment.mode ==
+        SecurityMode::Enforced);
+    assert(
+        enforcedWithLegacyEnvironment.expectedAuthorizationHeader.empty());
+    assert(
+        enforcedWithLegacyEnvironment.credentialId ==
+        "legacy-basic-credential");
+    assert(enforcedWithLegacyEnvironment.grants.empty());
+
+    setenv("VDR_SUITE_SECURITY_MODE", "legacy-basic", 1);
     const SecurityConfiguration configured =
         SecurityConfiguration::fromEnvironment();
     assert(configured.expectedAuthorizationHeader ==

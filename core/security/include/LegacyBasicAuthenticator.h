@@ -26,6 +26,12 @@ public:
         context.requestId = requestId;
         context.correlationId = correlationId;
 
+        if (configuration_.mode !=
+            SecurityMode::LegacyBasicCompatibility)
+        {
+            return context;
+        }
+
         const std::string authorization =
             headerValue(headers, "Authorization");
 

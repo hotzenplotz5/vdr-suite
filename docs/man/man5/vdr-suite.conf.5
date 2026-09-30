@@ -23,10 +23,20 @@ The installer does not overwrite an existing defaults file during upgrade, and
 the runtime code fallback remains
 .B legacy-basic
 when the variable is absent so older deployments are not silently locked out.
+When the mode is explicitly
+.BR enforced ,
+the daemon ignores
+.B VDR_SUITE_BASIC_AUTH
+and all
+.B VDR_SUITE_LEGACY_BASIC_*
+compatibility identity and grant inputs, and the Legacy Basic authenticator is
+disabled. Stale compatibility values therefore cannot reactivate Legacy Basic
+under enforced mode.
 An operator-controlled compatibility rollback may explicitly set
 .B VDR_SUITE_SECURITY_MODE=legacy-basic
-and restart the daemon. Changing this mode does not delete or rewrite persisted
-Human Accounts, credentials, grants or accountability history.
+and restart the daemon; only then do those compatibility variables become
+effective again. Changing this mode does not delete or rewrite persisted Human
+Accounts, credentials, grants or accountability history.
 .TP
 .B VDR_SUITE_DATABASE_PATH
 Overrides the SQLite database path.
