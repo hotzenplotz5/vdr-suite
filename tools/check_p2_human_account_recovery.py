@@ -124,7 +124,7 @@ def main():
 
     for marker in (
         "local root-only administration command",
-        "does not accept the new password as a command-line argument",
+        "accept the new password as a command-line argument",
         "issued from that human-password credential are revoked",
         "does not create a second Human Account",
     ):
