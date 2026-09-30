@@ -164,14 +164,23 @@ defaults file, so upgrade compatibility is not converted into an implicit
 lockout migration. The runtime code fallback remains `legacy-basic` for older
 or manually managed deployments that do not yet provide the explicit setting.
 
-Operators can perform a controlled compatibility rollback by explicitly setting
-`VDR_SUITE_SECURITY_MODE=legacy-basic`; that mode change does not rewrite the
-persistent identity database.
+Explicit `enforced` mode now disables the Legacy Basic adapter itself and
+ignores `VDR_SUITE_BASIC_AUTH` plus the `VDR_SUITE_LEGACY_BASIC_*`
+compatibility identity/grant inputs. Stale compatibility variables can therefore
+remain in an older defaults file without re-enabling Legacy Basic after the
+operator deliberately selects enforced mode. Browser-session, Human Account and
+Managed Basic authentication remain separate authorities.
 
-This completes the bounded fresh-install migration required by ADR-0066, but
-full Legacy Basic removal remains deferred. Deleting the compatibility
-implementation still requires migration of remaining existing deployments and
-real deployment rollback evidence under the roadmap retirement milestone.
+Operators can perform a controlled compatibility rollback by explicitly setting
+`VDR_SUITE_SECURITY_MODE=legacy-basic`; only that mode makes the compatibility
+inputs effective again. The mode change does not rewrite the persistent identity
+database.
+
+This completes the bounded fresh-install migration and enforced-mode runtime
+fence required before real deployment acceptance, but full Legacy Basic removal
+remains deferred. Deleting the compatibility implementation still requires
+migration of remaining existing deployments and real deployment rollback
+evidence under the roadmap retirement milestone.
 
 ## Deferred capabilities
 

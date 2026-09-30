@@ -49,6 +49,7 @@ test-security-architecture:
 	python3 tools/check_p2_human_password_browser_session.py
 	python3 tools/check_p2_human_account_recovery.py
 	python3 tools/check_p2_authentication_default_migration.py
+	python3 tools/check_p2_enforced_legacy_basic_retirement.py
 	python3 tools/check_browser_session_issuance_architecture.py
 	python3 tools/check_browser_session_issuer_binding.py
 	python3 tools/check_browser_session_concurrency_limit.py

@@ -995,7 +995,7 @@ Do not reopen Phase 62 to implement these surfaces.
 
 ## Milestone D — Legacy Basic Retirement
 
-Status: **Fresh-install migration implemented; full retirement still deferred.**
+Status: **Fresh-install migration and enforced runtime fence implemented; real deployment acceptance pending.**
 
 Fresh packaged installations now select `VDR_SUITE_SECURITY_MODE=enforced`.
 The first-admin bootstrap, claim, human-password session bridge and local audited
@@ -1003,11 +1003,17 @@ recovery paths are implemented. During package installation existing deployment
 default files are preserved rather than overwritten, so upgrades remain an
 operator-controlled migration.
 
+Explicit enforced mode no longer authenticates Legacy Basic, even if an older
+defaults file still contains `VDR_SUITE_BASIC_AUTH` or other
+`VDR_SUITE_LEGACY_BASIC_*` inputs. Those compatibility inputs become effective
+only after an explicit `VDR_SUITE_SECURITY_MODE=legacy-basic` rollback.
+
 The remaining retirement work is narrower:
 
 - migrate remaining existing deployments deliberately to the enforced model;
 - record real deployment rollback evidence using the explicit
   `VDR_SUITE_SECURITY_MODE=legacy-basic` compatibility rollback;
+- after successful rollback evidence, restore the deployment to `enforced`;
 - only then delete transitional Legacy Basic implementation support.
 
 The fresh-install default does not itself satisfy the real deployment rollback
