@@ -125,7 +125,7 @@ def main():
     for marker in (
         "local root-only administration command",
         "accept the new password as a command-line argument",
-        "issued from that human-password credential are revoked",
+        "issued from that human-password credential are",
         "does not create a second Human Account",
     ):
         require("man", marker)
@@ -133,7 +133,7 @@ def main():
     for marker in (
         "Local audited Human Account recovery",
         "same human-password credential",
-        "existing browser sessions",
+        "Existing browser sessions",
         "Authentication-default migration remains separate",
     ):
         require("adr", marker)

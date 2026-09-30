@@ -79,9 +79,9 @@ A later migration may change fresh-install defaults only after:
 - existing-install upgrade behavior is explicitly defined;
 - rollback is proven.
 
-### Local audited Human Account recovery
+### Local recovery
 
-Account recovery is local-operator controlled and audited.
+Local audited Human Account recovery is local-operator controlled and audited.
 
 The implemented first recovery contract is a direct local reset of an explicitly
 selected existing Human Account's normal `human-password` credential. It does
