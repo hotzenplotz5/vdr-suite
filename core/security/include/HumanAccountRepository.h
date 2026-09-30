@@ -50,6 +50,9 @@ public:
     HumanAccountLookupResult findByAccountId(
         const std::string& accountId) const;
 
+    HumanAccountLookupResult findByActorId(
+        const std::string& actorId) const;
+
     HumanAccountListResult listAll() const;
 
 private:
