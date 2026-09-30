@@ -217,8 +217,8 @@ and is the only HTTP path that accepts bootstrap material. It parses a bounded
 JSON body, preserves the existing request-ID contract, keeps correlation ID
 optional, and delegates identity mutation to `FirstAdminClaimService`.
 
-Successful completion returns only a secret-free claimed result. It does not
-create a Browser Session, issue a cookie, emit CSRF material, create a Device
+Successful completion returns only a secret-free claimed result.
+It does not create a Browser Session, issue a cookie, emit CSRF material, create a Device
 or convert bootstrap proof into any reusable API credential. Wrong, missing,
 expired, consumed or invalidated bootstrap proof fails closed. Once claim
 state is derived as claimed, replay and any later first-admin claim fail.
