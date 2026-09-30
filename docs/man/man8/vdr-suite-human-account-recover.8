@@ -1,0 +1,79 @@
+.TH VDR-SUITE-HUMAN-ACCOUNT-RECOVER 8 "September 2026" "VDR-Suite" "System Administration"
+.SH NAME
+vdr-suite-human-account-recover \- locally rotate one existing Human Account password credential
+.SH SYNOPSIS
+.B vdr-suite-human-account-recover
+.BI --account-id " ID"
+.BI --login " LOGIN"
+.RI [ --database " PATH" ]
+.SH DESCRIPTION
+.B vdr-suite-human-account-recover
+is a local root-only administration command for audited Human Account recovery.
+It rotates the selected existing Human Account's normal
+.B human-password
+credential inside the existing Suite security authority.
+.PP
+The command does not create a second Human Account, Actor, administrator grant
+or recovery store. It does not reveal the existing password or stored verifier.
+The account identifier and login name must select the same active Human Account
+and active
+.B human-password
+credential.
+.PP
+Recovery creates one replacement
+.B human-password
+credential for the same Actor, records the replaced credential as its rotation
+predecessor, moves the login verifier to the replacement and revokes the
+predecessor. This fences a stale password-authenticated request that has not yet
+reached browser-session issuance.
+.PP
+The new password is converted to a yescrypt verifier. The command does not
+accept the new password as a command-line argument. On an interactive terminal
+it prompts twice with terminal echo disabled. With redirected standard input it
+reads exactly one password line.
+.PP
+All still-active browser sessions issued from the replaced human-password
+credential are revoked in the same SQLite transaction as credential rotation,
+verifier replacement and successful accountability evidence. The Human Account
+identifier, Actor identifier and existing permission grants are left unchanged.
+.SH OPTIONS
+.TP
+.BI --account-id " ID"
+Select the explicit existing Human Account to recover.
+.TP
+.BI --login " LOGIN"
+Select the existing login credential that must belong to that Human Account and
+have credential type
+.BR human-password .
+.TP
+.BI --database " PATH"
+Use the specified Suite database instead of
+.IR /var/lib/vdr-suite/vdr-suite.db .
+.SH OUTPUT
+On success the command prints only non-secret identifiers and the number of
+revoked browser sessions:
+.PP
+.nf
+account_id=...
+replaced_credential_id=...
+credential_id=...
+revoked_browser_sessions=...
+.fi
+.SH SECURITY
+The command must be run as root. There is no remote anonymous recovery endpoint
+and no Public-v1 recovery mutation. Password plaintext and stored verifiers are
+not persisted outside their existing one-way verifier authority and are not
+included in accountability events.
+.PP
+Expected semantic failures such as an unknown, inactive or mismatched account or
+credential are recorded as denied recovery evidence without password material.
+The audit actor identifies the local recovery system authority rather than the
+target Human Account. A persistence or accountability failure prevents the
+credential, verifier and session mutation from committing.
+.SH FILES
+.TP
+.I /var/lib/vdr-suite/vdr-suite.db
+Default Suite security database.
+.SH SEE ALSO
+.BR vdr-suite-daemon (8),
+.BR vdr-suite-first-admin-bootstrap (8)

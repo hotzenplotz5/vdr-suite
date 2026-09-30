@@ -124,6 +124,45 @@ bool CredentialVerifierRepository::updateVerifier(
     return result == SQLITE_DONE && sqlite3_changes(database_.handle()) == 1;
 }
 
+bool CredentialVerifierRepository::rotateVerifierInActiveTransaction(
+    const std::string& priorCredentialId,
+    const std::string& replacementCredentialId,
+    const std::string& loginName,
+    const std::string& passwordHash)
+{
+    if (!database_.transactionActive() ||
+        priorCredentialId.empty() ||
+        replacementCredentialId.empty() ||
+        priorCredentialId == replacementCredentialId ||
+        loginName.empty() ||
+        passwordHash.empty())
+    {
+        return false;
+    }
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "UPDATE security_basic_credential_verifiers "
+        "SET credential_id = ?, password_hash = ?, "
+        "updated_at = CURRENT_TIMESTAMP "
+        "WHERE credential_id = ? AND login_name = ?;";
+    if (sqlite3_prepare_v2(
+            database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK)
+    {
+        return false;
+    }
+
+    const bool bound =
+        bindText(statement, 1, replacementCredentialId) &&
+        bindText(statement, 2, passwordHash) &&
+        bindText(statement, 3, priorCredentialId) &&
+        bindText(statement, 4, loginName);
+    const int result = bound ? sqlite3_step(statement) : SQLITE_ERROR;
+    const int changed = sqlite3_changes(database_.handle());
+    sqlite3_finalize(statement);
+    return result == SQLITE_DONE && changed == 1;
+}
+
 std::optional<StoredBasicCredentialVerifier>
 CredentialVerifierRepository::findByLogin(
     const std::string& loginName) const
