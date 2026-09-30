@@ -311,41 +311,62 @@ upgrade/rollback behavior.
 
 ## Implemented local audited Human Account recovery
 
-Live inspection after the human-password browser-session bridge showed that a
-direct local credential reset is the smallest recovery architecture justified by
-the existing authorities. The verifier already belongs to the canonical Suite
-credential authority, while browser-session persistence records the issuing
-credential through `issued_from_credential_id`. Introducing another short-lived
-recovery store would add lifecycle machinery without closing a gap that the
-local trusted operator path requires.
+Live inspection after the human-password browser-session bridge showed that
+local recovery can stay entirely inside the existing Suite identity,
+credential-verifier, browser-session and accountability authorities. It needs no
+remote recovery endpoint and no second recovery-token store.
 
-The new `vdr-suite-human-account-recover` command is root-only. It selects an
-explicit existing Human Account and login, reads the replacement password
-without accepting password plaintext as a command-line argument, and delegates
-the mutation to `HumanAccountRecoveryService`. There is no remote recovery
-endpoint, no Public-v1 mutation and no Bootstrap-secret reuse.
+The first implementation used an in-place verifier reset on the same active
+`human-password` credential. A deeper concurrency audit showed that this was
+insufficient. `HumanPasswordBrowserAuthenticator` verifies the password before
+`BrowserSessionHttpService` delegates to `BrowserSessionIssuanceService`.
+Issuance opens its own transaction later and re-validates the issuing credential
+lifecycle, but it does not re-run password verification. An in-flight request
+that had authenticated with the old password could therefore issue a new browser
+session after an in-place verifier reset because the same issuing credential
+would still be active.
 
-`HumanAccountRecoveryService` requires the selected account to remain active
-and bound to `ActorType::User`. The selected verifier must resolve to the same
-actor's active, unexpired, unrevoked credential with type exactly
-`human-password`. The service rotates only that verifier, preserving Account
-ID, Actor ID, Credential ID and permission grants.
+The corrected recovery contract is local credential rotation. The root-only
+`vdr-suite-human-account-recover` command selects an explicit existing Human
+Account and login, reads the replacement password without accepting password
+plaintext as a command-line argument, and delegates all identity mutation to
+`HumanAccountRecoveryService`.
 
-Changing only the verifier would leave already issued browser sessions usable,
-because their normal request-time authority remains bound to the unchanged
-issuing credential. Recovery therefore queries
-`BrowserSessionCredentialRepository` by `issued_from_credential_id` and
-revokes each still-active browser-session row, canonical Session and canonical
-browser Credential inside the same `BEGIN IMMEDIATE` transaction as the
-verifier update. The human-password credential is not revoked and can
-immediately issue new sessions after successful recovery.
+The service requires the selected account to remain active and bound to
+`ActorType::User`. The selected verifier must resolve to the same actor's
+active, unexpired, unrevoked credential with type exactly `human-password`.
+Inside one `BEGIN IMMEDIATE` transaction it:
 
-A successful reset appends `security.human-account.recovery` accountability
-evidence in the same transaction. Expected unknown, inactive or mismatched
-target failures append denied, secret-free evidence. If the mutation or
-success-accountability append fails, the transaction rolls back the verifier
-and session changes.
+1. creates a replacement `human-password` credential for the same Actor through
+   the canonical identity repository and records the predecessor in
+   `rotated_from_credential_id`;
+2. revokes the predecessor credential, fencing any stale old-password
+   authentication that has not yet reached session issuance;
+3. moves the selected login verifier to the replacement credential while
+   replacing its hash with a new salted yescrypt verifier;
+4. revokes every still-active browser-session row whose
+   `issued_from_credential_id` is the predecessor, plus the corresponding
+   canonical Session and browser Credential; and
+5. appends secret-free successful recovery accountability evidence.
 
-The Legacy Basic default and packaging configuration remain unchanged.
+The Human Account ID, bound Actor ID and permission grants remain unchanged. The
+old credential is retained only as revoked history; the replacement credential
+is the new normal login authority. A stale password-authenticated request that
+carries the predecessor credential ID is rejected by
+`BrowserSessionIssuanceService`, while a fresh login resolves the replacement
+credential.
+
+Expected unknown, inactive or mismatched target failures append denied,
+secret-free evidence. The accountability actor is
+`system:human-account-recovery` with `local-root` authentication state rather
+than the target user, matching the existing local administration pattern. If
+credential rotation, verifier movement, session revocation or successful
+accountability persistence fails, the whole transaction rolls back, including
+creation of the replacement credential.
+
+There is no remote recovery endpoint, no Public-v1 recovery mutation, no
+Bootstrap-secret reuse, no new Human Account, no new administrator grant and no
+authentication-default change. Legacy Basic remains unchanged.
+
 Authentication-default migration is the next ADR-0066 slice and still requires
-a separate fresh-install, upgrade and rollback contract.
+a separate fresh-install, existing-install upgrade and rollback contract.

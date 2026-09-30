@@ -9,6 +9,10 @@ FILES = {
     "service_cpp": ROOT / "core/security/src/HumanAccountRecoveryService.cpp",
     "browser_h": ROOT / "core/security/include/BrowserSessionCredentialRepository.h",
     "browser_cpp": ROOT / "core/security/src/BrowserSessionCredentialRepository.cpp",
+    "identity_h": ROOT / "core/security/include/SecurityIdentityRepository.h",
+    "identity_cpp": ROOT / "core/security/src/SecurityIdentityIssuanceRepository.cpp",
+    "verifier_h": ROOT / "core/security/include/CredentialVerifierRepository.h",
+    "verifier_cpp": ROOT / "core/security/src/CredentialVerifierRepository.cpp",
     "tool": ROOT / "apps/tools/human_account_recover.cpp",
     "test": ROOT / "core/security/tests/test_human_account_recovery_service.cpp",
     "make": ROOT / "mk/security-sources.mk",
@@ -41,6 +45,7 @@ def main():
         "HumanAccountRecoveryRequest",
         "HumanAccountRecoveryResult",
         "HumanAccountRecoveryStatus",
+        "replacedCredentialId",
         "revokedBrowserSessions",
         "EntropySource",
         "clearSecrets",
@@ -54,14 +59,16 @@ def main():
         'credential->credentialType != "human-password"',
         "crypt_gensalt_rn(",
         '"$y$"',
-        "credentialVerifierRepository_.updateVerifier",
+        "identityRepository_.rotateCredentialInActiveTransaction",
+        "credentialVerifierRepository_.rotateVerifierInActiveTransaction",
         "findByIssuedFromCredentialId",
         "revokeBySessionId",
         "identityRepository_.revokeSession",
         "identityRepository_.revokeCredential",
         '"security.human-account.recovery"',
+        '"system:human-account-recovery"',
         '"local-root"',
-        '"local_root_password_reset"',
+        '"local_root_password_rotation"',
         "accountabilityRepository_.append(event)",
         "transaction.commit()",
     ):
@@ -72,6 +79,28 @@ def main():
         "std::vector<StoredBrowserSessionCredential>",
     ):
         require("browser_h", marker)
+
+    for marker in (
+        "rotatedFromCredentialId",
+        "rotateCredentialInActiveTransaction",
+    ):
+        require("identity_h", marker)
+
+    for marker in (
+        "rotateCredentialInActiveTransaction",
+        "database_.transactionActive()",
+        "rotated_from_credential_id",
+        "revokeCredential(priorCredentialId)",
+    ):
+        require("identity_cpp", marker)
+
+    require("verifier_h", "rotateVerifierInActiveTransaction")
+    for marker in (
+        "rotateVerifierInActiveTransaction",
+        "database_.transactionActive()",
+        "SET credential_id = ?, password_hash = ?",
+    ):
+        require("verifier_cpp", marker)
 
     for marker in (
         "idx_security_browser_sessions_issuer",
@@ -88,6 +117,7 @@ def main():
         "isatty(STDIN_FILENO)",
         "tcsetattr(",
         "HumanAccountRecoveryService",
+        '"replaced_credential_id="',
         '"revoked_browser_sessions="',
     ):
         require("tool", marker)
@@ -97,6 +127,10 @@ def main():
         'after->passwordHash.rfind("$y$", 0) == 0',
         "!passwordMatches(OldPassword",
         "passwordMatches(NewPassword",
+        "result.replacedCredentialId == CredentialId",
+        "replacementCredential->rotatedFromCredentialId",
+        "staleAuthenticatedRequest",
+        "!postRecoveryIssuance.issue(",
         "result.revokedBrowserSessions == 2",
         '"security.human-account.recovery"',
         '"account_not_found"',
@@ -132,7 +166,8 @@ def main():
 
     for marker in (
         "Local audited Human Account recovery",
-        "same human-password credential",
+        "replacement human-password credential",
+        "stale password-authenticated request",
         "revokes every still-active browser session",
         "Authentication-default migration",
     ):
@@ -140,8 +175,9 @@ def main():
 
     for marker in (
         "local audited Human Account recovery",
-        "direct local credential reset",
+        "local credential rotation",
         "issued_from_credential_id",
+        "in-flight",
         "remote recovery",
     ):
         require("audit", marker)
@@ -152,6 +188,7 @@ def main():
     forbid("service_cpp", "INSERT INTO security_")
     forbid("service_cpp", "UPDATE security_")
     forbid("service_cpp", "DELETE FROM security_")
+    forbid("service_cpp", "updateVerifier(")
     forbid("tool", '"--password')
     forbid("tool", "Http")
 
