@@ -995,7 +995,7 @@ Do not reopen Phase 62 to implement these surfaces.
 
 ## Milestone D — Legacy Basic Retirement
 
-Status: **Fresh-install migration and enforced runtime fence implemented; real deployment acceptance pending.**
+Status: **Fresh-install migration, enforced runtime fence and real deployment acceptance tooling implemented; real deployment execution remains pending.**
 
 Fresh packaged installations now select `VDR_SUITE_SECURITY_MODE=enforced`.
 The first-admin bootstrap, claim, human-password session bridge and local audited
@@ -1008,8 +1008,11 @@ defaults file still contains `VDR_SUITE_BASIC_AUTH` or other
 `VDR_SUITE_LEGACY_BASIC_*` inputs. Those compatibility inputs become effective
 only after an explicit `VDR_SUITE_SECURITY_MODE=legacy-basic` rollback.
 
+The guarded real-runtime acceptance now exercises an existing claimed installation across `legacy-basic -> enforced -> legacy-basic -> enforced`, proves Human Account browser login in both modes, proves Legacy Basic denial in enforced mode and restoration in rollback mode, preserves the persistent Human Account/Actor/credential/grant fingerprint, and leaves a successful deployment explicitly on `enforced`.
+
 The remaining retirement work is narrower:
 
+- execute that acceptance on the supported real yaVDR deployment and retain its non-secret evidence;
 - migrate remaining existing deployments deliberately to the enforced model;
 - record real deployment rollback evidence using the explicit
   `VDR_SUITE_SECURITY_MODE=legacy-basic` compatibility rollback;

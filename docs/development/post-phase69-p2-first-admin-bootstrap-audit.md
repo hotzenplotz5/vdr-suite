@@ -457,3 +457,60 @@ existing claimed installation across `legacy-basic -> enforced -> legacy-basic`
 rollback, followed by the deliberate final migration to `enforced`. Only after
 that evidence is recorded is deletion of the compatibility implementation
 justified.
+
+
+## Legacy Basic retirement real-runtime acceptance tooling
+
+The remaining deployment gate now has a dedicated guarded runner rather than a
+manual sequence of configuration edits and daemon restarts.
+
+`tools/p2_legacy_basic_retirement_acceptance.py` is root-only for real
+execution and requires an exact clean repository head, exact remote ref, expected
+installed and candidate daemon fingerprints, the current configuration
+fingerprint, current service PID and the exact hosted-CI run identifiers before
+it can mutate the system.
+
+The acceptance sequence is deliberately
+`legacy-basic -> enforced -> legacy-basic -> enforced`:
+
+1. verify the existing deployment is still effectively in the compatibility
+   mode and that exactly one selected active Human Account administrator has an
+   active `human-password` credential and verifier;
+2. read the Human Account password interactively, never from a command-line
+   argument or environment variable, and verify it against the persisted
+   verifier before changing the running service;
+3. install only the exact candidate `vdr-suite-daemon`, leaving VDR and the
+   Backend Agent untouched;
+4. under the legacy baseline, prove both Legacy Basic protected access and a
+   complete Human Account browser-session issue/read/logout round trip;
+5. set only `VDR_SUITE_SECURITY_MODE=enforced`, restart only
+   `vdr-suite-daemon.service`, prove the legacy credential now receives HTTP
+   401, and prove Human Account login/read/logout still succeeds;
+6. set the mode explicitly to `legacy-basic`, restart only the daemon and
+   prove the compatibility credential is restored while Human Account login
+   still works;
+7. set the mode back to `enforced`, prove the final legacy denial and Human
+   Account success again, and leave the successful deployment in enforced mode.
+
+The runner preserves every non-mode line in the existing defaults file,
+including stale compatibility inputs, so the enforced check proves that the
+runtime fence from the previous slice is effective rather than merely proving
+that the old secret was deleted from configuration.
+
+It fingerprints the selected persistent Human Account, Actor,
+`human-password` credential, verifier and grants before and after the
+transitions. Browser-session rows and accountability evidence are intentionally
+excluded because the acceptance itself creates and revokes sessions. SQLite
+quick-check and foreign-key checks must remain clean.
+
+No production database snapshot is restored. That avoids overwriting legitimate
+concurrent state. On any acceptance failure, the runner instead restores the
+exact pre-run daemon binary and exact pre-run defaults-file state, restarts only
+the daemon and records whether that failure restoration succeeded. On success it
+keeps the exact candidate daemon installed and the deployment explicitly
+`enforced`.
+
+The runtime evidence report contains identifiers, fingerprints and status codes,
+not the Human Account password, Legacy Basic authorization header, browser
+cookie, CSRF secret or password verifier. Real deployment execution remains the
+external acceptance gate before Legacy Basic implementation deletion.
