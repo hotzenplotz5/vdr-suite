@@ -172,13 +172,11 @@ operator deliberately selects enforced mode. Browser-session, Human Account and
 Managed Basic authentication remain separate authorities.
 
 Operators can perform a controlled compatibility rollback by explicitly setting
-`VDR_SUITE_SECURITY_MODE=legacy-basic`; only that mode makes the compatibility
-inputs effective again. The mode change does not rewrite the persistent identity
+`VDR_SUITE_SECURITY_MODE=legacy-basic`; only that mode makes the compatibility inputs effective again. The mode change does not rewrite the persistent identity
 database.
 
 This completes the bounded fresh-install migration and enforced-mode runtime
-fence required before real deployment acceptance, but full Legacy Basic removal
-remains deferred. Deleting the compatibility implementation still requires
+fence required before real deployment acceptance, but full Legacy Basic removal remains deferred. Deleting the compatibility implementation still requires
 migration of remaining existing deployments and real deployment rollback
 evidence under the roadmap retirement milestone.
 
