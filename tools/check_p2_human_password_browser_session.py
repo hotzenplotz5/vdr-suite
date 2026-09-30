@@ -95,7 +95,7 @@ def main():
         '"invalid_credentials"',
         "response.statusCode == 200",
         'response.headers.count("Set-Cookie") == 1U',
-        '"csrfToken"',
+        "csrfToken",
         "browser->issuedFromCredentialId",
         '"credential-human-admin"',
         "identities.revokeDevice(loginDeviceId)",
