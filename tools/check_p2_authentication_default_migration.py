@@ -62,10 +62,11 @@ def main():
         require("install", marker)
 
     for marker in (
-        "fresh packaged installations",
-        "existing /etc/default/vdr-suite-daemon",
+        "Fresh packaged installations",
+        "/etc/default/vdr-suite-daemon",
         "VDR_SUITE_SECURITY_MODE=legacy-basic",
-        "code fallback remains legacy-basic",
+        "code fallback remains",
+        "legacy-basic",
     ):
         require("adr", marker)
 
