@@ -68,16 +68,37 @@ A partially created first admin must not survive failed claim completion.
 
 ### Authentication default migration
 
-Legacy Basic retirement is a separate migration slice.
+Legacy Basic retirement is a separate migration slice. The fresh-install portion
+of that migration is now implemented without silently changing existing
+installations.
 
-The runtime default must not switch to enforced/unclaimed behavior merely because this ADR is accepted.
+Fresh packaged installations explicitly set:
 
-A later migration may change fresh-install defaults only after:
-- bootstrap runtime exists;
-- first-admin claim succeeds end-to-end;
-- local recovery exists;
-- existing-install upgrade behavior is explicitly defined;
-- rollback is proven.
+`VDR_SUITE_SECURITY_MODE=enforced`
+
+in the package-owned source for `/etc/default/vdr-suite-daemon`. This makes a
+newly installed, unclaimed server fail closed for normal protected application
+access while the already isolated local bootstrap and first-admin claim
+authorities remain available.
+
+The installer intentionally creates that defaults file only when it does not
+already exist. An existing `/etc/default/vdr-suite-daemon` is therefore never
+rewritten merely because VDR-Suite is upgraded. Existing deployments without an
+explicit security-mode setting continue through the compatibility behavior of
+`SecurityConfiguration`; the code fallback remains legacy-basic so an upgrade
+cannot silently lock out an operator.
+
+A controlled compatibility rollback is explicit deployment configuration:
+
+`VDR_SUITE_SECURITY_MODE=legacy-basic`
+
+followed by the normal daemon restart. Rollback changes the authentication mode;
+it does not delete Human Accounts, rotate credentials, restore bootstrap
+material or rewrite identity history.
+
+This slice does not remove Legacy Basic implementation support. Full retirement
+still requires deliberate migration of existing installations and real
+deployment rollback evidence before the compatibility path can be deleted.
 
 ### Local recovery
 
@@ -144,7 +165,11 @@ The next runtime implementation can be divided into bounded slices:
 3. atomic first-admin claim service;
 4. trusted browser completion flow;
 5. local audited recovery through selected Human Account credential rotation;
-6. only then fresh-install/default migration away from Legacy Basic.
+6. fresh-install/default migration away from Legacy Basic, with upgrade compatibility preserved.
+
+All six ADR-0066 runtime slices above are now implemented for the bounded
+fresh-install migration contract. Removal of the Legacy Basic compatibility
+implementation remains a later deployment-retirement milestone.
 
 ## Non-goals
 

@@ -158,9 +158,20 @@ The final pass proved protected HTTP 200 success and deterministic HTTP 500 fail
 
 ## Compatibility-retirement decision
 
-Immediate removal of Legacy Basic is not deployment-ready because `legacy-basic` remains the code default and packaged configuration does not mandate operator migration to `enforced`.
+Fresh packaged installations now select the enforced identity model explicitly
+through `/etc/default/vdr-suite-daemon`. The installer preserves an existing
+defaults file, so upgrade compatibility is not converted into an implicit
+lockout migration. The runtime code fallback remains `legacy-basic` for older
+or manually managed deployments that do not yet provide the explicit setting.
 
-Phase 62 therefore closes with Legacy Basic retained as an explicitly transitional compatibility mode. Future retirement requires a separate deployment-migration contract covering rollout, recovery and compatibility impact.
+Operators can perform a controlled compatibility rollback by explicitly setting
+`VDR_SUITE_SECURITY_MODE=legacy-basic`; that mode change does not rewrite the
+persistent identity database.
+
+This completes the bounded fresh-install migration required by ADR-0066, but
+full Legacy Basic removal remains deferred. Deleting the compatibility
+implementation still requires migration of remaining existing deployments and
+real deployment rollback evidence under the roadmap retirement milestone.
 
 ## Deferred capabilities
 

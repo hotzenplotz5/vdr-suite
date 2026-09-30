@@ -370,3 +370,51 @@ authentication-default change. Legacy Basic remains unchanged.
 
 Authentication-default migration is the next ADR-0066 slice and still requires
 a separate fresh-install, existing-install upgrade and rollback contract.
+
+
+## Authentication-default fresh-install migration
+
+The recovery slice closes the final prerequisite named by ADR-0066 for changing
+fresh-install deployment defaults. The migration is intentionally narrower than
+removing Legacy Basic from the codebase.
+
+For a fresh install, the packaged
+`/etc/default/vdr-suite-daemon` now contains:
+
+`VDR_SUITE_SECURITY_MODE=enforced`
+
+This is a deployment default, not a second security-mode authority.
+`SecurityConfiguration` remains the runtime parser and still maps
+`enforced` to the existing fail-closed identity model.
+
+Upgrade behavior is deliberately different from fresh install behavior.
+`install-systemd` uses create-only semantics for the daemon defaults file:
+an existing `/etc/default/vdr-suite-daemon` is preserved byte-for-byte.
+Therefore an existing installation that does not yet carry an explicit mode is
+not silently migrated by package installation and continues to use the existing
+code fallback.
+
+That code fallback intentionally remains `legacy-basic`. Changing it to
+`enforced` would make a missing or older defaults file an implicit upgrade
+migration and could lock out an existing operator. The compatibility fallback
+is therefore retained until the later full Legacy Basic retirement milestone.
+
+Rollback is explicit and bounded: set
+`VDR_SUITE_SECURITY_MODE=legacy-basic` in the existing deployment defaults and
+perform the normal daemon restart. No identity database rollback is required;
+Human Accounts, credentials, grants, sessions and accountability history are
+not deleted or rewritten by the mode change.
+
+Packaging regression proves both sides of the boundary: an empty staging root
+receives the enforced fresh-install default, while a second install-systemd run
+over a pre-existing defaults file preserves an explicit legacy-basic value and
+sentinel instead of replacing it.
+
+The claim route remains isolated before the normal authentication gates, and the
+human-password browser-session bridge remains the post-claim normal login path.
+This slice adds no new endpoint, credential store, Account authority, Profile,
+pairing or Phase-70 behavior.
+
+Full deletion of Legacy Basic compatibility is not claimed here. The roadmap's
+deployment-retirement milestone still requires explicit migration of remaining
+existing deployments and real runtime rollback evidence.

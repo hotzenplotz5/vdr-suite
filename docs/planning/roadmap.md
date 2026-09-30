@@ -995,16 +995,26 @@ Do not reopen Phase 62 to implement these surfaces.
 
 ## Milestone D — Legacy Basic Retirement
 
-Status: **Deferred deployment migration.**
+Status: **Fresh-install migration implemented; full retirement still deferred.**
 
-Retire transitional Legacy Basic compatibility only after:
+Fresh packaged installations now select `VDR_SUITE_SECURITY_MODE=enforced`.
+The first-admin bootstrap, claim, human-password session bridge and local audited
+recovery paths are implemented. During package installation existing deployment
+default files are preserved rather than overwritten, so upgrades remain an
+operator-controlled migration.
 
-- packaged defaults and operator configuration use the enforced identity model;
-- recovery/admin paths are proven;
-- upgrade/migration documentation exists;
-- real deployment rollback is tested.
+The remaining retirement work is narrower:
 
-This is a deployment compatibility milestone, not a prerequisite for Streaming unless a concrete security requirement later makes it one.
+- migrate remaining existing deployments deliberately to the enforced model;
+- record real deployment rollback evidence using the explicit
+  `VDR_SUITE_SECURITY_MODE=legacy-basic` compatibility rollback;
+- only then delete transitional Legacy Basic implementation support.
+
+The fresh-install default does not itself satisfy the real deployment rollback
+gate and does not authorize silent migration of existing installations.
+
+This remains a deployment compatibility milestone, not a prerequisite for
+Streaming unless a concrete security requirement later makes it one.
 
 ## Milestone E — First-party client family rollout
 
