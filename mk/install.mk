@@ -149,6 +149,7 @@ test-install-staging:
 	grep -F 'CONTROL_PLANE_URL=https://' /tmp/vdr-suite-pkgroot/etc/vdr-suite/backend-agent.conf >/dev/null
 	! grep -E -i '(token|password|credential_secret|authorization|cookie|csrf)=' /tmp/vdr-suite-pkgroot/etc/vdr-suite/backend-agent.conf >/dev/null
 	test -f /tmp/vdr-suite-pkgroot/etc/default/vdr-suite-daemon
+	grep -Fx 'VDR_SUITE_SECURITY_MODE=enforced' /tmp/vdr-suite-pkgroot/etc/default/vdr-suite-daemon >/dev/null
 	grep -F 'VDR_SUITE_SUITE_BRIDGE_ENABLED=true' /tmp/vdr-suite-pkgroot/etc/default/vdr-suite-daemon >/dev/null
 	test -d /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos
 	test -d /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand
@@ -247,3 +248,8 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man1/vdr-suite-dashboard.1
 	test -f /tmp/vdr-suite-pkgroot/lib/systemd/system/vdr-suite-daemon.service
 	test -f /tmp/vdr-suite-pkgroot/lib/systemd/system/vdr-suite-backend-agent.service
+	printf '%s\n' 'VDR_SUITE_SECURITY_MODE=legacy-basic' 'VDR_SUITE_UPGRADE_SENTINEL=preserve' > /tmp/vdr-suite-pkgroot/etc/default/vdr-suite-daemon
+	$(MAKE) install-systemd DESTDIR=/tmp/vdr-suite-pkgroot PREFIX=/usr
+	grep -Fx 'VDR_SUITE_SECURITY_MODE=legacy-basic' /tmp/vdr-suite-pkgroot/etc/default/vdr-suite-daemon >/dev/null
+	grep -Fx 'VDR_SUITE_UPGRADE_SENTINEL=preserve' /tmp/vdr-suite-pkgroot/etc/default/vdr-suite-daemon >/dev/null
+	! grep -Fx 'VDR_SUITE_SECURITY_MODE=enforced' /tmp/vdr-suite-pkgroot/etc/default/vdr-suite-daemon >/dev/null

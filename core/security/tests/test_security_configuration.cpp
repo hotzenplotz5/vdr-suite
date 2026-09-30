@@ -53,6 +53,16 @@ int main()
     assert(failClosed.expectedAuthorizationHeader.empty());
     assert(failClosed.grants.empty());
 
+    setenv("VDR_SUITE_SECURITY_MODE", "legacy-basic", 1);
+    const SecurityConfiguration explicitCompatibilityRollback =
+        SecurityConfiguration::fromEnvironment();
+    assert(
+        explicitCompatibilityRollback.mode ==
+        SecurityMode::LegacyBasicCompatibility);
+    assert(!explicitCompatibilityRollback.expectedAuthorizationHeader.empty());
+    assert(explicitCompatibilityRollback.grants.size() == 1);
+
+    setenv("VDR_SUITE_SECURITY_MODE", "enforced", 1);
     setenv("VDR_SUITE_BASIC_AUTH", "Basic configured", 1);
     setenv(
         "VDR_SUITE_LEGACY_BASIC_CREDENTIAL_ID",
