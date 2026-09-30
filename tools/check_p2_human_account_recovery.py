@@ -159,7 +159,7 @@ def main():
     for marker in (
         "local root-only administration command",
         "accept the new password as a command-line argument",
-        "issued from that human-password credential are",
+        "issued from the replaced human-password",
         "does not create a second Human Account",
     ):
         require("man", marker)
