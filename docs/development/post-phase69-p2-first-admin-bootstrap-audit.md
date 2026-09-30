@@ -5,7 +5,7 @@
 Audited against live `main`:
 
 ```text
-ca22d117f22134404898232d30db8e5696d613ff
+69a7b2355e5fd1d75e2381764905ae414fa73c5b
 ```
 
 The Public-v1 Account collection is already on `main`. This slice deliberately does not modify its runtime, API, client or Phase-69 compatibility surfaces.
@@ -246,3 +246,64 @@ and must never become a session credential.
 
 Local audited recovery and authentication-default migration remain later
 ADR-0066 slices.
+
+## Human-password browser session bridge
+
+The browser completion path now continues from a successful claim without
+reusing bootstrap proof.
+
+The existing `POST /api/security/browser-sessions` contract remains the
+credential-exchange boundary. Human Account passwords use the existing bounded
+HTTP Basic transport on that exact session-issuance route; this slice does not
+add a reusable password JSON endpoint and does not authorize human passwords on
+ordinary application/API routes.
+
+`HumanPasswordBrowserAuthenticator` accepts only a persisted verifier whose
+canonical credential has type exactly `human-password` and belongs to an
+active explicit Human Account. A known Human Account login owns its password
+decision on the session route: a wrong human password fails closed and does not
+fall through to Legacy Basic. Managed Basic and Legacy Basic remain available
+for logins that are not Human Account credentials, so this slice does not change
+the packaged authentication default.
+
+After successful password verification the authenticator idempotently ensures
+one logical browser-login Device for the Human Account in the existing
+`security_devices` authority. The Device identifier is derived from the
+Account identifier as `human-browser-<accountId>`; it is non-secret and carries
+no pairing approval, permission grant or independent trust elevation. This
+logical Device exists only to satisfy the already accepted canonical
+Actor/Device/Session ownership model for browser-session issuance. Future
+TV/app pairing remains a separate device lifecycle.
+
+The Device is provisioned lazily rather than added to the bootstrap claim.
+Therefore Human Accounts already claimed by the previous claim-only slice can
+authenticate after upgrade without rewriting claim history. A revoked login
+Device remains revoked because idempotent provisioning never reactivates it.
+
+Once Actor, Human Account, human-password Credential and logical browser Device
+are valid, the existing `BrowserSessionHttpGate` delegates unchanged to
+`BrowserSessionHttpService` and `BrowserSessionIssuanceService`. The existing
+session authority still generates the browser Session, browser Credential,
+hardened cookie and one-time CSRF token atomically and records the
+human-password Credential as the issuing credential. Existing issuer lifecycle,
+expiry, revocation, concurrency, idle and retention contracts therefore remain
+authoritative.
+
+Bootstrap identifiers and setup secrets are not accepted by this path and never
+become a Session, Device credential, cookie or CSRF value. Human passwords are
+verified only against one-way yescrypt/SHA-512-crypt compatible verifiers and
+are not persisted or returned.
+
+The Legacy Basic package default remains unchanged. This slice adds no Account
+CRUD, grant administration, Profile, pairing, recovery, Public-v1 expansion or
+Phase-70 work.
+
+## Next bounded slice after browser completion
+
+The ADR-0066 trusted browser completion flow is now complete at the backend
+security boundary: claim and normal post-claim session issuance are separate and
+bootstrap proof is consumed before normal authentication begins.
+
+The next justified ADR-0066 slice is local audited Human Account recovery.
+Authentication-default migration remains later and still requires explicit
+upgrade/rollback behavior.
