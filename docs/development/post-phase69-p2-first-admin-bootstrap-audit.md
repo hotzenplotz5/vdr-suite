@@ -5,10 +5,10 @@
 Audited against live `main`:
 
 ```text
-1d4ec2bc4e481a8abbed4ab9fdcd65f9c3c40f74
+9ad8b10d11c1d09695b2368690d94b6ddc2e962d
 ```
 
-An independent open workstream owns the Public-v1 Account collection. This slice deliberately does not modify its runtime, API, client or Phase-69 compatibility surfaces.
+The Public-v1 Account collection is already on `main`. This slice deliberately does not modify its runtime, API, client or Phase-69 compatibility surfaces.
 
 ## Current deployment facts
 
@@ -89,3 +89,43 @@ With ADR-0066 accepted, the smallest runtime slice is persistent claim/bootstrap
 - no authentication-default change yet.
 
 The local issuance command and atomic first-admin claim service follow as separate slices.
+
+
+## Implemented persistence foundation
+
+This slice adds `FirstAdminBootstrapRepository` to the existing Suite security
+database and initializes its schema from the daemon runtime.
+
+The repository keeps bootstrap material separate from normal identity
+credentials. It stores only a bootstrap identifier, a one-way verifier hash,
+expiry and terminal lifecycle timestamps. It creates no normal Session or
+Credential row and therefore does not turn bootstrap proof into reusable API
+authority.
+
+Server claim state remains derived from the existing persistent identity/account
+authority: an active Human Account bound to an active `ActorType::User` actor
+with global administrator authority (`role.admin@*` or the existing direct
+wildcard grant). There is no second persisted claim-state flag.
+
+Registration is fenced against an already-claimed server, rejects already
+expired material and permits at most one effective unconsumed/uninvalidated
+bootstrap issuance at a time. Lookup becomes fail-closed once the server is
+claimed.
+
+Consumption and invalidation require a caller-owned SQLite transaction. This is
+intentional: the later atomic first-admin claim service can consume bootstrap
+proof and create the Human Account, normal human credential, grants and
+accountability evidence inside one transaction; rollback restores the
+pre-claim bootstrap state instead of leaving a partial admin.
+
+The Legacy Basic default remains unchanged. This slice adds no HTTP endpoint,
+no local issuance command, no first-admin account mutation and no recovery
+workflow.
+
+## Next bounded slice
+
+The next justified slice is the local trusted-operator bootstrap issuer. It may
+generate the raw setup secret once, hash it using the established security
+verifier primitives and register only the verifier plus expiry through this
+repository. Browser completion and atomic first-admin creation remain later
+slices.
