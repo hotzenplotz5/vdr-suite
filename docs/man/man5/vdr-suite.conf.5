@@ -9,6 +9,25 @@ It will describe database, HTTP listener and VDR backend settings used by the da
 Until the file format is finalized, selected runtime settings are available as environment variables.
 .SH ENVIRONMENT
 .TP
+.B VDR_SUITE_SECURITY_MODE
+Selects the daemon authentication deployment mode.
+Accepted values are
+.B enforced
+and
+.BR legacy-basic .
+Fresh packaged installations default to
+.B enforced
+through
+.IR /etc/default/vdr-suite-daemon .
+The installer does not overwrite an existing defaults file during upgrade, and
+the runtime code fallback remains
+.B legacy-basic
+when the variable is absent so older deployments are not silently locked out.
+An operator-controlled compatibility rollback may explicitly set
+.B VDR_SUITE_SECURITY_MODE=legacy-basic
+and restart the daemon. Changing this mode does not delete or rewrite persisted
+Human Accounts, credentials, grants or accountability history.
+.TP
 .B VDR_SUITE_DATABASE_PATH
 Overrides the SQLite database path.
 .TP

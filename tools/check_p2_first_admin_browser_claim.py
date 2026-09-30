@@ -138,7 +138,7 @@ def main():
     )
 
     forbid("defaults", "VDR_SUITE_FIRST_ADMIN")
-    forbid("defaults", "VDR_SUITE_SECURITY_MODE=")
+    require("defaults", "VDR_SUITE_SECURITY_MODE=enforced")
 
     for marker in (
         "trusted browser completion",
