@@ -456,7 +456,10 @@ int main()
 
         const auto events = fixture.accountability.listAll();
         assert(events.size() == 1);
-        assert(events[0].actorId == ActorId);
+        assert(
+            events[0].actorId ==
+            "system:human-account-recovery");
+        assert(events[0].actorType == "system");
         assert(events[0].decision == "deny");
         assert(events[0].reasonCode == "account_inactive");
     }
