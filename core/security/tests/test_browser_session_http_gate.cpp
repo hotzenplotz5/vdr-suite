@@ -205,6 +205,26 @@ int main()
     assert(anonymousLogin.rejection.body.find(
         "authentication_required") != std::string::npos);
 
+    SecurityConfiguration enforced = configuration;
+    enforced.mode = SecurityMode::Enforced;
+    BrowserSessionHttpGate enforcedGate(
+        enforced,
+        accountabilityRepository,
+        browserRepository,
+        permissionGrantRepository,
+        &identityResolver,
+        &managedAuthenticator);
+
+    const BrowserSessionGateDecision enforcedLegacyLogin =
+        enforcedGate.evaluate(loginRequest(kLegacyCredential));
+    assert(!enforcedLegacyLogin.allowed);
+    assert(enforcedLegacyLogin.rejection.statusCode == 401);
+
+    const BrowserSessionGateDecision enforcedManagedLogin =
+        enforcedGate.evaluate(loginRequest(kManagedCredential));
+    assert(enforcedManagedLogin.allowed);
+    assert(enforcedManagedLogin.context.actor.actorId == managed.actorId);
+
     const BrowserSessionGateDecision wrongPassword =
         gate.evaluate(loginRequest(kManagedWrongCredential));
     assert(!wrongPassword.allowed);

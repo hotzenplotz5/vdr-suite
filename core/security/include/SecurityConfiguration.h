@@ -161,37 +161,39 @@ struct SecurityConfiguration
             configuration.expectedAuthorizationHeader.clear();
             configuration.grants.clear();
         }
-
-        configuration.expectedAuthorizationHeader =
-            environmentValue(
-                "VDR_SUITE_BASIC_AUTH",
-                configuration.expectedAuthorizationHeader);
-        configuration.actorId =
-            environmentValue(
-                "VDR_SUITE_LEGACY_BASIC_ACTOR_ID",
-                configuration.actorId);
-        configuration.actorDisplayName =
-            environmentValue(
-                "VDR_SUITE_LEGACY_BASIC_ACTOR_DISPLAY_NAME",
-                configuration.actorDisplayName);
-        configuration.deviceId =
-            environmentValue(
-                "VDR_SUITE_LEGACY_BASIC_DEVICE_ID",
-                configuration.deviceId);
-        configuration.sessionId =
-            environmentValue(
-                "VDR_SUITE_LEGACY_BASIC_SESSION_ID",
-                configuration.sessionId);
-        configuration.credentialId =
-            environmentValue(
-                "VDR_SUITE_LEGACY_BASIC_CREDENTIAL_ID",
-                configuration.credentialId);
-
-        const char* configuredGrants =
-            std::getenv("VDR_SUITE_LEGACY_BASIC_PERMISSIONS");
-        if (configuredGrants != nullptr)
+        else
         {
-            configuration.grants = parseGrants(configuredGrants);
+            configuration.expectedAuthorizationHeader =
+                environmentValue(
+                    "VDR_SUITE_BASIC_AUTH",
+                    configuration.expectedAuthorizationHeader);
+            configuration.actorId =
+                environmentValue(
+                    "VDR_SUITE_LEGACY_BASIC_ACTOR_ID",
+                    configuration.actorId);
+            configuration.actorDisplayName =
+                environmentValue(
+                    "VDR_SUITE_LEGACY_BASIC_ACTOR_DISPLAY_NAME",
+                    configuration.actorDisplayName);
+            configuration.deviceId =
+                environmentValue(
+                    "VDR_SUITE_LEGACY_BASIC_DEVICE_ID",
+                    configuration.deviceId);
+            configuration.sessionId =
+                environmentValue(
+                    "VDR_SUITE_LEGACY_BASIC_SESSION_ID",
+                    configuration.sessionId);
+            configuration.credentialId =
+                environmentValue(
+                    "VDR_SUITE_LEGACY_BASIC_CREDENTIAL_ID",
+                    configuration.credentialId);
+
+            const char* configuredGrants =
+                std::getenv("VDR_SUITE_LEGACY_BASIC_PERMISSIONS");
+            if (configuredGrants != nullptr)
+            {
+                configuration.grants = parseGrants(configuredGrants);
+            }
         }
 
         configuration.managedBasic.username =
