@@ -252,6 +252,7 @@ test-security-human-account-recovery:
 		core/security/src/HumanAccountRepository.cpp \
 		core/security/src/SecurityIdentityProvisioningRepository.cpp \
 		core/security/src/SecurityIdentityRepository.cpp \
+		core/security/src/SecurityIdentityIssuanceRepository.cpp \
 		core/security/src/SecurityPermissionGrantRepository.cpp \
 		core/security/src/BrowserSessionIssuanceService.cpp \
 		core/security/src/HumanAccountRecoveryService.cpp \
