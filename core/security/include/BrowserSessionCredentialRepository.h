@@ -62,6 +62,9 @@ public:
         int idleTimeoutSeconds = 0) const;
     std::optional<StoredBrowserSessionCredential> findBySessionId(
         const std::string& sessionId) const;
+    std::optional<std::vector<StoredBrowserSessionCredential>>
+    findByIssuedFromCredentialId(
+        const std::string& issuedFromCredentialId) const;
     std::optional<std::size_t> countEffectiveActiveByActorId(
         const std::string& actorId,
         int idleTimeoutSeconds = 0) const;

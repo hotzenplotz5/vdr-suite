@@ -307,3 +307,45 @@ bootstrap proof is consumed before normal authentication begins.
 The next justified ADR-0066 slice is local audited Human Account recovery.
 Authentication-default migration remains later and still requires explicit
 upgrade/rollback behavior.
+
+
+## Implemented local audited Human Account recovery
+
+Live inspection after the human-password browser-session bridge showed that a
+direct local credential reset is the smallest recovery architecture justified by
+the existing authorities. The verifier already belongs to the canonical Suite
+credential authority, while browser-session persistence records the issuing
+credential through `issued_from_credential_id`. Introducing another short-lived
+recovery store would add lifecycle machinery without closing a gap that the
+local trusted operator path requires.
+
+The new `vdr-suite-human-account-recover` command is root-only. It selects an
+explicit existing Human Account and login, reads the replacement password
+without accepting password plaintext as a command-line argument, and delegates
+the mutation to `HumanAccountRecoveryService`. There is no remote recovery
+endpoint, no Public-v1 mutation and no Bootstrap-secret reuse.
+
+`HumanAccountRecoveryService` requires the selected account to remain active
+and bound to `ActorType::User`. The selected verifier must resolve to the same
+actor's active, unexpired, unrevoked credential with type exactly
+`human-password`. The service rotates only that verifier, preserving Account
+ID, Actor ID, Credential ID and permission grants.
+
+Changing only the verifier would leave already issued browser sessions usable,
+because their normal request-time authority remains bound to the unchanged
+issuing credential. Recovery therefore queries
+`BrowserSessionCredentialRepository` by `issued_from_credential_id` and
+revokes each still-active browser-session row, canonical Session and canonical
+browser Credential inside the same `BEGIN IMMEDIATE` transaction as the
+verifier update. The human-password credential is not revoked and can
+immediately issue new sessions after successful recovery.
+
+A successful reset appends `security.human-account.recovery` accountability
+evidence in the same transaction. Expected unknown, inactive or mismatched
+target failures append denied, secret-free evidence. If the mutation or
+success-accountability append fails, the transaction rolls back the verifier
+and session changes.
+
+The Legacy Basic default and packaging configuration remain unchanged.
+Authentication-default migration is the next ADR-0066 slice and still requires
+a separate fresh-install, upgrade and rollback contract.

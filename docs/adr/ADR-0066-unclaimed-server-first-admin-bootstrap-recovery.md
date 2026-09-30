@@ -79,15 +79,38 @@ A later migration may change fresh-install defaults only after:
 - existing-install upgrade behavior is explicitly defined;
 - rollback is proven.
 
-### Local recovery
+### Local audited Human Account recovery
 
 Account recovery is local-operator controlled and audited.
 
-Recovery may issue new short-lived recovery material or reset a selected Human Account credential, but it does not reveal an existing password or stored verifier.
+The implemented first recovery contract is a direct local reset of an explicitly
+selected existing Human Account's normal `human-password` credential. It does
+not introduce a second recovery store or issue another class of recovery secret.
+The Account, its bound `ActorType::User` actor, the same `human-password`
+credential and existing permission grants remain the persistent authorities.
 
-Remote anonymous recovery is forbidden.
+The new password is stored only as a salted yescrypt verifier. The local
+root/operator command never reveals the existing password or verifier and does
+not accept replacement password plaintext as a command-line argument.
 
-Recovery must not silently create a second administrator when the intended operation is credential recovery.
+Changing only the verifier is insufficient session recovery. Existing browser
+sessions retain `issued_from_credential_id`; while the same issuing
+`human-password` credential remains active, those sessions would otherwise
+remain valid. Recovery therefore revokes every still-active browser session
+issued from the same human-password credential, including its browser-session
+row, canonical Session and canonical browser Credential, in the same transaction
+as verifier rotation and successful accountability evidence.
+
+Recovery fails closed for an unknown or inactive Human Account, a non-user actor
+binding, a missing credential, or any credential that is not the selected
+account actor's active, unexpired and unrevoked `human-password` credential.
+Technical, Legacy Basic and Managed Basic principals are not Human Account
+recovery targets.
+
+Remote anonymous recovery is forbidden. No Public-v1 recovery mutation is
+opened, Bootstrap material is not reused, and recovery never silently creates a
+second Human Account or administrator. Authentication-default migration remains
+separate.
 
 ### Browser setup
 
@@ -109,7 +132,7 @@ The next runtime implementation can be divided into bounded slices:
 2. local root/operator bootstrap issuance command;
 3. atomic first-admin claim service;
 4. trusted browser completion flow;
-5. local audited recovery;
+5. local audited recovery through direct selected Human Account credential reset;
 6. only then fresh-install/default migration away from Legacy Basic.
 
 ## Non-goals
@@ -119,7 +142,6 @@ This ADR does not:
 - remove Legacy Basic;
 - implement a bootstrap endpoint;
 - implement first-admin account creation;
-- implement password reset;
 - modify the open Public-v1 Account collection work;
 - implement Profiles or pairing;
 - create a second identity authority.

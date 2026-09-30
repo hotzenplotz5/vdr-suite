@@ -266,7 +266,11 @@ bool BrowserSessionCredentialRepository::ensureSchema()
                "ON security_browser_session_credentials(active, expires_at);") &&
         database_.execute(
                "CREATE INDEX IF NOT EXISTS idx_security_browser_sessions_idle "
-               "ON security_browser_session_credentials(active, last_seen_at);");
+               "ON security_browser_session_credentials(active, last_seen_at);") &&
+        database_.execute(
+               "CREATE INDEX IF NOT EXISTS idx_security_browser_sessions_issuer "
+               "ON security_browser_session_credentials("
+               "issued_from_credential_id, active, session_id);");
 }
 
 bool BrowserSessionCredentialRepository::insert(
@@ -374,6 +378,78 @@ BrowserSessionCredentialRepository::findBySessionId(
         "(expires_at <= CURRENT_TIMESTAMP), 0, revoked_at <> '' "
         "FROM security_browser_session_credentials WHERE session_id = ?;",
         sessionId);
+}
+
+std::optional<std::vector<StoredBrowserSessionCredential>>
+BrowserSessionCredentialRepository::findByIssuedFromCredentialId(
+    const std::string& issuedFromCredentialId) const
+{
+    if (!safeIdentifier(issuedFromCredentialId))
+    {
+        return std::nullopt;
+    }
+
+    const char* sql =
+        "SELECT token_id, session_id, actor_id, device_id, credential_id, "
+        "issued_from_credential_id, session_secret_hash, csrf_secret_hash, "
+        "expires_at, last_seen_at, active, "
+        "(expires_at <= CURRENT_TIMESTAMP), 0, revoked_at <> '' "
+        "FROM security_browser_session_credentials "
+        "WHERE issued_from_credential_id = ? "
+        "AND active <> 0 AND revoked_at = '' "
+        "ORDER BY session_id ASC;";
+
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return std::nullopt;
+    }
+
+    if (!bindText(statement, 1, issuedFromCredentialId))
+    {
+        sqlite3_finalize(statement);
+        return std::nullopt;
+    }
+
+    std::vector<StoredBrowserSessionCredential> result;
+    for (;;)
+    {
+        const int step = sqlite3_step(statement);
+        if (step == SQLITE_DONE)
+        {
+            break;
+        }
+        if (step != SQLITE_ROW)
+        {
+            sqlite3_finalize(statement);
+            return std::nullopt;
+        }
+
+        StoredBrowserSessionCredential record;
+        record.tokenId = columnText(statement, 0);
+        record.sessionId = columnText(statement, 1);
+        record.actorId = columnText(statement, 2);
+        record.deviceId = columnText(statement, 3);
+        record.credentialId = columnText(statement, 4);
+        record.issuedFromCredentialId = columnText(statement, 5);
+        record.sessionSecretHash = columnText(statement, 6);
+        record.csrfSecretHash = columnText(statement, 7);
+        record.expiresAt = columnText(statement, 8);
+        record.lastSeenAt = columnText(statement, 9);
+        record.active = sqlite3_column_int(statement, 10) != 0;
+        record.expired = sqlite3_column_int(statement, 11) != 0;
+        record.idleExpired = sqlite3_column_int(statement, 12) != 0;
+        record.revoked = sqlite3_column_int(statement, 13) != 0;
+        result.push_back(record);
+    }
+
+    sqlite3_finalize(statement);
+    return result;
 }
 
 std::optional<std::size_t>
