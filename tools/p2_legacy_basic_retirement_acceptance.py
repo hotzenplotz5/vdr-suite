@@ -493,6 +493,30 @@ def table_exists(database: sqlite3.Connection, table: str) -> bool:
     return row is not None
 
 
+def server_claimed(database: sqlite3.Connection) -> bool:
+    row = database.execute(
+        """
+        SELECT 1
+        FROM security_human_accounts AS account
+        JOIN security_actors AS actor
+          ON actor.actor_id = account.actor_id
+        JOIN security_actor_permission_grants AS grant_record
+          ON grant_record.actor_id = account.actor_id
+        WHERE account.active <> 0
+          AND actor.actor_type = 'user'
+          AND actor.active <> 0
+          AND actor.revoked_at = ''
+          AND grant_record.active <> 0
+          AND grant_record.revoked_at = ''
+          AND grant_record.backend_id = '*'
+          AND (grant_record.permission = 'role.admin'
+               OR grant_record.permission = '*')
+        LIMIT 1
+        """
+    ).fetchone()
+    return row is not None
+
+
 def verify_database(database: sqlite3.Connection) -> tuple[str, int]:
     quick = str(database.execute("PRAGMA quick_check").fetchone()[0])
     foreign_keys = database.execute("PRAGMA foreign_key_check").fetchall()
@@ -704,11 +728,49 @@ def self_test() -> int:
                 "self_test_pre_p2_schema_detection",
             )
             database.execute(
-                "CREATE TABLE security_human_accounts (account_id TEXT PRIMARY KEY)"
+                "CREATE TABLE security_actors ("
+                "actor_id TEXT PRIMARY KEY,"
+                "actor_type TEXT NOT NULL,"
+                "active INTEGER NOT NULL,"
+                "revoked_at TEXT NOT NULL)"
+            )
+            database.execute(
+                "CREATE TABLE security_human_accounts ("
+                "account_id TEXT PRIMARY KEY,"
+                "actor_id TEXT NOT NULL,"
+                "active INTEGER NOT NULL)"
+            )
+            database.execute(
+                "CREATE TABLE security_actor_permission_grants ("
+                "actor_id TEXT NOT NULL,"
+                "permission TEXT NOT NULL,"
+                "backend_id TEXT NOT NULL,"
+                "active INTEGER NOT NULL,"
+                "revoked_at TEXT NOT NULL)"
             )
             require(
                 table_exists(database, "security_human_accounts"),
                 "self_test_human_account_schema_detection",
+            )
+            require(
+                not server_claimed(database),
+                "self_test_unclaimed_detection",
+            )
+            database.execute(
+                "INSERT INTO security_actors VALUES "
+                "('actor_test','user',1,'')"
+            )
+            database.execute(
+                "INSERT INTO security_human_accounts VALUES "
+                "('account_test','actor_test',1)"
+            )
+            database.execute(
+                "INSERT INTO security_actor_permission_grants VALUES "
+                "('actor_test','role.admin','*',1,'')"
+            )
+            require(
+                server_claimed(database),
+                "self_test_claimed_detection",
             )
 
         bootstrap_id, bootstrap_secret = bootstrap_output(
@@ -877,17 +939,19 @@ def main() -> int:
         initial_quick, initial_foreign_keys = verify_database(database)
         if table_exists(database, "security_human_accounts"):
             try:
-                admins = eligible_human_admins(
-                    database,
-                    arguments.human_login,
-                )
+                claimed = server_claimed(database)
+                initial_claim_state = "claimed" if claimed else "unclaimed"
+                if claimed:
+                    admins = eligible_human_admins(
+                        database,
+                        arguments.human_login,
+                    )
             except sqlite3.OperationalError as error:
                 raise AcceptanceError(
                     "human_account_preflight_schema_incomplete"
                 ) from error
-            initial_claim_state = "claimed" if admins else "unclaimed"
 
-    first_admin_required = not admins
+    first_admin_required = initial_claim_state != "claimed"
     if first_admin_required:
         require(
             arguments.bootstrap_first_admin,
@@ -935,7 +999,11 @@ def main() -> int:
     else:
         require(
             len(admins) == 1,
-            f"eligible_human_admin_count_{len(admins)}",
+            (
+                "claimed_server_has_no_unique_eligible_human_admin"
+                if len(admins) == 0
+                else f"eligible_human_admin_count_{len(admins)}"
+            ),
         )
         account_id, actor_id, login_name, credential_id, password_hash = admins[0]
         with closing(database_connection(database_path)) as database:
