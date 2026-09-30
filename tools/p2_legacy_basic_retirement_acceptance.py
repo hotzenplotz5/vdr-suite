@@ -292,6 +292,23 @@ def basic_authorization(login: str, password: str) -> str:
     return "Basic " + encoded
 
 
+def decode_basic_authorization(authorization: str) -> tuple[str, str]:
+    require(
+        authorization.startswith("Basic "),
+        "legacy_authorization_not_basic",
+    )
+    try:
+        decoded = base64.b64decode(
+            authorization[6:],
+            validate=True,
+        ).decode("utf-8")
+    except Exception as error:
+        raise AcceptanceError("legacy_authorization_invalid") from error
+    separator = decoded.find(":")
+    require(separator >= 0, "legacy_authorization_invalid")
+    return decoded[:separator], decoded[separator + 1:]
+
+
 def parse_session_response(
     headers: dict[str, str],
     body: str,
@@ -702,10 +719,22 @@ def main() -> int:
     )
     if not legacy_authorization:
         legacy_authorization = DEFAULT_LEGACY_AUTHORIZATION
-    require(
-        legacy_authorization.startswith("Basic "),
-        "legacy_authorization_not_basic",
+    legacy_login, legacy_password = decode_basic_authorization(
+        legacy_authorization
     )
+    managed_login = initial_values.get("VDR_SUITE_MANAGED_BASIC_USERNAME", "")
+    managed_hash = initial_values.get("VDR_SUITE_MANAGED_BASIC_PASSWORD_HASH", "")
+    if managed_login and managed_login == legacy_login:
+        require(
+            crypt is not None and bool(managed_hash),
+            "legacy_probe_ambiguous_with_managed_basic",
+        )
+        managed_match = crypt.crypt(legacy_password, managed_hash)
+        require(
+            managed_match != managed_hash,
+            "legacy_probe_ambiguous_with_managed_basic",
+        )
+    legacy_password = ""
 
     port_text = initial_values.get("VDR_SUITE_HTTP_PORT", str(DEFAULT_HTTP_PORT))
     require(port_text.isdigit(), "invalid_http_port")
@@ -914,6 +943,60 @@ def main() -> int:
 
     finally:
         password = ""
+
+        def report_values(outcome: str) -> list[tuple[str, object]]:
+            return [
+                ("P2_LEGACY_BASIC_RETIREMENT_RUNTIME_ACCEPTANCE", outcome),
+                ("head", arguments.expected_head),
+                ("source_ci_run", arguments.source_ci_run),
+                ("source_ci_run_id", arguments.source_ci_run_id),
+                ("candidate_daemon_sha256", arguments.expected_candidate_daemon_sha256),
+                ("initial_installed_daemon_sha256", arguments.expected_installed_daemon_sha256),
+                ("initial_configuration_sha256", arguments.expected_configuration_sha256),
+                ("initial_effective_mode", configured_mode or "legacy-basic-fallback"),
+                ("human_account_id", account_id),
+                ("human_actor_id", actor_id),
+                ("human_login", login_name),
+                ("human_credential_id", credential_id),
+                ("identity_fingerprint_before", identity_before),
+                ("identity_fingerprint_after", identity_after),
+                ("baseline_legacy_status", baseline_legacy_status),
+                ("baseline_human_login_status", baseline_human_login_status),
+                ("enforced_legacy_status", enforced_legacy_status),
+                ("enforced_human_login_status", enforced_human_login_status),
+                ("rollback_legacy_status", rollback_legacy_status),
+                ("rollback_human_login_status", rollback_human_login_status),
+                ("final_enforced_legacy_status", final_legacy_status),
+                ("final_enforced_human_login_status", final_human_login_status),
+                ("initial_sqlite_quick_check", initial_quick),
+                ("initial_sqlite_foreign_key_violations", initial_foreign_keys),
+                ("final_sqlite_quick_check", final_quick),
+                ("final_sqlite_foreign_key_violations", final_foreign_keys),
+                ("final_service_pid", final_pid),
+                (
+                    "final_configuration_mode",
+                    parse_env_file(configuration).get(SECURITY_MODE_KEY, "")
+                    if success else "",
+                ),
+                ("failure_restoration", restoration_status),
+                ("failure_reason", failure_reason),
+                ("evidence_directory", evidence),
+            ]
+
+        if success:
+            try:
+                write_report(report_path, report_values("PASS"))
+                report_sha = sha256(report_path)
+                report_checksum = evidence / "runtime-acceptance-report.sha256"
+                report_checksum.write_text(
+                    f"{report_sha}  {report_path.name}\n",
+                    encoding="utf-8",
+                )
+                os.chmod(report_checksum, 0o600)
+            except Exception:
+                success = False
+                failure_reason = "report_persistence_failed"
+
         if not success:
             restoration_errors: list[str] = []
             try:
@@ -952,60 +1035,17 @@ def main() -> int:
                 if not restoration_errors
                 else "fail:" + ",".join(restoration_errors)
             )
-
-        report_values: list[tuple[str, object]] = [
-            (
-                "P2_LEGACY_BASIC_RETIREMENT_RUNTIME_ACCEPTANCE",
-                "PASS" if success else "FAIL",
-            ),
-            ("head", arguments.expected_head),
-            ("source_ci_run", arguments.source_ci_run),
-            ("source_ci_run_id", arguments.source_ci_run_id),
-            ("candidate_daemon_sha256", arguments.expected_candidate_daemon_sha256),
-            ("initial_installed_daemon_sha256", arguments.expected_installed_daemon_sha256),
-            ("initial_configuration_sha256", arguments.expected_configuration_sha256),
-            ("initial_effective_mode", configured_mode or "legacy-basic-fallback"),
-            ("human_account_id", account_id),
-            ("human_actor_id", actor_id),
-            ("human_login", login_name),
-            ("human_credential_id", credential_id),
-            ("identity_fingerprint_before", identity_before),
-            ("identity_fingerprint_after", identity_after),
-            ("baseline_legacy_status", baseline_legacy_status),
-            ("baseline_human_login_status", baseline_human_login_status),
-            ("enforced_legacy_status", enforced_legacy_status),
-            ("enforced_human_login_status", enforced_human_login_status),
-            ("rollback_legacy_status", rollback_legacy_status),
-            ("rollback_human_login_status", rollback_human_login_status),
-            ("final_enforced_legacy_status", final_legacy_status),
-            ("final_enforced_human_login_status", final_human_login_status),
-            ("initial_sqlite_quick_check", initial_quick),
-            ("initial_sqlite_foreign_key_violations", initial_foreign_keys),
-            ("final_sqlite_quick_check", final_quick),
-            ("final_sqlite_foreign_key_violations", final_foreign_keys),
-            ("final_service_pid", final_pid),
-            (
-                "final_configuration_mode",
-                parse_env_file(configuration).get(SECURITY_MODE_KEY, "")
-                if success else "",
-            ),
-            ("failure_restoration", restoration_status),
-            ("failure_reason", failure_reason),
-            ("evidence_directory", evidence),
-        ]
-        try:
-            write_report(report_path, report_values)
-            report_sha = sha256(report_path)
-            report_checksum = evidence / "runtime-acceptance-report.sha256"
-            report_checksum.write_text(
-                f"{report_sha}  {report_path.name}\n",
-                encoding="utf-8",
-            )
-            os.chmod(report_checksum, 0o600)
-        except Exception:
-            if success:
-                success = False
-                failure_reason = "report_persistence_failed"
+            try:
+                write_report(report_path, report_values("FAIL"))
+                report_sha = sha256(report_path)
+                report_checksum = evidence / "runtime-acceptance-report.sha256"
+                report_checksum.write_text(
+                    f"{report_sha}  {report_path.name}\n",
+                    encoding="utf-8",
+                )
+                os.chmod(report_checksum, 0o600)
+            except Exception:
+                pass
 
     if not success:
         print("P2_LEGACY_BASIC_RETIREMENT_RUNTIME_ACCEPTANCE=FAIL")
