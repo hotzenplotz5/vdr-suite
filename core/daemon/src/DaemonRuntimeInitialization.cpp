@@ -204,12 +204,23 @@ bool DaemonRuntime::initialize()
             << std::endl;
         return false;
     }
+    firstAdminBootstrapRepository_ =
+        std::make_unique<FirstAdminBootstrapRepository>(database_);
+    if (!firstAdminBootstrapRepository_->ensureSchema())
+    {
+        std::cerr
+            << "failed to initialize first-admin bootstrap schema"
+            << std::endl;
+        return false;
+    }
+
     humanAccountReadService_ =
         std::make_unique<HumanAccountReadService>(
             *humanAccountRepository_);
 
     std::cout
-        << "Human Account read runtime initialized"
+        << "Human Account read and first-admin bootstrap persistence "
+           "runtime initialized"
         << std::endl;
 
     backendAgentNativeTimerCreateReservationService_ =

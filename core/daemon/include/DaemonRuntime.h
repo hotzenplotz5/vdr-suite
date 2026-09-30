@@ -36,6 +36,7 @@
 #include "EpgSearchResultJsonSerializer.h"
 #include "EmbeddedBackendLifecycle.h"
 #include "EpgSearchService.h"
+#include "FirstAdminBootstrapRepository.h"
 #include "EpgSearchNativeFuzzyCapabilityDetector.h"
 #include "EpgSearchNativeFuzzyCapabilityFreshnessPolicy.h"
 #include "EpgSearchNativeFuzzyCapabilityRepository.h"
@@ -234,6 +235,7 @@ private:
     std::unique_ptr<RecordingRepository> recordingRepository_;
     std::unique_ptr<MetadataRepository> metadataRepository_;
     std::unique_ptr<HumanAccountRepository> humanAccountRepository_;
+    std::unique_ptr<FirstAdminBootstrapRepository> firstAdminBootstrapRepository_;
     std::unique_ptr<HumanAccountReadService> humanAccountReadService_;
 
     std::unique_ptr<JobDashboardService> jobDashboardService_;
