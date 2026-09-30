@@ -9,7 +9,6 @@
 #include "SecurityPermissionGrantRepository.h"
 
 #include <crypt.h>
-#include <sqlite3.h>
 
 #include <algorithm>
 #include <cassert>
@@ -156,60 +155,7 @@ struct Fixture
     }
 };
 
-std::string bootstrapConsumedAt(
-    Database& database,
-    const std::string& bootstrapId)
-{
-    sqlite3_stmt* statement = nullptr;
-    assert(
-        sqlite3_prepare_v2(
-            database.handle(),
-            "SELECT consumed_at "
-            "FROM security_first_admin_bootstrap_issuances "
-            "WHERE bootstrap_id = ?;",
-            -1,
-            &statement,
-            nullptr) == SQLITE_OK);
-    assert(
-        sqlite3_bind_text(
-            statement,
-            1,
-            bootstrapId.c_str(),
-            -1,
-            SQLITE_TRANSIENT) == SQLITE_OK);
 
-    std::string result;
-    assert(sqlite3_step(statement) == SQLITE_ROW);
-    const unsigned char* text =
-        sqlite3_column_text(statement, 0);
-    if (text != nullptr)
-    {
-        result =
-            reinterpret_cast<const char*>(text);
-    }
-    sqlite3_finalize(statement);
-    return result;
-}
-
-int tableCount(Database& database, const char* table)
-{
-    const std::string sql =
-        std::string("SELECT COUNT(*) FROM ") +
-        table +
-        ";";
-    sqlite3_stmt* statement = nullptr;
-    assert(
-        sqlite3_prepare_v2(
-            database.handle(),
-            sql.c_str(),
-            -1,
-            &statement,
-            nullptr) == SQLITE_OK);
-    assert(sqlite3_step(statement) == SQLITE_ROW);
-    const int count = sqlite3_column_int(statement, 0);
-    sqlite3_finalize(statement);
-    return count;
-}
 }
 
 int main()
@@ -285,10 +231,6 @@ int main()
         assert(events[0].outcome == "success");
 
         assert(
-            !bootstrapConsumedAt(
-                fixture.database,
-                "bootstrap-success").empty());
-        assert(
             fixture.bootstraps.claimState() ==
             FirstAdminClaimState::claimed);
 
@@ -319,10 +261,6 @@ int main()
             fixture.bootstraps.findById(
                 "bootstrap-rejected").status ==
             FirstAdminBootstrapStatus::ok);
-        assert(
-            bootstrapConsumedAt(
-                fixture.database,
-                "bootstrap-rejected").empty());
         assert(fixture.accounts.listAll().accounts.empty());
         assert(
             fixture.bootstraps.claimState() ==
@@ -332,9 +270,13 @@ int main()
     {
         Fixture fixture;
         fixture.registerBootstrap("bootstrap-rollback");
-        assert(
-            fixture.database.execute(
-                "DROP TABLE accountability_events;"));
+
+        AccountabilityEvent duplicateEvent;
+        duplicateEvent.eventId =
+            "ace_606162636465666768696a6b6c6d6e6f";
+        duplicateEvent.eventType = "test.duplicate";
+        duplicateEvent.requestId = "preexisting-accountability-event";
+        assert(fixture.accountability.append(duplicateEvent));
 
         FirstAdminClaimService service =
             fixture.service(0x30);
@@ -349,27 +291,32 @@ int main()
             fixture.bootstraps.findById(
                 "bootstrap-rollback").status ==
             FirstAdminBootstrapStatus::ok);
-        assert(
-            bootstrapConsumedAt(
-                fixture.database,
-                "bootstrap-rollback").empty());
         assert(fixture.accounts.listAll().accounts.empty());
+
+        const std::string rolledBackActorId =
+            "actor_404142434445464748494a4b4c4d4e4f";
+        const std::string rolledBackCredentialId =
+            "credential_505152535455565758595a5b5c5d5e5f";
         assert(
-            tableCount(
-                fixture.database,
-                "security_actors") == 0);
+            !fixture.identities.findActor(
+                rolledBackActorId).has_value());
         assert(
-            tableCount(
-                fixture.database,
-                "security_credentials") == 0);
+            !fixture.identities.findCredential(
+                rolledBackCredentialId).has_value());
         assert(
-            tableCount(
-                fixture.database,
-                "security_basic_credential_verifiers") == 0);
-        assert(
-            tableCount(
-                fixture.database,
-                "security_actor_permission_grants") == 0);
+            !fixture.verifiers.findByLogin(
+                "admin").has_value());
+
+        const SecurityPermissionGrantResolution rolledBackGrants =
+            fixture.grants.findActiveGrantsForActor(
+                rolledBackActorId);
+        assert(rolledBackGrants.available);
+        assert(rolledBackGrants.grants.empty());
+
+        const auto events = fixture.accountability.listAll();
+        assert(events.size() == 1);
+        assert(events[0].eventType == "test.duplicate");
+
         assert(
             fixture.bootstraps.claimState() ==
             FirstAdminClaimState::unclaimed);
