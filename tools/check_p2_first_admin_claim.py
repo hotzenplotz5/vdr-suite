@@ -117,7 +117,7 @@ def main():
         "yescrypt",
         "single SQLite transaction",
         "rollback",
-        "Browser completion remains",
+        "Claim-only browser completion boundary",
         "Legacy Basic default remains unchanged",
     ):
         require("audit", marker)
