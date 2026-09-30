@@ -252,6 +252,60 @@ HumanAccountRepository::findByAccountId(
     return result;
 }
 
+HumanAccountLookupResult
+HumanAccountRepository::findByActorId(
+    const std::string& actorId) const
+{
+    HumanAccountLookupResult result;
+    if (actorId.empty())
+    {
+        result.status = HumanAccountRepositoryStatus::invalid;
+        return result;
+    }
+
+    sqlite3_stmt* statement = nullptr;
+    const std::string sql =
+        std::string(AccountSelect) +
+        "WHERE account.actor_id = ?;";
+
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql.c_str(),
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        result.status = HumanAccountRepositoryStatus::storageError;
+        return result;
+    }
+
+    if (!bindText(statement, 1, actorId))
+    {
+        sqlite3_finalize(statement);
+        result.status = HumanAccountRepositoryStatus::storageError;
+        return result;
+    }
+
+    const int step = sqlite3_step(statement);
+    if (step == SQLITE_ROW)
+    {
+        result.status = readAccount(statement, result.account)
+            ? HumanAccountRepositoryStatus::ok
+            : HumanAccountRepositoryStatus::storageError;
+    }
+    else if (step == SQLITE_DONE)
+    {
+        result.status = HumanAccountRepositoryStatus::notFound;
+    }
+    else
+    {
+        result.status = HumanAccountRepositoryStatus::storageError;
+    }
+
+    sqlite3_finalize(statement);
+    return result;
+}
+
 HumanAccountListResult HumanAccountRepository::listAll() const
 {
     HumanAccountListResult result;

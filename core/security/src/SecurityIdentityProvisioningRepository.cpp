@@ -76,6 +76,43 @@ bool SecurityIdentityProvisioningRepository::ensureHumanCredentialInActiveTransa
         !credential->revoked;
 }
 
+bool SecurityIdentityProvisioningRepository::ensureHumanBrowserDevice(
+    const std::string& actorId,
+    const std::string& deviceId,
+    const std::string& deviceDisplayName)
+{
+    if (actorId.empty() ||
+        deviceId.empty() ||
+        deviceDisplayName.empty())
+    {
+        return false;
+    }
+
+    const auto actor = identityRepository_->findActor(actorId);
+    if (!actor.has_value() ||
+        actor->type != ActorType::User ||
+        !actor->active ||
+        actor->revoked)
+    {
+        return false;
+    }
+
+    if (!insertDeviceIfMissing(
+            deviceId,
+            actorId,
+            deviceDisplayName))
+    {
+        return false;
+    }
+
+    const auto device = identityRepository_->findDevice(deviceId);
+    return device.has_value() &&
+        device->actorId == actorId &&
+        device->displayName == deviceDisplayName &&
+        device->active &&
+        !device->revoked;
+}
+
 bool SecurityIdentityProvisioningRepository::ensureTechnicalIdentity(
     const std::string& actorId,
     ActorType actorType,

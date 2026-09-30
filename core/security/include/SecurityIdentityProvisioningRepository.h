@@ -33,6 +33,11 @@ public:
         const std::string& credentialId,
         const std::string& credentialType);
 
+    bool ensureHumanBrowserDevice(
+        const std::string& actorId,
+        const std::string& deviceId,
+        const std::string& deviceDisplayName);
+
     bool ensureIdentity(
         const std::string& actorId,
         ActorType actorType,

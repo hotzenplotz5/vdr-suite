@@ -277,6 +277,13 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
                 *credentialVerifierRepository_);
     }
 
+    humanPasswordBrowserAuthenticator_ =
+        std::make_unique<HumanPasswordBrowserAuthenticator>(
+            *credentialVerifierRepository_,
+            *securityIdentityRepository_,
+            *humanAccountRepository_,
+            *securityIdentityProvisioningRepository_);
+
     persistentIdentityResolver_ =
         std::make_unique<PersistentIdentityResolver>(
             *securityIdentityRepository_);
@@ -320,7 +327,8 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             *browserSessionCredentialRepository_,
             *securityPermissionGrantRepository_,
             persistentIdentityResolver_.get(),
-            managedBasicAuthenticator_.get());
+            managedBasicAuthenticator_.get(),
+            humanPasswordBrowserAuthenticator_.get());
 
     securityHttpGate_ =
         std::make_unique<SecurityHttpGate>(

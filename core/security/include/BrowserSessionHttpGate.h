@@ -15,6 +15,7 @@ class BrowserSessionCredentialRepository;
 class SecurityPermissionGrantRepository;
 class LegacyBasicAuthenticator;
 class ManagedBasicAuthenticator;
+class HumanPasswordBrowserAuthenticator;
 class PersistentIdentityResolver;
 
 struct BrowserSessionGateDecision
@@ -35,7 +36,9 @@ public:
         const BrowserSessionCredentialRepository& credentialRepository,
         const SecurityPermissionGrantRepository& grantRepository,
         const PersistentIdentityResolver* persistentIdentityResolver,
-        const ManagedBasicAuthenticator* managedBasicAuthenticator);
+        const ManagedBasicAuthenticator* managedBasicAuthenticator,
+        const HumanPasswordBrowserAuthenticator*
+            humanPasswordBrowserAuthenticator = nullptr);
     ~BrowserSessionHttpGate();
 
     BrowserSessionHttpGate(const BrowserSessionHttpGate&) = delete;
@@ -73,6 +76,8 @@ private:
     AccountabilityEventRepository& accountabilityRepository_;
     const PersistentIdentityResolver* persistentIdentityResolver_;
     const ManagedBasicAuthenticator* managedBasicAuthenticator_;
+    const HumanPasswordBrowserAuthenticator*
+        humanPasswordBrowserAuthenticator_;
     std::unique_ptr<LegacyBasicAuthenticator> legacyAuthenticator_;
     std::unique_ptr<BrowserSessionAuthenticator> browserAuthenticator_;
     mutable std::atomic<unsigned long long> idCounter_{0};

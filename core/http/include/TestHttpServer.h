@@ -15,6 +15,7 @@
 #include "FirstAdminClaimHttpService.h"
 #include "FirstAdminClaimService.h"
 #include "HumanAccountRepository.h"
+#include "HumanPasswordBrowserAuthenticator.h"
 #include "Database.h"
 #include "IEpgArtworkHttpProvider.h"
 #include "IHttpServer.h"
@@ -85,6 +86,8 @@ private:
         browserSessionAuthenticator_;
     std::unique_ptr<ManagedBasicAuthenticator>
         managedBasicAuthenticator_;
+    std::unique_ptr<HumanPasswordBrowserAuthenticator>
+        humanPasswordBrowserAuthenticator_;
     std::unique_ptr<PersistentIdentityResolver>
         persistentIdentityResolver_;
     std::unique_ptr<BrowserSessionIssuanceService>
