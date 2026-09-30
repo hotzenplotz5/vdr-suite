@@ -359,7 +359,7 @@ FirstAdminClaimResult FirstAdminClaimService::claim(
         !safeText(request.password, 1024) ||
         !safeText(request.displayName, 256) ||
         !safeText(request.requestId, 128) ||
-        !safeText(request.correlationId, 128))
+        !safeText(request.correlationId, 128, 0))
     {
         request.clearSecrets();
         result.status = FirstAdminClaimStatus::invalidRequest;

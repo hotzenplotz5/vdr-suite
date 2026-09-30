@@ -3,6 +3,7 @@
 #include "ApiRouter.h"
 #include "BrowserSessionCsrfRecoveryService.h"
 #include "ContinueWatchingSecurityRequest.h"
+#include "FirstAdminClaimHttpService.h"
 #include "SecurityConfiguration.h"
 #include "SeriesArtworkSettingsSecurityRequest.h"
 
@@ -160,6 +161,35 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
     {
         return;
     }
+
+    humanAccountRepository_ =
+        std::make_unique<HumanAccountRepository>(
+            *securityDatabase_);
+    if (!humanAccountRepository_->ensureSchema())
+    {
+        return;
+    }
+
+    firstAdminBootstrapRepository_ =
+        std::make_unique<FirstAdminBootstrapRepository>(
+            *securityDatabase_);
+    if (!firstAdminBootstrapRepository_->ensureSchema())
+    {
+        return;
+    }
+
+    firstAdminClaimService_ =
+        std::make_unique<FirstAdminClaimService>(
+            *securityDatabase_,
+            *firstAdminBootstrapRepository_,
+            *securityIdentityProvisioningRepository_,
+            *humanAccountRepository_,
+            *credentialVerifierRepository_,
+            *securityPermissionGrantRepository_,
+            *accountabilityEventRepository_);
+    firstAdminClaimHttpService_ =
+        std::make_unique<FirstAdminClaimHttpService>(
+            *firstAdminClaimService_);
 
     browserSessionCredentialRepository_ =
         std::make_unique<BrowserSessionCredentialRepository>(
@@ -322,7 +352,8 @@ HttpServerResponse TestHttpServer::handleRequest(
     if (!securityReady_ ||
         !securityHttpGate_ ||
         !browserSessionHttpGate_ ||
-        !browserSessionHttpService_)
+        !browserSessionHttpService_ ||
+        !firstAdminClaimHttpService_)
     {
         HttpServerResponse response;
         response.statusCode = 503;
@@ -346,6 +377,11 @@ HttpServerResponse TestHttpServer::handleRequest(
         isChannelLogoPath(request.path))
     {
         return makeChannelLogoResponse(request.path);
+    }
+
+    if (firstAdminClaimHttpService_->handles(request))
+    {
+        return firstAdminClaimHttpService_->handle(request);
     }
 
     if (browserSessionHttpGate_->handles(request))
