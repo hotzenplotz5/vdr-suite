@@ -168,6 +168,42 @@ std::optional<bool> hasEffectiveBootstrap(Database& database)
     return std::nullopt;
 }
 
+std::optional<bool> timestampIsFuture(
+    Database& database,
+    const std::string& timestamp)
+{
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT (? > CURRENT_TIMESTAMP);";
+
+    if (sqlite3_prepare_v2(
+            database.handle(),
+            sql,
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return std::nullopt;
+    }
+
+    if (!bindText(statement, 1, timestamp))
+    {
+        sqlite3_finalize(statement);
+        return std::nullopt;
+    }
+
+    const int step = sqlite3_step(statement);
+    if (step != SQLITE_ROW)
+    {
+        sqlite3_finalize(statement);
+        return std::nullopt;
+    }
+
+    const bool future = sqlite3_column_int(statement, 0) != 0;
+    sqlite3_finalize(statement);
+    return future;
+}
+
 FirstAdminBootstrapLookupResult readBootstrap(
     Database& database,
     const std::string& bootstrapId)
@@ -412,6 +448,17 @@ FirstAdminBootstrapRepository::registerBootstrap(
     if (state == FirstAdminClaimState::claimed)
     {
         return FirstAdminBootstrapStatus::claimed;
+    }
+
+    const std::optional<bool> future =
+        timestampIsFuture(database_, registration.expiresAt);
+    if (!future.has_value())
+    {
+        return FirstAdminBootstrapStatus::storageError;
+    }
+    if (!*future)
+    {
+        return FirstAdminBootstrapStatus::expired;
     }
 
     const std::optional<bool> effective =
