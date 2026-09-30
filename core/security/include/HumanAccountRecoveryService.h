@@ -43,6 +43,7 @@ struct HumanAccountRecoveryResult
         HumanAccountRecoveryStatus::storageError;
     std::string accountId;
     std::string actorId;
+    std::string replacedCredentialId;
     std::string credentialId;
     std::size_t revokedBrowserSessions = 0;
 };

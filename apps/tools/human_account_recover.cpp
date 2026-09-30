@@ -265,6 +265,8 @@ int main(int argc, char** argv)
 
     std::cout
         << "account_id=" << result.accountId << '\n'
+        << "replaced_credential_id="
+        << result.replacedCredentialId << '\n'
         << "credential_id=" << result.credentialId << '\n'
         << "revoked_browser_sessions="
         << result.revokedBrowserSessions

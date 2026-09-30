@@ -310,7 +310,10 @@ HumanAccountRecoveryResult HumanAccountRecoveryService::recover(
     }
 
     const auto eventId = randomId(entropySource_, "ace_");
-    if (!eventId.has_value())
+    const auto replacementCredentialId =
+        randomId(entropySource_, "credential_");
+    if (!eventId.has_value() ||
+        !replacementCredentialId.has_value())
     {
         result.status = HumanAccountRecoveryStatus::entropyUnavailable;
         return result;
@@ -347,10 +350,8 @@ HumanAccountRecoveryResult HumanAccountRecoveryService::recover(
             ? "info"
             : "warning";
         event.occurredAt = occurredAt;
-        event.actorId = targetActorId;
-        event.actorType = targetActorId.empty()
-            ? "system"
-            : "user";
+        event.actorId = "system:human-account-recovery";
+        event.actorType = "system";
         event.authenticationState = "local-root";
         event.permission = "";
         event.backendId = "*";
@@ -358,7 +359,7 @@ HumanAccountRecoveryResult HumanAccountRecoveryService::recover(
             "human-account-recovery:" + request.accountId;
         event.requestId = request.requestId;
         event.correlationId = request.correlationId;
-        event.action = "human-account.credential.reset";
+        event.action = "human-account.credential.rotate";
         event.decision = decision;
         event.reasonCode = reasonCode;
         event.outcome = outcome;
@@ -453,7 +454,7 @@ HumanAccountRecoveryResult HumanAccountRecoveryService::recover(
         return result;
     }
 
-    const std::string passwordHash =
+    std::string passwordHash =
         hashHumanPassword(
             entropySource_,
             request.newPassword);
@@ -465,10 +466,25 @@ HumanAccountRecoveryResult HumanAccountRecoveryService::recover(
             "password_hashing_unavailable");
     }
 
-    if (!credentialVerifierRepository_.updateVerifier(
+    if (!identityRepository_.rotateCredentialInActiveTransaction(
             credential->credentialId,
+            *replacementCredentialId,
+            targetActorId,
+            "human-password"))
+    {
+        secureWipe(passwordHash);
+        result.status = HumanAccountRecoveryStatus::storageError;
+        return result;
+    }
+
+    const bool verifierRotated =
+        credentialVerifierRepository_.rotateVerifierInActiveTransaction(
+            credential->credentialId,
+            *replacementCredentialId,
             request.loginName,
-            passwordHash))
+            passwordHash);
+    secureWipe(passwordHash);
+    if (!verifierRotated)
     {
         result.status = HumanAccountRecoveryStatus::storageError;
         return result;
@@ -493,7 +509,7 @@ HumanAccountRecoveryResult HumanAccountRecoveryService::recover(
 
     if (!appendOutcome(
             "allow",
-            "local_root_password_reset",
+            "local_root_password_rotation",
             "success"))
     {
         result.status = HumanAccountRecoveryStatus::storageError;
@@ -509,7 +525,8 @@ HumanAccountRecoveryResult HumanAccountRecoveryService::recover(
     result.status = HumanAccountRecoveryStatus::success;
     result.accountId = account.account.accountId;
     result.actorId = targetActorId;
-    result.credentialId = credential->credentialId;
+    result.replacedCredentialId = credential->credentialId;
+    result.credentialId = *replacementCredentialId;
     result.revokedBrowserSessions = revokedSessions;
     return result;
 }

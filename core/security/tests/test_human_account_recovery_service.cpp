@@ -26,6 +26,8 @@ const std::string CredentialId = "credential-recovery-test";
 const std::string LoginName = "admin";
 const std::string OldPassword = "old-password";
 const std::string NewPassword = "new-password";
+const std::string ExpectedRecoveryCredentialId =
+    "credential_808182838485868788898a8b8c8d8e8f";
 
 std::string passwordHash(
     const std::string& password,
@@ -264,7 +266,9 @@ int main()
             HumanAccountRecoveryStatus::success);
         assert(result.accountId == AccountId);
         assert(result.actorId == ActorId);
-        assert(result.credentialId == CredentialId);
+        assert(result.replacedCredentialId == CredentialId);
+        assert(result.credentialId == ExpectedRecoveryCredentialId);
+        assert(result.credentialId != CredentialId);
         assert(result.revokedBrowserSessions == 2);
 
         const auto account =
@@ -286,14 +290,27 @@ int main()
         assert(
             sourceCredential->credentialType ==
             "human-password");
-        assert(sourceCredential->active);
+        assert(!sourceCredential->active);
         assert(!sourceCredential->expired);
-        assert(!sourceCredential->revoked);
+        assert(sourceCredential->revoked);
+
+        const auto replacementCredential =
+            fixture.identities.findCredential(result.credentialId);
+        assert(replacementCredential.has_value());
+        assert(
+            replacementCredential->credentialType ==
+            "human-password");
+        assert(
+            replacementCredential->rotatedFromCredentialId ==
+            CredentialId);
+        assert(replacementCredential->active);
+        assert(!replacementCredential->expired);
+        assert(!replacementCredential->revoked);
 
         const auto after =
             fixture.verifiers.findByLogin(LoginName);
         assert(after.has_value());
-        assert(after->credentialId == CredentialId);
+        assert(after->credentialId == result.credentialId);
         assert(after->passwordHash.rfind("$y$", 0) == 0);
         assert(!passwordMatches(OldPassword, after->passwordHash));
         assert(passwordMatches(NewPassword, after->passwordHash));
@@ -333,6 +350,33 @@ int main()
         assert(activeByIssuer.has_value());
         assert(activeByIssuer->empty());
 
+        BrowserSessionIssuanceService postRecoveryIssuance(
+            fixture.database,
+            fixture.identities,
+            fixture.browserCredentials,
+            sessionEntropy(0xa0),
+            []
+            {
+                return std::chrono::system_clock::time_point(
+                    std::chrono::seconds(4070908800));
+            });
+        BrowserSessionIssuanceRequest staleAuthenticatedRequest;
+        staleAuthenticatedRequest.actorId = ActorId;
+        staleAuthenticatedRequest.deviceId =
+            "human-browser-" + AccountId;
+        staleAuthenticatedRequest.issuedFromCredentialId =
+            CredentialId;
+        staleAuthenticatedRequest.lifetimeSeconds = 3600;
+        assert(
+            !postRecoveryIssuance.issue(
+                staleAuthenticatedRequest).has_value());
+
+        staleAuthenticatedRequest.issuedFromCredentialId =
+            result.credentialId;
+        assert(
+            postRecoveryIssuance.issue(
+                staleAuthenticatedRequest).has_value());
+
         const auto grantResolution =
             fixture.grants.findActiveGrantsForActor(ActorId);
         assert(grantResolution.available);
@@ -347,13 +391,15 @@ int main()
         assert(
             events[0].eventType ==
             "security.human-account.recovery");
-        assert(events[0].actorId == ActorId);
-        assert(events[0].actorType == "user");
+        assert(
+            events[0].actorId ==
+            "system:human-account-recovery");
+        assert(events[0].actorType == "system");
         assert(events[0].authenticationState == "local-root");
         assert(events[0].decision == "allow");
         assert(
             events[0].reasonCode ==
-            "local_root_password_reset");
+            "local_root_password_rotation");
         assert(events[0].outcome == "success");
         assert(
             eventFields(events[0]).find(NewPassword) ==
@@ -492,6 +538,15 @@ int main()
         assert(verifier.has_value());
         assert(passwordMatches(OldPassword, verifier->passwordHash));
         assert(!passwordMatches(NewPassword, verifier->passwordHash));
+
+        const auto sourceCredential =
+            fixture.identities.findCredential(CredentialId);
+        assert(sourceCredential.has_value());
+        assert(sourceCredential->active);
+        assert(!sourceCredential->revoked);
+        assert(
+            !fixture.identities.findCredential(
+                ExpectedRecoveryCredentialId).has_value());
 
         const auto browser =
             fixture.browserCredentials.findBySessionId(

@@ -125,6 +125,7 @@ human-account-recovery:
 		core/security/src/CredentialVerifierRepository.cpp \
 		core/security/src/HumanAccountRepository.cpp \
 		core/security/src/SecurityIdentityRepository.cpp \
+		core/security/src/SecurityIdentityIssuanceRepository.cpp \
 		core/security/src/HumanAccountRecoveryService.cpp \
 		apps/tools/human_account_recover.cpp \
 		$(LDFLAGS) \
