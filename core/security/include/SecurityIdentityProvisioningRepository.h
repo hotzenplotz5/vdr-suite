@@ -27,6 +27,12 @@ public:
         const std::string& credentialId,
         const std::string& credentialType);
 
+    bool ensureHumanCredentialInActiveTransaction(
+        const std::string& actorId,
+        const std::string& actorDisplayName,
+        const std::string& credentialId,
+        const std::string& credentialType);
+
     bool ensureIdentity(
         const std::string& actorId,
         ActorType actorType,
