@@ -203,7 +203,43 @@ struct GeneratedBootstrapMaterial
     std::string setupSecret;
     std::string verifierHash;
 
+    GeneratedBootstrapMaterial() = default;
     ~GeneratedBootstrapMaterial()
+    {
+        secureWipe(setupSecret);
+    }
+
+    GeneratedBootstrapMaterial(
+        const GeneratedBootstrapMaterial&) = delete;
+    GeneratedBootstrapMaterial& operator=(
+        const GeneratedBootstrapMaterial&) = delete;
+
+    GeneratedBootstrapMaterial(
+        GeneratedBootstrapMaterial&& other) noexcept
+        : bootstrapId(std::move(other.bootstrapId)),
+          setupSecret(std::move(other.setupSecret)),
+          verifierHash(std::move(other.verifierHash))
+    {
+        other.clearSecret();
+    }
+
+    GeneratedBootstrapMaterial& operator=(
+        GeneratedBootstrapMaterial&& other) noexcept
+    {
+        if (this == &other)
+        {
+            return *this;
+        }
+
+        clearSecret();
+        bootstrapId = std::move(other.bootstrapId);
+        setupSecret = std::move(other.setupSecret);
+        verifierHash = std::move(other.verifierHash);
+        other.clearSecret();
+        return *this;
+    }
+
+    void clearSecret() noexcept
     {
         secureWipe(setupSecret);
     }
@@ -262,7 +298,8 @@ std::optional<GeneratedBootstrapMaterial> generateMaterial(
         return std::nullopt;
     }
 
-    return material;
+    return std::optional<GeneratedBootstrapMaterial>(
+        std::move(material));
 }
 
 FirstAdminBootstrapIssuanceStatus mapRepositoryStatus(
