@@ -79,7 +79,7 @@ Therefore changing `legacy-basic` today would be a deployment behavior change wi
 
 ## First justified runtime successor
 
-After ADR-0066 acceptance, the smallest runtime slice is persistent claim/bootstrap state in the existing Suite database with:
+With ADR-0066 accepted, the smallest runtime slice is persistent claim/bootstrap state in the existing Suite database with:
 
 - explicit unclaimed/claimed determination;
 - short-lived bootstrap verifier metadata;

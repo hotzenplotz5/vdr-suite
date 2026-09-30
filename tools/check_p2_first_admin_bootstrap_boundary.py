@@ -58,7 +58,22 @@ def main():
     ):
         require("audit", marker)
 
-    require("index", "ADR-0066-unclaimed-server-first-admin-bootstrap-recovery.md")
+    require("adr", "Accepted architecture.")
+    require("audit", "With ADR-0066 accepted")
+
+    index = read("index")
+    active_marker = "## Active Canonical ADRs"
+    proposed_marker = "## Proposed Canonical ADRs"
+    superseded_marker = "## Superseded Canonical ADRs"
+    if active_marker not in index or proposed_marker not in index or superseded_marker not in index:
+        raise AssertionError("ADR index is missing canonical status sections")
+    active = index.split(active_marker, 1)[1].split(proposed_marker, 1)[0]
+    proposed = index.split(proposed_marker, 1)[1].split(superseded_marker, 1)[0]
+    adr_link = "ADR-0066-unclaimed-server-first-admin-bootstrap-recovery.md"
+    if adr_link not in active:
+        raise AssertionError("ADR-0066 is not listed as active")
+    if adr_link in proposed:
+        raise AssertionError("ADR-0066 is still listed as proposed")
 
     forbid("adr", "plaintext bootstrap secret persistence is allowed")
     forbid("adr", "Remote anonymous recovery is allowed")
