@@ -7,6 +7,7 @@
 #include "SecurityPermissionGrantRepository.h"
 #include "LegacyBasicAuthenticator.h"
 #include "ManagedBasicAuthenticator.h"
+#include "HumanPasswordBrowserAuthenticator.h"
 #include "PersistentIdentityResolver.h"
 
 #include <algorithm>
@@ -193,11 +194,15 @@ BrowserSessionHttpGate::BrowserSessionHttpGate(
     const BrowserSessionCredentialRepository& credentialRepository,
     const SecurityPermissionGrantRepository& grantRepository,
     const PersistentIdentityResolver* persistentIdentityResolver,
-    const ManagedBasicAuthenticator* managedBasicAuthenticator)
+    const ManagedBasicAuthenticator* managedBasicAuthenticator,
+    const HumanPasswordBrowserAuthenticator*
+        humanPasswordBrowserAuthenticator)
     : configuration_(std::move(configuration)),
       accountabilityRepository_(accountabilityRepository),
       persistentIdentityResolver_(persistentIdentityResolver),
       managedBasicAuthenticator_(managedBasicAuthenticator),
+      humanPasswordBrowserAuthenticator_(
+          humanPasswordBrowserAuthenticator),
       legacyAuthenticator_(
           std::make_unique<LegacyBasicAuthenticator>(configuration_)),
       browserAuthenticator_(
@@ -396,6 +401,26 @@ RequestSecurityContext BrowserSessionHttpGate::authenticateBasic(
     const HttpServerRequest& request) const
 {
     const RequestSecurityContext seed = requestContextSeed(request);
+
+    if (humanPasswordBrowserAuthenticator_ != nullptr)
+    {
+        RequestSecurityContext humanContext =
+            humanPasswordBrowserAuthenticator_->authenticate(
+                request.headers,
+                seed.requestId,
+                seed.correlationId);
+        if (humanContext.authenticated())
+        {
+            return resolvePersistentIdentity(
+                std::move(humanContext));
+        }
+        if (humanContext.authenticationState !=
+            AuthenticationState::Anonymous)
+        {
+            return humanContext;
+        }
+    }
+
     RequestSecurityContext context = legacyAuthenticator_->authenticate(
         request.headers,
         seed.requestId,
