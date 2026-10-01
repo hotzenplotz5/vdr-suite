@@ -47,6 +47,11 @@ PACKAGE_MANAGER_LOCKS = (
     Path("/var/cache/apt/archives/lock"),
     Path("/var/lib/apt/lists/lock"),
 )
+CANDIDATE_REUSE_ONLY_PATHS = {
+    "tools/p2_legacy_basic_retirement_acceptance.py",
+    "tools/check_p2_legacy_basic_retirement_acceptance.py",
+    "docs/development/p2-legacy-basic-retirement-runtime-acceptance.md",
+}
 
 
 class AcceptanceError(RuntimeError):
@@ -113,6 +118,49 @@ def require_package_maintenance_idle(root: Path) -> None:
                         fcntl.lockf(handle.fileno(), fcntl.LOCK_UN)
         except FileNotFoundError:
             continue
+
+
+def validate_candidate_source_head(
+    root: Path,
+    candidate_source_head: str,
+    expected_head: str,
+) -> None:
+    require(
+        run(root, "git", "rev-parse", candidate_source_head)
+        == candidate_source_head,
+        "candidate_source_head_not_resolved",
+    )
+    if candidate_source_head == expected_head:
+        return
+
+    require(
+        run(
+            root,
+            "git",
+            "merge-base",
+            candidate_source_head,
+            expected_head,
+        ) == candidate_source_head,
+        "candidate_source_head_not_ancestor",
+    )
+
+    changed = {
+        path
+        for path in run(
+            root,
+            "git",
+            "diff",
+            "--name-only",
+            f"{candidate_source_head}..{expected_head}",
+        ).splitlines()
+        if path
+    }
+    unexpected = sorted(changed - CANDIDATE_REUSE_ONLY_PATHS)
+    require(
+        not unexpected,
+        "candidate_reuse_touches_daemon_inputs:"
+        + (unexpected[0] if unexpected else ""),
+    )
 
 
 def sha256(path: Path) -> str:
@@ -897,6 +945,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--expected-head")
     parser.add_argument("--expected-installed-daemon-sha256")
     parser.add_argument("--expected-candidate-daemon-sha256")
+    parser.add_argument("--candidate-source-head", default="")
     parser.add_argument("--expected-candidate-bootstrap-sha256")
     parser.add_argument("--expected-configuration-sha256")
     parser.add_argument("--expected-service-pid", type=int)
@@ -943,6 +992,9 @@ def main() -> int:
     built_bootstrap = (root / arguments.built_bootstrap).resolve()
     configuration = Path(arguments.configuration)
     database_path = Path(arguments.database)
+    candidate_source_head = (
+        arguments.candidate_source_head or arguments.expected_head
+    )
 
     require(Path.cwd().resolve() == root, "unexpected_working_directory")
     require(
@@ -955,6 +1007,11 @@ def main() -> int:
         "unexpected_remote_ref",
     )
     require(run(root, "git", "status", "--porcelain") == "", "worktree_not_clean")
+    validate_candidate_source_head(
+        root,
+        candidate_source_head,
+        arguments.expected_head,
+    )
 
     require(built_daemon.is_file(), "candidate_daemon_missing")
     require(daemon.is_file() and not daemon.is_symlink(), "installed_daemon_missing")
@@ -1375,6 +1432,7 @@ def main() -> int:
             return [
                 ("P2_LEGACY_BASIC_RETIREMENT_RUNTIME_ACCEPTANCE", outcome),
                 ("head", arguments.expected_head),
+                ("candidate_source_head", candidate_source_head),
                 ("source_ci_run", arguments.source_ci_run),
                 ("source_ci_run_id", arguments.source_ci_run_id),
                 ("candidate_daemon_sha256", arguments.expected_candidate_daemon_sha256),
@@ -1485,6 +1543,7 @@ def main() -> int:
 
     print("P2_LEGACY_BASIC_RETIREMENT_RUNTIME_ACCEPTANCE=PASS")
     print(f"HEAD={arguments.expected_head}")
+    print(f"CANDIDATE_SOURCE_HEAD={candidate_source_head}")
     print(f"CANDIDATE_DAEMON_SHA256={arguments.expected_candidate_daemon_sha256}")
     print(f"BASELINE_LEGACY_PROBE_STATUS={baseline_legacy_status}")
     print("ENFORCED_LEGACY_PROBE_STATUS=401")
