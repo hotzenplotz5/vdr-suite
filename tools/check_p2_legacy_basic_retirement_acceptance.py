@@ -113,7 +113,7 @@ def main():
         "roadmap": (
             "Real-deployment migration gate accepted",
             "supported real yaVDR deployment completed",
-            "historical migration evidence",
+            "historical\nmigration evidence",
         ),
         "audit": (
             "Legacy Basic retirement real-runtime acceptance tooling",
