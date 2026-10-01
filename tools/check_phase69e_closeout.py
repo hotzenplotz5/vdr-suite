@@ -199,7 +199,8 @@ require_any(
     handoff,
     (
         "Current active runtime slice: **69.F - First-party and third-party client hardening**",
-        "Current active runtime slice: **none - Phase 70 - Recommendation and Content Knowledge Graph not started**",
+        "Current active numbered runtime slice: **none - Phase 70 - Recommendation and Content Knowledge Graph not started**",
+        "[Phase 69 Closeout](development/phase-69-closeout.md)",
     ),
     "handoff 69.F successor state",
 )
