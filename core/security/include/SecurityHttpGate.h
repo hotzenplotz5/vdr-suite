@@ -349,9 +349,22 @@ public:
             isPublicBackendCollection;
         const bool isPublicAccountCollection =
             path == "/api/v1/accounts";
+        const std::string publicAccountPrefix =
+            "/api/v1/accounts/";
+        const bool isPublicAccountResource =
+            path.compare(
+                0,
+                publicAccountPrefix.size(),
+                publicAccountPrefix) == 0 &&
+            path.size() > publicAccountPrefix.size() &&
+            path.find(
+                '/',
+                publicAccountPrefix.size()) ==
+                std::string::npos;
         const bool isPublicAccountRead =
             request.method == "GET" &&
-            isPublicAccountCollection;
+            (isPublicAccountCollection ||
+             isPublicAccountResource);
         const bool isPublicChannelCollection =
             path == "/api/v1/channels";
         std::vector<std::string> publicChannelBackendIds;
@@ -446,6 +459,7 @@ public:
              path == "/api/v1/capabilities" ||
              isPublicBackendCollection ||
              isPublicAccountCollection ||
+             isPublicAccountResource ||
              isPublicChannelCollection ||
              isPublicTimerAssignmentCollection ||
              isPublicOperationResource);
