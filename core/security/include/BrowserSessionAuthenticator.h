@@ -42,6 +42,23 @@ public:
         const SecurityPermissionGrantRepository& grantRepository,
         int idleTimeoutSeconds,
         int lastSeenWriteIntervalSeconds,
+        const HumanAccountRepository* accountRepository)
+        : BrowserSessionAuthenticator(
+              repository,
+              grantRepository,
+              idleTimeoutSeconds,
+              lastSeenWriteIntervalSeconds,
+              "vdr_suite_session",
+              "X-CSRF-Token",
+              accountRepository)
+    {
+    }
+
+    BrowserSessionAuthenticator(
+        const BrowserSessionCredentialRepository& repository,
+        const SecurityPermissionGrantRepository& grantRepository,
+        int idleTimeoutSeconds,
+        int lastSeenWriteIntervalSeconds,
         std::string cookieName = "vdr_suite_session",
         std::string csrfHeaderName = "X-CSRF-Token",
         const HumanAccountRepository* accountRepository = nullptr)
