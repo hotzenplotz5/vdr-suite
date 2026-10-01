@@ -507,8 +507,11 @@ that the old secret was deleted from configuration.
 It fingerprints the selected persistent Human Account, Actor,
 `human-password` credential, verifier and grants before and after the
 transitions. Browser-session rows and accountability evidence are intentionally
-excluded because the acceptance itself creates and revokes sessions. SQLite
-quick-check and foreign-key checks must remain clean.
+excluded because the acceptance itself creates and revokes sessions. Database
+integrity validation is scoped to the existing `security_*` tables plus
+`accountability_events`; the runner uses partial SQLite quick-check and
+foreign-key checks instead of scanning the complete multi-gigabyte production
+database.
 
 No production database snapshot is restored. That avoids overwriting legitimate
 concurrent state. On any acceptance failure, the runner instead restores the
@@ -519,8 +522,24 @@ keeps the exact candidate daemon installed and the deployment explicitly
 
 The runtime evidence report contains identifiers, fingerprints and status codes,
 not the Human Account password, Legacy Basic authorization header, browser
-cookie, CSRF secret or password verifier. Real deployment execution remains the
-external acceptance gate before Legacy Basic implementation deletion.
+cookie, CSRF secret or password verifier.
+
+The supported real yaVDR deployment completed the guarded sequence successfully
+on 2026-10-01. Accepted runtime evidence was produced on acceptance head
+`716dbbdceb95aa9c6ea93e169df2ac7364a65be7` with candidate source head
+`b811633c71695fc770feb35270b55969b46711b7` and candidate daemon SHA-256
+`6ebbcf9385f50f041490ae26bde590e16237119addffff8d2de168f8bca1cc14`.
+The compatibility probe returned 404 at baseline, 401 in enforced mode, 404
+after explicit rollback and 401 again after the final enforced transition.
+Human Account login passed throughout, the persistent identity fingerprint was
+unchanged, and the deployment was left explicitly in `enforced` mode.
+
+The retained root-only evidence directory is
+`/var/backups/vdr-suite-legacy-basic-retirement-20261001T060257Z-716dbbdceb95`;
+the runtime report SHA-256 is
+`9ada9b32ecfffe1c714010c23c4fc84586775f23834fb3abbdfc5d2e56f53ea1`.
+This satisfies the real deployment migration/rollback gate. Transitional Legacy
+Basic implementation deletion remains a separate bounded follow-up slice.
 
 
 The first real yaVDR execution exposed an upgrade-shape assumption before any
