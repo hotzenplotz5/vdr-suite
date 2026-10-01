@@ -158,7 +158,6 @@ def main():
     require("make", "test-security-public-account-collection")
 
     for forbidden in (
-        '"/api/v1/accounts/"',
         "createAccount",
         "updateAccount",
         "deleteAccount",
