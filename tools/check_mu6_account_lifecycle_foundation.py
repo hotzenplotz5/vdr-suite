@@ -137,9 +137,7 @@ def main():
         forbid(name, "MU.6 Human Account lifecycle administration not started")
 
     require("current", "MU.6A - Account lifecycle authority foundation [COMPLETED]")
-    require("current", "MU.6B - Public Account item + revision/ETag [NOT STARTED]")
     require("workstream", "MU.6A Account lifecycle authority foundation            [DONE]")
-    require("workstream", "MU.6B Public Account item + revision/ETag               [NEXT - NOT STARTED]")
 
     for marker in (
         "# MU.6A Human Account Lifecycle Authority Foundation",
@@ -154,7 +152,6 @@ def main():
     print("MU.6A Human Account lifecycle authority contracts passed")
     print("MU6=IN_PROGRESS")
     print("MU6A=COMPLETED_CANDIDATE")
-    print("MU6B=NEXT_NOT_STARTED")
     return 0
 
 
