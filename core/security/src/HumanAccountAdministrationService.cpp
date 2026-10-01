@@ -1,5 +1,6 @@
 #include "HumanAccountAdministrationService.h"
 
+#include "HumanAccountAdministrationRepository.h"
 #include "AccountabilityEvent.h"
 #include "AccountabilityEventRepository.h"
 #include "BrowserSessionLifecycleService.h"
@@ -215,6 +216,7 @@ AccountabilityEvent eventFor(
 HumanAccountAdministrationService::HumanAccountAdministrationService(
     Database& database,
     HumanAccountRepository& accountRepository,
+    HumanAccountAdministrationRepository& administrationRepository,
     SecurityIdentityRepository& identityRepository,
     BrowserSessionLifecycleService& browserSessionLifecycleService,
     AccountabilityEventRepository& accountabilityRepository,
@@ -222,6 +224,7 @@ HumanAccountAdministrationService::HumanAccountAdministrationService(
     Clock clock)
     : database_(database),
       accountRepository_(accountRepository),
+      administrationRepository_(administrationRepository),
       identityRepository_(identityRepository),
       browserSessionLifecycleService_(browserSessionLifecycleService),
       accountabilityRepository_(accountabilityRepository),
@@ -522,10 +525,10 @@ HumanAccountAdministrationService::setActive(
         if (!active)
         {
             const auto allAdmins =
-                accountRepository_.
+                administrationRepository_.
                     countUsableAdministratorsExcludingActor("");
             const auto otherAdmins =
-                accountRepository_.
+                administrationRepository_.
                     countUsableAdministratorsExcludingActor(
                         account.account.actorId);
             if (!allAdmins.has_value() ||
