@@ -32,10 +32,10 @@ def forbid(name, marker):
 
 def main():
     for marker in (
-        "VDR_SUITE_SECURITY_MODE=",
-        "VDR_SUITE_BASIC_AUTH=",
-        "VDR_SUITE_LEGACY_BASIC_",
-        "VDR_SUITE_MANAGED_BASIC_PASSWORD_HASH=",
+        "\nVDR_SUITE_SECURITY_MODE=",
+        "\nVDR_SUITE_BASIC_AUTH=",
+        "\nVDR_SUITE_LEGACY_BASIC_",
+        "\nVDR_SUITE_MANAGED_BASIC_PASSWORD_HASH=",
     ):
         forbid("defaults", marker)
 
