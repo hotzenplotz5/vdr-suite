@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -67,6 +69,10 @@ public:
         const std::string& actorId) const;
 
     HumanAccountListResult listAll() const;
+
+    std::optional<std::size_t>
+    countUsableAdministratorsExcludingActor(
+        const std::string& excludedActorId) const;
 
 private:
     Database& database_;
