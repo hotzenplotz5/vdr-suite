@@ -49,6 +49,9 @@ The runner requires:
 - the exact candidate daemon already built from that head;
 - exact current installed-daemon, defaults-file and service-PID fingerprints;
 - exact hosted-CI run number and run ID for the candidate;
+- a clear package-maintenance preflight: neither `apt-daily.service` nor
+  `apt-daily-upgrade.service` may be active/activating/reloading, and the
+  standard apt/dpkg lock files must be acquirable without waiting;
 - an existing deployment whose effective mode is legacy compatibility
   (explicit `legacy-basic` or the historical missing-mode fallback);
 - either exactly one eligible selected active Human Account administrator with
@@ -63,6 +66,12 @@ service or file mutation.
 
 For an already claimed deployment, the Human Account password is read interactively with `getpass` and checked against the persisted one-way verifier
 before the daemon is stopped.
+
+Because an interactive password prompt can leave time for scheduled maintenance
+to begin after the initial preflight, the runner rechecks immediately before
+the first service mutation. A package-maintenance collision therefore fails
+closed before daemon replacement instead of competing with systemd service
+restarts.
 
 For a pre-P2 or unclaimed deployment, `--bootstrap-first-admin` is required.
 The runner creates exactly one persistent VDR-Suite First Admin Human Account.
@@ -133,6 +142,22 @@ the final configuration must explicitly contain:
 ```text
 VDR_SUITE_SECURITY_MODE=enforced
 ```
+
+## Real yaVDR package-maintenance collision
+
+A real yaVDR execution on 2026-10-01 overlapped with
+`apt-daily-upgrade.service` / unattended-upgrade activity. The package run
+performed a systemd manager reexecution and independently restarted VDR while
+the acceptance was preparing daemon replacement. No acceptance stage was
+reached, and failure restoration returned the prior daemon/configuration state.
+
+That run is not retirement evidence. It establishes the package-maintenance
+preflight above as a required runtime boundary.
+
+System command failures retain the systemctl verb and exit code in the failure
+reason, for example `command_failed:systemctl:start:exit_1`, so a later failure
+does not collapse all service lifecycle errors into the ambiguous
+`command_failed:systemctl`.
 
 ## Failure behavior
 
