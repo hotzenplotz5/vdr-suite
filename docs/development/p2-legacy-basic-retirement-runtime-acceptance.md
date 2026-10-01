@@ -137,8 +137,12 @@ VDR_SUITE_SECURITY_MODE=enforced
 ## Failure behavior
 
 Before mutation, the runner stores a root-only evidence directory below
-`/var/backups` containing the installed daemon backup, the defaults-file backup
-when one existed, checksums and the runtime report.
+`/var/backups` containing the installed daemon backup, an exact preserved copy
+of the candidate daemon, the defaults-file backup when one existed, checksums
+and the runtime report. The preserved candidate fingerprint must match the
+expected candidate fingerprint before any service or configuration mutation.
+This prevents a failed acceptance plus temporary-worktree cleanup from deleting
+the only copy of an already built candidate.
 
 On any failure after mutation starts, failure restores:
 
