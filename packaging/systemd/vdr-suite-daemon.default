@@ -2,9 +2,8 @@
 #
 # Legacy Basic deployment modes are retired. install-systemd still never
 # overwrites an existing /etc/default/vdr-suite-daemon; stale historical
-# VDR_SUITE_SECURITY_MODE / VDR_SUITE_BASIC_AUTH / VDR_SUITE_LEGACY_BASIC_*
-# values may therefore remain on upgrades, but the daemon no longer consumes
-# them.
+# security compatibility settings may therefore remain on upgrades, but the
+# daemon no longer consumes them.
 #
 # The local Suite Bridge and token-free TVmaze series-artwork fallback are
 # enabled as usable package defaults. Operators can opt out by setting
