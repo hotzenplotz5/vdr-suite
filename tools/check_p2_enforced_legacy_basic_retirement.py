@@ -119,12 +119,12 @@ def main():
         ),
         "current": (
             "MU.0 through MU.5 are completed:",
-            "Legacy Basic retirement.",
+            "Legacy Basic retirement",
             "Post-Phase-69 P2 Legacy Basic Retirement Closeout",
         ),
         "current_status": (
             "The Multiuser foundation through MU.5 is completed:",
-            "Legacy Basic retirement.",
+            "Legacy Basic retirement",
             "P2 Legacy Basic Retirement Closeout",
         ),
         "handoff": (
