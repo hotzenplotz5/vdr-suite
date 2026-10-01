@@ -3,8 +3,11 @@ from __future__ import annotations
 
 import argparse
 import base64
+import ctypes
+import ctypes.util
 import getpass
 import hashlib
+import hmac
 import http.client
 import json
 import os
@@ -15,17 +18,10 @@ import subprocess
 import sys
 import tempfile
 import time
-import warnings
 from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-try:
-    import crypt
-except ImportError:
-    crypt = None
 
 DEFAULT_SERVICE = "vdr-suite-daemon.service"
 DEFAULT_DAEMON = "/usr/sbin/vdr-suite-daemon"
@@ -584,15 +580,42 @@ def eligible_human_admins(
     ]
 
 
+def system_crypt(password: str, password_hash: str) -> str:
+    require("\\x00" not in password, "human_password_contains_nul")
+    library_name = ctypes.util.find_library("crypt")
+    require(bool(library_name), "system_libcrypt_unavailable")
+    try:
+        library = ctypes.CDLL(library_name, use_errno=True)
+    except OSError as error:
+        raise AcceptanceError("system_libcrypt_unavailable") from error
+
+    crypt_function = library.crypt
+    crypt_function.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+    crypt_function.restype = ctypes.c_char_p
+    result = crypt_function(
+        password.encode("utf-8"),
+        password_hash.encode("utf-8"),
+    )
+    require(result is not None, "system_libcrypt_failed")
+    try:
+        verified = result.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise AcceptanceError("system_libcrypt_failed") from error
+    require(
+        verified not in ("*0", "*1") and not verified.startswith("*"),
+        "system_libcrypt_failed",
+    )
+    return verified
+
+
 def verify_human_password(password: str, password_hash: str) -> None:
-    require(crypt is not None, "python_crypt_module_unavailable")
     require(
         password_hash.startswith("$y$") or password_hash.startswith("$6$"),
         "unsupported_human_password_hash",
     )
-    verified = crypt.crypt(password, password_hash)
+    verified = system_crypt(password, password_hash)
     require(
-        isinstance(verified, str) and verified == password_hash,
+        hmac.compare_digest(verified, password_hash),
         "human_password_preflight_failed",
     )
 
@@ -784,6 +807,16 @@ def self_test() -> int:
             "self_test_bootstrap_secret",
         )
 
+    self_test_hash = system_crypt(
+        "retirement-self-test",
+        "$6$vdrsuite-retirement$",
+    )
+    require(
+        self_test_hash.startswith("$6$vdrsuite-retirement$"),
+        "self_test_system_libcrypt_hash",
+    )
+    verify_human_password("retirement-self-test", self_test_hash)
+
     print("P2_LEGACY_BASIC_RETIREMENT_ACCEPTANCE_SELF_TEST=PASS")
     return 0
 
@@ -911,12 +944,12 @@ def main() -> int:
     managed_hash = initial_values.get("VDR_SUITE_MANAGED_BASIC_PASSWORD_HASH", "")
     if managed_login and managed_login == legacy_login:
         require(
-            crypt is not None and bool(managed_hash),
+            bool(managed_hash),
             "legacy_probe_ambiguous_with_managed_basic",
         )
-        managed_match = crypt.crypt(legacy_password, managed_hash)
+        managed_match = system_crypt(legacy_password, managed_hash)
         require(
-            managed_match != managed_hash,
+            not hmac.compare_digest(managed_match, managed_hash),
             "legacy_probe_ambiguous_with_managed_basic",
         )
     legacy_password = ""
