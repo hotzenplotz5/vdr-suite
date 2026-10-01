@@ -90,7 +90,7 @@ def main():
     for marker in (
         "Legacy Basic runtime compatibility is now removed",
         "old package-default lines may survive an upgrade",
-        "Historical retirement acceptance evidence",
+        "Historical retirement\nacceptance evidence remains retained",
     ):
         require("architecture", marker)
 
