@@ -37,6 +37,12 @@ int main()
         assert(!retiredLegacyDecision.allowed);
         assert(retiredLegacyDecision.rejection.statusCode == 401);
 
+        const std::size_t evidenceAfterRetiredLegacy =
+            fixture.accountabilityRepository
+                .listAll()
+                .size();
+        assert(evidenceAfterRetiredLegacy == evidenceBefore + 1U);
+
         HttpServerRequest browser =
             fixture.mutationRequest(
                 route,
@@ -63,7 +69,7 @@ int main()
         assert(
             fixture.accountabilityRepository
                 .listAll()
-                .size() == evidenceBefore);
+                .size() == evidenceAfterRetiredLegacy);
 
         HttpServerRequest trailingSlash =
             fixture.mutationRequest(
