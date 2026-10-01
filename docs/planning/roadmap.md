@@ -73,9 +73,9 @@ Status: **Completed.**
 
 Established persistent identities, exact backend-scoped authorization, browser-session/CSRF protection and append-only accountability for protected mutations.
 
-Important retained boundary:
+Important post-Phase-62 boundary:
 
-- Legacy Basic compatibility remains transitional deployment compatibility.
+- Legacy Basic retirement is completed; the transitional runtime compatibility authority is removed. Historical Phase-62 closeout text remains historical evidence only.
 - Generic account/role/backend administration product surfaces were not required for Phase 62 closeout and remain a cross-cutting product milestone.
 
 ## Phase 63 — Backend Agent and Secure Multi-Site Runtime
@@ -995,7 +995,9 @@ Do not reopen Phase 62 to implement these surfaces.
 
 ## Milestone D — Legacy Basic Retirement
 
-Status: **Real-deployment migration gate accepted; transitional Legacy Basic runtime implementation removed.**
+Status: **Completed — real-deployment migration accepted and transitional Legacy Basic runtime implementation removed.**
+
+Durable closeout: [Post-Phase-69 P2 Legacy Basic Retirement Closeout](../development/post-phase69-p2-legacy-basic-retirement-closeout.md).
 
 The supported real yaVDR deployment completed the guarded
 `legacy-basic -> enforced -> legacy-basic -> enforced` acceptance on
@@ -1131,7 +1133,7 @@ Account / Backend Access Administration
   -> enables Broad Timer Product UI
 
 Audit / Security / Operations product surfaces
-Legacy Basic retirement
+Legacy Basic retirement [COMPLETED]
 First-party client family rollout
 ```
 
@@ -1141,13 +1143,13 @@ This ordering intentionally places Teletext/HbbTV **before** Legacy OSD because 
 
 ## Next authorization boundary
 
-Phase 65, Phase 66 and Phase 67 are completed for their accepted bounded scopes. Phase-67 durable completion evidence is in [Phase 67 Closeout](../development/phase-67-closeout.md).
+Phases 65 through 69 are completed for their accepted bounded scopes. Durable Phase-69 evidence is in [Phase 69 Closeout](../development/phase-69-closeout.md).
 
-**Phase 68 - Legacy OSD Compatibility Bridge is active.** Continue from [Phase 68 Kickoff](../development/phase-68-legacy-osd-kickoff.md) and the latest branch evidence after verifying live `main`. Accepted Phase-68 work now covers 68.A through 68.E. The active coherent vertical is 68.F exclusive controller leasing and `osd.control` fencing; native input remains 68.G. Preserve Teletext/HbbTV as structured Phase-67 domains rather than folding them back into Legacy OSD.
+The post-Phase-69 P2 Human Account / First Admin / recovery sequence and Legacy Basic retirement are also completed for the accepted bounded scope; see [P2 Legacy Basic Retirement Closeout](../development/post-phase69-p2-legacy-basic-retirement-closeout.md). Phase 70 remains not started and cannot begin runtime implementation until its dedicated ADR is accepted. Cross-cutting productization work may continue only from its own accepted architecture and proven current-main gap; Legacy Basic retirement does not implicitly select the next product milestone.
 
 Completed-Recording arbitrary time-seek and stop/resume are accepted for the supported progressive-fMP4 and HLS restart-seek profiles. Growing-Recording seek, Live-TV timeshift and broader VDR-index mapping not required by those accepted paths remain deferred and must stay explicit/fail-safe until separately justified.
 
-Bounded post-Phase-66 performance/correctness hardening does not reopen Phase 66 and does not authorize Phase 67.
+Bounded post-phase performance/correctness or productization work does not reopen a completed numbered phase and does not authorize Phase 70.
 
 ---
 
