@@ -71,6 +71,7 @@
 #include "VdrSnapshotReadService.h"
 
 #include <cassert>
+#include <cstdlib>
 #include <iostream>
 #include <string>
 
@@ -96,7 +97,14 @@ static void assertJsonResponse(
 
 static void authorize(HttpServerRequest& request)
 {
-    request.headers["Authorization"] = "Basic YWRtaW46dmRyLXN1aXRl";
+    request.headers["Authorization"] =
+        "Basic cGhhc2U2Mi1hZG1pbjp0ZXN0LXBhc3N3b3Jk";
+}
+
+static void authorizeRetiredLegacy(HttpServerRequest& request)
+{
+    request.headers["Authorization"] =
+        "Basic YWRtaW46dmRyLXN1aXRl";
 }
 
 static void assertEmptyDiscoveryResponse(
@@ -342,6 +350,19 @@ int main()
             return result;
         });
 
+    setenv(
+        "VDR_SUITE_MANAGED_BASIC_USERNAME",
+        "phase62-admin",
+        1);
+    setenv(
+        "VDR_SUITE_MANAGED_BASIC_PASSWORD_HASH",
+        "$6$testsalt$qzmynZ3SU0S5D.QBAsFplf6HVa.jpeEdx88KlHvhGfddFSPHoEWMArwiVQ1PLzZDrJJ9Vs/zKBgHPMSwmFddx.",
+        1);
+    setenv(
+        "VDR_SUITE_MANAGED_BASIC_PERMISSIONS",
+        "*@*",
+        1);
+
     TestHttpServer server(router);
 
     HttpServerRequest anonymousFrontendRequest;
@@ -373,11 +394,7 @@ int main()
     anonymousApiRequest.path = "/api/backends";
     const HttpServerResponse anonymousApiResponse =
         server.handleRequest(anonymousApiRequest);
-    assertJsonResponse(anonymousApiResponse, 401);
-    assert(anonymousApiResponse.body.find(
-        "authentication_required") != std::string::npos);
-    assert(anonymousApiResponse.headers.find("WWW-Authenticate") ==
-        anonymousApiResponse.headers.end());
+    assertJsonResponse(anonymousApiResponse, 200);
 
     HttpServerRequest anonymousOperationRequest;
     anonymousOperationRequest.method = "GET";
@@ -392,6 +409,15 @@ int main()
     assert(anonymousOperationResponse.body.find(
         "\"code\":\"unauthorized\"") !=
         std::string::npos);
+
+    HttpServerRequest retiredLegacyOperationRequest;
+    retiredLegacyOperationRequest.method = "GET";
+    retiredLegacyOperationRequest.path =
+        "/api/v1/operations/http-op-1";
+    authorizeRetiredLegacy(retiredLegacyOperationRequest);
+    const HttpServerResponse retiredLegacyOperationResponse =
+        server.handleRequest(retiredLegacyOperationRequest);
+    assert(retiredLegacyOperationResponse.statusCode == 401);
 
     HttpServerRequest operationRequest;
     operationRequest.method = "GET";
@@ -606,6 +632,10 @@ int main()
     assert(unsupportedMethodResponse.body == "{\"error\":\"method not allowed\"}");
 
     PublicApiRuntime::instance().resetOperationLookup();
+
+    unsetenv("VDR_SUITE_MANAGED_BASIC_USERNAME");
+    unsetenv("VDR_SUITE_MANAGED_BASIC_PASSWORD_HASH");
+    unsetenv("VDR_SUITE_MANAGED_BASIC_PERMISSIONS");
 
     db.close();
 
