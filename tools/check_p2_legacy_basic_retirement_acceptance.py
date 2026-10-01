@@ -51,6 +51,8 @@ def main():
         "rollback_legacy_status",
         "final_legacy_status",
         "persistent_identity_changed",
+        "candidate_evidence_fingerprint_changed",
+        "vdr-suite-daemon.candidate",
         "restore_configuration(",
         "restore_binary(",
         "FINAL_SECURITY_MODE=enforced",
