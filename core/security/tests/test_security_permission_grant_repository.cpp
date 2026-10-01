@@ -1,5 +1,6 @@
 #include "Database.h"
 #include "SecurityIdentityRepository.h"
+#include "SecurityIdentityProvisioningRepository.h"
 #include "SecurityPermissionGrantRepository.h"
 
 #include <cassert>
@@ -13,21 +14,24 @@ int main()
     SecurityIdentityRepository identityRepository(database);
     assert(identityRepository.ensureSchema());
 
-    assert(identityRepository.ensureCompatibilityIdentity(
+    SecurityIdentityProvisioningRepository provisioning(database);
+    assert(provisioning.ensureTechnicalIdentity(
         "actor-a",
         ActorType::User,
         "Actor A",
         "device-a",
-        "session-a",
-        "credential-a"));
+        "Device A",
+        "credential-a",
+        "test-credential"));
 
-    assert(identityRepository.ensureCompatibilityIdentity(
+    assert(provisioning.ensureTechnicalIdentity(
         "actor-b",
         ActorType::User,
         "Actor B",
         "device-b",
-        "session-b",
-        "credential-b"));
+        "Device B",
+        "credential-b",
+        "test-credential"));
 
     SecurityPermissionGrantRepository repository(database);
     assert(repository.ensureSchema());
