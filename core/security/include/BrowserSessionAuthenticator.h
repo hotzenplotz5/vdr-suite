@@ -2,6 +2,7 @@
 
 #include "BrowserSessionCredentialRepository.h"
 #include "BrowserSessionCsrfToken.h"
+#include "HumanAccountRepository.h"
 #include "SecurityIdentity.h"
 #include "SecurityPermissionGrantRepository.h"
 
@@ -23,14 +24,16 @@ public:
         const BrowserSessionCredentialRepository& repository,
         const SecurityPermissionGrantRepository& grantRepository,
         std::string cookieName = "vdr_suite_session",
-        std::string csrfHeaderName = "X-CSRF-Token")
+        std::string csrfHeaderName = "X-CSRF-Token",
+        const HumanAccountRepository* accountRepository = nullptr)
         : BrowserSessionAuthenticator(
               repository,
               grantRepository,
               0,
               60,
               std::move(cookieName),
-              std::move(csrfHeaderName))
+              std::move(csrfHeaderName),
+              accountRepository)
     {
     }
 
@@ -40,9 +43,11 @@ public:
         int idleTimeoutSeconds,
         int lastSeenWriteIntervalSeconds,
         std::string cookieName = "vdr_suite_session",
-        std::string csrfHeaderName = "X-CSRF-Token")
+        std::string csrfHeaderName = "X-CSRF-Token",
+        const HumanAccountRepository* accountRepository = nullptr)
         : repository_(repository),
           grantRepository_(grantRepository),
+          accountRepository_(accountRepository),
           idleTimeoutSeconds_(idleTimeoutSeconds),
           lastSeenWriteIntervalSeconds_(lastSeenWriteIntervalSeconds),
           cookieName_(std::move(cookieName)),
@@ -99,6 +104,33 @@ public:
         }
 
         populateIdentity(context, *record);
+
+        if (accountRepository_ != nullptr)
+        {
+            const HumanAccountLookupResult account =
+                accountRepository_->findByActorId(record->actorId);
+            if (account.status == HumanAccountRepositoryStatus::ok)
+            {
+                if (!account.account.active)
+                {
+                    context.authenticationState =
+                        AuthenticationState::Revoked;
+                    context.session->active = false;
+                    context.session->revoked = true;
+                    context.credential->active = false;
+                    context.credential->revoked = true;
+                    return context;
+                }
+            }
+            else if (account.status !=
+                     HumanAccountRepositoryStatus::notFound)
+            {
+                context.authenticationState =
+                    AuthenticationState::Invalid;
+                return context;
+            }
+        }
+
         if (!validIdlePolicy)
         {
             context.authenticationState = AuthenticationState::Authenticated;
@@ -477,6 +509,7 @@ private:
 
     const BrowserSessionCredentialRepository& repository_;
     const SecurityPermissionGrantRepository& grantRepository_;
+    const HumanAccountRepository* accountRepository_;
     int idleTimeoutSeconds_ = 0;
     int lastSeenWriteIntervalSeconds_ = 60;
     std::string cookieName_;
