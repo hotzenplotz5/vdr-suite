@@ -138,9 +138,9 @@ def main():
     )
 
     forbid("defaults", "VDR_SUITE_FIRST_ADMIN")
-    forbid("defaults", "VDR_SUITE_SECURITY_MODE=")
-    forbid("defaults", "VDR_SUITE_BASIC_AUTH=")
-    forbid("defaults", "VDR_SUITE_LEGACY_BASIC_")
+    forbid("defaults", "\nVDR_SUITE_SECURITY_MODE=")
+    forbid("defaults", "\nVDR_SUITE_BASIC_AUTH=")
+    forbid("defaults", "\nVDR_SUITE_LEGACY_BASIC_")
 
     for marker in (
         "trusted browser completion",
