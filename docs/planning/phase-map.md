@@ -38,8 +38,14 @@ Phase 70 - Recommendation and Content Knowledge Graph
 Current active cross-cutting productization workstream:
 Multiuser / Account and Backend Access Administration
 
-Current Multiuser slice:
-MU.5 - Administration architecture contract - ADR-0067 [PROPOSED]
+Current Multiuser architecture slice:
+MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
+
+Current Multiuser runtime slice:
+none - MU.6 Human Account lifecycle administration not started
+
+Next Multiuser runtime slice:
+MU.6 - Human Account lifecycle administration
 
 Completed Phase-67 verticals:
 Teletext + HbbTV discovery/application-session/presentation-media runtime
@@ -102,7 +108,7 @@ Phase 67 is completed. Teletext merged through PR #293 and the HbbTV discovery/s
 
 ## Cross-cutting non-numbered milestones
 
-- Multiuser / Account and Backend Access Administration **[ACTIVE — MU.5 ADR-0067 PROPOSED]**;
+- Multiuser / Account and Backend Access Administration **[ACTIVE — MU.5 DONE / MU.6 NEXT]**;
 - Broad Timer Product UI **[PLANNED — gated on Multiuser administration]**;
 - Audit/Security/Operations surfaces;
 - Legacy Basic retirement migration **[COMPLETED]**;
@@ -112,7 +118,7 @@ Phase 67 is completed. Teletext merged through PR #293 and the HbbTV discovery/s
 Durable Multiuser authority: [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md).
 
 Multiuser sequence:
-`MU.0-MU.4 [DONE] -> MU.5 ADR-0067 [CURRENT DOC GATE] -> MU.6 Account lifecycle -> MU.7 grant administration -> MU.8 credential/session administration -> MU.9 admin UI -> later pairing/profiles`.
+`MU.0-MU.5 [DONE] -> MU.6 Account lifecycle [NEXT - NOT STARTED] -> MU.7 grant administration -> MU.8 credential/session administration -> MU.9 admin UI -> later pairing/profiles`.
 
 Durable retirement evidence: [Post-Phase-69 P2 Legacy Basic Retirement Closeout](../development/post-phase69-p2-legacy-basic-retirement-closeout.md). This active cross-cutting workstream does not start Phase 70.
 
@@ -142,6 +148,7 @@ make test-phase
 - [Phase 69 Closeout](../development/phase-69-closeout.md)
 - [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md)
 - [ADR-0067 Human Account and Backend Access Administration](../adr/ADR-0067-human-account-backend-access-administration.md)
+- [MU.5 Administration Architecture Acceptance](../development/post-phase69-mu5-administration-architecture-acceptance.md)
 - [Phase 67 Closeout](../development/phase-67-closeout.md)
 - [Phase 67 Teletext Closeout](../development/phase-67-teletext-closeout.md)
 - [Phase 66 Closeout](../development/phase-66-closeout.md)
