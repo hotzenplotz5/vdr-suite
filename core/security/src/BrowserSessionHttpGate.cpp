@@ -5,7 +5,6 @@
 #include "BrowserSessionAuthenticator.h"
 #include "BrowserSessionCredentialRepository.h"
 #include "SecurityPermissionGrantRepository.h"
-#include "LegacyBasicAuthenticator.h"
 #include "ManagedBasicAuthenticator.h"
 #include "HumanPasswordBrowserAuthenticator.h"
 #include "PersistentIdentityResolver.h"
@@ -203,8 +202,6 @@ BrowserSessionHttpGate::BrowserSessionHttpGate(
       managedBasicAuthenticator_(managedBasicAuthenticator),
       humanPasswordBrowserAuthenticator_(
           humanPasswordBrowserAuthenticator),
-      legacyAuthenticator_(
-          std::make_unique<LegacyBasicAuthenticator>(configuration_)),
       browserAuthenticator_(
           std::make_unique<BrowserSessionAuthenticator>(
               credentialRepository,
@@ -421,15 +418,6 @@ RequestSecurityContext BrowserSessionHttpGate::authenticateBasic(
         }
     }
 
-    RequestSecurityContext context = legacyAuthenticator_->authenticate(
-        request.headers,
-        seed.requestId,
-        seed.correlationId);
-    if (context.authenticated())
-    {
-        return resolvePersistentIdentity(std::move(context));
-    }
-
     if (managedBasicAuthenticator_ != nullptr)
     {
         RequestSecurityContext managedContext =
@@ -444,7 +432,7 @@ RequestSecurityContext BrowserSessionHttpGate::authenticateBasic(
         }
     }
 
-    return context;
+    return seed;
 }
 
 RequestSecurityContext BrowserSessionHttpGate::authenticateBrowser(

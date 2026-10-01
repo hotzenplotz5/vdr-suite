@@ -1,10 +1,8 @@
 # Runtime overrides for vdr-suite-daemon.
 #
-# Fresh packaged installations use the enforced identity model. install-systemd
-# never overwrites an existing /etc/default/vdr-suite-daemon, so upgrades keep
-# their previous deployment mode until an operator migrates it explicitly.
-# A controlled compatibility rollback is VDR_SUITE_SECURITY_MODE=legacy-basic.
-VDR_SUITE_SECURITY_MODE=enforced
+# Authentication is enforced by the daemon. Legacy Basic deployment variables
+# are retired and ignored; Human Account/browser-session and optional Managed
+# Basic authentication remain the supported authorities.
 #
 # The local Suite Bridge and token-free TVmaze series-artwork fallback are
 # enabled as usable package defaults. Operators can opt out by setting

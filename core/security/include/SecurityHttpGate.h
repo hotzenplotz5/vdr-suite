@@ -5,7 +5,6 @@
 #include "BrowserSessionAuthenticator.h"
 #include "HttpServerRequest.h"
 #include "HttpServerResponse.h"
-#include "LegacyBasicAuthenticator.h"
 #include "ManagedBasicAuthenticator.h"
 #include "PersistentIdentityResolver.h"
 #include "PublicProblemDetails.h"
@@ -48,14 +47,12 @@ private:
 
 public:
     SecurityHttpGate(
-        SecurityConfiguration configuration,
+        SecurityConfiguration,
         AccountabilityEventRepository& accountabilityRepository,
         const PersistentIdentityResolver* persistentIdentityResolver = nullptr,
         const ManagedBasicAuthenticator* managedBasicAuthenticator = nullptr,
         const BrowserSessionAuthenticator* browserSessionAuthenticator = nullptr)
-        : configuration_(std::move(configuration)),
-          legacyAuthenticator_(configuration_),
-          accountabilityRepository_(accountabilityRepository),
+        : accountabilityRepository_(accountabilityRepository),
           persistentIdentityResolver_(persistentIdentityResolver),
           managedBasicAuthenticator_(managedBasicAuthenticator),
           browserSessionAuthenticator_(browserSessionAuthenticator)
@@ -74,14 +71,7 @@ public:
         gate.browserAuthenticated = authentication.browserAuthenticated;
         gate.context = std::move(authentication.context);
 
-        if (configuration_.mode == SecurityMode::LegacyBasicCompatibility &&
-            !gate.context.authenticated())
-        {
-            return rejectAuthentication(gate);
-        }
-
-        if (configuration_.mode == SecurityMode::Enforced &&
-            gate.context.authenticationState != AuthenticationState::Anonymous &&
+        if (gate.context.authenticationState != AuthenticationState::Anonymous &&
             !gate.context.authenticated())
         {
             return rejectAuthentication(gate);
@@ -862,9 +852,7 @@ public:
 
         if (!isExplicitlyAuthorizedPost)
         {
-            const bool explicitPolicyRequired = isPost &&
-                (configuration_.mode == SecurityMode::Enforced ||
-                 !usesLegacyCompatibilityCredential(gate.context));
+            const bool explicitPolicyRequired = isPost;
             if (explicitPolicyRequired)
             {
                 AuthorizationDecision decision;
@@ -1579,13 +1567,6 @@ private:
         return output.str();
     }
 
-    bool usesLegacyCompatibilityCredential(const RequestSecurityContext& context) const
-    {
-        return context.authenticated() && context.actor.actorId == configuration_.actorId &&
-            context.credential.has_value() &&
-            context.credential->credentialId == configuration_.credentialId;
-    }
-
     RequestSecurityContext resolvePersistentIdentity(RequestSecurityContext context) const
     {
         if (persistentIdentityResolver_ != nullptr)
@@ -1616,13 +1597,8 @@ private:
             return result;
         }
 
-        result.context = legacyAuthenticator_.authenticate(
-            request.headers, requestId, correlationId);
-        if (result.context.authenticated())
-        {
-            result.context = resolvePersistentIdentity(std::move(result.context));
-            return result;
-        }
+        result.context.requestId = requestId;
+        result.context.correlationId = correlationId;
 
         if (managedBasicAuthenticator_ != nullptr)
         {
@@ -1779,8 +1755,6 @@ private:
         return response;
     }
 
-    SecurityConfiguration configuration_;
-    LegacyBasicAuthenticator legacyAuthenticator_;
     AuthorizationService authorizationService_;
     AccountabilityEventRepository& accountabilityRepository_;
     const PersistentIdentityResolver* persistentIdentityResolver_;

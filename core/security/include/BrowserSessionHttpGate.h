@@ -13,7 +13,6 @@ class AccountabilityEventRepository;
 class BrowserSessionAuthenticator;
 class BrowserSessionCredentialRepository;
 class SecurityPermissionGrantRepository;
-class LegacyBasicAuthenticator;
 class ManagedBasicAuthenticator;
 class HumanPasswordBrowserAuthenticator;
 class PersistentIdentityResolver;
@@ -78,7 +77,6 @@ private:
     const ManagedBasicAuthenticator* managedBasicAuthenticator_;
     const HumanPasswordBrowserAuthenticator*
         humanPasswordBrowserAuthenticator_;
-    std::unique_ptr<LegacyBasicAuthenticator> legacyAuthenticator_;
     std::unique_ptr<BrowserSessionAuthenticator> browserAuthenticator_;
     mutable std::atomic<unsigned long long> idCounter_{0};
 };
