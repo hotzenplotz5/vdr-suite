@@ -239,6 +239,25 @@ SecurityIdentityRepository::findCredential(
     return result;
 }
 
+bool SecurityIdentityRepository::updateActorDisplayNameInActiveTransaction(
+    const std::string& actorId,
+    const std::string& displayName)
+{
+    if (!database_.transactionActive() ||
+        actorId.empty() ||
+        displayName.empty())
+    {
+        return false;
+    }
+
+    return updateText(
+        "security_actors",
+        "actor_id",
+        actorId,
+        "display_name",
+        displayName);
+}
+
 bool SecurityIdentityRepository::revokeActor(const std::string& actorId)
 {
     return markRevoked("security_actors", "actor_id", actorId);

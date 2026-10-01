@@ -31,11 +31,13 @@ Current active cross-cutting productization workstream: **Multiuser / Account an
 
 Current Multiuser architecture slice: **MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]**.
 
-Current Multiuser runtime slice: **none - MU.6 Human Account lifecycle administration not started**.
+Current Multiuser runtime slice: **MU.6 - Human Account lifecycle administration [IN PROGRESS]**.
 
-Next Multiuser runtime slice: **MU.6 - Human Account lifecycle administration**.
+Latest completed MU.6 sub-slice: **MU.6A - Account lifecycle authority foundation [COMPLETED]**.
 
-The Multiuser foundation through MU.5 is completed: explicit Human Accounts, stable read-only Account API, First Admin/bootstrap, normal Human Account browser login, local audited recovery, Legacy Basic retirement and accepted administration architecture. ADR-0067 is accepted; MU.6 is the first justified runtime successor but is not started by this documentation-only slice. Durable status is in [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md) and [MU.5 Administration Architecture Acceptance](post-phase69-mu5-administration-architecture-acceptance.md).
+Next MU.6 sub-slice: **MU.6B - Public Account item + revision/ETag [NOT STARTED]**.
+
+MU.0-MU.5 are completed and MU.6 is in progress. MU.6A establishes persisted Account revision, revision-checked display-name/active-state mutation, transactional browser-session fencing, current Human Account session-state enforcement and final-usable-administrator protection. Public Account item/mutation routes and Account CREATE are not claimed by MU.6A. Durable status is in [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md), [MU.5 Administration Architecture Acceptance](post-phase69-mu5-administration-architecture-acceptance.md) and [MU.6A Human Account Lifecycle Authority Foundation](post-phase69-mu6-account-lifecycle-foundation.md).
 
 69.D is completed; durable evidence is in
 [Phase 69.D Closeout](phase-69d-closeout.md). PR #363 accepted the backend-scoped
@@ -180,7 +182,7 @@ The following remain explicit open/deferred boundaries rather than unfinished Ph
 - user-visible growing-Recording seek where unsupported capability remains truthful;
 - Live-TV timeshift;
 - recommendation/content graph runtime (Phase 70), which still requires its dedicated accepted ADR;
-- Multiuser Account/backend access administration after MU.5, with ADR-0067 accepted and MU.6 Human Account lifecycle administration next but not started;
+- Multiuser Account/backend access administration with MU.6 in progress, MU.6A lifecycle authority completed and MU.6B Public Account item/revision next;
 - broad Timer Product UI, which remains gated on completion of the required Multiuser Account/backend access administration surface.
 
 ## Related documents
@@ -189,6 +191,7 @@ The following remain explicit open/deferred boundaries rather than unfinished Ph
 - [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md)
 - [ADR-0067 Human Account and Backend Access Administration](../adr/ADR-0067-human-account-backend-access-administration.md)
 - [MU.5 Administration Architecture Acceptance](post-phase69-mu5-administration-architecture-acceptance.md)
+- [MU.6A Human Account Lifecycle Authority Foundation](post-phase69-mu6-account-lifecycle-foundation.md)
 - [P2 Legacy Basic Retirement Closeout](post-phase69-p2-legacy-basic-retirement-closeout.md)
 - [Phase 68.E Viewer-Binding Closeout](phase-68e-viewer-bindings-closeout.md)
 - [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md)

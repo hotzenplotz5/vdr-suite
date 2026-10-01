@@ -15,6 +15,7 @@ class BrowserSessionCredentialRepository;
 class SecurityPermissionGrantRepository;
 class ManagedBasicAuthenticator;
 class HumanPasswordBrowserAuthenticator;
+class HumanAccountRepository;
 class PersistentIdentityResolver;
 
 struct BrowserSessionGateDecision
@@ -37,7 +38,9 @@ public:
         const PersistentIdentityResolver* persistentIdentityResolver,
         const ManagedBasicAuthenticator* managedBasicAuthenticator,
         const HumanPasswordBrowserAuthenticator*
-            humanPasswordBrowserAuthenticator = nullptr);
+            humanPasswordBrowserAuthenticator = nullptr,
+        const HumanAccountRepository*
+            humanAccountRepository = nullptr);
     ~BrowserSessionHttpGate();
 
     BrowserSessionHttpGate(const BrowserSessionHttpGate&) = delete;

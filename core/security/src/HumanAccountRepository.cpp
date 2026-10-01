@@ -6,6 +6,8 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
+#include <string>
 
 namespace
 {
@@ -28,6 +30,36 @@ std::string columnText(sqlite3_stmt* statement, int column)
     return text == nullptr
         ? std::string()
         : std::string(reinterpret_cast<const char*>(text));
+}
+
+bool columnExists(
+    Database& database,
+    const std::string& tableName,
+    const std::string& columnName)
+{
+    sqlite3_stmt* statement = nullptr;
+    const std::string sql = "PRAGMA table_info(" + tableName + ");";
+    if (sqlite3_prepare_v2(
+            database.handle(),
+            sql.c_str(),
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return false;
+    }
+
+    bool found = false;
+    while (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        if (columnText(statement, 1) == columnName)
+        {
+            found = true;
+            break;
+        }
+    }
+    sqlite3_finalize(statement);
+    return found;
 }
 
 bool safeAccountPart(
@@ -55,7 +87,7 @@ bool readAccount(
     sqlite3_stmt* statement,
     HumanAccountRecord& account)
 {
-    if (columnText(statement, 4) != "user")
+    if (columnText(statement, 5) != "user")
     {
         return false;
     }
@@ -66,13 +98,22 @@ bool readAccount(
 
     const bool accountActive =
         sqlite3_column_int(statement, 3) != 0;
+    const sqlite3_int64 revision =
+        sqlite3_column_int64(statement, 4);
     const bool actorActive =
-        sqlite3_column_int(statement, 5) != 0;
-    const bool actorRevoked =
         sqlite3_column_int(statement, 6) != 0;
+    const bool actorRevoked =
+        sqlite3_column_int(statement, 7) != 0;
+
+    if (revision <= 0)
+    {
+        return false;
+    }
 
     account.active =
         accountActive && actorActive && !actorRevoked;
+    account.revision =
+        static_cast<std::uint64_t>(revision);
 
     return !account.accountId.empty() &&
         !account.actorId.empty() &&
@@ -81,11 +122,31 @@ bool readAccount(
 
 constexpr const char* AccountSelect =
     "SELECT account.account_id, account.actor_id, "
-    "account.display_name, account.active, "
+    "account.display_name, account.active, account.revision, "
     "actor.actor_type, actor.active, actor.revoked_at <> '' "
     "FROM security_human_accounts AS account "
     "JOIN security_actors AS actor "
     "ON actor.actor_id = account.actor_id ";
+
+HumanAccountRepositoryStatus mutationMissStatus(
+    HumanAccountRepository& repository,
+    const std::string& accountId,
+    std::uint64_t expectedRevision)
+{
+    const HumanAccountLookupResult current =
+        repository.findByAccountId(accountId);
+    if (current.status == HumanAccountRepositoryStatus::notFound)
+    {
+        return HumanAccountRepositoryStatus::notFound;
+    }
+    if (current.status != HumanAccountRepositoryStatus::ok)
+    {
+        return HumanAccountRepositoryStatus::storageError;
+    }
+    return current.account.revision == expectedRevision
+        ? HumanAccountRepositoryStatus::storageError
+        : HumanAccountRepositoryStatus::revisionConflict;
+}
 }
 
 HumanAccountRepository::HumanAccountRepository(Database& database)
@@ -95,16 +156,35 @@ HumanAccountRepository::HumanAccountRepository(Database& database)
 
 bool HumanAccountRepository::ensureSchema()
 {
+    if (!database_.execute(
+            "CREATE TABLE IF NOT EXISTS security_human_accounts ("
+            "account_id TEXT PRIMARY KEY,"
+            "actor_id TEXT NOT NULL UNIQUE,"
+            "display_name TEXT NOT NULL,"
+            "active INTEGER NOT NULL DEFAULT 1,"
+            "revision INTEGER NOT NULL DEFAULT 1,"
+            "created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+            "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+            "FOREIGN KEY(actor_id) REFERENCES security_actors(actor_id)"
+            ");"))
+    {
+        return false;
+    }
+
+    if (!columnExists(
+            database_,
+            "security_human_accounts",
+            "revision") &&
+        !database_.execute(
+            "ALTER TABLE security_human_accounts "
+            "ADD COLUMN revision INTEGER NOT NULL DEFAULT 1;"))
+    {
+        return false;
+    }
+
     return database_.execute(
-               "CREATE TABLE IF NOT EXISTS security_human_accounts ("
-               "account_id TEXT PRIMARY KEY,"
-               "actor_id TEXT NOT NULL UNIQUE,"
-               "display_name TEXT NOT NULL,"
-               "active INTEGER NOT NULL DEFAULT 1,"
-               "created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,"
-               "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,"
-               "FOREIGN KEY(actor_id) REFERENCES security_actors(actor_id)"
-               ");") &&
+               "UPDATE security_human_accounts "
+               "SET revision = 1 WHERE revision <= 0;") &&
         database_.execute(
                "CREATE UNIQUE INDEX IF NOT EXISTS "
                "idx_security_human_accounts_actor "
@@ -163,8 +243,8 @@ bool HumanAccountRepository::ensureAccountInActiveTransaction(
     sqlite3_stmt* statement = nullptr;
     const char* sql =
         "INSERT OR IGNORE INTO security_human_accounts "
-        "(account_id, actor_id, display_name) "
-        "VALUES (?, ?, ?);";
+        "(account_id, actor_id, display_name, revision) "
+        "VALUES (?, ?, ?, 1);";
 
     if (sqlite3_prepare_v2(
             database_.handle(),
@@ -195,7 +275,117 @@ bool HumanAccountRepository::ensureAccountInActiveTransaction(
     return stored.status == HumanAccountRepositoryStatus::ok &&
         stored.account.actorId == actorId &&
         stored.account.displayName == displayName &&
-        stored.account.active;
+        stored.account.active &&
+        stored.account.revision > 0;
+}
+
+HumanAccountRepositoryStatus
+HumanAccountRepository::updateDisplayNameInActiveTransaction(
+    const std::string& accountId,
+    std::uint64_t expectedRevision,
+    const std::string& displayName)
+{
+    if (!database_.transactionActive() ||
+        !safeAccountPart(accountId, 128) ||
+        !safeAccountPart(displayName, 256) ||
+        expectedRevision == 0)
+    {
+        return HumanAccountRepositoryStatus::invalid;
+    }
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "UPDATE security_human_accounts "
+        "SET display_name = ?, revision = revision + 1, "
+        "updated_at = CURRENT_TIMESTAMP "
+        "WHERE account_id = ? AND revision = ?;";
+
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return HumanAccountRepositoryStatus::storageError;
+    }
+
+    const bool bound =
+        bindText(statement, 1, displayName) &&
+        bindText(statement, 2, accountId) &&
+        sqlite3_bind_int64(
+            statement,
+            3,
+            static_cast<sqlite3_int64>(expectedRevision)) == SQLITE_OK;
+    const int step = bound
+        ? sqlite3_step(statement)
+        : SQLITE_ERROR;
+    const int changed = sqlite3_changes(database_.handle());
+    sqlite3_finalize(statement);
+
+    if (step != SQLITE_DONE)
+    {
+        return HumanAccountRepositoryStatus::storageError;
+    }
+    if (changed == 1)
+    {
+        return HumanAccountRepositoryStatus::ok;
+    }
+    return mutationMissStatus(*this, accountId, expectedRevision);
+}
+
+HumanAccountRepositoryStatus
+HumanAccountRepository::setActiveInActiveTransaction(
+    const std::string& accountId,
+    std::uint64_t expectedRevision,
+    bool active)
+{
+    if (!database_.transactionActive() ||
+        !safeAccountPart(accountId, 128) ||
+        expectedRevision == 0)
+    {
+        return HumanAccountRepositoryStatus::invalid;
+    }
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "UPDATE security_human_accounts "
+        "SET active = ?, revision = revision + 1, "
+        "updated_at = CURRENT_TIMESTAMP "
+        "WHERE account_id = ? AND revision = ?;";
+
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return HumanAccountRepositoryStatus::storageError;
+    }
+
+    const bool bound =
+        sqlite3_bind_int(statement, 1, active ? 1 : 0) == SQLITE_OK &&
+        bindText(statement, 2, accountId) &&
+        sqlite3_bind_int64(
+            statement,
+            3,
+            static_cast<sqlite3_int64>(expectedRevision)) == SQLITE_OK;
+    const int step = bound
+        ? sqlite3_step(statement)
+        : SQLITE_ERROR;
+    const int changed = sqlite3_changes(database_.handle());
+    sqlite3_finalize(statement);
+
+    if (step != SQLITE_DONE)
+    {
+        return HumanAccountRepositoryStatus::storageError;
+    }
+    if (changed == 1)
+    {
+        return HumanAccountRepositoryStatus::ok;
+    }
+    return mutationMissStatus(*this, accountId, expectedRevision);
 }
 
 HumanAccountLookupResult

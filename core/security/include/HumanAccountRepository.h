@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -10,6 +11,7 @@ enum class HumanAccountRepositoryStatus
     ok,
     invalid,
     notFound,
+    revisionConflict,
     storageError,
 };
 
@@ -19,6 +21,7 @@ struct HumanAccountRecord
     std::string actorId;
     std::string displayName;
     bool active = false;
+    std::uint64_t revision = 0;
 };
 
 struct HumanAccountLookupResult
@@ -46,6 +49,16 @@ public:
         const std::string& accountId,
         const std::string& actorId,
         const std::string& displayName);
+
+    HumanAccountRepositoryStatus updateDisplayNameInActiveTransaction(
+        const std::string& accountId,
+        std::uint64_t expectedRevision,
+        const std::string& displayName);
+
+    HumanAccountRepositoryStatus setActiveInActiveTransaction(
+        const std::string& accountId,
+        std::uint64_t expectedRevision,
+        bool active);
 
     HumanAccountLookupResult findByAccountId(
         const std::string& accountId) const;

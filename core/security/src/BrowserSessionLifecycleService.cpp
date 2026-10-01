@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <optional>
 #include <string>
 
 namespace
@@ -78,6 +79,50 @@ BrowserSessionLifecycleService::BrowserSessionLifecycleService(
 {
 }
 
+bool BrowserSessionLifecycleService::revokeInActiveTransaction(
+    const std::string& sessionId,
+    const std::string& credentialId)
+{
+    if (!database_.transactionActive() ||
+        !safeIdentifier(sessionId) ||
+        !safeIdentifier(credentialId))
+    {
+        return false;
+    }
+
+    const auto browserCredential =
+        credentialRepository_.findBySessionId(sessionId);
+    const auto session = identityRepository_.findSession(sessionId);
+    const auto credential = identityRepository_.findCredential(credentialId);
+
+    if (!browserCredential.has_value() ||
+        browserCredential->credentialId != credentialId ||
+        !browserCredential->active ||
+        browserCredential->revoked ||
+        !session.has_value() ||
+        session->sessionId != sessionId ||
+        !credential.has_value() ||
+        credential->credentialId != credentialId ||
+        credential->credentialType != "browser-session")
+    {
+        return false;
+    }
+
+    if (session->active && !session->revoked &&
+        !identityRepository_.revokeSession(sessionId))
+    {
+        return false;
+    }
+
+    if (credential->active && !credential->revoked &&
+        !identityRepository_.revokeCredential(credentialId))
+    {
+        return false;
+    }
+
+    return credentialRepository_.revokeBySessionId(sessionId);
+}
+
 bool BrowserSessionLifecycleService::revoke(
     const std::string& sessionId,
     const std::string& credentialId)
@@ -94,30 +139,38 @@ bool BrowserSessionLifecycleService::revoke(
         return false;
     }
 
-    const auto browserCredential =
-        credentialRepository_.findBySessionId(sessionId);
-    const auto session = identityRepository_.findSession(sessionId);
-    const auto credential = identityRepository_.findCredential(credentialId);
+    return revokeInActiveTransaction(sessionId, credentialId) &&
+        transaction.commit();
+}
 
-    if (!browserCredential.has_value() ||
-        browserCredential->credentialId != credentialId ||
-        !browserCredential->active ||
-        browserCredential->revoked ||
-        !session.has_value() ||
-        session->sessionId != sessionId ||
-        !session->active ||
-        session->revoked ||
-        !credential.has_value() ||
-        credential->credentialId != credentialId ||
-        credential->credentialType != "browser-session" ||
-        !credential->active ||
-        credential->revoked)
+std::optional<std::size_t>
+BrowserSessionLifecycleService::revokeAllForActorInActiveTransaction(
+    const std::string& actorId)
+{
+    if (!database_.transactionActive() || !safeIdentifier(actorId))
     {
-        return false;
+        return std::nullopt;
     }
 
-    return credentialRepository_.revokeBySessionId(sessionId) &&
-        identityRepository_.revokeSession(sessionId) &&
-        identityRepository_.revokeCredential(credentialId) &&
-        transaction.commit();
+    const auto sessions =
+        credentialRepository_.findActiveByActorId(actorId);
+    if (!sessions.has_value())
+    {
+        return std::nullopt;
+    }
+
+    std::size_t revoked = 0;
+    for (const auto& session : *sessions)
+    {
+        if (session.actorId != actorId ||
+            !revokeInActiveTransaction(
+                session.sessionId,
+                session.credentialId))
+        {
+            return std::nullopt;
+        }
+        ++revoked;
+    }
+
+    return revoked;
 }

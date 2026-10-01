@@ -76,6 +76,10 @@ public:
     std::optional<StoredCredentialIdentity> findCredential(
         const std::string& credentialId) const;
 
+    bool updateActorDisplayNameInActiveTransaction(
+        const std::string& actorId,
+        const std::string& displayName);
+
     bool revokeActor(const std::string& actorId);
     bool revokeDevice(const std::string& deviceId);
     bool revokeSession(const std::string& sessionId);
