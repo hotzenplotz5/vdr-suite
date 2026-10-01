@@ -9,6 +9,7 @@ SECURITY_REPOSITORY_SRC := \
 	core/security/src/CredentialVerifierRepository.cpp \
 	core/security/src/FirstAdminBootstrapRepository.cpp \
 	core/security/src/HumanAccountRepository.cpp \
+	core/security/src/HumanAccountAdministrationRepository.cpp \
 	core/security/src/SecurityIdentityIssuanceRepository.cpp \
 	core/security/src/SecurityIdentityProvisioningRepository.cpp \
 	core/security/src/SecurityIdentityRepository.cpp \
