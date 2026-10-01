@@ -1081,15 +1081,25 @@ def main() -> int:
     evidence.mkdir(mode=0o700, parents=False, exist_ok=False)
 
     daemon_backup = evidence / "vdr-suite-daemon.before"
+    candidate_backup = evidence / "vdr-suite-daemon.candidate"
     configuration_backup = evidence / "vdr-suite-daemon.default.before"
     report_path = evidence / "runtime-acceptance-report.txt"
 
     shutil.copy2(daemon, daemon_backup)
+    shutil.copy2(built_daemon, candidate_backup)
+    require(
+        sha256(candidate_backup)
+        == arguments.expected_candidate_daemon_sha256,
+        "candidate_evidence_fingerprint_changed",
+    )
     if initial_configuration_present:
         shutil.copy2(configuration, configuration_backup)
 
     backup_checksums = evidence / "SHA256SUMS"
-    checksum_lines = [f"{sha256(daemon_backup)}  {daemon_backup.name}\n"]
+    checksum_lines = [
+        f"{sha256(daemon_backup)}  {daemon_backup.name}\n",
+        f"{sha256(candidate_backup)}  {candidate_backup.name}\n",
+    ]
     if initial_configuration_present:
         checksum_lines.append(
             f"{sha256(configuration_backup)}  {configuration_backup.name}\n"
