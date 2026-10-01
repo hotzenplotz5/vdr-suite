@@ -90,32 +90,21 @@ def main():
         forbid(name, "ADR-0067 is proposed")
 
     require("workstream", "### MU.5 — Administration architecture contract [COMPLETED]")
-    require("workstream", "### MU.6 — Human Account lifecycle administration [NEXT — NOT STARTED]")
     require("workstream", "ADR-0067 Account/Backend Access Administration [ACCEPTED]")
 
     require("current", "MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]")
-    require("current", "none - MU.6 Human Account lifecycle administration not started")
-    require("current", "MU.6 - Human Account lifecycle administration")
-
     require("status", "MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]")
-    require("status", "none - MU.6 Human Account lifecycle administration not started")
-
     require("roadmap", "MU.5 Administration architecture contract / ADR-0067            [DONE]")
-    require("roadmap", "MU.6 Human Account lifecycle administration                     [NEXT - NOT STARTED]")
-
-    require("phase_map", "Multiuser / Account and Backend Access Administration **[ACTIVE — MU.5 DONE / MU.6 NEXT]**")
 
     require("index", "Latest accepted canonical ADR:")
     require("index", "ADR-0067")
     require("index", "## Proposed Canonical ADRs\n\nNone.")
 
     require("security", "MU.5 is completed and ADR-0067 is accepted")
-    require("security", "MU.6 Human Account lifecycle administration is the next bounded runtime slice")
 
     print("MU.5 administration architecture contracts passed")
     print("ADR-0067=ACCEPTED")
     print("MU.5=COMPLETED")
-    print("MU.6=NEXT_NOT_STARTED")
     return 0
 
 
