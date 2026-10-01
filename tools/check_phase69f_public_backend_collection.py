@@ -59,7 +59,11 @@ for token in (
     require(token in runtime, "public Backend runtime drifted: " + token)
 
 response_start = runtime.find("ApiResponse publicBackendCollectionResponse(")
-response_end = runtime.find("ApiResponse publicChannelCollectionResponse(", response_start)
+response_end = runtime.find("ApiResponse publicAccountResponse(", response_start)
+if response_end < 0:
+    response_end = runtime.find("ApiResponse publicAccountCollectionResponse(", response_start)
+if response_end < 0:
+    response_end = runtime.find("ApiResponse publicChannelCollectionResponse(", response_start)
 require(response_start >= 0 and response_end > response_start, "cannot bound public Backend response")
 response_body = runtime[response_start:response_end]
 for required in (

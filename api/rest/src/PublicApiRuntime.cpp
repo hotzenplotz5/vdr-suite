@@ -55,6 +55,8 @@ constexpr const char* PublicBackendCursorPayloadVersion =
     "backends/1|";
 constexpr const char* PublicAccountCollectionPath =
     "/api/v1/accounts";
+constexpr const char* PublicAccountPrefix =
+    "/api/v1/accounts/";
 constexpr std::size_t PublicAccountDefaultLimit = 50U;
 constexpr std::size_t PublicAccountMaximumLimit = 100U;
 constexpr const char* PublicAccountCollectionSort = "accountId";
@@ -97,6 +99,22 @@ bool publicOperationPath(
     operationId = path.substr(prefix.size());
     return !operationId.empty() &&
         operationId.find('/') == std::string::npos;
+}
+
+bool publicAccountPath(
+    const std::string& path,
+    std::string& accountId)
+{
+    const std::string prefix(PublicAccountPrefix);
+
+    if (path.compare(0, prefix.size(), prefix) != 0)
+    {
+        return false;
+    }
+
+    accountId = path.substr(prefix.size());
+    return !accountId.empty() &&
+        accountId.find('/') == std::string::npos;
 }
 
 bool publicTimerAssignmentPath(
@@ -1700,6 +1718,67 @@ ApiResponse publicBackendCollectionResponse(
         correlationId);
 }
 
+ApiResponse publicAccountResponse(
+    const PublicAccountResource& account,
+    const std::string& path,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::string& ifNoneMatch)
+{
+    const std::string entityTag =
+        vdrsuite::http::publicStrongEntityTag(
+            account.resourceRevision);
+
+    if (entityTag.empty())
+    {
+        return serviceUnavailableProblem(
+            path,
+            requestId,
+            correlationId);
+    }
+
+    const vdrsuite::http::PublicEntityTagConditionResult condition =
+        vdrsuite::http::publicEvaluateIfNoneMatch(
+            ifNoneMatch,
+            entityTag);
+
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::malformed)
+    {
+        return invalidRequestProblem(
+            path,
+            "If-None-Match is not a valid entity-tag condition.",
+            requestId,
+            correlationId);
+    }
+
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::matched)
+    {
+        ApiResponse response;
+        response.statusCode = 304;
+        response.contentType = "application/json; charset=utf-8";
+        addPublicSuccessHeaders(
+            response,
+            requestId,
+            correlationId);
+        response.headers["ETag"] = entityTag;
+        return response;
+    }
+
+    ApiResponse response = jsonResponse(
+        "{\"accountId\":\"" + jsonEscape(account.accountId) +
+        "\",\"actorId\":\"" + jsonEscape(account.actorId) +
+        "\",\"displayName\":\"" + jsonEscape(account.displayName) +
+        "\",\"active\":" +
+        std::string(account.active ? "true" : "false") +
+        ",\"links\":{\"self\":\"" + jsonEscape(path) + "\"}}",
+        requestId,
+        correlationId);
+    response.headers["ETag"] = entityTag;
+    return response;
+}
+
 ApiResponse publicAccountCollectionResponse(
     const PublicAccountCollectionResult& page,
     const PublicAccountCollectionQuery& query,
@@ -2039,6 +2118,42 @@ PublicApiRuntime::lookupAccountCollection(
     return lookup(request);
 }
 
+void PublicApiRuntime::registerAccountLookup(
+    AccountLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(
+        accountLookupMutex_);
+    accountLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetAccountLookup()
+{
+    std::lock_guard<std::mutex> lock(
+        accountLookupMutex_);
+    accountLookup_ = {};
+}
+
+bool PublicApiRuntime::accountLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        accountLookupMutex_);
+    return static_cast<bool>(accountLookup_);
+}
+
+PublicAccountLookupResult
+PublicApiRuntime::lookupAccount(
+    const std::string& accountId) const
+{
+    AccountLookup lookup;
+    {
+        std::lock_guard<std::mutex> lock(
+            accountLookupMutex_);
+        lookup = accountLookup_;
+    }
+    if (!lookup) return {};
+    return lookup(accountId);
+}
+
 void PublicApiRuntime::registerChannelCollectionLookup(
     ChannelCollectionLookup lookup)
 {
@@ -2209,6 +2324,63 @@ bool PublicApiRuntime::tryHandleGet(
                     path,
                     requestId,
                     correlationId);
+                return true;
+        }
+    }
+
+    std::string accountId;
+    if (publicAccountPath(path, accountId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        const PublicAccountLookupResult found =
+            lookupAccount(accountId);
+
+        switch (found.status)
+        {
+            case PublicAccountLookupStatus::ok:
+                if (found.account.accountId != accountId ||
+                    found.account.actorId.empty() ||
+                    found.account.displayName.empty() ||
+                    found.account.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                }
+                else
+                {
+                    response = publicAccountResponse(
+                        found.account,
+                        path,
+                        requestId,
+                        correlationId,
+                        ifNoneMatch);
+                }
+                return true;
+
+            case PublicAccountLookupStatus::invalid:
+                response = invalidRequestProblem(
+                    path,
+                    "The Account identifier is invalid.",
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountLookupStatus::notFound:
+                response = notFoundProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountLookupStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
                 return true;
         }
     }
@@ -2833,6 +3005,7 @@ bool PublicApiRuntime::tryHandlePost(
     const std::string path = requestPath(requestTarget);
     std::string operationId;
     std::string timerAssignmentId;
+    std::string accountId;
 
     if (publicTimerAssignmentPath(
             path,
@@ -3112,6 +3285,7 @@ bool PublicApiRuntime::tryHandlePost(
         path == "/api/v1/capabilities" ||
         path == PublicBackendCollectionPath ||
         path == PublicAccountCollectionPath ||
+        publicAccountPath(path, accountId) ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         publicOperationPath(path, operationId))
@@ -3142,6 +3316,7 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
     const std::string path = requestPath(requestTarget);
     std::string operationId;
     std::string timerAssignmentId;
+    std::string accountId;
 
     if (publicTimerAssignmentPath(
             path,
@@ -3159,6 +3334,7 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
         path == "/api/v1/capabilities" ||
         path == PublicBackendCollectionPath ||
         path == PublicAccountCollectionPath ||
+        publicAccountPath(path, accountId) ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         publicOperationPath(path, operationId))

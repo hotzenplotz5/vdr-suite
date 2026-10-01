@@ -394,8 +394,8 @@ Phase-62 identity/RBAC foundation
   -> MU.5 ADR-0067 administration architecture [DONE]
        -> MU.6 Human Account lifecycle administration [IN PROGRESS]
             -> MU.6A lifecycle authority [DONE]
-            -> MU.6B Account item/revision [NEXT]
-            -> MU.6C public lifecycle mutation
+            -> MU.6B Account item/revision [DONE]
+            -> MU.6C public lifecycle mutation [NEXT]
             -> MU.6D Account CREATE/idempotency
        -> MU.7 backend access / grant administration
        -> MU.8 credential/session administration
@@ -403,7 +403,7 @@ Phase-62 identity/RBAC foundation
             -> broad Timer Product UI mutation controls
 ```
 
-Core policy remains server-side. Administration UI/API must not invent permissions or backend scope. ADR-0067 is accepted; MU.6 is in progress with MU.6A lifecycle authority complete and MU.6B Account item/revision next. MU.7+ remains separate.
+Core policy remains server-side. Administration UI/API must not invent permissions or backend scope. ADR-0067 is accepted; MU.6 is in progress with MU.6A lifecycle authority and MU.6B Account item/revision complete and MU.6C public lifecycle mutation next. MU.7+ remains separate.
 
 ## Broad Timer Product UI
 

@@ -183,6 +183,30 @@ struct PublicAccountCollectionResult
     bool hasMore = false;
 };
 
+enum class PublicAccountLookupStatus
+{
+    ok,
+    invalid,
+    notFound,
+    unavailable,
+};
+
+struct PublicAccountResource
+{
+    std::string accountId;
+    std::string actorId;
+    std::string displayName;
+    bool active = false;
+    std::string resourceRevision;
+};
+
+struct PublicAccountLookupResult
+{
+    PublicAccountLookupStatus status =
+        PublicAccountLookupStatus::unavailable;
+    PublicAccountResource account;
+};
+
 enum class PublicTimerCreateAdmissionStatus
 {
     accepted,
@@ -244,6 +268,10 @@ public:
         std::function<PublicAccountCollectionResult(
             const PublicAccountCollectionRequest& request)>;
 
+    using AccountLookup =
+        std::function<PublicAccountLookupResult(
+            const std::string& accountId)>;
+
     using TimerCreateAdmission =
         std::function<PublicTimerCreateAdmissionResult(
             const PublicTimerCreateAdmissionRequest& request)>;
@@ -288,6 +316,12 @@ public:
     bool accountCollectionLookupConfigured() const;
     PublicAccountCollectionResult lookupAccountCollection(
         const PublicAccountCollectionRequest& request) const;
+
+    void registerAccountLookup(AccountLookup lookup);
+    void resetAccountLookup();
+    bool accountLookupConfigured() const;
+    PublicAccountLookupResult lookupAccount(
+        const std::string& accountId) const;
 
     void registerTimerCreateAdmission(TimerCreateAdmission admission);
     void resetTimerCreateAdmission();
@@ -346,6 +380,9 @@ private:
 
     mutable std::mutex accountCollectionLookupMutex_;
     AccountCollectionLookup accountCollectionLookup_;
+
+    mutable std::mutex accountLookupMutex_;
+    AccountLookup accountLookup_;
 
     mutable std::mutex timerCreateAdmissionMutex_;
     TimerCreateAdmission timerCreateAdmission_;

@@ -1082,6 +1082,60 @@ bool DaemonRuntime::initialize()
             return result;
         });
 
+    PublicApiRuntime::instance().registerAccountLookup(
+        [this](const std::string& accountId)
+        {
+            PublicAccountLookupResult result;
+            if (!humanAccountReadService_)
+            {
+                result.status =
+                    PublicAccountLookupStatus::unavailable;
+                return result;
+            }
+
+            const HumanAccountLookupResult found =
+                humanAccountReadService_->find(accountId);
+
+            switch (found.status)
+            {
+                case HumanAccountRepositoryStatus::ok:
+                    result.account.accountId =
+                        found.account.accountId;
+                    result.account.actorId =
+                        found.account.actorId;
+                    result.account.displayName =
+                        found.account.displayName;
+                    result.account.active =
+                        found.account.active;
+                    result.account.resourceRevision =
+                        "account:" +
+                        std::to_string(found.account.revision);
+                    result.status =
+                        PublicAccountLookupStatus::ok;
+                    return result;
+
+                case HumanAccountRepositoryStatus::invalid:
+                    result.status =
+                        PublicAccountLookupStatus::invalid;
+                    return result;
+
+                case HumanAccountRepositoryStatus::notFound:
+                    result.status =
+                        PublicAccountLookupStatus::notFound;
+                    return result;
+
+                case HumanAccountRepositoryStatus::revisionConflict:
+                case HumanAccountRepositoryStatus::storageError:
+                    result.status =
+                        PublicAccountLookupStatus::unavailable;
+                    return result;
+            }
+
+            result.status =
+                PublicAccountLookupStatus::unavailable;
+            return result;
+        });
+
     PublicApiRuntime::instance().registerAccountCollectionLookup(
         [this](const PublicAccountCollectionRequest& request)
         {
