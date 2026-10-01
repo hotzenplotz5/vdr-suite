@@ -6,11 +6,20 @@ const path = require('path');
 const clientPath = path.resolve(__dirname, '..', 'public-v1-client.js');
 const api = require(clientPath);
 
-function response(status, payload) {
+function response(status, payload, headers) {
+  const values = headers || {};
   return {
     ok: status >= 200 && status < 300,
     status,
-    headers: {get() { return null; }},
+    headers: {
+      get(name) {
+        const wanted = String(name).toLowerCase();
+        const key = Object.keys(values).find(
+          candidate => candidate.toLowerCase() === wanted
+        );
+        return key === undefined ? null : values[key];
+      }
+    },
     text() {
       return Promise.resolve(payload === null ? '' : JSON.stringify(payload));
     }
@@ -82,6 +91,67 @@ async function run() {
     /account query order/
   );
   assert.strictEqual(requests.length, beforeInvalid);
+
+  responseFactory = () => response(
+    200,
+    {
+      accountId: 'account-a',
+      actorId: 'actor-a',
+      displayName: 'Admin A',
+      active: true,
+      links: {self: '/api/v1/accounts/account-a'}
+    },
+    {ETag: '"vsr-account-a"'}
+  );
+
+  const item = await client.getAccount({
+    accountId: 'account-a',
+    ifNoneMatch: '"vsr-stale"'
+  });
+
+  assert.strictEqual(item.status, 200);
+  assert.strictEqual(item.etag, '"vsr-account-a"');
+  assert.strictEqual(item.data.accountId, 'account-a');
+  assert.strictEqual(item.data.actorId, 'actor-a');
+  assert.strictEqual(item.data.displayName, 'Admin A');
+  assert.strictEqual(item.data.active, true);
+  assert.strictEqual(
+    requests[1].url,
+    'https://suite.example/api/v1/accounts/account-a'
+  );
+  assert.strictEqual(requests[1].options.method, 'GET');
+  assert.strictEqual(
+    requests[1].options.headers['If-None-Match'],
+    '"vsr-stale"'
+  );
+
+  responseFactory = () => response(
+    304,
+    null,
+    {ETag: '"vsr-account-a"'}
+  );
+  const notModified = await client.getAccount({
+    accountId: 'account-a',
+    ifNoneMatch: '"vsr-account-a"'
+  });
+  assert.strictEqual(notModified.status, 304);
+  assert.strictEqual(notModified.etag, '"vsr-account-a"');
+  assert.strictEqual(notModified.data, null);
+
+  const beforeInvalidItem = requests.length;
+  assert.throws(
+    () => client.getAccount({accountId: ''}),
+    /Account item accountId/
+  );
+  assert.throws(
+    () => client.getAccount({accountId: 'account/a'}),
+    /path delimiter/
+  );
+  assert.throws(
+    () => client.getAccount({accountId: 'account-a', ifNoneMatch: ''}),
+    /ifNoneMatch/
+  );
+  assert.strictEqual(requests.length, beforeInvalidItem);
 
   console.log('test_public_v1_account_client passed');
 }
