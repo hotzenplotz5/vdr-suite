@@ -145,9 +145,18 @@ First Admin it is taken immediately after the atomic claim and before any
 security-mode transition. It must be identical after the complete retirement
 sequence.
 
+Database validation is deliberately a security-scoped SQLite integrity check.
+The runner enumerates the existing `security_*` tables plus
+`accountability_events`, then runs partial
+`PRAGMA quick_check(TABLENAME)` and
+`PRAGMA foreign_key_check(TABLENAME)` for each of those tables. It does not
+scan the complete production database, because Recording, EPG and media-cache
+tables are outside this retirement slice and a full quick-check on the real
+multi-gigabyte Suite database can be unbounded for interactive acceptance.
+
 The final daemon process must execute the exact candidate fingerprint, the
-service must be active, SQLite quick-check and foreign-key-check must pass and
-the final configuration must explicitly contain:
+service must be active, the security-scoped SQLite integrity and foreign-key
+checks must pass and the final configuration must explicitly contain:
 
 ```text
 VDR_SUITE_SECURITY_MODE=enforced
@@ -203,7 +212,8 @@ existing Human Account instead of creating another.
 The report is secret-free. It records the exact head and hosted-CI identifiers,
 daemon/configuration fingerprints, Human Account/Actor/login/credential
 identifiers, the before/after persistent identity fingerprint, HTTP status codes,
-SQLite integrity results, final security mode and evidence directory.
+the exact security-table integrity scope and results, final security mode and
+evidence directory.
 
 It does not record:
 
