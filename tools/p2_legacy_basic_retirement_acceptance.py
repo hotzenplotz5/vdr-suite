@@ -5,6 +5,7 @@ import argparse
 import base64
 import ctypes
 import ctypes.util
+import fcntl
 import getpass
 import hashlib
 import hmac
@@ -36,6 +37,16 @@ SECURITY_MODE_KEY = "VDR_SUITE_SECURITY_MODE"
 LEGACY_AUTH_PROBE_PATH = (
     "/api/v1/operations/p2-retirement-legacy-auth-probe-never-created"
 )
+PACKAGE_MAINTENANCE_SERVICES = (
+    "apt-daily.service",
+    "apt-daily-upgrade.service",
+)
+PACKAGE_MANAGER_LOCKS = (
+    Path("/var/lib/dpkg/lock-frontend"),
+    Path("/var/lib/dpkg/lock"),
+    Path("/var/cache/apt/archives/lock"),
+    Path("/var/lib/apt/lists/lock"),
+)
 
 
 class AcceptanceError(RuntimeError):
@@ -57,9 +68,51 @@ def run(root: Path, *arguments: str, check: bool = True) -> str:
         check=False,
     )
     if check and completed.returncode != 0:
-        command = arguments[0] if arguments else "unknown"
-        raise AcceptanceError(f"command_failed:{command}")
+        if arguments and arguments[0] == "systemctl" and len(arguments) > 1:
+            command = f"systemctl:{arguments[1]}"
+        else:
+            command = arguments[0] if arguments else "unknown"
+        raise AcceptanceError(
+            f"command_failed:{command}:exit_{completed.returncode}"
+        )
     return completed.stdout.strip()
+
+
+def require_package_maintenance_idle(root: Path) -> None:
+    for service in PACKAGE_MAINTENANCE_SERVICES:
+        state = run(
+            root,
+            "systemctl",
+            "is-active",
+            service,
+            check=False,
+        )
+        require(
+            state not in ("active", "activating", "reloading"),
+            f"package_maintenance_active:{service}:{state}",
+        )
+
+    for path in PACKAGE_MANAGER_LOCKS:
+        if not path.exists():
+            continue
+        try:
+            with path.open("r+") as handle:
+                locked = False
+                try:
+                    fcntl.lockf(
+                        handle.fileno(),
+                        fcntl.LOCK_EX | fcntl.LOCK_NB,
+                    )
+                    locked = True
+                except BlockingIOError:
+                    raise AcceptanceError(
+                        f"package_manager_lock_held:{path}"
+                    )
+                finally:
+                    if locked:
+                        fcntl.lockf(handle.fileno(), fcntl.LOCK_UN)
+        except FileNotFoundError:
+            continue
 
 
 def sha256(path: Path) -> str:
@@ -918,6 +971,7 @@ def main() -> int:
         configuration_sha(configuration) == arguments.expected_configuration_sha256,
         "configuration_fingerprint_changed",
     )
+    require_package_maintenance_idle(root)
     require(
         run(root, "systemctl", "is-active", arguments.service) == "active",
         "service_not_active",
