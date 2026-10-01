@@ -1,6 +1,7 @@
 #include "Database.h"
 #include "PersistentIdentityResolver.h"
 #include "SecurityIdentityRepository.h"
+#include "SecurityIdentityProvisioningRepository.h"
 
 #include <cassert>
 #include <cstdio>
@@ -13,17 +14,17 @@ RequestSecurityContext authenticatedContext()
 {
     RequestSecurityContext context;
     context.authenticationState = AuthenticationState::Authenticated;
-    context.actor.actorId = "legacy-local-web";
+    context.actor.actorId = "test-user";
     context.actor.type = ActorType::User;
     context.actor.displayName = "untrusted transient value";
-    context.device = DeviceIdentity{"legacy-browser", true};
+    context.device = DeviceIdentity{"test-device", true};
     context.session = SessionIdentity{
-        "legacy-basic-session",
+        "test-session",
         true,
         false,
         false};
     context.credential = CredentialIdentity{
-        "legacy-basic-credential",
+        "test-credential",
         true,
         false,
         false};
@@ -43,40 +44,43 @@ int main()
 
     SecurityIdentityRepository repository(database);
     assert(repository.ensureSchema());
-    assert(repository.ensureCompatibilityIdentity(
-        "legacy-local-web",
+    SecurityIdentityProvisioningRepository provisioning(database);
+    assert(provisioning.ensureIdentity(
+        "test-user",
         ActorType::User,
-        "Legacy local web client",
-        "legacy-browser",
-        "legacy-basic-session",
-        "legacy-basic-credential"));
+        "Test user",
+        "test-device",
+        "Test device",
+        "test-session",
+        "test-credential",
+        "test-credential"));
 
-    const auto actor = repository.findActor("legacy-local-web");
+    const auto actor = repository.findActor("test-user");
     assert(actor.has_value());
     assert(actor->type == ActorType::User);
-    assert(actor->displayName == "Legacy local web client");
+    assert(actor->displayName == "Test user");
     assert(actor->active);
     assert(!actor->revoked);
 
-    const auto device = repository.findDevice("legacy-browser");
+    const auto device = repository.findDevice("test-device");
     assert(device.has_value());
-    assert(device->actorId == "legacy-local-web");
+    assert(device->actorId == "test-user");
     assert(device->active);
     assert(!device->revoked);
 
-    const auto session = repository.findSession("legacy-basic-session");
+    const auto session = repository.findSession("test-session");
     assert(session.has_value());
-    assert(session->actorId == "legacy-local-web");
-    assert(session->deviceId == "legacy-browser");
+    assert(session->actorId == "test-user");
+    assert(session->deviceId == "test-device");
     assert(session->active);
     assert(!session->expired);
     assert(!session->revoked);
 
     const auto credential = repository.findCredential(
-        "legacy-basic-credential");
+        "test-credential");
     assert(credential.has_value());
-    assert(credential->actorId == "legacy-local-web");
-    assert(credential->credentialType == "legacy-basic");
+    assert(credential->actorId == "test-user");
+    assert(credential->credentialType == "test-credential");
     assert(credential->active);
     assert(!credential->expired);
     assert(!credential->revoked);
@@ -85,10 +89,10 @@ int main()
     RequestSecurityContext context = resolver.resolve(
         authenticatedContext());
     assert(context.authenticated());
-    assert(context.actor.displayName == "Legacy local web client");
+    assert(context.actor.displayName == "Test user");
 
     assert(repository.setSessionExpiry(
-        "legacy-basic-session",
+        "test-session",
         "2000-01-01 00:00:00"));
     context = resolver.resolve(authenticatedContext());
     assert(context.authenticationState == AuthenticationState::Expired);
@@ -96,10 +100,10 @@ int main()
     assert(context.session->expired);
 
     assert(repository.setSessionExpiry(
-        "legacy-basic-session",
+        "test-session",
         ""));
     assert(repository.revokeCredential(
-        "legacy-basic-credential"));
+        "test-credential"));
     context = resolver.resolve(authenticatedContext());
     assert(context.authenticationState == AuthenticationState::Revoked);
     assert(context.credential.has_value());
@@ -107,13 +111,15 @@ int main()
     assert(!context.credential->active);
 
     assert(!repository.revokeCredential("missing-credential"));
-    assert(!repository.ensureCompatibilityIdentity(
+    assert(!provisioning.ensureIdentity(
         "",
         ActorType::User,
         "invalid",
         "device",
+        "device",
         "session",
-        "credential"));
+        "credential",
+        "test-credential"));
 
     std::remove(path.c_str());
     return 0;
