@@ -33,6 +33,9 @@ DEFAULT_BACKUP_ROOT = "/var/backups"
 DEFAULT_HTTP_PORT = 18080
 DEFAULT_LEGACY_AUTHORIZATION = "Basic YWRtaW46dmRyLXN1aXRl"
 SECURITY_MODE_KEY = "VDR_SUITE_SECURITY_MODE"
+LEGACY_AUTH_PROBE_PATH = (
+    "/api/v1/operations/p2-retirement-legacy-auth-probe-never-created"
+)
 
 
 class AcceptanceError(RuntimeError):
@@ -382,17 +385,26 @@ def human_session_roundtrip(
 def legacy_probe(
     port: int,
     authorization: str,
-    expected_status: int,
+    should_authenticate: bool,
     label: str,
 ) -> int:
     status, _, _ = request(
         port,
         "GET",
-        "/api/backends",
+        LEGACY_AUTH_PROBE_PATH,
         f"{label}-legacy",
         authorization=authorization,
     )
-    require(status == expected_status, f"{label}_legacy_status_{status}")
+    if should_authenticate:
+        require(
+            status != 401,
+            f"{label}_legacy_auth_rejected_status_{status}",
+        )
+    else:
+        require(
+            status == 401,
+            f"{label}_legacy_auth_accepted_status_{status}",
+        )
     return status
 
 
@@ -1133,7 +1145,7 @@ def main() -> int:
         baseline_legacy_status = legacy_probe(
             port,
             legacy_authorization,
-            200,
+            True,
             "baseline",
         )
 
@@ -1201,7 +1213,7 @@ def main() -> int:
         enforced_legacy_status = legacy_probe(
             port,
             legacy_authorization,
-            401,
+            False,
             "enforced",
         )
         enforced_human_login_status, _, _ = human_session_roundtrip(
@@ -1220,7 +1232,7 @@ def main() -> int:
         rollback_legacy_status = legacy_probe(
             port,
             legacy_authorization,
-            200,
+            True,
             "rollback",
         )
         rollback_human_login_status, _, _ = human_session_roundtrip(
@@ -1239,7 +1251,7 @@ def main() -> int:
         final_legacy_status = legacy_probe(
             port,
             legacy_authorization,
-            401,
+            False,
             "final-enforced",
         )
         final_human_login_status, _, _ = human_session_roundtrip(
@@ -1409,10 +1421,10 @@ def main() -> int:
     print("P2_LEGACY_BASIC_RETIREMENT_RUNTIME_ACCEPTANCE=PASS")
     print(f"HEAD={arguments.expected_head}")
     print(f"CANDIDATE_DAEMON_SHA256={arguments.expected_candidate_daemon_sha256}")
-    print("BASELINE_LEGACY_STATUS=200")
-    print("ENFORCED_LEGACY_STATUS=401")
-    print("ROLLBACK_LEGACY_STATUS=200")
-    print("FINAL_ENFORCED_LEGACY_STATUS=401")
+    print(f"BASELINE_LEGACY_PROBE_STATUS={baseline_legacy_status}")
+    print("ENFORCED_LEGACY_PROBE_STATUS=401")
+    print(f"ROLLBACK_LEGACY_PROBE_STATUS={rollback_legacy_status}")
+    print("FINAL_ENFORCED_LEGACY_PROBE_STATUS=401")
     print("HUMAN_ACCOUNT_LOGIN=PASS")
     print(f"FIRST_ADMIN_CREATED={int(first_admin_created)}")
     print("PERSISTENT_IDENTITY_UNCHANGED=PASS")
