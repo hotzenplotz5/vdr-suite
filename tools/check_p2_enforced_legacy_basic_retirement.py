@@ -118,11 +118,9 @@ def main():
             "P2 Legacy Basic Retirement Closeout",
         ),
         "current": (
-            "Legacy Basic retirement",
             "Post-Phase-69 P2 Legacy Basic Retirement Closeout",
         ),
         "current_status": (
-            "Legacy Basic retirement",
             "P2 Legacy Basic Retirement Closeout",
         ),
         "handoff": (
