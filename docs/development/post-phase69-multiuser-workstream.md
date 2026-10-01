@@ -15,7 +15,9 @@ Account read foundation: completed
 First Admin / bootstrap / recovery: completed
 Legacy Basic retirement: completed
 Administration architecture: ADR-0067 [ACCEPTED]
-Next Multiuser runtime slice: MU.6 Human Account lifecycle administration [NOT STARTED]
+Current Multiuser runtime slice: MU.6 Human Account lifecycle administration [IN PROGRESS]
+Latest completed MU.6 sub-slice: MU.6A Account lifecycle authority foundation
+Next MU.6 sub-slice: MU.6B Public Account item + revision/ETag
 ```
 
 ## Binding architecture
@@ -111,19 +113,32 @@ The accepted contract freezes:
 Durable evidence:
 [MU.5 Administration Architecture Acceptance](post-phase69-mu5-administration-architecture-acceptance.md).
 
-### MU.6 — Human Account lifecycle administration [NEXT — NOT STARTED]
+### MU.6 — Human Account lifecycle administration [IN PROGRESS]
 
-Implement the first bounded runtime successor under accepted ADR-0067:
+Durable MU.6A evidence:
+[MU.6A Human Account Lifecycle Authority Foundation](post-phase69-mu6-account-lifecycle-foundation.md).
 
-- Account revision/item read;
-- atomic Human Account + initial human-password creation;
-- display-name mutation;
-- activate/deactivate;
-- immediate browser-session invalidation on deactivate;
-- final-usable-administrator protection for Account lifecycle.
+```text
+MU.6A Account lifecycle authority foundation            [DONE]
+MU.6B Public Account item + revision/ETag               [NEXT - NOT STARTED]
+MU.6C Public display-name / activate / deactivate       [PLANNED]
+MU.6D Atomic Account CREATE + durable idempotency       [PLANNED]
+```
 
-MU.6 remains separate from MU.7 grant administration and MU.8
-credential/session administration.
+MU.6A delivers:
+
+- persisted monotone Human Account revision with additive migration;
+- revision-checked display-name mutation;
+- Account/Actor display-name consistency in one transaction;
+- revision-checked activate/deactivate;
+- immediate canonical browser-session revocation on deactivate;
+- browser-session fail-closed Account-state resolution;
+- transactionally enforced final-usable-administrator protection;
+- secret-free accountability for success/conflict/denial.
+
+MU.6A does not expose new Public-v1 mutation routes and does not create later
+Human Accounts. MU.6B-C-D complete those remaining ADR-0067 Account lifecycle
+contracts before MU.7 begins.
 
 ### MU.7 — Backend access / permission grant administration [PLANNED]
 
@@ -161,7 +176,9 @@ ADR-0065 Human Account boundary [ACCEPTED]
   -> ADR-0066 First Admin/bootstrap/recovery [ACCEPTED + IMPLEMENTED]
   -> MU.4 Legacy Basic retirement [DONE]
   -> ADR-0067 Account/Backend Access Administration [ACCEPTED]
-       -> MU.6 Account lifecycle administration [NEXT - NOT STARTED]
+       -> MU.6 Account lifecycle administration [IN PROGRESS]
+            -> MU.6A lifecycle authority [DONE]
+            -> MU.6B Account item/revision [NEXT]
        -> MU.7 Backend access/grant administration
        -> MU.8 Credential/session administration
        -> MU.9 Account/access admin UI
@@ -183,6 +200,5 @@ Independent numbered track:
 - Device trust is not user identity or permission.
 - Capability never grants authorization.
 - No client/UI owns authorization policy.
-- ADR-0067 is accepted, but this workstream document does not claim MU.6 runtime
-  until a bounded implementation slice actually lands.
+- ADR-0067 is accepted; MU.6A is the first landed runtime boundary, while Public-v1 Account mutation and CREATE remain explicitly incomplete.
 - Phase 70 is not started by Multiuser work.
