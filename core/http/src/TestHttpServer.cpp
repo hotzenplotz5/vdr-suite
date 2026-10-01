@@ -236,18 +236,6 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
         return;
     }
 
-    if (!configuration.expectedAuthorizationHeader.empty() &&
-        !securityIdentityRepository_->ensureCompatibilityIdentity(
-            configuration.actorId,
-            ActorType::User,
-            configuration.actorDisplayName,
-            configuration.deviceId,
-            configuration.sessionId,
-            configuration.credentialId))
-    {
-        return;
-    }
-
     if (configuration.managedBasic.hasAnyConfiguration())
     {
         if (!securityIdentityProvisioningRepository_->ensureIdentity(
