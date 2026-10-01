@@ -222,13 +222,44 @@ It does not record:
 - browser cookies;
 - CSRF secrets.
 
-The real deployment execution remains pending until this runner completes with:
+## Accepted real yaVDR execution
+
+The supported real yaVDR deployment completed this acceptance successfully on
+2026-10-01.
+
+Accepted evidence:
 
 ```text
+acceptance_head=716dbbdceb95aa9c6ea93e169df2ac7364a65be7
+candidate_source_head=b811633c71695fc770feb35270b55969b46711b7
+candidate_daemon_sha256=6ebbcf9385f50f041490ae26bde590e16237119addffff8d2de168f8bca1cc14
+candidate_source_ci_run=9614
+candidate_source_ci_run_id=36814730148
 P2_LEGACY_BASIC_RETIREMENT_RUNTIME_ACCEPTANCE=PASS
-FINAL_SECURITY_MODE=enforced
+BASELINE_LEGACY_PROBE_STATUS=404
+ENFORCED_LEGACY_PROBE_STATUS=401
+ROLLBACK_LEGACY_PROBE_STATUS=404
+FINAL_ENFORCED_LEGACY_PROBE_STATUS=401
+HUMAN_ACCOUNT_LOGIN=PASS
+FIRST_ADMIN_CREATED=0
 PERSISTENT_IDENTITY_UNCHANGED=PASS
+FINAL_SECURITY_MODE=enforced
+evidence=/var/backups/vdr-suite-legacy-basic-retirement-20261001T060257Z-716dbbdceb95
+runtime_report_sha256=9ada9b32ecfffe1c714010c23c4fc84586775f23834fb3abbdfc5d2e56f53ea1
+final_service_pid=14232
 ```
 
-Only after that evidence is retained is the next deletion slice for the
-transitional Legacy Basic implementation justified.
+The successful run reused the already accepted candidate rather than rebuilding
+it. The only changes between the candidate source head and the acceptance head
+were this acceptance runner, its guard and this runbook.
+
+The real deployment rollback gate is satisfied by the successful
+`legacy-basic -> enforced -> legacy-basic -> enforced` sequence above. The
+deployment was deliberately left in `enforced` mode after the final proof.
+
+Documentation-only evidence commits after this accepted run do not invalidate
+the immutable candidate fingerprint or the retained runtime evidence and do not
+require another real yaVDR acceptance execution.
+
+This evidence justifies the next bounded deletion slice for the transitional
+Legacy Basic implementation.
