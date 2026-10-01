@@ -72,7 +72,7 @@ A gap is not closed by an ADR alone. Closure requires implementation, tests and 
 | G-34 | Client playback engine / media adaptation boundary | Closed foundation | Phase 65 completed browser Recording/Live playback, least-transformation selection, persistent ownership, seek/restart, normalized tracks, Volume/Mute, bounded fMP4 buffering and sync-safe exact HLS resume without another player core. | ADR-0053, ADR-0055 / Phase 65.D |
 | G-35 | Golden vertical product acceptance | Strong planning foundation | Component CI is complemented by real end-to-end Timer/media/failure journeys as capabilities land. | Golden User Journeys |
 | G-36 | Broad Timer Product UI | Planned cross-cutting milestone | Phase-64 engine is complete, but intent-first polished UI remains gated on required account/backend access administration. | Phase 62 + Phase 64 + Roadmap milestone |
-| G-37 | Account/backend access administration product | Planned cross-cutting milestone | Core RBAC exists; generic user/grant/backend administration surfaces were intentionally deferred from Phase 62. | Phase 62 foundation |
+| G-37 | Account/backend access administration product | Active cross-cutting milestone | MU.0-MU.4 are completed; current gate is proposed ADR-0067 before Human Account lifecycle, grant, credential/session and browser-admin runtime slices. | ADR-0061, ADR-0065, ADR-0066, proposed ADR-0067 / Multiuser workstream |
 | G-38 | Teletext domain service | Closed foundation | Canonical service/page/subpage domain, fenced provider/Agent path, authorized HTTP reads and first-party 25 x 40 browser/TV rendering are implemented and accepted on real yaVDR. | ADR-0054 / Phase 67 Teletext closeout |
 | G-39 | HbbTV broadcast application domain/runtime | Closed foundation | Canonical HbbTV discovery, authorized application session, normalized input and presentation/media runtime are implemented without public raw plugin/browser commands and accepted on real yaVDR. | ADR-0054 / Phase 67 closeout |
 | G-40 | Legacy Basic retirement | Closed deployment milestone | Guarded real-yaVDR migration/rollback evidence was accepted, then the Legacy Basic runtime authenticator/mode/fallback authority was removed. Preserved old defaults lines are inert; the rollback sequence is historical evidence only. | P2 Legacy Basic retirement closeout |
@@ -92,7 +92,7 @@ Phase 66 Media Home, Phase 67 Teletext/HbbTV, Phase 68 Legacy OSD and Phase 69 p
 
 ### Cross-cutting product work
 
-Legacy Basic retirement is completed; see the P2 retirement closeout. Account/backend access administration, broad Timer UI, audit/operations, client-family rollout, release packaging and federation/pairing remain separate cross-cutting product work that may proceed only when their own prerequisites and bounded contracts are satisfied. None of them starts Phase 70 implicitly.
+Legacy Basic retirement is completed; see the P2 retirement closeout. Multiuser / Account and Backend Access Administration is the active cross-cutting product workstream: MU.0-MU.4 are complete and MU.5 is proposed ADR-0067. Broad Timer UI remains gated on the required Multiuser administration surface. Audit/operations, client-family rollout, release packaging and federation/pairing remain separate cross-cutting work. None of these starts Phase 70.
 
 ## Maintenance rules
 
