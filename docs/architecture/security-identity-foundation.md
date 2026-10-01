@@ -176,9 +176,9 @@ Operators can perform a controlled compatibility rollback by explicitly setting
 database.
 
 This completes the bounded fresh-install migration and enforced-mode runtime
-fence required before real deployment acceptance, but full Legacy Basic removal remains deferred. Deleting the compatibility implementation still requires
-migration of remaining existing deployments and real deployment rollback
-evidence under the roadmap retirement milestone.
+fence required before real deployment acceptance. Guarded retirement runtime acceptance tooling now performs the explicit compatibility migration, rollback and final enforced transition while comparing a persistent Human Account identity fingerprint before and after the mode changes. It supports both already-claimed P2 databases and pre-P2/unclaimed databases: only the latter, and only under explicit `--bootstrap-first-admin`, may initialize the P2 schema and execute the existing root-only bootstrap plus atomic First Admin claim before the retirement transitions. It restores the prior daemon/configuration on acceptance failure and deliberately leaves a successful deployment in enforced mode.
+
+The full Legacy Basic removal remains deferred. Deleting the compatibility implementation still requires successful real yaVDR execution of that retirement runtime acceptance and retained deployment rollback evidence under the roadmap retirement milestone.
 
 ## Deferred capabilities
 

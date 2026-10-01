@@ -88,9 +88,9 @@ def main():
             "compatibility inputs effective again",
         ),
         "roadmap": (
-            "enforced runtime fence implemented",
+            "enforced runtime fence and supported real-yaVDR retirement acceptance completed",
             "no longer authenticates Legacy Basic",
-            "restore the deployment to `enforced`",
+            "successful deployment was left explicitly in `enforced`",
         ),
         "man": (
             "the Legacy Basic authenticator is",

@@ -457,3 +457,97 @@ existing claimed installation across `legacy-basic -> enforced -> legacy-basic`
 rollback, followed by the deliberate final migration to `enforced`. Only after
 that evidence is recorded is deletion of the compatibility implementation
 justified.
+
+
+## Legacy Basic retirement real-runtime acceptance tooling
+
+The remaining deployment gate now has a dedicated guarded runner rather than a
+manual sequence of configuration edits and daemon restarts.
+
+`tools/p2_legacy_basic_retirement_acceptance.py` is root-only for real
+execution and requires an exact clean repository head, exact remote ref, expected
+installed and candidate daemon fingerprints, the current configuration
+fingerprint, current service PID and the exact hosted-CI run identifiers before
+it can mutate the system.
+
+The acceptance sequence is deliberately
+`legacy-basic -> enforced -> legacy-basic -> enforced`:
+
+1. verify the existing deployment is still effectively in the compatibility
+   mode and classify the production security state as pre-P2, unclaimed or
+   claimed instead of assuming `security_human_accounts` already exists;
+2. for a claimed deployment, resolve exactly one selected active Human Account
+   administrator and verify its interactively entered password against the
+   persisted verifier before mutation; for a pre-P2/unclaimed deployment,
+   require explicit `--bootstrap-first-admin`, fingerprint the exact candidate
+   bootstrap issuer and collect the new First Admin login/display/password
+   interactively;
+3. install only the exact candidate `vdr-suite-daemon`, leaving VDR and the
+   Backend Agent untouched; this candidate startup initializes the P2 schema on
+   an older database;
+4. when the server was pre-P2/unclaimed, issue root-only short-lived bootstrap
+   material and atomically claim the First Admin through the existing claim
+   endpoint, then establish the persistent identity fingerprint;
+5. under the legacy baseline, prove both Legacy Basic protected access and a
+   complete Human Account browser-session issue/read/logout round trip;
+6. set only `VDR_SUITE_SECURITY_MODE=enforced`, restart only
+   `vdr-suite-daemon.service`, prove the legacy credential now receives HTTP
+   401, and prove Human Account login/read/logout still succeeds;
+7. set the mode explicitly to `legacy-basic`, restart only the daemon and
+   prove the compatibility credential is restored while Human Account login
+   still works;
+8. set the mode back to `enforced`, prove the final legacy denial and Human
+   Account success again, and leave the successful deployment in enforced mode.
+
+The runner preserves every non-mode line in the existing defaults file,
+including stale compatibility inputs, so the enforced check proves that the
+runtime fence from the previous slice is effective rather than merely proving
+that the old secret was deleted from configuration.
+
+It fingerprints the selected persistent Human Account, Actor,
+`human-password` credential, verifier and grants before and after the
+transitions. Browser-session rows and accountability evidence are intentionally
+excluded because the acceptance itself creates and revokes sessions. Database
+integrity validation is scoped to the existing `security_*` tables plus
+`accountability_events`; the runner uses partial SQLite quick-check and
+foreign-key checks instead of scanning the complete multi-gigabyte production
+database.
+
+No production database snapshot is restored. That avoids overwriting legitimate
+concurrent state. On any acceptance failure, the runner instead restores the
+exact pre-run daemon binary and exact pre-run defaults-file state, restarts only
+the daemon and records whether that failure restoration succeeded. On success it
+keeps the exact candidate daemon installed and the deployment explicitly
+`enforced`.
+
+The runtime evidence report contains identifiers, fingerprints and status codes,
+not the Human Account password, Legacy Basic authorization header, browser
+cookie, CSRF secret or password verifier.
+
+The supported real yaVDR deployment completed the guarded sequence successfully
+on 2026-10-01. Accepted runtime evidence was produced on acceptance head
+`716dbbdceb95aa9c6ea93e169df2ac7364a65be7` with candidate source head
+`b811633c71695fc770feb35270b55969b46711b7` and candidate daemon SHA-256
+`6ebbcf9385f50f041490ae26bde590e16237119addffff8d2de168f8bca1cc14`.
+The compatibility probe returned 404 at baseline, 401 in enforced mode, 404
+after explicit rollback and 401 again after the final enforced transition.
+Human Account login passed throughout, the persistent identity fingerprint was
+unchanged, and the deployment was left explicitly in `enforced` mode.
+
+The retained root-only evidence directory is
+`/var/backups/vdr-suite-legacy-basic-retirement-20261001T060257Z-716dbbdceb95`;
+the runtime report SHA-256 is
+`9ada9b32ecfffe1c714010c23c4fc84586775f23834fb3abbdfc5d2e56f53ea1`.
+This satisfies the real deployment migration/rollback gate. Transitional Legacy
+Basic implementation deletion remains a separate bounded follow-up slice.
+
+
+The first real yaVDR execution exposed an upgrade-shape assumption before any
+runtime mutation: the installed production database did not yet contain
+`security_human_accounts`, so the original runner raised a SQLite
+`no such table` exception during read-only preflight. The corrected contract
+treats that as a supported pre-P2 state. It never infers "unclaimed" merely from
+a missing eligible credential; when the Human Account schema exists it uses the
+same Account/Actor/admin-grant authority shape as
+`FirstAdminBootstrapRepository::claimState()` to distinguish claimed from
+unclaimed, then separately resolves the eligible Human Account credential.

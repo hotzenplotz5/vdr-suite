@@ -995,7 +995,7 @@ Do not reopen Phase 62 to implement these surfaces.
 
 ## Milestone D — Legacy Basic Retirement
 
-Status: **Fresh-install migration and enforced runtime fence implemented; real deployment acceptance pending.**
+Status: **Fresh-install migration, enforced runtime fence and supported real-yaVDR retirement acceptance completed; transitional implementation deletion remains a separate bounded slice.**
 
 Fresh packaged installations now select `VDR_SUITE_SECURITY_MODE=enforced`.
 The first-admin bootstrap, claim, human-password session bridge and local audited
@@ -1008,16 +1008,24 @@ defaults file still contains `VDR_SUITE_BASIC_AUTH` or other
 `VDR_SUITE_LEGACY_BASIC_*` inputs. Those compatibility inputs become effective
 only after an explicit `VDR_SUITE_SECURITY_MODE=legacy-basic` rollback.
 
-The remaining retirement work is narrower:
+The guarded real-runtime acceptance now covers both an already claimed installation and a pre-P2/unclaimed legacy installation across `legacy-basic -> enforced -> legacy-basic -> enforced`. For the pre-P2 shape it can, only with explicit `--bootstrap-first-admin`, let the exact candidate initialize the P2 schema and perform the existing root-bootstrap/atomic-claim flow before the mode migration. It proves Human Account browser login in both modes, Legacy Basic denial in enforced mode and restoration in rollback mode, preserves the persistent Human Account/Actor/credential/grant fingerprint, and leaves a successful deployment explicitly on `enforced`.
 
-- migrate remaining existing deployments deliberately to the enforced model;
-- record real deployment rollback evidence using the explicit
-  `VDR_SUITE_SECURITY_MODE=legacy-basic` compatibility rollback;
-- after successful rollback evidence, restore the deployment to `enforced`;
-- only then delete transitional Legacy Basic implementation support.
+The supported real yaVDR deployment completed the guarded acceptance on
+2026-10-01. The retained evidence proves compatibility baseline access, Legacy
+Basic denial in enforced mode, explicit compatibility rollback, restored Legacy
+Basic access after rollback, final enforced denial, Human Account browser login
+through every stage and an unchanged persistent Human Account identity. The
+successful deployment was left explicitly in `enforced`.
 
-The fresh-install default does not itself satisfy the real deployment rollback
-gate and does not authorize silent migration of existing installations.
+The remaining retirement work is now narrower:
+
+- migrate any other existing deployments deliberately to the enforced model
+  rather than silently changing their compatibility state;
+- in a separate bounded slice, delete transitional Legacy Basic implementation
+  support while preserving the documented explicit migration history.
+
+The fresh-install default alone did not satisfy the real deployment rollback
+gate; the accepted 2026-10-01 real-runtime sequence now does.
 
 This remains a deployment compatibility milestone, not a prerequisite for
 Streaming unless a concrete security requirement later makes it one.
