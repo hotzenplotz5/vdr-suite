@@ -8,6 +8,12 @@ FILES = {
     "config": ROOT / "core/security/include/SecurityConfiguration.h",
     "legacy": ROOT / "core/security/include/LegacyBasicAuthenticator.h",
     "server": ROOT / "core/http/src/TestHttpServer.cpp",
+    "http_gate": ROOT / "core/security/include/SecurityHttpGate.h",
+    "browser_gate_h": ROOT / "core/security/include/BrowserSessionHttpGate.h",
+    "browser_gate_cpp": ROOT / "core/security/src/BrowserSessionHttpGate.cpp",
+    "hbbtv": ROOT / "core/daemon/src/DaemonHbbtvRuntime.cpp",
+    "identity_h": ROOT / "core/security/include/SecurityIdentityRepository.h",
+    "identity_cpp": ROOT / "core/security/src/SecurityIdentityRepository.cpp",
     "config_test": ROOT / "core/security/tests/test_security_configuration.cpp",
     "http_test": ROOT / "core/security/tests/test_security_http_gate.cpp",
     "browser_test": ROOT / "core/security/tests/test_browser_session_http_gate.cpp",
@@ -28,80 +34,86 @@ def require(name, marker):
     if marker not in read(name):
         raise AssertionError(f"{FILES[name]} missing marker: {marker}")
 
+def forbid(name, marker):
+    if marker in read(name):
+        raise AssertionError(f"{FILES[name]} contains forbidden marker: {marker}")
+
 def main():
+    if FILES["legacy"].exists():
+        raise AssertionError(
+            "LegacyBasicAuthenticator.h still exists after retirement"
+        )
+
     for marker in (
-        'if (mode == "enforced")',
-        "configuration.expectedAuthorizationHeader.clear();",
-        "configuration.grants.clear();",
-        '"VDR_SUITE_BASIC_AUTH"',
-        '"VDR_SUITE_LEGACY_BASIC_PERMISSIONS"',
+        "LegacyBasicCompatibility",
+        "VDR_SUITE_BASIC_AUTH",
+        "VDR_SUITE_LEGACY_BASIC_",
+        "expectedAuthorizationHeader",
     ):
-        require("config", marker)
+        forbid("config", marker)
+
+    for name in ("server", "http_gate", "browser_gate_h", "browser_gate_cpp", "hbbtv"):
+        forbid(name, "LegacyBasicAuthenticator")
+
+    forbid("server", "ensureCompatibilityIdentity")
+    forbid("http_gate", "usesLegacyCompatibilityCredential")
+    forbid("browser_gate_cpp", "legacyAuthenticator_")
+    forbid("hbbtv", "LegacyBasicCompatibility")
+    forbid("identity_h", "ensureCompatibilityIdentity")
+    forbid("identity_cpp", "ensureCompatibilityIdentity")
 
     for marker in (
-        "configuration_.mode !=",
-        "SecurityMode::LegacyBasicCompatibility",
-        "return context;",
-    ):
-        require("legacy", marker)
-
-    require(
-        "server",
-        "if (!configuration.expectedAuthorizationHeader.empty() &&",
-    )
-
-    for marker in (
-        "enforcedWithLegacyEnvironment",
-        "enforcedWithLegacyEnvironment.expectedAuthorizationHeader.empty()",
-        "enforcedWithLegacyEnvironment.grants.empty()",
+        "retiredLegacyInputs",
         'setenv("VDR_SUITE_SECURITY_MODE", "legacy-basic", 1)',
+        'setenv("VDR_SUITE_BASIC_AUTH", "Basic configured", 1)',
     ):
         require("config_test", marker)
 
     for marker in (
-        "legacyRemoteDenied",
+        "addRetiredLegacyAuthentication",
         "deniedLegacyOperationRead",
-        "fixture.addBrowserAuthentication(remote, true)",
+        "retiredLegacyUnmigrated",
     ):
         require("http_test", marker)
 
     for marker in (
-        "enforcedLegacyLogin",
-        "enforcedManagedLogin",
-        "enforced.mode = SecurityMode::Enforced",
+        "kLegacyCredential",
+        "retiredLegacyLogin",
+        "managedLogin",
     ):
         require("browser_test", marker)
 
     for name, markers in {
         "adr": (
-            "hard Legacy Basic runtime boundary",
-            "old compatibility secret cannot silently reactivate",
-            "Only in that compatibility mode",
+            "Authentication default migration and retirement completion",
+            "There is therefore no runtime compatibility rollback",
+            "retired Legacy Basic configuration is not a recovery authority",
         ),
         "audit": (
-            "Enforced-mode Legacy Basic runtime fence",
-            "legacy-basic -> enforced -> legacy-basic",
-            "deletion of the compatibility implementation",
+            "Legacy Basic runtime implementation removal",
+            "Fresh package defaults no longer emit",
+            "negative credential probe",
         ),
         "architecture": (
-            "Explicit `enforced` mode now disables the Legacy Basic adapter",
-            "compatibility inputs effective again",
+            "Legacy Basic runtime compatibility is now removed",
+            "`LegacyBasicAuthenticator` is deleted",
+            "old package-default lines may survive an upgrade",
         ),
         "roadmap": (
-            "enforced runtime fence and supported real-yaVDR retirement acceptance completed",
-            "no longer authenticates Legacy Basic",
-            "successful deployment was left explicitly in `enforced`",
+            "transitional Legacy Basic runtime implementation removed",
+            "no Legacy Basic deployment mode or authenticator remains",
+            "not a current rollback procedure",
         ),
         "man": (
-            "the Legacy Basic authenticator is",
-            "Stale compatibility values",
-            "only then do those compatibility variables become",
+            "RETIRED SECURITY SETTINGS",
+            "Legacy Basic compatibility has been removed",
+            "cannot reactivate Legacy Basic authentication",
         ),
     }.items():
         for marker in markers:
             require(name, marker)
 
-    print("P2 enforced Legacy Basic retirement contracts passed")
+    print("P2 Legacy Basic runtime removal contracts passed")
     return 0
 
 if __name__ == "__main__":
@@ -109,7 +121,7 @@ if __name__ == "__main__":
         raise SystemExit(main())
     except AssertionError as error:
         print(
-            f"P2 enforced Legacy Basic retirement check failed: {error}",
+            f"P2 Legacy Basic runtime removal check failed: {error}",
             file=sys.stderr,
         )
         raise SystemExit(1)
