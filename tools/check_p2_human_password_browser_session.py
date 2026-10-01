@@ -112,7 +112,9 @@ def main():
         require("make", marker)
 
     forbid("defaults", "VDR_SUITE_HUMAN_PASSWORD")
-    require("defaults", "VDR_SUITE_SECURITY_MODE=enforced")
+    forbid("defaults", "VDR_SUITE_SECURITY_MODE=")
+    forbid("defaults", "VDR_SUITE_BASIC_AUTH=")
+    forbid("defaults", "VDR_SUITE_LEGACY_BASIC_")
     forbid("claim", "HumanPasswordBrowserAuthenticator")
 
     audit = " ".join(read("audit").split())
