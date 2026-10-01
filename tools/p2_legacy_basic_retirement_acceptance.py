@@ -1179,6 +1179,7 @@ def main() -> int:
     first_admin_created = False
 
     try:
+        require_package_maintenance_idle(root)
         run(root, "systemctl", "stop", arguments.service)
         require(
             run(
