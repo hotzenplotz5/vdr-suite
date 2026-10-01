@@ -809,10 +809,10 @@ def self_test() -> int:
 
     self_test_hash = system_crypt(
         "retirement-self-test",
-        "$6$vdrsuite-retirement$",
+        "$6$vdrsuite-test$",
     )
     require(
-        self_test_hash.startswith("$6$vdrsuite-retirement$"),
+        self_test_hash.startswith("$6$vdrsuite-test$"),
         "self_test_system_libcrypt_hash",
     )
     verify_human_password("retirement-self-test", self_test_hash)
