@@ -37,6 +37,7 @@ int main()
 {
     PublicApiRuntime& runtime = PublicApiRuntime::instance();
     runtime.resetAccountCollectionLookup();
+    runtime.resetAccountLookup();
 
     const std::vector<PublicAccountCollectionItem> configured = {
         account("account-a", "actor-a", "Admin A", true),
@@ -64,6 +65,35 @@ int main()
             if (result.hasMore)
                 eligible.resize(request.limit);
             result.accounts = std::move(eligible);
+            return result;
+        });
+
+    runtime.registerAccountLookup(
+        [](const std::string& accountId)
+        {
+            PublicAccountLookupResult result;
+            if (accountId == "invalid")
+            {
+                result.status = PublicAccountLookupStatus::invalid;
+                return result;
+            }
+            if (accountId == "unavailable")
+            {
+                result.status = PublicAccountLookupStatus::unavailable;
+                return result;
+            }
+            if (accountId != "account-a")
+            {
+                result.status = PublicAccountLookupStatus::notFound;
+                return result;
+            }
+
+            result.status = PublicAccountLookupStatus::ok;
+            result.account.accountId = "account-a";
+            result.account.actorId = "actor-a";
+            result.account.displayName = "Admin A";
+            result.account.active = true;
+            result.account.resourceRevision = "account:7";
             return result;
         });
 
@@ -128,6 +158,96 @@ int main()
     assert(second.statusCode == 200);
     assert(second.body.find("\"accountId\":\"account-b\"") != std::string::npos);
 
+    ApiResponse item;
+    assert(runtime.tryHandleGet(
+        "/api/v1/accounts/account-a",
+        "actor:test",
+        "mu6b-account-item",
+        "mu6b-account-correlation",
+        item));
+    assert(item.statusCode == 200);
+    assert(item.body.find("\"accountId\":\"account-a\"") != std::string::npos);
+    assert(item.body.find("\"actorId\":\"actor-a\"") != std::string::npos);
+    assert(item.body.find("\"displayName\":\"Admin A\"") != std::string::npos);
+    assert(item.body.find("\"active\":true") != std::string::npos);
+    assert(item.body.find("\"self\":\"/api/v1/accounts/account-a\"") !=
+        std::string::npos);
+    assert(item.body.find("resourceRevision") == std::string::npos);
+    assert(item.body.find("password") == std::string::npos);
+    assert(item.body.find("credential") == std::string::npos);
+    assert(item.body.find("session") == std::string::npos);
+    assert(item.body.find("grant") == std::string::npos);
+    assert(item.headers.count("ETag") == 1U);
+    assert(!item.headers.at("ETag").empty());
+    const std::string itemEtag = item.headers.at("ETag");
+
+    ApiResponse notModified;
+    assert(runtime.tryHandleGet(
+        "/api/v1/accounts/account-a",
+        "actor:test",
+        "mu6b-account-item-304",
+        "",
+        notModified,
+        itemEtag));
+    assert(notModified.statusCode == 304);
+    assert(notModified.body.empty());
+    assert(notModified.headers.at("ETag") == itemEtag);
+
+    ApiResponse malformedItemCondition;
+    assert(runtime.tryHandleGet(
+        "/api/v1/accounts/account-a",
+        "actor:test",
+        "mu6b-account-item-bad-etag",
+        "",
+        malformedItemCondition,
+        "not-an-etag"));
+    assert(malformedItemCondition.statusCode == 400);
+
+    ApiResponse missingItem;
+    assert(runtime.tryHandleGet(
+        "/api/v1/accounts/missing",
+        "actor:test",
+        "mu6b-account-item-missing",
+        "",
+        missingItem));
+    assert(missingItem.statusCode == 404);
+
+    ApiResponse invalidItem;
+    assert(runtime.tryHandleGet(
+        "/api/v1/accounts/invalid",
+        "actor:test",
+        "mu6b-account-item-invalid",
+        "",
+        invalidItem));
+    assert(invalidItem.statusCode == 400);
+
+    ApiResponse unavailableItem;
+    assert(runtime.tryHandleGet(
+        "/api/v1/accounts/unavailable",
+        "actor:test",
+        "mu6b-account-item-unavailable",
+        "",
+        unavailableItem));
+    assert(unavailableItem.statusCode == 503);
+
+    ApiResponse anonymousItem;
+    assert(runtime.tryHandleGet(
+        "/api/v1/accounts/account-a",
+        "",
+        "mu6b-account-item-anonymous",
+        "",
+        anonymousItem));
+    assert(anonymousItem.statusCode == 401);
+
+    ApiResponse nestedItem;
+    assert(runtime.tryHandleGet(
+        "/api/v1/accounts/account-a/private",
+        "actor:test",
+        "mu6b-account-item-nested",
+        "",
+        nestedItem));
+    assert(nestedItem.statusCode == 404);
+
     ApiResponse malformed;
     assert(runtime.tryHandleGet(
         "/api/v1/accounts?cursor=broken",
@@ -174,6 +294,15 @@ int main()
     assert(post.statusCode == 405);
     assert(post.headers.at("Allow") == "GET");
 
+    ApiResponse itemPost;
+    assert(runtime.tryHandlePost(
+        "/api/v1/accounts/account-a",
+        "mu6b-account-item-post",
+        "",
+        itemPost));
+    assert(itemPost.statusCode == 405);
+    assert(itemPost.headers.at("Allow") == "GET");
+
     for (const std::string& method :
          {std::string("PUT"),
           std::string("PATCH"),
@@ -190,7 +319,18 @@ int main()
             mismatch));
         assert(mismatch.statusCode == 405);
         assert(mismatch.headers.at("Allow") == "GET");
+
+        ApiResponse itemMismatch;
+        assert(runtime.tryHandleUnsupportedMethod(
+            method,
+            "/api/v1/accounts/account-a",
+            "mu6b-account-item-method",
+            "",
+            itemMismatch));
+        assert(itemMismatch.statusCode == 405);
+        assert(itemMismatch.headers.at("Allow") == "GET");
     }
 
+    runtime.resetAccountLookup();
     return 0;
 }
