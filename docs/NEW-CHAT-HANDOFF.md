@@ -203,7 +203,7 @@ Durable current evidence: [Post-Phase-69 P2 Legacy Basic Retirement Closeout](de
 
 1. Read `CURRENT.md` first.
 2. Query live `main` and the relevant PR/branch before making repository-state claims. If a GitHub Actions run exists for the relevant head, report its exact status/link. Do not wait on unrelated jobs before continuing already-approved surface-scoped work. If a relevant run is required for the next already-authorized gate and is queued or in progress, continue independent work and re-read that run before ending the working response; never return the stale non-terminal snapshot as the final state.
-3. Treat Phases 64 through 69 as completed for their accepted bounded scopes unless live repository state supersedes that evidence.
+3. Treat Phase 69 - Public API and Client Compatibility Hardening as completed and read `docs/development/phase-69-closeout.md`; treat Phases 64 through 68 as completed for their accepted bounded scopes unless live repository state supersedes that evidence.
 4. Treat the cross-cutting Multiuser / Account and Backend Access Administration workstream as active and read `docs/development/post-phase69-multiuser-workstream.md`.
 5. Treat ADR-0065 and ADR-0066 as accepted architecture, and ADR-0067 as the current **Proposed** Multiuser administration gate until repository state says otherwise.
 6. Treat MU.0-MU.4 as completed and do not redo First Admin/bootstrap/recovery or Legacy Basic retirement without a new demonstrated regression.
