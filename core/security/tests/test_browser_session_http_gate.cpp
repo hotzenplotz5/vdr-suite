@@ -63,14 +63,9 @@ BrowserSessionIssuanceService::EntropySource sequenceEntropy(
     };
 }
 
-SecurityConfiguration compatibility()
+SecurityConfiguration securityConfiguration()
 {
-    SecurityConfiguration configuration;
-    configuration.mode =
-        SecurityMode::LegacyBasicCompatibility;
-    configuration.expectedAuthorizationHeader = kLegacyCredential;
-    configuration.grants = {PermissionGrant{"*", "*"}};
-    return configuration;
+    return SecurityConfiguration{};
 }
 
 ManagedBasicConfiguration managedConfiguration()
@@ -133,14 +128,7 @@ int main()
     SecurityIdentityRepository identityRepository(database);
     assert(identityRepository.ensureSchema());
 
-    const SecurityConfiguration configuration = compatibility();
-    assert(identityRepository.ensureCompatibilityIdentity(
-        configuration.actorId,
-        ActorType::User,
-        configuration.actorDisplayName,
-        configuration.deviceId,
-        configuration.sessionId,
-        configuration.credentialId));
+    const SecurityConfiguration configuration = securityConfiguration();
 
     const ManagedBasicConfiguration managed = managedConfiguration();
     SecurityIdentityProvisioningRepository provisioningRepository(database);
@@ -205,25 +193,23 @@ int main()
     assert(anonymousLogin.rejection.body.find(
         "authentication_required") != std::string::npos);
 
-    SecurityConfiguration enforced = configuration;
-    enforced.mode = SecurityMode::Enforced;
     BrowserSessionHttpGate enforcedGate(
-        enforced,
+        configuration,
         accountabilityRepository,
         browserRepository,
         permissionGrantRepository,
         &identityResolver,
         &managedAuthenticator);
 
-    const BrowserSessionGateDecision enforcedLegacyLogin =
+    const BrowserSessionGateDecision retiredLegacyLogin =
         enforcedGate.evaluate(loginRequest(kLegacyCredential));
-    assert(!enforcedLegacyLogin.allowed);
-    assert(enforcedLegacyLogin.rejection.statusCode == 401);
+    assert(!retiredLegacyLogin.allowed);
+    assert(retiredLegacyLogin.rejection.statusCode == 401);
 
-    const BrowserSessionGateDecision enforcedManagedLogin =
+    const BrowserSessionGateDecision managedLogin =
         enforcedGate.evaluate(loginRequest(kManagedCredential));
-    assert(enforcedManagedLogin.allowed);
-    assert(enforcedManagedLogin.context.actor.actorId == managed.actorId);
+    assert(managedLogin.allowed);
+    assert(managedLogin.context.actor.actorId == managed.actorId);
 
     const BrowserSessionGateDecision wrongPassword =
         gate.evaluate(loginRequest(kManagedWrongCredential));
