@@ -3,7 +3,9 @@
 #include "AccountabilityEventRepository.h"
 #include "BrowserSessionAuthenticator.h"
 #include "BrowserSessionCredentialRepository.h"
+#include "CredentialVerifierRepository.h"
 #include "Database.h"
+#include "ManagedBasicAuthenticator.h"
 #include "PersistentIdentityResolver.h"
 #include "SecurityHttpGate.h"
 #include "SecurityIdentityProvisioningRepository.h"
@@ -16,8 +18,10 @@
 class SecurityHttpGateBrowserTestFixture
 {
 public:
-    static inline const std::string legacyCredential =
-        "Basic YWRtaW46dmRyLXN1aXRl";
+    static inline const std::string managedCredential =
+        "Basic cGhhc2U2Mi1hZG1pbjp0ZXN0LXBhc3N3b3Jk";
+    static inline const std::string managedPasswordHash =
+        "$6$testsalt$qzmynZ3SU0S5D.QBAsFplf6HVa.jpeEdx88KlHvhGfddFSPHoEWMArwiVQ1PLzZDrJJ9Vs/zKBgHPMSwmFddx.";
     static inline const std::string sessionSecret =
         "session-secret-0123456789abcdef0123456789";
     static inline const std::string csrfSecret =
@@ -25,12 +29,20 @@ public:
 
     static SecurityConfiguration configuration()
     {
-        SecurityConfiguration value;
-        value.mode = SecurityMode::LegacyBasicCompatibility;
-        value.expectedAuthorizationHeader = legacyCredential;
-        value.grants = {
-            PermissionGrant{"*", "*"}
-        };
+        return SecurityConfiguration{};
+    }
+
+    static ManagedBasicConfiguration managedConfiguration()
+    {
+        ManagedBasicConfiguration value;
+        value.username = "phase62-admin";
+        value.passwordHash = managedPasswordHash;
+        value.actorId = "phase62-managed-admin";
+        value.actorDisplayName = "Phase 62 managed administrator";
+        value.deviceId = "phase62-managed-admin-client";
+        value.sessionId = "phase62-managed-admin-session";
+        value.credentialId = "phase62-managed-admin-credential";
+        value.grants = {PermissionGrant{"*", "*"}};
         return value;
     }
 
@@ -38,6 +50,9 @@ public:
         : accountabilityRepository(database),
           identityRepository(database),
           provisioningRepository(database),
+          verifierRepository(database),
+          managedBasic(managedConfiguration()),
+          managedAuthenticator(managedBasic, verifierRepository),
           browserRepository(database),
           grantRepository(database),
           browserAuthenticator(
@@ -48,7 +63,7 @@ public:
               configuration(),
               accountabilityRepository,
               &identityResolver,
-              nullptr,
+              &managedAuthenticator,
               &browserAuthenticator)
     {
         assert(database.open(":memory:"));
@@ -57,15 +72,20 @@ public:
         assert(browserRepository.ensureSchema());
         assert(grantRepository.ensureSchema());
 
-        const SecurityConfiguration legacy =
-            configuration();
-        assert(identityRepository.ensureCompatibilityIdentity(
-            legacy.actorId,
+        assert(verifierRepository.ensureSchema());
+        assert(provisioningRepository.ensureIdentity(
+            managedBasic.actorId,
             ActorType::User,
-            legacy.actorDisplayName,
-            legacy.deviceId,
-            legacy.sessionId,
-            legacy.credentialId));
+            managedBasic.actorDisplayName,
+            managedBasic.deviceId,
+            "Managed Basic client",
+            managedBasic.sessionId,
+            managedBasic.credentialId,
+            "managed-basic"));
+        assert(verifierRepository.ensureVerifier(
+            managedBasic.credentialId,
+            managedBasic.username,
+            managedPasswordHash));
 
         assert(provisioningRepository.ensureIdentity(
             actorId,
@@ -116,11 +136,11 @@ public:
         return request;
     }
 
-    void addLegacyAuthentication(
+    void addManagedBasicAuthentication(
         HttpServerRequest& request) const
     {
         request.headers["Authorization"] =
-            legacyCredential;
+            managedCredential;
     }
 
     void addBrowserAuthentication(
@@ -139,6 +159,9 @@ public:
     AccountabilityEventRepository accountabilityRepository;
     SecurityIdentityRepository identityRepository;
     SecurityIdentityProvisioningRepository provisioningRepository;
+    CredentialVerifierRepository verifierRepository;
+    ManagedBasicConfiguration managedBasic;
+    ManagedBasicAuthenticator managedAuthenticator;
     BrowserSessionCredentialRepository browserRepository;
     SecurityPermissionGrantRepository grantRepository;
     BrowserSessionAuthenticator browserAuthenticator;

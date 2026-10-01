@@ -85,10 +85,6 @@ std::map<std::string, std::string> browserHeaders(
 SecurityConfiguration compatibilityConfiguration()
 {
     SecurityConfiguration configuration;
-    configuration.mode = SecurityMode::LegacyBasicCompatibility;
-    configuration.expectedAuthorizationHeader =
-        "Basic YWRtaW46dmRyLXN1aXRl";
-    configuration.grants = {PermissionGrant{"*", "*"}};
     return configuration;
 }
 

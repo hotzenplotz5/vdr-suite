@@ -29,73 +29,25 @@ int main()
 {
     clearEnvironment();
 
-    const SecurityConfiguration compatibility =
+    const SecurityConfiguration defaults =
         SecurityConfiguration::fromEnvironment();
-    assert(compatibility.mode ==
-        SecurityMode::LegacyBasicCompatibility);
-    assert(!compatibility.expectedAuthorizationHeader.empty());
-    assert(compatibility.credentialId ==
-        "legacy-basic-credential");
-    assert(compatibility.grants.size() == 1);
-    assert(compatibility.grants.front().permission == "*");
-    assert(!compatibility.managedBasic.hasAnyConfiguration());
-    assert(!compatibility.managedBasic.complete());
-    assert(compatibility.managedBasic.grants.empty());
-    assert(compatibility.browserSessionLifetime.valid());
-    assert(compatibility.browserSessionLifetime.seconds == 28800);
-    assert(compatibility.browserSessionConcurrency.valid());
-    assert(compatibility.browserSessionConcurrency.maximumActivePerActor == 0);
-
-    setenv("VDR_SUITE_SECURITY_MODE", "enforced", 1);
-    const SecurityConfiguration failClosed =
-        SecurityConfiguration::fromEnvironment();
-    assert(failClosed.mode == SecurityMode::Enforced);
-    assert(failClosed.expectedAuthorizationHeader.empty());
-    assert(failClosed.grants.empty());
+    assert(!defaults.managedBasic.hasAnyConfiguration());
+    assert(!defaults.managedBasic.complete());
+    assert(defaults.managedBasic.grants.empty());
+    assert(defaults.browserSessionLifetime.valid());
+    assert(defaults.browserSessionLifetime.seconds == 28800);
+    assert(defaults.browserSessionConcurrency.valid());
+    assert(defaults.browserSessionConcurrency.maximumActivePerActor == 0);
 
     setenv("VDR_SUITE_SECURITY_MODE", "legacy-basic", 1);
-    const SecurityConfiguration explicitCompatibilityRollback =
+    setenv("VDR_SUITE_BASIC_AUTH", "Basic retired", 1);
+    setenv("VDR_SUITE_LEGACY_BASIC_CREDENTIAL_ID", "retired", 1);
+    setenv("VDR_SUITE_LEGACY_BASIC_PERMISSIONS", "*@*", 1);
+    const SecurityConfiguration retiredLegacyInputs =
         SecurityConfiguration::fromEnvironment();
-    assert(
-        explicitCompatibilityRollback.mode ==
-        SecurityMode::LegacyBasicCompatibility);
-    assert(!explicitCompatibilityRollback.expectedAuthorizationHeader.empty());
-    assert(explicitCompatibilityRollback.grants.size() == 1);
-
-    setenv("VDR_SUITE_SECURITY_MODE", "enforced", 1);
-    setenv("VDR_SUITE_BASIC_AUTH", "Basic configured", 1);
-    setenv(
-        "VDR_SUITE_LEGACY_BASIC_CREDENTIAL_ID",
-        "credential-configured",
-        1);
-    setenv(
-        "VDR_SUITE_LEGACY_BASIC_PERMISSIONS",
-        "remote.control@default, recordings.view@*",
-        1);
-    const SecurityConfiguration enforcedWithLegacyEnvironment =
-        SecurityConfiguration::fromEnvironment();
-    assert(
-        enforcedWithLegacyEnvironment.mode ==
-        SecurityMode::Enforced);
-    assert(
-        enforcedWithLegacyEnvironment.expectedAuthorizationHeader.empty());
-    assert(
-        enforcedWithLegacyEnvironment.credentialId ==
-        "legacy-basic-credential");
-    assert(enforcedWithLegacyEnvironment.grants.empty());
-
-    setenv("VDR_SUITE_SECURITY_MODE", "legacy-basic", 1);
-    const SecurityConfiguration configured =
-        SecurityConfiguration::fromEnvironment();
-    assert(configured.expectedAuthorizationHeader ==
-        "Basic configured");
-    assert(configured.credentialId ==
-        "credential-configured");
-    assert(configured.grants.size() == 2);
-    assert(configured.grants[0].permission == "remote.control");
-    assert(configured.grants[0].backendId == "default");
-    assert(configured.grants[1].permission == "recordings.view");
-    assert(configured.grants[1].backendId == "*");
+    assert(!retiredLegacyInputs.managedBasic.hasAnyConfiguration());
+    assert(retiredLegacyInputs.browserSessionLifetime.valid());
+    assert(retiredLegacyInputs.browserSessionLifetime.seconds == 28800);
 
     clearEnvironment();
     setenv("VDR_SUITE_MANAGED_BASIC_USERNAME", "phase62-admin", 1);

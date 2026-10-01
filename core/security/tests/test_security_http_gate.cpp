@@ -43,14 +43,7 @@ HttpServerRequest publicOperationGetRequest()
 
 SecurityConfiguration enforcedConfiguration()
 {
-    SecurityConfiguration configuration;
-    configuration.mode = SecurityMode::Enforced;
-    configuration.expectedAuthorizationHeader =
-        SecurityHttpGateBrowserTestFixture::legacyCredential;
-    configuration.grants = {
-        PermissionGrant{"remote.control", "default"}
-    };
-    return configuration;
+    return SecurityConfiguration{};
 }
 
 void setLiveChannelBody(HttpServerRequest& request, const std::string& backendId)
@@ -109,14 +102,14 @@ int main()
         "\"correlationId\":\"phase69b-public-security-correlation\"") !=
         std::string::npos);
 
-    HttpServerRequest legacyGet = getRequest();
-    fixture.addLegacyAuthentication(legacyGet);
+    HttpServerRequest managedGet = getRequest();
+    fixture.addManagedBasicAuthentication(managedGet);
 
-    const SecurityGateDecision legacyAllowed =
-        fixture.gate.evaluate(legacyGet);
-    assert(legacyAllowed.allowed);
-    assert(legacyAllowed.context.actor.actorId ==
-        "legacy-local-web");
+    const SecurityGateDecision managedAllowed =
+        fixture.gate.evaluate(managedGet);
+    assert(managedAllowed.allowed);
+    assert(managedAllowed.context.actor.actorId ==
+        fixture.managedBasic.actorId);
 
     HttpServerRequest browserPreferred = getRequest();
     fixture.addBrowserAuthentication(browserPreferred);
@@ -135,7 +128,7 @@ int main()
     invalidBrowser.headers["Cookie"] =
         "vdr_suite_session=" + fixture.tokenId +
         ".invalid-session-secret";
-    fixture.addLegacyAuthentication(invalidBrowser);
+    fixture.addManagedBasicAuthentication(invalidBrowser);
 
     const SecurityGateDecision invalidBrowserDecision =
         fixture.gate.evaluate(invalidBrowser);
@@ -406,13 +399,15 @@ int main()
         "\"error\":{") !=
         std::string::npos);
 
-    HttpServerRequest legacyUnmigrated =
+    HttpServerRequest managedUnmigrated =
         fixture.mutationRequest(
             "/api/phase62/unmapped-mutation",
             "default");
-    fixture.addLegacyAuthentication(legacyUnmigrated);
-    assert(fixture.gate.evaluate(
-        legacyUnmigrated).allowed);
+    fixture.addManagedBasicAuthentication(managedUnmigrated);
+    const SecurityGateDecision managedUnmigratedDenied =
+        fixture.gate.evaluate(managedUnmigrated);
+    assert(!managedUnmigratedDenied.allowed);
+    assert(managedUnmigratedDenied.rejection.statusCode == 503);
 
     assert(fixture.grantRepository.ensureGrant(
         fixture.actorId,
@@ -426,15 +421,16 @@ int main()
         nullptr,
         &fixture.browserAuthenticator);
 
-    HttpServerRequest legacyRemote =
+    HttpServerRequest retiredLegacyRemote =
         fixture.mutationRequest(
             "/api/vdr/remote/actions",
             "default");
-    fixture.addLegacyAuthentication(legacyRemote);
-    const SecurityGateDecision legacyRemoteDenied =
-        enforcedGate.evaluate(legacyRemote);
-    assert(!legacyRemoteDenied.allowed);
-    assert(legacyRemoteDenied.rejection.statusCode == 401);
+    retiredLegacyRemote.headers["Authorization"] =
+        "Basic YWRtaW46dmRyLXN1aXRl";
+    const SecurityGateDecision retiredLegacyRemoteDenied =
+        enforcedGate.evaluate(retiredLegacyRemote);
+    assert(!retiredLegacyRemoteDenied.allowed);
+    assert(retiredLegacyRemoteDenied.rejection.statusCode == 401);
 
     HttpServerRequest remote =
         fixture.mutationRequest(
@@ -457,15 +453,15 @@ int main()
         "\"code\":\"unauthorized\"") !=
         std::string::npos);
 
-    HttpServerRequest legacyOperationRead =
+    HttpServerRequest retiredLegacyOperationRead =
         publicOperationGetRequest();
-    fixture.addLegacyAuthentication(
-        legacyOperationRead);
-    const SecurityGateDecision deniedLegacyOperationRead =
+    retiredLegacyOperationRead.headers["Authorization"] =
+        "Basic YWRtaW46dmRyLXN1aXRl";
+    const SecurityGateDecision deniedRetiredLegacyOperationRead =
         enforcedGate.evaluate(
-            legacyOperationRead);
-    assert(!deniedLegacyOperationRead.allowed);
-    assert(deniedLegacyOperationRead.rejection.statusCode == 401);
+            retiredLegacyOperationRead);
+    assert(!deniedRetiredLegacyOperationRead.allowed);
+    assert(deniedRetiredLegacyOperationRead.rejection.statusCode == 401);
 
     HttpServerRequest authenticatedOperationRead =
         publicOperationGetRequest();
@@ -497,7 +493,7 @@ int main()
         "phase62-test-operation");
 
     assert(!enforcedGate.appendProtectedMutationOutcome(
-        legacyAllowed,
+        managedAllowed,
         200));
     assert(enforcedGate.appendProtectedMutationOutcome(
         remoteAllowed,
