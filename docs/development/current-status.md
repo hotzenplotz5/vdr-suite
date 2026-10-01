@@ -27,6 +27,8 @@ Next strict numbered runtime phase: **Phase 70 - Recommendation and Content Know
 
 Current active runtime slice: **none - Phase 70 - Recommendation and Content Knowledge Graph not started**.
 
+Post-Phase-69 P2 Legacy Basic retirement is completed and accepted on the real yaVDR target. Durable evidence is in [P2 Legacy Basic Retirement Closeout](post-phase69-p2-legacy-basic-retirement-closeout.md). No successor cross-cutting productization runtime slice becomes active automatically from that closure.
+
 69.D is completed; durable evidence is in
 [Phase 69.D Closeout](phase-69d-closeout.md). PR #363 accepted the backend-scoped
 TimerAssignment collection and its standard envelope/keyset contract. PR #364
@@ -155,26 +157,27 @@ Phase 64 reliable Timer orchestration engine [COMPLETED]
   -> Phase 66 Media Home and Browse Experience [COMPLETED]
   -> Phase 67 Broadcast Companion Services: Teletext and HbbTV [COMPLETED]
   -> Phase 68 Legacy OSD Compatibility Bridge [COMPLETED]
-  -> Phase 69 Public API and Client Compatibility Hardening
-  -> Phase 70 Recommendation and Content Knowledge Graph
+  -> Phase 69 Public API and Client Compatibility Hardening [COMPLETED]
+  -> Phase 70 Recommendation and Content Knowledge Graph [NOT STARTED]
 ```
 
-ADR-0054 remains the binding completed Broadcast Companion architecture. ADR-0047 owns the active Phase-68 Legacy OSD boundary.
+ADR-0054 remains the binding completed Broadcast Companion architecture. ADR-0047 owns the completed Phase-68 Legacy OSD boundary, and ADR-0048 owns the completed Phase-69 public API/client compatibility boundary.
 
 ## Retained deferred boundaries
 
-The following are not unfinished Phase 65/66 work:
+Legacy OSD (Phase 68), the stable public `/api/v1` client boundary (Phase 69) and Legacy Basic retirement are completed and are not deferred work.
+
+The following remain explicit open/deferred boundaries rather than unfinished Phase 65/66 work:
 
 - user-visible growing-Recording seek where unsupported capability remains truthful;
 - Live-TV timeshift;
-- Legacy OSD compatibility (Phase 68);
-- stable public `/api/v1` client contract (Phase 69);
-- recommendation/content graph runtime (Phase 70);
+- recommendation/content graph runtime (Phase 70), which still requires its dedicated accepted ADR;
 - broad Timer Product UI and account/backend access administration as cross-cutting product milestones.
 
 ## Related documents
 
 - [Current State](../CURRENT.md)
+- [P2 Legacy Basic Retirement Closeout](post-phase69-p2-legacy-basic-retirement-closeout.md)
 - [Phase 68.E Viewer-Binding Closeout](phase-68e-viewer-bindings-closeout.md)
 - [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md)
 - [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
