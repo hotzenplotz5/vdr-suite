@@ -9,11 +9,12 @@ constexpr const char* Permission = "accounts.view";
 constexpr const char* Route = "/api/v1/accounts";
 
 HttpServerRequest browserGet(
-    SecurityHttpGateBrowserTestFixture& fixture)
+    SecurityHttpGateBrowserTestFixture& fixture,
+    const std::string& route = Route)
 {
     HttpServerRequest request;
     request.method = "GET";
-    request.path = Route;
+    request.path = route;
     request.headers["X-Request-ID"] =
         "p2-public-account-collection";
     fixture.addBrowserAuthentication(request);
@@ -57,6 +58,16 @@ int main()
         assert(hasDecisionEvent(
             fixture.accountabilityRepository,
             "permission_granted"));
+
+        const SecurityGateDecision itemDecision =
+            fixture.gate.evaluate(
+                browserGet(fixture, "/api/v1/accounts/account-a"));
+        assert(itemDecision.allowed);
+        assert(!itemDecision.protectedMutation);
+        assert(itemDecision.authorizationDecision.allowed);
+        assert(itemDecision.authorizationDecision.permission == Permission);
+        assert(itemDecision.authorizationDecision.backendId == "*");
+        assert(itemDecision.authorizationDecision.action == "accounts.view");
     }
 
     {
@@ -75,6 +86,12 @@ int main()
         assert(hasDecisionEvent(
             fixture.accountabilityRepository,
             "backend_scope_denied"));
+
+        const SecurityGateDecision itemDecision =
+            fixture.gate.evaluate(
+                browserGet(fixture, "/api/v1/accounts/account-a"));
+        assert(!itemDecision.allowed);
+        assert(itemDecision.rejection.statusCode == 403);
     }
 
     {
@@ -92,6 +109,13 @@ int main()
         assert(hasDecisionEvent(
             fixture.accountabilityRepository,
             "role_permission_granted"));
+
+        const SecurityGateDecision itemDecision =
+            fixture.gate.evaluate(
+                browserGet(fixture, "/api/v1/accounts/account-a"));
+        assert(itemDecision.allowed);
+        assert(itemDecision.authorizationDecision.reasonCode ==
+            "role_permission_granted");
     }
 
     {
@@ -110,6 +134,12 @@ int main()
         assert(hasDecisionEvent(
             fixture.accountabilityRepository,
             "backend_scope_denied"));
+
+        const SecurityGateDecision itemDecision =
+            fixture.gate.evaluate(
+                browserGet(fixture, "/api/v1/accounts/account-a"));
+        assert(!itemDecision.allowed);
+        assert(itemDecision.rejection.statusCode == 403);
     }
 
     {
@@ -123,6 +153,12 @@ int main()
         assert(hasDecisionEvent(
             fixture.accountabilityRepository,
             "permission_denied"));
+
+        const SecurityGateDecision itemDecision =
+            fixture.gate.evaluate(
+                browserGet(fixture, "/api/v1/accounts/account-a"));
+        assert(!itemDecision.allowed);
+        assert(itemDecision.rejection.statusCode == 403);
     }
 
     {
@@ -136,6 +172,12 @@ int main()
             fixture.gate.evaluate(anonymous);
         assert(!decision.allowed);
         assert(decision.rejection.statusCode == 401);
+
+        anonymous.path = "/api/v1/accounts/account-a";
+        const SecurityGateDecision itemDecision =
+            fixture.gate.evaluate(anonymous);
+        assert(!itemDecision.allowed);
+        assert(itemDecision.rejection.statusCode == 401);
     }
 
     return 0;
