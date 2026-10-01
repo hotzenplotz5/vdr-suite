@@ -626,12 +626,63 @@ def server_claimed(database: sqlite3.Connection) -> bool:
     return row is not None
 
 
-def verify_database(database: sqlite3.Connection) -> tuple[str, int]:
-    quick = str(database.execute("PRAGMA quick_check").fetchone()[0])
-    foreign_keys = database.execute("PRAGMA foreign_key_check").fetchall()
-    require(quick == "ok", "sqlite_quick_check_failed")
-    require(not foreign_keys, "sqlite_foreign_key_check_failed")
-    return quick, len(foreign_keys)
+def security_integrity_tables(
+    database: sqlite3.Connection,
+) -> list[str]:
+    rows = database.execute(
+        """
+        SELECT name
+        FROM sqlite_master
+        WHERE type = 'table'
+          AND (
+              substr(name, 1, 9) = 'security_'
+              OR name = 'accountability_events'
+          )
+        ORDER BY name
+        """
+    ).fetchall()
+    tables = [str(row[0]) for row in rows]
+    for table in tables:
+        require(
+            table == "accountability_events"
+            or (
+                table.startswith("security_")
+                and all(character.isalnum() or character == "_" for character in table)
+            ),
+            "sqlite_integrity_table_name_invalid",
+        )
+    return tables
+
+
+def verify_database(database: sqlite3.Connection) -> tuple[str, int, str]:
+    tables = security_integrity_tables(database)
+    require(tables, "sqlite_security_integrity_scope_empty")
+
+    foreign_key_violations = 0
+    for table in tables:
+        quoted_table = "'" + table.replace("'", "''") + "'"
+        quick_rows = database.execute(
+            f"PRAGMA quick_check({quoted_table})"
+        ).fetchall()
+        require(
+            quick_rows == [("ok",)],
+            f"sqlite_security_quick_check_failed:{table}",
+        )
+
+        foreign_rows = database.execute(
+            f"PRAGMA foreign_key_check({quoted_table})"
+        ).fetchall()
+        require(
+            not foreign_rows,
+            f"sqlite_security_foreign_key_check_failed:{table}",
+        )
+        foreign_key_violations += len(foreign_rows)
+
+    return (
+        f"security-scope-ok:{len(tables)}",
+        foreign_key_violations,
+        ",".join(tables),
+    )
 
 
 def eligible_human_admins(
@@ -908,6 +959,19 @@ def self_test() -> int:
                 server_claimed(database),
                 "self_test_claimed_detection",
             )
+            quick, foreign_keys, integrity_tables = verify_database(database)
+            require(
+                quick.startswith("security-scope-ok:"),
+                "self_test_security_scoped_quick_check",
+            )
+            require(
+                foreign_keys == 0,
+                "self_test_security_scoped_foreign_key_check",
+            )
+            require(
+                "security_human_accounts" in integrity_tables,
+                "self_test_security_integrity_scope",
+            )
 
         bootstrap_id, bootstrap_secret = bootstrap_output(
             "bootstrap_id=bootstrap_test\n"
@@ -1089,10 +1153,15 @@ def main() -> int:
     password_hash = ""
     identity_before = ""
     initial_claim_state = "pre-p2"
+    initial_integrity_tables = ""
     admins: list[tuple[str, str, str, str, str]] = []
 
     with closing(database_connection(database_path)) as database:
-        initial_quick, initial_foreign_keys = verify_database(database)
+        (
+            initial_quick,
+            initial_foreign_keys,
+            initial_integrity_tables,
+        ) = verify_database(database)
         if table_exists(database, "security_human_accounts"):
             try:
                 claimed = server_claimed(database)
@@ -1233,6 +1302,7 @@ def main() -> int:
     identity_after = ""
     final_quick = ""
     final_foreign_keys = -1
+    final_integrity_tables = ""
     first_admin_created = False
 
     try:
@@ -1399,7 +1469,11 @@ def main() -> int:
         require(run(root, "git", "status", "--porcelain") == "", "worktree_changed")
 
         with closing(database_connection(database_path)) as database:
-            final_quick, final_foreign_keys = verify_database(database)
+            (
+                final_quick,
+                final_foreign_keys,
+                final_integrity_tables,
+            ) = verify_database(database)
             current_admins = eligible_human_admins(database, login_name)
             require(len(current_admins) == 1, "final_human_admin_resolution_changed")
             current_account_id, current_actor_id, current_login_name, current_credential_id, _ = current_admins[0]
@@ -1457,8 +1531,10 @@ def main() -> int:
                 ("final_enforced_human_login_status", final_human_login_status),
                 ("initial_sqlite_quick_check", initial_quick),
                 ("initial_sqlite_foreign_key_violations", initial_foreign_keys),
+                ("initial_sqlite_integrity_tables", initial_integrity_tables),
                 ("final_sqlite_quick_check", final_quick),
                 ("final_sqlite_foreign_key_violations", final_foreign_keys),
+                ("final_sqlite_integrity_tables", final_integrity_tables),
                 ("final_service_pid", final_pid),
                 (
                     "final_configuration_mode",
