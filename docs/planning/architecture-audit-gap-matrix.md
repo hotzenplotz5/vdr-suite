@@ -60,7 +60,7 @@ A gap is not closed by an ADR alone. Closure requires implementation, tests and 
 | G-22 | Agent authentication and credential lifecycle | Closed foundation | Agent identity, enrolled trust and credential generation/lifecycle are established. | ADR-0041 |
 | G-23 | Explicit multi-site trust boundary | Closed foundation | Agent/backend/site identity and generation fencing provide the platform trust boundary; media and later domains must reuse it. | ADR-0039-0041 |
 | G-24 | Accountability and security events | Closed foundation | Append-only authorization/mutation accountability exists; broader audit reader/export/redaction/retention is a cross-cutting product milestone. | ADR-0049 |
-| G-25 | Stable public API version/error/compatibility contract | Active — Phase 69.C | 69.A inventory and 69.B common request/error foundations are accepted; revision/precondition/idempotency exposure is active before broader resource migration. | ADR-0048 / Phase 69 kickoff / Phase 69.B closeout |
+| G-25 | Stable public API version/error/compatibility contract | Closed foundation | Phase 69.A-F are completed; the deliberately declared public-v1 set has accepted request/error, revision/precondition/idempotency, collection, compatibility and independent reference-client coverage without promoting private/pre-v1 domains. | ADR-0048 / Phase 69 closeout |
 | G-26 | Provider capability degradation and disablement | Strong foundation | Explicit provider ownership/capability rules exist; every new provider operation must fail closed when unsafe/unavailable. | ADR-0007, ADR-0012, ADR-0048 |
 | G-27 | epgd/epg2vdr/provider expansion | Deferred | New providers must feed Suite-owned identity/evidence boundaries rather than shared DB/public-provider coupling. | ADR-0038, ADR-0045 |
 | G-28 | Shared/remote Recording storage semantics | Deferred/partial | Path equality is not shared-storage identity; cross-site storage mutation needs explicit ownership. | ADR-0014, ADR-0042, future storage decision |
@@ -75,30 +75,24 @@ A gap is not closed by an ADR alone. Closure requires implementation, tests and 
 | G-37 | Account/backend access administration product | Planned cross-cutting milestone | Core RBAC exists; generic user/grant/backend administration surfaces were intentionally deferred from Phase 62. | Phase 62 foundation |
 | G-38 | Teletext domain service | Closed foundation | Canonical service/page/subpage domain, fenced provider/Agent path, authorized HTTP reads and first-party 25 x 40 browser/TV rendering are implemented and accepted on real yaVDR. | ADR-0054 / Phase 67 Teletext closeout |
 | G-39 | HbbTV broadcast application domain/runtime | Closed foundation | Canonical HbbTV discovery, authorized application session, normalized input and presentation/media runtime are implemented without public raw plugin/browser commands and accepted on real yaVDR. | ADR-0054 / Phase 67 closeout |
-| G-40 | Legacy Basic retirement | Deferred deployment migration | Transitional compatibility remains until enforced-mode rollout, recovery and upgrade/rollback are proven. | Phase 62 closeout / deployment milestone |
+| G-40 | Legacy Basic retirement | Closed deployment milestone | Guarded real-yaVDR migration/rollback evidence was accepted, then the Legacy Basic runtime authenticator/mode/fallback authority was removed. Preserved old defaults lines are inert; the rollback sequence is historical evidence only. | P2 Legacy Basic retirement closeout |
 | G-41 | Recommendation/content graph | Deferred vision | Requires stable identities, privacy/preferences, provenance and Phase-69 public resource semantics plus a dedicated ADR. | future ADR / Phase 70 |
 | G-42 | Normalized playback presentation/timeline/continuity/failure semantics | Closed foundation | ADR-0056 mandatory semantics are completed: provider-free `MediaPlaybackContract`, canonical owner lifecycle publication, explicit presentation generation/discontinuity and classified failures. | ADR-0056 / Phase 65.D |
-| G-43 | Responsive Media Home / browse-first preview composition | Planned; architecture accepted | ADR-0058 and the Phase-66 contract define responsive Home composition, Live hero browsing, deferred preview, truthful Continue Watching, discovery rails and desktop/mobile Golden Journeys. Runtime has not started. | ADR-0058 / Phase 66 |
+| G-43 | Responsive Media Home / browse-first preview composition | Closed foundation for accepted scope | Phase 66 completed responsive Home composition, Live hero browsing, deferred preview, truthful Continue Watching, discovery rails and accepted desktop/mobile Golden Journeys; later bounded hardening does not reopen the phase. | ADR-0058 / Phase 66 closeout |
 
 ## Priority view
 
-### Next numbered runtime product domain — Phase 66
+### Next numbered runtime product domain — Phase 70
 
-Media Home / Browse architecture is accepted via ADR-0058; runtime remains not started and requires a separate explicit kickoff. Slice 66.1 is Home Shell and Responsive Information Architecture. Later slices add Live hero browsing, deferred canonical preview, truthful Continue Watching, Recording discovery rails, explicit history semantics if needed, accessibility/polish and real desktop/mobile acceptance.
+Phase 70 Recommendation and Content Knowledge Graph is the next strict numbered runtime phase but is not started. It still requires a dedicated accepted runtime ADR and must preserve the completed identity, privacy/preferences, provenance and Phase-69 public-resource boundaries.
 
-Phase 66 preserves completed Phase-65 MediaSession/playback ownership and existing Channel/ProgramEvent/Recording/Metadata/Genre/artwork truth. Browse focus remains independent of preview state; stale preview must be canceled/relinquished; browser-local state is not fabricated into cross-client authority.
+### Completed numbered product domains
 
-### Current television product domain — Phase 67
-
-Phase 67 is completed. Teletext and HbbTV discovery/application-session/presentation-media runtime are implemented and accepted. Phase 68 Legacy OSD is also completed through fenced allowlisted native input.
-
-### Later compatibility/platform work
-
-Legacy OSD (Phase 68), public API hardening (Phase 69), storage federation and Recommendation/Content Graph (Phase 70) remain separate.
+Phase 66 Media Home, Phase 67 Teletext/HbbTV, Phase 68 Legacy OSD and Phase 69 public API/client compatibility are completed for their accepted bounded scopes. Later consumers and bounded hardening must reuse those owners rather than reopening the numbered phases.
 
 ### Cross-cutting product work
 
-Account/backend access administration, broad Timer UI, audit/operations and client-family rollout may progress when their own prerequisites are met without advancing the numbered phase.
+Legacy Basic retirement is completed; see the P2 retirement closeout. Account/backend access administration, broad Timer UI, audit/operations, client-family rollout, release packaging and federation/pairing remain separate cross-cutting product work that may proceed only when their own prerequisites and bounded contracts are satisfied. None of them starts Phase 70 implicitly.
 
 ## Maintenance rules
 
