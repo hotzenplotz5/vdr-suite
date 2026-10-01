@@ -3,6 +3,7 @@
 #include "BrowserSessionLifecycleService.h"
 #include "CredentialVerifierRepository.h"
 #include "Database.h"
+#include "HumanAccountAdministrationRepository.h"
 #include "HumanAccountAdministrationService.h"
 #include "HumanAccountRepository.h"
 #include "SecurityIdentityProvisioningRepository.h"
@@ -29,6 +30,7 @@ struct Fixture
     SecurityIdentityRepository identities;
     SecurityIdentityProvisioningRepository provisioning;
     HumanAccountRepository accounts;
+    HumanAccountAdministrationRepository administration;
     CredentialVerifierRepository verifiers;
     SecurityPermissionGrantRepository grants;
     BrowserSessionCredentialRepository browserCredentials;
@@ -41,6 +43,7 @@ struct Fixture
           identities(database),
           provisioning(database),
           accounts(database),
+          administration(database),
           verifiers(database),
           grants(database),
           browserCredentials(database),
@@ -51,6 +54,7 @@ struct Fixture
           service(
               database,
               accounts,
+              administration,
               identities,
               browserLifecycle,
               accountability,
