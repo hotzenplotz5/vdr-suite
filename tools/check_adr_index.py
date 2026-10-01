@@ -9,9 +9,8 @@ INDEX = ADR_DIR / "index.md"
 ACTIVE_START = "## Active Canonical ADRs"
 PROPOSED_START = "## Proposed Canonical ADRs"
 ACTIVE_END = "---"
-EXPECTED_LATEST = "ADR-0066"
+EXPECTED_LATEST = "ADR-0067"
 EXPECTED_NEXT = "ADR-0068"
-EXPECTED_PROPOSED = "ADR-0067-human-account-backend-access-administration.md"
 REMOVED_CONFLICT = "ADR-0037-suite-metadata-database-and-external-scraper-strategy.md"
 EXPECTED_ACTIVE_FILES = {
     "0037": "ADR-0037-packaging-install-api-boundary.md",
@@ -44,6 +43,7 @@ EXPECTED_ACTIVE_FILES = {
     "0064": "ADR-0064-suitebridge-local-prioritized-control-plane.md",
     "0065": "ADR-0065-human-account-profile-device-identity-boundary.md",
     "0066": "ADR-0066-unclaimed-server-first-admin-bootstrap-recovery.md",
+    "0067": "ADR-0067-human-account-backend-access-administration.md",
 }
 
 ADR_LINK = re.compile(r"\((ADR-\d{4}[^)]+\.md)\)")
@@ -77,12 +77,8 @@ def main():
         errors.append("ADR index misses canonical latest marker " + EXPECTED_LATEST)
     if EXPECTED_NEXT not in text:
         errors.append("ADR index misses next canonical ADR marker " + EXPECTED_NEXT)
-    if EXPECTED_PROPOSED not in proposed:
-        errors.append("ADR index misses proposed canonical file " + EXPECTED_PROPOSED)
-    if not (ADR_DIR / EXPECTED_PROPOSED).exists():
-        errors.append("proposed canonical ADR file is missing: " + EXPECTED_PROPOSED)
-    if EXPECTED_PROPOSED in active:
-        errors.append("proposed ADR-0067 is incorrectly listed as active")
+    if "None." not in proposed:
+        errors.append("ADR index must have no proposed canonical ADR after ADR-0067 acceptance")
     if "Numbering Cleanup" not in text:
         errors.append("ADR index misses numbering cleanup section")
     if REMOVED_CONFLICT in active:
@@ -129,7 +125,7 @@ def main():
     print("ADR index check passed.")
     print("Active canonical ADR count: " + str(len(active_numbers)))
     print("Latest accepted canonical ADR: " + EXPECTED_LATEST)
-    print("Proposed canonical ADR: ADR-0067")
+    print("Proposed canonical ADRs: none")
     print("Next canonical ADR: " + EXPECTED_NEXT)
     return 0
 
