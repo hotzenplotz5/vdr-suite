@@ -118,11 +118,13 @@ def main():
             "P2 Legacy Basic Retirement Closeout",
         ),
         "current": (
-            "Legacy Basic retirement is completed and accepted on the real yaVDR target.",
+            "MU.0 through MU.4 are completed:",
+            "Legacy Basic retirement.",
             "Post-Phase-69 P2 Legacy Basic Retirement Closeout",
         ),
         "current_status": (
-            "Post-Phase-69 P2 Legacy Basic retirement is completed and accepted on the real yaVDR target.",
+            "The Multiuser foundation through MU.4 is completed:",
+            "Legacy Basic retirement.",
             "P2 Legacy Basic Retirement Closeout",
         ),
         "handoff": (

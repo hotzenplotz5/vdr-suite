@@ -11,25 +11,19 @@ Root-level `AGENTS.md` is binding. In particular, once the user has authorized a
 ## Mandatory reading order
 
 1. [Current State](CURRENT.md) — sole volatile phase/status authority.
-2. [Strict Roadmap](planning/roadmap.md) and [Phase Map](planning/phase-map.md) — accepted numbered execution order.
-3. [Phase 69 Closeout](development/phase-69-closeout.md) — completed 69.A-F public API/client compatibility evidence.
-4. [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md) — completed Human Account/First Admin migration and Legacy Basic runtime-retirement evidence.
-4. [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md) — historical Phase-69 implementation record and migration guard.
-4. [Phase 69.B Closeout](development/phase-69b-closeout.md) — accepted request/response metadata and public error foundation.
-4. [Phase 68 Closeout](development/phase-68-closeout.md) — completed Legacy OSD phase and Golden Journey 10 evidence.
-4. [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md) — durable A-G implementation checkpoints and real-runtime evidence.
-5. [Phase 67 Closeout](development/phase-67-closeout.md) — completed Broadcast Companion phase and Golden Journeys 8/9 evidence.
-4. [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md) — completed Teletext vertical and Golden Journey 8 evidence.
-4. [Phase 66 Closeout](development/phase-66-closeout.md) — completed Media Home/Browse boundary and Golden acceptance evidence.
-4. [Phase 65 Closeout](development/phase-65-closeout.md) — completed Streaming/MediaSession/playback boundary and durable acceptance evidence.
-5. [ADR-0058 Media Home, Responsive Browse and Preview Experience](adr/ADR-0058-media-home-responsive-browse-preview.md) — accepted and implemented Phase-66 product/architecture decision.
-6. [Phase 66 Media Home and Browse Experience](development/phase-66-media-home-browse-experience.md) — completed bounded implementation sequence.
-7. [Golden User Journeys](planning/golden-user-journeys.md) — desktop/mobile Home and later product acceptance.
-8. ADR-0046/0053/0055/0056/0057 when work touches accepted Phase-65 playback semantics.
-9. [ADR-0054 Broadcast Companion Services](adr/ADR-0054-broadcast-companion-teletext-hbbtv.md) for the completed Phase-67 Teletext/HbbTV architecture.
-10. [ADR-0064 SuiteBridge Local Prioritized Control Plane](adr/ADR-0064-suitebridge-local-prioritized-control-plane.md), its [implementation record](architecture/suitebridge-local-control-plane-implementation.md) and [closeout](architecture/suitebridge-control-plane-closeout.md) when work touches SuiteBridge transport/execution lanes.
-11. [Target Platform Architecture](architecture/target-platform-architecture.md), [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md) and [ADR Index](adr/index.md) as required.
-12. [Agent Workflow Rules](../AGENTS.md) before repository writes, PR-state changes or installation guidance.
+2. [Strict Roadmap](planning/roadmap.md) and [Phase Map](planning/phase-map.md) — numbered phase order plus active cross-cutting milestones.
+3. [Post-Phase-69 Multiuser Productization Workstream](development/post-phase69-multiuser-workstream.md) — active cross-cutting Multiuser slice sequence and current gate.
+4. [ADR-0065 Human Account, Profile and Device Identity Boundary](adr/ADR-0065-human-account-profile-device-identity-boundary.md) — accepted Human Account/Profile/Device separation.
+5. [ADR-0066 Unclaimed Server, First-Admin Bootstrap and Local Recovery](adr/ADR-0066-unclaimed-server-first-admin-bootstrap-recovery.md) — accepted and implemented bootstrap/login/recovery boundary.
+6. [ADR-0067 Human Account and Backend Access Administration](adr/ADR-0067-human-account-backend-access-administration.md) — proposed next Multiuser administration architecture; not runtime authorization until accepted.
+7. [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md) — completed migration and runtime-retirement evidence.
+8. [Phase 69 Closeout](development/phase-69-closeout.md) — completed 69.A-F public API/client compatibility evidence.
+9. [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md) and retained 69.B-F closeouts when historical Phase-69 detail is needed.
+10. [Phase 68 Closeout](development/phase-68-closeout.md), [Phase 67 Closeout](development/phase-67-closeout.md), [Phase 66 Closeout](development/phase-66-closeout.md) and [Phase 65 Closeout](development/phase-65-closeout.md) for completed numbered foundations.
+11. [Golden User Journeys](planning/golden-user-journeys.md) for user-facing acceptance.
+12. Relevant accepted architecture ADRs for the touched domain, including ADR-0046/0053/0055/0056/0057 for playback, ADR-0054 for Broadcast Companion and ADR-0064 for SuiteBridge control-plane work.
+13. [Target Platform Architecture](architecture/target-platform-architecture.md), [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md) and [ADR Index](adr/index.md) as required.
+14. [Agent Workflow Rules](../AGENTS.md) before repository writes, PR-state changes or installation guidance.
 
 [Current Project Status](development/current-status.md), [Current Architecture State](development/current-architecture-state.md), [Completed Phases](development/completed-phases.md), [Phase 62 Closeout](development/phase-62-closeout.md), [Phase 64 Closeout](development/phase-64-closeout.md) and older Phase-65 development records provide stable historical context.
 
@@ -40,7 +34,11 @@ Historical Phase-69 closeout records retained for traceability: `docs/developmen
 - Latest completed numbered runtime phase: **Phase 69 - Public API and Client Compatibility Hardening**.
 - Current active numbered runtime phase: **none - Phase 70 - Recommendation and Content Knowledge Graph not started**.
 - Next strict numbered runtime phase: **Phase 70 - Recommendation and Content Knowledge Graph**.
-- Current active runtime slice: **none - Phase 70 - Recommendation and Content Knowledge Graph not started**; Phase 69.A-F are completed and accepted.
+- Current active numbered runtime slice: **none - Phase 70 - Recommendation and Content Knowledge Graph not started**.
+- Current active cross-cutting productization workstream: **Multiuser / Account and Backend Access Administration**.
+- Current Multiuser slice: **MU.5 - Administration architecture contract - ADR-0067 [PROPOSED]**.
+- MU.0-MU.4 are completed: Human Account identity/read foundation, Public-v1 Account read, First Admin/bootstrap/browser login/recovery and Legacy Basic retirement.
+- No Account/grant administration runtime implementation starts until ADR-0067 is accepted.
 - Durable Phase-68 completion evidence: [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md).
 - Phase-67 Teletext and HbbTV verticals are both completed and accepted.
 - Phase 65.A through 65.D are closed for their accepted bounded scopes; ADR-0056 semantic consolidation and ADR-0057 Recording network recovery are completed Phase-65 history.
@@ -77,13 +75,22 @@ Do not reopen Phase 64 merely to add a broad Timer UI, diagnostics or later medi
 
 Phases 65 through **Phase 69 are completed**. [Phase 69 Closeout](development/phase-69-closeout.md) records the accepted 69.A-F public/API client boundary. Phase 70 is the next strict numbered phase but is not started; its roadmap requires a dedicated accepted runtime ADR before implementation.
 
+The active cross-cutting productization line is **Multiuser**. [Post-Phase-69 Multiuser Productization Workstream](development/post-phase69-multiuser-workstream.md) owns the current sequence. MU.0-MU.4 are complete and MU.5 is the proposed ADR-0067 administration-architecture gate.
+
+For current Multiuser work:
+
+1. re-read live `main`, `CURRENT.md`, the Strict Roadmap, the Multiuser workstream and ADR-0065/0066/0067 before successor planning;
+2. do not implement Account/grant administration runtime while ADR-0067 remains Proposed;
+3. after ADR-0067 acceptance, follow the bounded order MU.6 Account lifecycle -> MU.7 grant administration -> MU.8 credential/session administration -> MU.9 admin UI unless live repository evidence justifies an explicitly documented change;
+4. keep pairing and Profiles as later separate slices rather than conflating them with Human Account administration;
+5. keep Broad Timer Product UI gated on the required Multiuser Account/backend access administration surface.
+
 For the next numbered work:
 
-1. re-read live `main`, `CURRENT.md`, the Strict Roadmap and the Phase-69 closeout before successor planning;
-2. keep Phase 70 not started until its dedicated runtime ADR is accepted;
-3. preserve Legacy OSD, Teletext/HbbTV, identity/Agent and MediaSession/playback ownership as completed bounded foundations;
-4. do not reopen Phase 69 merely because a later client consumes its stable public contracts;
-5. treat any future public promotion of Recording, ProgramEvent/EPG, SearchTimer, metadata or Genre as a new explicit compatibility decision rather than unfinished 69.F work.
+1. keep Phase 70 not started until its dedicated runtime ADR is accepted;
+2. preserve Legacy OSD, Teletext/HbbTV, identity/Agent and MediaSession/playback ownership as completed bounded foundations;
+3. do not reopen Phase 69 merely because a later client consumes its stable public contracts;
+4. treat any future public promotion of Recording, ProgramEvent/EPG, SearchTimer, metadata or Genre as a new explicit compatibility decision rather than unfinished 69.F work.
 
 ## Phase ordering and broad Timer UI
 
@@ -196,16 +203,18 @@ Durable current evidence: [Post-Phase-69 P2 Legacy Basic Retirement Closeout](de
 
 1. Read `CURRENT.md` first.
 2. Query live `main` and the relevant PR/branch before making repository-state claims. If a GitHub Actions run exists for the relevant head, report its exact status/link. Do not wait on unrelated jobs before continuing already-approved surface-scoped work. If a relevant run is required for the next already-authorized gate and is queued or in progress, continue independent work and re-read that run before ending the working response; never return the stale non-terminal snapshot as the final state.
-3. Treat Phases 64 through 69 as completed for their accepted bounded scopes unless live repository state supersedes that evidence.
-4. Preserve accepted Phase-65 playback/MediaSession semantics, completed Phase-66 Home ownership, completed Phase-67 Teletext/HbbTV domains, completed Phase-68 Legacy OSD ownership and completed Phase-69 public-client boundaries rather than inventing parallel owners during successor work.
-5. Treat Phase 69 - Public API and Client Compatibility Hardening as completed and read `docs/development/phase-69-closeout.md` before any successor planning.
-6. Treat the post-Phase-69 P2 Legacy Basic retirement milestone as completed and read `docs/development/post-phase69-p2-legacy-basic-retirement-closeout.md`; do not revive the removed runtime compatibility authority from historical evidence.
-7. Do not start Phase 70 merely because Phase 69 or the P2 retirement milestone is complete. Re-read the Strict Roadmap and require the dedicated accepted Phase-70 runtime ADR before implementation.
-8. Preserve truthful Range/seek/growing capability; completed-Recording seek/resume is accepted for the supported profiles, while growing-Recording seek and Live-TV timeshift remain explicit non-support until separately implemented.
-9. Keep the broad Timer UI as a cross-cutting product milestone; do not reopen Phase 64 solely for that UI.
-10. Keep review/merge/retarget/close state changes behind explicit user approval; do not ask again when that exact authorization is already present.
-11. Require real yaVDR acceptance when an installed/runtime, native, media or broadcast-behaviour boundary changes; do not repeat accepted runtime evidence for documentation/workflow-only follow-ups.
-12. Continue the authorized workstream to its requested end state. Do not turn analysis, a fixable CI failure, an intermediate commit, a queued/running relevant CI run or an ordinary response boundary into a voluntary stop. Never end with an executable next step still available through the current tools; execute it instead.
+3. Treat Phase 69 - Public API and Client Compatibility Hardening as completed and read `docs/development/phase-69-closeout.md`; treat Phases 64 through 68 as completed for their accepted bounded scopes unless live repository state supersedes that evidence.
+4. Treat the cross-cutting Multiuser / Account and Backend Access Administration workstream as active and read `docs/development/post-phase69-multiuser-workstream.md`.
+5. Treat ADR-0065 and ADR-0066 as accepted architecture, and ADR-0067 as the current **Proposed** Multiuser administration gate until repository state says otherwise.
+6. Treat MU.0-MU.4 as completed and do not redo First Admin/bootstrap/recovery or Legacy Basic retirement without a new demonstrated regression.
+7. Do not start MU.6 Account lifecycle or later Account/grant administration runtime until ADR-0067 is accepted.
+8. Do not start Phase 70 merely because Phase 69 or a Multiuser slice is complete; require the dedicated accepted Phase-70 runtime ADR before numbered Phase-70 implementation.
+9. Preserve accepted Phase-65 playback/MediaSession semantics, completed Phase-66 Home ownership, completed Phase-67 Teletext/HbbTV domains, completed Phase-68 Legacy OSD ownership and completed Phase-69 public-client boundaries rather than inventing parallel owners during successor work.
+10. Keep the broad Timer UI as a cross-cutting product milestone gated on required Multiuser Account/backend access administration.
+11. Preserve truthful Range/seek/growing capability; completed-Recording seek/resume is accepted for the supported profiles, while growing-Recording seek and Live-TV timeshift remain explicit non-support until separately implemented.
+12. Keep review/merge/retarget/close state changes behind explicit user approval; do not ask again when that exact authorization is already present.
+13. Require real yaVDR acceptance when an installed/runtime, native, media or broadcast-behaviour boundary changes; do not repeat accepted runtime evidence for documentation/workflow-only follow-ups.
+14. Continue the authorized workstream to its requested end state. Do not turn analysis, a fixable CI failure, an intermediate commit, a queued/running relevant CI run or an ordinary response boundary into a voluntary stop. Never end with an executable next step still available through the current tools; execute it instead.
 
 ## Command presentation contract
 

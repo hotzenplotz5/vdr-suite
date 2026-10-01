@@ -379,15 +379,27 @@ It must not become hidden mutation authority for Timer, metadata, Recording or a
 
 # Cross-cutting product dependencies
 
-## Account/backend access administration
+## Multiuser / Account and Backend Access Administration
+
+Active cross-cutting workstream:
+[Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md).
 
 ```text
 Phase-62 identity/RBAC foundation
-  -> safe administration product surface
-  -> broad Timer Product UI mutation controls
+  -> ADR-0065 Human Account boundary [ACCEPTED]
+  -> MU.1 Human Account persistence/read [DONE]
+  -> MU.2 Public-v1 Account read [DONE]
+  -> ADR-0066 First Admin/bootstrap/recovery [ACCEPTED + IMPLEMENTED]
+  -> MU.4 Legacy Basic retirement [DONE]
+  -> MU.5 ADR-0067 administration architecture [PROPOSED]
+       -> MU.6 Human Account lifecycle administration
+       -> MU.7 backend access / grant administration
+       -> MU.8 credential/session administration
+       -> MU.9 account/access admin UI
+            -> broad Timer Product UI mutation controls
 ```
 
-Core policy remains server-side. Administration UI/API must not invent permissions or backend scope.
+Core policy remains server-side. Administration UI/API must not invent permissions or backend scope. No MU.6+ runtime implementation is authorized until ADR-0067 is accepted.
 
 ## Broad Timer Product UI
 

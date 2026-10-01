@@ -48,12 +48,18 @@ Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
 
 The following are deliberately not inserted as numbered phases:
 
-- Account and Backend Access Administration;
-- Broad Timer Product UI;
+- Multiuser / Account and Backend Access Administration **[ACTIVE — MU.5 ADR-0067 PROPOSED]**;
+- Broad Timer Product UI **[PLANNED — gated on Multiuser administration]**;
 - Audit/Security/Operations product surfaces;
 - Legacy Basic retirement **[COMPLETED]**;
 - first-party browser/TV/native/Kodi client rollout;
 - bounded post-phase correctness/performance hardening.
+
+Active Multiuser authority: [Post-Phase-69 Multiuser Productization Workstream](docs/development/post-phase69-multiuser-workstream.md).
+
+Completed Multiuser foundation: explicit Human Accounts, read-only Public-v1 Account discovery, First Admin/bootstrap, normal Human Account browser login, local recovery and Legacy Basic retirement. The current documentation/architecture gate is [ADR-0067](docs/adr/ADR-0067-human-account-backend-access-administration.md); runtime Account/grant administration starts only after that ADR is accepted.
+
+Phase 70 remains a separate not-started numbered phase.
 
 ## Roadmap rule
 

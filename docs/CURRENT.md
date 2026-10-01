@@ -12,6 +12,8 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md)
 - [Phase 69 Closeout](development/phase-69-closeout.md)
+- [Post-Phase-69 Multiuser Productization Workstream](development/post-phase69-multiuser-workstream.md)
+- [ADR-0067 Human Account and Backend Access Administration](adr/ADR-0067-human-account-backend-access-administration.md)
 - [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md)
 - [Phase 69.B Closeout](development/phase-69b-closeout.md)
 - [Phase 69.C Closeout](development/phase-69c-closeout.md)
@@ -92,12 +94,19 @@ Accepted Phase-68 verticals:
 68.F - Exclusive controller lease and osd.control fencing
 68.G - Allowlisted native OSD input
 
-Current active runtime slice:
+Current active numbered runtime slice:
 none - Phase 70 - Recommendation and Content Knowledge Graph not started
 
-Post-Phase-69 P2 productization status:
-Legacy Basic retirement is completed and accepted on the real yaVDR target.
-No successor cross-cutting productization runtime slice is active merely because retirement completed.
+Current active cross-cutting productization workstream:
+Multiuser / Account and Backend Access Administration
+
+Current Multiuser slice:
+MU.5 - Administration architecture contract - ADR-0067 [PROPOSED]
+
+Post-Phase-69 Multiuser productization status:
+MU.0 through MU.4 are completed: identity separation, Human Account persistence/read, Public-v1 Account read, First Admin/bootstrap/browser login/recovery, and Legacy Basic retirement.
+MU.5 is the current documentation/architecture gate. ADR-0067 is proposed and must be accepted before Account/grant administration runtime implementation.
+Durable workstream status: [Post-Phase-69 Multiuser Productization Workstream](development/post-phase69-multiuser-workstream.md).
 
 69.D is completed. [Phase 69.D Closeout](development/phase-69d-closeout.md)
 records the accepted collection boundary:
@@ -435,7 +444,7 @@ Accepted Broadcast Companion capability includes:
 
 Durable evidence is in [Phase 67 Closeout](development/phase-67-closeout.md) and the earlier [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md).
 
-Phase 68 Legacy OSD Compatibility Bridge is **completed for the accepted 68.A-G scope**. The final 68.G real yaVDR acceptance proved fenced allowlisted native OSD input through the authenticated Control Plane -> Agent -> SuiteBridge -> VDR path, including native DOWN/UP effect, idempotent replay and stale-authority rejection. Durable evidence is in [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 public API/client compatibility hardening is completed for the accepted 69.A-F scope. The post-Phase-69 P2 Legacy Basic retirement milestone is also completed; Phase 70 remains not started and still requires its dedicated accepted runtime ADR.
+Phase 68 Legacy OSD Compatibility Bridge is **completed for the accepted 68.A-G scope**. The final 68.G real yaVDR acceptance proved fenced allowlisted native OSD input through the authenticated Control Plane -> Agent -> SuiteBridge -> VDR path, including native DOWN/UP effect, idempotent replay and stale-authority rejection. Durable evidence is in [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 public API/client compatibility hardening is completed for the accepted 69.A-F scope. The post-Phase-69 Multiuser workstream is active: MU.0-MU.4 are complete and MU.5 is the proposed ADR-0067 administration-architecture gate. Phase 70 remains not started and still requires its dedicated accepted runtime ADR.
 
 ## Historical evidence rule
 
