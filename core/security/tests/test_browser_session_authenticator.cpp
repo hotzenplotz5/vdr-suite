@@ -1,6 +1,7 @@
 #include "BrowserSessionAuthenticator.h"
 #include "BrowserSessionCredentialRepository.h"
 #include "Database.h"
+#include "HumanAccountRepository.h"
 #include "SecurityIdentityProvisioningRepository.h"
 #include "SecurityIdentityRepository.h"
 #include "SecurityPermissionGrantRepository.h"
@@ -123,6 +124,18 @@ int main()
     assert(!stored->expired);
     assert(!stored->revoked);
 
+    HumanAccountRepository accountRepository(database);
+    assert(accountRepository.ensureSchema());
+    {
+        auto lease = database.acquireTransactionLease();
+        assert(database.execute("BEGIN IMMEDIATE;"));
+        assert(accountRepository.ensureAccountInActiveTransaction(
+            "account-phase62-admin",
+            "user-phase62-admin",
+            "Phase 62 administrator"));
+        assert(database.execute("COMMIT;"));
+    }
+
     SecurityPermissionGrantRepository grantRepository(database);
     assert(grantRepository.ensureSchema());
     assert(grantRepository.ensureGrant(
@@ -133,6 +146,11 @@ int main()
     BrowserSessionAuthenticator authenticator(
         repository,
         grantRepository);
+
+    BrowserSessionAuthenticator accountAwareAuthenticator(
+        repository,
+        grantRepository,
+        &accountRepository);
 
     const RequestSecurityContext anonymous =
         authenticator.authenticate({}, "request-anonymous", "");
@@ -161,6 +179,53 @@ int main()
     assert(authenticated.grants.front().backendId == "default");
     assert(authenticated.requestId == "request-authenticated");
     assert(authenticated.correlationId == "correlation-authenticated");
+
+    const RequestSecurityContext accountAwareAuthenticated =
+        accountAwareAuthenticator.authenticate(
+            validHeaders,
+            "request-account-aware",
+            "");
+    assert(accountAwareAuthenticated.authenticated());
+
+    {
+        auto lease = database.acquireTransactionLease();
+        assert(database.execute("BEGIN IMMEDIATE;"));
+        assert(
+            accountRepository.setActiveInActiveTransaction(
+                "account-phase62-admin",
+                1U,
+                false) == HumanAccountRepositoryStatus::ok);
+        assert(database.execute("COMMIT;"));
+    }
+
+    const RequestSecurityContext inactiveAccountContext =
+        accountAwareAuthenticator.authenticate(
+            validHeaders,
+            "request-account-inactive",
+            "");
+    assert(
+        inactiveAccountContext.authenticationState ==
+        AuthenticationState::Revoked);
+    assert(inactiveAccountContext.session.has_value());
+    assert(inactiveAccountContext.session->revoked);
+
+    {
+        auto lease = database.acquireTransactionLease();
+        assert(database.execute("BEGIN IMMEDIATE;"));
+        assert(
+            accountRepository.setActiveInActiveTransaction(
+                "account-phase62-admin",
+                2U,
+                true) == HumanAccountRepositoryStatus::ok);
+        assert(database.execute("COMMIT;"));
+    }
+
+    const RequestSecurityContext accountAwareReactivated =
+        accountAwareAuthenticator.authenticate(
+            validHeaders,
+            "request-account-reactivated",
+            "");
+    assert(accountAwareReactivated.authenticated());
 
     auto csrfHeaders = validHeaders;
     csrfHeaders["X-CSRF-Token"] = kCsrfSecret;
