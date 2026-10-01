@@ -15,6 +15,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Post-Phase-69 Multiuser Productization Workstream](development/post-phase69-multiuser-workstream.md)
 - [ADR-0067 Human Account and Backend Access Administration](adr/ADR-0067-human-account-backend-access-administration.md)
 - [MU.5 Administration Architecture Acceptance](development/post-phase69-mu5-administration-architecture-acceptance.md)
+- [MU.6A Human Account Lifecycle Authority Foundation](development/post-phase69-mu6-account-lifecycle-foundation.md)
 - [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md)
 - [Phase 69.B Closeout](development/phase-69b-closeout.md)
 - [Phase 69.C Closeout](development/phase-69c-closeout.md)
@@ -105,16 +106,20 @@ Current Multiuser architecture slice:
 MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
 
 Current Multiuser runtime slice:
-none - MU.6 Human Account lifecycle administration not started
+MU.6 - Human Account lifecycle administration [IN PROGRESS]
 
-Next Multiuser runtime slice:
-MU.6 - Human Account lifecycle administration
+Latest completed MU.6 sub-slice:
+MU.6A - Account lifecycle authority foundation [COMPLETED]
+
+Next MU.6 sub-slice:
+MU.6B - Public Account item + revision/ETag [NOT STARTED]
 
 Post-Phase-69 Multiuser productization status:
-MU.0 through MU.5 are completed: identity separation, Human Account persistence/read, Public-v1 Account read, First Admin/bootstrap/browser login/recovery, Legacy Basic retirement and the accepted administration architecture contract.
-ADR-0067 is accepted architecture. MU.6 is the first justified runtime successor but is not started by this documentation-only acceptance slice.
+MU.0 through MU.5 are completed. MU.6 is in progress: MU.6A establishes persisted Account revision, authoritative display-name/active-state mutation, transactional browser-session fencing and final-usable-administrator protection.
+ADR-0067 remains the accepted architecture. Public Account item/mutation routes and later Account CREATE are not claimed by MU.6A.
 Durable workstream status: [Post-Phase-69 Multiuser Productization Workstream](development/post-phase69-multiuser-workstream.md).
 Durable MU.5 evidence: [MU.5 Administration Architecture Acceptance](development/post-phase69-mu5-administration-architecture-acceptance.md).
+Durable MU.6A evidence: [MU.6A Human Account Lifecycle Authority Foundation](development/post-phase69-mu6-account-lifecycle-foundation.md).
 
 69.D is completed. [Phase 69.D Closeout](development/phase-69d-closeout.md)
 records the accepted collection boundary:
@@ -452,7 +457,7 @@ Accepted Broadcast Companion capability includes:
 
 Durable evidence is in [Phase 67 Closeout](development/phase-67-closeout.md) and the earlier [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md).
 
-Phase 68 Legacy OSD Compatibility Bridge is **completed for the accepted 68.A-G scope**. The final 68.G real yaVDR acceptance proved fenced allowlisted native OSD input through the authenticated Control Plane -> Agent -> SuiteBridge -> VDR path, including native DOWN/UP effect, idempotent replay and stale-authority rejection. Durable evidence is in [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 public API/client compatibility hardening is completed for the accepted 69.A-F scope. The post-Phase-69 Multiuser workstream is active: MU.0-MU.5 are complete, ADR-0067 is accepted and MU.6 Human Account lifecycle administration is the next runtime slice but is not started. Phase 70 remains not started and still requires its dedicated accepted runtime ADR.
+Phase 68 Legacy OSD Compatibility Bridge is **completed for the accepted 68.A-G scope**. The final 68.G real yaVDR acceptance proved fenced allowlisted native OSD input through the authenticated Control Plane -> Agent -> SuiteBridge -> VDR path, including native DOWN/UP effect, idempotent replay and stale-authority rejection. Durable evidence is in [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 public API/client compatibility hardening is completed for the accepted 69.A-F scope. The post-Phase-69 Multiuser workstream is active: MU.0-MU.5 are complete and MU.6 is in progress; MU.6A Account lifecycle authority is completed while MU.6B Public Account item/revision is next. Phase 70 remains not started and still requires its dedicated accepted runtime ADR.
 
 ## Historical evidence rule
 
