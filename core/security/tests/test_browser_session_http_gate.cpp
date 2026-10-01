@@ -206,10 +206,10 @@ int main()
     assert(!retiredLegacyLogin.allowed);
     assert(retiredLegacyLogin.rejection.statusCode == 401);
 
-    const BrowserSessionGateDecision managedLogin =
+    const BrowserSessionGateDecision managedLoginBeforeIssuance =
         enforcedGate.evaluate(loginRequest(kManagedCredential));
-    assert(managedLogin.allowed);
-    assert(managedLogin.context.actor.actorId == managed.actorId);
+    assert(managedLoginBeforeIssuance.allowed);
+    assert(managedLoginBeforeIssuance.context.actor.actorId == managed.actorId);
 
     const BrowserSessionGateDecision wrongPassword =
         gate.evaluate(loginRequest(kManagedWrongCredential));
