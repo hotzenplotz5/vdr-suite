@@ -88,14 +88,30 @@ The runner first installs the exact candidate daemon while retaining the
 existing compatibility configuration. On a pre-P2 database this first candidate
 startup is also the controlled schema initialization step. If the server is
 unclaimed and `--bootstrap-first-admin` was authorized, the First Admin is
-claimed before the Human Account baseline check. It then proves:
+claimed before the Human Account baseline check.
 
-| Stage | Legacy Basic GET `/api/backends` | Human Account browser session |
+Legacy Basic retirement is probed with a protected Public-v1 Operation read
+under `/api/v1/operations/<probe-id>`, not with `/api/backends`. The Operation
+route requires an authenticated actor before resource lookup. Therefore a
+non-401 response in compatibility mode proves that the compatibility credential
+crossed the authentication gate, while HTTP 401 proves that the old
+compatibility credential no longer establishes an identity in enforced mode.
+The exact post-authentication resource status is deliberately irrelevant because
+the synthetic probe operation is not created by the acceptance.
+
+The runner proves:
+
+| Stage | Legacy Basic protected read | Human Account browser session |
 |---|---:|---:|
-| existing compatibility baseline | 200 | issue/read/logout succeeds |
+| existing compatibility baseline | authenticated, non-401 | issue/read/logout succeeds |
 | enforced | 401 | issue/read/logout succeeds |
-| explicit rollback to legacy-basic | 200 | issue/read/logout succeeds |
+| explicit rollback to legacy-basic | authenticated, non-401 | issue/read/logout succeeds |
 | final enforced | 401 | issue/read/logout succeeds |
+
+This distinction matters because a general read endpoint may be reachable
+without proving which authentication mechanism accepted a presented Basic
+credential. The retirement evidence must test the authentication boundary
+itself rather than infer it from an unrelated successful GET.
 
 The defaults-file rewrite removes only existing
 `VDR_SUITE_SECURITY_MODE=...` lines and appends the selected mode. All other
