@@ -391,15 +391,15 @@ Phase-62 identity/RBAC foundation
   -> MU.2 Public-v1 Account read [DONE]
   -> ADR-0066 First Admin/bootstrap/recovery [ACCEPTED + IMPLEMENTED]
   -> MU.4 Legacy Basic retirement [DONE]
-  -> MU.5 ADR-0067 administration architecture [PROPOSED]
-       -> MU.6 Human Account lifecycle administration
+  -> MU.5 ADR-0067 administration architecture [DONE]
+       -> MU.6 Human Account lifecycle administration [NEXT - NOT STARTED]
        -> MU.7 backend access / grant administration
        -> MU.8 credential/session administration
        -> MU.9 account/access admin UI
             -> broad Timer Product UI mutation controls
 ```
 
-Core policy remains server-side. Administration UI/API must not invent permissions or backend scope. No MU.6+ runtime implementation is authorized until ADR-0067 is accepted.
+Core policy remains server-side. Administration UI/API must not invent permissions or backend scope. ADR-0067 is accepted; MU.6 is the next bounded runtime implementation and must remain separate from MU.7+ work.
 
 ## Broad Timer Product UI
 
