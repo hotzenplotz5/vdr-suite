@@ -124,7 +124,7 @@ def main():
         ),
         "architecture": (
             "guarded real yaVDR migration/rollback acceptance completed successfully",
-            "Historical retirement acceptance evidence",
+            "Historical retirement\nacceptance evidence remains retained",
             "Legacy Basic runtime compatibility is now removed",
         ),
         "make": (
