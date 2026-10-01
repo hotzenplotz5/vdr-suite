@@ -995,7 +995,7 @@ Do not reopen Phase 62 to implement these surfaces.
 
 ## Milestone D — Legacy Basic Retirement
 
-Status: **Completed — real-deployment migration accepted and transitional Legacy Basic runtime implementation removed.**
+Status: **Completed — Real-deployment migration gate accepted; transitional Legacy Basic runtime implementation removed.**
 
 Durable closeout: [Post-Phase-69 P2 Legacy Basic Retirement Closeout](../development/post-phase69-p2-legacy-basic-retirement-closeout.md).
 
