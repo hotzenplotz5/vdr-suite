@@ -55,9 +55,17 @@ none - Phase 70 - Recommendation and Content Knowledge Graph not started
 
 Next strict numbered runtime phase:
 Phase 70 - Recommendation and Content Knowledge Graph
+
+Current active cross-cutting productization workstream:
+Multiuser / Account and Backend Access Administration
+
+Current Multiuser slice:
+MU.5 - Administration architecture contract - ADR-0067 [PROPOSED]
 ```
 
 Phases 65 through 69 are completed. Durable Phase-69 evidence lives in [Phase 69 Closeout](../development/phase-69-closeout.md). Phase 70 is the next strict numbered phase but is not started and has no runtime authorization until its required ADR is accepted.
+
+The active cross-cutting productization work is the [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md). Its identity/bootstrap foundation and Legacy Basic retirement are complete. The current Multiuser gate is proposed [ADR-0067](../adr/ADR-0067-human-account-backend-access-administration.md); no Account/grant administration runtime implementation is authorized until that ADR is accepted.
 
 Future order: Phase 67 Broadcast Companion -> Phase 68 Legacy OSD -> Phase 69 Public API hardening -> Phase 70 Recommendation / Knowledge Graph.
 
@@ -918,22 +926,55 @@ These milestones are intentionally **not inserted as numbered runtime phases**. 
 
 ## Milestone A — Account and Backend Access Administration
 
-Status: **Planned; prerequisite for broad Timer mutation UI.**
+Status: **Active Multiuser workstream; foundation complete, administration architecture gate current.**
 
-Phase 62 established the underlying identity/RBAC model but intentionally deferred generic administration product surfaces.
+Durable workstream authority:
+[Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md).
+
+Binding accepted architecture:
+
+- [ADR-0061](../adr/ADR-0061-actor-permissions-federation-client-access.md) — normalized server-owned permissions and resource scopes;
+- [ADR-0065](../adr/ADR-0065-human-account-profile-device-identity-boundary.md) — Human Account / Profile / Device identity separation;
+- [ADR-0066](../adr/ADR-0066-unclaimed-server-first-admin-bootstrap-recovery.md) — First Admin, bootstrap, Human Account login and local recovery.
+
+Current architecture gate:
+
+- [ADR-0067](../adr/ADR-0067-human-account-backend-access-administration.md) — **Proposed; must be accepted before the next Multiuser runtime slice.**
+
+Completed Multiuser slices:
+
+```text
+MU.0 Identity authority audit + ADR-0065                         [DONE]
+MU.1 Human Account persistence/read foundation                  [DONE]
+MU.2 Public-v1 read-only Account collection                     [DONE]
+MU.3 First Admin/bootstrap/browser login/local recovery         [DONE]
+MU.4 Legacy Basic guarded migration + runtime retirement        [DONE]
+```
+
+Planned continuation:
+
+```text
+MU.5 Administration architecture contract / ADR-0067            [CURRENT DOC GATE]
+MU.6 Human Account lifecycle administration                     [PLANNED]
+MU.7 Backend access / permission grant administration           [PLANNED]
+MU.8 Credential and session administration                     [PLANNED]
+MU.9 Account and access administration UI                      [PLANNED]
+MU.10 Device/app pairing                                        [LATER]
+MU.11 Profiles / household personalization                      [LATER]
+```
 
 Required product capability:
 
-- list/manage users or supported actor identities;
+- list and manage explicit Human Accounts without synthesizing generic User Actors;
 - inspect backend-scoped access grants;
-- grant/revoke supported backend permissions according to policy;
-- Admin and Read-only semantics remain fixed and server-enforced;
-- credential/session management exposes only safe administrative metadata;
-- CSRF, accountability and backend scope remain mandatory;
-- no secret material is returned after issuance where the credential contract forbids it;
-- operator recovery/migration is documented.
+- grant/revoke supported backend permissions according to server-owned policy;
+- protect against accidental removal of the final usable administrator authority;
+- expose only safe credential/session metadata and bounded lifecycle actions;
+- preserve CSRF, accountability, revision/concurrency and backend scope;
+- never return password verifiers, bootstrap material, browser secrets or reusable credentials;
+- keep local operator recovery separate from ordinary Public-v1 Account CRUD.
 
-This milestone may proceed alongside numbered runtime work when implemented as a coherent security/admin product slice.
+This milestone is the active cross-cutting Multiuser productization line. It remains independent of numbered Phase 70. Runtime implementation after MU.4 is blocked until ADR-0067 is accepted.
 
 ## Milestone B — Broad Timer Product UI
 
