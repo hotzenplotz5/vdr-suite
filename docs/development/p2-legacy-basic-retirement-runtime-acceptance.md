@@ -49,6 +49,10 @@ The runner requires:
 - the exact candidate daemon already built from that head;
 - exact current installed-daemon, defaults-file and service-PID fingerprints;
 - exact hosted-CI run number and run ID for the candidate;
+- the candidate source head. It may differ from the acceptance head only when
+  every intervening change is limited to the acceptance runner, guard and
+  runbook; any other changed path rejects reuse as potentially touching daemon
+  build inputs;
 - a clear package-maintenance preflight: neither `apt-daily.service` nor
   `apt-daily-upgrade.service` may be active/activating/reloading, and the
   standard apt/dpkg lock files must be acquirable without waiting;
@@ -94,7 +98,13 @@ rerun must reuse the persisted Human Account instead of creating another one.
 ## Acceptance contract
 
 The runner first installs the exact candidate daemon while retaining the
-existing compatibility configuration. On a pre-P2 database this first candidate
+existing compatibility configuration. A previously built candidate may be
+reused without rebuilding when its recorded candidate source head is an ancestor
+of the current acceptance head and the complete diff between them contains
+only acceptance-runner, guard and runbook files. The report records that
+candidate source head alongside the acceptance head and candidate SHA-256.
+
+On a pre-P2 database this first candidate
 startup is also the controlled schema initialization step. If the server is
 unclaimed and `--bootstrap-first-admin` was authorized, the First Admin is
 claimed before the Human Account baseline check.
