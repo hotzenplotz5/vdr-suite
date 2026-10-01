@@ -98,7 +98,7 @@ def main():
         "candidate source head",
         "only acceptance-runner, guard and runbook files",
         "security-scoped SQLite integrity",
-        "does not scan the complete production database",
+        "scan the complete production database, because Recording, EPG and media-cache",
         "does not restart VDR",
         "failure restores",
     ):
