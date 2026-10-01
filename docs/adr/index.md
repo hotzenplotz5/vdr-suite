@@ -30,7 +30,13 @@ The Strict Roadmap owns future phase sequencing. ADRs own stable architecture an
 
 ## ADR Numbering Policy
 
-Canonical ADR sequence currently runs through:
+Canonical ADR numbers are currently allocated through:
+
+```text
+ADR-0067
+```
+
+Latest accepted canonical ADR:
 
 ```text
 ADR-0066
@@ -57,7 +63,7 @@ Latest accepted ADRs at the end of the sequence:
 Next available canonical ADR:
 
 ```text
-ADR-0067
+ADR-0068
 ```
 
 Rules:
@@ -155,7 +161,7 @@ Rules:
 
 ## Proposed Canonical ADRs
 
-None.
+- [ADR-0067: Human Account and Backend Access Administration](ADR-0067-human-account-backend-access-administration.md) — proposed Multiuser administration architecture; no runtime authorization until accepted.
 
 ---
 
