@@ -39,7 +39,7 @@ ADR-0067
 Latest accepted canonical ADR:
 
 ```text
-ADR-0066
+ADR-0067
 ```
 
 Latest accepted ADRs at the end of the sequence:
@@ -59,6 +59,7 @@ Latest accepted ADRs at the end of the sequence:
 - [ADR-0064: SuiteBridge Local Prioritized Control Plane](ADR-0064-suitebridge-local-prioritized-control-plane.md)
 - [ADR-0065: Human Account, Profile and Device Identity Boundary](ADR-0065-human-account-profile-device-identity-boundary.md)
 - [ADR-0066: Unclaimed Server, First-Admin Bootstrap and Local Recovery](ADR-0066-unclaimed-server-first-admin-bootstrap-recovery.md)
+- [ADR-0067: Human Account and Backend Access Administration](ADR-0067-human-account-backend-access-administration.md)
 
 Next available canonical ADR:
 
@@ -159,12 +160,13 @@ Rules:
 - [ADR-0064: SuiteBridge Local Prioritized Control Plane](ADR-0064-suitebridge-local-prioritized-control-plane.md)
 - [ADR-0065: Human Account, Profile and Device Identity Boundary](ADR-0065-human-account-profile-device-identity-boundary.md)
 - [ADR-0066: Unclaimed Server, First-Admin Bootstrap and Local Recovery](ADR-0066-unclaimed-server-first-admin-bootstrap-recovery.md)
+- [ADR-0067: Human Account and Backend Access Administration](ADR-0067-human-account-backend-access-administration.md)
 
 ---
 
 ## Proposed Canonical ADRs
 
-- [ADR-0067: Human Account and Backend Access Administration](ADR-0067-human-account-backend-access-administration.md) — proposed Multiuser administration architecture; no runtime authorization until accepted.
+None.
 
 ---
 
