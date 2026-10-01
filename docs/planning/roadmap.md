@@ -995,37 +995,33 @@ Do not reopen Phase 62 to implement these surfaces.
 
 ## Milestone D — Legacy Basic Retirement
 
-Status: **Fresh-install migration, enforced runtime fence and supported real-yaVDR retirement acceptance completed; transitional implementation deletion remains a separate bounded slice.**
+Status: **Real-deployment migration gate accepted; transitional Legacy Basic runtime implementation removed.**
 
-Fresh packaged installations now select `VDR_SUITE_SECURITY_MODE=enforced`.
-The first-admin bootstrap, claim, human-password session bridge and local audited
-recovery paths are implemented. During package installation existing deployment
-default files are preserved rather than overwritten, so upgrades remain an
-operator-controlled migration.
+The supported real yaVDR deployment completed the guarded
+`legacy-basic -> enforced -> legacy-basic -> enforced` acceptance on
+2026-10-01 before deletion. The retained evidence proves Human Account browser
+login across every transition, the expected Legacy Basic denial/restoration
+behavior during the migration test and an unchanged persistent Human Account
+identity. The accepted deployment was left on the enforced identity model.
 
-Explicit enforced mode no longer authenticates Legacy Basic, even if an older
-defaults file still contains `VDR_SUITE_BASIC_AUTH` or other
-`VDR_SUITE_LEGACY_BASIC_*` inputs. Those compatibility inputs become effective
-only after an explicit `VDR_SUITE_SECURITY_MODE=legacy-basic` rollback.
+The subsequent bounded retirement slice removes the runtime compatibility
+implementation itself:
 
-The guarded real-runtime acceptance now covers both an already claimed installation and a pre-P2/unclaimed legacy installation across `legacy-basic -> enforced -> legacy-basic -> enforced`. For the pre-P2 shape it can, only with explicit `--bootstrap-first-admin`, let the exact candidate initialize the P2 schema and perform the existing root-bootstrap/atomic-claim flow before the mode migration. It proves Human Account browser login in both modes, Legacy Basic denial in enforced mode and restoration in rollback mode, preserves the persistent Human Account/Actor/credential/grant fingerprint, and leaves a successful deployment explicitly on `enforced`.
+- no Legacy Basic deployment mode or authenticator remains;
+- stale `VDR_SUITE_SECURITY_MODE`, `VDR_SUITE_BASIC_AUTH` and
+  `VDR_SUITE_LEGACY_BASIC_*` values are ignored;
+- no compatibility identity is provisioned at startup;
+- HTTP/browser-session gates and HbbTV grants have no Legacy Basic fallback;
+- fresh package defaults no longer publish a security-mode setting;
+- package installation still preserves an existing defaults file, so old
+  operator lines may remain without becoming authentication authority.
 
-The supported real yaVDR deployment completed the guarded acceptance on
-2026-10-01. The retained evidence proves compatibility baseline access, Legacy
-Basic denial in enforced mode, explicit compatibility rollback, restored Legacy
-Basic access after rollback, final enforced denial, Human Account browser login
-through every stage and an unchanged persistent Human Account identity. The
-successful deployment was left explicitly in `enforced`.
+Human Account browser sessions and optional Managed Basic remain the supported
+authentication paths. Older unclaimed installations use the local trusted
+bootstrap/First Admin claim contract rather than a compatibility credential.
 
-The remaining retirement work is now narrower:
-
-- migrate any other existing deployments deliberately to the enforced model
-  rather than silently changing their compatibility state;
-- in a separate bounded slice, delete transitional Legacy Basic implementation
-  support while preserving the documented explicit migration history.
-
-The fresh-install default alone did not satisfy the real deployment rollback
-gate; the accepted 2026-10-01 real-runtime sequence now does.
+The retained real-runtime acceptance and its rollback sequence are historical
+migration evidence. They are not a current rollback procedure after removal.
 
 This remains a deployment compatibility milestone, not a prerequisite for
 Streaming unless a concrete security requirement later makes it one.
