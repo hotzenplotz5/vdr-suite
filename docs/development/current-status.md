@@ -29,9 +29,13 @@ Current active numbered runtime slice: **none - Phase 70 - Recommendation and Co
 
 Current active cross-cutting productization workstream: **Multiuser / Account and Backend Access Administration**.
 
-Current Multiuser slice: **MU.5 - Administration architecture contract - ADR-0067 [PROPOSED]**.
+Current Multiuser architecture slice: **MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]**.
 
-The Multiuser foundation through MU.4 is completed: explicit Human Accounts, stable read-only Account API, First Admin/bootstrap, normal Human Account browser login, local audited recovery and Legacy Basic retirement. The next runtime administration slice is intentionally blocked until proposed ADR-0067 is accepted. Durable status is in [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md).
+Current Multiuser runtime slice: **none - MU.6 Human Account lifecycle administration not started**.
+
+Next Multiuser runtime slice: **MU.6 - Human Account lifecycle administration**.
+
+The Multiuser foundation through MU.5 is completed: explicit Human Accounts, stable read-only Account API, First Admin/bootstrap, normal Human Account browser login, local audited recovery, Legacy Basic retirement and accepted administration architecture. ADR-0067 is accepted; MU.6 is the first justified runtime successor but is not started by this documentation-only slice. Durable status is in [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md) and [MU.5 Administration Architecture Acceptance](post-phase69-mu5-administration-architecture-acceptance.md).
 
 69.D is completed; durable evidence is in
 [Phase 69.D Closeout](phase-69d-closeout.md). PR #363 accepted the backend-scoped
@@ -176,7 +180,7 @@ The following remain explicit open/deferred boundaries rather than unfinished Ph
 - user-visible growing-Recording seek where unsupported capability remains truthful;
 - Live-TV timeshift;
 - recommendation/content graph runtime (Phase 70), which still requires its dedicated accepted ADR;
-- Multiuser Account/backend access administration after MU.4, currently at proposed ADR-0067 architecture gate;
+- Multiuser Account/backend access administration after MU.5, with ADR-0067 accepted and MU.6 Human Account lifecycle administration next but not started;
 - broad Timer Product UI, which remains gated on completion of the required Multiuser Account/backend access administration surface.
 
 ## Related documents
@@ -184,6 +188,7 @@ The following remain explicit open/deferred boundaries rather than unfinished Ph
 - [Current State](../CURRENT.md)
 - [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md)
 - [ADR-0067 Human Account and Backend Access Administration](../adr/ADR-0067-human-account-backend-access-administration.md)
+- [MU.5 Administration Architecture Acceptance](post-phase69-mu5-administration-architecture-acceptance.md)
 - [P2 Legacy Basic Retirement Closeout](post-phase69-p2-legacy-basic-retirement-closeout.md)
 - [Phase 68.E Viewer-Binding Closeout](phase-68e-viewer-bindings-closeout.md)
 - [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md)
