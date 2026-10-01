@@ -56,7 +56,7 @@ The completed numbered planning boundary is now Phase 69; 69.A-F are accepted. P
 
 For successor planning, re-read live `main`, CURRENT, the Strict Roadmap and the Phase-69 closeout. Do not start Phase 70 until its required runtime ADR is accepted.
 
-The active cross-cutting productization line is [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md): MU.0-MU.5 are complete, [ADR-0067](../adr/ADR-0067-human-account-backend-access-administration.md) is accepted, and MU.6 Human Account lifecycle administration is the next runtime slice but is not started.
+The active cross-cutting productization line is [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md): MU.0-MU.5 are complete and MU.6 Human Account lifecycle administration is in progress. MU.6A lifecycle authority is completed and MU.6B Public Account item/revision is next; Public lifecycle mutation and Account CREATE remain later MU.6 sub-slices.
 
 ## Planning cautions
 
