@@ -7,9 +7,11 @@ ROOT = Path(__file__).resolve().parents[1]
 ADR_DIR = ROOT / "docs" / "adr"
 INDEX = ADR_DIR / "index.md"
 ACTIVE_START = "## Active Canonical ADRs"
+PROPOSED_START = "## Proposed Canonical ADRs"
 ACTIVE_END = "---"
-EXPECTED_LATEST = "ADR-0055"
-EXPECTED_NEXT = "ADR-0056"
+EXPECTED_LATEST = "ADR-0066"
+EXPECTED_NEXT = "ADR-0068"
+EXPECTED_PROPOSED = "ADR-0067-human-account-backend-access-administration.md"
 REMOVED_CONFLICT = "ADR-0037-suite-metadata-database-and-external-scraper-strategy.md"
 EXPECTED_ACTIVE_FILES = {
     "0037": "ADR-0037-packaging-install-api-boundary.md",
@@ -31,6 +33,17 @@ EXPECTED_ACTIVE_FILES = {
     "0053": "ADR-0053-client-playback-engine-media-adaptation-strategy.md",
     "0054": "ADR-0054-broadcast-companion-teletext-hbbtv.md",
     "0055": "ADR-0055-media-transcode-backend-selection-hardware-acceleration.md",
+    "0056": "ADR-0056-playback-presentation-timeline-continuity-failure-semantics.md",
+    "0057": "ADR-0057-recording-network-interruption-recovery.md",
+    "0058": "ADR-0058-media-home-responsive-browse-preview.md",
+    "0059": "ADR-0059-vdr-native-recording-editing-marks-cutting-authority.md",
+    "0060": "ADR-0060-federated-vdr-suite-sharing-reciprocal-site-trust.md",
+    "0061": "ADR-0061-actor-permissions-federation-client-access.md",
+    "0062": "ADR-0062-first-party-living-room-output-client.md",
+    "0063": "ADR-0063-mutation-complexity-proportionality-reuse.md",
+    "0064": "ADR-0064-suitebridge-local-prioritized-control-plane.md",
+    "0065": "ADR-0065-human-account-profile-device-identity-boundary.md",
+    "0066": "ADR-0066-unclaimed-server-first-admin-bootstrap-recovery.md",
 }
 
 ADR_LINK = re.compile(r"\((ADR-\d{4}[^)]+\.md)\)")
@@ -58,11 +71,18 @@ def main():
 
     text = INDEX.read_text(encoding="utf-8")
     active = section(text, ACTIVE_START)
+    proposed = section(text, PROPOSED_START)
 
     if EXPECTED_LATEST not in text:
         errors.append("ADR index misses canonical latest marker " + EXPECTED_LATEST)
     if EXPECTED_NEXT not in text:
         errors.append("ADR index misses next canonical ADR marker " + EXPECTED_NEXT)
+    if EXPECTED_PROPOSED not in proposed:
+        errors.append("ADR index misses proposed canonical file " + EXPECTED_PROPOSED)
+    if not (ADR_DIR / EXPECTED_PROPOSED).exists():
+        errors.append("proposed canonical ADR file is missing: " + EXPECTED_PROPOSED)
+    if EXPECTED_PROPOSED in active:
+        errors.append("proposed ADR-0067 is incorrectly listed as active")
     if "Numbering Cleanup" not in text:
         errors.append("ADR index misses numbering cleanup section")
     if REMOVED_CONFLICT in active:
@@ -108,7 +128,8 @@ def main():
 
     print("ADR index check passed.")
     print("Active canonical ADR count: " + str(len(active_numbers)))
-    print("Latest canonical ADR: " + EXPECTED_LATEST)
+    print("Latest accepted canonical ADR: " + EXPECTED_LATEST)
+    print("Proposed canonical ADR: ADR-0067")
     print("Next canonical ADR: " + EXPECTED_NEXT)
     return 0
 
