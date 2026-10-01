@@ -9,6 +9,7 @@
 - [Golden User Journeys](docs/planning/golden-user-journeys.md)
 - [Completed History](docs/development/completed-phases.md)
 - [Post-Phase-66 Home Rebuild Closeout](docs/development/post-phase66-home-rebuild-closeout.md)
+- [P2 Legacy Basic Retirement Closeout](docs/development/post-phase69-p2-legacy-basic-retirement-closeout.md)
 
 ## Purpose
 
@@ -29,7 +30,7 @@ Phase 70 - Recommendation and Content Knowledge Graph
 
 Phase 66 is completed. The later non-numbered Home performance, Recording Discovery, metadata/artwork, native Recording editing and Home-rebuild work is also completed for the merged accepted scopes and does not reopen Phase 66. The consolidated Home-rebuild evidence is recorded in [Post-Phase-66 Home Rebuild Closeout](docs/development/post-phase66-home-rebuild-closeout.md).
 
-Phase 67, Phase 68 and Phase 69 are completed for their accepted bounded scopes. Durable Phase-69 evidence is in [Phase 69 Closeout](docs/development/phase-69-closeout.md). Phase 70 is the next strict numbered phase but is not started and has no runtime authorization until its required ADR is accepted.
+Phase 67, Phase 68 and Phase 69 are completed for their accepted bounded scopes. Durable Phase-69 evidence is in [Phase 69 Closeout](docs/development/phase-69-closeout.md). The cross-cutting P2 Legacy Basic retirement milestone is also completed and accepted on the real yaVDR target; see [P2 Legacy Basic Retirement Closeout](docs/development/post-phase69-p2-legacy-basic-retirement-closeout.md). Phase 70 is the next strict numbered phase but is not started and has no runtime authorization until its required ADR is accepted.
 
 ## Strict forward sequence
 
@@ -50,7 +51,7 @@ The following are deliberately not inserted as numbered phases:
 - Account and Backend Access Administration;
 - Broad Timer Product UI;
 - Audit/Security/Operations product surfaces;
-- Legacy Basic retirement;
+- Legacy Basic retirement **[COMPLETED]**;
 - first-party browser/TV/native/Kodi client rollout;
 - bounded post-phase correctness/performance hardening.
 
