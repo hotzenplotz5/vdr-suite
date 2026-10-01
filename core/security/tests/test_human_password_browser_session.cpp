@@ -24,7 +24,7 @@ namespace
 const std::string HumanPassword = "human-password";
 const std::string HumanAuthorization =
     "Basic YWRtaW46aHVtYW4tcGFzc3dvcmQ=";
-const std::string LegacyAuthorization =
+const std::string WrongHumanAuthorization =
     "Basic YWRtaW46dmRyLXN1aXRl";
 
 std::string passwordHash(const std::string& password)
@@ -105,7 +105,7 @@ int main()
 
     const auto wrongHumanPassword =
         humanAuthenticator.authenticate(
-            {{"Authorization", LegacyAuthorization}},
+            {{"Authorization", WrongHumanAuthorization}},
             "request-human-wrong",
             "");
     assert(
@@ -158,14 +158,14 @@ int main()
         nullptr,
         &humanAuthenticator);
 
-    const BrowserSessionGateDecision legacyCollision =
+    const BrowserSessionGateDecision wrongPasswordLogin =
         gate.evaluate(loginRequest(
-            LegacyAuthorization,
+            WrongHumanAuthorization,
             "request-human-strict-precedence"));
-    assert(!legacyCollision.allowed);
-    assert(legacyCollision.rejection.statusCode == 401);
+    assert(!wrongPasswordLogin.allowed);
+    assert(wrongPasswordLogin.rejection.statusCode == 401);
     assert(
-        legacyCollision.rejection.body.find(
+        wrongPasswordLogin.rejection.body.find(
             "invalid_credentials") != std::string::npos);
 
     const BrowserSessionGateDecision login =

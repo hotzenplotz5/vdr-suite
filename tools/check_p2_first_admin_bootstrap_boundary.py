@@ -31,7 +31,10 @@ def forbid(name, marker):
         raise AssertionError(f"{FILES[name]} contains forbidden marker: {marker}")
 
 def main():
-    require("config", '"legacy-basic"')
+    forbid("config", '"legacy-basic"')
+    forbid("config", "VDR_SUITE_SECURITY_MODE")
+    forbid("config", "VDR_SUITE_BASIC_AUTH")
+    forbid("config", "VDR_SUITE_LEGACY_BASIC_")
     require("unit", "EnvironmentFile=-/etc/default/vdr-suite-daemon")
     require("provisioning", "INSERT OR IGNORE INTO security_actors")
     require("verifier", "security_basic_credential_verifiers")
