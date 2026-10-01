@@ -195,7 +195,9 @@ BrowserSessionHttpGate::BrowserSessionHttpGate(
     const PersistentIdentityResolver* persistentIdentityResolver,
     const ManagedBasicAuthenticator* managedBasicAuthenticator,
     const HumanPasswordBrowserAuthenticator*
-        humanPasswordBrowserAuthenticator)
+        humanPasswordBrowserAuthenticator,
+    const HumanAccountRepository*
+        humanAccountRepository)
     : browserSessionIdle_(configuration.browserSessionIdle),
       accountabilityRepository_(accountabilityRepository),
       persistentIdentityResolver_(persistentIdentityResolver),
@@ -209,7 +211,8 @@ BrowserSessionHttpGate::BrowserSessionHttpGate(
               configuration.browserSessionIdle.valid()
                   ? configuration.browserSessionIdle.timeoutSeconds
                   : -1,
-              BrowserSessionIdleConfiguration::LastSeenWriteIntervalSeconds))
+              BrowserSessionIdleConfiguration::LastSeenWriteIntervalSeconds,
+              humanAccountRepository))
 {
 }
 
