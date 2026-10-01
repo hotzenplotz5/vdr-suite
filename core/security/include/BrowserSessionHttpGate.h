@@ -71,6 +71,7 @@ private:
         bool advertiseBasic) const;
     std::string opaqueId(const std::string& prefix) const;
 
+    BrowserSessionIdleConfiguration browserSessionIdle_;
     AccountabilityEventRepository& accountabilityRepository_;
     const PersistentIdentityResolver* persistentIdentityResolver_;
     const ManagedBasicAuthenticator* managedBasicAuthenticator_;
