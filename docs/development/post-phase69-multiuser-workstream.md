@@ -16,8 +16,8 @@ First Admin / bootstrap / recovery: completed
 Legacy Basic retirement: completed
 Administration architecture: ADR-0067 [ACCEPTED]
 Current Multiuser runtime slice: MU.6 Human Account lifecycle administration [IN PROGRESS]
-Latest completed MU.6 sub-slice: MU.6A Account lifecycle authority foundation
-Next MU.6 sub-slice: MU.6B Public Account item + revision/ETag
+Latest completed MU.6 sub-slice: MU.6B Public Account item + revision/ETag
+Next MU.6 sub-slice: MU.6C Public display-name / activate / deactivate
 ```
 
 ## Binding architecture
@@ -118,10 +118,13 @@ Durable evidence:
 Durable MU.6A evidence:
 [MU.6A Human Account Lifecycle Authority Foundation](post-phase69-mu6-account-lifecycle-foundation.md).
 
+Durable MU.6B evidence:
+[MU.6B Public Account Item + Revision/ETag](post-phase69-mu6b-public-account-item.md).
+
 ```text
 MU.6A Account lifecycle authority foundation            [DONE]
-MU.6B Public Account item + revision/ETag               [NEXT - NOT STARTED]
-MU.6C Public display-name / activate / deactivate       [PLANNED]
+MU.6B Public Account item + revision/ETag               [DONE]
+MU.6C Public display-name / activate / deactivate       [NEXT - NOT STARTED]
 MU.6D Atomic Account CREATE + durable idempotency       [PLANNED]
 ```
 
@@ -136,9 +139,14 @@ MU.6A delivers:
 - transactionally enforced final-usable-administrator protection;
 - secret-free accountability for success/conflict/denial.
 
-MU.6A does not expose new Public-v1 mutation routes and does not create later
-Human Accounts. MU.6B-C-D complete those remaining ADR-0067 Account lifecycle
-contracts before MU.7 begins.
+MU.6B adds the secret-free stable `GET /api/v1/accounts/{accountId}` item
+under the existing `accounts.view@*` authority. It exposes the MU.6A revision
+only through a strong opaque ETag, supports `If-None-Match`/304 and leaves the
+existing Account collection unchanged without a collection ETag.
+
+MU.6C-D complete the remaining ADR-0067 Account lifecycle contracts before
+MU.7 begins. MU.6B does not expose lifecycle mutation, Account CREATE, grants,
+credentials or sessions.
 
 ### MU.7 — Backend access / permission grant administration [PLANNED]
 
@@ -178,7 +186,8 @@ ADR-0065 Human Account boundary [ACCEPTED]
   -> ADR-0067 Account/Backend Access Administration [ACCEPTED]
        -> MU.6 Account lifecycle administration [IN PROGRESS]
             -> MU.6A lifecycle authority [DONE]
-            -> MU.6B Account item/revision [NEXT]
+            -> MU.6B Account item/revision [DONE]
+            -> MU.6C public lifecycle mutation [NEXT]
        -> MU.7 Backend access/grant administration
        -> MU.8 Credential/session administration
        -> MU.9 Account/access admin UI
@@ -200,5 +209,5 @@ Independent numbered track:
 - Device trust is not user identity or permission.
 - Capability never grants authorization.
 - No client/UI owns authorization policy.
-- ADR-0067 is accepted; MU.6A is the first landed runtime boundary, while Public-v1 Account mutation and CREATE remain explicitly incomplete.
+- ADR-0067 is accepted; MU.6A and MU.6B are landed runtime boundaries, while Public-v1 Account lifecycle mutation and CREATE remain explicitly incomplete.
 - Phase 70 is not started by Multiuser work.
