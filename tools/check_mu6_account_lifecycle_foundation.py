@@ -136,7 +136,6 @@ def main():
         require(name, "MU.6")
         forbid(name, "MU.6 Human Account lifecycle administration not started")
 
-    require("current", "MU.6A - Account lifecycle authority foundation [COMPLETED]")
     require("workstream", "MU.6A Account lifecycle authority foundation            [DONE]")
 
     for marker in (
