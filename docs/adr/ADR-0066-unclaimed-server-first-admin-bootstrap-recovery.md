@@ -8,7 +8,7 @@ Date: 2026-09-29
 
 ## Context
 
-VDR-Suite now has an explicit Human Account persistence/read foundation in the existing Suite security database, while Legacy Basic remains the runtime compatibility default when `VDR_SUITE_SECURITY_MODE` is absent.
+VDR-Suite now has an explicit Human Account persistence/read foundation in the existing Suite security database. The later retirement work completed the guarded real-deployment migration and removed Legacy Basic runtime compatibility; this ADR retains the bootstrap/recovery decisions that made that removal safe.
 
 The packaged daemon reads `/etc/default/vdr-suite-daemon`, but that file does not define a first-admin lifecycle. Managed Basic can provision a persistent verifier from environment configuration, yet it is still deployment configuration rather than a product claim/recovery workflow.
 
@@ -66,50 +66,35 @@ All persistent identity state remains in the existing Suite security authority.
 
 A partially created first admin must not survive failed claim completion.
 
-### Authentication default migration
+### Authentication default migration and retirement completion
 
-Legacy Basic retirement is a separate migration slice. The fresh-install portion
-of that migration is now implemented without silently changing existing
-installations.
+The bootstrap, claim, Human Account password bridge and local recovery contracts
+were implemented before changing the deployment authentication boundary.
 
-Fresh packaged installations explicitly set:
+Fresh packaged installations first moved to an explicit enforced deployment
+mode while existing defaults files were preserved, allowing the guarded
+real-yaVDR migration/rollback acceptance to prove that an existing installation
+could move through the compatibility boundary without Human Account identity
+drift.
 
-`VDR_SUITE_SECURITY_MODE=enforced`
+That migration gate completed successfully on 2026-10-01. The subsequent
+bounded retirement slice removes the transitional runtime mechanism entirely:
 
-in the package-owned source for `/etc/default/vdr-suite-daemon`. This makes a
-newly installed, unclaimed server fail closed for normal protected application
-access while the already isolated local bootstrap and first-admin claim
-authorities remain available.
+- `SecurityConfiguration` no longer parses a Legacy Basic/enforced mode;
+- `LegacyBasicAuthenticator` no longer exists;
+- `VDR_SUITE_SECURITY_MODE`, `VDR_SUITE_BASIC_AUTH` and
+  `VDR_SUITE_LEGACY_BASIC_*` are retired runtime inputs;
+- startup no longer provisions the compatibility identity;
+- HTTP/browser-session authentication and HbbTV grants contain no Legacy Basic
+  fallback;
+- existing operator defaults files are still not overwritten during package
+  installation, so historical lines may remain but are inert.
 
-The installer intentionally creates that defaults file only when it does not
-already exist. An existing `/etc/default/vdr-suite-daemon` is therefore never
-rewritten merely because VDR-Suite is upgraded. Existing deployments without an
-explicit security-mode setting continue through the compatibility behavior of
-`SecurityConfiguration`; the code fallback remains legacy-basic so an upgrade
-cannot silently lock out an operator.
-
-An explicit `enforced` mode is also a hard Legacy Basic runtime boundary.
-`SecurityConfiguration` does not consume `VDR_SUITE_BASIC_AUTH` or the
-`VDR_SUITE_LEGACY_BASIC_*` actor/device/credential/grant inputs in that mode,
-and `LegacyBasicAuthenticator` refuses compatibility authentication even if a
-caller manually constructs a configuration containing a stale Legacy Basic
-header. Consequently an old compatibility secret cannot silently reactivate
-Legacy Basic after an operator selects `enforced`, and the daemon does not
-provision the compatibility identity merely because stale compatibility
-variables remain in an older defaults file.
-
-A controlled compatibility rollback is explicit deployment configuration:
-
-`VDR_SUITE_SECURITY_MODE=legacy-basic`
-
-followed by the normal daemon restart. Only in that compatibility mode do the
-Legacy Basic environment inputs become effective again. Rollback changes the
-authentication mode; it does not delete Human Accounts, rotate credentials,
-restore bootstrap material or rewrite identity history.
-
-This slice does not remove Legacy Basic implementation support. Full retirement
-still requires deliberate migration of existing installations and real
-deployment rollback evidence before the compatibility path can be deleted.
+There is therefore no runtime compatibility rollback after this retirement
+slice. Human Account browser login, browser sessions and optional Managed Basic
+remain the supported authorities. An older installation that has not yet
+claimed a Human Account must use the existing local trusted bootstrap/claim
+path; retired Legacy Basic configuration is not a recovery authority.
 
 ### Local recovery
 
@@ -178,15 +163,17 @@ The next runtime implementation can be divided into bounded slices:
 5. local audited recovery through selected Human Account credential rotation;
 6. fresh-install/default migration away from Legacy Basic, with upgrade compatibility preserved.
 
-All six ADR-0066 runtime slices above are now implemented for the bounded
-fresh-install migration contract. Removal of the Legacy Basic compatibility
-implementation remains a later deployment-retirement milestone.
+All six ADR-0066 runtime slices above are implemented, and the subsequent
+guarded retirement milestone has removed the Legacy Basic compatibility
+implementation after accepted real-deployment migration evidence.
 
 ## Non-goals
 
-This ADR does not:
-- change the current authentication default;
-- remove Legacy Basic;
+At adoption time this ADR did not itself change the authentication default or
+remove Legacy Basic; those later guarded migration and retirement slices are now
+complete.
+
+This ADR still does not:
 - implement a bootstrap endpoint;
 - implement first-admin account creation;
 - modify the open Public-v1 Account collection work;
