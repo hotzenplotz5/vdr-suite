@@ -40,6 +40,19 @@ public:
     BrowserSessionAuthenticator(
         const BrowserSessionCredentialRepository& repository,
         const SecurityPermissionGrantRepository& grantRepository,
+        const HumanAccountRepository* accountRepository)
+        : BrowserSessionAuthenticator(
+              repository,
+              grantRepository,
+              "vdr_suite_session",
+              "X-CSRF-Token",
+              accountRepository)
+    {
+    }
+
+    BrowserSessionAuthenticator(
+        const BrowserSessionCredentialRepository& repository,
+        const SecurityPermissionGrantRepository& grantRepository,
         int idleTimeoutSeconds,
         int lastSeenWriteIntervalSeconds,
         const HumanAccountRepository* accountRepository)
