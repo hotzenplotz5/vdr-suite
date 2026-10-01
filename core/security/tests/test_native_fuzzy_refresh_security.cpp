@@ -66,7 +66,7 @@ void testNativeFuzzyRefresh()
     {
         HttpServerRequest legacy =
             fixture.mutationRequest(route, "default");
-        fixture.addLegacyAuthentication(legacy);
+        fixture.addManagedBasicAuthentication(legacy);
 
         const SecurityGateDecision legacyDecision =
             fixture.gate.evaluate(legacy);
@@ -219,7 +219,7 @@ void testNativeFuzzyStaleProbeDelete()
     {
         HttpServerRequest legacy =
             fixture.mutationRequest(route, "body-scope-must-be-ignored");
-        fixture.addLegacyAuthentication(legacy);
+        fixture.addManagedBasicAuthentication(legacy);
         const SecurityGateDecision legacyDecision =
             fixture.gate.evaluate(legacy);
         assert(legacyDecision.allowed);
@@ -436,7 +436,7 @@ void testQueryCacheRefreshRoute(const QueryCacheRoute& contract)
     HttpServerRequest legacy = fixture.mutationRequest(
         scopedPath,
         "body-must-not-control-scope");
-    fixture.addLegacyAuthentication(legacy);
+    fixture.addManagedBasicAuthentication(legacy);
     const SecurityGateDecision legacyDecision =
         fixture.gate.evaluate(legacy);
     assert(legacyDecision.allowed);

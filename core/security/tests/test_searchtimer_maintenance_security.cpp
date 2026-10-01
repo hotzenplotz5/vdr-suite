@@ -30,7 +30,7 @@ int main()
             fixture.mutationRequest(
                 route.path,
                 "default");
-        fixture.addLegacyAuthentication(legacy);
+        fixture.addManagedBasicAuthentication(legacy);
 
         const SecurityGateDecision legacyDecision =
             fixture.gate.evaluate(legacy);
