@@ -65,14 +65,22 @@ For an already claimed deployment, the Human Account password is read interactiv
 before the daemon is stopped.
 
 For a pre-P2 or unclaimed deployment, `--bootstrap-first-admin` is required.
-The runner prompts interactively for the First Human Account login, display name
-and password before mutation. The password is entered twice and is never
-accepted as a command-line argument or environment variable. After the exact
-candidate daemon starts in compatibility mode and initializes the P2 schema, the
-runner invokes the exact built root-only bootstrap issuer against the production
-Suite database and submits the returned one-time proof to the real
-`/api/security/first-admin/claim` endpoint. The raw setup secret is held only
-in process memory and is never written to the evidence report.
+The runner creates exactly one persistent VDR-Suite First Admin Human Account.
+The three interactive values belong to that same account: the login is the
+username later used for Human Account sign-in, the display name is the
+human-readable label for the account, and the password authenticates that login.
+They are not separate accounts or separate security identities.
+
+The runner prompts for those values before mutation. The password is entered
+twice and is never accepted as a command-line argument or environment variable.
+After the exact candidate daemon starts in compatibility mode and initializes
+the P2 schema, the runner invokes the exact built root-only bootstrap issuer
+against the production Suite database and submits the returned one-time proof
+to the real `/api/security/first-admin/claim` endpoint. The raw setup secret is
+held only in process memory and is never written to the evidence report.
+
+If that atomic First Admin claim succeeds but a later acceptance step fails, a
+rerun must reuse the persisted Human Account instead of creating another one.
 
 ## Acceptance contract
 
