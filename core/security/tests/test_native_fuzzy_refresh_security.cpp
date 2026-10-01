@@ -64,14 +64,16 @@ void testNativeFuzzyRefresh()
 
     for (const std::string& route : kNativeFuzzyRoutes)
     {
-        HttpServerRequest legacy =
+        HttpServerRequest retiredLegacy =
             fixture.mutationRequest(route, "default");
-        fixture.addLegacyAuthentication(legacy);
+        fixture.addRetiredLegacyAuthentication(retiredLegacy);
 
-        const SecurityGateDecision legacyDecision =
-            fixture.gate.evaluate(legacy);
-        assert(legacyDecision.allowed);
-        assert(legacyDecision.protectedMutation);
+        const SecurityGateDecision retiredLegacyDecision =
+            fixture.gate.evaluate(retiredLegacy);
+        assertDenied(
+            retiredLegacyDecision,
+            401,
+            "authentication_required");
 
         HttpServerRequest missingCsrf =
             fixture.mutationRequest(route, "default");
@@ -217,13 +219,15 @@ void testNativeFuzzyStaleProbeDelete()
 
     for (const std::string& route : kNativeFuzzyStaleProbeDeleteRoutes)
     {
-        HttpServerRequest legacy =
+        HttpServerRequest retiredLegacy =
             fixture.mutationRequest(route, "body-scope-must-be-ignored");
-        fixture.addLegacyAuthentication(legacy);
-        const SecurityGateDecision legacyDecision =
-            fixture.gate.evaluate(legacy);
-        assert(legacyDecision.allowed);
-        assert(legacyDecision.protectedMutation);
+        fixture.addRetiredLegacyAuthentication(retiredLegacy);
+        const SecurityGateDecision retiredLegacyDecision =
+            fixture.gate.evaluate(retiredLegacy);
+        assertDenied(
+            retiredLegacyDecision,
+            401,
+            "authentication_required");
 
         HttpServerRequest missingCsrf =
             fixture.mutationRequest(route, "body-scope-must-be-ignored");
@@ -433,14 +437,16 @@ void testQueryCacheRefreshRoute(const QueryCacheRoute& contract)
     const std::string scopedPath =
         contract.path + "?backend=house-a";
 
-    HttpServerRequest legacy = fixture.mutationRequest(
+    HttpServerRequest retiredLegacy = fixture.mutationRequest(
         scopedPath,
         "body-must-not-control-scope");
-    fixture.addLegacyAuthentication(legacy);
-    const SecurityGateDecision legacyDecision =
-        fixture.gate.evaluate(legacy);
-    assert(legacyDecision.allowed);
-    assert(legacyDecision.protectedMutation);
+    fixture.addRetiredLegacyAuthentication(retiredLegacy);
+    const SecurityGateDecision retiredLegacyDecision =
+        fixture.gate.evaluate(retiredLegacy);
+    assertDenied(
+        retiredLegacyDecision,
+        401,
+        "authentication_required");
 
     HttpServerRequest missingCsrf = fixture.mutationRequest(
         scopedPath,

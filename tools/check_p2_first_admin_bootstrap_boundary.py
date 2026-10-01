@@ -31,7 +31,11 @@ def forbid(name, marker):
         raise AssertionError(f"{FILES[name]} contains forbidden marker: {marker}")
 
 def main():
-    require("config", '"legacy-basic"')
+    forbid("config", '"legacy-basic"')
+    forbid("config", "LegacyBasicCompatibility")
+    forbid("config", "VDR_SUITE_BASIC_AUTH")
+    forbid("config", "VDR_SUITE_LEGACY_BASIC_")
+    require("config", "VDR_SUITE_MANAGED_BASIC_USERNAME")
     require("unit", "EnvironmentFile=-/etc/default/vdr-suite-daemon")
     require("provisioning", "INSERT OR IGNORE INTO security_actors")
     require("verifier", "security_basic_credential_verifiers")
@@ -45,14 +49,16 @@ def main():
         "one-way verifier",
         "local trusted operator",
         "Local recovery",
-        "Legacy Basic retirement is a separate migration slice.",
+        "Authentication default migration and retirement completion",
+        "There is therefore no runtime compatibility rollback",
         "A partially created first admin must not survive failed claim completion.",
     ):
         require("adr", marker)
 
     for marker in (
         "Current main does not provide a canonical lifecycle",
-        "The remaining blocker to retiring the compatibility default is not missing password verification.",
+        "Legacy Basic runtime implementation removal",
+        "Fresh package defaults no longer emit",
         "persistent claim/bootstrap state",
         "no authentication-default change yet",
     ):

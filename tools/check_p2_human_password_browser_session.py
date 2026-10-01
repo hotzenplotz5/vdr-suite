@@ -76,12 +76,13 @@ def main():
 
     gate = read("gate_cpp")
     human = gate.find("humanPasswordBrowserAuthenticator_->authenticate")
-    legacy = gate.find("legacyAuthenticator_->authenticate")
     managed = gate.find("managedBasicAuthenticator_->authenticate")
-    if min(human, legacy, managed) < 0 or not human < legacy < managed:
+    if min(human, managed) < 0 or not human < managed:
         raise AssertionError(
-            "human-password authentication must precede compatibility fallback"
+            "human-password authentication must precede Managed Basic fallback"
         )
+    forbid("gate_cpp", "legacyAuthenticator_->authenticate")
+    forbid("gate_h", "LegacyBasicAuthenticator")
 
     forbid("security_gate", "HumanPasswordBrowserAuthenticator")
     require(
@@ -111,7 +112,9 @@ def main():
         require("make", marker)
 
     forbid("defaults", "VDR_SUITE_HUMAN_PASSWORD")
-    require("defaults", "VDR_SUITE_SECURITY_MODE=enforced")
+    forbid("defaults", "\nVDR_SUITE_SECURITY_MODE=")
+    forbid("defaults", "\nVDR_SUITE_BASIC_AUTH=")
+    forbid("defaults", "\nVDR_SUITE_LEGACY_BASIC_")
     forbid("claim", "HumanPasswordBrowserAuthenticator")
 
     audit = " ".join(read("audit").split())

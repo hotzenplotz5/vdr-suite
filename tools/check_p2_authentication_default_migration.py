@@ -31,30 +31,42 @@ def forbid(name, marker):
         raise AssertionError(f"{FILES[name]} contains forbidden marker: {marker}")
 
 def main():
-    require("defaults", "VDR_SUITE_SECURITY_MODE=enforced")
-    forbid("defaults", "\nVDR_SUITE_SECURITY_MODE=legacy-basic\n")
-    forbid("defaults", "VDR_SUITE_BASIC_AUTH=")
-    forbid("defaults", "VDR_SUITE_MANAGED_BASIC_PASSWORD_HASH=")
+    for marker in (
+        "\nVDR_SUITE_SECURITY_MODE=",
+        "\nVDR_SUITE_BASIC_AUTH=",
+        "\nVDR_SUITE_LEGACY_BASIC_",
+        "\nVDR_SUITE_MANAGED_BASIC_PASSWORD_HASH=",
+    ):
+        forbid("defaults", marker)
 
     for marker in (
         '"VDR_SUITE_SECURITY_MODE"',
         '"legacy-basic"',
-        'SecurityMode::LegacyBasicCompatibility',
-        'SecurityMode::Enforced',
+        "LegacyBasicCompatibility",
+        "SecurityMode::Enforced",
+        "VDR_SUITE_BASIC_AUTH",
+        "VDR_SUITE_LEGACY_BASIC_",
+    ):
+        forbid("config", marker)
+
+    for marker in (
+        '"VDR_SUITE_MANAGED_BASIC_USERNAME"',
+        '"VDR_SUITE_MANAGED_BASIC_PASSWORD_HASH"',
     ):
         require("config", marker)
 
     for marker in (
-        'setenv("VDR_SUITE_SECURITY_MODE", "enforced", 1)',
+        "retiredLegacyInputs",
         'setenv("VDR_SUITE_SECURITY_MODE", "legacy-basic", 1)',
-        "explicitCompatibilityRollback",
-        "SecurityMode::LegacyBasicCompatibility",
+        'setenv("VDR_SUITE_BASIC_AUTH", "Basic configured", 1)',
     ):
         require("config_test", marker)
 
     for marker in (
         "test -e $(DESTDIR)$(SYSCONFDIR)/default/vdr-suite-daemon ||",
-        "grep -Fx 'VDR_SUITE_SECURITY_MODE=enforced'",
+        "! grep -F 'VDR_SUITE_SECURITY_MODE='",
+        "! grep -F 'VDR_SUITE_BASIC_AUTH='",
+        "! grep -F 'VDR_SUITE_LEGACY_BASIC_'",
         "VDR_SUITE_UPGRADE_SENTINEL=preserve",
         "grep -Fx 'VDR_SUITE_SECURITY_MODE=legacy-basic'",
         "$(MAKE) install-systemd DESTDIR=/tmp/vdr-suite-pkgroot PREFIX=/usr",
@@ -62,47 +74,41 @@ def main():
         require("install", marker)
 
     for marker in (
-        "Fresh packaged installations",
-        "/etc/default/vdr-suite-daemon",
-        "VDR_SUITE_SECURITY_MODE=legacy-basic",
-        "code fallback remains",
-        "legacy-basic",
+        "Authentication default migration and retirement completion",
+        "no runtime compatibility rollback",
+        "historical lines may remain but are inert",
     ):
         require("adr", marker)
 
     for marker in (
-        "Authentication-default fresh-install migration",
-        "fresh install",
-        "upgrade",
-        "rollback",
-        "VDR_SUITE_SECURITY_MODE=enforced",
+        "Legacy Basic runtime implementation removal",
+        "Fresh package defaults no longer emit",
+        "negative credential probe",
     ):
         require("audit", marker)
 
     for marker in (
-        "Fresh packaged installations",
-        "upgrade compatibility",
-        "full Legacy Basic removal remains deferred",
+        "Legacy Basic runtime compatibility is now removed",
+        "old package-default lines may survive an upgrade",
+        "Historical retirement\nacceptance evidence remains retained",
     ):
         require("architecture", marker)
 
     for marker in (
-        "Fresh packaged installations now select",
-        "existing deployment",
-        "default files are preserved",
-        "real deployment rollback",
+        "transitional Legacy Basic runtime implementation removed",
+        "stale `VDR_SUITE_SECURITY_MODE`",
+        "not a current rollback procedure",
     ):
         require("roadmap", marker)
 
     for marker in (
-        "VDR_SUITE_SECURITY_MODE",
-        "Fresh packaged installations default to",
-        "legacy-basic",
-        "enforced",
+        "RETIRED SECURITY SETTINGS",
+        "Legacy Basic compatibility has been removed",
+        "values are inert",
     ):
         require("man", marker)
 
-    print("P2 authentication-default migration contracts passed")
+    print("P2 authentication-default retirement contracts passed")
     return 0
 
 if __name__ == "__main__":
@@ -110,7 +116,7 @@ if __name__ == "__main__":
         raise SystemExit(main())
     except AssertionError as error:
         print(
-            f"P2 authentication-default migration check failed: {error}",
+            f"P2 authentication-default retirement check failed: {error}",
             file=sys.stderr,
         )
         raise SystemExit(1)

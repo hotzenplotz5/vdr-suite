@@ -23,7 +23,6 @@ def main() -> int:
         "core/security/include/SecurityIdentity.h",
         "core/security/include/AuthorizationService.h",
         "core/security/include/SecurityConfiguration.h",
-        "core/security/include/LegacyBasicAuthenticator.h",
         "core/security/include/ManagedBasicAuthenticator.h",
         "core/security/include/CredentialVerifierRepository.h",
         "core/security/include/BrowserSessionCredentialRepository.h",
@@ -91,7 +90,7 @@ def main() -> int:
     require("core/http/src/TestHttpServer.cpp", "browserSessionHttpGate_->handles(request)")
     require("core/http/src/TestHttpServer.cpp", "browserSessionHttpService_->login(browserGate.context)")
     require("core/http/src/TestHttpServer.cpp", "browserSessionHttpService_->logout(browserGate.context)")
-    require("core/http/src/TestHttpServer.cpp", "ensureCompatibilityIdentity")
+    forbid("core/http/src/TestHttpServer.cpp", "ensureCompatibilityIdentity")
     require("core/http/src/TestHttpServer.cpp", "securityIdentityProvisioningRepository_->ensureIdentity")
     require("core/http/src/TestHttpServer.cpp", "credentialVerifierRepository_->ensureVerifier")
     require("core/http/src/TestHttpServer.cpp", "persistentIdentityResolver_.get()")
@@ -129,7 +128,7 @@ def main() -> int:
         '"recordings.delete"',
     )
     require("core/security/include/SecurityHttpGate.h", '"remote.control"')
-    require("core/security/include/SecurityHttpGate.h", "usesLegacyCompatibilityCredential")
+    forbid("core/security/include/SecurityHttpGate.h", "usesLegacyCompatibilityCredential")
     require("core/security/include/SecurityHttpGate.h", "browserSessionAuthenticator_->verifyCsrf(request.headers)")
     require("core/security/include/SecurityHttpGate.h", '"csrf_validation_failed"')
     require(
@@ -523,9 +522,12 @@ def main() -> int:
     require("core/security/include/PersistentIdentityResolver.h", "findCredential")
     require("core/security/src/AccountabilityEventRepository.cpp", "accountability_events_no_update")
     require("core/security/src/AccountabilityEventRepository.cpp", "accountability_events_no_delete")
-    require("core/security/include/SecurityConfiguration.h", "LegacyBasicCompatibility")
-    require("core/security/include/SecurityConfiguration.h", 'VDR_SUITE_SECURITY_MODE')
-    require("core/security/include/SecurityConfiguration.h", 'VDR_SUITE_LEGACY_BASIC_CREDENTIAL_ID')
+    forbid("core/security/include/SecurityConfiguration.h", "LegacyBasicCompatibility")
+    forbid("core/security/include/SecurityConfiguration.h", 'VDR_SUITE_LEGACY_BASIC_')
+    forbid("core/security/include/SecurityConfiguration.h", 'VDR_SUITE_BASIC_AUTH')
+    forbid("core/security/include/SecurityHttpGate.h", "LegacyBasicAuthenticator")
+    forbid("core/security/src/BrowserSessionHttpGate.cpp", "LegacyBasicAuthenticator")
+    forbid("core/http/src/TestHttpServer.cpp", "legacy-basic")
     require("core/security/include/SecurityConfiguration.h", 'VDR_SUITE_MANAGED_BASIC_USERNAME')
     require("core/security/include/SecurityConfiguration.h", 'VDR_SUITE_MANAGED_BASIC_PASSWORD_HASH')
     require("core/security/include/SecurityHttpGate.h", "security_policy_not_migrated")

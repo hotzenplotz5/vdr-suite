@@ -118,38 +118,6 @@ bool SecurityIdentityRepository::ensureSchema()
                "ON security_credentials(actor_id, credential_id);");
 }
 
-bool SecurityIdentityRepository::ensureCompatibilityIdentity(
-    const std::string& actorId,
-    ActorType actorType,
-    const std::string& actorDisplayName,
-    const std::string& deviceId,
-    const std::string& sessionId,
-    const std::string& credentialId)
-{
-    if (actorId.empty() || deviceId.empty() ||
-        sessionId.empty() || credentialId.empty())
-    {
-        return false;
-    }
-
-    return insertActorIfMissing(
-               actorId,
-               actorTypeName(actorType),
-               actorDisplayName) &&
-        insertDeviceIfMissing(
-               deviceId,
-               actorId,
-               "Legacy browser") &&
-        insertSessionIfMissing(
-               sessionId,
-               actorId,
-               deviceId) &&
-        insertCredentialIfMissing(
-               credentialId,
-               actorId,
-               "legacy-basic");
-}
-
 std::optional<StoredActorIdentity> SecurityIdentityRepository::findActor(
     const std::string& actorId) const
 {

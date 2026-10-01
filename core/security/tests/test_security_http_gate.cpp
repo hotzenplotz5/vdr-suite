@@ -43,14 +43,7 @@ HttpServerRequest publicOperationGetRequest()
 
 SecurityConfiguration enforcedConfiguration()
 {
-    SecurityConfiguration configuration;
-    configuration.mode = SecurityMode::Enforced;
-    configuration.expectedAuthorizationHeader =
-        SecurityHttpGateBrowserTestFixture::legacyCredential;
-    configuration.grants = {
-        PermissionGrant{"remote.control", "default"}
-    };
-    return configuration;
+    return SecurityConfiguration{};
 }
 
 void setLiveChannelBody(HttpServerRequest& request, const std::string& backendId)
@@ -68,55 +61,22 @@ int main()
 
     const SecurityGateDecision anonymous =
         fixture.gate.evaluate(getRequest());
-    assert(!anonymous.allowed);
-    assert(anonymous.rejection.statusCode == 401);
-    assert(anonymous.rejection.body.find(
-        "authentication_required") !=
-        std::string::npos);
-    assert(anonymous.rejection.headers.find(
-        "WWW-Authenticate") ==
-        anonymous.rejection.headers.end());
+    assert(anonymous.allowed);
+    assert(!anonymous.context.authenticated());
 
     const SecurityGateDecision publicAnonymous =
         fixture.gate.evaluate(publicV1GetRequest());
-    assert(!publicAnonymous.allowed);
+    assert(publicAnonymous.allowed);
     assert(publicAnonymous.publicApiV1);
-    assert(publicAnonymous.rejection.statusCode == 401);
-    assert(publicAnonymous.rejection.headers.at("Content-Type") ==
-        "application/problem+json");
-    assert(publicAnonymous.rejection.headers.at("X-Content-Type-Options") ==
-        "nosniff");
-    assert(publicAnonymous.rejection.headers.at("X-Request-ID") ==
-        "phase69b-public-security-request");
-    assert(publicAnonymous.rejection.headers.at("X-Correlation-ID") ==
-        "phase69b-public-security-correlation");
-    assert(publicAnonymous.rejection.body.find(
-        "\"type\":\"urn:vdr-suite:error:unauthorized\"") !=
-        std::string::npos);
-    assert(publicAnonymous.rejection.body.find(
-        "\"status\":401") !=
-        std::string::npos);
-    assert(publicAnonymous.rejection.body.find(
-        "\"code\":\"unauthorized\"") !=
-        std::string::npos);
-    assert(publicAnonymous.rejection.body.find(
-        "authentication_required") ==
-        std::string::npos);
-    assert(publicAnonymous.rejection.body.find(
-        "\"requestId\":\"phase69b-public-security-request\"") !=
-        std::string::npos);
-    assert(publicAnonymous.rejection.body.find(
-        "\"correlationId\":\"phase69b-public-security-correlation\"") !=
-        std::string::npos);
+    assert(!publicAnonymous.context.authenticated());
 
-    HttpServerRequest legacyGet = getRequest();
-    fixture.addLegacyAuthentication(legacyGet);
+    HttpServerRequest retiredLegacyGet = getRequest();
+    fixture.addRetiredLegacyAuthentication(retiredLegacyGet);
 
-    const SecurityGateDecision legacyAllowed =
-        fixture.gate.evaluate(legacyGet);
-    assert(legacyAllowed.allowed);
-    assert(legacyAllowed.context.actor.actorId ==
-        "legacy-local-web");
+    const SecurityGateDecision retiredLegacyRead =
+        fixture.gate.evaluate(retiredLegacyGet);
+    assert(retiredLegacyRead.allowed);
+    assert(!retiredLegacyRead.context.authenticated());
 
     HttpServerRequest browserPreferred = getRequest();
     fixture.addBrowserAuthentication(browserPreferred);
@@ -135,7 +95,7 @@ int main()
     invalidBrowser.headers["Cookie"] =
         "vdr_suite_session=" + fixture.tokenId +
         ".invalid-session-secret";
-    fixture.addLegacyAuthentication(invalidBrowser);
+    fixture.addRetiredLegacyAuthentication(invalidBrowser);
 
     const SecurityGateDecision invalidBrowserDecision =
         fixture.gate.evaluate(invalidBrowser);
@@ -410,9 +370,11 @@ int main()
         fixture.mutationRequest(
             "/api/phase62/unmapped-mutation",
             "default");
-    fixture.addLegacyAuthentication(legacyUnmigrated);
-    assert(fixture.gate.evaluate(
-        legacyUnmigrated).allowed);
+    fixture.addRetiredLegacyAuthentication(legacyUnmigrated);
+    const SecurityGateDecision retiredLegacyUnmigrated =
+        fixture.gate.evaluate(legacyUnmigrated);
+    assert(!retiredLegacyUnmigrated.allowed);
+    assert(retiredLegacyUnmigrated.rejection.statusCode == 503);
 
     assert(fixture.grantRepository.ensureGrant(
         fixture.actorId,
@@ -430,7 +392,7 @@ int main()
         fixture.mutationRequest(
             "/api/vdr/remote/actions",
             "default");
-    fixture.addLegacyAuthentication(legacyRemote);
+    fixture.addRetiredLegacyAuthentication(legacyRemote);
     const SecurityGateDecision legacyRemoteDenied =
         enforcedGate.evaluate(legacyRemote);
     assert(!legacyRemoteDenied.allowed);
@@ -459,7 +421,7 @@ int main()
 
     HttpServerRequest legacyOperationRead =
         publicOperationGetRequest();
-    fixture.addLegacyAuthentication(
+    fixture.addRetiredLegacyAuthentication(
         legacyOperationRead);
     const SecurityGateDecision deniedLegacyOperationRead =
         enforcedGate.evaluate(
@@ -497,7 +459,7 @@ int main()
         "phase62-test-operation");
 
     assert(!enforcedGate.appendProtectedMutationOutcome(
-        legacyAllowed,
+        retiredLegacyRead,
         200));
     assert(enforcedGate.appendProtectedMutationOutcome(
         remoteAllowed,

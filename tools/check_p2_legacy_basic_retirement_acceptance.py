@@ -111,19 +111,21 @@ def main():
 
     for name, markers in {
         "roadmap": (
-            "supported real-yaVDR retirement acceptance completed",
-            "The supported real yaVDR deployment completed the guarded acceptance on",
-            "transitional Legacy Basic implementation",
+            "Real-deployment migration gate accepted",
+            "supported real yaVDR deployment completed",
+            "historical\nmigration evidence",
         ),
         "audit": (
             "Legacy Basic retirement real-runtime acceptance tooling",
             "legacy-basic -> enforced -> legacy-basic -> enforced",
             "completed the guarded sequence successfully",
             "This satisfies the real deployment migration/rollback gate.",
+            "Legacy Basic runtime implementation removal",
         ),
         "architecture": (
-            "retirement runtime acceptance",
-            "persistent Human Account identity fingerprint",
+            "guarded real yaVDR migration/rollback acceptance completed successfully",
+            "Historical retirement\nacceptance evidence remains retained",
+            "Legacy Basic runtime compatibility is now removed",
         ),
         "make": (
             "test-security-legacy-basic-retirement-acceptance",

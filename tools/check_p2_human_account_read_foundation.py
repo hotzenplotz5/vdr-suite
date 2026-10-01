@@ -57,7 +57,9 @@ def main():
         ):
             forbid(name, forbidden)
 
-    require("test", "compatibilityOnly.accounts.empty()")
+    require("test", "initiallyEmpty.accounts.empty()")
+    forbid("test", "ensureCompatibilityIdentity")
+    forbid("test", "legacy-local-web")
     require("test", "service-actor-1")
     require("test", "assert(!database.execute")
     require("test", "revokeActor")

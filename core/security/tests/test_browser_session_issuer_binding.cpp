@@ -82,14 +82,9 @@ std::map<std::string, std::string> browserHeaders(
     return headers;
 }
 
-SecurityConfiguration compatibilityConfiguration()
+SecurityConfiguration securityConfiguration()
 {
-    SecurityConfiguration configuration;
-    configuration.mode = SecurityMode::LegacyBasicCompatibility;
-    configuration.expectedAuthorizationHeader =
-        "Basic YWRtaW46dmRyLXN1aXRl";
-    configuration.grants = {PermissionGrant{"*", "*"}};
-    return configuration;
+    return SecurityConfiguration{};
 }
 
 HttpServerRequest ordinaryGet(
@@ -185,7 +180,7 @@ int main()
 
     PersistentIdentityResolver identityResolver(identityRepository);
     SecurityHttpGate securityGate(
-        compatibilityConfiguration(),
+        securityConfiguration(),
         accountabilityRepository,
         &identityResolver,
         nullptr,
@@ -196,7 +191,7 @@ int main()
     assert(activeOrdinary.browserAuthenticated);
 
     BrowserSessionHttpGate lifecycleGate(
-        compatibilityConfiguration(),
+        securityConfiguration(),
         accountabilityRepository,
         browserRepository,
         grantRepository,

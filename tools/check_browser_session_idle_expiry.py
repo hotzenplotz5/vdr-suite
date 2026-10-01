@@ -74,7 +74,7 @@ REQUIRED = {
         "request.idleTimeoutSeconds = idleConfiguration_.timeoutSeconds",
     ],
     "lifecycle_gate": [
-        "configuration_.browserSessionIdle.valid()",
+        "browserSessionIdle_.valid()",
         "browser_session_idle_configuration_invalid",
         "BrowserSessionIdleConfiguration::LastSeenWriteIntervalSeconds",
     ],

@@ -8,35 +8,23 @@ is the planned configuration file for vdr-suite.
 It will describe database, HTTP listener and VDR backend settings used by the daemon.
 Until the file format is finalized, selected runtime settings are available as environment variables.
 .SH ENVIRONMENT
-.TP
+.SS RETIRED SECURITY SETTINGS
+Legacy Basic compatibility has been removed.
+The daemon no longer consumes
 .B VDR_SUITE_SECURITY_MODE
-Selects the daemon authentication deployment mode.
-Accepted values are
-.B enforced
-and
-.BR legacy-basic .
-Fresh packaged installations default to
-.B enforced
-through
-.IR /etc/default/vdr-suite-daemon .
-The installer does not overwrite an existing defaults file during upgrade, and
-the runtime code fallback remains
-.B legacy-basic
-when the variable is absent so older deployments are not silently locked out.
-When the mode is explicitly
-.BR enforced ,
-the daemon ignores
+,
 .B VDR_SUITE_BASIC_AUTH
-and all
+or
 .B VDR_SUITE_LEGACY_BASIC_*
-compatibility identity and grant inputs, and the Legacy Basic authenticator is
-disabled. Stale compatibility values therefore cannot reactivate Legacy Basic
-under enforced mode.
-An operator-controlled compatibility rollback may explicitly set
-.B VDR_SUITE_SECURITY_MODE=legacy-basic
-and restart the daemon; only then do those compatibility variables become
-effective again. Changing this mode does not delete or rewrite persisted Human
-Accounts, credentials, grants or accountability history.
+settings.
+Older
+.IR /etc/default/vdr-suite-daemon
+files may retain those lines because package installation preserves existing
+operator configuration, but the values are inert and cannot reactivate Legacy
+Basic authentication.
+.PP
+Human Account browser login, browser sessions and optional Managed Basic remain
+the supported authentication authorities.
 .TP
 .B VDR_SUITE_DATABASE_PATH
 Overrides the SQLite database path.

@@ -539,7 +539,31 @@ The retained root-only evidence directory is
 the runtime report SHA-256 is
 `9ada9b32ecfffe1c714010c23c4fc84586775f23834fb3abbdfc5d2e56f53ea1`.
 This satisfies the real deployment migration/rollback gate. Transitional Legacy
-Basic implementation deletion remains a separate bounded follow-up slice.
+Basic implementation deletion was then executed as the next bounded slice.
+
+## Legacy Basic runtime implementation removal
+
+After the accepted real-yaVDR evidence above, the transitional runtime authority
+is removed rather than merely fenced by `enforced` mode.
+
+The removal deletes `LegacyBasicAuthenticator`, removes Legacy Basic/enforced
+mode parsing and all `VDR_SUITE_BASIC_AUTH` /
+`VDR_SUITE_LEGACY_BASIC_*` runtime inputs, stops startup compatibility identity
+provisioning, removes browser/general HTTP fallback and removes HbbTV
+compatibility-grant injection. Optional Managed Basic and Human Account/browser
+session authentication remain separate unchanged authorities.
+
+Fresh package defaults no longer emit `VDR_SUITE_SECURITY_MODE`. Existing
+`/etc/default/vdr-suite-daemon` files remain package-preserved, so historical
+Legacy Basic lines can survive an upgrade, but they are inert. The old
+migration/rollback runner and retained evidence document the gate that justified
+deletion; they do not describe a currently available runtime rollback after
+removal.
+
+Regression coverage retains the former Legacy Basic Authorization header as a
+negative credential probe so the removed secret cannot silently regain
+authentication authority.
+
 
 
 The first real yaVDR execution exposed an upgrade-shape assumption before any

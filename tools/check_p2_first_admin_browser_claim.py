@@ -138,7 +138,9 @@ def main():
     )
 
     forbid("defaults", "VDR_SUITE_FIRST_ADMIN")
-    require("defaults", "VDR_SUITE_SECURITY_MODE=enforced")
+    forbid("defaults", "\nVDR_SUITE_SECURITY_MODE=")
+    forbid("defaults", "\nVDR_SUITE_BASIC_AUTH=")
+    forbid("defaults", "\nVDR_SUITE_LEGACY_BASIC_")
 
     for marker in (
         "trusted browser completion",
@@ -152,7 +154,7 @@ def main():
         route,
         "does not create a Browser Session",
         "active Device",
-        "Legacy Basic default remains unchanged",
+        "Legacy Basic runtime implementation removal",
         "normal human-password browser authentication",
     ):
         if marker not in audit:

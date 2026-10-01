@@ -40,9 +40,12 @@ def main():
     require("repo", "security_credentials")
     require("verifier", "security_basic_credential_verifiers")
     require("grants", "security_actor_permission_grants")
-    require("config", "SecurityMode::LegacyBasicCompatibility")
-    require("config", '"legacy-basic"')
-    require("config", '"Basic YWRtaW46dmRyLXN1aXRl"')
+    forbid("config", "SecurityMode::LegacyBasicCompatibility")
+    forbid("config", '"legacy-basic"')
+    forbid("config", '"Basic YWRtaW46dmRyLXN1aXRl"')
+    forbid("config", "VDR_SUITE_BASIC_AUTH")
+    forbid("config", "VDR_SUITE_LEGACY_BASIC_")
+    require("config", "VDR_SUITE_MANAGED_BASIC_USERNAME")
 
     for marker in (
         "Security Actor != Human Account",

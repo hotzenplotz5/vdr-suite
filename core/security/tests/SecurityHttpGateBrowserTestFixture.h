@@ -16,7 +16,7 @@
 class SecurityHttpGateBrowserTestFixture
 {
 public:
-    static inline const std::string legacyCredential =
+    static inline const std::string retiredLegacyCredential =
         "Basic YWRtaW46dmRyLXN1aXRl";
     static inline const std::string sessionSecret =
         "session-secret-0123456789abcdef0123456789";
@@ -25,13 +25,7 @@ public:
 
     static SecurityConfiguration configuration()
     {
-        SecurityConfiguration value;
-        value.mode = SecurityMode::LegacyBasicCompatibility;
-        value.expectedAuthorizationHeader = legacyCredential;
-        value.grants = {
-            PermissionGrant{"*", "*"}
-        };
-        return value;
+        return SecurityConfiguration{};
     }
 
     SecurityHttpGateBrowserTestFixture()
@@ -56,16 +50,6 @@ public:
         assert(identityRepository.ensureSchema());
         assert(browserRepository.ensureSchema());
         assert(grantRepository.ensureSchema());
-
-        const SecurityConfiguration legacy =
-            configuration();
-        assert(identityRepository.ensureCompatibilityIdentity(
-            legacy.actorId,
-            ActorType::User,
-            legacy.actorDisplayName,
-            legacy.deviceId,
-            legacy.sessionId,
-            legacy.credentialId));
 
         assert(provisioningRepository.ensureIdentity(
             actorId,
@@ -116,11 +100,11 @@ public:
         return request;
     }
 
-    void addLegacyAuthentication(
+    void addRetiredLegacyAuthentication(
         HttpServerRequest& request) const
     {
         request.headers["Authorization"] =
-            legacyCredential;
+            retiredLegacyCredential;
     }
 
     void addBrowserAuthentication(

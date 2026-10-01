@@ -118,7 +118,7 @@ def main():
         "single SQLite transaction",
         "rollback",
         "Claim-only browser completion boundary",
-        "Legacy Basic default remains unchanged",
+        "Legacy Basic runtime implementation removal",
     ):
         require("audit", marker)
 

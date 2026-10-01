@@ -52,14 +52,6 @@ public:
     explicit SecurityIdentityRepository(Database& database);
 
     bool ensureSchema();
-    bool ensureCompatibilityIdentity(
-        const std::string& actorId,
-        ActorType actorType,
-        const std::string& actorDisplayName,
-        const std::string& deviceId,
-        const std::string& sessionId,
-        const std::string& credentialId);
-
     bool createSessionCredential(
         const std::string& sessionId,
         const std::string& actorId,

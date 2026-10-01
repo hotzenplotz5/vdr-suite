@@ -127,18 +127,6 @@ bool configureDaemonHbbtvRuntime(
 
                 bool grantSourceAvailable = resolution.available;
 
-                if (securityConfiguration.mode ==
-                        SecurityMode::LegacyBasicCompatibility &&
-                    !securityConfiguration.expectedAuthorizationHeader.empty() &&
-                    actorId == securityConfiguration.actorId)
-                {
-                    effectiveGrants.insert(
-                        effectiveGrants.end(),
-                        securityConfiguration.grants.begin(),
-                        securityConfiguration.grants.end());
-                    grantSourceAvailable = true;
-                }
-
                 if (securityConfiguration.managedBasic.hasAnyConfiguration() &&
                     actorId == securityConfiguration.managedBasic.actorId)
                 {

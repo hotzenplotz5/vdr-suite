@@ -30,20 +30,6 @@ int main()
         HumanAccountRepositoryStatus::ok);
     assert(initiallyEmpty.accounts.empty());
 
-    assert(identityRepository.ensureCompatibilityIdentity(
-        "legacy-local-web",
-        ActorType::User,
-        "Legacy local web client",
-        "legacy-browser",
-        "legacy-basic-session",
-        "legacy-basic-credential"));
-
-    const auto compatibilityOnly = readService.list();
-    assert(
-        compatibilityOnly.status ==
-        HumanAccountRepositoryStatus::ok);
-    assert(compatibilityOnly.accounts.empty());
-
     assert(database.execute(
         "INSERT INTO security_actors "
         "(actor_id, actor_type, display_name) VALUES "
