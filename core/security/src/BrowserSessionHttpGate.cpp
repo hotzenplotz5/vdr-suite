@@ -196,7 +196,8 @@ BrowserSessionHttpGate::BrowserSessionHttpGate(
     const ManagedBasicAuthenticator* managedBasicAuthenticator,
     const HumanPasswordBrowserAuthenticator*
         humanPasswordBrowserAuthenticator)
-    : accountabilityRepository_(accountabilityRepository),
+    : browserSessionIdle_(configuration.browserSessionIdle),
+      accountabilityRepository_(accountabilityRepository),
       persistentIdentityResolver_(persistentIdentityResolver),
       managedBasicAuthenticator_(managedBasicAuthenticator),
       humanPasswordBrowserAuthenticator_(
@@ -253,7 +254,7 @@ BrowserSessionGateDecision BrowserSessionHttpGate::evaluate(
         ? "browser.session.issue"
         : "browser.session.revoke";
 
-    if (!configuration_.browserSessionIdle.valid())
+    if (!browserSessionIdle_.valid())
     {
         gate.context = requestContextSeed(request);
         if (!appendDecisionEvent(
