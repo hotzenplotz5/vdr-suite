@@ -337,7 +337,6 @@ int main()
         BrowserSessionIssuanceStatus::Failed);
 
     SecurityConfiguration gateConfiguration;
-    gateConfiguration.mode = SecurityMode::LegacyBasicCompatibility;
     SecurityHttpGate securityGate(
         gateConfiguration,
         accountabilityRepository,
