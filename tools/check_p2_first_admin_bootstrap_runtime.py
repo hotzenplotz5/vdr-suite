@@ -99,7 +99,7 @@ def main():
         "no normal Session",
         "Credential row",
         "caller-owned SQLite transaction",
-        "Legacy Basic default remains unchanged",
+        "Legacy Basic runtime implementation removal",
     ):
         require("audit", marker)
 
