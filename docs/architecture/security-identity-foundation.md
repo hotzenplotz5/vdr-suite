@@ -11,7 +11,7 @@ HttpServerRequest
   -> exact browser-session lifecycle gate for issue/logout
   -> general SecurityHttpGate
        -> presented browser cookie with strict precedence
-       -> otherwise Legacy Basic compatibility or optional Managed Basic
+       -> otherwise Human Account password bridge or optional Managed Basic
        -> persistent actor/device/session/credential resolution
        -> browser-session lifetime, idle, issuer and concurrency policy
        -> exact mutation/Safe-POST classification
@@ -36,7 +36,7 @@ Frontends do not own authentication, role, scope or CSRF decisions. Private prov
 - exact permission grants and backend scopes;
 - request ID and optional correlation ID.
 
-Actor types represent users, services, agents and system work. Legacy Basic, Managed Basic and browser sessions construct the same transport-neutral context and pass it through persistent lifecycle resolution.
+Actor types represent users, services, agents and system work. Human Account password login, Managed Basic and browser sessions construct the same transport-neutral context and pass it through persistent lifecycle resolution.
 
 ## Persistent lifecycle
 
@@ -55,9 +55,9 @@ Missing, inactive, expired, revoked or cross-owner lifecycle state fails closed.
 
 ## Authentication mechanisms
 
-### Legacy Basic compatibility
+### Retired Legacy Basic compatibility
 
-Legacy Basic remains a separately identified transitional deployment mode. It does not define the target architecture and is not inherited by Managed Basic or browser identities.
+Legacy Basic is no longer a runtime authentication mechanism. The daemon does not parse the former deployment mode, compatibility header, compatibility identity or compatibility grant environment inputs. Stale values preserved in an older defaults file are inert and cannot recreate an authenticated actor.
 
 ### Managed Basic
 
@@ -158,27 +158,28 @@ The final pass proved protected HTTP 200 success and deterministic HTTP 500 fail
 
 ## Compatibility-retirement decision
 
-Fresh packaged installations now select the enforced identity model explicitly
-through `/etc/default/vdr-suite-daemon`. The installer preserves an existing
-defaults file, so upgrade compatibility is not converted into an implicit
-lockout migration. The runtime code fallback remains `legacy-basic` for older
-or manually managed deployments that do not yet provide the explicit setting.
+The guarded real yaVDR migration/rollback acceptance completed successfully on
+2026-10-01 before implementation deletion. It proved the supported Human
+Account identity survived the complete compatibility transition and that the
+deployment could be left in enforced mode without identity drift.
 
-Explicit `enforced` mode now disables the Legacy Basic adapter itself and
-ignores `VDR_SUITE_BASIC_AUTH` plus the `VDR_SUITE_LEGACY_BASIC_*`
-compatibility identity/grant inputs. Stale compatibility variables can therefore
-remain in an older defaults file without re-enabling Legacy Basic after the
-operator deliberately selects enforced mode. Browser-session, Human Account and
-Managed Basic authentication remain separate authorities.
+Legacy Basic runtime compatibility is now removed. In particular:
 
-Operators can perform a controlled compatibility rollback by explicitly setting
-`VDR_SUITE_SECURITY_MODE=legacy-basic`; only that mode makes the compatibility inputs effective again. The mode change does not rewrite the persistent identity
-database.
+- `SecurityConfiguration` no longer has a Legacy Basic or enforced deployment
+  mode;
+- `LegacyBasicAuthenticator` is deleted;
+- `VDR_SUITE_SECURITY_MODE`, `VDR_SUITE_BASIC_AUTH` and
+  `VDR_SUITE_LEGACY_BASIC_*` are not consumed by runtime configuration;
+- HTTP and browser-session gates no longer contain Legacy Basic fallback;
+- startup no longer provisions a compatibility identity;
+- HbbTV authorization no longer injects compatibility grants;
+- old package-default lines may survive an upgrade because existing defaults
+  files are preserved, but those values are inert.
 
-This completes the bounded fresh-install migration and enforced-mode runtime
-fence required before real deployment acceptance. Guarded retirement runtime acceptance tooling now performs the explicit compatibility migration, rollback and final enforced transition while comparing a persistent Human Account identity fingerprint before and after the mode changes. It supports both already-claimed P2 databases and pre-P2/unclaimed databases: only the latter, and only under explicit `--bootstrap-first-admin`, may initialize the P2 schema and execute the existing root-only bootstrap plus atomic First Admin claim before the retirement transitions. It restores the prior daemon/configuration on acceptance failure and deliberately leaves a successful deployment in enforced mode.
-
-The full Legacy Basic removal remains deferred. Deleting the compatibility implementation still requires successful real yaVDR execution of that retirement runtime acceptance and retained deployment rollback evidence under the roadmap retirement milestone.
+Human Account browser authentication, persistent browser sessions and optional
+Managed Basic remain independent supported authorities. Historical retirement
+acceptance evidence remains retained; it is evidence for the migration boundary,
+not a currently executable rollback contract.
 
 ## Deferred capabilities
 
