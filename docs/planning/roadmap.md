@@ -59,13 +59,19 @@ Phase 70 - Recommendation and Content Knowledge Graph
 Current active cross-cutting productization workstream:
 Multiuser / Account and Backend Access Administration
 
-Current Multiuser slice:
-MU.5 - Administration architecture contract - ADR-0067 [PROPOSED]
+Current Multiuser architecture slice:
+MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
+
+Current Multiuser runtime slice:
+none - MU.6 Human Account lifecycle administration not started
+
+Next Multiuser runtime slice:
+MU.6 - Human Account lifecycle administration
 ```
 
 Phases 65 through 69 are completed. Durable Phase-69 evidence lives in [Phase 69 Closeout](../development/phase-69-closeout.md). Phase 70 is the next strict numbered phase but is not started and has no runtime authorization until its required ADR is accepted.
 
-The active cross-cutting productization work is the [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md). Its identity/bootstrap foundation and Legacy Basic retirement are complete. The current Multiuser gate is proposed [ADR-0067](../adr/ADR-0067-human-account-backend-access-administration.md); no Account/grant administration runtime implementation is authorized until that ADR is accepted.
+The active cross-cutting productization work is the [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md). MU.0-MU.5 are complete and [ADR-0067](../adr/ADR-0067-human-account-backend-access-administration.md) is accepted. MU.6 Human Account lifecycle administration is the next runtime slice but is not started by this documentation-only acceptance.
 
 Future order: Phase 67 Broadcast Companion -> Phase 68 Legacy OSD -> Phase 69 Public API hardening -> Phase 70 Recommendation / Knowledge Graph.
 
@@ -939,7 +945,7 @@ Binding accepted architecture:
 
 Current architecture gate:
 
-- [ADR-0067](../adr/ADR-0067-human-account-backend-access-administration.md) — **Proposed; must be accepted before the next Multiuser runtime slice.**
+- [ADR-0067](../adr/ADR-0067-human-account-backend-access-administration.md) — **Accepted architecture; MU.5 completed.**
 
 Completed Multiuser slices:
 
@@ -954,8 +960,8 @@ MU.4 Legacy Basic guarded migration + runtime retirement        [DONE]
 Planned continuation:
 
 ```text
-MU.5 Administration architecture contract / ADR-0067            [CURRENT DOC GATE]
-MU.6 Human Account lifecycle administration                     [PLANNED]
+MU.5 Administration architecture contract / ADR-0067            [DONE]
+MU.6 Human Account lifecycle administration                     [NEXT - NOT STARTED]
 MU.7 Backend access / permission grant administration           [PLANNED]
 MU.8 Credential and session administration                     [PLANNED]
 MU.9 Account and access administration UI                      [PLANNED]
@@ -974,7 +980,7 @@ Required product capability:
 - never return password verifiers, bootstrap material, browser secrets or reusable credentials;
 - keep local operator recovery separate from ordinary Public-v1 Account CRUD.
 
-This milestone is the active cross-cutting Multiuser productization line. It remains independent of numbered Phase 70. Runtime implementation after MU.4 is blocked until ADR-0067 is accepted.
+This milestone is the active cross-cutting Multiuser productization line. It remains independent of numbered Phase 70. ADR-0067 is accepted and MU.6 is now the first justified runtime successor, but MU.6 is not started by this architecture-only slice.
 
 ## Milestone B — Broad Timer Product UI
 
@@ -1186,7 +1192,7 @@ This ordering intentionally places Teletext/HbbTV **before** Legacy OSD because 
 
 Phases 65 through 69 are completed for their accepted bounded scopes. Durable Phase-69 evidence is in [Phase 69 Closeout](../development/phase-69-closeout.md).
 
-The post-Phase-69 P2 Human Account / First Admin / recovery sequence and Legacy Basic retirement are completed for the accepted bounded scope; see [P2 Legacy Basic Retirement Closeout](../development/post-phase69-p2-legacy-basic-retirement-closeout.md). The Multiuser / Account and Backend Access Administration workstream is now explicitly the active cross-cutting productization line, with MU.0-MU.4 complete and MU.5 proposed ADR-0067 as the current architecture gate. This explicit selection is separate from the historical fact that Legacy Basic retirement itself did not automatically choose a successor. Phase 70 remains not started and cannot begin runtime implementation until its dedicated ADR is accepted.
+The post-Phase-69 P2 Human Account / First Admin / recovery sequence and Legacy Basic retirement are completed for the accepted bounded scope; see [P2 Legacy Basic Retirement Closeout](../development/post-phase69-p2-legacy-basic-retirement-closeout.md). The Multiuser / Account and Backend Access Administration workstream is the active cross-cutting productization line, with MU.0-MU.5 complete, ADR-0067 accepted and MU.6 Human Account lifecycle administration next but not started. This explicit selection is separate from the historical fact that Legacy Basic retirement itself did not automatically choose a successor. Phase 70 remains not started and cannot begin runtime implementation until its dedicated ADR is accepted.
 
 Completed-Recording arbitrary time-seek and stop/resume are accepted for the supported progressive-fMP4 and HLS restart-seek profiles. Growing-Recording seek, Live-TV timeshift and broader VDR-index mapping not required by those accepted paths remain deferred and must stay explicit/fail-safe until separately justified.
 
