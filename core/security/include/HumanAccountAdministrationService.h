@@ -53,6 +53,7 @@ public:
     HumanAccountAdministrationService(
         Database& database,
         HumanAccountRepository& accountRepository,
+        HumanAccountAdministrationRepository& administrationRepository,
         SecurityIdentityRepository& identityRepository,
         BrowserSessionLifecycleService& browserSessionLifecycleService,
         AccountabilityEventRepository& accountabilityRepository,
@@ -74,6 +75,7 @@ public:
 private:
     Database& database_;
     HumanAccountRepository& accountRepository_;
+    HumanAccountAdministrationRepository& administrationRepository_;
     SecurityIdentityRepository& identityRepository_;
     BrowserSessionLifecycleService& browserSessionLifecycleService_;
     AccountabilityEventRepository& accountabilityRepository_;
