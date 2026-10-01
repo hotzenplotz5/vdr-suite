@@ -285,7 +285,8 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             *browserSessionCredentialRepository_,
             *securityPermissionGrantRepository_,
             browserIdleTimeout,
-            BrowserSessionIdleConfiguration::LastSeenWriteIntervalSeconds);
+            BrowserSessionIdleConfiguration::LastSeenWriteIntervalSeconds,
+            humanAccountRepository_.get());
 
     browserSessionIssuanceService_ =
         std::make_unique<BrowserSessionIssuanceService>(
@@ -316,7 +317,8 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             *securityPermissionGrantRepository_,
             persistentIdentityResolver_.get(),
             managedBasicAuthenticator_.get(),
-            humanPasswordBrowserAuthenticator_.get());
+            humanPasswordBrowserAuthenticator_.get(),
+            humanAccountRepository_.get());
 
     securityHttpGate_ =
         std::make_unique<SecurityHttpGate>(
