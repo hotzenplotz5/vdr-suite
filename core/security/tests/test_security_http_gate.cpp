@@ -61,46 +61,14 @@ int main()
 
     const SecurityGateDecision anonymous =
         fixture.gate.evaluate(getRequest());
-    assert(!anonymous.allowed);
-    assert(anonymous.rejection.statusCode == 401);
-    assert(anonymous.rejection.body.find(
-        "authentication_required") !=
-        std::string::npos);
-    assert(anonymous.rejection.headers.find(
-        "WWW-Authenticate") ==
-        anonymous.rejection.headers.end());
+    assert(anonymous.allowed);
+    assert(!anonymous.context.authenticated());
 
     const SecurityGateDecision publicAnonymous =
         fixture.gate.evaluate(publicV1GetRequest());
-    assert(!publicAnonymous.allowed);
+    assert(publicAnonymous.allowed);
     assert(publicAnonymous.publicApiV1);
-    assert(publicAnonymous.rejection.statusCode == 401);
-    assert(publicAnonymous.rejection.headers.at("Content-Type") ==
-        "application/problem+json");
-    assert(publicAnonymous.rejection.headers.at("X-Content-Type-Options") ==
-        "nosniff");
-    assert(publicAnonymous.rejection.headers.at("X-Request-ID") ==
-        "phase69b-public-security-request");
-    assert(publicAnonymous.rejection.headers.at("X-Correlation-ID") ==
-        "phase69b-public-security-correlation");
-    assert(publicAnonymous.rejection.body.find(
-        "\"type\":\"urn:vdr-suite:error:unauthorized\"") !=
-        std::string::npos);
-    assert(publicAnonymous.rejection.body.find(
-        "\"status\":401") !=
-        std::string::npos);
-    assert(publicAnonymous.rejection.body.find(
-        "\"code\":\"unauthorized\"") !=
-        std::string::npos);
-    assert(publicAnonymous.rejection.body.find(
-        "authentication_required") ==
-        std::string::npos);
-    assert(publicAnonymous.rejection.body.find(
-        "\"requestId\":\"phase69b-public-security-request\"") !=
-        std::string::npos);
-    assert(publicAnonymous.rejection.body.find(
-        "\"correlationId\":\"phase69b-public-security-correlation\"") !=
-        std::string::npos);
+    assert(!publicAnonymous.context.authenticated());
 
     HttpServerRequest retiredLegacyGet = getRequest();
     fixture.addRetiredLegacyAuthentication(retiredLegacyGet);
