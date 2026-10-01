@@ -101,17 +101,25 @@ def main():
         "scan the complete production database, because Recording, EPG and media-cache",
         "does not restart VDR",
         "failure restores",
+        "## Accepted real yaVDR execution",
+        "acceptance_head=716dbbdceb95aa9c6ea93e169df2ac7364a65be7",
+        "P2_LEGACY_BASIC_RETIREMENT_RUNTIME_ACCEPTANCE=PASS",
+        "PERSISTENT_IDENTITY_UNCHANGED=PASS",
+        "FINAL_SECURITY_MODE=enforced",
     ):
         require("runbook", marker)
 
     for name, markers in {
         "roadmap": (
-            "real deployment acceptance tooling",
-            "real deployment execution remains pending",
+            "supported real-yaVDR retirement acceptance completed",
+            "The supported real yaVDR deployment completed the guarded acceptance on",
+            "transitional Legacy Basic implementation",
         ),
         "audit": (
             "Legacy Basic retirement real-runtime acceptance tooling",
             "legacy-basic -> enforced -> legacy-basic -> enforced",
+            "completed the guarded sequence successfully",
+            "This satisfies the real deployment migration/rollback gate.",
         ),
         "architecture": (
             "retirement runtime acceptance",
