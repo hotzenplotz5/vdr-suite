@@ -192,7 +192,7 @@ Not required for Phase 62:
 - transactional Outbox;
 - Phase 63-67 runtime.
 
-The generic Human Account / credential / grant administration product surface was deferred from Phase 62, but is now being advanced as the active [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md). This does not reopen Phase 62. MU.5 is the proposed ADR-0067 architecture gate; MU.6+ administration runtime is not authorized until ADR-0067 is accepted.
+The generic Human Account / credential / grant administration product surface was deferred from Phase 62, but is now being advanced as the active [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md). This does not reopen Phase 62. MU.5 is completed and ADR-0067 is accepted; MU.6 Human Account lifecycle administration is the next bounded runtime slice.
 
 ## Related documents
 
@@ -203,3 +203,4 @@ The generic Human Account / credential / grant administration product surface wa
 - [Strict Roadmap](../planning/roadmap.md)
 - [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md)
 - [ADR-0067 Human Account and Backend Access Administration](../adr/ADR-0067-human-account-backend-access-administration.md)
+- [MU.5 Administration Architecture Acceptance](../development/post-phase69-mu5-administration-architecture-acceptance.md)
