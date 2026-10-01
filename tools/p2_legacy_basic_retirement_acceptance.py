@@ -1003,6 +1003,12 @@ def main() -> int:
             == arguments.expected_candidate_bootstrap_sha256,
             "candidate_bootstrap_tool_fingerprint_changed",
         )
+        print(
+            "Create exactly one persistent VDR-Suite First Admin Human Account."
+        )
+        print(
+            "Login, display name and password below are fields of that same account."
+        )
         login_name = safe_interactive_text(
             arguments.first_admin_login.strip()
             or input("First Human Account login [admin]: ").strip()
