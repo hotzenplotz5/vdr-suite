@@ -65,9 +65,7 @@ def main():
         require("admin_h", marker)
 
     for marker in (
-        "usableAdministratorCount",
-        "grant_record.permission = 'role.admin'",
-        "credential.credential_type = 'human-password'",
+        "countUsableAdministratorsExcludingActor",
         "final_usable_administrator",
         "revokeAllForActorInActiveTransaction",
         "accounts.modify",
@@ -76,6 +74,17 @@ def main():
         "account_revision_conflict",
     ):
         require("admin_cpp", marker)
+
+    for marker in (
+        "countUsableAdministratorsExcludingActor",
+        "grant_record.permission = 'role.admin'",
+        "credential.credential_type = 'human-password'",
+        "security_basic_credential_verifiers",
+    ):
+        require("account_cpp", marker)
+
+    forbid("admin_cpp", "#include <sqlite3.h>")
+    forbid("admin_cpp", "sqlite3_")
 
     require("identity_h", "updateActorDisplayNameInActiveTransaction")
     require("identity_cpp", '"security_actors"')
