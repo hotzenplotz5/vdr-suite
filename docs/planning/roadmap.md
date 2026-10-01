@@ -66,15 +66,15 @@ Current Multiuser runtime slice:
 MU.6 - Human Account lifecycle administration [IN PROGRESS]
 
 Latest completed MU.6 sub-slice:
-MU.6A - Account lifecycle authority foundation [COMPLETED]
+MU.6B - Public Account item + revision/ETag [COMPLETED]
 
 Next MU.6 sub-slice:
-MU.6B - Public Account item + revision/ETag [NOT STARTED]
+MU.6C - Public display-name / activate / deactivate [NEXT - NOT STARTED]
 ```
 
 Phases 65 through 69 are completed. Durable Phase-69 evidence lives in [Phase 69 Closeout](../development/phase-69-closeout.md). Phase 70 is the next strict numbered phase but is not started and has no runtime authorization until its required ADR is accepted.
 
-The active cross-cutting productization work is the [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md). MU.0-MU.5 are complete, [ADR-0067](../adr/ADR-0067-human-account-backend-access-administration.md) is accepted and MU.6 is in progress. MU.6A Account lifecycle authority is completed; MU.6B Public Account item/revision is next.
+The active cross-cutting productization work is the [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md). MU.0-MU.5 are complete, [ADR-0067](../adr/ADR-0067-human-account-backend-access-administration.md) is accepted and MU.6 is in progress. MU.6B Public Account item/revision is completed; MU.6C public lifecycle mutation is next.
 
 Future order: Phase 67 Broadcast Companion -> Phase 68 Legacy OSD -> Phase 69 Public API hardening -> Phase 70 Recommendation / Knowledge Graph.
 
@@ -964,7 +964,7 @@ Planned continuation:
 
 ```text
 MU.5 Administration architecture contract / ADR-0067            [DONE]
-MU.6 Human Account lifecycle administration                     [IN PROGRESS — MU.6A DONE / MU.6B NEXT]
+MU.6 Human Account lifecycle administration                     [IN PROGRESS — MU.6A + MU.6B DONE / MU.6C NEXT]
 MU.7 Backend access / permission grant administration           [PLANNED]
 MU.8 Credential and session administration                     [PLANNED]
 MU.9 Account and access administration UI                      [PLANNED]
@@ -983,7 +983,7 @@ Required product capability:
 - never return password verifiers, bootstrap material, browser secrets or reusable credentials;
 - keep local operator recovery separate from ordinary Public-v1 Account CRUD.
 
-This milestone is the active cross-cutting Multiuser productization line. It remains independent of numbered Phase 70. MU.6 is in progress: MU.6A lifecycle authority is completed and MU.6B Public Account item/revision is next; Public lifecycle mutation and Account CREATE remain later MU.6 sub-slices.
+This milestone is the active cross-cutting Multiuser productization line. It remains independent of numbered Phase 70. MU.6 is in progress: MU.6A lifecycle authority and MU.6B Public Account item/revision are completed and MU.6C public lifecycle mutation is next; Account CREATE remains the later MU.6D sub-slice.
 
 ## Milestone B — Broad Timer Product UI
 
