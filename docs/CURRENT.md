@@ -12,6 +12,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md)
 - [Phase 69 Closeout](development/phase-69-closeout.md)
+- [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md)
 - [Phase 69.B Closeout](development/phase-69b-closeout.md)
 - [Phase 69.C Closeout](development/phase-69c-closeout.md)
 - [Phase 69.D Closeout](development/phase-69d-closeout.md)
@@ -94,6 +95,10 @@ Accepted Phase-68 verticals:
 Current active runtime slice:
 none - Phase 70 - Recommendation and Content Knowledge Graph not started
 
+Post-Phase-69 P2 productization status:
+Legacy Basic retirement is completed and accepted on the real yaVDR target.
+No successor cross-cutting productization runtime slice is active merely because retirement completed.
+
 69.D is completed. [Phase 69.D Closeout](development/phase-69d-closeout.md)
 records the accepted collection boundary:
 PR #363 established the standard single-source collection envelope, stable
@@ -112,7 +117,7 @@ same-handler alias groups / 54 alias members and 64 standalone transition
 literals, with 0 deprecated aliases because no classified alias has a stabilized
 public-v1 successor.
 
-69.F is active. It owns first-/third-party client hardening: common client error
+69.F is completed. It owns the accepted first-/third-party client hardening boundary: common client error
 representation, removal of fallback probing after arbitrary errors, wrapper
 migration to genuine stabilized v1 contracts and a documented stable boundary
 for browser, TV, mobile, desktop and Kodi integrations. The
@@ -430,7 +435,7 @@ Accepted Broadcast Companion capability includes:
 
 Durable evidence is in [Phase 67 Closeout](development/phase-67-closeout.md) and the earlier [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md).
 
-Phase 68 Legacy OSD Compatibility Bridge is **completed for the accepted 68.A-G scope**. The final 68.G real yaVDR acceptance proved fenced allowlisted native OSD input through the authenticated Control Plane -> Agent -> SuiteBridge -> VDR path, including native DOWN/UP effect, idempotent replay and stale-authority rejection. Durable evidence is in [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 public API/client compatibility hardening is active at 69.E Compatibility and deprecation policy; 69.A, 69.B, 69.C and 69.D are accepted. Phase 70 recommendation work remains later.
+Phase 68 Legacy OSD Compatibility Bridge is **completed for the accepted 68.A-G scope**. The final 68.G real yaVDR acceptance proved fenced allowlisted native OSD input through the authenticated Control Plane -> Agent -> SuiteBridge -> VDR path, including native DOWN/UP effect, idempotent replay and stale-authority rejection. Durable evidence is in [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 public API/client compatibility hardening is completed for the accepted 69.A-F scope. The post-Phase-69 P2 Legacy Basic retirement milestone is also completed; Phase 70 remains not started and still requires its dedicated accepted runtime ADR.
 
 ## Historical evidence rule
 

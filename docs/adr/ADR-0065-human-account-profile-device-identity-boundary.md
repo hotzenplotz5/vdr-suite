@@ -63,7 +63,7 @@ install
 
 `/etc/vdr-suite` remains deployment/system configuration. It is not the persistent store for normal human accounts or reusable human passwords.
 
-Legacy Basic remains a compatibility mechanism until a separately implemented migration retires it. This ADR does not silently change current authentication defaults.
+At ADR acceptance, Legacy Basic remained a compatibility mechanism pending a separately implemented migration. That migration and the subsequent runtime retirement are now completed: Legacy Basic is no longer a runtime authentication authority. This ADR does not reintroduce an authentication-default rollback path.
 
 ### Devices and pairing
 
@@ -99,7 +99,7 @@ the HTTP layer.
 
 The first justified runtime successor is a minimal Human Account persistence/read foundation in the existing Suite database, with an explicit Account-to-Actor binding and no secrets in read models.
 
-Profile, pairing, account mutation, grant administration and security-default migration are later bounded slices.
+Profile, pairing, account mutation and grant administration remain later bounded slices. The security-default migration / Legacy Basic retirement boundary has since completed under ADR-0066 and the post-Phase-69 P2 retirement closeout.
 
 ## Non-goals
 
@@ -109,6 +109,6 @@ This ADR does not implement:
 - account mutation;
 - Profiles;
 - pairing;
-- a new authentication default;
-- first-admin bootstrap runtime;
+- a new authentication default at ADR acceptance;
+- first-admin bootstrap runtime at ADR acceptance;
 - Phase 70 recommendations.

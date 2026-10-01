@@ -21,6 +21,14 @@ FILES = {
     "audit": ROOT / "docs/development/post-phase69-p2-first-admin-bootstrap-audit.md",
     "architecture": ROOT / "docs/architecture/security-identity-foundation.md",
     "roadmap": ROOT / "docs/planning/roadmap.md",
+    "root_roadmap": ROOT / "ROADMAP.md",
+    "current": ROOT / "docs/CURRENT.md",
+    "current_status": ROOT / "docs/development/current-status.md",
+    "handoff": ROOT / "docs/NEW-CHAT-HANDOFF.md",
+    "gap_matrix": ROOT / "docs/planning/architecture-audit-gap-matrix.md",
+    "phase_map": ROOT / "docs/planning/phase-map.md",
+    "account_adr": ROOT / "docs/adr/ADR-0065-human-account-profile-device-identity-boundary.md",
+    "closeout": ROOT / "docs/development/post-phase69-p2-legacy-basic-retirement-closeout.md",
     "man": ROOT / "docs/man/man5/vdr-suite.conf.5",
 }
 
@@ -103,6 +111,40 @@ def main():
             "transitional Legacy Basic runtime implementation removed",
             "no Legacy Basic deployment mode or authenticator remains",
             "not a current rollback procedure",
+            "Legacy Basic retirement [COMPLETED]",
+        ),
+        "root_roadmap": (
+            "Legacy Basic retirement **[COMPLETED]**",
+            "P2 Legacy Basic Retirement Closeout",
+        ),
+        "current": (
+            "Legacy Basic retirement is completed and accepted on the real yaVDR target.",
+            "Post-Phase-69 P2 Legacy Basic Retirement Closeout",
+        ),
+        "current_status": (
+            "Post-Phase-69 P2 Legacy Basic retirement is completed and accepted on the real yaVDR target.",
+            "P2 Legacy Basic Retirement Closeout",
+        ),
+        "handoff": (
+            "Legacy Basic runtime compatibility is removed.",
+            "Post-Phase-69 P2 Legacy Basic Retirement Closeout",
+        ),
+        "gap_matrix": (
+            "| G-40 | Legacy Basic retirement | Closed deployment milestone |",
+            "Next numbered runtime product domain — Phase 70",
+        ),
+        "phase_map": (
+            "Legacy Basic retirement migration **[COMPLETED]**",
+            "Post-Phase-69 P2 Legacy Basic Retirement Closeout",
+        ),
+        "account_adr": (
+            "That migration and the subsequent runtime retirement are now completed",
+            "security-default migration / Legacy Basic retirement boundary has since completed",
+        ),
+        "closeout": (
+            "# Post-Phase-69 P2 Legacy Basic Retirement Closeout",
+            "The cross-cutting **Legacy Basic retirement** product milestone is closed.",
+            "No single one of those product milestones is made active merely by completing",
         ),
         "man": (
             "RETIRED SECURITY SETTINGS",
@@ -112,6 +154,26 @@ def main():
     }.items():
         for marker in markers:
             require(name, marker)
+
+    for name, marker in (
+        (
+            "roadmap",
+            "Legacy Basic compatibility remains transitional deployment compatibility.",
+        ),
+        (
+            "root_roadmap",
+            "- Legacy Basic retirement;",
+        ),
+        (
+            "handoff",
+            "Legacy Basic compatibility remains transitional and intentionally retained.",
+        ),
+        (
+            "gap_matrix",
+            "| G-40 | Legacy Basic retirement | Deferred deployment migration |",
+        ),
+    ):
+        forbid(name, marker)
 
     print("P2 Legacy Basic runtime removal contracts passed")
     return 0

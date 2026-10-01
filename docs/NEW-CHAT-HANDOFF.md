@@ -13,6 +13,7 @@ Root-level `AGENTS.md` is binding. In particular, once the user has authorized a
 1. [Current State](CURRENT.md) — sole volatile phase/status authority.
 2. [Strict Roadmap](planning/roadmap.md) and [Phase Map](planning/phase-map.md) — accepted numbered execution order.
 3. [Phase 69 Closeout](development/phase-69-closeout.md) — completed 69.A-F public API/client compatibility evidence.
+4. [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md) — completed Human Account/First Admin migration and Legacy Basic runtime-retirement evidence.
 4. [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md) — historical Phase-69 implementation record and migration guard.
 4. [Phase 69.B Closeout](development/phase-69b-closeout.md) — accepted request/response metadata and public error foundation.
 4. [Phase 68 Closeout](development/phase-68-closeout.md) — completed Legacy OSD phase and Golden Journey 10 evidence.
@@ -48,6 +49,7 @@ Historical Phase-69 closeout records retained for traceability: `docs/developmen
 - ADR-0054 remains authoritative for the completed Phase 67; durable evidence is in the Phase-67 closeout.
 - Bounded post-phase hardening does not reopen a completed numbered phase and does not silently authorize the next phase.
 - Broad polished Timer UI remains a cross-cutting milestone gated on required access administration.
+- The cross-cutting Legacy Basic retirement milestone is completed; preserved old defaults lines are inert and the historical rollback sequence is not a current runtime mechanism.
 - ADR-0064 local-control latency isolation is closed after ETYPES. Timer
   CREATE/DELETE/MODIFY intentionally remain on typed SVDRP, and
   RMARKS/RCUT remain serialized with NMARKS/NCUT on SVDRP until a separate
@@ -186,7 +188,9 @@ Phase-65 MediaSession/provider-ownership semantics remain authoritative when Sui
 
 ## Compatibility-retirement decision
 
-Legacy Basic compatibility remains transitional and intentionally retained. `enforced` mode is the fail-closed target. Removing Legacy Basic requires a separate deployment-migration contract and is not unfinished Phase 62, Phase 63 or Phase 64.
+Legacy Basic runtime compatibility is removed. The guarded real-deployment migration/rollback gate was accepted first, then the runtime mode/authenticator/fallback authority was deleted. Human Account/browser-session authentication and optional Managed Basic remain supported authorities. Historical Phase-62/P2 documents may retain the earlier transitional state as acceptance-time evidence; they are not current runtime authority.
+
+Durable current evidence: [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md).
 
 ## Exact action for a new chat
 
@@ -195,12 +199,13 @@ Legacy Basic compatibility remains transitional and intentionally retained. `enf
 3. Treat Phases 64 through 69 as completed for their accepted bounded scopes unless live repository state supersedes that evidence.
 4. Preserve accepted Phase-65 playback/MediaSession semantics, completed Phase-66 Home ownership, completed Phase-67 Teletext/HbbTV domains, completed Phase-68 Legacy OSD ownership and completed Phase-69 public-client boundaries rather than inventing parallel owners during successor work.
 5. Treat Phase 69 - Public API and Client Compatibility Hardening as completed and read `docs/development/phase-69-closeout.md` before any successor planning.
-6. Do not start Phase 70 merely because Phase 69 is complete. Re-read the Strict Roadmap and require the dedicated accepted Phase-70 runtime ADR before implementation.
-7. Preserve truthful Range/seek/growing capability; completed-Recording seek/resume is accepted for the supported profiles, while growing-Recording seek and Live-TV timeshift remain explicit non-support until separately implemented.
-8. Keep the broad Timer UI as a cross-cutting product milestone; do not reopen Phase 64 solely for that UI.
-9. Keep review/merge/retarget/close state changes behind explicit user approval; do not ask again when that exact authorization is already present.
-10. Require real yaVDR acceptance when an installed/runtime, native, media or broadcast-behaviour boundary changes; do not repeat accepted runtime evidence for documentation/workflow-only follow-ups.
-11. Continue the authorized workstream to its requested end state. Do not turn analysis, a fixable CI failure, an intermediate commit, a queued/running relevant CI run or an ordinary response boundary into a voluntary stop. Never end with an executable next step still available through the current tools; execute it instead.
+6. Treat the post-Phase-69 P2 Legacy Basic retirement milestone as completed and read `docs/development/post-phase69-p2-legacy-basic-retirement-closeout.md`; do not revive the removed runtime compatibility authority from historical evidence.
+7. Do not start Phase 70 merely because Phase 69 or the P2 retirement milestone is complete. Re-read the Strict Roadmap and require the dedicated accepted Phase-70 runtime ADR before implementation.
+8. Preserve truthful Range/seek/growing capability; completed-Recording seek/resume is accepted for the supported profiles, while growing-Recording seek and Live-TV timeshift remain explicit non-support until separately implemented.
+9. Keep the broad Timer UI as a cross-cutting product milestone; do not reopen Phase 64 solely for that UI.
+10. Keep review/merge/retarget/close state changes behind explicit user approval; do not ask again when that exact authorization is already present.
+11. Require real yaVDR acceptance when an installed/runtime, native, media or broadcast-behaviour boundary changes; do not repeat accepted runtime evidence for documentation/workflow-only follow-ups.
+12. Continue the authorized workstream to its requested end state. Do not turn analysis, a fixable CI failure, an intermediate commit, a queued/running relevant CI run or an ordinary response boundary into a voluntary stop. Never end with an executable next step still available through the current tools; execute it instead.
 
 ## Command presentation contract
 

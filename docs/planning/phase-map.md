@@ -99,9 +99,11 @@ Phase 67 is completed. Teletext merged through PR #293 and the HbbTV discovery/s
 - Account and Backend Access Administration;
 - Broad Timer Product UI;
 - Audit/Security/Operations surfaces;
-- Legacy Basic retirement migration;
+- Legacy Basic retirement migration **[COMPLETED]**;
 - first-party client family rollout;
 - bounded post-phase correctness/performance hardening.
+
+Durable retirement evidence: [Post-Phase-69 P2 Legacy Basic Retirement Closeout](../development/post-phase69-p2-legacy-basic-retirement-closeout.md). Completion of that cross-cutting milestone does not start Phase 70 or select another productization milestone automatically.
 
 ## Product acceptance
 
