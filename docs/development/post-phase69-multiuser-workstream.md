@@ -14,8 +14,8 @@ Multiuser foundation: completed
 Account read foundation: completed
 First Admin / bootstrap / recovery: completed
 Legacy Basic retirement: completed
-Next Multiuser architecture gate: ADR-0067 [PROPOSED]
-Next Multiuser runtime slice: blocked until ADR-0067 is accepted
+Administration architecture: ADR-0067 [ACCEPTED]
+Next Multiuser runtime slice: MU.6 Human Account lifecycle administration [NOT STARTED]
 ```
 
 ## Binding architecture
@@ -27,10 +27,12 @@ binding accepted decisions are:
 - [ADR-0065: Human Account, Profile and Device Identity Boundary](../adr/ADR-0065-human-account-profile-device-identity-boundary.md);
 - [ADR-0066: Unclaimed Server, First-Admin Bootstrap and Local Recovery](../adr/ADR-0066-unclaimed-server-first-admin-bootstrap-recovery.md).
 
-The next administration boundary is documented as
+The administration boundary is accepted as
 [ADR-0067: Human Account and Backend Access Administration](../adr/ADR-0067-human-account-backend-access-administration.md).
-ADR-0067 is **proposed**, not accepted, and therefore does not yet authorize
-runtime implementation.
+Durable acceptance evidence is in
+[MU.5 Administration Architecture Acceptance](post-phase69-mu5-administration-architecture-acceptance.md).
+ADR-0067 authorizes bounded successor implementation but does not itself claim
+that MU.6 runtime has started or completed.
 
 ## Completed Multiuser slices
 
@@ -91,24 +93,37 @@ Durable evidence:
 The continuation is intentionally ordered so that the product gains usable
 multiuser administration before later Profile/pairing personalization work.
 
-### MU.5 — Administration architecture contract [CURRENT DOCUMENTATION GATE]
+### MU.5 — Administration architecture contract [COMPLETED]
 
-Accept or revise ADR-0067 before runtime implementation.
+ADR-0067 is accepted.
 
-ADR-0067 must freeze:
+The accepted contract freezes:
 
-- Human Account lifecycle mutation authority;
-- administrator lockout/last-admin safety;
-- grant-management authorization and scope;
-- safe credential/session administration metadata;
-- revision/concurrency and accountability requirements;
-- stable Public-v1 versus local-operator boundaries.
+- the global Human Account administration permission vocabulary;
+- atomic Human Account + initial human-password creation;
+- Account revision / strong-precondition semantics;
+- immediate session invalidation for Account deactivation;
+- transactionally enforced final-usable-administrator protection;
+- reuse of normalized grant persistence with product-level allowlisting;
+- secret-free credential/session administration boundaries;
+- Class-A mutation proportionality without Timer-style orchestration.
 
-### MU.6 — Human Account lifecycle administration [PLANNED]
+Durable evidence:
+[MU.5 Administration Architecture Acceptance](post-phase69-mu5-administration-architecture-acceptance.md).
 
-After ADR-0067 acceptance, add the smallest bounded account-management slice.
-It must preserve explicit Human Account identity, one security authority and
-fail-closed administrator safety.
+### MU.6 — Human Account lifecycle administration [NEXT — NOT STARTED]
+
+Implement the first bounded runtime successor under accepted ADR-0067:
+
+- Account revision/item read;
+- atomic Human Account + initial human-password creation;
+- display-name mutation;
+- activate/deactivate;
+- immediate browser-session invalidation on deactivate;
+- final-usable-administrator protection for Account lifecycle.
+
+MU.6 remains separate from MU.7 grant administration and MU.8
+credential/session administration.
 
 ### MU.7 — Backend access / permission grant administration [PLANNED]
 
@@ -145,8 +160,8 @@ ADR-0065 Human Account boundary [ACCEPTED]
   -> MU.2 Public Account read [DONE]
   -> ADR-0066 First Admin/bootstrap/recovery [ACCEPTED + IMPLEMENTED]
   -> MU.4 Legacy Basic retirement [DONE]
-  -> ADR-0067 Account/Backend Access Administration [PROPOSED]
-       -> MU.6 Account lifecycle administration
+  -> ADR-0067 Account/Backend Access Administration [ACCEPTED]
+       -> MU.6 Account lifecycle administration [NEXT - NOT STARTED]
        -> MU.7 Backend access/grant administration
        -> MU.8 Credential/session administration
        -> MU.9 Account/access admin UI
@@ -168,6 +183,6 @@ Independent numbered track:
 - Device trust is not user identity or permission.
 - Capability never grants authorization.
 - No client/UI owns authorization policy.
-- No Account/permission mutation runtime is authorized by this document alone;
-  ADR-0067 must first be accepted.
+- ADR-0067 is accepted, but this workstream document does not claim MU.6 runtime
+  until a bounded implementation slice actually lands.
 - Phase 70 is not started by Multiuser work.
