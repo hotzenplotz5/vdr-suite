@@ -15,7 +15,8 @@ Root-level `AGENTS.md` is binding. In particular, once the user has authorized a
 3. [Post-Phase-69 Multiuser Productization Workstream](development/post-phase69-multiuser-workstream.md) — active cross-cutting Multiuser slice sequence and current gate.
 4. [ADR-0065 Human Account, Profile and Device Identity Boundary](adr/ADR-0065-human-account-profile-device-identity-boundary.md) — accepted Human Account/Profile/Device separation.
 5. [ADR-0066 Unclaimed Server, First-Admin Bootstrap and Local Recovery](adr/ADR-0066-unclaimed-server-first-admin-bootstrap-recovery.md) — accepted and implemented bootstrap/login/recovery boundary.
-6. [ADR-0067 Human Account and Backend Access Administration](adr/ADR-0067-human-account-backend-access-administration.md) — proposed next Multiuser administration architecture; not runtime authorization until accepted.
+6. [ADR-0067 Human Account and Backend Access Administration](adr/ADR-0067-human-account-backend-access-administration.md) — accepted Multiuser administration architecture.
+7. [MU.5 Administration Architecture Acceptance](development/post-phase69-mu5-administration-architecture-acceptance.md) — live-code evidence and accepted MU.5 decisions.
 7. [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md) — completed migration and runtime-retirement evidence.
 8. [Phase 69 Closeout](development/phase-69-closeout.md) — completed 69.A-F public API/client compatibility evidence.
 9. [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md) and retained 69.B-F closeouts when historical Phase-69 detail is needed.
@@ -36,9 +37,10 @@ Historical Phase-69 closeout records retained for traceability: `docs/developmen
 - Next strict numbered runtime phase: **Phase 70 - Recommendation and Content Knowledge Graph**.
 - Current active numbered runtime slice: **none - Phase 70 - Recommendation and Content Knowledge Graph not started**.
 - Current active cross-cutting productization workstream: **Multiuser / Account and Backend Access Administration**.
-- Current Multiuser slice: **MU.5 - Administration architecture contract - ADR-0067 [PROPOSED]**.
-- MU.0-MU.4 are completed: Human Account identity/read foundation, Public-v1 Account read, First Admin/bootstrap/browser login/recovery and Legacy Basic retirement.
-- No Account/grant administration runtime implementation starts until ADR-0067 is accepted.
+- Current Multiuser architecture slice: **MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]**.
+- Current Multiuser runtime slice: **none - MU.6 Human Account lifecycle administration not started**.
+- Next Multiuser runtime slice: **MU.6 - Human Account lifecycle administration**.
+- MU.0-MU.5 are completed: Human Account identity/read foundation, Public-v1 Account read, First Admin/bootstrap/browser login/recovery, Legacy Basic retirement and accepted administration architecture.
 - Durable Phase-68 completion evidence: [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md).
 - Phase-67 Teletext and HbbTV verticals are both completed and accepted.
 - Phase 65.A through 65.D are closed for their accepted bounded scopes; ADR-0056 semantic consolidation and ADR-0057 Recording network recovery are completed Phase-65 history.
@@ -75,13 +77,13 @@ Do not reopen Phase 64 merely to add a broad Timer UI, diagnostics or later medi
 
 Phases 65 through **Phase 69 are completed**. [Phase 69 Closeout](development/phase-69-closeout.md) records the accepted 69.A-F public/API client boundary. Phase 70 is the next strict numbered phase but is not started; its roadmap requires a dedicated accepted runtime ADR before implementation.
 
-The active cross-cutting productization line is **Multiuser**. [Post-Phase-69 Multiuser Productization Workstream](development/post-phase69-multiuser-workstream.md) owns the current sequence. MU.0-MU.4 are complete and MU.5 is the proposed ADR-0067 administration-architecture gate.
+The active cross-cutting productization line is **Multiuser**. [Post-Phase-69 Multiuser Productization Workstream](development/post-phase69-multiuser-workstream.md) owns the current sequence. MU.0-MU.5 are complete, ADR-0067 is accepted and MU.6 is the next runtime slice but is not started.
 
 For current Multiuser work:
 
 1. re-read live `main`, `CURRENT.md`, the Strict Roadmap, the Multiuser workstream and ADR-0065/0066/0067 before successor planning;
-2. do not implement Account/grant administration runtime while ADR-0067 remains Proposed;
-3. after ADR-0067 acceptance, follow the bounded order MU.6 Account lifecycle -> MU.7 grant administration -> MU.8 credential/session administration -> MU.9 admin UI unless live repository evidence justifies an explicitly documented change;
+2. treat ADR-0067 as accepted architecture and MU.5 as completed;
+3. start only the bounded MU.6 Human Account lifecycle runtime before MU.7 grant administration; follow MU.6 -> MU.7 -> MU.8 -> MU.9 unless live repository evidence justifies an explicitly documented change;
 4. keep pairing and Profiles as later separate slices rather than conflating them with Human Account administration;
 5. keep Broad Timer Product UI gated on the required Multiuser Account/backend access administration surface.
 
@@ -205,9 +207,9 @@ Durable current evidence: [Post-Phase-69 P2 Legacy Basic Retirement Closeout](de
 2. Query live `main` and the relevant PR/branch before making repository-state claims. If a GitHub Actions run exists for the relevant head, report its exact status/link. Do not wait on unrelated jobs before continuing already-approved surface-scoped work. If a relevant run is required for the next already-authorized gate and is queued or in progress, continue independent work and re-read that run before ending the working response; never return the stale non-terminal snapshot as the final state.
 3. Treat Phase 69 - Public API and Client Compatibility Hardening as completed and read `docs/development/phase-69-closeout.md`; treat Phases 64 through 68 as completed for their accepted bounded scopes unless live repository state supersedes that evidence.
 4. Treat the cross-cutting Multiuser / Account and Backend Access Administration workstream as active and read `docs/development/post-phase69-multiuser-workstream.md`.
-5. Treat ADR-0065 and ADR-0066 as accepted architecture, and ADR-0067 as the current **Proposed** Multiuser administration gate until repository state says otherwise.
-6. Treat MU.0-MU.4 as completed and do not redo First Admin/bootstrap/recovery or Legacy Basic retirement without a new demonstrated regression.
-7. Do not start MU.6 Account lifecycle or later Account/grant administration runtime until ADR-0067 is accepted.
+5. Treat ADR-0065, ADR-0066 and ADR-0067 as accepted architecture unless live repository state says otherwise.
+6. Treat MU.0-MU.5 as completed and do not redo First Admin/bootstrap/recovery, Legacy Basic retirement or the MU.5 architecture audit without a new demonstrated regression.
+7. Treat MU.6 Human Account lifecycle administration as the next bounded runtime slice; do not fold MU.7 grant administration or MU.8 credential/session administration into MU.6.
 8. Do not start Phase 70 merely because Phase 69 or a Multiuser slice is complete; require the dedicated accepted Phase-70 runtime ADR before numbered Phase-70 implementation.
 9. Preserve accepted Phase-65 playback/MediaSession semantics, completed Phase-66 Home ownership, completed Phase-67 Teletext/HbbTV domains, completed Phase-68 Legacy OSD ownership and completed Phase-69 public-client boundaries rather than inventing parallel owners during successor work.
 10. Keep the broad Timer UI as a cross-cutting product milestone gated on required Multiuser Account/backend access administration.
