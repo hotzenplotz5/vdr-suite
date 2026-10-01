@@ -26,16 +26,16 @@ int main()
                 .listAll()
                 .size();
 
-        HttpServerRequest legacy =
+        HttpServerRequest retiredLegacy =
             fixture.mutationRequest(
                 route,
                 "default");
-        fixture.addLegacyAuthentication(legacy);
+        fixture.addRetiredLegacyAuthentication(retiredLegacy);
 
-        const SecurityGateDecision legacyDecision =
-            fixture.gate.evaluate(legacy);
-        assert(legacyDecision.allowed);
-        assert(!legacyDecision.protectedMutation);
+        const SecurityGateDecision retiredLegacyDecision =
+            fixture.gate.evaluate(retiredLegacy);
+        assert(!retiredLegacyDecision.allowed);
+        assert(retiredLegacyDecision.rejection.statusCode == 401);
 
         HttpServerRequest browser =
             fixture.mutationRequest(
