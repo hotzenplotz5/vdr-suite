@@ -107,7 +107,7 @@ def main():
         "man": (
             "RETIRED SECURITY SETTINGS",
             "Legacy Basic compatibility has been removed",
-            "cannot reactivate Legacy Basic authentication",
+            "cannot reactivate Legacy\nBasic authentication",
         ),
     }.items():
         for marker in markers:
