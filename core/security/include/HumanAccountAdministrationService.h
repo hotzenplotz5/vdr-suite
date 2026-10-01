@@ -12,6 +12,7 @@
 class AccountabilityEventRepository;
 class BrowserSessionLifecycleService;
 class Database;
+class HumanAccountAdministrationRepository;
 class SecurityIdentityRepository;
 
 enum class HumanAccountAdministrationStatus
