@@ -294,6 +294,20 @@
 
 
 
+  function accountItemPath(options) {
+    if (!options || typeof options !== 'object' || Array.isArray(options)) {
+      throw new Error('Account item options must be an object');
+    }
+    if (typeof options.accountId !== 'string' || options.accountId === '') {
+      throw new Error('Account item accountId must be a non-empty string');
+    }
+    if (/[\/?#]/.test(options.accountId)) {
+      throw new Error('Account item accountId contains a path delimiter');
+    }
+    return '/api/v1/accounts/' + options.accountId;
+  }
+
+
   function timerAssignmentItemPath(options) {
     if (!options || typeof options !== 'object' || Array.isArray(options)) {
       throw new Error('TimerAssignment item options must be an object');
@@ -472,6 +486,13 @@
       getAccounts(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
         return request('/api/v1/accounts' + accountQuery(normalizedOptions.query), normalizedOptions);
+      },
+      getAccount(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return requestRevisioned(
+          accountItemPath(normalizedOptions),
+          normalizedOptions
+        );
       },
       getChannels(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
