@@ -7,6 +7,8 @@ ROOT = Path(__file__).resolve().parents[1]
 FILES = {
     "account_h": ROOT / "core/security/include/HumanAccountRepository.h",
     "account_cpp": ROOT / "core/security/src/HumanAccountRepository.cpp",
+    "admin_repo_h": ROOT / "core/security/include/HumanAccountAdministrationRepository.h",
+    "admin_repo_cpp": ROOT / "core/security/src/HumanAccountAdministrationRepository.cpp",
     "admin_h": ROOT / "core/security/include/HumanAccountAdministrationService.h",
     "admin_cpp": ROOT / "core/security/src/HumanAccountAdministrationService.cpp",
     "browser_auth": ROOT / "core/security/include/BrowserSessionAuthenticator.h",
@@ -75,14 +77,16 @@ def main():
     ):
         require("admin_cpp", marker)
 
+    require("admin_repo_h", "countUsableAdministratorsExcludingActor")
     for marker in (
         "countUsableAdministratorsExcludingActor",
         "grant_record.permission = 'role.admin'",
         "credential.credential_type = 'human-password'",
         "security_basic_credential_verifiers",
     ):
-        require("account_cpp", marker)
+        require("admin_repo_cpp", marker)
 
+    forbid("account_cpp", "password")
     forbid("admin_cpp", "#include <sqlite3.h>")
     forbid("admin_cpp", "sqlite3_")
 
