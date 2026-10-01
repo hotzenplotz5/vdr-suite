@@ -546,8 +546,9 @@ int main()
     authorize(discoveryPostRequest);
     HttpServerResponse discoveryPostResponse =
         server.handleRequest(discoveryPostRequest);
-    assertJsonResponse(discoveryPostResponse, 404);
-    assert(discoveryPostResponse.body == "{\"error\":\"not found\"}");
+    assertJsonResponse(discoveryPostResponse, 503);
+    assert(discoveryPostResponse.body.find(
+        "security_policy_not_migrated") != std::string::npos);
 
     HttpServerRequest missingRequest;
     missingRequest.method = "GET";
@@ -576,8 +577,9 @@ int main()
     authorize(postRequest);
     HttpServerResponse postResponse =
         server.handleRequest(postRequest);
-    assertJsonResponse(postResponse, 404);
-    assert(postResponse.body == "{\"error\":\"not found\"}");
+    assertJsonResponse(postResponse, 503);
+    assert(postResponse.body.find(
+        "security_policy_not_migrated") != std::string::npos);
 
     HttpServerRequest validationRequest;
     validationRequest.method = "POST";
