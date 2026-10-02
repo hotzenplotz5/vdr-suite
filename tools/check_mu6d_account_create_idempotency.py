@@ -34,6 +34,7 @@ FILES = {
     "dependency_map": ROOT / "docs/planning/implementation-dependency-map.md",
     "root_roadmap": ROOT / "ROADMAP.md",
     "planning_index": ROOT / "docs/planning/index.md",
+    "development_index": ROOT / "docs/development/index.md",
     "make": ROOT / "mk/security-sources.mk",
 }
 
@@ -247,6 +248,7 @@ def main():
         "dependency_map",
         "root_roadmap",
         "planning_index",
+        "development_index",
     )
     for name in current_docs:
         require(name, "MU.6D")
@@ -269,6 +271,7 @@ def main():
     require("workstream", "MU.6D Atomic Account CREATE + durable idempotency       [CANDIDATE - LOCAL ACCEPTANCE PENDING]")
     require("phase_map", "MU.6C public lifecycle mutation [DONE]")
     require("phase_map", "MU.7 grant administration [NOT STARTED]")
+    require("development_index", "MU.6D Atomic Account CREATE + Durable Idempotency")
 
     require("make", "test-security-human-account-creation")
     occurrences = TEXT["make"].count(
