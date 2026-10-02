@@ -143,6 +143,8 @@ def main():
         "idempotency_conflict",
         'response.statusCode = 201',
         'response.headers["Location"] = accountPath',
+        "createRequest.password.begin()",
+        "createRequest.password.clear()",
         '"GET, POST"',
     ):
         require("runtime_cpp", marker)
@@ -183,6 +185,8 @@ def main():
         "HumanAccountCreationStatus::idempotencyConflict",
         "HumanAccountCreationStatus::loginConflict",
         "createdGrants.grants.empty()",
+        "different-retry-password",
+        "fixture.entropyCounter == entropyAfterCreate",
         "fixture.accounts.listAll().accounts.size() == 2U",
     ):
         require("service_test", marker)
