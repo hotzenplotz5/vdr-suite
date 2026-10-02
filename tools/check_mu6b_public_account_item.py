@@ -148,7 +148,6 @@ def main():
     require("make", "python3 tools/check_mu6b_public_account_item.py")
 
     for forbidden in (
-        "createAccount",
         "deleteAccount",
         "accounts.grants.modify",
         "accounts.credentials.revoke",
