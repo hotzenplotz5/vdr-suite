@@ -1,6 +1,6 @@
 # MU.6D — Atomic Account CREATE + Durable Idempotency
 
-Status: **ACCEPTED — real yaVDR acceptance passed; PR pending.**
+Status: **COMPLETED — real yaVDR acceptance passed; PR #411 merged.**
 
 MU.6D adds the bounded Human Account creation surface defined by ADR-0067.
 It does not add backend grants, role assignment, credential administration,
