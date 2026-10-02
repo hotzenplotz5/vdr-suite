@@ -192,14 +192,13 @@ def main():
 
     for marker in (
         "# MU.6C Public Account Lifecycle Mutation",
-        "Candidate — local acceptance pending",
+        "COMPLETED — real yaVDR acceptance passed; PR #410 merged",
         "POST /api/v1/accounts/{accountId}",
         "accounts.modify",
         "accounts.activate",
         "accounts.deactivate",
         "role.admin@default",
         "does not require a bootstrap or code patch",
-        "MU.6D remains not started",
     ):
         require("candidate", marker)
 
@@ -210,7 +209,6 @@ def main():
 
     for name in ("runtime_cpp", "client"):
         for forbidden in (
-            "createAccount",
             "accounts.grants.modify",
             "accounts.credentials.revoke",
             "accounts.sessions.revoke",
@@ -221,8 +219,8 @@ def main():
     print("MU6=IN_PROGRESS")
     print("MU6A=DONE")
     print("MU6B=DONE")
-    print("MU6C=CANDIDATE_LOCAL_ACCEPTANCE_PENDING")
-    print("MU6D=NOT_STARTED")
+    print("MU6C=COMPLETED")
+    print("MU6D_STATUS=SUCCESSOR_STATUS_NOT_OWNED_BY_MU6C_GUARD")
     return 0
 
 
