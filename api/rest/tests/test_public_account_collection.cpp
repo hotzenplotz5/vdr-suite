@@ -39,6 +39,7 @@ int main()
     runtime.resetAccountCollectionLookup();
     runtime.resetAccountLookup();
     runtime.resetAccountMutation();
+    runtime.resetAccountCreate();
 
     const std::vector<PublicAccountCollectionItem> configured = {
         account("account-a", "actor-a", "Admin A", true),
@@ -140,6 +141,38 @@ int main()
             return result;
         });
 
+    PublicAccountCreateStatus forcedCreateStatus =
+        PublicAccountCreateStatus::created;
+    runtime.registerAccountCreate(
+        [&forcedCreateStatus](
+            const PublicAccountCreateRequest& request)
+        {
+            PublicAccountCreateResult result;
+            result.status = forcedCreateStatus;
+            if (forcedCreateStatus !=
+                    PublicAccountCreateStatus::created &&
+                forcedCreateStatus !=
+                    PublicAccountCreateStatus::replayed)
+            {
+                return result;
+            }
+
+            assert(request.actorRef == "actor:test");
+            assert(request.idempotencyKey ==
+                "idem-account-create-1");
+            assert(request.loginName == "new-viewer");
+            assert(request.password == "test-value-1");
+            assert(request.displayName == "New Viewer");
+            assert(request.requestId.find("mu6d-") == 0U);
+
+            result.account.accountId = "account-new";
+            result.account.actorId = "actor-new";
+            result.account.displayName = "New Viewer";
+            result.account.active = true;
+            result.account.resourceRevision = "account:1";
+            return result;
+        });
+
     ApiResponse root;
     assert(runtime.tryHandleGet(
         "/api/v1",
@@ -166,6 +199,9 @@ int main()
         std::string::npos);
     assert(capabilities.body.find(
         "{\"id\":\"public-api.accounts-lifecycle-mutation\",\"version\":1,\"availability\":\"available\"}") !=
+        std::string::npos);
+    assert(capabilities.body.find(
+        "{\"id\":\"public-api.accounts-create\",\"version\":1,\"availability\":\"available\"}") !=
         std::string::npos);
 
     ApiResponse first;
@@ -331,14 +367,157 @@ int main()
         unavailable));
     assert(unavailable.statusCode == 503);
 
-    ApiResponse post;
+    const std::string createBody =
+        "{\"displayName\":\"New Viewer\","
+        "\"password\":\"test-value-1\","
+        "\"loginName\":\"new-viewer\"}";
+
+    ApiResponse created;
     assert(runtime.tryHandlePost(
         "/api/v1/accounts",
-        "p2-accounts-post",
+        "mu6d-account-create",
+        "mu6d-account-create-correlation",
+        created,
+        createBody,
+        "actor:test",
         "",
-        post));
-    assert(post.statusCode == 405);
-    assert(post.headers.at("Allow") == "GET");
+        "idem-account-create-1",
+        "application/json"));
+    assert(created.statusCode == 201);
+    assert(created.headers.at("Location") ==
+        "/api/v1/accounts/account-new");
+    assert(created.headers.count("ETag") == 1U);
+    assert(created.body.find(
+        "\"accountId\":\"account-new\"") != std::string::npos);
+    assert(created.body.find(
+        "\"actorId\":\"actor-new\"") != std::string::npos);
+    assert(created.body.find(
+        "\"displayName\":\"New Viewer\"") != std::string::npos);
+    assert(created.body.find("\"active\":true") != std::string::npos);
+    assert(created.body.find("password") == std::string::npos);
+    assert(created.body.find("loginName") == std::string::npos);
+
+    forcedCreateStatus = PublicAccountCreateStatus::replayed;
+    ApiResponse replayedCreate;
+    assert(runtime.tryHandlePost(
+        "/api/v1/accounts",
+        "mu6d-account-create-replay",
+        "",
+        replayedCreate,
+        createBody,
+        "actor:test",
+        "",
+        "idem-account-create-1",
+        "application/json"));
+    assert(replayedCreate.statusCode == 201);
+    assert(replayedCreate.headers.at("Location") ==
+        "/api/v1/accounts/account-new");
+
+    ApiResponse createMissingKey;
+    assert(runtime.tryHandlePost(
+        "/api/v1/accounts",
+        "mu6d-account-create-no-key",
+        "",
+        createMissingKey,
+        createBody,
+        "actor:test",
+        "",
+        "",
+        "application/json"));
+    assert(createMissingKey.statusCode == 400);
+
+    ApiResponse createBadType;
+    assert(runtime.tryHandlePost(
+        "/api/v1/accounts",
+        "mu6d-account-create-type",
+        "",
+        createBadType,
+        createBody,
+        "actor:test",
+        "",
+        "idem-account-create-1",
+        "text/plain"));
+    assert(createBadType.statusCode == 415);
+
+    ApiResponse createMalformed;
+    assert(runtime.tryHandlePost(
+        "/api/v1/accounts",
+        "mu6d-account-create-json",
+        "",
+        createMalformed,
+        "{",
+        "actor:test",
+        "",
+        "idem-account-create-1",
+        "application/json"));
+    assert(createMalformed.statusCode == 400);
+
+    ApiResponse createExtraField;
+    assert(runtime.tryHandlePost(
+        "/api/v1/accounts",
+        "mu6d-account-create-closed",
+        "",
+        createExtraField,
+        "{\"loginName\":\"new-viewer\","
+        "\"password\":\"test-value-1\","
+        "\"displayName\":\"New Viewer\","
+        "\"role\":\"admin\"}",
+        "actor:test",
+        "",
+        "idem-account-create-1",
+        "application/json"));
+    assert(createExtraField.statusCode == 422);
+
+    ApiResponse createAnonymous;
+    assert(runtime.tryHandlePost(
+        "/api/v1/accounts",
+        "mu6d-account-create-anonymous",
+        "",
+        createAnonymous,
+        createBody,
+        "",
+        "",
+        "idem-account-create-1",
+        "application/json"));
+    assert(createAnonymous.statusCode == 401);
+
+    forcedCreateStatus =
+        PublicAccountCreateStatus::idempotencyConflict;
+    ApiResponse createIdempotencyConflict;
+    assert(runtime.tryHandlePost(
+        "/api/v1/accounts",
+        "mu6d-account-create-idem-conflict",
+        "",
+        createIdempotencyConflict,
+        createBody,
+        "actor:test",
+        "",
+        "idem-account-create-1",
+        "application/json"));
+    assert(createIdempotencyConflict.statusCode == 409);
+    assert(createIdempotencyConflict.body.find(
+        "\"code\":\"idempotency_conflict\"") !=
+        std::string::npos);
+
+    forcedCreateStatus =
+        PublicAccountCreateStatus::loginConflict;
+    ApiResponse createLoginConflict;
+    assert(runtime.tryHandlePost(
+        "/api/v1/accounts",
+        "mu6d-account-create-login-conflict",
+        "",
+        createLoginConflict,
+        createBody,
+        "actor:test",
+        "",
+        "idem-account-create-1",
+        "application/json"));
+    assert(createLoginConflict.statusCode == 409);
+    assert(createLoginConflict.body.find(
+        "\"code\":\"operation_conflict\"") !=
+        std::string::npos);
+
+    forcedCreateStatus = PublicAccountCreateStatus::created;
 
     ApiResponse renamed;
     assert(runtime.tryHandlePost(
@@ -485,7 +664,7 @@ int main()
             "",
             mismatch));
         assert(mismatch.statusCode == 405);
-        assert(mismatch.headers.at("Allow") == "GET");
+        assert(mismatch.headers.at("Allow") == "GET, POST");
 
         ApiResponse itemMismatch;
         assert(runtime.tryHandleUnsupportedMethod(
@@ -500,5 +679,6 @@ int main()
 
     runtime.resetAccountLookup();
     runtime.resetAccountMutation();
+    runtime.resetAccountCreate();
     return 0;
 }
