@@ -12,6 +12,7 @@
 #include <chrono>
 #include <cstddef>
 #include <string>
+#include <utility>
 
 namespace
 {
@@ -139,10 +140,16 @@ int main()
     assert(createdGrants.available);
     assert(createdGrants.grants.empty());
 
+    const unsigned char entropyAfterCreate =
+        fixture.entropyCounter;
+    HumanAccountCreationRequest replayRequest =
+        request("idem-1");
+    replayRequest.password = "different-retry-password";
     const HumanAccountCreationResult replayed =
-        fixture.service.create(request("idem-1"));
+        fixture.service.create(std::move(replayRequest));
     assert(replayed.status == HumanAccountCreationStatus::replayed);
     assert(replayed.account.accountId == created.account.accountId);
+    assert(fixture.entropyCounter == entropyAfterCreate);
     assert(fixture.accounts.listAll().accounts.size() == 2U);
 
     const HumanAccountCreationResult idempotencyConflict =
