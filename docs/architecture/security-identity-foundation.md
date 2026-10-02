@@ -192,7 +192,7 @@ Not required for Phase 62:
 - transactional Outbox;
 - Phase 63-67 runtime.
 
-The generic Human Account / credential / grant administration product surface was deferred from Phase 62, but is now being advanced as the active [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md). This does not reopen Phase 62. MU.5 is completed and ADR-0067 is accepted. MU.6 is in progress: MU.6A provides persisted Account revision, authoritative lifecycle mutation, browser-session fencing and final-usable-administrator protection; MU.6B adds the secret-free Public-v1 Account item with strong ETag/conditional-read semantics; MU.6C Public-v1 lifecycle mutation is completed after real yaVDR acceptance and PR #410 merge. MU.6D Atomic Account CREATE + durable idempotency is ACCEPTED after local and real yaVDR acceptance, including accounts.create@*, browser CSRF, request-only yescrypt password handling, durable replay and no automatic grants; PR is pending. MU.7 grant administration remains not started.
+The generic Human Account / credential / grant administration product surface was deferred from Phase 62, but is now being advanced as the active [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md). This does not reopen Phase 62. MU.0-MU.6 are completed; MU.6D merged as PR #411. MU.7 grant administration is the active CANDIDATE with deterministic grant-set revision/ETag, global accounts.grants.view/modify authority, desired-state ensure/revoke, server-owned permission/scope allowlisting and final-admin protection. LOCAL ACCEPTANCE is pending. MU.8 credential/session administration remains not started.
 
 ## Related documents
 
@@ -208,3 +208,4 @@ The generic Human Account / credential / grant administration product surface wa
 - [MU.6B Public Account Item + Revision/ETag](../development/post-phase69-mu6b-public-account-item.md)
 - [MU.6C Public Account Lifecycle Mutation](../development/post-phase69-mu6c-public-account-lifecycle-mutation.md)
 - [MU.6D Atomic Account CREATE + Durable Idempotency](../development/post-phase69-mu6d-account-create-idempotency.md)
+- [MU.7 Backend Access / Permission Grant Administration](../development/post-phase69-mu7-account-grant-administration.md)
