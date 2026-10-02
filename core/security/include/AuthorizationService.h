@@ -177,6 +177,9 @@ private:
             permission == "epgsearch.native-fuzzy.stale-probes.delete" ||
             permission == "backend.settings.series-artwork.modify" ||
             permission == "backend.settings.media-transcode.modify" ||
+            permission == "accounts.modify" ||
+            permission == "accounts.activate" ||
+            permission == "accounts.deactivate" ||
             permission == "backend.agent.enroll" ||
             permission == "backend.agent.revoke" ||
             permission == "backend.agent.credential.rotate" ||
