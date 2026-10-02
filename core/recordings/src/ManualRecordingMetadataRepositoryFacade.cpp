@@ -1,6 +1,7 @@
 #include "MetadataRepository.h"
 
 #include "CurlExternalArtworkHttpTransport.h"
+#include "CanonicalGenreRegistry.h"
 #include "Database.h"
 #include "GenreIndexRepository.h"
 #include "TmdbRecordingMetadataCandidateProvider.h"
@@ -645,9 +646,10 @@ bool MetadataRepository::setManualRecordingGenre(
     const RecordingGenreIdentity identity =
         resolveRecordingGenreIdentity(database_, backend, resourceKey);
     GenreIndexRepository& repository = genreRepository();
+    CanonicalGenreRegistry registry;
     if (!identity.found ||
         !repository.ensureSchema() ||
-        !repository.genreExists(genreId))
+        !registry.isKnown(genreId))
     {
         return false;
     }
