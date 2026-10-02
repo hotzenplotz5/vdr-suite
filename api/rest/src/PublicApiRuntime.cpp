@@ -2957,6 +2957,98 @@ bool PublicApiRuntime::tryHandleGet(
     }
 
     std::string accountId;
+    if (publicAccountGrantPath(path, accountId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        if (requestTarget != path)
+        {
+            response = invalidRequestProblem(
+                path,
+                "Account Grant-set read does not accept query parameters.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        AccountGrantLookup lookup;
+        {
+            std::lock_guard<std::mutex> lock(
+                accountGrantLookupMutex_);
+            lookup = accountGrantLookup_;
+        }
+        if (!lookup)
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        const PublicAccountGrantLookupResult found =
+            lookup(accountId);
+
+        switch (found.status)
+        {
+            case PublicAccountGrantStatus::ok:
+                if (found.grantSet.accountId != accountId ||
+                    found.grantSet.actorId.empty() ||
+                    !publicGrantSetRevision(
+                        found.grantSet.resourceRevision))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                for (const PublicAccountGrantItem& grant :
+                     found.grantSet.grants)
+                {
+                    if (grant.permission.empty() ||
+                        grant.backendId.empty())
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                }
+                response = publicAccountGrantSetResponse(
+                    found.grantSet,
+                    path,
+                    requestId,
+                    correlationId,
+                    ifNoneMatch);
+                return true;
+
+            case PublicAccountGrantStatus::invalid:
+                response = invalidRequestProblem(
+                    path,
+                    "The Account Grant-set request is invalid.",
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountGrantStatus::notFound:
+                response = notFoundProblem(
+                    path, requestId, correlationId);
+                return true;
+
+            case PublicAccountGrantStatus::revisionConflict:
+            case PublicAccountGrantStatus::finalAdministrator:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+
+            case PublicAccountGrantStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
     if (publicAccountPath(path, accountId))
     {
         if (actorRef.empty())
