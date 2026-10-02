@@ -2,6 +2,7 @@
 
 #include "RecordingActionUtils.h"
 
+#include <iomanip>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -13,19 +14,48 @@ std::string escapeJson(
 {
     std::ostringstream escaped;
 
-    for (char character : value)
+    for (unsigned char character : value)
     {
-        if (character == '\\')
+        switch (character)
         {
-            escaped << "\\\\";
-        }
-        else if (character == '"')
-        {
-            escaped << "\\\"";
-        }
-        else
-        {
-            escaped << character;
+            case '\\':
+                escaped << "\\\\";
+                break;
+            case '"':
+                escaped << "\\\"";
+                break;
+            case '\b':
+                escaped << "\\b";
+                break;
+            case '\f':
+                escaped << "\\f";
+                break;
+            case '\n':
+                escaped << "\\n";
+                break;
+            case '\r':
+                escaped << "\\r";
+                break;
+            case '\t':
+                escaped << "\\t";
+                break;
+            default:
+                if (character < 0x20)
+                {
+                    escaped
+                        << "\\u"
+                        << std::hex
+                        << std::setw(4)
+                        << std::setfill('0')
+                        << static_cast<unsigned int>(character)
+                        << std::dec
+                        << std::setfill(' ');
+                }
+                else
+                {
+                    escaped << static_cast<char>(character);
+                }
+                break;
         }
     }
 
