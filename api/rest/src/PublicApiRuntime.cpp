@@ -4662,6 +4662,16 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
         return true;
     }
 
+    if (publicAccountGrantPath(path, accountId))
+    {
+        response = methodNotAllowedProblem(
+            path,
+            requestId,
+            correlationId,
+            "GET, POST");
+        return true;
+    }
+
     if (publicAccountPath(path, accountId))
     {
         response = methodNotAllowedProblem(
