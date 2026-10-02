@@ -967,7 +967,7 @@ Planned continuation:
 
 ```text
 MU.5 Administration architecture contract / ADR-0067            [DONE]
-MU.6 Human Account lifecycle administration                     [IN PROGRESS — MU.6A-C DONE / MU.6D CANDIDATE]
+MU.6 Human Account lifecycle administration                     [IN PROGRESS — MU.6A-C DONE / MU.6D ACCEPTED / PR PENDING]
 MU.7 Backend access / permission grant administration           [PLANNED]
 MU.8 Credential and session administration                     [PLANNED]
 MU.9 Account and access administration UI                      [PLANNED]
