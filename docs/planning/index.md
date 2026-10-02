@@ -56,7 +56,7 @@ The completed numbered planning boundary is now Phase 69; 69.A-F are accepted. P
 
 For successor planning, re-read live `main`, CURRENT, the Strict Roadmap and the Phase-69 closeout. Do not start Phase 70 until its required runtime ADR is accepted.
 
-The active cross-cutting productization line is [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md): MU.0-MU.5 are complete and MU.6 Human Account lifecycle administration is in progress. MU.6A, MU.6B and MU.6C are completed; MU.6D Atomic Account CREATE + durable idempotency is ACCEPTED after real yaVDR acceptance with PR pending, and MU.7 grant administration remains not started.
+The active cross-cutting productization line is [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md): MU.0-MU.6 are complete and MU.6D merged as PR #411. MU.7 Backend access / permission grant administration is the active CANDIDATE with LOCAL ACCEPTANCE pending; MU.8 credential/session administration remains not started.
 
 ## Planning cautions
 
