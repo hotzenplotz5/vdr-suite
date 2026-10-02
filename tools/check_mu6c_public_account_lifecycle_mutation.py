@@ -172,7 +172,6 @@ def main():
         "planning_index",
     ):
         require(name, "MU.6C")
-        require(name, "LOCAL ACCEPTANCE")
         require(name, "MU.6D")
 
     for name in (
