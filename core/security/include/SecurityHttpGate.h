@@ -361,6 +361,33 @@ public:
                 '/',
                 publicAccountPrefix.size()) ==
                 std::string::npos;
+        std::string publicAccountGrantAccountId;
+        const std::string publicAccountGrantSuffix =
+            "/grants";
+        const bool isPublicAccountGrantResource =
+            path.compare(
+                0,
+                publicAccountPrefix.size(),
+                publicAccountPrefix) == 0 &&
+            path.size() >
+                publicAccountPrefix.size() +
+                publicAccountGrantSuffix.size() &&
+            path.compare(
+                path.size() -
+                    publicAccountGrantSuffix.size(),
+                publicAccountGrantSuffix.size(),
+                publicAccountGrantSuffix) == 0 &&
+            (publicAccountGrantAccountId =
+                path.substr(
+                    publicAccountPrefix.size(),
+                    path.size() -
+                        publicAccountPrefix.size() -
+                        publicAccountGrantSuffix.size()))
+                    .find('/') == std::string::npos &&
+            !publicAccountGrantAccountId.empty();
+        const bool isPublicAccountGrantRead =
+            request.method == "GET" &&
+            isPublicAccountGrantResource;
         const bool isPublicAccountRead =
             request.method == "GET" &&
             (isPublicAccountCollection ||
@@ -371,6 +398,9 @@ public:
         const bool isPublicAccountMutation =
             isPost &&
             isPublicAccountResource;
+        const bool isPublicAccountGrantMutation =
+            isPost &&
+            isPublicAccountGrantResource;
         const bool isPublicChannelCollection =
             path == "/api/v1/channels";
         std::vector<std::string> publicChannelBackendIds;
@@ -480,6 +510,7 @@ public:
             isRemoteAction || isTimerCreateAction ||
             isPublicAccountCreate ||
             isPublicAccountMutation ||
+            isPublicAccountGrantMutation ||
             isPublicTimerAssignmentCreate || isTimerUpdateAction ||
             isTimerDeleteAction || isChannelMoveAction || isRecordingExecutionAction ||
             isRecordingMarksModifyAction || isRecordingCutAction ||
@@ -622,6 +653,57 @@ public:
                     messageForReason(decision.reasonCode),
                     gate.context,
                     authenticationFailure(decision));
+                return gate;
+            }
+
+            gate.authorizationDecision = decision;
+            gate.allowed = true;
+            return gate;
+        }
+
+        if (isPublicAccountGrantRead)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+
+            AuthorizationRequest grantReadRequest;
+            grantReadRequest.permission =
+                "accounts.grants.view";
+            grantReadRequest.backendId = "*";
+            grantReadRequest.action =
+                "accounts.grants.view";
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(
+                    gate.context,
+                    grantReadRequest);
+
+            if (!appendDecisionEvent(
+                    gate.context,
+                    decision,
+                    ""))
+            {
+                gate.rejection = errorResponse(
+                    503,
+                    "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+
+            if (!decision.allowed)
+            {
+                const int statusCode =
+                    authenticationFailure(decision)
+                        ? 401
+                        : 403;
+                gate.rejection = errorResponse(
+                    statusCode,
+                    decision.reasonCode,
+                    messageForReason(
+                        decision.reasonCode),
+                    gate.context,
+                    authenticationFailure(decision),
+                    gate.publicApiV1);
                 return gate;
             }
 
@@ -897,7 +979,15 @@ public:
         bool recordingActionSupported = true;
         bool publicAccountMutationSupported = true;
 
-        if (isPublicAccountCreate)
+        if (isPublicAccountGrantMutation)
+        {
+            requestToAuthorize.backendId = "*";
+            requestToAuthorize.permission =
+                "accounts.grants.modify";
+            requestToAuthorize.action =
+                "accounts.grants.modify";
+        }
+        else if (isPublicAccountCreate)
         {
             requestToAuthorize.backendId = "*";
             requestToAuthorize.permission = "accounts.create";
