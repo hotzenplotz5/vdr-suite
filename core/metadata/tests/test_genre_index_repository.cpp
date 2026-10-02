@@ -204,8 +204,8 @@ int main()
         GenreEvidenceInput manualGenre;
         manualGenre.backendId = "a";
         manualGenre.targetType = "recording";
-        manualGenre.resourceKey = "r3";
-        manualGenre.nativeId = "native3";
+        manualGenre.resourceKey = "r1";
+        manualGenre.nativeId = "native1";
         manualGenre.providerId = "manual-recording-genre";
         manualGenre.sourceKind = "recording-manual-genre";
         manualGenre.originalValues = {"Horror"};
@@ -218,7 +218,7 @@ int main()
         GenreRecordingPage manualHorror = repository.recordingsByGenre(
             "a", "horror", 10, 0);
         assert(manualHorror.totalCount == 1);
-        assert(manualHorror.recordings.front().title == "No genre");
+        assert(manualHorror.recordings.front().title == "Space");
 
         sqlite3_stmt* manualState = nullptr;
         assert(sqlite3_prepare_v2(
