@@ -329,6 +329,154 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             *credentialVerifierRepository_,
             *accountabilityEventRepository_);
 
+    humanAccountGrantAdministrationService_ =
+        std::make_unique<HumanAccountGrantAdministrationService>(
+            *securityDatabase_,
+            *humanAccountRepository_,
+            *securityIdentityRepository_,
+            *securityPermissionGrantRepository_,
+            *humanAccountAdministrationRepository_,
+            *accountabilityEventRepository_);
+
+    PublicApiRuntime::instance().registerAccountGrantLookup(
+        [this](const std::string& accountId)
+        {
+            PublicAccountGrantLookupResult result;
+            if (!humanAccountGrantAdministrationService_)
+            {
+                return result;
+            }
+
+            const HumanAccountGrantAdministrationResult found =
+                humanAccountGrantAdministrationService_->read(
+                    accountId);
+
+            switch (found.status)
+            {
+                case HumanAccountGrantAdministrationStatus::success:
+                    result.status =
+                        PublicAccountGrantStatus::ok;
+                    break;
+                case HumanAccountGrantAdministrationStatus::accountNotFound:
+                    result.status =
+                        PublicAccountGrantStatus::notFound;
+                    return result;
+                case HumanAccountGrantAdministrationStatus::invalidGrant:
+                    result.status =
+                        PublicAccountGrantStatus::invalid;
+                    return result;
+                case HumanAccountGrantAdministrationStatus::accountActorInvalid:
+                case HumanAccountGrantAdministrationStatus::revisionConflict:
+                case HumanAccountGrantAdministrationStatus::finalAdministrator:
+                case HumanAccountGrantAdministrationStatus::entropyUnavailable:
+                case HumanAccountGrantAdministrationStatus::storageError:
+                    result.status =
+                        PublicAccountGrantStatus::unavailable;
+                    return result;
+            }
+
+            result.grantSet.accountId =
+                found.grantSet.accountId;
+            result.grantSet.actorId =
+                found.grantSet.actorId;
+            result.grantSet.resourceRevision =
+                found.grantSet.resourceRevision;
+            for (const PermissionGrant& grant :
+                 found.grantSet.grants)
+            {
+                PublicAccountGrantItem item;
+                item.permission = grant.permission;
+                item.backendId = grant.backendId;
+                result.grantSet.grants.push_back(
+                    std::move(item));
+            }
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerAccountGrantMutation(
+        [this](const PublicAccountGrantMutationRequest& request)
+        {
+            PublicAccountGrantMutationResult result;
+            if (!humanAccountGrantAdministrationService_ ||
+                !securityIdentityRepository_)
+            {
+                return result;
+            }
+
+            const std::optional<StoredActorIdentity> actor =
+                securityIdentityRepository_->findActor(
+                    request.actorRef);
+            if (!actor.has_value() ||
+                actor->type == ActorType::Anonymous ||
+                !actor->active ||
+                actor->revoked)
+            {
+                return result;
+            }
+
+            HumanAccountGrantAdministrationContext context;
+            context.actorId = request.actorRef;
+            context.requestId = request.requestId;
+            context.correlationId =
+                request.correlationId;
+
+            const HumanAccountGrantAdministrationResult mutated =
+                humanAccountGrantAdministrationService_->setGrant(
+                    context,
+                    request.accountId,
+                    request.expectedResourceRevision,
+                    request.permission,
+                    request.backendId,
+                    request.active);
+
+            switch (mutated.status)
+            {
+                case HumanAccountGrantAdministrationStatus::success:
+                    result.status =
+                        PublicAccountGrantStatus::ok;
+                    break;
+                case HumanAccountGrantAdministrationStatus::accountNotFound:
+                    result.status =
+                        PublicAccountGrantStatus::notFound;
+                    return result;
+                case HumanAccountGrantAdministrationStatus::invalidGrant:
+                    result.status =
+                        PublicAccountGrantStatus::invalid;
+                    return result;
+                case HumanAccountGrantAdministrationStatus::revisionConflict:
+                    result.status =
+                        PublicAccountGrantStatus::revisionConflict;
+                    break;
+                case HumanAccountGrantAdministrationStatus::finalAdministrator:
+                    result.status =
+                        PublicAccountGrantStatus::finalAdministrator;
+                    break;
+                case HumanAccountGrantAdministrationStatus::accountActorInvalid:
+                case HumanAccountGrantAdministrationStatus::entropyUnavailable:
+                case HumanAccountGrantAdministrationStatus::storageError:
+                    result.status =
+                        PublicAccountGrantStatus::unavailable;
+                    return result;
+            }
+
+            result.grantSet.accountId =
+                mutated.grantSet.accountId;
+            result.grantSet.actorId =
+                mutated.grantSet.actorId;
+            result.grantSet.resourceRevision =
+                mutated.grantSet.resourceRevision;
+            for (const PermissionGrant& grant :
+                 mutated.grantSet.grants)
+            {
+                PublicAccountGrantItem item;
+                item.permission = grant.permission;
+                item.backendId = grant.backendId;
+                result.grantSet.grants.push_back(
+                    std::move(item));
+            }
+            return result;
+        });
+
     PublicApiRuntime::instance().registerAccountCreate(
         [this](const PublicAccountCreateRequest& request)
         {
@@ -536,6 +684,8 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
 
 TestHttpServer::~TestHttpServer()
 {
+    PublicApiRuntime::instance().resetAccountGrantMutation();
+    PublicApiRuntime::instance().resetAccountGrantLookup();
     PublicApiRuntime::instance().resetAccountCreate();
     PublicApiRuntime::instance().resetAccountMutation();
 }
