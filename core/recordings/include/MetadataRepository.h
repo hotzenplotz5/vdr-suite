@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ManualRecordingMetadataAssignmentRepository.h"
+#include "GenreIndexRepository.h"
 #include "Metadata.h"
 
 #include <map>
@@ -11,7 +12,6 @@
 #include <vector>
 
 class Database;
-class GenreIndexRepository;
 
 class MetadataRepository
 {
