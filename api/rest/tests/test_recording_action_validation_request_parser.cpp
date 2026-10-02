@@ -32,6 +32,30 @@ int main()
         moveRequest.parameters.at("recordingTitle") ==
         "Movies/Tatort am Abend");
 
+    RecordingActionRequest browserOrderMoveRequest =
+        parser.parse(
+            "{"
+            "\"backendId\":\"default\","
+            "\"recordingId\":\"recording-005\","
+            "\"action\":\"MOVE\","
+            "\"dryRun\":true,"
+            "\"recordingPath\":\"Movies/Tatort/2026-06-16.20.15.1-0.rec\","
+            "\"backendNativeId\":\"native-005\","
+            "\"recordingTitle\":\"Tatort, Folge \\\"Nacht\\\"\","
+            "\"targetPath\":\"VDRSuite_Testordner\""
+            "}");
+
+    assert(browserOrderMoveRequest.backendId == "default");
+    assert(browserOrderMoveRequest.recordingId == "recording-005");
+    assert(browserOrderMoveRequest.type == RecordingActionType::Move);
+    assert(browserOrderMoveRequest.dryRun);
+    assert(
+        browserOrderMoveRequest.parameters.at("recordingTitle") ==
+        "Tatort, Folge \"Nacht\"");
+    assert(
+        browserOrderMoveRequest.parameters.at("targetPath") ==
+        "VDRSuite_Testordner");
+
     RecordingActionRequest renameRequest =
         parser.parse(
             "{"
