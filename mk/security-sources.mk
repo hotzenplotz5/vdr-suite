@@ -10,6 +10,7 @@ SECURITY_REPOSITORY_SRC := \
 	core/security/src/FirstAdminBootstrapRepository.cpp \
 	core/security/src/HumanAccountRepository.cpp \
 	core/security/src/HumanAccountAdministrationRepository.cpp \
+	core/security/src/HumanAccountCreationRepository.cpp \
 	core/security/src/SecurityIdentityIssuanceRepository.cpp \
 	core/security/src/SecurityIdentityProvisioningRepository.cpp \
 	core/security/src/SecurityIdentityRepository.cpp \
@@ -23,6 +24,7 @@ SECURITY_SERVICE_SRC := \
 	core/security/src/FirstAdminBootstrapIssuanceService.cpp \
 	core/security/src/FirstAdminClaimService.cpp \
 	core/security/src/HumanAccountAdministrationService.cpp \
+	core/security/src/HumanAccountCreationService.cpp \
 	core/security/src/HumanAccountRecoveryService.cpp \
 	core/security/src/HumanAccountReadService.cpp
 
@@ -37,7 +39,7 @@ BROWSER_SESSION_HTTP_SRC := \
 FIRST_ADMIN_HTTP_SRC := \
 	core/http/src/FirstAdminClaimHttpService.cpp
 
-.PHONY: first-admin-bootstrap-issuer human-account-recovery test-security test-security-architecture test-security-legacy-basic-retirement-acceptance test-security-authorization test-security-configuration test-security-accountability-event-repository test-security-identity-repository test-security-permission-grant-repository test-security-first-admin-bootstrap-repository test-security-first-admin-bootstrap-issuance-service test-security-first-admin-claim-service test-security-first-admin-claim-http-service test-security-human-account-read-foundation test-security-human-account-administration test-security-public-account-collection test-security-managed-basic-authenticator test-security-human-password-browser-session test-security-human-account-recovery test-security-browser-session-authenticator test-security-browser-session-issuer-binding test-security-browser-session-issuance-service test-security-browser-session-concurrency-limit test-security-browser-session-idle-expiry test-security-browser-session-retention-cleanup test-security-browser-session-http-service test-security-browser-session-csrf-recovery test-security-browser-session-http-gate test-security-http-gate test-security-recording-marks test-security-series-artwork-route-scope test-security-teletext-read test-security-hbbtv-read test-security-hbbtv-session test-security-osd-session test-security-searchtimer-maintenance test-security-searchtimer-execution test-security-native-fuzzy-refresh test-security-safe-post test-security-manual-recording-metadata
+.PHONY: first-admin-bootstrap-issuer human-account-recovery test-security test-security-architecture test-security-legacy-basic-retirement-acceptance test-security-authorization test-security-configuration test-security-accountability-event-repository test-security-identity-repository test-security-permission-grant-repository test-security-first-admin-bootstrap-repository test-security-first-admin-bootstrap-issuance-service test-security-first-admin-claim-service test-security-first-admin-claim-http-service test-security-human-account-read-foundation test-security-human-account-administration test-security-human-account-creation test-security-public-account-collection test-security-managed-basic-authenticator test-security-human-password-browser-session test-security-human-account-recovery test-security-browser-session-authenticator test-security-browser-session-issuer-binding test-security-browser-session-issuance-service test-security-browser-session-concurrency-limit test-security-browser-session-idle-expiry test-security-browser-session-retention-cleanup test-security-browser-session-http-service test-security-browser-session-csrf-recovery test-security-browser-session-http-gate test-security-http-gate test-security-recording-marks test-security-series-artwork-route-scope test-security-teletext-read test-security-hbbtv-read test-security-hbbtv-session test-security-osd-session test-security-searchtimer-maintenance test-security-searchtimer-execution test-security-native-fuzzy-refresh test-security-safe-post test-security-manual-recording-metadata
 
 test-security-architecture:
 	python3 tools/check_security_identity_architecture.py
@@ -55,6 +57,8 @@ test-security-architecture:
 	python3 tools/check_p2_legacy_basic_retirement_acceptance.py
 	python3 tools/check_mu6_account_lifecycle_foundation.py
 	python3 tools/check_mu6b_public_account_item.py
+	python3 tools/check_mu6c_public_account_lifecycle_mutation.py
+	python3 tools/check_mu6d_account_create_idempotency.py
 	python3 tools/check_browser_session_issuance_architecture.py
 	python3 tools/check_browser_session_issuer_binding.py
 	python3 tools/check_browser_session_concurrency_limit.py
@@ -225,6 +229,17 @@ test-security-human-account-administration:
 	$(BUILD_DIR)/test_human_account_administration_service
 
 
+test-security-human-account-creation:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_REPOSITORY_SRC) \
+		core/security/src/HumanAccountCreationService.cpp \
+		core/security/tests/test_human_account_creation_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_human_account_creation_service
+	$(BUILD_DIR)/test_human_account_creation_service
+
+
 test-security-public-account-collection:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		api/rest/src/PublicApiRuntime.cpp \
@@ -238,9 +253,13 @@ test-security-public-account-collection:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_public_account_collection_security
 	$(BUILD_DIR)/test_public_account_collection_security
+	$(MAKE) test-security-human-account-creation
 	node clients/reference-js/tests/test_public_v1_account_client.js
+	node clients/reference-js/tests/test_public_v1_account_create_client.js
 	python3 tools/check_p2_public_account_collection.py
 	python3 tools/check_mu6b_public_account_item.py
+	python3 tools/check_mu6c_public_account_lifecycle_mutation.py
+	python3 tools/check_mu6d_account_create_idempotency.py
 
 
 test-security-managed-basic-authenticator:

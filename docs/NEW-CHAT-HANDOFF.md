@@ -19,14 +19,16 @@ Root-level `AGENTS.md` is binding. In particular, once the user has authorized a
 7. [MU.5 Administration Architecture Acceptance](development/post-phase69-mu5-administration-architecture-acceptance.md) — live-code evidence and accepted MU.5 decisions.
 8. [MU.6A Human Account Lifecycle Authority Foundation](development/post-phase69-mu6-account-lifecycle-foundation.md) — authoritative Account lifecycle/revision foundation.
 9. [MU.6B Public Account Item + Revision/ETag](development/post-phase69-mu6b-public-account-item.md) — stable secret-free Account item, opaque ETag and conditional-read boundary.
-10. [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md) — completed migration and runtime-retirement evidence.
-11. [Phase 69 Closeout](development/phase-69-closeout.md) — completed 69.A-F public API/client compatibility evidence.
-12. [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md) and retained 69.B-F closeouts when historical Phase-69 detail is needed.
-13. [Phase 68 Closeout](development/phase-68-closeout.md), [Phase 67 Closeout](development/phase-67-closeout.md), [Phase 66 Closeout](development/phase-66-closeout.md) and [Phase 65 Closeout](development/phase-65-closeout.md) for completed numbered foundations.
-14. [Golden User Journeys](planning/golden-user-journeys.md) for user-facing acceptance.
-15. Relevant accepted architecture ADRs for the touched domain, including ADR-0046/0053/0055/0056/0057 for playback, ADR-0054 for Broadcast Companion and ADR-0064 for SuiteBridge control-plane work.
-16. [Target Platform Architecture](architecture/target-platform-architecture.md), [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md) and [ADR Index](adr/index.md) as required.
-17. [Agent Workflow Rules](../AGENTS.md) before repository writes, PR-state changes or installation guidance.
+10. [MU.6C Public Account Lifecycle Mutation](development/post-phase69-mu6c-public-account-lifecycle-mutation.md) — completed after real yaVDR acceptance and PR #410 merge.
+11. [MU.6D Atomic Account CREATE + Durable Idempotency](development/post-phase69-mu6d-account-create-idempotency.md) — accepted Account CREATE boundary; real yaVDR acceptance passed, PR pending.
+12. [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md) — completed migration and runtime-retirement evidence.
+13. [Phase 69 Closeout](development/phase-69-closeout.md) — completed 69.A-F public API/client compatibility evidence.
+14. [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md) and retained 69.B-F closeouts when historical Phase-69 detail is needed.
+15. [Phase 68 Closeout](development/phase-68-closeout.md), [Phase 67 Closeout](development/phase-67-closeout.md), [Phase 66 Closeout](development/phase-66-closeout.md) and [Phase 65 Closeout](development/phase-65-closeout.md) for completed numbered foundations.
+16. [Golden User Journeys](planning/golden-user-journeys.md) for user-facing acceptance.
+17. Relevant accepted architecture ADRs for the touched domain, including ADR-0046/0053/0055/0056/0057 for playback, ADR-0054 for Broadcast Companion and ADR-0064 for SuiteBridge control-plane work.
+18. [Target Platform Architecture](architecture/target-platform-architecture.md), [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md) and [ADR Index](adr/index.md) as required.
+19. [Agent Workflow Rules](../AGENTS.md) before repository writes, PR-state changes or installation guidance.
 
 [Current Project Status](development/current-status.md), [Current Architecture State](development/current-architecture-state.md), [Completed Phases](development/completed-phases.md), [Phase 62 Closeout](development/phase-62-closeout.md), [Phase 64 Closeout](development/phase-64-closeout.md) and older Phase-65 development records provide stable historical context.
 
@@ -42,8 +44,9 @@ Historical Phase-69 closeout records retained for traceability: `docs/developmen
 - Current Multiuser architecture slice: **MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]**.
 - Current Multiuser runtime slice: **MU.6 - Human Account lifecycle administration [IN PROGRESS]**.
 - Latest completed MU.6 sub-slice: **MU.6B - Public Account item + revision/ETag [COMPLETED]**.
-- Next MU.6 sub-slice: **MU.6C - Public display-name / activate / deactivate [NEXT - NOT STARTED]**.
-- MU.0-MU.5, MU.6A and MU.6B are completed. Public lifecycle mutation and Account CREATE remain incomplete and are bounded to MU.6C/MU.6D.
+- Current MU.6 sub-slice: **MU.6D - Atomic Account CREATE + durable idempotency [ACCEPTED - REAL YAVDR PASS / PR PENDING]**.
+- Next product slice after MU.6D merge: **MU.7 - Backend access / permission grant administration [NOT STARTED]**.
+- MU.0-MU.5 and MU.6A-C are completed. MU.6D Atomic Account CREATE + durable idempotency is ACCEPTED after real yaVDR acceptance with PR pending. MU.7 grant administration remains not started.
 - Durable Phase-68 completion evidence: [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md).
 - Phase-67 Teletext and HbbTV verticals are both completed and accepted.
 - Phase 65.A through 65.D are closed for their accepted bounded scopes; ADR-0056 semantic consolidation and ADR-0057 Recording network recovery are completed Phase-65 history.
@@ -80,13 +83,13 @@ Do not reopen Phase 64 merely to add a broad Timer UI, diagnostics or later medi
 
 Phases 65 through **Phase 69 are completed**. [Phase 69 Closeout](development/phase-69-closeout.md) records the accepted 69.A-F public/API client boundary. Phase 70 is the next strict numbered phase but is not started; its roadmap requires a dedicated accepted runtime ADR before implementation.
 
-The active cross-cutting productization line is **Multiuser**. [Post-Phase-69 Multiuser Productization Workstream](development/post-phase69-multiuser-workstream.md) owns the current sequence. MU.0-MU.5 are complete and MU.6 is in progress: MU.6A lifecycle authority and MU.6B Public Account item/revision are completed and MU.6C public lifecycle mutation is next.
+The active cross-cutting productization line is **Multiuser**. [Post-Phase-69 Multiuser Productization Workstream](development/post-phase69-multiuser-workstream.md) owns the current sequence. MU.0-MU.5 are complete and MU.6 is in progress: MU.6A-C are completed; MU.6D Atomic Account CREATE + durable idempotency is ACCEPTED after real yaVDR acceptance with PR pending, and MU.7 grant administration remains not started.
 
 For current Multiuser work:
 
 1. re-read live `main`, `CURRENT.md`, the Strict Roadmap, the Multiuser workstream and ADR-0065/0066/0067 before successor planning;
 2. treat ADR-0067 as accepted architecture and MU.5 as completed;
-3. continue MU.6 from MU.6C public lifecycle mutation; do not redo MU.6A/MU.6B without a demonstrated regression and do not fold MU.7 grant administration or MU.8 credential/session administration into MU.6;
+3. carry MU.6D through PR/merge; do not start MU.7 until MU.6D is merged, do not redo MU.6A/MU.6B without a demonstrated regression and do not fold MU.7 grant administration or MU.8 credential/session administration into MU.6;
 4. keep pairing and Profiles as later separate slices rather than conflating them with Human Account administration;
 5. keep Broad Timer Product UI gated on the required Multiuser Account/backend access administration surface.
 
@@ -212,7 +215,7 @@ Durable current evidence: [Post-Phase-69 P2 Legacy Basic Retirement Closeout](de
 4. Treat the cross-cutting Multiuser / Account and Backend Access Administration workstream as active and read `docs/development/post-phase69-multiuser-workstream.md`.
 5. Treat ADR-0065, ADR-0066 and ADR-0067 as accepted architecture unless live repository state says otherwise.
 6. Treat MU.0-MU.5, MU.6A and MU.6B as completed and do not redo First Admin/bootstrap/recovery, Legacy Basic retirement, the MU.5 architecture audit, MU.6A lifecycle authority or MU.6B Account item/revision without a demonstrated regression.
-7. Treat MU.6 as in progress and MU.6C public lifecycle mutation as the next bounded sub-slice; keep MU.6D Account CREATE separate, and do not fold MU.7 grant administration or MU.8 credential/session administration into MU.6.
+7. Treat MU.6 as in progress with MU.6C completed and MU.6D Atomic Account CREATE + durable idempotency as ACCEPTED after real yaVDR acceptance with PR pending; keep MU.7 grant administration NOT STARTED until MU.6D merge, and do not fold MU.7 grant administration or MU.8 credential/session administration into MU.6.
 8. Do not start Phase 70 merely because Phase 69 or a Multiuser slice is complete; require the dedicated accepted Phase-70 runtime ADR before numbered Phase-70 implementation.
 9. Preserve accepted Phase-65 playback/MediaSession semantics, completed Phase-66 Home ownership, completed Phase-67 Teletext/HbbTV domains, completed Phase-68 Legacy OSD ownership and completed Phase-69 public-client boundaries rather than inventing parallel owners during successor work.
 10. Keep the broad Timer UI as a cross-cutting product milestone gated on required Multiuser Account/backend access administration.

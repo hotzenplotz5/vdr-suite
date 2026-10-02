@@ -17,7 +17,8 @@ Legacy Basic retirement: completed
 Administration architecture: ADR-0067 [ACCEPTED]
 Current Multiuser runtime slice: MU.6 Human Account lifecycle administration [IN PROGRESS]
 Latest completed MU.6 sub-slice: MU.6B Public Account item + revision/ETag
-Next MU.6 sub-slice: MU.6C Public display-name / activate / deactivate
+Current MU.6 sub-slice: MU.6D Atomic Account CREATE + durable idempotency [ACCEPTED - REAL YAVDR PASS / PR PENDING]
+Next product slice after MU.6D merge: MU.7 Backend access / permission grant administration [NOT STARTED]
 ```
 
 ## Binding architecture
@@ -121,11 +122,17 @@ Durable MU.6A evidence:
 Durable MU.6B evidence:
 [MU.6B Public Account Item + Revision/ETag](post-phase69-mu6b-public-account-item.md).
 
+Completed MU.6C evidence:
+[MU.6C Public Account Lifecycle Mutation](post-phase69-mu6c-public-account-lifecycle-mutation.md).
+
+Accepted MU.6D evidence:
+[MU.6D Atomic Account CREATE + Durable Idempotency](post-phase69-mu6d-account-create-idempotency.md).
+
 ```text
 MU.6A Account lifecycle authority foundation            [DONE]
 MU.6B Public Account item + revision/ETag               [DONE]
-MU.6C Public display-name / activate / deactivate       [NEXT - NOT STARTED]
-MU.6D Atomic Account CREATE + durable idempotency       [PLANNED]
+MU.6C Public display-name / activate / deactivate       [COMPLETED]
+MU.6D Atomic Account CREATE + durable idempotency       [ACCEPTED - REAL YAVDR PASS / PR PENDING]
 ```
 
 MU.6A delivers:
@@ -144,9 +151,14 @@ under the existing `accounts.view@*` authority. It exposes the MU.6A revision
 only through a strong opaque ETag, supports `If-None-Match`/304 and leaves the
 existing Account collection unchanged without a collection ETag.
 
-MU.6C-D complete the remaining ADR-0067 Account lifecycle contracts before
-MU.7 begins. MU.6B does not expose lifecycle mutation, Account CREATE, grants,
-credentials or sessions.
+MU.6C exposes the bounded Public-v1 lifecycle mutation over the MU.6A
+authority and is completed after real yaVDR acceptance and PR #410 merge.
+
+MU.6D adds the bounded Atomic Account CREATE boundary: global
+`accounts.create@*`, browser CSRF, a closed loginName/displayName/password
+request, request-only yescrypt password handling and durable
+actor+Idempotency-Key replay. It creates no role or backend grants. LOCAL
+Local and real yaVDR acceptance passed; PR is pending. MU.7 grant administration is not started.
 
 ### MU.7 — Backend access / permission grant administration [PLANNED]
 
@@ -187,7 +199,8 @@ ADR-0065 Human Account boundary [ACCEPTED]
        -> MU.6 Account lifecycle administration [IN PROGRESS]
             -> MU.6A lifecycle authority [DONE]
             -> MU.6B Account item/revision [DONE]
-            -> MU.6C public lifecycle mutation [NEXT]
+            -> MU.6C public lifecycle mutation [DONE]
+            -> MU.6D Account CREATE/idempotency [ACCEPTED - REAL YAVDR PASS / PR PENDING]
        -> MU.7 Backend access/grant administration
        -> MU.8 Credential/session administration
        -> MU.9 Account/access admin UI
@@ -209,5 +222,5 @@ Independent numbered track:
 - Device trust is not user identity or permission.
 - Capability never grants authorization.
 - No client/UI owns authorization policy.
-- ADR-0067 is accepted; MU.6A and MU.6B are landed runtime boundaries, while Public-v1 Account lifecycle mutation and CREATE remain explicitly incomplete.
+- ADR-0067 is accepted; MU.6A and MU.6B are landed runtime boundaries. MU.6C Public-v1 Account lifecycle mutation is completed after real yaVDR acceptance and PR #410 merge; MU.6D Atomic Account CREATE + durable idempotency is ACCEPTED after local and real yaVDR acceptance; PR is pending. MU.7 grant administration remains not started.
 - Phase 70 is not started by Multiuser work.

@@ -138,6 +138,124 @@ async function run() {
   assert.strictEqual(notModified.etag, '"vsr-account-a"');
   assert.strictEqual(notModified.data, null);
 
+  responseFactory = () => response(
+    200,
+    {
+      accountId: 'account-a',
+      actorId: 'actor-a',
+      displayName: 'Renamed Admin',
+      active: true,
+      links: {self: '/api/v1/accounts/account-a'}
+    },
+    {ETag: '"vsr-account-a-8"'}
+  );
+  const renamed = await client.updateAccountDisplayName({
+    accountId: 'account-a',
+    displayName: 'Renamed Admin',
+    ifMatch: '"vsr-account-a"',
+    headers: {'X-CSRF-Token': 'csrf-token'}
+  });
+  assert.strictEqual(renamed.status, 200);
+  assert.strictEqual(renamed.etag, '"vsr-account-a-8"');
+  assert.strictEqual(renamed.data.displayName, 'Renamed Admin');
+  assert.strictEqual(requests[3].options.method, 'POST');
+  assert.strictEqual(
+    requests[3].options.headers['If-Match'],
+    '"vsr-account-a"'
+  );
+  assert.strictEqual(
+    requests[3].options.headers['X-CSRF-Token'],
+    'csrf-token'
+  );
+  assert.strictEqual(
+    requests[3].options.headers['Content-Type'],
+    'application/json'
+  );
+  assert.deepStrictEqual(
+    JSON.parse(requests[3].options.body),
+    {displayName: 'Renamed Admin'}
+  );
+
+  responseFactory = () => response(
+    200,
+    {
+      accountId: 'account-a',
+      actorId: 'actor-a',
+      displayName: 'Renamed Admin',
+      active: false,
+      links: {self: '/api/v1/accounts/account-a'}
+    },
+    {ETag: '"vsr-account-a-9"'}
+  );
+  const deactivated = await client.deactivateAccount({
+    accountId: 'account-a',
+    ifMatch: '"vsr-account-a-8"'
+  });
+  assert.strictEqual(deactivated.data.active, false);
+  assert.deepStrictEqual(
+    JSON.parse(requests[4].options.body),
+    {active: false}
+  );
+
+  responseFactory = () => response(
+    200,
+    {
+      accountId: 'account-a',
+      actorId: 'actor-a',
+      displayName: 'Renamed Admin',
+      active: true,
+      links: {self: '/api/v1/accounts/account-a'}
+    },
+    {ETag: '"vsr-account-a-10"'}
+  );
+  const activated = await client.activateAccount({
+    accountId: 'account-a',
+    ifMatch: '"vsr-account-a-9"'
+  });
+  assert.strictEqual(activated.data.active, true);
+  assert.deepStrictEqual(
+    JSON.parse(requests[5].options.body),
+    {active: true}
+  );
+
+  const beforeInvalidMutation = requests.length;
+  assert.throws(
+    () => client.updateAccountDisplayName({
+      accountId: 'account-a',
+      displayName: '',
+      ifMatch: '"vsr-account-a"'
+    }),
+    /displayName/
+  );
+  assert.throws(
+    () => client.deactivateAccount({
+      accountId: 'account-a',
+      ifMatch: ''
+    }),
+    /ifMatch/
+  );
+  assert.strictEqual(requests.length, beforeInvalidMutation);
+
+  responseFactory = () => response(
+    412,
+    {
+      type: 'about:blank',
+      title: 'Resource revision conflict',
+      status: 412,
+      code: 'revision_conflict',
+      detail: 'The Account changed after it was read.'
+    }
+  );
+  await assert.rejects(
+    client.activateAccount({
+      accountId: 'account-a',
+      ifMatch: '"vsr-stale"'
+    }),
+    error => error instanceof api.PublicClientError
+      && error.status === 412
+      && error.code === 'revision_conflict'
+  );
+
   const beforeInvalidItem = requests.length;
   assert.throws(
     () => client.getAccount({accountId: ''}),

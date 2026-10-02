@@ -365,6 +365,12 @@ public:
             request.method == "GET" &&
             (isPublicAccountCollection ||
              isPublicAccountResource);
+        const bool isPublicAccountCreate =
+            isPost &&
+            isPublicAccountCollection;
+        const bool isPublicAccountMutation =
+            isPost &&
+            isPublicAccountResource;
         const bool isPublicChannelCollection =
             path == "/api/v1/channels";
         std::vector<std::string> publicChannelBackendIds;
@@ -458,8 +464,6 @@ public:
             (path == "/api/v1" ||
              path == "/api/v1/capabilities" ||
              isPublicBackendCollection ||
-             isPublicAccountCollection ||
-             isPublicAccountResource ||
              isPublicChannelCollection ||
              isPublicTimerAssignmentCollection ||
              isPublicOperationResource);
@@ -474,6 +478,8 @@ public:
              path == "/api/vdr/searchtimers/plan");
         const bool isProtectedMutation =
             isRemoteAction || isTimerCreateAction ||
+            isPublicAccountCreate ||
+            isPublicAccountMutation ||
             isPublicTimerAssignmentCreate || isTimerUpdateAction ||
             isTimerDeleteAction || isChannelMoveAction || isRecordingExecutionAction ||
             isRecordingMarksModifyAction || isRecordingCutAction ||
@@ -889,8 +895,30 @@ public:
         AuthorizationRequest requestToAuthorize;
         requestToAuthorize.backendId = jsonStringValue(request.body, "backendId");
         bool recordingActionSupported = true;
+        bool publicAccountMutationSupported = true;
 
-        if (isLegacyOsdControllerMutation || isLegacyOsdInput)
+        if (isPublicAccountCreate)
+        {
+            requestToAuthorize.backendId = "*";
+            requestToAuthorize.permission = "accounts.create";
+            requestToAuthorize.action = "accounts.create";
+        }
+        else if (isPublicAccountMutation)
+        {
+            requestToAuthorize.backendId = "*";
+            if (!publicAccountMutationAuthorization(
+                    request.body,
+                    requestToAuthorize.permission,
+                    requestToAuthorize.action))
+            {
+                publicAccountMutationSupported = false;
+                requestToAuthorize.permission =
+                    "accounts.modify";
+                requestToAuthorize.action =
+                    "accounts.modify";
+            }
+        }
+        else if (isLegacyOsdControllerMutation || isLegacyOsdInput)
         {
             requestToAuthorize.permission = "osd.control";
             requestToAuthorize.action = isLegacyOsdInput
@@ -1103,6 +1131,25 @@ public:
             decision.action = requestToAuthorize.action;
             return rejectWithAudit(
                 gate, decision, 403, "A valid CSRF token is required", operationId);
+        }
+
+        if (isPublicAccountMutation &&
+            !publicAccountMutationSupported)
+        {
+            AuthorizationDecision decision;
+            decision.reasonCode =
+                "invalid_account_mutation";
+            decision.permission =
+                requestToAuthorize.permission;
+            decision.backendId = "*";
+            decision.action =
+                requestToAuthorize.action;
+            return rejectWithAudit(
+                gate,
+                decision,
+                400,
+                "Account mutation accepts exactly one displayName or active field",
+                operationId);
         }
 
         if (isRecordingExecutionAction && !recordingActionSupported)
@@ -1473,6 +1520,184 @@ private:
             }
         }
         return "";
+    }
+
+    static void skipAccountMutationWhitespace(
+        const std::string& body,
+        std::size_t& position)
+    {
+        while (position < body.size() &&
+               std::isspace(
+                   static_cast<unsigned char>(
+                       body[position])))
+        {
+            ++position;
+        }
+    }
+
+    static bool parseAccountMutationJsonString(
+        const std::string& body,
+        std::size_t& position,
+        std::string& value)
+    {
+        if (position >= body.size() ||
+            body[position] != '"')
+        {
+            return false;
+        }
+        ++position;
+        value.clear();
+
+        while (position < body.size())
+        {
+            const unsigned char character =
+                static_cast<unsigned char>(
+                    body[position++]);
+            if (character == '"')
+            {
+                return true;
+            }
+            if (character < 0x20U)
+            {
+                return false;
+            }
+            if (character != '\\')
+            {
+                value.push_back(
+                    static_cast<char>(character));
+                continue;
+            }
+            if (position >= body.size())
+            {
+                return false;
+            }
+
+            switch (body[position++])
+            {
+                case '"': value.push_back('"'); break;
+                case '\\': value.push_back('\\'); break;
+                case '/': value.push_back('/'); break;
+                case 'b': value.push_back('\b'); break;
+                case 'f': value.push_back('\f'); break;
+                case 'n': value.push_back('\n'); break;
+                case 'r': value.push_back('\r'); break;
+                case 't': value.push_back('\t'); break;
+                default: return false;
+            }
+        }
+
+        return false;
+    }
+
+    static bool consumeAccountMutationLiteral(
+        const std::string& body,
+        std::size_t& position,
+        const char* literal)
+    {
+        const std::string value(literal);
+        if (body.compare(
+                position,
+                value.size(),
+                value) != 0)
+        {
+            return false;
+        }
+        position += value.size();
+        return true;
+    }
+
+    static bool publicAccountMutationAuthorization(
+        const std::string& body,
+        std::string& permission,
+        std::string& action)
+    {
+        std::size_t position = 0U;
+        skipAccountMutationWhitespace(
+            body,
+            position);
+        if (position >= body.size() ||
+            body[position++] != '{')
+        {
+            return false;
+        }
+
+        skipAccountMutationWhitespace(
+            body,
+            position);
+        std::string key;
+        if (!parseAccountMutationJsonString(
+                body,
+                position,
+                key))
+        {
+            return false;
+        }
+
+        skipAccountMutationWhitespace(
+            body,
+            position);
+        if (position >= body.size() ||
+            body[position++] != ':')
+        {
+            return false;
+        }
+        skipAccountMutationWhitespace(
+            body,
+            position);
+
+        if (key == "displayName")
+        {
+            std::string displayName;
+            if (!parseAccountMutationJsonString(
+                    body,
+                    position,
+                    displayName))
+            {
+                return false;
+            }
+            permission = "accounts.modify";
+            action = "accounts.modify";
+        }
+        else if (key == "active")
+        {
+            bool active = false;
+            if (consumeAccountMutationLiteral(
+                    body,
+                    position,
+                    "true"))
+            {
+                active = true;
+            }
+            else if (!consumeAccountMutationLiteral(
+                         body,
+                         position,
+                         "false"))
+            {
+                return false;
+            }
+
+            permission = active
+                ? "accounts.activate"
+                : "accounts.deactivate";
+            action = permission;
+        }
+        else
+        {
+            return false;
+        }
+
+        skipAccountMutationWhitespace(
+            body,
+            position);
+        if (position >= body.size() ||
+            body[position++] != '}')
+        {
+            return false;
+        }
+        skipAccountMutationWhitespace(
+            body,
+            position);
+        return position == body.size();
     }
 
     static std::string jsonEscape(const std::string& value)

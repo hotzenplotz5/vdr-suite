@@ -4,7 +4,7 @@ Status: **Working branch candidate; not merged and not accepted yet.**
 
 Branch: `work/recordings-folder-genre-management`
 
-Base: `main@9e5e65f55b91f0e90fc832c4cfa99d2f237bdb8c`
+Base updated by merge: `main@881a0f08015c35b37a4e71c78e32bf86dcc105b3`
 
 ## Purpose
 

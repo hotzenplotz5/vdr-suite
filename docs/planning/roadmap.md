@@ -68,13 +68,16 @@ MU.6 - Human Account lifecycle administration [IN PROGRESS]
 Latest completed MU.6 sub-slice:
 MU.6B - Public Account item + revision/ETag [COMPLETED]
 
-Next MU.6 sub-slice:
-MU.6C - Public display-name / activate / deactivate [NEXT - NOT STARTED]
+Current MU.6 sub-slice:
+MU.6C - Public display-name / activate / deactivate [COMPLETED]
+
+Next MU.6 sub-slice after acceptance:
+MU.6D - Atomic Account CREATE + durable idempotency [ACCEPTED - REAL YAVDR PASS / PR PENDING]
 ```
 
 Phases 65 through 69 are completed. Durable Phase-69 evidence lives in [Phase 69 Closeout](../development/phase-69-closeout.md). Phase 70 is the next strict numbered phase but is not started and has no runtime authorization until its required ADR is accepted.
 
-The active cross-cutting productization work is the [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md). MU.0-MU.5 are complete, [ADR-0067](../adr/ADR-0067-human-account-backend-access-administration.md) is accepted and MU.6 is in progress. MU.6B Public Account item/revision is completed; MU.6C public lifecycle mutation is next.
+The active cross-cutting productization work is the [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md). MU.0-MU.5 are complete, [ADR-0067](../adr/ADR-0067-human-account-backend-access-administration.md) is accepted and MU.6 is in progress. MU.6B Public Account item/revision and MU.6C public lifecycle mutation are completed; MU.6D Atomic Account CREATE + durable idempotency is ACCEPTED after real yaVDR acceptance with PR pending; MU.7 grant administration remains not started.
 
 Future order: Phase 67 Broadcast Companion -> Phase 68 Legacy OSD -> Phase 69 Public API hardening -> Phase 70 Recommendation / Knowledge Graph.
 
@@ -964,7 +967,7 @@ Planned continuation:
 
 ```text
 MU.5 Administration architecture contract / ADR-0067            [DONE]
-MU.6 Human Account lifecycle administration                     [IN PROGRESS — MU.6A + MU.6B DONE / MU.6C NEXT]
+MU.6 Human Account lifecycle administration                     [IN PROGRESS — MU.6A-C DONE / MU.6D ACCEPTED / PR PENDING]
 MU.7 Backend access / permission grant administration           [PLANNED]
 MU.8 Credential and session administration                     [PLANNED]
 MU.9 Account and access administration UI                      [PLANNED]
@@ -983,7 +986,7 @@ Required product capability:
 - never return password verifiers, bootstrap material, browser secrets or reusable credentials;
 - keep local operator recovery separate from ordinary Public-v1 Account CRUD.
 
-This milestone is the active cross-cutting Multiuser productization line. It remains independent of numbered Phase 70. MU.6 is in progress: MU.6A lifecycle authority and MU.6B Public Account item/revision are completed and MU.6C public lifecycle mutation is next; Account CREATE remains the later MU.6D sub-slice.
+This milestone is the active cross-cutting Multiuser productization line. It remains independent of numbered Phase 70. MU.6 is in progress: MU.6A lifecycle authority, MU.6B Public Account item/revision and MU.6C public lifecycle mutation are completed; MU.6D Atomic Account CREATE + durable idempotency is ACCEPTED after real yaVDR acceptance with PR pending, and MU.7 grant administration remains not started.
 
 ## Milestone B — Broad Timer Product UI
 
@@ -1195,7 +1198,7 @@ This ordering intentionally places Teletext/HbbTV **before** Legacy OSD because 
 
 Phases 65 through 69 are completed for their accepted bounded scopes. Durable Phase-69 evidence is in [Phase 69 Closeout](../development/phase-69-closeout.md).
 
-The post-Phase-69 P2 Human Account / First Admin / recovery sequence and Legacy Basic retirement are completed for the accepted bounded scope; see [P2 Legacy Basic Retirement Closeout](../development/post-phase69-p2-legacy-basic-retirement-closeout.md). The Multiuser / Account and Backend Access Administration workstream is the active cross-cutting productization line, with MU.0-MU.5 complete and MU.6 in progress; MU.6A lifecycle authority and MU.6B Public Account item/revision are completed and MU.6C public lifecycle mutation is next. This explicit selection is separate from the historical fact that Legacy Basic retirement itself did not automatically choose a successor. Phase 70 remains not started and cannot begin runtime implementation until its dedicated ADR is accepted.
+The post-Phase-69 P2 Human Account / First Admin / recovery sequence and Legacy Basic retirement are completed for the accepted bounded scope; see [P2 Legacy Basic Retirement Closeout](../development/post-phase69-p2-legacy-basic-retirement-closeout.md). The Multiuser / Account and Backend Access Administration workstream is the active cross-cutting productization line, with MU.0-MU.5 complete and MU.6 in progress; MU.6A lifecycle authority, MU.6B Public Account item/revision and MU.6C public lifecycle mutation are completed; MU.6D Atomic Account CREATE + durable idempotency is ACCEPTED after real yaVDR acceptance with PR pending, and MU.7 grant administration remains not started. This explicit selection is separate from the historical fact that Legacy Basic retirement itself did not automatically choose a successor. Phase 70 remains not started and cannot begin runtime implementation until its dedicated ADR is accepted.
 
 Completed-Recording arbitrary time-seek and stop/resume are accepted for the supported progressive-fMP4 and HLS restart-seek profiles. Growing-Recording seek, Live-TV timeshift and broader VDR-index mapping not required by those accepted paths remain deferred and must stay explicit/fail-safe until separately justified.
 

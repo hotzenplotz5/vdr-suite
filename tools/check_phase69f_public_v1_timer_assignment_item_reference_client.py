@@ -36,8 +36,19 @@ for forbidden in (
     require(forbidden not in client, "native/legacy surface entered public reference client: " + forbidden)
 
 revisioned_start = client.find("function requestRevisioned(path, options)")
-revisioned_end = client.find("function requestTimerCreate(path, options)", revisioned_start)
-require(revisioned_start >= 0 and revisioned_end > revisioned_start, "revisioned GET helper boundary drifted")
+revisioned_end_candidates = [
+    position
+    for position in (
+        client.find("function requestAccountMutation(path, payload, options)", revisioned_start),
+        client.find("function requestTimerCreate(path, options)", revisioned_start),
+    )
+    if position > revisioned_start
+]
+require(
+    revisioned_start >= 0 and revisioned_end_candidates,
+    "revisioned GET helper boundary drifted",
+)
+revisioned_end = min(revisioned_end_candidates)
 revisioned_get = client[revisioned_start:revisioned_end]
 require("If-Match" not in revisioned_get, "TimerAssignment GET must not send mutation If-Match")
 

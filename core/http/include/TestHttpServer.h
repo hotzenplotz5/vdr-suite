@@ -14,6 +14,10 @@
 #include "FirstAdminBootstrapRepository.h"
 #include "FirstAdminClaimHttpService.h"
 #include "FirstAdminClaimService.h"
+#include "HumanAccountAdministrationRepository.h"
+#include "HumanAccountAdministrationService.h"
+#include "HumanAccountCreationRepository.h"
+#include "HumanAccountCreationService.h"
 #include "HumanAccountRepository.h"
 #include "HumanPasswordBrowserAuthenticator.h"
 #include "Database.h"
@@ -33,6 +37,7 @@ class TestHttpServer : public IHttpServer, public IEpgArtworkHttpProvider
 {
 public:
     explicit TestHttpServer(ApiRouter& apiRouter);
+    ~TestHttpServer() override;
 
     HttpServerResponse handleRequest(
         const HttpServerRequest& request) const override;
@@ -72,6 +77,14 @@ private:
         credentialVerifierRepository_;
     std::unique_ptr<HumanAccountRepository>
         humanAccountRepository_;
+    std::unique_ptr<HumanAccountAdministrationRepository>
+        humanAccountAdministrationRepository_;
+    std::unique_ptr<HumanAccountAdministrationService>
+        humanAccountAdministrationService_;
+    std::unique_ptr<HumanAccountCreationRepository>
+        humanAccountCreationRepository_;
+    std::unique_ptr<HumanAccountCreationService>
+        humanAccountCreationService_;
     std::unique_ptr<FirstAdminBootstrapRepository>
         firstAdminBootstrapRepository_;
     std::unique_ptr<FirstAdminClaimService>

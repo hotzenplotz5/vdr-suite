@@ -157,10 +157,11 @@ def main():
     require("doc", "HTTP code does not query SQLite")
     require("make", "test-security-public-account-collection")
 
+    # Preserve the historical MU.2 no-generic-update/delete boundary.
+    # Bounded Account CREATE is an explicitly accepted MU.6D successor.
     for forbidden in (
-        "createAccount",
-        "updateAccount",
-        "deleteAccount",
+        "updateAccount(options)",
+        "deleteAccount(options)",
     ):
         forbid("runtime_cpp", forbidden)
         forbid("client", forbidden)

@@ -3,6 +3,7 @@
 #include "DashboardController.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <mutex>
 #include <string>
@@ -207,6 +208,71 @@ struct PublicAccountLookupResult
     PublicAccountResource account;
 };
 
+enum class PublicAccountMutationKind
+{
+    displayName,
+    active,
+};
+
+enum class PublicAccountMutationStatus
+{
+    ok,
+    invalid,
+    notFound,
+    revisionConflict,
+    finalAdministrator,
+    unavailable,
+};
+
+struct PublicAccountMutationRequest
+{
+    std::string actorRef;
+    std::string accountId;
+    std::uint64_t expectedRevision = 0;
+    PublicAccountMutationKind kind =
+        PublicAccountMutationKind::displayName;
+    std::string displayName;
+    bool active = false;
+    std::string requestId;
+    std::string correlationId;
+};
+
+struct PublicAccountMutationResult
+{
+    PublicAccountMutationStatus status =
+        PublicAccountMutationStatus::unavailable;
+    PublicAccountResource account;
+    std::size_t revokedBrowserSessions = 0;
+};
+
+enum class PublicAccountCreateStatus
+{
+    created,
+    replayed,
+    invalid,
+    loginConflict,
+    idempotencyConflict,
+    unavailable,
+};
+
+struct PublicAccountCreateRequest
+{
+    std::string actorRef;
+    std::string loginName;
+    std::string displayName;
+    std::string password;
+    std::string idempotencyKey;
+    std::string requestId;
+    std::string correlationId;
+};
+
+struct PublicAccountCreateResult
+{
+    PublicAccountCreateStatus status =
+        PublicAccountCreateStatus::unavailable;
+    PublicAccountResource account;
+};
+
 enum class PublicTimerCreateAdmissionStatus
 {
     accepted,
@@ -272,6 +338,14 @@ public:
         std::function<PublicAccountLookupResult(
             const std::string& accountId)>;
 
+    using AccountMutation =
+        std::function<PublicAccountMutationResult(
+            const PublicAccountMutationRequest& request)>;
+
+    using AccountCreate =
+        std::function<PublicAccountCreateResult(
+            const PublicAccountCreateRequest& request)>;
+
     using TimerCreateAdmission =
         std::function<PublicTimerCreateAdmissionResult(
             const PublicTimerCreateAdmissionRequest& request)>;
@@ -322,6 +396,14 @@ public:
     bool accountLookupConfigured() const;
     PublicAccountLookupResult lookupAccount(
         const std::string& accountId) const;
+
+    void registerAccountMutation(AccountMutation mutation);
+    void resetAccountMutation();
+    bool accountMutationConfigured() const;
+
+    void registerAccountCreate(AccountCreate create);
+    void resetAccountCreate();
+    bool accountCreateConfigured() const;
 
     void registerTimerCreateAdmission(TimerCreateAdmission admission);
     void resetTimerCreateAdmission();
@@ -383,6 +465,12 @@ private:
 
     mutable std::mutex accountLookupMutex_;
     AccountLookup accountLookup_;
+
+    mutable std::mutex accountMutationMutex_;
+    AccountMutation accountMutation_;
+
+    mutable std::mutex accountCreateMutex_;
+    AccountCreate accountCreate_;
 
     mutable std::mutex timerCreateAdmissionMutex_;
     TimerCreateAdmission timerCreateAdmission_;
