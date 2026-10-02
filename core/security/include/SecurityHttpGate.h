@@ -368,6 +368,9 @@ public:
         const bool isPublicAccountMutation =
             isPost &&
             isPublicAccountResource;
+        const bool isPublicAccountCreate =
+            isPost &&
+            isPublicAccountCollection;
         const bool isPublicChannelCollection =
             path == "/api/v1/channels";
         std::vector<std::string> publicChannelBackendIds;
@@ -461,7 +464,6 @@ public:
             (path == "/api/v1" ||
              path == "/api/v1/capabilities" ||
              isPublicBackendCollection ||
-             isPublicAccountCollection ||
              isPublicChannelCollection ||
              isPublicTimerAssignmentCollection ||
              isPublicOperationResource);
@@ -476,6 +478,7 @@ public:
              path == "/api/vdr/searchtimers/plan");
         const bool isProtectedMutation =
             isRemoteAction || isTimerCreateAction ||
+            isPublicAccountCreate ||
             isPublicAccountMutation ||
             isPublicTimerAssignmentCreate || isTimerUpdateAction ||
             isTimerDeleteAction || isChannelMoveAction || isRecordingExecutionAction ||
@@ -894,7 +897,15 @@ public:
         bool recordingActionSupported = true;
         bool publicAccountMutationSupported = true;
 
-        if (isPublicAccountMutation)
+        if (isPublicAccountCreate)
+        {
+            requestToAuthorize.backendId = "*";
+            requestToAuthorize.permission =
+                "accounts.create";
+            requestToAuthorize.action =
+                "accounts.create";
+        }
+        else if (isPublicAccountMutation)
         {
             requestToAuthorize.backendId = "*";
             if (!publicAccountMutationAuthorization(
