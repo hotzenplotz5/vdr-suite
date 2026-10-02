@@ -5,6 +5,7 @@ const fs = require('fs');
 const vm = require('vm');
 
 const actionsSource = fs.readFileSync('web/frontend/recordings2-actions.js', 'utf8');
+const moveEditorSource = fs.readFileSync('web/frontend/recordings2-move-editor.js', 'utf8');
 
 function first(object, keys, fallback) {
   for (const key of keys) {
@@ -94,7 +95,8 @@ const context = vm.createContext({
 
 [
   'web/frontend/recordings2-folder-artwork.js',
-  'web/frontend/recordings2-actions.js'
+  'web/frontend/recordings2-actions.js',
+  'web/frontend/recordings2-move-editor.js'
 ].forEach(path => {
   vm.runInContext(fs.readFileSync(path, 'utf8'), context, {filename: path});
 });
@@ -102,6 +104,7 @@ const context = vm.createContext({
 async function main() {
   assert.ok(window.VdrSuiteRecordings2FolderArtwork);
   assert.ok(window.VdrSuiteRecordings2Actions);
+  assert.ok(window.VdrSuiteRecordings2MoveEditor);
 
   const genre = window.VdrSuiteRecordings2FolderArtwork;
   assert.strictEqual(genre.normalizeName('Science-Fiction'), 'sciencefiction');
@@ -241,10 +244,10 @@ async function main() {
     test.resolveMoveTarget('Oskar/VDRSuite_Testordner', '', 'Oskar'),
     'Oskar/VDRSuite_Testordner'
   );
-  assert(actionsSource.includes('function resolvePendingTarget()'));
-  assert(actionsSource.includes("const targetPath = resolvePendingTarget();"));
-  assert(actionsSource.includes('Neuen Ordner als Ziel'));
-  assert(actionsSource.includes('werden beim Verschieben angelegt'));
+  assert(moveEditorSource.includes('function resolvePendingTarget()'));
+  assert(moveEditorSource.includes("const targetPath = resolvePendingTarget();"));
+  assert(moveEditorSource.includes('Neuen Ordner als Ziel'));
+  assert(moveEditorSource.includes('werden beim Verschieben angelegt'));
   assert.strictEqual(test.localTitle({title: 'Drama/Tatort'}), 'Tatort');
 
   const recording = {
