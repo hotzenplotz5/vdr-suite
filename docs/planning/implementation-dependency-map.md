@@ -403,7 +403,7 @@ Phase-62 identity/RBAC foundation
             -> broad Timer Product UI mutation controls
 ```
 
-Core policy remains server-side. Administration UI/API must not invent permissions or backend scope. ADR-0067 is accepted; MU.6 is in progress with MU.6A lifecycle authority and MU.6B Account item/revision complete; MU.6C public lifecycle mutation is completed; MU.6D Account CREATE/idempotency is completed and merged as PR #411. MU.7 grant administration is the active CANDIDATE with LOCAL ACCEPTANCE pending. MU.8+ remains separate and not started.
+Core policy remains server-side. Administration UI/API must not invent permissions or backend scope. ADR-0067 is accepted; MU.6 is completed through MU.6D / PR #411. MU.7 grant administration is the active CANDIDATE with LOCAL ACCEPTANCE pending. MU.8+ remains separate and not started.
 
 ## Broad Timer Product UI
 
