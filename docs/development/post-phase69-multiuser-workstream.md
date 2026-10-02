@@ -17,8 +17,8 @@ Legacy Basic retirement: completed
 Administration architecture: ADR-0067 [ACCEPTED]
 Current Multiuser runtime slice: MU.6 Human Account lifecycle administration [IN PROGRESS]
 Latest completed MU.6 sub-slice: MU.6B Public Account item + revision/ETag
-Current MU.6 sub-slice: MU.6D Atomic Account CREATE + durable idempotency [CANDIDATE - LOCAL ACCEPTANCE PENDING]
-Next product slice after MU.6D acceptance: MU.7 Backend access / permission grant administration [NOT STARTED]
+Current MU.6 sub-slice: MU.6D Atomic Account CREATE + durable idempotency [ACCEPTED - REAL YAVDR PASS / PR PENDING]
+Next product slice after MU.6D merge: MU.7 Backend access / permission grant administration [NOT STARTED]
 ```
 
 ## Binding architecture
@@ -125,14 +125,14 @@ Durable MU.6B evidence:
 Completed MU.6C evidence:
 [MU.6C Public Account Lifecycle Mutation](post-phase69-mu6c-public-account-lifecycle-mutation.md).
 
-Current MU.6D candidate evidence:
+Accepted MU.6D evidence:
 [MU.6D Atomic Account CREATE + Durable Idempotency](post-phase69-mu6d-account-create-idempotency.md).
 
 ```text
 MU.6A Account lifecycle authority foundation            [DONE]
 MU.6B Public Account item + revision/ETag               [DONE]
 MU.6C Public display-name / activate / deactivate       [COMPLETED]
-MU.6D Atomic Account CREATE + durable idempotency       [CANDIDATE - LOCAL ACCEPTANCE PENDING]
+MU.6D Atomic Account CREATE + durable idempotency       [ACCEPTED - REAL YAVDR PASS / PR PENDING]
 ```
 
 MU.6A delivers:
@@ -200,7 +200,7 @@ ADR-0065 Human Account boundary [ACCEPTED]
             -> MU.6A lifecycle authority [DONE]
             -> MU.6B Account item/revision [DONE]
             -> MU.6C public lifecycle mutation [DONE]
-            -> MU.6D Account CREATE/idempotency [CANDIDATE - LOCAL ACCEPTANCE PENDING]
+            -> MU.6D Account CREATE/idempotency [ACCEPTED - REAL YAVDR PASS / PR PENDING]
        -> MU.7 Backend access/grant administration
        -> MU.8 Credential/session administration
        -> MU.9 Account/access admin UI
@@ -222,5 +222,5 @@ Independent numbered track:
 - Device trust is not user identity or permission.
 - Capability never grants authorization.
 - No client/UI owns authorization policy.
-- ADR-0067 is accepted; MU.6A and MU.6B are landed runtime boundaries. MU.6C Public-v1 Account lifecycle mutation is completed after real yaVDR acceptance and PR #410 merge; MU.6D Atomic Account CREATE + durable idempotency is a CANDIDATE with LOCAL ACCEPTANCE pending; MU.7 grant administration remains not started.
+- ADR-0067 is accepted; MU.6A and MU.6B are landed runtime boundaries. MU.6C Public-v1 Account lifecycle mutation is completed after real yaVDR acceptance and PR #410 merge; MU.6D Atomic Account CREATE + durable idempotency is ACCEPTED after local and real yaVDR acceptance; PR is pending. MU.7 grant administration remains not started.
 - Phase 70 is not started by Multiuser work.
