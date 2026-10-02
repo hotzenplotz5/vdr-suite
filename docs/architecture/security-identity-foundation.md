@@ -192,7 +192,7 @@ Not required for Phase 62:
 - transactional Outbox;
 - Phase 63-67 runtime.
 
-The generic Human Account / credential / grant administration product surface was deferred from Phase 62, but is now being advanced as the active [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md). This does not reopen Phase 62. MU.5 is completed and ADR-0067 is accepted. MU.6 is in progress: MU.6A provides persisted Account revision, authoritative lifecycle mutation, browser-session fencing and final-usable-administrator protection; MU.6B now adds the secret-free Public-v1 Account item with strong ETag/conditional-read semantics, and MU.6C public lifecycle mutation is next.
+The generic Human Account / credential / grant administration product surface was deferred from Phase 62, but is now being advanced as the active [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md). This does not reopen Phase 62. MU.5 is completed and ADR-0067 is accepted. MU.6 is in progress: MU.6A provides persisted Account revision, authoritative lifecycle mutation, browser-session fencing and final-usable-administrator protection; MU.6B adds the secret-free Public-v1 Account item with strong ETag/conditional-read semantics; MU.6C now has a Public-v1 display-name/activate/deactivate candidate with global permission scope, browser CSRF and strong If-Match, with LOCAL ACCEPTANCE pending. MU.6D Account CREATE remains not started.
 
 ## Related documents
 
@@ -206,3 +206,4 @@ The generic Human Account / credential / grant administration product surface wa
 - [MU.5 Administration Architecture Acceptance](../development/post-phase69-mu5-administration-architecture-acceptance.md)
 - [MU.6A Human Account Lifecycle Authority Foundation](../development/post-phase69-mu6-account-lifecycle-foundation.md)
 - [MU.6B Public Account Item + Revision/ETag](../development/post-phase69-mu6b-public-account-item.md)
+- [MU.6C Public Account Lifecycle Mutation](../development/post-phase69-mu6c-public-account-lifecycle-mutation.md)
