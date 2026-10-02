@@ -126,7 +126,10 @@ Completed MU.6C evidence:
 [MU.6C Public Account Lifecycle Mutation](post-phase69-mu6c-public-account-lifecycle-mutation.md).
 
 Completed MU.6D evidence:
-[MU.6D Atomic Account CREATE + Durable Idempotency](post-phase69-mu6d-account-create-idempotency.md).\n\nCurrent MU.7 candidate evidence:\n[MU.7 Backend Access / Permission Grant Administration](post-phase69-mu7-account-grant-administration.md).
+[MU.6D Atomic Account CREATE + Durable Idempotency](post-phase69-mu6d-account-create-idempotency.md).
+
+Current MU.7 candidate evidence:
+[MU.7 Backend Access / Permission Grant Administration](post-phase69-mu7-account-grant-administration.md).
 
 ```text
 MU.6A Account lifecycle authority foundation            [DONE]
