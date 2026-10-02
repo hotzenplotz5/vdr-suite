@@ -28,7 +28,14 @@ install-recordings2-runtime:
 	$(INSTALL) -m 0644 web/frontend/recordings2-marks-timeline.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-marks-timeline.js
 	$(INSTALL) -m 0644 web/frontend/recordings2-person-search-view.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-person-search-view.js
 	$(INSTALL) -m 0644 web/frontend/recordings2-metadata-view.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-metadata-view.js
-	$(INSTALL) -m 0644 web/frontend/recordings2-metadata-assignment.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-metadata-assignment.js
+	cat \
+		web/frontend/recordings2-metadata-assignment.js \
+		web/frontend/recordings2-metadata-genre.js \
+		> $(DESTDIR)$(DATADIR)/web/frontend/.recordings2-metadata-assignment.js.tmp
+	chmod 0644 $(DESTDIR)$(DATADIR)/web/frontend/.recordings2-metadata-assignment.js.tmp
+	mv -f \
+		$(DESTDIR)$(DATADIR)/web/frontend/.recordings2-metadata-assignment.js.tmp \
+		$(DESTDIR)$(DATADIR)/web/frontend/recordings2-metadata-assignment.js
 	$(INSTALL) -m 0644 web/frontend/recordings2-metadata-detail.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-metadata-detail.js
 	$(INSTALL) -m 0644 web/frontend/recordings2.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2.js
 
@@ -51,6 +58,7 @@ test-recordings2-runtime:
 	node --check web/frontend/recordings2-person-search-view.js
 	node --check web/frontend/recordings2-metadata-view.js
 	node --check web/frontend/recordings2-metadata-assignment.js
+	node --check web/frontend/recordings2-metadata-genre.js
 	node --check web/frontend/recordings2-metadata-detail.js
 	node --check web/frontend/recordings2.js
 	node --check web/frontend/tests/test_recordings2_auto_refresh.js
@@ -118,6 +126,7 @@ test-recordings2-install-staging: test-install-staging
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-person-search-view.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-metadata-view.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-metadata-assignment.js
+	grep -F 'global.VdrSuiteRecordings2MetadataGenre = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-metadata-assignment.js >/dev/null
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-metadata-detail.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2.js
 

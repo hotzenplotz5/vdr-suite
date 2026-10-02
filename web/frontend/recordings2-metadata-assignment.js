@@ -55,24 +55,6 @@
     });
   }
 
-  function queryString(values) {
-    return Object.keys(values || {}).map(function (key) {
-      return encodeURIComponent(key) + '=' + encodeURIComponent(text(values[key]));
-    }).join('&');
-  }
-
-  function get(backendId, operation, query) {
-    const encoded = queryString(query);
-    return api().requestJson(
-      backendPath(backendId, operation) + (encoded ? '?' + encoded : ''),
-      {
-        method: 'GET',
-        cache: 'no-store',
-        credentials: 'same-origin'
-      }
-    );
-  }
-
   function installStyles() {
     if (document.getElementById('recordings2-metadata-assignment-styles')) return;
     const style = document.createElement('style');
@@ -83,9 +65,6 @@
       '.recordings2-metadata-assignment p{margin:.35rem 0}',
       '.recordings2-metadata-assignment-toolbar,.recordings2-metadata-search-row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-top:.8rem}',
       '.recordings2-metadata-search-row input,.recordings2-metadata-search-row select{min-height:2.5rem;padding:.5rem .7rem;border-radius:.5rem;border:1px solid #64748b;background:#0f172a;color:#f8fafc}',
-      '.recordings2-metadata-genre{display:grid;gap:.55rem;margin-top:.8rem;padding:.75rem;border:1px solid rgba(148,163,184,.28);border-radius:.65rem;background:rgba(2,6,23,.35)}',
-      '.recordings2-metadata-genre-row{display:flex;gap:.55rem;flex-wrap:wrap;align-items:center}',
-      '.recordings2-metadata-genre-row select{flex:1 1 13rem;min-height:2.5rem;padding:.5rem .7rem;border-radius:.5rem;border:1px solid #64748b;background:#0f172a;color:#f8fafc}',
       '.recordings2-metadata-search-row input{flex:1 1 15rem}',
       '.recordings2-metadata-assignment button{min-height:2.4rem;padding:.45rem .8rem;border-radius:.5rem;border:1px solid #64748b;background:#1e293b;color:#f8fafc;cursor:pointer}',
       '.recordings2-metadata-assignment button.primary{background:#2563eb;border-color:#3b82f6}',
@@ -130,13 +109,6 @@
       seasonNumber: Number(candidate.seasonNumber || 0),
       episodeNumber: Number(candidate.episodeNumber || 0),
       expectedRevision: Number(revision || 0)
-    };
-  }
-
-  function genrePayload(recording, genreId) {
-    return {
-      resourceKey: text(recording && recording.backendNativeId),
-      genreId: text(genreId)
     };
   }
 
@@ -213,104 +185,10 @@
     }
     section.appendChild(toolbar);
 
-    const genreSection = node('div', 'recordings2-metadata-genre');
-    genreSection.appendChild(node('strong', '', 'Genre hinzufügen'));
-    genreSection.appendChild(node(
-      'p',
-      '',
-      'Ein manuelles Genre ergänzt die automatisch erkannten VDR- und TVScraper-Genres und bleibt bei Aktualisierungen erhalten.'
-    ));
-    const genreRow = node('div', 'recordings2-metadata-genre-row');
-    const genreSelect = document.createElement('select');
-    genreSelect.setAttribute('aria-label', 'Manuelles Genre');
-    const loadingOption = document.createElement('option');
-    loadingOption.value = '';
-    loadingOption.textContent = 'Genres werden geladen …';
-    genreSelect.appendChild(loadingOption);
-    genreSelect.disabled = true;
-
-    const saveGenreButton = button('Genre speichern', function () {
-      saveGenreButton.disabled = true;
-      setStatus('Genre wird gespeichert …', false);
-      post(
-        backendId,
-        'genre',
-        genrePayload(recording, genreSelect.value)
-      ).then(function (result) {
-        const selected = text(result && result.selectedGenreId);
-        genreSelect.value = selected;
-        clearGenreButton.disabled = !selected;
-        setStatus(
-          selected
-            ? 'Genre wurde zur Aufnahme hinzugefügt.'
-            : 'Manuelles Genre wurde entfernt.',
-          false
-        );
-        refreshDetail();
-      }).catch(function (error) {
-        saveGenreButton.disabled = false;
-        setStatus(error.message || String(error), true);
-      });
-    }, 'primary');
-    saveGenreButton.disabled = true;
-
-    const clearGenreButton = button('Manuelles Genre entfernen', function () {
-      clearGenreButton.disabled = true;
-      saveGenreButton.disabled = true;
-      setStatus('Manuelles Genre wird entfernt …', false);
-      post(
-        backendId,
-        'genre',
-        genrePayload(recording, '')
-      ).then(function () {
-        genreSelect.value = '';
-        clearGenreButton.disabled = true;
-        saveGenreButton.disabled = false;
-        setStatus('Manuelles Genre wurde entfernt.', false);
-        refreshDetail();
-      }).catch(function (error) {
-        clearGenreButton.disabled = false;
-        saveGenreButton.disabled = false;
-        setStatus(error.message || String(error), true);
-      });
-    }, 'danger');
-    clearGenreButton.disabled = true;
-
-    genreSelect.addEventListener('change', function () {
-      saveGenreButton.disabled = false;
-    });
-    genreRow.append(genreSelect, saveGenreButton, clearGenreButton);
-    genreSection.appendChild(genreRow);
-    section.appendChild(genreSection);
-
-    get(backendId, 'genre', {
-      resourceKey: text(recording.backendNativeId)
-    }).then(function (result) {
-      genreSelect.replaceChildren();
-      const none = document.createElement('option');
-      none.value = '';
-      none.textContent = 'Kein manuelles Genre';
-      genreSelect.appendChild(none);
-      const genres = result && Array.isArray(result.genres)
-        ? result.genres
-        : [];
-      genres.forEach(function (genre) {
-        const option = document.createElement('option');
-        option.value = text(genre.id);
-        option.textContent = text(genre.label) || text(genre.id);
-        genreSelect.appendChild(option);
-      });
-      const selected = text(result && result.selectedGenreId);
-      genreSelect.value = selected;
-      genreSelect.disabled = false;
-      saveGenreButton.disabled = false;
-      clearGenreButton.disabled = !selected;
-    }).catch(function (error) {
-      genreSelect.disabled = true;
-      saveGenreButton.disabled = true;
-      clearGenreButton.disabled = true;
-      setStatus(error.message || String(error), true);
-    });
+    const genreRuntime = global.VdrSuiteRecordings2MetadataGenre;
+    if (genreRuntime && typeof genreRuntime.mount === 'function') {
+      genreRuntime.mount(section, recording, backendId, {node, button, setStatus, refreshDetail});
+    }
 
     const searchArea = node('div', 'recordings2-metadata-search');
     searchArea.hidden = true;
@@ -474,7 +352,6 @@
     __test: Object.freeze({
       backendPath: backendPath,
       assignmentPayload: assignmentPayload,
-      genrePayload: genrePayload,
       candidateLabel: candidateLabel
     })
   });

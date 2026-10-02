@@ -16,6 +16,7 @@ runtime_paths = {
     'metadata_view': ROOT / 'web/frontend/recordings2-metadata-view.js',
     'metadata_detail': ROOT / 'web/frontend/recordings2-metadata-detail.js',
     'metadata_assignment': ROOT / 'web/frontend/recordings2-metadata-assignment.js',
+    'metadata_genre': ROOT / 'web/frontend/recordings2-metadata-genre.js',
     'runtime': ROOT / 'web/frontend/recordings2.js',
 }
 runtimes = {
@@ -160,6 +161,14 @@ required_tokens = {
         'csrfHeaders',
         'Metadaten suchen',
         'Manuelle Zuordnung entfernen',
+        'VdrSuiteRecordings2MetadataGenre',
+    ),
+    'metadata_genre': (
+        'global.VdrSuiteRecordings2MetadataGenre',
+        "'/recordings/metadata/genre'",
+        'VdrSuiteBrowserSession',
+        'Genre hinzufügen',
+        'Manuelles Genre entfernen',
     ),
     'runtime': (
         'global.VdrSuiteRecordings2 = moduleApi;',
@@ -230,6 +239,7 @@ line_limits = {
     'runtime': 330,
     'metadata_detail': 140,
     'metadata_assignment': 360,
+    'metadata_genre': 220,
     'shared': 320,
     'folder_artwork': 220,
     'actions': 620,
@@ -263,6 +273,7 @@ for owner in (
     'marks_detail',
     'marks_timeline',
     'metadata_assignment',
+    'metadata_genre',
     'runtime',
 ):
     if 'fetch(' in runtimes[owner]:
@@ -444,6 +455,10 @@ if f'"{assignment_asset}"' not in server:
     raise SystemExit(f'HTTP server does not serve dynamic assignment runtime {assignment_asset}')
 if f'web/frontend/{assignment_asset}' not in module_makefile:
     raise SystemExit(f'Recordings 2 install rule is missing {assignment_asset}')
+if '"recordings2-metadata-assignment.js", "application/javascript; charset=utf-8", "recordings2-metadata-genre.js"' not in server:
+    raise SystemExit('Recordings 2 assignment response must bundle the manual Genre runtime')
+if 'web/frontend/recordings2-metadata-genre.js' not in module_makefile:
+    raise SystemExit('Recordings 2 install composition is missing the manual Genre runtime')
 
 folder_artwork_runtime = loader.index('const folderArtworkRuntime =')
 actions_runtime = loader.index('const actionsRuntime =')
