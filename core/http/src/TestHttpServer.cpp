@@ -188,6 +188,14 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
         return;
     }
 
+    humanAccountCreationRepository_ =
+        std::make_unique<HumanAccountCreationRepository>(
+            *securityDatabase_);
+    if (!humanAccountCreationRepository_->ensureSchema())
+    {
+        return;
+    }
+
     firstAdminBootstrapRepository_ =
         std::make_unique<FirstAdminBootstrapRepository>(
             *securityDatabase_);
@@ -300,6 +308,15 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             *securityIdentityRepository_,
             *browserSessionCredentialRepository_);
 
+    humanAccountCreationService_ =
+        std::make_unique<HumanAccountCreationService>(
+            *securityDatabase_,
+            *securityIdentityProvisioningRepository_,
+            *humanAccountRepository_,
+            *humanAccountCreationRepository_,
+            *credentialVerifierRepository_,
+            *accountabilityEventRepository_);
+
     humanAccountAdministrationRepository_ =
         std::make_unique<HumanAccountAdministrationRepository>(
             *securityDatabase_);
@@ -407,6 +424,93 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             return result;
         });
 
+    PublicApiRuntime::instance().registerAccountCreate(
+        [this](const PublicAccountCreateRequest& request)
+        {
+            PublicAccountCreateResult result;
+            if (!humanAccountCreationService_ ||
+                !securityIdentityRepository_)
+            {
+                return result;
+            }
+
+            const std::optional<StoredActorIdentity> actor =
+                securityIdentityRepository_->findActor(
+                    request.actorRef);
+            if (!actor.has_value() ||
+                actor->type == ActorType::Anonymous ||
+                !actor->active ||
+                actor->revoked)
+            {
+                return result;
+            }
+
+            HumanAccountCreationRequest createRequest;
+            createRequest.actorId = request.actorRef;
+            createRequest.actorType = actor->type;
+            createRequest.idempotencyKey =
+                request.idempotencyKey;
+            createRequest.loginName = request.loginName;
+            createRequest.password = request.password;
+            createRequest.displayName =
+                request.displayName;
+            createRequest.requestId = request.requestId;
+            createRequest.correlationId =
+                request.correlationId;
+
+            const HumanAccountCreationResult created =
+                humanAccountCreationService_->create(
+                    std::move(createRequest));
+
+            switch (created.status)
+            {
+                case HumanAccountCreationStatus::success:
+                    result.status =
+                        PublicAccountCreateStatus::created;
+                    break;
+
+                case HumanAccountCreationStatus::replayed:
+                    result.status =
+                        PublicAccountCreateStatus::replayed;
+                    break;
+
+                case HumanAccountCreationStatus::invalidRequest:
+                    result.status =
+                        PublicAccountCreateStatus::invalid;
+                    return result;
+
+                case HumanAccountCreationStatus::loginConflict:
+                    result.status =
+                        PublicAccountCreateStatus::loginConflict;
+                    return result;
+
+                case HumanAccountCreationStatus::idempotencyConflict:
+                    result.status =
+                        PublicAccountCreateStatus::idempotencyConflict;
+                    return result;
+
+                case HumanAccountCreationStatus::entropyUnavailable:
+                case HumanAccountCreationStatus::hashingUnavailable:
+                case HumanAccountCreationStatus::storageError:
+                    result.status =
+                        PublicAccountCreateStatus::unavailable;
+                    return result;
+            }
+
+            result.account.accountId =
+                created.account.accountId;
+            result.account.actorId =
+                created.account.actorId;
+            result.account.displayName =
+                created.account.displayName;
+            result.account.active =
+                created.account.active;
+            result.account.resourceRevision =
+                "account:" +
+                std::to_string(created.account.revision);
+            return result;
+        });
+
     browserSessionHttpService_ =
         std::make_unique<BrowserSessionHttpService>(
             *browserSessionIssuanceService_,
@@ -439,6 +543,7 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
 
 TestHttpServer::~TestHttpServer()
 {
+    PublicApiRuntime::instance().resetAccountCreate();
     PublicApiRuntime::instance().resetAccountMutation();
 }
 
