@@ -119,6 +119,30 @@ bool publicAccountPath(
         accountId.find('/') == std::string::npos;
 }
 
+bool publicAccountGrantPath(
+    const std::string& path,
+    std::string& accountId)
+{
+    const std::string prefix(PublicAccountPrefix);
+    static const std::string Suffix = "/grants";
+
+    if (path.compare(0, prefix.size(), prefix) != 0 ||
+        path.size() <= prefix.size() + Suffix.size() ||
+        path.compare(
+            path.size() - Suffix.size(),
+            Suffix.size(),
+            Suffix) != 0)
+    {
+        return false;
+    }
+
+    accountId = path.substr(
+        prefix.size(),
+        path.size() - prefix.size() - Suffix.size());
+    return !accountId.empty() &&
+        accountId.find('/') == std::string::npos;
+}
+
 bool publicTimerAssignmentPath(
     const std::string& path,
     std::string& timerAssignmentId)
@@ -1406,6 +1430,110 @@ bool parsePublicAccountCreateBody(
         !loginName.empty() && !displayName.empty() && !password.empty();
 }
 
+bool parsePublicAccountGrantMutationBody(
+    const std::string& input,
+    std::string& permission,
+    std::string& backendId,
+    bool& active)
+{
+    std::size_t position = 0U;
+    bool permissionSeen = false;
+    bool backendSeen = false;
+    bool activeSeen = false;
+
+    skipAccountMutationWhitespace(input, position);
+    if (position >= input.size() || input[position++] != '{')
+    {
+        return false;
+    }
+
+    while (true)
+    {
+        skipAccountMutationWhitespace(input, position);
+        if (position < input.size() && input[position] == '}')
+        {
+            ++position;
+            break;
+        }
+
+        std::string key;
+        if (!parseAccountMutationJsonString(input, position, key))
+        {
+            return false;
+        }
+
+        skipAccountMutationWhitespace(input, position);
+        if (position >= input.size() || input[position++] != ':')
+        {
+            return false;
+        }
+        skipAccountMutationWhitespace(input, position);
+
+        if (key == "permission" && !permissionSeen)
+        {
+            permissionSeen = true;
+            if (!parseAccountMutationJsonString(
+                    input, position, permission))
+            {
+                return false;
+            }
+        }
+        else if (key == "backendId" && !backendSeen)
+        {
+            backendSeen = true;
+            if (!parseAccountMutationJsonString(
+                    input, position, backendId))
+            {
+                return false;
+            }
+        }
+        else if (key == "active" && !activeSeen)
+        {
+            activeSeen = true;
+            if (consumeAccountMutationLiteral(
+                    input, position, "true"))
+            {
+                active = true;
+            }
+            else if (consumeAccountMutationLiteral(
+                         input, position, "false"))
+            {
+                active = false;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        else
+        {
+            return false;
+        }
+
+        skipAccountMutationWhitespace(input, position);
+        if (position >= input.size())
+        {
+            return false;
+        }
+        if (input[position] == ',')
+        {
+            ++position;
+            continue;
+        }
+        if (input[position] == '}')
+        {
+            ++position;
+            break;
+        }
+        return false;
+    }
+
+    skipAccountMutationWhitespace(input, position);
+    return position == input.size() &&
+        permissionSeen && backendSeen && activeSeen &&
+        !permission.empty() && !backendId.empty();
+}
+
 bool publicAccountRevision(
     const std::string& resourceRevision,
     std::uint64_t& revision)
@@ -1451,6 +1579,26 @@ bool publicAccountRevision(
 
     revision = parsed;
     return true;
+}
+
+bool publicGrantSetRevision(
+    const std::string& resourceRevision)
+{
+    static const std::string Prefix = "grant-set:";
+    if (resourceRevision.size() != Prefix.size() + 64U ||
+        resourceRevision.compare(0U, Prefix.size(), Prefix) != 0)
+    {
+        return false;
+    }
+
+    return std::all_of(
+        resourceRevision.begin() + Prefix.size(),
+        resourceRevision.end(),
+        [](unsigned char character)
+        {
+            return (character >= '0' && character <= '9') ||
+                (character >= 'a' && character <= 'f');
+        });
 }
 
 bool emptyJsonObject(const std::string& input)
