@@ -17,8 +17,8 @@ Legacy Basic retirement: completed
 Administration architecture: ADR-0067 [ACCEPTED]
 Current Multiuser runtime slice: MU.6 Human Account lifecycle administration [IN PROGRESS]
 Latest completed MU.6 sub-slice: MU.6B Public Account item + revision/ETag
-Current MU.6 sub-slice: MU.6C Public display-name / activate / deactivate [CANDIDATE - LOCAL ACCEPTANCE PENDING]
-Next MU.6 sub-slice after acceptance: MU.6D Atomic Account CREATE [NOT STARTED]
+Current MU.6 sub-slice: MU.6D Atomic Account CREATE + durable idempotency [CANDIDATE - LOCAL ACCEPTANCE PENDING]
+Next product slice after MU.6D acceptance: MU.7 Backend access / permission grant administration [NOT STARTED]
 ```
 
 ## Binding architecture
@@ -128,8 +128,8 @@ Current MU.6C candidate evidence:
 ```text
 MU.6A Account lifecycle authority foundation            [DONE]
 MU.6B Public Account item + revision/ETag               [DONE]
-MU.6C Public display-name / activate / deactivate       [CANDIDATE - LOCAL ACCEPTANCE PENDING]
-MU.6D Atomic Account CREATE + durable idempotency       [NOT STARTED]
+MU.6C Public display-name / activate / deactivate       [COMPLETED]
+MU.6D Atomic Account CREATE + durable idempotency       [CANDIDATE - LOCAL ACCEPTANCE PENDING]
 ```
 
 MU.6A delivers:
@@ -193,8 +193,8 @@ ADR-0065 Human Account boundary [ACCEPTED]
        -> MU.6 Account lifecycle administration [IN PROGRESS]
             -> MU.6A lifecycle authority [DONE]
             -> MU.6B Account item/revision [DONE]
-            -> MU.6C public lifecycle mutation [CANDIDATE - LOCAL ACCEPTANCE PENDING]
-            -> MU.6D Account CREATE [NOT STARTED]
+            -> MU.6C public lifecycle mutation [DONE]
+            -> MU.6D Account CREATE/idempotency [CANDIDATE - LOCAL ACCEPTANCE PENDING]
        -> MU.7 Backend access/grant administration
        -> MU.8 Credential/session administration
        -> MU.9 Account/access admin UI
@@ -216,5 +216,5 @@ Independent numbered track:
 - Device trust is not user identity or permission.
 - Capability never grants authorization.
 - No client/UI owns authorization policy.
-- ADR-0067 is accepted; MU.6A and MU.6B are landed runtime boundaries. MU.6C Public-v1 Account lifecycle mutation is a CANDIDATE with LOCAL ACCEPTANCE pending; MU.6D Account CREATE remains not started.
+- ADR-0067 is accepted; MU.6A and MU.6B are landed runtime boundaries. MU.6C Public-v1 Account lifecycle mutation is completed after real yaVDR acceptance and PR #410 merge; MU.6D Atomic Account CREATE + durable idempotency is a CANDIDATE with LOCAL ACCEPTANCE pending; MU.7 grant administration remains not started.
 - Phase 70 is not started by Multiuser work.
