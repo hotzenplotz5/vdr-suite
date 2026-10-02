@@ -119,6 +119,30 @@ bool publicAccountPath(
         accountId.find('/') == std::string::npos;
 }
 
+bool publicAccountGrantPath(
+    const std::string& path,
+    std::string& accountId)
+{
+    const std::string prefix(PublicAccountPrefix);
+    const std::string suffix("/grants");
+
+    if (path.compare(0, prefix.size(), prefix) != 0 ||
+        path.size() <= prefix.size() + suffix.size() ||
+        path.compare(
+            path.size() - suffix.size(),
+            suffix.size(),
+            suffix) != 0)
+    {
+        return false;
+    }
+
+    accountId = path.substr(
+        prefix.size(),
+        path.size() - prefix.size() - suffix.size());
+    return !accountId.empty() &&
+        accountId.find('/') == std::string::npos;
+}
+
 bool publicTimerAssignmentPath(
     const std::string& path,
     std::string& timerAssignmentId)
@@ -1406,6 +1430,117 @@ bool parsePublicAccountCreateBody(
         !loginName.empty() && !displayName.empty() && !password.empty();
 }
 
+bool parsePublicAccountGrantMutationBody(
+    const std::string& input,
+    std::string& permission,
+    std::string& backendId,
+    bool& active)
+{
+    std::size_t position = 0U;
+    bool permissionSeen = false;
+    bool backendSeen = false;
+    bool activeSeen = false;
+
+    skipAccountMutationWhitespace(input, position);
+    if (position >= input.size() || input[position++] != '{')
+    {
+        return false;
+    }
+
+    while (true)
+    {
+        skipAccountMutationWhitespace(input, position);
+        if (position < input.size() && input[position] == '}')
+        {
+            ++position;
+            break;
+        }
+
+        std::string key;
+        if (!parseAccountMutationJsonString(input, position, key))
+        {
+            return false;
+        }
+        skipAccountMutationWhitespace(input, position);
+        if (position >= input.size() || input[position++] != ':')
+        {
+            return false;
+        }
+        skipAccountMutationWhitespace(input, position);
+
+        if (key == "permission" && !permissionSeen)
+        {
+            permissionSeen = true;
+            if (!parseAccountMutationJsonString(
+                    input, position, permission))
+            {
+                return false;
+            }
+        }
+        else if (key == "backendId" && !backendSeen)
+        {
+            backendSeen = true;
+            if (!parseAccountMutationJsonString(
+                    input, position, backendId))
+            {
+                return false;
+            }
+        }
+        else if (key == "active" && !activeSeen)
+        {
+            activeSeen = true;
+            if (consumeAccountMutationLiteral(
+                    input, position, "true"))
+            {
+                active = true;
+            }
+            else if (consumeAccountMutationLiteral(
+                         input, position, "false"))
+            {
+                active = false;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        else
+        {
+            return false;
+        }
+
+        skipAccountMutationWhitespace(input, position);
+        if (position >= input.size()) return false;
+        if (input[position] == ',')
+        {
+            ++position;
+            continue;
+        }
+        if (input[position] == '}')
+        {
+            ++position;
+            break;
+        }
+        return false;
+    }
+
+    skipAccountMutationWhitespace(input, position);
+    return position == input.size() &&
+        permissionSeen && backendSeen && activeSeen &&
+        !permission.empty() && !backendId.empty();
+}
+
+bool publicAccountGrantRevision(
+    const std::string& resourceRevision)
+{
+    static const std::string Prefix = "account-grants-v1|";
+    return resourceRevision.size() >= Prefix.size() &&
+        resourceRevision.compare(
+            0U,
+            Prefix.size(),
+            Prefix) == 0;
+}
+
 bool publicAccountRevision(
     const std::string& resourceRevision,
     std::uint64_t& revision)
@@ -1716,6 +1851,7 @@ ApiResponse platformCapabilities(
     const bool accountCollectionAvailable,
     const bool accountMutationAvailable,
     const bool accountCreateAvailable,
+    const bool accountGrantAdministrationAvailable,
     const std::string& requestId,
     const std::string& correlationId)
 {
@@ -1742,6 +1878,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.accounts-create\",\"version\":1,\"availability\":\"" +
         std::string(accountCreateAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.accounts-grants-administration\",\"version\":1,\"availability\":\"" +
+        std::string(accountGrantAdministrationAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.compatibility-policy\",\"version\":1,\"availability\":\"available\"},"
         "{\"id\":\"public-api.deprecation-metadata\",\"version\":1,\"availability\":\"available\"}"
@@ -2085,6 +2224,74 @@ ApiResponse publicAccountResponse(
         ",\"links\":{\"self\":\"" + jsonEscape(path) + "\"}}",
         requestId,
         correlationId);
+    response.headers["ETag"] = entityTag;
+    return response;
+}
+
+ApiResponse publicAccountGrantResponse(
+    const PublicAccountGrantResource& resource,
+    const std::string& path,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::string& ifNoneMatch)
+{
+    const std::string entityTag =
+        vdrsuite::http::publicStrongEntityTag(
+            resource.resourceRevision);
+    if (entityTag.empty())
+    {
+        return serviceUnavailableProblem(
+            path, requestId, correlationId);
+    }
+
+    const auto condition =
+        vdrsuite::http::publicEvaluateIfNoneMatch(
+            ifNoneMatch,
+            entityTag);
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::malformed)
+    {
+        return invalidRequestProblem(
+            path,
+            "If-None-Match is not a valid entity-tag condition.",
+            requestId,
+            correlationId);
+    }
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::matched)
+    {
+        ApiResponse response;
+        response.statusCode = 304;
+        response.contentType = "application/json; charset=utf-8";
+        addPublicSuccessHeaders(
+            response, requestId, correlationId);
+        response.headers["ETag"] = entityTag;
+        return response;
+    }
+
+    std::string body =
+        "{\"accountId\":\"" + jsonEscape(resource.accountId) +
+        "\",\"actorId\":\"" + jsonEscape(resource.actorId) +
+        "\",\"grants\":[";
+    for (std::size_t index = 0U;
+         index < resource.grants.size();
+         ++index)
+    {
+        if (index > 0U) body += ",";
+        const PublicAccountGrantItem& grant =
+            resource.grants[index];
+        body +=
+            "{\"permission\":\"" +
+            jsonEscape(grant.permission) +
+            "\",\"backendId\":\"" +
+            jsonEscape(grant.backendId) + "\"}";
+    }
+    body +=
+        "],\"links\":{\"self\":\"" +
+        jsonEscape(path) + "\"}}";
+
+    ApiResponse response = jsonResponse(
+        body, requestId, correlationId);
     response.headers["ETag"] = entityTag;
     return response;
 }
@@ -2464,6 +2671,64 @@ PublicApiRuntime::lookupAccount(
     return lookup(accountId);
 }
 
+void PublicApiRuntime::registerAccountGrantLookup(
+    AccountGrantLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(
+        accountGrantLookupMutex_);
+    accountGrantLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetAccountGrantLookup()
+{
+    std::lock_guard<std::mutex> lock(
+        accountGrantLookupMutex_);
+    accountGrantLookup_ = {};
+}
+
+bool PublicApiRuntime::accountGrantLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        accountGrantLookupMutex_);
+    return static_cast<bool>(accountGrantLookup_);
+}
+
+PublicAccountGrantLookupResult
+PublicApiRuntime::lookupAccountGrants(
+    const std::string& accountId) const
+{
+    AccountGrantLookup lookup;
+    {
+        std::lock_guard<std::mutex> lock(
+            accountGrantLookupMutex_);
+        lookup = accountGrantLookup_;
+    }
+    if (!lookup) return {};
+    return lookup(accountId);
+}
+
+void PublicApiRuntime::registerAccountGrantMutation(
+    AccountGrantMutation mutation)
+{
+    std::lock_guard<std::mutex> lock(
+        accountGrantMutationMutex_);
+    accountGrantMutation_ = std::move(mutation);
+}
+
+void PublicApiRuntime::resetAccountGrantMutation()
+{
+    std::lock_guard<std::mutex> lock(
+        accountGrantMutationMutex_);
+    accountGrantMutation_ = {};
+}
+
+bool PublicApiRuntime::accountGrantMutationConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        accountGrantMutationMutex_);
+    return static_cast<bool>(accountGrantMutation_);
+}
+
 void PublicApiRuntime::registerAccountMutation(
     AccountMutation mutation)
 {
@@ -2616,6 +2881,8 @@ bool PublicApiRuntime::tryHandleGet(
             accountCollectionLookupConfigured(),
             accountMutationConfigured(),
             accountCreateConfigured(),
+            accountGrantLookupConfigured() &&
+                accountGrantMutationConfigured(),
             requestId,
             correlationId);
         return true;
@@ -2685,6 +2952,68 @@ bool PublicApiRuntime::tryHandleGet(
     }
 
     std::string accountId;
+    if (publicAccountGrantPath(path, accountId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        const PublicAccountGrantLookupResult found =
+            lookupAccountGrants(accountId);
+        switch (found.status)
+        {
+            case PublicAccountGrantStatus::ok:
+                if (found.resource.accountId != accountId ||
+                    found.resource.actorId.empty() ||
+                    found.resource.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                for (const PublicAccountGrantItem& grant :
+                     found.resource.grants)
+                {
+                    if (grant.permission.empty() ||
+                        grant.backendId.empty())
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                }
+                response = publicAccountGrantResponse(
+                    found.resource,
+                    path,
+                    requestId,
+                    correlationId,
+                    ifNoneMatch);
+                return true;
+
+            case PublicAccountGrantStatus::invalid:
+                response = invalidRequestProblem(
+                    path,
+                    "The Account grant resource identifier is invalid.",
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountGrantStatus::notFound:
+                response = notFoundProblem(
+                    path, requestId, correlationId);
+                return true;
+
+            case PublicAccountGrantStatus::revisionConflict:
+            case PublicAccountGrantStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
     if (publicAccountPath(path, accountId))
     {
         if (actorRef.empty())
@@ -3362,6 +3691,7 @@ bool PublicApiRuntime::tryHandlePost(
     std::string operationId;
     std::string timerAssignmentId;
     std::string accountId;
+    std::string grantAccountId;
 
     if (path == PublicAccountCollectionPath)
     {
@@ -3545,6 +3875,181 @@ bool PublicApiRuntime::tryHandlePost(
                 return true;
 
             case PublicAccountCreateStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    if (publicAccountGrantPath(
+            path,
+            grantAccountId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        if (!applicationJsonContentType(contentType))
+        {
+            response = problemResponse(
+                415,
+                "invalid_request",
+                "Unsupported media type",
+                "Account grant mutation requires Content-Type application/json.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+        if (body.size() > 4096U)
+        {
+            response = invalidRequestProblem(
+                path,
+                "The Account grant mutation request body is too large.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        JsonSyntaxValidator validator(body);
+        if (!validator.valid())
+        {
+            response = problemResponse(
+                400,
+                "invalid_request",
+                "Invalid JSON",
+                "The Account grant mutation request body is not valid JSON.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        std::string permission;
+        std::string backendId;
+        bool active = false;
+        if (!parsePublicAccountGrantMutationBody(
+                body,
+                permission,
+                backendId,
+                active))
+        {
+            response = problemResponse(
+                422,
+                "validation_error",
+                "Validation failed",
+                "Account grant mutation requires exactly permission, backendId and active.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (ifMatch.empty())
+        {
+            response = problemResponse(
+                428,
+                "precondition_required",
+                "Precondition required",
+                "Account grant mutation requires one strong If-Match entity tag.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        std::string expectedResourceRevision;
+        if (!vdrsuite::http::publicStrongEntityTagResourceRevision(
+                ifMatch,
+                expectedResourceRevision) ||
+            !publicAccountGrantRevision(
+                expectedResourceRevision))
+        {
+            response = invalidRequestProblem(
+                path,
+                "If-Match does not identify an Account grant-set revision.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        AccountGrantMutation mutation;
+        {
+            std::lock_guard<std::mutex> lock(
+                accountGrantMutationMutex_);
+            mutation = accountGrantMutation_;
+        }
+        if (!mutation)
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        PublicAccountGrantMutationRequest request;
+        request.actorRef = actorRef;
+        request.accountId = grantAccountId;
+        request.expectedResourceRevision =
+            expectedResourceRevision;
+        request.permission = std::move(permission);
+        request.backendId = std::move(backendId);
+        request.active = active;
+        request.requestId = requestId;
+        request.correlationId = correlationId;
+
+        const PublicAccountGrantMutationResult mutated =
+            mutation(request);
+        switch (mutated.status)
+        {
+            case PublicAccountGrantStatus::ok:
+                if (mutated.resource.accountId != grantAccountId ||
+                    mutated.resource.actorId.empty() ||
+                    mutated.resource.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                }
+                else
+                {
+                    response = publicAccountGrantResponse(
+                        mutated.resource,
+                        path,
+                        requestId,
+                        correlationId,
+                        "");
+                }
+                return true;
+
+            case PublicAccountGrantStatus::invalid:
+                response = problemResponse(
+                    422,
+                    "validation_error",
+                    "Validation failed",
+                    "The Account grant mutation is not supported.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountGrantStatus::notFound:
+                response = notFoundProblem(
+                    path, requestId, correlationId);
+                return true;
+
+            case PublicAccountGrantStatus::revisionConflict:
+                response = problemResponse(
+                    412,
+                    "revision_conflict",
+                    "Resource revision conflict",
+                    "The Account grant set changed after it was read.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountGrantStatus::unavailable:
                 response = serviceUnavailableProblem(
                     path, requestId, correlationId);
                 return true;
@@ -4081,6 +4586,17 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
     std::string operationId;
     std::string timerAssignmentId;
     std::string accountId;
+    std::string grantAccountId;
+
+    if (publicAccountGrantPath(path, grantAccountId))
+    {
+        response = methodNotAllowedProblem(
+            path,
+            requestId,
+            correlationId,
+            "GET, POST");
+        return true;
+    }
 
     if (publicTimerAssignmentPath(
             path,
