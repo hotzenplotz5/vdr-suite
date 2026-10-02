@@ -37,6 +37,16 @@
     return base ? base + '/' + normalizedName : normalizedName;
   }
 
+  function resolveMoveTarget(targetValue, newFolderValue, currentPath) {
+    const pendingFolder = String(newFolderValue || '').trim();
+    if (!pendingFolder) return normalizeFolderPath(targetValue);
+    const explicitBase = String(targetValue || '').trim();
+    const basePath = explicitBase
+      ? targetFolderPath(targetValue)
+      : targetFolderPath(currentPath);
+    return composeNewFolderTarget(basePath, pendingFolder);
+  }
+
   function localTitle(recording) {
     const raw = shared.decodeDisplayText(shared.first(
       recording,
@@ -546,31 +556,35 @@
       const browse = shared.createButton('Ordner auswählen', function () {
         renderFolderBrowser(browser, input, status, '');
       });
+      function resolvePendingTarget() {
+        const targetPath = resolveMoveTarget(input.value, newFolder.value, state().path);
+        if (!targetPath) return '';
+        if (String(newFolder.value || '').trim()) {
+          input.value = targetPath;
+          newFolder.value = '';
+          setStatus(status, '', 'Neuer Zielordner „' + targetPath + '“ vorbereitet – er wird beim Verschieben angelegt.');
+        }
+        return targetPath;
+      }
       const createFolderTarget = shared.createButton('Neuen Ordner als Ziel', function () {
-        const explicitBase = String(input.value || '').trim();
-        const basePath = explicitBase
-          ? targetFolderPath(input.value)
-          : targetFolderPath(state().path);
-        const targetPath = composeNewFolderTarget(basePath, newFolder.value);
+        const targetPath = resolvePendingTarget();
         if (!targetPath) {
           setStatus(status, 'error', 'Bitte einen einzelnen gültigen Ordnernamen ohne „/“ oder „~“ eingeben.');
           return;
         }
-        input.value = targetPath;
-        newFolder.value = '';
         apply.disabled = true;
         setStatus(status, '', 'Neuer Zielordner „' + targetPath + '“ vorbereitet – er wird beim Verschieben angelegt. Bitte prüfen.');
       });
       const check = shared.createButton('Prüfen', function () {
-        const targetPath = normalizeFolderPath(input.value);
+        const targetPath = resolvePendingTarget();
         if (!targetPath) {
-          setStatus(status, 'error', 'Bitte zuerst einen Zielordner auswählen.');
+          setStatus(status, 'error', 'Bitte zuerst einen Zielordner auswählen oder einen neuen Ordner eingeben.');
           return;
         }
         validate(recording, 'MOVE', {targetPath: targetPath}, status, apply).catch(function () {});
       });
       apply = shared.createButton('Verschieben', function () {
-        const targetPath = normalizeFolderPath(input.value);
+        const targetPath = resolvePendingTarget();
         if (!targetPath || !global.confirm('Aufnahme nach „' +
             (targetPath === '/' ? 'Hauptordner' : targetPath) + '“ verschieben?')) return;
         execute(recording, 'MOVE', {targetPath: targetPath}, status, apply,
@@ -646,6 +660,7 @@
       normalizeFolderPath: normalizeFolderPath,
       targetFolderPath: targetFolderPath,
       composeNewFolderTarget: composeNewFolderTarget,
+      resolveMoveTarget: resolveMoveTarget,
       localTitle: localTitle,
       identity: identity,
       candidateMatches: candidateMatches,
