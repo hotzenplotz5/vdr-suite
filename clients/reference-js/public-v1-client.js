@@ -428,6 +428,49 @@
 
 
 
+    function requestAccountMutation(path, payload, options) {
+      const requestOptions = options && typeof options === 'object' ? options : {};
+      if (typeof requestOptions.ifMatch !== 'string' || requestOptions.ifMatch === '') {
+        throw new Error('ifMatch must be a non-empty opaque ETag');
+      }
+
+      const headers = Object.assign(
+        {Accept: 'application/json'},
+        defaultHeaders,
+        copyHeaders(requestOptions.headers)
+      );
+      headers['Content-Type'] = 'application/json';
+      headers['If-Match'] = requestOptions.ifMatch;
+
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST',
+        headers: headers,
+        credentials: requestOptions.credentials !== undefined
+          ? requestOptions.credentials
+          : normalized.credentials,
+        signal: requestOptions.signal,
+        body: JSON.stringify(payload)
+      }).then(function (response) {
+        const entityTag = headerValue(response, 'ETag');
+        return parseJsonBody(response).then(function (responsePayload) {
+          if (!response.ok) {
+            throw new VdrSuitePublicClientError(
+              path,
+              response.status,
+              responsePayload,
+              response
+            );
+          }
+          return {
+            status: response.status,
+            etag: entityTag,
+            data: responsePayload
+          };
+        });
+      });
+    }
+
+
     function requestTimerCreate(path, options) {
       const requestOptions = options && typeof options === 'object' ? options : {};
       if (typeof requestOptions.ifMatch !== 'string' || requestOptions.ifMatch === '') {
@@ -491,6 +534,34 @@
         const normalizedOptions = options && typeof options === 'object' ? options : {};
         return requestRevisioned(
           accountItemPath(normalizedOptions),
+          normalizedOptions
+        );
+      },
+      updateAccountDisplayName(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        if (typeof normalizedOptions.displayName !== 'string'
+            || normalizedOptions.displayName === '') {
+          throw new Error('displayName must be a non-empty string');
+        }
+        return requestAccountMutation(
+          accountItemPath(normalizedOptions),
+          {displayName: normalizedOptions.displayName},
+          normalizedOptions
+        );
+      },
+      activateAccount(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return requestAccountMutation(
+          accountItemPath(normalizedOptions),
+          {active: true},
+          normalizedOptions
+        );
+      },
+      deactivateAccount(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return requestAccountMutation(
+          accountItemPath(normalizedOptions),
+          {active: false},
           normalizedOptions
         );
       },
