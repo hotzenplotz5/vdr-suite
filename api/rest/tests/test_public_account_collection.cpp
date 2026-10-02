@@ -38,6 +38,7 @@ int main()
     PublicApiRuntime& runtime = PublicApiRuntime::instance();
     runtime.resetAccountCollectionLookup();
     runtime.resetAccountLookup();
+    runtime.resetAccountMutation();
 
     const std::vector<PublicAccountCollectionItem> configured = {
         account("account-a", "actor-a", "Admin A", true),
@@ -97,6 +98,48 @@ int main()
             return result;
         });
 
+    PublicAccountMutationStatus forcedMutationStatus =
+        PublicAccountMutationStatus::ok;
+    runtime.registerAccountMutation(
+        [&forcedMutationStatus](
+            const PublicAccountMutationRequest& request)
+        {
+            PublicAccountMutationResult result;
+            result.status = forcedMutationStatus;
+            if (forcedMutationStatus !=
+                PublicAccountMutationStatus::ok)
+            {
+                return result;
+            }
+
+            assert(request.actorRef == "actor:test");
+            assert(request.accountId == "account-a");
+            assert(request.expectedRevision == 7U);
+            assert(request.requestId.find("mu6c-") == 0U);
+
+            result.account.accountId = "account-a";
+            result.account.actorId = "actor-a";
+            result.account.displayName =
+                request.kind ==
+                    PublicAccountMutationKind::displayName
+                ? request.displayName
+                : "Admin A";
+            result.account.active =
+                request.kind ==
+                    PublicAccountMutationKind::active
+                ? request.active
+                : true;
+            result.account.resourceRevision =
+                "account:8";
+            result.revokedBrowserSessions =
+                request.kind ==
+                    PublicAccountMutationKind::active &&
+                    !request.active
+                ? 2U
+                : 0U;
+            return result;
+        });
+
     ApiResponse root;
     assert(runtime.tryHandleGet(
         "/api/v1",
@@ -120,6 +163,9 @@ int main()
         "\"id\":\"public-api.accounts-read\"") != std::string::npos);
     assert(capabilities.body.find(
         "{\"id\":\"public-api.accounts-read\",\"version\":1,\"availability\":\"available\"}") !=
+        std::string::npos);
+    assert(capabilities.body.find(
+        "{\"id\":\"public-api.accounts-lifecycle-mutation\",\"version\":1,\"availability\":\"available\"}") !=
         std::string::npos);
 
     ApiResponse first;
@@ -294,14 +340,135 @@ int main()
     assert(post.statusCode == 405);
     assert(post.headers.at("Allow") == "GET");
 
-    ApiResponse itemPost;
+    ApiResponse renamed;
     assert(runtime.tryHandlePost(
         "/api/v1/accounts/account-a",
-        "mu6b-account-item-post",
+        "mu6c-account-display-name",
+        "mu6c-account-correlation",
+        renamed,
+        "{\"displayName\":\"Renamed Admin\"}",
+        "actor:test",
+        itemEtag,
         "",
-        itemPost));
-    assert(itemPost.statusCode == 405);
-    assert(itemPost.headers.at("Allow") == "GET");
+        "application/json"));
+    assert(renamed.statusCode == 200);
+    assert(renamed.body.find(
+        "\"displayName\":\"Renamed Admin\"") !=
+        std::string::npos);
+    assert(renamed.body.find(
+        "\"active\":true") !=
+        std::string::npos);
+    assert(renamed.headers.count("ETag") == 1U);
+    assert(renamed.headers.at("ETag") != itemEtag);
+    assert(renamed.body.find("resourceRevision") ==
+        std::string::npos);
+
+    ApiResponse deactivated;
+    assert(runtime.tryHandlePost(
+        "/api/v1/accounts/account-a",
+        "mu6c-account-deactivate",
+        "",
+        deactivated,
+        "{\"active\":false}",
+        "actor:test",
+        itemEtag,
+        "",
+        "application/json"));
+    assert(deactivated.statusCode == 200);
+    assert(deactivated.body.find(
+        "\"active\":false") !=
+        std::string::npos);
+
+    ApiResponse missingIfMatch;
+    assert(runtime.tryHandlePost(
+        "/api/v1/accounts/account-a",
+        "mu6c-account-if-match-required",
+        "",
+        missingIfMatch,
+        "{\"displayName\":\"Renamed Admin\"}",
+        "actor:test",
+        "",
+        "",
+        "application/json"));
+    assert(missingIfMatch.statusCode == 428);
+
+    ApiResponse malformedIfMatch;
+    assert(runtime.tryHandlePost(
+        "/api/v1/accounts/account-a",
+        "mu6c-account-if-match-malformed",
+        "",
+        malformedIfMatch,
+        "{\"displayName\":\"Renamed Admin\"}",
+        "actor:test",
+        "W/\"account:7\"",
+        "",
+        "application/json"));
+    assert(malformedIfMatch.statusCode == 400);
+
+    ApiResponse invalidShape;
+    assert(runtime.tryHandlePost(
+        "/api/v1/accounts/account-a",
+        "mu6c-account-closed-body",
+        "",
+        invalidShape,
+        "{\"displayName\":\"Renamed Admin\",\"active\":false}",
+        "actor:test",
+        itemEtag,
+        "",
+        "application/json"));
+    assert(invalidShape.statusCode == 422);
+
+    ApiResponse unsupportedMediaType;
+    assert(runtime.tryHandlePost(
+        "/api/v1/accounts/account-a",
+        "mu6c-account-content-type",
+        "",
+        unsupportedMediaType,
+        "{\"active\":true}",
+        "actor:test",
+        itemEtag,
+        "",
+        "text/plain"));
+    assert(unsupportedMediaType.statusCode == 415);
+
+    forcedMutationStatus =
+        PublicAccountMutationStatus::revisionConflict;
+    ApiResponse stale;
+    assert(runtime.tryHandlePost(
+        "/api/v1/accounts/account-a",
+        "mu6c-account-stale",
+        "",
+        stale,
+        "{\"active\":true}",
+        "actor:test",
+        itemEtag,
+        "",
+        "application/json"));
+    assert(stale.statusCode == 412);
+    assert(stale.body.find(
+        "\"code\":\"revision_conflict\"") !=
+        std::string::npos);
+
+    forcedMutationStatus =
+        PublicAccountMutationStatus::finalAdministrator;
+    ApiResponse finalAdministrator;
+    assert(runtime.tryHandlePost(
+        "/api/v1/accounts/account-a",
+        "mu6c-account-final-admin",
+        "",
+        finalAdministrator,
+        "{\"active\":false}",
+        "actor:test",
+        itemEtag,
+        "",
+        "application/json"));
+    assert(finalAdministrator.statusCode == 409);
+    assert(finalAdministrator.body.find(
+        "\"code\":\"operation_conflict\"") !=
+        std::string::npos);
+
+    forcedMutationStatus =
+        PublicAccountMutationStatus::ok;
 
     for (const std::string& method :
          {std::string("PUT"),
@@ -328,9 +495,10 @@ int main()
             "",
             itemMismatch));
         assert(itemMismatch.statusCode == 405);
-        assert(itemMismatch.headers.at("Allow") == "GET");
+        assert(itemMismatch.headers.at("Allow") == "GET, POST");
     }
 
     runtime.resetAccountLookup();
+    runtime.resetAccountMutation();
     return 0;
 }
