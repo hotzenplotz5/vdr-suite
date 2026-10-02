@@ -127,7 +127,9 @@ def main():
         require(name, "MU.6C")
 
     require("current", "MU.6B - Public Account item + revision/ETag [COMPLETED]")
-    require("current", "MU.6C - Public display-name / activate / deactivate [NEXT")
+    # MU.6B owns only the existence/order of its successor, not the
+    # successor's volatile execution status after MU.6B has landed.
+    require("current", "MU.6C - Public display-name / activate / deactivate")
     require("workstream", "MU.6B Public Account item + revision/ETag")
     require("workstream", "MU.6C Public display-name / activate / deactivate")
 
@@ -158,8 +160,8 @@ def main():
     print("MU.6B Public Account item contracts passed")
     print("MU6=IN_PROGRESS")
     print("MU6A=DONE")
-    print("MU6B=COMPLETED_CANDIDATE")
-    print("MU6C=NEXT_NOT_STARTED")
+    print("MU6B=COMPLETED")
+    print("MU6C_STATUS=SUCCESSOR_STATUS_NOT_OWNED_BY_MU6B_GUARD")
     return 0
 
 if __name__ == "__main__":
