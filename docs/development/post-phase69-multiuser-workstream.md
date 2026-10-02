@@ -158,7 +158,7 @@ MU.6D adds the bounded Atomic Account CREATE boundary: global
 `accounts.create@*`, browser CSRF, a closed loginName/displayName/password
 request, request-only yescrypt password handling and durable
 actor+Idempotency-Key replay. It creates no role or backend grants. LOCAL
-ACCEPTANCE remains pending. MU.7 grant administration is not started.
+Local and real yaVDR acceptance passed; PR is pending. MU.7 grant administration is not started.
 
 ### MU.7 — Backend access / permission grant administration [PLANNED]
 
