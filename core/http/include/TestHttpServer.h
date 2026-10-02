@@ -16,6 +16,8 @@
 #include "FirstAdminClaimService.h"
 #include "HumanAccountAdministrationRepository.h"
 #include "HumanAccountAdministrationService.h"
+#include "HumanAccountCreationRepository.h"
+#include "HumanAccountCreationService.h"
 #include "HumanAccountRepository.h"
 #include "HumanPasswordBrowserAuthenticator.h"
 #include "Database.h"
@@ -79,6 +81,10 @@ private:
         humanAccountAdministrationRepository_;
     std::unique_ptr<HumanAccountAdministrationService>
         humanAccountAdministrationService_;
+    std::unique_ptr<HumanAccountCreationRepository>
+        humanAccountCreationRepository_;
+    std::unique_ptr<HumanAccountCreationService>
+        humanAccountCreationService_;
     std::unique_ptr<FirstAdminBootstrapRepository>
         firstAdminBootstrapRepository_;
     std::unique_ptr<FirstAdminClaimService>

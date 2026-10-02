@@ -42,6 +42,27 @@ HttpServerRequest browserPost(
     return request;
 }
 
+HttpServerRequest browserCreate(
+    SecurityHttpGateBrowserTestFixture& fixture,
+    bool includeCsrf = true)
+{
+    HttpServerRequest request;
+    request.method = "POST";
+    request.path = "/api/v1/accounts";
+    request.body =
+        "{\"loginName\":\"viewer\",\"displayName\":\"Viewer\",\"password\":\"initial-password\"}";
+    request.headers["Content-Type"] =
+        "application/json";
+    request.headers["Idempotency-Key"] =
+        "idem-mu6d-account-create";
+    request.headers["X-Request-ID"] =
+        "mu6d-public-account-create";
+    fixture.addBrowserAuthentication(
+        request,
+        includeCsrf);
+    return request;
+}
+
 bool hasDecisionEvent(
     const AccountabilityEventRepository& repository,
     const std::string& reasonCode,
@@ -181,6 +202,98 @@ int main()
                 browserGet(fixture, "/api/v1/accounts/account-a"));
         assert(!itemDecision.allowed);
         assert(itemDecision.rejection.statusCode == 403);
+    }
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId,
+            "accounts.create",
+            "*"));
+
+        const SecurityGateDecision decision =
+            fixture.gate.evaluate(browserCreate(fixture));
+        assert(decision.allowed);
+        assert(decision.protectedMutation);
+        assert(decision.authorizationDecision.permission ==
+            "accounts.create");
+        assert(decision.authorizationDecision.backendId == "*");
+        assert(decision.authorizationDecision.action ==
+            "accounts.create");
+        assert(hasDecisionEvent(
+            fixture.accountabilityRepository,
+            "permission_granted",
+            "accounts.create"));
+    }
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId,
+            "role.admin",
+            "*"));
+
+        const SecurityGateDecision decision =
+            fixture.gate.evaluate(browserCreate(fixture));
+        assert(decision.allowed);
+        assert(decision.protectedMutation);
+        assert(decision.authorizationDecision.permission ==
+            "accounts.create");
+        assert(decision.authorizationDecision.reasonCode ==
+            "role_permission_granted");
+    }
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId,
+            "role.admin",
+            "default"));
+
+        const SecurityGateDecision decision =
+            fixture.gate.evaluate(browserCreate(fixture));
+        assert(!decision.allowed);
+        assert(decision.rejection.statusCode == 403);
+        assert(hasDecisionEvent(
+            fixture.accountabilityRepository,
+            "backend_scope_denied",
+            "accounts.create"));
+    }
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId,
+            "accounts.create",
+            "*"));
+
+        const SecurityGateDecision decision =
+            fixture.gate.evaluate(
+                browserCreate(fixture, false));
+        assert(!decision.allowed);
+        assert(decision.protectedMutation);
+        assert(decision.rejection.statusCode == 403);
+    }
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId,
+            "role.admin",
+            "*"));
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId,
+            "role.read-only",
+            "*"));
+
+        const SecurityGateDecision decision =
+            fixture.gate.evaluate(browserCreate(fixture));
+        assert(!decision.allowed);
+        assert(decision.rejection.statusCode == 403);
+        assert(hasDecisionEvent(
+            fixture.accountabilityRepository,
+            "role_read_only",
+            "accounts.create"));
     }
 
     {
@@ -349,6 +462,19 @@ int main()
         assert(decision.rejection.body.find(
             "\"code\":\"invalid_request\"") !=
             std::string::npos);
+    }
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        HttpServerRequest anonymousCreate;
+        anonymousCreate.method = "POST";
+        anonymousCreate.path = "/api/v1/accounts";
+        anonymousCreate.body =
+            "{\"loginName\":\"viewer\",\"displayName\":\"Viewer\",\"password\":\"initial-password\"}";
+        const SecurityGateDecision createDecision =
+            fixture.gate.evaluate(anonymousCreate);
+        assert(!createDecision.allowed);
+        assert(createDecision.rejection.statusCode == 401);
     }
 
     {

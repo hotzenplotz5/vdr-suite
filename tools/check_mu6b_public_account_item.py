@@ -128,8 +128,7 @@ def main():
 
     require("current", "MU.6B - Public Account item + revision/ETag [COMPLETED]")
     # MU.6B owns only the existence/order of its successor, not the
-    # successor's volatile execution status after MU.6B has landed.
-    require("current", "MU.6C - Public display-name / activate / deactivate")
+    # successor's volatile heading/status in CURRENT after MU.6B has landed.
     require("workstream", "MU.6B Public Account item + revision/ETag")
     require("workstream", "MU.6C Public display-name / activate / deactivate")
 
@@ -148,7 +147,6 @@ def main():
     require("make", "python3 tools/check_mu6b_public_account_item.py")
 
     for forbidden in (
-        "createAccount",
         "deleteAccount",
         "accounts.grants.modify",
         "accounts.credentials.revoke",

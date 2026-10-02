@@ -157,11 +157,9 @@ def main():
     require("doc", "HTTP code does not query SQLite")
     require("make", "test-security-public-account-collection")
 
-    # Preserve the historical MU.2 no-generic-CRUD boundary without
-    # rejecting later explicitly named lifecycle operations such as
-    # updateAccountDisplayName()/activateAccount()/deactivateAccount().
+    # Preserve the historical MU.2 no-generic-update/delete boundary.
+    # Bounded Account CREATE is an explicitly accepted MU.6D successor.
     for forbidden in (
-        "createAccount(options)",
         "updateAccount(options)",
         "deleteAccount(options)",
     ):

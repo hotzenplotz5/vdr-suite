@@ -114,19 +114,19 @@ Latest completed MU.6 sub-slice:
 MU.6B - Public Account item + revision/ETag [COMPLETED]
 
 Current MU.6 sub-slice:
-MU.6C - Public display-name / activate / deactivate [CANDIDATE - LOCAL ACCEPTANCE PENDING]
+MU.6D - Atomic Account CREATE + durable idempotency [ACCEPTED - REAL YAVDR PASS / PR PENDING]
 
-Next MU.6 sub-slice after acceptance:
-MU.6D - Account CREATE [NOT STARTED]
+Next product slice after MU.6D merge:
+MU.7 - Backend access / permission grant administration [NOT STARTED]
 
 Post-Phase-69 Multiuser productization status:
 MU.0 through MU.5 are completed. MU.6 is in progress: MU.6A owns the authoritative lifecycle/revision boundary and MU.6B exposes the secret-free Public-v1 Account item with strong ETag and If-None-Match semantics.
-ADR-0067 remains the accepted architecture. MU.6C now has a Public-v1 lifecycle-mutation candidate for display-name, activate and deactivate with global permission scope, browser CSRF and strong If-Match; LOCAL ACCEPTANCE is still pending. MU.6D Account CREATE remains not started.
+ADR-0067 remains the accepted architecture. MU.6C Public-v1 lifecycle mutation is completed after real yaVDR acceptance and PR #410 merge. MU.6D Atomic Account CREATE + durable idempotency passed local and real yaVDR acceptance, including idempotent replay, secret-free response, login, no automatic grants, 403 without backend grant, deactivation and session revocation; PR is pending. MU.7 grant administration remains not started.
 Durable workstream status: [Post-Phase-69 Multiuser Productization Workstream](development/post-phase69-multiuser-workstream.md).
 Durable MU.5 evidence: [MU.5 Administration Architecture Acceptance](development/post-phase69-mu5-administration-architecture-acceptance.md).
 Durable MU.6A evidence: [MU.6A Human Account Lifecycle Authority Foundation](development/post-phase69-mu6-account-lifecycle-foundation.md).
 Durable MU.6B evidence: [MU.6B Public Account Item + Revision/ETag](development/post-phase69-mu6b-public-account-item.md).
-Current MU.6C candidate evidence: [MU.6C Public Account Lifecycle Mutation](development/post-phase69-mu6c-public-account-lifecycle-mutation.md).
+Completed MU.6C evidence: [MU.6C Public Account Lifecycle Mutation](development/post-phase69-mu6c-public-account-lifecycle-mutation.md). Accepted MU.6D evidence: [MU.6D Atomic Account CREATE + Durable Idempotency](development/post-phase69-mu6d-account-create-idempotency.md).
 
 69.D is completed. [Phase 69.D Closeout](development/phase-69d-closeout.md)
 records the accepted collection boundary:
@@ -464,7 +464,7 @@ Accepted Broadcast Companion capability includes:
 
 Durable evidence is in [Phase 67 Closeout](development/phase-67-closeout.md) and the earlier [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md).
 
-Phase 68 Legacy OSD Compatibility Bridge is **completed for the accepted 68.A-G scope**. The final 68.G real yaVDR acceptance proved fenced allowlisted native OSD input through the authenticated Control Plane -> Agent -> SuiteBridge -> VDR path, including native DOWN/UP effect, idempotent replay and stale-authority rejection. Durable evidence is in [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 public API/client compatibility hardening is completed for the accepted 69.A-F scope. The post-Phase-69 Multiuser workstream is active: MU.0-MU.5 are complete and MU.6 is in progress; MU.6B Public Account item/revision is completed while MU.6C public lifecycle mutation is a candidate with LOCAL ACCEPTANCE pending. MU.6D Account CREATE remains not started. Phase 70 remains not started and still requires its dedicated accepted runtime ADR.
+Phase 68 Legacy OSD Compatibility Bridge is **completed for the accepted 68.A-G scope**. The final 68.G real yaVDR acceptance proved fenced allowlisted native OSD input through the authenticated Control Plane -> Agent -> SuiteBridge -> VDR path, including native DOWN/UP effect, idempotent replay and stale-authority rejection. Durable evidence is in [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 public API/client compatibility hardening is completed for the accepted 69.A-F scope. The post-Phase-69 Multiuser workstream is active: MU.0-MU.5 are complete and MU.6 is in progress; MU.6B and MU.6C are completed. MU.6D Atomic Account CREATE + durable idempotency is ACCEPTED on real yaVDR with PR pending; MU.7 grant administration remains not started. Phase 70 remains not started and still requires its dedicated accepted runtime ADR.
 
 ## Historical evidence rule
 
