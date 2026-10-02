@@ -60,6 +60,7 @@ test-security-architecture:
 	python3 tools/check_mu6b_public_account_item.py
 	python3 tools/check_mu6c_public_account_lifecycle_mutation.py
 	python3 tools/check_mu6d_account_create_idempotency.py
+	python3 tools/check_mu7a_account_grant_administration.py
 	python3 tools/check_browser_session_issuance_architecture.py
 	python3 tools/check_browser_session_issuer_binding.py
 	python3 tools/check_browser_session_concurrency_limit.py
@@ -562,6 +563,7 @@ test-security: \
 	test-security-first-admin-claim-http-service \
 	test-security-human-account-read-foundation \
 	test-security-human-account-administration \
+	test-security-human-account-grant-administration \
 	test-security-public-account-collection \
 	test-security-public-account-grants \
 	test-security-public-account-grant-gate \

@@ -392,18 +392,19 @@ Phase-62 identity/RBAC foundation
   -> ADR-0066 First Admin/bootstrap/recovery [ACCEPTED + IMPLEMENTED]
   -> MU.4 Legacy Basic retirement [DONE]
   -> MU.5 ADR-0067 administration architecture [DONE]
-       -> MU.6 Human Account lifecycle administration [IN PROGRESS]
+       -> MU.6 Human Account lifecycle administration [DONE]
             -> MU.6A lifecycle authority [DONE]
             -> MU.6B Account item/revision [DONE]
             -> MU.6C public lifecycle mutation [DONE]
-            -> MU.6D Account CREATE/idempotency [ACCEPTED - REAL YAVDR PASS / PR PENDING]
-       -> MU.7 backend access / grant administration
+            -> MU.6D Account CREATE/idempotency [DONE - PR #411 MERGED]
+       -> MU.7 backend access / grant administration [IN PROGRESS]
+            -> MU.7A channels.view concrete-backend grants [CANDIDATE - ACCEPTANCE PENDING]
        -> MU.8 credential/session administration
        -> MU.9 account/access admin UI
             -> broad Timer Product UI mutation controls
 ```
 
-Core policy remains server-side. Administration UI/API must not invent permissions or backend scope. ADR-0067 is accepted; MU.6 is in progress with MU.6A lifecycle authority and MU.6B Account item/revision complete; MU.6C public lifecycle mutation is completed; MU.6D Account CREATE/idempotency is ACCEPTED after real yaVDR acceptance with PR pending. MU.7+ remains separate and not started.
+Core policy remains server-side. Administration UI/API must not invent permissions or backend scope. ADR-0067 is accepted; MU.6A-D are completed, including MU.6D Account CREATE/idempotency after real yaVDR acceptance and PR #411 merge. MU.7 is in progress through the bounded MU.7A channels.view@<concrete-backend> candidate; broader grants, MU.8 credential/session administration and MU.9 UI remain separate.
 
 ## Broad Timer Product UI
 

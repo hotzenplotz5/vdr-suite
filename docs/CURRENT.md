@@ -108,25 +108,22 @@ Current Multiuser architecture slice:
 MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
 
 Current Multiuser runtime slice:
-MU.6 - Human Account lifecycle administration [IN PROGRESS]
+MU.7 - Backend access / permission grant administration [IN PROGRESS]
 
 Latest completed MU.6 sub-slice:
-MU.6B - Public Account item + revision/ETag [COMPLETED]
+MU.6D - Atomic Account CREATE + durable idempotency [COMPLETED - REAL YAVDR PASS / PR #411 MERGED]
 
-Current MU.6 sub-slice:
-MU.6D - Atomic Account CREATE + durable idempotency [ACCEPTED - REAL YAVDR PASS / PR PENDING]
-
-Next product slice after MU.6D merge:
-MU.7 - Backend access / permission grant administration [NOT STARTED]
+Current MU.7 sub-slice:
+MU.7A - bounded channels.view backend grant administration [IMPLEMENTED CANDIDATE - LOCAL/REAL YAVDR ACCEPTANCE PENDING]
 
 Post-Phase-69 Multiuser productization status:
-MU.0 through MU.5 are completed. MU.6 is in progress: MU.6A owns the authoritative lifecycle/revision boundary and MU.6B exposes the secret-free Public-v1 Account item with strong ETag and If-None-Match semantics.
-ADR-0067 remains the accepted architecture. MU.6C Public-v1 lifecycle mutation is completed after real yaVDR acceptance and PR #410 merge. MU.6D Atomic Account CREATE + durable idempotency passed local and real yaVDR acceptance, including idempotent replay, secret-free response, login, no automatic grants, 403 without backend grant, deactivation and session revocation; PR is pending. MU.7 grant administration remains not started.
+MU.0 through MU.6 are completed. MU.6A owns the authoritative lifecycle/revision boundary, MU.6B exposes the secret-free Public-v1 Account item, MU.6C exposes bounded lifecycle mutation and MU.6D adds Atomic Account CREATE + durable idempotency. MU.6D passed local and real yaVDR acceptance and merged as PR #411; it intentionally creates no automatic role or backend grants.
+ADR-0067 remains the accepted architecture. MU.7 is now in progress. MU.7A is an implementation candidate for inspection plus desired-state ensure/revoke of only channels.view@<concrete-backend> through the canonical security_actor_permission_grants authority, with grant-set strong ETag/If-Match semantics and central SecurityHttpGate authorization. Local and real yaVDR acceptance are still pending; broader permission grant administration, role.admin mutation/final-admin enforcement, credentials/sessions and browser-admin UI are not part of MU.7A.
 Durable workstream status: [Post-Phase-69 Multiuser Productization Workstream](development/post-phase69-multiuser-workstream.md).
 Durable MU.5 evidence: [MU.5 Administration Architecture Acceptance](development/post-phase69-mu5-administration-architecture-acceptance.md).
 Durable MU.6A evidence: [MU.6A Human Account Lifecycle Authority Foundation](development/post-phase69-mu6-account-lifecycle-foundation.md).
 Durable MU.6B evidence: [MU.6B Public Account Item + Revision/ETag](development/post-phase69-mu6b-public-account-item.md).
-Completed MU.6C evidence: [MU.6C Public Account Lifecycle Mutation](development/post-phase69-mu6c-public-account-lifecycle-mutation.md). Accepted MU.6D evidence: [MU.6D Atomic Account CREATE + Durable Idempotency](development/post-phase69-mu6d-account-create-idempotency.md).
+Completed MU.6C evidence: [MU.6C Public Account Lifecycle Mutation](development/post-phase69-mu6c-public-account-lifecycle-mutation.md). Completed MU.6D evidence: [MU.6D Atomic Account CREATE + Durable Idempotency](development/post-phase69-mu6d-account-create-idempotency.md). Current MU.7A candidate: [MU.7A Bounded Backend Access Grant Administration](development/post-phase69-mu7a-backend-access-grant-administration.md).
 
 69.D is completed. [Phase 69.D Closeout](development/phase-69d-closeout.md)
 records the accepted collection boundary:

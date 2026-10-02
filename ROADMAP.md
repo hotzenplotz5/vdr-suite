@@ -48,7 +48,7 @@ Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
 
 The following are deliberately not inserted as numbered phases:
 
-- Multiuser / Account and Backend Access Administration **[ACTIVE — MU.6 IN PROGRESS / MU.6C DONE / MU.6D ACCEPTED — REAL YAVDR PASS / PR PENDING]**;
+- Multiuser / Account and Backend Access Administration **[ACTIVE — MU.6 DONE / MU.7 IN PROGRESS / MU.7A CANDIDATE — ACCEPTANCE PENDING]**;
 - Broad Timer Product UI **[PLANNED — gated on Multiuser administration]**;
 - Audit/Security/Operations product surfaces;
 - Legacy Basic retirement **[COMPLETED]**;
@@ -57,7 +57,7 @@ The following are deliberately not inserted as numbered phases:
 
 Active Multiuser authority: [Post-Phase-69 Multiuser Productization Workstream](docs/development/post-phase69-multiuser-workstream.md).
 
-Completed Multiuser foundation through MU.5: explicit Human Accounts, read-only Public-v1 Account discovery, First Admin/bootstrap, normal Human Account browser login, local recovery, Legacy Basic retirement and accepted [ADR-0067](docs/adr/ADR-0067-human-account-backend-access-administration.md) administration architecture. MU.6 Human Account lifecycle administration is now in progress: MU.6A-C are completed; MU.6D Atomic Account CREATE + durable idempotency is ACCEPTED after real yaVDR acceptance with PR pending, and MU.7 grant administration remains not started.
+Completed Multiuser foundation through MU.6: explicit Human Accounts, read-only Public-v1 Account discovery, First Admin/bootstrap, normal Human Account browser login, local recovery, Legacy Basic retirement, lifecycle administration and Atomic Account CREATE/idempotency. MU.6D passed real yaVDR acceptance and merged as PR #411. [ADR-0067](docs/adr/ADR-0067-human-account-backend-access-administration.md) remains the administration architecture authority. MU.7 grant administration is in progress through the bounded MU.7A channels.view@<concrete-backend> candidate; local and real yaVDR acceptance are pending.
 
 Phase 70 remains a separate not-started numbered phase.
 

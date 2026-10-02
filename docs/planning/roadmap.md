@@ -63,21 +63,18 @@ Current Multiuser architecture slice:
 MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
 
 Current Multiuser runtime slice:
-MU.6 - Human Account lifecycle administration [IN PROGRESS]
+MU.7 - Backend access / permission grant administration [IN PROGRESS]
 
 Latest completed MU.6 sub-slice:
-MU.6B - Public Account item + revision/ETag [COMPLETED]
+MU.6D - Atomic Account CREATE + durable idempotency [COMPLETED - REAL YAVDR PASS / PR #411 MERGED]
 
-Current MU.6 sub-slice:
-MU.6C - Public display-name / activate / deactivate [COMPLETED]
-
-Next MU.6 sub-slice after acceptance:
-MU.6D - Atomic Account CREATE + durable idempotency [ACCEPTED - REAL YAVDR PASS / PR PENDING]
+Current MU.7 sub-slice:
+MU.7A - bounded channels.view backend grant administration [IMPLEMENTED CANDIDATE - LOCAL/REAL YAVDR ACCEPTANCE PENDING]
 ```
 
 Phases 65 through 69 are completed. Durable Phase-69 evidence lives in [Phase 69 Closeout](../development/phase-69-closeout.md). Phase 70 is the next strict numbered phase but is not started and has no runtime authorization until its required ADR is accepted.
 
-The active cross-cutting productization work is the [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md). MU.0-MU.5 are complete, [ADR-0067](../adr/ADR-0067-human-account-backend-access-administration.md) is accepted and MU.6 is in progress. MU.6B Public Account item/revision and MU.6C public lifecycle mutation are completed; MU.6D Atomic Account CREATE + durable idempotency is ACCEPTED after real yaVDR acceptance with PR pending; MU.7 grant administration remains not started.
+The active cross-cutting productization work is the [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md). MU.0-MU.6 are complete, [ADR-0067](../adr/ADR-0067-human-account-backend-access-administration.md) is accepted and MU.7 is in progress. MU.6D Atomic Account CREATE + durable idempotency completed after real yaVDR acceptance and PR #411 merge. MU.7A is the bounded first implementation candidate for channels.view@<concrete-backend> administration; local and real yaVDR acceptance remain pending.
 
 Future order: Phase 67 Broadcast Companion -> Phase 68 Legacy OSD -> Phase 69 Public API hardening -> Phase 70 Recommendation / Knowledge Graph.
 

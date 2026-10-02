@@ -31,15 +31,13 @@ Current active cross-cutting productization workstream: **Multiuser / Account an
 
 Current Multiuser architecture slice: **MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]**.
 
-Current Multiuser runtime slice: **MU.6 - Human Account lifecycle administration [IN PROGRESS]**.
+Current Multiuser runtime slice: **MU.7 - Backend access / permission grant administration [IN PROGRESS]**.
 
-Latest completed MU.6 sub-slice: **MU.6B - Public Account item + revision/ETag [COMPLETED]**.
+Latest completed MU.6 sub-slice: **MU.6D - Atomic Account CREATE + durable idempotency [COMPLETED - REAL YAVDR PASS / PR #411 MERGED]**.
 
-Current MU.6 sub-slice: **MU.6D - Atomic Account CREATE + durable idempotency [ACCEPTED - REAL YAVDR PASS / PR PENDING]**.
+Current MU.7 sub-slice: **MU.7A - bounded channels.view backend grant administration [IMPLEMENTED CANDIDATE - LOCAL/REAL YAVDR ACCEPTANCE PENDING]**.
 
-Next product slice after MU.6D merge: **MU.7 - Backend access / permission grant administration [NOT STARTED]**.
-
-MU.0-MU.5 are completed and MU.6 is in progress. MU.6A lifecycle authority, MU.6B Public Account item/revision and MU.6C Public-v1 lifecycle mutation are completed; MU.6C passed real yaVDR acceptance and merged as PR #410. MU.6D Atomic Account CREATE + durable idempotency passed local and real yaVDR acceptance; PR is pending. It adds accounts.create@*, request-only yescrypt password handling, durable actor+Idempotency-Key replay and no automatic grants. MU.7 grant administration remains not started. Durable status is in [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md) and [MU.6D Atomic Account CREATE + Durable Idempotency](post-phase69-mu6d-account-create-idempotency.md).
+MU.0-MU.6 are completed. MU.6C passed real yaVDR acceptance and merged as PR #410; MU.6D Atomic Account CREATE + durable idempotency passed local and real yaVDR acceptance and merged as PR #411. MU.6D adds accounts.create@*, request-only yescrypt password handling, durable actor+Idempotency-Key replay and deliberately no automatic grants. MU.7 is in progress. MU.7A is the bounded first runtime candidate: accounts.grants.view@* / accounts.grants.modify@* administer only channels.view@<concrete-backend> through the canonical grant repository, with a dedicated grant-set ETag and desired-state replay semantics. Local and real yaVDR acceptance are pending. Durable status is in [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md), [MU.6D Atomic Account CREATE + Durable Idempotency](post-phase69-mu6d-account-create-idempotency.md) and [MU.7A Bounded Backend Access Grant Administration](post-phase69-mu7a-backend-access-grant-administration.md).
 
 69.D is completed; durable evidence is in
 [Phase 69.D Closeout](phase-69d-closeout.md). PR #363 accepted the backend-scoped

@@ -42,16 +42,13 @@ Current Multiuser architecture slice:
 MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
 
 Current Multiuser runtime slice:
-MU.6 - Human Account lifecycle administration [IN PROGRESS]
+MU.7 - Backend access / permission grant administration [IN PROGRESS]
 
 Latest completed MU.6 sub-slice:
-MU.6B - Public Account item + revision/ETag [COMPLETED]
+MU.6D - Atomic Account CREATE + durable idempotency [COMPLETED - REAL YAVDR PASS / PR #411 MERGED]
 
-Current MU.6 sub-slice:
-MU.6C - Public display-name / activate / deactivate [COMPLETED]
-
-Next MU.6 sub-slice after acceptance:
-MU.6D - Atomic Account CREATE + durable idempotency [ACCEPTED - REAL YAVDR PASS / PR PENDING]
+Current MU.7 sub-slice:
+MU.7A - bounded channels.view backend grant administration [IMPLEMENTED CANDIDATE - LOCAL/REAL YAVDR ACCEPTANCE PENDING]
 
 Completed Phase-67 verticals:
 Teletext + HbbTV discovery/application-session/presentation-media runtime

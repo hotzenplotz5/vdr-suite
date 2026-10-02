@@ -230,7 +230,7 @@ def main():
 
     for marker in (
         "# MU.6D — Atomic Account CREATE + Durable Idempotency",
-        "ACCEPTED — real yaVDR acceptance passed; PR pending",
+        "COMPLETED — real yaVDR acceptance passed; PR #411 merged",
         "POST /api/v1/accounts",
         "accounts.create@*",
         "yescrypt",
@@ -272,12 +272,12 @@ def main():
 
     require(
         "current",
-        "MU.6D - Atomic Account CREATE + durable idempotency [ACCEPTED - REAL YAVDR PASS / PR PENDING]",
+        "MU.6D - Atomic Account CREATE + durable idempotency [COMPLETED - REAL YAVDR PASS / PR #411 MERGED]",
     )
-    require("current_status", "MU.7 - Backend access / permission grant administration [NOT STARTED]")
-    require("workstream", "MU.6D Atomic Account CREATE + durable idempotency       [ACCEPTED - REAL YAVDR PASS / PR PENDING]")
-    require("phase_map", "MU.6C public lifecycle mutation [DONE]")
-    require("phase_map", "MU.7 grant administration [NOT STARTED]")
+    require("current_status", "MU.7 - Backend access / permission grant administration [IN PROGRESS]")
+    require("workstream", "MU.6D Atomic Account CREATE + durable idempotency       [COMPLETED - REAL YAVDR PASS / PR #411 MERGED]")
+    require("phase_map", "MU.7 - Backend access / permission grant administration [IN PROGRESS]")
+    require("phase_map", "MU.7A - bounded channels.view backend grant administration")
     require("development_index", "MU.6D Atomic Account CREATE + Durable Idempotency")
 
     require("make", "test-security-human-account-creation")
@@ -290,9 +290,7 @@ def main():
         )
 
     for name in (
-        "runtime_cpp",
         "service_cpp",
-        "server_cpp",
         "client",
     ):
         for forbidden in (
@@ -303,12 +301,12 @@ def main():
             forbid(name, forbidden)
 
     print("MU.6D Atomic Account CREATE + durable idempotency contracts passed")
-    print("MU6=IN_PROGRESS")
+    print("MU6=DONE")
     print("MU6A=DONE")
     print("MU6B=DONE")
     print("MU6C=DONE")
-    print("MU6D=ACCEPTED_REAL_YAVDR_PASS_PR_PENDING")
-    print("MU7=NOT_STARTED")
+    print("MU6D=COMPLETED_REAL_YAVDR_PASS_PR411_MERGED")
+    print("MU7=IN_PROGRESS")
     return 0
 
 
