@@ -230,7 +230,7 @@ def main():
 
     for marker in (
         "# MU.6D — Atomic Account CREATE + Durable Idempotency",
-        "CANDIDATE — LOCAL ACCEPTANCE PENDING",
+        "ACCEPTED — real yaVDR acceptance passed; PR pending",
         "POST /api/v1/accounts",
         "accounts.create@*",
         "yescrypt",
@@ -255,7 +255,6 @@ def main():
     )
     for name in status_docs:
         require(name, "MU.6D")
-        require(name, "LOCAL ACCEPTANCE")
 
     navigation_docs = status_docs + ("development_index",)
     for name in navigation_docs:
@@ -266,16 +265,18 @@ def main():
             "MU.6C public lifecycle mutation is a CANDIDATE",
             "MU.6D Account CREATE remains not started",
             "MU.6D - Account CREATE [NOT STARTED]",
+            "MU.6D Atomic Account CREATE + durable idempotency is a CANDIDATE with LOCAL ACCEPTANCE pending",
+            "MU.6D Atomic Account CREATE + durable idempotency is a candidate with LOCAL ACCEPTANCE pending",
         ):
             forbid(name, forbidden)
 
     require("current", "MU.6C - Public display-name / activate / deactivate [COMPLETED]")
     require(
         "current",
-        "MU.6D - Atomic Account CREATE + durable idempotency [CANDIDATE - LOCAL ACCEPTANCE PENDING]",
+        "MU.6D - Atomic Account CREATE + durable idempotency [ACCEPTED - REAL YAVDR PASS / PR PENDING]",
     )
     require("current_status", "MU.7 - Backend access / permission grant administration [NOT STARTED]")
-    require("workstream", "MU.6D Atomic Account CREATE + durable idempotency       [CANDIDATE - LOCAL ACCEPTANCE PENDING]")
+    require("workstream", "MU.6D Atomic Account CREATE + durable idempotency       [ACCEPTED - REAL YAVDR PASS / PR PENDING]")
     require("phase_map", "MU.6C public lifecycle mutation [DONE]")
     require("phase_map", "MU.7 grant administration [NOT STARTED]")
     require("development_index", "MU.6D Atomic Account CREATE + Durable Idempotency")
@@ -307,7 +308,7 @@ def main():
     print("MU6A=DONE")
     print("MU6B=DONE")
     print("MU6C=DONE")
-    print("MU6D=CANDIDATE_LOCAL_ACCEPTANCE_PENDING")
+    print("MU6D=ACCEPTED_REAL_YAVDR_PASS_PR_PENDING")
     print("MU7=NOT_STARTED")
     return 0
 
