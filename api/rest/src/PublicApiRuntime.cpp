@@ -4032,10 +4032,19 @@ bool PublicApiRuntime::tryHandlePost(
         }
     }
 
+    if (path == PublicAccountCollectionPath)
+    {
+        response = methodNotAllowedProblem(
+            path,
+            requestId,
+            correlationId,
+            "GET, POST");
+        return true;
+    }
+
     if (path == "/api/v1" ||
         path == "/api/v1/capabilities" ||
         path == PublicBackendCollectionPath ||
-        path == PublicAccountCollectionPath ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         publicOperationPath(path, operationId))
