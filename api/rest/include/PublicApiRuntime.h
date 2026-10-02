@@ -273,6 +273,56 @@ struct PublicAccountCreateResult
     PublicAccountResource account;
 };
 
+enum class PublicAccountGrantStatus
+{
+    ok,
+    invalid,
+    notFound,
+    revisionConflict,
+    finalAdministrator,
+    unavailable,
+};
+
+struct PublicAccountGrantItem
+{
+    std::string permission;
+    std::string backendId;
+};
+
+struct PublicAccountGrantSetResource
+{
+    std::string accountId;
+    std::string actorId;
+    std::vector<PublicAccountGrantItem> grants;
+    std::string resourceRevision;
+};
+
+struct PublicAccountGrantLookupResult
+{
+    PublicAccountGrantStatus status =
+        PublicAccountGrantStatus::unavailable;
+    PublicAccountGrantSetResource grantSet;
+};
+
+struct PublicAccountGrantMutationRequest
+{
+    std::string actorRef;
+    std::string accountId;
+    std::string expectedResourceRevision;
+    std::string permission;
+    std::string backendId;
+    bool active = false;
+    std::string requestId;
+    std::string correlationId;
+};
+
+struct PublicAccountGrantMutationResult
+{
+    PublicAccountGrantStatus status =
+        PublicAccountGrantStatus::unavailable;
+    PublicAccountGrantSetResource grantSet;
+};
+
 enum class PublicTimerCreateAdmissionStatus
 {
     accepted,
@@ -346,6 +396,14 @@ public:
         std::function<PublicAccountCreateResult(
             const PublicAccountCreateRequest& request)>;
 
+    using AccountGrantLookup =
+        std::function<PublicAccountGrantLookupResult(
+            const std::string& accountId)>;
+
+    using AccountGrantMutation =
+        std::function<PublicAccountGrantMutationResult(
+            const PublicAccountGrantMutationRequest& request)>;
+
     using TimerCreateAdmission =
         std::function<PublicTimerCreateAdmissionResult(
             const PublicTimerCreateAdmissionRequest& request)>;
@@ -404,6 +462,16 @@ public:
     void registerAccountCreate(AccountCreate create);
     void resetAccountCreate();
     bool accountCreateConfigured() const;
+
+    void registerAccountGrantLookup(
+        AccountGrantLookup lookup);
+    void resetAccountGrantLookup();
+    bool accountGrantLookupConfigured() const;
+
+    void registerAccountGrantMutation(
+        AccountGrantMutation mutation);
+    void resetAccountGrantMutation();
+    bool accountGrantMutationConfigured() const;
 
     void registerTimerCreateAdmission(TimerCreateAdmission admission);
     void resetTimerCreateAdmission();
@@ -471,6 +539,12 @@ private:
 
     mutable std::mutex accountCreateMutex_;
     AccountCreate accountCreate_;
+
+    mutable std::mutex accountGrantLookupMutex_;
+    AccountGrantLookup accountGrantLookup_;
+
+    mutable std::mutex accountGrantMutationMutex_;
+    AccountGrantMutation accountGrantMutation_;
 
     mutable std::mutex timerCreateAdmissionMutex_;
     TimerCreateAdmission timerCreateAdmission_;
