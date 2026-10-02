@@ -26,6 +26,17 @@
     return normalizeFolderPath(value) === '/' ? '' : normalizeFolderPath(value);
   }
 
+  function composeNewFolderTarget(basePath, folderName) {
+    const rawName = String(folderName || '').trim();
+    const normalizedName = normalizeFolderPath(rawName);
+    if (!rawName || !normalizedName || normalizedName === '/' ||
+        normalizedName.indexOf('/') >= 0) {
+      return '';
+    }
+    const base = targetFolderPath(basePath);
+    return base ? base + '/' + normalizedName : normalizedName;
+  }
+
   function localTitle(recording) {
     const raw = shared.decodeDisplayText(shared.first(
       recording,
@@ -511,8 +522,15 @@
 
     function createMoveEditor(recording) {
       const ui = editor('Verschieben');
+      ui.body.appendChild(shared.node(
+        'p',
+        'recordings2-action-copy',
+        'VDR-Aufnahmeordner werden beim Verschieben angelegt. Du kannst einen bestehenden Ordner wählen oder hier einen neuen Zielordner erstellen.'
+      ));
       const input = textInput(ui.body, 'Zielordner', '');
       input.placeholder = 'z. B. Filme/Archiv';
+      const newFolder = textInput(ui.body, 'Neuer Ordner', '');
+      newFolder.placeholder = 'z. B. Klassiker';
       const browser = document.createElement('div');
       browser.className = 'recordings2-folder-browser';
       browser.hidden = true;
@@ -527,6 +545,21 @@
       });
       const browse = shared.createButton('Ordner auswählen', function () {
         renderFolderBrowser(browser, input, status, '');
+      });
+      const createFolderTarget = shared.createButton('Neuen Ordner als Ziel', function () {
+        const explicitBase = String(input.value || '').trim();
+        const basePath = explicitBase
+          ? targetFolderPath(input.value)
+          : targetFolderPath(state().path);
+        const targetPath = composeNewFolderTarget(basePath, newFolder.value);
+        if (!targetPath) {
+          setStatus(status, 'error', 'Bitte einen einzelnen gültigen Ordnernamen ohne „/“ oder „~“ eingeben.');
+          return;
+        }
+        input.value = targetPath;
+        newFolder.value = '';
+        apply.disabled = true;
+        setStatus(status, '', 'Neuer Zielordner „' + targetPath + '“ vorbereitet – er wird beim Verschieben angelegt. Bitte prüfen.');
       });
       const check = shared.createButton('Prüfen', function () {
         const targetPath = normalizeFolderPath(input.value);
@@ -548,7 +581,10 @@
         apply.disabled = true;
         setStatus(status, '', 'Ziel geändert – bitte erneut prüfen.');
       });
-      buttons.append(root, browse, check, apply);
+      newFolder.addEventListener('input', function () {
+        apply.disabled = true;
+      });
+      buttons.append(root, browse, createFolderTarget, check, apply);
       ui.body.append(status, browser, buttons);
       return ui.details;
     }
@@ -609,6 +645,7 @@
     __test: Object.freeze({
       normalizeFolderPath: normalizeFolderPath,
       targetFolderPath: targetFolderPath,
+      composeNewFolderTarget: composeNewFolderTarget,
       localTitle: localTitle,
       identity: identity,
       candidateMatches: candidateMatches,
