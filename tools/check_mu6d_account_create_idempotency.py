@@ -109,7 +109,9 @@ def main():
         require("service_cpp", marker)
 
     replay_index = TEXT["service_cpp"].find("creationRepository_.find")
-    hash_index = TEXT["service_cpp"].find("hashHumanPassword(")
+    hash_index = TEXT["service_cpp"].find(
+        "std::string passwordHash =\n        hashHumanPassword"
+    )
     if replay_index < 0 or hash_index < 0 or replay_index >= hash_index:
         raise AssertionError(
             "idempotency replay lookup must happen before password hashing"
