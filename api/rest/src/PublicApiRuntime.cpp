@@ -3727,6 +3727,210 @@ bool PublicApiRuntime::tryHandlePost(
     std::string timerAssignmentId;
     std::string accountId;
 
+    if (publicAccountGrantPath(path, accountId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        if (requestTarget != path)
+        {
+            response = invalidRequestProblem(
+                path,
+                "Account Grant mutation does not accept query parameters.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (!applicationJsonContentType(contentType))
+        {
+            response = problemResponse(
+                415,
+                "invalid_request",
+                "Unsupported media type",
+                "Account Grant mutation requires Content-Type application/json.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (body.size() > 4096U)
+        {
+            response = invalidRequestProblem(
+                path,
+                "The Account Grant mutation request body is too large.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        JsonSyntaxValidator validator(body);
+        if (!validator.valid())
+        {
+            response = problemResponse(
+                400,
+                "invalid_request",
+                "Invalid JSON",
+                "The Account Grant mutation request body is not valid JSON.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        std::string permission;
+        std::string backendId;
+        bool active = false;
+        if (!parsePublicAccountGrantMutationBody(
+                body,
+                permission,
+                backendId,
+                active))
+        {
+            response = problemResponse(
+                422,
+                "validation_error",
+                "Validation failed",
+                "Account Grant mutation requires exactly permission, backendId and active.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (ifMatch.empty())
+        {
+            response = problemResponse(
+                428,
+                "precondition_required",
+                "Precondition required",
+                "Account Grant mutation requires one strong If-Match entity tag.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        std::string expectedResourceRevision;
+        if (!vdrsuite::http::publicStrongEntityTagResourceRevision(
+                ifMatch,
+                expectedResourceRevision))
+        {
+            response = invalidRequestProblem(
+                path,
+                "If-Match must contain exactly one canonical strong VDR-Suite entity tag.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (!publicGrantSetRevision(expectedResourceRevision))
+        {
+            response = invalidRequestProblem(
+                path,
+                "If-Match does not identify an Account Grant-set revision.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        AccountGrantMutation mutation;
+        {
+            std::lock_guard<std::mutex> lock(
+                accountGrantMutationMutex_);
+            mutation = accountGrantMutation_;
+        }
+        if (!mutation)
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        PublicAccountGrantMutationRequest mutationRequest;
+        mutationRequest.actorRef = actorRef;
+        mutationRequest.accountId = accountId;
+        mutationRequest.expectedResourceRevision =
+            expectedResourceRevision;
+        mutationRequest.permission = permission;
+        mutationRequest.backendId = backendId;
+        mutationRequest.active = active;
+        mutationRequest.requestId = requestId;
+        mutationRequest.correlationId = correlationId;
+
+        const PublicAccountGrantMutationResult mutated =
+            mutation(mutationRequest);
+
+        switch (mutated.status)
+        {
+            case PublicAccountGrantStatus::ok:
+                if (mutated.grantSet.accountId != accountId ||
+                    mutated.grantSet.actorId.empty() ||
+                    !publicGrantSetRevision(
+                        mutated.grantSet.resourceRevision))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                response = publicAccountGrantSetResponse(
+                    mutated.grantSet,
+                    path,
+                    requestId,
+                    correlationId,
+                    "");
+                return true;
+
+            case PublicAccountGrantStatus::invalid:
+                response = problemResponse(
+                    422,
+                    "validation_error",
+                    "Validation failed",
+                    "The requested Account Grant tuple is not supported.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountGrantStatus::notFound:
+                response = notFoundProblem(
+                    path, requestId, correlationId);
+                return true;
+
+            case PublicAccountGrantStatus::revisionConflict:
+                response = problemResponse(
+                    412,
+                    "revision_conflict",
+                    "Resource revision conflict",
+                    "The Account Grant set changed after it was read.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountGrantStatus::finalAdministrator:
+                response = problemResponse(
+                    409,
+                    "operation_conflict",
+                    "Operation conflict",
+                    "The final usable administrator cannot lose role.admin@*.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountGrantStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
     if (path == PublicAccountCollectionPath)
     {
         if (actorRef.empty())
