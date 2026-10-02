@@ -2,6 +2,7 @@
 
 #include "CurlExternalArtworkHttpTransport.h"
 #include "Database.h"
+#include "GenreIndexRepository.h"
 #include "TmdbRecordingMetadataCandidateProvider.h"
 #include "TmdbRecordingMetadataCredentialResolver.h"
 
@@ -118,6 +119,56 @@ std::string resolveResourceKey(
     }
     sqlite3_finalize(statement);
     return resolved;
+}
+
+struct RecordingGenreIdentity
+{
+    bool found = false;
+    std::string resourceKey;
+    std::string backendNativeId;
+};
+
+RecordingGenreIdentity resolveRecordingGenreIdentity(
+    Database& database,
+    const std::string& backendId,
+    const std::string& suppliedKey)
+{
+    RecordingGenreIdentity identity;
+    if (suppliedKey.empty() ||
+        !database.tableExists("vdr_recording_cache"))
+    {
+        return identity;
+    }
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT cache_key,backend_native_id FROM vdr_recording_cache "
+        "WHERE backend_id=? AND (cache_key=? OR backend_native_id=?) "
+        "ORDER BY CASE WHEN cache_key=? THEN 0 ELSE 1 END LIMIT 1;";
+    if (sqlite3_prepare_v2(
+            database.handle(),
+            sql,
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return identity;
+    }
+
+    const std::string backend = normalizedBackendId(backendId);
+    sqlite3_bind_text(statement, 1, backend.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(statement, 2, suppliedKey.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(statement, 3, suppliedKey.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(statement, 4, suppliedKey.c_str(), -1, SQLITE_TRANSIENT);
+
+    if (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        identity.found = true;
+        identity.resourceKey = columnText(statement, 0);
+        identity.backendNativeId = columnText(statement, 1);
+    }
+    sqlite3_finalize(statement);
+    return identity;
 }
 
 bool localProfilePath(const std::string& path)
@@ -337,6 +388,17 @@ MetadataRepository::manualRepository()
     return *manualMetadataRepository_;
 }
 
+GenreIndexRepository& MetadataRepository::genreRepository()
+{
+    std::lock_guard<std::mutex> lock(genreIndexRepositoryMutex_);
+    if (!genreIndexRepository_)
+    {
+        genreIndexRepository_ =
+            std::make_unique<GenreIndexRepository>(database_);
+    }
+    return *genreIndexRepository_;
+}
+
 bool MetadataRepository::ensureManualPersonProfileSchema()
 {
     std::lock_guard<std::mutex> lock(manualPersonProfileSchemaMutex_);
@@ -514,4 +576,136 @@ MetadataRepository::getManualRecordingMetadataForBackend(
             result[alias.first] = assignment->second;
     }
     return result;
+}
+
+
+std::string MetadataRepository::getManualRecordingGenre(
+    const std::string& backendId,
+    const std::string& resourceKey)
+{
+    const std::string backend = normalizedBackendId(backendId);
+    const RecordingGenreIdentity identity =
+        resolveRecordingGenreIdentity(database_, backend, resourceKey);
+    if (!identity.found || !genreRepository().ensureSchema())
+    {
+        return {};
+    }
+
+    const std::string targetId =
+        GenreIndexRepository::stableTargetId(
+            "recording",
+            backend,
+            identity.resourceKey);
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT genre_id FROM suite_metadata_genre_assignments "
+        "WHERE metadata_target_id=? "
+        "AND provider_id='manual-recording-genre' "
+        "AND source_kind='recording-manual-genre' "
+        "AND assignment_state IN('active','unknown','conflict') "
+        "ORDER BY ordinal LIMIT 1;";
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return {};
+    }
+
+    sqlite3_bind_text(
+        statement,
+        1,
+        targetId.c_str(),
+        -1,
+        SQLITE_TRANSIENT);
+
+    std::string genreId;
+    if (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        genreId = columnText(statement, 0);
+    }
+    sqlite3_finalize(statement);
+    return genreId;
+}
+
+bool MetadataRepository::setManualRecordingGenre(
+    const std::string& backendId,
+    const std::string& resourceKey,
+    const std::string& genreId)
+{
+    if (genreId.empty() || genreId == "unclassified")
+    {
+        return false;
+    }
+
+    const std::string backend = normalizedBackendId(backendId);
+    const RecordingGenreIdentity identity =
+        resolveRecordingGenreIdentity(database_, backend, resourceKey);
+    GenreIndexRepository& repository = genreRepository();
+    if (!identity.found ||
+        !repository.ensureSchema() ||
+        !repository.genreExists(genreId))
+    {
+        return false;
+    }
+
+    GenreEvidenceInput evidence;
+    evidence.backendId = backend;
+    evidence.targetType = "recording";
+    evidence.resourceKey = identity.resourceKey;
+    evidence.nativeId = identity.backendNativeId;
+    evidence.providerId = "manual-recording-genre";
+    evidence.sourceKind = "recording-manual-genre";
+    evidence.originalValues = {genreId};
+    evidence.state = "active";
+    evidence.confidence = 1.0;
+    return repository.replaceEvidence(evidence);
+}
+
+bool MetadataRepository::clearManualRecordingGenre(
+    const std::string& backendId,
+    const std::string& resourceKey)
+{
+    const std::string backend = normalizedBackendId(backendId);
+    const RecordingGenreIdentity identity =
+        resolveRecordingGenreIdentity(database_, backend, resourceKey);
+    if (!identity.found || !genreRepository().ensureSchema())
+    {
+        return false;
+    }
+
+    const std::string targetId =
+        GenreIndexRepository::stableTargetId(
+            "recording",
+            backend,
+            identity.resourceKey);
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "DELETE FROM suite_metadata_genre_assignments "
+        "WHERE metadata_target_id=? "
+        "AND provider_id='manual-recording-genre' "
+        "AND source_kind='recording-manual-genre';";
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return false;
+    }
+
+    sqlite3_bind_text(
+        statement,
+        1,
+        targetId.c_str(),
+        -1,
+        SQLITE_TRANSIENT);
+    const bool ok = sqlite3_step(statement) == SQLITE_DONE;
+    sqlite3_finalize(statement);
+    return ok;
 }
