@@ -21,6 +21,10 @@ FILES = {
     "workstream": ROOT / "docs/development/post-phase69-multiuser-workstream.md",
     "roadmap": ROOT / "docs/planning/roadmap.md",
     "phase_map": ROOT / "docs/planning/phase-map.md",
+    "handoff": ROOT / "docs/NEW-CHAT-HANDOFF.md",
+    "identity_foundation": ROOT / "docs/architecture/security-identity-foundation.md",
+    "gap_matrix": ROOT / "docs/planning/architecture-audit-gap-matrix.md",
+    "dependency_map": ROOT / "docs/planning/implementation-dependency-map.md",
     "candidate": ROOT / "docs/development/post-phase69-mu6c-public-account-lifecycle-mutation.md",
     "make": ROOT / "mk/security-sources.mk",
 }
@@ -158,10 +162,27 @@ def main():
         "workstream",
         "roadmap",
         "phase_map",
+        "handoff",
+        "identity_foundation",
+        "gap_matrix",
+        "dependency_map",
     ):
         require(name, "MU.6C")
         require(name, "LOCAL ACCEPTANCE")
         require(name, "MU.6D")
+
+    for name in (
+        "current",
+        "current_status",
+        "workstream",
+        "roadmap",
+        "phase_map",
+        "handoff",
+        "identity_foundation",
+        "gap_matrix",
+        "dependency_map",
+    ):
+        forbid(name, "MU.6C public lifecycle mutation is next")
 
     for marker in (
         "# MU.6C Public Account Lifecycle Mutation",
