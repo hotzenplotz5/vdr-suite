@@ -1,6 +1,6 @@
 # MU.6C Public Account Lifecycle Mutation
 
-Status: **Candidate — local acceptance pending.**
+Status: **COMPLETED — real yaVDR acceptance passed; PR #410 merged.**
 
 Parent workstream: [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md)
 
@@ -113,7 +113,7 @@ The earlier real yaVDR playback repair that added `role.admin@default` is intent
 
 The first-admin bootstrap deliberately creates global `role.admin@*`. Global administration and concrete backend media access are separate authorities. A backend-scoped grant such as `role.admin@default` is runtime access configuration for that backend; it must not be inferred from the global first-admin role.
 
-## Acceptance candidate
+## Acceptance
 
 Required focused checks:
 
@@ -137,6 +137,8 @@ Acceptance must prove at least:
 - final usable administrator protection;
 - session revocation on deactivation.
 
-Until those checks pass on the supported yaVDR checkout, MU.6C remains a candidate and MU.6D remains not started.
+Acceptance passed on real yaVDR. The production daemon linked successfully and the real HTTP run proved Human Account login, display-name mutation, stale `If-Match` rejection, browser CSRF rejection, missing-`If-Match` rejection, final-usable-administrator protection, state restoration and logout. The supported system had one usable administrator and no safe second Account, so a destructive deactivate/reactivate round-trip was intentionally not run against that sole administrator; the lifecycle and Public-v1 tests cover the state-changing activate/deactivate path.
+
+PR #410 merged MU.6C into `main`. MU.6D Account CREATE is now the active bounded candidate.
 
 Phase 70 remains not started.
