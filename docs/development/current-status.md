@@ -35,9 +35,11 @@ Current Multiuser runtime slice: **MU.6 - Human Account lifecycle administration
 
 Latest completed MU.6 sub-slice: **MU.6B - Public Account item + revision/ETag [COMPLETED]**.
 
-Next MU.6 sub-slice: **MU.6C - Public display-name / activate / deactivate [NEXT - NOT STARTED]**.
+Current MU.6 sub-slice: **MU.6C - Public display-name / activate / deactivate [CANDIDATE - LOCAL ACCEPTANCE PENDING]**.
 
-MU.0-MU.5 are completed and MU.6 is in progress. MU.6A establishes persisted Account revision and the authoritative lifecycle boundary; MU.6B now exposes the secret-free Public-v1 Account item with strong ETag and If-None-Match semantics while leaving the collection unchanged. Public lifecycle mutations and Account CREATE remain bounded to MU.6C/MU.6D. Durable status is in [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md), [MU.5 Administration Architecture Acceptance](post-phase69-mu5-administration-architecture-acceptance.md), [MU.6A Human Account Lifecycle Authority Foundation](post-phase69-mu6-account-lifecycle-foundation.md) and [MU.6B Public Account Item + Revision/ETag](post-phase69-mu6b-public-account-item.md).
+Next MU.6 sub-slice after acceptance: **MU.6D - Account CREATE [NOT STARTED]**.
+
+MU.0-MU.5 are completed and MU.6 is in progress. MU.6A establishes persisted Account revision and the authoritative lifecycle boundary; MU.6B exposes the secret-free Public-v1 Account item with strong ETag and If-None-Match semantics while leaving the collection unchanged. MU.6C now has a Public-v1 display-name/activate/deactivate candidate with global permission scope, browser CSRF and strong If-Match; LOCAL ACCEPTANCE is pending. MU.6D Account CREATE remains not started. Durable status is in [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md), [MU.5 Administration Architecture Acceptance](post-phase69-mu5-administration-architecture-acceptance.md), [MU.6A Human Account Lifecycle Authority Foundation](post-phase69-mu6-account-lifecycle-foundation.md), [MU.6B Public Account Item + Revision/ETag](post-phase69-mu6b-public-account-item.md) and [MU.6C Public Account Lifecycle Mutation](post-phase69-mu6c-public-account-lifecycle-mutation.md).
 
 69.D is completed; durable evidence is in
 [Phase 69.D Closeout](phase-69d-closeout.md). PR #363 accepted the backend-scoped
@@ -182,7 +184,7 @@ The following remain explicit open/deferred boundaries rather than unfinished Ph
 - user-visible growing-Recording seek where unsupported capability remains truthful;
 - Live-TV timeshift;
 - recommendation/content graph runtime (Phase 70), which still requires its dedicated accepted ADR;
-- Multiuser Account/backend access administration with MU.6 in progress, MU.6B Public Account item/revision completed and MU.6C public lifecycle mutation next;
+- Multiuser Account/backend access administration with MU.6 in progress, MU.6B Public Account item/revision completed, MU.6C public lifecycle mutation at CANDIDATE - LOCAL ACCEPTANCE PENDING, and MU.6D Account CREATE not started;
 - broad Timer Product UI, which remains gated on completion of the required Multiuser Account/backend access administration surface.
 
 ## Related documents
@@ -193,6 +195,7 @@ The following remain explicit open/deferred boundaries rather than unfinished Ph
 - [MU.5 Administration Architecture Acceptance](post-phase69-mu5-administration-architecture-acceptance.md)
 - [MU.6A Human Account Lifecycle Authority Foundation](post-phase69-mu6-account-lifecycle-foundation.md)
 - [MU.6B Public Account Item + Revision/ETag](post-phase69-mu6b-public-account-item.md)
+- [MU.6C Public Account Lifecycle Mutation](post-phase69-mu6c-public-account-lifecycle-mutation.md)
 - [P2 Legacy Basic Retirement Closeout](post-phase69-p2-legacy-basic-retirement-closeout.md)
 - [Phase 68.E Viewer-Binding Closeout](phase-68e-viewer-bindings-closeout.md)
 - [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md)
