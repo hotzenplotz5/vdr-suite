@@ -224,6 +224,13 @@ async function main() {
   const test = window.VdrSuiteRecordings2Actions.__test;
   assert.strictEqual(test.normalizeFolderPath(' Filme\\Archiv '), 'Filme/Archiv');
   assert.strictEqual(test.targetFolderPath('/'), '');
+  assert.strictEqual(test.composeNewFolderTarget('Filme', 'Klassiker'), 'Filme/Klassiker');
+  assert.strictEqual(test.composeNewFolderTarget('/', 'Klassiker'), 'Klassiker');
+  assert.strictEqual(test.composeNewFolderTarget('', 'Klassiker'), 'Klassiker');
+  assert.strictEqual(test.composeNewFolderTarget('Filme', 'Sci-Fi/Neu'), '');
+  assert.strictEqual(test.composeNewFolderTarget('Filme', 'Sci-Fi~Neu'), '');
+  assert(actionsSource.includes('Neuen Ordner als Ziel'));
+  assert(actionsSource.includes('werden beim Verschieben angelegt'));
   assert.strictEqual(test.localTitle({title: 'Drama/Tatort'}), 'Tatort');
 
   const recording = {
