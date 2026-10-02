@@ -300,6 +300,113 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             *securityIdentityRepository_,
             *browserSessionCredentialRepository_);
 
+    humanAccountAdministrationRepository_ =
+        std::make_unique<HumanAccountAdministrationRepository>(
+            *securityDatabase_);
+    humanAccountAdministrationService_ =
+        std::make_unique<HumanAccountAdministrationService>(
+            *securityDatabase_,
+            *humanAccountRepository_,
+            *humanAccountAdministrationRepository_,
+            *securityIdentityRepository_,
+            *browserSessionLifecycleService_,
+            *accountabilityEventRepository_);
+
+    PublicApiRuntime::instance().registerAccountMutation(
+        [this](const PublicAccountMutationRequest& request)
+        {
+            PublicAccountMutationResult result;
+            if (!humanAccountAdministrationService_ ||
+                !securityIdentityRepository_)
+            {
+                return result;
+            }
+
+            const std::optional<StoredActorIdentity> actor =
+                securityIdentityRepository_->findActor(
+                    request.actorRef);
+            if (!actor.has_value() ||
+                !actor->active ||
+                actor->revoked)
+            {
+                return result;
+            }
+
+            HumanAccountAdministrationContext context;
+            context.actorId = request.actorRef;
+            context.actorType = actor->type;
+            context.requestId = request.requestId;
+            context.correlationId =
+                request.correlationId;
+
+            const HumanAccountAdministrationResult mutated =
+                request.kind ==
+                    PublicAccountMutationKind::displayName
+                ? humanAccountAdministrationService_->
+                    modifyDisplayName(
+                        context,
+                        request.accountId,
+                        request.expectedRevision,
+                        request.displayName)
+                : humanAccountAdministrationService_->
+                    setActive(
+                        context,
+                        request.accountId,
+                        request.expectedRevision,
+                        request.active);
+
+            switch (mutated.status)
+            {
+                case HumanAccountAdministrationStatus::success:
+                    result.status =
+                        PublicAccountMutationStatus::ok;
+                    result.account.accountId =
+                        mutated.account.accountId;
+                    result.account.actorId =
+                        mutated.account.actorId;
+                    result.account.displayName =
+                        mutated.account.displayName;
+                    result.account.active =
+                        mutated.account.active;
+                    result.account.resourceRevision =
+                        "account:" +
+                        std::to_string(
+                            mutated.account.revision);
+                    result.revokedBrowserSessions =
+                        mutated.revokedBrowserSessions;
+                    return result;
+
+                case HumanAccountAdministrationStatus::invalidRequest:
+                    result.status =
+                        PublicAccountMutationStatus::invalid;
+                    return result;
+
+                case HumanAccountAdministrationStatus::accountNotFound:
+                    result.status =
+                        PublicAccountMutationStatus::notFound;
+                    return result;
+
+                case HumanAccountAdministrationStatus::revisionConflict:
+                    result.status =
+                        PublicAccountMutationStatus::revisionConflict;
+                    return result;
+
+                case HumanAccountAdministrationStatus::finalAdministrator:
+                    result.status =
+                        PublicAccountMutationStatus::finalAdministrator;
+                    return result;
+
+                case HumanAccountAdministrationStatus::accountActorInvalid:
+                case HumanAccountAdministrationStatus::entropyUnavailable:
+                case HumanAccountAdministrationStatus::storageError:
+                    result.status =
+                        PublicAccountMutationStatus::unavailable;
+                    return result;
+            }
+
+            return result;
+        });
+
     browserSessionHttpService_ =
         std::make_unique<BrowserSessionHttpService>(
             *browserSessionIssuanceService_,
@@ -328,6 +435,11 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             managedBasicAuthenticator_.get(),
             browserSessionAuthenticator_.get());
     securityReady_ = true;
+}
+
+TestHttpServer::~TestHttpServer()
+{
+    PublicApiRuntime::instance().resetAccountMutation();
 }
 
 HttpServerResponse TestHttpServer::finalizeResponse(
