@@ -58,6 +58,7 @@ test-security-architecture:
 	python3 tools/check_mu6_account_lifecycle_foundation.py
 	python3 tools/check_mu6b_public_account_item.py
 	python3 tools/check_mu6c_public_account_lifecycle_mutation.py
+	python3 tools/check_mu6d_account_create_idempotency.py
 	python3 tools/check_browser_session_issuance_architecture.py
 	python3 tools/check_browser_session_issuer_binding.py
 	python3 tools/check_browser_session_concurrency_limit.py
@@ -252,10 +253,13 @@ test-security-public-account-collection:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_public_account_collection_security
 	$(BUILD_DIR)/test_public_account_collection_security
+	$(MAKE) test-security-human-account-creation
 	node clients/reference-js/tests/test_public_v1_account_client.js
+	node clients/reference-js/tests/test_public_v1_account_create_client.js
 	python3 tools/check_p2_public_account_collection.py
 	python3 tools/check_mu6b_public_account_item.py
 	python3 tools/check_mu6c_public_account_lifecycle_mutation.py
+	python3 tools/check_mu6d_account_create_idempotency.py
 
 
 test-security-managed-basic-authenticator:
