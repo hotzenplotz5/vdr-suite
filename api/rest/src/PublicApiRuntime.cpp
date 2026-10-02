@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <cctype>
 #include <cstddef>
+#include <cstdint>
+#include <limits>
 #include <string>
 #include <utility>
 #include <vector>
@@ -1151,6 +1153,217 @@ private:
     std::size_t position_ = 0;
 };
 
+void skipAccountMutationWhitespace(
+    const std::string& input,
+    std::size_t& position)
+{
+    while (position < input.size() &&
+           std::isspace(
+               static_cast<unsigned char>(input[position])))
+    {
+        ++position;
+    }
+}
+
+bool parseAccountMutationJsonString(
+    const std::string& input,
+    std::size_t& position,
+    std::string& value)
+{
+    if (position >= input.size() ||
+        input[position] != '"')
+    {
+        return false;
+    }
+    ++position;
+    value.clear();
+
+    while (position < input.size())
+    {
+        const unsigned char character =
+            static_cast<unsigned char>(input[position++]);
+        if (character == '"')
+        {
+            return true;
+        }
+        if (character < 0x20U)
+        {
+            return false;
+        }
+        if (character != '\\')
+        {
+            value.push_back(
+                static_cast<char>(character));
+            continue;
+        }
+
+        if (position >= input.size())
+        {
+            return false;
+        }
+
+        switch (input[position++])
+        {
+            case '"': value.push_back('"'); break;
+            case '\\': value.push_back('\\'); break;
+            case '/': value.push_back('/'); break;
+            case 'b': value.push_back('\b'); break;
+            case 'f': value.push_back('\f'); break;
+            case 'n': value.push_back('\n'); break;
+            case 'r': value.push_back('\r'); break;
+            case 't': value.push_back('\t'); break;
+            default: return false;
+        }
+    }
+
+    return false;
+}
+
+bool consumeAccountMutationLiteral(
+    const std::string& input,
+    std::size_t& position,
+    const char* literal)
+{
+    const std::string value(literal);
+    if (input.compare(
+            position,
+            value.size(),
+            value) != 0)
+    {
+        return false;
+    }
+
+    position += value.size();
+    return true;
+}
+
+bool parsePublicAccountMutationBody(
+    const std::string& input,
+    PublicAccountMutationKind& kind,
+    std::string& displayName,
+    bool& active)
+{
+    std::size_t position = 0U;
+    skipAccountMutationWhitespace(input, position);
+    if (position >= input.size() ||
+        input[position++] != '{')
+    {
+        return false;
+    }
+
+    skipAccountMutationWhitespace(input, position);
+    std::string key;
+    if (!parseAccountMutationJsonString(
+            input,
+            position,
+            key))
+    {
+        return false;
+    }
+
+    skipAccountMutationWhitespace(input, position);
+    if (position >= input.size() ||
+        input[position++] != ':')
+    {
+        return false;
+    }
+    skipAccountMutationWhitespace(input, position);
+
+    if (key == "displayName")
+    {
+        if (!parseAccountMutationJsonString(
+                input,
+                position,
+                displayName))
+        {
+            return false;
+        }
+        kind = PublicAccountMutationKind::displayName;
+    }
+    else if (key == "active")
+    {
+        if (consumeAccountMutationLiteral(
+                input,
+                position,
+                "true"))
+        {
+            active = true;
+        }
+        else if (consumeAccountMutationLiteral(
+                     input,
+                     position,
+                     "false"))
+        {
+            active = false;
+        }
+        else
+        {
+            return false;
+        }
+        kind = PublicAccountMutationKind::active;
+    }
+    else
+    {
+        return false;
+    }
+
+    skipAccountMutationWhitespace(input, position);
+    if (position >= input.size() ||
+        input[position++] != '}')
+    {
+        return false;
+    }
+    skipAccountMutationWhitespace(input, position);
+    return position == input.size();
+}
+
+bool publicAccountRevision(
+    const std::string& resourceRevision,
+    std::uint64_t& revision)
+{
+    static const std::string Prefix = "account:";
+    if (resourceRevision.compare(
+            0U,
+            Prefix.size(),
+            Prefix) != 0 ||
+        resourceRevision.size() <= Prefix.size())
+    {
+        return false;
+    }
+
+    std::uint64_t parsed = 0U;
+    for (std::size_t index = Prefix.size();
+         index < resourceRevision.size();
+         ++index)
+    {
+        const unsigned char character =
+            static_cast<unsigned char>(
+                resourceRevision[index]);
+        if (character < '0' || character > '9')
+        {
+            return false;
+        }
+        const std::uint64_t digit =
+            static_cast<std::uint64_t>(
+                character - '0');
+        if (parsed >
+            (std::numeric_limits<std::uint64_t>::max() -
+             digit) / 10U)
+        {
+            return false;
+        }
+        parsed = parsed * 10U + digit;
+    }
+
+    if (parsed == 0U)
+    {
+        return false;
+    }
+
+    revision = parsed;
+    return true;
+}
+
 bool emptyJsonObject(const std::string& input)
 {
     std::size_t position = 0;
@@ -1412,6 +1625,7 @@ ApiResponse platformCapabilities(
     const bool timerCreateAdmissionAvailable,
     const bool backendCollectionAvailable,
     const bool accountCollectionAvailable,
+    const bool accountMutationAvailable,
     const std::string& requestId,
     const std::string& correlationId)
 {
@@ -1432,6 +1646,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.accounts-read\",\"version\":1,\"availability\":\"" +
         std::string(accountCollectionAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.accounts-lifecycle-mutation\",\"version\":1,\"availability\":\"" +
+        std::string(accountMutationAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.compatibility-policy\",\"version\":1,\"availability\":\"available\"},"
         "{\"id\":\"public-api.deprecation-metadata\",\"version\":1,\"availability\":\"available\"}"
@@ -2154,6 +2371,28 @@ PublicApiRuntime::lookupAccount(
     return lookup(accountId);
 }
 
+void PublicApiRuntime::registerAccountMutation(
+    AccountMutation mutation)
+{
+    std::lock_guard<std::mutex> lock(
+        accountMutationMutex_);
+    accountMutation_ = std::move(mutation);
+}
+
+void PublicApiRuntime::resetAccountMutation()
+{
+    std::lock_guard<std::mutex> lock(
+        accountMutationMutex_);
+    accountMutation_ = {};
+}
+
+bool PublicApiRuntime::accountMutationConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        accountMutationMutex_);
+    return static_cast<bool>(accountMutation_);
+}
+
 void PublicApiRuntime::registerChannelCollectionLookup(
     ChannelCollectionLookup lookup)
 {
@@ -2260,6 +2499,7 @@ bool PublicApiRuntime::tryHandleGet(
             timerCreateAdmissionConfigured(),
             backendCollectionLookupConfigured(),
             accountCollectionLookupConfigured(),
+            accountMutationConfigured(),
             requestId,
             correlationId);
         return true;
@@ -3007,6 +3247,218 @@ bool PublicApiRuntime::tryHandlePost(
     std::string timerAssignmentId;
     std::string accountId;
 
+    if (publicAccountPath(
+            path,
+            accountId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (!applicationJsonContentType(contentType))
+        {
+            response = problemResponse(
+                415,
+                "invalid_request",
+                "Unsupported media type",
+                "Account mutation requires Content-Type application/json.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (body.size() > 4096U)
+        {
+            response = invalidRequestProblem(
+                path,
+                "The Account mutation request body is too large.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        JsonSyntaxValidator validator(body);
+        if (!validator.valid())
+        {
+            response = problemResponse(
+                400,
+                "invalid_request",
+                "Invalid JSON",
+                "The Account mutation request body is not valid JSON.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        PublicAccountMutationKind mutationKind =
+            PublicAccountMutationKind::displayName;
+        std::string displayName;
+        bool active = false;
+        if (!parsePublicAccountMutationBody(
+                body,
+                mutationKind,
+                displayName,
+                active))
+        {
+            response = problemResponse(
+                422,
+                "validation_error",
+                "Validation failed",
+                "Account mutation accepts exactly one field: displayName or active.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (ifMatch.empty())
+        {
+            response = problemResponse(
+                428,
+                "precondition_required",
+                "Precondition required",
+                "Account mutation requires one strong If-Match entity tag.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        std::string expectedResourceRevision;
+        if (!vdrsuite::http::publicStrongEntityTagResourceRevision(
+                ifMatch,
+                expectedResourceRevision))
+        {
+            response = invalidRequestProblem(
+                path,
+                "If-Match must contain exactly one canonical strong VDR-Suite entity tag.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        std::uint64_t expectedRevision = 0U;
+        if (!publicAccountRevision(
+                expectedResourceRevision,
+                expectedRevision))
+        {
+            response = invalidRequestProblem(
+                path,
+                "If-Match does not identify an Account revision.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        AccountMutation mutation;
+        {
+            std::lock_guard<std::mutex> lock(
+                accountMutationMutex_);
+            mutation = accountMutation_;
+        }
+
+        if (!mutation)
+        {
+            response = serviceUnavailableProblem(
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        PublicAccountMutationRequest mutationRequest;
+        mutationRequest.actorRef = actorRef;
+        mutationRequest.accountId = accountId;
+        mutationRequest.expectedRevision = expectedRevision;
+        mutationRequest.kind = mutationKind;
+        mutationRequest.displayName = displayName;
+        mutationRequest.active = active;
+        mutationRequest.requestId = requestId;
+        mutationRequest.correlationId = correlationId;
+
+        const PublicAccountMutationResult mutated =
+            mutation(mutationRequest);
+
+        switch (mutated.status)
+        {
+            case PublicAccountMutationStatus::ok:
+                if (mutated.account.accountId != accountId ||
+                    mutated.account.actorId.empty() ||
+                    mutated.account.displayName.empty() ||
+                    mutated.account.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path,
+                        requestId,
+                        correlationId);
+                }
+                else
+                {
+                    response = publicAccountResponse(
+                        mutated.account,
+                        path,
+                        requestId,
+                        correlationId,
+                        "");
+                }
+                return true;
+
+            case PublicAccountMutationStatus::invalid:
+                response = problemResponse(
+                    422,
+                    "validation_error",
+                    "Validation failed",
+                    "The Account mutation is not valid.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountMutationStatus::notFound:
+                response = notFoundProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountMutationStatus::revisionConflict:
+                response = problemResponse(
+                    412,
+                    "revision_conflict",
+                    "Resource revision conflict",
+                    "The Account changed after it was read.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountMutationStatus::finalAdministrator:
+                response = problemResponse(
+                    409,
+                    "operation_conflict",
+                    "Operation conflict",
+                    "The final usable administrator cannot be deactivated.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountMutationStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+        }
+    }
+
     if (publicTimerAssignmentPath(
             path,
             timerAssignmentId))
@@ -3285,7 +3737,6 @@ bool PublicApiRuntime::tryHandlePost(
         path == "/api/v1/capabilities" ||
         path == PublicBackendCollectionPath ||
         path == PublicAccountCollectionPath ||
-        publicAccountPath(path, accountId) ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         publicOperationPath(path, operationId))
@@ -3330,11 +3781,20 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
         return true;
     }
 
+    if (publicAccountPath(path, accountId))
+    {
+        response = methodNotAllowedProblem(
+            path,
+            requestId,
+            correlationId,
+            "GET, POST");
+        return true;
+    }
+
     if (path == "/api/v1" ||
         path == "/api/v1/capabilities" ||
         path == PublicBackendCollectionPath ||
         path == PublicAccountCollectionPath ||
-        publicAccountPath(path, accountId) ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         publicOperationPath(path, operationId))
