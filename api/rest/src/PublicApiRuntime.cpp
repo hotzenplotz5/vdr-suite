@@ -1317,6 +1317,95 @@ bool parsePublicAccountMutationBody(
     return position == input.size();
 }
 
+bool parsePublicAccountCreateBody(
+    const std::string& input,
+    std::string& loginName,
+    std::string& displayName,
+    std::string& password)
+{
+    std::size_t position = 0U;
+    bool loginSeen = false;
+    bool displaySeen = false;
+    bool passwordSeen = false;
+
+    skipAccountMutationWhitespace(input, position);
+    if (position >= input.size() || input[position++] != '{')
+    {
+        return false;
+    }
+
+    while (true)
+    {
+        skipAccountMutationWhitespace(input, position);
+        if (position < input.size() && input[position] == '}')
+        {
+            ++position;
+            break;
+        }
+
+        std::string key;
+        if (!parseAccountMutationJsonString(input, position, key))
+        {
+            return false;
+        }
+
+        skipAccountMutationWhitespace(input, position);
+        if (position >= input.size() || input[position++] != ':')
+        {
+            return false;
+        }
+        skipAccountMutationWhitespace(input, position);
+
+        std::string value;
+        if (!parseAccountMutationJsonString(input, position, value))
+        {
+            return false;
+        }
+
+        if (key == "loginName" && !loginSeen)
+        {
+            loginSeen = true;
+            loginName = std::move(value);
+        }
+        else if (key == "displayName" && !displaySeen)
+        {
+            displaySeen = true;
+            displayName = std::move(value);
+        }
+        else if (key == "password" && !passwordSeen)
+        {
+            passwordSeen = true;
+            password = std::move(value);
+        }
+        else
+        {
+            return false;
+        }
+
+        skipAccountMutationWhitespace(input, position);
+        if (position >= input.size())
+        {
+            return false;
+        }
+        if (input[position] == ',')
+        {
+            ++position;
+            continue;
+        }
+        if (input[position] == '}')
+        {
+            ++position;
+            break;
+        }
+        return false;
+    }
+
+    skipAccountMutationWhitespace(input, position);
+    return position == input.size() &&
+        loginSeen && displaySeen && passwordSeen &&
+        !loginName.empty() && !displayName.empty() && !password.empty();
+}
+
 bool publicAccountRevision(
     const std::string& resourceRevision,
     std::uint64_t& revision)
@@ -1626,6 +1715,7 @@ ApiResponse platformCapabilities(
     const bool backendCollectionAvailable,
     const bool accountCollectionAvailable,
     const bool accountMutationAvailable,
+    const bool accountCreateAvailable,
     const std::string& requestId,
     const std::string& correlationId)
 {
@@ -1649,6 +1739,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.accounts-lifecycle-mutation\",\"version\":1,\"availability\":\"" +
         std::string(accountMutationAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.accounts-create\",\"version\":1,\"availability\":\"" +
+        std::string(accountCreateAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.compatibility-policy\",\"version\":1,\"availability\":\"available\"},"
         "{\"id\":\"public-api.deprecation-metadata\",\"version\":1,\"availability\":\"available\"}"
@@ -2393,6 +2486,28 @@ bool PublicApiRuntime::accountMutationConfigured() const
     return static_cast<bool>(accountMutation_);
 }
 
+void PublicApiRuntime::registerAccountCreate(
+    AccountCreate create)
+{
+    std::lock_guard<std::mutex> lock(
+        accountCreateMutex_);
+    accountCreate_ = std::move(create);
+}
+
+void PublicApiRuntime::resetAccountCreate()
+{
+    std::lock_guard<std::mutex> lock(
+        accountCreateMutex_);
+    accountCreate_ = {};
+}
+
+bool PublicApiRuntime::accountCreateConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        accountCreateMutex_);
+    return static_cast<bool>(accountCreate_);
+}
+
 void PublicApiRuntime::registerChannelCollectionLookup(
     ChannelCollectionLookup lookup)
 {
@@ -2500,6 +2615,7 @@ bool PublicApiRuntime::tryHandleGet(
             backendCollectionLookupConfigured(),
             accountCollectionLookupConfigured(),
             accountMutationConfigured(),
+            accountCreateConfigured(),
             requestId,
             correlationId);
         return true;
@@ -3246,6 +3362,189 @@ bool PublicApiRuntime::tryHandlePost(
     std::string operationId;
     std::string timerAssignmentId;
     std::string accountId;
+
+    if (path == PublicAccountCollectionPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        if (requestTarget != path)
+        {
+            response = invalidRequestProblem(
+                path,
+                "Account CREATE does not accept query parameters.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (!applicationJsonContentType(contentType))
+        {
+            response = problemResponse(
+                415,
+                "invalid_request",
+                "Unsupported media type",
+                "Account CREATE requires Content-Type application/json.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (body.size() > 4096U)
+        {
+            response = invalidRequestProblem(
+                path,
+                "The Account CREATE request body is too large.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        JsonSyntaxValidator validator(body);
+        if (!validator.valid())
+        {
+            response = problemResponse(
+                400,
+                "invalid_request",
+                "Invalid JSON",
+                "The Account CREATE request body is not valid JSON.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        std::string loginName;
+        std::string displayName;
+        std::string password;
+        if (!parsePublicAccountCreateBody(
+                body,
+                loginName,
+                displayName,
+                password))
+        {
+            response = problemResponse(
+                422,
+                "validation_error",
+                "Validation failed",
+                "Account CREATE requires exactly loginName, displayName and password string fields.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (!publicIdempotencyKeyValid(idempotencyKey))
+        {
+            response = invalidRequestProblem(
+                path,
+                idempotencyKey.empty()
+                    ? "Idempotency-Key is required for Account CREATE."
+                    : "Idempotency-Key is malformed or too long.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        AccountCreate create;
+        {
+            std::lock_guard<std::mutex> lock(
+                accountCreateMutex_);
+            create = accountCreate_;
+        }
+
+        if (!create)
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        PublicAccountCreateRequest createRequest;
+        createRequest.actorRef = actorRef;
+        createRequest.loginName = std::move(loginName);
+        createRequest.displayName = std::move(displayName);
+        createRequest.password = std::move(password);
+        createRequest.idempotencyKey = idempotencyKey;
+        createRequest.requestId = requestId;
+        createRequest.correlationId = correlationId;
+
+        const PublicAccountCreateResult created =
+            create(createRequest);
+
+        switch (created.status)
+        {
+            case PublicAccountCreateStatus::created:
+            case PublicAccountCreateStatus::replayed:
+            {
+                if (created.account.accountId.empty() ||
+                    created.account.actorId.empty() ||
+                    created.account.displayName.empty() ||
+                    created.account.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+
+                const std::string accountPath =
+                    std::string(PublicAccountPrefix) +
+                    created.account.accountId;
+                response = publicAccountResponse(
+                    created.account,
+                    accountPath,
+                    requestId,
+                    correlationId,
+                    "");
+                response.statusCode = 201;
+                response.headers["Location"] = accountPath;
+                return true;
+            }
+
+            case PublicAccountCreateStatus::invalid:
+                response = problemResponse(
+                    422,
+                    "validation_error",
+                    "Validation failed",
+                    "The Account CREATE submission is not valid.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountCreateStatus::loginConflict:
+                response = problemResponse(
+                    409,
+                    "operation_conflict",
+                    "Operation conflict",
+                    "The requested loginName is already in use.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountCreateStatus::idempotencyConflict:
+                response = problemResponse(
+                    409,
+                    "idempotency_conflict",
+                    "Idempotency conflict",
+                    "Idempotency-Key was already used for different Account CREATE fields.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountCreateStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
 
     if (publicAccountPath(
             path,
