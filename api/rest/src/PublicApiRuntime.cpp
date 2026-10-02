@@ -3476,6 +3476,11 @@ bool PublicApiRuntime::tryHandlePost(
 
         const PublicAccountCreateResult created =
             create(createRequest);
+        std::fill(
+            createRequest.password.begin(),
+            createRequest.password.end(),
+            '\0');
+        createRequest.password.clear();
 
         switch (created.status)
         {
