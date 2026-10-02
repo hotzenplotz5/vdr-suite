@@ -245,6 +245,34 @@ struct PublicAccountMutationResult
     std::size_t revokedBrowserSessions = 0;
 };
 
+enum class PublicAccountCreateStatus
+{
+    created,
+    replayed,
+    invalid,
+    loginConflict,
+    idempotencyConflict,
+    unavailable,
+};
+
+struct PublicAccountCreateRequest
+{
+    std::string actorRef;
+    std::string idempotencyKey;
+    std::string loginName;
+    std::string password;
+    std::string displayName;
+    std::string requestId;
+    std::string correlationId;
+};
+
+struct PublicAccountCreateResult
+{
+    PublicAccountCreateStatus status =
+        PublicAccountCreateStatus::unavailable;
+    PublicAccountResource account;
+};
+
 enum class PublicTimerCreateAdmissionStatus
 {
     accepted,
@@ -314,6 +342,10 @@ public:
         std::function<PublicAccountMutationResult(
             const PublicAccountMutationRequest& request)>;
 
+    using AccountCreate =
+        std::function<PublicAccountCreateResult(
+            const PublicAccountCreateRequest& request)>;
+
     using TimerCreateAdmission =
         std::function<PublicTimerCreateAdmissionResult(
             const PublicTimerCreateAdmissionRequest& request)>;
@@ -368,6 +400,10 @@ public:
     void registerAccountMutation(AccountMutation mutation);
     void resetAccountMutation();
     bool accountMutationConfigured() const;
+
+    void registerAccountCreate(AccountCreate create);
+    void resetAccountCreate();
+    bool accountCreateConfigured() const;
 
     void registerTimerCreateAdmission(TimerCreateAdmission admission);
     void resetTimerCreateAdmission();
@@ -432,6 +468,9 @@ private:
 
     mutable std::mutex accountMutationMutex_;
     AccountMutation accountMutation_;
+
+    mutable std::mutex accountCreateMutex_;
+    AccountCreate accountCreate_;
 
     mutable std::mutex timerCreateAdmissionMutex_;
     TimerCreateAdmission timerCreateAdmission_;
