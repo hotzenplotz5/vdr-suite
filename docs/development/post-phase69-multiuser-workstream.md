@@ -122,8 +122,11 @@ Durable MU.6A evidence:
 Durable MU.6B evidence:
 [MU.6B Public Account Item + Revision/ETag](post-phase69-mu6b-public-account-item.md).
 
-Current MU.6C candidate evidence:
+Completed MU.6C evidence:
 [MU.6C Public Account Lifecycle Mutation](post-phase69-mu6c-public-account-lifecycle-mutation.md).
+
+Current MU.6D candidate evidence:
+[MU.6D Atomic Account CREATE + Durable Idempotency](post-phase69-mu6d-account-create-idempotency.md).
 
 ```text
 MU.6A Account lifecycle authority foundation            [DONE]
@@ -148,11 +151,14 @@ under the existing `accounts.view@*` authority. It exposes the MU.6A revision
 only through a strong opaque ETag, supports `If-None-Match`/304 and leaves the
 existing Account collection unchanged without a collection ETag.
 
-MU.6C now exposes the bounded Public-v1 lifecycle-mutation candidate over the
-MU.6A authority: display-name, activate and deactivate only, with global
-permission scope, browser CSRF and strong If-Match. LOCAL ACCEPTANCE remains
-pending. MU.6D Account CREATE is not started. MU.6C does not expose Account
-CREATE, grants, credentials or sessions.
+MU.6C exposes the bounded Public-v1 lifecycle mutation over the MU.6A
+authority and is completed after real yaVDR acceptance and PR #410 merge.
+
+MU.6D now adds the bounded Atomic Account CREATE candidate: global
+`accounts.create@*`, browser CSRF, a closed loginName/displayName/password
+request, request-only yescrypt password handling and durable
+actor+Idempotency-Key replay. It creates no role or backend grants. LOCAL
+ACCEPTANCE remains pending. MU.7 grant administration is not started.
 
 ### MU.7 — Backend access / permission grant administration [PLANNED]
 
