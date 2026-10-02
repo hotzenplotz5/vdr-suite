@@ -154,7 +154,7 @@ existing Account collection unchanged without a collection ETag.
 MU.6C exposes the bounded Public-v1 lifecycle mutation over the MU.6A
 authority and is completed after real yaVDR acceptance and PR #410 merge.
 
-MU.6D now adds the bounded Atomic Account CREATE candidate: global
+MU.6D adds the bounded Atomic Account CREATE boundary: global
 `accounts.create@*`, browser CSRF, a closed loginName/displayName/password
 request, request-only yescrypt password handling and durable
 actor+Idempotency-Key replay. It creates no role or backend grants. LOCAL
