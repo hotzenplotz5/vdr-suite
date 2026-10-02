@@ -201,6 +201,39 @@ int main()
         assert(folderAction.totalCount == 1);
         assert(folderAction.recordings.front().title == "Action/Folder Fallback");
 
+        GenreEvidenceInput manualGenre;
+        manualGenre.backendId = "a";
+        manualGenre.targetType = "recording";
+        manualGenre.resourceKey = "r1";
+        manualGenre.nativeId = "native1";
+        manualGenre.providerId = "manual-recording-genre";
+        manualGenre.sourceKind = "recording-manual-genre";
+        manualGenre.originalValues = {"Horror"};
+        manualGenre.state = "active";
+        manualGenre.confidence = 1.0;
+        manualGenre.observedAt = 4000;
+        assert(repository.replaceEvidence(manualGenre));
+        assert(repository.synchronizeRecordingCache("a"));
+
+        GenreRecordingPage manualHorror = repository.recordingsByGenre(
+            "a", "horror", 10, 0);
+        assert(manualHorror.totalCount == 1);
+        assert(manualHorror.recordings.front().title == "Space");
+
+        sqlite3_stmt* manualState = nullptr;
+        assert(sqlite3_prepare_v2(
+            database.handle(),
+            "SELECT assignment_state FROM suite_metadata_genre_assignments "
+            "WHERE provider_id='manual-recording-genre' "
+            "AND source_kind='recording-manual-genre' LIMIT 1;",
+            -1,
+            &manualState,
+            nullptr) == SQLITE_OK);
+        assert(sqlite3_step(manualState) == SQLITE_ROW);
+        assert(std::string(reinterpret_cast<const char*>(
+            sqlite3_column_text(manualState, 0))) == "active");
+        sqlite3_finalize(manualState);
+
         GenreRecordingPage recordingSeries = repository.recordingsByGenre(
             "a", "series", 10, 0);
         assert(recordingSeries.totalCount == 1);

@@ -11,6 +11,8 @@ const sourcePath = path.join(
   'recordings2-metadata-assignment.js'
 );
 const source = fs.readFileSync(sourcePath, 'utf8');
+const genreSourcePath = path.join(__dirname, '..', 'recordings2-metadata-genre.js');
+const genreSource = fs.readFileSync(genreSourcePath, 'utf8');
 
 const windowObject = {
   VdrSuiteRecordings2Shared: {
@@ -29,11 +31,16 @@ const context = vm.createContext({
   console: console
 });
 vm.runInContext(source, context, {filename: sourcePath});
+vm.runInContext(genreSource, context, {filename: genreSourcePath});
 
 const runtime = windowObject.VdrSuiteRecordings2MetadataAssignment;
+const genreRuntime = windowObject.VdrSuiteRecordings2MetadataGenre;
 assert(runtime);
 assert.strictEqual(typeof runtime.mount, 'function');
 assert(runtime.__test);
+assert(genreRuntime);
+assert.strictEqual(typeof genreRuntime.mount, 'function');
+assert(genreRuntime.__test);
 
 assert.strictEqual(
   runtime.__test.backendPath('living room', 'search'),
@@ -90,6 +97,17 @@ assert.deepStrictEqual(JSON.parse(JSON.stringify(payload)), {
   expectedRevision: 3
 });
 
+assert.deepStrictEqual(
+  JSON.parse(JSON.stringify(genreRuntime.__test.genrePayload(
+    {backendNativeId: '/video/Sherlock/episode.rec'},
+    'crime'
+  ))),
+  {
+    resourceKey: '/video/Sherlock/episode.rec',
+    genreId: 'crime'
+  }
+);
+
 function hasPostOperation(operation) {
   return new RegExp("post\\(\\s*backendId\\s*,\\s*'" + operation + "'").test(source);
 }
@@ -100,8 +118,15 @@ assert(hasPostOperation('seasons'));
 assert(hasPostOperation('episodes'));
 assert(hasPostOperation('assign'));
 assert(hasPostOperation('withdraw'));
+assert(genreSource.includes('post(backendId, genrePayload'));
+assert(genreSource.includes('function get(backendId, recording)'));
+assert(genreSource.includes('Genre hinzufügen'));
+assert(source.includes('VdrSuiteRecordings2MetadataGenre'));
 assert(!source.includes('api.themoviedb.org'));
 assert(!source.includes('image.tmdb.org'));
 assert(!source.includes('VDR_SUITE_TMDB_READ_ACCESS_TOKEN'));
+assert(!genreSource.includes('api.themoviedb.org'));
+assert(!genreSource.includes('image.tmdb.org'));
+assert(!genreSource.includes('VDR_SUITE_TMDB_READ_ACCESS_TOKEN'));
 
 console.log('recordings2 metadata assignment tests passed');

@@ -96,6 +96,15 @@ public:
         const std::string& backendId,
         const std::string& resourceKey);
 
+    ApiResponse getManualRecordingGenre(
+        const std::string& backendId,
+        const std::string& resourceKey);
+
+    ApiResponse setManualRecordingGenre(
+        const std::string& backendId,
+        const std::string& resourceKey,
+        const std::string& genreId);
+
     ApiResponse assignManualRecordingMetadata(
         ManualRecordingMetadataSelection selection,
         const std::string& actorRef);

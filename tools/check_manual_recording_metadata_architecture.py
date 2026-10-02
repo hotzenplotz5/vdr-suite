@@ -27,6 +27,10 @@ def main() -> int:
     for operation in ("search", "seasons", "episodes", "assign", "withdraw"):
         require(frontend, f"'{operation}'", "Recordings 2 assignment runtime")
     require(frontend, "VdrSuiteBrowserSession", "Recordings 2 assignment runtime")
+    genre_frontend = read("web/frontend/recordings2-metadata-genre.js")
+    require(genre_frontend, "'/recordings/metadata/genre'", "Recordings 2 Genre runtime")
+    require(genre_frontend, "VdrSuiteBrowserSession", "Recordings 2 Genre runtime")
+    require(genre_frontend, "Manuelles Genre entfernen", "Recordings 2 Genre runtime")
     for forbidden in (
         "api.themoviedb.org",
         "image.tmdb.org",
@@ -34,6 +38,7 @@ def main() -> int:
         "tvscraper2.db",
     ):
         forbid(frontend, forbidden, "Recordings 2 assignment runtime")
+        forbid(genre_frontend, forbidden, "Recordings 2 Genre runtime")
 
     detail = read("web/frontend/recordings2-metadata-detail.js")
     require(detail, "VdrSuitePublicUrl", "Recordings 2 metadata detail")
@@ -155,6 +160,11 @@ def main() -> int:
         recordings_make,
         "recordings2-metadata-assignment.js",
         "Recordings 2 install staging",
+    )
+    require(
+        recordings_make,
+        "recordings2-metadata-genre.js",
+        "Recordings 2 Genre install composition",
     )
     runtime_make = read("mk/manual-recording-metadata.mk")
     require(

@@ -42,6 +42,28 @@ int main()
     assert(failedJson.find(R"("recordingId":"recording\"quoted")") != std::string::npos);
     assert(failedJson.find(R"("errors":["recordingId contains \"quote\""])") != std::string::npos);
 
+    RecordingActionExecutionResult multiline;
+    multiline.success = true;
+    multiline.type = RecordingActionType::Move;
+    multiline.backendId = "default";
+    multiline.recordingId = "recording-005";
+    multiline.upstreamResponseBody =
+        "{\n"
+        "  \"status\": \"moved\",\n"
+        "  \"detail\": \"line one\\tline two\"\n"
+        "}\n";
+
+    const std::string multilineJson =
+        serializer.serialize(multiline);
+
+    assert(
+        multilineJson.find(
+            R"("upstreamResponseBody":"{\n  \"status\": \"moved\",\n  \"detail\": \"line one\\tline two\"\n}\n")") !=
+        std::string::npos);
+    assert(multilineJson.find('\n') == std::string::npos);
+    assert(multilineJson.find('\r') == std::string::npos);
+    assert(multilineJson.find('\t') == std::string::npos);
+
     std::cout
         << "test_recording_action_execution_result_json_serializer passed"
         << std::endl;

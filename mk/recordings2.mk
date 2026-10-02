@@ -6,7 +6,14 @@ install-recordings2-runtime:
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend
 	$(INSTALL) -m 0644 web/frontend/recordings2-shared.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-shared.js
 	$(INSTALL) -m 0644 web/frontend/recordings2-folder-artwork.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-folder-artwork.js
-	$(INSTALL) -m 0644 web/frontend/recordings2-actions.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-actions.js
+	cat \
+		web/frontend/recordings2-actions.js \
+		web/frontend/recordings2-move-editor.js \
+		> $(DESTDIR)$(DATADIR)/web/frontend/.recordings2-actions.js.tmp
+	chmod 0644 $(DESTDIR)$(DATADIR)/web/frontend/.recordings2-actions.js.tmp
+	mv -f \
+		$(DESTDIR)$(DATADIR)/web/frontend/.recordings2-actions.js.tmp \
+		$(DESTDIR)$(DATADIR)/web/frontend/recordings2-actions.js
 	$(INSTALL) -m 0644 web/frontend/recordings2-playback.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-playback.js
 	$(INSTALL) -m 0644 web/frontend/recording-playback-restart-choice.js $(DESTDIR)$(DATADIR)/web/frontend/recording-playback-restart-choice.js
 	cat \
@@ -28,7 +35,14 @@ install-recordings2-runtime:
 	$(INSTALL) -m 0644 web/frontend/recordings2-marks-timeline.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-marks-timeline.js
 	$(INSTALL) -m 0644 web/frontend/recordings2-person-search-view.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-person-search-view.js
 	$(INSTALL) -m 0644 web/frontend/recordings2-metadata-view.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-metadata-view.js
-	$(INSTALL) -m 0644 web/frontend/recordings2-metadata-assignment.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-metadata-assignment.js
+	cat \
+		web/frontend/recordings2-metadata-assignment.js \
+		web/frontend/recordings2-metadata-genre.js \
+		> $(DESTDIR)$(DATADIR)/web/frontend/.recordings2-metadata-assignment.js.tmp
+	chmod 0644 $(DESTDIR)$(DATADIR)/web/frontend/.recordings2-metadata-assignment.js.tmp
+	mv -f \
+		$(DESTDIR)$(DATADIR)/web/frontend/.recordings2-metadata-assignment.js.tmp \
+		$(DESTDIR)$(DATADIR)/web/frontend/recordings2-metadata-assignment.js
 	$(INSTALL) -m 0644 web/frontend/recordings2-metadata-detail.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2-metadata-detail.js
 	$(INSTALL) -m 0644 web/frontend/recordings2.js $(DESTDIR)$(DATADIR)/web/frontend/recordings2.js
 
@@ -38,6 +52,7 @@ test-recordings2-runtime:
 	node --check web/frontend/recordings2-shared.js
 	node --check web/frontend/recordings2-folder-artwork.js
 	node --check web/frontend/recordings2-actions.js
+	node --check web/frontend/recordings2-move-editor.js
 	node --check web/frontend/recordings2-playback.js
 	node --check web/frontend/recording-playback-restart-choice.js
 	node --check web/frontend/recordings2-folder-refresh.js
@@ -51,6 +66,7 @@ test-recordings2-runtime:
 	node --check web/frontend/recordings2-person-search-view.js
 	node --check web/frontend/recordings2-metadata-view.js
 	node --check web/frontend/recordings2-metadata-assignment.js
+	node --check web/frontend/recordings2-metadata-genre.js
 	node --check web/frontend/recordings2-metadata-detail.js
 	node --check web/frontend/recordings2.js
 	node --check web/frontend/tests/test_recordings2_auto_refresh.js
@@ -112,12 +128,14 @@ test-recordings2-install-staging: test-install-staging
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-shared.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-folder-artwork.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-actions.js
+	grep -F 'global.VdrSuiteRecordings2MoveEditor = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-actions.js >/dev/null
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-playback.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-playback-restart-choice.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-browser-view.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-person-search-view.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-metadata-view.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-metadata-assignment.js
+	grep -F 'global.VdrSuiteRecordings2MetadataGenre = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-metadata-assignment.js >/dev/null
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2-metadata-detail.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2.js
 

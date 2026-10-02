@@ -1369,7 +1369,8 @@ private:
         if (!validBackend || operation.empty() || operation.find('/') != std::string::npos)
             return false;
         return operation == "search" || operation == "seasons" ||
-            operation == "episodes" || operation == "assign" || operation == "withdraw";
+            operation == "episodes" || operation == "assign" ||
+            operation == "withdraw" || operation == "genre";
     }
 
     static int hexValue(char value)
