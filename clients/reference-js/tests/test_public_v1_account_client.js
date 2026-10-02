@@ -271,6 +271,118 @@ async function run() {
   );
   assert.strictEqual(requests.length, beforeInvalidItem);
 
+  const beforeCreate = requests.length;
+  responseFactory = () => response(
+    201,
+    {
+      accountId: 'account-new',
+      actorId: 'actor-new',
+      displayName: 'New Viewer',
+      active: true,
+      links: {self: '/api/v1/accounts/account-new'}
+    },
+    {
+      ETag: '"vsr-account-new-1"',
+      Location: '/api/v1/accounts/account-new'
+    }
+  );
+
+  const created = await client.createAccount({
+    loginName: 'new-viewer',
+    password: 'test-value-1',
+    displayName: 'New Viewer',
+    idempotencyKey: 'idem-account-create-client-1',
+    headers: {'X-CSRF-Token': 'csrf-create'}
+  });
+
+  assert.strictEqual(created.status, 201);
+  assert.strictEqual(created.location, '/api/v1/accounts/account-new');
+  assert.strictEqual(created.etag, '"vsr-account-new-1"');
+  assert.strictEqual(created.data.accountId, 'account-new');
+  assert.strictEqual(requests[beforeCreate].url, 'https://suite.example/api/v1/accounts');
+  assert.strictEqual(requests[beforeCreate].options.method, 'POST');
+  assert.strictEqual(
+    requests[beforeCreate].options.headers['X-CSRF-Token'],
+    'csrf-create'
+  );
+  assert.strictEqual(
+    requests[beforeCreate].options.headers['Idempotency-Key'],
+    'idem-account-create-client-1'
+  );
+  assert.strictEqual(
+    requests[beforeCreate].options.headers['Content-Type'],
+    'application/json'
+  );
+  assert.deepStrictEqual(
+    JSON.parse(requests[beforeCreate].options.body),
+    {
+      loginName: 'new-viewer',
+      password: 'test-value-1',
+      displayName: 'New Viewer'
+    }
+  );
+
+  const beforeInvalidCreate = requests.length;
+  assert.throws(
+    () => client.createAccount({
+      loginName: '',
+      password: 'test-value-2',
+      displayName: 'Invalid',
+      idempotencyKey: 'idem-invalid'
+    }),
+    /loginName/
+  );
+  assert.throws(
+    () => client.createAccount({
+      loginName: 'valid',
+      password: '',
+      displayName: 'Invalid',
+      idempotencyKey: 'idem-invalid'
+    }),
+    /password/
+  );
+  assert.throws(
+    () => client.createAccount({
+      loginName: 'valid',
+      password: 'test-value-3',
+      displayName: '',
+      idempotencyKey: 'idem-invalid'
+    }),
+    /displayName/
+  );
+  assert.throws(
+    () => client.createAccount({
+      loginName: 'valid',
+      password: 'test-value-4',
+      displayName: 'Valid',
+      idempotencyKey: ''
+    }),
+    /idempotencyKey/
+  );
+  assert.strictEqual(requests.length, beforeInvalidCreate);
+
+  responseFactory = () => response(
+    409,
+    {
+      type: 'about:blank',
+      title: 'Idempotency conflict',
+      status: 409,
+      code: 'idempotency_conflict',
+      detail: 'Idempotency-Key was already used.'
+    }
+  );
+  await assert.rejects(
+    client.createAccount({
+      loginName: 'different-viewer',
+      password: 'test-value-5',
+      displayName: 'Different Viewer',
+      idempotencyKey: 'idem-account-create-client-1'
+    }),
+    error => error instanceof api.PublicClientError
+      && error.status === 409
+      && error.code === 'idempotency_conflict'
+  );
+
   console.log('test_public_v1_account_client passed');
 }
 
