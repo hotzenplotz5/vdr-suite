@@ -270,7 +270,6 @@ def main():
         ):
             forbid(name, forbidden)
 
-    require("current", "MU.6C - Public display-name / activate / deactivate [COMPLETED]")
     require(
         "current",
         "MU.6D - Atomic Account CREATE + durable idempotency [ACCEPTED - REAL YAVDR PASS / PR PENDING]",
