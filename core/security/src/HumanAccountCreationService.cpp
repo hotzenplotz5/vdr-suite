@@ -251,7 +251,7 @@ HumanAccountCreationResult HumanAccountCreationService::create(
         !safeText(request.loginName, 128) ||
         !safeText(request.displayName, 256) ||
         !safeText(request.password, 1024) ||
-        !safeText(request.idempotencyKey, 128) ||
+        !safeText(request.idempotencyKey, 160) ||
         !safeText(request.requestId, 128) ||
         !safeText(request.correlationId, 128, 0))
     {
