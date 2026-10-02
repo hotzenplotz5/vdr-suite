@@ -207,3 +207,4 @@ The generic Human Account / credential / grant administration product surface wa
 - [MU.6A Human Account Lifecycle Authority Foundation](../development/post-phase69-mu6-account-lifecycle-foundation.md)
 - [MU.6B Public Account Item + Revision/ETag](../development/post-phase69-mu6b-public-account-item.md)
 - [MU.6C Public Account Lifecycle Mutation](../development/post-phase69-mu6c-public-account-lifecycle-mutation.md)
+- [MU.6D Atomic Account CREATE + Durable Idempotency](../development/post-phase69-mu6d-account-create-idempotency.md)
