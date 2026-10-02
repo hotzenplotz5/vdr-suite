@@ -90,6 +90,17 @@ assert.deepStrictEqual(JSON.parse(JSON.stringify(payload)), {
   expectedRevision: 3
 });
 
+assert.deepStrictEqual(
+  JSON.parse(JSON.stringify(runtime.__test.genrePayload(
+    {backendNativeId: '/video/Sherlock/episode.rec'},
+    'crime'
+  ))),
+  {
+    resourceKey: '/video/Sherlock/episode.rec',
+    genreId: 'crime'
+  }
+);
+
 function hasPostOperation(operation) {
   return new RegExp("post\\(\\s*backendId\\s*,\\s*'" + operation + "'").test(source);
 }
@@ -100,6 +111,9 @@ assert(hasPostOperation('seasons'));
 assert(hasPostOperation('episodes'));
 assert(hasPostOperation('assign'));
 assert(hasPostOperation('withdraw'));
+assert(hasPostOperation('genre'));
+assert(source.includes("get(backendId, 'genre'"));
+assert(source.includes('Genre hinzufügen'));
 assert(!source.includes('api.themoviedb.org'));
 assert(!source.includes('image.tmdb.org'));
 assert(!source.includes('VDR_SUITE_TMDB_READ_ACCESS_TOKEN'));
