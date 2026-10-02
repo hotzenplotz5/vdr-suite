@@ -1,6 +1,6 @@
 # Recording Folder and Manual Genre Management
 
-Status: **Working branch candidate; not merged and not accepted yet.**
+Status: **Runtime accepted on yaVDR; merge to `main` authorized.**
 
 Branch: `work/recordings-folder-genre-management`
 
@@ -95,7 +95,7 @@ The POST mutation stays behind the existing browser mutation boundary:
 
 No public-v1 contract is added by this slice.
 
-## Focused verification
+## Verification and real-system acceptance
 
 Repository tests cover:
 
@@ -103,14 +103,35 @@ Repository tests cover:
 - Recordings 2 Genre editor request wiring;
 - security recognition of the `genre` mutation;
 - REST set/get/invalid/clear lifecycle;
-- manual Genre survival across Recording-cache synchronization.
+- manual Genre survival across Recording-cache synchronization;
+- Recording action request parsing for titles containing commas/escaped quotes;
+- JSON-safe serialization of multiline upstream Recording action responses.
 
-Real-system acceptance must still verify on yaVDR that:
+Real yaVDR acceptance on 2026-10-02 passed for the complete slice:
 
-1. moving a Recording into a newly named folder creates and displays that
-   folder after readback;
-2. adding a manual Genre is visible after detail refresh and daemon/cache
-   refresh;
-3. removing the manual Genre leaves automatically detected Genres intact.
+- moving `Oskar/Disney, eine Weihnachtsgeschichte` into the newly entered
+  `Oskar/Klassiker` folder created the VDR folder and moved the Recording;
+- after the move, native `LSTT`, RESTfulAPI `/timers.json` and the
+  VDR-Suite Recording-folder endpoint all remained responsive;
+- the manual Genre could be added, survived detail reload and a
+  `vdr-suite-daemon` restart, and could be removed again without deleting
+  automatic Genre evidence.
 
-No merge or PR is implied by this working document.
+During acceptance, the first real move exposed a deadlock in the current
+RESTfulAPI Recording move executor: it held `TIMERS_WRITE` while waiting
+indefinitely for `RECORDINGS_WRITE`. GDB evidence identified
+`RecordingMoveExecutor::executeNormalCase()` waiting in
+`cRecordings::GetRecordingsWrite()` while concurrent timer readers blocked in
+`cTimers::GetTimersRead()`.
+
+The accepted runtime used the separate RESTfulAPI fix
+`hotzenplotz5/vdr-plugin-restfulapi:fix/recording-move-lock-timeout` at
+`eb5b40fc1444b1d2ed12d075d5ee7542d729616c`. That fix preserves VDR's required
+Timers-before-Recordings lock order, bounds both lock acquisitions and releases
+the Timer lock if the Recording lock cannot be acquired. Until that fix is
+available in the deployed RESTfulAPI version, the native Recording move path
+must not be treated as deadlock-safe.
+
+The VDR-Suite product/runtime evidence above remains accepted for documentation-
+only closeout changes; no additional build or runtime retest is required unless
+a directly relevant product input changes.
