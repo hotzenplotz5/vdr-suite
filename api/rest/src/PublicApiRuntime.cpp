@@ -1864,6 +1864,7 @@ ApiResponse platformCapabilities(
     const bool accountCollectionAvailable,
     const bool accountMutationAvailable,
     const bool accountCreateAvailable,
+    const bool accountGrantAdministrationAvailable,
     const std::string& requestId,
     const std::string& correlationId)
 {
@@ -1890,6 +1891,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.accounts-create\",\"version\":1,\"availability\":\"" +
         std::string(accountCreateAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.accounts-grants-administration\",\"version\":1,\"availability\":\"" +
+        std::string(accountGrantAdministrationAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.compatibility-policy\",\"version\":1,\"availability\":\"available\"},"
         "{\"id\":\"public-api.deprecation-metadata\",\"version\":1,\"availability\":\"available\"}"
@@ -2231,6 +2235,80 @@ ApiResponse publicAccountResponse(
         "\",\"active\":" +
         std::string(account.active ? "true" : "false") +
         ",\"links\":{\"self\":\"" + jsonEscape(path) + "\"}}",
+        requestId,
+        correlationId);
+    response.headers["ETag"] = entityTag;
+    return response;
+}
+
+ApiResponse publicAccountGrantSetResponse(
+    const PublicAccountGrantSetResource& grantSet,
+    const std::string& path,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::string& ifNoneMatch)
+{
+    const std::string entityTag =
+        vdrsuite::http::publicStrongEntityTag(
+            grantSet.resourceRevision);
+    if (entityTag.empty())
+    {
+        return serviceUnavailableProblem(
+            path, requestId, correlationId);
+    }
+
+    const vdrsuite::http::PublicEntityTagConditionResult condition =
+        vdrsuite::http::publicEvaluateIfNoneMatch(
+            ifNoneMatch,
+            entityTag);
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::malformed)
+    {
+        return invalidRequestProblem(
+            path,
+            "If-None-Match is not a valid entity-tag condition.",
+            requestId,
+            correlationId);
+    }
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::matched)
+    {
+        ApiResponse response;
+        response.statusCode = 304;
+        response.contentType = "application/json; charset=utf-8";
+        addPublicSuccessHeaders(
+            response, requestId, correlationId);
+        response.headers["ETag"] = entityTag;
+        return response;
+    }
+
+    std::string body =
+        "{\"accountId\":\"" +
+        jsonEscape(grantSet.accountId) +
+        "\",\"actorId\":\"" +
+        jsonEscape(grantSet.actorId) +
+        "\",\"items\":[";
+    for (std::size_t index = 0U;
+         index < grantSet.grants.size();
+         ++index)
+    {
+        if (index > 0U) body += ",";
+        const PublicAccountGrantItem& grant =
+            grantSet.grants[index];
+        body +=
+            "{\"permission\":\"" +
+            jsonEscape(grant.permission) +
+            "\",\"backendId\":\"" +
+            jsonEscape(grant.backendId) +
+            "\"}";
+    }
+    body +=
+        "],\"links\":{\"self\":\"" +
+        jsonEscape(path) +
+        "\"}}";
+
+    ApiResponse response = jsonResponse(
+        body,
         requestId,
         correlationId);
     response.headers["ETag"] = entityTag;
@@ -2656,6 +2734,50 @@ bool PublicApiRuntime::accountCreateConfigured() const
     return static_cast<bool>(accountCreate_);
 }
 
+void PublicApiRuntime::registerAccountGrantLookup(
+    AccountGrantLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(
+        accountGrantLookupMutex_);
+    accountGrantLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetAccountGrantLookup()
+{
+    std::lock_guard<std::mutex> lock(
+        accountGrantLookupMutex_);
+    accountGrantLookup_ = {};
+}
+
+bool PublicApiRuntime::accountGrantLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        accountGrantLookupMutex_);
+    return static_cast<bool>(accountGrantLookup_);
+}
+
+void PublicApiRuntime::registerAccountGrantMutation(
+    AccountGrantMutation mutation)
+{
+    std::lock_guard<std::mutex> lock(
+        accountGrantMutationMutex_);
+    accountGrantMutation_ = std::move(mutation);
+}
+
+void PublicApiRuntime::resetAccountGrantMutation()
+{
+    std::lock_guard<std::mutex> lock(
+        accountGrantMutationMutex_);
+    accountGrantMutation_ = {};
+}
+
+bool PublicApiRuntime::accountGrantMutationConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        accountGrantMutationMutex_);
+    return static_cast<bool>(accountGrantMutation_);
+}
+
 void PublicApiRuntime::registerChannelCollectionLookup(
     ChannelCollectionLookup lookup)
 {
@@ -2764,6 +2886,8 @@ bool PublicApiRuntime::tryHandleGet(
             accountCollectionLookupConfigured(),
             accountMutationConfigured(),
             accountCreateConfigured(),
+            accountGrantLookupConfigured() &&
+                accountGrantMutationConfigured(),
             requestId,
             correlationId);
         return true;
