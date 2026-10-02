@@ -25,6 +25,8 @@ FILES = {
     "identity_foundation": ROOT / "docs/architecture/security-identity-foundation.md",
     "gap_matrix": ROOT / "docs/planning/architecture-audit-gap-matrix.md",
     "dependency_map": ROOT / "docs/planning/implementation-dependency-map.md",
+    "root_roadmap": ROOT / "ROADMAP.md",
+    "planning_index": ROOT / "docs/planning/index.md",
     "candidate": ROOT / "docs/development/post-phase69-mu6c-public-account-lifecycle-mutation.md",
     "make": ROOT / "mk/security-sources.mk",
 }
@@ -166,6 +168,8 @@ def main():
         "identity_foundation",
         "gap_matrix",
         "dependency_map",
+        "root_roadmap",
+        "planning_index",
     ):
         require(name, "MU.6C")
         require(name, "LOCAL ACCEPTANCE")
@@ -181,6 +185,8 @@ def main():
         "identity_foundation",
         "gap_matrix",
         "dependency_map",
+        "root_roadmap",
+        "planning_index",
     ):
         forbid(name, "MU.6C public lifecycle mutation is next")
 
