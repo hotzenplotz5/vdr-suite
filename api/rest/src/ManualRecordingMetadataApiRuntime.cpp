@@ -56,6 +56,7 @@ bool parseRoute(const std::string& target, Route& route)
         return false;
     return route.operation == "manual" ||
         route.operation == "trailer" ||
+        route.operation == "genre" ||
         route.operation == "search" ||
         route.operation == "seasons" ||
         route.operation == "episodes" ||
@@ -375,7 +376,9 @@ bool ManualRecordingMetadataApiRuntime::tryHandleGet(
 {
     Route route;
     if (!parseRoute(requestTarget, route) ||
-        (route.operation != "manual" && route.operation != "trailer"))
+        (route.operation != "manual" &&
+         route.operation != "trailer" &&
+         route.operation != "genre"))
         return false;
 
     MetadataController* metadata = controller();
@@ -398,6 +401,22 @@ bool ManualRecordingMetadataApiRuntime::tryHandleGet(
     }
 
     const std::string resourceKey = queryValue(requestTarget, "resourceKey");
+    if (route.operation == "genre")
+    {
+        if (resourceKey.empty())
+        {
+            response = errorResponse(
+                400,
+                "invalid_recording_resource_key",
+                "A recording resource key is required");
+            return true;
+        }
+        response = metadata->getManualRecordingGenre(
+            route.backendId,
+            resourceKey);
+        return true;
+    }
+
     if (resourceKey.empty())
     {
         response = errorResponse(
@@ -456,6 +475,19 @@ bool ManualRecordingMetadataApiRuntime::tryHandlePost(
     }
 
     const int limit = intValue(integers, "limit", 10);
+    if (route.operation == "genre")
+    {
+        response = metadata->setManualRecordingGenre(
+            route.backendId,
+            stringValue(strings, "resourceKey"),
+            stringValue(strings, "genreId"));
+        if (response.statusCode >= 200 && response.statusCode < 300)
+        {
+            notifyRecordingPresentationChanged(route.backendId);
+        }
+        return true;
+    }
+
     if (route.operation == "search")
     {
         RecordingMetadataCandidateKind kind;
