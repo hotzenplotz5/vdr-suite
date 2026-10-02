@@ -471,6 +471,58 @@
     }
 
 
+    function requestAccountCreate(options) {
+      const requestOptions = options && typeof options === 'object' ? options : {};
+      if (typeof requestOptions.idempotencyKey !== 'string'
+          || requestOptions.idempotencyKey === '') {
+        throw new Error('idempotencyKey must be a non-empty caller-owned key');
+      }
+
+      const headers = Object.assign(
+        {Accept: 'application/json'},
+        defaultHeaders,
+        copyHeaders(requestOptions.headers)
+      );
+      headers['Content-Type'] = 'application/json';
+      headers['Idempotency-Key'] = requestOptions.idempotencyKey;
+
+      const payload = {
+        loginName: requestOptions.loginName,
+        password: requestOptions.password,
+        displayName: requestOptions.displayName
+      };
+
+      return fetchImpl(buildUrl(baseUrl, '/api/v1/accounts'), {
+        method: 'POST',
+        headers: headers,
+        credentials: requestOptions.credentials !== undefined
+          ? requestOptions.credentials
+          : normalized.credentials,
+        signal: requestOptions.signal,
+        body: JSON.stringify(payload)
+      }).then(function (response) {
+        const entityTag = headerValue(response, 'ETag');
+        const location = headerValue(response, 'Location');
+        return parseJsonBody(response).then(function (responsePayload) {
+          if (!response.ok) {
+            throw new VdrSuitePublicClientError(
+              '/api/v1/accounts',
+              response.status,
+              responsePayload,
+              response
+            );
+          }
+          return {
+            status: response.status,
+            location: location,
+            etag: entityTag,
+            data: responsePayload
+          };
+        });
+      });
+    }
+
+
     function requestTimerCreate(path, options) {
       const requestOptions = options && typeof options === 'object' ? options : {};
       if (typeof requestOptions.ifMatch !== 'string' || requestOptions.ifMatch === '') {
@@ -536,6 +588,22 @@
           accountItemPath(normalizedOptions),
           normalizedOptions
         );
+      },
+      createAccount(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        if (typeof normalizedOptions.loginName !== 'string'
+            || normalizedOptions.loginName === '') {
+          throw new Error('loginName must be a non-empty string');
+        }
+        if (typeof normalizedOptions.password !== 'string'
+            || normalizedOptions.password === '') {
+          throw new Error('password must be a non-empty string');
+        }
+        if (typeof normalizedOptions.displayName !== 'string'
+            || normalizedOptions.displayName === '') {
+          throw new Error('displayName must be a non-empty string');
+        }
+        return requestAccountCreate(normalizedOptions);
       },
       updateAccountDisplayName(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
