@@ -230,7 +230,7 @@ def main():
 
     for marker in (
         "# MU.6D — Atomic Account CREATE + Durable Idempotency",
-        "ACCEPTED — real yaVDR acceptance passed; PR pending",
+        "COMPLETED — real yaVDR acceptance passed; PR #411 merged",
         "POST /api/v1/accounts",
         "accounts.create@*",
         "yescrypt",
@@ -270,14 +270,9 @@ def main():
         ):
             forbid(name, forbidden)
 
-    require(
-        "current",
-        "MU.6D - Atomic Account CREATE + durable idempotency [ACCEPTED - REAL YAVDR PASS / PR PENDING]",
-    )
-    require("current_status", "MU.7 - Backend access / permission grant administration [NOT STARTED]")
-    require("workstream", "MU.6D Atomic Account CREATE + durable idempotency       [ACCEPTED - REAL YAVDR PASS / PR PENDING]")
-    require("phase_map", "MU.6C public lifecycle mutation [DONE]")
-    require("phase_map", "MU.7 grant administration [NOT STARTED]")
+    require("candidate", "PR #411 merged")
+    require("workstream", "MU.6D")
+    require("phase_map", "MU.6D")
     require("development_index", "MU.6D Atomic Account CREATE + Durable Idempotency")
 
     require("make", "test-security-human-account-creation")
