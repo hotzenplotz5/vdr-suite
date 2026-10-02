@@ -1,6 +1,6 @@
 # MU.6D — Atomic Account CREATE + Durable Idempotency
 
-Status: **CANDIDATE — LOCAL ACCEPTANCE PENDING**
+Status: **ACCEPTED — real yaVDR acceptance passed; PR pending.**
 
 MU.6D adds the bounded Human Account creation surface defined by ADR-0067.
 It does not add backend grants, role assignment, credential administration,
@@ -123,7 +123,21 @@ MU.6D does **not** implement:
 
 ## Acceptance state
 
-Repository implementation is present on
-`work/mu6d-account-create-idempotency`, but this document remains
-**CANDIDATE — LOCAL ACCEPTANCE PENDING** until focused security/API/client tests
-and the productive daemon link pass on yaVDR.
+Local acceptance and real yaVDR HTTP acceptance passed on the supported system.
+
+The accepted runtime evidence proved:
+
+- Public-v1 Account CREATE returned `201 Created`, `Location` and strong Account ETag;
+- the response remained secret-free;
+- exact Idempotency-Key replay returned the original Account without creating a second Account;
+- a different retry password did not replace or reprocess the original credential;
+- changing non-secret request fields under the same Idempotency-Key returned `409 idempotency_conflict`;
+- CREATE assigned no role or backend permission grants;
+- the newly created Human Account could authenticate with its original password;
+- `GET /api/v1/channels?backendId=default` returned `403` for that grant-less Account;
+- deactivation through the MU.6C lifecycle boundary succeeded and revoked the Account's active browser session;
+- the acceptance Account remains only as an inactive `mu6d_accept_*` artifact because Account DELETE is intentionally not part of MU.6D;
+- the normal systemd daemon was restored and final HTTP readiness passed.
+
+MU.6D is **ACCEPTED — real yaVDR acceptance passed; PR pending**.
+MU.7 grant administration remains not started.
