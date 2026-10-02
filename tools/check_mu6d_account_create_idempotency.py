@@ -240,7 +240,7 @@ def main():
     ):
         require("candidate", marker)
 
-    current_docs = (
+    status_docs = (
         "current",
         "current_status",
         "workstream",
@@ -252,13 +252,16 @@ def main():
         "dependency_map",
         "root_roadmap",
         "planning_index",
-        "development_index",
     )
-    for name in current_docs:
+    for name in status_docs:
         require(name, "MU.6D")
         require(name, "LOCAL ACCEPTANCE")
 
-    for name in current_docs:
+    navigation_docs = status_docs + ("development_index",)
+    for name in navigation_docs:
+        require(name, "MU.6D")
+
+    for name in navigation_docs:
         for forbidden in (
             "MU.6C public lifecycle mutation is a CANDIDATE",
             "MU.6D Account CREATE remains not started",
