@@ -182,7 +182,7 @@ The following remain explicit open/deferred boundaries rather than unfinished Ph
 - user-visible growing-Recording seek where unsupported capability remains truthful;
 - Live-TV timeshift;
 - recommendation/content graph runtime (Phase 70), which still requires its dedicated accepted ADR;
-- Multiuser Account/backend access administration with MU.6 in progress, MU.6B and MU.6C completed, MU.6D Atomic Account CREATE + durable idempotency ACCEPTED - REAL YAVDR PASS / PR PENDING, and MU.7 grant administration not started;
+- Multiuser Account/backend access administration with MU.0-MU.6 completed, MU.6D merged as PR #411 after real yaVDR acceptance, and MU.7 in progress through the bounded MU.7A channels.view@<concrete-backend> candidate with local/real acceptance pending;
 - broad Timer Product UI, which remains gated on completion of the required Multiuser Account/backend access administration surface.
 
 ## Related documents
