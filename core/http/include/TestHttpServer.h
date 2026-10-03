@@ -18,6 +18,8 @@
 #include "HumanAccountAdministrationService.h"
 #include "HumanAccountCreationRepository.h"
 #include "HumanAccountCreationService.h"
+#include "HumanAccountCredentialSessionReadRepository.h"
+#include "HumanAccountCredentialSessionReadService.h"
 #include "HumanAccountGrantAdministrationService.h"
 #include "HumanAccountRepository.h"
 #include "HumanPasswordBrowserAuthenticator.h"
@@ -88,6 +90,10 @@ private:
         humanAccountCreationService_;
     std::unique_ptr<HumanAccountGrantAdministrationService>
         humanAccountGrantAdministrationService_;
+    std::unique_ptr<HumanAccountCredentialSessionReadRepository>
+        humanAccountCredentialSessionReadRepository_;
+    std::unique_ptr<HumanAccountCredentialSessionReadService>
+        humanAccountCredentialSessionReadService_;
     std::unique_ptr<FirstAdminBootstrapRepository>
         firstAdminBootstrapRepository_;
     std::unique_ptr<FirstAdminClaimService>

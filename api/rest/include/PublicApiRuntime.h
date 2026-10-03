@@ -323,6 +323,66 @@ struct PublicAccountGrantMutationResult
     PublicAccountGrantSetResource grantSet;
 };
 
+enum class PublicAccountSecurityMetadataStatus
+{
+    ok,
+    invalid,
+    notFound,
+    unavailable,
+};
+
+struct PublicAccountCredentialItem
+{
+    std::string credentialId;
+    std::string credentialType;
+    bool active = false;
+    bool expired = false;
+    bool revoked = false;
+    std::string expiresAt;
+    std::string createdAt;
+};
+
+struct PublicAccountCredentialCollectionResource
+{
+    std::string accountId;
+    std::string actorId;
+    std::vector<PublicAccountCredentialItem> credentials;
+};
+
+struct PublicAccountCredentialCollectionResult
+{
+    PublicAccountSecurityMetadataStatus status =
+        PublicAccountSecurityMetadataStatus::unavailable;
+    PublicAccountCredentialCollectionResource collection;
+};
+
+struct PublicAccountSessionItem
+{
+    std::string sessionId;
+    std::string deviceId;
+    std::string issuedFromCredentialId;
+    bool active = false;
+    bool expired = false;
+    bool revoked = false;
+    std::string expiresAt;
+    std::string lastSeenAt;
+    std::string createdAt;
+};
+
+struct PublicAccountSessionCollectionResource
+{
+    std::string accountId;
+    std::string actorId;
+    std::vector<PublicAccountSessionItem> sessions;
+};
+
+struct PublicAccountSessionCollectionResult
+{
+    PublicAccountSecurityMetadataStatus status =
+        PublicAccountSecurityMetadataStatus::unavailable;
+    PublicAccountSessionCollectionResource collection;
+};
+
 enum class PublicTimerCreateAdmissionStatus
 {
     accepted,
@@ -404,6 +464,14 @@ public:
         std::function<PublicAccountGrantMutationResult(
             const PublicAccountGrantMutationRequest& request)>;
 
+    using AccountCredentialLookup =
+        std::function<PublicAccountCredentialCollectionResult(
+            const std::string& accountId)>;
+
+    using AccountSessionLookup =
+        std::function<PublicAccountSessionCollectionResult(
+            const std::string& accountId)>;
+
     using TimerCreateAdmission =
         std::function<PublicTimerCreateAdmissionResult(
             const PublicTimerCreateAdmissionRequest& request)>;
@@ -472,6 +540,16 @@ public:
         AccountGrantMutation mutation);
     void resetAccountGrantMutation();
     bool accountGrantMutationConfigured() const;
+
+    void registerAccountCredentialLookup(
+        AccountCredentialLookup lookup);
+    void resetAccountCredentialLookup();
+    bool accountCredentialLookupConfigured() const;
+
+    void registerAccountSessionLookup(
+        AccountSessionLookup lookup);
+    void resetAccountSessionLookup();
+    bool accountSessionLookupConfigured() const;
 
     void registerTimerCreateAdmission(TimerCreateAdmission admission);
     void resetTimerCreateAdmission();
@@ -545,6 +623,12 @@ private:
 
     mutable std::mutex accountGrantMutationMutex_;
     AccountGrantMutation accountGrantMutation_;
+
+    mutable std::mutex accountCredentialLookupMutex_;
+    AccountCredentialLookup accountCredentialLookup_;
+
+    mutable std::mutex accountSessionLookupMutex_;
+    AccountSessionLookup accountSessionLookup_;
 
     mutable std::mutex timerCreateAdmissionMutex_;
     TimerCreateAdmission timerCreateAdmission_;
