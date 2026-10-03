@@ -194,16 +194,55 @@ revokeIssuedFromCredentialInActiveTransaction(
         return std::nullopt;
 
     std::size_t revoked = 0U;
-    for (const auto& session : *sessions)
+    for (const auto& browserSession : *sessions)
     {
-        if (session.issuedFromCredentialId != issuingCredentialId ||
-            !revokeInActiveTransaction(
-                session.sessionId,
-                session.credentialId))
+        if (browserSession.issuedFromCredentialId !=
+            issuingCredentialId)
         {
             return std::nullopt;
         }
-        ++revoked;
+
+        if (browserSession.active && !browserSession.revoked)
+        {
+            if (!revokeInActiveTransaction(
+                    browserSession.sessionId,
+                    browserSession.credentialId))
+            {
+                return std::nullopt;
+            }
+            ++revoked;
+            continue;
+        }
+
+        const auto session =
+            identityRepository_.findSession(
+                browserSession.sessionId);
+        const auto credential =
+            identityRepository_.findCredential(
+                browserSession.credentialId);
+        if (!session.has_value() ||
+            session->sessionId != browserSession.sessionId ||
+            !credential.has_value() ||
+            credential->credentialId !=
+                browserSession.credentialId ||
+            credential->credentialType != "browser-session")
+        {
+            return std::nullopt;
+        }
+
+        if (session->active && !session->revoked &&
+            !identityRepository_.revokeSession(
+                browserSession.sessionId))
+        {
+            return std::nullopt;
+        }
+
+        if (credential->active && !credential->revoked &&
+            !identityRepository_.revokeCredential(
+                browserSession.credentialId))
+        {
+            return std::nullopt;
+        }
     }
 
     return revoked;
