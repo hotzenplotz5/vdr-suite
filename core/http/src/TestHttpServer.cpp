@@ -346,6 +346,14 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             *humanAccountRepository_,
             *securityIdentityRepository_,
             *humanAccountCredentialSessionReadRepository_);
+    humanAccountCredentialAdministrationService_ =
+        std::make_unique<HumanAccountCredentialAdministrationService>(
+            *securityDatabase_,
+            *humanAccountCredentialSessionReadService_,
+            *humanAccountAdministrationRepository_,
+            *securityIdentityRepository_,
+            *browserSessionLifecycleService_,
+            *accountabilityEventRepository_);
     humanAccountSessionAdministrationService_ =
         std::make_unique<HumanAccountSessionAdministrationService>(
             *securityDatabase_,
