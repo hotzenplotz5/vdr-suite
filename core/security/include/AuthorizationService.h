@@ -182,6 +182,7 @@ private:
             permission == "accounts.activate" ||
             permission == "accounts.deactivate" ||
             permission == "accounts.grants.modify" ||
+            permission == "accounts.credentials.revoke" ||
             permission == "accounts.sessions.revoke" ||
             permission == "backend.agent.enroll" ||
             permission == "backend.agent.revoke" ||

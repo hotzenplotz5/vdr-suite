@@ -15,6 +15,10 @@ public:
     countUsableAdministratorsExcludingActor(
         const std::string& excludedActorId) const;
 
+    std::optional<bool>
+    wouldRevokeFinalUsableAdministrator(
+        const std::string& credentialId) const;
+
 private:
     Database& database_;
 };

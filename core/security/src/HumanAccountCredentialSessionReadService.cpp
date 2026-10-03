@@ -90,6 +90,52 @@ HumanAccountCredentialSessionReadService::readCredentials(
     return result;
 }
 
+HumanAccountCredentialItemReadResult
+HumanAccountCredentialSessionReadService::readCredential(
+    const std::string& accountId,
+    const std::string& credentialId) const
+{
+    HumanAccountCredentialItemReadResult result;
+    result.accountId = accountId;
+
+    if (!safeIdentifier(credentialId))
+    {
+        result.status =
+            HumanAccountCredentialSessionReadStatus::invalidRequest;
+        return result;
+    }
+
+    const auto resolved = resolveActor(accountId, result.actorId);
+    if (resolved != HumanAccountCredentialSessionReadStatus::success)
+    {
+        result.status = resolved;
+        return result;
+    }
+
+    const auto credentials =
+        metadataRepository_.listCredentialsByActorId(result.actorId);
+    if (!credentials.has_value())
+        return result;
+
+    const auto found = std::find_if(
+        credentials->begin(),
+        credentials->end(),
+        [&credentialId](const HumanAccountCredentialMetadata& credential)
+        {
+            return credential.credentialId == credentialId;
+        });
+    if (found == credentials->end())
+    {
+        result.status =
+            HumanAccountCredentialSessionReadStatus::credentialNotFound;
+        return result;
+    }
+
+    result.credential = *found;
+    result.status = HumanAccountCredentialSessionReadStatus::success;
+    return result;
+}
+
 HumanAccountSessionReadResult
 HumanAccountCredentialSessionReadService::readSessions(
     const std::string& accountId) const
