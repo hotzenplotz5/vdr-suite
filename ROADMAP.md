@@ -48,7 +48,7 @@ Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
 
 The following are deliberately not inserted as numbered phases:
 
-- Multiuser / Account and Backend Access Administration **[ACTIVE — MU.7 DONE / MU.8 NOT STARTED]**;
+- Multiuser / Account and Backend Access Administration **[ACTIVE — MU.7 DONE / MU.8A IMPLEMENTATION CANDIDATE]**;
 - Broad Timer Product UI **[PLANNED — gated on Multiuser administration]**;
 - Audit/Security/Operations product surfaces;
 - Legacy Basic retirement **[COMPLETED]**;
@@ -57,7 +57,7 @@ The following are deliberately not inserted as numbered phases:
 
 Active Multiuser authority: [Post-Phase-69 Multiuser Productization Workstream](docs/development/post-phase69-multiuser-workstream.md).
 
-Completed Multiuser foundation through MU.7: explicit Human Accounts, First Admin/bootstrap/recovery, Legacy Basic retirement and accepted ADR-0067 administration architecture. MU.6B Public Account item/revision and MU.6C public lifecycle mutation are completed; MU.6D Atomic Account CREATE + durable idempotency merged as PR #411. MU.7 Backend access / permission grant administration passed REAL YAVDR acceptance and merged as PR #413. MU.8 credential/session administration remains not started.
+Completed Multiuser foundation through MU.7: explicit Human Accounts, First Admin/bootstrap/recovery, Legacy Basic retirement and accepted ADR-0067 administration architecture. MU.6B Public Account item/revision and MU.6C public lifecycle mutation are completed; MU.6D Atomic Account CREATE + durable idempotency merged as PR #411. MU.7 Backend access / permission grant administration passed REAL YAVDR acceptance and merged as PR #413. MU.8 is in progress through the MU.8A safe credential/session metadata implementation candidate; acceptance and revoke slices remain pending.
 
 Phase 70 remains a separate not-started numbered phase.
 

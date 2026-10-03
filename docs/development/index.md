@@ -43,6 +43,7 @@ This is a stable navigation page for development contracts and evidence. It does
 - [MU.6C Public Account Lifecycle Mutation](post-phase69-mu6c-public-account-lifecycle-mutation.md) — completed lifecycle mutation boundary.
 - [MU.6D Atomic Account CREATE + Durable Idempotency](post-phase69-mu6d-account-create-idempotency.md) — completed Account CREATE boundary; real yaVDR acceptance passed and PR #411 merged.
 - [MU.7 Backend Access / Permission Grant Administration](post-phase69-mu7-account-grant-administration.md) — completed grant administration boundary; real yaVDR acceptance passed and PR #413 merged.
+- [MU.8A Safe Credential / Session Metadata](post-phase69-mu8a-credential-session-metadata.md) — implementation candidate; secret-free credential/session reads, acceptance pending.
 - [Phase 67 Closeout](phase-67-closeout.md) — completed Teletext + HbbTV Broadcast Companion phase.
 - [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md) — completed Teletext vertical.
 - [Phase 66 Closeout](phase-66-closeout.md)
