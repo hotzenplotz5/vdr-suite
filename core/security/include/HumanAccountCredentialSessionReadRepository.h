@@ -15,6 +15,7 @@ struct HumanAccountCredentialMetadata
     bool revoked = false;
     std::string expiresAt;
     std::string createdAt;
+    std::string resourceRevision;
 };
 
 struct HumanAccountSessionMetadata
