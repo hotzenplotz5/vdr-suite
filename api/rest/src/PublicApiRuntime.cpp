@@ -3091,6 +3091,50 @@ bool PublicApiRuntime::accountSessionLookupConfigured() const
     return static_cast<bool>(accountSessionLookup_);
 }
 
+void PublicApiRuntime::registerAccountSessionItemLookup(
+    AccountSessionItemLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(
+        accountSessionItemLookupMutex_);
+    accountSessionItemLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetAccountSessionItemLookup()
+{
+    std::lock_guard<std::mutex> lock(
+        accountSessionItemLookupMutex_);
+    accountSessionItemLookup_ = {};
+}
+
+bool PublicApiRuntime::accountSessionItemLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        accountSessionItemLookupMutex_);
+    return static_cast<bool>(accountSessionItemLookup_);
+}
+
+void PublicApiRuntime::registerAccountSessionMutation(
+    AccountSessionMutation mutation)
+{
+    std::lock_guard<std::mutex> lock(
+        accountSessionMutationMutex_);
+    accountSessionMutation_ = std::move(mutation);
+}
+
+void PublicApiRuntime::resetAccountSessionMutation()
+{
+    std::lock_guard<std::mutex> lock(
+        accountSessionMutationMutex_);
+    accountSessionMutation_ = {};
+}
+
+bool PublicApiRuntime::accountSessionMutationConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        accountSessionMutationMutex_);
+    return static_cast<bool>(accountSessionMutation_);
+}
+
 void PublicApiRuntime::registerChannelCollectionLookup(
     ChannelCollectionLookup lookup)
 {
