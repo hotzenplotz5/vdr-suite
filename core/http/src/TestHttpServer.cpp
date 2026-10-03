@@ -1089,6 +1089,8 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
 
 TestHttpServer::~TestHttpServer()
 {
+    PublicApiRuntime::instance().resetAccountCredentialMutation();
+    PublicApiRuntime::instance().resetAccountCredentialItemLookup();
     PublicApiRuntime::instance().resetAccountSessionMutation();
     PublicApiRuntime::instance().resetAccountSessionItemLookup();
     PublicApiRuntime::instance().resetAccountSessionLookup();
