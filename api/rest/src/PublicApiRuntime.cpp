@@ -162,6 +162,33 @@ bool publicAccountCredentialPath(
         accountId);
 }
 
+bool publicAccountCredentialItemPath(
+    const std::string& path,
+    std::string& accountId,
+    std::string& credentialId)
+{
+    static const std::string Prefix = "/api/v1/accounts/";
+    static const std::string Marker = "/credentials/";
+
+    if (path.compare(0U, Prefix.size(), Prefix) != 0)
+        return false;
+
+    const std::size_t marker =
+        path.find(Marker, Prefix.size());
+    if (marker == std::string::npos)
+        return false;
+
+    accountId = path.substr(
+        Prefix.size(),
+        marker - Prefix.size());
+    credentialId = path.substr(marker + Marker.size());
+
+    return !accountId.empty() &&
+        accountId.find('/') == std::string::npos &&
+        !credentialId.empty() &&
+        credentialId.find('/') == std::string::npos;
+}
+
 bool publicAccountSessionPath(
     const std::string& path,
     std::string& accountId)
@@ -1641,6 +1668,26 @@ bool publicGrantSetRevision(
     const std::string& resourceRevision)
 {
     static const std::string Prefix = "grant-set:";
+    if (resourceRevision.size() != Prefix.size() + 64U ||
+        resourceRevision.compare(0U, Prefix.size(), Prefix) != 0)
+    {
+        return false;
+    }
+
+    return std::all_of(
+        resourceRevision.begin() + Prefix.size(),
+        resourceRevision.end(),
+        [](unsigned char character)
+        {
+            return (character >= '0' && character <= '9') ||
+                (character >= 'a' && character <= 'f');
+        });
+}
+
+bool publicCredentialLifecycleRevision(
+    const std::string& resourceRevision)
+{
+    static const std::string Prefix = "credential-lifecycle:";
     if (resourceRevision.size() != Prefix.size() + 64U ||
         resourceRevision.compare(0U, Prefix.size(), Prefix) != 0)
     {
