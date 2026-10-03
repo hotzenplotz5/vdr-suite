@@ -1942,6 +1942,7 @@ ApiResponse platformCapabilities(
     const bool accountCreateAvailable,
     const bool accountGrantAdministrationAvailable,
     const bool accountSecurityMetadataAvailable,
+    const bool accountSessionRevokeAvailable,
     const std::string& requestId,
     const std::string& correlationId)
 {
@@ -1974,6 +1975,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.accounts-credential-session-metadata\",\"version\":1,\"availability\":\"" +
         std::string(accountSecurityMetadataAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.accounts-session-revoke\",\"version\":1,\"availability\":\"" +
+        std::string(accountSessionRevokeAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.compatibility-policy\",\"version\":1,\"availability\":\"available\"},"
         "{\"id\":\"public-api.deprecation-metadata\",\"version\":1,\"availability\":\"available\"}"
@@ -3247,6 +3251,8 @@ bool PublicApiRuntime::tryHandleGet(
                 accountGrantMutationConfigured(),
             accountCredentialLookupConfigured() &&
                 accountSessionLookupConfigured(),
+            accountSessionItemLookupConfigured() &&
+                accountSessionMutationConfigured(),
             requestId,
             correlationId);
         return true;
