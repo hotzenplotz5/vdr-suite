@@ -308,6 +308,11 @@
   }
 
 
+  function accountGrantPath(options) {
+    return accountItemPath(options) + '/grants';
+  }
+
+
   function timerAssignmentItemPath(options) {
     if (!options || typeof options !== 'object' || Array.isArray(options)) {
       throw new Error('TimerAssignment item options must be an object');
@@ -602,6 +607,36 @@
             loginName: normalizedOptions.loginName,
             displayName: normalizedOptions.displayName,
             password: normalizedOptions.password
+          },
+          normalizedOptions
+        );
+      },
+      getAccountGrants(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return requestRevisioned(
+          accountGrantPath(normalizedOptions),
+          normalizedOptions
+        );
+      },
+      setAccountGrant(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        if (typeof normalizedOptions.permission !== 'string'
+            || normalizedOptions.permission === '') {
+          throw new Error('permission must be a non-empty string');
+        }
+        if (typeof normalizedOptions.backendId !== 'string'
+            || normalizedOptions.backendId === '') {
+          throw new Error('backendId must be a non-empty string');
+        }
+        if (typeof normalizedOptions.active !== 'boolean') {
+          throw new Error('active must be a boolean');
+        }
+        return requestAccountMutation(
+          accountGrantPath(normalizedOptions),
+          {
+            permission: normalizedOptions.permission,
+            backendId: normalizedOptions.backendId,
+            active: normalizedOptions.active
           },
           normalizedOptions
         );

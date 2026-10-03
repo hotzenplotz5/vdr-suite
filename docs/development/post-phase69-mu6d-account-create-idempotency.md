@@ -1,6 +1,6 @@
 # MU.6D — Atomic Account CREATE + Durable Idempotency
 
-Status: **ACCEPTED — real yaVDR acceptance passed; PR pending.**
+Status: **COMPLETED — real yaVDR acceptance passed; PR #411 merged.**
 
 MU.6D adds the bounded Human Account creation surface defined by ADR-0067.
 It does not add backend grants, role assignment, credential administration,
@@ -139,5 +139,5 @@ The accepted runtime evidence proved:
 - the acceptance Account remains only as an inactive `mu6d_accept_*` artifact because Account DELETE is intentionally not part of MU.6D;
 - the normal systemd daemon was restored and final HTTP readiness passed.
 
-MU.6D is **ACCEPTED — real yaVDR acceptance passed; PR pending**.
-MU.7 grant administration remains not started.
+MU.6D is **COMPLETED — real yaVDR acceptance passed; PR #411 merged**.
+MU.7 grant administration is the active successor slice.
