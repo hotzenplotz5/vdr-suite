@@ -172,6 +172,33 @@ bool publicAccountSessionPath(
         accountId);
 }
 
+bool publicAccountSessionItemPath(
+    const std::string& path,
+    std::string& accountId,
+    std::string& sessionId)
+{
+    static const std::string Prefix = "/api/v1/accounts/";
+    static const std::string Marker = "/sessions/";
+
+    if (path.compare(0U, Prefix.size(), Prefix) != 0)
+        return false;
+
+    const std::size_t marker =
+        path.find(Marker, Prefix.size());
+    if (marker == std::string::npos)
+        return false;
+
+    accountId = path.substr(
+        Prefix.size(),
+        marker - Prefix.size());
+    sessionId = path.substr(marker + Marker.size());
+
+    return !accountId.empty() &&
+        accountId.find('/') == std::string::npos &&
+        !sessionId.empty() &&
+        sessionId.find('/') == std::string::npos;
+}
+
 bool publicTimerAssignmentPath(
     const std::string& path,
     std::string& timerAssignmentId)
@@ -1614,6 +1641,26 @@ bool publicGrantSetRevision(
     const std::string& resourceRevision)
 {
     static const std::string Prefix = "grant-set:";
+    if (resourceRevision.size() != Prefix.size() + 64U ||
+        resourceRevision.compare(0U, Prefix.size(), Prefix) != 0)
+    {
+        return false;
+    }
+
+    return std::all_of(
+        resourceRevision.begin() + Prefix.size(),
+        resourceRevision.end(),
+        [](unsigned char character)
+        {
+            return (character >= '0' && character <= '9') ||
+                (character >= 'a' && character <= 'f');
+        });
+}
+
+bool publicSessionLifecycleRevision(
+    const std::string& resourceRevision)
+{
+    static const std::string Prefix = "session-lifecycle:";
     if (resourceRevision.size() != Prefix.size() + 64U ||
         resourceRevision.compare(0U, Prefix.size(), Prefix) != 0)
     {
