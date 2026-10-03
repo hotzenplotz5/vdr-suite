@@ -21,6 +21,7 @@
 #include "HumanAccountCredentialSessionReadRepository.h"
 #include "HumanAccountCredentialSessionReadService.h"
 #include "HumanAccountGrantAdministrationService.h"
+#include "HumanAccountSessionAdministrationService.h"
 #include "HumanAccountRepository.h"
 #include "HumanPasswordBrowserAuthenticator.h"
 #include "Database.h"
@@ -94,6 +95,8 @@ private:
         humanAccountCredentialSessionReadRepository_;
     std::unique_ptr<HumanAccountCredentialSessionReadService>
         humanAccountCredentialSessionReadService_;
+    std::unique_ptr<HumanAccountSessionAdministrationService>
+        humanAccountSessionAdministrationService_;
     std::unique_ptr<FirstAdminBootstrapRepository>
         firstAdminBootstrapRepository_;
     std::unique_ptr<FirstAdminClaimService>
