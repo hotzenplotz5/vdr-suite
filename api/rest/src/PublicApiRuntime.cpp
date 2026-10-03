@@ -3206,6 +3206,50 @@ bool PublicApiRuntime::accountCredentialLookupConfigured() const
     return static_cast<bool>(accountCredentialLookup_);
 }
 
+void PublicApiRuntime::registerAccountCredentialItemLookup(
+    AccountCredentialItemLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(
+        accountCredentialItemLookupMutex_);
+    accountCredentialItemLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetAccountCredentialItemLookup()
+{
+    std::lock_guard<std::mutex> lock(
+        accountCredentialItemLookupMutex_);
+    accountCredentialItemLookup_ = {};
+}
+
+bool PublicApiRuntime::accountCredentialItemLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        accountCredentialItemLookupMutex_);
+    return static_cast<bool>(accountCredentialItemLookup_);
+}
+
+void PublicApiRuntime::registerAccountCredentialMutation(
+    AccountCredentialMutation mutation)
+{
+    std::lock_guard<std::mutex> lock(
+        accountCredentialMutationMutex_);
+    accountCredentialMutation_ = std::move(mutation);
+}
+
+void PublicApiRuntime::resetAccountCredentialMutation()
+{
+    std::lock_guard<std::mutex> lock(
+        accountCredentialMutationMutex_);
+    accountCredentialMutation_ = {};
+}
+
+bool PublicApiRuntime::accountCredentialMutationConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        accountCredentialMutationMutex_);
+    return static_cast<bool>(accountCredentialMutation_);
+}
+
 void PublicApiRuntime::registerAccountSessionLookup(
     AccountSessionLookup lookup)
 {
