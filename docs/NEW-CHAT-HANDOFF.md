@@ -23,7 +23,7 @@ Root-level `AGENTS.md` is binding. In particular, once the user has authorized a
 11. [MU.6D Atomic Account CREATE + Durable Idempotency](development/post-phase69-mu6d-account-create-idempotency.md) — completed Account CREATE boundary; real yaVDR acceptance passed and PR #411 merged.
 12. [MU.7 Backend Access / Permission Grant Administration](development/post-phase69-mu7-account-grant-administration.md) — completed grant administration boundary; real yaVDR acceptance passed and PR #413 merged.
 13. [MU.8A Safe Credential / Session Metadata](development/post-phase69-mu8a-credential-session-metadata.md) — implementation merged as PR #415; runtime acceptance pending.
-14. [MU.8B Session Revoke](development/post-phase69-mu8b-session-revoke.md) — implementation candidate; revisioned Session item and terminal-idempotent revoke.
+14. [MU.8B Session Revoke](development/post-phase69-mu8b-session-revoke.md) — completed revisioned Session item/read and terminal-idempotent revoke; focused real yaVDR acceptance passed and PR #416 merged.
 15. [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md) — completed migration and runtime-retirement evidence.
 16. [Phase 69 Closeout](development/phase-69-closeout.md) — completed 69.A-F public API/client compatibility evidence.
 17. [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md) and retained 69.B-F closeouts when historical Phase-69 detail is needed.
@@ -45,11 +45,11 @@ Historical Phase-69 closeout records retained for traceability: `docs/developmen
 - Current active numbered runtime slice: **none - Phase 70 - Recommendation and Content Knowledge Graph not started**.
 - Current active cross-cutting productization workstream: **Multiuser / Account and Backend Access Administration**.
 - Current Multiuser architecture slice: **MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]**.
-- Current Multiuser runtime slice: **MU.8B - Session Revoke [IMPLEMENTATION CANDIDATE]**.
+- Current Multiuser runtime slice: **MU.8C - Human-password Credential Revoke [NOT STARTED]**.
 - Latest completed Multiuser runtime slice: **MU.7 - Backend access / permission grant administration [COMPLETED]**.
 - Completed MU.7 sub-slice: **Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]**.
-- Next product slice: **MU.8B - Session Revoke [IMPLEMENTATION CANDIDATE]**.
-- MU.0-MU.7 are completed; MU.6D merged as PR #411 and MU.7 grant administration merged as PR #413 after REAL YAVDR acceptance. MU.8 is in progress through MU.8B Session Revoke. MU.8A merged as PR #415; real yaVDR acceptance and credential revoke remain pending.
+- Next product slice: **MU.8C - Human-password Credential Revoke [NOT STARTED]**.
+- MU.0-MU.7 are completed; MU.6D merged as PR #411 and MU.7 grant administration merged as PR #413 after REAL YAVDR acceptance. MU.8A merged as PR #415. MU.8B Session Revoke passed focused REAL YAVDR acceptance and merged as PR #416 with hosted PR CI #9729 and post-merge CI #9730 green. MU.8C Human-password Credential Revoke is next and not started.
 - Durable Phase-68 completion evidence: [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md).
 - Phase-67 Teletext and HbbTV verticals are both completed and accepted.
 - Phase 65.A through 65.D are closed for their accepted bounded scopes; ADR-0056 semantic consolidation and ADR-0057 Recording network recovery are completed Phase-65 history.
@@ -86,7 +86,7 @@ Do not reopen Phase 64 merely to add a broad Timer UI, diagnostics or later medi
 
 Phases 65 through **Phase 69 are completed**. [Phase 69 Closeout](development/phase-69-closeout.md) records the accepted 69.A-F public/API client boundary. Phase 70 is the next strict numbered phase but is not started; its roadmap requires a dedicated accepted runtime ADR before implementation.
 
-The active cross-cutting productization line is **Multiuser**. [Post-Phase-69 Multiuser Productization Workstream](development/post-phase69-multiuser-workstream.md) owns the current sequence. MU.0-MU.7 are complete; MU.6D merged as PR #411 and MU.7 grant administration merged as PR #413 after REAL YAVDR acceptance. MU.8 is in progress through MU.8B Session Revoke. MU.8A merged as PR #415; real yaVDR acceptance and credential revoke remain pending.
+The active cross-cutting productization line is **Multiuser**. [Post-Phase-69 Multiuser Productization Workstream](development/post-phase69-multiuser-workstream.md) owns the current sequence. MU.0-MU.7 are complete; MU.6D merged as PR #411 and MU.7 grant administration merged as PR #413 after REAL YAVDR acceptance. MU.8A merged as PR #415. MU.8B Session Revoke passed focused REAL YAVDR acceptance and merged as PR #416. MU.8C Human-password Credential Revoke is next and not started.
 
 For current Multiuser work:
 
@@ -218,7 +218,7 @@ Durable current evidence: [Post-Phase-69 P2 Legacy Basic Retirement Closeout](de
 4. Treat the cross-cutting Multiuser / Account and Backend Access Administration workstream as active and read `docs/development/post-phase69-multiuser-workstream.md`.
 5. Treat ADR-0065, ADR-0066 and ADR-0067 as accepted architecture unless live repository state says otherwise.
 6. Treat MU.0-MU.5, MU.6A and MU.6B as completed and do not redo First Admin/bootstrap/recovery, Legacy Basic retirement, the MU.5 architecture audit, MU.6A lifecycle authority or MU.6B Account item/revision without a demonstrated regression.
-7. Treat MU.6 as completed through MU.6D / PR #411 and MU.7 grant administration as COMPLETED after REAL YAVDR acceptance and PR #413 merge; treat MU.8A safe credential/session metadata as implementation-merged in PR #415 with runtime acceptance pending; treat MU.8B Session Revoke as the current implementation candidate, and do not fold MU.7 grant administration or MU.8 credential/session administration into MU.6.
+7. Treat MU.6 as completed through MU.6D / PR #411 and MU.7 grant administration as COMPLETED after REAL YAVDR acceptance and PR #413 merge; treat MU.8A safe credential/session metadata as implementation-merged in PR #415 with installed-runtime acceptance pending; treat MU.8B Session Revoke as COMPLETED after focused REAL YAVDR acceptance and PR #416 merge; start MU.8C Human-password Credential Revoke only from freshly audited live main, and do not fold MU.8 credential/session administration into MU.6.
 8. Do not start Phase 70 merely because Phase 69 or a Multiuser slice is complete; require the dedicated accepted Phase-70 runtime ADR before numbered Phase-70 implementation.
 9. Preserve accepted Phase-65 playback/MediaSession semantics, completed Phase-66 Home ownership, completed Phase-67 Teletext/HbbTV domains, completed Phase-68 Legacy OSD ownership and completed Phase-69 public-client boundaries rather than inventing parallel owners during successor work.
 10. Keep the broad Timer UI as a cross-cutting product milestone gated on required Multiuser Account/backend access administration.

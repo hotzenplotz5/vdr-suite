@@ -48,7 +48,7 @@ Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
 
 The following are deliberately not inserted as numbered phases:
 
-- Multiuser / Account and Backend Access Administration **[ACTIVE — MU.7 DONE / MU.8B IMPLEMENTATION CANDIDATE]**;
+- Multiuser / Account and Backend Access Administration **[ACTIVE — MU.8B DONE / MU.8C NOT STARTED]**;
 - Broad Timer Product UI **[PLANNED — gated on Multiuser administration]**;
 - Audit/Security/Operations product surfaces;
 - Legacy Basic retirement **[COMPLETED]**;
@@ -57,7 +57,7 @@ The following are deliberately not inserted as numbered phases:
 
 Active Multiuser authority: [Post-Phase-69 Multiuser Productization Workstream](docs/development/post-phase69-multiuser-workstream.md).
 
-Completed Multiuser foundation through MU.7: explicit Human Accounts, First Admin/bootstrap/recovery, Legacy Basic retirement and accepted ADR-0067 administration architecture. MU.6B Public Account item/revision and MU.6C public lifecycle mutation are completed; MU.6D Atomic Account CREATE + durable idempotency merged as PR #411. MU.7 Backend access / permission grant administration passed REAL YAVDR acceptance and merged as PR #413. MU.8 is in progress through the MU.8B Session Revoke implementation candidate. MU.8A merged as PR #415 with hosted CI green; real yaVDR acceptance and credential revoke remain pending.
+Completed Multiuser foundation through MU.7: explicit Human Accounts, First Admin/bootstrap/recovery, Legacy Basic retirement and accepted ADR-0067 administration architecture. MU.6B Public Account item/revision and MU.6C public lifecycle mutation are completed; MU.6D Atomic Account CREATE + durable idempotency merged as PR #411. MU.7 Backend access / permission grant administration passed REAL YAVDR acceptance and merged as PR #413. MU.8A safe credential/session metadata merged as PR #415. MU.8B Session Revoke passed focused REAL YAVDR acceptance and merged as PR #416; hosted PR CI #9729 and post-merge CI #9730 were green. MU.8 remains in progress with MU.8C Human-password Credential Revoke next and not started.
 
 Phase 70 remains a separate not-started numbered phase.
 

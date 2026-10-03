@@ -219,13 +219,16 @@ def main():
 
     require(
         "current",
-        "MU.8B - Session Revoke [IMPLEMENTATION CANDIDATE]",
+        "MU.8B - Session Revoke [COMPLETED - REAL YAVDR PASS / PR #416 MERGED]",
     )
     require(
         "workstream",
-        "MU.8B - Session Revoke [IMPLEMENTATION CANDIDATE]",
+        "MU.8B - Session Revoke [COMPLETED - REAL YAVDR PASS / PR #416 MERGED]",
     )
-    require("phase_map", "MU.8B")
+    require(
+        "phase_map",
+        "MU.8B - Session Revoke [COMPLETED - REAL YAVDR PASS / PR #416 MERGED]",
+    )
 
     require(
         "mu8a_guard",
@@ -246,9 +249,16 @@ def main():
             f"MU.8B guard must be wired exactly twice, found {occurrences}"
         )
 
+    for name in ("doc", "current", "workstream", "phase_map"):
+        for forbidden in (
+            "MU.8B - Session Revoke [IMPLEMENTATION CANDIDATE]",
+            "IMPLEMENTATION CANDIDATE — real yaVDR acceptance pending",
+        ):
+            forbid(name, forbidden)
+
     print("MU.8B Session revoke contracts passed")
-    print("MU8B=IMPLEMENTATION_CANDIDATE")
-    print("MU8C_CREDENTIAL_REVOKE=NOT_IMPLEMENTED")
+    print("MU8B=COMPLETED_REAL_YAVDR_PASS_PR_416_MERGED")
+    print("MU8C_STATUS=SUCCESSOR_STATUS_NOT_OWNED_BY_MU8B_GUARD")
     return 0
 
 
