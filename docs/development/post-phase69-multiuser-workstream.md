@@ -15,7 +15,7 @@ Account read foundation: completed
 First Admin / bootstrap / recovery: completed
 Legacy Basic retirement: completed
 Administration architecture: ADR-0067 [ACCEPTED]
-Current Multiuser runtime slice: none - MU.8 Credential and session administration [NOT STARTED]
+Current Multiuser runtime slice: MU.8A - Safe credential/session metadata [IMPLEMENTATION CANDIDATE]
 Latest completed Multiuser runtime slice: MU.7 Backend access / permission grant administration [COMPLETED]
 Completed MU.7 sub-slice: Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
 Next product slice: MU.8 Credential and session administration [NOT STARTED]
@@ -172,11 +172,19 @@ central browser CSRF, explicit server-owned permission/scope allowlisting and
 transactional final-admin protection remain authoritative. Grant-set revision
 is independent from Human Account revision.
 
-### MU.8 — Credential and session administration [NOT STARTED]
+### MU.8 — Credential and session administration [IN PROGRESS]
 
-Expose only safe administrative metadata and bounded revoke/rotation/session
-management. Password verifiers, cookies, CSRF material and other secrets remain
-non-readable.
+MU.8A - Safe credential/session metadata [IMPLEMENTATION CANDIDATE]
+
+MU.8A adds only the secret-free Public-v1 Credential and Session collection
+reads under `accounts.credentials.view@*` and `accounts.sessions.view@*`.
+It reuses the existing canonical issuer/session lifecycle and does not expose
+password verifiers, browser tokens, cookie material or CSRF/session hashes.
+
+Credential/session revoke mutations, their dedicated strong precondition
+contract, final-usable-administrator protection for human-password revocation
+and real yaVDR acceptance remain pending successor work. MU.8 is therefore not
+complete.
 
 ### MU.9 — Account and access administration UI [PLANNED]
 
@@ -228,5 +236,5 @@ Independent numbered track:
 - Device trust is not user identity or permission.
 - Capability never grants authorization.
 - No client/UI owns authorization policy.
-- ADR-0067 is accepted; MU.6A-D are completed runtime boundaries and MU.6D merged as PR #411. MU.7 grant administration is completed after REAL YAVDR acceptance and PR #413 merged. MU.8 credential/session administration remains not started.
+- ADR-0067 is accepted; MU.6A-D are completed runtime boundaries and MU.6D merged as PR #411. MU.7 grant administration is completed after REAL YAVDR acceptance and PR #413 merged. MU.8 is in progress through the MU.8A safe credential/session metadata implementation candidate; revoke slices remain pending.
 - Phase 70 is not started by Multiuser work.

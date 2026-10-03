@@ -286,10 +286,7 @@ def main():
         "current",
         "MU.7 - Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]",
     )
-    require(
-        "current",
-        "MU.8 - Credential and session administration [NOT STARTED]",
-    )
+    require("current", "MU.8")
     require(
         "workstream",
         "MU.7 — Backend access / permission grant administration [COMPLETED — REAL YAVDR PASS / PR #413 MERGED]",
@@ -332,7 +329,7 @@ def main():
     print("MU.7 Account grant administration contracts passed")
     print("MU6=COMPLETED")
     print("MU7=COMPLETED_REAL_YAVDR_PASS_PR_413_MERGED")
-    print("MU8=NOT_STARTED")
+    print("MU8_STATUS=SUCCESSOR_STATUS_NOT_OWNED_BY_MU7_GUARD")
     return 0
 
 

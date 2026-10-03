@@ -16,6 +16,23 @@ HttpServerRequest browserGet(
     fixture.addBrowserAuthentication(request);
     return request;
 }
+
+bool hasDecisionEvent(
+    const AccountabilityEventRepository& repository,
+    const std::string& permission,
+    const std::string& reasonCode)
+{
+    for (const AccountabilityEvent& event : repository.listAll())
+    {
+        if (event.permission == permission &&
+            event.backendId == "*" &&
+            event.reasonCode == reasonCode)
+        {
+            return true;
+        }
+    }
+    return false;
+}
 }
 
 int main()
@@ -62,8 +79,10 @@ int main()
             fixture.gate.evaluate(browserGet(fixture, "credentials"));
         assert(!decision.allowed);
         assert(decision.rejection.statusCode == 403);
-        assert(decision.authorizationDecision.reasonCode ==
-            "backend_scope_denied");
+        assert(hasDecisionEvent(
+            fixture.accountabilityRepository,
+            "accounts.credentials.view",
+            "backend_scope_denied"));
     }
 
     return 0;

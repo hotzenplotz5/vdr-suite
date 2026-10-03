@@ -63,6 +63,7 @@ test-security-architecture:
 	python3 tools/check_mu6c_public_account_lifecycle_mutation.py
 	python3 tools/check_mu6d_account_create_idempotency.py
 	python3 tools/check_mu7_account_grant_administration.py
+	python3 tools/check_mu8a_credential_session_metadata.py
 	python3 tools/check_browser_session_issuance_architecture.py
 	python3 tools/check_browser_session_issuer_binding.py
 	python3 tools/check_browser_session_concurrency_limit.py
@@ -321,6 +322,7 @@ test-security-public-account-security-metadata:
 	$(BUILD_DIR)/test_public_account_security_metadata_security
 	$(MAKE) test-security-human-account-credential-session-read
 	node clients/reference-js/tests/test_public_v1_account_security_metadata_client.js
+	python3 tools/check_mu8a_credential_session_metadata.py
 
 
 test-security-managed-basic-authenticator:

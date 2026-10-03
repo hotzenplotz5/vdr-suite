@@ -42,7 +42,7 @@ Current Multiuser architecture slice:
 MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
 
 Current Multiuser runtime slice:
-none - MU.8 Credential and session administration [NOT STARTED]
+MU.8A - Safe credential/session metadata [IMPLEMENTATION CANDIDATE]
 
 Latest completed Multiuser runtime slice:
 MU.7 - Backend access / permission grant administration [COMPLETED]
@@ -51,7 +51,7 @@ Completed MU.7 sub-slice:
 Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
 
 Next product slice:
-MU.8 - Credential and session administration [NOT STARTED]
+MU.8A - Safe credential/session metadata [IMPLEMENTATION CANDIDATE]
 
 Completed Phase-67 verticals:
 Teletext + HbbTV discovery/application-session/presentation-media runtime
