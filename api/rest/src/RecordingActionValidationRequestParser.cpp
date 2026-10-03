@@ -7,17 +7,68 @@
 
 namespace
 {
-std::string unquote(
-    const std::string& value)
+void skipWhitespace(const std::string& text, std::size_t& position)
 {
-    if (value.size() >= 2 &&
-        value.front() == '\"' &&
-        value.back() == '\"')
+    while (position < text.size())
     {
-        return value.substr(1, value.size() - 2);
+        const char character = text[position];
+        if (character != ' ' && character != '\t' &&
+            character != '\n' && character != '\r')
+        {
+            break;
+        }
+        ++position;
+    }
+}
+
+bool parseJsonString(
+    const std::string& text,
+    std::size_t& position,
+    std::string& value)
+{
+    value.clear();
+    if (position >= text.size() || text[position] != '"')
+    {
+        return false;
     }
 
-    return value;
+    ++position;
+    while (position < text.size())
+    {
+        const char character = text[position++];
+        if (character == '"')
+        {
+            return true;
+        }
+
+        if (character != '\\')
+        {
+            value.push_back(character);
+            continue;
+        }
+
+        if (position >= text.size())
+        {
+            return false;
+        }
+
+        const char escaped = text[position++];
+        switch (escaped)
+        {
+        case '"': value.push_back('"'); break;
+        case '\\': value.push_back('\\'); break;
+        case '/': value.push_back('/'); break;
+        case 'b': value.push_back('\b'); break;
+        case 'f': value.push_back('\f'); break;
+        case 'n': value.push_back('\n'); break;
+        case 'r': value.push_back('\r'); break;
+        case 't': value.push_back('\t'); break;
+        default:
+            return false;
+        }
+    }
+
+    return false;
 }
 
 std::string trim(
@@ -41,75 +92,89 @@ std::map<std::string, std::string> parseFlatObject(
     const std::string& body)
 {
     std::map<std::string, std::string> values;
-
     std::size_t position = 0;
+    skipWhitespace(body, position);
+
+    if (position >= body.size() || body[position] != '{')
+    {
+        return {};
+    }
+    ++position;
 
     while (position < body.size())
     {
-        const std::size_t keyStart =
-            body.find('"', position);
-
-        if (keyStart == std::string::npos)
+        skipWhitespace(body, position);
+        if (position < body.size() && body[position] == '}')
         {
-            break;
+            ++position;
+            skipWhitespace(body, position);
+            return position == body.size() ? values
+                                           : std::map<std::string, std::string>{};
         }
 
-        const std::size_t keyEnd =
-            body.find('"', keyStart + 1);
-
-        if (keyEnd == std::string::npos)
+        std::string key;
+        if (!parseJsonString(body, position, key))
         {
-            break;
+            return {};
         }
 
-        const std::size_t colon =
-            body.find(':', keyEnd + 1);
-
-        if (colon == std::string::npos)
+        skipWhitespace(body, position);
+        if (position >= body.size() || body[position] != ':')
         {
-            break;
+            return {};
         }
+        ++position;
+        skipWhitespace(body, position);
 
-        const std::string key =
-            body.substr(keyStart + 1, keyEnd - keyStart - 1);
-
-        const std::size_t comma =
-            body.find(',', colon + 1);
-
-        const std::size_t objectEnd =
-            body.find('}', colon + 1);
-
-        std::size_t valueEnd =
-            body.size();
-
-        if (comma != std::string::npos)
+        std::string value;
+        if (position < body.size() && body[position] == '"')
         {
-            valueEnd = comma;
+            if (!parseJsonString(body, position, value))
+            {
+                return {};
+            }
         }
-
-        if (objectEnd != std::string::npos &&
-            objectEnd < valueEnd)
+        else
         {
-            valueEnd = objectEnd;
+            const std::size_t valueStart = position;
+            while (position < body.size() &&
+                   body[position] != ',' &&
+                   body[position] != '}')
+            {
+                ++position;
+            }
+            value = trim(body.substr(valueStart, position - valueStart));
         }
-
-        const std::string rawValue =
-            trim(body.substr(colon + 1, valueEnd - colon - 1));
 
         if (!key.empty())
         {
-            values[key] = unquote(rawValue);
+            values[key] = value;
         }
 
-        if (comma == std::string::npos)
+        skipWhitespace(body, position);
+        if (position >= body.size())
         {
-            break;
+            return {};
         }
 
-        position = comma + 1;
+        if (body[position] == ',')
+        {
+            ++position;
+            continue;
+        }
+
+        if (body[position] == '}')
+        {
+            ++position;
+            skipWhitespace(body, position);
+            return position == body.size() ? values
+                                           : std::map<std::string, std::string>{};
+        }
+
+        return {};
     }
 
-    return values;
+    return {};
 }
 
 bool parseBool(

@@ -14,16 +14,26 @@
   const READBACK_DELAY_MS = 1000;
   const DELETE_QUEUE_BY_BACKEND = new Map();
 
+  function moveEditorRuntime() {
+    const runtime = global.VdrSuiteRecordings2MoveEditor;
+    if (!runtime) throw new Error('Recordings 2 Move-Editor ist nicht verfügbar.');
+    return runtime;
+  }
+
   function normalizeFolderPath(value) {
-    const raw = String(value || '').trim();
-    if (raw === '/') return '/';
-    return raw.replace(/~/g, '/').replace(/\\/g, '/')
-      .split('/').map(function (part) { return part.trim(); })
-      .filter(Boolean).join('/');
+    return moveEditorRuntime().normalizeFolderPath(value);
   }
 
   function targetFolderPath(value) {
-    return normalizeFolderPath(value) === '/' ? '' : normalizeFolderPath(value);
+    return moveEditorRuntime().targetFolderPath(value);
+  }
+
+  function composeNewFolderTarget(basePath, folderName) {
+    return moveEditorRuntime().composeNewFolderTarget(basePath, folderName);
+  }
+
+  function resolveMoveTarget(targetValue, newFolderValue, currentPath) {
+    return moveEditorRuntime().resolveMoveTarget(targetValue, newFolderValue, currentPath);
   }
 
   function localTitle(recording) {
@@ -510,47 +520,17 @@
     }
 
     function createMoveEditor(recording) {
-      const ui = editor('Verschieben');
-      const input = textInput(ui.body, 'Zielordner', '');
-      input.placeholder = 'z. B. Filme/Archiv';
-      const browser = document.createElement('div');
-      browser.className = 'recordings2-folder-browser';
-      browser.hidden = true;
-      const status = shared.node('p', 'recordings2-action-status', 'Zielordner auswählen und prüfen.');
-      const buttons = document.createElement('div');
-      buttons.className = 'recordings2-action-buttons';
-      let apply;
-      const root = shared.createButton('Hauptordner', function () {
-        input.value = '/';
-        apply.disabled = true;
-        setStatus(status, '', 'Hauptordner ausgewählt – bitte prüfen.');
+      return moveEditorRuntime().create(recording, {
+        shared: shared,
+        editor: editor,
+        textInput: textInput,
+        renderFolderBrowser: renderFolderBrowser,
+        setStatus: setStatus,
+        state: state,
+        validate: validate,
+        execute: execute,
+        moveReadback: moveReadback
       });
-      const browse = shared.createButton('Ordner auswählen', function () {
-        renderFolderBrowser(browser, input, status, '');
-      });
-      const check = shared.createButton('Prüfen', function () {
-        const targetPath = normalizeFolderPath(input.value);
-        if (!targetPath) {
-          setStatus(status, 'error', 'Bitte zuerst einen Zielordner auswählen.');
-          return;
-        }
-        validate(recording, 'MOVE', {targetPath: targetPath}, status, apply).catch(function () {});
-      });
-      apply = shared.createButton('Verschieben', function () {
-        const targetPath = normalizeFolderPath(input.value);
-        if (!targetPath || !global.confirm('Aufnahme nach „' +
-            (targetPath === '/' ? 'Hauptordner' : targetPath) + '“ verschieben?')) return;
-        execute(recording, 'MOVE', {targetPath: targetPath}, status, apply,
-          moveReadback(recording, targetPath), 'Verschieben abgeschlossen.').catch(function () {});
-      });
-      apply.disabled = true;
-      input.addEventListener('input', function () {
-        apply.disabled = true;
-        setStatus(status, '', 'Ziel geändert – bitte erneut prüfen.');
-      });
-      buttons.append(root, browse, check, apply);
-      ui.body.append(status, browser, buttons);
-      return ui.details;
     }
 
     function createDeleteEditor(recording) {
@@ -609,6 +589,8 @@
     __test: Object.freeze({
       normalizeFolderPath: normalizeFolderPath,
       targetFolderPath: targetFolderPath,
+      composeNewFolderTarget: composeNewFolderTarget,
+      resolveMoveTarget: resolveMoveTarget,
       localTitle: localTitle,
       identity: identity,
       candidateMatches: candidateMatches,

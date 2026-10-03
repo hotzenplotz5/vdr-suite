@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ManualRecordingMetadataAssignmentRepository.h"
+#include "GenreIndexRepository.h"
 #include "Metadata.h"
 
 #include <map>
@@ -39,14 +40,31 @@ public:
     getManualRecordingMetadataForBackend(
         const std::string& backendId);
 
+    std::string getManualRecordingGenre(
+        const std::string& backendId,
+        const std::string& resourceKey);
+
+    bool setManualRecordingGenre(
+        const std::string& backendId,
+        const std::string& resourceKey,
+        const std::string& genreId);
+
+    bool clearManualRecordingGenre(
+        const std::string& backendId,
+        const std::string& resourceKey);
+
 private:
     ManualRecordingMetadataAssignmentRepository& manualRepository();
+    GenreIndexRepository& genreRepository();
     bool ensureManualPersonProfileSchema();
 
     Database& database_;
     std::unique_ptr<ManualRecordingMetadataAssignmentRepository>
         manualMetadataRepository_;
     std::mutex manualMetadataRepositoryMutex_;
+    std::unique_ptr<GenreIndexRepository>
+        genreIndexRepository_;
+    std::mutex genreIndexRepositoryMutex_;
     std::mutex manualPersonProfileSchemaMutex_;
     bool manualPersonProfileSchemaAttempted_ = false;
     bool manualPersonProfileSchemaReady_ = false;

@@ -185,6 +185,11 @@
     }
     section.appendChild(toolbar);
 
+    const genreRuntime = global.VdrSuiteRecordings2MetadataGenre;
+    if (genreRuntime && typeof genreRuntime.mount === 'function') {
+      genreRuntime.mount(section, recording, backendId, {node, button, setStatus, refreshDetail});
+    }
+
     const searchArea = node('div', 'recordings2-metadata-search');
     searchArea.hidden = true;
     section.appendChild(searchArea);

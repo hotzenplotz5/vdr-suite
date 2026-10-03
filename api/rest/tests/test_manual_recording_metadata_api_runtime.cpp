@@ -206,6 +206,14 @@ int main()
 {
     Database database;
     assert(database.open(":memory:"));
+    assert(database.execute(
+        "CREATE TABLE vdr_recording_cache("
+        "backend_id TEXT NOT NULL,"
+        "cache_key TEXT NOT NULL,"
+        "backend_native_id TEXT NOT NULL DEFAULT '',"
+        "PRIMARY KEY(backend_id,cache_key));"
+        "INSERT INTO vdr_recording_cache VALUES"
+        "('living-room','genre/key','genre-native');"));
     MetadataRepository repository(database);
     FakeProvider provider;
     MetadataController controller(repository, &provider);
@@ -411,6 +419,70 @@ int main()
         assert(response.statusCode == 200);
         assert(response.body == "{\"found\":false}");
         assert(provider.creditCalls == 3);
+    }
+
+    presentationChanges.clear();
+    {
+        const ApiResponse response = post(
+            runtime,
+            "/api/backends/living-room/recordings/metadata/genre",
+            "{\"resourceKey\":\"genre-native\",\"genreId\":\"science-fiction\"}",
+            "user:real-admin");
+        assert(response.statusCode == 200);
+        assert(response.body.find(
+            "\"selectedGenreId\":\"science-fiction\"") !=
+            std::string::npos);
+        assert(response.body.find(
+            "{\"id\":\"science-fiction\",\"label\":\"Science-Fiction\"}") !=
+            std::string::npos);
+        assert(presentationChanges ==
+            std::vector<std::string>{"living-room"});
+    }
+
+    {
+        ApiResponse response;
+        assert(runtime.tryHandleGet(
+            "/api/backends/living-room/recordings/metadata/genre?resourceKey=genre-native",
+            response));
+        assert(response.statusCode == 200);
+        assert(response.body.find(
+            "\"selectedGenreId\":\"science-fiction\"") !=
+            std::string::npos);
+    }
+
+    {
+        const ApiResponse response = post(
+            runtime,
+            "/api/backends/living-room/recordings/metadata/genre",
+            "{\"resourceKey\":\"genre-native\",\"genreId\":\"not-a-canonical-genre\"}",
+            "user:real-admin");
+        assert(response.statusCode == 400);
+        assert(presentationChanges.size() == 1);
+    }
+
+    {
+        const ApiResponse response = post(
+            runtime,
+            "/api/backends/living-room/recordings/metadata/genre",
+            "{\"resourceKey\":\"genre-native\",\"genreId\":\"\"}",
+            "user:real-admin");
+        assert(response.statusCode == 200);
+        assert(response.body.find(
+            "\"selectedGenreId\":\"\"") !=
+            std::string::npos);
+        assert(presentationChanges ==
+            (std::vector<std::string>{"living-room", "living-room"}));
+    }
+
+    {
+        ApiResponse response;
+        assert(runtime.tryHandleGet(
+            "/api/backends/living-room/recordings/metadata/genre?resourceKey=genre-native",
+            response));
+        assert(response.statusCode == 200);
+        assert(response.body.find(
+            "\"selectedGenreId\":\"\"") !=
+            std::string::npos);
     }
 
     {

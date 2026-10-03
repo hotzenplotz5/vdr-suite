@@ -124,7 +124,7 @@ int main()
         "living-room"));
 
     for (const std::string operation : {
-             "search", "seasons", "episodes", "assign", "withdraw"})
+             "search", "seasons", "episodes", "assign", "withdraw", "genre"})
     {
         HttpServerRequest request = requestFor(
             fixture,

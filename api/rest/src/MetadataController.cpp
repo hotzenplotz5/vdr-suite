@@ -1,6 +1,7 @@
 #include "MetadataController.h"
 
 #include "CurlExternalArtworkHttpTransport.h"
+#include "CanonicalGenreRegistry.h"
 #include "MetadataRepository.h"
 #include "TmdbRecordingMetadataCandidateProvider.h"
 #include "TmdbRecordingMetadataCredentialResolver.h"
@@ -459,6 +460,78 @@ ApiResponse MetadataController::getManualRecordingMetadata(
     response.body = serializeAssignment(
         metadataRepository_.getManualRecordingMetadata(backendId, resourceKey));
     return response;
+}
+
+ApiResponse MetadataController::getManualRecordingGenre(
+    const std::string& backendId,
+    const std::string& resourceKey)
+{
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.headers["Cache-Control"] = "no-store";
+
+    CanonicalGenreRegistry registry;
+    const std::string selectedGenreId =
+        metadataRepository_.getManualRecordingGenre(
+            backendId,
+            resourceKey);
+
+    std::ostringstream json;
+    json << "{\"backendId\":\"" << jsonEscape(
+        backendId.empty() ? "default" : backendId) << "\"";
+    json << ",\"resourceKey\":\"" << jsonEscape(resourceKey) << "\"";
+    json << ",\"selectedGenreId\":\""
+         << jsonEscape(selectedGenreId) << "\"";
+    json << ",\"genres\":[";
+    bool firstGenre = true;
+    for (const CanonicalGenre& genre : registry.allKnown())
+    {
+        if (!genre.known || genre.id == "unclassified") continue;
+        if (!firstGenre) json << ',';
+        firstGenre = false;
+        json << "{\"id\":\"" << jsonEscape(genre.id)
+             << "\",\"label\":\"" << jsonEscape(genre.labelDe)
+             << "\"}";
+    }
+    json << "]}";
+    response.body = json.str();
+    return response;
+}
+
+ApiResponse MetadataController::setManualRecordingGenre(
+    const std::string& backendId,
+    const std::string& resourceKey,
+    const std::string& genreId)
+{
+    if (resourceKey.empty())
+    {
+        return errorResponse(
+            400,
+            "invalid_recording_resource_key",
+            "A recording resource key is required");
+    }
+
+    const bool updated = genreId.empty()
+        ? metadataRepository_.clearManualRecordingGenre(
+            backendId,
+            resourceKey)
+        : metadataRepository_.setManualRecordingGenre(
+            backendId,
+            resourceKey,
+            genreId);
+
+    if (!updated)
+    {
+        return errorResponse(
+            400,
+            "invalid_recording_genre",
+            "The recording or selected genre is invalid");
+    }
+
+    return getManualRecordingGenre(
+        backendId,
+        resourceKey);
 }
 
 ApiResponse MetadataController::assignManualRecordingMetadata(

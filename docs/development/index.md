@@ -50,6 +50,7 @@ This is a stable navigation page for development contracts and evidence. It does
 - [Post-Phase-66 Home Rebuild Closeout](post-phase66-home-rebuild-closeout.md)
 - [Post-Phase-66 Recording Detail Closeout](post-phase66-recording-detail-closeout.md)
 - [Post-Phase-66 Native Recording Editing Closeout](post-phase66-recording-editing-closeout.md)
+- [Recording Folder and Manual Genre Management](recording-folder-genre-management.md) — working branch contract; not merged yet.
 - [Phase 65.D.1 Persistent Browser Playback Shell Closeout](phase-65d1-persistent-browser-playback-shell-closeout.md)
 - [ADR-0058 Media Home Architecture](../adr/ADR-0058-media-home-responsive-browse-preview.md)
 - [ADR-0054 Broadcast Companion Services](../adr/ADR-0054-broadcast-companion-teletext-hbbtv.md)
