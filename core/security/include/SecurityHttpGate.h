@@ -412,6 +412,35 @@ public:
                         publicAccountCredentialSuffix.size()))
                     .find('/') == std::string::npos &&
             !publicAccountCredentialAccountId.empty();
+        std::string publicAccountCredentialItemAccountId;
+        std::string publicAccountCredentialItemId;
+        const std::string publicAccountCredentialItemMarker =
+            "/credentials/";
+        const std::size_t publicAccountCredentialItemMarkerOffset =
+            path.compare(
+                0,
+                publicAccountPrefix.size(),
+                publicAccountPrefix) == 0
+                ? path.find(
+                    publicAccountCredentialItemMarker,
+                    publicAccountPrefix.size())
+                : std::string::npos;
+        const bool isPublicAccountCredentialItemResource =
+            publicAccountCredentialItemMarkerOffset != std::string::npos &&
+            (publicAccountCredentialItemAccountId =
+                path.substr(
+                    publicAccountPrefix.size(),
+                    publicAccountCredentialItemMarkerOffset -
+                        publicAccountPrefix.size()))
+                    .find('/') == std::string::npos &&
+            !publicAccountCredentialItemAccountId.empty() &&
+            (publicAccountCredentialItemId =
+                path.substr(
+                    publicAccountCredentialItemMarkerOffset +
+                    publicAccountCredentialItemMarker.size()))
+                    .find('/') == std::string::npos &&
+            !publicAccountCredentialItemId.empty();
+
         std::string publicAccountSessionAccountId;
         const std::string publicAccountSessionSuffix =
             "/sessions";
@@ -467,7 +496,8 @@ public:
 
         const bool isPublicAccountCredentialRead =
             request.method == "GET" &&
-            isPublicAccountCredentialResource;
+            (isPublicAccountCredentialResource ||
+             isPublicAccountCredentialItemResource);
         const bool isPublicAccountSessionRead =
             request.method == "GET" &&
             (isPublicAccountSessionResource ||
@@ -485,6 +515,9 @@ public:
         const bool isPublicAccountGrantMutation =
             isPost &&
             isPublicAccountGrantResource;
+        const bool isPublicAccountCredentialMutation =
+            isPost &&
+            isPublicAccountCredentialItemResource;
         const bool isPublicAccountSessionMutation =
             isPost &&
             isPublicAccountSessionItemResource;
@@ -600,6 +633,7 @@ public:
             isPublicAccountCreate ||
             isPublicAccountMutation ||
             isPublicAccountGrantMutation ||
+            isPublicAccountCredentialMutation ||
             isPublicAccountSessionMutation ||
             isPublicTimerAssignmentCreate || isTimerUpdateAction ||
             isTimerDeleteAction || isChannelMoveAction || isRecordingExecutionAction ||
@@ -1123,7 +1157,15 @@ public:
         bool recordingActionSupported = true;
         bool publicAccountMutationSupported = true;
 
-        if (isPublicAccountSessionMutation)
+        if (isPublicAccountCredentialMutation)
+        {
+            requestToAuthorize.backendId = "*";
+            requestToAuthorize.permission =
+                "accounts.credentials.revoke";
+            requestToAuthorize.action =
+                "accounts.credentials.revoke";
+        }
+        else if (isPublicAccountSessionMutation)
         {
             requestToAuthorize.backendId = "*";
             requestToAuthorize.permission =
