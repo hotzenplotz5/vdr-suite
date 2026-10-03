@@ -58,6 +58,42 @@ std::string hexEncode(const unsigned char* bytes, std::size_t size)
     return result;
 }
 
+std::string credentialLifecycleRevision(
+    const std::string& credentialId,
+    const std::string& credentialType,
+    bool active,
+    bool expired,
+    bool revoked,
+    const std::string& expiresAt,
+    const std::string& createdAt)
+{
+    std::string normalized = "credential-lifecycle/1\n";
+    normalized += credentialId + "\n";
+    normalized += credentialType + "\n";
+    normalized += active ? "1\n" : "0\n";
+    normalized += expired ? "1\n" : "0\n";
+    normalized += revoked ? "1\n" : "0\n";
+    normalized += expiresAt + "\n";
+    normalized += createdAt + "\n";
+
+    std::array<unsigned char, EVP_MAX_MD_SIZE> digest{};
+    unsigned int digestLength = 0U;
+    if (EVP_Digest(
+            normalized.data(),
+            normalized.size(),
+            digest.data(),
+            &digestLength,
+            EVP_sha256(),
+            nullptr) != 1 ||
+        digestLength == 0U)
+    {
+        return {};
+    }
+
+    return "credential-lifecycle:" +
+        hexEncode(digest.data(), digestLength);
+}
+
 std::string sessionLifecycleRevision(
     sqlite3_stmt* statement,
     const std::string& sessionId,
@@ -158,6 +194,20 @@ listCredentialsByActorId(const std::string& actorId) const
         credential.revoked = sqlite3_column_int(statement, 4) != 0;
         credential.expiresAt = columnText(statement, 5);
         credential.createdAt = columnText(statement, 6);
+        credential.resourceRevision =
+            credentialLifecycleRevision(
+                credential.credentialId,
+                credential.credentialType,
+                credential.active,
+                credential.expired,
+                credential.revoked,
+                credential.expiresAt,
+                credential.createdAt);
+        if (credential.resourceRevision.empty())
+        {
+            sqlite3_finalize(statement);
+            return std::nullopt;
+        }
         result.push_back(std::move(credential));
     }
 
