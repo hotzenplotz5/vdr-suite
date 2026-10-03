@@ -174,7 +174,7 @@ is independent from Human Account revision.
 
 ### MU.8 — Credential and session administration [IN PROGRESS]
 
-MU.8A - Safe credential/session metadata [IMPLEMENTATION CANDIDATE]
+MU.8A - Safe credential/session metadata [IMPLEMENTATION MERGED - PR #415 / RUNTIME ACCEPTANCE PENDING]
 
 MU.8A adds only the secret-free Public-v1 Credential and Session collection
 reads under `accounts.credentials.view@*` and `accounts.sessions.view@*`.
