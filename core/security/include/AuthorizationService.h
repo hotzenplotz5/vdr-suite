@@ -202,6 +202,8 @@ private:
         return permission == "backend.settings.media-transcode.read" ||
             permission == "accounts.view" ||
             permission == "accounts.grants.view" ||
+            permission == "accounts.credentials.view" ||
+            permission == "accounts.sessions.view" ||
             permission == "broadcast.teletext.view" ||
             permission == "broadcast.hbbtv.view";
     }

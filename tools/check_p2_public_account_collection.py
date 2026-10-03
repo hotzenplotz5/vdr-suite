@@ -41,6 +41,28 @@ def forbid(name, marker):
     if marker in read(name):
         raise AssertionError(f"{FILES[name]} contains forbidden marker: {marker}")
 
+def between(name, start_marker, end_marker):
+    text = read(name)
+    start = text.find(start_marker)
+    if start < 0:
+        raise AssertionError(
+            f"{FILES[name]} missing scoped start marker: {start_marker}"
+        )
+    end = text.find(end_marker, start + len(start_marker))
+    if end < 0:
+        raise AssertionError(
+            f"{FILES[name]} missing scoped end marker: {end_marker}"
+        )
+    return text[start:end]
+
+def forbid_in_scope(name, start_marker, end_marker, marker):
+    scoped = between(name, start_marker, end_marker)
+    if marker in scoped:
+        raise AssertionError(
+            f"{FILES[name]} scoped Account collection contains "
+            f"forbidden marker: {marker}"
+        )
+
 def main():
     for marker in (
         "PublicAccountCollectionItem",
@@ -82,14 +104,24 @@ def main():
     require("account_repo", "security_human_accounts")
     require("account_service", "listAll")
 
-    for name in ("runtime_h", "runtime_cpp"):
-        for forbidden in (
-            "passwordHash",
-            "credentialId",
-            "sessionSecret",
-            "csrfSecret",
-        ):
-            forbid(name, forbidden)
+    for forbidden in (
+        "passwordHash",
+        "credentialId",
+        "sessionSecret",
+        "csrfSecret",
+    ):
+        forbid_in_scope(
+            "runtime_h",
+            "struct PublicAccountCollectionItem",
+            "struct PublicAccountCollectionRequest",
+            forbidden,
+        )
+        forbid_in_scope(
+            "runtime_cpp",
+            "ApiResponse publicAccountCollectionResponse(",
+            "ApiResponse publicChannelCollectionResponse(",
+            forbidden,
+        )
 
     for marker in (
         "accountId",

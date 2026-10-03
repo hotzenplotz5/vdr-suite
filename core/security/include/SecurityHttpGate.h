@@ -388,6 +388,60 @@ public:
         const bool isPublicAccountGrantRead =
             request.method == "GET" &&
             isPublicAccountGrantResource;
+        std::string publicAccountCredentialAccountId;
+        const std::string publicAccountCredentialSuffix =
+            "/credentials";
+        const bool isPublicAccountCredentialResource =
+            path.compare(
+                0,
+                publicAccountPrefix.size(),
+                publicAccountPrefix) == 0 &&
+            path.size() >
+                publicAccountPrefix.size() +
+                publicAccountCredentialSuffix.size() &&
+            path.compare(
+                path.size() -
+                    publicAccountCredentialSuffix.size(),
+                publicAccountCredentialSuffix.size(),
+                publicAccountCredentialSuffix) == 0 &&
+            (publicAccountCredentialAccountId =
+                path.substr(
+                    publicAccountPrefix.size(),
+                    path.size() -
+                        publicAccountPrefix.size() -
+                        publicAccountCredentialSuffix.size()))
+                    .find('/') == std::string::npos &&
+            !publicAccountCredentialAccountId.empty();
+        std::string publicAccountSessionAccountId;
+        const std::string publicAccountSessionSuffix =
+            "/sessions";
+        const bool isPublicAccountSessionResource =
+            path.compare(
+                0,
+                publicAccountPrefix.size(),
+                publicAccountPrefix) == 0 &&
+            path.size() >
+                publicAccountPrefix.size() +
+                publicAccountSessionSuffix.size() &&
+            path.compare(
+                path.size() -
+                    publicAccountSessionSuffix.size(),
+                publicAccountSessionSuffix.size(),
+                publicAccountSessionSuffix) == 0 &&
+            (publicAccountSessionAccountId =
+                path.substr(
+                    publicAccountPrefix.size(),
+                    path.size() -
+                        publicAccountPrefix.size() -
+                        publicAccountSessionSuffix.size()))
+                    .find('/') == std::string::npos &&
+            !publicAccountSessionAccountId.empty();
+        const bool isPublicAccountCredentialRead =
+            request.method == "GET" &&
+            isPublicAccountCredentialResource;
+        const bool isPublicAccountSessionRead =
+            request.method == "GET" &&
+            isPublicAccountSessionResource;
         const bool isPublicAccountRead =
             request.method == "GET" &&
             (isPublicAccountCollection ||
@@ -496,7 +550,9 @@ public:
              isPublicBackendCollection ||
              isPublicChannelCollection ||
              isPublicTimerAssignmentCollection ||
-             isPublicOperationResource);
+             isPublicOperationResource ||
+             isPublicAccountCredentialResource ||
+             isPublicAccountSessionResource);
         const bool isSafePost = isPost &&
             (path == "/api/recordings/actions/validate" ||
              path == "/api/vdr/recordings/actions/validate" ||
@@ -653,6 +709,60 @@ public:
                     messageForReason(decision.reasonCode),
                     gate.context,
                     authenticationFailure(decision));
+                return gate;
+            }
+
+            gate.authorizationDecision = decision;
+            gate.allowed = true;
+            return gate;
+        }
+
+        if (isPublicAccountCredentialRead ||
+            isPublicAccountSessionRead)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+
+            AuthorizationRequest metadataReadRequest;
+            metadataReadRequest.permission =
+                isPublicAccountCredentialRead
+                    ? "accounts.credentials.view"
+                    : "accounts.sessions.view";
+            metadataReadRequest.backendId = "*";
+            metadataReadRequest.action =
+                metadataReadRequest.permission;
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(
+                    gate.context,
+                    metadataReadRequest);
+
+            if (!appendDecisionEvent(
+                    gate.context,
+                    decision,
+                    ""))
+            {
+                gate.rejection = errorResponse(
+                    503,
+                    "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+
+            if (!decision.allowed)
+            {
+                const int statusCode =
+                    authenticationFailure(decision)
+                        ? 401
+                        : 403;
+                gate.rejection = errorResponse(
+                    statusCode,
+                    decision.reasonCode,
+                    messageForReason(
+                        decision.reasonCode),
+                    gate.context,
+                    authenticationFailure(decision),
+                    gate.publicApiV1);
                 return gate;
             }
 

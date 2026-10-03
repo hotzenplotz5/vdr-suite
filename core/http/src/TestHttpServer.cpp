@@ -338,6 +338,114 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             *humanAccountAdministrationRepository_,
             *accountabilityEventRepository_);
 
+    humanAccountCredentialSessionReadRepository_ =
+        std::make_unique<HumanAccountCredentialSessionReadRepository>(
+            *securityDatabase_);
+    humanAccountCredentialSessionReadService_ =
+        std::make_unique<HumanAccountCredentialSessionReadService>(
+            *humanAccountRepository_,
+            *securityIdentityRepository_,
+            *humanAccountCredentialSessionReadRepository_);
+
+    PublicApiRuntime::instance().registerAccountCredentialLookup(
+        [this](const std::string& accountId)
+        {
+            PublicAccountCredentialCollectionResult result;
+            if (!humanAccountCredentialSessionReadService_)
+                return result;
+            const HumanAccountCredentialReadResult found =
+                humanAccountCredentialSessionReadService_->
+                    readCredentials(accountId);
+            switch (found.status)
+            {
+                case HumanAccountCredentialSessionReadStatus::success:
+                    result.status =
+                        PublicAccountSecurityMetadataStatus::ok;
+                    break;
+                case HumanAccountCredentialSessionReadStatus::invalidRequest:
+                    result.status =
+                        PublicAccountSecurityMetadataStatus::invalid;
+                    return result;
+                case HumanAccountCredentialSessionReadStatus::accountNotFound:
+                    result.status =
+                        PublicAccountSecurityMetadataStatus::notFound;
+                    return result;
+                case HumanAccountCredentialSessionReadStatus::accountActorInvalid:
+                case HumanAccountCredentialSessionReadStatus::storageError:
+                    result.status =
+                        PublicAccountSecurityMetadataStatus::unavailable;
+                    return result;
+            }
+            result.collection.accountId = found.accountId;
+            result.collection.actorId = found.actorId;
+            for (const HumanAccountCredentialMetadata& credential :
+                 found.credentials)
+            {
+                PublicAccountCredentialItem item;
+                item.credentialId = credential.credentialId;
+                item.credentialType = credential.credentialType;
+                item.active = credential.active;
+                item.expired = credential.expired;
+                item.revoked = credential.revoked;
+                item.expiresAt = credential.expiresAt;
+                item.createdAt = credential.createdAt;
+                result.collection.credentials.push_back(
+                    std::move(item));
+            }
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerAccountSessionLookup(
+        [this](const std::string& accountId)
+        {
+            PublicAccountSessionCollectionResult result;
+            if (!humanAccountCredentialSessionReadService_)
+                return result;
+            const HumanAccountSessionReadResult found =
+                humanAccountCredentialSessionReadService_->
+                    readSessions(accountId);
+            switch (found.status)
+            {
+                case HumanAccountCredentialSessionReadStatus::success:
+                    result.status =
+                        PublicAccountSecurityMetadataStatus::ok;
+                    break;
+                case HumanAccountCredentialSessionReadStatus::invalidRequest:
+                    result.status =
+                        PublicAccountSecurityMetadataStatus::invalid;
+                    return result;
+                case HumanAccountCredentialSessionReadStatus::accountNotFound:
+                    result.status =
+                        PublicAccountSecurityMetadataStatus::notFound;
+                    return result;
+                case HumanAccountCredentialSessionReadStatus::accountActorInvalid:
+                case HumanAccountCredentialSessionReadStatus::storageError:
+                    result.status =
+                        PublicAccountSecurityMetadataStatus::unavailable;
+                    return result;
+            }
+            result.collection.accountId = found.accountId;
+            result.collection.actorId = found.actorId;
+            for (const HumanAccountSessionMetadata& session :
+                 found.sessions)
+            {
+                PublicAccountSessionItem item;
+                item.sessionId = session.sessionId;
+                item.deviceId = session.deviceId;
+                item.issuedFromCredentialId =
+                    session.issuedFromCredentialId;
+                item.active = session.active;
+                item.expired = session.expired;
+                item.revoked = session.revoked;
+                item.expiresAt = session.expiresAt;
+                item.lastSeenAt = session.lastSeenAt;
+                item.createdAt = session.createdAt;
+                result.collection.sessions.push_back(
+                    std::move(item));
+            }
+            return result;
+        });
+
     PublicApiRuntime::instance().registerAccountGrantLookup(
         [this](const std::string& accountId)
         {
@@ -684,6 +792,8 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
 
 TestHttpServer::~TestHttpServer()
 {
+    PublicApiRuntime::instance().resetAccountSessionLookup();
+    PublicApiRuntime::instance().resetAccountCredentialLookup();
     PublicApiRuntime::instance().resetAccountGrantMutation();
     PublicApiRuntime::instance().resetAccountGrantLookup();
     PublicApiRuntime::instance().resetAccountCreate();

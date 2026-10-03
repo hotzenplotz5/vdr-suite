@@ -119,28 +119,57 @@ bool publicAccountPath(
         accountId.find('/') == std::string::npos;
 }
 
-bool publicAccountGrantPath(
+bool publicAccountSubresourcePath(
     const std::string& path,
+    const std::string& suffix,
     std::string& accountId)
 {
     const std::string prefix(PublicAccountPrefix);
-    static const std::string Suffix = "/grants";
-
     if (path.compare(0, prefix.size(), prefix) != 0 ||
-        path.size() <= prefix.size() + Suffix.size() ||
+        path.size() <= prefix.size() + suffix.size() ||
         path.compare(
-            path.size() - Suffix.size(),
-            Suffix.size(),
-            Suffix) != 0)
+            path.size() - suffix.size(),
+            suffix.size(),
+            suffix) != 0)
     {
         return false;
     }
 
     accountId = path.substr(
         prefix.size(),
-        path.size() - prefix.size() - Suffix.size());
+        path.size() - prefix.size() - suffix.size());
     return !accountId.empty() &&
         accountId.find('/') == std::string::npos;
+}
+
+bool publicAccountGrantPath(
+    const std::string& path,
+    std::string& accountId)
+{
+    return publicAccountSubresourcePath(
+        path,
+        "/grants",
+        accountId);
+}
+
+bool publicAccountCredentialPath(
+    const std::string& path,
+    std::string& accountId)
+{
+    return publicAccountSubresourcePath(
+        path,
+        "/credentials",
+        accountId);
+}
+
+bool publicAccountSessionPath(
+    const std::string& path,
+    std::string& accountId)
+{
+    return publicAccountSubresourcePath(
+        path,
+        "/sessions",
+        accountId);
 }
 
 bool publicTimerAssignmentPath(
@@ -1865,6 +1894,7 @@ ApiResponse platformCapabilities(
     const bool accountMutationAvailable,
     const bool accountCreateAvailable,
     const bool accountGrantAdministrationAvailable,
+    const bool accountSecurityMetadataAvailable,
     const std::string& requestId,
     const std::string& correlationId)
 {
@@ -1894,6 +1924,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.accounts-grants-administration\",\"version\":1,\"availability\":\"" +
         std::string(accountGrantAdministrationAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.accounts-credential-session-metadata\",\"version\":1,\"availability\":\"" +
+        std::string(accountSecurityMetadataAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.compatibility-policy\",\"version\":1,\"availability\":\"available\"},"
         "{\"id\":\"public-api.deprecation-metadata\",\"version\":1,\"availability\":\"available\"}"
@@ -2313,6 +2346,104 @@ ApiResponse publicAccountGrantSetResponse(
         correlationId);
     response.headers["ETag"] = entityTag;
     return response;
+}
+
+ApiResponse publicAccountCredentialCollectionResponse(
+    const PublicAccountCredentialCollectionResource& collection,
+    const std::string& path,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    std::string body =
+        "{\"accountId\":\"" +
+        jsonEscape(collection.accountId) +
+        "\",\"actorId\":\"" +
+        jsonEscape(collection.actorId) +
+        "\",\"items\":[";
+    for (std::size_t index = 0U;
+         index < collection.credentials.size();
+         ++index)
+    {
+        if (index > 0U) body += ",";
+        const PublicAccountCredentialItem& credential =
+            collection.credentials[index];
+        body +=
+            "{\"credentialId\":\"" +
+            jsonEscape(credential.credentialId) +
+            "\",\"credentialType\":\"" +
+            jsonEscape(credential.credentialType) +
+            "\",\"active\":" +
+            std::string(credential.active ? "true" : "false") +
+            ",\"expired\":" +
+            std::string(credential.expired ? "true" : "false") +
+            ",\"revoked\":" +
+            std::string(credential.revoked ? "true" : "false") +
+            ",\"expiresAt\":";
+        body += credential.expiresAt.empty()
+            ? "null"
+            : "\"" + jsonEscape(credential.expiresAt) + "\"";
+        body +=
+            ",\"createdAt\":\"" +
+            jsonEscape(credential.createdAt) +
+            "\"}";
+    }
+    body +=
+        "],\"links\":{\"self\":\"" +
+        jsonEscape(path) +
+        "\"}}";
+    return jsonResponse(body, requestId, correlationId);
+}
+
+ApiResponse publicAccountSessionCollectionResponse(
+    const PublicAccountSessionCollectionResource& collection,
+    const std::string& path,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    std::string body =
+        "{\"accountId\":\"" +
+        jsonEscape(collection.accountId) +
+        "\",\"actorId\":\"" +
+        jsonEscape(collection.actorId) +
+        "\",\"items\":[";
+    for (std::size_t index = 0U;
+         index < collection.sessions.size();
+         ++index)
+    {
+        if (index > 0U) body += ",";
+        const PublicAccountSessionItem& session =
+            collection.sessions[index];
+        body +=
+            "{\"sessionId\":\"" +
+            jsonEscape(session.sessionId) +
+            "\",\"deviceId\":\"" +
+            jsonEscape(session.deviceId) +
+            "\",\"issuedFromCredentialId\":\"" +
+            jsonEscape(session.issuedFromCredentialId) +
+            "\",\"active\":" +
+            std::string(session.active ? "true" : "false") +
+            ",\"expired\":" +
+            std::string(session.expired ? "true" : "false") +
+            ",\"revoked\":" +
+            std::string(session.revoked ? "true" : "false") +
+            ",\"expiresAt\":";
+        body += session.expiresAt.empty()
+            ? "null"
+            : "\"" + jsonEscape(session.expiresAt) + "\"";
+        body += ",\"lastSeenAt\":";
+        body += session.lastSeenAt.empty()
+            ? "null"
+            : "\"" + jsonEscape(session.lastSeenAt) + "\"";
+        body +=
+            ",\"createdAt\":\"" +
+            jsonEscape(session.createdAt) +
+            "\"}";
+    }
+    body +=
+        "],\"links\":{\"self\":\"" +
+        jsonEscape(path) +
+        "\"}}";
+    return jsonResponse(body, requestId, correlationId);
 }
 
 ApiResponse publicAccountCollectionResponse(
@@ -2778,6 +2909,50 @@ bool PublicApiRuntime::accountGrantMutationConfigured() const
     return static_cast<bool>(accountGrantMutation_);
 }
 
+void PublicApiRuntime::registerAccountCredentialLookup(
+    AccountCredentialLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(
+        accountCredentialLookupMutex_);
+    accountCredentialLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetAccountCredentialLookup()
+{
+    std::lock_guard<std::mutex> lock(
+        accountCredentialLookupMutex_);
+    accountCredentialLookup_ = {};
+}
+
+bool PublicApiRuntime::accountCredentialLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        accountCredentialLookupMutex_);
+    return static_cast<bool>(accountCredentialLookup_);
+}
+
+void PublicApiRuntime::registerAccountSessionLookup(
+    AccountSessionLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(
+        accountSessionLookupMutex_);
+    accountSessionLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetAccountSessionLookup()
+{
+    std::lock_guard<std::mutex> lock(
+        accountSessionLookupMutex_);
+    accountSessionLookup_ = {};
+}
+
+bool PublicApiRuntime::accountSessionLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        accountSessionLookupMutex_);
+    return static_cast<bool>(accountSessionLookup_);
+}
+
 void PublicApiRuntime::registerChannelCollectionLookup(
     ChannelCollectionLookup lookup)
 {
@@ -2888,6 +3063,8 @@ bool PublicApiRuntime::tryHandleGet(
             accountCreateConfigured(),
             accountGrantLookupConfigured() &&
                 accountGrantMutationConfigured(),
+            accountCredentialLookupConfigured() &&
+                accountSessionLookupConfigured(),
             requestId,
             correlationId);
         return true;
@@ -2957,6 +3134,154 @@ bool PublicApiRuntime::tryHandleGet(
     }
 
     std::string accountId;
+    if (publicAccountCredentialPath(path, accountId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (requestTarget != path)
+        {
+            response = invalidRequestProblem(
+                path,
+                "Account Credential metadata read does not accept query parameters.",
+                requestId,
+                correlationId);
+            return true;
+        }
+        AccountCredentialLookup lookup;
+        {
+            std::lock_guard<std::mutex> lock(
+                accountCredentialLookupMutex_);
+            lookup = accountCredentialLookup_;
+        }
+        if (!lookup)
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        const PublicAccountCredentialCollectionResult found =
+            lookup(accountId);
+        switch (found.status)
+        {
+            case PublicAccountSecurityMetadataStatus::ok:
+                if (found.collection.accountId != accountId ||
+                    found.collection.actorId.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                for (const PublicAccountCredentialItem& credential :
+                     found.collection.credentials)
+                {
+                    if (credential.credentialId.empty() ||
+                        credential.credentialType.empty() ||
+                        credential.credentialType == "browser-session" ||
+                        credential.createdAt.empty())
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                }
+                response = publicAccountCredentialCollectionResponse(
+                    found.collection, path, requestId, correlationId);
+                return true;
+            case PublicAccountSecurityMetadataStatus::invalid:
+                response = invalidRequestProblem(
+                    path,
+                    "The Account identifier is invalid.",
+                    requestId,
+                    correlationId);
+                return true;
+            case PublicAccountSecurityMetadataStatus::notFound:
+                response = notFoundProblem(
+                    path, requestId, correlationId);
+                return true;
+            case PublicAccountSecurityMetadataStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    if (publicAccountSessionPath(path, accountId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (requestTarget != path)
+        {
+            response = invalidRequestProblem(
+                path,
+                "Account Session metadata read does not accept query parameters.",
+                requestId,
+                correlationId);
+            return true;
+        }
+        AccountSessionLookup lookup;
+        {
+            std::lock_guard<std::mutex> lock(
+                accountSessionLookupMutex_);
+            lookup = accountSessionLookup_;
+        }
+        if (!lookup)
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        const PublicAccountSessionCollectionResult found =
+            lookup(accountId);
+        switch (found.status)
+        {
+            case PublicAccountSecurityMetadataStatus::ok:
+                if (found.collection.accountId != accountId ||
+                    found.collection.actorId.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                for (const PublicAccountSessionItem& session :
+                     found.collection.sessions)
+                {
+                    if (session.sessionId.empty() ||
+                        session.deviceId.empty() ||
+                        session.issuedFromCredentialId.empty() ||
+                        session.createdAt.empty())
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                }
+                response = publicAccountSessionCollectionResponse(
+                    found.collection, path, requestId, correlationId);
+                return true;
+            case PublicAccountSecurityMetadataStatus::invalid:
+                response = invalidRequestProblem(
+                    path,
+                    "The Account identifier is invalid.",
+                    requestId,
+                    correlationId);
+                return true;
+            case PublicAccountSecurityMetadataStatus::notFound:
+                response = notFoundProblem(
+                    path, requestId, correlationId);
+                return true;
+            case PublicAccountSecurityMetadataStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
     if (publicAccountGrantPath(path, accountId))
     {
         if (actorRef.empty())
@@ -3726,6 +4051,14 @@ bool PublicApiRuntime::tryHandlePost(
     std::string operationId;
     std::string timerAssignmentId;
     std::string accountId;
+
+    if (publicAccountCredentialPath(path, accountId) ||
+        publicAccountSessionPath(path, accountId))
+    {
+        response = methodNotAllowedProblem(
+            path, requestId, correlationId, "GET");
+        return true;
+    }
 
     if (publicAccountGrantPath(path, accountId))
     {
@@ -4659,6 +4992,17 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
             requestId,
             correlationId,
             "GET, POST");
+        return true;
+    }
+
+    if (publicAccountCredentialPath(path, accountId) ||
+        publicAccountSessionPath(path, accountId))
+    {
+        response = methodNotAllowedProblem(
+            path,
+            requestId,
+            correlationId,
+            "GET");
         return true;
     }
 

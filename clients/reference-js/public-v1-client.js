@@ -312,6 +312,14 @@
     return accountItemPath(options) + '/grants';
   }
 
+  function accountCredentialPath(options) {
+    return accountItemPath(options) + '/credentials';
+  }
+
+  function accountSessionPath(options) {
+    return accountItemPath(options) + '/sessions';
+  }
+
 
   function timerAssignmentItemPath(options) {
     if (!options || typeof options !== 'object' || Array.isArray(options)) {
@@ -617,6 +625,14 @@
           accountGrantPath(normalizedOptions),
           normalizedOptions
         );
+      },
+      getAccountCredentials(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return request(accountCredentialPath(normalizedOptions), normalizedOptions);
+      },
+      getAccountSessions(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return request(accountSessionPath(normalizedOptions), normalizedOptions);
       },
       setAccountGrant(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
