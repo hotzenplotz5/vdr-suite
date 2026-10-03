@@ -28,6 +28,8 @@ struct HumanAccountSessionMetadata
     std::string expiresAt;
     std::string lastSeenAt;
     std::string createdAt;
+    std::string browserCredentialId;
+    std::string resourceRevision;
 };
 
 class HumanAccountCredentialSessionReadRepository
