@@ -229,7 +229,7 @@ def main():
 
     for marker in (
         "# MU.7 — Backend Access / Permission Grant Administration",
-        "ACCEPTED — REAL YAVDR PASS / PR PENDING",
+        "COMPLETED — real yaVDR acceptance passed; PR #413 merged.",
         "GET /api/v1/accounts/{accountId}/grants",
         "POST /api/v1/accounts/{accountId}/grants",
         "accounts.grants.view@*",
@@ -274,12 +274,17 @@ def main():
             "MU.7 grant administration remains not started",
             "MU.7 - Backend access / permission grant administration [NOT STARTED]",
             "MU.7 grant administration [NOT STARTED]",
+            "MU.7 - Backend access / permission grant administration [IN PROGRESS]",
+            "ACCEPTED - REAL YAVDR PASS / PR PENDING",
+            "ACCEPTED — REAL YAVDR PASS / PR PENDING",
         ):
             forbid(name, forbidden)
 
+    forbid("candidate", "PR is pending")
+
     require(
         "current",
-        "MU.7 - Grant-set read + desired-state grant mutation [ACCEPTED - REAL YAVDR PASS / PR PENDING]",
+        "MU.7 - Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]",
     )
     require(
         "current",
@@ -287,12 +292,12 @@ def main():
     )
     require(
         "workstream",
-        "MU.7 — Backend access / permission grant administration [ACCEPTED — REAL YAVDR PASS / PR PENDING]",
+        "MU.7 — Backend access / permission grant administration [COMPLETED — REAL YAVDR PASS / PR #413 MERGED]",
     )
     require("phase_map", "MU.6D Account CREATE/idempotency [DONE - PR #411]")
     require(
         "phase_map",
-        "MU.7 grant administration [ACCEPTED - REAL YAVDR PASS / PR PENDING]",
+        "MU.7 grant administration [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]",
     )
     require(
         "development_index",
@@ -326,7 +331,7 @@ def main():
 
     print("MU.7 Account grant administration contracts passed")
     print("MU6=COMPLETED")
-    print("MU7=ACCEPTED_REAL_YAVDR_PASS_PR_PENDING")
+    print("MU7=COMPLETED_REAL_YAVDR_PASS_PR_413_MERGED")
     print("MU8=NOT_STARTED")
     return 0
 

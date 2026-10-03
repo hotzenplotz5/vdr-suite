@@ -31,15 +31,15 @@ Current active cross-cutting productization workstream: **Multiuser / Account an
 
 Current Multiuser architecture slice: **MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]**.
 
-Current Multiuser runtime slice: **MU.7 - Backend access / permission grant administration [IN PROGRESS]**.
+Current Multiuser runtime slice: **none - MU.8 Credential and session administration [NOT STARTED]**.
 
-Latest completed Multiuser runtime slice: **MU.6 - Human Account lifecycle administration [COMPLETED]**.
+Latest completed Multiuser runtime slice: **MU.7 - Backend access / permission grant administration [COMPLETED]**.
 
-Current MU.7 sub-slice: **MU.7 - Grant-set read + desired-state grant mutation [ACCEPTED - REAL YAVDR PASS / PR PENDING]**.
+Completed MU.7 sub-slice: **MU.7 - Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]**.
 
-Next product slice after MU.7 merge: **MU.8 - Credential and session administration [NOT STARTED]**.
+Next product slice: **MU.8 - Credential and session administration [NOT STARTED]**.
 
-MU.0-MU.6 are completed; MU.6D passed real yaVDR acceptance and merged as PR #411. MU.7 is now the active bounded grant-administration candidate with grant-set ETag/read, desired-state ensure/revoke, global accounts.grants.view/modify authority, server-owned allowlist, CSRF and final-admin protection. REAL YAVDR acceptance passed; PR is pending. MU.8 credential/session administration remains not started. Durable status is in [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md), [MU.6D Atomic Account CREATE + Durable Idempotency](post-phase69-mu6d-account-create-idempotency.md) and [MU.7 Backend Access / Permission Grant Administration](post-phase69-mu7-account-grant-administration.md).
+MU.0-MU.7 are completed; MU.6D passed real yaVDR acceptance and merged as PR #411, and MU.7 completed the bounded grant-administration boundary with grant-set ETag/read, desired-state ensure/revoke, global accounts.grants.view/modify authority, server-owned allowlist, CSRF and final-admin protection. REAL YAVDR acceptance passed; PR #413 merged. MU.8 credential/session administration remains not started. Durable status is in [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md), [MU.6D Atomic Account CREATE + Durable Idempotency](post-phase69-mu6d-account-create-idempotency.md) and [MU.7 Backend Access / Permission Grant Administration](post-phase69-mu7-account-grant-administration.md).
 
 69.D is completed; durable evidence is in
 [Phase 69.D Closeout](phase-69d-closeout.md). PR #363 accepted the backend-scoped
@@ -184,7 +184,7 @@ The following remain explicit open/deferred boundaries rather than unfinished Ph
 - user-visible growing-Recording seek where unsupported capability remains truthful;
 - Live-TV timeshift;
 - recommendation/content graph runtime (Phase 70), which still requires its dedicated accepted ADR;
-- Multiuser Account/backend access administration with MU.0-MU.6 completed, MU.7 grant administration at ACCEPTED - REAL YAVDR PASS / PR PENDING, and MU.8 credential/session administration not started;
+- Multiuser Account/backend access administration with MU.0-MU.7 completed, MU.7 grant administration COMPLETED after REAL YAVDR PASS / PR #413 MERGED, and MU.8 credential/session administration not started;
 - broad Timer Product UI, which remains gated on completion of the required Multiuser Account/backend access administration surface.
 
 ## Related documents
