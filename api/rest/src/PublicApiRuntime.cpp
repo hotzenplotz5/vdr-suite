@@ -3501,7 +3501,91 @@ bool PublicApiRuntime::tryHandleGet(
     }
 
     std::string accountId;
+    std::string credentialId;
     std::string sessionId;
+
+    if (publicAccountCredentialItemPath(
+            path, accountId, credentialId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        if (requestTarget != path)
+        {
+            response = invalidRequestProblem(
+                path,
+                "Account Credential item read does not accept query parameters.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        AccountCredentialItemLookup lookup;
+        {
+            std::lock_guard<std::mutex> lock(
+                accountCredentialItemLookupMutex_);
+            lookup = accountCredentialItemLookup_;
+        }
+        if (!lookup)
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        const PublicAccountCredentialLookupResult found =
+            lookup(accountId, credentialId);
+        switch (found.status)
+        {
+            case PublicAccountCredentialAdministrationStatus::ok:
+                if (found.resource.accountId != accountId ||
+                    found.resource.actorId.empty() ||
+                    found.resource.credential.credentialId != credentialId ||
+                    found.resource.credential.credentialType.empty() ||
+                    found.resource.credential.credentialType ==
+                        "browser-session" ||
+                    found.resource.credential.createdAt.empty() ||
+                    !publicCredentialLifecycleRevision(
+                        found.resource.resourceRevision))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                response =
+                    publicAccountCredentialResourceResponse(
+                        found.resource,
+                        path,
+                        requestId,
+                        correlationId,
+                        ifNoneMatch);
+                return true;
+
+            case PublicAccountCredentialAdministrationStatus::invalid:
+                response = invalidRequestProblem(
+                    path,
+                    "The Account or Credential identifier is invalid.",
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountCredentialAdministrationStatus::notFound:
+                response = notFoundProblem(
+                    path, requestId, correlationId);
+                return true;
+
+            case PublicAccountCredentialAdministrationStatus::unsupported:
+            case PublicAccountCredentialAdministrationStatus::finalAdministrator:
+            case PublicAccountCredentialAdministrationStatus::revisionConflict:
+            case PublicAccountCredentialAdministrationStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
 
     if (publicAccountSessionItemPath(
             path, accountId, sessionId))
