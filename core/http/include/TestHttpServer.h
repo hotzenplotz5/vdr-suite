@@ -18,6 +18,7 @@
 #include "HumanAccountAdministrationService.h"
 #include "HumanAccountCreationRepository.h"
 #include "HumanAccountCreationService.h"
+#include "HumanAccountCredentialAdministrationService.h"
 #include "HumanAccountCredentialSessionReadRepository.h"
 #include "HumanAccountCredentialSessionReadService.h"
 #include "HumanAccountGrantAdministrationService.h"
@@ -95,6 +96,8 @@ private:
         humanAccountCredentialSessionReadRepository_;
     std::unique_ptr<HumanAccountCredentialSessionReadService>
         humanAccountCredentialSessionReadService_;
+    std::unique_ptr<HumanAccountCredentialAdministrationService>
+        humanAccountCredentialAdministrationService_;
     std::unique_ptr<HumanAccountSessionAdministrationService>
         humanAccountSessionAdministrationService_;
     std::unique_ptr<FirstAdminBootstrapRepository>
