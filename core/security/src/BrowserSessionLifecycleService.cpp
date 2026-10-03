@@ -174,3 +174,37 @@ BrowserSessionLifecycleService::revokeAllForActorInActiveTransaction(
 
     return revoked;
 }
+
+
+std::optional<std::size_t>
+BrowserSessionLifecycleService::
+revokeIssuedFromCredentialInActiveTransaction(
+    const std::string& issuingCredentialId)
+{
+    if (!database_.transactionActive() ||
+        !safeIdentifier(issuingCredentialId))
+    {
+        return std::nullopt;
+    }
+
+    const auto sessions =
+        credentialRepository_.findByIssuedFromCredentialId(
+            issuingCredentialId);
+    if (!sessions.has_value())
+        return std::nullopt;
+
+    std::size_t revoked = 0U;
+    for (const auto& session : *sessions)
+    {
+        if (session.issuedFromCredentialId != issuingCredentialId ||
+            !revokeInActiveTransaction(
+                session.sessionId,
+                session.credentialId))
+        {
+            return std::nullopt;
+        }
+        ++revoked;
+    }
+
+    return revoked;
+}
