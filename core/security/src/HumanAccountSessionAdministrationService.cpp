@@ -154,6 +154,8 @@ HumanAccountSessionAdministrationStatus mapReadStatus(
             return HumanAccountSessionAdministrationStatus::accountNotFound;
         case HumanAccountCredentialSessionReadStatus::accountActorInvalid:
             return HumanAccountSessionAdministrationStatus::accountActorInvalid;
+        case HumanAccountCredentialSessionReadStatus::credentialNotFound:
+            return HumanAccountSessionAdministrationStatus::storageError;
         case HumanAccountCredentialSessionReadStatus::sessionNotFound:
             return HumanAccountSessionAdministrationStatus::sessionNotFound;
         case HumanAccountCredentialSessionReadStatus::storageError:
