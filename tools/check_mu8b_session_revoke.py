@@ -247,8 +247,8 @@ def main():
         )
 
     print("MU.8B Session revoke contracts passed")
-    print("MU8B=IMPLEMENTATION_CANDIDATE")
-    print("MU8C_CREDENTIAL_REVOKE=NOT_IMPLEMENTED")
+    print("MU8B=IMPLEMENTATION_MERGED_PR_416_HOSTED_CI_GREEN")
+    print("MU8C_STATUS=SUCCESSOR_STATUS_NOT_OWNED_BY_MU8B_GUARD")
     return 0
 
 
