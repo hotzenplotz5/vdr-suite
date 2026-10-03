@@ -172,6 +172,33 @@ bool publicAccountSessionPath(
         accountId);
 }
 
+bool publicAccountCredentialItemPath(
+    const std::string& path,
+    std::string& accountId,
+    std::string& credentialId)
+{
+    static const std::string Prefix = "/api/v1/accounts/";
+    static const std::string Marker = "/credentials/";
+
+    if (path.compare(0U, Prefix.size(), Prefix) != 0)
+        return false;
+
+    const std::size_t marker =
+        path.find(Marker, Prefix.size());
+    if (marker == std::string::npos)
+        return false;
+
+    accountId = path.substr(
+        Prefix.size(),
+        marker - Prefix.size());
+    credentialId = path.substr(marker + Marker.size());
+
+    return !accountId.empty() &&
+        accountId.find('/') == std::string::npos &&
+        !credentialId.empty() &&
+        credentialId.find('/') == std::string::npos;
+}
+
 bool publicAccountSessionItemPath(
     const std::string& path,
     std::string& accountId,
@@ -1657,6 +1684,26 @@ bool publicGrantSetRevision(
         });
 }
 
+bool publicCredentialLifecycleRevision(
+    const std::string& resourceRevision)
+{
+    static const std::string Prefix = "credential-lifecycle:";
+    if (resourceRevision.size() != Prefix.size() + 64U ||
+        resourceRevision.compare(0U, Prefix.size(), Prefix) != 0)
+    {
+        return false;
+    }
+
+    return std::all_of(
+        resourceRevision.begin() + Prefix.size(),
+        resourceRevision.end(),
+        [](unsigned char character)
+        {
+            return (character >= '0' && character <= '9') ||
+                (character >= 'a' && character <= 'f');
+        });
+}
+
 bool publicSessionLifecycleRevision(
     const std::string& resourceRevision)
 {
@@ -1942,6 +1989,7 @@ ApiResponse platformCapabilities(
     const bool accountCreateAvailable,
     const bool accountGrantAdministrationAvailable,
     const bool accountSecurityMetadataAvailable,
+    const bool accountCredentialRevokeAvailable,
     const bool accountSessionRevokeAvailable,
     const std::string& requestId,
     const std::string& correlationId)
@@ -1975,6 +2023,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.accounts-credential-session-metadata\",\"version\":1,\"availability\":\"" +
         std::string(accountSecurityMetadataAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.accounts-credential-revoke\",\"version\":1,\"availability\":\"" +
+        std::string(accountCredentialRevokeAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.accounts-session-revoke\",\"version\":1,\"availability\":\"" +
         std::string(accountSessionRevokeAvailable ? "available" : "unavailable") +
@@ -2395,6 +2446,88 @@ ApiResponse publicAccountGrantSetResponse(
         body,
         requestId,
         correlationId);
+    response.headers["ETag"] = entityTag;
+    return response;
+}
+
+ApiResponse publicAccountCredentialResourceResponse(
+    const PublicAccountCredentialResource& resource,
+    const std::string& path,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::string& ifNoneMatch)
+{
+    if (!publicCredentialLifecycleRevision(
+            resource.resourceRevision))
+    {
+        return serviceUnavailableProblem(
+            path, requestId, correlationId);
+    }
+
+    const std::string entityTag =
+        vdrsuite::http::publicStrongEntityTag(
+            resource.resourceRevision);
+    if (entityTag.empty())
+    {
+        return serviceUnavailableProblem(
+            path, requestId, correlationId);
+    }
+
+    const auto condition =
+        vdrsuite::http::publicEvaluateIfNoneMatch(
+            ifNoneMatch,
+            entityTag);
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::malformed)
+    {
+        return invalidRequestProblem(
+            path,
+            "If-None-Match is not a valid entity-tag condition.",
+            requestId,
+            correlationId);
+    }
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::matched)
+    {
+        ApiResponse response;
+        response.statusCode = 304;
+        response.contentType = "application/json; charset=utf-8";
+        addPublicSuccessHeaders(
+            response, requestId, correlationId);
+        response.headers["ETag"] = entityTag;
+        return response;
+    }
+
+    const PublicAccountCredentialItem& credential =
+        resource.credential;
+    std::string body =
+        "{\"accountId\":\"" +
+        jsonEscape(resource.accountId) +
+        "\",\"actorId\":\"" +
+        jsonEscape(resource.actorId) +
+        "\",\"credentialId\":\"" +
+        jsonEscape(credential.credentialId) +
+        "\",\"credentialType\":\"" +
+        jsonEscape(credential.credentialType) +
+        "\",\"active\":" +
+        std::string(credential.active ? "true" : "false") +
+        ",\"expired\":" +
+        std::string(credential.expired ? "true" : "false") +
+        ",\"revoked\":" +
+        std::string(credential.revoked ? "true" : "false") +
+        ",\"expiresAt\":";
+    body += credential.expiresAt.empty()
+        ? "null"
+        : "\"" + jsonEscape(credential.expiresAt) + "\"";
+    body +=
+        ",\"createdAt\":\"" +
+        jsonEscape(credential.createdAt) +
+        "\",\"links\":{\"self\":\"" +
+        jsonEscape(path) +
+        "\"}}";
+
+    ApiResponse response =
+        jsonResponse(body, requestId, correlationId);
     response.headers["ETag"] = entityTag;
     return response;
 }
@@ -3073,6 +3206,50 @@ bool PublicApiRuntime::accountCredentialLookupConfigured() const
     return static_cast<bool>(accountCredentialLookup_);
 }
 
+void PublicApiRuntime::registerAccountCredentialItemLookup(
+    AccountCredentialItemLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(
+        accountCredentialItemLookupMutex_);
+    accountCredentialItemLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetAccountCredentialItemLookup()
+{
+    std::lock_guard<std::mutex> lock(
+        accountCredentialItemLookupMutex_);
+    accountCredentialItemLookup_ = {};
+}
+
+bool PublicApiRuntime::accountCredentialItemLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        accountCredentialItemLookupMutex_);
+    return static_cast<bool>(accountCredentialItemLookup_);
+}
+
+void PublicApiRuntime::registerAccountCredentialMutation(
+    AccountCredentialMutation mutation)
+{
+    std::lock_guard<std::mutex> lock(
+        accountCredentialMutationMutex_);
+    accountCredentialMutation_ = std::move(mutation);
+}
+
+void PublicApiRuntime::resetAccountCredentialMutation()
+{
+    std::lock_guard<std::mutex> lock(
+        accountCredentialMutationMutex_);
+    accountCredentialMutation_ = {};
+}
+
+bool PublicApiRuntime::accountCredentialMutationConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        accountCredentialMutationMutex_);
+    return static_cast<bool>(accountCredentialMutation_);
+}
+
 void PublicApiRuntime::registerAccountSessionLookup(
     AccountSessionLookup lookup)
 {
@@ -3251,6 +3428,8 @@ bool PublicApiRuntime::tryHandleGet(
                 accountGrantMutationConfigured(),
             accountCredentialLookupConfigured() &&
                 accountSessionLookupConfigured(),
+            accountCredentialItemLookupConfigured() &&
+                accountCredentialMutationConfigured(),
             accountSessionItemLookupConfigured() &&
                 accountSessionMutationConfigured(),
             requestId,
