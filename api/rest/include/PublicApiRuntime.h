@@ -383,6 +383,47 @@ struct PublicAccountSessionCollectionResult
     PublicAccountSessionCollectionResource collection;
 };
 
+enum class PublicAccountSessionAdministrationStatus
+{
+    ok,
+    invalid,
+    notFound,
+    revisionConflict,
+    unavailable,
+};
+
+struct PublicAccountSessionResource
+{
+    std::string accountId;
+    std::string actorId;
+    PublicAccountSessionItem session;
+    std::string resourceRevision;
+};
+
+struct PublicAccountSessionLookupResult
+{
+    PublicAccountSessionAdministrationStatus status =
+        PublicAccountSessionAdministrationStatus::unavailable;
+    PublicAccountSessionResource resource;
+};
+
+struct PublicAccountSessionMutationRequest
+{
+    std::string actorRef;
+    std::string accountId;
+    std::string sessionId;
+    std::string expectedResourceRevision;
+    std::string requestId;
+    std::string correlationId;
+};
+
+struct PublicAccountSessionMutationResult
+{
+    PublicAccountSessionAdministrationStatus status =
+        PublicAccountSessionAdministrationStatus::unavailable;
+    PublicAccountSessionResource resource;
+};
+
 enum class PublicTimerCreateAdmissionStatus
 {
     accepted,
@@ -472,6 +513,15 @@ public:
         std::function<PublicAccountSessionCollectionResult(
             const std::string& accountId)>;
 
+    using AccountSessionItemLookup =
+        std::function<PublicAccountSessionLookupResult(
+            const std::string& accountId,
+            const std::string& sessionId)>;
+
+    using AccountSessionMutation =
+        std::function<PublicAccountSessionMutationResult(
+            const PublicAccountSessionMutationRequest& request)>;
+
     using TimerCreateAdmission =
         std::function<PublicTimerCreateAdmissionResult(
             const PublicTimerCreateAdmissionRequest& request)>;
@@ -551,6 +601,16 @@ public:
     void resetAccountSessionLookup();
     bool accountSessionLookupConfigured() const;
 
+    void registerAccountSessionItemLookup(
+        AccountSessionItemLookup lookup);
+    void resetAccountSessionItemLookup();
+    bool accountSessionItemLookupConfigured() const;
+
+    void registerAccountSessionMutation(
+        AccountSessionMutation mutation);
+    void resetAccountSessionMutation();
+    bool accountSessionMutationConfigured() const;
+
     void registerTimerCreateAdmission(TimerCreateAdmission admission);
     void resetTimerCreateAdmission();
     bool timerCreateAdmissionConfigured() const;
@@ -629,6 +689,12 @@ private:
 
     mutable std::mutex accountSessionLookupMutex_;
     AccountSessionLookup accountSessionLookup_;
+
+    mutable std::mutex accountSessionItemLookupMutex_;
+    AccountSessionItemLookup accountSessionItemLookup_;
+
+    mutable std::mutex accountSessionMutationMutex_;
+    AccountSessionMutation accountSessionMutation_;
 
     mutable std::mutex timerCreateAdmissionMutex_;
     TimerCreateAdmission timerCreateAdmission_;
