@@ -3,6 +3,30 @@
 #include "HumanAccountRepository.h"
 #include "SecurityIdentityRepository.h"
 
+#include <algorithm>
+#include <cctype>
+
+namespace
+{
+bool safeIdentifier(const std::string& value)
+{
+    if (value.empty() || value.size() > 128U)
+        return false;
+
+    return std::all_of(
+        value.begin(),
+        value.end(),
+        [](unsigned char character)
+        {
+            return std::isalnum(character) ||
+                character == '-' ||
+                character == '_' ||
+                character == '.' ||
+                character == ':';
+        });
+}
+}
+
 HumanAccountCredentialSessionReadService::
 HumanAccountCredentialSessionReadService(
     HumanAccountRepository& accountRepository,
@@ -85,6 +109,53 @@ HumanAccountCredentialSessionReadService::readSessions(
         return result;
 
     result.sessions = *sessions;
+    result.status = HumanAccountCredentialSessionReadStatus::success;
+    return result;
+}
+
+
+HumanAccountSessionItemReadResult
+HumanAccountCredentialSessionReadService::readSession(
+    const std::string& accountId,
+    const std::string& sessionId) const
+{
+    HumanAccountSessionItemReadResult result;
+    result.accountId = accountId;
+
+    if (!safeIdentifier(sessionId))
+    {
+        result.status =
+            HumanAccountCredentialSessionReadStatus::invalidRequest;
+        return result;
+    }
+
+    const auto resolved = resolveActor(accountId, result.actorId);
+    if (resolved != HumanAccountCredentialSessionReadStatus::success)
+    {
+        result.status = resolved;
+        return result;
+    }
+
+    const auto sessions =
+        metadataRepository_.listSessionsByActorId(result.actorId);
+    if (!sessions.has_value())
+        return result;
+
+    const auto found = std::find_if(
+        sessions->begin(),
+        sessions->end(),
+        [&sessionId](const HumanAccountSessionMetadata& session)
+        {
+            return session.sessionId == sessionId;
+        });
+    if (found == sessions->end())
+    {
+        result.status =
+            HumanAccountCredentialSessionReadStatus::sessionNotFound;
+        return result;
+    }
+
+    result.session = *found;
     result.status = HumanAccountCredentialSessionReadStatus::success;
     return result;
 }
