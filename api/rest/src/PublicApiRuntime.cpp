@@ -5444,6 +5444,18 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
     std::string operationId;
     std::string timerAssignmentId;
     std::string accountId;
+    std::string sessionId;
+
+    if (publicAccountSessionItemPath(
+            path, accountId, sessionId))
+    {
+        response = methodNotAllowedProblem(
+            path,
+            requestId,
+            correlationId,
+            "GET, POST");
+        return true;
+    }
 
     if (publicTimerAssignmentPath(
             path,
