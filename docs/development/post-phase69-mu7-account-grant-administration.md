@@ -1,6 +1,6 @@
 # MU.7 — Backend Access / Permission Grant Administration
 
-Status: **ACCEPTED — REAL YAVDR PASS / PR PENDING**
+Status: **COMPLETED — real yaVDR acceptance passed; PR #413 merged.**
 
 MU.7 implements the bounded grant-administration contract accepted by ADR-0067.
 It reuses the canonical `security_actor_permission_grants` authority and does
@@ -183,9 +183,9 @@ Those remain MU.8/MU.9 or later explicit slices.
 
 ## Acceptance state
 
-Implementation is present on `work/mu7-grant-administration`.
+The accepted implementation was developed on `work/mu7-grant-administration` and merged through PR #413.
 
-Status: **ACCEPTED — REAL YAVDR PASS / PR PENDING**.
+Status: **COMPLETED — real yaVDR acceptance passed; PR #413 merged.**.
 
 Real yaVDR acceptance passed on 2026-10-03 against exact candidate head
 `a5906f50cfce2b6d44a52b53eaa9e527961585c8` with productive `serverVersion`
@@ -210,4 +210,4 @@ The destructive final-usable-administrator `409` path was intentionally not
 exercised against the real administrator. It remains covered by the focused
 service, Public-v1 and SecurityHttpGate tests.
 
-PR is pending. MU.8 remains not started until MU.7 is merged.
+PR #413 is merged. MU.8 remains not started and is the next planned product slice.

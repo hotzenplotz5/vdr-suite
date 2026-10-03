@@ -42,15 +42,15 @@ Current Multiuser architecture slice:
 MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
 
 Current Multiuser runtime slice:
-MU.7 - Backend access / permission grant administration [IN PROGRESS]
+none - MU.8 Credential and session administration [NOT STARTED]
 
 Latest completed Multiuser runtime slice:
-MU.6 - Human Account lifecycle administration [COMPLETED]
+MU.7 - Backend access / permission grant administration [COMPLETED]
 
-Current MU.7 sub-slice:
-Grant-set read + desired-state grant mutation [ACCEPTED - REAL YAVDR PASS / PR PENDING]
+Completed MU.7 sub-slice:
+Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
 
-Next product slice after MU.7 merge:
+Next product slice:
 MU.8 - Credential and session administration [NOT STARTED]
 
 Completed Phase-67 verticals:
@@ -114,7 +114,7 @@ Phase 67 is completed. Teletext merged through PR #293 and the HbbTV discovery/s
 
 ## Cross-cutting non-numbered milestones
 
-- Multiuser / Account and Backend Access Administration **[ACTIVE — MU.6 DONE / MU.7 ACCEPTED — REAL YAVDR PASS / PR PENDING]**;
+- Multiuser / Account and Backend Access Administration **[ACTIVE — MU.7 DONE / MU.8 NOT STARTED]**;
 - Broad Timer Product UI **[PLANNED — gated on Multiuser administration]**;
 - Audit/Security/Operations surfaces;
 - Legacy Basic retirement migration **[COMPLETED]**;
@@ -124,7 +124,7 @@ Phase 67 is completed. Teletext merged through PR #293 and the HbbTV discovery/s
 Durable Multiuser authority: [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md).
 
 Multiuser sequence:
-`MU.0-MU.5 [DONE] -> MU.6 Account lifecycle [DONE] -> MU.6A lifecycle authority [DONE] -> MU.6B Account item/revision [DONE] -> MU.6C public lifecycle mutation [DONE] -> MU.6D Account CREATE/idempotency [DONE - PR #411] -> MU.7 grant administration [ACCEPTED - REAL YAVDR PASS / PR PENDING] -> MU.8 credential/session administration [NOT STARTED] -> MU.9 admin UI -> later pairing/profiles`.
+`MU.0-MU.5 [DONE] -> MU.6 Account lifecycle [DONE] -> MU.6A lifecycle authority [DONE] -> MU.6B Account item/revision [DONE] -> MU.6C public lifecycle mutation [DONE] -> MU.6D Account CREATE/idempotency [DONE - PR #411] -> MU.7 grant administration [COMPLETED - REAL YAVDR PASS / PR #413 MERGED] -> MU.8 credential/session administration [NOT STARTED] -> MU.9 admin UI -> later pairing/profiles`.
 
 Durable retirement evidence: [Post-Phase-69 P2 Legacy Basic Retirement Closeout](../development/post-phase69-p2-legacy-basic-retirement-closeout.md). This active cross-cutting workstream does not start Phase 70.
 
