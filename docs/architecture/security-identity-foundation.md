@@ -192,7 +192,7 @@ Not required for Phase 62:
 - transactional Outbox;
 - Phase 63-67 runtime.
 
-The generic Human Account / credential / grant administration product surface was deferred from Phase 62, but is now being advanced as the active [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md). This does not reopen Phase 62. MU.5 is completed and ADR-0067 is accepted. MU.0-MU.7 are completed; MU.6D merged as PR #411. MU.7 grant administration is completed with deterministic grant-set revision/ETag, global accounts.grants.view/modify authority, desired-state ensure/revoke, server-owned permission/scope allowlisting and final-admin protection. REAL YAVDR acceptance passed; PR #413 merged. MU.8 is in progress through the MU.8A safe credential/session metadata implementation candidate; acceptance and revoke slices remain pending.
+The generic Human Account / credential / grant administration product surface was deferred from Phase 62, but is now being advanced as the active [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md). This does not reopen Phase 62. MU.5 is completed and ADR-0067 is accepted. MU.0-MU.7 are completed; MU.6D merged as PR #411. MU.7 grant administration is completed with deterministic grant-set revision/ETag, global accounts.grants.view/modify authority, desired-state ensure/revoke, server-owned permission/scope allowlisting and final-admin protection. REAL YAVDR acceptance passed; PR #413 merged. MU.8 is in progress through the MU.8B Session Revoke implementation candidate. MU.8A merged as PR #415; real yaVDR acceptance and credential revoke remain pending.
 
 ## Related documents
 
@@ -210,3 +210,4 @@ The generic Human Account / credential / grant administration product surface wa
 - [MU.6D Atomic Account CREATE + Durable Idempotency](../development/post-phase69-mu6d-account-create-idempotency.md)
 - [MU.7 Backend Access / Permission Grant Administration](../development/post-phase69-mu7-account-grant-administration.md)
 - [MU.8A Safe Credential / Session Metadata](../development/post-phase69-mu8a-credential-session-metadata.md)
+- [MU.8B Session Revoke](../development/post-phase69-mu8b-session-revoke.md)
