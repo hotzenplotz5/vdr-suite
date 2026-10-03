@@ -3316,6 +3316,88 @@ bool PublicApiRuntime::tryHandleGet(
     }
 
     std::string accountId;
+    std::string sessionId;
+
+    if (publicAccountSessionItemPath(
+            path, accountId, sessionId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        if (requestTarget != path)
+        {
+            response = invalidRequestProblem(
+                path,
+                "Account Session item read does not accept query parameters.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        AccountSessionItemLookup lookup;
+        {
+            std::lock_guard<std::mutex> lock(
+                accountSessionItemLookupMutex_);
+            lookup = accountSessionItemLookup_;
+        }
+        if (!lookup)
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        const PublicAccountSessionLookupResult found =
+            lookup(accountId, sessionId);
+        switch (found.status)
+        {
+            case PublicAccountSessionAdministrationStatus::ok:
+                if (found.resource.accountId != accountId ||
+                    found.resource.actorId.empty() ||
+                    found.resource.session.sessionId != sessionId ||
+                    found.resource.session.deviceId.empty() ||
+                    found.resource.session.issuedFromCredentialId.empty() ||
+                    found.resource.session.createdAt.empty() ||
+                    !publicSessionLifecycleRevision(
+                        found.resource.resourceRevision))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                response =
+                    publicAccountSessionResourceResponse(
+                        found.resource,
+                        path,
+                        requestId,
+                        correlationId,
+                        ifNoneMatch);
+                return true;
+
+            case PublicAccountSessionAdministrationStatus::invalid:
+                response = invalidRequestProblem(
+                    path,
+                    "The Account or Session identifier is invalid.",
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountSessionAdministrationStatus::notFound:
+                response = notFoundProblem(
+                    path, requestId, correlationId);
+                return true;
+
+            case PublicAccountSessionAdministrationStatus::revisionConflict:
+            case PublicAccountSessionAdministrationStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
     if (publicAccountCredentialPath(path, accountId))
     {
         if (actorRef.empty())
