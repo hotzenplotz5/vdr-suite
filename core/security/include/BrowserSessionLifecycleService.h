@@ -27,6 +27,10 @@ public:
     std::optional<std::size_t> revokeAllForActorInActiveTransaction(
         const std::string& actorId);
 
+    std::optional<std::size_t>
+    revokeIssuedFromCredentialInActiveTransaction(
+        const std::string& issuingCredentialId);
+
 private:
 
     Database& database_;
