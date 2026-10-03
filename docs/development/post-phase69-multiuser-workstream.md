@@ -18,7 +18,7 @@ Administration architecture: ADR-0067 [ACCEPTED]
 Current Multiuser runtime slice: MU.8A - Safe credential/session metadata [IMPLEMENTATION CANDIDATE]
 Latest completed Multiuser runtime slice: MU.7 Backend access / permission grant administration [COMPLETED]
 Completed MU.7 sub-slice: Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
-Next product slice: MU.8 Credential and session administration [NOT STARTED]
+Current acceptance gate: MU.8A Safe credential/session metadata [IMPLEMENTATION CANDIDATE]
 ```
 
 ## Binding architecture
@@ -216,7 +216,7 @@ ADR-0065 Human Account boundary [ACCEPTED]
             -> MU.6C public lifecycle mutation [DONE]
             -> MU.6D Account CREATE/idempotency [DONE - PR #411]
        -> MU.7 Backend access/grant administration [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
-       -> MU.8 Credential/session administration [NOT STARTED]
+       -> MU.8 Credential/session administration [IN PROGRESS - MU.8A IMPLEMENTATION CANDIDATE]
        -> MU.9 Account/access admin UI
             -> Broad Timer Product UI unblocked
 

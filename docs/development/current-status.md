@@ -184,7 +184,7 @@ The following remain explicit open/deferred boundaries rather than unfinished Ph
 - user-visible growing-Recording seek where unsupported capability remains truthful;
 - Live-TV timeshift;
 - recommendation/content graph runtime (Phase 70), which still requires its dedicated accepted ADR;
-- Multiuser Account/backend access administration with MU.0-MU.7 completed, MU.7 grant administration COMPLETED after REAL YAVDR PASS / PR #413 MERGED, and MU.8 credential/session administration not started;
+- Multiuser Account/backend access administration with MU.0-MU.7 completed and MU.8 in progress through the MU.8A safe credential/session metadata implementation candidate; acceptance and revoke slices remain pending;
 - broad Timer Product UI, which remains gated on completion of the required Multiuser Account/backend access administration surface.
 
 ## Related documents
