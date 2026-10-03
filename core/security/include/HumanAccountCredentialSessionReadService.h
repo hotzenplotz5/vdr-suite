@@ -14,6 +14,7 @@ enum class HumanAccountCredentialSessionReadStatus
     invalidRequest,
     accountNotFound,
     accountActorInvalid,
+    credentialNotFound,
     sessionNotFound,
     storageError,
 };
@@ -25,6 +26,15 @@ struct HumanAccountCredentialReadResult
     std::string accountId;
     std::string actorId;
     std::vector<HumanAccountCredentialMetadata> credentials;
+};
+
+struct HumanAccountCredentialItemReadResult
+{
+    HumanAccountCredentialSessionReadStatus status =
+        HumanAccountCredentialSessionReadStatus::storageError;
+    std::string accountId;
+    std::string actorId;
+    HumanAccountCredentialMetadata credential;
 };
 
 struct HumanAccountSessionItemReadResult
@@ -55,6 +65,10 @@ public:
 
     HumanAccountCredentialReadResult readCredentials(
         const std::string& accountId) const;
+
+    HumanAccountCredentialItemReadResult readCredential(
+        const std::string& accountId,
+        const std::string& credentialId) const;
 
     HumanAccountSessionReadResult readSessions(
         const std::string& accountId) const;
