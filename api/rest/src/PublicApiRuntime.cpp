@@ -2441,6 +2441,97 @@ ApiResponse publicAccountCredentialCollectionResponse(
     return jsonResponse(body, requestId, correlationId);
 }
 
+ApiResponse publicAccountSessionResourceResponse(
+    const PublicAccountSessionResource& resource,
+    const std::string& path,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::string& ifNoneMatch)
+{
+    if (!publicSessionLifecycleRevision(
+            resource.resourceRevision))
+    {
+        return serviceUnavailableProblem(
+            path, requestId, correlationId);
+    }
+
+    const std::string entityTag =
+        vdrsuite::http::publicStrongEntityTag(
+            resource.resourceRevision);
+    if (entityTag.empty())
+    {
+        return serviceUnavailableProblem(
+            path, requestId, correlationId);
+    }
+
+    const auto condition =
+        vdrsuite::http::publicEvaluateIfNoneMatch(
+            ifNoneMatch,
+            entityTag);
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::malformed)
+    {
+        return invalidRequestProblem(
+            path,
+            "If-None-Match is not a valid entity-tag condition.",
+            requestId,
+            correlationId);
+    }
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::matched)
+    {
+        ApiResponse response;
+        response.statusCode = 304;
+        response.contentType = "application/json; charset=utf-8";
+        addPublicSuccessHeaders(
+            response, requestId, correlationId);
+        response.headers["ETag"] = entityTag;
+        return response;
+    }
+
+    const PublicAccountSessionItem& session =
+        resource.session;
+    std::string body =
+        "{\"accountId\":\"" +
+        jsonEscape(resource.accountId) +
+        "\",\"actorId\":\"" +
+        jsonEscape(resource.actorId) +
+        "\",\"sessionId\":\"" +
+        jsonEscape(session.sessionId) +
+        "\",\"deviceId\":\"" +
+        jsonEscape(session.deviceId) +
+        "\",\"issuedFromCredentialId\":\"" +
+        jsonEscape(session.issuedFromCredentialId) +
+        "\",\"active\":" +
+        std::string(session.active ? "true" : "false") +
+        ",\"expired\":" +
+        std::string(session.expired ? "true" : "false") +
+        ",\"revoked\":" +
+        std::string(session.revoked ? "true" : "false") +
+        ",\"expiresAt\":";
+    body += session.expiresAt.empty()
+        ? "null"
+        : "\"" + jsonEscape(session.expiresAt) + "\"";
+    body += ",\"lastSeenAt\":";
+    body += session.lastSeenAt.empty()
+        ? "null"
+        : "\"" + jsonEscape(session.lastSeenAt) + "\"";
+    body +=
+        ",\"createdAt\":\"" +
+        jsonEscape(session.createdAt) +
+        "\",\"links\":{\"self\":\"" +
+        jsonEscape(path) +
+        "\"}}";
+
+    ApiResponse response =
+        jsonResponse(
+            body,
+            requestId,
+            correlationId);
+    response.headers["ETag"] = entityTag;
+    return response;
+}
+
 ApiResponse publicAccountSessionCollectionResponse(
     const PublicAccountSessionCollectionResource& collection,
     const std::string& path,
