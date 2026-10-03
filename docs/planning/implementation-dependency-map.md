@@ -398,7 +398,7 @@ Phase-62 identity/RBAC foundation
             -> MU.6C public lifecycle mutation [DONE]
             -> MU.6D Account CREATE/idempotency [DONE - PR #411]
        -> MU.7 backend access / grant administration [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
-       -> MU.8 credential/session administration [IN PROGRESS - MU.8B IMPLEMENTATION CANDIDATE]
+       -> MU.8 credential/session administration [IN PROGRESS - MU.8C IMPLEMENTATION CANDIDATE]
        -> MU.9 account/access admin UI
             -> broad Timer Product UI mutation controls
 ```

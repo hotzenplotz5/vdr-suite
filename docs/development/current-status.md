@@ -31,13 +31,13 @@ Current active cross-cutting productization workstream: **Multiuser / Account an
 
 Current Multiuser architecture slice: **MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]**.
 
-Current Multiuser runtime slice: **MU.8B - Session Revoke [IMPLEMENTATION CANDIDATE]**.
+Current Multiuser runtime slice: **MU.8C - Human-password Credential Revoke [IMPLEMENTATION CANDIDATE]**.
 
-Latest completed Multiuser runtime slice: **MU.7 - Backend access / permission grant administration [COMPLETED]**.
+Latest completed Multiuser runtime slice: **MU.8B - Session Revoke [IMPLEMENTATION MERGED - PR #416 / FOCUSED YAVDR PASS / HOSTED CI GREEN]**.
 
 Completed MU.7 sub-slice: **MU.7 - Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]**.
 
-Next product slice: **MU.8B - Session Revoke [IMPLEMENTATION CANDIDATE]**.
+Next product slice: **MU.8C - Human-password Credential Revoke [IMPLEMENTATION CANDIDATE]**.
 
 MU.0-MU.7 are completed; MU.6D passed real yaVDR acceptance and merged as PR #411, and MU.7 completed the bounded grant-administration boundary with grant-set ETag/read, desired-state ensure/revoke, global accounts.grants.view/modify authority, server-owned allowlist, CSRF and final-admin protection. REAL YAVDR acceptance passed; PR #413 merged. MU.8 is in progress through the MU.8B Session Revoke implementation candidate. MU.8A merged as PR #415 with hosted CI green; real yaVDR runtime acceptance and credential revoke remain pending. Durable status is in [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md), [MU.6D Atomic Account CREATE + Durable Idempotency](post-phase69-mu6d-account-create-idempotency.md) and [MU.7 Backend Access / Permission Grant Administration](post-phase69-mu7-account-grant-administration.md).
 
@@ -184,7 +184,7 @@ The following remain explicit open/deferred boundaries rather than unfinished Ph
 - user-visible growing-Recording seek where unsupported capability remains truthful;
 - Live-TV timeshift;
 - recommendation/content graph runtime (Phase 70), which still requires its dedicated accepted ADR;
-- Multiuser Account/backend access administration with MU.0-MU.7 completed and MU.8 in progress through the MU.8B Session Revoke implementation candidate; MU.8A is merged as PR #415, while real yaVDR acceptance and credential revoke remain pending;
+- Multiuser Account/backend access administration with MU.0-MU.7 completed and MU.8 in progress through the MU.8C Human-password Credential Revoke implementation candidate; MU.8A is merged as PR #415 and MU.8B merged as PR #416 after focused yaVDR acceptance and green hosted CI;
 - broad Timer Product UI, which remains gated on completion of the required Multiuser Account/backend access administration surface.
 
 ## Related documents
