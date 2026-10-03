@@ -356,6 +356,49 @@ struct PublicAccountCredentialCollectionResult
     PublicAccountCredentialCollectionResource collection;
 };
 
+enum class PublicAccountCredentialAdministrationStatus
+{
+    ok,
+    invalid,
+    notFound,
+    unsupported,
+    finalAdministrator,
+    revisionConflict,
+    unavailable,
+};
+
+struct PublicAccountCredentialResource
+{
+    std::string accountId;
+    std::string actorId;
+    PublicAccountCredentialItem credential;
+    std::string resourceRevision;
+};
+
+struct PublicAccountCredentialLookupResult
+{
+    PublicAccountCredentialAdministrationStatus status =
+        PublicAccountCredentialAdministrationStatus::unavailable;
+    PublicAccountCredentialResource resource;
+};
+
+struct PublicAccountCredentialMutationRequest
+{
+    std::string actorRef;
+    std::string accountId;
+    std::string credentialId;
+    std::string expectedResourceRevision;
+    std::string requestId;
+    std::string correlationId;
+};
+
+struct PublicAccountCredentialMutationResult
+{
+    PublicAccountCredentialAdministrationStatus status =
+        PublicAccountCredentialAdministrationStatus::unavailable;
+    PublicAccountCredentialResource resource;
+};
+
 struct PublicAccountSessionItem
 {
     std::string sessionId;
@@ -509,6 +552,15 @@ public:
         std::function<PublicAccountCredentialCollectionResult(
             const std::string& accountId)>;
 
+    using AccountCredentialItemLookup =
+        std::function<PublicAccountCredentialLookupResult(
+            const std::string& accountId,
+            const std::string& credentialId)>;
+
+    using AccountCredentialMutation =
+        std::function<PublicAccountCredentialMutationResult(
+            const PublicAccountCredentialMutationRequest& request)>;
+
     using AccountSessionLookup =
         std::function<PublicAccountSessionCollectionResult(
             const std::string& accountId)>;
@@ -595,6 +647,16 @@ public:
         AccountCredentialLookup lookup);
     void resetAccountCredentialLookup();
     bool accountCredentialLookupConfigured() const;
+
+    void registerAccountCredentialItemLookup(
+        AccountCredentialItemLookup lookup);
+    void resetAccountCredentialItemLookup();
+    bool accountCredentialItemLookupConfigured() const;
+
+    void registerAccountCredentialMutation(
+        AccountCredentialMutation mutation);
+    void resetAccountCredentialMutation();
+    bool accountCredentialMutationConfigured() const;
 
     void registerAccountSessionLookup(
         AccountSessionLookup lookup);
@@ -686,6 +748,12 @@ private:
 
     mutable std::mutex accountCredentialLookupMutex_;
     AccountCredentialLookup accountCredentialLookup_;
+
+    mutable std::mutex accountCredentialItemLookupMutex_;
+    AccountCredentialItemLookup accountCredentialItemLookup_;
+
+    mutable std::mutex accountCredentialMutationMutex_;
+    AccountCredentialMutation accountCredentialMutation_;
 
     mutable std::mutex accountSessionLookupMutex_;
     AccountSessionLookup accountSessionLookup_;
