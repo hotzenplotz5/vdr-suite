@@ -1,6 +1,6 @@
 # MU.7 — Backend Access / Permission Grant Administration
 
-Status: **CANDIDATE — LOCAL ACCEPTANCE PENDING**
+Status: **ACCEPTED — REAL YAVDR PASS / PR PENDING**
 
 MU.7 implements the bounded grant-administration contract accepted by ADR-0067.
 It reuses the canonical `security_actor_permission_grants` authority and does
@@ -185,7 +185,29 @@ Those remain MU.8/MU.9 or later explicit slices.
 
 Implementation is present on `work/mu7-grant-administration`.
 
-Status remains **CANDIDATE — LOCAL ACCEPTANCE PENDING** until the focused
-service, Public-v1, SecurityHttpGate, reference-client, architecture,
-documentation and productive daemon-link checks pass on the supported yaVDR
-system.
+Status: **ACCEPTED — REAL YAVDR PASS / PR PENDING**.
+
+Real yaVDR acceptance passed on 2026-10-03 against exact candidate head
+`a5906f50cfce2b6d44a52b53eaa9e527961585c8` with productive `serverVersion`
+`git-a5906f50cfce`.
+
+Observed bounded runtime evidence:
+
+- `MU7_REAL_YAVDR_ACCEPTANCE=PASS`;
+- `FLOW=403->GRANT->200->STALE_412->REVOKE->403`;
+- grant-set conditional read returned `304`;
+- missing `If-Match` returned `428`;
+- self-grant remained `403`;
+- cleanup confirmed the test grant absent and the acceptance Account inactive;
+- Admin browser-session logout returned `204`.
+
+The acceptance Account was created only through Public-v1 and remains inactive
+because Account DELETE is intentionally outside MU.7. The acceptance run used
+no direct SQL mutation and performed no build, install or restart; the exact
+candidate had already been deployed and verified beforehand.
+
+The destructive final-usable-administrator `409` path was intentionally not
+exercised against the real administrator. It remains covered by the focused
+service, Public-v1 and SecurityHttpGate tests.
+
+PR is pending. MU.8 remains not started until MU.7 is merged.

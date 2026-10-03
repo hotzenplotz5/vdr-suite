@@ -229,7 +229,7 @@ def main():
 
     for marker in (
         "# MU.7 — Backend Access / Permission Grant Administration",
-        "CANDIDATE — LOCAL ACCEPTANCE PENDING",
+        "ACCEPTED — REAL YAVDR PASS / PR PENDING",
         "GET /api/v1/accounts/{accountId}/grants",
         "POST /api/v1/accounts/{accountId}/grants",
         "accounts.grants.view@*",
@@ -237,6 +237,9 @@ def main():
         "grant-set:<digest>",
         "stale revision + tuple already in requested final state",
         "final usable administrator",
+        "MU7_REAL_YAVDR_ACCEPTANCE=PASS",
+        "FLOW=403->GRANT->200->STALE_412->REVOKE->403",
+        "a5906f50cfce2b6d44a52b53eaa9e527961585c8",
         "MU.8",
     ):
         require("candidate", marker)
@@ -257,7 +260,7 @@ def main():
 
     for name in status_docs:
         require(name, "MU.7")
-        require(name, "LOCAL ACCEPTANCE")
+        require(name, "REAL YAVDR")
         require(name, "MU.8")
 
     navigation_docs = status_docs + ("development_index",)
@@ -266,8 +269,8 @@ def main():
 
     for name in navigation_docs:
         for forbidden in (
-            "PR pending",
-            "PR PENDING",
+            "CANDIDATE — LOCAL ACCEPTANCE PENDING",
+            "CANDIDATE - LOCAL ACCEPTANCE PENDING",
             "MU.7 grant administration remains not started",
             "MU.7 - Backend access / permission grant administration [NOT STARTED]",
             "MU.7 grant administration [NOT STARTED]",
@@ -276,7 +279,7 @@ def main():
 
     require(
         "current",
-        "MU.7 - Grant-set read + desired-state grant mutation [CANDIDATE - LOCAL ACCEPTANCE PENDING]",
+        "MU.7 - Grant-set read + desired-state grant mutation [ACCEPTED - REAL YAVDR PASS / PR PENDING]",
     )
     require(
         "current",
@@ -284,12 +287,12 @@ def main():
     )
     require(
         "workstream",
-        "MU.7 — Backend access / permission grant administration [CANDIDATE — LOCAL ACCEPTANCE PENDING]",
+        "MU.7 — Backend access / permission grant administration [ACCEPTED — REAL YAVDR PASS / PR PENDING]",
     )
     require("phase_map", "MU.6D Account CREATE/idempotency [DONE - PR #411]")
     require(
         "phase_map",
-        "MU.7 grant administration [CANDIDATE - LOCAL ACCEPTANCE PENDING]",
+        "MU.7 grant administration [ACCEPTED - REAL YAVDR PASS / PR PENDING]",
     )
     require(
         "development_index",
@@ -323,7 +326,7 @@ def main():
 
     print("MU.7 Account grant administration contracts passed")
     print("MU6=COMPLETED")
-    print("MU7=CANDIDATE_LOCAL_ACCEPTANCE_PENDING")
+    print("MU7=ACCEPTED_REAL_YAVDR_PASS_PR_PENDING")
     print("MU8=NOT_STARTED")
     return 0
 

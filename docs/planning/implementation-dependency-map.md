@@ -397,13 +397,13 @@ Phase-62 identity/RBAC foundation
             -> MU.6B Account item/revision [DONE]
             -> MU.6C public lifecycle mutation [DONE]
             -> MU.6D Account CREATE/idempotency [DONE - PR #411]
-       -> MU.7 backend access / grant administration [CANDIDATE - LOCAL ACCEPTANCE PENDING]
+       -> MU.7 backend access / grant administration [ACCEPTED - REAL YAVDR PASS / PR PENDING]
        -> MU.8 credential/session administration [NOT STARTED]
        -> MU.9 account/access admin UI
             -> broad Timer Product UI mutation controls
 ```
 
-Core policy remains server-side. Administration UI/API must not invent permissions or backend scope. ADR-0067 is accepted; MU.6 is completed through MU.6D / PR #411. MU.7 grant administration is the active CANDIDATE with LOCAL ACCEPTANCE pending. MU.8+ remains separate and not started.
+Core policy remains server-side. Administration UI/API must not invent permissions or backend scope. ADR-0067 is accepted; MU.6 is completed through MU.6D / PR #411. MU.7 grant administration is the active ACCEPTED after REAL YAVDR PASS with PR pending. MU.8+ remains separate and not started.
 
 ## Broad Timer Product UI
 

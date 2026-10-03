@@ -21,7 +21,7 @@ Root-level `AGENTS.md` is binding. In particular, once the user has authorized a
 9. [MU.6B Public Account Item + Revision/ETag](development/post-phase69-mu6b-public-account-item.md) — stable secret-free Account item, opaque ETag and conditional-read boundary.
 10. [MU.6C Public Account Lifecycle Mutation](development/post-phase69-mu6c-public-account-lifecycle-mutation.md) — completed after real yaVDR acceptance and PR #410 merge.
 11. [MU.6D Atomic Account CREATE + Durable Idempotency](development/post-phase69-mu6d-account-create-idempotency.md) — completed Account CREATE boundary; real yaVDR acceptance passed and PR #411 merged.
-12. [MU.7 Backend Access / Permission Grant Administration](development/post-phase69-mu7-account-grant-administration.md) — current grant administration candidate; local acceptance pending.
+12. [MU.7 Backend Access / Permission Grant Administration](development/post-phase69-mu7-account-grant-administration.md) — current grant administration candidate; real yaVDR acceptance passed; PR pending.
 13. [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md) — completed migration and runtime-retirement evidence.
 14. [Phase 69 Closeout](development/phase-69-closeout.md) — completed 69.A-F public API/client compatibility evidence.
 15. [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md) and retained 69.B-F closeouts when historical Phase-69 detail is needed.
@@ -45,9 +45,9 @@ Historical Phase-69 closeout records retained for traceability: `docs/developmen
 - Current Multiuser architecture slice: **MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]**.
 - Current Multiuser runtime slice: **MU.7 - Backend access / permission grant administration [IN PROGRESS]**.
 - Latest completed Multiuser runtime slice: **MU.6 - Human Account lifecycle administration [COMPLETED]**.
-- Current MU.7 sub-slice: **Grant-set read + desired-state grant mutation [CANDIDATE - LOCAL ACCEPTANCE PENDING]**.
-- Next product slice after MU.7 acceptance: **MU.8 - Credential and session administration [NOT STARTED]**.
-- MU.0-MU.6 are completed; MU.6D merged as PR #411. MU.7 grant administration is the current CANDIDATE with LOCAL ACCEPTANCE pending. MU.8 credential/session administration remains not started.
+- Current MU.7 sub-slice: **Grant-set read + desired-state grant mutation [ACCEPTED - REAL YAVDR PASS / PR PENDING]**.
+- Next product slice after MU.7 merge: **MU.8 - Credential and session administration [NOT STARTED]**.
+- MU.0-MU.6 are completed; MU.6D merged as PR #411. MU.7 grant administration is the current ACCEPTED after REAL YAVDR PASS with PR pending. MU.8 credential/session administration remains not started.
 - Durable Phase-68 completion evidence: [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md).
 - Phase-67 Teletext and HbbTV verticals are both completed and accepted.
 - Phase 65.A through 65.D are closed for their accepted bounded scopes; ADR-0056 semantic consolidation and ADR-0057 Recording network recovery are completed Phase-65 history.
@@ -84,13 +84,13 @@ Do not reopen Phase 64 merely to add a broad Timer UI, diagnostics or later medi
 
 Phases 65 through **Phase 69 are completed**. [Phase 69 Closeout](development/phase-69-closeout.md) records the accepted 69.A-F public/API client boundary. Phase 70 is the next strict numbered phase but is not started; its roadmap requires a dedicated accepted runtime ADR before implementation.
 
-The active cross-cutting productization line is **Multiuser**. [Post-Phase-69 Multiuser Productization Workstream](development/post-phase69-multiuser-workstream.md) owns the current sequence. MU.0-MU.6 are complete; MU.6D merged as PR #411. MU.7 grant administration is the active CANDIDATE with LOCAL ACCEPTANCE pending, and MU.8 credential/session administration remains not started.
+The active cross-cutting productization line is **Multiuser**. [Post-Phase-69 Multiuser Productization Workstream](development/post-phase69-multiuser-workstream.md) owns the current sequence. MU.0-MU.6 are complete; MU.6D merged as PR #411. MU.7 grant administration is the active ACCEPTED after REAL YAVDR PASS with PR pending, and MU.8 credential/session administration remains not started.
 
 For current Multiuser work:
 
 1. re-read live `main`, `CURRENT.md`, the Strict Roadmap, the Multiuser workstream and ADR-0065/0066/0067 before successor planning;
 2. treat ADR-0067 as accepted architecture and MU.5 as completed;
-3. continue MU.7 through local acceptance; do not start MU.8 until MU.7 is accepted, do not redo MU.6A/MU.6B without a demonstrated regression and do not fold MU.7 grant administration or MU.8 credential/session administration into MU.6;
+3. prepare MU.7 PR/merge from the accepted real-yaVDR candidate; do not start MU.8 until MU.7 is merged, do not redo MU.6A/MU.6B without a demonstrated regression and do not fold MU.7 grant administration or MU.8 credential/session administration into MU.6;
 4. keep pairing and Profiles as later separate slices rather than conflating them with Human Account administration;
 5. keep Broad Timer Product UI gated on the required Multiuser Account/backend access administration surface.
 
@@ -216,7 +216,7 @@ Durable current evidence: [Post-Phase-69 P2 Legacy Basic Retirement Closeout](de
 4. Treat the cross-cutting Multiuser / Account and Backend Access Administration workstream as active and read `docs/development/post-phase69-multiuser-workstream.md`.
 5. Treat ADR-0065, ADR-0066 and ADR-0067 as accepted architecture unless live repository state says otherwise.
 6. Treat MU.0-MU.5, MU.6A and MU.6B as completed and do not redo First Admin/bootstrap/recovery, Legacy Basic retirement, the MU.5 architecture audit, MU.6A lifecycle authority or MU.6B Account item/revision without a demonstrated regression.
-7. Treat MU.6 as completed through MU.6D / PR #411 and MU.7 grant administration as CANDIDATE with LOCAL ACCEPTANCE pending; keep MU.8 credential/session administration NOT STARTED until MU.7 acceptance, and do not fold MU.7 grant administration or MU.8 credential/session administration into MU.6.
+7. Treat MU.6 as completed through MU.6D / PR #411 and MU.7 grant administration as ACCEPTED after REAL YAVDR PASS with PR pending; keep MU.8 credential/session administration NOT STARTED until MU.7 merge, and do not fold MU.7 grant administration or MU.8 credential/session administration into MU.6.
 8. Do not start Phase 70 merely because Phase 69 or a Multiuser slice is complete; require the dedicated accepted Phase-70 runtime ADR before numbered Phase-70 implementation.
 9. Preserve accepted Phase-65 playback/MediaSession semantics, completed Phase-66 Home ownership, completed Phase-67 Teletext/HbbTV domains, completed Phase-68 Legacy OSD ownership and completed Phase-69 public-client boundaries rather than inventing parallel owners during successor work.
 10. Keep the broad Timer UI as a cross-cutting product milestone gated on required Multiuser Account/backend access administration.
