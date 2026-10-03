@@ -377,7 +377,6 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
                         PublicAccountSecurityMetadataStatus::notFound;
                     return result;
                 case HumanAccountCredentialSessionReadStatus::sessionNotFound:
-                case HumanAccountCredentialSessionReadStatus::sessionNotFound:
                 case HumanAccountCredentialSessionReadStatus::accountActorInvalid:
                 case HumanAccountCredentialSessionReadStatus::storageError:
                     result.status =
@@ -426,6 +425,7 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
                     result.status =
                         PublicAccountSecurityMetadataStatus::notFound;
                     return result;
+                case HumanAccountCredentialSessionReadStatus::sessionNotFound:
                 case HumanAccountCredentialSessionReadStatus::accountActorInvalid:
                 case HumanAccountCredentialSessionReadStatus::storageError:
                     result.status =
