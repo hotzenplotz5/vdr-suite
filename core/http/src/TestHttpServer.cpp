@@ -411,6 +411,152 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             return result;
         });
 
+    PublicApiRuntime::instance().registerAccountCredentialItemLookup(
+        [this](
+            const std::string& accountId,
+            const std::string& credentialId)
+        {
+            PublicAccountCredentialLookupResult result;
+            if (!humanAccountCredentialSessionReadService_)
+                return result;
+
+            const HumanAccountCredentialItemReadResult found =
+                humanAccountCredentialSessionReadService_->
+                    readCredential(accountId, credentialId);
+
+            switch (found.status)
+            {
+                case HumanAccountCredentialSessionReadStatus::success:
+                    result.status =
+                        PublicAccountCredentialAdministrationStatus::ok;
+                    break;
+                case HumanAccountCredentialSessionReadStatus::invalidRequest:
+                    result.status =
+                        PublicAccountCredentialAdministrationStatus::invalid;
+                    return result;
+                case HumanAccountCredentialSessionReadStatus::accountNotFound:
+                case HumanAccountCredentialSessionReadStatus::credentialNotFound:
+                    result.status =
+                        PublicAccountCredentialAdministrationStatus::notFound;
+                    return result;
+                case HumanAccountCredentialSessionReadStatus::sessionNotFound:
+                case HumanAccountCredentialSessionReadStatus::accountActorInvalid:
+                case HumanAccountCredentialSessionReadStatus::storageError:
+                    result.status =
+                        PublicAccountCredentialAdministrationStatus::unavailable;
+                    return result;
+            }
+
+            result.resource.accountId = found.accountId;
+            result.resource.actorId = found.actorId;
+            result.resource.resourceRevision =
+                found.credential.resourceRevision;
+            result.resource.credential.credentialId =
+                found.credential.credentialId;
+            result.resource.credential.credentialType =
+                found.credential.credentialType;
+            result.resource.credential.active =
+                found.credential.active;
+            result.resource.credential.expired =
+                found.credential.expired;
+            result.resource.credential.revoked =
+                found.credential.revoked;
+            result.resource.credential.expiresAt =
+                found.credential.expiresAt;
+            result.resource.credential.createdAt =
+                found.credential.createdAt;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerAccountCredentialMutation(
+        [this](const PublicAccountCredentialMutationRequest& request)
+        {
+            PublicAccountCredentialMutationResult result;
+            if (!humanAccountCredentialAdministrationService_ ||
+                !securityIdentityRepository_)
+            {
+                return result;
+            }
+
+            const std::optional<StoredActorIdentity> actor =
+                securityIdentityRepository_->findActor(
+                    request.actorRef);
+            if (!actor.has_value() ||
+                actor->type == ActorType::Anonymous ||
+                !actor->active ||
+                actor->revoked)
+            {
+                return result;
+            }
+
+            HumanAccountCredentialAdministrationContext context;
+            context.actorId = request.actorRef;
+            context.requestId = request.requestId;
+            context.correlationId = request.correlationId;
+
+            const HumanAccountCredentialAdministrationResult mutated =
+                humanAccountCredentialAdministrationService_->revoke(
+                    context,
+                    request.accountId,
+                    request.credentialId,
+                    request.expectedResourceRevision);
+
+            switch (mutated.status)
+            {
+                case HumanAccountCredentialAdministrationStatus::success:
+                    result.status =
+                        PublicAccountCredentialAdministrationStatus::ok;
+                    break;
+                case HumanAccountCredentialAdministrationStatus::invalidRequest:
+                    result.status =
+                        PublicAccountCredentialAdministrationStatus::invalid;
+                    return result;
+                case HumanAccountCredentialAdministrationStatus::accountNotFound:
+                case HumanAccountCredentialAdministrationStatus::credentialNotFound:
+                    result.status =
+                        PublicAccountCredentialAdministrationStatus::notFound;
+                    return result;
+                case HumanAccountCredentialAdministrationStatus::unsupportedCredentialType:
+                    result.status =
+                        PublicAccountCredentialAdministrationStatus::unsupported;
+                    return result;
+                case HumanAccountCredentialAdministrationStatus::finalAdministrator:
+                    result.status =
+                        PublicAccountCredentialAdministrationStatus::finalAdministrator;
+                    break;
+                case HumanAccountCredentialAdministrationStatus::revisionConflict:
+                    result.status =
+                        PublicAccountCredentialAdministrationStatus::revisionConflict;
+                    break;
+                case HumanAccountCredentialAdministrationStatus::accountActorInvalid:
+                case HumanAccountCredentialAdministrationStatus::entropyUnavailable:
+                case HumanAccountCredentialAdministrationStatus::storageError:
+                    result.status =
+                        PublicAccountCredentialAdministrationStatus::unavailable;
+                    return result;
+            }
+
+            result.resource.accountId = mutated.accountId;
+            result.resource.actorId = mutated.actorId;
+            result.resource.resourceRevision =
+                mutated.credential.resourceRevision;
+            result.resource.credential.credentialId =
+                mutated.credential.credentialId;
+            result.resource.credential.credentialType =
+                mutated.credential.credentialType;
+            result.resource.credential.active =
+                mutated.credential.active;
+            result.resource.credential.expired =
+                mutated.credential.expired;
+            result.resource.credential.revoked =
+                mutated.credential.revoked;
+            result.resource.credential.expiresAt =
+                mutated.credential.expiresAt;
+            result.resource.credential.createdAt =
+                mutated.credential.createdAt;
+            return result;
+        });
+
     PublicApiRuntime::instance().registerAccountSessionLookup(
         [this](const std::string& accountId)
         {
