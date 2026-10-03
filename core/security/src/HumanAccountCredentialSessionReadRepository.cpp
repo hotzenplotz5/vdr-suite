@@ -3,8 +3,10 @@
 #include "Database.h"
 
 #include <sqlite3.h>
+#include <openssl/evp.h>
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <utility>
 
@@ -41,6 +43,66 @@ std::string columnText(sqlite3_stmt* statement, int column)
     return text == nullptr
         ? std::string()
         : std::string(reinterpret_cast<const char*>(text));
+}
+
+std::string hexEncode(const unsigned char* bytes, std::size_t size)
+{
+    static constexpr char Hex[] = "0123456789abcdef";
+    std::string result;
+    result.reserve(size * 2U);
+    for (std::size_t index = 0; index < size; ++index)
+    {
+        result.push_back(Hex[(bytes[index] >> 4U) & 0x0fU]);
+        result.push_back(Hex[bytes[index] & 0x0fU]);
+    }
+    return result;
+}
+
+std::string sessionLifecycleRevision(
+    sqlite3_stmt* statement,
+    const std::string& sessionId,
+    const std::string& deviceId,
+    const std::string& issuedFromCredentialId,
+    const std::string& browserCredentialId)
+{
+    std::string normalized = "session-lifecycle/1\n";
+    normalized += sessionId + "\n";
+    normalized += deviceId + "\n";
+    normalized += issuedFromCredentialId + "\n";
+    normalized += browserCredentialId + "\n";
+
+    for (int column = 10; column <= 21; ++column)
+    {
+        if (column == 10 || column == 13 ||
+            column == 16 || column == 19)
+        {
+            normalized += sqlite3_column_int(statement, column) != 0
+                ? "1"
+                : "0";
+        }
+        else
+        {
+            normalized += columnText(statement, column);
+        }
+        normalized += "\n";
+    }
+
+    std::array<unsigned char, EVP_MAX_MD_SIZE> digest{};
+    unsigned int digestLength = 0U;
+    if (EVP_Digest(
+            normalized.data(),
+            normalized.size(),
+            digest.data(),
+            &digestLength,
+            EVP_sha256(),
+            nullptr) != 1 ||
+        digestLength == 0U)
+    {
+        return {};
+    }
+
+    return "session-lifecycle:" +
+        hexEncode(digest.data(), digestLength);
 }
 }
 
@@ -112,7 +174,7 @@ listSessionsByActorId(const std::string& actorId) const
 
     const char* sql =
         "SELECT browser.session_id, browser.device_id, "
-        "browser.issued_from_credential_id, "
+        "browser.issued_from_credential_id, browser.credential_id, "
         "(browser.active <> 0 AND session.active <> 0 AND "
         " browser_credential.active <> 0 AND issuing_credential.active <> 0), "
         "((browser.expires_at <> '' AND browser.expires_at <= CURRENT_TIMESTAMP) OR "
@@ -121,7 +183,12 @@ listSessionsByActorId(const std::string& actorId) const
         " (issuing_credential.expires_at <> '' AND issuing_credential.expires_at <= CURRENT_TIMESTAMP)), "
         "((browser.revoked_at <> '') OR (session.revoked_at <> '') OR "
         " (browser_credential.revoked_at <> '') OR (issuing_credential.revoked_at <> '')), "
-        "browser.expires_at, browser.last_seen_at, browser.created_at "
+        "browser.expires_at, browser.last_seen_at, browser.created_at, "
+        "browser.active, browser.expires_at, browser.revoked_at, "
+        "session.active, session.expires_at, session.revoked_at, "
+        "browser_credential.active, browser_credential.expires_at, "
+        "browser_credential.revoked_at, issuing_credential.active, "
+        "issuing_credential.expires_at, issuing_credential.revoked_at "
         "FROM security_browser_session_credentials AS browser "
         "JOIN security_sessions AS session "
         "ON session.session_id = browser.session_id "
@@ -163,12 +230,25 @@ listSessionsByActorId(const std::string& actorId) const
         session.sessionId = columnText(statement, 0);
         session.deviceId = columnText(statement, 1);
         session.issuedFromCredentialId = columnText(statement, 2);
-        session.active = sqlite3_column_int(statement, 3) != 0;
-        session.expired = sqlite3_column_int(statement, 4) != 0;
-        session.revoked = sqlite3_column_int(statement, 5) != 0;
-        session.expiresAt = columnText(statement, 6);
-        session.lastSeenAt = columnText(statement, 7);
-        session.createdAt = columnText(statement, 8);
+        session.browserCredentialId = columnText(statement, 3);
+        session.active = sqlite3_column_int(statement, 4) != 0;
+        session.expired = sqlite3_column_int(statement, 5) != 0;
+        session.revoked = sqlite3_column_int(statement, 6) != 0;
+        session.expiresAt = columnText(statement, 7);
+        session.lastSeenAt = columnText(statement, 8);
+        session.createdAt = columnText(statement, 9);
+        session.resourceRevision = sessionLifecycleRevision(
+            statement,
+            session.sessionId,
+            session.deviceId,
+            session.issuedFromCredentialId,
+            session.browserCredentialId);
+        if (session.browserCredentialId.empty() ||
+            session.resourceRevision.empty())
+        {
+            sqlite3_finalize(statement);
+            return std::nullopt;
+        }
         result.push_back(std::move(session));
     }
 

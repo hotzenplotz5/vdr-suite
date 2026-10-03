@@ -320,6 +320,19 @@
     return accountItemPath(options) + '/sessions';
   }
 
+  function accountSessionItemPath(options) {
+    if (!options || typeof options !== 'object' || Array.isArray(options)) {
+      throw new Error('Account Session item options must be an object');
+    }
+    if (typeof options.sessionId !== 'string' || options.sessionId === '') {
+      throw new Error('Account Session item sessionId must be a non-empty string');
+    }
+    if (/[\/?#]/.test(options.sessionId)) {
+      throw new Error('Account Session item sessionId contains a path delimiter');
+    }
+    return accountSessionPath(options) + '/' + options.sessionId;
+  }
+
 
   function timerAssignmentItemPath(options) {
     if (!options || typeof options !== 'object' || Array.isArray(options)) {
@@ -633,6 +646,21 @@
       getAccountSessions(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
         return request(accountSessionPath(normalizedOptions), normalizedOptions);
+      },
+      getAccountSession(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return requestRevisioned(
+          accountSessionItemPath(normalizedOptions),
+          normalizedOptions
+        );
+      },
+      revokeAccountSession(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return requestAccountMutation(
+          accountSessionItemPath(normalizedOptions),
+          {},
+          normalizedOptions
+        );
       },
       setAccountGrant(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};

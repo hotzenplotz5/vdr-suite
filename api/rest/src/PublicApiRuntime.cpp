@@ -172,6 +172,33 @@ bool publicAccountSessionPath(
         accountId);
 }
 
+bool publicAccountSessionItemPath(
+    const std::string& path,
+    std::string& accountId,
+    std::string& sessionId)
+{
+    static const std::string Prefix = "/api/v1/accounts/";
+    static const std::string Marker = "/sessions/";
+
+    if (path.compare(0U, Prefix.size(), Prefix) != 0)
+        return false;
+
+    const std::size_t marker =
+        path.find(Marker, Prefix.size());
+    if (marker == std::string::npos)
+        return false;
+
+    accountId = path.substr(
+        Prefix.size(),
+        marker - Prefix.size());
+    sessionId = path.substr(marker + Marker.size());
+
+    return !accountId.empty() &&
+        accountId.find('/') == std::string::npos &&
+        !sessionId.empty() &&
+        sessionId.find('/') == std::string::npos;
+}
+
 bool publicTimerAssignmentPath(
     const std::string& path,
     std::string& timerAssignmentId)
@@ -1630,6 +1657,26 @@ bool publicGrantSetRevision(
         });
 }
 
+bool publicSessionLifecycleRevision(
+    const std::string& resourceRevision)
+{
+    static const std::string Prefix = "session-lifecycle:";
+    if (resourceRevision.size() != Prefix.size() + 64U ||
+        resourceRevision.compare(0U, Prefix.size(), Prefix) != 0)
+    {
+        return false;
+    }
+
+    return std::all_of(
+        resourceRevision.begin() + Prefix.size(),
+        resourceRevision.end(),
+        [](unsigned char character)
+        {
+            return (character >= '0' && character <= '9') ||
+                (character >= 'a' && character <= 'f');
+        });
+}
+
 bool emptyJsonObject(const std::string& input)
 {
     std::size_t position = 0;
@@ -1895,6 +1942,7 @@ ApiResponse platformCapabilities(
     const bool accountCreateAvailable,
     const bool accountGrantAdministrationAvailable,
     const bool accountSecurityMetadataAvailable,
+    const bool accountSessionRevokeAvailable,
     const std::string& requestId,
     const std::string& correlationId)
 {
@@ -1927,6 +1975,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.accounts-credential-session-metadata\",\"version\":1,\"availability\":\"" +
         std::string(accountSecurityMetadataAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.accounts-session-revoke\",\"version\":1,\"availability\":\"" +
+        std::string(accountSessionRevokeAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.compatibility-policy\",\"version\":1,\"availability\":\"available\"},"
         "{\"id\":\"public-api.deprecation-metadata\",\"version\":1,\"availability\":\"available\"}"
@@ -2392,6 +2443,97 @@ ApiResponse publicAccountCredentialCollectionResponse(
         jsonEscape(path) +
         "\"}}";
     return jsonResponse(body, requestId, correlationId);
+}
+
+ApiResponse publicAccountSessionResourceResponse(
+    const PublicAccountSessionResource& resource,
+    const std::string& path,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::string& ifNoneMatch)
+{
+    if (!publicSessionLifecycleRevision(
+            resource.resourceRevision))
+    {
+        return serviceUnavailableProblem(
+            path, requestId, correlationId);
+    }
+
+    const std::string entityTag =
+        vdrsuite::http::publicStrongEntityTag(
+            resource.resourceRevision);
+    if (entityTag.empty())
+    {
+        return serviceUnavailableProblem(
+            path, requestId, correlationId);
+    }
+
+    const auto condition =
+        vdrsuite::http::publicEvaluateIfNoneMatch(
+            ifNoneMatch,
+            entityTag);
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::malformed)
+    {
+        return invalidRequestProblem(
+            path,
+            "If-None-Match is not a valid entity-tag condition.",
+            requestId,
+            correlationId);
+    }
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::matched)
+    {
+        ApiResponse response;
+        response.statusCode = 304;
+        response.contentType = "application/json; charset=utf-8";
+        addPublicSuccessHeaders(
+            response, requestId, correlationId);
+        response.headers["ETag"] = entityTag;
+        return response;
+    }
+
+    const PublicAccountSessionItem& session =
+        resource.session;
+    std::string body =
+        "{\"accountId\":\"" +
+        jsonEscape(resource.accountId) +
+        "\",\"actorId\":\"" +
+        jsonEscape(resource.actorId) +
+        "\",\"sessionId\":\"" +
+        jsonEscape(session.sessionId) +
+        "\",\"deviceId\":\"" +
+        jsonEscape(session.deviceId) +
+        "\",\"issuedFromCredentialId\":\"" +
+        jsonEscape(session.issuedFromCredentialId) +
+        "\",\"active\":" +
+        std::string(session.active ? "true" : "false") +
+        ",\"expired\":" +
+        std::string(session.expired ? "true" : "false") +
+        ",\"revoked\":" +
+        std::string(session.revoked ? "true" : "false") +
+        ",\"expiresAt\":";
+    body += session.expiresAt.empty()
+        ? "null"
+        : "\"" + jsonEscape(session.expiresAt) + "\"";
+    body += ",\"lastSeenAt\":";
+    body += session.lastSeenAt.empty()
+        ? "null"
+        : "\"" + jsonEscape(session.lastSeenAt) + "\"";
+    body +=
+        ",\"createdAt\":\"" +
+        jsonEscape(session.createdAt) +
+        "\",\"links\":{\"self\":\"" +
+        jsonEscape(path) +
+        "\"}}";
+
+    ApiResponse response =
+        jsonResponse(
+            body,
+            requestId,
+            correlationId);
+    response.headers["ETag"] = entityTag;
+    return response;
 }
 
 ApiResponse publicAccountSessionCollectionResponse(
@@ -2953,6 +3095,50 @@ bool PublicApiRuntime::accountSessionLookupConfigured() const
     return static_cast<bool>(accountSessionLookup_);
 }
 
+void PublicApiRuntime::registerAccountSessionItemLookup(
+    AccountSessionItemLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(
+        accountSessionItemLookupMutex_);
+    accountSessionItemLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetAccountSessionItemLookup()
+{
+    std::lock_guard<std::mutex> lock(
+        accountSessionItemLookupMutex_);
+    accountSessionItemLookup_ = {};
+}
+
+bool PublicApiRuntime::accountSessionItemLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        accountSessionItemLookupMutex_);
+    return static_cast<bool>(accountSessionItemLookup_);
+}
+
+void PublicApiRuntime::registerAccountSessionMutation(
+    AccountSessionMutation mutation)
+{
+    std::lock_guard<std::mutex> lock(
+        accountSessionMutationMutex_);
+    accountSessionMutation_ = std::move(mutation);
+}
+
+void PublicApiRuntime::resetAccountSessionMutation()
+{
+    std::lock_guard<std::mutex> lock(
+        accountSessionMutationMutex_);
+    accountSessionMutation_ = {};
+}
+
+bool PublicApiRuntime::accountSessionMutationConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        accountSessionMutationMutex_);
+    return static_cast<bool>(accountSessionMutation_);
+}
+
 void PublicApiRuntime::registerChannelCollectionLookup(
     ChannelCollectionLookup lookup)
 {
@@ -3065,6 +3251,8 @@ bool PublicApiRuntime::tryHandleGet(
                 accountGrantMutationConfigured(),
             accountCredentialLookupConfigured() &&
                 accountSessionLookupConfigured(),
+            accountSessionItemLookupConfigured() &&
+                accountSessionMutationConfigured(),
             requestId,
             correlationId);
         return true;
@@ -3134,6 +3322,88 @@ bool PublicApiRuntime::tryHandleGet(
     }
 
     std::string accountId;
+    std::string sessionId;
+
+    if (publicAccountSessionItemPath(
+            path, accountId, sessionId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        if (requestTarget != path)
+        {
+            response = invalidRequestProblem(
+                path,
+                "Account Session item read does not accept query parameters.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        AccountSessionItemLookup lookup;
+        {
+            std::lock_guard<std::mutex> lock(
+                accountSessionItemLookupMutex_);
+            lookup = accountSessionItemLookup_;
+        }
+        if (!lookup)
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        const PublicAccountSessionLookupResult found =
+            lookup(accountId, sessionId);
+        switch (found.status)
+        {
+            case PublicAccountSessionAdministrationStatus::ok:
+                if (found.resource.accountId != accountId ||
+                    found.resource.actorId.empty() ||
+                    found.resource.session.sessionId != sessionId ||
+                    found.resource.session.deviceId.empty() ||
+                    found.resource.session.issuedFromCredentialId.empty() ||
+                    found.resource.session.createdAt.empty() ||
+                    !publicSessionLifecycleRevision(
+                        found.resource.resourceRevision))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                response =
+                    publicAccountSessionResourceResponse(
+                        found.resource,
+                        path,
+                        requestId,
+                        correlationId,
+                        ifNoneMatch);
+                return true;
+
+            case PublicAccountSessionAdministrationStatus::invalid:
+                response = invalidRequestProblem(
+                    path,
+                    "The Account or Session identifier is invalid.",
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountSessionAdministrationStatus::notFound:
+                response = notFoundProblem(
+                    path, requestId, correlationId);
+                return true;
+
+            case PublicAccountSessionAdministrationStatus::revisionConflict:
+            case PublicAccountSessionAdministrationStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
     if (publicAccountCredentialPath(path, accountId))
     {
         if (actorRef.empty())
@@ -4051,6 +4321,198 @@ bool PublicApiRuntime::tryHandlePost(
     std::string operationId;
     std::string timerAssignmentId;
     std::string accountId;
+    std::string sessionId;
+
+    if (publicAccountSessionItemPath(
+            path, accountId, sessionId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        if (requestTarget != path)
+        {
+            response = invalidRequestProblem(
+                path,
+                "Account Session revoke does not accept query parameters.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (!applicationJsonContentType(contentType))
+        {
+            response = problemResponse(
+                415,
+                "invalid_request",
+                "Unsupported media type",
+                "Account Session revoke requires Content-Type application/json.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (body.size() > 1024U)
+        {
+            response = invalidRequestProblem(
+                path,
+                "The Account Session revoke request body is too large.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        JsonSyntaxValidator validator(body);
+        if (!validator.valid())
+        {
+            response = problemResponse(
+                400,
+                "invalid_request",
+                "Invalid JSON",
+                "The Account Session revoke request body is not valid JSON.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (!emptyJsonObject(body))
+        {
+            response = problemResponse(
+                422,
+                "validation_error",
+                "Validation failed",
+                "Account Session revoke requires an empty JSON object.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (ifMatch.empty())
+        {
+            response = problemResponse(
+                428,
+                "precondition_required",
+                "Precondition required",
+                "Account Session revoke requires one strong If-Match entity tag.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        std::string expectedResourceRevision;
+        if (!vdrsuite::http::publicStrongEntityTagResourceRevision(
+                ifMatch,
+                expectedResourceRevision))
+        {
+            response = invalidRequestProblem(
+                path,
+                "If-Match must contain exactly one canonical strong VDR-Suite entity tag.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (!publicSessionLifecycleRevision(
+                expectedResourceRevision))
+        {
+            response = invalidRequestProblem(
+                path,
+                "If-Match does not identify an Account Session lifecycle revision.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        AccountSessionMutation mutation;
+        {
+            std::lock_guard<std::mutex> lock(
+                accountSessionMutationMutex_);
+            mutation = accountSessionMutation_;
+        }
+        if (!mutation)
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        PublicAccountSessionMutationRequest mutationRequest;
+        mutationRequest.actorRef = actorRef;
+        mutationRequest.accountId = accountId;
+        mutationRequest.sessionId = sessionId;
+        mutationRequest.expectedResourceRevision =
+            expectedResourceRevision;
+        mutationRequest.requestId = requestId;
+        mutationRequest.correlationId = correlationId;
+
+        const PublicAccountSessionMutationResult mutated =
+            mutation(mutationRequest);
+
+        switch (mutated.status)
+        {
+            case PublicAccountSessionAdministrationStatus::ok:
+                if (mutated.resource.accountId != accountId ||
+                    mutated.resource.actorId.empty() ||
+                    mutated.resource.session.sessionId != sessionId ||
+                    mutated.resource.session.deviceId.empty() ||
+                    mutated.resource.session.issuedFromCredentialId.empty() ||
+                    mutated.resource.session.createdAt.empty() ||
+                    !publicSessionLifecycleRevision(
+                        mutated.resource.resourceRevision))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                response =
+                    publicAccountSessionResourceResponse(
+                        mutated.resource,
+                        path,
+                        requestId,
+                        correlationId,
+                        "");
+                return true;
+
+            case PublicAccountSessionAdministrationStatus::invalid:
+                response = problemResponse(
+                    422,
+                    "validation_error",
+                    "Validation failed",
+                    "The Account Session revoke request is invalid.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountSessionAdministrationStatus::notFound:
+                response = notFoundProblem(
+                    path, requestId, correlationId);
+                return true;
+
+            case PublicAccountSessionAdministrationStatus::revisionConflict:
+                response = problemResponse(
+                    412,
+                    "revision_conflict",
+                    "Resource revision conflict",
+                    "The Account Session lifecycle changed after it was read.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountSessionAdministrationStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
 
     if (publicAccountCredentialPath(path, accountId) ||
         publicAccountSessionPath(path, accountId))
@@ -4982,6 +5444,18 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
     std::string operationId;
     std::string timerAssignmentId;
     std::string accountId;
+    std::string sessionId;
+
+    if (publicAccountSessionItemPath(
+            path, accountId, sessionId))
+    {
+        response = methodNotAllowedProblem(
+            path,
+            requestId,
+            correlationId,
+            "GET, POST");
+        return true;
+    }
 
     if (publicTimerAssignmentPath(
             path,

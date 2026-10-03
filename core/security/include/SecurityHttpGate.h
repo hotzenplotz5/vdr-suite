@@ -436,12 +436,42 @@ public:
                         publicAccountSessionSuffix.size()))
                     .find('/') == std::string::npos &&
             !publicAccountSessionAccountId.empty();
+        std::string publicAccountSessionItemAccountId;
+        std::string publicAccountSessionItemId;
+        const std::string publicAccountSessionItemMarker =
+            "/sessions/";
+        const std::size_t publicAccountSessionItemMarkerOffset =
+            path.compare(
+                0,
+                publicAccountPrefix.size(),
+                publicAccountPrefix) == 0
+                ? path.find(
+                    publicAccountSessionItemMarker,
+                    publicAccountPrefix.size())
+                : std::string::npos;
+        const bool isPublicAccountSessionItemResource =
+            publicAccountSessionItemMarkerOffset != std::string::npos &&
+            (publicAccountSessionItemAccountId =
+                path.substr(
+                    publicAccountPrefix.size(),
+                    publicAccountSessionItemMarkerOffset -
+                        publicAccountPrefix.size()))
+                    .find('/') == std::string::npos &&
+            !publicAccountSessionItemAccountId.empty() &&
+            (publicAccountSessionItemId =
+                path.substr(
+                    publicAccountSessionItemMarkerOffset +
+                    publicAccountSessionItemMarker.size()))
+                    .find('/') == std::string::npos &&
+            !publicAccountSessionItemId.empty();
+
         const bool isPublicAccountCredentialRead =
             request.method == "GET" &&
             isPublicAccountCredentialResource;
         const bool isPublicAccountSessionRead =
             request.method == "GET" &&
-            isPublicAccountSessionResource;
+            (isPublicAccountSessionResource ||
+             isPublicAccountSessionItemResource);
         const bool isPublicAccountRead =
             request.method == "GET" &&
             (isPublicAccountCollection ||
@@ -455,6 +485,9 @@ public:
         const bool isPublicAccountGrantMutation =
             isPost &&
             isPublicAccountGrantResource;
+        const bool isPublicAccountSessionMutation =
+            isPost &&
+            isPublicAccountSessionItemResource;
         const bool isPublicChannelCollection =
             path == "/api/v1/channels";
         std::vector<std::string> publicChannelBackendIds;
@@ -567,6 +600,7 @@ public:
             isPublicAccountCreate ||
             isPublicAccountMutation ||
             isPublicAccountGrantMutation ||
+            isPublicAccountSessionMutation ||
             isPublicTimerAssignmentCreate || isTimerUpdateAction ||
             isTimerDeleteAction || isChannelMoveAction || isRecordingExecutionAction ||
             isRecordingMarksModifyAction || isRecordingCutAction ||
@@ -1089,7 +1123,15 @@ public:
         bool recordingActionSupported = true;
         bool publicAccountMutationSupported = true;
 
-        if (isPublicAccountGrantMutation)
+        if (isPublicAccountSessionMutation)
+        {
+            requestToAuthorize.backendId = "*";
+            requestToAuthorize.permission =
+                "accounts.sessions.revoke";
+            requestToAuthorize.action =
+                "accounts.sessions.revoke";
+        }
+        else if (isPublicAccountGrantMutation)
         {
             requestToAuthorize.backendId = "*";
             requestToAuthorize.permission =

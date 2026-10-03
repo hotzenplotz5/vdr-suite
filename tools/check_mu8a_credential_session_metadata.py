@@ -100,7 +100,6 @@ def main():
             "csrfSecretHash",
             "tokenId",
             "accounts.credentials.revoke",
-            "accounts.sessions.revoke",
         ):
             forbid(name, forbidden)
 
@@ -143,14 +142,10 @@ def main():
     ):
         require("doc", marker)
 
-    require(
-        "current",
-        "MU.8A - Safe credential/session metadata [IMPLEMENTATION CANDIDATE]",
-    )
-    require(
-        "workstream",
-        "MU.8A - Safe credential/session metadata [IMPLEMENTATION CANDIDATE]",
-    )
+    require("current", "MU.8A")
+    require("current", "PR #415")
+    require("workstream", "MU.8A")
+    require("workstream", "PR #415")
 
     require("make", "test-security-human-account-credential-session-read:")
     require(
@@ -171,8 +166,8 @@ def main():
         )
 
     print("MU.8A credential/session metadata contracts passed")
-    print("MU8A=IMPLEMENTATION_CANDIDATE")
-    print("MU8_REVOKE=NOT_IMPLEMENTED")
+    print("MU8A=IMPLEMENTATION_MERGED_PR_415_RUNTIME_ACCEPTANCE_PENDING")
+    print("MU8B_STATUS=SUCCESSOR_STATUS_NOT_OWNED_BY_MU8A_GUARD")
     return 0
 
 

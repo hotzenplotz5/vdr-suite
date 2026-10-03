@@ -15,10 +15,10 @@ Account read foundation: completed
 First Admin / bootstrap / recovery: completed
 Legacy Basic retirement: completed
 Administration architecture: ADR-0067 [ACCEPTED]
-Current Multiuser runtime slice: MU.8A - Safe credential/session metadata [IMPLEMENTATION CANDIDATE]
+Current Multiuser runtime slice: MU.8B - Session Revoke [IMPLEMENTATION CANDIDATE]
 Latest completed Multiuser runtime slice: MU.7 Backend access / permission grant administration [COMPLETED]
 Completed MU.7 sub-slice: Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
-Current acceptance gate: MU.8A Safe credential/session metadata [IMPLEMENTATION CANDIDATE]
+Current acceptance gate: MU.8B - Session Revoke [IMPLEMENTATION CANDIDATE]
 ```
 
 ## Binding architecture
@@ -174,17 +174,24 @@ is independent from Human Account revision.
 
 ### MU.8 — Credential and session administration [IN PROGRESS]
 
-MU.8A - Safe credential/session metadata [IMPLEMENTATION CANDIDATE]
+MU.8A - Safe credential/session metadata [IMPLEMENTATION MERGED - PR #415 / RUNTIME ACCEPTANCE PENDING]
 
 MU.8A adds only the secret-free Public-v1 Credential and Session collection
 reads under `accounts.credentials.view@*` and `accounts.sessions.view@*`.
 It reuses the existing canonical issuer/session lifecycle and does not expose
 password verifiers, browser tokens, cookie material or CSRF/session hashes.
+The MU.8A implementation merged as PR #415 with hosted CI green; real yaVDR
+runtime acceptance remains pending.
 
-Credential/session revoke mutations, their dedicated strong precondition
-contract, final-usable-administrator protection for human-password revocation
-and real yaVDR acceptance remain pending successor work. MU.8 is therefore not
-complete.
+MU.8B - Session Revoke [IMPLEMENTATION CANDIDATE]
+
+MU.8B adds revisioned Session-item GET plus global
+`accounts.sessions.revoke@*` POST on the same Session resource. The mutation
+uses browser CSRF, a Session-owned strong lifecycle ETag that excludes passive
+`lastSeenAt`, the canonical BrowserSessionLifecycleService revoke path, and
+terminal-idempotent replay semantics. Human-password credential revoke and its
+final-usable-administrator protection remain pending successor work. MU.8 is
+therefore not complete.
 
 ### MU.9 — Account and access administration UI [PLANNED]
 
@@ -216,7 +223,7 @@ ADR-0065 Human Account boundary [ACCEPTED]
             -> MU.6C public lifecycle mutation [DONE]
             -> MU.6D Account CREATE/idempotency [DONE - PR #411]
        -> MU.7 Backend access/grant administration [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
-       -> MU.8 Credential/session administration [IN PROGRESS - MU.8A IMPLEMENTATION CANDIDATE]
+       -> MU.8 Credential/session administration [IN PROGRESS - MU.8B IMPLEMENTATION CANDIDATE]
        -> MU.9 Account/access admin UI
             -> Broad Timer Product UI unblocked
 
@@ -236,5 +243,5 @@ Independent numbered track:
 - Device trust is not user identity or permission.
 - Capability never grants authorization.
 - No client/UI owns authorization policy.
-- ADR-0067 is accepted; MU.6A-D are completed runtime boundaries and MU.6D merged as PR #411. MU.7 grant administration is completed after REAL YAVDR acceptance and PR #413 merged. MU.8 is in progress through the MU.8A safe credential/session metadata implementation candidate; revoke slices remain pending.
+- ADR-0067 is accepted; MU.6A-D are completed runtime boundaries and MU.6D merged as PR #411. MU.7 grant administration is completed after REAL YAVDR acceptance and PR #413 merged. MU.8 is in progress through the MU.8B Session Revoke implementation candidate. MU.8A merged as PR #415; real yaVDR acceptance and credential revoke remain pending.
 - Phase 70 is not started by Multiuser work.

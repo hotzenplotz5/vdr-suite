@@ -346,6 +346,12 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             *humanAccountRepository_,
             *securityIdentityRepository_,
             *humanAccountCredentialSessionReadRepository_);
+    humanAccountSessionAdministrationService_ =
+        std::make_unique<HumanAccountSessionAdministrationService>(
+            *securityDatabase_,
+            *humanAccountCredentialSessionReadService_,
+            *browserSessionLifecycleService_,
+            *accountabilityEventRepository_);
 
     PublicApiRuntime::instance().registerAccountCredentialLookup(
         [this](const std::string& accountId)
@@ -370,6 +376,7 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
                     result.status =
                         PublicAccountSecurityMetadataStatus::notFound;
                     return result;
+                case HumanAccountCredentialSessionReadStatus::sessionNotFound:
                 case HumanAccountCredentialSessionReadStatus::accountActorInvalid:
                 case HumanAccountCredentialSessionReadStatus::storageError:
                     result.status =
@@ -418,6 +425,7 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
                     result.status =
                         PublicAccountSecurityMetadataStatus::notFound;
                     return result;
+                case HumanAccountCredentialSessionReadStatus::sessionNotFound:
                 case HumanAccountCredentialSessionReadStatus::accountActorInvalid:
                 case HumanAccountCredentialSessionReadStatus::storageError:
                     result.status =
@@ -443,6 +451,140 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
                 result.collection.sessions.push_back(
                     std::move(item));
             }
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerAccountSessionItemLookup(
+        [this](
+            const std::string& accountId,
+            const std::string& sessionId)
+        {
+            PublicAccountSessionLookupResult result;
+            if (!humanAccountCredentialSessionReadService_)
+                return result;
+
+            const HumanAccountSessionItemReadResult found =
+                humanAccountCredentialSessionReadService_->readSession(
+                    accountId,
+                    sessionId);
+
+            switch (found.status)
+            {
+                case HumanAccountCredentialSessionReadStatus::success:
+                    result.status =
+                        PublicAccountSessionAdministrationStatus::ok;
+                    break;
+                case HumanAccountCredentialSessionReadStatus::invalidRequest:
+                    result.status =
+                        PublicAccountSessionAdministrationStatus::invalid;
+                    return result;
+                case HumanAccountCredentialSessionReadStatus::accountNotFound:
+                case HumanAccountCredentialSessionReadStatus::sessionNotFound:
+                    result.status =
+                        PublicAccountSessionAdministrationStatus::notFound;
+                    return result;
+                case HumanAccountCredentialSessionReadStatus::accountActorInvalid:
+                case HumanAccountCredentialSessionReadStatus::storageError:
+                    result.status =
+                        PublicAccountSessionAdministrationStatus::unavailable;
+                    return result;
+            }
+
+            result.resource.accountId = found.accountId;
+            result.resource.actorId = found.actorId;
+            result.resource.resourceRevision =
+                found.session.resourceRevision;
+            result.resource.session.sessionId =
+                found.session.sessionId;
+            result.resource.session.deviceId =
+                found.session.deviceId;
+            result.resource.session.issuedFromCredentialId =
+                found.session.issuedFromCredentialId;
+            result.resource.session.active = found.session.active;
+            result.resource.session.expired = found.session.expired;
+            result.resource.session.revoked = found.session.revoked;
+            result.resource.session.expiresAt = found.session.expiresAt;
+            result.resource.session.lastSeenAt = found.session.lastSeenAt;
+            result.resource.session.createdAt = found.session.createdAt;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerAccountSessionMutation(
+        [this](const PublicAccountSessionMutationRequest& request)
+        {
+            PublicAccountSessionMutationResult result;
+            if (!humanAccountSessionAdministrationService_ ||
+                !securityIdentityRepository_)
+            {
+                return result;
+            }
+
+            const std::optional<StoredActorIdentity> actor =
+                securityIdentityRepository_->findActor(
+                    request.actorRef);
+            if (!actor.has_value() ||
+                actor->type == ActorType::Anonymous ||
+                !actor->active ||
+                actor->revoked)
+            {
+                return result;
+            }
+
+            HumanAccountSessionAdministrationContext context;
+            context.actorId = request.actorRef;
+            context.requestId = request.requestId;
+            context.correlationId = request.correlationId;
+
+            const HumanAccountSessionAdministrationResult mutated =
+                humanAccountSessionAdministrationService_->revoke(
+                    context,
+                    request.accountId,
+                    request.sessionId,
+                    request.expectedResourceRevision);
+
+            switch (mutated.status)
+            {
+                case HumanAccountSessionAdministrationStatus::success:
+                    result.status =
+                        PublicAccountSessionAdministrationStatus::ok;
+                    break;
+                case HumanAccountSessionAdministrationStatus::invalidRequest:
+                    result.status =
+                        PublicAccountSessionAdministrationStatus::invalid;
+                    return result;
+                case HumanAccountSessionAdministrationStatus::accountNotFound:
+                case HumanAccountSessionAdministrationStatus::sessionNotFound:
+                    result.status =
+                        PublicAccountSessionAdministrationStatus::notFound;
+                    return result;
+                case HumanAccountSessionAdministrationStatus::revisionConflict:
+                    result.status =
+                        PublicAccountSessionAdministrationStatus::revisionConflict;
+                    break;
+                case HumanAccountSessionAdministrationStatus::accountActorInvalid:
+                case HumanAccountSessionAdministrationStatus::entropyUnavailable:
+                case HumanAccountSessionAdministrationStatus::storageError:
+                    result.status =
+                        PublicAccountSessionAdministrationStatus::unavailable;
+                    return result;
+            }
+
+            result.resource.accountId = mutated.accountId;
+            result.resource.actorId = mutated.actorId;
+            result.resource.resourceRevision =
+                mutated.session.resourceRevision;
+            result.resource.session.sessionId =
+                mutated.session.sessionId;
+            result.resource.session.deviceId =
+                mutated.session.deviceId;
+            result.resource.session.issuedFromCredentialId =
+                mutated.session.issuedFromCredentialId;
+            result.resource.session.active = mutated.session.active;
+            result.resource.session.expired = mutated.session.expired;
+            result.resource.session.revoked = mutated.session.revoked;
+            result.resource.session.expiresAt = mutated.session.expiresAt;
+            result.resource.session.lastSeenAt = mutated.session.lastSeenAt;
+            result.resource.session.createdAt = mutated.session.createdAt;
             return result;
         });
 
@@ -792,6 +934,8 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
 
 TestHttpServer::~TestHttpServer()
 {
+    PublicApiRuntime::instance().resetAccountSessionMutation();
+    PublicApiRuntime::instance().resetAccountSessionItemLookup();
     PublicApiRuntime::instance().resetAccountSessionLookup();
     PublicApiRuntime::instance().resetAccountCredentialLookup();
     PublicApiRuntime::instance().resetAccountGrantMutation();
