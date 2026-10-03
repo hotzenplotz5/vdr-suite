@@ -196,7 +196,7 @@ MU.8C - Human-password Credential Revoke [NOT STARTED]
 
 MU.8C owns the remaining bounded credential-revoke boundary: a credential-owned
 strong precondition, terminal-idempotent human-password revoke, canonical
-issuer-session fencing, verifier authority removal, and transactional
+issuer-session fencing, verifier-backed login authority fencing, and transactional
 final-usable-administrator protection. MU.8 is therefore still in progress.
 
 ### MU.9 — Account and access administration UI [PLANNED]
