@@ -29,7 +29,11 @@ async function run() {
   const credentials = await client.getAccountCredentials({
     accountId: 'account-a'
   });
-  assert.strictEqual(credentials.status, 200);
+  assert.deepStrictEqual(credentials, {
+    accountId: 'account-a',
+    actorId: 'actor-a',
+    items: []
+  });
   assert.strictEqual(
     requests[0].url,
     'https://suite.example/api/v1/accounts/account-a/credentials'
@@ -39,7 +43,11 @@ async function run() {
   const sessions = await client.getAccountSessions({
     accountId: 'account-a'
   });
-  assert.strictEqual(sessions.status, 200);
+  assert.deepStrictEqual(sessions, {
+    accountId: 'account-a',
+    actorId: 'actor-a',
+    items: []
+  });
   assert.strictEqual(
     requests[1].url,
     'https://suite.example/api/v1/accounts/account-a/sessions'
