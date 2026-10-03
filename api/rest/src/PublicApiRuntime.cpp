@@ -2446,6 +2446,88 @@ ApiResponse publicAccountGrantSetResponse(
     return response;
 }
 
+ApiResponse publicAccountCredentialResourceResponse(
+    const PublicAccountCredentialResource& resource,
+    const std::string& path,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::string& ifNoneMatch)
+{
+    if (!publicCredentialLifecycleRevision(
+            resource.resourceRevision))
+    {
+        return serviceUnavailableProblem(
+            path, requestId, correlationId);
+    }
+
+    const std::string entityTag =
+        vdrsuite::http::publicStrongEntityTag(
+            resource.resourceRevision);
+    if (entityTag.empty())
+    {
+        return serviceUnavailableProblem(
+            path, requestId, correlationId);
+    }
+
+    const auto condition =
+        vdrsuite::http::publicEvaluateIfNoneMatch(
+            ifNoneMatch,
+            entityTag);
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::malformed)
+    {
+        return invalidRequestProblem(
+            path,
+            "If-None-Match is not a valid entity-tag condition.",
+            requestId,
+            correlationId);
+    }
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::matched)
+    {
+        ApiResponse response;
+        response.statusCode = 304;
+        response.contentType = "application/json; charset=utf-8";
+        addPublicSuccessHeaders(
+            response, requestId, correlationId);
+        response.headers["ETag"] = entityTag;
+        return response;
+    }
+
+    const PublicAccountCredentialItem& credential =
+        resource.credential;
+    std::string body =
+        "{\"accountId\":\"" +
+        jsonEscape(resource.accountId) +
+        "\",\"actorId\":\"" +
+        jsonEscape(resource.actorId) +
+        "\",\"credentialId\":\"" +
+        jsonEscape(credential.credentialId) +
+        "\",\"credentialType\":\"" +
+        jsonEscape(credential.credentialType) +
+        "\",\"active\":" +
+        std::string(credential.active ? "true" : "false") +
+        ",\"expired\":" +
+        std::string(credential.expired ? "true" : "false") +
+        ",\"revoked\":" +
+        std::string(credential.revoked ? "true" : "false") +
+        ",\"expiresAt\":";
+    body += credential.expiresAt.empty()
+        ? "null"
+        : "\"" + jsonEscape(credential.expiresAt) + "\"";
+    body +=
+        ",\"createdAt\":\"" +
+        jsonEscape(credential.createdAt) +
+        "\",\"links\":{\"self\":\"" +
+        jsonEscape(path) +
+        "\"}}";
+
+    ApiResponse response =
+        jsonResponse(body, requestId, correlationId);
+    response.headers["ETag"] = entityTag;
+    return response;
+}
+
 ApiResponse publicAccountCredentialCollectionResponse(
     const PublicAccountCredentialCollectionResource& collection,
     const std::string& path,
