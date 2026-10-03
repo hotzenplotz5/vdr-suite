@@ -302,8 +302,8 @@ def main():
     print("MU6A=DONE")
     print("MU6B=DONE")
     print("MU6C=DONE")
-    print("MU6D=ACCEPTED_REAL_YAVDR_PASS_PR_PENDING")
-    print("MU7=NOT_STARTED")
+    print("MU6D=COMPLETED")
+    print("MU7_STATUS=SUCCESSOR_STATUS_NOT_OWNED_BY_MU6D_GUARD")
     return 0
 
 

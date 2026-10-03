@@ -57,7 +57,7 @@ The following are deliberately not inserted as numbered phases:
 
 Active Multiuser authority: [Post-Phase-69 Multiuser Productization Workstream](docs/development/post-phase69-multiuser-workstream.md).
 
-Completed Multiuser foundation through MU.6: explicit Human Accounts, First Admin/bootstrap/recovery, Legacy Basic retirement, accepted ADR-0067 administration architecture, authoritative Account lifecycle, stable Public-v1 Account read/lifecycle mutation and atomic Account CREATE with durable idempotency. MU.6D merged as PR #411. MU.7 Backend access / permission grant administration is the active CANDIDATE with LOCAL ACCEPTANCE pending; MU.8 credential/session administration remains not started.
+Completed Multiuser foundation through MU.6: explicit Human Accounts, First Admin/bootstrap/recovery, Legacy Basic retirement and accepted ADR-0067 administration architecture. MU.6B Public Account item/revision and MU.6C public lifecycle mutation are completed; MU.6D Atomic Account CREATE + durable idempotency merged as PR #411. MU.7 Backend access / permission grant administration is the active CANDIDATE with LOCAL ACCEPTANCE pending; MU.8 credential/session administration remains not started.
 
 Phase 70 remains a separate not-started numbered phase.
 

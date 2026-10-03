@@ -126,9 +126,9 @@ def main():
         require(name, "MU.6B")
         require(name, "MU.6C")
 
-    require("current", "MU.6B - Public Account item + revision/ETag [COMPLETED]")
-    # MU.6B owns only the existence/order of its successor, not the
-    # successor's volatile heading/status in CURRENT after MU.6B has landed.
+    # MU.6B is completed and must remain discoverable as durable evidence,
+    # but it must not own CURRENT's volatile active-slice status after successors land.
+    require("current", "MU.6B Public Account Item + Revision/ETag")
     require("workstream", "MU.6B Public Account item + revision/ETag")
     require("workstream", "MU.6C Public display-name / activate / deactivate")
 

@@ -191,7 +191,7 @@ def main():
         '"backend_scope_denied"',
         '"role_read_only"',
         "includeCsrf",
-        "authorizationDecision.backendId ==\n            "*"",
+        'authorizationDecision.backendId ==\n            "*"',
     ):
         require("security_test", marker)
 

@@ -77,7 +77,7 @@ MU.8 - Credential and session administration [NOT STARTED]
 
 Phases 65 through 69 are completed. Durable Phase-69 evidence lives in [Phase 69 Closeout](../development/phase-69-closeout.md). Phase 70 is the next strict numbered phase but is not started and has no runtime authorization until its required ADR is accepted.
 
-The active cross-cutting productization work is the [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md). MU.0-MU.6 are complete, [ADR-0067](../adr/ADR-0067-human-account-backend-access-administration.md) is accepted and MU.6D merged as PR #411. MU.7 grant administration is a CANDIDATE with LOCAL ACCEPTANCE pending; MU.8 credential/session administration remains not started.
+The active cross-cutting productization work is the [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md). MU.0-MU.6 are complete, [ADR-0067](../adr/ADR-0067-human-account-backend-access-administration.md) is accepted; MU.6B Public Account item/revision and MU.6C public lifecycle mutation are completed, and MU.6D Atomic Account CREATE + durable idempotency is completed and merged as PR #411. MU.7 grant administration is a CANDIDATE with LOCAL ACCEPTANCE pending; MU.8 credential/session administration remains not started.
 
 Future order: Phase 67 Broadcast Companion -> Phase 68 Legacy OSD -> Phase 69 Public API hardening -> Phase 70 Recommendation / Knowledge Graph.
 
