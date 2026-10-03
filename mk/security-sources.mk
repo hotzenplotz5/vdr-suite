@@ -307,7 +307,7 @@ test-security-human-account-credential-session-read:
 	$(BUILD_DIR)/test_human_account_credential_session_read_service
 
 
-test-security-public-account-security-metadata:
+test-security-public-account-security-metadata: test-security-human-account-credential-session-read
 	$(BUILD_CXX) $(CXXFLAGS) \
 		api/rest/src/PublicApiRuntime.cpp \
 		api/rest/tests/test_public_account_security_metadata.cpp \
@@ -320,7 +320,6 @@ test-security-public-account-security-metadata:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_public_account_security_metadata_security
 	$(BUILD_DIR)/test_public_account_security_metadata_security
-	$(MAKE) test-security-human-account-credential-session-read
 	node clients/reference-js/tests/test_public_v1_account_security_metadata_client.js
 	python3 tools/check_mu8a_credential_session_metadata.py
 

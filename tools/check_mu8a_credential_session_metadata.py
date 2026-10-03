@@ -153,7 +153,15 @@ def main():
     )
 
     require("make", "test-security-human-account-credential-session-read:")
-    require("make", "test-security-public-account-security-metadata:")
+    require(
+        "make",
+        "test-security-public-account-security-metadata: "
+        "test-security-human-account-credential-session-read",
+    )
+    forbid(
+        "make",
+        "$(MAKE) test-security-human-account-credential-session-read",
+    )
     occurrences = TEXT["make"].count(
         "python3 tools/check_mu8a_credential_session_metadata.py"
     )
