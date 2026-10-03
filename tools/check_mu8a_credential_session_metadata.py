@@ -100,7 +100,6 @@ def main():
             "csrfSecretHash",
             "tokenId",
             "accounts.credentials.revoke",
-            "accounts.sessions.revoke",
         ):
             forbid(name, forbidden)
 
@@ -172,7 +171,7 @@ def main():
 
     print("MU.8A credential/session metadata contracts passed")
     print("MU8A=IMPLEMENTATION_CANDIDATE")
-    print("MU8_REVOKE=NOT_IMPLEMENTED")
+    print("MU8B_STATUS=SUCCESSOR_STATUS_NOT_OWNED_BY_MU8A_GUARD")
     return 0
 
 
