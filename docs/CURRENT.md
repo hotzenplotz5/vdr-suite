@@ -22,6 +22,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [MU.8B Session Revoke](development/post-phase69-mu8b-session-revoke.md)
 - [MU.8C Human-password Credential Revoke](development/post-phase69-mu8c-credential-revoke.md)
 - [MU.9A Account Administration Read UI](development/post-phase69-mu9a-account-admin-read-ui.md)
+- [MU.9B Account Lifecycle Mutation UI](development/post-phase69-mu9b-account-lifecycle-ui.md)
 - [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md)
 - [Phase 69.B Closeout](development/phase-69b-closeout.md)
 - [Phase 69.C Closeout](development/phase-69c-closeout.md)
@@ -112,25 +113,25 @@ Current Multiuser architecture slice:
 MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
 
 Current Multiuser runtime slice:
-MU.9B - Account Lifecycle Mutation UI [IMPLEMENTATION CANDIDATE]
+none - successor MU.9 slice not yet selected
 
 Latest completed Multiuser runtime slice:
-MU.9A - Account Administration Read UI [IMPLEMENTATION MERGED - PR #418 / EXACT MERGED-MAIN YAVDR PASS / HOSTED CI GREEN]
+MU.9B - Account Lifecycle Mutation UI [IMPLEMENTATION MERGED - PR #420 / REAL YAVDR PASS / HOSTED CI GREEN]
 
 Completed MU.7 sub-slice:
 MU.7 - Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
 
 Next product slice:
-MU.9B - Account Lifecycle Mutation UI [IMPLEMENTATION CANDIDATE]
+successor MU.9 slice - exact scope not yet selected
 
 Post-Phase-69 Multiuser productization status:
 MU.0 through MU.7 are completed. MU.6D Atomic Account CREATE + durable idempotency passed real yaVDR acceptance and merged as PR #411.
-ADR-0067 remains the accepted architecture. MU.7 completed the bounded grant-administration boundary: secret-free grant-set read with deterministic ETag, global accounts.grants.view/modify authority, desired-state ensure/revoke, explicit server-owned permission/scope allowlist, browser CSRF and final-usable-administrator protection. REAL YAVDR acceptance passed; PR #413 merged. MU.8 implementation is complete through MU.8C. MU.8A merged as PR #415 but its separately documented real-runtime acceptance remains pending. MU.8B passed focused yaVDR acceptance and merged as PR #416. MU.8C passed focused yaVDR acceptance, merged as PR #417, and both its PR CI and post-merge main CI are green. MU.9A read-only Account administration UI merged as PR #418 after exact merged-main yaVDR acceptance; PR and post-merge hosted CI are green. MU.9B Account Lifecycle Mutation UI is now the active bounded implementation candidate.
+ADR-0067 remains the accepted architecture. MU.7 completed the bounded grant-administration boundary: secret-free grant-set read with deterministic ETag, global accounts.grants.view/modify authority, desired-state ensure/revoke, explicit server-owned permission/scope allowlist, browser CSRF and final-usable-administrator protection. REAL YAVDR acceptance passed; PR #413 merged. MU.8 implementation is complete through MU.8C. MU.8A merged as PR #415 but its separately documented real-runtime acceptance remains pending. MU.8B passed focused yaVDR acceptance and merged as PR #416. MU.8C passed focused yaVDR acceptance, merged as PR #417, and both its PR CI and post-merge main CI are green. MU.9A read-only Account administration UI merged as PR #418 after exact merged-main yaVDR acceptance; PR and post-merge hosted CI are green. MU.9B Account Lifecycle Mutation UI merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green. The successor MU.9 slice has not yet been selected.
 Durable workstream status: [Post-Phase-69 Multiuser Productization Workstream](development/post-phase69-multiuser-workstream.md).
 Durable MU.5 evidence: [MU.5 Administration Architecture Acceptance](development/post-phase69-mu5-administration-architecture-acceptance.md).
 Durable MU.6A evidence: [MU.6A Human Account Lifecycle Authority Foundation](development/post-phase69-mu6-account-lifecycle-foundation.md).
 Durable MU.6B evidence: [MU.6B Public Account Item + Revision/ETag](development/post-phase69-mu6b-public-account-item.md).
-Completed MU.6C evidence: [MU.6C Public Account Lifecycle Mutation](development/post-phase69-mu6c-public-account-lifecycle-mutation.md). Completed MU.6D evidence: [MU.6D Atomic Account CREATE + Durable Idempotency](development/post-phase69-mu6d-account-create-idempotency.md). Completed MU.7 evidence: [MU.7 Backend Access / Permission Grant Administration](development/post-phase69-mu7-account-grant-administration.md). MU.8A implementation evidence: [MU.8A Safe Credential / Session Metadata](development/post-phase69-mu8a-credential-session-metadata.md). MU.8B merged evidence: [MU.8B Session Revoke](development/post-phase69-mu8b-session-revoke.md). MU.8C merged evidence: [MU.8C Human-password Credential Revoke](development/post-phase69-mu8c-credential-revoke.md). MU.9A merged evidence: [MU.9A Account Administration Read UI](development/post-phase69-mu9a-account-admin-read-ui.md). MU.9B candidate evidence: [MU.9B Account Lifecycle Mutation UI](development/post-phase69-mu9b-account-lifecycle-ui.md).
+Completed MU.6C evidence: [MU.6C Public Account Lifecycle Mutation](development/post-phase69-mu6c-public-account-lifecycle-mutation.md). Completed MU.6D evidence: [MU.6D Atomic Account CREATE + Durable Idempotency](development/post-phase69-mu6d-account-create-idempotency.md). Completed MU.7 evidence: [MU.7 Backend Access / Permission Grant Administration](development/post-phase69-mu7-account-grant-administration.md). MU.8A implementation evidence: [MU.8A Safe Credential / Session Metadata](development/post-phase69-mu8a-credential-session-metadata.md). MU.8B merged evidence: [MU.8B Session Revoke](development/post-phase69-mu8b-session-revoke.md). MU.8C merged evidence: [MU.8C Human-password Credential Revoke](development/post-phase69-mu8c-credential-revoke.md). MU.9A merged evidence: [MU.9A Account Administration Read UI](development/post-phase69-mu9a-account-admin-read-ui.md). MU.9B merged evidence: [MU.9B Account Lifecycle Mutation UI](development/post-phase69-mu9b-account-lifecycle-ui.md).
 
 69.D is completed. [Phase 69.D Closeout](development/phase-69d-closeout.md)
 records the accepted collection boundary:
@@ -468,7 +469,7 @@ Accepted Broadcast Companion capability includes:
 
 Durable evidence is in [Phase 67 Closeout](development/phase-67-closeout.md) and the earlier [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md).
 
-Phase 68 Legacy OSD Compatibility Bridge is **completed for the accepted 68.A-G scope**. The final 68.G real yaVDR acceptance proved fenced allowlisted native OSD input through the authenticated Control Plane -> Agent -> SuiteBridge -> VDR path, including native DOWN/UP effect, idempotent replay and stale-authority rejection. Durable evidence is in [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 public API/client compatibility hardening is completed for the accepted 69.A-F scope. The post-Phase-69 Multiuser workstream is active: MU.0-MU.7 are complete; MU.6D merged as PR #411 and MU.7 grant administration merged as PR #413 after REAL YAVDR acceptance. MU.8 implementation is complete through MU.8C; MU.8A retains its separately documented real-runtime acceptance debt. MU.9 is in progress: MU.9A merged as PR #418 after exact merged-main yaVDR acceptance, with PR and post-merge hosted CI green; MU.9B Account Lifecycle Mutation UI is now the active bounded implementation candidate. MU.8A merged as PR #415. MU.8B passed focused yaVDR acceptance, merged as PR #416, and both PR and post-merge hosted CI are green; live daemon installation/restart was not required for that bounded slice. Phase 70 remains not started and still requires its dedicated accepted runtime ADR.
+Phase 68 Legacy OSD Compatibility Bridge is **completed for the accepted 68.A-G scope**. The final 68.G real yaVDR acceptance proved fenced allowlisted native OSD input through the authenticated Control Plane -> Agent -> SuiteBridge -> VDR path, including native DOWN/UP effect, idempotent replay and stale-authority rejection. Durable evidence is in [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md). Phase 69 public API/client compatibility hardening is completed for the accepted 69.A-F scope. The post-Phase-69 Multiuser workstream is active: MU.0-MU.7 are complete; MU.6D merged as PR #411 and MU.7 grant administration merged as PR #413 after REAL YAVDR acceptance. MU.8 implementation is complete through MU.8C; MU.8A retains its separately documented real-runtime acceptance debt. MU.9 is in progress: MU.9A merged as PR #418 after exact merged-main yaVDR acceptance, with PR and post-merge hosted CI green; MU.9B Account Lifecycle Mutation UI merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green. The successor MU.9 slice has not yet been selected. MU.8A merged as PR #415. MU.8B passed focused yaVDR acceptance, merged as PR #416, and both PR and post-merge hosted CI are green; live daemon installation/restart was not required for that bounded slice. Phase 70 remains not started and still requires its dedicated accepted runtime ADR.
 
 ## Historical evidence rule
 

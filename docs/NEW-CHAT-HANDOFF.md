@@ -26,7 +26,7 @@ Root-level `AGENTS.md` is binding. In particular, once the user has authorized a
 14. [MU.8B Session Revoke](development/post-phase69-mu8b-session-revoke.md) — implementation merged as PR #416 after focused yaVDR acceptance; PR and post-merge hosted CI green.
 15. [MU.8C Human-password Credential Revoke](development/post-phase69-mu8c-credential-revoke.md) — merged as PR #417 after focused yaVDR acceptance; credential-owned ETag, final-usable-admin protection and issuer-session fencing.
 16. [MU.9A Account Administration Read UI](development/post-phase69-mu9a-account-admin-read-ui.md) — merged as PR #418 after exact merged-main yaVDR acceptance; PR and post-merge hosted CI green; read-only Account/grant/Credential/Session administration in Settings.
-17. [MU.9B Account Lifecycle Mutation UI](development/post-phase69-mu9b-account-lifecycle-ui.md) — implementation candidate; display-name and activate/deactivate controls over accepted Public-v1 lifecycle contracts.
+17. [MU.9B Account Lifecycle Mutation UI](development/post-phase69-mu9b-account-lifecycle-ui.md) — merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI green; display-name and activate/deactivate controls over accepted Public-v1 lifecycle contracts.
 18. [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md) — completed migration and runtime-retirement evidence.
 19. [Phase 69 Closeout](development/phase-69-closeout.md) — completed 69.A-F public API/client compatibility evidence.
 20. [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md) and retained 69.B-F closeouts when historical Phase-69 detail is needed.
@@ -48,11 +48,11 @@ Historical Phase-69 closeout records retained for traceability: `docs/developmen
 - Current active numbered runtime slice: **none - Phase 70 - Recommendation and Content Knowledge Graph not started**.
 - Current active cross-cutting productization workstream: **Multiuser / Account and Backend Access Administration**.
 - Current Multiuser architecture slice: **MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]**.
-- Current Multiuser runtime slice: **MU.9B - Account Lifecycle Mutation UI [IMPLEMENTATION CANDIDATE]**.
-- Latest completed Multiuser runtime slice: **MU.9A - Account Administration Read UI [IMPLEMENTATION MERGED - PR #418 / EXACT MERGED-MAIN YAVDR PASS / HOSTED CI GREEN]**.
+- Current Multiuser runtime slice: **none - successor MU.9 slice not yet selected**.
+- Latest completed Multiuser runtime slice: **MU.9B - Account Lifecycle Mutation UI [IMPLEMENTATION MERGED - PR #420 / REAL YAVDR PASS / HOSTED CI GREEN]**.
 - Completed MU.7 sub-slice: **Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]**.
-- Next product slice: **MU.9B - Account Lifecycle Mutation UI [IMPLEMENTATION CANDIDATE]**.
-- MU.0-MU.7 are completed; MU.6D merged as PR #411 and MU.7 grant administration merged as PR #413 after REAL YAVDR acceptance. MU.8 implementation is complete through MU.8C: MU.8A merged as PR #415 with separately documented real-runtime acceptance still pending, MU.8B merged as PR #416 after focused yaVDR acceptance, and MU.8C merged as PR #417 after focused yaVDR acceptance with green PR/post-merge hosted CI. MU.9A is merged; MU.9B Account Lifecycle Mutation UI is the active bounded implementation candidate.
+- Next product slice: **successor MU.9 slice - exact scope not yet selected**.
+- MU.0-MU.7 are completed; MU.6D merged as PR #411 and MU.7 grant administration merged as PR #413 after REAL YAVDR acceptance. MU.8 implementation is complete through MU.8C: MU.8A merged as PR #415 with separately documented real-runtime acceptance still pending, MU.8B merged as PR #416 after focused yaVDR acceptance, and MU.8C merged as PR #417 after focused yaVDR acceptance with green PR/post-merge hosted CI. MU.9A and MU.9B are merged; the successor MU.9 slice has not yet been selected.
 - Durable Phase-68 completion evidence: [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md).
 - Phase-67 Teletext and HbbTV verticals are both completed and accepted.
 - Phase 65.A through 65.D are closed for their accepted bounded scopes; ADR-0056 semantic consolidation and ADR-0057 Recording network recovery are completed Phase-65 history.
