@@ -47,6 +47,7 @@ This is a stable navigation page for development contracts and evidence. It does
 - [MU.8B Session Revoke](post-phase69-mu8b-session-revoke.md) — implementation merged as PR #416 after focused yaVDR acceptance; PR and post-merge hosted CI green.
 - [MU.8C Human-password Credential Revoke](post-phase69-mu8c-credential-revoke.md) — merged as PR #417 after focused yaVDR acceptance; credential-owned revision, final-usable-admin protection and issuer-session fencing.
 - [MU.9A Account Administration Read UI](post-phase69-mu9a-account-admin-read-ui.md) — merged as PR #418 after exact merged-main yaVDR acceptance; PR and post-merge hosted CI green; read-only Account/grant/Credential/Session administration in Settings.
+- [MU.9B Account Lifecycle Mutation UI](post-phase69-mu9b-account-lifecycle-ui.md) — implementation candidate; selected Account display-name and activate/deactivate controls with ETag/CSRF fencing.
 - [Phase 67 Closeout](phase-67-closeout.md) — completed Teletext + HbbTV Broadcast Companion phase.
 - [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md) — completed Teletext vertical.
 - [Phase 66 Closeout](phase-66-closeout.md)

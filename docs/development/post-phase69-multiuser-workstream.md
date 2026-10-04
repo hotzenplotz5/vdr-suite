@@ -219,8 +219,16 @@ It reuses the accepted Public-v1 reference client for Account, grant,
 Credential and Session reads, preserves server-side authorization, and adds no
 mutation control. Account/grant/Credential/Session mutations remain later MU.9
 slices. MU.9A merged as PR #418 and passed exact merged-main yaVDR acceptance;
-PR and post-merge hosted CI are green. The exact successor slice remains to be
-selected from a fresh live audit.
+PR and post-merge hosted CI are green.
+
+MU.9B - Account Lifecycle Mutation UI [IMPLEMENTATION CANDIDATE]
+
+MU.9B adds display-name change and Account activate/deactivate controls to the
+existing Settings owner. It reuses the accepted MU.6C Public-v1 Account
+lifecycle mutations with strong Account ETag / If-Match fencing, active browser
+CSRF, explicit deactivate confirmation and full selected-Account refresh after
+mutation. Account CREATE, grant mutation, Credential revoke and Session revoke
+remain later MU.9 slices.
 
 ### MU.10 — Device/app pairing [LATER]
 
