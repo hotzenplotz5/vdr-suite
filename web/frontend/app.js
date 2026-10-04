@@ -3615,6 +3615,11 @@ function renderSettingsView(data) {
 
   appendSettingsLanguageCard(panel);
 
+  const accountAdminSettings = window.VdrSuiteAccountAdminSettings;
+  if (accountAdminSettings && typeof accountAdminSettings.render === 'function') {
+    accountAdminSettings.render(panel);
+  }
+
   const remoteCard = document.createElement('article');
   remoteCard.className = 'module-placeholder settings-card settings-remote-card';
   remoteCard.appendChild(addText(
