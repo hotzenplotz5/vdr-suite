@@ -15,10 +15,10 @@ Account read foundation: completed
 First Admin / bootstrap / recovery: completed
 Legacy Basic retirement: completed
 Administration architecture: ADR-0067 [ACCEPTED]
-Current Multiuser runtime slice: MU.8B - Session Revoke [IMPLEMENTATION CANDIDATE]
-Latest completed Multiuser runtime slice: MU.7 Backend access / permission grant administration [COMPLETED]
+Current Multiuser runtime slice: MU.8C - Human-password Credential Revoke [IMPLEMENTATION CANDIDATE]
+Latest completed Multiuser runtime slice: MU.8B - Session Revoke [IMPLEMENTATION MERGED - PR #416 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
 Completed MU.7 sub-slice: Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
-Current acceptance gate: MU.8B - Session Revoke [IMPLEMENTATION CANDIDATE]
+Current acceptance gate: MU.8C - Human-password Credential Revoke [IMPLEMENTATION CANDIDATE]
 ```
 
 ## Binding architecture
@@ -183,15 +183,27 @@ password verifiers, browser tokens, cookie material or CSRF/session hashes.
 The MU.8A implementation merged as PR #415 with hosted CI green; real yaVDR
 runtime acceptance remains pending.
 
-MU.8B - Session Revoke [IMPLEMENTATION CANDIDATE]
+MU.8B - Session Revoke [IMPLEMENTATION MERGED - PR #416 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
 
 MU.8B adds revisioned Session-item GET plus global
 `accounts.sessions.revoke@*` POST on the same Session resource. The mutation
 uses browser CSRF, a Session-owned strong lifecycle ETag that excludes passive
 `lastSeenAt`, the canonical BrowserSessionLifecycleService revoke path, and
-terminal-idempotent replay semantics. Human-password credential revoke and its
-final-usable-administrator protection remain pending successor work. MU.8 is
-therefore not complete.
+terminal-idempotent replay semantics. Focused acceptance on the real yaVDR
+checkout passed without a local daemon build, install, restart or runtime
+mutation. PR #416 and its post-merge push CI completed successfully.
+
+MU.8C - Human-password Credential Revoke [IMPLEMENTATION CANDIDATE]
+
+MU.8C owns revisioned Human Account Credential-item GET plus global
+`accounts.credentials.revoke@*` POST on the same Credential resource. It
+accepts only `human-password` credentials, uses browser CSRF and a
+Credential-owned strong lifecycle ETag, preserves desired-state terminal
+replay, protects the final usable administrator at credential granularity, and
+synchronously fences Browser Sessions issued from the revoked credential via
+the canonical BrowserSessionLifecycleService. Password reset/rotation and
+client administration UI remain outside this slice. MU.8 therefore remains in
+progress.
 
 ### MU.9 — Account and access administration UI [PLANNED]
 
@@ -223,7 +235,7 @@ ADR-0065 Human Account boundary [ACCEPTED]
             -> MU.6C public lifecycle mutation [DONE]
             -> MU.6D Account CREATE/idempotency [DONE - PR #411]
        -> MU.7 Backend access/grant administration [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
-       -> MU.8 Credential/session administration [IN PROGRESS - MU.8B IMPLEMENTATION CANDIDATE]
+       -> MU.8 Credential/session administration [IN PROGRESS - MU.8C IMPLEMENTATION CANDIDATE]
        -> MU.9 Account/access admin UI
             -> Broad Timer Product UI unblocked
 
@@ -243,5 +255,5 @@ Independent numbered track:
 - Device trust is not user identity or permission.
 - Capability never grants authorization.
 - No client/UI owns authorization policy.
-- ADR-0067 is accepted; MU.6A-D are completed runtime boundaries and MU.6D merged as PR #411. MU.7 grant administration is completed after REAL YAVDR acceptance and PR #413 merged. MU.8 is in progress through the MU.8B Session Revoke implementation candidate. MU.8A merged as PR #415; real yaVDR acceptance and credential revoke remain pending.
+- ADR-0067 is accepted; MU.6A-D are completed runtime boundaries and MU.6D merged as PR #411. MU.7 grant administration is completed after REAL YAVDR acceptance and PR #413 merged. MU.8 is in progress through the MU.8C Human-password Credential Revoke implementation candidate. MU.8A merged as PR #415. MU.8B passed focused yaVDR acceptance, merged as PR #416, and both PR and post-merge hosted CI are green; live daemon installation/restart was not required for that bounded slice.
 - Phase 70 is not started by Multiuser work.

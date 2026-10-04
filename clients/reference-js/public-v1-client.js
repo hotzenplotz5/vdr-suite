@@ -320,6 +320,19 @@
     return accountItemPath(options) + '/sessions';
   }
 
+  function accountCredentialItemPath(options) {
+    if (!options || typeof options !== 'object' || Array.isArray(options)) {
+      throw new Error('Account Credential item options must be an object');
+    }
+    if (typeof options.credentialId !== 'string' || options.credentialId === '') {
+      throw new Error('Account Credential item credentialId must be a non-empty string');
+    }
+    if (/[\/?#]/.test(options.credentialId)) {
+      throw new Error('Account Credential item credentialId contains a path delimiter');
+    }
+    return accountCredentialPath(options) + '/' + options.credentialId;
+  }
+
   function accountSessionItemPath(options) {
     if (!options || typeof options !== 'object' || Array.isArray(options)) {
       throw new Error('Account Session item options must be an object');
@@ -642,6 +655,21 @@
       getAccountCredentials(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
         return request(accountCredentialPath(normalizedOptions), normalizedOptions);
+      },
+      getAccountCredential(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return requestRevisioned(
+          accountCredentialItemPath(normalizedOptions),
+          normalizedOptions
+        );
+      },
+      revokeAccountCredential(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return requestAccountMutation(
+          accountCredentialItemPath(normalizedOptions),
+          {},
+          normalizedOptions
+        );
       },
       getAccountSessions(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};

@@ -58,6 +58,40 @@ std::string hexEncode(const unsigned char* bytes, std::size_t size)
     return result;
 }
 
+std::string credentialLifecycleRevision(
+    const std::string& credentialId,
+    const std::string& credentialType,
+    bool active,
+    const std::string& expiresAt,
+    const std::string& revokedAt,
+    const std::string& createdAt)
+{
+    std::string normalized = "credential-lifecycle/1\n";
+    normalized += credentialId + "\n";
+    normalized += credentialType + "\n";
+    normalized += active ? "1\n" : "0\n";
+    normalized += expiresAt + "\n";
+    normalized += revokedAt + "\n";
+    normalized += createdAt + "\n";
+
+    std::array<unsigned char, EVP_MAX_MD_SIZE> digest{};
+    unsigned int digestLength = 0U;
+    if (EVP_Digest(
+            normalized.data(),
+            normalized.size(),
+            digest.data(),
+            &digestLength,
+            EVP_sha256(),
+            nullptr) != 1 ||
+        digestLength == 0U)
+    {
+        return {};
+    }
+
+    return "credential-lifecycle:" +
+        hexEncode(digest.data(), digestLength);
+}
+
 std::string sessionLifecycleRevision(
     sqlite3_stmt* statement,
     const std::string& sessionId,
@@ -122,7 +156,7 @@ listCredentialsByActorId(const std::string& actorId) const
     const char* sql =
         "SELECT credential_id, credential_type, active, "
         "(expires_at <> '' AND expires_at <= CURRENT_TIMESTAMP), "
-        "revoked_at <> '', expires_at, created_at "
+        "revoked_at <> '', expires_at, created_at, revoked_at "
         "FROM security_credentials "
         "WHERE actor_id = ? "
         "AND credential_type <> 'browser-session' "
@@ -158,6 +192,18 @@ listCredentialsByActorId(const std::string& actorId) const
         credential.revoked = sqlite3_column_int(statement, 4) != 0;
         credential.expiresAt = columnText(statement, 5);
         credential.createdAt = columnText(statement, 6);
+        credential.resourceRevision = credentialLifecycleRevision(
+            credential.credentialId,
+            credential.credentialType,
+            credential.active,
+            credential.expiresAt,
+            columnText(statement, 7),
+            credential.createdAt);
+        if (credential.resourceRevision.empty())
+        {
+            sqlite3_finalize(statement);
+            return std::nullopt;
+        }
         result.push_back(std::move(credential));
     }
 

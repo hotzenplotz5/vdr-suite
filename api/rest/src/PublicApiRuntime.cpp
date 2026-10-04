@@ -172,6 +172,33 @@ bool publicAccountSessionPath(
         accountId);
 }
 
+bool publicAccountCredentialItemPath(
+    const std::string& path,
+    std::string& accountId,
+    std::string& credentialId)
+{
+    static const std::string Prefix = "/api/v1/accounts/";
+    static const std::string Marker = "/credentials/";
+
+    if (path.compare(0U, Prefix.size(), Prefix) != 0)
+        return false;
+
+    const std::size_t marker =
+        path.find(Marker, Prefix.size());
+    if (marker == std::string::npos)
+        return false;
+
+    accountId = path.substr(
+        Prefix.size(),
+        marker - Prefix.size());
+    credentialId = path.substr(marker + Marker.size());
+
+    return !accountId.empty() &&
+        accountId.find('/') == std::string::npos &&
+        !credentialId.empty() &&
+        credentialId.find('/') == std::string::npos;
+}
+
 bool publicAccountSessionItemPath(
     const std::string& path,
     std::string& accountId,
@@ -1657,6 +1684,26 @@ bool publicGrantSetRevision(
         });
 }
 
+bool publicCredentialLifecycleRevision(
+    const std::string& resourceRevision)
+{
+    static const std::string Prefix = "credential-lifecycle:";
+    if (resourceRevision.size() != Prefix.size() + 64U ||
+        resourceRevision.compare(0U, Prefix.size(), Prefix) != 0)
+    {
+        return false;
+    }
+
+    return std::all_of(
+        resourceRevision.begin() + Prefix.size(),
+        resourceRevision.end(),
+        [](unsigned char character)
+        {
+            return (character >= '0' && character <= '9') ||
+                (character >= 'a' && character <= 'f');
+        });
+}
+
 bool publicSessionLifecycleRevision(
     const std::string& resourceRevision)
 {
@@ -1942,6 +1989,7 @@ ApiResponse platformCapabilities(
     const bool accountCreateAvailable,
     const bool accountGrantAdministrationAvailable,
     const bool accountSecurityMetadataAvailable,
+    const bool accountCredentialRevokeAvailable,
     const bool accountSessionRevokeAvailable,
     const std::string& requestId,
     const std::string& correlationId)
@@ -1975,6 +2023,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.accounts-credential-session-metadata\",\"version\":1,\"availability\":\"" +
         std::string(accountSecurityMetadataAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.accounts-credential-revoke\",\"version\":1,\"availability\":\"" +
+        std::string(accountCredentialRevokeAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.accounts-session-revoke\",\"version\":1,\"availability\":\"" +
         std::string(accountSessionRevokeAvailable ? "available" : "unavailable") +
@@ -2395,6 +2446,88 @@ ApiResponse publicAccountGrantSetResponse(
         body,
         requestId,
         correlationId);
+    response.headers["ETag"] = entityTag;
+    return response;
+}
+
+ApiResponse publicAccountCredentialResourceResponse(
+    const PublicAccountCredentialResource& resource,
+    const std::string& path,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::string& ifNoneMatch)
+{
+    if (!publicCredentialLifecycleRevision(
+            resource.resourceRevision))
+    {
+        return serviceUnavailableProblem(
+            path, requestId, correlationId);
+    }
+
+    const std::string entityTag =
+        vdrsuite::http::publicStrongEntityTag(
+            resource.resourceRevision);
+    if (entityTag.empty())
+    {
+        return serviceUnavailableProblem(
+            path, requestId, correlationId);
+    }
+
+    const auto condition =
+        vdrsuite::http::publicEvaluateIfNoneMatch(
+            ifNoneMatch,
+            entityTag);
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::malformed)
+    {
+        return invalidRequestProblem(
+            path,
+            "If-None-Match is not a valid entity-tag condition.",
+            requestId,
+            correlationId);
+    }
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::matched)
+    {
+        ApiResponse response;
+        response.statusCode = 304;
+        response.contentType = "application/json; charset=utf-8";
+        addPublicSuccessHeaders(
+            response, requestId, correlationId);
+        response.headers["ETag"] = entityTag;
+        return response;
+    }
+
+    const PublicAccountCredentialItem& credential =
+        resource.credential;
+    std::string body =
+        "{\"accountId\":\"" +
+        jsonEscape(resource.accountId) +
+        "\",\"actorId\":\"" +
+        jsonEscape(resource.actorId) +
+        "\",\"credentialId\":\"" +
+        jsonEscape(credential.credentialId) +
+        "\",\"credentialType\":\"" +
+        jsonEscape(credential.credentialType) +
+        "\",\"active\":" +
+        std::string(credential.active ? "true" : "false") +
+        ",\"expired\":" +
+        std::string(credential.expired ? "true" : "false") +
+        ",\"revoked\":" +
+        std::string(credential.revoked ? "true" : "false") +
+        ",\"expiresAt\":";
+    body += credential.expiresAt.empty()
+        ? "null"
+        : "\"" + jsonEscape(credential.expiresAt) + "\"";
+    body +=
+        ",\"createdAt\":\"" +
+        jsonEscape(credential.createdAt) +
+        "\",\"links\":{\"self\":\"" +
+        jsonEscape(path) +
+        "\"}}";
+
+    ApiResponse response =
+        jsonResponse(body, requestId, correlationId);
     response.headers["ETag"] = entityTag;
     return response;
 }
@@ -3073,6 +3206,50 @@ bool PublicApiRuntime::accountCredentialLookupConfigured() const
     return static_cast<bool>(accountCredentialLookup_);
 }
 
+void PublicApiRuntime::registerAccountCredentialItemLookup(
+    AccountCredentialItemLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(
+        accountCredentialItemLookupMutex_);
+    accountCredentialItemLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetAccountCredentialItemLookup()
+{
+    std::lock_guard<std::mutex> lock(
+        accountCredentialItemLookupMutex_);
+    accountCredentialItemLookup_ = {};
+}
+
+bool PublicApiRuntime::accountCredentialItemLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        accountCredentialItemLookupMutex_);
+    return static_cast<bool>(accountCredentialItemLookup_);
+}
+
+void PublicApiRuntime::registerAccountCredentialMutation(
+    AccountCredentialMutation mutation)
+{
+    std::lock_guard<std::mutex> lock(
+        accountCredentialMutationMutex_);
+    accountCredentialMutation_ = std::move(mutation);
+}
+
+void PublicApiRuntime::resetAccountCredentialMutation()
+{
+    std::lock_guard<std::mutex> lock(
+        accountCredentialMutationMutex_);
+    accountCredentialMutation_ = {};
+}
+
+bool PublicApiRuntime::accountCredentialMutationConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        accountCredentialMutationMutex_);
+    return static_cast<bool>(accountCredentialMutation_);
+}
+
 void PublicApiRuntime::registerAccountSessionLookup(
     AccountSessionLookup lookup)
 {
@@ -3251,6 +3428,8 @@ bool PublicApiRuntime::tryHandleGet(
                 accountGrantMutationConfigured(),
             accountCredentialLookupConfigured() &&
                 accountSessionLookupConfigured(),
+            accountCredentialItemLookupConfigured() &&
+                accountCredentialMutationConfigured(),
             accountSessionItemLookupConfigured() &&
                 accountSessionMutationConfigured(),
             requestId,
@@ -3322,7 +3501,89 @@ bool PublicApiRuntime::tryHandleGet(
     }
 
     std::string accountId;
+    std::string credentialId;
     std::string sessionId;
+
+    if (publicAccountCredentialItemPath(
+            path, accountId, credentialId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        if (requestTarget != path)
+        {
+            response = invalidRequestProblem(
+                path,
+                "Account Credential item read does not accept query parameters.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        AccountCredentialItemLookup lookup;
+        {
+            std::lock_guard<std::mutex> lock(
+                accountCredentialItemLookupMutex_);
+            lookup = accountCredentialItemLookup_;
+        }
+        if (!lookup)
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        const PublicAccountCredentialLookupResult found =
+            lookup(accountId, credentialId);
+        switch (found.status)
+        {
+            case PublicAccountCredentialAdministrationStatus::ok:
+                if (found.resource.accountId != accountId ||
+                    found.resource.actorId.empty() ||
+                    found.resource.credential.credentialId != credentialId ||
+                    found.resource.credential.credentialType.empty() ||
+                    found.resource.credential.createdAt.empty() ||
+                    !publicCredentialLifecycleRevision(
+                        found.resource.resourceRevision))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                response =
+                    publicAccountCredentialResourceResponse(
+                        found.resource,
+                        path,
+                        requestId,
+                        correlationId,
+                        ifNoneMatch);
+                return true;
+
+            case PublicAccountCredentialAdministrationStatus::invalid:
+                response = invalidRequestProblem(
+                    path,
+                    "The Account or Credential identifier is invalid.",
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountCredentialAdministrationStatus::notFound:
+                response = notFoundProblem(
+                    path, requestId, correlationId);
+                return true;
+
+            case PublicAccountCredentialAdministrationStatus::validationError:
+            case PublicAccountCredentialAdministrationStatus::revisionConflict:
+            case PublicAccountCredentialAdministrationStatus::finalAdministrator:
+            case PublicAccountCredentialAdministrationStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
 
     if (publicAccountSessionItemPath(
             path, accountId, sessionId))
@@ -4321,7 +4582,220 @@ bool PublicApiRuntime::tryHandlePost(
     std::string operationId;
     std::string timerAssignmentId;
     std::string accountId;
+    std::string credentialId;
     std::string sessionId;
+
+    if (publicAccountCredentialItemPath(
+            path, accountId, credentialId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        if (requestTarget != path)
+        {
+            response = invalidRequestProblem(
+                path,
+                "Account Credential revoke does not accept query parameters.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (!applicationJsonContentType(contentType))
+        {
+            response = problemResponse(
+                415,
+                "invalid_request",
+                "Unsupported media type",
+                "Account Credential revoke requires Content-Type application/json.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (body.size() > 1024U)
+        {
+            response = invalidRequestProblem(
+                path,
+                "The Account Credential revoke request body is too large.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        JsonSyntaxValidator validator(body);
+        if (!validator.valid())
+        {
+            response = problemResponse(
+                400,
+                "invalid_request",
+                "Invalid JSON",
+                "The Account Credential revoke request body is not valid JSON.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (!emptyJsonObject(body))
+        {
+            response = problemResponse(
+                422,
+                "validation_error",
+                "Validation failed",
+                "Account Credential revoke requires an empty JSON object.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (ifMatch.empty())
+        {
+            response = problemResponse(
+                428,
+                "precondition_required",
+                "Precondition required",
+                "Account Credential revoke requires one strong If-Match entity tag.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        std::string expectedResourceRevision;
+        if (!vdrsuite::http::publicStrongEntityTagResourceRevision(
+                ifMatch,
+                expectedResourceRevision))
+        {
+            response = invalidRequestProblem(
+                path,
+                "If-Match must contain exactly one canonical strong VDR-Suite entity tag.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (!publicCredentialLifecycleRevision(
+                expectedResourceRevision))
+        {
+            response = invalidRequestProblem(
+                path,
+                "If-Match does not identify an Account Credential lifecycle revision.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        AccountCredentialMutation mutation;
+        {
+            std::lock_guard<std::mutex> lock(
+                accountCredentialMutationMutex_);
+            mutation = accountCredentialMutation_;
+        }
+        if (!mutation)
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        PublicAccountCredentialMutationRequest mutationRequest;
+        mutationRequest.actorRef = actorRef;
+        mutationRequest.accountId = accountId;
+        mutationRequest.credentialId = credentialId;
+        mutationRequest.expectedResourceRevision =
+            expectedResourceRevision;
+        mutationRequest.requestId = requestId;
+        mutationRequest.correlationId = correlationId;
+
+        const PublicAccountCredentialMutationResult mutated =
+            mutation(mutationRequest);
+
+        switch (mutated.status)
+        {
+            case PublicAccountCredentialAdministrationStatus::ok:
+                if (mutated.resource.accountId != accountId ||
+                    mutated.resource.actorId.empty() ||
+                    mutated.resource.credential.credentialId != credentialId ||
+                    mutated.resource.credential.credentialType.empty() ||
+                    mutated.resource.credential.createdAt.empty() ||
+                    !publicCredentialLifecycleRevision(
+                        mutated.resource.resourceRevision))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                response =
+                    publicAccountCredentialResourceResponse(
+                        mutated.resource,
+                        path,
+                        requestId,
+                        correlationId,
+                        "");
+                return true;
+
+            case PublicAccountCredentialAdministrationStatus::invalid:
+                response = problemResponse(
+                    422,
+                    "validation_error",
+                    "Validation failed",
+                    "The Account Credential revoke request is invalid.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountCredentialAdministrationStatus::validationError:
+                response = problemResponse(
+                    422,
+                    "validation_error",
+                    "Validation failed",
+                    "Only Human Account human-password credentials are revocable in this API slice.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountCredentialAdministrationStatus::notFound:
+                response = notFoundProblem(
+                    path, requestId, correlationId);
+                return true;
+
+            case PublicAccountCredentialAdministrationStatus::revisionConflict:
+                response = problemResponse(
+                    412,
+                    "revision_conflict",
+                    "Resource revision conflict",
+                    "The Account Credential lifecycle changed after it was read.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountCredentialAdministrationStatus::finalAdministrator:
+                response = problemResponse(
+                    409,
+                    "operation_conflict",
+                    "Operation conflict",
+                    "The final usable administrator credential cannot be revoked.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicAccountCredentialAdministrationStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
 
     if (publicAccountSessionItemPath(
             path, accountId, sessionId))
@@ -5444,7 +5918,19 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
     std::string operationId;
     std::string timerAssignmentId;
     std::string accountId;
+    std::string credentialId;
     std::string sessionId;
+
+    if (publicAccountCredentialItemPath(
+            path, accountId, credentialId))
+    {
+        response = methodNotAllowedProblem(
+            path,
+            requestId,
+            correlationId,
+            "GET, POST");
+        return true;
+    }
 
     if (publicAccountSessionItemPath(
             path, accountId, sessionId))

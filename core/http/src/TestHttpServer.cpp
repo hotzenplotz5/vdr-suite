@@ -346,6 +346,15 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             *humanAccountRepository_,
             *securityIdentityRepository_,
             *humanAccountCredentialSessionReadRepository_);
+    humanAccountCredentialAdministrationService_ =
+        std::make_unique<HumanAccountCredentialAdministrationService>(
+            *securityDatabase_,
+            *humanAccountCredentialSessionReadService_,
+            *humanAccountAdministrationRepository_,
+            *securityIdentityRepository_,
+            *browserSessionCredentialRepository_,
+            *browserSessionLifecycleService_,
+            *accountabilityEventRepository_);
     humanAccountSessionAdministrationService_ =
         std::make_unique<HumanAccountSessionAdministrationService>(
             *securityDatabase_,
@@ -376,6 +385,7 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
                     result.status =
                         PublicAccountSecurityMetadataStatus::notFound;
                     return result;
+                case HumanAccountCredentialSessionReadStatus::credentialNotFound:
                 case HumanAccountCredentialSessionReadStatus::sessionNotFound:
                 case HumanAccountCredentialSessionReadStatus::accountActorInvalid:
                 case HumanAccountCredentialSessionReadStatus::storageError:
@@ -402,6 +412,153 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             return result;
         });
 
+    PublicApiRuntime::instance().registerAccountCredentialItemLookup(
+        [this](
+            const std::string& accountId,
+            const std::string& credentialId)
+        {
+            PublicAccountCredentialLookupResult result;
+            if (!humanAccountCredentialSessionReadService_)
+                return result;
+
+            const HumanAccountCredentialItemReadResult found =
+                humanAccountCredentialSessionReadService_->readCredential(
+                    accountId,
+                    credentialId);
+
+            switch (found.status)
+            {
+                case HumanAccountCredentialSessionReadStatus::success:
+                    result.status =
+                        PublicAccountCredentialAdministrationStatus::ok;
+                    break;
+                case HumanAccountCredentialSessionReadStatus::invalidRequest:
+                    result.status =
+                        PublicAccountCredentialAdministrationStatus::invalid;
+                    return result;
+                case HumanAccountCredentialSessionReadStatus::accountNotFound:
+                case HumanAccountCredentialSessionReadStatus::credentialNotFound:
+                    result.status =
+                        PublicAccountCredentialAdministrationStatus::notFound;
+                    return result;
+                case HumanAccountCredentialSessionReadStatus::sessionNotFound:
+                case HumanAccountCredentialSessionReadStatus::accountActorInvalid:
+                case HumanAccountCredentialSessionReadStatus::storageError:
+                    result.status =
+                        PublicAccountCredentialAdministrationStatus::unavailable;
+                    return result;
+            }
+
+            result.resource.accountId = found.accountId;
+            result.resource.actorId = found.actorId;
+            result.resource.resourceRevision =
+                found.credential.resourceRevision;
+            result.resource.credential.credentialId =
+                found.credential.credentialId;
+            result.resource.credential.credentialType =
+                found.credential.credentialType;
+            result.resource.credential.active =
+                found.credential.active;
+            result.resource.credential.expired =
+                found.credential.expired;
+            result.resource.credential.revoked =
+                found.credential.revoked;
+            result.resource.credential.expiresAt =
+                found.credential.expiresAt;
+            result.resource.credential.createdAt =
+                found.credential.createdAt;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerAccountCredentialMutation(
+        [this](const PublicAccountCredentialMutationRequest& request)
+        {
+            PublicAccountCredentialMutationResult result;
+            if (!humanAccountCredentialAdministrationService_ ||
+                !securityIdentityRepository_)
+            {
+                return result;
+            }
+
+            const std::optional<StoredActorIdentity> actor =
+                securityIdentityRepository_->findActor(
+                    request.actorRef);
+            if (!actor.has_value() ||
+                actor->type == ActorType::Anonymous ||
+                !actor->active ||
+                actor->revoked)
+            {
+                return result;
+            }
+
+            HumanAccountCredentialAdministrationContext context;
+            context.actorId = request.actorRef;
+            context.requestId = request.requestId;
+            context.correlationId = request.correlationId;
+
+            const HumanAccountCredentialAdministrationResult mutated =
+                humanAccountCredentialAdministrationService_->revoke(
+                    context,
+                    request.accountId,
+                    request.credentialId,
+                    request.expectedResourceRevision);
+
+            switch (mutated.status)
+            {
+                case HumanAccountCredentialAdministrationStatus::success:
+                    result.status =
+                        PublicAccountCredentialAdministrationStatus::ok;
+                    break;
+                case HumanAccountCredentialAdministrationStatus::invalidRequest:
+                    result.status =
+                        PublicAccountCredentialAdministrationStatus::invalid;
+                    return result;
+                case HumanAccountCredentialAdministrationStatus::accountNotFound:
+                case HumanAccountCredentialAdministrationStatus::credentialNotFound:
+                    result.status =
+                        PublicAccountCredentialAdministrationStatus::notFound;
+                    return result;
+                case HumanAccountCredentialAdministrationStatus::credentialInvalid:
+                    result.status =
+                        PublicAccountCredentialAdministrationStatus::validationError;
+                    return result;
+                case HumanAccountCredentialAdministrationStatus::revisionConflict:
+                    result.status =
+                        PublicAccountCredentialAdministrationStatus::revisionConflict;
+                    break;
+                case HumanAccountCredentialAdministrationStatus::finalAdministrator:
+                    result.status =
+                        PublicAccountCredentialAdministrationStatus::finalAdministrator;
+                    break;
+                case HumanAccountCredentialAdministrationStatus::accountActorInvalid:
+                case HumanAccountCredentialAdministrationStatus::entropyUnavailable:
+                case HumanAccountCredentialAdministrationStatus::storageError:
+                    result.status =
+                        PublicAccountCredentialAdministrationStatus::unavailable;
+                    return result;
+            }
+
+            result.resource.accountId = mutated.accountId;
+            result.resource.actorId = mutated.actorId;
+            result.resource.resourceRevision =
+                mutated.credential.resourceRevision;
+            result.resource.credential.credentialId =
+                mutated.credential.credentialId;
+            result.resource.credential.credentialType =
+                mutated.credential.credentialType;
+            result.resource.credential.active =
+                mutated.credential.active;
+            result.resource.credential.expired =
+                mutated.credential.expired;
+            result.resource.credential.revoked =
+                mutated.credential.revoked;
+            result.resource.credential.expiresAt =
+                mutated.credential.expiresAt;
+            result.resource.credential.createdAt =
+                mutated.credential.createdAt;
+            return result;
+        });
+
     PublicApiRuntime::instance().registerAccountSessionLookup(
         [this](const std::string& accountId)
         {
@@ -425,6 +582,7 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
                     result.status =
                         PublicAccountSecurityMetadataStatus::notFound;
                     return result;
+                case HumanAccountCredentialSessionReadStatus::credentialNotFound:
                 case HumanAccountCredentialSessionReadStatus::sessionNotFound:
                 case HumanAccountCredentialSessionReadStatus::accountActorInvalid:
                 case HumanAccountCredentialSessionReadStatus::storageError:
@@ -483,6 +641,7 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
                     result.status =
                         PublicAccountSessionAdministrationStatus::notFound;
                     return result;
+                case HumanAccountCredentialSessionReadStatus::credentialNotFound:
                 case HumanAccountCredentialSessionReadStatus::accountActorInvalid:
                 case HumanAccountCredentialSessionReadStatus::storageError:
                     result.status =
@@ -934,6 +1093,8 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
 
 TestHttpServer::~TestHttpServer()
 {
+    PublicApiRuntime::instance().resetAccountCredentialMutation();
+    PublicApiRuntime::instance().resetAccountCredentialItemLookup();
     PublicApiRuntime::instance().resetAccountSessionMutation();
     PublicApiRuntime::instance().resetAccountSessionItemLookup();
     PublicApiRuntime::instance().resetAccountSessionLookup();

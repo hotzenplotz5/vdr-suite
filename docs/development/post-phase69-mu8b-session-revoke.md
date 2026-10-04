@@ -1,6 +1,6 @@
 # MU.8B — Session Revoke
 
-Status: **IMPLEMENTATION CANDIDATE — real yaVDR acceptance pending**
+Status: **IMPLEMENTATION MERGED — PR #416 / FOCUSED YAVDR PASS / HOSTED CI GREEN**
 
 MU.8B is the bounded Session-administration successor to MU.8A. It adds
 revisioned single-Session reads and explicit administrative revoke without
@@ -142,11 +142,13 @@ MU.8B does not implement:
 - Session creation,
 - client UI or TV authorization flows.
 
-Human-password credential revoke and its final-usable-admin protection remain a
-separate successor slice.
+Human-password credential revoke and its final-usable-admin protection are
+owned by the bounded MU.8C successor slice.
 
 ## Acceptance state
 
-The implementation candidate requires focused local compilation/tests on the
-real yaVDR checkout before PR review. No installation, daemon restart, or live
-runtime mutation is implied by implementation-candidate status.
+Focused acceptance on the real yaVDR checkout passed without a local daemon
+build, installation, restart, or runtime mutation. PR #416 merged after its
+Hosted CI completed successfully, and the post-merge push CI also completed
+successfully. A live daemon installation/restart was not required to prove this
+bounded Session-administration contract.

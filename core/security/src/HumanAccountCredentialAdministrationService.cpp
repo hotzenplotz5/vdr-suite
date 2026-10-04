@@ -1,9 +1,12 @@
-#include "HumanAccountSessionAdministrationService.h"
+#include "HumanAccountCredentialAdministrationService.h"
 
 #include "AccountabilityEvent.h"
 #include "AccountabilityEventRepository.h"
+#include "BrowserSessionCredentialRepository.h"
 #include "BrowserSessionLifecycleService.h"
 #include "Database.h"
+#include "HumanAccountAdministrationRepository.h"
+#include "SecurityIdentityRepository.h"
 
 #include <sys/random.h>
 
@@ -18,7 +21,7 @@
 
 namespace
 {
-constexpr std::size_t IdentifierBytes = 16;
+constexpr std::size_t IdentifierBytes = 16U;
 
 bool systemEntropy(unsigned char* output, std::size_t size)
 {
@@ -76,7 +79,7 @@ std::string hexEncode(const unsigned char* bytes, std::size_t size)
 }
 
 std::optional<std::string> randomId(
-    const HumanAccountSessionAdministrationService::EntropySource&
+    const HumanAccountCredentialAdministrationService::EntropySource&
         entropySource)
 {
     std::array<unsigned char, IdentifierBytes> bytes{};
@@ -141,41 +144,46 @@ private:
     bool active_ = false;
 };
 
-HumanAccountSessionAdministrationStatus mapReadStatus(
+HumanAccountCredentialAdministrationStatus mapReadStatus(
     HumanAccountCredentialSessionReadStatus status)
 {
     switch (status)
     {
         case HumanAccountCredentialSessionReadStatus::success:
-            return HumanAccountSessionAdministrationStatus::success;
+            return HumanAccountCredentialAdministrationStatus::success;
         case HumanAccountCredentialSessionReadStatus::invalidRequest:
-            return HumanAccountSessionAdministrationStatus::invalidRequest;
+            return HumanAccountCredentialAdministrationStatus::invalidRequest;
         case HumanAccountCredentialSessionReadStatus::accountNotFound:
-            return HumanAccountSessionAdministrationStatus::accountNotFound;
+            return HumanAccountCredentialAdministrationStatus::accountNotFound;
         case HumanAccountCredentialSessionReadStatus::accountActorInvalid:
-            return HumanAccountSessionAdministrationStatus::accountActorInvalid;
+            return HumanAccountCredentialAdministrationStatus::accountActorInvalid;
         case HumanAccountCredentialSessionReadStatus::credentialNotFound:
-            return HumanAccountSessionAdministrationStatus::storageError;
+            return HumanAccountCredentialAdministrationStatus::credentialNotFound;
         case HumanAccountCredentialSessionReadStatus::sessionNotFound:
-            return HumanAccountSessionAdministrationStatus::sessionNotFound;
         case HumanAccountCredentialSessionReadStatus::storageError:
-            return HumanAccountSessionAdministrationStatus::storageError;
+            return HumanAccountCredentialAdministrationStatus::storageError;
     }
-    return HumanAccountSessionAdministrationStatus::storageError;
+    return HumanAccountCredentialAdministrationStatus::storageError;
 }
 }
 
-HumanAccountSessionAdministrationService::
-HumanAccountSessionAdministrationService(
+HumanAccountCredentialAdministrationService::
+HumanAccountCredentialAdministrationService(
     Database& database,
     HumanAccountCredentialSessionReadService& readService,
-    BrowserSessionLifecycleService& lifecycleService,
+    HumanAccountAdministrationRepository& administrationRepository,
+    SecurityIdentityRepository& identityRepository,
+    BrowserSessionCredentialRepository& browserSessionRepository,
+    BrowserSessionLifecycleService& browserSessionLifecycleService,
     AccountabilityEventRepository& accountabilityRepository,
     EntropySource entropySource,
     Clock clock)
     : database_(database),
       readService_(readService),
-      lifecycleService_(lifecycleService),
+      administrationRepository_(administrationRepository),
+      identityRepository_(identityRepository),
+      browserSessionRepository_(browserSessionRepository),
+      browserSessionLifecycleService_(browserSessionLifecycleService),
       accountabilityRepository_(accountabilityRepository),
       entropySource_(
           entropySource
@@ -191,25 +199,25 @@ HumanAccountSessionAdministrationService(
 {
 }
 
-HumanAccountSessionAdministrationResult
-HumanAccountSessionAdministrationService::revoke(
-    const HumanAccountSessionAdministrationContext& context,
+HumanAccountCredentialAdministrationResult
+HumanAccountCredentialAdministrationService::revoke(
+    const HumanAccountCredentialAdministrationContext& context,
     const std::string& accountId,
-    const std::string& sessionId,
+    const std::string& credentialId,
     const std::string& expectedResourceRevision)
 {
-    HumanAccountSessionAdministrationResult result;
+    HumanAccountCredentialAdministrationResult result;
     result.accountId = accountId;
 
     if (!safeText(context.actorId, 128U) ||
         !safeText(context.requestId, 128U) ||
         !safeText(context.correlationId, 128U, 0U) ||
         !safeText(accountId, 128U) ||
-        !safeText(sessionId, 128U) ||
+        !safeText(credentialId, 128U) ||
         expectedResourceRevision.empty())
     {
         result.status =
-            HumanAccountSessionAdministrationStatus::invalidRequest;
+            HumanAccountCredentialAdministrationStatus::invalidRequest;
         return result;
     }
 
@@ -218,7 +226,7 @@ HumanAccountSessionAdministrationService::revoke(
     if (!eventId.has_value())
     {
         result.status =
-            HumanAccountSessionAdministrationStatus::entropyUnavailable;
+            HumanAccountCredentialAdministrationStatus::entropyUnavailable;
         return result;
     }
     if (occurredAt.empty())
@@ -230,18 +238,20 @@ HumanAccountSessionAdministrationService::revoke(
         return result;
 
     const auto auditAndFinish =
-        [&](HumanAccountSessionAdministrationStatus status,
-            const HumanAccountSessionMetadata& session,
+        [&](HumanAccountCredentialAdministrationStatus status,
+            const HumanAccountCredentialMetadata& credential,
             const std::string& actorId,
+            std::size_t revokedBrowserSessions,
             const std::string& decision,
             const std::string& reasonCode,
             const std::string& outcome)
         {
-            HumanAccountSessionAdministrationResult finished;
+            HumanAccountCredentialAdministrationResult finished;
             finished.status = status;
             finished.accountId = accountId;
             finished.actorId = actorId;
-            finished.session = session;
+            finished.credential = credential;
+            finished.revokedBrowserSessions = revokedBrowserSessions;
 
             AccountabilityEvent event;
             event.eventId = *eventId;
@@ -261,14 +271,14 @@ HumanAccountSessionAdministrationService::revoke(
             event.actorId = context.actorId;
             event.actorType = "user";
             event.authenticationState = "authenticated";
-            event.permission = "accounts.sessions.revoke";
+            event.permission = "accounts.credentials.revoke";
             event.backendId = "*";
             event.operationId =
-                "human-account-session:" +
-                accountId + ":" + sessionId;
+                "human-account-credential:" +
+                accountId + ":" + credentialId;
             event.requestId = context.requestId;
             event.correlationId = context.correlationId;
-            event.action = "human-account.session.revoke";
+            event.action = "human-account.credential.revoke";
             event.decision = decision;
             event.reasonCode = reasonCode;
             event.outcome = outcome;
@@ -277,15 +287,15 @@ HumanAccountSessionAdministrationService::revoke(
                 !transaction.commit())
             {
                 finished.status =
-                    HumanAccountSessionAdministrationStatus::storageError;
+                    HumanAccountCredentialAdministrationStatus::storageError;
             }
             return finished;
         };
 
-    const HumanAccountSessionItemReadResult current =
-        readService_.readSession(accountId, sessionId);
+    const HumanAccountCredentialItemReadResult current =
+        readService_.readCredential(accountId, credentialId);
     const auto mapped = mapReadStatus(current.status);
-    if (mapped != HumanAccountSessionAdministrationStatus::success)
+    if (mapped != HumanAccountCredentialAdministrationStatus::success)
     {
         result.status = mapped;
         result.actorId = current.actorId;
@@ -293,75 +303,113 @@ HumanAccountSessionAdministrationService::revoke(
     }
 
     result.actorId = current.actorId;
-    result.session = current.session;
+    result.credential = current.credential;
 
-    const bool terminal =
-        current.session.revoked ||
-        !current.session.active;
-
-    if (current.session.resourceRevision != expectedResourceRevision)
+    if (current.credential.credentialType != "human-password")
     {
-        if (terminal)
-        {
-            return auditAndFinish(
-                HumanAccountSessionAdministrationStatus::success,
-                current.session,
-                current.actorId,
-                "allow",
-                "session_already_terminal",
-                "success");
-        }
-
         return auditAndFinish(
-            HumanAccountSessionAdministrationStatus::revisionConflict,
-            current.session,
+            HumanAccountCredentialAdministrationStatus::credentialInvalid,
+            current.credential,
             current.actorId,
+            0U,
             "deny",
-            "session_revision_conflict",
+            "credential_type_not_revocable",
             "failed");
     }
 
-    if (terminal)
+    const bool terminal =
+        current.credential.revoked ||
+        !current.credential.active;
+
+    if (current.credential.resourceRevision !=
+            expectedResourceRevision &&
+        !terminal)
     {
         return auditAndFinish(
-            HumanAccountSessionAdministrationStatus::success,
-            current.session,
+            HumanAccountCredentialAdministrationStatus::revisionConflict,
+            current.credential,
             current.actorId,
-            "allow",
-            "session_already_terminal",
-            "success");
+            0U,
+            "deny",
+            "credential_revision_conflict",
+            "failed");
     }
 
-    if (current.session.browserCredentialId.empty() ||
-        !lifecycleService_.revokeInActiveTransaction(
-            current.session.sessionId,
-            current.session.browserCredentialId))
+    if (!terminal)
     {
-        result.status =
-            HumanAccountSessionAdministrationStatus::storageError;
+        const auto finalAdministrator =
+            administrationRepository_.
+                wouldRevokeFinalUsableAdministrator(
+                    credentialId);
+        if (!finalAdministrator.has_value())
+            return result;
+
+        if (*finalAdministrator)
+        {
+            return auditAndFinish(
+                HumanAccountCredentialAdministrationStatus::finalAdministrator,
+                current.credential,
+                current.actorId,
+                0U,
+                "deny",
+                "final_usable_administrator",
+                "failed");
+        }
+    }
+
+    const auto browserSessions =
+        browserSessionRepository_.
+            findByIssuedFromCredentialId(credentialId);
+    if (!browserSessions.has_value())
+        return result;
+
+    if (!current.credential.revoked &&
+        !identityRepository_.revokeCredential(credentialId))
+    {
         return result;
     }
 
-    const HumanAccountSessionItemReadResult revoked =
-        readService_.readSession(accountId, sessionId);
+    std::size_t revokedBrowserSessions = 0U;
+    for (const StoredBrowserSessionCredential& browserSession :
+         *browserSessions)
+    {
+        if (browserSession.actorId != current.actorId ||
+            browserSession.issuedFromCredentialId != credentialId ||
+            !browserSessionLifecycleService_.revokeInActiveTransaction(
+                browserSession.sessionId,
+                browserSession.credentialId))
+        {
+            return result;
+        }
+        ++revokedBrowserSessions;
+    }
+
+    const HumanAccountCredentialItemReadResult revoked =
+        readService_.readCredential(accountId, credentialId);
     if (revoked.status !=
             HumanAccountCredentialSessionReadStatus::success ||
-        (!revoked.session.revoked &&
-         revoked.session.active) ||
-        revoked.session.resourceRevision.empty() ||
-        revoked.session.resourceRevision ==
-            current.session.resourceRevision)
+        revoked.credential.active ||
+        !revoked.credential.revoked ||
+        revoked.credential.resourceRevision.empty())
     {
-        result.status =
-            HumanAccountSessionAdministrationStatus::storageError;
+        return result;
+    }
+
+    if (!terminal &&
+        revoked.credential.resourceRevision ==
+            current.credential.resourceRevision)
+    {
         return result;
     }
 
     return auditAndFinish(
-        HumanAccountSessionAdministrationStatus::success,
-        revoked.session,
+        HumanAccountCredentialAdministrationStatus::success,
+        revoked.credential,
         revoked.actorId,
+        revokedBrowserSessions,
         "allow",
-        "session_revoked",
+        terminal
+            ? "credential_already_terminal"
+            : "credential_revoked",
         "success");
 }
