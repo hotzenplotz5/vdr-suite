@@ -183,7 +183,7 @@ password verifiers, browser tokens, cookie material or CSRF/session hashes.
 The MU.8A implementation merged as PR #415 with hosted CI green; real yaVDR
 runtime acceptance remains pending.
 
-MU.8C - Human-password Credential Revoke [IMPLEMENTATION MERGED - PR #417 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
+MU.8B - Session Revoke [IMPLEMENTATION MERGED - PR #416 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
 
 MU.8B adds revisioned Session-item GET plus global
 `accounts.sessions.revoke@*` POST on the same Session resource. The mutation
@@ -193,7 +193,7 @@ terminal-idempotent replay semantics. Focused acceptance on the real yaVDR
 checkout passed without a local daemon build, install, restart or runtime
 mutation. PR #416 and its post-merge push CI completed successfully.
 
-MU.9A - Account Administration Read UI [IMPLEMENTATION CANDIDATE]
+MU.8C - Human-password Credential Revoke [IMPLEMENTATION MERGED - PR #417 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
 
 MU.8C owns revisioned Human Account Credential-item GET plus global
 `accounts.credentials.revoke@*` POST on the same Credential resource. It
