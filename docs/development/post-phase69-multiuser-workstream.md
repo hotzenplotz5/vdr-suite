@@ -15,10 +15,10 @@ Account read foundation: completed
 First Admin / bootstrap / recovery: completed
 Legacy Basic retirement: completed
 Administration architecture: ADR-0067 [ACCEPTED]
-Current Multiuser runtime slice: MU.9A - Account Administration Read UI [IMPLEMENTATION CANDIDATE]
+Current Multiuser runtime slice: none - successor MU.9 slice not yet selected
 Latest completed Multiuser runtime slice: MU.8C - Human-password Credential Revoke [IMPLEMENTATION MERGED - PR #417 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
 Completed MU.7 sub-slice: Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
-Current acceptance gate: MU.9A - Account Administration Read UI [IMPLEMENTATION CANDIDATE]
+Current acceptance gate: successor MU.9 slice - exact scope not yet selected
 ```
 
 ## Binding architecture
@@ -207,18 +207,20 @@ acceptance passed; PR #417 merged and both PR CI and post-merge main CI are
 green. MU.8 implementation is complete through MU.8C, while MU.8A retains its
 separately documented real-runtime acceptance debt.
 
-### MU.9 — Account and access administration UI [IN PROGRESS]
+### MU.9 — Account and access administration UI [IN PROGRESS — MU.9A MERGED / SUCCESSOR SLICE NOT YET SELECTED]
 
 Build the browser administration surface over the accepted stable contracts.
 This is the product prerequisite that unlocks the broad Timer Product UI.
 
-MU.9A - Account Administration Read UI [IMPLEMENTATION CANDIDATE]
+MU.9A - Account Administration Read UI [IMPLEMENTATION MERGED - PR #418 / EXACT MERGED-MAIN YAVDR PASS / HOSTED CI GREEN]
 
 MU.9A mounts a read-only Users & access surface in the existing Settings owner.
 It reuses the accepted Public-v1 reference client for Account, grant,
 Credential and Session reads, preserves server-side authorization, and adds no
 mutation control. Account/grant/Credential/Session mutations remain later MU.9
-slices.
+slices. MU.9A merged as PR #418 and passed exact merged-main yaVDR acceptance;
+PR and post-merge hosted CI are green. The exact successor slice remains to be
+selected from a fresh live audit.
 
 ### MU.10 — Device/app pairing [LATER]
 
@@ -246,7 +248,7 @@ ADR-0065 Human Account boundary [ACCEPTED]
             -> MU.6D Account CREATE/idempotency [DONE - PR #411]
        -> MU.7 Backend access/grant administration [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
        -> MU.8 Credential/session administration [IMPLEMENTATION COMPLETE - MU.8A RUNTIME ACCEPTANCE PENDING]
-       -> MU.9 Account/access admin UI [IN PROGRESS - MU.9A IMPLEMENTATION CANDIDATE]
+       -> MU.9 Account/access admin UI [IN PROGRESS - MU.9A MERGED / SUCCESSOR SLICE NOT YET SELECTED]
             -> Broad Timer Product UI unblocked
 
 Later:
@@ -265,5 +267,5 @@ Independent numbered track:
 - Device trust is not user identity or permission.
 - Capability never grants authorization.
 - No client/UI owns authorization policy.
-- ADR-0067 is accepted; MU.6A-D are completed runtime boundaries and MU.6D merged as PR #411. MU.7 grant administration completed after REAL YAVDR acceptance and PR #413 merge. MU.8 implementation is complete through MU.8C: MU.8A merged as PR #415 with separately documented real-runtime acceptance still pending, MU.8B merged as PR #416 after focused yaVDR acceptance, and MU.8C merged as PR #417 after focused yaVDR acceptance with PR and post-merge main CI green. MU.9 is active through the MU.9A read-only Account administration UI implementation candidate.
+- ADR-0067 is accepted; MU.6A-D are completed runtime boundaries and MU.6D merged as PR #411. MU.7 grant administration completed after REAL YAVDR acceptance and PR #413 merge. MU.8 implementation is complete through MU.8C: MU.8A merged as PR #415 with separately documented real-runtime acceptance still pending, MU.8B merged as PR #416 after focused yaVDR acceptance, and MU.8C merged as PR #417 after focused yaVDR acceptance with PR and post-merge main CI green. MU.9 remains in progress after MU.9A merged as PR #418 with exact merged-main yaVDR acceptance and green PR/post-merge hosted CI; the successor MU.9 slice has not yet been selected.
 - Phase 70 is not started by Multiuser work.

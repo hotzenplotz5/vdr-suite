@@ -1,6 +1,6 @@
 # MU.9A — Account Administration Read UI
 
-Status: **IMPLEMENTATION CANDIDATE**
+Status: **IMPLEMENTATION MERGED — PR #418 / EXACT MERGED-MAIN YAVDR PASS / HOSTED CI GREEN**
 
 MU.9A is the first bounded browser-administration slice after completion of the
 MU.8 credential/session backend boundary. It adds a read-only administration
@@ -93,7 +93,7 @@ Production wiring covers:
 
 ## Acceptance
 
-Focused acceptance for this implementation candidate is:
+Focused acceptance for the implementation candidate was:
 
 ```text
 make test-mu9a-account-admin-read-ui
@@ -102,6 +102,13 @@ python3 tools/check_frontend_ownership_contracts.py
 
 The slice requires no daemon build, package installation, service restart or
 runtime mutation.
+
+The implementation merged as PR #418. Exact post-merge acceptance then ran on
+`main` at `53331756e47045ee6581e2ec257bd9163a33ebf0` and passed the MU.9A focused
+frontend target, frontend ownership contracts, MU.8B/MU.8C predecessor guards
+and phase consistency. PR CI run #9737 and post-merge push CI run #9738 both
+completed successfully. The successor MU.9 slice is intentionally not selected
+by this closeout.
 
 ## Explicit non-goals
 
