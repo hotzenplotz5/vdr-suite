@@ -19,8 +19,7 @@ const uiSource = fs.readFileSync(
 );
 
 [
-  'createAccount(', 'updateAccountDisplayName(', 'activateAccount(',
-  'deactivateAccount(', 'setAccountGrant(', 'revokeAccountCredential(',
+  'createAccount(', 'setAccountGrant(', 'revokeAccountCredential(',
   'revokeAccountSession('
 ].forEach(function(marker) {
   assert(!adapterSource.includes(marker), marker + ' must not be used by MU.9A adapter');

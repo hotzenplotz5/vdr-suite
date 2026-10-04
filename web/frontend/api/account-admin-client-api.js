@@ -64,6 +64,58 @@
     });
   }
 
+  function activeSessionCsrfHeaders() {
+    const session = global.VdrSuiteBrowserSession;
+    if (!session || typeof session.csrfHeaders !== 'function') return {};
+    const headers = session.csrfHeaders();
+    return headers && typeof headers === 'object'
+      ? Object.assign({}, headers) : {};
+  }
+
+  function afterBrowserSessionRestore(action) {
+    const session = global.VdrSuiteBrowserSession;
+    if (!session || typeof session.restore !== 'function') {
+      return Promise.resolve().then(action);
+    }
+    return Promise.resolve(session.restore()).then(action);
+  }
+
+  function mutationOptions(accountId, ifMatch) {
+    if (typeof accountId !== 'string' || accountId === '') {
+      throw new Error('accountId is required');
+    }
+    if (typeof ifMatch !== 'string' || ifMatch === '') {
+      throw new Error('ifMatch is required');
+    }
+    return {
+      accountId: accountId,
+      ifMatch: ifMatch,
+      headers: activeSessionCsrfHeaders(),
+      credentials: 'same-origin',
+      cache: 'no-store'
+    };
+  }
+
+  function updateAccountDisplayName(accountId, ifMatch, displayName) {
+    return afterBrowserSessionRestore(function() {
+      const options = mutationOptions(accountId, ifMatch);
+      options.displayName = displayName;
+      return publicClient().updateAccountDisplayName(options);
+    });
+  }
+
+  function activateAccount(accountId, ifMatch) {
+    return afterBrowserSessionRestore(function() {
+      return publicClient().activateAccount(mutationOptions(accountId, ifMatch));
+    });
+  }
+
+  function deactivateAccount(accountId, ifMatch) {
+    return afterBrowserSessionRestore(function() {
+      return publicClient().deactivateAccount(mutationOptions(accountId, ifMatch));
+    });
+  }
+
   function resetForTests() {
     client = null;
   }
@@ -71,6 +123,9 @@
   global.VdrSuiteAccountAdminClientApi = Object.freeze({
     listAccounts: listAccounts,
     loadAccount: loadAccount,
+    updateAccountDisplayName: updateAccountDisplayName,
+    activateAccount: activateAccount,
+    deactivateAccount: deactivateAccount,
     resetForTests: resetForTests
   });
 })(window);

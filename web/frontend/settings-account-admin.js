@@ -33,6 +33,22 @@
       'Benutzerverwaltung ist derzeit nicht verfügbar.');
   }
 
+  function mutationErrorText(error) {
+    if (error && error.status === 409) {
+      return t('settings.accountAdminFinalAdministrator',
+        'Der letzte nutzbare Administrator kann nicht deaktiviert werden.');
+    }
+    if (error && error.status === 412) {
+      return t('settings.accountAdminRevisionConflict',
+        'Das Konto wurde zwischenzeitlich geändert. Die aktuellen Daten wurden neu geladen.');
+    }
+    if (error && error.status === 428) {
+      return t('settings.accountAdminRevisionRequired',
+        'Für diese Änderung fehlt ein aktueller Konto-Stand.');
+    }
+    return errorText(error);
+  }
+
   function appendMeta(parent, label, value) {
     const row = document.createElement('div');
     row.className = 'settings-line';
@@ -72,7 +88,7 @@
     parent.appendChild(list);
   }
 
-  function renderDetail(parent, overview) {
+  function renderDetail(parent, overview, actions) {
     parent.replaceChildren();
     if (!overview || !overview.account) {
       parent.appendChild(addText(document.createElement('p'),
@@ -87,6 +103,51 @@
     appendMeta(identity, 'Account-ID', account.accountId);
     appendMeta(identity, 'Actor-ID', account.actorId);
     appendMeta(identity, 'Status', statusText(account));
+
+    if (actions) {
+      const controls = document.createElement('div');
+      controls.className = 'settings-account-admin-lifecycle';
+
+      const displayLabel = addText(document.createElement('label'),
+        t('settings.accountAdminDisplayName', 'Anzeigename'));
+      displayLabel.className = 'settings-account-admin-field';
+
+      const displayInput = document.createElement('input');
+      displayInput.type = 'text';
+      displayInput.className = 'settings-account-admin-display-name-input';
+      displayInput.value = account.displayName || '';
+      displayInput.disabled = Boolean(actions.busy);
+      displayLabel.appendChild(displayInput);
+      controls.appendChild(displayLabel);
+
+      const save = addText(document.createElement('button'),
+        t('settings.accountAdminSaveDisplayName', 'Anzeigename speichern'));
+      save.type = 'button';
+      save.className = 'settings-account-admin-save-name';
+      save.disabled = Boolean(actions.busy);
+      save.addEventListener('click', function() {
+        return actions.rename(displayInput.value);
+      });
+      controls.appendChild(save);
+
+      const toggle = addText(document.createElement('button'), account.active
+        ? t('settings.accountAdminDeactivate', 'Konto deaktivieren')
+        : t('settings.accountAdminActivate', 'Konto aktivieren'));
+      toggle.type = 'button';
+      toggle.className = 'settings-account-admin-toggle-active';
+      toggle.disabled = Boolean(actions.busy);
+      toggle.addEventListener('click', function() {
+        if (account.active && typeof global.confirm === 'function') {
+          const confirmed = global.confirm(t('settings.accountAdminDeactivateConfirm',
+            'Konto deaktivieren? Aktive Browsersitzungen dieses Kontos werden widerrufen.'));
+          if (!confirmed) return Promise.resolve(false);
+        }
+        return account.active ? actions.deactivate() : actions.activate();
+      });
+      controls.appendChild(toggle);
+
+      identity.appendChild(controls);
+    }
     parent.appendChild(identity);
 
     const grants = section(t('settings.accountAdminGrants', 'Berechtigungen'));
@@ -134,7 +195,7 @@
       t('settings.accountAdminTitle', 'Benutzer & Zugriffe')));
     card.appendChild(addText(document.createElement('p'),
       t('settings.accountAdminDescription',
-        'Read-only Übersicht der Human Accounts sowie ihrer Berechtigungen, Anmeldedaten und Sitzungen.')));
+        'Human Accounts, Berechtigungen, Anmeldedaten und Sitzungen verwalten.')));
 
     const status = document.createElement('p');
     status.className = 'settings-account-admin-status';
@@ -153,7 +214,13 @@
     card.appendChild(layout);
     parent.appendChild(card);
 
-    const state = {items: [], nextCursor: '', selectedAccountId: ''};
+    const state = {
+      items: [],
+      nextCursor: '',
+      selectedAccountId: '',
+      selectedOverview: null,
+      mutating: false
+    };
 
     function markSelected() {
       list.querySelectorAll('button[data-account-id]').forEach(function(button) {
@@ -162,16 +229,108 @@
       });
     }
 
+    function replaceListAccount(account) {
+      if (!account || !account.accountId) return;
+      state.items = state.items.map(function(item) {
+        return item.accountId === account.accountId
+          ? Object.assign({}, item, account) : item;
+      });
+      redrawList();
+    }
+
+    function lifecycleActions() {
+      return {
+        busy: state.mutating,
+        rename: function(displayName) {
+          const normalized = typeof displayName === 'string' ? displayName.trim() : '';
+          if (!normalized) {
+            status.textContent = t('settings.accountAdminDisplayNameRequired',
+              'Der Anzeigename darf nicht leer sein.');
+            return Promise.resolve(false);
+          }
+          return mutateSelected(function(overview) {
+            return api.updateAccountDisplayName(
+              overview.account.accountId, overview.accountEtag, normalized);
+          });
+        },
+        activate: function() {
+          return mutateSelected(function(overview) {
+            return api.activateAccount(overview.account.accountId, overview.accountEtag);
+          });
+        },
+        deactivate: function() {
+          return mutateSelected(function(overview) {
+            return api.deactivateAccount(overview.account.accountId, overview.accountEtag);
+          });
+        }
+      };
+    }
+
+    function showSelected() {
+      renderDetail(detail, state.selectedOverview, lifecycleActions());
+    }
+
+    function refreshSelected(accountId) {
+      return api.loadAccount(accountId).then(function(overview) {
+        if (state.selectedAccountId !== accountId) return null;
+        state.selectedOverview = overview;
+        replaceListAccount(overview.account);
+        showSelected();
+        return overview;
+      });
+    }
+
+    function mutateSelected(operation) {
+      if (state.mutating || !state.selectedOverview ||
+          !state.selectedOverview.account || !state.selectedOverview.accountEtag) {
+        return Promise.resolve(false);
+      }
+
+      const accountId = state.selectedOverview.account.accountId;
+      state.mutating = true;
+      showSelected();
+      status.textContent = t('settings.accountAdminSaving', 'Änderung wird gespeichert …');
+
+      return Promise.resolve().then(function() {
+        return operation(state.selectedOverview);
+      }).then(function() {
+        return refreshSelected(accountId);
+      }).then(function() {
+        status.textContent = t('settings.accountAdminSaved', 'Änderung gespeichert.');
+        return true;
+      }).catch(function(error) {
+        return api.loadAccount(accountId).then(function(overview) {
+          if (state.selectedAccountId === accountId) {
+            state.selectedOverview = overview;
+            replaceListAccount(overview.account);
+          }
+        }).catch(function() {
+          return null;
+        }).then(function() {
+          status.textContent = mutationErrorText(error);
+          return false;
+        });
+      }).finally(function() {
+        state.mutating = false;
+        if (state.selectedAccountId === accountId && state.selectedOverview) {
+          showSelected();
+        }
+      });
+    }
+
     function selectAccount(accountId) {
       state.selectedAccountId = accountId;
+      state.selectedOverview = null;
       markSelected();
       status.textContent = t('settings.accountAdminLoading', 'Benutzer werden geladen …');
       return api.loadAccount(accountId).then(function(overview) {
         if (state.selectedAccountId !== accountId) return;
-        renderDetail(detail, overview);
+        state.selectedOverview = overview;
+        showSelected();
         status.textContent = '';
       }).catch(function(error) {
         if (state.selectedAccountId === accountId) {
+          state.selectedOverview = null;
           detail.replaceChildren();
           status.textContent = errorText(error);
         }
