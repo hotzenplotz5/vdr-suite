@@ -2058,6 +2058,37 @@ img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
   min-height: 1.25rem;
 }
 
+.settings-account-admin-lifecycle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: end;
+  padding-top: 0.35rem;
+}
+
+.settings-account-admin-field {
+  display: grid;
+  gap: 0.25rem;
+  min-width: min(100%, 18rem);
+  color: #cbd5e1;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.settings-account-admin-display-name-input {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+.settings-account-admin-display-name-input:disabled {
+  opacity: 0.65;
+}
+
 @media (max-width: 900px) {
   .settings-account-admin-layout {
     grid-template-columns: minmax(0, 1fr);
