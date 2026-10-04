@@ -21,6 +21,7 @@ include mk/public-origin.mk
 include mk/live-remote.mk
 include mk/test-inventory-exceptions.mk
 include mk/local-test-groups.mk
+include mk/mu9-account-admin-ui.mk
 include mk/phase66-continue-watching.mk
 include mk/phase66-recording-discovery.mk
 -include mk/browser-performance-diagnostics.mk
