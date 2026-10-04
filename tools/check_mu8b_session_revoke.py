@@ -219,11 +219,11 @@ def main():
 
     require(
         "current",
-        "MU.8B - Session Revoke [IMPLEMENTATION CANDIDATE]",
+        "MU.8B - Session Revoke [IMPLEMENTATION MERGED - PR #416 / FOCUSED YAVDR PASS / HOSTED CI GREEN]",
     )
     require(
         "workstream",
-        "MU.8B - Session Revoke [IMPLEMENTATION CANDIDATE]",
+        "MU.8B - Session Revoke [IMPLEMENTATION MERGED - PR #416 / FOCUSED YAVDR PASS / HOSTED CI GREEN]",
     )
     require("phase_map", "MU.8B")
 
