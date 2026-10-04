@@ -23,7 +23,9 @@ namespace
 bool deterministicEntropy(unsigned char* output, std::size_t size)
 {
     if (output == nullptr || size == 0U) return false;
-    std::memset(output, 0x43, size);
+    static unsigned char generation = 0x42;
+    ++generation;
+    std::memset(output, generation, size);
     return true;
 }
 }
