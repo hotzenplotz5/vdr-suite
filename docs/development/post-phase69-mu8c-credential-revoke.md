@@ -162,5 +162,6 @@ installation, restart or runtime mutation. PR #417 merged the accepted MU.8C
 implementation into `main` as `a3854381186e89169bf4ac834b564592cc48adb4`.
 The PR CI and the post-merge `main` push CI both completed successfully.
 
-MU.8 backend credential/session administration is therefore complete. Browser
-administration continues in MU.9.
+MU.8 backend credential/session **implementation** is complete through MU.8C.
+MU.8A still carries its separately documented real-runtime acceptance debt.
+Browser administration continues in MU.9.
