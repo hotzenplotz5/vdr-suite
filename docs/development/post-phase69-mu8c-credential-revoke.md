@@ -1,6 +1,6 @@
 # MU.8C — Human-password Credential Revoke
 
-Status: **IMPLEMENTATION CANDIDATE — focused real-yaVDR acceptance pending**
+Status: **IMPLEMENTATION MERGED — PR #417 / FOCUSED YAVDR PASS / HOSTED CI GREEN**
 
 MU.8C is the bounded Credential-administration successor to MU.8B. It adds
 revisioned single-Credential reads and explicit administrative revoke for Human
@@ -157,6 +157,10 @@ Local root recovery remains governed by ADR-0066.
 
 ## Acceptance state
 
-The implementation candidate requires focused compilation/tests on the real
-yaVDR checkout before PR review. No installation, daemon rebuild/restart, or
-live runtime mutation is implied by implementation-candidate status.
+Focused acceptance on the real yaVDR checkout passed without a daemon build,
+installation, restart or runtime mutation. PR #417 merged the accepted MU.8C
+implementation into `main` as `a3854381186e89169bf4ac834b564592cc48adb4`.
+The PR CI and the post-merge `main` push CI both completed successfully.
+
+MU.8 backend credential/session administration is therefore complete. Browser
+administration continues in MU.9.
