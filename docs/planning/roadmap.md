@@ -63,16 +63,16 @@ Current Multiuser architecture slice:
 MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
 
 Current Multiuser runtime slice:
-MU.8C - Human-password Credential Revoke [IMPLEMENTATION CANDIDATE]
+MU.9A - Account Administration Read UI [IMPLEMENTATION CANDIDATE]
 
 Latest completed Multiuser runtime slice:
-MU.8B - Session Revoke [IMPLEMENTATION MERGED - PR #416 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
+MU.8C - Human-password Credential Revoke [IMPLEMENTATION MERGED - PR #417 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
 
 Completed MU.7 sub-slice:
 Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
 
 Next product slice:
-MU.8C - Human-password Credential Revoke [IMPLEMENTATION CANDIDATE]
+MU.9A - Account Administration Read UI [IMPLEMENTATION CANDIDATE]
 ```
 
 Phases 65 through 69 are completed. Durable Phase-69 evidence lives in [Phase 69 Closeout](../development/phase-69-closeout.md). Phase 70 is the next strict numbered phase but is not started and has no runtime authorization until its required ADR is accepted.
