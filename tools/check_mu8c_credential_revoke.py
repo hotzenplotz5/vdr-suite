@@ -241,7 +241,7 @@ def main():
     )
     require(
         "workstream",
-        "MU.8C - Human-password Credential Revoke [IMPLEMENTATION CANDIDATE]",
+        "MU.8C - Human-password Credential Revoke [IMPLEMENTATION MERGED - PR #417 / FOCUSED YAVDR PASS / HOSTED CI GREEN]",
     )
     require("phase_map", "MU.8C")
 
