@@ -206,6 +206,11 @@ def main():
     ):
         require("client_test", marker)
 
+    require(
+        "doc",
+        "Status: **IMPLEMENTATION MERGED — PR #416 / FOCUSED YAVDR PASS / HOSTED CI GREEN**",
+    )
+
     for marker in (
         "MU.8B",
         "GET /api/v1/accounts/{accountId}/sessions/{sessionId}",
@@ -219,7 +224,7 @@ def main():
 
     require(
         "current",
-        "MU.8B - Session Revoke [IMPLEMENTATION MERGED - PR #416 / FOCUSED YAVDR PASS / HOSTED CI GREEN]",
+        "MU.8B merged evidence: [MU.8B Session Revoke]",
     )
     require(
         "workstream",
