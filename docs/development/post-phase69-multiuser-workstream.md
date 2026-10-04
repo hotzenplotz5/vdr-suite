@@ -16,7 +16,7 @@ First Admin / bootstrap / recovery: completed
 Legacy Basic retirement: completed
 Administration architecture: ADR-0067 [ACCEPTED]
 Current Multiuser runtime slice: none - successor MU.9 slice not yet selected
-Latest completed Multiuser runtime slice: MU.8C - Human-password Credential Revoke [IMPLEMENTATION MERGED - PR #417 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
+Latest completed Multiuser runtime slice: MU.9A - Account Administration Read UI [IMPLEMENTATION MERGED - PR #418 / EXACT MERGED-MAIN YAVDR PASS / HOSTED CI GREEN]
 Completed MU.7 sub-slice: Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
 Current acceptance gate: successor MU.9 slice - exact scope not yet selected
 ```
