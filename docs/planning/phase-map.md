@@ -126,6 +126,8 @@ Durable Multiuser authority: [Post-Phase-69 Multiuser Productization Workstream]
 Multiuser sequence:
 `MU.0-MU.5 [DONE] -> MU.6 Account lifecycle [DONE] -> MU.6A lifecycle authority [DONE] -> MU.6B Account item/revision [DONE] -> MU.6C public lifecycle mutation [DONE] -> MU.6D Account CREATE/idempotency [DONE - PR #411] -> MU.7 grant administration [COMPLETED - REAL YAVDR PASS / PR #413 MERGED] -> MU.8 credential/session administration [IMPLEMENTATION COMPLETE - MU.8A RUNTIME ACCEPTANCE PENDING] -> MU.9 admin UI -> later pairing/profiles`.
 
+MU.8 implementation history: `MU.8A Safe credential/session metadata [PR #415 / RUNTIME ACCEPTANCE PENDING] -> MU.8B Session Revoke [PR #416 / FOCUSED YAVDR PASS / HOSTED CI GREEN] -> MU.8C Human-password Credential Revoke [PR #417 / FOCUSED YAVDR PASS / HOSTED CI GREEN]`.
+
 Durable retirement evidence: [Post-Phase-69 P2 Legacy Basic Retirement Closeout](../development/post-phase69-p2-legacy-basic-retirement-closeout.md). This active cross-cutting workstream does not start Phase 70.
 
 ## Product acceptance
