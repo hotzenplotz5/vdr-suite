@@ -160,6 +160,7 @@ vm.runInContext(uiSource, context);
   assert.strictEqual(rename.options.displayName, 'Admin B');
   assert.strictEqual(rename.options.credentials, 'same-origin');
   assert.strictEqual(rename.options.headers['X-CSRF-Token'], 'csrf-mu9b');
+  assert.strictEqual(calls.filter(call => call.name === 'updateAccountDisplayName').length, 1);
   assert(restores >= 1);
 
   const toggle = findByClass(root, 'settings-account-admin-toggle-active');
@@ -171,6 +172,7 @@ vm.runInContext(uiSource, context);
   assert.strictEqual(deactivate.options.accountId, 'account-a');
   assert.strictEqual(deactivate.options.ifMatch, '"rev-2"');
   assert.strictEqual(deactivate.options.headers['X-CSRF-Token'], 'csrf-mu9b');
+  assert.strictEqual(calls.filter(call => call.name === 'deactivateAccount').length, 1);
 
   const activateToggle = findByClass(root, 'settings-account-admin-toggle-active');
   assert(activateToggle);
@@ -181,7 +183,38 @@ vm.runInContext(uiSource, context);
   assert.strictEqual(activate.options.accountId, 'account-a');
   assert.strictEqual(activate.options.ifMatch, '"rev-3"');
   assert.strictEqual(activate.options.headers['X-CSRF-Token'], 'csrf-mu9b');
+  assert.strictEqual(calls.filter(call => call.name === 'activateAccount').length, 1);
   assert(restores >= 3);
+
+  const readsBeforeConflict = getAccountCount;
+  publicClient.updateAccountDisplayName = function(options) {
+    calls.push({name: 'updateAccountDisplayNameConflict', options});
+    return Promise.reject({status: 412});
+  };
+  const conflictInput = findByClass(root, 'settings-account-admin-display-name-input');
+  const conflictSave = findByClass(root, 'settings-account-admin-save-name');
+  assert(conflictInput && conflictSave);
+  conflictInput.value = 'Admin C';
+  await conflictSave.listeners.click();
+  assert.strictEqual(
+    calls.filter(call => call.name === 'updateAccountDisplayNameConflict').length, 1);
+  assert.strictEqual(getAccountCount, readsBeforeConflict + 1);
+  const conflictStatus = findByClass(root, 'settings-account-admin-status');
+  assert(conflictStatus.textContent.includes('zwischenzeitlich geändert'));
+
+  const readsBeforeFinalAdmin = getAccountCount;
+  publicClient.deactivateAccount = function(options) {
+    calls.push({name: 'deactivateAccountFinalAdmin', options});
+    return Promise.reject({status: 409});
+  };
+  const finalAdminToggle = findByClass(root, 'settings-account-admin-toggle-active');
+  assert(finalAdminToggle);
+  await finalAdminToggle.listeners.click();
+  assert.strictEqual(
+    calls.filter(call => call.name === 'deactivateAccountFinalAdmin').length, 1);
+  assert.strictEqual(getAccountCount, readsBeforeFinalAdmin + 1);
+  const finalAdminStatus = findByClass(root, 'settings-account-admin-status');
+  assert(finalAdminStatus.textContent.includes('letzte nutzbare Administrator'));
 
   console.log('test_mu9b_account_lifecycle_mutation_ui passed');
 })().catch(function(error) {

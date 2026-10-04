@@ -98,7 +98,13 @@ The MU.9B browser integration test must prove the user-style action chain:
 8. click activate;
 9. emit exactly one activate mutation using that post-deactivation ETag.
 
-The test must also prove that MU.9B does not call Account CREATE, grant mutation,
-Credential revoke or Session revoke.
+The test must also prove:
+
+- each lifecycle action is one-shot and is not retried implicitly;
+- a stale `412` performs a read refresh and surfaces the concurrency conflict;
+- a final-usable-administrator `409` performs a read refresh and surfaces the
+  server refusal;
+- MU.9B does not call Account CREATE, grant mutation, Credential revoke or
+  Session revoke.
 
 Phase 70 remains separate and not started.
