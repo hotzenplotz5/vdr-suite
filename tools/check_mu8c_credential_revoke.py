@@ -237,7 +237,11 @@ def main():
 
     require(
         "current",
-        "MU.8C - Human-password Credential Revoke [IMPLEMENTATION MERGED - PR #417 / FOCUSED YAVDR PASS / HOSTED CI GREEN]",
+        "MU.8C merged evidence: [MU.8C Human-password Credential Revoke]",
+    )
+    require(
+        "doc",
+        "Status: **IMPLEMENTATION MERGED — PR #417 / FOCUSED YAVDR PASS / HOSTED CI GREEN**",
     )
     require(
         "workstream",
