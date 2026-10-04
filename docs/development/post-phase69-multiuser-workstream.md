@@ -15,10 +15,10 @@ Account read foundation: completed
 First Admin / bootstrap / recovery: completed
 Legacy Basic retirement: completed
 Administration architecture: ADR-0067 [ACCEPTED]
-Current Multiuser runtime slice: MU.8C - Human-password Credential Revoke [IMPLEMENTATION CANDIDATE]
-Latest completed Multiuser runtime slice: MU.8B - Session Revoke [IMPLEMENTATION MERGED - PR #416 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
+Current Multiuser runtime slice: MU.9A - Account Administration Read UI [IMPLEMENTATION CANDIDATE]
+Latest completed Multiuser runtime slice: MU.8C - Human-password Credential Revoke [IMPLEMENTATION MERGED - PR #417 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
 Completed MU.7 sub-slice: Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
-Current acceptance gate: MU.8C - Human-password Credential Revoke [IMPLEMENTATION CANDIDATE]
+Current acceptance gate: MU.9A - Account Administration Read UI [IMPLEMENTATION CANDIDATE]
 ```
 
 ## Binding architecture
@@ -172,7 +172,7 @@ central browser CSRF, explicit server-owned permission/scope allowlisting and
 transactional final-admin protection remain authoritative. Grant-set revision
 is independent from Human Account revision.
 
-### MU.8 — Credential and session administration [IN PROGRESS]
+### MU.8 — Credential and session administration [IMPLEMENTATION COMPLETE — MU.8A RUNTIME ACCEPTANCE PENDING]
 
 MU.8A - Safe credential/session metadata [IMPLEMENTATION MERGED - PR #415 / RUNTIME ACCEPTANCE PENDING]
 
@@ -183,7 +183,7 @@ password verifiers, browser tokens, cookie material or CSRF/session hashes.
 The MU.8A implementation merged as PR #415 with hosted CI green; real yaVDR
 runtime acceptance remains pending.
 
-MU.8B - Session Revoke [IMPLEMENTATION MERGED - PR #416 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
+MU.8C - Human-password Credential Revoke [IMPLEMENTATION MERGED - PR #417 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
 
 MU.8B adds revisioned Session-item GET plus global
 `accounts.sessions.revoke@*` POST on the same Session resource. The mutation
@@ -193,7 +193,7 @@ terminal-idempotent replay semantics. Focused acceptance on the real yaVDR
 checkout passed without a local daemon build, install, restart or runtime
 mutation. PR #416 and its post-merge push CI completed successfully.
 
-MU.8C - Human-password Credential Revoke [IMPLEMENTATION CANDIDATE]
+MU.9A - Account Administration Read UI [IMPLEMENTATION CANDIDATE]
 
 MU.8C owns revisioned Human Account Credential-item GET plus global
 `accounts.credentials.revoke@*` POST on the same Credential resource. It
@@ -202,13 +202,23 @@ Credential-owned strong lifecycle ETag, preserves desired-state terminal
 replay, protects the final usable administrator at credential granularity, and
 synchronously fences Browser Sessions issued from the revoked credential via
 the canonical BrowserSessionLifecycleService. Password reset/rotation and
-client administration UI remain outside this slice. MU.8 therefore remains in
-progress.
+client administration UI remain outside this slice. Focused real-yaVDR
+acceptance passed; PR #417 merged and both PR CI and post-merge main CI are
+green. MU.8 implementation is complete through MU.8C, while MU.8A retains its
+separately documented real-runtime acceptance debt.
 
-### MU.9 — Account and access administration UI [PLANNED]
+### MU.9 — Account and access administration UI [IN PROGRESS]
 
 Build the browser administration surface over the accepted stable contracts.
 This is the product prerequisite that unlocks the broad Timer Product UI.
+
+MU.9A - Account Administration Read UI [IMPLEMENTATION CANDIDATE]
+
+MU.9A mounts a read-only Users & access surface in the existing Settings owner.
+It reuses the accepted Public-v1 reference client for Account, grant,
+Credential and Session reads, preserves server-side authorization, and adds no
+mutation control. Account/grant/Credential/Session mutations remain later MU.9
+slices.
 
 ### MU.10 — Device/app pairing [LATER]
 
@@ -235,8 +245,8 @@ ADR-0065 Human Account boundary [ACCEPTED]
             -> MU.6C public lifecycle mutation [DONE]
             -> MU.6D Account CREATE/idempotency [DONE - PR #411]
        -> MU.7 Backend access/grant administration [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
-       -> MU.8 Credential/session administration [IN PROGRESS - MU.8C IMPLEMENTATION CANDIDATE]
-       -> MU.9 Account/access admin UI
+       -> MU.8 Credential/session administration [IMPLEMENTATION COMPLETE - MU.8A RUNTIME ACCEPTANCE PENDING]
+       -> MU.9 Account/access admin UI [IN PROGRESS - MU.9A IMPLEMENTATION CANDIDATE]
             -> Broad Timer Product UI unblocked
 
 Later:
@@ -255,5 +265,5 @@ Independent numbered track:
 - Device trust is not user identity or permission.
 - Capability never grants authorization.
 - No client/UI owns authorization policy.
-- ADR-0067 is accepted; MU.6A-D are completed runtime boundaries and MU.6D merged as PR #411. MU.7 grant administration is completed after REAL YAVDR acceptance and PR #413 merged. MU.8 is in progress through the MU.8C Human-password Credential Revoke implementation candidate. MU.8A merged as PR #415. MU.8B passed focused yaVDR acceptance, merged as PR #416, and both PR and post-merge hosted CI are green; live daemon installation/restart was not required for that bounded slice.
+- ADR-0067 is accepted; MU.6A-D are completed runtime boundaries and MU.6D merged as PR #411. MU.7 grant administration completed after REAL YAVDR acceptance and PR #413 merge. MU.8 implementation is complete through MU.8C: MU.8A merged as PR #415 with separately documented real-runtime acceptance still pending, MU.8B merged as PR #416 after focused yaVDR acceptance, and MU.8C merged as PR #417 after focused yaVDR acceptance with PR and post-merge main CI green. MU.9 is active through the MU.9A read-only Account administration UI implementation candidate.
 - Phase 70 is not started by Multiuser work.
