@@ -65,8 +65,8 @@ def main():
     forbid("ui", ".innerHTML")
 
     for marker in (
-        "X-CSRF-Token", "csrf-mu9b", '"rev-1"', '"rev-2"',
-        "updateAccountDisplayName", "deactivateAccount",
+        "X-CSRF-Token", "csrf-mu9b", '"rev-1"', '"rev-2"', '"rev-3"',
+        "updateAccountDisplayName", "deactivateAccount", "activateAccount",
         "test_mu9b_account_lifecycle_mutation_ui passed",
     ):
         require("test", marker)

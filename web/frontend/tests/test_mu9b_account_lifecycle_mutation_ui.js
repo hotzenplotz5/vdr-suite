@@ -48,7 +48,7 @@ const publicClient = {
         accountId: 'account-a',
         actorId: 'actor-a',
         displayName: getAccountCount === 1 ? 'Admin A' : 'Admin B',
-        active: getAccountCount < 3
+        active: getAccountCount !== 3
       }
     });
   },
@@ -172,7 +172,17 @@ vm.runInContext(uiSource, context);
   assert.strictEqual(deactivate.options.ifMatch, '"rev-2"');
   assert.strictEqual(deactivate.options.headers['X-CSRF-Token'], 'csrf-mu9b');
 
-  assert(!calls.some(call => call.name === 'activateAccount'));
+  const activateToggle = findByClass(root, 'settings-account-admin-toggle-active');
+  assert(activateToggle);
+  await activateToggle.listeners.click();
+
+  const activate = calls.find(call => call.name === 'activateAccount');
+  assert(activate);
+  assert.strictEqual(activate.options.accountId, 'account-a');
+  assert.strictEqual(activate.options.ifMatch, '"rev-3"');
+  assert.strictEqual(activate.options.headers['X-CSRF-Token'], 'csrf-mu9b');
+  assert(restores >= 3);
+
   console.log('test_mu9b_account_lifecycle_mutation_ui passed');
 })().catch(function(error) {
   console.error(error);

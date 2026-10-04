@@ -93,7 +93,10 @@ The MU.9B browser integration test must prove the user-style action chain:
    and active browser CSRF;
 4. refresh the selected Account and advance to its new ETag;
 5. confirm and click deactivate;
-6. emit exactly one deactivate mutation using the refreshed ETag.
+6. emit exactly one deactivate mutation using the refreshed ETag;
+7. refresh the now-inactive Account and advance to its new ETag;
+8. click activate;
+9. emit exactly one activate mutation using that post-deactivation ETag.
 
 The test must also prove that MU.9B does not call Account CREATE, grant mutation,
 Credential revoke or Session revoke.
