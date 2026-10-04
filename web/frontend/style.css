@@ -1999,6 +1999,74 @@ img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
   word-break: break-word;
 }
 
+.settings-account-admin {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.settings-account-admin-layout {
+  display: grid;
+  grid-template-columns: minmax(15rem, 22rem) minmax(0, 1fr);
+  gap: 0.9rem;
+  align-items: start;
+}
+
+.settings-account-admin-list,
+.settings-account-admin-detail,
+.settings-account-admin-section {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.settings-account-admin-list {
+  max-height: 36rem;
+  overflow: auto;
+}
+
+.settings-account-admin-account {
+  width: 100%;
+  text-align: left;
+  display: grid;
+  gap: 0.18rem;
+}
+
+.settings-account-admin-account.active {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.settings-account-admin-meta {
+  font-size: 0.8rem;
+  opacity: 0.78;
+  word-break: break-word;
+}
+
+.settings-account-admin-collection {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.settings-account-admin-item {
+  padding: 0.65rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 0.7rem;
+}
+
+.settings-account-admin-status {
+  margin: 0;
+  min-height: 1.25rem;
+}
+
+@media (max-width: 900px) {
+  .settings-account-admin-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .settings-account-admin-list {
+    max-height: none;
+  }
+}
+
 
 /* Phase 58.80f: vertical EPG top scrollbar and drag scroll */
 .epg-vertical-time-grid {

@@ -9,6 +9,8 @@ struct FrontendAsset
 const FrontendAsset FRONTEND_ASSETS[] = {
     {"/frontend/app.js", "app.js", "application/javascript; charset=utf-8", "modules/remote.js"},
     {"/frontend/api/client-api.js", "api/client-api.js", "application/javascript; charset=utf-8", "api/live-remote-client-api.js"},
+    {"/frontend/api/public-v1-client.js", "api/public-v1-client.js", "application/javascript; charset=utf-8", nullptr},
+    {"/frontend/api/account-admin-client-api.js", "api/account-admin-client-api.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/api/genre-client-api.js", "api/genre-client-api.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/api/session-frontend-sync.js", "api/session-frontend-sync.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/platform/public-url.js", "platform/public-url.js", "application/javascript; charset=utf-8", nullptr},
@@ -17,6 +19,7 @@ const FrontendAsset FRONTEND_ASSETS[] = {
     {"/frontend/platform/helpers.js", "platform/helpers.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/platform/deferred-runtime-loader.js", "platform/deferred-runtime-loader.js", "application/javascript; charset=utf-8", "home-recording-discovery-bootstrap.js"},
     {"/frontend/settings-series-artwork.js", "settings-series-artwork.js", "application/javascript; charset=utf-8", nullptr},
+    {"/frontend/settings-account-admin.js", "settings-account-admin.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/settings-media-transcode.js", "settings-media-transcode.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/locales/de.js", "locales/de.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/locales/en.js", "locales/en.js", "application/javascript; charset=utf-8", nullptr},
