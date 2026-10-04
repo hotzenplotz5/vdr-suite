@@ -103,16 +103,19 @@ def main():
         require("test", marker)
 
     require("current",
-        "MU.9A - Account Administration Read UI [IMPLEMENTATION CANDIDATE]")
+        "MU.9A - Account Administration Read UI [IMPLEMENTATION MERGED - PR #418 / EXACT MERGED-MAIN YAVDR PASS / HOSTED CI GREEN]")
     require("workstream",
-        "MU.9A - Account Administration Read UI [IMPLEMENTATION CANDIDATE]")
-    require("slice_doc", "Status: **IMPLEMENTATION CANDIDATE**")
+        "MU.9A - Account Administration Read UI [IMPLEMENTATION MERGED - PR #418 / EXACT MERGED-MAIN YAVDR PASS / HOSTED CI GREEN]")
+    require("slice_doc",
+        "Status: **IMPLEMENTATION MERGED — PR #418 / EXACT MERGED-MAIN YAVDR PASS / HOSTED CI GREEN**")
+    require("current", "successor MU.9 slice - exact scope not yet selected")
+    require("workstream", "successor MU.9 slice - exact scope not yet selected")
     require("mu8_guard",
         "MU9_STATUS=SUCCESSOR_STATUS_NOT_OWNED_BY_MU8C_GUARD")
 
     print("MU.9A Account administration read UI contracts passed")
-    print("MU9A=IMPLEMENTATION_CANDIDATE")
-    print("MU9B_STATUS=NOT_STARTED")
+    print("MU9A=IMPLEMENTATION_MERGED_PR_418_EXACT_MERGED_MAIN_YAVDR_PASS_HOSTED_CI_GREEN")
+    print("MU9_SUCCESSOR_STATUS=NOT_SELECTED")
     return 0
 
 if __name__ == "__main__":

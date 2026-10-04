@@ -42,16 +42,16 @@ Current Multiuser architecture slice:
 MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
 
 Current Multiuser runtime slice:
-MU.9A - Account Administration Read UI [IMPLEMENTATION CANDIDATE]
+none - successor MU.9 slice not yet selected
 
 Latest completed Multiuser runtime slice:
-MU.8C - Human-password Credential Revoke [IMPLEMENTATION MERGED - PR #417 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
+MU.9A - Account Administration Read UI [IMPLEMENTATION MERGED - PR #418 / EXACT MERGED-MAIN YAVDR PASS / HOSTED CI GREEN]
 
 Completed MU.7 sub-slice:
 Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
 
 Next product slice:
-MU.9A - Account Administration Read UI [IMPLEMENTATION CANDIDATE]
+successor MU.9 slice - exact scope not yet selected
 
 Completed Phase-67 verticals:
 Teletext + HbbTV discovery/application-session/presentation-media runtime
@@ -114,7 +114,7 @@ Phase 67 is completed. Teletext merged through PR #293 and the HbbTV discovery/s
 
 ## Cross-cutting non-numbered milestones
 
-- Multiuser / Account and Backend Access Administration **[ACTIVE — MU.8C MERGED / MU.9A IMPLEMENTATION CANDIDATE]**;
+- Multiuser / Account and Backend Access Administration **[ACTIVE — MU.9A MERGED / SUCCESSOR MU.9 SLICE NOT YET SELECTED]**;
 - Broad Timer Product UI **[PLANNED — gated on Multiuser administration]**;
 - Audit/Security/Operations surfaces;
 - Legacy Basic retirement migration **[COMPLETED]**;
