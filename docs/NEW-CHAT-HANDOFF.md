@@ -24,15 +24,16 @@ Root-level `AGENTS.md` is binding. In particular, once the user has authorized a
 12. [MU.7 Backend Access / Permission Grant Administration](development/post-phase69-mu7-account-grant-administration.md) — completed grant administration boundary; real yaVDR acceptance passed and PR #413 merged.
 13. [MU.8A Safe Credential / Session Metadata](development/post-phase69-mu8a-credential-session-metadata.md) — implementation merged as PR #415; runtime acceptance pending.
 14. [MU.8B Session Revoke](development/post-phase69-mu8b-session-revoke.md) — implementation merged as PR #416 after focused yaVDR acceptance; PR and post-merge hosted CI green.
-15. [MU.8C Human-password Credential Revoke](development/post-phase69-mu8c-credential-revoke.md) — current implementation candidate; credential-owned ETag, final-usable-admin protection and issuer-session fencing.
-15. [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md) — completed migration and runtime-retirement evidence.
-16. [Phase 69 Closeout](development/phase-69-closeout.md) — completed 69.A-F public API/client compatibility evidence.
-17. [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md) and retained 69.B-F closeouts when historical Phase-69 detail is needed.
-18. [Phase 68 Closeout](development/phase-68-closeout.md), [Phase 67 Closeout](development/phase-67-closeout.md), [Phase 66 Closeout](development/phase-66-closeout.md) and [Phase 65 Closeout](development/phase-65-closeout.md) for completed numbered foundations.
-19. [Golden User Journeys](planning/golden-user-journeys.md) for user-facing acceptance.
-20. Relevant accepted architecture ADRs for the touched domain, including ADR-0046/0053/0055/0056/0057 for playback, ADR-0054 for Broadcast Companion and ADR-0064 for SuiteBridge control-plane work.
-21. [Target Platform Architecture](architecture/target-platform-architecture.md), [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md) and [ADR Index](adr/index.md) as required.
-20. [Agent Workflow Rules](../AGENTS.md) before repository writes, PR-state changes or installation guidance.
+15. [MU.8C Human-password Credential Revoke](development/post-phase69-mu8c-credential-revoke.md) — merged as PR #417 after focused yaVDR acceptance; credential-owned ETag, final-usable-admin protection and issuer-session fencing.
+16. [MU.9A Account Administration Read UI](development/post-phase69-mu9a-account-admin-read-ui.md) — current implementation candidate; read-only Account/grant/Credential/Session administration in Settings.
+17. [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md) — completed migration and runtime-retirement evidence.
+18. [Phase 69 Closeout](development/phase-69-closeout.md) — completed 69.A-F public API/client compatibility evidence.
+19. [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md) and retained 69.B-F closeouts when historical Phase-69 detail is needed.
+20. [Phase 68 Closeout](development/phase-68-closeout.md), [Phase 67 Closeout](development/phase-67-closeout.md), [Phase 66 Closeout](development/phase-66-closeout.md) and [Phase 65 Closeout](development/phase-65-closeout.md) for completed numbered foundations.
+21. [Golden User Journeys](planning/golden-user-journeys.md) for user-facing acceptance.
+22. Relevant accepted architecture ADRs for the touched domain, including ADR-0046/0053/0055/0056/0057 for playback, ADR-0054 for Broadcast Companion and ADR-0064 for SuiteBridge control-plane work.
+23. [Target Platform Architecture](architecture/target-platform-architecture.md), [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md) and [ADR Index](adr/index.md) as required.
+24. [Agent Workflow Rules](../AGENTS.md) before repository writes, PR-state changes or installation guidance.
 
 [Current Project Status](development/current-status.md), [Current Architecture State](development/current-architecture-state.md), [Completed Phases](development/completed-phases.md), [Phase 62 Closeout](development/phase-62-closeout.md), [Phase 64 Closeout](development/phase-64-closeout.md) and older Phase-65 development records provide stable historical context.
 
@@ -46,11 +47,11 @@ Historical Phase-69 closeout records retained for traceability: `docs/developmen
 - Current active numbered runtime slice: **none - Phase 70 - Recommendation and Content Knowledge Graph not started**.
 - Current active cross-cutting productization workstream: **Multiuser / Account and Backend Access Administration**.
 - Current Multiuser architecture slice: **MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]**.
-- Current Multiuser runtime slice: **MU.8C - Human-password Credential Revoke [IMPLEMENTATION CANDIDATE]**.
-- Latest completed Multiuser runtime slice: **MU.8B - Session Revoke [IMPLEMENTATION MERGED - PR #416 / FOCUSED YAVDR PASS / HOSTED CI GREEN]**.
+- Current Multiuser runtime slice: **MU.9A - Account Administration Read UI [IMPLEMENTATION CANDIDATE]**.
+- Latest completed Multiuser runtime slice: **MU.8C - Human-password Credential Revoke [IMPLEMENTATION MERGED - PR #417 / FOCUSED YAVDR PASS / HOSTED CI GREEN]**.
 - Completed MU.7 sub-slice: **Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]**.
-- Next product slice: **MU.8C - Human-password Credential Revoke [IMPLEMENTATION CANDIDATE]**.
-- MU.0-MU.7 are completed; MU.6D merged as PR #411 and MU.7 grant administration merged as PR #413 after REAL YAVDR acceptance. MU.8 is in progress through MU.8C Human-password Credential Revoke. MU.8A merged as PR #415; MU.8B passed focused yaVDR acceptance and merged as PR #416 with green PR/post-merge hosted CI.
+- Next product slice: **MU.9A - Account Administration Read UI [IMPLEMENTATION CANDIDATE]**.
+- MU.0-MU.7 are completed; MU.6D merged as PR #411 and MU.7 grant administration merged as PR #413 after REAL YAVDR acceptance. MU.8 implementation is complete through MU.8C: MU.8A merged as PR #415 with separately documented real-runtime acceptance still pending, MU.8B merged as PR #416 after focused yaVDR acceptance, and MU.8C merged as PR #417 after focused yaVDR acceptance with green PR/post-merge hosted CI. MU.9A is the active read-only Account administration UI implementation candidate.
 - Durable Phase-68 completion evidence: [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md).
 - Phase-67 Teletext and HbbTV verticals are both completed and accepted.
 - Phase 65.A through 65.D are closed for their accepted bounded scopes; ADR-0056 semantic consolidation and ADR-0057 Recording network recovery are completed Phase-65 history.
