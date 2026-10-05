@@ -11,14 +11,27 @@ STATEDIR ?= $(LOCALSTATEDIR)/lib/vdr-suite
 SYSTEMDUNITDIR ?= /lib/systemd/system
 INSTALL ?= install
 
-.PHONY: install install-runtime install-cli install-docs install-manpages install-systemd test-install-staging test-systemd-unit-contract
+.PHONY: install build-installable build-runtime-binaries build-cli-binaries install-runtime install-cli install-docs install-manpages install-systemd test-install-staging test-systemd-unit-contract
 
 install: install-runtime install-cli install-docs install-manpages install-systemd
+
+build-runtime-binaries: daemon backend-agent backend-agent-enrollment backend-agent-admin backend-agent-command-admin first-admin-bootstrap-issuer human-account-recovery
+
+build-cli-binaries: dashboard-cli
+
+build-installable: build-runtime-binaries build-cli-binaries
 
 test-systemd-unit-contract:
 	python3 tools/check_systemd_unit_contract.py
 
-install-runtime: daemon backend-agent backend-agent-enrollment backend-agent-admin backend-agent-command-admin first-admin-bootstrap-issuer human-account-recovery
+install-runtime:
+	test -x $(BUILD_DIR)/vdr-suite-daemon
+	test -x $(BUILD_DIR)/vdr-suite-backend-agent
+	test -x $(BUILD_DIR)/vdr-suite-backend-agent-enroll
+	test -x $(BUILD_DIR)/vdr-suite-backend-agent-admin
+	test -x $(BUILD_DIR)/vdr-suite-backend-agent-command-admin
+	test -x $(BUILD_DIR)/vdr-suite-first-admin-bootstrap
+	test -x $(BUILD_DIR)/vdr-suite-human-account-recover
 	$(INSTALL) -d $(DESTDIR)$(SBINDIR)
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-daemon $(DESTDIR)$(SBINDIR)/vdr-suite-daemon
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-backend-agent $(DESTDIR)$(SBINDIR)/vdr-suite-backend-agent
@@ -104,7 +117,8 @@ install-runtime: daemon backend-agent backend-agent-enrollment backend-agent-adm
 	$(INSTALL) -m 0644 web/frontend/assets/recording-genre-action.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/recording-genre-action.svg
 	$(INSTALL) -m 0644 web/frontend/assets/recording-genre-musical.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/recording-genre-musical.svg
 
-install-cli: dashboard-cli
+install-cli:
+	test -x $(BUILD_DIR)/vdr-suite-dashboard
 	$(INSTALL) -d $(DESTDIR)$(BINDIR)
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-dashboard $(DESTDIR)$(BINDIR)/vdr-suite-dashboard
 	$(INSTALL) -m 0755 tools/vdr_suite_logo_sync.py $(DESTDIR)$(BINDIR)/vdr-suite-logo-sync
@@ -136,8 +150,9 @@ install-systemd:
 		$(INSTALL) -m 0644 packaging/systemd/vdr-suite-daemon.default $(DESTDIR)$(SYSCONFDIR)/default/vdr-suite-daemon
 
 test-install-staging:
-	rm -rf /tmp/vdr-suite-pkgroot
-	$(MAKE) install DESTDIR=/tmp/vdr-suite-pkgroot PREFIX=/usr
+	rm -rf /tmp/vdr-suite-pkgroot /tmp/vdr-suite-install-build
+	$(MAKE) build-installable BUILD_DIR=/tmp/vdr-suite-install-build
+	$(MAKE) install BUILD_DIR=/tmp/vdr-suite-install-build CXX=/bin/false DESTDIR=/tmp/vdr-suite-pkgroot PREFIX=/usr
 	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-daemon
 	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-backend-agent
 	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-backend-agent-enroll
