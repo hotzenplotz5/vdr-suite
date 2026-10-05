@@ -152,6 +152,7 @@ test-live-remote-frontend:
 	node web/frontend/tests/test_remote_runtime.js
 	node web/frontend/tests/test_browser_session_runtime.js
 	node web/frontend/tests/test_authenticated_frontend_bootstrap.js
+	node web/frontend/tests/test_authenticated_home_warm_cache_bootstrap.js
 	node web/frontend/tests/test_session_frontend_sync.js
 	node web/frontend/tests/test_timer_security_runtime.js
 	node web/frontend/tests/test_channel_move_security_runtime.js
