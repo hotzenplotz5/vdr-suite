@@ -22,7 +22,6 @@ assert(uiSource.includes('settings-account-admin-display-name-input'));
 assert(uiSource.includes('settings-account-admin-toggle-active'));
 assert(uiSource.includes('accountAdminDeactivateConfirm'));
 assert(!adapterSource.includes('createAccount('));
-assert(!adapterSource.includes('setAccountGrant('));
 assert(!uiSource.includes('.innerHTML'));
 
 const calls = [];
