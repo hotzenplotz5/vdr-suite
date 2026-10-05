@@ -120,7 +120,7 @@ def main():
     require("current", "MU.9F - Account CREATE UI [IMPLEMENTATION CANDIDATE]")
     require("workstream", "MU.9F - Account CREATE UI [IMPLEMENTATION CANDIDATE]")
     require("slice_doc", "Status: **IMPLEMENTATION CANDIDATE**")
-    require("slice_doc", "one caller-owned Idempotency-Key")
+    require("slice_doc", "caller-owned Idempotency-Key")
     require("slice_doc", "Phase 70 remains **NOT STARTED**")
 
     print("MU.9F Account CREATE UI contracts passed")
