@@ -97,6 +97,11 @@ public:
         }
 
         const bool isPost = request.method == "POST";
+        const bool isPrivateLegacyApiRead =
+            request.method == "GET" &&
+            path.rfind("/api/", 0) == 0 &&
+            path.rfind("/api/v1", 0) != 0 &&
+            path != "/api/security/browser-sessions/current";
         const bool isRemoteAction = isPost && path == "/api/vdr/remote/actions";
         const bool isTimerCreateAction = isPost && path == "/api/vdr/timers/actions/create";
         const bool isTimerUpdateAction = isPost && path == "/api/vdr/timers/actions/update";
@@ -1104,6 +1109,12 @@ public:
 
             gate.allowed = true;
             return gate;
+        }
+
+        if (isPrivateLegacyApiRead &&
+            !gate.context.authenticated())
+        {
+            return rejectAuthentication(gate);
         }
 
         if (isPublicV1ReadOnlyMethodMismatch)
