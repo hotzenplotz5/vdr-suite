@@ -80,7 +80,9 @@ def main():
     require("make", "node web/frontend/tests/test_mu9c_session_revoke_ui.js")
     require("make", "python3 tools/check_mu9c_session_revoke_ui.py")
     require("mu9b_guard",
-        "MU9C_STATUS=SUCCESSOR_STATUS_NOT_OWNED_BY_MU9B_GUARD")
+        "MU9C=IMPLEMENTATION_MERGED_PR_426_FOCUSED_YAVDR_PASS_HOSTED_CI_GREEN")
+    require("mu9b_guard",
+        "MU9D_STATUS=SUCCESSOR_STATUS_NOT_OWNED_BY_MU9B_GUARD")
 
     require("current",
         "MU.9C - Session Revoke UI [IMPLEMENTATION MERGED - PR #426 / FOCUSED YAVDR PASS / HOSTED CI GREEN]")

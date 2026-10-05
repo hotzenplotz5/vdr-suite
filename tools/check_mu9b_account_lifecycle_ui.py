@@ -93,7 +93,7 @@ def main():
         "MU9B_STATUS=SUCCESSOR_STATUS_NOT_OWNED_BY_MU9A_GUARD")
 
     require("current",
-        "MU.9B - Account Lifecycle Mutation UI [IMPLEMENTATION MERGED - PR #420 / REAL YAVDR PASS / HOSTED CI GREEN]")
+        "MU.9B merged evidence: [MU.9B Account Lifecycle Mutation UI]")
     require("workstream",
         "MU.9B - Account Lifecycle Mutation UI [IMPLEMENTATION MERGED - PR #420 / REAL YAVDR PASS / HOSTED CI GREEN]")
     require("slice_doc",
