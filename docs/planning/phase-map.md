@@ -42,16 +42,16 @@ Current Multiuser architecture slice:
 MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
 
 Current Multiuser runtime slice:
-MU.9E - Backend Grant Mutation UI [IMPLEMENTATION CANDIDATE]
+MU.9F - Account CREATE UI [IMPLEMENTATION CANDIDATE]
 
 Latest completed Multiuser runtime slice:
-MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION MERGED - PR #428 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
+MU.9E - Backend Grant Mutation UI [IMPLEMENTATION MERGED - PR #429 / FOCUSED YAVDR PASS / POST-MERGE CI #9763 GREEN]
 
 Completed MU.7 sub-slice:
 Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
 
 Next product slice:
-MU.9E - Backend Grant Mutation UI [IMPLEMENTATION CANDIDATE]
+MU.9F - Account CREATE UI [IMPLEMENTATION CANDIDATE]
 
 Completed Phase-67 verticals:
 Teletext + HbbTV discovery/application-session/presentation-media runtime
@@ -114,7 +114,7 @@ Phase 67 is completed. Teletext merged through PR #293 and the HbbTV discovery/s
 
 ## Cross-cutting non-numbered milestones
 
-- Multiuser / Account and Backend Access Administration **[ACTIVE — MU.9C SESSION REVOKE UI CANDIDATE]**;
+- Multiuser / Account and Backend Access Administration **[ACTIVE — MU.9F ACCOUNT CREATE UI CANDIDATE]**;
 - Broad Timer Product UI **[PLANNED — gated on Multiuser administration]**;
 - Audit/Security/Operations surfaces;
 - Legacy Basic retirement migration **[COMPLETED]**;
@@ -124,7 +124,7 @@ Phase 67 is completed. Teletext merged through PR #293 and the HbbTV discovery/s
 Durable Multiuser authority: [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md).
 
 Multiuser sequence:
-`MU.0-MU.5 [DONE] -> MU.6 Account lifecycle [DONE] -> MU.6A lifecycle authority [DONE] -> MU.6B Account item/revision [DONE] -> MU.6C public lifecycle mutation [DONE] -> MU.6D Account CREATE/idempotency [DONE - PR #411] -> MU.7 grant administration [COMPLETED - REAL YAVDR PASS / PR #413 MERGED] -> MU.8 credential/session administration [IMPLEMENTATION COMPLETE - MU.8A RUNTIME ACCEPTANCE PENDING] -> MU.9 admin UI -> later pairing/profiles`.
+`MU.0-MU.5 [DONE] -> MU.6 Account lifecycle [DONE] -> MU.6A lifecycle authority [DONE] -> MU.6B Account item/revision [DONE] -> MU.6C public lifecycle mutation [DONE] -> MU.6D Account CREATE/idempotency [DONE - PR #411] -> MU.7 grant administration [COMPLETED - REAL YAVDR PASS / PR #413 MERGED] -> MU.8 credential/session administration [IMPLEMENTATION COMPLETE - MU.8A RUNTIME ACCEPTANCE PENDING] -> MU.9 admin UI [MU.9F ACCOUNT CREATE UI CANDIDATE] -> later pairing/profiles`.
 
 MU.8 implementation history: `MU.8A Safe credential/session metadata [PR #415 / RUNTIME ACCEPTANCE PENDING] -> MU.8B Session Revoke [PR #416 / FOCUSED YAVDR PASS / HOSTED CI GREEN] -> MU.8C Human-password Credential Revoke [PR #417 / FOCUSED YAVDR PASS / HOSTED CI GREEN]`.
 
