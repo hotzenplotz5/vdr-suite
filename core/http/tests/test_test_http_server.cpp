@@ -394,7 +394,12 @@ int main()
     anonymousApiRequest.path = "/api/backends";
     const HttpServerResponse anonymousApiResponse =
         server.handleRequest(anonymousApiRequest);
-    assertJsonResponse(anonymousApiResponse, 200);
+    assertJsonResponse(anonymousApiResponse, 401);
+    assert(anonymousApiResponse.headers.find("WWW-Authenticate") ==
+        anonymousApiResponse.headers.end());
+    assert(anonymousApiResponse.body.find(
+        "\"code\":\"authentication_required\"") !=
+        std::string::npos);
 
     HttpServerRequest anonymousOperationRequest;
     anonymousOperationRequest.method = "GET";
