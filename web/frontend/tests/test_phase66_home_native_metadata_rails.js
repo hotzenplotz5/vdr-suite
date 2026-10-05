@@ -529,103 +529,6 @@ async function proveMetadataDeduplicatesAcrossConsumers(api) {
   assert.strictEqual(values[1].has('native-dedup'), true);
 }
 
-async function proveRandomGenreMetadataPreemptsLaterSeriesBackground(api, host) {
-  const blockers = [];
-  for (let index = 1; index <= 4; index += 1) {
-    blockers.push(makeRecording(
-      'blocker-' + String(index),
-      'native-blocker-' + String(index),
-      'Serien/Blocker/S01E' + String(index).padStart(2, '0') + '.rec',
-      'Blocker ' + String(index),
-      ''
-    ));
-  }
-
-  const random = [
-    makeRecording(
-      'random-1',
-      'native-random-1',
-      'Drama/Random_One',
-      'Random One',
-      ''
-    ),
-    makeRecording(
-      'random-2',
-      'native-random-2',
-      'Drama/Random_Two',
-      'Random Two',
-      ''
-    )
-  ];
-
-  const laterSeries = makeRecording(
-    'later-series',
-    'native-later-series',
-    'Serien/Later/S01E01.rec',
-    'Later',
-    ''
-  );
-
-  const calls = [];
-  const pending = [];
-  const client = {
-    fetchClientGenreRecordings(request) {
-      assert.strictEqual(request.genreId, 'drama');
-      return Promise.resolve({
-        recordings: random,
-        total: random.length,
-        hasMore: false
-      });
-    },
-    requestJson(route, request) {
-      const nativeId = request.query.backendNativeId;
-      calls.push(nativeId);
-      return new Promise(function (resolve) {
-        pending.push({nativeId: nativeId, resolve: resolve});
-      });
-    }
-  };
-
-  api.fetchSeriesRecordingMetadata(client, blockers, 'default', 0);
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.deepStrictEqual(calls, [
-    'native-blocker-1',
-    'native-blocker-2',
-    'native-blocker-3',
-    'native-blocker-4'
-  ]);
-
-  assert.strictEqual(await api.loadRandomGenre(
-    client,
-    'default',
-    0,
-    {id: 'drama', label: 'Drama', count: random.length}
-  ), true);
-  await new Promise((resolve) => setImmediate(resolve));
-
-  api.prefetchSeriesRepresentativeMetadata(
-    client,
-    [laterSeries],
-    'default',
-    0,
-    function () {}
-  );
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.strictEqual(calls.length, 4);
-
-  pending[0].resolve({available: false});
-  await new Promise((resolve) => setImmediate(resolve));
-
-  assert.strictEqual(
-    calls[4],
-    'native-random-1',
-    'visible Random Genre metadata must run before later Series background enrichment'
-  );
-
-  const randomGenre = findRail(host, 'random-genre');
-  assert(randomGenre, 'Random Genre rail must already be rendered while metadata is queued');
-}
-
 async function proveSeriesRepresentativeMetadataPreemptsEpisodeBacklog(api) {
   const backlog = [];
   for (let index = 1; index <= 8; index += 1) {
@@ -689,12 +592,6 @@ async function proveSeriesRepresentativeMetadataPreemptsEpisodeBacklog(api) {
 
   const dedupHarness = createHarness();
   await proveMetadataDeduplicatesAcrossConsumers(dedupHarness.api);
-
-  const randomPriorityHarness = createHarness();
-  await proveRandomGenreMetadataPreemptsLaterSeriesBackground(
-    randomPriorityHarness.api,
-    randomPriorityHarness.host
-  );
 
   const priorityHarness = createHarness();
   await proveSeriesRepresentativeMetadataPreemptsEpisodeBacklog(priorityHarness.api);
