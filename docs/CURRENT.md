@@ -25,6 +25,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [MU.9B Account Lifecycle Mutation UI](development/post-phase69-mu9b-account-lifecycle-ui.md)
 - [MU.9C Session Revoke UI](development/post-phase69-mu9c-session-revoke-ui.md)
 - [MU.9D Human-password Credential Revoke UI](development/post-phase69-mu9d-credential-revoke-ui.md)
+- [MU.9E Backend Grant Mutation UI](development/post-phase69-mu9e-grant-mutation-ui.md)
 - [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md)
 - [Phase 69.B Closeout](development/phase-69b-closeout.md)
 - [Phase 69.C Closeout](development/phase-69c-closeout.md)
@@ -115,16 +116,16 @@ Current Multiuser architecture slice:
 MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
 
 Current Multiuser runtime slice:
-MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION CANDIDATE]
+MU.9E - Backend Grant Mutation UI [IMPLEMENTATION CANDIDATE]
 
 Latest completed Multiuser runtime slice:
-MU.9C - Session Revoke UI [IMPLEMENTATION MERGED - PR #426 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
+MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION MERGED - PR #428 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
 
 Completed MU.7 sub-slice:
 MU.7 - Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
 
 Next product slice:
-MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION CANDIDATE]
+MU.9E - Backend Grant Mutation UI [IMPLEMENTATION CANDIDATE]
 
 Post-Phase-69 Multiuser productization status:
 MU.0 through MU.7 are completed. MU.6D Atomic Account CREATE + durable idempotency passed real yaVDR acceptance and merged as PR #411.

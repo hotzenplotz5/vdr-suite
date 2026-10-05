@@ -1,6 +1,6 @@
 # MU.9D — Human-password Credential Revoke UI
 
-Status: **IMPLEMENTATION CANDIDATE**
+Status: **IMPLEMENTATION MERGED — PR #428 / FOCUSED YAVDR PASS / HOSTED CI GREEN**
 
 Parent workstream: [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md)
 
@@ -112,3 +112,10 @@ for the initial frontend/Public-v1 integration slice unless a later test proves
 otherwise.
 
 Phase 70 remains separate and not started.
+
+
+## Acceptance / closeout
+
+Focused yaVDR acceptance passed before merge. PR #428 merged as commit `fc93a49bf01e31afe21354dbd6283122fd8c5be0`. Hosted PR CI was green. Post-merge `main` CI run #9761 (`push`, exact merge SHA) completed successfully; all six jobs were green: `architecture-check`, `frontend-regression-test`, `make-test-audit`, `docs-check`, `packaging-regression-test`, and `fast-regression-test`.
+
+MU.9D is therefore closed. Its historical guard owns only the MU.9D contract and must not require a particular successor status. The selected successor is [MU.9E Backend Grant Mutation UI](post-phase69-mu9e-grant-mutation-ui.md).
