@@ -15,10 +15,10 @@ Account read foundation: completed
 First Admin / bootstrap / recovery: completed
 Legacy Basic retirement: completed
 Administration architecture: ADR-0067 [ACCEPTED]
-Current Multiuser runtime slice: MU.9C - Session Revoke UI [IMPLEMENTATION CANDIDATE]
-Latest completed Multiuser runtime slice: MU.9B - Account Lifecycle Mutation UI [IMPLEMENTATION MERGED - PR #420 / REAL YAVDR PASS / HOSTED CI GREEN]
+Current Multiuser runtime slice: MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION CANDIDATE]
+Latest completed Multiuser runtime slice: MU.9C - Session Revoke UI [IMPLEMENTATION MERGED - PR #426 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
 Completed MU.7 sub-slice: Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
-Current acceptance gate: MU.9C - Session Revoke UI [IMPLEMENTATION CANDIDATE]
+Current acceptance gate: MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION CANDIDATE]
 ```
 
 ## Binding architecture
@@ -207,7 +207,7 @@ acceptance passed; PR #417 merged and both PR CI and post-merge main CI are
 green. MU.8 implementation is complete through MU.8C, while MU.8A retains its
 separately documented real-runtime acceptance debt.
 
-### MU.9 — Account and access administration UI [IN PROGRESS — MU.9C SESSION REVOKE UI CANDIDATE]
+### MU.9 — Account and access administration UI [IN PROGRESS — MU.9D HUMAN-PASSWORD CREDENTIAL REVOKE UI CANDIDATE]
 
 Build the browser administration surface over the accepted stable contracts.
 This is the product prerequisite that unlocks the broad Timer Product UI.
@@ -230,7 +230,7 @@ CSRF, explicit deactivate confirmation and full selected-Account refresh after
 mutation. Account CREATE, grant mutation, Credential revoke and Session revoke
 remain later MU.9 slices. The implementation passed real yaVDR acceptance, merged as PR #420, and has green PR/post-merge hosted CI. This closeout does not select the successor MU.9 slice.
 
-MU.9C - Session Revoke UI [IMPLEMENTATION CANDIDATE]
+MU.9C - Session Revoke UI [IMPLEMENTATION MERGED - PR #426 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
 
 MU.9C adds explicit per-Session revoke controls to the existing selected Account
 Settings surface. It reuses only the accepted MU.8B revisioned Session-item GET
@@ -238,7 +238,21 @@ and Session revoke contracts. The browser obtains the selected Session item's
 strong ETag immediately before mutation, forwards browser CSRF, emits one revoke
 request with `If-Match`, and refreshes the selected Account afterwards. A stale
 `412` is surfaced after read refresh and is never retried implicitly. Account
-CREATE, grant mutation and Credential revoke remain later MU.9 slices.
+CREATE, grant mutation and Credential revoke remain later MU.9 slices. MU.9C passed focused yaVDR acceptance and merged as PR #426 with green hosted PR CI.
+
+MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION CANDIDATE]
+
+MU.9D adds explicit per-Credential revoke controls for non-terminal
+`human-password` Credentials in the existing selected Account Settings
+surface. It reuses only the accepted MU.8C revisioned Credential-item GET and
+Credential revoke contracts. The browser obtains the selected Credential's
+strong ETag immediately before mutation, forwards browser CSRF, emits one revoke
+request with `If-Match`, and refreshes the selected Account afterwards. A stale
+`412` is surfaced without automatic retry; final-usable-administrator `409`
+remains server-owned. Issuer-session fencing, including possible invalidation of
+the current browser Session, remains entirely server-owned under MU.8C. Account
+CREATE, grant mutation, password reset/rotation, pairing and Profiles remain
+outside MU.9D.
 
 ### MU.10 — Device/app pairing [LATER]
 
@@ -266,7 +280,7 @@ ADR-0065 Human Account boundary [ACCEPTED]
             -> MU.6D Account CREATE/idempotency [DONE - PR #411]
        -> MU.7 Backend access/grant administration [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
        -> MU.8 Credential/session administration [IMPLEMENTATION COMPLETE - MU.8A RUNTIME ACCEPTANCE PENDING]
-       -> MU.9 Account/access admin UI [IN PROGRESS - MU.9C SESSION REVOKE UI CANDIDATE]
+       -> MU.9 Account/access admin UI [IN PROGRESS - MU.9D HUMAN-PASSWORD CREDENTIAL REVOKE UI CANDIDATE]
             -> Broad Timer Product UI unblocked
 
 Later:
@@ -285,5 +299,5 @@ Independent numbered track:
 - Device trust is not user identity or permission.
 - Capability never grants authorization.
 - No client/UI owns authorization policy.
-- ADR-0067 is accepted; MU.6A-D are completed runtime boundaries and MU.6D merged as PR #411. MU.7 grant administration completed after REAL YAVDR acceptance and PR #413 merge. MU.8 implementation is complete through MU.8C: MU.8A merged as PR #415 with separately documented real-runtime acceptance still pending, MU.8B merged as PR #416 after focused yaVDR acceptance, and MU.8C merged as PR #417 after focused yaVDR acceptance with PR and post-merge main CI green. MU.9 remains in progress after MU.9A merged as PR #418 and MU.9B merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green for both accepted UI slices. MU.9C Session Revoke UI is now the active bounded implementation candidate over the accepted MU.8B contract.
+- ADR-0067 is accepted; MU.6A-D are completed runtime boundaries and MU.6D merged as PR #411. MU.7 grant administration completed after REAL YAVDR acceptance and PR #413 merge. MU.8 implementation is complete through MU.8C: MU.8A merged as PR #415 with separately documented real-runtime acceptance still pending, MU.8B merged as PR #416 after focused yaVDR acceptance, and MU.8C merged as PR #417 after focused yaVDR acceptance with PR and post-merge main CI green. MU.9 remains in progress after MU.9A merged as PR #418 and MU.9B merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green for both accepted UI slices. MU.9C Session Revoke UI merged as PR #426 after focused yaVDR acceptance and green hosted PR CI. MU.9D Human-password Credential Revoke UI is now the active bounded implementation candidate over the accepted MU.8C contract.
 - Phase 70 is not started by Multiuser work.
