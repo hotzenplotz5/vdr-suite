@@ -256,7 +256,8 @@ const window = {
       }
     }
   },
-  VdrSuitePublicUrl: {resolvePath(value) { return value; }}
+  VdrSuitePublicUrl: {resolvePath(value) { return value; }},
+  VdrSuiteBrowserSession: {isAuthenticated() { return true; }}
 };
 window.window = window;
 
