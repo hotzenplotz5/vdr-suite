@@ -1,6 +1,6 @@
 # MU.9C — Session Revoke UI
 
-Status: **IMPLEMENTATION CANDIDATE**
+Status: **IMPLEMENTATION MERGED - PR #426 / FOCUSED YAVDR PASS / HOSTED CI GREEN**
 
 Parent workstream: [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md)
 
@@ -99,5 +99,9 @@ python3 tools/check_phase_consistency.py
 
 No daemon build, installation, restart or runtime mutation is justified for
 this frontend/Public-v1 integration slice unless a later test proves otherwise.
+
+Focused yaVDR acceptance passed on the exact implementation head before merge.
+PR #426 merged after the refreshed hosted CI run completed successfully. The
+successor selected after merge is [MU.9D Human-password Credential Revoke UI](post-phase69-mu9d-credential-revoke-ui.md).
 
 Phase 70 remains separate and not started.

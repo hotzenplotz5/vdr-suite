@@ -116,6 +116,29 @@
     });
   }
 
+  function revokeAccountCredential(accountId, credentialId) {
+    if (typeof credentialId !== 'string' || credentialId === '') {
+      return Promise.reject(new Error('credentialId is required'));
+    }
+    return afterBrowserSessionRestore(function() {
+      const api = publicClient();
+      return api.getAccountCredential(readOptions({
+        accountId: accountId,
+        credentialId: credentialId
+      })).then(function(result) {
+        const etag = result && typeof result.etag === 'string' ? result.etag : '';
+        if (!etag) {
+          const error = new Error('credential ifMatch is required');
+          error.status = 428;
+          throw error;
+        }
+        const options = mutationOptions(accountId, etag);
+        options.credentialId = credentialId;
+        return api.revokeAccountCredential(options);
+      });
+    });
+  }
+
   function revokeAccountSession(accountId, sessionId) {
     if (typeof sessionId !== 'string' || sessionId === '') {
       return Promise.reject(new Error('sessionId is required'));
@@ -149,6 +172,7 @@
     updateAccountDisplayName: updateAccountDisplayName,
     activateAccount: activateAccount,
     deactivateAccount: deactivateAccount,
+    revokeAccountCredential: revokeAccountCredential,
     revokeAccountSession: revokeAccountSession,
     resetForTests: resetForTests
   });

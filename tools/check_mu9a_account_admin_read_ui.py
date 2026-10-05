@@ -84,7 +84,6 @@ def main():
     for name in ("adapter", "ui"):
         for marker in (
             "createAccount(", "setAccountGrant(",
-            "revokeAccountCredential(",
         ):
             forbid(name, marker)
 
@@ -104,7 +103,9 @@ def main():
     require("current",
         "MU.9A merged evidence: [MU.9A Account Administration Read UI]")
     require("current",
-        "MU.9C - Session Revoke UI [IMPLEMENTATION CANDIDATE]")
+        "MU.9C - Session Revoke UI [IMPLEMENTATION MERGED - PR #426 / FOCUSED YAVDR PASS / HOSTED CI GREEN]")
+    require("current",
+        "MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION CANDIDATE]")
     forbid("current", "The successor MU.9 slice has not yet been selected.")
     require("workstream",
         "MU.9A - Account Administration Read UI [IMPLEMENTATION MERGED - PR #418 / EXACT MERGED-MAIN YAVDR PASS / HOSTED CI GREEN]")

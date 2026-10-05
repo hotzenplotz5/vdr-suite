@@ -49,6 +49,22 @@
     return errorText(error);
   }
 
+  function credentialMutationErrorText(error) {
+    if (error && error.status === 409) {
+      return t('settings.accountAdminCredentialFinalAdministrator',
+        'Diese Anmeldedaten können nicht widerrufen werden, weil sonst kein nutzbarer Administrator übrig bliebe.');
+    }
+    if (error && error.status === 412) {
+      return t('settings.accountAdminCredentialRevisionConflict',
+        'Die Anmeldedaten wurden zwischenzeitlich geändert. Die aktuellen Daten wurden neu geladen.');
+    }
+    if (error && error.status === 428) {
+      return t('settings.accountAdminCredentialRevisionRequired',
+        'Für diesen Widerruf fehlt ein aktueller Stand der Anmeldedaten.');
+    }
+    return errorText(error);
+  }
+
   function sessionMutationErrorText(error) {
     if (error && error.status === 412) {
       return t('settings.accountAdminSessionRevisionConflict',
@@ -177,6 +193,26 @@
       appendMeta(entry, 'Status', statusText(credential));
       appendMeta(entry, 'Gültig bis', credential.expiresAt || '-');
       appendMeta(entry, 'Erstellt', credential.createdAt || '-');
+
+      if (actions && credential.credentialId &&
+          credential.credentialType === 'human-password' &&
+          credential.active === true &&
+          !credential.revoked && !credential.expired) {
+        const revoke = addText(document.createElement('button'),
+          t('settings.accountAdminRevokeCredential', 'Anmeldedaten widerrufen'));
+        revoke.type = 'button';
+        revoke.className = 'settings-account-admin-credential-revoke';
+        revoke.disabled = Boolean(actions.busy);
+        revoke.addEventListener('click', function() {
+          if (typeof global.confirm === 'function') {
+            const confirmed = global.confirm(t('settings.accountAdminRevokeCredentialConfirm',
+              'Anmeldedaten widerrufen? Damit ausgestellte Browser-Sitzungen werden ebenfalls beendet.'));
+            if (!confirmed) return Promise.resolve(false);
+          }
+          return actions.revokeCredential(credential.credentialId);
+        });
+        entry.appendChild(revoke);
+      }
     });
     parent.appendChild(credentials);
 
@@ -292,6 +328,11 @@
           return mutateSelected(function(overview) {
             return api.deactivateAccount(overview.account.accountId, overview.accountEtag);
           });
+        },
+        revokeCredential: function(credentialId) {
+          return mutateSelected(function(overview) {
+            return api.revokeAccountCredential(overview.account.accountId, credentialId);
+          }, credentialMutationErrorText);
         },
         revokeSession: function(sessionId) {
           return mutateSelected(function(overview) {
