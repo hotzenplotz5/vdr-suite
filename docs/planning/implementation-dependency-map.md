@@ -399,11 +399,11 @@ Phase-62 identity/RBAC foundation
             -> MU.6D Account CREATE/idempotency [DONE - PR #411]
        -> MU.7 backend access / grant administration [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
        -> MU.8 credential/session administration [IMPLEMENTATION COMPLETE - MU.8A RUNTIME ACCEPTANCE PENDING]
-       -> MU.9 account/access admin UI [IN PROGRESS - MU.9B ACCOUNT LIFECYCLE UI CANDIDATE]
+       -> MU.9 account/access admin UI [IN PROGRESS - MU.9B MERGED / SUCCESSOR SLICE NOT YET SELECTED]
             -> broad Timer Product UI mutation controls
 ```
 
-Core policy remains server-side. Administration UI/API must not invent permissions or backend scope. ADR-0067 is accepted; MU.6 is completed through MU.6D / PR #411. MU.7 grant administration completed after REAL YAVDR acceptance and PR #413 merge. MU.8 implementation is complete through MU.8C: MU.8A safe credential/session metadata merged as PR #415 with its separately documented real-runtime acceptance still pending, MU.8B merged as PR #416 after focused yaVDR acceptance, and MU.8C merged as PR #417 after focused yaVDR acceptance with PR and post-merge main CI green. MU.9A read-only Account administration UI merged as PR #418 after exact merged-main yaVDR acceptance; PR and post-merge hosted CI are green. MU.9B Account Lifecycle Mutation UI is now the active bounded implementation candidate.
+Core policy remains server-side. Administration UI/API must not invent permissions or backend scope. ADR-0067 is accepted; MU.6 is completed through MU.6D / PR #411. MU.7 grant administration completed after REAL YAVDR acceptance and PR #413 merge. MU.8 implementation is complete through MU.8C: MU.8A safe credential/session metadata merged as PR #415 with its separately documented real-runtime acceptance still pending, MU.8B merged as PR #416 after focused yaVDR acceptance, and MU.8C merged as PR #417 after focused yaVDR acceptance with PR and post-merge main CI green. MU.9A read-only Account administration UI merged as PR #418 after exact merged-main yaVDR acceptance; PR and post-merge hosted CI are green. MU.9B Account Lifecycle Mutation UI merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green. The successor MU.9 slice has not yet been selected.
 
 ## Broad Timer Product UI
 
