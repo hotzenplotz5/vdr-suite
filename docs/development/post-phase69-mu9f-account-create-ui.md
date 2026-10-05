@@ -20,7 +20,7 @@ does not use `If-Match`.
 ## Browser ownership
 
 One explicit Add-user action owns one CREATE intent and therefore one
-Idempotency-Key. The browser validates only locally obvious required-field
+caller-owned Idempotency-Key. The browser validates only locally obvious required-field
 emptiness, creates one bounded caller-owned key for that user action, forwards
 active browser CSRF, calls `createAccount(...)` exactly once, never
 automatically retries a failed CREATE and refreshes the Account list after
