@@ -29,6 +29,10 @@ assert(!source.includes("global.addEventListener('pagehide'"));
 assert(source.includes("global.addEventListener('pageshow'"));
 assert(source.includes("button.id = 'vdr-suite-session-button'"));
 assert(source.includes("password.type = 'password'"));
+assert(source.includes("body.vss-auth-required>main{display:none!important}"));
+assert(source.includes('subscribe(applyAuthenticationPresentation)'));
+assert(source.includes('function openLoginDialog()'));
+assert(source.includes("dialog.addEventListener('cancel'"));
 
 function response(status, payload) {
   const text = payload === null || payload === undefined
