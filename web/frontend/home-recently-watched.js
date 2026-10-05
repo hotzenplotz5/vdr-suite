@@ -14,6 +14,13 @@
     return false;
   }
 
+  function backendSelectionReady() {
+    if (!doc || typeof doc.querySelector !== 'function') return false;
+    return Boolean(doc.querySelector(
+      '#backends .backend-card.selected, #backends [aria-selected="true"]'
+    ));
+  }
+
   if (!global || global.VdrSuiteHomeRecentlyWatched) return;
 
   const doc = global.document;
@@ -335,6 +342,11 @@
         refresh({retainVisible: true});
       });
     }
+    if (browserSessionAuthenticated() &&
+        backendSelectionReady() &&
+        typeof global.setTimeout === 'function') {
+      global.setTimeout(refresh, 0);
+    }
     return true;
   }
 
@@ -373,6 +385,13 @@
       return Boolean(state && state.authenticated);
     }
     return false;
+  }
+
+  function backendSelectionReady() {
+    if (!doc || typeof doc.querySelector !== 'function') return false;
+    return Boolean(doc.querySelector(
+      '#backends .backend-card.selected, #backends [aria-selected="true"]'
+    ));
   }
 
   if (!global || global.VdrSuiteHomeRecentMovies) return;
@@ -885,6 +904,11 @@
       doc.addEventListener(HOME_RESUME_EVENT, function () {
         refresh({retainVisible: true});
       });
+    }
+    if (browserSessionAuthenticated() &&
+        backendSelectionReady() &&
+        typeof global.setTimeout === 'function') {
+      global.setTimeout(refresh, 0);
     }
     return true;
   }
