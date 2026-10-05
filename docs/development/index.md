@@ -50,7 +50,8 @@ This is a stable navigation page for development contracts and evidence. It does
 - [MU.9B Account Lifecycle Mutation UI](post-phase69-mu9b-account-lifecycle-ui.md) — merged as PR #420 after real yaVDR acceptance with green PR/post-merge hosted CI; selected Account display-name and activate/deactivate controls with ETag/CSRF fencing.
 - [MU.9C Session Revoke UI](post-phase69-mu9c-session-revoke-ui.md) — merged as PR #426 after focused yaVDR acceptance and green hosted PR CI.
 - [MU.9D Human-password Credential Revoke UI](post-phase69-mu9d-credential-revoke-ui.md) — merged as PR #428 after focused yaVDR acceptance with green PR/post-merge hosted CI.
-- [MU.9E Backend Grant Mutation UI](post-phase69-mu9e-grant-mutation-ui.md) — active implementation candidate over the accepted MU.7 grant-set ETag/If-Match/CSRF/server-policy contract.
+- [MU.9E Backend Grant Mutation UI](post-phase69-mu9e-grant-mutation-ui.md) — merged as PR #429 after focused real-yaVDR acceptance; post-merge CI #9763 green.
+- [MU.9F Account CREATE UI](post-phase69-mu9f-account-create-ui.md) — active implementation candidate over the accepted MU.6D Account CREATE/idempotency contract.
 - [Phase 67 Closeout](phase-67-closeout.md) — completed Teletext + HbbTV Broadcast Companion phase.
 - [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md) — completed Teletext vertical.
 - [Phase 66 Closeout](phase-66-closeout.md)
