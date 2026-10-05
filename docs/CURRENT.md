@@ -23,6 +23,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [MU.8C Human-password Credential Revoke](development/post-phase69-mu8c-credential-revoke.md)
 - [MU.9A Account Administration Read UI](development/post-phase69-mu9a-account-admin-read-ui.md)
 - [MU.9B Account Lifecycle Mutation UI](development/post-phase69-mu9b-account-lifecycle-ui.md)
+- [MU.9C Session Revoke UI](development/post-phase69-mu9c-session-revoke-ui.md)
 - [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md)
 - [Phase 69.B Closeout](development/phase-69b-closeout.md)
 - [Phase 69.C Closeout](development/phase-69c-closeout.md)
@@ -113,7 +114,7 @@ Current Multiuser architecture slice:
 MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
 
 Current Multiuser runtime slice:
-none - successor MU.9 slice not yet selected
+MU.9C - Session Revoke UI [IMPLEMENTATION CANDIDATE]
 
 Latest completed Multiuser runtime slice:
 MU.9B - Account Lifecycle Mutation UI [IMPLEMENTATION MERGED - PR #420 / REAL YAVDR PASS / HOSTED CI GREEN]
@@ -122,11 +123,11 @@ Completed MU.7 sub-slice:
 MU.7 - Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
 
 Next product slice:
-successor MU.9 slice - exact scope not yet selected
+MU.9C - Session Revoke UI [IMPLEMENTATION CANDIDATE]
 
 Post-Phase-69 Multiuser productization status:
 MU.0 through MU.7 are completed. MU.6D Atomic Account CREATE + durable idempotency passed real yaVDR acceptance and merged as PR #411.
-ADR-0067 remains the accepted architecture. MU.7 completed the bounded grant-administration boundary: secret-free grant-set read with deterministic ETag, global accounts.grants.view/modify authority, desired-state ensure/revoke, explicit server-owned permission/scope allowlist, browser CSRF and final-usable-administrator protection. REAL YAVDR acceptance passed; PR #413 merged. MU.8 implementation is complete through MU.8C. MU.8A merged as PR #415 but its separately documented real-runtime acceptance remains pending. MU.8B passed focused yaVDR acceptance and merged as PR #416. MU.8C passed focused yaVDR acceptance, merged as PR #417, and both its PR CI and post-merge main CI are green. MU.9A read-only Account administration UI merged as PR #418 after exact merged-main yaVDR acceptance; PR and post-merge hosted CI are green. MU.9B Account Lifecycle Mutation UI merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green. The successor MU.9 slice has not yet been selected.
+ADR-0067 remains the accepted architecture. MU.7 completed the bounded grant-administration boundary: secret-free grant-set read with deterministic ETag, global accounts.grants.view/modify authority, desired-state ensure/revoke, explicit server-owned permission/scope allowlist, browser CSRF and final-usable-administrator protection. REAL YAVDR acceptance passed; PR #413 merged. MU.8 implementation is complete through MU.8C. MU.8A merged as PR #415 but its separately documented real-runtime acceptance remains pending. MU.8B passed focused yaVDR acceptance and merged as PR #416. MU.8C passed focused yaVDR acceptance, merged as PR #417, and both its PR CI and post-merge main CI are green. MU.9A read-only Account administration UI merged as PR #418 after exact merged-main yaVDR acceptance; PR and post-merge hosted CI are green. MU.9B Account Lifecycle Mutation UI merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green. MU.9C Session Revoke UI is now the active bounded implementation candidate over the accepted MU.8B Session Revoke contract.
 Durable workstream status: [Post-Phase-69 Multiuser Productization Workstream](development/post-phase69-multiuser-workstream.md).
 Durable MU.5 evidence: [MU.5 Administration Architecture Acceptance](development/post-phase69-mu5-administration-architecture-acceptance.md).
 Durable MU.6A evidence: [MU.6A Human Account Lifecycle Authority Foundation](development/post-phase69-mu6-account-lifecycle-foundation.md).
