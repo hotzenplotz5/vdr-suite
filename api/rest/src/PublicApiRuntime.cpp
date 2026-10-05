@@ -2171,7 +2171,6 @@ ApiResponse publicTimerAssignmentResponse(
 ApiResponse publicTimerAssignmentCollectionResponse(
     const PublicTimerAssignmentCollectionResult& page,
     const PublicTimerAssignmentCollectionQuery& query,
-    const std::string& actorRef,
     const std::string& backendId,
     const std::string& requestId,
     const std::string& correlationId)
@@ -4453,7 +4452,6 @@ bool PublicApiRuntime::tryHandleGet(
                     publicTimerAssignmentCollectionResponse(
                         page,
                         query,
-                        actorRef,
                         authorizedBackendId,
                         requestId,
                         correlationId);
