@@ -272,6 +272,7 @@ make clean
 make -j2 --output-sync=target <exact-required-build-targets>
 
 systemctl stop vdr-suite-daemon
+make build-installable
 make install PREFIX=/usr
 systemctl daemon-reload
 systemctl restart vdr-suite-daemon
@@ -288,7 +289,7 @@ Additional binding rules:
 - The exact SHA guard is mandatory and must abort before build or installation when the checkout does not match the verified PR head.
 - Use `make clean` followed by `make -j2 --output-sync=target` with only the targets actually required by that branch or PR.
 - Do not add `sudo` merely as a style preference; preserve the established host execution context unless the user explicitly requests a non-root form.
-- Stop the daemon before `make install PREFIX=/usr`, then reload systemd, restart the daemon and show both `is-active` and the full service status.
+- Build installable binaries once with `make build-installable`, then stop the daemon before `make install PREFIX=/usr`. The install step must reuse those artifacts without invoking the compiler; then reload systemd, restart the daemon and show both `is-active` and the full service status.
 - Do not add package-manager commands, dependency bootstrapping, a second clone, backups, rollback scripts, HTTP checks, browser checks or unrelated diagnostics unless explicitly requested or proven necessary by an observed failure.
 - Keep the answer branch-/PR-specific and as short as the complete safe flow permits.
 
