@@ -44,7 +44,7 @@ def main():
     for marker in (
         "createAccountErrorText",
         "createAccountIdempotencyKey",
-        "crypto.randomUUID",
+        "cryptoApi.randomUUID",
         "settings-account-admin-create-login",
         "settings-account-admin-create-display-name",
         "settings-account-admin-create-password",
