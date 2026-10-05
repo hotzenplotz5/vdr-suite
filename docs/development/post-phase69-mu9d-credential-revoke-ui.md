@@ -96,8 +96,16 @@ Focused acceptance must prove:
 - no revoke control is exposed for unsupported Credential types;
 - MU.9D does not call Account CREATE or grant mutation.
 
-Expected focused checks will extend the existing MU.9A/MU.9B/MU.9C chain with
-a dedicated MU.9D frontend/runtime-contract guard.
+Expected focused checks:
+
+```bash
+make test-mu9a-account-admin-read-ui
+make test-mu9b-account-lifecycle-ui
+make test-mu9c-session-revoke-ui
+make test-mu9d-credential-revoke-ui
+python3 tools/check_frontend_ownership_contracts.py
+python3 tools/check_phase_consistency.py
+```
 
 No local daemon build, installation, restart or runtime mutation is justified
 for the initial frontend/Public-v1 integration slice unless a later test proves

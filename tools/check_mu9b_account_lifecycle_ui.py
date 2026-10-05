@@ -58,7 +58,6 @@ def main():
     for name in ("adapter", "ui"):
         for marker in (
             "createAccount(", "setAccountGrant(",
-            "revokeAccountCredential(",
         ):
             forbid(name, marker)
 
