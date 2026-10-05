@@ -761,6 +761,9 @@
       return Promise.resolve(false);
     }
     const backendId = selectedBackendId();
+    if (state.loadingPromise && state.loadingBackendId === backendId) {
+      return state.loadingPromise;
+    }
     const generation = ++state.generation;
     const currentYear = new Date().getFullYear();
     const retainVisible = config.retainVisible === true &&
