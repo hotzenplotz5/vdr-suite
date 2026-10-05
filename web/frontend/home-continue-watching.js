@@ -14,6 +14,13 @@
     return false;
   }
 
+  function backendSelectionReady() {
+    if (!doc || typeof doc.querySelector !== 'function') return false;
+    return Boolean(doc.querySelector(
+      '#backends .backend-card.selected, #backends [aria-selected="true"]'
+    ));
+  }
+
   const doc = global.document;
   const ENDPOINT = '/api/media/continue-watching';
   const HOME_RESUME_EVENT = 'vdr-suite:home-resume';
@@ -327,6 +334,11 @@
   }
   function install() {
     installStyles();
+    if (browserSessionAuthenticated() &&
+        backendSelectionReady() &&
+        typeof global.setTimeout === 'function') {
+      global.setTimeout(refresh, 0);
+    }
     if (doc && typeof doc.addEventListener === 'function') {
       doc.addEventListener(HOME_RESUME_EVENT, function () {
         refresh({retainVisible: true});
