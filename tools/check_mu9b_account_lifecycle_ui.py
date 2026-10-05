@@ -58,7 +58,7 @@ def main():
     for name in ("adapter", "ui"):
         for marker in (
             "createAccount(", "setAccountGrant(",
-            "revokeAccountCredential(", "revokeAccountSession(",
+            "revokeAccountCredential(",
         ):
             forbid(name, marker)
 
@@ -98,13 +98,13 @@ def main():
         "MU.9B - Account Lifecycle Mutation UI [IMPLEMENTATION MERGED - PR #420 / REAL YAVDR PASS / HOSTED CI GREEN]")
     require("slice_doc",
         "Status: **IMPLEMENTATION MERGED — PR #420 / REAL YAVDR PASS / HOSTED CI GREEN**")
-    require("current", "successor MU.9 slice - exact scope not yet selected")
-    require("workstream", "successor MU.9 slice - exact scope not yet selected")
+    require("current", "MU.9C - Session Revoke UI [IMPLEMENTATION CANDIDATE]")
+    require("workstream", "MU.9C - Session Revoke UI [IMPLEMENTATION CANDIDATE]")
 
     print("MU.9B Account lifecycle mutation UI contracts passed")
     print("MU9A=IMPLEMENTATION_MERGED_PR_418_EXACT_MERGED_MAIN_YAVDR_PASS_HOSTED_CI_GREEN")
     print("MU9B=IMPLEMENTATION_MERGED_PR_420_REAL_YAVDR_PASS_HOSTED_CI_GREEN")
-    print("MU9_SUCCESSOR_STATUS=NOT_SELECTED")
+    print("MU9C_STATUS=SUCCESSOR_STATUS_NOT_OWNED_BY_MU9B_GUARD")
     return 0
 
 
