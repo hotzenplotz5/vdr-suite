@@ -170,6 +170,22 @@ int main()
         "csrf_validation_failed") !=
         std::string::npos);
 
+    HttpServerRequest anonymousPlayback =
+        fixture.mutationRequest(
+            "/api/media/sessions",
+            "default");
+
+    const SecurityGateDecision anonymousPlaybackDecision =
+        fixture.gate.evaluate(anonymousPlayback);
+    assert(!anonymousPlaybackDecision.allowed);
+    assert(anonymousPlaybackDecision.rejection.statusCode == 401);
+    assert(anonymousPlaybackDecision.rejection.body.find(
+        "authentication_required") !=
+        std::string::npos);
+    assert(anonymousPlaybackDecision.rejection.headers.find(
+        "WWW-Authenticate") ==
+        anonymousPlaybackDecision.rejection.headers.end());
+
     HttpServerRequest playbackMissingCsrf =
         fixture.mutationRequest(
             "/api/media/sessions",

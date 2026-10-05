@@ -1471,7 +1471,7 @@ public:
                 decision.reasonCode,
                 messageForReason(decision.reasonCode),
                 gate.context,
-                authenticationFailure(decision));
+                false);
             return gate;
         }
 
