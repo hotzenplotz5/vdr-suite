@@ -100,7 +100,7 @@ public:
         const bool isPrivateLegacyApiRead =
             request.method == "GET" &&
             path.rfind("/api/", 0) == 0 &&
-            path.rfind("/api/v1", 0) != 0 &&
+            !gate.publicApiV1 &&
             path != "/api/security/browser-sessions/current";
         const bool isRemoteAction = isPost && path == "/api/vdr/remote/actions";
         const bool isTimerCreateAction = isPost && path == "/api/vdr/timers/actions/create";
