@@ -219,6 +219,10 @@ void testVdrIndexDurationFallback()
     Database cacheDatabase;
     assert(cacheDatabase.open(cachePath));
     VdrRecordingCacheRepository cacheRepository(cacheDatabase);
+    assert(cacheRepository.replaceRecordingsForBackend(
+        "default",
+        {providerDuration}));
+    assert(cacheRepository.markRefreshFinished("default", 1));
     VdrRecordingQueryService providerQueryService(
         providerVdrService,
         &cacheRepository);
