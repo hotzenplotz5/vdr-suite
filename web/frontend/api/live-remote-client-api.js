@@ -80,6 +80,17 @@
     });
   }
 
+  function applyAuthenticationPresentation(sessionState) {
+    const body = global.document && global.document.body;
+    if (!body || !body.classList) {
+      return;
+    }
+
+    const active = Boolean(sessionState && sessionState.authenticated);
+    body.classList.toggle('vss-authenticated', active);
+    body.classList.toggle('vss-auth-required', !active);
+  }
+
   function notify() {
     const state = snapshot();
     listeners.slice().forEach(function (listener) {
@@ -464,6 +475,8 @@
       '.vss-actions{display:flex;justify-content:flex-end;gap:.55rem}' +
       '.vss-submit{background:linear-gradient(145deg,#0c4a6e,#1e3a8a)}' +
       '.vss-cancel{border-color:#475569;color:#cbd5e1}' +
+      'body.vss-auth-required>main{display:none!important}' +
+      'body.vss-auth-required{min-height:100vh}' +
       '@media(max-width:760px){.vss-state{display:none}.vss-button{min-height:2.25rem;padding:.4rem .7rem}.app-header{flex-direction:row;align-items:center}.app-header-text{display:none}}';
     global.document.head.appendChild(style);
   }
@@ -551,8 +564,25 @@
     dialog.appendChild(form);
     global.document.body.appendChild(dialog);
 
+    function openLoginDialog() {
+      message.textContent = securityMessage(lastReason);
+      message.classList.toggle('error', Boolean(message.textContent));
+      if (!dialog.open) {
+        if (typeof dialog.showModal === 'function') {
+          dialog.showModal();
+        } else {
+          dialog.setAttribute('open', '');
+        }
+      }
+      username.focus();
+    }
+
+    let renderedAuthenticated = false;
+
     function render(sessionState) {
       const active = Boolean(sessionState && sessionState.authenticated);
+      const wasAuthenticated = renderedAuthenticated;
+      renderedAuthenticated = active;
       button.classList.toggle('authenticated', active);
       button.textContent = active
         ? translated('Abmelden', 'Sign out')
@@ -561,9 +591,28 @@
         ? translated('Angemeldet', 'Signed in')
         : (securityMessage(sessionState && sessionState.reason) ||
           translated('Nicht angemeldet', 'Not signed in'));
+      cancel.hidden = !active;
+      if (!active && wasAuthenticated) {
+        openLoginDialog();
+      }
     }
 
     subscribe(render);
+    restore().then(function (sessionState) {
+      if (!sessionState || !sessionState.authenticated) {
+        openLoginDialog();
+      }
+    }).catch(function (error) {
+      message.classList.add('error');
+      message.textContent = String(error && error.message || error);
+      openLoginDialog();
+    });
+
+    dialog.addEventListener('cancel', function (event) {
+      if (!isAuthenticated() && event && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+      }
+    });
 
     cancel.addEventListener('click', function () {
       password.value = '';
@@ -587,14 +636,7 @@
         return;
       }
 
-      message.textContent = securityMessage(lastReason);
-      message.classList.toggle('error', Boolean(message.textContent));
-      if (typeof dialog.showModal === 'function') {
-        dialog.showModal();
-      } else {
-        dialog.setAttribute('open', '');
-      }
-      username.focus();
+      openLoginDialog();
     });
 
     form.addEventListener('submit', function (event) {
@@ -647,6 +689,8 @@
     writable: false,
     value: sessionApi
   });
+
+  subscribe(applyAuthenticationPresentation);
 
   if (global.document) {
     if (global.document.readyState === 'loading' &&

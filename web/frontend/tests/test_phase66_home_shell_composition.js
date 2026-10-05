@@ -16,7 +16,8 @@ function occurrences(source, needle) {
 
 // Slice 1 must extend the installed browser composition root, not create a
 // parallel Home application or a second navigation/state owner.
-assert(indexSource.includes('<body class="media-app-shell">'));
+assert(indexSource.includes('<body class="media-app-shell vss-auth-required">'));
+assert(indexSource.includes('body.vss-auth-required > main'));
 assert.strictEqual(occurrences(indexSource, 'id="module-nav"'), 1);
 assert.strictEqual(occurrences(indexSource, 'id="detail-data"'), 1);
 assert(indexSource.includes('data-brand-module="overview"'));

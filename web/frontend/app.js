@@ -4107,7 +4107,8 @@ function loadBackendSelection() {
   }
 
   clientApi.fetchClientBackends({
-    cache: 'no-store'
+    cache: 'no-store',
+    credentials: 'same-origin'
   })
     .then(data => {
       const backends = Array.isArray(data.backends) ? data.backends : [];
@@ -4126,7 +4127,91 @@ function loadBackendSelection() {
     });
 }
 
-loadBackendSelection();
+let browserSessionFrontendActive = false;
+let browserSessionFrontendBound = false;
+
+function renderAuthenticationRequiredFrontend() {
+  selectedBackendId = '';
+  selectedBackend = null;
+  currentSnapshot = null;
+  currentChannels = null;
+  currentEvents = null;
+  currentTimers = null;
+  currentTimerConflicts = null;
+  currentSearchTimers = null;
+  currentRecordings = null;
+  currentRecordingsBackendId = '';
+
+  backendsElement.replaceChildren();
+  refreshDetailButton.disabled = true;
+  statusElement.hidden = true;
+  detailMetaElement.className = 'detail-meta';
+  detailMetaElement.textContent = 'Bitte anmelden, um VDR-Suite zu verwenden.';
+  detailDataElement.replaceChildren();
+
+  const message = document.createElement('div');
+  message.className = 'media-home-state';
+  message.textContent = 'Anmeldung erforderlich.';
+  detailDataElement.appendChild(message);
+
+  const additionalSections = document.querySelector(
+    '[data-home-zone="additional-sections"]'
+  );
+  if (additionalSections &&
+      typeof additionalSections.replaceChildren === 'function') {
+    additionalSections.replaceChildren();
+  }
+}
+
+function synchronizeBrowserSessionFrontend(sessionState) {
+  const active = Boolean(sessionState && sessionState.authenticated);
+  if (!active) {
+    browserSessionFrontendActive = false;
+    renderAuthenticationRequiredFrontend();
+    return false;
+  }
+
+  if (browserSessionFrontendActive) {
+    return true;
+  }
+
+  browserSessionFrontendActive = true;
+  loadBackendSelection();
+  return true;
+}
+
+function installBrowserSessionFrontendGate() {
+  if (browserSessionFrontendBound) {
+    return true;
+  }
+
+  const session = window.VdrSuiteBrowserSession;
+  if (!session ||
+      typeof session.subscribe !== 'function' ||
+      typeof session.restore !== 'function') {
+    renderAuthenticationRequiredFrontend();
+    statusElement.hidden = false;
+    statusElement.className = 'status error';
+    statusElement.textContent =
+      'Browser-Anmeldung ist nicht verfügbar. Backend-Inhalte bleiben gesperrt.';
+    return false;
+  }
+
+  browserSessionFrontendBound = true;
+  session.subscribe(synchronizeBrowserSessionFrontend);
+  session.restore().catch(error => {
+    browserSessionFrontendActive = false;
+    renderAuthenticationRequiredFrontend();
+    statusElement.hidden = false;
+    statusElement.className = 'status error';
+    statusElement.textContent =
+      'Browser-Sitzung konnte nicht wiederhergestellt werden: ' +
+      String(error && error.message || error);
+  });
+  return true;
+}
+
+installBrowserSessionFrontendGate();
 
 // Phase 58.90b: integrated standalone pointer channel sorter.
 // Stable version: drag only on the left handle, no post-move focus restore.

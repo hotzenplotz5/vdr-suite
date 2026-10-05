@@ -22,6 +22,7 @@ requires(previewSource, /previewSettleMs\s*=\s*\d+/, '66.3 preview startup must 
 requires(previewSource, /cancelPendingPreview/, '66.3 superseded pending preview must be cancellable');
 requires(previewSource, /VdrSuitePlaybackShell/, '66.3 must consult canonical shell ownership before preview startup');
 requires(previewSource, /VdrSuiteRecordings2Playback/, '66.3 must use the existing canonical Live playback facade');
+requires(previewSource, /VdrSuiteBrowserSession/, 'Home preview must observe browser authentication lifecycle');
 requires(previewSource, /ownerIntent\s*:\s*['"]preview['"]/, '66.3 preview intent must be explicit at the existing playback boundary');
 requires(previewSource, /restoreFullPlaybackElement/, '66.3 Watch Live promotion must restore full-playback presentation state');
 assert(!previewSource.includes('/api/media/sessions'), '66.3 Home preview must not call MediaSession REST directly');
@@ -45,7 +46,8 @@ function makeHarness(options) {
     fullOwner: false,
     failStart: false,
     emptyStart: false,
-    emptyStartMessage: 'live_provider_capability_unavailable'
+    emptyStartMessage: 'live_provider_capability_unavailable',
+    authenticated: true
   }, options || {});
   const hero = {active: true, backendId: 'backend-a', selectedChannelId: '1'};
   const shell = {
@@ -58,6 +60,8 @@ function makeHarness(options) {
     lastStopReason: ''
   };
   const metrics = {creates: 0, starts: 0, destroys: 0, videos: []};
+  let authenticated = Boolean(settings.authenticated);
+  const sessionListeners = [];
   const timers = new Map();
   let nextTimerId = 1;
   let deferredResolve = null;
@@ -97,6 +101,14 @@ function makeHarness(options) {
     },
     VdrSuitePlaybackShell: {
       snapshot() { return Object.assign({}, shell); }
+    },
+    VdrSuiteBrowserSession: {
+      isAuthenticated() { return authenticated; },
+      subscribe(listener) {
+        sessionListeners.push(listener);
+        listener({authenticated});
+        return function () {};
+      }
     },
     VdrSuiteRecordings2Playback: {
       createLivePanel(channel, backendId, panelOptions) {
@@ -176,6 +188,10 @@ function makeHarness(options) {
     metrics,
     timers,
     runTimers,
+    setAuthenticated(value) {
+      authenticated = Boolean(value);
+      sessionListeners.slice().forEach(listener => listener({authenticated}));
+    },
     resolveDeferred(value) {
       assert(deferredResolve, 'expected a deferred preview start');
       shell.sessionId = value || 'preview-session-deferred';
@@ -363,6 +379,39 @@ async function startSettled(harness) {
     assert.strictEqual(h.metrics.destroys, 1, 'failed preview adapter must be cleaned up');
     h.hero.selectedChannelId = '2';
     assert.doesNotThrow(() => h.api.sync(), 'preview failure must not block further browsing');
+  }
+
+  // An unauthenticated Home must never create a Live MediaSession. Once a
+  // browser session becomes authenticated, the same unchanged Hero selection
+  // is re-armed instead of remaining fenced by a previous authentication error.
+  {
+    const h = makeHarness({authenticated: false});
+    h.api.sync();
+    assert.strictEqual(h.api.snapshot().pending, false,
+      'anonymous Home must not queue a Live preview');
+    assert.strictEqual(h.metrics.creates, 0,
+      'anonymous Home must create ZERO Live playback owners');
+
+    h.setAuthenticated(true);
+    h.api.__test.handleBrowserSessionState({authenticated: true});
+    assert.strictEqual(h.runTimers(), 1,
+      'login must schedule one Home preview resynchronization');
+    assert.strictEqual(h.runTimers(), 1,
+      'authenticated resynchronization must queue one settled preview');
+    await flushPromises();
+    assert.strictEqual(h.metrics.creates, 1,
+      'login must re-arm the unchanged focused channel');
+    assert.strictEqual(h.api.snapshot().active, true,
+      'preview must become active after authentication');
+
+    h.setAuthenticated(false);
+    h.api.__test.handleBrowserSessionState({authenticated: false});
+    assert.strictEqual(h.api.snapshot().active, false,
+      'authentication loss must relinquish the active Home preview');
+    assert.strictEqual(h.metrics.destroys, 1,
+      'authentication loss must destroy the canonical preview owner');
+    assert.strictEqual(h.api.snapshot().pending, false,
+      'authentication loss must not queue replacement playback');
   }
 
   console.log('phase66 deferred live preview ownership races: PASS');

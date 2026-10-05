@@ -8,6 +8,10 @@
   <link rel="icon" type="image/svg+xml" href="../channel-logos/vdr-suite-brand/favicon.svg">
   <link rel="stylesheet" href="../frontend/style.css">
   <style>
+    body.vss-auth-required > main {
+      display: none !important;
+    }
+
     .media-app-shell {
       min-width: 0;
       overflow-x: hidden;
@@ -624,7 +628,7 @@
     }
   </style>
 </head>
-<body class="media-app-shell">
+<body class="media-app-shell vss-auth-required">
   <main>
     <section class="layout">
       <section class="brand-shell" aria-label="VDR-Suite Navigation">

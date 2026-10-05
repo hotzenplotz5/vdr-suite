@@ -24,6 +24,7 @@
     rootObserver: null,
     shellObserver: null,
     inputBound: false,
+    sessionBound: false,
     syncScheduled: false,
     host: null,
     status: ''
@@ -47,6 +48,22 @@
 
   function playbackApi() {
     return global.VdrSuiteRecordings2Playback || null;
+  }
+
+  function browserSessionApi() {
+    return global.VdrSuiteBrowserSession || null;
+  }
+
+  function browserSessionAuthenticated() {
+    const session = browserSessionApi();
+    if (!session || typeof session.isAuthenticated !== 'function') {
+      return true;
+    }
+    try {
+      return session.isAuthenticated() === true;
+    } catch (_) {
+      return false;
+    }
   }
 
   function heroRoot() {
@@ -220,7 +237,8 @@
   function schedulePreview() {
     cancelPendingPreview();
     const snapshot = heroSnapshot();
-    if (!snapshot || snapshot.active !== true) return false;
+    if (!snapshot || snapshot.active !== true ||
+        !browserSessionAuthenticated()) return false;
     const backendId = text(snapshot.backendId);
     const channelId = text(snapshot.selectedChannelId);
     if (!backendId || !channelId || state.failedToken === state.focusToken) return false;
@@ -245,7 +263,9 @@
   }
 
   function startPreview(token, backendId, channelId) {
-    if (!currentIntentMatches(token, backendId, channelId) || state.previewStarting) {
+    if (!browserSessionAuthenticated() ||
+        !currentIntentMatches(token, backendId, channelId) ||
+        state.previewStarting) {
       return Promise.resolve('');
     }
 
@@ -455,6 +475,26 @@
     doc.head.appendChild(style);
   }
 
+  function handleBrowserSessionState(sessionState) {
+    const active = Boolean(sessionState && sessionState.authenticated);
+    state.focusToken += 1;
+    cancelPreview(active ? 'Anmeldung aktualisiert' : 'Anmeldung erforderlich');
+    state.failedToken = -1;
+    if (active) {
+      scheduleSync();
+    }
+    return active;
+  }
+
+  function bindBrowserSession() {
+    if (state.sessionBound) return true;
+    const session = browserSessionApi();
+    if (!session || typeof session.subscribe !== 'function') return false;
+    state.sessionBound = true;
+    session.subscribe(handleBrowserSessionState);
+    return true;
+  }
+
   function installObservers() {
     if (!doc || typeof global.MutationObserver !== 'function') return;
     const root = heroRoot();
@@ -477,6 +517,7 @@
     if (!doc) return false;
     installStyles();
     bindInput();
+    bindBrowserSession();
     installObservers();
     scheduleSync();
     return true;
@@ -507,7 +548,9 @@
       cancelPreview: cancelPreview,
       promotePreviewToFull: promotePreviewToFull,
       currentIntentMatches: currentIntentMatches,
-      ownsShellPreview: ownsShellPreview
+      ownsShellPreview: ownsShellPreview,
+      browserSessionAuthenticated: browserSessionAuthenticated,
+      handleBrowserSessionState: handleBrowserSessionState
     })
   });
 

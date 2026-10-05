@@ -61,8 +61,43 @@ int main()
 
     const SecurityGateDecision anonymous =
         fixture.gate.evaluate(getRequest());
-    assert(anonymous.allowed);
+    assert(!anonymous.allowed);
     assert(!anonymous.context.authenticated());
+    assert(anonymous.rejection.statusCode == 401);
+    assert(anonymous.rejection.body.find(
+        "authentication_required") != std::string::npos);
+    assert(anonymous.rejection.headers.find(
+        "WWW-Authenticate") ==
+        anonymous.rejection.headers.end());
+
+    const char* privateLegacyReads[] = {
+        "/api/vdr/live",
+        "/api/vdr/channels?backend=default",
+        "/api/backends",
+        "/api/recordings"
+    };
+    for (const char* path : privateLegacyReads)
+    {
+        HttpServerRequest request = getRequest();
+        request.path = path;
+        const SecurityGateDecision decision =
+            fixture.gate.evaluate(request);
+        assert(!decision.allowed);
+        assert(decision.rejection.statusCode == 401);
+        assert(decision.rejection.body.find(
+            "authentication_required") != std::string::npos);
+        assert(decision.rejection.headers.find(
+            "WWW-Authenticate") ==
+            decision.rejection.headers.end());
+    }
+
+    HttpServerRequest browserSessionCurrent = getRequest();
+    browserSessionCurrent.path =
+        "/api/security/browser-sessions/current";
+    const SecurityGateDecision anonymousSessionRecovery =
+        fixture.gate.evaluate(browserSessionCurrent);
+    assert(anonymousSessionRecovery.allowed);
+    assert(!anonymousSessionRecovery.context.authenticated());
 
     const SecurityGateDecision publicAnonymous =
         fixture.gate.evaluate(publicV1GetRequest());
@@ -75,8 +110,12 @@ int main()
 
     const SecurityGateDecision retiredLegacyRead =
         fixture.gate.evaluate(retiredLegacyGet);
-    assert(retiredLegacyRead.allowed);
+    assert(!retiredLegacyRead.allowed);
     assert(!retiredLegacyRead.context.authenticated());
+    assert(retiredLegacyRead.rejection.statusCode == 401);
+    assert(retiredLegacyRead.rejection.headers.find(
+        "WWW-Authenticate") ==
+        retiredLegacyRead.rejection.headers.end());
 
     HttpServerRequest browserPreferred = getRequest();
     fixture.addBrowserAuthentication(browserPreferred);
