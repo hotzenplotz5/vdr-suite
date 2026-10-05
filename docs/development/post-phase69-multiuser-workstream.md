@@ -15,10 +15,10 @@ Account read foundation: completed
 First Admin / bootstrap / recovery: completed
 Legacy Basic retirement: completed
 Administration architecture: ADR-0067 [ACCEPTED]
-Current Multiuser runtime slice: MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION CANDIDATE]
-Latest completed Multiuser runtime slice: MU.9C - Session Revoke UI [IMPLEMENTATION MERGED - PR #426 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
+Current Multiuser runtime slice: MU.9E - Backend Grant Mutation UI [IMPLEMENTATION CANDIDATE]
+Latest completed Multiuser runtime slice: MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION MERGED - PR #428 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
 Completed MU.7 sub-slice: Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
-Current acceptance gate: MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION CANDIDATE]
+Current acceptance gate: MU.9E - Backend Grant Mutation UI [IMPLEMENTATION CANDIDATE]
 ```
 
 ## Binding architecture
@@ -207,7 +207,7 @@ acceptance passed; PR #417 merged and both PR CI and post-merge main CI are
 green. MU.8 implementation is complete through MU.8C, while MU.8A retains its
 separately documented real-runtime acceptance debt.
 
-### MU.9 — Account and access administration UI [IN PROGRESS — MU.9D HUMAN-PASSWORD CREDENTIAL REVOKE UI CANDIDATE]
+### MU.9 — Account and access administration UI [IN PROGRESS — MU.9E BACKEND GRANT MUTATION UI CANDIDATE]
 
 Build the browser administration surface over the accepted stable contracts.
 This is the product prerequisite that unlocks the broad Timer Product UI.
@@ -240,7 +240,7 @@ request with `If-Match`, and refreshes the selected Account afterwards. A stale
 `412` is surfaced after read refresh and is never retried implicitly. Account
 CREATE, grant mutation and Credential revoke remain later MU.9 slices. MU.9C passed focused yaVDR acceptance and merged as PR #426 with green hosted PR CI.
 
-MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION CANDIDATE]
+MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION MERGED - PR #428 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
 
 MU.9D adds explicit per-Credential revoke controls for non-terminal
 `human-password` Credentials in the existing selected Account Settings
@@ -252,7 +252,11 @@ request with `If-Match`, and refreshes the selected Account afterwards. A stale
 remains server-owned. Issuer-session fencing, including possible invalidation of
 the current browser Session, remains entirely server-owned under MU.8C. Account
 CREATE, grant mutation, password reset/rotation, pairing and Profiles remain
-outside MU.9D.
+outside MU.9D. Focused yaVDR acceptance passed; PR #428 merged, PR CI was green, and post-merge main CI run #9761 completed successfully with all six jobs green.
+
+MU.9E - Backend Grant Mutation UI [IMPLEMENTATION CANDIDATE]
+
+MU.9E exposes the accepted MU.7 desired-state grant mutation in the existing Account administration Settings surface. The browser uses the selected Account grant-set strong ETag, forwards browser CSRF, calls only `setAccountGrant(...)`, never automatically retries a stale `412`, and refreshes the complete selected Account after mutation. Existing returned tuples can be revoked directly. No Public-v1 permission-catalog discovery contract exists, so the browser does not copy or invent the server allowlist: ensure accepts an explicit permission plus backend/resource scope and leaves `422` support validation to the authoritative server. Account CREATE, password setup/reset/rotation, Credential creation, pairing, Profiles and Phase 70 remain outside MU.9E.
 
 ### MU.10 — Device/app pairing [LATER]
 
