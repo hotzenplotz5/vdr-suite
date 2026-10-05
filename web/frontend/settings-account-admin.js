@@ -33,6 +33,37 @@
       'Benutzerverwaltung ist derzeit nicht verfügbar.');
   }
 
+  function createAccountErrorText(error) {
+    const code = error && typeof error.code === 'string' ? error.code : '';
+    if (error && error.status === 409 && code === 'idempotency_conflict') {
+      return t('settings.accountAdminCreateIdempotencyConflict',
+        'Die Kontoanlage wurde mit widersprüchlichen Daten wiederholt. Bitte erneut auslösen.');
+    }
+    if (error && error.status === 409) {
+      return t('settings.accountAdminCreateOperationConflict',
+        'Der Loginname ist bereits vergeben oder die Kontoanlage steht im Konflikt.');
+    }
+    if (error && (error.status === 400 || error.status === 415)) {
+      return t('settings.accountAdminCreateInvalidRequest',
+        'Die Kontoanlage-Anfrage ist ungültig.');
+    }
+    if (error && error.status === 422) {
+      return t('settings.accountAdminCreateInvalidFields',
+        'Loginname, Anzeigename oder initiales Passwort sind ungültig.');
+    }
+    if (error && error.status === 503) {
+      return t('settings.accountAdminCreateUnavailable',
+        'Kontoanlage ist wegen einer vorübergehend nicht verfügbaren Sicherheitskomponente nicht möglich.');
+    }
+    return errorText(error);
+  }
+
+  function createAccountIdempotencyKey() {
+    const cryptoApi = global.crypto;
+    if (!cryptoApi || typeof cryptoApi.randomUUID !== 'function') return '';
+    return 'mu9f-' + cryptoApi.randomUUID();
+  }
+
   function mutationErrorText(error) {
     if (error && error.status === 409) {
       return t('settings.accountAdminFinalAdministrator',
@@ -333,7 +364,8 @@
     const api = global.VdrSuiteAccountAdminClientApi;
     if (!parent || !api ||
         typeof api.listAccounts !== 'function' ||
-        typeof api.loadAccount !== 'function') {
+        typeof api.loadAccount !== 'function' ||
+        typeof api.createAccount !== 'function') {
       return Promise.resolve(null);
     }
 
@@ -351,6 +383,52 @@
     status.setAttribute('aria-live', 'polite');
     card.appendChild(status);
 
+    const createPanel = document.createElement('section');
+    createPanel.className = 'settings-account-admin-section settings-account-admin-create';
+
+    createPanel.appendChild(addText(document.createElement('h4'),
+      t('settings.accountAdminCreateTitle', 'Benutzer hinzufügen')));
+
+    const createLoginLabel = addText(document.createElement('label'),
+      t('settings.accountAdminCreateLoginName', 'Loginname'));
+    createLoginLabel.className = 'settings-account-admin-field';
+    const createLoginInput = document.createElement('input');
+    createLoginInput.type = 'text';
+    createLoginInput.className = 'settings-account-admin-create-login';
+    createLoginInput.setAttribute('autocomplete', 'username');
+    createLoginLabel.appendChild(createLoginInput);
+    createPanel.appendChild(createLoginLabel);
+
+    const createDisplayLabel = addText(document.createElement('label'),
+      t('settings.accountAdminCreateDisplayName', 'Anzeigename'));
+    createDisplayLabel.className = 'settings-account-admin-field';
+    const createDisplayInput = document.createElement('input');
+    createDisplayInput.type = 'text';
+    createDisplayInput.className = 'settings-account-admin-create-display-name';
+    createDisplayLabel.appendChild(createDisplayInput);
+    createPanel.appendChild(createDisplayLabel);
+
+    const createPasswordLabel = addText(document.createElement('label'),
+      t('settings.accountAdminCreatePassword', 'Initiales Passwort'));
+    createPasswordLabel.className = 'settings-account-admin-field';
+    const createPasswordInput = document.createElement('input');
+    createPasswordInput.type = 'password';
+    createPasswordInput.className = 'settings-account-admin-create-password';
+    createPasswordInput.setAttribute('autocomplete', 'new-password');
+    createPasswordLabel.appendChild(createPasswordInput);
+    createPanel.appendChild(createPasswordLabel);
+
+    createPanel.appendChild(addText(document.createElement('p'),
+      t('settings.accountAdminCreateNoAutomaticAccess',
+        'Das neue Konto erhält keine Rollen oder Backend-Berechtigungen automatisch.')));
+
+    const createButton = addText(document.createElement('button'),
+      t('settings.accountAdminCreateSubmit', 'Benutzer anlegen'));
+    createButton.type = 'button';
+    createButton.className = 'settings-account-admin-create-submit';
+    createPanel.appendChild(createButton);
+    card.appendChild(createPanel);
+
     const layout = document.createElement('div');
     layout.className = 'settings-account-admin-layout';
     const list = document.createElement('div');
@@ -367,8 +445,76 @@
       nextCursor: '',
       selectedAccountId: '',
       selectedOverview: null,
-      mutating: false
+      mutating: false,
+      creating: false
     };
+
+    function setCreateBusy(busy) {
+      state.creating = Boolean(busy);
+      createLoginInput.disabled = state.creating;
+      createDisplayInput.disabled = state.creating;
+      createPasswordInput.disabled = state.creating;
+      createButton.disabled = state.creating;
+    }
+
+    function createAccountFromForm() {
+      if (state.creating) return Promise.resolve(false);
+
+      const loginName = typeof createLoginInput.value === 'string'
+        ? createLoginInput.value.trim() : '';
+      const displayName = typeof createDisplayInput.value === 'string'
+        ? createDisplayInput.value.trim() : '';
+      const password = typeof createPasswordInput.value === 'string'
+        ? createPasswordInput.value : '';
+
+      if (!loginName || !displayName || !password) {
+        status.textContent = t('settings.accountAdminCreateFieldsRequired',
+          'Loginname, Anzeigename und initiales Passwort dürfen nicht leer sein.');
+        return Promise.resolve(false);
+      }
+
+      const idempotencyKey = createAccountIdempotencyKey();
+      if (!idempotencyKey) {
+        status.textContent = t('settings.accountAdminCreateIdempotencyUnavailable',
+          'Kontoanlage ist in diesem Browser nicht sicher verfügbar.');
+        return Promise.resolve(false);
+      }
+
+      createPasswordInput.value = '';
+      setCreateBusy(true);
+      status.textContent = t('settings.accountAdminCreateSaving',
+        'Benutzer wird angelegt …');
+
+      return api.createAccount(loginName, displayName, password, idempotencyKey)
+        .then(function(result) {
+          const createdAccountId = result && result.data &&
+            typeof result.data.accountId === 'string' ? result.data.accountId : '';
+
+          createLoginInput.value = '';
+          createDisplayInput.value = '';
+
+          if (createdAccountId) {
+            state.selectedAccountId = createdAccountId;
+            state.selectedOverview = null;
+          }
+
+          return loadAccounts(false).then(function() {
+            if (createdAccountId) return selectAccount(createdAccountId);
+            return null;
+          });
+        }).then(function() {
+          status.textContent = t('settings.accountAdminCreateSaved',
+            'Benutzer wurde angelegt.');
+          return true;
+        }).catch(function(error) {
+          status.textContent = createAccountErrorText(error);
+          return false;
+        }).finally(function() {
+          setCreateBusy(false);
+        });
+    }
+
+    createButton.addEventListener('click', createAccountFromForm);
 
     function markSelected() {
       list.querySelectorAll('button[data-account-id]').forEach(function(button) {
