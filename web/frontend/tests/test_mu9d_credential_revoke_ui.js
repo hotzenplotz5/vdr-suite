@@ -20,7 +20,6 @@ assert(uiSource.includes('settings-account-admin-credential-revoke'));
 assert(uiSource.includes('accountAdminRevokeCredentialConfirm'));
 assert(uiSource.includes('credentialMutationErrorText'));
 assert(!adapterSource.includes('createAccount('));
-assert(!adapterSource.includes('setAccountGrant('));
 assert(!uiSource.includes('.innerHTML'));
 
 const calls = [];

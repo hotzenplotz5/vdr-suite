@@ -49,6 +49,26 @@
     return errorText(error);
   }
 
+  function grantMutationErrorText(error) {
+    if (error && error.status === 409) {
+      return t('settings.accountAdminGrantFinalAdministrator',
+        'Die Administratorberechtigung kann nicht entzogen werden, weil sonst kein nutzbarer Administrator übrig bliebe.');
+    }
+    if (error && error.status === 412) {
+      return t('settings.accountAdminGrantRevisionConflict',
+        'Die Berechtigungen wurden zwischenzeitlich geändert. Die aktuellen Daten wurden neu geladen.');
+    }
+    if (error && error.status === 422) {
+      return t('settings.accountAdminGrantUnsupported',
+        'Diese Berechtigungs-/Scope-Kombination wird vom Server nicht unterstützt.');
+    }
+    if (error && error.status === 428) {
+      return t('settings.accountAdminGrantRevisionRequired',
+        'Für diese Änderung fehlt ein aktueller Berechtigungsstand.');
+    }
+    return errorText(error);
+  }
+
   function credentialMutationErrorText(error) {
     if (error && error.status === 409) {
       return t('settings.accountAdminCredentialFinalAdministrator',
@@ -179,9 +199,71 @@
     parent.appendChild(identity);
 
     const grants = section(t('settings.accountAdminGrants', 'Berechtigungen'));
+
+    if (actions) {
+      const policyHint = addText(document.createElement('p'),
+        t('settings.accountAdminGrantServerPolicy',
+          'Zulässige Berechtigungen und Scopes werden ausschließlich vom Server geprüft.'));
+      policyHint.className = 'settings-account-admin-meta';
+      grants.appendChild(policyHint);
+
+      const grantControls = document.createElement('div');
+      grantControls.className = 'settings-account-admin-lifecycle';
+
+      const permissionLabel = addText(document.createElement('label'),
+        t('settings.accountAdminGrantPermission', 'Berechtigung'));
+      permissionLabel.className = 'settings-account-admin-field';
+      const permissionInput = document.createElement('input');
+      permissionInput.type = 'text';
+      permissionInput.className =
+        'settings-account-admin-display-name-input settings-account-admin-grant-permission-input';
+      permissionInput.disabled = Boolean(actions.busy);
+      permissionLabel.appendChild(permissionInput);
+      grantControls.appendChild(permissionLabel);
+
+      const backendLabel = addText(document.createElement('label'),
+        t('settings.accountAdminGrantBackend', 'Backend / Scope'));
+      backendLabel.className = 'settings-account-admin-field';
+      const backendInput = document.createElement('input');
+      backendInput.type = 'text';
+      backendInput.className =
+        'settings-account-admin-display-name-input settings-account-admin-grant-backend-input';
+      backendInput.disabled = Boolean(actions.busy);
+      backendLabel.appendChild(backendInput);
+      grantControls.appendChild(backendLabel);
+
+      const ensure = addText(document.createElement('button'),
+        t('settings.accountAdminEnsureGrant', 'Berechtigung hinzufügen'));
+      ensure.type = 'button';
+      ensure.className = 'settings-account-admin-grant-ensure';
+      ensure.disabled = Boolean(actions.busy);
+      ensure.addEventListener('click', function() {
+        return actions.ensureGrant(permissionInput.value, backendInput.value);
+      });
+      grantControls.appendChild(ensure);
+      grants.appendChild(grantControls);
+    }
+
     renderItems(grants, overview.grants, function(entry, grant) {
       entry.appendChild(addText(document.createElement('strong'), grant.permission || '-'));
       appendMeta(entry, 'Backend', grant.backendId || '-');
+
+      if (actions && grant.permission && grant.backendId) {
+        const revoke = addText(document.createElement('button'),
+          t('settings.accountAdminRevokeGrant', 'Berechtigung entziehen'));
+        revoke.type = 'button';
+        revoke.className = 'settings-account-admin-grant-revoke';
+        revoke.disabled = Boolean(actions.busy);
+        revoke.addEventListener('click', function() {
+          if (typeof global.confirm === 'function') {
+            const confirmed = global.confirm(t('settings.accountAdminRevokeGrantConfirm',
+              'Diese Berechtigung entziehen?'));
+            if (!confirmed) return Promise.resolve(false);
+          }
+          return actions.revokeGrant(grant.permission, grant.backendId);
+        });
+        entry.appendChild(revoke);
+      }
     });
     parent.appendChild(grants);
 
@@ -328,6 +410,35 @@
           return mutateSelected(function(overview) {
             return api.deactivateAccount(overview.account.accountId, overview.accountEtag);
           });
+        },
+        ensureGrant: function(permission, backendId) {
+          const normalizedPermission =
+            typeof permission === 'string' ? permission.trim() : '';
+          const normalizedBackendId =
+            typeof backendId === 'string' ? backendId.trim() : '';
+          if (!normalizedPermission || !normalizedBackendId) {
+            status.textContent = t('settings.accountAdminGrantFieldsRequired',
+              'Berechtigung und Backend/Scope dürfen nicht leer sein.');
+            return Promise.resolve(false);
+          }
+          return mutateSelected(function(overview) {
+            return api.setAccountGrant(
+              overview.account.accountId,
+              overview.grantsEtag,
+              normalizedPermission,
+              normalizedBackendId,
+              true);
+          }, grantMutationErrorText);
+        },
+        revokeGrant: function(permission, backendId) {
+          return mutateSelected(function(overview) {
+            return api.setAccountGrant(
+              overview.account.accountId,
+              overview.grantsEtag,
+              permission,
+              backendId,
+              false);
+          }, grantMutationErrorText);
         },
         revokeCredential: function(credentialId) {
           return mutateSelected(function(overview) {

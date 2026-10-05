@@ -12,7 +12,6 @@ FILES = {
     "de": ROOT / "web/frontend/locales/de.js",
     "en": ROOT / "web/frontend/locales/en.js",
     "mu9b_guard": ROOT / "tools/check_mu9b_account_lifecycle_ui.py",
-    "current": ROOT / "docs/CURRENT.md",
     "workstream": ROOT / "docs/development/post-phase69-multiuser-workstream.md",
     "slice_doc": ROOT / "docs/development/post-phase69-mu9c-session-revoke-ui.md",
 }
@@ -51,10 +50,7 @@ def main():
         require("ui", marker)
 
     for name in ("adapter", "ui"):
-        for marker in (
-            "createAccount(", "setAccountGrant(",
-        ):
-            forbid(name, marker)
+        forbid(name, "createAccount(")
 
     forbid("ui", ".innerHTML")
 
@@ -84,15 +80,8 @@ def main():
     require("mu9b_guard",
         "MU9D_STATUS=SUCCESSOR_STATUS_NOT_OWNED_BY_MU9B_GUARD")
 
-    require("current",
-        "MU.9C - Session Revoke UI [IMPLEMENTATION MERGED - PR #426 / FOCUSED YAVDR PASS / HOSTED CI GREEN]")
-    require("current",
-        "MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION CANDIDATE]")
-    forbid("current", "The successor MU.9 slice has not yet been selected.")
     require("workstream",
         "MU.9C - Session Revoke UI [IMPLEMENTATION MERGED - PR #426 / FOCUSED YAVDR PASS / HOSTED CI GREEN]")
-    require("workstream",
-        "MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION CANDIDATE]")
     require("slice_doc",
         "Status: **IMPLEMENTATION MERGED - PR #426 / FOCUSED YAVDR PASS / HOSTED CI GREEN**")
 

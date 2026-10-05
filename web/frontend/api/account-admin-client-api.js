@@ -116,6 +116,21 @@
     });
   }
 
+  function setAccountGrant(accountId, ifMatch, permission, backendId, active) {
+    if (typeof ifMatch !== 'string' || ifMatch === '') {
+      const error = new Error('grant ifMatch is required');
+      error.status = 428;
+      return Promise.reject(error);
+    }
+    return afterBrowserSessionRestore(function() {
+      const options = mutationOptions(accountId, ifMatch);
+      options.permission = permission;
+      options.backendId = backendId;
+      options.active = active;
+      return publicClient().setAccountGrant(options);
+    });
+  }
+
   function revokeAccountCredential(accountId, credentialId) {
     if (typeof credentialId !== 'string' || credentialId === '') {
       return Promise.reject(new Error('credentialId is required'));
@@ -172,6 +187,7 @@
     updateAccountDisplayName: updateAccountDisplayName,
     activateAccount: activateAccount,
     deactivateAccount: deactivateAccount,
+    setAccountGrant: setAccountGrant,
     revokeAccountCredential: revokeAccountCredential,
     revokeAccountSession: revokeAccountSession,
     resetForTests: resetForTests
