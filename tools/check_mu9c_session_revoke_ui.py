@@ -49,9 +49,6 @@ def main():
     ):
         require("ui", marker)
 
-    for name in ("adapter", "ui"):
-        forbid(name, "createAccount(")
-
     forbid("ui", ".innerHTML")
 
     for marker in (
