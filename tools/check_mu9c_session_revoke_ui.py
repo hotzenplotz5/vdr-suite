@@ -84,6 +84,7 @@ def main():
 
     require("current",
         "MU.9C - Session Revoke UI [IMPLEMENTATION CANDIDATE]")
+    forbid("current", "The successor MU.9 slice has not yet been selected.")
     require("workstream",
         "MU.9C - Session Revoke UI [IMPLEMENTATION CANDIDATE]")
     require("slice_doc", "Status: **IMPLEMENTATION CANDIDATE**")
