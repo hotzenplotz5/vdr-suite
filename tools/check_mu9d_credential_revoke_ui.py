@@ -91,7 +91,7 @@ def main():
         "MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION MERGED - PR #428 / FOCUSED YAVDR PASS / HOSTED CI GREEN]")
     require("slice_doc",
         "Status: **IMPLEMENTATION MERGED — PR #428 / FOCUSED YAVDR PASS / HOSTED CI GREEN**")
-    require("slice_doc", "post-merge `main` CI run #9761")
+    require("slice_doc", "Post-merge `main` CI run #9761")
     require("slice_doc", "final-usable-administrator")
     require("slice_doc", "issuer-session fencing remains server-owned")
 

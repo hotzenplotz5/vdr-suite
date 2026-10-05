@@ -284,7 +284,7 @@ ADR-0065 Human Account boundary [ACCEPTED]
             -> MU.6D Account CREATE/idempotency [DONE - PR #411]
        -> MU.7 Backend access/grant administration [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
        -> MU.8 Credential/session administration [IMPLEMENTATION COMPLETE - MU.8A RUNTIME ACCEPTANCE PENDING]
-       -> MU.9 Account/access admin UI [IN PROGRESS - MU.9D HUMAN-PASSWORD CREDENTIAL REVOKE UI CANDIDATE]
+       -> MU.9 Account/access admin UI [IN PROGRESS - MU.9E BACKEND GRANT MUTATION UI CANDIDATE]
             -> Broad Timer Product UI unblocked
 
 Later:
@@ -303,5 +303,5 @@ Independent numbered track:
 - Device trust is not user identity or permission.
 - Capability never grants authorization.
 - No client/UI owns authorization policy.
-- ADR-0067 is accepted; MU.6A-D are completed runtime boundaries and MU.6D merged as PR #411. MU.7 grant administration completed after REAL YAVDR acceptance and PR #413 merge. MU.8 implementation is complete through MU.8C: MU.8A merged as PR #415 with separately documented real-runtime acceptance still pending, MU.8B merged as PR #416 after focused yaVDR acceptance, and MU.8C merged as PR #417 after focused yaVDR acceptance with PR and post-merge main CI green. MU.9 remains in progress after MU.9A merged as PR #418 and MU.9B merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green for both accepted UI slices. MU.9C Session Revoke UI merged as PR #426 after focused yaVDR acceptance and green hosted PR CI. MU.9D Human-password Credential Revoke UI is now the active bounded implementation candidate over the accepted MU.8C contract.
+- ADR-0067 is accepted; MU.6A-D are completed runtime boundaries and MU.6D merged as PR #411. MU.7 grant administration completed after REAL YAVDR acceptance and PR #413 merge. MU.8 implementation is complete through MU.8C: MU.8A merged as PR #415 with separately documented real-runtime acceptance still pending, MU.8B merged as PR #416 after focused yaVDR acceptance, and MU.8C merged as PR #417 after focused yaVDR acceptance with PR and post-merge main CI green. MU.9 remains in progress after MU.9A merged as PR #418 and MU.9B merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green for both accepted UI slices. MU.9C Session Revoke UI merged as PR #426 after focused yaVDR acceptance and green hosted PR CI. MU.9D Human-password Credential Revoke UI merged as PR #428 after focused yaVDR acceptance; PR and post-merge hosted CI are green. MU.9E Backend Grant Mutation UI is now the active bounded implementation candidate over the accepted MU.7 grant-administration contract.
 - Phase 70 is not started by Multiuser work.
