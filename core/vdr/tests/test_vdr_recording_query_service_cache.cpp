@@ -67,16 +67,17 @@ static void test_query_service_uses_cache_when_cache_has_data()
     assert(result.recordings().at(0).title == "Cached Recording");
 }
 
-static void test_query_service_falls_back_to_live_and_populates_empty_cache()
+static void test_query_service_does_not_bypass_warming_cache()
 {
-    std::remove("/tmp/test_vdr_recording_query_service_cache_empty.db");
+    std::remove("/tmp/test_vdr_recording_query_service_cache_warming.db");
 
     Database database;
-    assert(database.open("/tmp/test_vdr_recording_query_service_cache_empty.db"));
+    assert(database.open("/tmp/test_vdr_recording_query_service_cache_warming.db"));
 
     VdrRecordingCacheRepository cacheRepository(database);
 
     assert(cacheRepository.ensureSchema());
+    assert(cacheRepository.markRefreshStarted("default"));
     assert(cacheRepository.countForBackend("default") == 0);
 
     MockVdrAdapter adapter;
@@ -91,15 +92,50 @@ static void test_query_service_falls_back_to_live_and_populates_empty_cache()
         queryService.queryRecordings(
             VdrRecordingQuery::all());
 
-    assert(result.totalCount() == 2);
-    assert(result.returnedCount() == 2);
-    assert(cacheRepository.countForBackend("default") == 2);
+    assert(result.totalCount() == 0);
+    assert(result.returnedCount() == 0);
+    assert(cacheRepository.countForBackend("default") == 0);
+
+    const VdrRecordingCacheStatus status =
+        cacheRepository.statusForBackend("default");
+
+    assert(status.state == "warming");
+    assert(status.totalCount == 0);
+}
+
+static void test_query_service_preserves_ready_empty_cache()
+{
+    std::remove("/tmp/test_vdr_recording_query_service_cache_ready_empty.db");
+
+    Database database;
+    assert(database.open("/tmp/test_vdr_recording_query_service_cache_ready_empty.db"));
+
+    VdrRecordingCacheRepository cacheRepository(database);
+
+    assert(cacheRepository.ensureSchema());
+    assert(cacheRepository.markRefreshFinished("default", 0));
+
+    MockVdrAdapter adapter;
+    VdrService vdrService(adapter);
+
+    VdrRecordingQueryService queryService(
+        vdrService,
+        &cacheRepository,
+        "default");
+
+    const VdrRecordingQueryResult result =
+        queryService.queryRecordings(
+            VdrRecordingQuery::all());
+
+    assert(result.totalCount() == 0);
+    assert(result.returnedCount() == 0);
+    assert(cacheRepository.countForBackend("default") == 0);
 
     const VdrRecordingCacheStatus status =
         cacheRepository.statusForBackend("default");
 
     assert(status.state == "ready");
-    assert(status.totalCount == 2);
+    assert(status.totalCount == 0);
 }
 
 static void test_query_service_keeps_legacy_live_mode_without_cache()
@@ -120,7 +156,8 @@ static void test_query_service_keeps_legacy_live_mode_without_cache()
 int main()
 {
     test_query_service_uses_cache_when_cache_has_data();
-    test_query_service_falls_back_to_live_and_populates_empty_cache();
+    test_query_service_does_not_bypass_warming_cache();
+    test_query_service_preserves_ready_empty_cache();
     test_query_service_keeps_legacy_live_mode_without_cache();
 
     std::cout

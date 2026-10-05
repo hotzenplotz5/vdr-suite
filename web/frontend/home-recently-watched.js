@@ -1,6 +1,26 @@
 (function (global) {
   'use strict';
 
+  function browserSessionAuthenticated() {
+    const session = global.VdrSuiteBrowserSession;
+    if (!session) return false;
+    if (typeof session.isAuthenticated === 'function') {
+      return session.isAuthenticated() === true;
+    }
+    if (typeof session.snapshot === 'function') {
+      const state = session.snapshot();
+      return Boolean(state && state.authenticated);
+    }
+    return false;
+  }
+
+  function backendSelectionReady() {
+    if (!doc || typeof doc.querySelector !== 'function') return false;
+    return Boolean(doc.querySelector(
+      '#backends .backend-card.selected, #backends [aria-selected="true"]'
+    ));
+  }
+
   if (!global || global.VdrSuiteHomeRecentlyWatched) return;
 
   const doc = global.document;
@@ -249,7 +269,7 @@
     return true;
   }
   function refresh(options) {
-    if (!homeIsActive()) return Promise.resolve(false);
+    if (!browserSessionAuthenticated() || !homeIsActive()) return Promise.resolve(false);
     const config = options && typeof options === 'object' ? options : {};
     const backendId = selectedBackendId();
     if (state.refreshInFlight && state.refreshBackendId === backendId) {
@@ -257,12 +277,14 @@
     }
     const generation = ++state.generation;
     const request = post({operation: 'list', backendId: backendId}).then(function (payload) {
-      if (generation !== state.generation || backendId !== selectedBackendId() || !homeIsActive()) return false;
+      if (!browserSessionAuthenticated() || generation !== state.generation ||
+          backendId !== selectedBackendId() || !homeIsActive()) return false;
       const raw = payload && Array.isArray(payload.items) ? payload.items : [];
       const items = raw.map(function (item) { return normalizeItem(item, backendId); }).filter(Boolean).slice(0, LIMIT);
       return render(items);
     }).catch(function () {
-      if (generation === state.generation && config.retainVisible !== true) clear();
+      if (browserSessionAuthenticated() &&
+          generation === state.generation && config.retainVisible !== true) clear();
       return false;
     }).finally(function () {
       if (state.refreshInFlight === request) {
@@ -320,7 +342,11 @@
         refresh({retainVisible: true});
       });
     }
-    if (typeof global.setTimeout === 'function') global.setTimeout(refresh, 0);
+    if (browserSessionAuthenticated() &&
+        backendSelectionReady() &&
+        typeof global.setTimeout === 'function') {
+      global.setTimeout(refresh, 0);
+    }
     return true;
   }
 
@@ -347,6 +373,26 @@
 // does not introduce another metadata, artwork, identity or playback owner.
 (function (global) {
   'use strict';
+
+  function browserSessionAuthenticated() {
+    const session = global.VdrSuiteBrowserSession;
+    if (!session) return false;
+    if (typeof session.isAuthenticated === 'function') {
+      return session.isAuthenticated() === true;
+    }
+    if (typeof session.snapshot === 'function') {
+      const state = session.snapshot();
+      return Boolean(state && state.authenticated);
+    }
+    return false;
+  }
+
+  function backendSelectionReady() {
+    if (!doc || typeof doc.querySelector !== 'function') return false;
+    return Boolean(doc.querySelector(
+      '#backends .backend-card.selected, #backends [aria-selected="true"]'
+    ));
+  }
 
   if (!global || global.VdrSuiteHomeRecentMovies) return;
 
@@ -516,7 +562,8 @@
         cache: 'no-store',
         credentials: 'same-origin'
       })).then(function (payload) {
-        if (generation !== state.generation ||
+        if (!browserSessionAuthenticated() ||
+            generation !== state.generation ||
             backendId !== selectedBackendId() ||
             !homeIsActive()) return [];
         const rawPage = list(payload, 'recordings');
@@ -704,7 +751,7 @@
   }
 
   function refresh(options) {
-    if (!homeIsActive()) return Promise.resolve(false);
+    if (!browserSessionAuthenticated() || !homeIsActive()) return Promise.resolve(false);
     const config = options && typeof options === 'object' ? options : {};
     const client = clientApi();
     const owner = discoveryTestApi();
@@ -714,6 +761,9 @@
       return Promise.resolve(false);
     }
     const backendId = selectedBackendId();
+    if (state.loadingPromise && state.loadingBackendId === backendId) {
+      return state.loadingPromise;
+    }
     const generation = ++state.generation;
     const currentYear = new Date().getFullYear();
     const retainVisible = config.retainVisible === true &&
@@ -727,7 +777,8 @@
     state.backendId = backendId;
     state.completedAt = 0;
     const load = fetchAllRecordings(client, backendId, generation, currentYear).then(function (recordings) {
-      if (generation !== state.generation ||
+      if (!browserSessionAuthenticated() ||
+          generation !== state.generation ||
           backendId !== selectedBackendId() ||
           !homeIsActive()) return false;
       const movies = sortMovies(recordings.filter(function (recording) {
@@ -739,7 +790,7 @@
       state.visibleLimit = Math.min(LIMIT, movies.length);
       return render(movies, backendId, state.visibleLimit);
     }).catch(function () {
-      if (generation !== state.generation) return false;
+      if (!browserSessionAuthenticated() || generation !== state.generation) return false;
       state.completedAt = 0;
       return config.retainVisible === true
         ? false
@@ -857,7 +908,11 @@
         refresh({retainVisible: true});
       });
     }
-    if (typeof global.setTimeout === 'function') global.setTimeout(refresh, 0);
+    if (browserSessionAuthenticated() &&
+        backendSelectionReady() &&
+        typeof global.setTimeout === 'function') {
+      global.setTimeout(refresh, 0);
+    }
     return true;
   }
 

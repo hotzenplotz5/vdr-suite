@@ -3851,25 +3851,83 @@
         cache: 'no-store',
         credentials: 'same-origin'
       })).then(function (payload) {
-        if (!current(generation, backendId)) return [];
-        const rawPage = list(payload, 'recordings');
-        const pageRecordings = canonicalRecordings(payload, backendId);
-        Array.prototype.push.apply(recordings, pageRecordings);
-        const nextOffset = offset + rawPage.length;
-        const total = pageTotal(payload, nextOffset);
-        const hasMore = pageHasMore(payload, nextOffset, total);
+        if (!current(generation, backendId)) return null;
+        return {
+          offset: offset,
+          payload: payload,
+          rawPage: list(payload, 'recordings'),
+          recordings: canonicalRecordings(payload, backendId)
+        };
+      });
+    }
+
+    function appendPage(page) {
+      if (!page || !current(generation, backendId)) return false;
+      Array.prototype.push.apply(recordings, page.recordings);
+      return true;
+    }
+
+    function requestSequential(offset) {
+      return requestPage(offset).then(function (page) {
+        if (!page) return [];
+        appendPage(page);
+        const nextOffset = offset + page.rawPage.length;
+        const total = pageTotal(page.payload, nextOffset);
+        const hasMore = pageHasMore(page.payload, nextOffset, total);
         if (typeof onProgress === 'function') {
           onProgress(recordings.slice());
         }
         if (!hasMore || nextOffset >= total) return recordings;
-        if (!rawPage.length || nextOffset <= offset) {
+        if (!page.rawPage.length || nextOffset <= offset) {
           throw new Error('series pagination made no progress');
         }
-        return requestPage(nextOffset);
+        return requestSequential(nextOffset);
       });
     }
 
-    return requestPage(0);
+    return requestPage(0).then(function (firstPage) {
+      if (!firstPage) return [];
+      appendPage(firstPage);
+      const nextOffset = firstPage.rawPage.length;
+      const total = pageTotal(firstPage.payload, nextOffset);
+      const hasMore = pageHasMore(firstPage.payload, nextOffset, total);
+      if (typeof onProgress === 'function') {
+        onProgress(recordings.slice());
+      }
+      if (!hasMore || nextOffset >= total) return recordings;
+      if (!firstPage.rawPage.length || nextOffset <= 0) {
+        throw new Error('series pagination made no progress');
+      }
+
+      const rawTotal = firstPage.payload && firstPage.payload.total !== undefined
+        ? firstPage.payload.total
+        : firstPage.payload && firstPage.payload.totalCount;
+      const explicitTotal = Number(rawTotal);
+      if (!Number.isFinite(explicitTotal) || explicitTotal <= nextOffset) {
+        return requestSequential(nextOffset);
+      }
+
+      const offsets = [];
+      for (let offset = nextOffset; offset < explicitTotal; offset += SERIES_PAGE_LIMIT) {
+        offsets.push(offset);
+      }
+
+      return Promise.all(offsets.map(requestPage)).then(function (pages) {
+        if (!current(generation, backendId)) return [];
+        pages.filter(Boolean).sort(function (left, right) {
+          return left.offset - right.offset;
+        }).forEach(function (page) {
+          if (!page.rawPage.length && page.offset < explicitTotal) {
+            throw new Error('series pagination made no progress');
+          }
+          appendPage(page);
+        });
+        if (typeof onProgress === 'function') {
+          onProgress(recordings.slice());
+        }
+        return recordings;
+      });
+    });
   }
 
   function fetchBoundedRandomGenreRecordings(client, backendId, genreId, generation) {
@@ -4231,15 +4289,6 @@
           applySeriesProjection(
             recordings,
             backendId
-          );
-        }
-
-        if (client && typeof client.requestJson === 'function') {
-          prefetchSeriesRepresentativeMetadata(
-            client,
-            recordings,
-            backendId,
-            generation
           );
         }
       }

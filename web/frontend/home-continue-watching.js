@@ -1,6 +1,26 @@
 (function (global) {
   'use strict';
 
+  function browserSessionAuthenticated() {
+    const session = global.VdrSuiteBrowserSession;
+    if (!session) return false;
+    if (typeof session.isAuthenticated === 'function') {
+      return session.isAuthenticated() === true;
+    }
+    if (typeof session.snapshot === 'function') {
+      const state = session.snapshot();
+      return Boolean(state && state.authenticated);
+    }
+    return false;
+  }
+
+  function backendSelectionReady() {
+    if (!doc || typeof doc.querySelector !== 'function') return false;
+    return Boolean(doc.querySelector(
+      '#backends .backend-card.selected, #backends [aria-selected="true"]'
+    ));
+  }
+
   const doc = global.document;
   const ENDPOINT = '/api/media/continue-watching';
   const HOME_RESUME_EVENT = 'vdr-suite:home-resume';
@@ -296,22 +316,29 @@
     doc.head.appendChild(style);
   }
   function refresh(options) {
+    if (!browserSessionAuthenticated()) return Promise.resolve(false);
     const config = options && typeof options === 'object' ? options : {};
     const backendId = selectedBackendId();
     const generation = ++refreshGeneration;
     return post({operation: 'list', backendId}).then(function (payload) {
-      if (generation !== refreshGeneration || selectedBackendId() !== backendId) return false;
+      if (!browserSessionAuthenticated() ||
+          generation !== refreshGeneration || selectedBackendId() !== backendId) return false;
       render(payload && payload.items);
       return true;
     }).catch(function () {
-      if (generation !== refreshGeneration || selectedBackendId() !== backendId) return false;
+      if (!browserSessionAuthenticated() ||
+          generation !== refreshGeneration || selectedBackendId() !== backendId) return false;
       if (config.retainVisible !== true) render([]);
       return false;
     });
   }
   function install() {
     installStyles();
-    refresh();
+    if (browserSessionAuthenticated() &&
+        backendSelectionReady() &&
+        typeof global.setTimeout === 'function') {
+      global.setTimeout(refresh, 0);
+    }
     if (doc && typeof doc.addEventListener === 'function') {
       doc.addEventListener(HOME_RESUME_EVENT, function () {
         refresh({retainVisible: true});

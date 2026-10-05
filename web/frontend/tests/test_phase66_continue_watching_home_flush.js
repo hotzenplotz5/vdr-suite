@@ -112,6 +112,10 @@ function flushMicrotasks(count = 8) {
   homeContext.window.fetch = homeContext.fetch;
   homeContext.window.setTimeout = homeContext.setTimeout;
   homeContext.window.clearTimeout = homeContext.clearTimeout;
+  homeContext.window.VdrSuiteBrowserSession = {
+    isAuthenticated() { return true; },
+    csrfHeaders() { return {}; }
+  };
   homeContext.window.VdrSuiteContinueWatchingSync = {
     flush() { return new Promise(resolve => { releaseHomeFlush = resolve; }); }
   };

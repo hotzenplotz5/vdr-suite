@@ -28,6 +28,8 @@ assert(source.includes('owner.recordingPosterUrl'));
 assert(source.includes('owner.openRecording'));
 assert(source.includes('function refreshForHome()'));
 assert(source.includes('if (state.loadingPromise && state.loadingBackendId === backendId)'));
+assert(source.indexOf('if (state.loadingPromise && state.loadingBackendId === backendId)') <
+  source.indexOf('const generation = ++state.generation;'));
 assert(source.includes('if (warmForBackend(backendId)) return Promise.resolve(true);'));
 assert(source.includes("target.querySelector('[data-home-discovery-rail=\"series\"]')"));
 assert(source.includes("rail.className = 'media-home-discovery-rail recent-movies'"));
@@ -256,7 +258,8 @@ const window = {
       }
     }
   },
-  VdrSuitePublicUrl: {resolvePath(value) { return value; }}
+  VdrSuitePublicUrl: {resolvePath(value) { return value; }},
+  VdrSuiteBrowserSession: {isAuthenticated() { return true; }}
 };
 window.window = window;
 
@@ -290,9 +293,14 @@ assert.strictEqual(api._test.recentMovie(movie('missing-year', ''), currentYear)
 
 (async function () {
   const initialLoad = api.refresh();
+  const duplicateDirectLoad = api.refresh({retainVisible: true});
   const coalescedLoad = api._test.refreshForHome();
-  assert.strictEqual(calls.length, 1, 'same-backend Home trigger must coalesce with an in-flight full scan');
-  await Promise.all([initialLoad, coalescedLoad]);
+  assert.strictEqual(
+    calls.length,
+    1,
+    'direct Home-resume and observer triggers must coalesce with an in-flight same-backend scan'
+  );
+  await Promise.all([initialLoad, duplicateDirectLoad, coalescedLoad]);
 
   assert.deepStrictEqual(calls.map((call) => call.query.offset), [0, pageOne.length]);
   assert(calls.every((call) => call.query.limit === 100));

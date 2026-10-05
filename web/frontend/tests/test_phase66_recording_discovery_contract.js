@@ -147,6 +147,14 @@ assert(
 assert(!initialSeries.includes('waitForSeriesRepresentatives('));
 assert(!initialSeries.includes('startSeriesCompletion('));
 assert(!seriesScan.includes('prefetchSeriesRepresentativeMetadata('));
+assert(seriesScan.includes('const explicitTotal = Number(rawTotal);'));
+assert(seriesScan.includes('Promise.all(offsets.map(requestPage))'));
+assert(seriesScan.includes('return requestSequential(nextOffset);'));
+assert(
+  seriesScan.indexOf('onProgress(recordings.slice())') <
+    seriesScan.indexOf('Promise.all(offsets.map(requestPage))'),
+  'Series must publish the first cache page before parallel tail completion'
+);
 assert(initialRandomGenre.includes("renderRecordingRail("));
 assert(
   /applySeriesProjection\(\s*recordings,\s*backendId\s*\)/.test(initialSeries),
