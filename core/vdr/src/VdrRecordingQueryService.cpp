@@ -172,6 +172,12 @@ std::vector<VdrRecording> VdrRecordingQueryService::loadRecordings(
         return recordingCacheRepository_->findAllForBackend(backendId);
     }
 
+    if (query.hasBackendFilter() &&
+        backendId != defaultBackendId_)
+    {
+        return {};
+    }
+
     std::vector<VdrRecording> liveRecordings =
         vdrService_.getRecordings();
 
