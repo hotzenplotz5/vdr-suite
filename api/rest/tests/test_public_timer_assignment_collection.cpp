@@ -148,7 +148,7 @@ int main()
         "backend-one"));
     assert(malformedCursor.statusCode == 400);
 
-    for (const std::string& badLimit : {"0", "101", "abc"})
+    for (const char* badLimit : {"0", "101", "abc"})
     {
         ApiResponse bad;
         assert(runtime.tryHandleGet(
@@ -164,7 +164,7 @@ int main()
         assert(bad.statusCode == 400);
     }
 
-    for (const std::string& badQuery : {
+    for (const char* badQuery : {
              "sort=state",
              "order=desc",
              "offset=1"})
