@@ -4183,8 +4183,7 @@
                 {richMetadataByNativeId: rich}
               );
               positionRandomGenreRail();
-            },
-            {priority: true}
+            }
           ).then(function (rich) {
             if (!current(generation, backendId)) return false;
 
