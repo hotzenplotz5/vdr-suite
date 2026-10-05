@@ -71,6 +71,7 @@ const window = {
     getSelectedBackendId() { return 'default'; }
   },
   VdrSuiteBrowserSession: {
+    isAuthenticated() { return true; },
     csrfHeaders() { return {'X-VDR-Suite-CSRF': 'phase66-history-navigation'}; }
   }
 };
