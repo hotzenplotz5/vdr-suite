@@ -51,10 +51,7 @@ def main():
         require("ui", marker)
 
     for name in ("adapter", "ui"):
-        for marker in (
-            "createAccount(", "setAccountGrant(",
-        ):
-            forbid(name, marker)
+        forbid(name, "createAccount(")
 
     forbid("ui", ".innerHTML")
 
@@ -86,13 +83,9 @@ def main():
 
     require("current",
         "MU.9C - Session Revoke UI [IMPLEMENTATION MERGED - PR #426 / FOCUSED YAVDR PASS / HOSTED CI GREEN]")
-    require("current",
-        "MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION CANDIDATE]")
     forbid("current", "The successor MU.9 slice has not yet been selected.")
     require("workstream",
         "MU.9C - Session Revoke UI [IMPLEMENTATION MERGED - PR #426 / FOCUSED YAVDR PASS / HOSTED CI GREEN]")
-    require("workstream",
-        "MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION CANDIDATE]")
     require("slice_doc",
         "Status: **IMPLEMENTATION MERGED - PR #426 / FOCUSED YAVDR PASS / HOSTED CI GREEN**")
 

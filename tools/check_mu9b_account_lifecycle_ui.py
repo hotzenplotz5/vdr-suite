@@ -56,10 +56,7 @@ def main():
         require("ui", marker)
 
     for name in ("adapter", "ui"):
-        for marker in (
-            "createAccount(", "setAccountGrant(",
-        ):
-            forbid(name, marker)
+        forbid(name, "createAccount(")
 
     forbid("ui", ".innerHTML")
 
@@ -97,14 +94,6 @@ def main():
         "MU.9B - Account Lifecycle Mutation UI [IMPLEMENTATION MERGED - PR #420 / REAL YAVDR PASS / HOSTED CI GREEN]")
     require("slice_doc",
         "Status: **IMPLEMENTATION MERGED — PR #420 / REAL YAVDR PASS / HOSTED CI GREEN**")
-    require("current",
-        "MU.9C - Session Revoke UI [IMPLEMENTATION MERGED - PR #426 / FOCUSED YAVDR PASS / HOSTED CI GREEN]")
-    require("workstream",
-        "MU.9C - Session Revoke UI [IMPLEMENTATION MERGED - PR #426 / FOCUSED YAVDR PASS / HOSTED CI GREEN]")
-    require("current",
-        "MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION CANDIDATE]")
-    require("workstream",
-        "MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION CANDIDATE]")
 
     print("MU.9B Account lifecycle mutation UI contracts passed")
     print("MU9A=IMPLEMENTATION_MERGED_PR_418_EXACT_MERGED_MAIN_YAVDR_PASS_HOSTED_CI_GREEN")

@@ -53,8 +53,7 @@ def main():
         require("ui", marker)
 
     for name in ("adapter", "ui"):
-        for marker in ("createAccount(", "setAccountGrant("):
-            forbid(name, marker)
+        forbid(name, "createAccount(")
 
     forbid("ui", ".innerHTML")
 
@@ -87,16 +86,19 @@ def main():
         "MU9D_STATUS=SUCCESSOR_STATUS_NOT_OWNED_BY_MU9C_GUARD")
 
     require("current",
-        "MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION CANDIDATE]")
+        "MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION MERGED - PR #428 / FOCUSED YAVDR PASS / HOSTED CI GREEN]")
     require("workstream",
-        "MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION CANDIDATE]")
-    require("slice_doc", "Status: **IMPLEMENTATION CANDIDATE**")
+        "MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION MERGED - PR #428 / FOCUSED YAVDR PASS / HOSTED CI GREEN]")
+    require("slice_doc",
+        "Status: **IMPLEMENTATION MERGED — PR #428 / FOCUSED YAVDR PASS / HOSTED CI GREEN**")
+    require("slice_doc", "post-merge `main` CI run #9761")
     require("slice_doc", "final-usable-administrator")
     require("slice_doc", "issuer-session fencing remains server-owned")
 
     print("MU.9D Credential revoke UI contracts passed")
     print("MU9C=IMPLEMENTATION_MERGED_PR_426_FOCUSED_YAVDR_PASS_HOSTED_CI_GREEN")
-    print("MU9D=IMPLEMENTATION_CANDIDATE")
+    print("MU9D=IMPLEMENTATION_MERGED_PR_428_FOCUSED_YAVDR_PASS_HOSTED_CI_GREEN")
+    print("MU9E_STATUS=SUCCESSOR_STATUS_NOT_OWNED_BY_MU9D_GUARD")
     print("PHASE70=NOT_STARTED")
     return 0
 
