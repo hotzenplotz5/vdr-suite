@@ -393,6 +393,7 @@ async function startSettled(harness) {
       'anonymous Home must create ZERO Live playback owners');
 
     h.setAuthenticated(true);
+    h.api.__test.handleBrowserSessionState({authenticated: true});
     assert.strictEqual(h.runTimers(), 1,
       'login must schedule one Home preview resynchronization');
     assert.strictEqual(h.runTimers(), 1,
@@ -404,6 +405,7 @@ async function startSettled(harness) {
       'preview must become active after authentication');
 
     h.setAuthenticated(false);
+    h.api.__test.handleBrowserSessionState({authenticated: false});
     assert.strictEqual(h.api.snapshot().active, false,
       'authentication loss must relinquish the active Home preview');
     assert.strictEqual(h.metrics.destroys, 1,
