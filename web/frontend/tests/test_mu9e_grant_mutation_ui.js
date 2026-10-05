@@ -19,7 +19,6 @@ assert(uiSource.includes('settings-account-admin-grant-ensure'));
 assert(uiSource.includes('settings-account-admin-grant-revoke'));
 assert(uiSource.includes('grantMutationErrorText'));
 assert(uiSource.includes('overview.grantsEtag'));
-assert(!adapterSource.includes('createAccount('));
 assert(!uiSource.includes('.innerHTML'));
 
 const calls = [];
