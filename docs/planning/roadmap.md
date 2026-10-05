@@ -63,21 +63,21 @@ Current Multiuser architecture slice:
 MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
 
 Current Multiuser runtime slice:
-MU.9B - Account Lifecycle Mutation UI [IMPLEMENTATION CANDIDATE]
+MU.9C - Session Revoke UI [IMPLEMENTATION CANDIDATE]
 
 Latest completed Multiuser runtime slice:
-MU.9A - Account Administration Read UI [IMPLEMENTATION MERGED - PR #418 / EXACT MERGED-MAIN YAVDR PASS / HOSTED CI GREEN]
+MU.9B - Account Lifecycle Mutation UI [IMPLEMENTATION MERGED - PR #420 / REAL YAVDR PASS / HOSTED CI GREEN]
 
 Completed MU.7 sub-slice:
 Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
 
 Next product slice:
-MU.9B - Account Lifecycle Mutation UI [IMPLEMENTATION CANDIDATE]
+MU.9C - Session Revoke UI [IMPLEMENTATION CANDIDATE]
 ```
 
 Phases 65 through 69 are completed. Durable Phase-69 evidence lives in [Phase 69 Closeout](../development/phase-69-closeout.md). Phase 70 is the next strict numbered phase but is not started and has no runtime authorization until its required ADR is accepted.
 
-The active cross-cutting productization work is the [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md). MU.0-MU.7 are complete, [ADR-0067](../adr/ADR-0067-human-account-backend-access-administration.md) is accepted; MU.6B Public Account item/revision and MU.6C public lifecycle mutation are completed, MU.6D Atomic Account CREATE + durable idempotency merged as PR #411, and MU.7 grant administration passed REAL YAVDR acceptance and merged as PR #413. MU.8 implementation is complete through MU.8C; MU.8A retains its separately documented real-runtime acceptance debt. MU.9 is in progress: MU.9A merged as PR #418 after exact merged-main yaVDR acceptance, with PR and post-merge hosted CI green; MU.9B Account Lifecycle Mutation UI is now the active bounded implementation candidate. MU.8A merged as PR #415. MU.8B passed focused yaVDR acceptance, merged as PR #416, and both PR and post-merge hosted CI are green; live daemon installation/restart was not required for that bounded slice.
+The active cross-cutting productization work is the [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md). MU.0-MU.7 are complete, [ADR-0067](../adr/ADR-0067-human-account-backend-access-administration.md) is accepted; MU.6B Public Account item/revision and MU.6C public lifecycle mutation are completed, MU.6D Atomic Account CREATE + durable idempotency merged as PR #411, and MU.7 grant administration passed REAL YAVDR acceptance and merged as PR #413. MU.8 implementation is complete through MU.8C; MU.8A retains its separately documented real-runtime acceptance debt. MU.9 is in progress: MU.9A merged as PR #418 after exact merged-main yaVDR acceptance, with PR and post-merge hosted CI green; MU.9B Account Lifecycle Mutation UI merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green. MU.9C Session Revoke UI is now the active bounded implementation candidate over the accepted MU.8B contract. MU.8A merged as PR #415. MU.8B passed focused yaVDR acceptance, merged as PR #416, and both PR and post-merge hosted CI are green; live daemon installation/restart was not required for that bounded slice.
 
 Future order: Phase 67 Broadcast Companion -> Phase 68 Legacy OSD -> Phase 69 Public API hardening -> Phase 70 Recommendation / Knowledge Graph.
 
@@ -972,7 +972,7 @@ MU.7 Backend access / permission grant administration           [COMPLETED — R
 MU.8A Safe credential/session metadata                          [IMPLEMENTATION MERGED — PR #415 / RUNTIME ACCEPTANCE PENDING]
 MU.8B Session Revoke                                            [IMPLEMENTATION MERGED - PR #416 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
 MU.8C Human-password Credential Revoke                           [IMPLEMENTATION MERGED - PR #417 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
-MU.9 Account and access administration UI                      [IN PROGRESS - MU.9B ACCOUNT LIFECYCLE UI CANDIDATE]
+MU.9 Account and access administration UI                      [IN PROGRESS - MU.9C SESSION REVOKE UI CANDIDATE]
 MU.10 Device/app pairing                                        [LATER]
 MU.11 Profiles / household personalization                      [LATER]
 ```
@@ -988,7 +988,7 @@ Required product capability:
 - never return password verifiers, bootstrap material, browser secrets or reusable credentials;
 - keep local operator recovery separate from ordinary Public-v1 Account CRUD.
 
-This milestone is the active cross-cutting Multiuser productization line. It remains independent of numbered Phase 70. MU.6 is completed through MU.6D / PR #411. MU.7 grant administration is completed after REAL YAVDR acceptance and PR #413 merge, and MU.8 implementation is complete through MU.8C; MU.8A retains its separately documented real-runtime acceptance debt. MU.9 is in progress: MU.9A merged as PR #418 after exact merged-main yaVDR acceptance, with PR and post-merge hosted CI green; MU.9B Account Lifecycle Mutation UI is now the active bounded implementation candidate. MU.8A merged as PR #415. MU.8B passed focused yaVDR acceptance, merged as PR #416, and both PR and post-merge hosted CI are green; live daemon installation/restart was not required for that bounded slice.
+This milestone is the active cross-cutting Multiuser productization line. It remains independent of numbered Phase 70. MU.6 is completed through MU.6D / PR #411. MU.7 grant administration is completed after REAL YAVDR acceptance and PR #413 merge, and MU.8 implementation is complete through MU.8C; MU.8A retains its separately documented real-runtime acceptance debt. MU.9 is in progress: MU.9A merged as PR #418 after exact merged-main yaVDR acceptance, with PR and post-merge hosted CI green; MU.9B Account Lifecycle Mutation UI merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green. MU.9C Session Revoke UI is now the active bounded implementation candidate over the accepted MU.8B contract. MU.8A merged as PR #415. MU.8B passed focused yaVDR acceptance, merged as PR #416, and both PR and post-merge hosted CI are green; live daemon installation/restart was not required for that bounded slice.
 
 ## Milestone B — Broad Timer Product UI
 
@@ -1200,7 +1200,7 @@ This ordering intentionally places Teletext/HbbTV **before** Legacy OSD because 
 
 Phases 65 through 69 are completed for their accepted bounded scopes. Durable Phase-69 evidence is in [Phase 69 Closeout](../development/phase-69-closeout.md).
 
-The post-Phase-69 P2 Human Account / First Admin / recovery sequence and Legacy Basic retirement are completed for the accepted bounded scope; see [P2 Legacy Basic Retirement Closeout](../development/post-phase69-p2-legacy-basic-retirement-closeout.md). The Multiuser / Account and Backend Access Administration workstream is the active cross-cutting productization line, with MU.0-MU.7 complete; MU.6D merged as PR #411 and MU.7 grant administration merged as PR #413 after REAL YAVDR acceptance. MU.8 implementation is complete through MU.8C; MU.8A retains its separately documented real-runtime acceptance debt. MU.9 is in progress: MU.9A merged as PR #418 after exact merged-main yaVDR acceptance, with PR and post-merge hosted CI green; MU.9B Account Lifecycle Mutation UI is now the active bounded implementation candidate. MU.8A merged as PR #415. MU.8B passed focused yaVDR acceptance, merged as PR #416, and both PR and post-merge hosted CI are green; live daemon installation/restart was not required for that bounded slice. This explicit selection is separate from the historical fact that Legacy Basic retirement itself did not automatically choose a successor. Phase 70 remains not started and cannot begin runtime implementation until its dedicated ADR is accepted.
+The post-Phase-69 P2 Human Account / First Admin / recovery sequence and Legacy Basic retirement are completed for the accepted bounded scope; see [P2 Legacy Basic Retirement Closeout](../development/post-phase69-p2-legacy-basic-retirement-closeout.md). The Multiuser / Account and Backend Access Administration workstream is the active cross-cutting productization line, with MU.0-MU.7 complete; MU.6D merged as PR #411 and MU.7 grant administration merged as PR #413 after REAL YAVDR acceptance. MU.8 implementation is complete through MU.8C; MU.8A retains its separately documented real-runtime acceptance debt. MU.9 is in progress: MU.9A merged as PR #418 after exact merged-main yaVDR acceptance, with PR and post-merge hosted CI green; MU.9B Account Lifecycle Mutation UI merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green. MU.9C Session Revoke UI is now the active bounded implementation candidate over the accepted MU.8B contract. MU.8A merged as PR #415. MU.8B passed focused yaVDR acceptance, merged as PR #416, and both PR and post-merge hosted CI are green; live daemon installation/restart was not required for that bounded slice. This explicit selection is separate from the historical fact that Legacy Basic retirement itself did not automatically choose a successor. Phase 70 remains not started and cannot begin runtime implementation until its dedicated ADR is accepted.
 
 Completed-Recording arbitrary time-seek and stop/resume are accepted for the supported progressive-fMP4 and HLS restart-seek profiles. Growing-Recording seek, Live-TV timeshift and broader VDR-index mapping not required by those accepted paths remain deferred and must stay explicit/fail-safe until separately justified.
 

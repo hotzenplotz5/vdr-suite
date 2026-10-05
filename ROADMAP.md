@@ -48,7 +48,7 @@ Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
 
 The following are deliberately not inserted as numbered phases:
 
-- Multiuser / Account and Backend Access Administration **[ACTIVE — MU.9A MERGED / MU.9B IMPLEMENTATION CANDIDATE]**;
+- Multiuser / Account and Backend Access Administration **[ACTIVE — MU.9C SESSION REVOKE UI CANDIDATE]**;
 - Broad Timer Product UI **[PLANNED — gated on Multiuser administration]**;
 - Audit/Security/Operations product surfaces;
 - Legacy Basic retirement **[COMPLETED]**;
@@ -57,7 +57,7 @@ The following are deliberately not inserted as numbered phases:
 
 Active Multiuser authority: [Post-Phase-69 Multiuser Productization Workstream](docs/development/post-phase69-multiuser-workstream.md).
 
-Completed Multiuser foundation through MU.7: explicit Human Accounts, First Admin/bootstrap/recovery, Legacy Basic retirement and accepted ADR-0067 administration architecture. MU.6B Public Account item/revision and MU.6C public lifecycle mutation are completed; MU.6D Atomic Account CREATE + durable idempotency merged as PR #411. MU.7 Backend access / permission grant administration passed REAL YAVDR acceptance and merged as PR #413. MU.8 implementation is complete through MU.8C; MU.8A still carries separately documented real-runtime acceptance debt. MU.8B merged as PR #416 after focused yaVDR acceptance. MU.8C merged as PR #417 after focused yaVDR acceptance, with PR and post-merge main CI green. MU.9A read-only Account administration UI merged as PR #418 after exact merged-main yaVDR acceptance; PR and post-merge hosted CI are green. MU.9B Account Lifecycle Mutation UI is now the active bounded implementation candidate.
+Completed Multiuser foundation through MU.7: explicit Human Accounts, First Admin/bootstrap/recovery, Legacy Basic retirement and accepted ADR-0067 administration architecture. MU.6B Public Account item/revision and MU.6C public lifecycle mutation are completed; MU.6D Atomic Account CREATE + durable idempotency merged as PR #411. MU.7 Backend access / permission grant administration passed REAL YAVDR acceptance and merged as PR #413. MU.8 implementation is complete through MU.8C; MU.8A still carries separately documented real-runtime acceptance debt. MU.8B merged as PR #416 after focused yaVDR acceptance. MU.8C merged as PR #417 after focused yaVDR acceptance, with PR and post-merge main CI green. MU.9A read-only Account administration UI merged as PR #418 after exact merged-main yaVDR acceptance; PR and post-merge hosted CI are green. MU.9B Account Lifecycle Mutation UI merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green. MU.9C Session Revoke UI is now the active bounded implementation candidate over the accepted MU.8B contract.
 
 Phase 70 remains a separate not-started numbered phase.
 

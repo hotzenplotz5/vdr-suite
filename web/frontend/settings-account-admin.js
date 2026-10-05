@@ -49,6 +49,18 @@
     return errorText(error);
   }
 
+  function sessionMutationErrorText(error) {
+    if (error && error.status === 412) {
+      return t('settings.accountAdminSessionRevisionConflict',
+        'Die Sitzung wurde zwischenzeitlich geändert. Die aktuellen Daten wurden neu geladen.');
+    }
+    if (error && error.status === 428) {
+      return t('settings.accountAdminSessionRevisionRequired',
+        'Für diesen Widerruf fehlt ein aktueller Sitzungsstand.');
+    }
+    return errorText(error);
+  }
+
   function appendMeta(parent, label, value) {
     const row = document.createElement('div');
     row.className = 'settings-line';
@@ -177,6 +189,24 @@
       appendMeta(entry, 'Status', statusText(session));
       appendMeta(entry, 'Zuletzt aktiv', session.lastSeenAt || '-');
       appendMeta(entry, 'Gültig bis', session.expiresAt || '-');
+
+      if (actions && session.sessionId && session.active === true &&
+          !session.revoked && !session.expired) {
+        const revoke = addText(document.createElement('button'),
+          t('settings.accountAdminRevokeSession', 'Sitzung widerrufen'));
+        revoke.type = 'button';
+        revoke.className = 'settings-account-admin-session-revoke';
+        revoke.disabled = Boolean(actions.busy);
+        revoke.addEventListener('click', function() {
+          if (typeof global.confirm === 'function') {
+            const confirmed = global.confirm(t('settings.accountAdminRevokeSessionConfirm',
+              'Sitzung widerrufen? Dieses Gerät muss sich anschließend erneut anmelden.'));
+            if (!confirmed) return Promise.resolve(false);
+          }
+          return actions.revokeSession(session.sessionId);
+        });
+        entry.appendChild(revoke);
+      }
     });
     parent.appendChild(sessions);
   }
@@ -262,6 +292,11 @@
           return mutateSelected(function(overview) {
             return api.deactivateAccount(overview.account.accountId, overview.accountEtag);
           });
+        },
+        revokeSession: function(sessionId) {
+          return mutateSelected(function(overview) {
+            return api.revokeAccountSession(overview.account.accountId, sessionId);
+          }, sessionMutationErrorText);
         }
       };
     }
@@ -280,7 +315,7 @@
       });
     }
 
-    function mutateSelected(operation) {
+    function mutateSelected(operation, errorFormatter) {
       if (state.mutating || !state.selectedOverview ||
           !state.selectedOverview.account || !state.selectedOverview.accountEtag) {
         return Promise.resolve(false);
@@ -307,7 +342,9 @@
         }).catch(function() {
           return null;
         }).then(function() {
-          status.textContent = mutationErrorText(error);
+          const formatError = typeof errorFormatter === 'function'
+            ? errorFormatter : mutationErrorText;
+          status.textContent = formatError(error);
           return false;
         });
       }).finally(function() {

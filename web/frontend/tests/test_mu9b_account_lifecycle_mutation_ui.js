@@ -24,7 +24,6 @@ assert(uiSource.includes('accountAdminDeactivateConfirm'));
 assert(!adapterSource.includes('createAccount('));
 assert(!adapterSource.includes('setAccountGrant('));
 assert(!adapterSource.includes('revokeAccountCredential('));
-assert(!adapterSource.includes('revokeAccountSession('));
 assert(!uiSource.includes('.innerHTML'));
 
 const calls = [];

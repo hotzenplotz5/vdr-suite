@@ -1,6 +1,6 @@
 # MU.9B — Account Lifecycle Mutation UI
 
-Status: **IMPLEMENTATION CANDIDATE**
+Status: **IMPLEMENTATION MERGED — PR #420 / REAL YAVDR PASS / HOSTED CI GREEN**
 
 Parent workstream: [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md)
 
@@ -84,6 +84,8 @@ make test-mu9b-account-lifecycle-ui
 python3 tools/check_frontend_ownership_contracts.py
 python3 tools/check_phase_consistency.py
 ```
+
+Real yaVDR acceptance passed on exact implementation head `f5fa4f0288314e750970a2e8a84457a3df42074c` before merge, without a local daemon build, installation, restart or runtime mutation. PR #420 merged that accepted tree to `main` as `8ae2085cd4e204498abb4dcc4646f57aa0c16540`. VDR-Suite CI #9741 (run `37219082038`) succeeded on the PR head and post-merge push CI #9742 (run `37219534287`) succeeded on the merge commit. This closeout intentionally leaves the successor MU.9 slice unselected.
 
 The MU.9B browser integration test must prove the user-style action chain:
 
