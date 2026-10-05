@@ -269,7 +269,7 @@ async function flushMicrotasks(turns) {
   assert.strictEqual(settled, false);
   assert.deepStrictEqual(
     harness.calls.map((call) => Number(call.offset || 0)),
-    [0, 100]
+    [0, 100, 200]
   );
 
   const partialRail = findRail(harness.host, 'series');
