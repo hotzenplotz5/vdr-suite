@@ -163,37 +163,19 @@ std::vector<VdrRecording> VdrRecordingQueryService::loadRecordings(
     const std::string backendId =
         effectiveBackendId(query);
 
-    if (recordingCacheRepository_ != nullptr &&
-        recordingCacheRepository_->countForBackend(backendId) > 0)
+    if (recordingCacheRepository_ != nullptr)
     {
+        // The production daemon owns Recording refresh through its dedicated
+        // backend-scoped worker. A browser read must never start a competing
+        // live VDR/RESTfulAPI Recording load merely because the cache is
+        // currently empty, warming, stale or failed.
         return recordingCacheRepository_->findAllForBackend(backendId);
-    }
-
-    if (query.hasBackendFilter() &&
-        backendId != defaultBackendId_)
-    {
-        return {};
     }
 
     std::vector<VdrRecording> liveRecordings =
         vdrService_.getRecordings();
 
     vdrsuite::recording::normalizeForCatalog(liveRecordings);
-
-    if (recordingCacheRepository_ != nullptr &&
-        !liveRecordings.empty())
-    {
-        if (recordingCacheRepository_->replaceRecordingsForBackend(
-                backendId,
-                liveRecordings))
-        {
-            recordingCacheRepository_->markRefreshFinished(
-                backendId,
-                static_cast<int>(liveRecordings.size()));
-
-            return recordingCacheRepository_->findAllForBackend(backendId);
-        }
-    }
 
     return liveRecordings;
 }
