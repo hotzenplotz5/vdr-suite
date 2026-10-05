@@ -52,7 +52,7 @@ def main():
 
     for name in ("adapter", "ui"):
         for marker in (
-            "createAccount(", "setAccountGrant(", "revokeAccountCredential(",
+            "createAccount(", "setAccountGrant(",
         ):
             forbid(name, marker)
 
@@ -83,15 +83,17 @@ def main():
         "MU9C_STATUS=SUCCESSOR_STATUS_NOT_OWNED_BY_MU9B_GUARD")
 
     require("current",
-        "MU.9C - Session Revoke UI [IMPLEMENTATION CANDIDATE]")
+        "MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION CANDIDATE]")
     forbid("current", "The successor MU.9 slice has not yet been selected.")
     require("workstream",
-        "MU.9C - Session Revoke UI [IMPLEMENTATION CANDIDATE]")
-    require("slice_doc", "Status: **IMPLEMENTATION CANDIDATE**")
+        "MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION CANDIDATE]")
+    require("slice_doc",
+        "Status: **IMPLEMENTATION MERGED — PR #426 / FOCUSED YAVDR PASS / MAIN CI PENDING**")
 
     print("MU.9C Session revoke UI contracts passed")
     print("MU9B=IMPLEMENTATION_MERGED_PR_420_REAL_YAVDR_PASS_HOSTED_CI_GREEN")
-    print("MU9C=IMPLEMENTATION_CANDIDATE")
+    print("MU9C=IMPLEMENTATION_MERGED_PR_426_FOCUSED_YAVDR_PASS_MAIN_CI_PENDING")
+    print("MU9D_STATUS=SUCCESSOR_STATUS_NOT_OWNED_BY_MU9C_GUARD")
     print("PHASE70=NOT_STARTED")
     return 0
 

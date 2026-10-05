@@ -56,7 +56,7 @@ The completed numbered planning boundary is now Phase 69; 69.A-F are accepted. P
 
 For successor planning, re-read live `main`, CURRENT, the Strict Roadmap and the Phase-69 closeout. Do not start Phase 70 until its required runtime ADR is accepted.
 
-The active cross-cutting productization line is [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md): MU.0-MU.7 are complete; MU.6B Public Account item/revision and MU.6C public lifecycle mutation are completed, MU.6D Atomic Account CREATE + durable idempotency merged as PR #411, and MU.7 Backend access / permission grant administration passed REAL YAVDR acceptance and merged as PR #413. MU.8 implementation is complete through MU.8C. MU.8A merged as PR #415 with separately documented real-runtime acceptance still pending; MU.8B merged as PR #416 after focused yaVDR acceptance; MU.8C merged as PR #417 after focused yaVDR acceptance with PR and post-merge main CI green. MU.9A read-only Account administration UI merged as PR #418 after exact merged-main yaVDR acceptance; PR and post-merge hosted CI are green. MU.9B Account Lifecycle Mutation UI merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green. MU.9C Session Revoke UI is now the active bounded implementation candidate over the accepted MU.8B contract.
+The active cross-cutting productization line is [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md): MU.0-MU.7 are complete; MU.6B Public Account item/revision and MU.6C public lifecycle mutation are completed, MU.6D Atomic Account CREATE + durable idempotency merged as PR #411, and MU.7 Backend access / permission grant administration passed REAL YAVDR acceptance and merged as PR #413. MU.8 implementation is complete through MU.8C. MU.8A merged as PR #415 with separately documented real-runtime acceptance still pending; MU.8B merged as PR #416 after focused yaVDR acceptance; MU.8C merged as PR #417 after focused yaVDR acceptance with PR and post-merge main CI green. MU.9A read-only Account administration UI merged as PR #418 after exact merged-main yaVDR acceptance; PR and post-merge hosted CI are green. MU.9B Account Lifecycle Mutation UI merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green. MU.9C Session Revoke UI passed focused yaVDR acceptance and merged as PR #426; post-merge main CI had not yet started when this status was recorded. MU.9D Human-password Credential Revoke UI is now the active bounded implementation candidate over the accepted MU.8C contract.
 
 ## Planning cautions
 
@@ -83,6 +83,7 @@ The active cross-cutting productization line is [Post-Phase-69 Multiuser Product
 - [Current Project Status](../development/current-status.md)
 - [MU.9B Account Lifecycle Mutation UI](../development/post-phase69-mu9b-account-lifecycle-ui.md)
 - [MU.9C Session Revoke UI](../development/post-phase69-mu9c-session-revoke-ui.md)
+- [MU.9D Human-password Credential Revoke UI](../development/post-phase69-mu9d-credential-revoke-ui.md)
 - [Current Architecture State](../development/current-architecture-state.md)
 
 ## Back
