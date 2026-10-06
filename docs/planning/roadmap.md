@@ -151,7 +151,7 @@ The following strings describe historical Phase-64 intermediate boundaries only.
 - `Phase 64 Slice 3 — TimerAssignment Domain Contract`
 - `Status: **Active; Slice 3 is the TimerAssignment domain contract.**`
 - `No TimerAssignment persistence; no NativeTimerBinding; no scheduler or failover execution`
-- `Account/backend access management is a hard prerequisite before broad Timer UI wiring`
+- `MU.9 Account/backend access management is the hard prerequisite before broad Timer UI wiring; that prerequisite is now satisfied by the MU.9 closeout`
 
 Later accepted Phase-64 work superseded those implementation limitations without rewriting historical slice documents.
 
