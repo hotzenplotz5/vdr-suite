@@ -1,6 +1,6 @@
 # MU.10 — Device/App Pairing Architecture and Gap Audit
 
-Status: **LIVE AUDIT COMPLETE — MU.10A IMPLEMENTATION CANDIDATE**
+Status: **LIVE AUDIT COMPLETE — MU.10A IMPLEMENTATION CANDIDATE / FOCUSED REAL YAVDR PASS**
 
 Audited against `main` `5199bfadff4f2219f623fa5ce841d5b6139a026c`.
 There were no open pull requests. Exact-head normal CI run `37500705794`
@@ -258,3 +258,20 @@ The bounded implementation is documented in
 MU.10A owns only short-lived Pairing Request creation and token-scoped polling.
 It does not approve a Device, create Actor/Device/Credential/Session identity,
 grant permissions or authenticate ordinary Public-v1 resources.
+
+
+## MU.10A focused real-yaVDR acceptance
+
+Candidate `75e9f65790d7a2cc5bbcf8cfbeb22c1738ad0e39` passed the
+focused detached-worktree acceptance against `main`
+`5199bfadff4f2219f623fa5ce841d5b6139a026c`.
+
+The accepted checks covered the Device Pairing service/persistence contract,
+Public-v1 Pairing routes, SecurityHttpGate isolation, TestHttpServer/API router
+composition, reference-client seam, public route inventory, predecessor
+administration-usability guard and numbered-phase consistency. The run ended
+with `MU10A_FOCUSED_ACCEPTANCE=PASS`.
+
+No daemon build, installation, restart, runtime mutation, VIDAA-repository
+change, PR or merge occurred. Hosted PR CI remains pending until a PR is
+explicitly authorized.
