@@ -52,11 +52,11 @@ Historical Phase-69 closeout records retained for traceability: `docs/developmen
 - Current active numbered runtime slice: **none - Phase 70 - Recommendation and Content Knowledge Graph not started**.
 - Current active cross-cutting productization workstream: **Multiuser / Account and Backend Access Administration**.
 - Current Multiuser architecture slice: **MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]**.
-- Current Multiuser runtime slice: **MU.9F - Account CREATE UI [IMPLEMENTATION CANDIDATE]**.
-- Latest completed Multiuser runtime slice: **MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION MERGED - PR #428 / FOCUSED YAVDR PASS / HOSTED CI GREEN]**.
+- Current Multiuser runtime slice: **MU.9 - Account and access administration UI [COMPLETED - MU.9A-F / CLOSEOUT PR #431 / POST-MERGE CI #9768 GREEN]**.
+- Latest completed Multiuser runtime slice: **MU.9 - Account and access administration UI [COMPLETED - MU.9A-F / CLOSEOUT PR #431 / POST-MERGE CI #9768 GREEN]**.
 - Completed MU.7 sub-slice: **Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]**.
-- Next product slice: **MU.9F - Account CREATE UI [IMPLEMENTATION CANDIDATE]**.
-- MU.0-MU.7 are completed; MU.6D merged as PR #411 and MU.7 grant administration merged as PR #413 after REAL YAVDR acceptance. MU.8 implementation is complete through MU.8C: MU.8A merged as PR #415 with separately documented real-runtime acceptance still pending, MU.8B merged as PR #416 after focused yaVDR acceptance, and MU.8C merged as PR #417 after focused yaVDR acceptance with green PR/post-merge hosted CI. MU.9A, MU.9B and MU.9C are merged; MU.9D Human-password Credential Revoke UI is merged as PR #428; MU.9E Backend Grant Mutation UI merged as PR #429 with post-merge CI #9763 green; MU.9F Account CREATE UI is the selected successor.
+- Next product slice: **MU.9 - Account and access administration UI [COMPLETED - MU.9A-F / CLOSEOUT PR #431 / POST-MERGE CI #9768 GREEN]**.
+- MU.0-MU.7 are completed; MU.6D merged as PR #411 and MU.7 grant administration merged as PR #413 after REAL YAVDR acceptance. MU.8 implementation is complete through MU.8C: MU.8A merged as PR #415 with separately documented real-runtime acceptance still pending, MU.8B merged as PR #416 after focused yaVDR acceptance, and MU.8C merged as PR #417 after focused yaVDR acceptance with green PR/post-merge hosted CI. MU.9A, MU.9B and MU.9C are merged; MU.9D Human-password Credential Revoke UI is merged as PR #428; MU.9E Backend Grant Mutation UI merged as PR #429 with post-merge CI #9763 green; MU.9 is closed through MU.9F / PR #430 and closeout PR #431; no successor is selected.
 - Durable Phase-68 completion evidence: [Phase 68 Closeout](development/phase-68-closeout.md) and [Phase 68 Kickoff](development/phase-68-legacy-osd-kickoff.md).
 - Phase-67 Teletext and HbbTV verticals are both completed and accepted.
 - Phase 65.A through 65.D are closed for their accepted bounded scopes; ADR-0056 semantic consolidation and ADR-0057 Recording network recovery are completed Phase-65 history.
