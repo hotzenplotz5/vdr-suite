@@ -33,6 +33,13 @@ struct HumanAccountGrantAdministrationContext
     std::string correlationId;
 };
 
+struct HumanAccountGrantOption
+{
+    std::string permission;
+    std::string presentationKey;
+    std::string category;
+};
+
 struct HumanAccountGrantSet
 {
     std::string accountId;
@@ -82,6 +89,7 @@ public:
         const std::string& backendId);
 
     static std::vector<std::string> supportedGrantPermissions();
+    static std::vector<HumanAccountGrantOption> supportedGrantPermissionOptions();
     static std::vector<std::string> supportedGrantScopeKinds();
 
 private:
