@@ -75,6 +75,13 @@ const publicClient = {
           'role.read-only',
           'timers.view'
         ],
+        supportedPermissionOptions: [
+          {permission: 'role.admin', presentationKey: 'role.admin', category: 'role'},
+          {permission: 'role.read-only', presentationKey: 'role.read-only', category: 'role'},
+          {permission: 'channels.view', presentationKey: 'channels.view', category: 'permission'},
+          {permission: 'recordings.rename', presentationKey: 'recordings.rename', category: 'permission'},
+          {permission: 'timers.view', presentationKey: 'timers.view', category: 'permission'}
+        ],
         supportedScopeKinds: ['global', 'backend']
       }
     });
@@ -218,7 +225,7 @@ function setEnsureFields(root, permission, backendId) {
     'grant scope must be a selector, not free text');
   assert.deepStrictEqual(
     permissionPicker.children.map(option => option.value),
-    ['', 'channels.view', 'recordings.rename', 'role.admin', 'role.read-only', 'timers.view']
+    ['', 'role.admin', 'role.read-only', 'channels.view', 'recordings.rename', 'timers.view']
   );
   assert.deepStrictEqual(
     backendPicker.children.map(option => option.value),
