@@ -283,6 +283,7 @@ CI_FRONTEND_TESTS := \
 
 CI_PACKAGING_TESTS := \
 	test-systemd-unit-contract \
+	test-install-runtime-deployment \
 	test-install-staging
 
 EXTENDED_LOCAL_TESTS := \
