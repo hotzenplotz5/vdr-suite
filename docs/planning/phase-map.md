@@ -42,16 +42,16 @@ Current Multiuser architecture slice:
 MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
 
 Current Multiuser productization slice:
-Post-MU.9 Administration Usability [CANDIDATE]
+MU.10A Device Pairing Bootstrap [IMPLEMENTATION CANDIDATE]
 
 Latest completed Multiuser milestone:
-MU.9 - Account/access administration UI [COMPLETED - CLOSEOUT PR #431]
+Post-MU.9 Administration Usability [MERGED - PR #433 / REAL YAVDR PASS / HOSTED CI GREEN]
 
 Completed MU.7 sub-slice:
 Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
 
-Next planned successor after usability acceptance:
-MU.10 - Device/app pairing [LATER]
+Current Device/app pairing slice:
+MU.10A - short-lived Pairing Request + token-scoped polling [IMPLEMENTATION CANDIDATE]
 
 Completed Phase-67 verticals:
 Teletext + HbbTV discovery/application-session/presentation-media runtime
