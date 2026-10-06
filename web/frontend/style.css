@@ -2089,6 +2089,112 @@ img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
   opacity: 0.65;
 }
 
+.settings-account-admin-intro,
+.settings-account-admin-callout {
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 0.7rem;
+  background: rgba(14, 116, 144, 0.10);
+}
+
+.settings-account-admin-intro {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.settings-account-admin-intro p,
+.settings-account-admin-callout {
+  margin: 0;
+}
+
+.settings-account-admin-guide {
+  padding: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 0.8rem;
+  background: rgba(15, 23, 42, 0.38);
+}
+
+.settings-account-admin-guide-step {
+  display: grid;
+  grid-template-columns: 1.7rem minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: start;
+  padding: 0.55rem 0;
+}
+
+.settings-account-admin-guide-step + .settings-account-admin-guide-step {
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.settings-account-admin-guide-marker {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  font-weight: 800;
+}
+
+.settings-account-admin-guide-step.complete .settings-account-admin-guide-marker {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+}
+
+.settings-account-admin-guide-step.pending .settings-account-admin-guide-marker {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fcd34d;
+}
+
+.settings-account-admin-guide-step > div {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.settings-account-admin-guide-step span:last-child {
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.settings-account-admin-hint {
+  margin: 0;
+}
+
+.settings-account-admin-callout {
+  border-color: rgba(245, 158, 11, 0.32);
+  background: rgba(120, 53, 15, 0.12);
+  color: #fde68a;
+}
+
+.settings-account-admin-grant-picker {
+  align-items: end;
+}
+
+.settings-account-admin-grant-picker .settings-account-admin-field {
+  flex: 1 1 15rem;
+}
+
+.settings-account-admin-technical {
+  margin-top: 0.45rem;
+  padding-top: 0.3rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.settings-account-admin-technical summary {
+  cursor: pointer;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.settings-account-admin-technical[open] {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.settings-account-admin select.settings-account-admin-display-name-input {
+  appearance: auto;
+}
+
 @media (max-width: 900px) {
   .settings-account-admin-layout {
     grid-template-columns: minmax(0, 1fr);
