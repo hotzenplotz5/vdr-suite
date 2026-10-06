@@ -1,6 +1,6 @@
 # MU.10A — Device Pairing Bootstrap
 
-Status: **IMPLEMENTATION CANDIDATE — HOSTED ACCEPTANCE PENDING**
+Status: **IMPLEMENTATION CANDIDATE — FOCUSED REAL YAVDR PASS / HOSTED PR CI PENDING**
 
 Authority:
 [MU.10 Device/App Pairing Architecture and Gap Audit](post-phase69-mu10-device-app-pairing-audit.md).
@@ -174,12 +174,41 @@ server-side revoke is **not** meaningful yet because MU.10B-D do not exist.
 
 ## Candidate acceptance
 
-Focused repository acceptance is:
+Focused real-yaVDR acceptance passed on candidate
+`75e9f65790d7a2cc5bbcf8cfbeb22c1738ad0e39`, based directly on
+`main` `5199bfadff4f2219f623fa5ce841d5b6139a026c`.
+
+The temporary detached worktree ran:
 
 ```text
-make test-security-device-pairing-request
+git diff --check origin/main...HEAD
+make --output-sync=target test-security-device-pairing-request
+make --output-sync=target test-test-http-server
+make --output-sync=target test-api-router
 python3 tools/check_phase69_public_api_inventory.py
+python3 tools/check_mu10a_device_pairing_bootstrap.py
+python3 tools/check_multiuser_admin_ux_guidance.py
+python3 tools/check_phase_consistency.py
 ```
 
-No daemon build, installation, restart or runtime mutation is required for this
-candidate. No PR or merge is authorized by this document.
+All focused gates returned zero and the final marker was
+`MU10A_FOCUSED_ACCEPTANCE=PASS`.
+
+Safety evidence:
+
+```text
+DAEMON_BUILD=NO
+INSTALLATION=NO
+RESTART=NO
+RUNTIME_MUTATION=NO
+VIDAA_REPO_CHANGED=NO
+PR_CREATED=NO
+MERGE_PERFORMED=NO
+```
+
+The shell returned to the normal yaVDR prompt after the test. Later failed
+`sudo su` authentication attempts occurred after acceptance had completed and
+are unrelated to MU.10A.
+
+Hosted PR CI remains pending because no PR has been authorized or created.
+No PR or merge is authorized by this document.
