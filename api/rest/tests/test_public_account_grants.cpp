@@ -23,6 +23,15 @@ PublicAccountGrantSetResource grantSet(
         "role.admin",
         "role.read-only",
         "timers.view"};
+    for (const std::string& permission : value.supportedPermissions)
+    {
+        PublicAccountGrantOption option;
+        option.permission = permission;
+        option.presentationKey = permission;
+        option.category =
+            permission.find("role.") == 0U ? "role" : "permission";
+        value.supportedPermissionOptions.push_back(option);
+    }
     value.supportedScopeKinds = {
         "global",
         "backend"};
@@ -122,6 +131,11 @@ int main()
     assert(read.statusCode == 200);
     assert(read.body.find(
         "\"supportedPermissions\":[\"channels.view\",\"role.admin\",\"role.read-only\",\"timers.view\"]") !=
+        std::string::npos);
+    assert(read.body.find(
+        "\"supportedPermissionOptions\":[") != std::string::npos);
+    assert(read.body.find(
+        "{\"permission\":\"role.admin\",\"presentationKey\":\"role.admin\",\"category\":\"role\"}") !=
         std::string::npos);
     assert(read.body.find(
         "\"supportedScopeKinds\":[\"global\",\"backend\"]") !=
