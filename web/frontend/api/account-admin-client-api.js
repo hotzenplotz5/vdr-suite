@@ -73,6 +73,9 @@
         supportedPermissions:
           grantsResult.data && Array.isArray(grantsResult.data.supportedPermissions)
             ? grantsResult.data.supportedPermissions : [],
+        supportedPermissionOptions:
+          grantsResult.data && Array.isArray(grantsResult.data.supportedPermissionOptions)
+            ? grantsResult.data.supportedPermissionOptions : [],
         supportedScopeKinds:
           grantsResult.data && Array.isArray(grantsResult.data.supportedScopeKinds)
             ? grantsResult.data.supportedScopeKinds : [],
