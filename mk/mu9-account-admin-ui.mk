@@ -1,4 +1,4 @@
-.PHONY: test-mu9a-account-admin-read-ui test-mu9b-account-lifecycle-ui test-mu9c-session-revoke-ui test-mu9d-credential-revoke-ui test-mu9e-grant-mutation-ui test-mu9f-account-create-ui
+.PHONY: test-mu9a-account-admin-read-ui test-mu9b-account-lifecycle-ui test-mu9c-session-revoke-ui test-mu9d-credential-revoke-ui test-mu9e-grant-mutation-ui test-mu9f-account-create-ui test-multiuser-admin-ux-guidance
 
 test-mu9a-account-admin-read-ui:
 	node web/frontend/tests/test_mu9a_account_admin_read_ui.js
@@ -24,5 +24,8 @@ test-mu9f-account-create-ui:
 	node web/frontend/tests/test_mu9f_account_create_ui.js
 	python3 tools/check_mu9f_account_create_ui.py
 
-test-frontend-contracts: test-mu9a-account-admin-read-ui test-mu9b-account-lifecycle-ui test-mu9c-session-revoke-ui test-mu9d-credential-revoke-ui test-mu9e-grant-mutation-ui test-mu9f-account-create-ui
-test-ci-frontend: test-mu9a-account-admin-read-ui test-mu9b-account-lifecycle-ui test-mu9c-session-revoke-ui test-mu9d-credential-revoke-ui test-mu9e-grant-mutation-ui test-mu9f-account-create-ui
+test-multiuser-admin-ux-guidance:
+	python3 tools/check_multiuser_admin_ux_guidance.py
+
+test-frontend-contracts: test-mu9a-account-admin-read-ui test-mu9b-account-lifecycle-ui test-mu9c-session-revoke-ui test-mu9d-credential-revoke-ui test-mu9e-grant-mutation-ui test-mu9f-account-create-ui test-multiuser-admin-ux-guidance
+test-ci-frontend: test-mu9a-account-admin-read-ui test-mu9b-account-lifecycle-ui test-mu9c-session-revoke-ui test-mu9d-credential-revoke-ui test-mu9e-grant-mutation-ui test-mu9f-account-create-ui test-multiuser-admin-ux-guidance

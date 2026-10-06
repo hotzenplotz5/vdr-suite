@@ -86,7 +86,7 @@ bool safeBackendScope(const std::string& value)
         });
 }
 
-const std::set<std::string>& supportedPermissions()
+const std::set<std::string>& supportedPermissionSet()
 {
     static const std::set<std::string> permissions = {
         "role.admin",
@@ -293,7 +293,51 @@ bool HumanAccountGrantAdministrationService::supportedGrant(
     const std::string& backendId)
 {
     return safeBackendScope(backendId) &&
-        supportedPermissions().count(permission) != 0U;
+        supportedPermissionSet().count(permission) != 0U;
+}
+
+std::vector<std::string>
+HumanAccountGrantAdministrationService::supportedGrantPermissions()
+{
+    const auto& permissions = supportedPermissionSet();
+    return std::vector<std::string>(
+        permissions.begin(),
+        permissions.end());
+}
+
+std::vector<HumanAccountGrantOption>
+HumanAccountGrantAdministrationService::supportedGrantPermissionOptions()
+{
+    std::vector<HumanAccountGrantOption> options;
+    for (const std::string& permission : supportedPermissionSet())
+    {
+        HumanAccountGrantOption option;
+        option.permission = permission;
+        option.presentationKey = permission;
+        option.category =
+            permission.rfind("role.", 0U) == 0U
+                ? "role"
+                : "permission";
+        options.push_back(std::move(option));
+    }
+
+    std::stable_sort(
+        options.begin(),
+        options.end(),
+        [](const HumanAccountGrantOption& left,
+           const HumanAccountGrantOption& right)
+        {
+            if (left.category != right.category)
+                return left.category == "role";
+            return left.permission < right.permission;
+        });
+    return options;
+}
+
+std::vector<std::string>
+HumanAccountGrantAdministrationService::supportedGrantScopeKinds()
+{
+    return {"global", "backend"};
 }
 
 HumanAccountGrantAdministrationResult

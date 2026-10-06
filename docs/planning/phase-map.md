@@ -41,17 +41,17 @@ Multiuser / Account and Backend Access Administration
 Current Multiuser architecture slice:
 MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
 
-Current Multiuser runtime slice:
-MU.9F - Account CREATE UI [IMPLEMENTATION MERGED - PR #430 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
+Current Multiuser productization slice:
+Post-MU.9 Administration Usability [CANDIDATE]
 
-Latest completed Multiuser runtime slice:
-MU.9E - Backend Grant Mutation UI [IMPLEMENTATION MERGED - PR #429 / FOCUSED YAVDR PASS / POST-MERGE CI #9763 GREEN]
+Latest completed Multiuser milestone:
+MU.9 - Account/access administration UI [COMPLETED - CLOSEOUT PR #431]
 
 Completed MU.7 sub-slice:
 Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
 
-Next product slice:
-MU.9F - Account CREATE UI [IMPLEMENTATION MERGED - PR #430 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
+Next planned successor after usability acceptance:
+MU.10 - Device/app pairing [LATER]
 
 Completed Phase-67 verticals:
 Teletext + HbbTV discovery/application-session/presentation-media runtime

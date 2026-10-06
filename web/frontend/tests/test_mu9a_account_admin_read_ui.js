@@ -152,7 +152,7 @@ vm.runInContext(adapterSource, context);
   assert(text.includes('Benutzer & Zugriffe'));
   assert(text.includes('Admin A'));
   assert(text.includes('channels.view'));
-  assert(text.includes('human-password'));
+  assert(text.includes('Passwort-Anmeldung'));
   assert(text.includes('living-room'));
   assert.deepStrictEqual(calls.map(call => call.name),
     ['getAccounts', 'getAccount', 'getAccountGrants',

@@ -36,6 +36,18 @@
     return publicClient().getAccounts(readOptions({query: query}));
   }
 
+  function listBackends() {
+    return publicClient().getBackends(readOptions({
+      query: {
+        limit: 100,
+        sort: 'backendId',
+        order: 'asc'
+      }
+    })).then(function(result) {
+      return result && Array.isArray(result.items) ? result.items : [];
+    });
+  }
+
   function loadAccount(accountId) {
     if (typeof accountId !== 'string' || accountId === '') {
       return Promise.reject(new Error('accountId is required'));
@@ -58,6 +70,15 @@
         grants: grantsResult.data && Array.isArray(grantsResult.data.items)
           ? grantsResult.data.items : [],
         grantsEtag: grantsResult.etag || '',
+        supportedPermissions:
+          grantsResult.data && Array.isArray(grantsResult.data.supportedPermissions)
+            ? grantsResult.data.supportedPermissions : [],
+        supportedPermissionOptions:
+          grantsResult.data && Array.isArray(grantsResult.data.supportedPermissionOptions)
+            ? grantsResult.data.supportedPermissionOptions : [],
+        supportedScopeKinds:
+          grantsResult.data && Array.isArray(grantsResult.data.supportedScopeKinds)
+            ? grantsResult.data.supportedScopeKinds : [],
         credentials: Array.isArray(credentials.items) ? credentials.items : [],
         sessions: Array.isArray(sessions.items) ? sessions.items : []
       };
@@ -196,6 +217,7 @@
 
   global.VdrSuiteAccountAdminClientApi = Object.freeze({
     listAccounts: listAccounts,
+    listBackends: listBackends,
     loadAccount: loadAccount,
     createAccount: createAccount,
     updateAccountDisplayName: updateAccountDisplayName,

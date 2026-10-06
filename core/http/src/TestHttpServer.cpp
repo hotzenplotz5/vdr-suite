@@ -790,6 +790,23 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
                 found.grantSet.actorId;
             result.grantSet.resourceRevision =
                 found.grantSet.resourceRevision;
+            result.grantSet.supportedPermissions =
+                HumanAccountGrantAdministrationService::
+                    supportedGrantPermissions();
+            for (const HumanAccountGrantOption& source :
+                 HumanAccountGrantAdministrationService::
+                     supportedGrantPermissionOptions())
+            {
+                PublicAccountGrantOption option;
+                option.permission = source.permission;
+                option.presentationKey = source.presentationKey;
+                option.category = source.category;
+                result.grantSet.supportedPermissionOptions.push_back(
+                    std::move(option));
+            }
+            result.grantSet.supportedScopeKinds =
+                HumanAccountGrantAdministrationService::
+                    supportedGrantScopeKinds();
             for (const PermissionGrant& grant :
                  found.grantSet.grants)
             {
@@ -874,6 +891,23 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
                 mutated.grantSet.actorId;
             result.grantSet.resourceRevision =
                 mutated.grantSet.resourceRevision;
+            result.grantSet.supportedPermissions =
+                HumanAccountGrantAdministrationService::
+                    supportedGrantPermissions();
+            for (const HumanAccountGrantOption& source :
+                 HumanAccountGrantAdministrationService::
+                     supportedGrantPermissionOptions())
+            {
+                PublicAccountGrantOption option;
+                option.permission = source.permission;
+                option.presentationKey = source.presentationKey;
+                option.category = source.category;
+                result.grantSet.supportedPermissionOptions.push_back(
+                    std::move(option));
+            }
+            result.grantSet.supportedScopeKinds =
+                HumanAccountGrantAdministrationService::
+                    supportedGrantScopeKinds();
             for (const PermissionGrant& grant :
                  mutated.grantSet.grants)
             {

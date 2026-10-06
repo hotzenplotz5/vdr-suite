@@ -289,11 +289,21 @@ struct PublicAccountGrantItem
     std::string backendId;
 };
 
+struct PublicAccountGrantOption
+{
+    std::string permission;
+    std::string presentationKey;
+    std::string category;
+};
+
 struct PublicAccountGrantSetResource
 {
     std::string accountId;
     std::string actorId;
     std::vector<PublicAccountGrantItem> grants;
+    std::vector<std::string> supportedPermissions;
+    std::vector<PublicAccountGrantOption> supportedPermissionOptions;
+    std::vector<std::string> supportedScopeKinds;
     std::string resourceRevision;
 };
 
