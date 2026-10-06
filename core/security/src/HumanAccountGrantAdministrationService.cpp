@@ -305,6 +305,35 @@ HumanAccountGrantAdministrationService::supportedGrantPermissions()
         permissions.end());
 }
 
+std::vector<HumanAccountGrantOption>
+HumanAccountGrantAdministrationService::supportedGrantPermissionOptions()
+{
+    std::vector<HumanAccountGrantOption> options;
+    for (const std::string& permission : supportedPermissionSet())
+    {
+        HumanAccountGrantOption option;
+        option.permission = permission;
+        option.presentationKey = permission;
+        option.category =
+            permission.rfind("role.", 0U) == 0U
+                ? "role"
+                : "permission";
+        options.push_back(std::move(option));
+    }
+
+    std::stable_sort(
+        options.begin(),
+        options.end(),
+        [](const HumanAccountGrantOption& left,
+           const HumanAccountGrantOption& right)
+        {
+            if (left.category != right.category)
+                return left.category == "role";
+            return left.permission < right.permission;
+        });
+    return options;
+}
+
 std::vector<std::string>
 HumanAccountGrantAdministrationService::supportedGrantScopeKinds()
 {
