@@ -39,17 +39,14 @@ make check-install-runtime-deployment \
 2. removes the previous staging root;
 3. invokes the existing `install-runtime` target with `DESTDIR` and
    `PREFIX=/usr`, including every additive install hook;
-4. seals the resulting tree with a SHA-256/mode manifest.
+4. seals the resulting tree with a manifest covering the complete directory set and modes plus SHA-256/mode identity for every installed file.
 
-The seal prevents a staging tree from being modified between staging and
-deployment without detection.
+The seal prevents files, directories or their modes from being modified between staging and deployment without detection.
 
 `deploy-install-runtime` consumes only the sealed staging tree. It does not
 read deployable frontend files directly from `web/frontend`.
 
-Existing files below `/etc` are preserved, matching the repository's
-non-destructive configuration-upgrade rule. Other regular install-runtime files
-are replaced from staging.
+Existing files and directories below `/etc` are preserved, matching the repository's non-destructive configuration-upgrade rule. Other install-runtime directories are created with their staged modes and regular files are replaced from staging.
 
 The staged frontend tree at
 `/usr/share/vdr-suite/web/frontend` is deployed as one complete replacement
