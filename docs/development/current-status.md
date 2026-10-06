@@ -31,13 +31,13 @@ Current active cross-cutting productization workstream: **Multiuser / Account an
 
 Current Multiuser architecture slice: **MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]**.
 
-Current Multiuser runtime slice: **MU.9F - Account CREATE UI [IMPLEMENTATION MERGED - PR #430 / FOCUSED YAVDR PASS / HOSTED CI GREEN]**.
+Current Multiuser runtime slice: **none selected - MU.9 is closed; MU.8A runtime acceptance debt remains explicit**.
 
-Latest completed Multiuser runtime slice: **MU.9E - Backend Grant Mutation UI [IMPLEMENTATION MERGED - PR #429 / FOCUSED YAVDR PASS / POST-MERGE CI #9763 GREEN]**.
+Latest completed Multiuser runtime slice: **MU.9 - Account and access administration UI [COMPLETED - MU.9A-F / CLOSEOUT PR #431 / POST-MERGE CI #9768 GREEN]**.
 
 Completed MU.7 sub-slice: **MU.7 - Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]**.
 
-Next product slice: **MU.9F - Account CREATE UI [IMPLEMENTATION MERGED - PR #430 / FOCUSED YAVDR PASS / HOSTED CI GREEN]**.
+Next product slice: **none selected - resolve/document MU.8A runtime-acceptance debt before selecting MU.10 or another successor**.
 
 MU.0-MU.7 are completed; MU.6D passed real yaVDR acceptance and merged as PR #411, and MU.7 completed the bounded grant-administration boundary with grant-set ETag/read, desired-state ensure/revoke, global accounts.grants.view/modify authority, server-owned allowlist, CSRF and final-admin protection. REAL YAVDR acceptance passed; PR #413 merged. MU.8 implementation is complete through MU.8C. MU.8A merged as PR #415 but its separately documented real-runtime acceptance remains pending. MU.8B passed focused yaVDR acceptance and merged as PR #416. MU.8C passed focused yaVDR acceptance, merged as PR #417, and both its PR CI and post-merge main CI are green. MU.9A read-only Account administration UI merged as PR #418 after exact merged-main yaVDR acceptance; PR and post-merge hosted CI are green. MU.9B Account Lifecycle Mutation UI merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green. MU.9C Session Revoke UI merged as PR #426 after focused yaVDR acceptance and green hosted PR CI. MU.9D Human-password Credential Revoke UI merged as PR #428 after focused yaVDR acceptance; PR and post-merge hosted CI are green. MU.9E Backend Grant Mutation UI merged as PR #429 after focused real-yaVDR acceptance, and post-merge main CI #9763 completed successfully with all six jobs green. MU.9F Account CREATE UI passed focused real-yaVDR acceptance, merged as PR #430, and both PR CI #9764 and post-merge main CI #9765 completed with all six jobs green. MU.9A-F are complete; no MU.9G is selected. Durable status is in [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md), [MU.6D Atomic Account CREATE + Durable Idempotency](post-phase69-mu6d-account-create-idempotency.md) and [MU.7 Backend Access / Permission Grant Administration](post-phase69-mu7-account-grant-administration.md).
 
@@ -184,7 +184,7 @@ The following remain explicit open/deferred boundaries rather than unfinished Ph
 - user-visible growing-Recording seek where unsupported capability remains truthful;
 - Live-TV timeshift;
 - recommendation/content graph runtime (Phase 70), which still requires its dedicated accepted ADR;
-- Multiuser Account/backend access administration with MU.0-MU.8 implementation complete through MU.8C; MU.8A retains separately documented runtime-acceptance debt, MU.8B merged as PR #416, MU.8C merged as PR #417, MU.9C merged as PR #426, MU.9D merged as PR #428, MU.9E merged as PR #429 with post-merge CI #9763 green, and MU.9F Account CREATE UI is the active candidate;
+- Multiuser Account/backend access administration with MU.0-MU.8 implementation complete through MU.8C; MU.8A retains separately documented runtime-acceptance debt, MU.8B merged as PR #416, MU.8C merged as PR #417, MU.9C merged as PR #426, MU.9D merged as PR #428, MU.9E merged as PR #429 with post-merge CI #9763 green, and MU.9 is closed through MU.9F / PR #430 and closeout PR #431; post-merge CI #9768 is green;
 - broad Timer Product UI, which remains gated on completion of the required Multiuser Account/backend access administration surface.
 
 ## Related documents
