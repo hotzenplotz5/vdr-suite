@@ -917,7 +917,9 @@
     }
 
     const loadBackends = typeof api.listBackends === 'function'
-      ? api.listBackends().then(function(items) {
+      ? Promise.resolve().then(function() {
+          return api.listBackends();
+        }).then(function(items) {
           state.backends = Array.isArray(items) ? items : [];
         }).catch(function() {
           state.backends = [];
