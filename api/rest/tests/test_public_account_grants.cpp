@@ -18,6 +18,14 @@ PublicAccountGrantSetResource grantSet(
     value.accountId = "account-a";
     value.actorId = "actor-a";
     value.resourceRevision = revision;
+    value.supportedPermissions = {
+        "channels.view",
+        "role.admin",
+        "role.read-only",
+        "timers.view"};
+    value.supportedScopeKinds = {
+        "global",
+        "backend"};
 
     PublicAccountGrantItem channel;
     channel.permission = "channels.view";
@@ -112,6 +120,12 @@ int main()
         "",
         read));
     assert(read.statusCode == 200);
+    assert(read.body.find(
+        "\"supportedPermissions\":[\"channels.view\",\"role.admin\",\"role.read-only\",\"timers.view\"]") !=
+        std::string::npos);
+    assert(read.body.find(
+        "\"supportedScopeKinds\":[\"global\",\"backend\"]") !=
+        std::string::npos);
     assert(read.headers.count("ETag") == 1U);
     assert(read.body.find(
         "\"accountId\":\"account-a\"") !=
