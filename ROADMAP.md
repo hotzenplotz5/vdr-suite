@@ -48,7 +48,7 @@ Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
 
 The following are deliberately not inserted as numbered phases:
 
-- Multiuser / Account and Backend Access Administration **[ACTIVE — MU.9F ACCOUNT CREATE UI CANDIDATE]**;
+- Multiuser / Account and Backend Access Administration **[MU.9 CLOSED — MU.8A RUNTIME ACCEPTANCE DEBT REMAINS; NO SUCCESSOR SELECTED]**;
 - Broad Timer Product UI **[PLANNED — gated on Multiuser administration]**;
 - Audit/Security/Operations product surfaces;
 - Legacy Basic retirement **[COMPLETED]**;
