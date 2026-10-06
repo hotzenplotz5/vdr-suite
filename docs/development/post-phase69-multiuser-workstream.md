@@ -15,10 +15,10 @@ Account read foundation: completed
 First Admin / bootstrap / recovery: completed
 Legacy Basic retirement: completed
 Administration architecture: ADR-0067 [ACCEPTED]
-Current Multiuser runtime slice: MU.9F - Account CREATE UI [IMPLEMENTATION MERGED - PR #430 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
-Latest completed Multiuser runtime slice: MU.9E - Backend Grant Mutation UI [IMPLEMENTATION MERGED - PR #429 / FOCUSED YAVDR PASS / POST-MERGE CI #9763 GREEN]
+Current Multiuser runtime slice: none selected - MU.9 is closed; MU.8A runtime acceptance debt remains explicit
+Latest completed Multiuser runtime slice: MU.9 - Account and access administration UI [COMPLETED - MU.9A-F / CLOSEOUT PR #431 / POST-MERGE CI #9768 GREEN]
 Completed MU.7 sub-slice: Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
-Current acceptance gate: MU.9F - Account CREATE UI [IMPLEMENTATION MERGED - PR #430 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
+Current acceptance gate: MU.8A real-runtime acceptance debt remains pending; no successor implementation is selected
 ```
 
 ## Binding architecture
