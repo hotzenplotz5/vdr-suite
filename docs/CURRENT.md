@@ -27,6 +27,7 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [MU.9D Human-password Credential Revoke UI](development/post-phase69-mu9d-credential-revoke-ui.md)
 - [MU.9E Backend Grant Mutation UI](development/post-phase69-mu9e-grant-mutation-ui.md)
 - [MU.9F Account CREATE UI](development/post-phase69-mu9f-account-create-ui.md)
+- [MU.9 Closeout](development/post-phase69-mu9-closeout.md)
 - [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md)
 - [Phase 69.B Closeout](development/phase-69b-closeout.md)
 - [Phase 69.C Closeout](development/phase-69c-closeout.md)
