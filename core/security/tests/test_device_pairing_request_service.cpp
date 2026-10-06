@@ -128,6 +128,20 @@ int main()
         service.poll(poll).status ==
         DevicePairingPollStatus::notFound);
 
+    poll.pairingRequestId =
+        created.pairing->resource.pairingRequestId;
+    poll.pairingToken =
+        created.pairing->pairingToken;
+    assert(database.execute(
+        "UPDATE security_device_pairing_requests "
+        "SET expires_at = '2000-01-01 00:00:00' "
+        "WHERE pairing_request_id = '" +
+        created.pairing->resource.pairingRequestId +
+        "';"));
+    assert(
+        service.poll(poll).status ==
+        DevicePairingPollStatus::expired);
+
     DevicePairingIssueRequest invalid = issue;
     invalid.client.clientKind = "not valid";
     assert(
