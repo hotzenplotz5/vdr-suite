@@ -117,15 +117,15 @@ def main():
 
     require("current",
         "MU.9E - Backend Grant Mutation UI [IMPLEMENTATION MERGED - PR #429 / FOCUSED YAVDR PASS / POST-MERGE CI #9763 GREEN]")
-    require("current", "MU.9F - Account CREATE UI [IMPLEMENTATION CANDIDATE]")
-    require("workstream", "MU.9F - Account CREATE UI [IMPLEMENTATION CANDIDATE]")
-    require("slice_doc", "Status: **IMPLEMENTATION CANDIDATE**")
+    require("current", "MU.9F - Account CREATE UI [IMPLEMENTATION MERGED - PR #430 / FOCUSED YAVDR PASS / HOSTED CI GREEN]")
+    require("workstream", "MU.9F - Account CREATE UI [IMPLEMENTATION MERGED - PR #430 / FOCUSED YAVDR PASS / HOSTED CI GREEN]")
+    require("slice_doc", "Status: **IMPLEMENTATION MERGED — PR #430 / FOCUSED YAVDR PASS / HOSTED CI GREEN**")
     require("slice_doc", "caller-owned Idempotency-Key")
     require("slice_doc", "Phase 70 remains **NOT STARTED**")
 
     print("MU.9F Account CREATE UI contracts passed")
     print("MU9E=IMPLEMENTATION_MERGED_PR_429_FOCUSED_YAVDR_PASS_POST_MERGE_CI_9763_GREEN")
-    print("MU9F=IMPLEMENTATION_CANDIDATE")
+    print("MU9F=IMPLEMENTATION_MERGED_PR_430_FOCUSED_YAVDR_PASS_HOSTED_CI_GREEN")
     print("PHASE70=NOT_STARTED")
     return 0
 
