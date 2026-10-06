@@ -3918,166 +3918,6 @@ bool PublicApiRuntime::tryHandleGet(
     std::string accountId;
     std::string credentialId;
     std::string sessionId;
-    std::string pairingRequestId;
-
-    if (path == PublicDevicePairingCollectionPath)
-    {
-        if (requestTarget != path)
-        {
-            response = invalidRequestProblem(
-                path,
-                "Device Pairing creation does not accept query parameters.",
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        if (!ifMatch.empty() ||
-            !idempotencyKey.empty())
-        {
-            response = invalidRequestProblem(
-                path,
-                "Device Pairing creation does not accept If-Match or Idempotency-Key.",
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        if (!applicationJsonContentType(contentType))
-        {
-            response = problemResponse(
-                415,
-                "invalid_request",
-                "Unsupported media type",
-                "Device Pairing creation requires Content-Type application/json.",
-                path,
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        if (body.size() > 2048U)
-        {
-            response = invalidRequestProblem(
-                path,
-                "The Device Pairing request body is too large.",
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        JsonSyntaxValidator validator(body);
-        if (!validator.valid())
-        {
-            response = problemResponse(
-                400,
-                "invalid_request",
-                "Invalid JSON",
-                "The Device Pairing request body is not valid JSON.",
-                path,
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        PublicDevicePairingCreateRequest createRequest;
-        if (!parsePublicDevicePairingCreateBody(
-                body,
-                createRequest.client.displayName,
-                createRequest.client.clientKind,
-                createRequest.client.appVersion))
-        {
-            response = problemResponse(
-                422,
-                "validation_error",
-                "Validation failed",
-                "Device Pairing requires displayName and clientKind string fields, optional appVersion, and no unknown fields.",
-                path,
-                requestId,
-                correlationId);
-            return true;
-        }
-        createRequest.requestId = requestId;
-        createRequest.correlationId =
-            correlationId;
-
-        DevicePairingCreate create;
-        {
-            std::lock_guard<std::mutex> lock(
-                devicePairingCreateMutex_);
-            create = devicePairingCreate_;
-        }
-        if (!create)
-        {
-            response = serviceUnavailableProblem(
-                path,
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        const PublicDevicePairingCreateResult created =
-            create(createRequest);
-        switch (created.status)
-        {
-            case PublicDevicePairingCreateStatus::created:
-                if (created.resource.pairingRequestId.empty() ||
-                    created.resource.state != "pending" ||
-                    created.resource.expiresAt.empty() ||
-                    created.resource.pollIntervalSeconds <= 0 ||
-                    created.resource.client.displayName.empty() ||
-                    created.resource.client.clientKind.empty() ||
-                    created.userCode.empty() ||
-                    created.pairingToken.empty())
-                {
-                    response = serviceUnavailableProblem(
-                        path,
-                        requestId,
-                        correlationId);
-                }
-                else
-                {
-                    response =
-                        publicDevicePairingCreatedResponse(
-                            created,
-                            requestId,
-                            correlationId);
-                }
-                return true;
-
-            case PublicDevicePairingCreateStatus::invalid:
-                response = problemResponse(
-                    422,
-                    "validation_error",
-                    "Validation failed",
-                    "The Device Pairing presentation metadata is invalid.",
-                    path,
-                    requestId,
-                    correlationId);
-                return true;
-
-            case PublicDevicePairingCreateStatus::entropyUnavailable:
-            case PublicDevicePairingCreateStatus::hashingUnavailable:
-            case PublicDevicePairingCreateStatus::unavailable:
-                response = serviceUnavailableProblem(
-                    path,
-                    requestId,
-                    correlationId);
-                return true;
-        }
-    }
-
-    if (publicDevicePairingPath(
-            path,
-            pairingRequestId))
-    {
-        response = methodNotAllowedProblem(
-            path,
-            requestId,
-            correlationId,
-            "GET");
-        return true;
-    }
 
     if (publicAccountCredentialItemPath(
             path, accountId, credentialId))
@@ -5162,12 +5002,149 @@ bool PublicApiRuntime::tryHandlePost(
 
     if (path == PublicDevicePairingCollectionPath)
     {
-        response = methodNotAllowedProblem(
-            path,
-            requestId,
-            correlationId,
-            "POST");
-        return true;
+        if (requestTarget != path)
+        {
+            response = invalidRequestProblem(
+                path,
+                "Device Pairing creation does not accept query parameters.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (!ifMatch.empty() ||
+            !idempotencyKey.empty())
+        {
+            response = invalidRequestProblem(
+                path,
+                "Device Pairing creation does not accept If-Match or Idempotency-Key.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (!applicationJsonContentType(contentType))
+        {
+            response = problemResponse(
+                415,
+                "invalid_request",
+                "Unsupported media type",
+                "Device Pairing creation requires Content-Type application/json.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (body.size() > 2048U)
+        {
+            response = invalidRequestProblem(
+                path,
+                "The Device Pairing request body is too large.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        JsonSyntaxValidator validator(body);
+        if (!validator.valid())
+        {
+            response = problemResponse(
+                400,
+                "invalid_request",
+                "Invalid JSON",
+                "The Device Pairing request body is not valid JSON.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        PublicDevicePairingCreateRequest createRequest;
+        if (!parsePublicDevicePairingCreateBody(
+                body,
+                createRequest.client.displayName,
+                createRequest.client.clientKind,
+                createRequest.client.appVersion))
+        {
+            response = problemResponse(
+                422,
+                "validation_error",
+                "Validation failed",
+                "Device Pairing requires displayName and clientKind string fields, optional appVersion, and no unknown fields.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+        createRequest.requestId = requestId;
+        createRequest.correlationId =
+            correlationId;
+
+        DevicePairingCreate create;
+        {
+            std::lock_guard<std::mutex> lock(
+                devicePairingCreateMutex_);
+            create = devicePairingCreate_;
+        }
+        if (!create)
+        {
+            response = serviceUnavailableProblem(
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        const PublicDevicePairingCreateResult created =
+            create(createRequest);
+        switch (created.status)
+        {
+            case PublicDevicePairingCreateStatus::created:
+                if (created.resource.pairingRequestId.empty() ||
+                    created.resource.state != "pending" ||
+                    created.resource.expiresAt.empty() ||
+                    created.resource.pollIntervalSeconds <= 0 ||
+                    created.resource.client.displayName.empty() ||
+                    created.resource.client.clientKind.empty() ||
+                    created.userCode.empty() ||
+                    created.pairingToken.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path,
+                        requestId,
+                        correlationId);
+                }
+                else
+                {
+                    response =
+                        publicDevicePairingCreatedResponse(
+                            created,
+                            requestId,
+                            correlationId);
+                }
+                return true;
+
+            case PublicDevicePairingCreateStatus::invalid:
+                response = problemResponse(
+                    422,
+                    "validation_error",
+                    "Validation failed",
+                    "The Device Pairing presentation metadata is invalid.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicDevicePairingCreateStatus::entropyUnavailable:
+            case PublicDevicePairingCreateStatus::hashingUnavailable:
+            case PublicDevicePairingCreateStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+        }
     }
 
     if (publicDevicePairingPath(

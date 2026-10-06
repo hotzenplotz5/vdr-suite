@@ -281,12 +281,6 @@ public:
             return gate;
         }
 
-        if (isPublicDevicePairingRoute)
-        {
-            gate.allowed = true;
-            return gate;
-        }
-
         if (isHbbtvDiscoveryRead || isHbbtvPresentationRead ||
             isHbbtvMediaRead)
         {
@@ -524,6 +518,12 @@ public:
         const bool isPublicDevicePairingRoute =
             isPublicDevicePairingCollection ||
             isPublicDevicePairingItem;
+
+        if (isPublicDevicePairingRoute)
+        {
+            gate.allowed = true;
+            return gate;
+        }
 
         const bool isPublicAccountCredentialRead =
             request.method == "GET" &&
