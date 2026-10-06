@@ -288,7 +288,7 @@ ADR-0065 Human Account boundary [ACCEPTED]
             -> MU.6D Account CREATE/idempotency [DONE - PR #411]
        -> MU.7 Backend access/grant administration [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
        -> MU.8 Credential/session administration [IMPLEMENTATION COMPLETE - MU.8A RUNTIME ACCEPTANCE PENDING]
-       -> MU.9 Account/access admin UI [COMPLETED - MU.9F ACCOUNT CREATE UI CANDIDATE]
+       -> MU.9 Account/access admin UI [COMPLETED - MU.9A-F / CLOSEOUT PR #431]
             -> Broad Timer Product UI unblocked
 
 Later:
