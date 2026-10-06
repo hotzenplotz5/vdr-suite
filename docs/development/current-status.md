@@ -185,7 +185,7 @@ The following remain explicit open/deferred boundaries rather than unfinished Ph
 - Live-TV timeshift;
 - recommendation/content graph runtime (Phase 70), which still requires its dedicated accepted ADR;
 - Multiuser Account/backend access administration with MU.0-MU.8 implementation complete through MU.8C; MU.8A retains separately documented runtime-acceptance debt, MU.8B merged as PR #416, MU.8C merged as PR #417, MU.9C merged as PR #426, MU.9D merged as PR #428, MU.9E merged as PR #429 with post-merge CI #9763 green, and MU.9 is closed through MU.9F / PR #430 and closeout PR #431; post-merge CI #9768 is green;
-- broad Timer Product UI, which remains gated on completion of the required Multiuser Account/backend access administration surface.
+- broad Timer Product UI, whose required MU.9 Account/backend access administration prerequisite is now satisfied; it remains a separate cross-cutting product milestone and is not automatically selected by the MU.9 closeout.
 
 ## Related documents
 
