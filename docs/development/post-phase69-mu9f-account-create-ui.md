@@ -1,6 +1,6 @@
 # MU.9F — Account CREATE UI
 
-Status: **IMPLEMENTATION CANDIDATE**
+Status: **IMPLEMENTATION MERGED — PR #430 / FOCUSED YAVDR PASS / HOSTED CI GREEN**
 
 MU.9F is the final currently justified bounded implementation slice of the
 MU.9 Account/access browser administration surface. It exposes only the already
