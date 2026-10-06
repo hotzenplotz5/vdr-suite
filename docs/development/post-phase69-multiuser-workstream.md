@@ -15,10 +15,10 @@ Account read foundation: completed
 First Admin / bootstrap / recovery: completed
 Legacy Basic retirement: completed
 Administration architecture: ADR-0067 [ACCEPTED]
-Current Multiuser productization slice: Post-MU.9 Administration Usability [CANDIDATE]
-Latest completed Multiuser milestone: MU.9 Account/access administration UI [COMPLETED - CLOSEOUT PR #431]
+Current Multiuser productization slice: MU.10A Device Pairing Bootstrap [IMPLEMENTATION CANDIDATE]
+Latest completed Multiuser milestone: Post-MU.9 Administration Usability [MERGED - PR #433]
 Completed MU.7 sub-slice: Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
-Current acceptance gate: Post-MU.9 Administration Usability [CANDIDATE]
+Current acceptance gate: MU.10A focused contract/security/client acceptance [CANDIDATE]
 ```
 
 ## Binding architecture
@@ -275,10 +275,18 @@ and Devices; technical identifiers are secondary details.
 Durable scope and acceptance rules:
 [Post-MU.9 Administration Usability](post-phase69-multiuser-administration-usability.md).
 
-### MU.10 — Device/app pairing [LATER]
+### MU.10 — Device/app pairing [ACTIVE — MU.10A IMPLEMENTATION CANDIDATE]
 
-Reuse Actor/Credential/Device/Session authority and the ADR-0065 short-lived
-pairing bootstrap rule. Pairing grants no administrator rights by itself.
+The live authority/gap audit is complete:
+[MU.10 Device/App Pairing Architecture and Gap Audit](post-phase69-mu10-device-app-pairing-audit.md).
+
+MU.10A is the bounded first implementation candidate:
+[MU.10A Device Pairing Bootstrap](post-phase69-mu10a-device-pairing-bootstrap.md).
+
+It owns only anonymous short-lived Pairing Request creation and token-scoped
+polling. It creates no Actor, Device, Credential, Session or Grant and cannot
+authorize ordinary Public-v1 resources. Administrator approval and durable
+Device identity remain successor work.
 
 ### MU.11 — Profiles / household personalization [LATER]
 
