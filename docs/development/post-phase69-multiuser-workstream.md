@@ -15,10 +15,10 @@ Account read foundation: completed
 First Admin / bootstrap / recovery: completed
 Legacy Basic retirement: completed
 Administration architecture: ADR-0067 [ACCEPTED]
-Current Multiuser productization slice: MU.10A Device Pairing Bootstrap [IMPLEMENTATION CANDIDATE]
+Current Multiuser productization slice: MU.10A Device Pairing Bootstrap [IMPLEMENTATION CANDIDATE / FOCUSED REAL YAVDR PASS]
 Latest completed Multiuser milestone: Post-MU.9 Administration Usability [MERGED - PR #433]
 Completed MU.7 sub-slice: Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
-Current acceptance gate: MU.10A focused contract/security/client acceptance [CANDIDATE]
+Current acceptance gate: MU.10A focused contract/security/client acceptance [REAL YAVDR PASS / HOSTED PR CI PENDING]
 ```
 
 ## Binding architecture
@@ -275,7 +275,7 @@ and Devices; technical identifiers are secondary details.
 Durable scope and acceptance rules:
 [Post-MU.9 Administration Usability](post-phase69-multiuser-administration-usability.md).
 
-### MU.10 — Device/app pairing [ACTIVE — MU.10A IMPLEMENTATION CANDIDATE]
+### MU.10 — Device/app pairing [ACTIVE — MU.10A IMPLEMENTATION CANDIDATE / FOCUSED REAL YAVDR PASS]
 
 The live authority/gap audit is complete:
 [MU.10 Device/App Pairing Architecture and Gap Audit](post-phase69-mu10-device-app-pairing-audit.md).
