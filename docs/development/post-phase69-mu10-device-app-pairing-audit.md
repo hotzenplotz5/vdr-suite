@@ -1,6 +1,6 @@
 # MU.10 — Device/App Pairing Architecture and Gap Audit
 
-Status: **LIVE AUDIT COMPLETE — MU.10A SELECTED**
+Status: **LIVE AUDIT COMPLETE — MU.10A IMPLEMENTATION CANDIDATE**
 
 Audited against `main` `5199bfadff4f2219f623fa5ce841d5b6139a026c`.
 There were no open pull requests. Exact-head normal CI run `37500705794`
@@ -248,3 +248,13 @@ than storing/replaying plaintext bootstrap secrets.
 
 Every successor must re-read live `main` and may be split further if needed.
 Phase 70 remains not started.
+
+
+## MU.10A implementation candidate
+
+The bounded implementation is documented in
+[MU.10A Device Pairing Bootstrap](post-phase69-mu10a-device-pairing-bootstrap.md).
+
+MU.10A owns only short-lived Pairing Request creation and token-scoped polling.
+It does not approve a Device, create Actor/Device/Credential/Session identity,
+grant permissions or authenticate ordinary Public-v1 resources.
