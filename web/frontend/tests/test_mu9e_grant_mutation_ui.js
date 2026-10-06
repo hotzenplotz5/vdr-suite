@@ -37,6 +37,16 @@ function cloneItems() {
 }
 
 const publicClient = {
+  getBackends() {
+    calls.push({name: 'getBackends'});
+    return Promise.resolve({
+      items: [
+        {backendId: 'default', name: 'Wohnzimmer', enabled: true, online: true},
+        {backendId: 'bedroom', name: 'Schlafzimmer', enabled: true, online: true}
+      ],
+      page: {limit: 100, hasMore: false, nextCursor: null}
+    });
+  },
   getAccounts() {
     return Promise.resolve({
       items: [{accountId: 'account-a', actorId: 'actor-a',
@@ -56,7 +66,17 @@ const publicClient = {
     return Promise.resolve({
       status: 200,
       etag: grantEtagAvailable ? '"grant-rev-' + grantRevision + '"' : '',
-      data: {items: cloneItems()}
+      data: {
+        items: cloneItems(),
+        supportedPermissions: [
+          'channels.view',
+          'recordings.rename',
+          'role.admin',
+          'role.read-only',
+          'timers.view'
+        ],
+        supportedScopeKinds: ['global', 'backend']
+      }
     });
   },
   getAccountCredentials() {
@@ -187,6 +207,26 @@ function setEnsureFields(root, permission, backendId) {
     findAllByClass(root, 'settings-account-admin-grant-revoke').length, 1
   );
 
+  const permissionPicker =
+    findByClass(root, 'settings-account-admin-grant-permission-input');
+  const backendPicker =
+    findByClass(root, 'settings-account-admin-grant-backend-input');
+  assert(permissionPicker && backendPicker);
+  assert.strictEqual(permissionPicker.tagName, 'SELECT',
+    'grant permission must be a server-backed selector, not free text');
+  assert.strictEqual(backendPicker.tagName, 'SELECT',
+    'grant scope must be a selector, not free text');
+  assert.deepStrictEqual(
+    permissionPicker.children.map(option => option.value),
+    ['', 'channels.view', 'recordings.rename', 'role.admin', 'role.read-only', 'timers.view']
+  );
+  assert.deepStrictEqual(
+    backendPicker.children.map(option => option.value),
+    ['*', 'default', 'bedroom']
+  );
+  assert(calls.some(call => call.name === 'getBackends'),
+    'backend selector must use canonical Public-v1 backend discovery');
+
   const beforeEnsureLoads = Object.assign({}, loadCounts);
   let ensure = setEnsureFields(root, 'timers.view', 'default');
   assert(ensure);
@@ -230,7 +270,7 @@ function setEnsureFields(root, permission, backendId) {
   assert.strictEqual(mutations[1].options.ifMatch, '"grant-rev-2"');
 
   mutationStatus = 412;
-  ensure = setEnsureFields(root, 'recordings.view', 'default');
+  ensure = setEnsureFields(root, 'recordings.rename', 'default');
   const beforeStale = calls.filter(call => call.name === 'setAccountGrant').length;
   await ensure.listeners.click();
   assert.strictEqual(
