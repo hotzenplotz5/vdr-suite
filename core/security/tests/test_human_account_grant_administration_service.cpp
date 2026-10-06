@@ -173,6 +173,21 @@ int main()
                 supportedGrantScopeKinds();
         assert(scopes ==
             std::vector<std::string>({"global", "backend"}));
+
+        const std::vector<HumanAccountGrantOption> options =
+            HumanAccountGrantAdministrationService::
+                supportedGrantPermissionOptions();
+        assert(options.size() == permissions.size());
+        assert(!options.empty());
+        assert(options.front().category == "role");
+        assert(options.front().permission.find("role.") == 0U);
+        for (const HumanAccountGrantOption& option : options)
+        {
+            assert(!option.permission.empty());
+            assert(option.presentationKey == option.permission);
+            assert(option.category == "role" ||
+                option.category == "permission");
+        }
     }
 
     {
