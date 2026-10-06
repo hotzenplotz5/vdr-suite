@@ -15,10 +15,10 @@ Account read foundation: completed
 First Admin / bootstrap / recovery: completed
 Legacy Basic retirement: completed
 Administration architecture: ADR-0067 [ACCEPTED]
-Current Multiuser runtime slice: MU.9F - Account CREATE UI [IMPLEMENTATION MERGED - PR #430 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
-Latest completed Multiuser runtime slice: MU.9E - Backend Grant Mutation UI [IMPLEMENTATION MERGED - PR #429 / FOCUSED YAVDR PASS / POST-MERGE CI #9763 GREEN]
+Current Multiuser productization slice: Post-MU.9 Administration Usability [CANDIDATE]
+Latest completed Multiuser milestone: MU.9 Account/access administration UI [COMPLETED - CLOSEOUT PR #431]
 Completed MU.7 sub-slice: Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
-Current acceptance gate: MU.9F - Account CREATE UI [IMPLEMENTATION MERGED - PR #430 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
+Current acceptance gate: Post-MU.9 Administration Usability [CANDIDATE]
 ```
 
 ## Binding architecture
@@ -262,6 +262,19 @@ MU.9F - Account CREATE UI [IMPLEMENTATION MERGED - PR #430 / FOCUSED YAVDR PASS 
 
 MU.9F exposes only the accepted MU.6D Public-v1 Account CREATE contract in the existing Account administration Settings owner. One explicit browser action supplies `loginName`, `displayName`, an initial request-only password and one caller-owned Idempotency-Key, forwards browser CSRF, emits exactly one `createAccount(...)` call and refreshes the Account list after success. It does not assign roles or backend grants automatically. Password reset/rotation, general Credential creation, pairing, Profiles and Phase 70 remain outside MU.9F.
 
+### Post-MU.9 — Administration usability [CURRENT CANDIDATE]
+
+MU.9 is completed and is not reopened. This productization slice makes the
+existing administration surface understandable before pairing is added. Grant
+creation moves from free-text permission/scope entry to selectors whose values
+come from server-owned Grant option metadata and the stable Public-v1 backend
+collection. The browser localizes presentation keys but does not own the
+permission catalogue. Account setup is presented as Account, Access, Sign-in
+and Devices; technical identifiers are secondary details.
+
+Durable scope and acceptance rules:
+[Post-MU.9 Administration Usability](post-phase69-multiuser-administration-usability.md).
+
 ### MU.10 — Device/app pairing [LATER]
 
 Reuse Actor/Credential/Device/Session authority and the ADR-0065 short-lived
@@ -288,8 +301,9 @@ ADR-0065 Human Account boundary [ACCEPTED]
             -> MU.6D Account CREATE/idempotency [DONE - PR #411]
        -> MU.7 Backend access/grant administration [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
        -> MU.8 Credential/session administration [IMPLEMENTATION COMPLETE - MU.8A RUNTIME ACCEPTANCE PENDING]
-       -> MU.9 Account/access admin UI [COMPLETED - MU.9F ACCOUNT CREATE UI CANDIDATE]
-            -> Broad Timer Product UI unblocked
+       -> MU.9 Account/access admin UI [COMPLETED - CLOSEOUT PR #431]
+       -> Post-MU.9 Administration Usability [CURRENT CANDIDATE]
+            -> Broad Timer Product UI remains unblocked
 
 Later:
   -> MU.10 Device/app pairing
@@ -307,5 +321,5 @@ Independent numbered track:
 - Device trust is not user identity or permission.
 - Capability never grants authorization.
 - No client/UI owns authorization policy.
-- ADR-0067 is accepted; MU.6A-D are completed runtime boundaries and MU.6D merged as PR #411. MU.7 grant administration completed after REAL YAVDR acceptance and PR #413 merge. MU.8 implementation is complete through MU.8C: MU.8A merged as PR #415 with separately documented real-runtime acceptance still pending, MU.8B merged as PR #416 after focused yaVDR acceptance, and MU.8C merged as PR #417 after focused yaVDR acceptance with PR and post-merge main CI green. MU.9 is completed through MU.9F / PR #430 after MU.9A merged as PR #418 and MU.9B merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green for both accepted UI slices. MU.9C Session Revoke UI merged as PR #426 after focused yaVDR acceptance and green hosted PR CI. MU.9D Human-password Credential Revoke UI merged as PR #428 after focused yaVDR acceptance; PR and post-merge hosted CI are green. MU.9E Backend Grant Mutation UI merged as PR #429 after focused real-yaVDR acceptance; post-merge main CI #9763 completed successfully with all six jobs green. MU.9F Account CREATE UI passed focused real-yaVDR acceptance, merged as PR #430, and both PR CI #9764 and post-merge main CI #9765 completed with all six jobs green. MU.9A-F are complete; no MU.9G is selected.
+- ADR-0067 is accepted; MU.6A-D are completed runtime boundaries and MU.6D merged as PR #411. MU.7 grant administration completed after REAL YAVDR acceptance and PR #413 merge. MU.8 implementation is complete through MU.8C: MU.8A merged as PR #415 with separately documented real-runtime acceptance still pending, MU.8B merged as PR #416 after focused yaVDR acceptance, and MU.8C merged as PR #417 after focused yaVDR acceptance with PR and post-merge main CI green. MU.9 is completed through MU.9F / PR #430 after MU.9A merged as PR #418 and MU.9B merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green for both accepted UI slices. MU.9C Session Revoke UI merged as PR #426 after focused yaVDR acceptance and green hosted PR CI. MU.9D Human-password Credential Revoke UI merged as PR #428 after focused yaVDR acceptance; PR and post-merge hosted CI are green. MU.9E Backend Grant Mutation UI merged as PR #429 after focused real-yaVDR acceptance; post-merge main CI #9763 completed successfully with all six jobs green. MU.9F Account CREATE UI passed focused real-yaVDR acceptance, merged as PR #430, and both PR CI #9764 and post-merge main CI #9765 completed with all six jobs green. MU.9A-F and the MU.9 closeout are complete; no MU.9G is selected. The current Post-MU.9 Administration Usability slice is separate productization work and must preserve the accepted MU.9 safety contracts.
 - Phase 70 is not started by Multiuser work.
