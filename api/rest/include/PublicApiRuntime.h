@@ -294,6 +294,8 @@ struct PublicAccountGrantSetResource
     std::string accountId;
     std::string actorId;
     std::vector<PublicAccountGrantItem> grants;
+    std::vector<std::string> supportedPermissions;
+    std::vector<std::string> supportedScopeKinds;
     std::string resourceRevision;
 };
 
