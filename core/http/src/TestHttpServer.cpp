@@ -140,6 +140,19 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
         return;
     }
 
+    devicePairingRequestRepository_ =
+        std::make_unique<DevicePairingRequestRepository>(
+            *securityDatabase_);
+    if (!devicePairingRequestRepository_->ensureSchema())
+    {
+        return;
+    }
+    devicePairingRequestService_ =
+        std::make_unique<DevicePairingRequestService>(
+            *securityDatabase_,
+            *devicePairingRequestRepository_,
+            *accountabilityEventRepository_);
+
     securityIdentityRepository_ =
         std::make_unique<SecurityIdentityRepository>(
             *securityDatabase_);
@@ -361,6 +374,144 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             *humanAccountCredentialSessionReadService_,
             *browserSessionLifecycleService_,
             *accountabilityEventRepository_);
+
+    PublicApiRuntime::instance().registerDevicePairingCreate(
+        [this](const PublicDevicePairingCreateRequest& request)
+        {
+            PublicDevicePairingCreateResult result;
+            if (!devicePairingRequestService_)
+                return result;
+
+            DevicePairingIssueRequest serviceRequest;
+            serviceRequest.client.displayName =
+                request.client.displayName;
+            serviceRequest.client.clientKind =
+                request.client.clientKind;
+            serviceRequest.client.appVersion =
+                request.client.appVersion;
+            serviceRequest.requestId =
+                request.requestId;
+            serviceRequest.correlationId =
+                request.correlationId;
+
+            DevicePairingIssueResult created =
+                devicePairingRequestService_->issue(
+                    serviceRequest);
+            switch (created.status)
+            {
+                case DevicePairingIssueStatus::issued:
+                    result.status =
+                        PublicDevicePairingCreateStatus::created;
+                    break;
+                case DevicePairingIssueStatus::invalidRequest:
+                    result.status =
+                        PublicDevicePairingCreateStatus::invalid;
+                    return result;
+                case DevicePairingIssueStatus::entropyUnavailable:
+                    result.status =
+                        PublicDevicePairingCreateStatus::
+                            entropyUnavailable;
+                    return result;
+                case DevicePairingIssueStatus::hashingUnavailable:
+                    result.status =
+                        PublicDevicePairingCreateStatus::
+                            hashingUnavailable;
+                    return result;
+                case DevicePairingIssueStatus::storageError:
+                    result.status =
+                        PublicDevicePairingCreateStatus::unavailable;
+                    return result;
+            }
+
+            if (!created.pairing.has_value())
+            {
+                result.status =
+                    PublicDevicePairingCreateStatus::unavailable;
+                return result;
+            }
+
+            result.resource.pairingRequestId =
+                created.pairing->resource.pairingRequestId;
+            result.resource.client.displayName =
+                created.pairing->resource.client.displayName;
+            result.resource.client.clientKind =
+                created.pairing->resource.client.clientKind;
+            result.resource.client.appVersion =
+                created.pairing->resource.client.appVersion;
+            result.resource.state =
+                created.pairing->resource.state;
+            result.resource.expiresAt =
+                created.pairing->resource.expiresAt;
+            result.resource.pollIntervalSeconds =
+                created.pairing->resource.pollIntervalSeconds;
+            result.userCode =
+                std::move(created.pairing->userCode);
+            result.pairingToken =
+                std::move(created.pairing->pairingToken);
+            created.pairing->clearBootstrapMaterial();
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerDevicePairingLookup(
+        [this](const PublicDevicePairingLookupRequest& request)
+        {
+            PublicDevicePairingLookupResult result;
+            if (!devicePairingRequestService_)
+                return result;
+
+            DevicePairingPollRequest serviceRequest;
+            serviceRequest.pairingRequestId =
+                request.pairingRequestId;
+            serviceRequest.pairingToken =
+                request.pairingToken;
+            const DevicePairingPollResult found =
+                devicePairingRequestService_->poll(
+                    serviceRequest);
+
+            switch (found.status)
+            {
+                case DevicePairingPollStatus::ok:
+                    result.status =
+                        PublicDevicePairingLookupStatus::ok;
+                    break;
+                case DevicePairingPollStatus::invalidRequest:
+                    result.status =
+                        PublicDevicePairingLookupStatus::invalid;
+                    return result;
+                case DevicePairingPollStatus::notFound:
+                    result.status =
+                        PublicDevicePairingLookupStatus::notFound;
+                    return result;
+                case DevicePairingPollStatus::unauthorized:
+                    result.status =
+                        PublicDevicePairingLookupStatus::unauthorized;
+                    return result;
+                case DevicePairingPollStatus::expired:
+                    result.status =
+                        PublicDevicePairingLookupStatus::expired;
+                    return result;
+                case DevicePairingPollStatus::unavailable:
+                    result.status =
+                        PublicDevicePairingLookupStatus::unavailable;
+                    return result;
+            }
+
+            result.resource.pairingRequestId =
+                found.resource.pairingRequestId;
+            result.resource.client.displayName =
+                found.resource.client.displayName;
+            result.resource.client.clientKind =
+                found.resource.client.clientKind;
+            result.resource.client.appVersion =
+                found.resource.client.appVersion;
+            result.resource.state =
+                found.resource.state;
+            result.resource.expiresAt =
+                found.resource.expiresAt;
+            result.resource.pollIntervalSeconds =
+                found.resource.pollIntervalSeconds;
+            return result;
+        });
 
     PublicApiRuntime::instance().registerAccountCredentialLookup(
         [this](const std::string& accountId)
@@ -1127,6 +1278,8 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
 
 TestHttpServer::~TestHttpServer()
 {
+    PublicApiRuntime::instance().resetDevicePairingLookup();
+    PublicApiRuntime::instance().resetDevicePairingCreate();
     PublicApiRuntime::instance().resetAccountCredentialMutation();
     PublicApiRuntime::instance().resetAccountCredentialItemLookup();
     PublicApiRuntime::instance().resetAccountSessionMutation();
@@ -1247,7 +1400,10 @@ HttpServerResponse TestHttpServer::handleRequest(
                     request,
                     "If-None-Match"),
                 gate.authorizationDecision.backendId,
-                gate.authorizedBackendIds);
+                gate.authorizedBackendIds,
+                requestHeaderValue(
+                    request,
+                    "X-VDR-Suite-Pairing-Token"));
     }
     else if (request.method == "POST")
     {

@@ -281,6 +281,12 @@ public:
             return gate;
         }
 
+        if (isPublicDevicePairingRoute)
+        {
+            gate.allowed = true;
+            return gate;
+        }
+
         if (isHbbtvDiscoveryRead || isHbbtvPresentationRead ||
             isHbbtvMediaRead)
         {
@@ -498,6 +504,26 @@ public:
                     publicAccountSessionItemMarker.size()))
                     .find('/') == std::string::npos &&
             !publicAccountSessionItemId.empty();
+
+        const std::string publicDevicePairingCollection =
+            "/api/v1/device-pairings";
+        const std::string publicDevicePairingPrefix =
+            "/api/v1/device-pairings/";
+        const bool isPublicDevicePairingCollection =
+            path == publicDevicePairingCollection;
+        const bool isPublicDevicePairingItem =
+            path.compare(
+                0U,
+                publicDevicePairingPrefix.size(),
+                publicDevicePairingPrefix) == 0 &&
+            path.size() > publicDevicePairingPrefix.size() &&
+            path.find(
+                '/',
+                publicDevicePairingPrefix.size()) ==
+                std::string::npos;
+        const bool isPublicDevicePairingRoute =
+            isPublicDevicePairingCollection ||
+            isPublicDevicePairingItem;
 
         const bool isPublicAccountCredentialRead =
             request.method == "GET" &&

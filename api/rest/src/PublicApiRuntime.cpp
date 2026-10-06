@@ -34,6 +34,10 @@ std::string requestQueryString(const std::string& requestTarget)
 
 constexpr const char* PublicApiV1Root = "/api/v1";
 constexpr const char* PublicOperationPrefix = "/api/v1/operations/";
+constexpr const char* PublicDevicePairingCollectionPath =
+    "/api/v1/device-pairings";
+constexpr const char* PublicDevicePairingPrefix =
+    "/api/v1/device-pairings/";
 constexpr const char* PublicTimerAssignmentCollectionPath =
     "/api/v1/timer-assignments";
 constexpr const char* PublicTimerAssignmentPrefix =
@@ -85,6 +89,19 @@ bool isPublicV1Path(const std::string& path)
         (path.size() > root.size() &&
          path.compare(0, root.size(), root) == 0 &&
          path[root.size()] == '/');
+}
+
+bool publicDevicePairingPath(
+    const std::string& path,
+    std::string& pairingRequestId)
+{
+    const std::string prefix(PublicDevicePairingPrefix);
+    if (path.compare(0U, prefix.size(), prefix) != 0)
+        return false;
+
+    pairingRequestId = path.substr(prefix.size());
+    return !pairingRequestId.empty() &&
+        pairingRequestId.find('/') == std::string::npos;
 }
 
 bool publicOperationPath(
@@ -1513,6 +1530,104 @@ bool parsePublicAccountCreateBody(
         !loginName.empty() && !displayName.empty() && !password.empty();
 }
 
+bool parsePublicDevicePairingCreateBody(
+    const std::string& input,
+    std::string& displayName,
+    std::string& clientKind,
+    std::string& appVersion)
+{
+    std::size_t position = 0U;
+    bool displaySeen = false;
+    bool kindSeen = false;
+    bool versionSeen = false;
+
+    skipAccountMutationWhitespace(input, position);
+    if (position >= input.size() ||
+        input[position++] != '{')
+    {
+        return false;
+    }
+
+    while (true)
+    {
+        skipAccountMutationWhitespace(input, position);
+        if (position < input.size() &&
+            input[position] == '}')
+        {
+            ++position;
+            break;
+        }
+
+        std::string key;
+        if (!parseAccountMutationJsonString(
+                input,
+                position,
+                key))
+        {
+            return false;
+        }
+
+        skipAccountMutationWhitespace(input, position);
+        if (position >= input.size() ||
+            input[position++] != ':')
+        {
+            return false;
+        }
+        skipAccountMutationWhitespace(input, position);
+
+        std::string value;
+        if (!parseAccountMutationJsonString(
+                input,
+                position,
+                value))
+        {
+            return false;
+        }
+
+        if (key == "displayName" && !displaySeen)
+        {
+            displaySeen = true;
+            displayName = std::move(value);
+        }
+        else if (key == "clientKind" && !kindSeen)
+        {
+            kindSeen = true;
+            clientKind = std::move(value);
+        }
+        else if (key == "appVersion" && !versionSeen)
+        {
+            versionSeen = true;
+            appVersion = std::move(value);
+        }
+        else
+        {
+            return false;
+        }
+
+        skipAccountMutationWhitespace(input, position);
+        if (position >= input.size())
+            return false;
+        if (input[position] == ',')
+        {
+            ++position;
+            continue;
+        }
+        if (input[position] == '}')
+        {
+            ++position;
+            break;
+        }
+        return false;
+    }
+
+    skipAccountMutationWhitespace(input, position);
+    return position == input.size() &&
+        displaySeen &&
+        kindSeen &&
+        !displayName.empty() &&
+        !clientKind.empty();
+}
+
 bool parsePublicAccountGrantMutationBody(
     const std::string& input,
     std::string& permission,
@@ -1974,9 +2089,88 @@ ApiResponse contractRoot(
           "\"legacyUnversioned\":\"transition\"},"
           "\"authentication\":{\"authenticated\":"
         + (authenticated ? "true" : "false")
-        + "},\"links\":{\"self\":\"/api/v1\",\"capabilities\":\"/api/v1/capabilities\",\"backends\":\"/api/v1/backends\",\"accounts\":\"/api/v1/accounts\"}}",
+        + "},\"links\":{\"self\":\"/api/v1\",\"capabilities\":\"/api/v1/capabilities\",\"backends\":\"/api/v1/backends\",\"accounts\":\"/api/v1/accounts\",\"devicePairings\":\"/api/v1/device-pairings\"}}",
         requestId,
         correlationId);
+}
+
+std::string publicDevicePairingJson(
+    const PublicDevicePairingResource& resource,
+    const std::string& self)
+{
+    std::string body =
+        "{\"pairingRequestId\":\"" +
+        jsonEscape(resource.pairingRequestId) +
+        "\",\"status\":\"" +
+        jsonEscape(resource.state) +
+        "\",\"expiresAt\":\"" +
+        jsonEscape(resource.expiresAt) +
+        "\",\"pollIntervalSeconds\":" +
+        std::to_string(resource.pollIntervalSeconds) +
+        ",\"client\":{\"displayName\":\"" +
+        jsonEscape(resource.client.displayName) +
+        "\",\"clientKind\":\"" +
+        jsonEscape(resource.client.clientKind) +
+        "\",\"appVersion\":\"" +
+        jsonEscape(resource.client.appVersion) +
+        "\"},\"links\":{\"self\":\"" +
+        jsonEscape(self) +
+        "\"}}";
+    return body;
+}
+
+ApiResponse publicDevicePairingResponse(
+    const PublicDevicePairingResource& resource,
+    const std::string& path,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    return jsonResponse(
+        publicDevicePairingJson(resource, path),
+        requestId,
+        correlationId);
+}
+
+ApiResponse publicDevicePairingCreatedResponse(
+    const PublicDevicePairingCreateResult& created,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    const std::string self =
+        std::string(PublicDevicePairingPrefix) +
+        created.resource.pairingRequestId;
+    std::string body =
+        "{\"pairingRequestId\":\"" +
+        jsonEscape(created.resource.pairingRequestId) +
+        "\",\"userCode\":\"" +
+        jsonEscape(created.userCode) +
+        "\",\"pairingToken\":\"" +
+        jsonEscape(created.pairingToken) +
+        "\",\"status\":\"" +
+        jsonEscape(created.resource.state) +
+        "\",\"expiresAt\":\"" +
+        jsonEscape(created.resource.expiresAt) +
+        "\",\"pollIntervalSeconds\":" +
+        std::to_string(
+            created.resource.pollIntervalSeconds) +
+        ",\"client\":{\"displayName\":\"" +
+        jsonEscape(created.resource.client.displayName) +
+        "\",\"clientKind\":\"" +
+        jsonEscape(created.resource.client.clientKind) +
+        "\",\"appVersion\":\"" +
+        jsonEscape(created.resource.client.appVersion) +
+        "\"},\"links\":{\"self\":\"" +
+        jsonEscape(self) +
+        "\"}}";
+
+    ApiResponse response =
+        jsonResponse(
+            body,
+            requestId,
+            correlationId);
+    response.statusCode = 201;
+    response.headers["Location"] = self;
+    return response;
 }
 
 ApiResponse platformCapabilities(
@@ -1991,6 +2185,7 @@ ApiResponse platformCapabilities(
     const bool accountSecurityMetadataAvailable,
     const bool accountCredentialRevokeAvailable,
     const bool accountSessionRevokeAvailable,
+    const bool devicePairingBootstrapAvailable,
     const std::string& requestId,
     const std::string& correlationId)
 {
@@ -2029,6 +2224,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.accounts-session-revoke\",\"version\":1,\"availability\":\"" +
         std::string(accountSessionRevokeAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.device-pairing-bootstrap\",\"version\":1,\"availability\":\"" +
+        std::string(devicePairingBootstrapAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.compatibility-policy\",\"version\":1,\"availability\":\"available\"},"
         "{\"id\":\"public-api.deprecation-metadata\",\"version\":1,\"availability\":\"available\"}"
@@ -2966,6 +3164,50 @@ bool PublicApiRuntime::timerAssignmentLookupConfigured() const
     return static_cast<bool>(timerAssignmentLookup_);
 }
 
+void PublicApiRuntime::registerDevicePairingCreate(
+    DevicePairingCreate create)
+{
+    std::lock_guard<std::mutex> lock(
+        devicePairingCreateMutex_);
+    devicePairingCreate_ = std::move(create);
+}
+
+void PublicApiRuntime::resetDevicePairingCreate()
+{
+    std::lock_guard<std::mutex> lock(
+        devicePairingCreateMutex_);
+    devicePairingCreate_ = {};
+}
+
+bool PublicApiRuntime::devicePairingCreateConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        devicePairingCreateMutex_);
+    return static_cast<bool>(devicePairingCreate_);
+}
+
+void PublicApiRuntime::registerDevicePairingLookup(
+    DevicePairingLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(
+        devicePairingLookupMutex_);
+    devicePairingLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetDevicePairingLookup()
+{
+    std::lock_guard<std::mutex> lock(
+        devicePairingLookupMutex_);
+    devicePairingLookup_ = {};
+}
+
+bool PublicApiRuntime::devicePairingLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        devicePairingLookupMutex_);
+    return static_cast<bool>(devicePairingLookup_);
+}
+
 void PublicApiRuntime::registerTimerCreateAdmission(
     TimerCreateAdmission admission)
 {
@@ -3437,7 +3679,8 @@ bool PublicApiRuntime::tryHandleGet(
     ApiResponse& response,
     const std::string& ifNoneMatch,
     const std::string& authorizedBackendId,
-    const std::vector<std::string>& authorizedBackendIds) const
+    const std::vector<std::string>& authorizedBackendIds,
+    const std::string& pairingToken) const
 {
     const std::string path = requestPath(requestTarget);
 
@@ -3468,9 +3711,145 @@ bool PublicApiRuntime::tryHandleGet(
                 accountCredentialMutationConfigured(),
             accountSessionItemLookupConfigured() &&
                 accountSessionMutationConfigured(),
+            devicePairingCreateConfigured() &&
+                devicePairingLookupConfigured(),
             requestId,
             correlationId);
         return true;
+    }
+
+    if (path == PublicDevicePairingCollectionPath)
+    {
+        response = methodNotAllowedProblem(
+            path,
+            requestId,
+            correlationId,
+            "POST");
+        return true;
+    }
+
+    std::string pairingRequestId;
+    if (publicDevicePairingPath(
+            path,
+            pairingRequestId))
+    {
+        if (requestTarget != path)
+        {
+            response = invalidRequestProblem(
+                path,
+                "Device Pairing polling does not accept query parameters.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (pairingToken.empty())
+        {
+            response = problemResponse(
+                401,
+                "unauthorized",
+                "Unauthorized",
+                "The Device Pairing polling token is required.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        DevicePairingLookup lookup;
+        {
+            std::lock_guard<std::mutex> lock(
+                devicePairingLookupMutex_);
+            lookup = devicePairingLookup_;
+        }
+        if (!lookup)
+        {
+            response = serviceUnavailableProblem(
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        PublicDevicePairingLookupRequest lookupRequest;
+        lookupRequest.pairingRequestId =
+            pairingRequestId;
+        lookupRequest.pairingToken =
+            pairingToken;
+        const PublicDevicePairingLookupResult found =
+            lookup(lookupRequest);
+
+        switch (found.status)
+        {
+            case PublicDevicePairingLookupStatus::ok:
+                if (found.resource.pairingRequestId !=
+                        pairingRequestId ||
+                    found.resource.state.empty() ||
+                    found.resource.expiresAt.empty() ||
+                    found.resource.pollIntervalSeconds <= 0 ||
+                    found.resource.client.displayName.empty() ||
+                    found.resource.client.clientKind.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path,
+                        requestId,
+                        correlationId);
+                }
+                else
+                {
+                    response =
+                        publicDevicePairingResponse(
+                            found.resource,
+                            path,
+                            requestId,
+                            correlationId);
+                }
+                return true;
+
+            case PublicDevicePairingLookupStatus::invalid:
+                response = invalidRequestProblem(
+                    path,
+                    "The Device Pairing request identifier is invalid.",
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicDevicePairingLookupStatus::notFound:
+                response = notFoundProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicDevicePairingLookupStatus::unauthorized:
+                response = problemResponse(
+                    401,
+                    "unauthorized",
+                    "Unauthorized",
+                    "The Device Pairing polling token is invalid.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicDevicePairingLookupStatus::expired:
+                response = problemResponse(
+                    410,
+                    "not_found",
+                    "Pairing request expired",
+                    "The Device Pairing request has expired.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicDevicePairingLookupStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+        }
     }
 
     std::string operationId;
@@ -3539,6 +3918,166 @@ bool PublicApiRuntime::tryHandleGet(
     std::string accountId;
     std::string credentialId;
     std::string sessionId;
+    std::string pairingRequestId;
+
+    if (path == PublicDevicePairingCollectionPath)
+    {
+        if (requestTarget != path)
+        {
+            response = invalidRequestProblem(
+                path,
+                "Device Pairing creation does not accept query parameters.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (!ifMatch.empty() ||
+            !idempotencyKey.empty())
+        {
+            response = invalidRequestProblem(
+                path,
+                "Device Pairing creation does not accept If-Match or Idempotency-Key.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (!applicationJsonContentType(contentType))
+        {
+            response = problemResponse(
+                415,
+                "invalid_request",
+                "Unsupported media type",
+                "Device Pairing creation requires Content-Type application/json.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (body.size() > 2048U)
+        {
+            response = invalidRequestProblem(
+                path,
+                "The Device Pairing request body is too large.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        JsonSyntaxValidator validator(body);
+        if (!validator.valid())
+        {
+            response = problemResponse(
+                400,
+                "invalid_request",
+                "Invalid JSON",
+                "The Device Pairing request body is not valid JSON.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        PublicDevicePairingCreateRequest createRequest;
+        if (!parsePublicDevicePairingCreateBody(
+                body,
+                createRequest.client.displayName,
+                createRequest.client.clientKind,
+                createRequest.client.appVersion))
+        {
+            response = problemResponse(
+                422,
+                "validation_error",
+                "Validation failed",
+                "Device Pairing requires displayName and clientKind string fields, optional appVersion, and no unknown fields.",
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+        createRequest.requestId = requestId;
+        createRequest.correlationId =
+            correlationId;
+
+        DevicePairingCreate create;
+        {
+            std::lock_guard<std::mutex> lock(
+                devicePairingCreateMutex_);
+            create = devicePairingCreate_;
+        }
+        if (!create)
+        {
+            response = serviceUnavailableProblem(
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        const PublicDevicePairingCreateResult created =
+            create(createRequest);
+        switch (created.status)
+        {
+            case PublicDevicePairingCreateStatus::created:
+                if (created.resource.pairingRequestId.empty() ||
+                    created.resource.state != "pending" ||
+                    created.resource.expiresAt.empty() ||
+                    created.resource.pollIntervalSeconds <= 0 ||
+                    created.resource.client.displayName.empty() ||
+                    created.resource.client.clientKind.empty() ||
+                    created.userCode.empty() ||
+                    created.pairingToken.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path,
+                        requestId,
+                        correlationId);
+                }
+                else
+                {
+                    response =
+                        publicDevicePairingCreatedResponse(
+                            created,
+                            requestId,
+                            correlationId);
+                }
+                return true;
+
+            case PublicDevicePairingCreateStatus::invalid:
+                response = problemResponse(
+                    422,
+                    "validation_error",
+                    "Validation failed",
+                    "The Device Pairing presentation metadata is invalid.",
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicDevicePairingCreateStatus::entropyUnavailable:
+            case PublicDevicePairingCreateStatus::hashingUnavailable:
+            case PublicDevicePairingCreateStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+        }
+    }
+
+    if (publicDevicePairingPath(
+            path,
+            pairingRequestId))
+    {
+        response = methodNotAllowedProblem(
+            path,
+            requestId,
+            correlationId,
+            "GET");
+        return true;
+    }
 
     if (publicAccountCredentialItemPath(
             path, accountId, credentialId))
@@ -4619,6 +5158,29 @@ bool PublicApiRuntime::tryHandlePost(
     std::string accountId;
     std::string credentialId;
     std::string sessionId;
+    std::string pairingRequestId;
+
+    if (path == PublicDevicePairingCollectionPath)
+    {
+        response = methodNotAllowedProblem(
+            path,
+            requestId,
+            correlationId,
+            "POST");
+        return true;
+    }
+
+    if (publicDevicePairingPath(
+            path,
+            pairingRequestId))
+    {
+        response = methodNotAllowedProblem(
+            path,
+            requestId,
+            correlationId,
+            "GET");
+        return true;
+    }
 
     if (publicAccountCredentialItemPath(
             path, accountId, credentialId))

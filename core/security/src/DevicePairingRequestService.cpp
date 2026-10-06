@@ -362,10 +362,49 @@ struct GeneratedPairingMaterial
     std::string userCodeHash;
     std::string pairingTokenHash;
 
+    GeneratedPairingMaterial() = default;
     ~GeneratedPairingMaterial()
     {
         secureWipe(userCode);
         secureWipe(pairingToken);
+    }
+
+    GeneratedPairingMaterial(
+        const GeneratedPairingMaterial&) = delete;
+    GeneratedPairingMaterial& operator=(
+        const GeneratedPairingMaterial&) = delete;
+
+    GeneratedPairingMaterial(
+        GeneratedPairingMaterial&& other) noexcept
+        : pairingRequestId(std::move(other.pairingRequestId)),
+          userCode(std::move(other.userCode)),
+          pairingToken(std::move(other.pairingToken)),
+          userCodeHash(std::move(other.userCodeHash)),
+          pairingTokenHash(std::move(other.pairingTokenHash))
+    {
+        secureWipe(other.userCode);
+        secureWipe(other.pairingToken);
+    }
+
+    GeneratedPairingMaterial& operator=(
+        GeneratedPairingMaterial&& other) noexcept
+    {
+        if (this == &other)
+            return *this;
+        secureWipe(userCode);
+        secureWipe(pairingToken);
+        pairingRequestId =
+            std::move(other.pairingRequestId);
+        userCode = std::move(other.userCode);
+        pairingToken =
+            std::move(other.pairingToken);
+        userCodeHash =
+            std::move(other.userCodeHash);
+        pairingTokenHash =
+            std::move(other.pairingTokenHash);
+        secureWipe(other.userCode);
+        secureWipe(other.pairingToken);
+        return *this;
     }
 };
 
