@@ -20,14 +20,18 @@
       : t('settings.accountAdminInactive', 'inaktiv');
   }
 
-  function permissionLabel(permission) {
-    if (permission === 'role.admin') {
-      return t('settings.accountAdminPermissionAdmin', 'Administrator');
-    }
-    if (permission === 'role.read-only') {
-      return t('settings.accountAdminPermissionReadOnly', 'Nur lesen');
-    }
-    return permission || '-';
+  function permissionLabel(permission, options) {
+    const items = Array.isArray(options) ? options : [];
+    const match = items.find(function(option) {
+      return option && option.permission === permission;
+    });
+    const presentationKey = match &&
+      typeof match.presentationKey === 'string' &&
+      match.presentationKey ? match.presentationKey : permission;
+    if (!presentationKey) return permission || '-';
+    return t(
+      'settings.accountAdminPermissionLabel.' + presentationKey,
+      permission || '-');
   }
 
   function scopeLabel(backendId, backends) {
@@ -252,6 +256,19 @@
           return item && item.active === true && !item.revoked && !item.expired;
         }) : [];
     const activeGrants = Array.isArray(overview.grants) ? overview.grants : [];
+    const permissionOptions =
+      Array.isArray(overview.supportedPermissionOptions) &&
+      overview.supportedPermissionOptions.length
+        ? overview.supportedPermissionOptions
+        : (Array.isArray(overview.supportedPermissions)
+            ? overview.supportedPermissions.map(function(permission) {
+                return {
+                  permission: permission,
+                  presentationKey: permission,
+                  category: 'permission'
+                };
+              })
+            : []);
 
     const guide = section(t('settings.accountAdminSetupTitle', 'Einrichtung auf einen Blick'));
     guide.className += ' settings-account-admin-guide';
@@ -355,14 +372,12 @@
     }
 
     if (actions) {
-      const permissions = Array.isArray(overview.supportedPermissions)
-        ? overview.supportedPermissions : [];
       const scopeKinds = Array.isArray(overview.supportedScopeKinds)
         ? overview.supportedScopeKinds : [];
       const grantControls = document.createElement('div');
       grantControls.className = 'settings-account-admin-lifecycle settings-account-admin-grant-picker';
 
-      if (permissions.length && scopeKinds.length) {
+      if (permissionOptions.length && scopeKinds.length) {
         const permissionField = addText(document.createElement('label'),
           t('settings.accountAdminGrantPermission', 'Rolle / Berechtigung'));
         permissionField.className = 'settings-account-admin-field';
@@ -372,11 +387,15 @@
         permissionInput.disabled = Boolean(actions.busy);
         appendOption(permissionInput, '',
           t('settings.accountAdminChoosePermission', 'Bitte auswählen …'), true);
-        permissions.forEach(function(permission) {
+        permissionOptions.forEach(function(option) {
+          if (!option || !option.permission) return;
+          const label = permissionLabel(option.permission, permissionOptions);
           appendOption(
             permissionInput,
-            permission,
-            permissionLabel(permission) + ' — ' + permission,
+            option.permission,
+            label === option.permission
+              ? label
+              : label + ' — ' + option.permission,
             false);
         });
         permissionInput.value = '';
@@ -431,7 +450,7 @@
 
     renderItems(grants, overview.grants, function(entry, grant) {
       entry.appendChild(addText(document.createElement('strong'),
-        permissionLabel(grant.permission)));
+        permissionLabel(grant.permission, permissionOptions)));
       appendMeta(entry, t('settings.accountAdminGrantBackend', 'Gültig für'),
         scopeLabel(grant.backendId, backends));
       appendTechnicalDetails(entry, [
@@ -861,7 +880,7 @@
       button.appendChild(addText(document.createElement('strong'),
         account.displayName || account.accountId));
       const meta = addText(document.createElement('span'),
-        account.accountId + ' · ' + statusText(account));
+        statusText(account));
       meta.className = 'settings-account-admin-meta';
       button.appendChild(meta);
       button.addEventListener('click', function() {
