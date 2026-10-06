@@ -70,6 +70,7 @@ test-security-architecture:
 	python3 tools/check_mu8a_credential_session_metadata.py
 	python3 tools/check_mu8b_session_revoke.py
 	python3 tools/check_mu8c_credential_revoke.py
+	python3 tools/check_mu10a_device_pairing_bootstrap.py
 	python3 tools/check_browser_session_issuance_architecture.py
 	python3 tools/check_browser_session_issuer_binding.py
 	python3 tools/check_browser_session_concurrency_limit.py
@@ -104,6 +105,8 @@ test-security-device-pairing-request:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_public_device_pairing_security
 	$(BUILD_DIR)/test_public_device_pairing_security
+	node clients/reference-js/tests/test_public_v1_device_pairing_client.js
+	python3 tools/check_mu10a_device_pairing_bootstrap.py
 
 
 test-security-authorization:
