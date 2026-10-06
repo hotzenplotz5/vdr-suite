@@ -123,21 +123,21 @@ def main():
     ):
         require("mu9e_test", marker)
 
-    require("slice", "Status: **CANDIDATE**")
+    require("slice", "Status: **MERGED — PR #433 / REAL YAVDR PASS / HOSTED CI GREEN**")
     require("slice", "It is not")
     require("slice", "MU.9G")
     require("slice", "browser must not own or invent the permission")
     require("slice", "MU.10 remains the planned Device/app pairing successor")
     require("slice", "Phase 70 remains not started")
 
-    require("current", "Post-MU.9 Administration Usability [CANDIDATE]")
-    require("current", "MU.9 - Account/access administration UI [COMPLETED - CLOSEOUT PR #431]")
-    require("workstream", "Post-MU.9 — Administration usability [CURRENT CANDIDATE]")
+    require("current", "MU.10A Device Pairing Bootstrap [IMPLEMENTATION CANDIDATE]")
+    require("current", "Post-MU.9 Administration Usability [MERGED - PR #433 / REAL YAVDR PASS / HOSTED CI GREEN]")
+    require("workstream", "Post-MU.9 — Administration usability [MERGED — PR #433 / REAL YAVDR PASS / HOSTED CI GREEN]")
 
     print("Post-MU.9 administration usability contracts passed")
-    print("MULTIUSER_ADMIN_UX=CANDIDATE")
+    print("MULTIUSER_ADMIN_UX=MERGED_PR_433_REAL_YAVDR_PASS_HOSTED_CI_GREEN")
     print("MU9=COMPLETED_CLOSEOUT_PR_431")
-    print("MU10=NOT_STARTED")
+    print("MU10A=IMPLEMENTATION_CANDIDATE")
     print("PHASE70=NOT_STARTED")
     return 0
 
