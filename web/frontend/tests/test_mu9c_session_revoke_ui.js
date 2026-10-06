@@ -19,6 +19,9 @@ assert(adapterSource.includes('csrfHeaders'));
 assert(uiSource.includes('settings-account-admin-session-revoke'));
 assert(uiSource.includes('accountAdminRevokeSessionConfirm'));
 assert(uiSource.includes('sessionMutationErrorText'));
+assert(uiSource.includes('settings-account-admin-session-history'));
+assert(uiSource.includes('historicalSessions'));
+assert(!uiSource.includes('renderItems(sessions, overview.sessions'));
 assert(!uiSource.includes('.innerHTML'));
 
 const calls = [];
@@ -56,6 +59,15 @@ const publicClient = {
       revoked: !sessionActive,
       lastSeenAt: '2026-10-05T12:00:00Z',
       expiresAt: '2026-10-06T12:00:00Z'
+    }, {
+      sessionId: 'session-old',
+      deviceId: 'old-browser',
+      issuedFromCredentialId: 'credential-a',
+      active: false,
+      expired: true,
+      revoked: false,
+      lastSeenAt: '2026-10-01T12:00:00Z',
+      expiresAt: '2026-10-02T12:00:00Z'
     }]});
   },
   getAccountSession(options) {
@@ -126,6 +138,18 @@ function findByClass(node, className) {
   return null;
 }
 
+function findAllByClass(node, className) {
+  const matches = [];
+  function visit(current) {
+    if ((current.className || '').split(/\s+/).includes(className)) {
+      matches.push(current);
+    }
+    (current.children || []).forEach(visit);
+  }
+  visit(node);
+  return matches;
+}
+
 const context = {
   window: null,
   document: {createElement(tag) { return new Element(tag); }},
@@ -157,6 +181,16 @@ async function renderRoot() {
   let root = await renderRoot();
   let revoke = findByClass(root, 'settings-account-admin-session-revoke');
   assert(revoke, 'active Session must expose revoke control');
+  assert.strictEqual(
+    findAllByClass(root, 'settings-account-admin-session-revoke').length,
+    1,
+    'historical Session must not expose revoke control'
+  );
+  let history = findByClass(root, 'settings-account-admin-session-history');
+  assert(history, 'historical Sessions must be grouped separately');
+  assert.strictEqual(history.tagName, 'DETAILS');
+  assert.strictEqual(history.children[0].tagName, 'SUMMARY');
+  assert.strictEqual(history.children[0].textContent, 'Frühere Sitzungen (1)');
 
   await revoke.listeners.click();
 
@@ -177,6 +211,9 @@ async function renderRoot() {
     null,
     'terminal Session must no longer expose revoke control'
   );
+  history = findByClass(root, 'settings-account-admin-session-history');
+  assert(history, 'revoked Session must move into history');
+  assert.strictEqual(history.children[0].textContent, 'Frühere Sitzungen (2)');
 
   sessionActive = true;
   conflict = true;
