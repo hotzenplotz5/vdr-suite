@@ -3835,7 +3835,7 @@ bool PublicApiRuntime::tryHandleGet(
             case PublicDevicePairingLookupStatus::expired:
                 response = problemResponse(
                     410,
-                    "not_found",
+                    "pairing_expired",
                     "Pairing request expired",
                     "The Device Pairing request has expired.",
                     path,
@@ -6494,6 +6494,29 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
     std::string accountId;
     std::string credentialId;
     std::string sessionId;
+    std::string pairingRequestId;
+
+    if (path == PublicDevicePairingCollectionPath)
+    {
+        response = methodNotAllowedProblem(
+            path,
+            requestId,
+            correlationId,
+            "POST");
+        return true;
+    }
+
+    if (publicDevicePairingPath(
+            path,
+            pairingRequestId))
+    {
+        response = methodNotAllowedProblem(
+            path,
+            requestId,
+            correlationId,
+            "GET");
+        return true;
+    }
 
     if (publicAccountCredentialItemPath(
             path, accountId, credentialId))
