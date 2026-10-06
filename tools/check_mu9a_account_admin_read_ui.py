@@ -81,9 +81,6 @@ def main():
     ):
         require("adapter", marker)
 
-    for name in ("adapter", "ui"):
-        forbid(name, "createAccount(")
-
     require("ui", "VdrSuiteAccountAdminClientApi")
     require("ui", "listAccounts(")
     require("ui", "loadAccount(")

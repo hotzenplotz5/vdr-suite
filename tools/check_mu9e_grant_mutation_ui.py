@@ -13,7 +13,6 @@ FILES = {
     "en": ROOT / "web/frontend/locales/en.js",
     "mu9d_guard": ROOT / "tools/check_mu9d_credential_revoke_ui.py",
     "client": ROOT / "clients/reference-js/public-v1-client.js",
-    "current": ROOT / "docs/CURRENT.md",
     "workstream": ROOT / "docs/development/post-phase69-multiuser-workstream.md",
     "slice_doc": ROOT / "docs/development/post-phase69-mu9e-grant-mutation-ui.md",
 }
@@ -54,9 +53,6 @@ def main():
         "revokeGrant",
     ):
         require("ui", marker)
-
-    forbid("adapter", "createAccount(")
-    forbid("ui", "createAccount(")
     forbid("ui", ".innerHTML")
 
     # Product authorization remains server-owned; no copied permission catalogue
@@ -107,19 +103,16 @@ def main():
     require("mu9d_guard",
         "MU9E_STATUS=SUCCESSOR_STATUS_NOT_OWNED_BY_MU9D_GUARD")
 
-    require("current",
-        "MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION MERGED - PR #428 / FOCUSED YAVDR PASS / HOSTED CI GREEN]")
-    require("current",
-        "MU.9E - Backend Grant Mutation UI [IMPLEMENTATION CANDIDATE]")
     require("workstream",
-        "MU.9E - Backend Grant Mutation UI [IMPLEMENTATION CANDIDATE]")
-    require("slice_doc", "Status: **IMPLEMENTATION CANDIDATE**")
+        "MU.9E - Backend Grant Mutation UI [IMPLEMENTATION MERGED - PR #429 / FOCUSED YAVDR PASS / POST-MERGE CI #9763 GREEN]")
+    require("slice_doc", "Status: **IMPLEMENTATION MERGED — PR #429 / FOCUSED YAVDR PASS / POST-MERGE CI #9763 GREEN**")
     require("slice_doc", "does **not** hardcode that allowlist")
     require("slice_doc", "Phase 70 remains **NOT STARTED**")
 
     print("MU.9E Backend Grant mutation UI contracts passed")
     print("MU9D=IMPLEMENTATION_MERGED_PR_428_FOCUSED_YAVDR_PASS_HOSTED_CI_GREEN")
-    print("MU9E=IMPLEMENTATION_CANDIDATE")
+    print("MU9E=IMPLEMENTATION_MERGED_PR_429_FOCUSED_YAVDR_PASS_POST_MERGE_CI_9763_GREEN")
+    print("MU9F_STATUS=SUCCESSOR_STATUS_NOT_OWNED_BY_MU9E_GUARD")
     print("PHASE70=NOT_STARTED")
     return 0
 

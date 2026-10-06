@@ -1,6 +1,6 @@
 # MU.9E — Backend Grant Mutation UI
 
-Status: **IMPLEMENTATION CANDIDATE**
+Status: **IMPLEMENTATION MERGED — PR #429 / FOCUSED YAVDR PASS / POST-MERGE CI #9763 GREEN**
 
 Parent workstream: [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md)
 
@@ -75,3 +75,20 @@ retry after `412`, visible fail-closed errors, full selected-Account refresh,
 absence of a copied browser permission allowlist, MU.9A-D regressions, frontend
 ownership, phase consistency, and no Daemon build/install/restart/runtime
 mutation.
+
+
+## Merge and post-merge closeout
+
+Focused real-yaVDR acceptance passed on implementation head
+`13a387c66c777585f7f6207da1478af30a9419f9` without daemon installation,
+restart or runtime mutation. PR #429 merged that accepted tree to `main` as
+`0bb84d5702508110960b4f8004f3fc9a31a1a744`.
+
+GitHub-hosted runner degradation cancelled queued jobs before they received a
+runner during the initial CI attempts; those cancellations are not product-test
+failures. Post-merge VDR-Suite CI run #9763, final attempt 3, completed
+successfully on the merge commit with architecture, packaging, Make-audit,
+frontend, fast-regression/daemon-build and documentation jobs green.
+
+MU.9E owns no successor status. MU.9F Account CREATE UI is selected separately
+as the next bounded browser-administration slice.

@@ -19,7 +19,6 @@ assert(adapterSource.includes('csrfHeaders'));
 assert(uiSource.includes('settings-account-admin-session-revoke'));
 assert(uiSource.includes('accountAdminRevokeSessionConfirm'));
 assert(uiSource.includes('sessionMutationErrorText'));
-assert(!adapterSource.includes('createAccount('));
 assert(!uiSource.includes('.innerHTML'));
 
 const calls = [];

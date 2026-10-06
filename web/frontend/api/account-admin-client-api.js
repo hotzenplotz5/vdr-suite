@@ -96,6 +96,19 @@
     };
   }
 
+  function createAccount(loginName, displayName, password, idempotencyKey) {
+    return afterBrowserSessionRestore(function() {
+      return publicClient().createAccount({
+        loginName: loginName,
+        displayName: displayName,
+        password: password,
+        idempotencyKey: idempotencyKey,
+        headers: activeSessionCsrfHeaders(),
+        credentials: 'same-origin'
+      });
+    });
+  }
+
   function updateAccountDisplayName(accountId, ifMatch, displayName) {
     return afterBrowserSessionRestore(function() {
       const options = mutationOptions(accountId, ifMatch);
@@ -184,6 +197,7 @@
   global.VdrSuiteAccountAdminClientApi = Object.freeze({
     listAccounts: listAccounts,
     loadAccount: loadAccount,
+    createAccount: createAccount,
     updateAccountDisplayName: updateAccountDisplayName,
     activateAccount: activateAccount,
     deactivateAccount: deactivateAccount,

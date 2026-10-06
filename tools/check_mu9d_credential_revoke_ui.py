@@ -12,7 +12,6 @@ FILES = {
     "de": ROOT / "web/frontend/locales/de.js",
     "en": ROOT / "web/frontend/locales/en.js",
     "mu9c_guard": ROOT / "tools/check_mu9c_session_revoke_ui.py",
-    "current": ROOT / "docs/CURRENT.md",
     "workstream": ROOT / "docs/development/post-phase69-multiuser-workstream.md",
     "slice_doc": ROOT / "docs/development/post-phase69-mu9d-credential-revoke-ui.md",
 }
@@ -52,9 +51,6 @@ def main():
     ):
         require("ui", marker)
 
-    for name in ("adapter", "ui"):
-        forbid(name, "createAccount(")
-
     forbid("ui", ".innerHTML")
 
     for marker in (
@@ -85,8 +81,6 @@ def main():
     require("mu9c_guard",
         "MU9D_STATUS=SUCCESSOR_STATUS_NOT_OWNED_BY_MU9C_GUARD")
 
-    require("current",
-        "MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION MERGED - PR #428 / FOCUSED YAVDR PASS / HOSTED CI GREEN]")
     require("workstream",
         "MU.9D - Human-password Credential Revoke UI [IMPLEMENTATION MERGED - PR #428 / FOCUSED YAVDR PASS / HOSTED CI GREEN]")
     require("slice_doc",
