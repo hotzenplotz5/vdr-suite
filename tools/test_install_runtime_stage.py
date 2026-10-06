@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import stat
 import subprocess
 import sys
 import tempfile
@@ -14,6 +15,15 @@ def write(path: Path, content: str, mode: int = 0o644) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
     os.chmod(path, mode)
+
+
+def mkdir(path: Path, mode: int) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    os.chmod(path, mode)
+
+
+def mode(path: Path) -> int:
+    return stat.S_IMODE(path.stat().st_mode)
 
 
 def run(*args: str, expect: int = 0) -> subprocess.CompletedProcess[str]:
@@ -42,26 +52,38 @@ def main() -> int:
         write(stage / "usr/share/vdr-suite/web/frontend/index.html", "index-v2\n")
         write(stage / "usr/share/vdr-suite/web/frontend/app.js", "app-v2\n")
         write(stage / "usr/share/vdr-suite/web/frontend/composed.js", "part-a\npart-b\n")
+        mkdir(stage / "var/lib/vdr-suite/backend-agent", 0o700)
+        mkdir(stage / "var/lib/vdr-suite/secrets/series-artwork", 0o700)
 
         sealed = run("seal", "--stage-root", str(stage))
         assert "INSTALL_RUNTIME_STAGE_SEALED=YES" in sealed.stdout
+        assert "DIRS=" in sealed.stdout
 
         write(live / "usr/sbin/vdr-suite-daemon", "daemon-v2\n", 0o755)
         write(live / "etc/vdr-suite/backend-agent.conf", "SITE_LOCAL=keep\n")
         write(live / "usr/share/vdr-suite/web/frontend/index.html", "index-v2\n")
         write(live / "usr/share/vdr-suite/web/frontend/app.js", "app-v1-stale\n")
         write(live / "usr/share/vdr-suite/web/frontend/stale-only.js", "stale\n")
+        mkdir(live / "usr/share/vdr-suite/web/frontend/stale-empty-dir", 0o755)
 
         drift = run("check", "--stage-root", str(stage), "--live-root", str(live), expect=1)
         assert "RUNTIME_DEPLOYMENT_DRIFT=content:usr/share/vdr-suite/web/frontend/app.js" in drift.stdout
         assert "RUNTIME_DEPLOYMENT_DRIFT=missing:usr/share/vdr-suite/web/frontend/composed.js" in drift.stdout
         assert "RUNTIME_DEPLOYMENT_DRIFT=extra:usr/share/vdr-suite/web/frontend/stale-only.js" in drift.stdout
+        assert "RUNTIME_DEPLOYMENT_DRIFT=extra-dir:usr/share/vdr-suite/web/frontend/stale-empty-dir" in drift.stdout
+        assert "RUNTIME_DEPLOYMENT_DRIFT=missing-dir:var/lib/vdr-suite/backend-agent" in drift.stdout
+        assert "RUNTIME_DEPLOYMENT_DRIFT=missing-dir:var/lib/vdr-suite/secrets/series-artwork" in drift.stdout
 
         deployed = run("deploy", "--stage-root", str(stage), "--live-root", str(live))
         assert "INSTALL_RUNTIME_DEPLOYED=YES" in deployed.stdout
         assert (live / "etc/vdr-suite/backend-agent.conf").read_text(encoding="utf-8") == "SITE_LOCAL=keep\n"
         assert (live / "usr/share/vdr-suite/web/frontend/composed.js").read_text(encoding="utf-8") == "part-a\npart-b\n"
         assert not (live / "usr/share/vdr-suite/web/frontend/stale-only.js").exists()
+        assert not (live / "usr/share/vdr-suite/web/frontend/stale-empty-dir").exists()
+        assert (live / "var/lib/vdr-suite/backend-agent").is_dir()
+        assert mode(live / "var/lib/vdr-suite/backend-agent") == 0o700
+        assert (live / "var/lib/vdr-suite/secrets/series-artwork").is_dir()
+        assert mode(live / "var/lib/vdr-suite/secrets/series-artwork") == 0o700
 
         matched = run("check", "--stage-root", str(stage), "--live-root", str(live))
         assert "RUNTIME_DEPLOYMENT_MATCH=YES" in matched.stdout
