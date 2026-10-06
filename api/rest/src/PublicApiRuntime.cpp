@@ -2446,6 +2446,23 @@ ApiResponse publicAccountGrantSetResponse(
             jsonEscape(grantSet.supportedPermissions[index]) +
             "\"";
     }
+    body += "],\"supportedPermissionOptions\":[";
+    for (std::size_t index = 0U;
+         index < grantSet.supportedPermissionOptions.size();
+         ++index)
+    {
+        if (index > 0U) body += ",";
+        const PublicAccountGrantOption& option =
+            grantSet.supportedPermissionOptions[index];
+        body +=
+            "{\"permission\":\"" +
+            jsonEscape(option.permission) +
+            "\",\"presentationKey\":\"" +
+            jsonEscape(option.presentationKey) +
+            "\",\"category\":\"" +
+            jsonEscape(option.category) +
+            "\"}";
+    }
     body += "],\"supportedScopeKinds\":[";
     for (std::size_t index = 0U;
          index < grantSet.supportedScopeKinds.size();
