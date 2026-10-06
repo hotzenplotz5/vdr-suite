@@ -8,10 +8,12 @@
 #include "SecurityIdentityRepository.h"
 #include "SecurityPermissionGrantRepository.h"
 
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <cstddef>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -145,6 +147,34 @@ bool hasGrant(
 
 int main()
 {
+    {
+        const std::vector<std::string> permissions =
+            HumanAccountGrantAdministrationService::
+                supportedGrantPermissions();
+        assert(!permissions.empty());
+        assert(std::is_sorted(
+            permissions.begin(),
+            permissions.end()));
+        assert(std::find(
+            permissions.begin(),
+            permissions.end(),
+            "role.admin") != permissions.end());
+        assert(std::find(
+            permissions.begin(),
+            permissions.end(),
+            "role.read-only") != permissions.end());
+        assert(std::find(
+            permissions.begin(),
+            permissions.end(),
+            "accounts.view") == permissions.end());
+
+        const std::vector<std::string> scopes =
+            HumanAccountGrantAdministrationService::
+                supportedGrantScopeKinds();
+        assert(scopes ==
+            std::vector<std::string>({"global", "backend"}));
+    }
+
     {
         Fixture fixture;
 
