@@ -131,8 +131,8 @@ MU.9F - Account CREATE UI [IMPLEMENTATION MERGED - PR #430 / FOCUSED YAVDR PASS 
 Completed MU.7 sub-slice:
 MU.7 - Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
 
-Next planned successor after usability acceptance:
-MU.10 - Device/app pairing [LATER]
+Current cross-cutting successor:
+MU.10A - Device Pairing Bootstrap [IMPLEMENTATION CANDIDATE]
 
 Post-Phase-69 Multiuser productization status:
 MU.0 through MU.7 are completed. MU.6D Atomic Account CREATE + durable idempotency passed real yaVDR acceptance and merged as PR #411.
@@ -484,3 +484,8 @@ Phase 68 Legacy OSD Compatibility Bridge is **completed for the accepted 68.A-G 
 ## Historical evidence rule
 
 Exact old candidate SHAs, CI runs and once-open follow-up notes remain valid in their closeouts as historical evidence. They are not current execution authority. Use this file for volatile status and query GitHub for the live head before acting.
+
+
+MU.10 live authority/gap audit and bounded implementation candidate:
+[MU.10 Device/App Pairing Architecture and Gap Audit](development/post-phase69-mu10-device-app-pairing-audit.md) and
+[MU.10A Device Pairing Bootstrap](development/post-phase69-mu10a-device-pairing-bootstrap.md).
