@@ -115,7 +115,7 @@ Phase 67 is completed. Teletext merged through PR #293 and the HbbTV discovery/s
 ## Cross-cutting non-numbered milestones
 
 - Multiuser / Account and Backend Access Administration **[MU.9 CLOSED — MU.8A RUNTIME ACCEPTANCE DEBT REMAINS; NO SUCCESSOR SELECTED]**;
-- Broad Timer Product UI **[PLANNED — gated on Multiuser administration]**;
+- Broad Timer Product UI **[PLANNED — MU.9 ACCESS-ADMINISTRATION PREREQUISITE SATISFIED; SEPARATE PRODUCT SLICE NOT YET SELECTED]**;
 - Audit/Security/Operations surfaces;
 - Legacy Basic retirement migration **[COMPLETED]**;
 - first-party client family rollout;
