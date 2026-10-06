@@ -236,6 +236,36 @@
     parent.appendChild(list);
   }
 
+  function renderSessionEntry(entry, session, actions) {
+    entry.appendChild(addText(document.createElement('strong'),
+      session.deviceId || t('settings.accountAdminUnknownDevice', 'Unbekanntes Gerät')));
+    appendMeta(entry, t('settings.accountAdminStatus', 'Status'), statusText(session));
+    appendMeta(entry, t('settings.accountAdminLastActive', 'Zuletzt aktiv'), session.lastSeenAt || '-');
+    appendMeta(entry, t('settings.accountAdminValidUntil', 'Gültig bis'), session.expiresAt || '-');
+    appendTechnicalDetails(entry, [
+      ['Session-ID', session.sessionId],
+      ['Credential-ID', session.issuedFromCredentialId || '-']
+    ]);
+
+    if (actions && session.sessionId && session.active === true &&
+        !session.revoked && !session.expired) {
+      const revoke = addText(document.createElement('button'),
+        t('settings.accountAdminRevokeSession', 'Gerät abmelden'));
+      revoke.type = 'button';
+      revoke.className = 'settings-account-admin-session-revoke';
+      revoke.disabled = Boolean(actions.busy);
+      revoke.addEventListener('click', function() {
+        if (typeof global.confirm === 'function') {
+          const confirmed = global.confirm(t('settings.accountAdminRevokeSessionConfirm',
+            'Dieses Gerät abmelden? Es muss sich anschließend erneut anmelden.'));
+          if (!confirmed) return Promise.resolve(false);
+        }
+        return actions.revokeSession(session.sessionId);
+      });
+      entry.appendChild(revoke);
+    }
+  }
+
   function renderDetail(parent, overview, actions) {
     parent.replaceChildren();
     if (!overview || !overview.account) {
@@ -517,35 +547,36 @@
     const sessions = section(t('settings.accountAdminSessions', 'Angemeldete Geräte'));
     appendHint(sessions, t('settings.accountAdminSessionsHint',
       'Hier erscheinen aktive Browser-Sitzungen. Du kannst einzelne Geräte abmelden, ohne das Konto zu deaktivieren.'));
-    renderItems(sessions, overview.sessions, function(entry, session) {
-      entry.appendChild(addText(document.createElement('strong'),
-        session.deviceId || t('settings.accountAdminUnknownDevice', 'Unbekanntes Gerät')));
-      appendMeta(entry, t('settings.accountAdminStatus', 'Status'), statusText(session));
-      appendMeta(entry, t('settings.accountAdminLastActive', 'Zuletzt aktiv'), session.lastSeenAt || '-');
-      appendMeta(entry, t('settings.accountAdminValidUntil', 'Gültig bis'), session.expiresAt || '-');
-      appendTechnicalDetails(entry, [
-        ['Session-ID', session.sessionId],
-        ['Credential-ID', session.issuedFromCredentialId || '-']
-      ]);
 
-      if (actions && session.sessionId && session.active === true &&
-          !session.revoked && !session.expired) {
-        const revoke = addText(document.createElement('button'),
-          t('settings.accountAdminRevokeSession', 'Gerät abmelden'));
-        revoke.type = 'button';
-        revoke.className = 'settings-account-admin-session-revoke';
-        revoke.disabled = Boolean(actions.busy);
-        revoke.addEventListener('click', function() {
-          if (typeof global.confirm === 'function') {
-            const confirmed = global.confirm(t('settings.accountAdminRevokeSessionConfirm',
-              'Dieses Gerät abmelden? Es muss sich anschließend erneut anmelden.'));
-            if (!confirmed) return Promise.resolve(false);
-          }
-          return actions.revokeSession(session.sessionId);
-        });
-        entry.appendChild(revoke);
-      }
-    });
+    if (activeSessions.length) {
+      renderItems(sessions, activeSessions, function(entry, session) {
+        renderSessionEntry(entry, session, actions);
+      });
+    } else {
+      appendHint(sessions, t('settings.accountAdminNoActiveSessions',
+        'Derzeit ist kein Browser/Gerät angemeldet.'));
+    }
+
+    const historicalSessions = Array.isArray(overview.sessions)
+      ? overview.sessions.filter(function(item) {
+          return !item || item.active !== true || item.revoked === true || item.expired === true;
+        })
+      : [];
+
+    if (historicalSessions.length) {
+      const history = document.createElement('details');
+      history.className = 'settings-account-admin-session-history';
+      history.appendChild(addText(document.createElement('summary'),
+        t('settings.accountAdminSessionHistory', 'Frühere Sitzungen') +
+          ' (' + historicalSessions.length + ')'));
+      appendHint(history, t('settings.accountAdminSessionHistoryHint',
+        'Abgemeldete und abgelaufene Sitzungen werden nur zur Nachvollziehbarkeit aufbewahrt.'));
+      renderItems(history, historicalSessions, function(entry, session) {
+        renderSessionEntry(entry, session, null);
+      });
+      sessions.appendChild(history);
+    }
+
     parent.appendChild(sessions);
   }
 
