@@ -124,6 +124,10 @@ Post-MU.9 Administration Usability [CANDIDATE]
 Latest completed Multiuser milestone:
 MU.9 - Account/access administration UI [COMPLETED - CLOSEOUT PR #431]
 
+Historical completed MU.9 UI slice markers:
+MU.9E - Backend Grant Mutation UI [IMPLEMENTATION MERGED - PR #429 / FOCUSED YAVDR PASS / POST-MERGE CI #9763 GREEN]
+MU.9F - Account CREATE UI [IMPLEMENTATION MERGED - PR #430 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
+
 Completed MU.7 sub-slice:
 MU.7 - Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
 
