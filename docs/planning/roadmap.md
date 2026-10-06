@@ -63,16 +63,16 @@ Current Multiuser architecture slice:
 MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
 
 Current Multiuser runtime slice:
-MU.9F - Account CREATE UI [IMPLEMENTATION MERGED - PR #430 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
+none selected - MU.9 is closed; MU.8A runtime acceptance debt remains explicit
 
 Latest completed Multiuser runtime slice:
-MU.9E - Backend Grant Mutation UI [IMPLEMENTATION MERGED - PR #429 / FOCUSED YAVDR PASS / POST-MERGE CI #9763 GREEN]
+MU.9 - Account and access administration UI [COMPLETED - MU.9A-F / CLOSEOUT PR #431 / POST-MERGE CI #9768 GREEN]
 
 Completed MU.7 sub-slice:
 Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
 
 Next product slice:
-MU.9F - Account CREATE UI [IMPLEMENTATION MERGED - PR #430 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
+none selected - resolve/document MU.8A runtime-acceptance debt before selecting MU.10 or another successor
 ```
 
 Phases 65 through 69 are completed. Durable Phase-69 evidence lives in [Phase 69 Closeout](../development/phase-69-closeout.md). Phase 70 is the next strict numbered phase but is not started and has no runtime authorization until its required ADR is accepted.
@@ -938,7 +938,7 @@ These milestones are intentionally **not inserted as numbered runtime phases**. 
 
 ## Milestone A — Account and Backend Access Administration
 
-Status: **Active Multiuser workstream; foundation complete, administration architecture gate current.**
+Status: **Multiuser workstream active; MU.9 administration UI closed, MU.8A runtime-acceptance debt remains explicit, no successor selected.**
 
 Durable workstream authority:
 [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md).
@@ -972,7 +972,7 @@ MU.7 Backend access / permission grant administration           [COMPLETED — R
 MU.8A Safe credential/session metadata                          [IMPLEMENTATION MERGED — PR #415 / RUNTIME ACCEPTANCE PENDING]
 MU.8B Session Revoke                                            [IMPLEMENTATION MERGED - PR #416 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
 MU.8C Human-password Credential Revoke                           [IMPLEMENTATION MERGED - PR #417 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
-MU.9 Account and access administration UI                      [COMPLETED - MU.9F ACCOUNT CREATE UI CANDIDATE]
+MU.9 Account and access administration UI                      [COMPLETED - MU.9A-F / CLOSEOUT PR #431]
 MU.10 Device/app pairing                                        [LATER]
 MU.11 Profiles / household personalization                      [LATER]
 ```
