@@ -790,6 +790,12 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
                 found.grantSet.actorId;
             result.grantSet.resourceRevision =
                 found.grantSet.resourceRevision;
+            result.grantSet.supportedPermissions =
+                HumanAccountGrantAdministrationService::
+                    supportedGrantPermissions();
+            result.grantSet.supportedScopeKinds =
+                HumanAccountGrantAdministrationService::
+                    supportedGrantScopeKinds();
             for (const PermissionGrant& grant :
                  found.grantSet.grants)
             {
@@ -874,6 +880,12 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
                 mutated.grantSet.actorId;
             result.grantSet.resourceRevision =
                 mutated.grantSet.resourceRevision;
+            result.grantSet.supportedPermissions =
+                HumanAccountGrantAdministrationService::
+                    supportedGrantPermissions();
+            result.grantSet.supportedScopeKinds =
+                HumanAccountGrantAdministrationService::
+                    supportedGrantScopeKinds();
             for (const PermissionGrant& grant :
                  mutated.grantSet.grants)
             {
