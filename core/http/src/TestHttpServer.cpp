@@ -793,6 +793,17 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             result.grantSet.supportedPermissions =
                 HumanAccountGrantAdministrationService::
                     supportedGrantPermissions();
+            for (const HumanAccountGrantOption& source :
+                 HumanAccountGrantAdministrationService::
+                     supportedGrantPermissionOptions())
+            {
+                PublicAccountGrantOption option;
+                option.permission = source.permission;
+                option.presentationKey = source.presentationKey;
+                option.category = source.category;
+                result.grantSet.supportedPermissionOptions.push_back(
+                    std::move(option));
+            }
             result.grantSet.supportedScopeKinds =
                 HumanAccountGrantAdministrationService::
                     supportedGrantScopeKinds();
@@ -883,6 +894,17 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             result.grantSet.supportedPermissions =
                 HumanAccountGrantAdministrationService::
                     supportedGrantPermissions();
+            for (const HumanAccountGrantOption& source :
+                 HumanAccountGrantAdministrationService::
+                     supportedGrantPermissionOptions())
+            {
+                PublicAccountGrantOption option;
+                option.permission = source.permission;
+                option.presentationKey = source.presentationKey;
+                option.category = source.category;
+                result.grantSet.supportedPermissionOptions.push_back(
+                    std::move(option));
+            }
             result.grantSet.supportedScopeKinds =
                 HumanAccountGrantAdministrationService::
                     supportedGrantScopeKinds();
