@@ -81,6 +81,9 @@ public:
         const std::string& permission,
         const std::string& backendId);
 
+    static std::vector<std::string> supportedGrantPermissions();
+    static std::vector<std::string> supportedGrantScopeKinds();
+
 private:
     HumanAccountGrantAdministrationResult readInActiveTransaction(
         const std::string& accountId) const;
