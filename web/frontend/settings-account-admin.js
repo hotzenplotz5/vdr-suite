@@ -20,6 +20,71 @@
       : t('settings.accountAdminInactive', 'inaktiv');
   }
 
+  function permissionLabel(permission) {
+    if (permission === 'role.admin') {
+      return t('settings.accountAdminPermissionAdmin', 'Administrator');
+    }
+    if (permission === 'role.read-only') {
+      return t('settings.accountAdminPermissionReadOnly', 'Nur lesen');
+    }
+    return permission || '-';
+  }
+
+  function scopeLabel(backendId, backends) {
+    if (backendId === '*') {
+      return t('settings.accountAdminScopeGlobal', 'Alle Backends / serverweit');
+    }
+    const items = Array.isArray(backends) ? backends : [];
+    const match = items.find(function(backend) {
+      return backend && backend.backendId === backendId;
+    });
+    if (match && match.name) return match.name + ' (' + backendId + ')';
+    return backendId || '-';
+  }
+
+  function appendHint(parent, text) {
+    const hint = addText(document.createElement('p'), text);
+    hint.className = 'settings-account-admin-meta settings-account-admin-hint';
+    parent.appendChild(hint);
+    return hint;
+  }
+
+  function appendTechnicalDetails(parent, rows) {
+    const details = document.createElement('details');
+    details.className = 'settings-account-admin-technical';
+    const summary = addText(document.createElement('summary'),
+      t('settings.accountAdminTechnicalDetails', 'Technische Details'));
+    details.appendChild(summary);
+    rows.forEach(function(row) {
+      appendMeta(details, row[0], row[1]);
+    });
+    parent.appendChild(details);
+    return details;
+  }
+
+  function appendGuideStep(parent, title, detail, complete) {
+    const item = document.createElement('div');
+    item.className = 'settings-account-admin-guide-step' +
+      (complete ? ' complete' : ' pending');
+    const marker = addText(document.createElement('span'), complete ? '✓' : '!');
+    marker.className = 'settings-account-admin-guide-marker';
+    const copy = document.createElement('div');
+    copy.appendChild(addText(document.createElement('strong'), title));
+    copy.appendChild(addText(document.createElement('span'), detail));
+    item.appendChild(marker);
+    item.appendChild(copy);
+    parent.appendChild(item);
+    return item;
+  }
+
+  function appendOption(select, value, label, disabled) {
+    const option = addText(document.createElement('option'), label);
+    option.value = value;
+    option.disabled = Boolean(disabled);
+    select.appendChild(option);
+    return option;
+  }
+
   function errorText(error) {
     if (error && error.status === 401) {
       return t('settings.accountAdminUnauthenticated',
@@ -176,12 +241,60 @@
     }
 
     const account = overview.account;
-    const identity = section(t('settings.accountAdminIdentity', 'Konto'));
+    const backends = actions && Array.isArray(actions.backends)
+      ? actions.backends : [];
+    const activeCredentials = Array.isArray(overview.credentials)
+      ? overview.credentials.filter(function(item) {
+          return item && item.active === true && !item.revoked && !item.expired;
+        }) : [];
+    const activeSessions = Array.isArray(overview.sessions)
+      ? overview.sessions.filter(function(item) {
+          return item && item.active === true && !item.revoked && !item.expired;
+        }) : [];
+    const activeGrants = Array.isArray(overview.grants) ? overview.grants : [];
+
+    const guide = section(t('settings.accountAdminSetupTitle', 'Einrichtung auf einen Blick'));
+    guide.className += ' settings-account-admin-guide';
+    appendGuideStep(
+      guide,
+      t('settings.accountAdminSetupAccount', '1. Konto'),
+      account.active
+        ? t('settings.accountAdminSetupAccountReady', 'Aktiv und für Anmeldungen freigegeben.')
+        : t('settings.accountAdminSetupAccountPending', 'Noch inaktiv. Aktiviere das Konto für die Anmeldung.'),
+      account.active === true);
+    appendGuideStep(
+      guide,
+      t('settings.accountAdminSetupAccess', '2. Zugriff'),
+      activeGrants.length
+        ? t('settings.accountAdminSetupAccessReady', 'Mindestens ein Zugriff ist zugewiesen.')
+        : t('settings.accountAdminSetupAccessPending', 'Noch keine Rolle oder Backend-Berechtigung zugewiesen.'),
+      activeGrants.length > 0);
+    appendGuideStep(
+      guide,
+      t('settings.accountAdminSetupLogin', '3. Anmeldung'),
+      activeCredentials.length
+        ? t('settings.accountAdminSetupLoginReady', 'Aktive Anmeldedaten vorhanden.')
+        : t('settings.accountAdminSetupLoginPending', 'Keine aktiven Anmeldedaten vorhanden.'),
+      activeCredentials.length > 0);
+    appendGuideStep(
+      guide,
+      t('settings.accountAdminSetupDevices', '4. Geräte'),
+      activeSessions.length
+        ? t('settings.accountAdminSetupDevicesReady', 'Mindestens ein Browser/Gerät ist angemeldet.')
+        : t('settings.accountAdminSetupDevicesPending', 'Noch kein Browser/Gerät angemeldet.'),
+      activeSessions.length > 0);
+    parent.appendChild(guide);
+
+    const identity = section(t('settings.accountAdminIdentity', 'Konto & Status'));
     identity.appendChild(addText(document.createElement('h3'),
       account.displayName || account.accountId));
-    appendMeta(identity, 'Account-ID', account.accountId);
-    appendMeta(identity, 'Actor-ID', account.actorId);
-    appendMeta(identity, 'Status', statusText(account));
+    appendMeta(identity, t('settings.accountAdminStatus', 'Status'), statusText(account));
+    appendHint(identity, t('settings.accountAdminIdentityHint',
+      'Hier änderst du den Anzeigenamen und aktivierst oder deaktivierst die Anmeldung für dieses Konto.'));
+    appendTechnicalDetails(identity, [
+      ['Account-ID', account.accountId],
+      ['Actor-ID', account.actorId]
+    ]);
 
     if (actions) {
       const controls = document.createElement('div');
@@ -229,66 +342,113 @@
     }
     parent.appendChild(identity);
 
-    const grants = section(t('settings.accountAdminGrants', 'Berechtigungen'));
+    const grants = section(t('settings.accountAdminGrants', 'Zugriff & Rolle'));
+    appendHint(grants, t('settings.accountAdminGrantServerPolicy',
+      'Wähle aus, was dieser Benutzer darf und wo es gilt. Die verfügbaren Optionen kommen direkt vom Server.'));
+
+    if (!activeGrants.length) {
+      const warning = addText(document.createElement('p'),
+        t('settings.accountAdminNoAccessWarning',
+          'Dieser Benutzer hat noch keinen Zugriff. Weise mindestens eine Rolle oder Berechtigung zu.'));
+      warning.className = 'settings-account-admin-callout';
+      grants.appendChild(warning);
+    }
 
     if (actions) {
-      const policyHint = addText(document.createElement('p'),
-        t('settings.accountAdminGrantServerPolicy',
-          'Zulässige Berechtigungen und Scopes werden ausschließlich vom Server geprüft.'));
-      policyHint.className = 'settings-account-admin-meta';
-      grants.appendChild(policyHint);
-
+      const permissions = Array.isArray(overview.supportedPermissions)
+        ? overview.supportedPermissions : [];
+      const scopeKinds = Array.isArray(overview.supportedScopeKinds)
+        ? overview.supportedScopeKinds : [];
       const grantControls = document.createElement('div');
-      grantControls.className = 'settings-account-admin-lifecycle';
+      grantControls.className = 'settings-account-admin-lifecycle settings-account-admin-grant-picker';
 
-      const permissionLabel = addText(document.createElement('label'),
-        t('settings.accountAdminGrantPermission', 'Berechtigung'));
-      permissionLabel.className = 'settings-account-admin-field';
-      const permissionInput = document.createElement('input');
-      permissionInput.type = 'text';
-      permissionInput.className =
-        'settings-account-admin-display-name-input settings-account-admin-grant-permission-input';
-      permissionInput.disabled = Boolean(actions.busy);
-      permissionLabel.appendChild(permissionInput);
-      grantControls.appendChild(permissionLabel);
+      if (permissions.length && scopeKinds.length) {
+        const permissionField = addText(document.createElement('label'),
+          t('settings.accountAdminGrantPermission', 'Rolle / Berechtigung'));
+        permissionField.className = 'settings-account-admin-field';
+        const permissionInput = document.createElement('select');
+        permissionInput.className =
+          'settings-account-admin-display-name-input settings-account-admin-grant-permission-input';
+        permissionInput.disabled = Boolean(actions.busy);
+        appendOption(permissionInput, '',
+          t('settings.accountAdminChoosePermission', 'Bitte auswählen …'), true);
+        permissions.forEach(function(permission) {
+          appendOption(
+            permissionInput,
+            permission,
+            permissionLabel(permission) + ' — ' + permission,
+            false);
+        });
+        permissionInput.value = '';
+        permissionField.appendChild(permissionInput);
+        grantControls.appendChild(permissionField);
 
-      const backendLabel = addText(document.createElement('label'),
-        t('settings.accountAdminGrantBackend', 'Backend / Scope'));
-      backendLabel.className = 'settings-account-admin-field';
-      const backendInput = document.createElement('input');
-      backendInput.type = 'text';
-      backendInput.className =
-        'settings-account-admin-display-name-input settings-account-admin-grant-backend-input';
-      backendInput.disabled = Boolean(actions.busy);
-      backendLabel.appendChild(backendInput);
-      grantControls.appendChild(backendLabel);
+        const backendField = addText(document.createElement('label'),
+          t('settings.accountAdminGrantBackend', 'Gültig für'));
+        backendField.className = 'settings-account-admin-field';
+        const backendInput = document.createElement('select');
+        backendInput.className =
+          'settings-account-admin-display-name-input settings-account-admin-grant-backend-input';
+        backendInput.disabled = Boolean(actions.busy);
 
-      const ensure = addText(document.createElement('button'),
-        t('settings.accountAdminEnsureGrant', 'Berechtigung hinzufügen'));
-      ensure.type = 'button';
-      ensure.className = 'settings-account-admin-grant-ensure';
-      ensure.disabled = Boolean(actions.busy);
-      ensure.addEventListener('click', function() {
-        return actions.ensureGrant(permissionInput.value, backendInput.value);
-      });
-      grantControls.appendChild(ensure);
+        if (scopeKinds.indexOf('global') !== -1) {
+          appendOption(
+            backendInput,
+            '*',
+            t('settings.accountAdminScopeGlobal', 'Alle Backends / serverweit'),
+            false);
+        }
+        if (scopeKinds.indexOf('backend') !== -1) {
+          backends.forEach(function(backend) {
+            if (!backend || !backend.backendId) return;
+            appendOption(
+              backendInput,
+              backend.backendId,
+              backend.name
+                ? backend.name + ' (' + backend.backendId + ')'
+                : backend.backendId,
+              false);
+          });
+        }
+
+        const ensure = addText(document.createElement('button'),
+          t('settings.accountAdminEnsureGrant', 'Zugriff hinzufügen'));
+        ensure.type = 'button';
+        ensure.className = 'settings-account-admin-grant-ensure';
+        ensure.disabled = Boolean(actions.busy);
+        ensure.addEventListener('click', function() {
+          return actions.ensureGrant(permissionInput.value, backendInput.value);
+        });
+        grantControls.appendChild(backendField);
+        backendField.appendChild(backendInput);
+        grantControls.appendChild(ensure);
+      } else {
+        appendHint(grantControls, t('settings.accountAdminGrantOptionsUnavailable',
+          'Der Server liefert derzeit keine auswählbaren Zugriffstypen. Bestehende Zugriffe können weiterhin angezeigt oder entzogen werden.'));
+      }
       grants.appendChild(grantControls);
     }
 
     renderItems(grants, overview.grants, function(entry, grant) {
-      entry.appendChild(addText(document.createElement('strong'), grant.permission || '-'));
-      appendMeta(entry, 'Backend', grant.backendId || '-');
+      entry.appendChild(addText(document.createElement('strong'),
+        permissionLabel(grant.permission)));
+      appendMeta(entry, t('settings.accountAdminGrantBackend', 'Gültig für'),
+        scopeLabel(grant.backendId, backends));
+      appendTechnicalDetails(entry, [
+        [t('settings.accountAdminGrantPermissionCode', 'Permission-Code'), grant.permission],
+        ['Scope', grant.backendId]
+      ]);
 
       if (actions && grant.permission && grant.backendId) {
         const revoke = addText(document.createElement('button'),
-          t('settings.accountAdminRevokeGrant', 'Berechtigung entziehen'));
+          t('settings.accountAdminRevokeGrant', 'Zugriff entziehen'));
         revoke.type = 'button';
         revoke.className = 'settings-account-admin-grant-revoke';
         revoke.disabled = Boolean(actions.busy);
         revoke.addEventListener('click', function() {
           if (typeof global.confirm === 'function') {
             const confirmed = global.confirm(t('settings.accountAdminRevokeGrantConfirm',
-              'Diese Berechtigung entziehen?'));
+              'Diesen Zugriff entziehen?'));
             if (!confirmed) return Promise.resolve(false);
           }
           return actions.revokeGrant(grant.permission, grant.backendId);
@@ -298,28 +458,34 @@
     });
     parent.appendChild(grants);
 
-    const credentials = section(t('settings.accountAdminCredentials', 'Anmeldedaten'));
+    const credentials = section(t('settings.accountAdminCredentials', 'Anmeldung & Passwort'));
+    appendHint(credentials, t('settings.accountAdminCredentialsHint',
+      'Hier siehst du die aktiven Anmeldedaten. Ein Widerruf beendet auch damit ausgestellte Browser-Sitzungen.'));
     renderItems(credentials, overview.credentials, function(entry, credential) {
       entry.appendChild(addText(document.createElement('strong'),
-        credential.credentialType || '-'));
-      appendMeta(entry, 'Credential-ID', credential.credentialId);
-      appendMeta(entry, 'Status', statusText(credential));
-      appendMeta(entry, 'Gültig bis', credential.expiresAt || '-');
-      appendMeta(entry, 'Erstellt', credential.createdAt || '-');
+        credential.credentialType === 'human-password'
+          ? t('settings.accountAdminPasswordCredential', 'Passwort-Anmeldung')
+          : (credential.credentialType || '-')));
+      appendMeta(entry, t('settings.accountAdminStatus', 'Status'), statusText(credential));
+      appendMeta(entry, t('settings.accountAdminValidUntil', 'Gültig bis'), credential.expiresAt || '-');
+      appendMeta(entry, t('settings.accountAdminCreatedAt', 'Erstellt'), credential.createdAt || '-');
+      appendTechnicalDetails(entry, [
+        ['Credential-ID', credential.credentialId]
+      ]);
 
       if (actions && credential.credentialId &&
           credential.credentialType === 'human-password' &&
           credential.active === true &&
           !credential.revoked && !credential.expired) {
         const revoke = addText(document.createElement('button'),
-          t('settings.accountAdminRevokeCredential', 'Anmeldedaten widerrufen'));
+          t('settings.accountAdminRevokeCredential', 'Passwort-Anmeldung widerrufen'));
         revoke.type = 'button';
         revoke.className = 'settings-account-admin-credential-revoke';
         revoke.disabled = Boolean(actions.busy);
         revoke.addEventListener('click', function() {
           if (typeof global.confirm === 'function') {
             const confirmed = global.confirm(t('settings.accountAdminRevokeCredentialConfirm',
-              'Anmeldedaten widerrufen? Damit ausgestellte Browser-Sitzungen werden ebenfalls beendet.'));
+              'Passwort-Anmeldung widerrufen? Damit ausgestellte Browser-Sitzungen werden ebenfalls beendet.'));
             if (!confirmed) return Promise.resolve(false);
           }
           return actions.revokeCredential(credential.credentialId);
@@ -329,27 +495,31 @@
     });
     parent.appendChild(credentials);
 
-    const sessions = section(t('settings.accountAdminSessions', 'Sitzungen'));
+    const sessions = section(t('settings.accountAdminSessions', 'Angemeldete Geräte'));
+    appendHint(sessions, t('settings.accountAdminSessionsHint',
+      'Hier erscheinen aktive Browser-Sitzungen. Du kannst einzelne Geräte abmelden, ohne das Konto zu deaktivieren.'));
     renderItems(sessions, overview.sessions, function(entry, session) {
       entry.appendChild(addText(document.createElement('strong'),
-        session.deviceId || session.sessionId || '-'));
-      appendMeta(entry, 'Session-ID', session.sessionId);
-      appendMeta(entry, 'Credential', session.issuedFromCredentialId || '-');
-      appendMeta(entry, 'Status', statusText(session));
-      appendMeta(entry, 'Zuletzt aktiv', session.lastSeenAt || '-');
-      appendMeta(entry, 'Gültig bis', session.expiresAt || '-');
+        session.deviceId || t('settings.accountAdminUnknownDevice', 'Unbekanntes Gerät')));
+      appendMeta(entry, t('settings.accountAdminStatus', 'Status'), statusText(session));
+      appendMeta(entry, t('settings.accountAdminLastActive', 'Zuletzt aktiv'), session.lastSeenAt || '-');
+      appendMeta(entry, t('settings.accountAdminValidUntil', 'Gültig bis'), session.expiresAt || '-');
+      appendTechnicalDetails(entry, [
+        ['Session-ID', session.sessionId],
+        ['Credential-ID', session.issuedFromCredentialId || '-']
+      ]);
 
       if (actions && session.sessionId && session.active === true &&
           !session.revoked && !session.expired) {
         const revoke = addText(document.createElement('button'),
-          t('settings.accountAdminRevokeSession', 'Sitzung widerrufen'));
+          t('settings.accountAdminRevokeSession', 'Gerät abmelden'));
         revoke.type = 'button';
         revoke.className = 'settings-account-admin-session-revoke';
         revoke.disabled = Boolean(actions.busy);
         revoke.addEventListener('click', function() {
           if (typeof global.confirm === 'function') {
             const confirmed = global.confirm(t('settings.accountAdminRevokeSessionConfirm',
-              'Sitzung widerrufen? Dieses Gerät muss sich anschließend erneut anmelden.'));
+              'Dieses Gerät abmelden? Es muss sich anschließend erneut anmelden.'));
             if (!confirmed) return Promise.resolve(false);
           }
           return actions.revokeSession(session.sessionId);
@@ -375,7 +545,16 @@
       t('settings.accountAdminTitle', 'Benutzer & Zugriffe')));
     card.appendChild(addText(document.createElement('p'),
       t('settings.accountAdminDescription',
-        'Human Accounts, Berechtigungen, Anmeldedaten und Sitzungen verwalten.')));
+        'Benutzer anlegen, Zugriff zuweisen und angemeldete Geräte verwalten.')));
+
+    const intro = document.createElement('div');
+    intro.className = 'settings-account-admin-intro';
+    intro.appendChild(addText(document.createElement('strong'),
+      t('settings.accountAdminHowToTitle', 'So funktioniert die Einrichtung')));
+    intro.appendChild(addText(document.createElement('p'),
+      t('settings.accountAdminHowTo',
+        '1. Benutzer anlegen. 2. Benutzer auswählen. 3. Unter „Zugriff & Rolle“ festlegen, was er auf welchen Backends darf. 4. Danach kann sich der Benutzer anmelden.')));
+    card.appendChild(intro);
 
     const status = document.createElement('p');
     status.className = 'settings-account-admin-status';
@@ -420,7 +599,7 @@
 
     createPanel.appendChild(addText(document.createElement('p'),
       t('settings.accountAdminCreateNoAutomaticAccess',
-        'Das neue Konto erhält keine Rollen oder Backend-Berechtigungen automatisch.')));
+        'Nach dem Anlegen ist das Konto noch ohne Zugriff. Es wird automatisch ausgewählt; weise anschließend unter „Zugriff & Rolle“ die gewünschte Rolle oder Berechtigung zu.')));
 
     const createButton = addText(document.createElement('button'),
       t('settings.accountAdminCreateSubmit', 'Benutzer anlegen'));
@@ -445,6 +624,7 @@
       nextCursor: '',
       selectedAccountId: '',
       selectedOverview: null,
+      backends: [],
       mutating: false,
       creating: false
     };
@@ -504,7 +684,7 @@
           });
         }).then(function() {
           status.textContent = t('settings.accountAdminCreateSaved',
-            'Benutzer wurde angelegt.');
+            'Benutzer wurde angelegt. Weise jetzt unter „Zugriff & Rolle“ den gewünschten Zugriff zu.');
           return true;
         }).catch(function(error) {
           status.textContent = createAccountErrorText(error);
@@ -535,6 +715,7 @@
     function lifecycleActions() {
       return {
         busy: state.mutating,
+        backends: state.backends,
         rename: function(displayName) {
           const normalized = typeof displayName === 'string' ? displayName.trim() : '';
           if (!normalized) {
@@ -735,7 +916,17 @@
       });
     }
 
-    return loadAccounts(false).then(function() { return card; });
+    const loadBackends = typeof api.listBackends === 'function'
+      ? api.listBackends().then(function(items) {
+          state.backends = Array.isArray(items) ? items : [];
+        }).catch(function() {
+          state.backends = [];
+        })
+      : Promise.resolve();
+
+    return loadBackends
+      .then(function() { return loadAccounts(false); })
+      .then(function() { return card; });
   }
 
   global.VdrSuiteAccountAdminSettings = Object.freeze({render: render});
