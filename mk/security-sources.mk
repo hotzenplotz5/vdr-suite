@@ -92,6 +92,18 @@ test-security-device-pairing-request:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_device_pairing_request_service
 	$(BUILD_DIR)/test_device_pairing_request_service
+	$(BUILD_CXX) $(CXXFLAGS) \
+		api/rest/src/PublicApiRuntime.cpp \
+		api/rest/tests/test_public_device_pairing.cpp \
+		-o $(BUILD_DIR)/test_public_device_pairing
+	$(BUILD_DIR)/test_public_device_pairing
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_public_device_pairing_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_device_pairing_security
+	$(BUILD_DIR)/test_public_device_pairing_security
 
 
 test-security-authorization:
