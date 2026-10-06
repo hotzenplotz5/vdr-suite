@@ -42,7 +42,7 @@ Current Multiuser architecture slice:
 MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
 
 Current Multiuser runtime slice:
-MU.9F - Account CREATE UI [IMPLEMENTATION CANDIDATE]
+MU.9F - Account CREATE UI [IMPLEMENTATION MERGED - PR #430 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
 
 Latest completed Multiuser runtime slice:
 MU.9E - Backend Grant Mutation UI [IMPLEMENTATION MERGED - PR #429 / FOCUSED YAVDR PASS / POST-MERGE CI #9763 GREEN]
@@ -51,7 +51,7 @@ Completed MU.7 sub-slice:
 Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
 
 Next product slice:
-MU.9F - Account CREATE UI [IMPLEMENTATION CANDIDATE]
+MU.9F - Account CREATE UI [IMPLEMENTATION MERGED - PR #430 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
 
 Completed Phase-67 verticals:
 Teletext + HbbTV discovery/application-session/presentation-media runtime
