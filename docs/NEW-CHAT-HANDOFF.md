@@ -64,7 +64,7 @@ Historical Phase-69 closeout records retained for traceability: `docs/developmen
 - ADR-0058 owns the completed Media Home / responsive browse / deferred-preview architecture.
 - ADR-0054 remains authoritative for the completed Phase 67; durable evidence is in the Phase-67 closeout.
 - Bounded post-phase hardening does not reopen a completed numbered phase and does not silently authorize the next phase.
-- Broad polished Timer UI remains a cross-cutting milestone gated on required access administration.
+- Broad polished Timer UI remains a separate cross-cutting milestone; its required MU.9 access-administration prerequisite is now satisfied, but no Timer successor slice is automatically selected.
 - The cross-cutting Legacy Basic retirement milestone is completed; preserved old defaults lines are inert and the historical rollback sequence is not a current runtime mechanism.
 - ADR-0064 local-control latency isolation is closed after ETYPES. Timer
   CREATE/DELETE/MODIFY intentionally remain on typed SVDRP, and
@@ -101,7 +101,7 @@ For current Multiuser work:
 2. treat ADR-0067 as accepted architecture and MU.5 as completed;
 3. treat MU.7 as completed after real yaVDR acceptance and PR #413 merge; for MU.8 successor work, re-read live `main`, preserve the bounded MU.8A metadata contract and derive the next revoke slice from the accepted lifecycle authority; do not redo MU.6A/MU.6B without a demonstrated regression;
 4. keep pairing and Profiles as later separate slices rather than conflating them with Human Account administration;
-5. keep Broad Timer Product UI gated on the required Multiuser Account/backend access administration surface.
+5. treat the required MU.9 Account/backend access administration prerequisite for Broad Timer Product UI as satisfied; do not start a Timer slice without fresh successor selection.
 
 For the next numbered work:
 
@@ -124,7 +124,7 @@ Phase 64 reliable Timer orchestration engine [COMPLETED]
 
 Completed history is not renumbered. ADR-0054/0047/0048 retain their architecture and future sequencing.
 
-Broad Timer UI remains non-numbered and depends on completed Phase 62 + completed Phase 64 + required account/backend access administration.
+Broad Timer UI remains non-numbered. Its Phase 62, Phase 64 and required MU.9 Account/backend access administration prerequisites are satisfied; implementation still requires an explicitly selected bounded product slice.
 
 ## Completed Phase 65 media architecture
 
@@ -228,7 +228,7 @@ Durable current evidence: [Post-Phase-69 P2 Legacy Basic Retirement Closeout](de
 7. Treat MU.6 as completed through MU.6D / PR #411 and MU.7 grant administration as COMPLETED after REAL YAVDR acceptance and PR #413 merge; treat MU.8 implementation as complete through MU.8C, with MU.8A safe credential/session metadata merged in PR #415 but its separately documented real-runtime acceptance still pending, MU.8B Session Revoke merged in PR #416 after focused yaVDR acceptance and green hosted CI, and MU.8C Human-password Credential Revoke merged in PR #417 after focused yaVDR acceptance and green hosted CI; treat MU.9A-F as completed, MU.9F as merged in PR #430 and MU.9 as closed through PR #431 / post-merge CI #9768; no successor is selected; do not fold MU.7 grant administration or MU.8 credential/session administration into MU.6.
 8. Do not start Phase 70 merely because Phase 69 or a Multiuser slice is complete; require the dedicated accepted Phase-70 runtime ADR before numbered Phase-70 implementation.
 9. Preserve accepted Phase-65 playback/MediaSession semantics, completed Phase-66 Home ownership, completed Phase-67 Teletext/HbbTV domains, completed Phase-68 Legacy OSD ownership and completed Phase-69 public-client boundaries rather than inventing parallel owners during successor work.
-10. Keep the broad Timer UI as a cross-cutting product milestone gated on required Multiuser Account/backend access administration.
+10. Keep the broad Timer UI as a separate cross-cutting product milestone; the MU.9 access-administration gate is satisfied, but do not infer automatic successor selection.
 11. Preserve truthful Range/seek/growing capability; completed-Recording seek/resume is accepted for the supported profiles, while growing-Recording seek and Live-TV timeshift remain explicit non-support until separately implemented.
 13. Keep review/merge/retarget/close state changes behind explicit user approval; do not ask again when that exact authorization is already present.
 14. Require real yaVDR acceptance when an installed/runtime, native, media or broadcast-behaviour boundary changes; do not repeat accepted runtime evidence for documentation/workflow-only follow-ups.
