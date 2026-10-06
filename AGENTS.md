@@ -64,6 +64,31 @@ complete content or use a bounded edit strategy. Recheck the remote branch head
 before every write and inspect the resulting commit or diff before treating the
 change as complete.
 
+## Canonical runtime/frontend deployment
+
+For real yaVDR installation or runtime acceptance of repository-built VDR-Suite
+runtime/frontend changes, the raw source tree is never the deployment payload.
+Use the repository's canonical staged path:
+
+1. `make stage-install-runtime RUNTIME_STAGE=...`;
+2. `sudo make deploy-install-runtime RUNTIME_STAGE=... LIVE_ROOT=/`;
+3. `make check-install-runtime-deployment RUNTIME_STAGE=... LIVE_ROOT=/`.
+
+The sealed `install-runtime` `DESTDIR` tree is the authority for installable
+runtime artifacts. Never cherry-pick files from `web/frontend` into
+`/usr/share/vdr-suite/web/frontend`, and never treat a direct
+`web/frontend` versus live-directory comparison as deployment evidence because
+source-only and composed runtime artifacts differ by design.
+
+A real runtime/frontend acceptance is not valid until the post-deployment check
+reports `RUNTIME_DEPLOYMENT_MATCH=YES`. Existing `/etc` files are preserved by
+the deploy helper. Frontend deployment replaces the complete staged frontend
+tree so missing, stale or extra live frontend files cannot be accepted as a
+current candidate.
+
+The detailed contract is
+`docs/development/install-runtime-deployment-reliability.md`.
+
 ## Testblock repository entry
 
 Every local VDR-Suite test or acceptance block handed to the user must enter the

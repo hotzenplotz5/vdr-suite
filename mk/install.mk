@@ -10,8 +10,10 @@ CACHEDIR ?= $(LOCALSTATEDIR)/cache/vdr-suite
 STATEDIR ?= $(LOCALSTATEDIR)/lib/vdr-suite
 SYSTEMDUNITDIR ?= /lib/systemd/system
 INSTALL ?= install
+RUNTIME_STAGE ?= /tmp/vdr-suite-runtime-stage
+LIVE_ROOT ?= /
 
-.PHONY: install build-installable build-runtime-binaries build-cli-binaries install-runtime install-cli install-docs install-manpages install-systemd test-install-staging test-systemd-unit-contract
+.PHONY: install build-installable build-runtime-binaries build-cli-binaries install-runtime install-cli install-docs install-manpages install-systemd stage-install-runtime deploy-install-runtime check-install-runtime-deployment test-install-runtime-deployment test-install-staging test-systemd-unit-contract
 
 install: install-runtime install-cli install-docs install-manpages install-systemd
 
@@ -20,6 +22,20 @@ build-runtime-binaries: daemon backend-agent backend-agent-enrollment backend-ag
 build-cli-binaries: dashboard-cli
 
 build-installable: build-runtime-binaries build-cli-binaries
+
+stage-install-runtime: build-runtime-binaries
+	rm -rf "$(RUNTIME_STAGE)"
+	$(MAKE) install-runtime BUILD_DIR="$(BUILD_DIR)" CXX=/bin/false DESTDIR="$(RUNTIME_STAGE)" PREFIX=/usr
+	python3 tools/install_runtime_stage.py seal --stage-root "$(RUNTIME_STAGE)"
+
+deploy-install-runtime:
+	python3 tools/install_runtime_stage.py deploy --stage-root "$(RUNTIME_STAGE)" --live-root "$(LIVE_ROOT)"
+
+check-install-runtime-deployment:
+	python3 tools/install_runtime_stage.py check --stage-root "$(RUNTIME_STAGE)" --live-root "$(LIVE_ROOT)"
+
+test-install-runtime-deployment:
+	python3 tools/test_install_runtime_stage.py
 
 test-systemd-unit-contract:
 	python3 tools/check_systemd_unit_contract.py
