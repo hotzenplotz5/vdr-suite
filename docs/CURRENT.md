@@ -119,10 +119,10 @@ Current Multiuser architecture slice:
 MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
 
 Current Multiuser productization slice:
-Post-MU.9 Administration Usability [CANDIDATE]
+MU.10A Device Pairing Bootstrap [IMPLEMENTATION CANDIDATE]
 
 Latest completed Multiuser milestone:
-MU.9 - Account/access administration UI [COMPLETED - CLOSEOUT PR #431]
+Post-MU.9 Administration Usability [MERGED - PR #433 / REAL YAVDR PASS / HOSTED CI GREEN]
 
 Historical completed MU.9 UI slice markers:
 MU.9E - Backend Grant Mutation UI [IMPLEMENTATION MERGED - PR #429 / FOCUSED YAVDR PASS / POST-MERGE CI #9763 GREEN]
