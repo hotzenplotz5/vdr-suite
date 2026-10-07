@@ -240,7 +240,7 @@ int main()
             return event.eventType ==
                     "device_pairing.administration" &&
                 event.actorId == "admin-actor" &&
-                event.permission == "role.admin" &&
+                event.permission == "device.pairing.decide" &&
                 event.action == "device_pairing.approve" &&
                 event.reasonCode ==
                     "pairing_request_approved" &&
