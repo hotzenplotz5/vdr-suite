@@ -113,6 +113,37 @@ Immediately after entering, verify the repository root with
 before branch/head validation. Test blocks must be self-contained and safe to
 paste from an arbitrary shell working directory.
 
+## Temporary worktree and test-artifact lifecycle
+
+Temporary Git worktrees, detached test checkouts, build directories and staging
+directories created for a bounded test or acceptance step must be treated as
+short-lived resources, not retained project state.
+
+As soon as the test or acceptance step no longer needs them:
+
+1. verify that the exact temporary worktree contains no uncommitted or otherwise
+   unsaved work that belongs to the active workstream;
+2. remove that exact worktree immediately with `git worktree remove` (use
+   `--force` only when the worktree is intentionally disposable);
+3. remove the test-specific build/stage directories created for that step;
+4. run `git worktree prune` to discard stale metadata.
+
+Do not defer this cleanup to a later phase or accumulate obsolete worktrees in
+`/tmp`, `/home`, `/root` or tool-managed worktree directories. Test blocks
+that create temporary worktrees or substantial temporary build/stage trees must
+include their own cleanup path in the same bounded workflow.
+
+Before deleting anything, identify the exact resource created by the current
+test. Never delete or prune a still-active worktree, build tree or stage tree
+belonging to another concurrent workstream. In particular, shared or parallel
+MU/client/runtime work must remain untouched unless its own workstream has
+finished and its state has been checked.
+
+On tmpfs-backed `/tmp` or other capacity-constrained temporary storage, check
+available space before creating a large worktree/build tree when recent evidence
+shows pressure. Prefer a bounded location with sufficient capacity rather than
+allowing a predictable `ENOSPC`/inode failure.
+
 ## Frontend lifecycle and composition gates
 
 For cross-cutting frontend behavior, prove the real production composition and
