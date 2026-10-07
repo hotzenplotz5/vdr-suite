@@ -1,6 +1,6 @@
 # MU.10A — Device Pairing Bootstrap
 
-Status: **IMPLEMENTATION CANDIDATE — REAL YAVDR RUNTIME PASS / HOSTED PR CI PENDING**
+Status: **COMPLETED CANDIDATE — REAL YAVDR + REAL VIDAA ACCEPTANCE PASS / HOSTED PR CI PENDING**
 
 Authority:
 [MU.10 Device/App Pairing Architecture and Gap Audit](post-phase69-mu10-device-app-pairing-audit.md).
@@ -244,3 +244,33 @@ verification read the full verifier strings and passed. This was a test-wrapper
 bug, not a runtime or persistence defect.
 
 No PR or merge was performed.
+
+
+## Real VIDAA first-consumer acceptance closeout
+
+The physical Hisense VIDAA client completed the bounded MU.10A journey through
+the same-origin acceptance host without AppInfo reinstall.
+
+Observed evidence:
+
+```text
+MU10A_VIDAA_APP_LOAD=PASS
+MU10A_VIDAA_PAIRING_ACTION=PASS
+MU10A_VIDAA_REAL_CODE_VISIBLE=PASS
+MU10A_VIDAA_PAIRING_STATUS_VISIBLE=PASS
+MU10A_VIDAA_LAYOUT_READABLE=PASS
+MU10A_VIDAA_NO_REINSTALL=PASS
+POLL_COUNT=10
+UNIQUE_POLLED_REQUESTS=1
+MU10A_VIDAA_PENDING_POLL=PASS
+PAIRING_TOKEN_SCOPE_REQUEST_PATH=CONSISTENT
+RESULT=MU10A_VIDAA_PAIRING_ACCEPTANCE_PASS
+```
+
+The final five observed GETs were spaced at the server-advertised three-second
+cadence and all targeted the same Pairing Request resource with HTTP 200.
+
+MU.10A is therefore accepted as the anonymous short-lived bootstrap slice.
+It still creates no Actor, Device, Credential, Session or Grant. The selected
+successor is MU.10B administrative approval; durable Device identity and
+credential issuance remain MU.10C.
