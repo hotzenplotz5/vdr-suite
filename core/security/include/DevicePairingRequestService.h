@@ -5,6 +5,7 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <vector>
 
 class AccountabilityEventRepository;
 class Database;
@@ -29,6 +30,18 @@ enum class DevicePairingPollStatus
     unavailable,
 };
 
+enum class DevicePairingAdministrationStatus
+{
+    ok,
+    invalidRequest,
+    notFound,
+    expired,
+    revisionConflict,
+    stateConflict,
+    entropyUnavailable,
+    storageError,
+};
+
 struct DevicePairingRequestMetadata
 {
     std::string displayName;
@@ -43,6 +56,14 @@ struct DevicePairingResource
     std::string state;
     std::string expiresAt;
     int pollIntervalSeconds = 0;
+};
+
+struct DevicePairingAdministrativeResource
+{
+    DevicePairingResource resource;
+    std::string resourceRevision;
+    std::string decidedByActorId;
+    std::string decidedAt;
 };
 
 struct IssuedDevicePairingRequest
@@ -94,6 +115,44 @@ struct DevicePairingPollResult
     DevicePairingResource resource;
 };
 
+struct DevicePairingAdministrationContext
+{
+    std::string actorId;
+    std::string actorType;
+    std::string requestId;
+    std::string correlationId;
+};
+
+struct DevicePairingAdministrationCollectionResult
+{
+    DevicePairingAdministrationStatus status =
+        DevicePairingAdministrationStatus::storageError;
+    std::vector<DevicePairingAdministrativeResource> requests;
+    bool hasMore = false;
+};
+
+struct DevicePairingAdministrationReadResult
+{
+    DevicePairingAdministrationStatus status =
+        DevicePairingAdministrationStatus::storageError;
+    DevicePairingAdministrativeResource request;
+};
+
+struct DevicePairingDecisionRequest
+{
+    DevicePairingAdministrationContext context;
+    std::string pairingRequestId;
+    std::string expectedResourceRevision;
+    std::string decision;
+};
+
+struct DevicePairingDecisionResult
+{
+    DevicePairingAdministrationStatus status =
+        DevicePairingAdministrationStatus::storageError;
+    DevicePairingAdministrativeResource request;
+};
+
 class DevicePairingRequestService
 {
 public:
@@ -117,6 +176,18 @@ public:
 
     DevicePairingPollResult poll(
         const DevicePairingPollRequest& request) const;
+
+    DevicePairingAdministrationCollectionResult
+    listPendingForAdministration(
+        const std::string& afterPairingRequestId,
+        std::size_t limit) const;
+
+    DevicePairingAdministrationReadResult
+    readForAdministration(
+        const std::string& pairingRequestId) const;
+
+    DevicePairingDecisionResult decide(
+        const DevicePairingDecisionRequest& request);
 
 private:
     Database& database_;

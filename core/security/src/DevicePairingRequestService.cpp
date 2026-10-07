@@ -14,7 +14,9 @@
 #include <chrono>
 #include <cctype>
 #include <cstddef>
+#include <cstdint>
 #include <ctime>
+#include <limits>
 #include <iomanip>
 #include <sstream>
 #include <string>
@@ -510,6 +512,109 @@ DevicePairingResource resourceFromStored(
         DevicePairingRequestService::PollIntervalSeconds;
     return resource;
 }
+
+std::string administrativeRevision(
+    const StoredDevicePairingRequest& stored)
+{
+    if (stored.pairingRequestId.empty() ||
+        stored.revision == 0U)
+    {
+        return {};
+    }
+    return "device-pairing:" +
+        stored.pairingRequestId + ":" +
+        std::to_string(stored.revision);
+}
+
+bool parseAdministrativeRevision(
+    const std::string& resourceRevision,
+    const std::string& pairingRequestId,
+    std::uint64_t& revision)
+{
+    const std::string prefix =
+        "device-pairing:" + pairingRequestId + ":";
+    if (resourceRevision.size() <= prefix.size() ||
+        resourceRevision.compare(0U, prefix.size(), prefix) != 0)
+    {
+        return false;
+    }
+
+    std::uint64_t parsed = 0U;
+    for (std::size_t index = prefix.size();
+         index < resourceRevision.size();
+         ++index)
+    {
+        const unsigned char character =
+            static_cast<unsigned char>(
+                resourceRevision[index]);
+        if (character < '0' || character > '9')
+            return false;
+
+        const std::uint64_t digit =
+            static_cast<std::uint64_t>(
+                character - '0');
+        if (parsed >
+            (std::numeric_limits<std::uint64_t>::max() -
+             digit) / 10U)
+        {
+            return false;
+        }
+        parsed = parsed * 10U + digit;
+    }
+
+    if (parsed == 0U)
+        return false;
+    revision = parsed;
+    return true;
+}
+
+DevicePairingAdministrativeResource
+administrativeResourceFromStored(
+    const StoredDevicePairingRequest& stored)
+{
+    DevicePairingAdministrativeResource resource;
+    resource.resource = resourceFromStored(stored);
+    resource.resourceRevision =
+        administrativeRevision(stored);
+    resource.decidedByActorId =
+        stored.decidedByActorId;
+    if (!stored.decidedAt.empty())
+    {
+        resource.decidedAt =
+            publicTimestamp(stored.decidedAt);
+    }
+    return resource;
+}
+
+std::optional<std::string> randomAuditId(
+    const DevicePairingRequestService::EntropySource& entropySource)
+{
+    std::array<unsigned char, IdentifierBytes> bytes{};
+    if (!entropySource ||
+        !entropySource(bytes.data(), bytes.size()))
+    {
+        secureWipeObject(bytes);
+        return std::nullopt;
+    }
+
+    std::string id =
+        "ace_" + hexEncode(bytes.data(), bytes.size());
+    secureWipeObject(bytes);
+    return id;
+}
+
+bool validAdministrationContext(
+    const DevicePairingAdministrationContext& context)
+{
+    return safePresentationText(
+               context.actorId, 128U, false) &&
+        safePresentationText(
+               context.actorType, 32U, false) &&
+        safePresentationText(
+               context.requestId, 256U, false) &&
+        safePresentationText(
+               context.correlationId, 256U, true);
+}
 }
 
 IssuedDevicePairingRequest::~IssuedDevicePairingRequest()
@@ -754,6 +859,8 @@ DevicePairingRequestService::poll(
                 DevicePairingPollStatus::expired;
             return result;
         case DevicePairingRequestRepositoryStatus::conflict:
+        case DevicePairingRequestRepositoryStatus::revisionConflict:
+        case DevicePairingRequestRepositoryStatus::stateConflict:
         case DevicePairingRequestRepositoryStatus::storageError:
         case DevicePairingRequestRepositoryStatus::transactionRequired:
             result.status =
@@ -770,7 +877,9 @@ DevicePairingRequestService::poll(
         return result;
     }
 
-    if (found.request.state != "pending")
+    if (found.request.state != "pending" &&
+        found.request.state != "approved" &&
+        found.request.state != "rejected")
     {
         result.status =
             DevicePairingPollStatus::unavailable;
@@ -789,4 +898,343 @@ DevicePairingRequestService::poll(
     result.status =
         DevicePairingPollStatus::ok;
     return result;
+}
+
+
+DevicePairingAdministrationCollectionResult
+DevicePairingRequestService::listPendingForAdministration(
+    const std::string& afterPairingRequestId,
+    std::size_t limit) const
+{
+    DevicePairingAdministrationCollectionResult result;
+    const DevicePairingRequestListResult found =
+        repository_.listPending(afterPairingRequestId, limit);
+
+    if (found.status == DevicePairingRequestRepositoryStatus::invalid)
+    {
+        result.status =
+            DevicePairingAdministrationStatus::invalidRequest;
+        return result;
+    }
+    if (found.status != DevicePairingRequestRepositoryStatus::ok)
+    {
+        result.status =
+            DevicePairingAdministrationStatus::storageError;
+        return result;
+    }
+
+    for (const StoredDevicePairingRequest& stored : found.requests)
+    {
+        DevicePairingAdministrativeResource resource =
+            administrativeResourceFromStored(stored);
+        if (resource.resourceRevision.empty() ||
+            resource.resource.expiresAt.empty() ||
+            resource.resource.state != "pending")
+        {
+            result.status =
+                DevicePairingAdministrationStatus::storageError;
+            result.requests.clear();
+            return result;
+        }
+        result.requests.push_back(std::move(resource));
+    }
+    result.hasMore = found.hasMore;
+    result.status = DevicePairingAdministrationStatus::ok;
+    return result;
+}
+
+DevicePairingAdministrationReadResult
+DevicePairingRequestService::readForAdministration(
+    const std::string& pairingRequestId) const
+{
+    DevicePairingAdministrationReadResult result;
+    const DevicePairingRequestLookupResult found =
+        repository_.findById(pairingRequestId);
+
+    switch (found.status)
+    {
+        case DevicePairingRequestRepositoryStatus::ok:
+            result.request =
+                administrativeResourceFromStored(found.request);
+            if (result.request.resourceRevision.empty() ||
+                result.request.resource.expiresAt.empty())
+            {
+                result.status =
+                    DevicePairingAdministrationStatus::storageError;
+                return result;
+            }
+            result.status =
+                DevicePairingAdministrationStatus::ok;
+            return result;
+        case DevicePairingRequestRepositoryStatus::invalid:
+            result.status =
+                DevicePairingAdministrationStatus::invalidRequest;
+            return result;
+        case DevicePairingRequestRepositoryStatus::notFound:
+        case DevicePairingRequestRepositoryStatus::invalidated:
+            result.status =
+                DevicePairingAdministrationStatus::notFound;
+            return result;
+        case DevicePairingRequestRepositoryStatus::expired:
+            result.status =
+                DevicePairingAdministrationStatus::expired;
+            return result;
+        case DevicePairingRequestRepositoryStatus::conflict:
+        case DevicePairingRequestRepositoryStatus::revisionConflict:
+        case DevicePairingRequestRepositoryStatus::stateConflict:
+        case DevicePairingRequestRepositoryStatus::storageError:
+        case DevicePairingRequestRepositoryStatus::transactionRequired:
+            result.status =
+                DevicePairingAdministrationStatus::storageError;
+            return result;
+    }
+    return result;
+}
+
+DevicePairingDecisionResult
+DevicePairingRequestService::decide(
+    const DevicePairingDecisionRequest& request)
+{
+    DevicePairingDecisionResult result;
+    if (!validAdministrationContext(request.context) ||
+        request.pairingRequestId.empty() ||
+        request.pairingRequestId.size() > 128U ||
+        (request.decision != "approve" &&
+         request.decision != "reject"))
+    {
+        result.status =
+            DevicePairingAdministrationStatus::invalidRequest;
+        return result;
+    }
+
+    std::uint64_t expectedRevision = 0U;
+    if (!parseAdministrativeRevision(
+            request.expectedResourceRevision,
+            request.pairingRequestId,
+            expectedRevision))
+    {
+        result.status =
+            DevicePairingAdministrationStatus::invalidRequest;
+        return result;
+    }
+
+    const auto eventId = randomAuditId(entropySource_);
+    const std::string occurredAt =
+        nowPublicTimestamp(clock_());
+    if (!eventId.has_value())
+    {
+        result.status =
+            DevicePairingAdministrationStatus::entropyUnavailable;
+        return result;
+    }
+    if (occurredAt.empty())
+    {
+        result.status =
+            DevicePairingAdministrationStatus::storageError;
+        return result;
+    }
+
+    auto lease = database_.acquireTransactionLease();
+    DatabaseTransaction transaction(database_);
+    if (!transaction.active())
+    {
+        result.status =
+            DevicePairingAdministrationStatus::storageError;
+        return result;
+    }
+
+    const auto auditAndFinish =
+        [&](DevicePairingAdministrationStatus status,
+            const DevicePairingAdministrativeResource& resource,
+            const std::string& auditDecision,
+            const std::string& reasonCode,
+            const std::string& outcome)
+        {
+            DevicePairingDecisionResult finished;
+            finished.status = status;
+            finished.request = resource;
+
+            AccountabilityEvent event;
+            event.eventId = *eventId;
+            event.classes =
+                auditDecision == "allow"
+                    ? "audit,security,identity"
+                    : "audit,security";
+            event.eventType =
+                "device_pairing.administration";
+            event.severity =
+                auditDecision == "allow"
+                    ? "info"
+                    : "warning";
+            event.occurredAt = occurredAt;
+            event.actorId = request.context.actorId;
+            event.actorType = request.context.actorType;
+            event.authenticationState = "authenticated";
+            event.permission = "role.admin";
+            event.backendId = "*";
+            event.operationId =
+                "device-pairing:" +
+                request.pairingRequestId +
+                ":revision:" +
+                std::to_string(expectedRevision);
+            event.requestId = request.context.requestId;
+            event.correlationId =
+                request.context.correlationId;
+            event.action =
+                "device_pairing." + request.decision;
+            event.decision = auditDecision;
+            event.reasonCode = reasonCode;
+            event.outcome = outcome;
+
+            if (!accountabilityRepository_.append(event) ||
+                !transaction.commit())
+            {
+                finished.status =
+                    DevicePairingAdministrationStatus::storageError;
+            }
+            return finished;
+        };
+
+    const DevicePairingRequestLookupResult current =
+        repository_.findById(request.pairingRequestId);
+
+    if (current.status == DevicePairingRequestRepositoryStatus::notFound ||
+        current.status == DevicePairingRequestRepositoryStatus::invalidated)
+    {
+        return auditAndFinish(
+            DevicePairingAdministrationStatus::notFound,
+            {},
+            "deny",
+            "pairing_request_not_found",
+            "failed");
+    }
+    if (current.status == DevicePairingRequestRepositoryStatus::expired)
+    {
+        return auditAndFinish(
+            DevicePairingAdministrationStatus::expired,
+            {},
+            "deny",
+            "pairing_request_expired",
+            "failed");
+    }
+    if (current.status == DevicePairingRequestRepositoryStatus::invalid)
+    {
+        return auditAndFinish(
+            DevicePairingAdministrationStatus::invalidRequest,
+            {},
+            "deny",
+            "pairing_request_invalid",
+            "failed");
+    }
+    if (current.status != DevicePairingRequestRepositoryStatus::ok)
+    {
+        result.status =
+            DevicePairingAdministrationStatus::storageError;
+        return result;
+    }
+
+    const DevicePairingAdministrativeResource currentResource =
+        administrativeResourceFromStored(current.request);
+    if (currentResource.resourceRevision.empty() ||
+        currentResource.resource.expiresAt.empty())
+    {
+        result.status =
+            DevicePairingAdministrationStatus::storageError;
+        return result;
+    }
+
+    if (current.request.revision != expectedRevision)
+    {
+        return auditAndFinish(
+            DevicePairingAdministrationStatus::revisionConflict,
+            currentResource,
+            "deny",
+            "pairing_request_revision_conflict",
+            "failed");
+    }
+
+    if (current.request.state != "pending")
+    {
+        return auditAndFinish(
+            DevicePairingAdministrationStatus::stateConflict,
+            currentResource,
+            "deny",
+            "pairing_request_already_decided",
+            "failed");
+    }
+
+    const std::string state =
+        request.decision == "approve" ? "approved" : "rejected";
+    const DevicePairingRequestRepositoryStatus changed =
+        repository_.decideInActiveTransaction(
+            request.pairingRequestId,
+            expectedRevision,
+            state,
+            request.context.actorId);
+
+    if (changed == DevicePairingRequestRepositoryStatus::revisionConflict)
+    {
+        return auditAndFinish(
+            DevicePairingAdministrationStatus::revisionConflict,
+            currentResource,
+            "deny",
+            "pairing_request_revision_conflict",
+            "failed");
+    }
+    if (changed == DevicePairingRequestRepositoryStatus::stateConflict)
+    {
+        return auditAndFinish(
+            DevicePairingAdministrationStatus::stateConflict,
+            currentResource,
+            "deny",
+            "pairing_request_already_decided",
+            "failed");
+    }
+    if (changed == DevicePairingRequestRepositoryStatus::expired)
+    {
+        return auditAndFinish(
+            DevicePairingAdministrationStatus::expired,
+            currentResource,
+            "deny",
+            "pairing_request_expired",
+            "failed");
+    }
+    if (changed != DevicePairingRequestRepositoryStatus::ok)
+    {
+        result.status =
+            DevicePairingAdministrationStatus::storageError;
+        return result;
+    }
+
+    const DevicePairingRequestLookupResult updated =
+        repository_.findById(request.pairingRequestId);
+    if (updated.status != DevicePairingRequestRepositoryStatus::ok ||
+        updated.request.state != state ||
+        updated.request.revision != expectedRevision + 1U ||
+        updated.request.decidedByActorId != request.context.actorId ||
+        updated.request.decidedAt.empty())
+    {
+        result.status =
+            DevicePairingAdministrationStatus::storageError;
+        return result;
+    }
+
+    const DevicePairingAdministrativeResource updatedResource =
+        administrativeResourceFromStored(updated.request);
+    if (updatedResource.resourceRevision.empty() ||
+        updatedResource.decidedAt.empty())
+    {
+        result.status =
+            DevicePairingAdministrationStatus::storageError;
+        return result;
+    }
+
+    return auditAndFinish(
+        DevicePairingAdministrationStatus::ok,
+        updatedResource,
+        "allow",
+        state == "approved"
+            ? "pairing_request_approved"
+            : "pairing_request_rejected",
+        "success");
 }
