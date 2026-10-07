@@ -75,6 +75,57 @@ std::string requestHeaderValue(
     return "";
 }
 
+PublicDevicePairingAdministrationStatus
+publicDevicePairingAdministrationStatus(
+    DevicePairingAdministrationStatus status)
+{
+    switch (status)
+    {
+        case DevicePairingAdministrationStatus::ok:
+            return PublicDevicePairingAdministrationStatus::ok;
+        case DevicePairingAdministrationStatus::invalidRequest:
+            return PublicDevicePairingAdministrationStatus::invalid;
+        case DevicePairingAdministrationStatus::notFound:
+            return PublicDevicePairingAdministrationStatus::notFound;
+        case DevicePairingAdministrationStatus::expired:
+            return PublicDevicePairingAdministrationStatus::expired;
+        case DevicePairingAdministrationStatus::revisionConflict:
+            return PublicDevicePairingAdministrationStatus::revisionConflict;
+        case DevicePairingAdministrationStatus::stateConflict:
+            return PublicDevicePairingAdministrationStatus::stateConflict;
+        case DevicePairingAdministrationStatus::entropyUnavailable:
+        case DevicePairingAdministrationStatus::storageError:
+            return PublicDevicePairingAdministrationStatus::unavailable;
+    }
+    return PublicDevicePairingAdministrationStatus::unavailable;
+}
+
+void copyDevicePairingAdministrativeResource(
+    const DevicePairingAdministrativeResource& source,
+    PublicDevicePairingAdministrativeResource& target)
+{
+    target.resource.pairingRequestId =
+        source.resource.pairingRequestId;
+    target.resource.client.displayName =
+        source.resource.client.displayName;
+    target.resource.client.clientKind =
+        source.resource.client.clientKind;
+    target.resource.client.appVersion =
+        source.resource.client.appVersion;
+    target.resource.state =
+        source.resource.state;
+    target.resource.expiresAt =
+        source.resource.expiresAt;
+    target.resource.pollIntervalSeconds =
+        source.resource.pollIntervalSeconds;
+    target.resourceRevision =
+        source.resourceRevision;
+    target.decidedByActorId =
+        source.decidedByActorId;
+    target.decidedAt =
+        source.decidedAt;
+}
+
 std::string hbbtvClientContext(
     const RequestSecurityContext& context)
 {
@@ -510,6 +561,125 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
                 found.resource.expiresAt;
             result.resource.pollIntervalSeconds =
                 found.resource.pollIntervalSeconds;
+            return result;
+        });
+
+    PublicApiRuntime::instance().
+        registerDevicePairingAdministrationCollectionLookup(
+            [this](
+                const PublicDevicePairingAdministrationCollectionRequest&
+                    request)
+            {
+                PublicDevicePairingAdministrationCollectionResult result;
+                if (!devicePairingRequestService_)
+                    return result;
+
+                const DevicePairingAdministrationCollectionResult found =
+                    devicePairingRequestService_->
+                        listPendingForAdministration(
+                            request.afterPairingRequestId,
+                            request.limit);
+                result.status =
+                    publicDevicePairingAdministrationStatus(
+                        found.status);
+                if (found.status !=
+                    DevicePairingAdministrationStatus::ok)
+                {
+                    return result;
+                }
+
+                result.hasMore = found.hasMore;
+                for (const auto& source : found.requests)
+                {
+                    PublicDevicePairingAdministrativeResource target;
+                    copyDevicePairingAdministrativeResource(
+                        source,
+                        target);
+                    result.requests.push_back(
+                        std::move(target));
+                }
+                return result;
+            });
+
+    PublicApiRuntime::instance().
+        registerDevicePairingAdministrationLookup(
+            [this](const std::string& pairingRequestId)
+            {
+                PublicDevicePairingAdministrationLookupResult result;
+                if (!devicePairingRequestService_)
+                    return result;
+
+                const DevicePairingAdministrationReadResult found =
+                    devicePairingRequestService_->
+                        readForAdministration(
+                            pairingRequestId);
+                result.status =
+                    publicDevicePairingAdministrationStatus(
+                        found.status);
+                if (found.status ==
+                    DevicePairingAdministrationStatus::ok)
+                {
+                    copyDevicePairingAdministrativeResource(
+                        found.request,
+                        result.request);
+                }
+                return result;
+            });
+
+    PublicApiRuntime::instance().registerDevicePairingDecision(
+        [this](const PublicDevicePairingDecisionRequest& request)
+        {
+            PublicDevicePairingDecisionResult result;
+            if (!devicePairingRequestService_ ||
+                !securityIdentityRepository_)
+            {
+                return result;
+            }
+
+            const std::optional<StoredActorIdentity> actor =
+                securityIdentityRepository_->findActor(
+                    request.actorRef);
+            if (!actor.has_value() ||
+                actor->type != ActorType::User ||
+                !actor->active ||
+                actor->revoked)
+            {
+                return result;
+            }
+
+            DevicePairingDecisionRequest serviceRequest;
+            serviceRequest.context.actorId =
+                request.actorRef;
+            serviceRequest.context.actorType =
+                "user";
+            serviceRequest.context.requestId =
+                request.requestId;
+            serviceRequest.context.correlationId =
+                request.correlationId;
+            serviceRequest.pairingRequestId =
+                request.pairingRequestId;
+            serviceRequest.expectedResourceRevision =
+                request.expectedResourceRevision;
+            serviceRequest.decision =
+                request.decision;
+
+            const DevicePairingDecisionResult decided =
+                devicePairingRequestService_->decide(
+                    serviceRequest);
+            result.status =
+                publicDevicePairingAdministrationStatus(
+                    decided.status);
+            if (decided.status ==
+                    DevicePairingAdministrationStatus::ok ||
+                decided.status ==
+                    DevicePairingAdministrationStatus::revisionConflict ||
+                decided.status ==
+                    DevicePairingAdministrationStatus::stateConflict)
+            {
+                copyDevicePairingAdministrativeResource(
+                    decided.request,
+                    result.request);
+            }
             return result;
         });
 
@@ -1278,6 +1448,11 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
 
 TestHttpServer::~TestHttpServer()
 {
+    PublicApiRuntime::instance().resetDevicePairingDecision();
+    PublicApiRuntime::instance().
+        resetDevicePairingAdministrationLookup();
+    PublicApiRuntime::instance().
+        resetDevicePairingAdministrationCollectionLookup();
     PublicApiRuntime::instance().resetDevicePairingLookup();
     PublicApiRuntime::instance().resetDevicePairingCreate();
     PublicApiRuntime::instance().resetAccountCredentialMutation();
