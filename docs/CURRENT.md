@@ -119,7 +119,7 @@ Current Multiuser architecture slice:
 MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
 
 Current Multiuser productization slice:
-MU.10A Device Pairing Bootstrap [IMPLEMENTATION CANDIDATE / FOCUSED REAL YAVDR PASS]
+MU.10A Device Pairing Bootstrap [IMPLEMENTATION CANDIDATE / REAL YAVDR RUNTIME PASS]
 
 Latest completed Multiuser milestone:
 Post-MU.9 Administration Usability [MERGED - PR #433 / REAL YAVDR PASS / HOSTED CI GREEN]
@@ -132,7 +132,7 @@ Completed MU.7 sub-slice:
 MU.7 - Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
 
 Current cross-cutting successor:
-MU.10A - Device Pairing Bootstrap [IMPLEMENTATION CANDIDATE / FOCUSED REAL YAVDR PASS]
+MU.10A - Device Pairing Bootstrap [IMPLEMENTATION CANDIDATE / REAL YAVDR RUNTIME PASS]
 
 Post-Phase-69 Multiuser productization status:
 MU.0 through MU.7 are completed. MU.6D Atomic Account CREATE + durable idempotency passed real yaVDR acceptance and merged as PR #411.
