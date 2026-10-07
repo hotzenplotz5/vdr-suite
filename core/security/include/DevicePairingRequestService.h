@@ -17,6 +17,7 @@ enum class DevicePairingIssueStatus
     invalidRequest,
     entropyUnavailable,
     hashingUnavailable,
+    capacityExceeded,
     storageError,
 };
 
@@ -158,6 +159,8 @@ class DevicePairingRequestService
 public:
     static constexpr int LifetimeSeconds = 600;
     static constexpr int PollIntervalSeconds = 3;
+    static constexpr std::size_t MaxActivePendingRequests = 256U;
+    static constexpr int ExpiredRetentionSeconds = 3600;
 
     using EntropySource =
         std::function<bool(unsigned char*, std::size_t)>;
