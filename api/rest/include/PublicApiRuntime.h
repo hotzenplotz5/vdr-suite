@@ -557,6 +557,63 @@ struct PublicDevicePairingLookupResult
     PublicDevicePairingResource resource;
 };
 
+enum class PublicDevicePairingAdministrationStatus
+{
+    ok,
+    invalid,
+    notFound,
+    expired,
+    revisionConflict,
+    stateConflict,
+    unavailable,
+};
+
+struct PublicDevicePairingAdministrativeResource
+{
+    PublicDevicePairingResource resource;
+    std::string resourceRevision;
+    std::string decidedByActorId;
+    std::string decidedAt;
+};
+
+struct PublicDevicePairingAdministrationCollectionRequest
+{
+    std::string afterPairingRequestId;
+    std::size_t limit = 0U;
+};
+
+struct PublicDevicePairingAdministrationCollectionResult
+{
+    PublicDevicePairingAdministrationStatus status =
+        PublicDevicePairingAdministrationStatus::unavailable;
+    std::vector<PublicDevicePairingAdministrativeResource> requests;
+    bool hasMore = false;
+};
+
+struct PublicDevicePairingAdministrationLookupResult
+{
+    PublicDevicePairingAdministrationStatus status =
+        PublicDevicePairingAdministrationStatus::unavailable;
+    PublicDevicePairingAdministrativeResource request;
+};
+
+struct PublicDevicePairingDecisionRequest
+{
+    std::string actorRef;
+    std::string pairingRequestId;
+    std::string expectedResourceRevision;
+    std::string decision;
+    std::string requestId;
+    std::string correlationId;
+};
+
+struct PublicDevicePairingDecisionResult
+{
+    PublicDevicePairingAdministrationStatus status =
+        PublicDevicePairingAdministrationStatus::unavailable;
+    PublicDevicePairingAdministrativeResource request;
+};
+
 struct PublicTimerCreateAdmissionRequest
 {
     std::string actorRef;
@@ -655,6 +712,18 @@ public:
     using DevicePairingLookup =
         std::function<PublicDevicePairingLookupResult(
             const PublicDevicePairingLookupRequest& request)>;
+
+    using DevicePairingAdministrationCollectionLookup =
+        std::function<PublicDevicePairingAdministrationCollectionResult(
+            const PublicDevicePairingAdministrationCollectionRequest& request)>;
+
+    using DevicePairingAdministrationLookup =
+        std::function<PublicDevicePairingAdministrationLookupResult(
+            const std::string& pairingRequestId)>;
+
+    using DevicePairingDecision =
+        std::function<PublicDevicePairingDecisionResult(
+            const PublicDevicePairingDecisionRequest& request)>;
 
     using TimerCreateAdmission =
         std::function<PublicTimerCreateAdmissionResult(
@@ -765,6 +834,21 @@ public:
     void resetDevicePairingLookup();
     bool devicePairingLookupConfigured() const;
 
+    void registerDevicePairingAdministrationCollectionLookup(
+        DevicePairingAdministrationCollectionLookup lookup);
+    void resetDevicePairingAdministrationCollectionLookup();
+    bool devicePairingAdministrationCollectionLookupConfigured() const;
+
+    void registerDevicePairingAdministrationLookup(
+        DevicePairingAdministrationLookup lookup);
+    void resetDevicePairingAdministrationLookup();
+    bool devicePairingAdministrationLookupConfigured() const;
+
+    void registerDevicePairingDecision(
+        DevicePairingDecision decision);
+    void resetDevicePairingDecision();
+    bool devicePairingDecisionConfigured() const;
+
     void registerTimerCreateAdmission(TimerCreateAdmission admission);
     void resetTimerCreateAdmission();
     bool timerCreateAdmissionConfigured() const;
@@ -862,6 +946,17 @@ private:
 
     mutable std::mutex devicePairingLookupMutex_;
     DevicePairingLookup devicePairingLookup_;
+
+    mutable std::mutex devicePairingAdministrationCollectionLookupMutex_;
+    DevicePairingAdministrationCollectionLookup
+        devicePairingAdministrationCollectionLookup_;
+
+    mutable std::mutex devicePairingAdministrationLookupMutex_;
+    DevicePairingAdministrationLookup
+        devicePairingAdministrationLookup_;
+
+    mutable std::mutex devicePairingDecisionMutex_;
+    DevicePairingDecision devicePairingDecision_;
 
     mutable std::mutex timerCreateAdmissionMutex_;
     TimerCreateAdmission timerCreateAdmission_;
