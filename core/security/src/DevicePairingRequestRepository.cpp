@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <limits>
 #include <string>
 
 namespace
@@ -114,6 +115,101 @@ std::string columnText(sqlite3_stmt* statement, int column)
         ? std::string()
         : std::string(reinterpret_cast<const char*>(text));
 }
+
+bool columnExists(
+    Database& database,
+    const std::string& tableName,
+    const std::string& columnName)
+{
+    sqlite3_stmt* statement = nullptr;
+    const std::string sql = "PRAGMA table_info(" + tableName + ");";
+    if (sqlite3_prepare_v2(
+            database.handle(),
+            sql.c_str(),
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return false;
+    }
+
+    bool found = false;
+    while (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        if (columnText(statement, 1) == columnName)
+        {
+            found = true;
+            break;
+        }
+    }
+    sqlite3_finalize(statement);
+    return found;
+}
+
+bool validState(const std::string& state)
+{
+    return state == "pending" ||
+        state == "approved" ||
+        state == "rejected";
+}
+
+bool readStoredRequest(
+    sqlite3_stmt* statement,
+    StoredDevicePairingRequest& request)
+{
+    request.pairingRequestId = columnText(statement, 0);
+    request.userCodeHash = columnText(statement, 1);
+    request.pairingTokenHash = columnText(statement, 2);
+    request.displayName = columnText(statement, 3);
+    request.clientKind = columnText(statement, 4);
+    request.appVersion = columnText(statement, 5);
+    request.state = columnText(statement, 6);
+    request.expiresAt = columnText(statement, 7);
+    request.createdAt = columnText(statement, 8);
+
+    const sqlite3_int64 revision =
+        sqlite3_column_int64(statement, 9);
+    request.decidedByActorId = columnText(statement, 10);
+    request.decidedAt = columnText(statement, 11);
+    request.expired = sqlite3_column_int(statement, 12) != 0;
+    request.invalidated = sqlite3_column_int(statement, 13) != 0;
+
+    if (revision <= 0 ||
+        !validState(request.state) ||
+        request.pairingRequestId.empty() ||
+        request.userCodeHash.empty() ||
+        request.pairingTokenHash.empty() ||
+        request.displayName.empty() ||
+        request.clientKind.empty() ||
+        request.expiresAt.empty() ||
+        request.createdAt.empty())
+    {
+        return false;
+    }
+
+    request.revision =
+        static_cast<std::uint64_t>(revision);
+    return true;
+}
+
+constexpr const char* RequestSelect =
+    "SELECT pairing_request_id, user_code_hash, "
+    "pairing_token_hash, display_name, client_kind, "
+    "app_version, state, expires_at, created_at, revision, "
+    "decided_by_actor_id, decided_at, "
+    "(expires_at <= CURRENT_TIMESTAMP), "
+    "(invalidated_at <> '') "
+    "FROM security_device_pairing_requests ";
+
+DevicePairingRequestRepositoryStatus statusForStored(
+    const StoredDevicePairingRequest& request)
+{
+    if (request.invalidated)
+        return DevicePairingRequestRepositoryStatus::invalidated;
+    if (request.expired)
+        return DevicePairingRequestRepositoryStatus::expired;
+    return DevicePairingRequestRepositoryStatus::ok;
+}
 }
 
 DevicePairingRequestRepository::DevicePairingRequestRepository(
@@ -126,21 +222,64 @@ bool DevicePairingRequestRepository::ensureSchema()
 {
     auto lease = database_.acquireTransactionLease();
 
+    if (!database_.execute(
+            "CREATE TABLE IF NOT EXISTS "
+            "security_device_pairing_requests ("
+            "pairing_request_id TEXT PRIMARY KEY,"
+            "user_code_hash TEXT NOT NULL UNIQUE,"
+            "pairing_token_hash TEXT NOT NULL UNIQUE,"
+            "display_name TEXT NOT NULL,"
+            "client_kind TEXT NOT NULL,"
+            "app_version TEXT NOT NULL DEFAULT '',"
+            "state TEXT NOT NULL DEFAULT 'pending',"
+            "expires_at TEXT NOT NULL,"
+            "invalidated_at TEXT NOT NULL DEFAULT '',"
+            "revision INTEGER NOT NULL DEFAULT 1,"
+            "decided_by_actor_id TEXT NOT NULL DEFAULT '',"
+            "decided_at TEXT NOT NULL DEFAULT '',"
+            "created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+            "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+            ");"))
+    {
+        return false;
+    }
+
+    if (!columnExists(
+            database_,
+            "security_device_pairing_requests",
+            "revision") &&
+        !database_.execute(
+            "ALTER TABLE security_device_pairing_requests "
+            "ADD COLUMN revision INTEGER NOT NULL DEFAULT 1;"))
+    {
+        return false;
+    }
+
+    if (!columnExists(
+            database_,
+            "security_device_pairing_requests",
+            "decided_by_actor_id") &&
+        !database_.execute(
+            "ALTER TABLE security_device_pairing_requests "
+            "ADD COLUMN decided_by_actor_id TEXT NOT NULL DEFAULT '';"))
+    {
+        return false;
+    }
+
+    if (!columnExists(
+            database_,
+            "security_device_pairing_requests",
+            "decided_at") &&
+        !database_.execute(
+            "ALTER TABLE security_device_pairing_requests "
+            "ADD COLUMN decided_at TEXT NOT NULL DEFAULT '';"))
+    {
+        return false;
+    }
+
     return database_.execute(
-               "CREATE TABLE IF NOT EXISTS "
-               "security_device_pairing_requests ("
-               "pairing_request_id TEXT PRIMARY KEY,"
-               "user_code_hash TEXT NOT NULL UNIQUE,"
-               "pairing_token_hash TEXT NOT NULL UNIQUE,"
-               "display_name TEXT NOT NULL,"
-               "client_kind TEXT NOT NULL,"
-               "app_version TEXT NOT NULL DEFAULT '',"
-               "state TEXT NOT NULL DEFAULT 'pending',"
-               "expires_at TEXT NOT NULL,"
-               "invalidated_at TEXT NOT NULL DEFAULT '',"
-               "created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,"
-               "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
-               ");") &&
+               "UPDATE security_device_pairing_requests "
+               "SET revision = 1 WHERE revision <= 0;") &&
         database_.execute(
                "CREATE INDEX IF NOT EXISTS "
                "idx_security_device_pairing_requests_lifecycle "
@@ -174,8 +313,8 @@ DevicePairingRequestRepository::registerInActiveTransaction(
     const char* sql =
         "INSERT INTO security_device_pairing_requests ("
         "pairing_request_id, user_code_hash, pairing_token_hash, "
-        "display_name, client_kind, app_version, expires_at"
-        ") VALUES (?, ?, ?, ?, ?, ?, ?);";
+        "display_name, client_kind, app_version, expires_at, revision"
+        ") VALUES (?, ?, ?, ?, ?, ?, ?, 1);";
 
     if (sqlite3_prepare_v2(
             database_.handle(),
@@ -230,18 +369,13 @@ DevicePairingRequestRepository::findById(
     auto lease = database_.acquireTransactionLease();
 
     sqlite3_stmt* statement = nullptr;
-    const char* sql =
-        "SELECT pairing_request_id, user_code_hash, "
-        "pairing_token_hash, display_name, client_kind, "
-        "app_version, state, expires_at, created_at, "
-        "(expires_at <= CURRENT_TIMESTAMP), "
-        "(invalidated_at <> '') "
-        "FROM security_device_pairing_requests "
+    const std::string sql =
+        std::string(RequestSelect) +
         "WHERE pairing_request_id = ?;";
 
     if (sqlite3_prepare_v2(
             database_.handle(),
-            sql,
+            sql.c_str(),
             -1,
             &statement,
             nullptr) != SQLITE_OK)
@@ -258,44 +392,12 @@ DevicePairingRequestRepository::findById(
     const int step = sqlite3_step(statement);
     if (step == SQLITE_ROW)
     {
-        result.request.pairingRequestId =
-            columnText(statement, 0);
-        result.request.userCodeHash =
-            columnText(statement, 1);
-        result.request.pairingTokenHash =
-            columnText(statement, 2);
-        result.request.displayName =
-            columnText(statement, 3);
-        result.request.clientKind =
-            columnText(statement, 4);
-        result.request.appVersion =
-            columnText(statement, 5);
-        result.request.state =
-            columnText(statement, 6);
-        result.request.expiresAt =
-            columnText(statement, 7);
-        result.request.createdAt =
-            columnText(statement, 8);
-        result.request.expired =
-            sqlite3_column_int(statement, 9) != 0;
-        result.request.invalidated =
-            sqlite3_column_int(statement, 10) != 0;
-
-        if (result.request.invalidated)
+        if (!readStoredRequest(statement, result.request))
         {
-            result.status =
-                DevicePairingRequestRepositoryStatus::invalidated;
+            sqlite3_finalize(statement);
+            return result;
         }
-        else if (result.request.expired)
-        {
-            result.status =
-                DevicePairingRequestRepositoryStatus::expired;
-        }
-        else
-        {
-            result.status =
-                DevicePairingRequestRepositoryStatus::ok;
-        }
+        result.status = statusForStored(result.request);
     }
     else if (step == SQLITE_DONE)
     {
@@ -305,6 +407,157 @@ DevicePairingRequestRepository::findById(
 
     sqlite3_finalize(statement);
     return result;
+}
+
+DevicePairingRequestListResult
+DevicePairingRequestRepository::listPending(
+    const std::string& afterPairingRequestId,
+    std::size_t limit) const
+{
+    DevicePairingRequestListResult result;
+    if ((!afterPairingRequestId.empty() &&
+         !safeIdentifier(afterPairingRequestId)) ||
+        limit == 0U ||
+        limit > 100U)
+    {
+        result.status = DevicePairingRequestRepositoryStatus::invalid;
+        return result;
+    }
+
+    auto lease = database_.acquireTransactionLease();
+
+    sqlite3_stmt* statement = nullptr;
+    const std::string sql =
+        std::string(RequestSelect) +
+        "WHERE state = 'pending' "
+        "AND invalidated_at = '' "
+        "AND expires_at > CURRENT_TIMESTAMP "
+        "AND pairing_request_id > ? "
+        "ORDER BY pairing_request_id ASC "
+        "LIMIT ?;";
+
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql.c_str(),
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return result;
+    }
+
+    const bool bound =
+        bindText(statement, 1, afterPairingRequestId) &&
+        sqlite3_bind_int64(
+            statement,
+            2,
+            static_cast<sqlite3_int64>(limit + 1U)) == SQLITE_OK;
+    if (!bound)
+    {
+        sqlite3_finalize(statement);
+        return result;
+    }
+
+    while (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        StoredDevicePairingRequest request;
+        if (!readStoredRequest(statement, request) ||
+            request.state != "pending" ||
+            request.expired ||
+            request.invalidated)
+        {
+            sqlite3_finalize(statement);
+            result.requests.clear();
+            return result;
+        }
+        result.requests.push_back(std::move(request));
+    }
+    sqlite3_finalize(statement);
+
+    if (result.requests.size() > limit)
+    {
+        result.hasMore = true;
+        result.requests.resize(limit);
+    }
+    result.status = DevicePairingRequestRepositoryStatus::ok;
+    return result;
+}
+
+DevicePairingRequestRepositoryStatus
+DevicePairingRequestRepository::decideInActiveTransaction(
+    const std::string& pairingRequestId,
+    std::uint64_t expectedRevision,
+    const std::string& state,
+    const std::string& decidedByActorId)
+{
+    if (!database_.transactionActive())
+    {
+        return DevicePairingRequestRepositoryStatus::
+            transactionRequired;
+    }
+
+    if (!safeIdentifier(pairingRequestId) ||
+        expectedRevision == 0U ||
+        expectedRevision >
+            static_cast<std::uint64_t>(
+                std::numeric_limits<sqlite3_int64>::max()) ||
+        (state != "approved" && state != "rejected") ||
+        !safeText(decidedByActorId, 128U, false))
+    {
+        return DevicePairingRequestRepositoryStatus::invalid;
+    }
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "UPDATE security_device_pairing_requests "
+        "SET state = ?, decided_by_actor_id = ?, "
+        "decided_at = CURRENT_TIMESTAMP, "
+        "revision = revision + 1, "
+        "updated_at = CURRENT_TIMESTAMP "
+        "WHERE pairing_request_id = ? "
+        "AND revision = ? "
+        "AND state = 'pending' "
+        "AND invalidated_at = '' "
+        "AND expires_at > CURRENT_TIMESTAMP;";
+
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return DevicePairingRequestRepositoryStatus::storageError;
+    }
+
+    const bool bound =
+        bindText(statement, 1, state) &&
+        bindText(statement, 2, decidedByActorId) &&
+        bindText(statement, 3, pairingRequestId) &&
+        sqlite3_bind_int64(
+            statement,
+            4,
+            static_cast<sqlite3_int64>(expectedRevision)) == SQLITE_OK;
+    const int step = bound
+        ? sqlite3_step(statement)
+        : SQLITE_ERROR;
+    const int changed = sqlite3_changes(database_.handle());
+    sqlite3_finalize(statement);
+
+    if (step != SQLITE_DONE)
+        return DevicePairingRequestRepositoryStatus::storageError;
+    if (changed == 1)
+        return DevicePairingRequestRepositoryStatus::ok;
+
+    const DevicePairingRequestLookupResult current =
+        findById(pairingRequestId);
+    if (current.status != DevicePairingRequestRepositoryStatus::ok)
+        return current.status;
+    if (current.request.revision != expectedRevision)
+        return DevicePairingRequestRepositoryStatus::revisionConflict;
+    if (current.request.state != "pending")
+        return DevicePairingRequestRepositoryStatus::stateConflict;
+    return DevicePairingRequestRepositoryStatus::storageError;
 }
 
 bool DevicePairingRequestRepository::supportsSecretHash(
