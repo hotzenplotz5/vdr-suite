@@ -5855,17 +5855,6 @@ bool PublicApiRuntime::tryHandlePost(
                     correlationId);
                 return true;
 
-            case PublicDevicePairingCreateStatus::capacityExceeded:
-                response = problemResponse(
-                    429,
-                    "rate_limited",
-                    "Pairing capacity reached",
-                    "The active Device Pairing Request limit has been reached. Retry after an existing request expires.",
-                    path,
-                    requestId,
-                    correlationId);
-                return true;
-
             case PublicDevicePairingCreateStatus::entropyUnavailable:
             case PublicDevicePairingCreateStatus::hashingUnavailable:
             case PublicDevicePairingCreateStatus::unavailable:

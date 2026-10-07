@@ -45,8 +45,6 @@ for token in (
     "crypt_r(",
     "LifetimeSeconds = 600",
     "PollIntervalSeconds = 3",
-    "MaxActivePendingRequests = 256U",
-    "ExpiredRetentionSeconds = 3600",
     "device_pairing.requested",
     "pairing_request_created",
     "DevicePairingPollStatus::unauthorized",
@@ -72,7 +70,6 @@ for token in (
     "PublicDevicePairingLookupStatus",
     "public-api.device-pairing-bootstrap",
     "pairing_expired",
-    "rate_limited",
 ):
     require(token in public_h or token in public_cpp,
             "public Pairing contract drifted: " + token)

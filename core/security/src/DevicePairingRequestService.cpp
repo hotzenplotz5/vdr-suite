@@ -697,22 +697,27 @@ DevicePairingRequestService::issue(
         return result;
     }
 
+    bool hashingFailed = false;
+    auto material =
+        generateMaterial(
+            entropySource_,
+            hashingFailed);
+    if (!material.has_value())
+    {
+        result.status = hashingFailed
+            ? DevicePairingIssueStatus::hashingUnavailable
+            : DevicePairingIssueStatus::entropyUnavailable;
+        return result;
+    }
+
     const auto now = clock_();
-    const std::string nowTimestamp =
-        formatDatabaseTimestamp(now);
     const std::string expiresAt =
         formatDatabaseTimestamp(
             now + std::chrono::seconds(
                 LifetimeSeconds));
-    const std::string cleanupCutoff =
-        formatDatabaseTimestamp(
-            now - std::chrono::seconds(
-                ExpiredRetentionSeconds));
     const std::string publicExpiresAt =
         publicTimestamp(expiresAt);
-    if (nowTimestamp.empty() ||
-        expiresAt.empty() ||
-        cleanupCutoff.empty() ||
+    if (expiresAt.empty() ||
         publicExpiresAt.empty())
     {
         result.status =
@@ -726,50 +731,6 @@ DevicePairingRequestService::issue(
     {
         result.status =
             DevicePairingIssueStatus::storageError;
-        return result;
-    }
-
-    const DevicePairingRequestRepositoryStatus pruned =
-        repository_.pruneExpiredBeforeInActiveTransaction(
-            cleanupCutoff);
-    std::size_t activePending = 0U;
-    const DevicePairingRequestRepositoryStatus counted =
-        pruned == DevicePairingRequestRepositoryStatus::ok
-        ? repository_.countActivePendingAtInActiveTransaction(
-            nowTimestamp,
-            activePending)
-        : pruned;
-    if (pruned != DevicePairingRequestRepositoryStatus::ok ||
-        counted != DevicePairingRequestRepositoryStatus::ok)
-    {
-        result.status =
-            DevicePairingIssueStatus::storageError;
-        return result;
-    }
-
-    if (activePending >= MaxActivePendingRequests)
-    {
-        if (!transaction.commit())
-        {
-            result.status =
-                DevicePairingIssueStatus::storageError;
-            return result;
-        }
-        result.status =
-            DevicePairingIssueStatus::capacityExceeded;
-        return result;
-    }
-
-    bool hashingFailed = false;
-    auto material =
-        generateMaterial(
-            entropySource_,
-            hashingFailed);
-    if (!material.has_value())
-    {
-        result.status = hashingFailed
-            ? DevicePairingIssueStatus::hashingUnavailable
-            : DevicePairingIssueStatus::entropyUnavailable;
         return result;
     }
 

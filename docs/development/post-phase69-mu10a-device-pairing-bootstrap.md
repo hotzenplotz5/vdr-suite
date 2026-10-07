@@ -85,8 +85,6 @@ server-side grant requirements.
 - `404 not_found`: unknown or invalidated Pairing Request;
 - `405 method_not_allowed`: collection is POST-only; item is GET-only;
 - `410 pairing_expired`: Pairing Request lifetime ended;
-- `429 rate_limited`: the active anonymous Pairing Request capacity is
-  exhausted; active `pending` rows are capped at 256;
 - `415 invalid_request`: create is not `application/json`;
 - `422 validation_error`: closed request shape or presentation metadata is
   invalid;
@@ -110,12 +108,6 @@ reuses the repository's SHA-512-crypt-compatible one-way pattern.
 Creation records append-only accountability evidence as
 `device_pairing.requested`. Pairing Request persistence and its creation audit
 event commit atomically; failure is fail-closed.
-
-Anonymous bootstrap storage is bounded: at most 256 non-invalidated,
-non-expired `pending` requests may be active at once. CREATE prunes requests
-that have been expired for at least one hour before checking that capacity.
-The one-hour retention preserves the established `410 pairing_expired`
-diagnostic window while preventing unbounded expired-row accumulation.
 
 ## ETag, revision and idempotency
 

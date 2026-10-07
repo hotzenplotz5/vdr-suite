@@ -75,15 +75,6 @@ public:
     DevicePairingRequestRepositoryStatus registerInActiveTransaction(
         const DevicePairingRequestRegistration& registration);
 
-    DevicePairingRequestRepositoryStatus
-    pruneExpiredBeforeInActiveTransaction(
-        const std::string& cutoffTimestamp);
-
-    DevicePairingRequestRepositoryStatus
-    countActivePendingAtInActiveTransaction(
-        const std::string& nowTimestamp,
-        std::size_t& count) const;
-
     DevicePairingRequestLookupResult findById(
         const std::string& pairingRequestId) const;
 
