@@ -220,8 +220,11 @@ Device, Credential, Session or Grant, and returns a server-generated request
 ID, short human `userCode`, high-entropy short-lived `pairingToken`,
 `pending` status, absolute expiry, minimum poll interval and self link.
 
-Only one-way hashes of bootstrap secrets are persisted. Pending requests are
-bounded and expired bootstrap rows are cleanup candidates.
+Only one-way hashes of bootstrap secrets are persisted. Active anonymous
+`pending` requests are bounded to 256. CREATE prunes rows that have been
+expired for at least one hour before enforcing that cap, preserving a bounded
+`410 pairing_expired` diagnostic window without allowing expired bootstrap
+rows to grow without bound.
 
 GET requires the matching short-lived `pairingToken` and exposes only that
 single request's non-secret metadata/status. The bootstrap token confers no
