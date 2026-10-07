@@ -15,10 +15,10 @@ Account read foundation: completed
 First Admin / bootstrap / recovery: completed
 Legacy Basic retirement: completed
 Administration architecture: ADR-0067 [ACCEPTED]
-Current Multiuser productization slice: MU.10B Administrator Pairing Approval [NEXT - NOT STARTED]
+Current Multiuser productization slice: MU.10B Administrator Pairing Approval [IMPLEMENTATION CANDIDATE - PR #437 / CI + REAL YAVDR PENDING]
 Latest completed Multiuser milestone: Post-MU.9 Administration Usability [MERGED - PR #433]
 Completed MU.7 sub-slice: Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
-Current acceptance gate: MU.10A merged as PR #436; post-merge main CI #9779 green; MU.10B is next
+Current acceptance gate: MU.10A merged as PR #436 with post-merge main CI #9779 green; MU.10B PR #437 requires hosted CI + real yaVDR acceptance
 ```
 
 ## Binding architecture
@@ -285,8 +285,11 @@ MU.10A is the bounded first implementation candidate:
 
 It owns only anonymous short-lived Pairing Request creation and token-scoped
 polling. It creates no Actor, Device, Credential, Session or Grant and cannot
-authorize ordinary Public-v1 resources. Administrator approval and durable
-Device identity remain successor work.
+authorize ordinary Public-v1 resources. MU.10B administrator approval is now the bounded implementation candidate; durable
+Device identity remains successor MU.10C work.
+
+MU.10B contract:
+[MU.10B Administrator Pairing Approval](post-phase69-mu10b-admin-pairing-approval.md).
 
 ### MU.11 — Profiles / household personalization [LATER]
 
@@ -313,7 +316,7 @@ ADR-0065 Human Account boundary [ACCEPTED]
        -> Post-MU.9 Administration Usability [MERGED - PR #433]
        -> MU.10 Device/app pairing [ACTIVE]
             -> MU.10A Pairing Request + token-scoped polling [COMPLETED - PR #436 MERGED / REAL YAVDR + REAL VIDAA PASS / POST-MERGE CI #9779 GREEN]
-            -> MU.10B Administrator approval [NEXT - NOT STARTED]
+            -> MU.10B Administrator approval [IMPLEMENTATION CANDIDATE - PR #437 / CI + REAL YAVDR PENDING]
 
 Later:
   -> MU.11 Profiles/personalization
