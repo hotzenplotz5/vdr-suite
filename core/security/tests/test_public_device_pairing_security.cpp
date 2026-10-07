@@ -99,7 +99,7 @@ int main()
         assert(decision.context.authenticated());
         assert(
             decision.authorizationDecision.permission ==
-            "role.admin");
+            "device.pairing.view");
         assert(
             decision.authorizationDecision.backendId ==
             "*");
@@ -147,10 +147,38 @@ int main()
         assert(decision.context.authenticated());
         assert(
             decision.authorizationDecision.permission ==
-            "role.admin");
+            "device.pairing.decide");
         assert(
             decision.authorizationDecision.backendId ==
             "*");
+    }
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId,
+            "role.admin",
+            "*"));
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId,
+            "role.read-only",
+            "*"));
+
+        HttpServerRequest mutation;
+        mutation.method = "POST";
+        mutation.path = itemPath;
+        mutation.body =
+            "{\"decision\":\"reject\"}";
+        fixture.addBrowserAuthentication(mutation, true);
+
+        const SecurityGateDecision decision =
+            fixture.gate.evaluate(mutation);
+        assert(!decision.allowed);
+        assert(decision.rejection.statusCode == 403);
+        assert(decision.protectedMutation);
+        assert(
+            decision.authorizationDecision.reasonCode ==
+            "role_read_only");
     }
 
     {
