@@ -176,9 +176,8 @@ int main()
         assert(!decision.allowed);
         assert(decision.rejection.statusCode == 403);
         assert(decision.protectedMutation);
-        assert(
-            decision.authorizationDecision.reasonCode ==
-            "role_read_only");
+        assert(decision.rejection.body.find(
+            "role_read_only") != std::string::npos);
     }
 
     {
