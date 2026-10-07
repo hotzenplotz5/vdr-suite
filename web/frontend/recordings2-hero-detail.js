@@ -343,6 +343,9 @@
         showTrailer(root, backendId, identity);
       }));
     }
+    actions.appendChild(makeButton('Schnittmarken', function () {
+      showMode(root, 'marks', '.recordings2-marks-detail', 'Marke setzen');
+    }));
     actions.appendChild(makeButton('Metadaten', function () {
       showMode(root, 'metadata', '.recordings2-metadata-tabs');
     }));
