@@ -1,6 +1,6 @@
 # MU.10A — Device Pairing Bootstrap
 
-Status: **COMPLETED CANDIDATE — REAL YAVDR + REAL VIDAA ACCEPTANCE PASS / HOSTED PR CI PENDING**
+Status: **COMPLETED — PR #436 MERGED / REAL YAVDR + REAL VIDAA ACCEPTANCE PASS / POST-MERGE CI #9779 GREEN**
 
 Authority:
 [MU.10 Device/App Pairing Architecture and Gap Audit](post-phase69-mu10-device-app-pairing-audit.md).
@@ -210,8 +210,8 @@ The shell returned to the normal yaVDR prompt after the test. Later failed
 `sudo su` authentication attempts occurred after acceptance had completed and
 are unrelated to MU.10A.
 
-Hosted PR CI remains pending because no PR has been authorized or created.
-No PR or merge is authorized by this document.
+At this candidate checkpoint no PR had yet been created; the later integration closeout below supersedes that transient repository-state note.
+No PR or merge authorization is implied by this document.
 
 
 ## Real runtime deployment acceptance
@@ -274,3 +274,13 @@ MU.10A is therefore accepted as the anonymous short-lived bootstrap slice.
 It still creates no Actor, Device, Credential, Session or Grant. The selected
 successor is MU.10B administrative approval; durable Device identity and
 credential issuance remain MU.10C.
+
+
+## Merge and hosted CI closeout
+
+MU.10A subsequently merged to `main` as PR #436 with merge commit
+`10c37c60d2fb957dd6089d7503b57373c37ba624`. Post-merge main CI run #9779
+(run ID `37570884570`) completed successfully on that exact commit with all six
+repository jobs green. This final integration state supersedes the earlier
+candidate-time notes above that correctly recorded no PR or merge at those
+earlier acceptance checkpoints.
