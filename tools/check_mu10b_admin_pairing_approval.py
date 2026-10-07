@@ -16,6 +16,7 @@ repo = read("core/security/src/DevicePairingRequestRepository.cpp")
 service = read("core/security/src/DevicePairingRequestService.cpp")
 public = read("api/rest/src/PublicApiRuntime.cpp")
 gate = read("core/security/include/SecurityHttpGate.h")
+authorization = read("core/security/include/AuthorizationService.h")
 server = read("core/http/src/TestHttpServer.cpp")
 
 for token in (
@@ -32,7 +33,7 @@ for token in (
     "readForAdministration",
     "DevicePairingRequestService::decide",
     "device_pairing.administration",
-    'event.permission = "role.admin"',
+    'event.permission = "device.pairing.decide"',
     '"pairing_request_approved"',
     '"pairing_request_rejected"',
 ):
@@ -56,10 +57,17 @@ for token in (
     "isPublicDevicePairingBootstrapPoll",
     "isPublicDevicePairingAdminRead",
     "isPublicDevicePairingDecision",
-    'pairingReadRequest.permission = "role.admin"',
-    'requestToAuthorize.permission =\n                "role.admin"',
+    'pairingReadRequest.permission = "device.pairing.view"',
+    'requestToAuthorize.permission =\n                "device.pairing.decide"',
 ):
     require(token in gate, "MU.10B security gate guard missing: " + token)
+
+for token in (
+    '"device.pairing.view"',
+    '"device.pairing.decide"',
+):
+    require(token in authorization,
+            "MU.10B authorization vocabulary guard missing: " + token)
 
 for token in (
     "public-api.device-pairing-administration",
