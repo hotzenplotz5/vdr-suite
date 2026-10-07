@@ -224,6 +224,82 @@ int main()
     assert(service.decide(expired).status ==
         DevicePairingAdministrationStatus::expired);
 
+    {
+        Database capacityDatabase;
+        assert(capacityDatabase.open(":memory:"));
+        AccountabilityEventRepository capacityAccountability(
+            capacityDatabase);
+        DevicePairingRequestRepository capacityRepository(
+            capacityDatabase);
+        assert(capacityAccountability.ensureSchema());
+        assert(capacityRepository.ensureSchema());
+
+        assert(capacityDatabase.execute(
+            "WITH RECURSIVE seq(x) AS ("
+            "SELECT 1 UNION ALL SELECT x + 1 FROM seq WHERE x < 256"
+            ") "
+            "INSERT INTO security_device_pairing_requests ("
+            "pairing_request_id, user_code_hash, pairing_token_hash, "
+            "display_name, client_kind, app_version, expires_at"
+            ") "
+            "SELECT printf('seed-%03d', x), "
+            "'$6$seed-user-' || x, "
+            "'$6$seed-token-' || x, "
+            "'Seed TV', 'vidaa', '', '9999-12-31 23:59:59' "
+            "FROM seq;"));
+        assert(capacityDatabase.execute(
+            "INSERT INTO security_device_pairing_requests ("
+            "pairing_request_id, user_code_hash, pairing_token_hash, "
+            "display_name, client_kind, app_version, expires_at"
+            ") VALUES ("
+            "'old-expired', '$6$old-user', '$6$old-token', "
+            "'Old TV', 'vidaa', '', '2000-01-01 00:00:00'"
+            ");"));
+
+        auto boundedEntropy = deterministicEntropy();
+        int entropyCalls = 0;
+        DevicePairingRequestService capacityService(
+            capacityDatabase,
+            capacityRepository,
+            capacityAccountability,
+            [&](unsigned char* output, std::size_t size)
+            {
+                ++entropyCalls;
+                return boundedEntropy(output, size);
+            },
+            []
+            {
+                return std::chrono::system_clock::time_point(
+                    std::chrono::seconds(4070908800));
+            });
+
+        const DevicePairingIssueResult limited =
+            capacityService.issue(
+                issueRequest(
+                    "Capacity TV",
+                    "mu10b-capacity"));
+        assert(limited.status ==
+            DevicePairingIssueStatus::capacityExceeded);
+        assert(entropyCalls == 0);
+        assert(capacityRepository.findById(
+            "old-expired").status ==
+            DevicePairingRequestRepositoryStatus::notFound);
+
+        assert(capacityDatabase.execute(
+            "DELETE FROM security_device_pairing_requests "
+            "WHERE pairing_request_id = 'seed-256';"));
+        DevicePairingIssueResult afterCapacity =
+            capacityService.issue(
+                issueRequest(
+                    "Capacity freed TV",
+                    "mu10b-capacity-freed"));
+        assert(afterCapacity.status ==
+            DevicePairingIssueStatus::issued);
+        assert(afterCapacity.pairing.has_value());
+        assert(entropyCalls > 0);
+        afterCapacity.pairing->clearBootstrapMaterial();
+    }
+
     DevicePairingIssueRequest invalid =
         issueRequest("Invalid TV", "mu10b-invalid");
     invalid.client.clientKind = "not valid";
