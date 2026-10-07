@@ -89,6 +89,52 @@ current candidate.
 The detailed contract is
 `docs/development/install-runtime-deployment-reliability.md`.
 
+## Real yaVDR resource-safety gate
+
+Every real yaVDR operation that can materially consume persistent or temporary
+storage must pass a capacity preflight immediately before the first write.
+This includes database backups, runtime staging, local builds, package staging,
+exports, media rewrites, generated caches, large logs and any other operation
+that can create or duplicate substantial data.
+
+The preflight is mandatory and must identify the actual destination filesystem,
+measure its currently available bytes, estimate a conservative worst-case number
+of additional bytes that can coexist during the operation, and reserve headroom
+that will still remain afterwards. If the operation size cannot be bounded
+conservatively, the operation is not allowed to start.
+
+For each affected filesystem, require projected free space after all concurrent
+artifacts to remain at least the larger of 4 GiB or 15 percent of that
+filesystem's total capacity. Existing temporary stages, previous backups and
+other retained artifacts on the same filesystem count against the available
+space; never calculate capacity as though they had already been removed.
+
+For a database backup, prefer a quiesced/offline consistent snapshot. Stop the
+owning service first when that is safe and already authorized, then determine
+the stable database size and require sufficient headroom before creating the
+backup. Do not start an unbounded online SQLite backup on a live mutable database
+merely because the source file currently appears small. A backup command that
+can outlive an SSH session must have an explicit bounded lifetime or cleanup
+strategy and must never be allowed to grow until the filesystem is exhausted.
+
+A handed-off test or acceptance block that can materially consume storage must
+print the measured capacity inputs and a clear `RESOURCE_PREFLIGHT=PASS` before
+the first storage-consuming mutation. A failed capacity check is a hard stop:
+do not build, back up, stage, deploy, export or attempt speculative cleanup to
+make the operation fit.
+
+After the operation, recheck the affected filesystems and print
+`RESOURCE_POSTCHECK=PASS` only when the required reserve still exists. Remove
+test-only stages and temporary artifacts once they are no longer needed.
+Rollback backups may be retained only deliberately; keep at most the explicitly
+required backup set, report their exact sizes, and never retain them when doing
+so would violate the same free-space reserve.
+
+If a service is stopped for a backup or other safety operation, install recovery
+handling before the stop so every normal failure path attempts to restore the
+service. Resource-safety checks supplement, rather than replace, the normal
+deployment, database-integrity and runtime acceptance gates.
+
 ## Testblock repository entry
 
 Every local VDR-Suite test or acceptance block handed to the user must enter the
