@@ -51,7 +51,7 @@ Completed MU.7 sub-slice:
 Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
 
 Current Device/app pairing slice:
-MU.10B - Administrator Pairing Approval [NEXT - NOT STARTED]
+MU.10B - Administrator Pairing Approval [IMPLEMENTATION CANDIDATE - PR #437 / CI + REAL YAVDR PENDING]
 
 Completed Phase-67 verticals:
 Teletext + HbbTV discovery/application-session/presentation-media runtime
