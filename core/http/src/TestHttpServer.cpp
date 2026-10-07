@@ -468,6 +468,11 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
                         PublicDevicePairingCreateStatus::
                             hashingUnavailable;
                     return result;
+                case DevicePairingIssueStatus::capacityExceeded:
+                    result.status =
+                        PublicDevicePairingCreateStatus::
+                            capacityExceeded;
+                    return result;
                 case DevicePairingIssueStatus::storageError:
                     result.status =
                         PublicDevicePairingCreateStatus::unavailable;
