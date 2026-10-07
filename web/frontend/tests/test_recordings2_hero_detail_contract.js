@@ -83,8 +83,10 @@ assert(source.includes("root.insertBefore(section, related.nextSibling)"),
 assert(source.includes("scrollIntoView({behavior: 'smooth', block: 'start'})"),
   'Trailer action must scroll the inline section into view');
 
-assert(!source.includes("makeButton('Schnittmarken'"),
-  'cut marks must not be a Hero action');
+assert(source.includes("makeButton('Schnittmarken'"),
+  'Hero must expose the existing Recording marks surface');
+assert(source.includes("showMode(root, 'marks', '.recordings2-marks-detail', 'Marke setzen')"),
+  'Recording marks must open through the existing Hero marks mode');
 assert(!source.includes("makeButton('Schneiden'"),
   'cutting must not be a Hero action');
 assert(source.includes("makeButton('Aufnahmeaktionen'"),
