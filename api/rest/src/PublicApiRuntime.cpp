@@ -4511,8 +4511,11 @@ bool PublicApiRuntime::tryHandleGet(
                     !publicDevicePairingRevision(
                         found.request.resourceRevision,
                         pairingRequestId) ||
-                    ((found.request.resource.state == "pending") !=
-                     (found.request.decidedAt.empty() &&
+                    (found.request.resource.state == "pending" &&
+                     (!found.request.decidedAt.empty() ||
+                      !found.request.decidedByActorId.empty())) ||
+                    (found.request.resource.state != "pending" &&
+                     (found.request.decidedAt.empty() ||
                       found.request.decidedByActorId.empty())))
                 {
                     response = serviceUnavailableProblem(

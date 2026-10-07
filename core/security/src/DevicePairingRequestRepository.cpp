@@ -458,7 +458,8 @@ DevicePairingRequestRepository::listPending(
         return result;
     }
 
-    while (sqlite3_step(statement) == SQLITE_ROW)
+    int step = SQLITE_OK;
+    while ((step = sqlite3_step(statement)) == SQLITE_ROW)
     {
         StoredDevicePairingRequest request;
         if (!readStoredRequest(statement, request) ||
@@ -473,6 +474,12 @@ DevicePairingRequestRepository::listPending(
         result.requests.push_back(std::move(request));
     }
     sqlite3_finalize(statement);
+
+    if (step != SQLITE_DONE)
+    {
+        result.requests.clear();
+        return result;
+    }
 
     if (result.requests.size() > limit)
     {
