@@ -1070,7 +1070,7 @@ DevicePairingRequestService::decide(
             event.actorId = request.context.actorId;
             event.actorType = request.context.actorType;
             event.authenticationState = "authenticated";
-            event.permission = "role.admin";
+            event.permission = "device.pairing.decide";
             event.backendId = "*";
             event.operationId =
                 "device-pairing:" +
