@@ -1,6 +1,6 @@
 # MU.10 — Device/App Pairing Architecture and Gap Audit
 
-Status: **LIVE AUDIT COMPLETE — MU.10A IMPLEMENTATION CANDIDATE / FOCUSED REAL YAVDR PASS**
+Status: **LIVE AUDIT COMPLETE — MU.10A IMPLEMENTATION CANDIDATE / REAL YAVDR RUNTIME PASS**
 
 Audited against `main` `5199bfadff4f2219f623fa5ce841d5b6139a026c`.
 There were no open pull requests. Exact-head normal CI run `37500705794`
@@ -275,3 +275,16 @@ with `MU10A_FOCUSED_ACCEPTANCE=PASS`.
 No daemon build, installation, restart, runtime mutation, VIDAA-repository
 change, PR or merge occurred. Hosted PR CI remains pending until a PR is
 explicitly authorized.
+
+
+## Real runtime checkpoint
+
+MU.10A is now running on the real yaVDR daemon through the canonical sealed
+runtime deployment path. Deployment identity matched, the daemon restarted with
+a new PID, Pairing creation/polling and wrong-token rejection passed, ordinary
+anonymous Public-v1 Backend access remained fenced, and SQLite contained only
+the expected one-way bootstrap verifier hashes.
+
+The temporary diagnostic false negative caused by reading only 14 characters
+of a 16-character verifier prefix has been classified and corrected; it does
+not invalidate the runtime evidence.
