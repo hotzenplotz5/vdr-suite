@@ -515,11 +515,28 @@ public:
                 '/',
                 publicDevicePairingPrefix.size()) ==
                 std::string::npos;
-        const bool isPublicDevicePairingRoute =
-            isPublicDevicePairingCollection ||
+        const bool hasPublicDevicePairingToken =
+            !headerValue(
+                request,
+                "X-VDR-Suite-Pairing-Token").empty();
+        const bool isPublicDevicePairingBootstrapCreate =
+            isPost &&
+            isPublicDevicePairingCollection;
+        const bool isPublicDevicePairingBootstrapPoll =
+            request.method == "GET" &&
+            isPublicDevicePairingItem &&
+            hasPublicDevicePairingToken;
+        const bool isPublicDevicePairingAdminRead =
+            request.method == "GET" &&
+            (isPublicDevicePairingCollection ||
+             isPublicDevicePairingItem) &&
+            !isPublicDevicePairingBootstrapPoll;
+        const bool isPublicDevicePairingDecision =
+            isPost &&
             isPublicDevicePairingItem;
 
-        if (isPublicDevicePairingRoute)
+        if (isPublicDevicePairingBootstrapCreate ||
+            isPublicDevicePairingBootstrapPoll)
         {
             gate.allowed = true;
             return gate;
@@ -661,6 +678,7 @@ public:
              path == "/api/vdr/searchtimers/plan");
         const bool isProtectedMutation =
             isRemoteAction || isTimerCreateAction ||
+            isPublicDevicePairingDecision ||
             isPublicAccountCreate ||
             isPublicAccountMutation ||
             isPublicAccountGrantMutation ||
@@ -885,6 +903,56 @@ public:
                 authorizationService_.authorize(
                     gate.context,
                     grantReadRequest);
+
+            if (!appendDecisionEvent(
+                    gate.context,
+                    decision,
+                    ""))
+            {
+                gate.rejection = errorResponse(
+                    503,
+                    "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+
+            if (!decision.allowed)
+            {
+                const int statusCode =
+                    authenticationFailure(decision)
+                        ? 401
+                        : 403;
+                gate.rejection = errorResponse(
+                    statusCode,
+                    decision.reasonCode,
+                    messageForReason(
+                        decision.reasonCode),
+                    gate.context,
+                    authenticationFailure(decision),
+                    gate.publicApiV1);
+                return gate;
+            }
+
+            gate.authorizationDecision = decision;
+            gate.allowed = true;
+            return gate;
+        }
+
+        if (isPublicDevicePairingAdminRead)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+
+            AuthorizationRequest pairingReadRequest;
+            pairingReadRequest.permission = "role.admin";
+            pairingReadRequest.backendId = "*";
+            pairingReadRequest.action =
+                "device_pairing.view";
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(
+                    gate.context,
+                    pairingReadRequest);
 
             if (!appendDecisionEvent(
                     gate.context,
@@ -1194,7 +1262,15 @@ public:
         bool recordingActionSupported = true;
         bool publicAccountMutationSupported = true;
 
-        if (isPublicAccountCredentialMutation)
+        if (isPublicDevicePairingDecision)
+        {
+            requestToAuthorize.backendId = "*";
+            requestToAuthorize.permission =
+                "role.admin";
+            requestToAuthorize.action =
+                "device_pairing.decide";
+        }
+        else if (isPublicAccountCredentialMutation)
         {
             requestToAuthorize.backendId = "*";
             requestToAuthorize.permission =
