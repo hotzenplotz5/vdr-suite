@@ -499,6 +499,7 @@ enum class PublicDevicePairingCreateStatus
     invalid,
     entropyUnavailable,
     hashingUnavailable,
+    capacityExceeded,
     unavailable,
 };
 
