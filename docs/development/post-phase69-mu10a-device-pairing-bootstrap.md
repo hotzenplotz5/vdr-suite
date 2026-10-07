@@ -1,6 +1,6 @@
 # MU.10A — Device Pairing Bootstrap
 
-Status: **IMPLEMENTATION CANDIDATE — FOCUSED REAL YAVDR PASS / HOSTED PR CI PENDING**
+Status: **IMPLEMENTATION CANDIDATE — REAL YAVDR RUNTIME PASS / HOSTED PR CI PENDING**
 
 Authority:
 [MU.10 Device/App Pairing Architecture and Gap Audit](post-phase69-mu10-device-app-pairing-audit.md).
@@ -212,3 +212,35 @@ are unrelated to MU.10A.
 
 Hosted PR CI remains pending because no PR has been authorized or created.
 No PR or merge is authorized by this document.
+
+
+## Real runtime deployment acceptance
+
+The same MU.10A implementation was subsequently staged through the canonical
+`stage-install-runtime -> deploy-install-runtime` path and restarted on the
+real yaVDR host.
+
+Observed runtime evidence:
+
+```text
+RUNTIME_DEPLOYMENT_MATCH=YES
+live daemon sha256=88b1ca53f81c3b8b314bcd50042b9afa5e1772a52d5d4e0dd0f1f957e9b8a3d2
+old daemon pid=29570
+new daemon pid=49547
+POST /api/v1/device-pairings -> 201
+token-scoped GET -> 200
+wrong pairing token -> 401
+anonymous GET /api/v1/backends -> 401
+pairing row -> pending
+user_code_hash length -> 119
+pairing_token_hash length -> 119
+both verifier prefixes -> $6$rounds=10000$
+```
+
+A first acceptance wrapper reported FAIL only because its diagnostic SQL used
+`substr(...,1,14)` and then compared that deliberately truncated value with
+the 16-character `$6$rounds=10000$` prefix. The corrected direct SQLite
+verification read the full verifier strings and passed. This was a test-wrapper
+bug, not a runtime or persistence defect.
+
+No PR or merge was performed.
