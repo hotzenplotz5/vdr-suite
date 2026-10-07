@@ -316,6 +316,29 @@ int main()
     assert(deleteItem.headers.at("Allow") ==
         "GET, POST");
 
+    runtime.registerDevicePairingCreate(
+        [](const PublicDevicePairingCreateRequest&)
+        {
+            PublicDevicePairingCreateResult result;
+            result.status =
+                PublicDevicePairingCreateStatus::capacityExceeded;
+            return result;
+        });
+
+    ApiResponse capacityExceeded;
+    assert(runtime.tryHandlePost(
+        "/api/v1/device-pairings",
+        "mu10b-capacity",
+        "",
+        capacityExceeded,
+        "{\"displayName\":\"Hisense 43A6K\","
+        "\"clientKind\":\"vidaa\","
+        "\"appVersion\":\"phase1\"}",
+        "", "", "", "application/json", ""));
+    assert(capacityExceeded.statusCode == 429);
+    assert(capacityExceeded.body.find(
+        "\"code\":\"rate_limited\"") != std::string::npos);
+
     ApiResponse capabilities;
     assert(runtime.tryHandleGet(
         "/api/v1/capabilities",
