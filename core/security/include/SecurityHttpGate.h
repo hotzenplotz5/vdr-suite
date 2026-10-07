@@ -945,7 +945,7 @@ public:
                 return rejectAuthentication(gate);
 
             AuthorizationRequest pairingReadRequest;
-            pairingReadRequest.permission = "role.admin";
+            pairingReadRequest.permission = "device.pairing.view";
             pairingReadRequest.backendId = "*";
             pairingReadRequest.action =
                 "device_pairing.view";
@@ -1266,7 +1266,7 @@ public:
         {
             requestToAuthorize.backendId = "*";
             requestToAuthorize.permission =
-                "role.admin";
+                "device.pairing.decide";
             requestToAuthorize.action =
                 "device_pairing.decide";
         }
