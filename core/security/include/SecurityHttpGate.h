@@ -499,6 +499,32 @@ public:
                     .find('/') == std::string::npos &&
             !publicAccountSessionItemId.empty();
 
+        const std::string publicDevicePairingCollection =
+            "/api/v1/device-pairings";
+        const std::string publicDevicePairingPrefix =
+            "/api/v1/device-pairings/";
+        const bool isPublicDevicePairingCollection =
+            path == publicDevicePairingCollection;
+        const bool isPublicDevicePairingItem =
+            path.compare(
+                0U,
+                publicDevicePairingPrefix.size(),
+                publicDevicePairingPrefix) == 0 &&
+            path.size() > publicDevicePairingPrefix.size() &&
+            path.find(
+                '/',
+                publicDevicePairingPrefix.size()) ==
+                std::string::npos;
+        const bool isPublicDevicePairingRoute =
+            isPublicDevicePairingCollection ||
+            isPublicDevicePairingItem;
+
+        if (isPublicDevicePairingRoute)
+        {
+            gate.allowed = true;
+            return gate;
+        }
+
         const bool isPublicAccountCredentialRead =
             request.method == "GET" &&
             (isPublicAccountCredentialResource ||

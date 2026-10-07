@@ -493,6 +493,70 @@ enum class PublicTimerCreateAdmissionStatus
     serviceUnavailable,
 };
 
+enum class PublicDevicePairingCreateStatus
+{
+    created,
+    invalid,
+    entropyUnavailable,
+    hashingUnavailable,
+    unavailable,
+};
+
+enum class PublicDevicePairingLookupStatus
+{
+    ok,
+    invalid,
+    notFound,
+    unauthorized,
+    expired,
+    unavailable,
+};
+
+struct PublicDevicePairingClientMetadata
+{
+    std::string displayName;
+    std::string clientKind;
+    std::string appVersion;
+};
+
+struct PublicDevicePairingResource
+{
+    std::string pairingRequestId;
+    PublicDevicePairingClientMetadata client;
+    std::string state;
+    std::string expiresAt;
+    int pollIntervalSeconds = 0;
+};
+
+struct PublicDevicePairingCreateRequest
+{
+    PublicDevicePairingClientMetadata client;
+    std::string requestId;
+    std::string correlationId;
+};
+
+struct PublicDevicePairingCreateResult
+{
+    PublicDevicePairingCreateStatus status =
+        PublicDevicePairingCreateStatus::unavailable;
+    PublicDevicePairingResource resource;
+    std::string userCode;
+    std::string pairingToken;
+};
+
+struct PublicDevicePairingLookupRequest
+{
+    std::string pairingRequestId;
+    std::string pairingToken;
+};
+
+struct PublicDevicePairingLookupResult
+{
+    PublicDevicePairingLookupStatus status =
+        PublicDevicePairingLookupStatus::unavailable;
+    PublicDevicePairingResource resource;
+};
+
 struct PublicTimerCreateAdmissionRequest
 {
     std::string actorRef;
@@ -583,6 +647,14 @@ public:
     using AccountSessionMutation =
         std::function<PublicAccountSessionMutationResult(
             const PublicAccountSessionMutationRequest& request)>;
+
+    using DevicePairingCreate =
+        std::function<PublicDevicePairingCreateResult(
+            const PublicDevicePairingCreateRequest& request)>;
+
+    using DevicePairingLookup =
+        std::function<PublicDevicePairingLookupResult(
+            const PublicDevicePairingLookupRequest& request)>;
 
     using TimerCreateAdmission =
         std::function<PublicTimerCreateAdmissionResult(
@@ -683,6 +755,16 @@ public:
     void resetAccountSessionMutation();
     bool accountSessionMutationConfigured() const;
 
+    void registerDevicePairingCreate(
+        DevicePairingCreate create);
+    void resetDevicePairingCreate();
+    bool devicePairingCreateConfigured() const;
+
+    void registerDevicePairingLookup(
+        DevicePairingLookup lookup);
+    void resetDevicePairingLookup();
+    bool devicePairingLookupConfigured() const;
+
     void registerTimerCreateAdmission(TimerCreateAdmission admission);
     void resetTimerCreateAdmission();
     bool timerCreateAdmissionConfigured() const;
@@ -695,7 +777,8 @@ public:
         ApiResponse& response,
         const std::string& ifNoneMatch = "",
         const std::string& authorizedBackendId = "",
-        const std::vector<std::string>& authorizedBackendIds = {}) const;
+        const std::vector<std::string>& authorizedBackendIds = {},
+        const std::string& pairingToken = "") const;
 
     bool tryHandlePost(
         const std::string& requestTarget,
@@ -773,6 +856,12 @@ private:
 
     mutable std::mutex accountSessionMutationMutex_;
     AccountSessionMutation accountSessionMutation_;
+
+    mutable std::mutex devicePairingCreateMutex_;
+    DevicePairingCreate devicePairingCreate_;
+
+    mutable std::mutex devicePairingLookupMutex_;
+    DevicePairingLookup devicePairingLookup_;
 
     mutable std::mutex timerCreateAdmissionMutex_;
     TimerCreateAdmission timerCreateAdmission_;

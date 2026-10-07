@@ -366,6 +366,21 @@
 
 
 
+  function devicePairingItemPath(options) {
+    if (!options || typeof options !== 'object' || Array.isArray(options)) {
+      throw new Error('Device Pairing options must be an object');
+    }
+    if (typeof options.pairingRequestId !== 'string'
+        || options.pairingRequestId === '') {
+      throw new Error('pairingRequestId must be a non-empty string');
+    }
+    if (/[\/?#]/.test(options.pairingRequestId)) {
+      throw new Error('pairingRequestId contains a path delimiter');
+    }
+    return '/api/v1/device-pairings/' + options.pairingRequestId;
+  }
+
+
   function operationItemPath(options) {
     if (!options || typeof options !== 'object' || Array.isArray(options)) {
       throw new Error('Operation item options must be an object');
@@ -412,6 +427,44 @@
             throw new VdrSuitePublicClientError(path, response.status, payload, response);
           }
           return payload;
+        });
+      });
+    }
+
+
+    function requestDevicePairingCreate(payload, options) {
+      const requestOptions = options && typeof options === 'object' ? options : {};
+      const headers = Object.assign(
+        {Accept: 'application/json'},
+        defaultHeaders,
+        copyHeaders(requestOptions.headers)
+      );
+      headers['Content-Type'] = 'application/json';
+
+      return fetchImpl(buildUrl(baseUrl, '/api/v1/device-pairings'), {
+        method: 'POST',
+        headers: headers,
+        credentials: requestOptions.credentials !== undefined
+          ? requestOptions.credentials
+          : normalized.credentials,
+        signal: requestOptions.signal,
+        body: JSON.stringify(payload)
+      }).then(function (response) {
+        const location = headerValue(response, 'Location');
+        return parseJsonBody(response).then(function (responsePayload) {
+          if (!response.ok) {
+            throw new VdrSuitePublicClientError(
+              '/api/v1/device-pairings',
+              response.status,
+              responsePayload,
+              response
+            );
+          }
+          return {
+            status: response.status,
+            location: location,
+            data: responsePayload
+          };
         });
       });
     }
@@ -606,6 +659,51 @@
       },
       getCapabilities(options) {
         return request('/api/v1/capabilities', options);
+      },
+      createDevicePairing(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        if (typeof normalizedOptions.displayName !== 'string'
+            || normalizedOptions.displayName === '') {
+          throw new Error('displayName must be a non-empty string');
+        }
+        if (typeof normalizedOptions.clientKind !== 'string'
+            || normalizedOptions.clientKind === '') {
+          throw new Error('clientKind must be a non-empty string');
+        }
+        if (normalizedOptions.appVersion !== undefined
+            && typeof normalizedOptions.appVersion !== 'string') {
+          throw new Error('appVersion must be a string when provided');
+        }
+
+        const payload = {
+          displayName: normalizedOptions.displayName,
+          clientKind: normalizedOptions.clientKind
+        };
+        if (normalizedOptions.appVersion !== undefined) {
+          payload.appVersion = normalizedOptions.appVersion;
+        }
+
+        return requestDevicePairingCreate(payload, normalizedOptions);
+      },
+      getDevicePairing(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        if (typeof normalizedOptions.pairingToken !== 'string'
+            || normalizedOptions.pairingToken === '') {
+          throw new Error('pairingToken must be a non-empty string');
+        }
+
+        const requestOptions = Object.assign({}, normalizedOptions, {
+          headers: Object.assign(
+            {},
+            copyHeaders(normalizedOptions.headers),
+            {'X-VDR-Suite-Pairing-Token': normalizedOptions.pairingToken}
+          )
+        });
+
+        return request(
+          devicePairingItemPath(normalizedOptions),
+          requestOptions
+        );
       },
       getBackends(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};

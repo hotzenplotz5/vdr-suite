@@ -142,3 +142,6 @@ Growing-Recording seek and Live-TV timeshift remain truthful deferred capability
 - [Back to Documentation Index](../index.md)
 - [Back to Current State](../CURRENT.md)
 - [Back to README](../../README.md)
+
+- [MU.10 Device/App Pairing Architecture and Gap Audit](post-phase69-mu10-device-app-pairing-audit.md) — live authority/gap audit selecting the bounded first slice.
+- [MU.10A Device Pairing Bootstrap](post-phase69-mu10a-device-pairing-bootstrap.md) — short-lived Pairing Request creation and token-scoped polling; implementation candidate.

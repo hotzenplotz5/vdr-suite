@@ -1,6 +1,6 @@
 # Post-Phase-69 Multiuser Administration Usability
 
-Status: **CANDIDATE**
+Status: **MERGED — PR #433 / REAL YAVDR PASS / HOSTED CI GREEN**
 
 This is a cross-cutting Multiuser productization slice after the completed MU.9
 Account/access administration UI and before MU.10 Device/app pairing. It is not
@@ -107,3 +107,13 @@ The slice is acceptable only when focused tests prove all of the following:
 - technical identifiers are placed behind the technical-details disclosure;
 - existing MU.9 mutation/revoke/create fencing tests remain green;
 - Phase 70 remains not started.
+
+
+## Acceptance closeout
+
+The bounded usability implementation passed its focused real-yaVDR validation
+without installation, restart or runtime mutation and merged as PR #433.
+GitHub-hosted PR CI run `37485287934` completed successfully.
+
+This closeout does not broaden security authority. It only clears the product
+prerequisite for the separately audited MU.10 Device/app pairing workstream.
