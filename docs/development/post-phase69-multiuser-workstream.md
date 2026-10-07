@@ -15,10 +15,10 @@ Account read foundation: completed
 First Admin / bootstrap / recovery: completed
 Legacy Basic retirement: completed
 Administration architecture: ADR-0067 [ACCEPTED]
-Current Multiuser productization slice: MU.10A Device Pairing Bootstrap [IMPLEMENTATION CANDIDATE / FOCUSED REAL YAVDR PASS]
+Current Multiuser productization slice: MU.10A Device Pairing Bootstrap [IMPLEMENTATION CANDIDATE / REAL YAVDR RUNTIME PASS]
 Latest completed Multiuser milestone: Post-MU.9 Administration Usability [MERGED - PR #433]
 Completed MU.7 sub-slice: Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
-Current acceptance gate: MU.10A focused contract/security/client acceptance [REAL YAVDR PASS / HOSTED PR CI PENDING]
+Current acceptance gate: MU.10A real runtime accepted; first VIDAA consumer acceptance pending / HOSTED PR CI PENDING
 ```
 
 ## Binding architecture
