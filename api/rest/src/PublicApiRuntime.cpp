@@ -167,6 +167,37 @@ bool publicAccountSubresourcePath(
         accountId.find('/') == std::string::npos;
 }
 
+bool publicDeviceLifecyclePath(
+    const std::string& path, std::string& deviceId,
+    std::string& credentialId)
+{
+    static const std::string prefix = "/api/v1/devices/";
+    static const std::string suffix = "/lifecycle";
+    static const std::string marker = "/credentials/";
+    deviceId.clear();
+    credentialId.clear();
+    if (path.compare(0U, prefix.size(), prefix) != 0 ||
+        path.size() <= prefix.size() + suffix.size() ||
+        path.compare(path.size() - suffix.size(),
+                     suffix.size(), suffix) != 0)
+        return false;
+    const std::string middle = path.substr(
+        prefix.size(), path.size() - prefix.size() - suffix.size());
+    const std::size_t position = middle.find(marker);
+    if (position == std::string::npos)
+    {
+        if (middle.empty() || middle.find('/') != std::string::npos)
+            return false;
+        deviceId = middle;
+        return true;
+    }
+    deviceId = middle.substr(0U, position);
+    credentialId = middle.substr(position + marker.size());
+    return !deviceId.empty() && !credentialId.empty() &&
+        deviceId.find('/') == std::string::npos &&
+        credentialId.find('/') == std::string::npos;
+}
+
 bool publicDeviceGrantPath(
     const std::string& path, std::string& deviceId)
 {
@@ -3021,6 +3052,47 @@ ApiResponse publicAccountResponse(
     return response;
 }
 
+ApiResponse publicDeviceLifecycleResponse(
+    const PublicDeviceLifecycleResource& item,
+    const std::string& path,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::string& ifNoneMatch)
+{
+    const std::string etag =
+        vdrsuite::http::publicStrongEntityTag(item.resourceRevision);
+    if (etag.empty())
+        return serviceUnavailableProblem(path, requestId, correlationId);
+    const auto condition = vdrsuite::http::publicEvaluateIfNoneMatch(
+        ifNoneMatch, etag);
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::malformed)
+        return invalidRequestProblem(
+            path, "Invalid If-None-Match.", requestId, correlationId);
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::matched)
+    {
+        ApiResponse response;
+        response.statusCode = 304;
+        response.contentType = "application/json; charset=utf-8";
+        addPublicSuccessHeaders(response, requestId, correlationId);
+        response.headers["ETag"] = etag;
+        response.headers["Cache-Control"] = "no-store";
+        return response;
+    }
+    std::string body = "{\"deviceId\":\"" +
+        jsonEscape(item.deviceId) + "\",\"actorId\":\"" +
+        jsonEscape(item.actorId) + "\",\"credentialId\":\"" +
+        jsonEscape(item.credentialId) + "\",\"active\":" +
+        std::string(item.active ? "true" : "false") +
+        ",\"revoked\":" + std::string(item.revoked ? "true" : "false") +
+        "}";
+    ApiResponse response = jsonResponse(body, requestId, correlationId);
+    response.headers["ETag"] = etag;
+    response.headers["Cache-Control"] = "no-store";
+    return response;
+}
+
 ApiResponse publicDeviceGrantSetResponse(
     const PublicDeviceGrantSetResource& grantSet,
     const std::string& path,
@@ -4006,6 +4078,40 @@ bool PublicApiRuntime::accountCreateConfigured() const
     std::lock_guard<std::mutex> lock(
         accountCreateMutex_);
     return static_cast<bool>(accountCreate_);
+}
+
+void PublicApiRuntime::registerDeviceLifecycleLookup(
+    DeviceLifecycleLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(deviceLifecycleLookupMutex_);
+    deviceLifecycleLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetDeviceLifecycleLookup()
+{
+    std::lock_guard<std::mutex> lock(deviceLifecycleLookupMutex_);
+    deviceLifecycleLookup_ = {};
+}
+
+void PublicApiRuntime::registerDeviceLifecycleMutation(
+    DeviceLifecycleMutation mutation)
+{
+    std::lock_guard<std::mutex> lock(deviceLifecycleMutationMutex_);
+    deviceLifecycleMutation_ = std::move(mutation);
+}
+
+void PublicApiRuntime::resetDeviceLifecycleMutation()
+{
+    std::lock_guard<std::mutex> lock(deviceLifecycleMutationMutex_);
+    deviceLifecycleMutation_ = {};
+}
+
+bool PublicApiRuntime::deviceLifecycleAdministrationConfigured() const
+{
+    std::lock_guard<std::mutex> a(deviceLifecycleLookupMutex_);
+    std::lock_guard<std::mutex> b(deviceLifecycleMutationMutex_);
+    return static_cast<bool>(deviceLifecycleLookup_) &&
+           static_cast<bool>(deviceLifecycleMutation_);
 }
 
 void PublicApiRuntime::registerDeviceGrantLookup(
