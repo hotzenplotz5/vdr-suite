@@ -161,4 +161,26 @@ int main()
     assert(actorGrants.available);
     assert(actorGrants.grants.size() == 1U);
     assert(actorGrants.grants.front().permission == "media.live.play");
+
+    // A failed accountability insert must roll back a successful grant
+    // SQL statement in the same write transaction.
+    {
+        Fixture failedAudit;
+        const auto before = failedAudit.service.read(DeviceId);
+        assert(before.status == DeviceGrantAdministrationStatus::ok);
+        assert(failedAudit.database.execute(
+            "CREATE TRIGGER mu10e_deny_audit "
+            "BEFORE INSERT ON accountability_events "
+            "WHEN NEW.request_id = 'mu10e-audit-failure' "
+            "BEGIN SELECT RAISE(ABORT, 'audit unavailable'); END;"));
+        auto rejected = failedAudit.service.setGrant(
+            {"admin_actor", "mu10e-audit-failure", ""},
+            DeviceId, before.grantSet.revision,
+            "channels.view", "default", true);
+        assert(rejected.status == DeviceGrantAdministrationStatus::unavailable);
+        const auto after = failedAudit.service.read(DeviceId);
+        assert(after.status == DeviceGrantAdministrationStatus::ok);
+        assert(after.grantSet.grants.empty());
+        assert(after.grantSet.revision == before.grantSet.revision);
+    }
 }
