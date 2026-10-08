@@ -27,6 +27,16 @@ bool safeId(const std::string& value)
             });
 }
 
+bool safeContextToken(const std::string& value)
+{
+    return !value.empty() && value.size() <= 128U &&
+        std::all_of(value.begin(), value.end(),
+            [](unsigned char c) {
+                return std::isalnum(c) || c == '_' || c == '-' ||
+                    c == '.' || c == ':';
+            });
+}
+
 bool activeTuple(const std::vector<PermissionGrant>& grants,
                  const std::string& permission,
                  const std::string& backendId)
@@ -189,8 +199,8 @@ DeviceGrantAdministrationService::setGrant(
     bool active)
 {
     DeviceGrantAdministrationResult result;
-    if (!safeId(context.administratorActorId) ||
-        !safeId(context.requestId) ||
+    if (!safeContextToken(context.administratorActorId) ||
+        !safeContextToken(context.requestId) ||
         !safeId(deviceId) ||
         expectedRevision.empty() ||
         !supportedGrant(permission, backendId))
