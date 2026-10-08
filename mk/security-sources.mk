@@ -73,6 +73,7 @@ test-security-architecture:
 	python3 tools/check_mu8c_credential_revoke.py
 	python3 tools/check_mu10a_device_pairing_bootstrap.py
 	python3 tools/check_mu10b_admin_pairing_approval.py
+	python3 tools/check_mu10c_device_credential_issuance.py
 	python3 tools/check_browser_session_issuance_architecture.py
 	python3 tools/check_browser_session_issuer_binding.py
 	python3 tools/check_browser_session_concurrency_limit.py
