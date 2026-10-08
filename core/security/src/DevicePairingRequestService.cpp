@@ -877,6 +877,40 @@ DevicePairingRequestService::issueDeviceCredential(
         return result;
     }
 
+    // Reject non-approved or unauthorized attempts before producing
+    // expensive fresh credential material. This is only a preflight:
+    // the token, expiry and state are rechecked under BEGIN IMMEDIATE.
+    const auto preliminary = repository_.findById(request.pairingRequestId);
+    if (preliminary.status == DevicePairingRequestRepositoryStatus::notFound ||
+        preliminary.status == DevicePairingRequestRepositoryStatus::invalidated)
+    {
+        result.status = DevicePairingCredentialIssueStatus::notFound;
+        return result;
+    }
+    if (preliminary.status == DevicePairingRequestRepositoryStatus::expired)
+    {
+        result.status = DevicePairingCredentialIssueStatus::expired;
+        return result;
+    }
+    if (preliminary.status != DevicePairingRequestRepositoryStatus::ok)
+        return result;
+    if (!verifySecret(request.pairingToken,
+                      preliminary.request.pairingTokenHash))
+    {
+        result.status = DevicePairingCredentialIssueStatus::unauthorized;
+        return result;
+    }
+    if (preliminary.request.state == "consumed")
+    {
+        result.status = DevicePairingCredentialIssueStatus::consumed;
+        return result;
+    }
+    if (preliminary.request.state != "approved")
+    {
+        result.status = DevicePairingCredentialIssueStatus::notApproved;
+        return result;
+    }
+
     // Create all secret material before acquiring the write transaction.
     // Nothing may be issued if secure entropy or hashing fails.
     std::array<unsigned char, IdentifierBytes> actorBytes{};
