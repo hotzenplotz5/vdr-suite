@@ -149,6 +149,7 @@ test-security-device-grant-administration:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_public_device_grants_security
 	$(BUILD_DIR)/test_public_device_grants_security
+	node clients/reference-js/tests/test_public_v1_device_grants_client.js
 
 
 test-security-authorization:
