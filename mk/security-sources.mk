@@ -27,6 +27,7 @@ SECURITY_SERVICE_SRC := \
 	core/security/src/DevicePairingRequestService.cpp \
 	core/security/src/DeviceGrantAdministrationService.cpp \
 	core/security/src/DeviceLifecycleAdministrationService.cpp \
+	core/security/src/DeviceCredentialRotationService.cpp \
 	core/security/src/FirstAdminBootstrapIssuanceService.cpp \
 	core/security/src/FirstAdminClaimService.cpp \
 	core/security/src/HumanAccountAdministrationService.cpp \
