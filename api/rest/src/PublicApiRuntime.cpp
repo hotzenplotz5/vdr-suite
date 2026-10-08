@@ -5794,17 +5794,17 @@ bool PublicApiRuntime::tryHandlePost(
                     else
                     {
                         response = jsonResponse(
-                            "{\\\"actorId\\\":\\\"" + jsonEscape(issued.actorId) +
-                            "\\",\\\"deviceId\\\":\\\"" + jsonEscape(issued.deviceId) +
-                            "\\",\\\"credentialId\\\":\\\"" + jsonEscape(issued.credentialId) +
-                            "\\",\\\"credentialSecret\\\":\\\"" +
-                            jsonEscape(issued.credentialSecret) + "\\"}",
+                            "{\"actorId\":\"" + jsonEscape(issued.actorId) +
+                            "\",\"deviceId\":\"" + jsonEscape(issued.deviceId) +
+                            "\",\"credentialId\":\"" + jsonEscape(issued.credentialId) +
+                            "\",\"credentialSecret\":\"" +
+                            jsonEscape(issued.credentialSecret) + "\"}",
                             requestId, correlationId);
                         response.statusCode = 201;
                         response.headers["Cache-Control"] = "no-store";
                     }
                     std::fill(issued.credentialSecret.begin(),
-                              issued.credentialSecret.end(), '\\0');
+                              issued.credentialSecret.end(), '\0');
                     issued.credentialSecret.clear();
                     return true;
                 case PublicDeviceCredentialIssueStatus::invalid:
