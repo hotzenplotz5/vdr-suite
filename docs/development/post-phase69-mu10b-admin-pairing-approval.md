@@ -1,6 +1,6 @@
 # MU.10B — Administrator Pairing Approval
 
-Status: **IMPLEMENTATION CANDIDATE — PR #437 / HOSTED CI #9790 GREEN / REAL YAVDR ACCEPTANCE PENDING**
+Status: **ACCEPTED — PR #437 / REAL YAVDR ACCEPTANCE PASS / HOSTED CI #9801 GREEN**
 
 Authority:
 - [ADR-0065 Human Account, Profile and Device Identity Boundary](../adr/ADR-0065-human-account-profile-device-identity-boundary.md)
@@ -125,6 +125,54 @@ The decision path records the authenticated Actor and the explicit
 `device.pairing.decide` permission, Pairing Request/revision, decision,
 outcome and conflict/denial reason without recording user codes, pairing
 tokens, password material, browser cookies or CSRF secrets.
+
+## Real yaVDR acceptance
+
+The exact MU.10B product tree deployed on the real yaVDR host passed the
+server-side acceptance gate. The PR head differed from the deployed/tested
+product tree only by the repository-wide `AGENTS.md` resource-safety rule.
+
+Observed acceptance evidence:
+
+```text
+RESOURCE_PREFLIGHT=PASS
+PRODUCT_AND_RUNTIME_IDENTITY=PASS
+ADMIN_SESSION=PASS
+ANONYMOUS_ADMIN_READ=PASS
+ADMIN_PENDING_LIST=PASS
+ADMIN_ITEM_SECRET_FREE=PASS
+STRONG_ETAG=PASS
+CSRF_FENCE=PASS
+IF_MATCH_REQUIRED=PASS
+APPROVE=PASS
+STALE_REVISION=PASS
+ALREADY_DECIDED=PASS
+TOKEN_POLL_APPROVED=PASS
+WRONG_TOKEN=PASS
+APPROVED_REMOVED_FROM_PENDING=PASS
+REJECT=PASS
+TOKEN_POLL_REJECTED=PASS
+EXPIRED_DECISION=PASS
+SQLITE_PAIRING_LIFECYCLE=PASS
+PAIRING_BOOTSTRAP_SECRETS_HASHED=PASS
+PAIRING_ACCOUNTABILITY=PASS
+MU10B_NO_IDENTITY_ISSUANCE=PASS
+ADMIN_SESSION_LOGOUT=PASS
+MU10B_REAL_YAVDR_ACCEPTANCE=PASS
+RESOURCE_POSTCHECK=PASS
+MU10B_REAL_YAVDR_GATE=PASS
+```
+
+The security-object counts were identical before and after Pairing decisions,
+including Actors, Devices, Credentials, Sessions, browser-session credential
+rows and permission Grants. The test therefore proves that MU.10B changes only
+Pairing Request lifecycle state and accountability evidence; it does not issue
+the durable Device identity or authentication material reserved for MU.10C.
+
+The resource-safety gate observed about 105 GiB free on the shared repository /
+database filesystem against a required reserve of about 32.7 GiB, both before
+and after the test. No build, runtime stage, deployment, daemon restart or new
+database backup was required for this final acceptance run.
 
 ## Explicitly outside MU.10B
 
