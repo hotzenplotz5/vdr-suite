@@ -442,6 +442,26 @@ public:
             request.method == "GET" && isPublicDeviceLifecycleResource;
         const bool isPublicDeviceLifecycleMutation =
             isPost && isPublicDeviceLifecycleResource;
+        const std::string rotationSuffix = "/rotate";
+        const bool isPublicDeviceCredentialRotation =
+            isPost &&
+            path.compare(0U, publicDeviceGrantPrefix.size(),
+                         publicDeviceGrantPrefix) == 0 &&
+            path.size() > publicDeviceGrantPrefix.size() +
+                          lifecycleMarker.size() + rotationSuffix.size() &&
+            path.compare(path.size() - rotationSuffix.size(),
+                         rotationSuffix.size(), rotationSuffix) == 0 &&
+            [&]() {
+                const std::string middle = path.substr(
+                    publicDeviceGrantPrefix.size(),
+                    path.size() - publicDeviceGrantPrefix.size() -
+                        rotationSuffix.size());
+                const std::size_t marker = middle.find(lifecycleMarker);
+                return marker != std::string::npos && marker > 0U &&
+                    marker + lifecycleMarker.size() < middle.size() &&
+                    middle.find('/', marker + lifecycleMarker.size()) ==
+                        std::string::npos;
+            }();
 
         const bool isPublicDeviceGrantRead =
             request.method == "GET" && isPublicDeviceGrantResource;
@@ -771,6 +791,7 @@ public:
             isPublicAccountGrantMutation ||
             isPublicDeviceGrantMutation ||
             isPublicDeviceLifecycleMutation ||
+            isPublicDeviceCredentialRotation ||
             isPublicAccountCredentialMutation ||
             isPublicAccountSessionMutation ||
             isPublicTimerAssignmentCreate || isTimerUpdateAction ||
@@ -1439,6 +1460,12 @@ public:
                 "accounts.sessions.revoke";
             requestToAuthorize.action =
                 "accounts.sessions.revoke";
+        }
+        else if (isPublicDeviceCredentialRotation)
+        {
+            requestToAuthorize.backendId = "*";
+            requestToAuthorize.permission = "devices.credentials.rotate";
+            requestToAuthorize.action = "devices.credentials.rotate";
         }
         else if (isPublicDeviceLifecycleMutation)
         {
