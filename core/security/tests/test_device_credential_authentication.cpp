@@ -123,6 +123,14 @@ int main()
         assert(denied.rejection.body.find(Secret) == std::string::npos);
         assert(denied.rejection.body.find(CredentialId) == std::string::npos);
 
+        // The device cannot administer its own grant set merely by
+        // proving possession of the credential that receives the grants.
+        const auto selfAdmin = fixture.evaluate(
+            "/api/v1/devices/" + DeviceId + "/grants",
+            fixture.validAuthorization());
+        assert(!selfAdmin.allowed);
+        assert(selfAdmin.rejection.statusCode == 403);
+
         // The bootstrap pairing token cannot authenticate a device.
         const auto pairing = fixture.evaluate(
             "/api/v1/device-pairings", "", Secret);

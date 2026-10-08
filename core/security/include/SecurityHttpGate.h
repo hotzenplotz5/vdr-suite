@@ -396,6 +396,23 @@ public:
                         publicAccountGrantSuffix.size()))
                     .find('/') == std::string::npos &&
             !publicAccountGrantAccountId.empty();
+        const std::string publicDeviceGrantPrefix = "/api/v1/devices/";
+        const std::string publicDeviceGrantSuffix = "/grants";
+        const bool isPublicDeviceGrantResource =
+            path.compare(0U, publicDeviceGrantPrefix.size(),
+                         publicDeviceGrantPrefix) == 0 &&
+            path.size() > publicDeviceGrantPrefix.size() +
+                          publicDeviceGrantSuffix.size() &&
+            path.compare(path.size() - publicDeviceGrantSuffix.size(),
+                         publicDeviceGrantSuffix.size(),
+                         publicDeviceGrantSuffix) == 0 &&
+            path.find('/', publicDeviceGrantPrefix.size()) ==
+                path.size() - publicDeviceGrantSuffix.size();
+        const bool isPublicDeviceGrantRead =
+            request.method == "GET" && isPublicDeviceGrantResource;
+        const bool isPublicDeviceGrantMutation =
+            isPost && isPublicDeviceGrantResource;
+
         const bool isPublicAccountGrantRead =
             request.method == "GET" &&
             isPublicAccountGrantResource;
@@ -717,6 +734,7 @@ public:
             isPublicAccountCreate ||
             isPublicAccountMutation ||
             isPublicAccountGrantMutation ||
+            isPublicDeviceGrantMutation ||
             isPublicAccountCredentialMutation ||
             isPublicAccountSessionMutation ||
             isPublicTimerAssignmentCreate || isTimerUpdateAction ||
@@ -918,6 +936,39 @@ public:
                 return gate;
             }
 
+            gate.authorizationDecision = decision;
+            gate.allowed = true;
+            return gate;
+        }
+
+        if (isPublicDeviceGrantRead)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            AuthorizationRequest readRequest;
+            readRequest.permission = "devices.grants.view";
+            readRequest.backendId = "*";
+            readRequest.action = "devices.grants.view";
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(gate.context, readRequest);
+            if (!appendDecisionEvent(gate.context, decision, ""))
+            {
+                gate.rejection = errorResponse(
+                    503, "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+            if (!decision.allowed)
+            {
+                gate.rejection = errorResponse(
+                    authenticationFailure(decision) ? 401 : 403,
+                    decision.reasonCode,
+                    messageForReason(decision.reasonCode),
+                    gate.context,
+                    authenticationFailure(decision), gate.publicApiV1);
+                return gate;
+            }
             gate.authorizationDecision = decision;
             gate.allowed = true;
             return gate;
@@ -1320,6 +1371,12 @@ public:
                 "accounts.sessions.revoke";
             requestToAuthorize.action =
                 "accounts.sessions.revoke";
+        }
+        else if (isPublicDeviceGrantMutation)
+        {
+            requestToAuthorize.backendId = "*";
+            requestToAuthorize.permission = "devices.grants.modify";
+            requestToAuthorize.action = "devices.grants.modify";
         }
         else if (isPublicAccountGrantMutation)
         {

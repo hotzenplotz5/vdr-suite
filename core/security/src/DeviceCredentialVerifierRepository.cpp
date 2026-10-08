@@ -79,6 +79,31 @@ bool DeviceCredentialVerifierRepository::insertInActiveTransaction(
     return step == SQLITE_DONE && changed == 1;
 }
 
+bool DeviceCredentialVerifierRepository::hasDeviceCredentialBinding(
+    const std::string& deviceId) const
+{
+    if (deviceId.empty() || deviceId.size() > 128U)
+        return false;
+    auto lease = database_.acquireTransactionLease();
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "SELECT 1 FROM security_device_credential_verifiers v "
+        "JOIN security_credentials c ON c.credential_id = v.credential_id "
+        "JOIN security_devices d ON d.device_id = v.device_id "
+        "JOIN security_actors a ON a.actor_id = d.actor_id "
+        "WHERE v.device_id = ? "
+        "AND c.actor_id = d.actor_id "
+        "AND c.credential_type = 'device-app' "
+        "AND a.actor_type = 'service' LIMIT 1;";
+    if (sqlite3_prepare_v2(database_.handle(), sql, -1, &stmt, nullptr)
+        != SQLITE_OK)
+        return false;
+    const bool bound = bindText(stmt, 1, deviceId);
+    const int result = bound ? sqlite3_step(stmt) : SQLITE_ERROR;
+    sqlite3_finalize(stmt);
+    return result == SQLITE_ROW;
+}
+
 std::optional<StoredDeviceCredentialVerifier>
 DeviceCredentialVerifierRepository::findByCredentialId(
     const std::string& credentialId) const
