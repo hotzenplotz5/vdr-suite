@@ -75,6 +75,14 @@ int main()
             return result;
         });
 
+    ApiResponse capabilities;
+    assert(runtime.tryHandleGet("/api/v1/capabilities",
+        "admin_actor", "mu10e2-capabilities", "", capabilities));
+    assert(capabilities.statusCode == 200);
+    assert(capabilities.body.find(
+        "public-api.devices-lifecycle-administration") !=
+        std::string::npos);
+
     ApiResponse anonymous;
     assert(runtime.tryHandleGet(DevicePath, "", "mu10e2-anon",
         "", anonymous));
