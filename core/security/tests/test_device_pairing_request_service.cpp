@@ -213,7 +213,7 @@ int main()
     assert(repository.consumeApprovedInActiveTransaction(approveId, 3U) ==
         DevicePairingRequestRepositoryStatus::stateConflict);
     assert(database.execute("ROLLBACK;"));
-    assert(service.poll(poll).status == DevicePairingPollStatus::unavailable);
+    assert(service.poll(poll).status == DevicePairingPollStatus::consumed);
 
 
     // Issue a fresh pairing and prove end-to-end canonical identity issuance.
