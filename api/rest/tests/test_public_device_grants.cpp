@@ -50,6 +50,16 @@ int main()
             return response;
         });
 
+    ApiResponse capabilities;
+    assert(runtime.tryHandleGet(
+        "/api/v1/capabilities", "admin_actor",
+        "mu10e-capabilities", "", capabilities));
+    assert(capabilities.statusCode == 200);
+    assert(capabilities.body.find(
+        "public-api.devices-grants-administration") != std::string::npos);
+    assert(capabilities.body.find(
+        "\"availability\":\"available\"") != std::string::npos);
+
     ApiResponse read;
     assert(runtime.tryHandleGet(
         Path, "admin_actor", "mu10e-get", "", read));
