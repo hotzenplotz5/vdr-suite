@@ -12,6 +12,7 @@
 #include "BrowserSessionRetentionService.h"
 #include "CredentialVerifierRepository.h"
 #include "DevicePairingRequestRepository.h"
+#include "DeviceCredentialVerifierRepository.h"
 #include "DevicePairingRequestService.h"
 #include "FirstAdminBootstrapRepository.h"
 #include "FirstAdminClaimHttpService.h"
@@ -84,6 +85,8 @@ private:
         credentialVerifierRepository_;
     std::unique_ptr<DevicePairingRequestRepository>
         devicePairingRequestRepository_;
+    std::unique_ptr<DeviceCredentialVerifierRepository>
+        deviceCredentialVerifierRepository_;
     std::unique_ptr<DevicePairingRequestService>
         devicePairingRequestService_;
     std::unique_ptr<HumanAccountRepository>
