@@ -27,8 +27,9 @@ public:
     static bool hasDeviceAuthorization(
         const std::map<std::string, std::string>& headers)
     {
-        const std::string authorization = headerValue(headers, "Authorization");
-        return authorization.rfind("VDR-Suite-Device", 0U) == 0U;
+        const std::string* authorization = headerValue(headers, "Authorization");
+        return authorization != nullptr &&
+            authorization->rfind("VDR-Suite-Device", 0U) == 0U;
     }
 
     RequestSecurityContext authenticate(
@@ -43,19 +44,22 @@ public:
             return context;
 
         context.authenticationState = AuthenticationState::Invalid;
-        const std::string authorization = headerValue(headers, "Authorization");
+        const std::string* authorization = headerValue(headers, "Authorization");
         const std::string prefix(Scheme);
-        if (authorization.rfind(prefix, 0U) != 0U ||
-            authorization.size() > 512U)
+        if (authorization == nullptr ||
+            authorization->rfind(prefix, 0U) != 0U ||
+            authorization->size() > 512U)
             return context;
 
-        const std::string material = authorization.substr(prefix.size());
-        const std::size_t separator = material.find('.');
+        // Avoid materializing a second full copy of the secret-bearing
+        // Authorization header. Wipe the short-lived verification copy.
+        const std::size_t separator = authorization->find('.', prefix.size());
         if (separator == std::string::npos ||
-            material.find('.', separator + 1U) != std::string::npos)
+            authorization->find('.', separator + 1U) != std::string::npos)
             return context;
-        const std::string credentialId = material.substr(0U, separator);
-        std::string secret = material.substr(separator + 1U);
+        const std::string credentialId = authorization->substr(
+            prefix.size(), separator - prefix.size());
+        std::string secret = authorization->substr(separator + 1U);
         const bool wellFormed = safePart(credentialId, 128U, 1U) &&
             safePart(secret, 128U, 32U);
         if (!wellFormed)
@@ -121,7 +125,7 @@ public:
     }
 
 private:
-    static std::string headerValue(
+    static const std::string* headerValue(
         const std::map<std::string, std::string>& headers,
         const std::string& key)
     {
@@ -140,9 +144,9 @@ private:
                 }
             }
             if (same)
-                return header.second;
+                return &header.second;
         }
-        return {};
+        return nullptr;
     }
 
     static bool safePart(
