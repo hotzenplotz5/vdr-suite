@@ -409,6 +409,13 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             *humanAccountAdministrationRepository_,
             *accountabilityEventRepository_);
 
+    deviceGrantAdministrationService_ =
+        std::make_unique<DeviceGrantAdministrationService>(
+            *securityDatabase_, *securityIdentityRepository_,
+            *deviceCredentialVerifierRepository_,
+            *securityPermissionGrantRepository_,
+            *accountabilityEventRepository_);
+
     humanAccountCredentialSessionReadRepository_ =
         std::make_unique<HumanAccountCredentialSessionReadRepository>(
             *securityDatabase_);
@@ -1138,6 +1145,84 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             return result;
         });
 
+    PublicApiRuntime::instance().registerDeviceGrantLookup(
+        [this](const std::string& deviceId)
+        {
+            PublicDeviceGrantLookupResult response;
+            if (!deviceGrantAdministrationService_)
+                return response;
+            const DeviceGrantAdministrationResult result =
+                deviceGrantAdministrationService_->read(deviceId);
+            switch (result.status)
+            {
+                case DeviceGrantAdministrationStatus::ok:
+                    response.status = PublicDeviceGrantStatus::ok;
+                    break;
+                case DeviceGrantAdministrationStatus::invalid:
+                    response.status = PublicDeviceGrantStatus::invalid;
+                    return response;
+                case DeviceGrantAdministrationStatus::notFound:
+                    response.status = PublicDeviceGrantStatus::notFound;
+                    return response;
+                case DeviceGrantAdministrationStatus::revisionConflict:
+                case DeviceGrantAdministrationStatus::unavailable:
+                    return response;
+            }
+            response.grantSet.deviceId = result.grantSet.deviceId;
+            response.grantSet.actorId = result.grantSet.actorId;
+            response.grantSet.resourceRevision = result.grantSet.revision;
+            for (const PermissionGrant& grant : result.grantSet.grants)
+                response.grantSet.grants.push_back(
+                    PublicAccountGrantItem{grant.permission, grant.backendId});
+            return response;
+        });
+
+    PublicApiRuntime::instance().registerDeviceGrantMutation(
+        [this](const PublicDeviceGrantMutationRequest& request)
+        {
+            PublicDeviceGrantMutationResult response;
+            if (!deviceGrantAdministrationService_ ||
+                !securityIdentityRepository_)
+                return response;
+            const auto administrator =
+                securityIdentityRepository_->findActor(request.actorRef);
+            if (!administrator.has_value() ||
+                administrator->type != ActorType::User ||
+                !administrator->active || administrator->revoked)
+                return response;
+
+            const DeviceGrantAdministrationResult result =
+                deviceGrantAdministrationService_->setGrant(
+                    {request.actorRef, request.requestId,
+                     request.correlationId},
+                    request.deviceId, request.expectedResourceRevision,
+                    request.permission, request.backendId, request.active);
+            switch (result.status)
+            {
+                case DeviceGrantAdministrationStatus::ok:
+                    response.status = PublicDeviceGrantStatus::ok;
+                    break;
+                case DeviceGrantAdministrationStatus::invalid:
+                    response.status = PublicDeviceGrantStatus::invalid;
+                    return response;
+                case DeviceGrantAdministrationStatus::notFound:
+                    response.status = PublicDeviceGrantStatus::notFound;
+                    return response;
+                case DeviceGrantAdministrationStatus::revisionConflict:
+                    response.status = PublicDeviceGrantStatus::revisionConflict;
+                    return response;
+                case DeviceGrantAdministrationStatus::unavailable:
+                    return response;
+            }
+            response.grantSet.deviceId = result.grantSet.deviceId;
+            response.grantSet.actorId = result.grantSet.actorId;
+            response.grantSet.resourceRevision = result.grantSet.revision;
+            for (const PermissionGrant& grant : result.grantSet.grants)
+                response.grantSet.grants.push_back(
+                    PublicAccountGrantItem{grant.permission, grant.backendId});
+            return response;
+        });
+
     PublicApiRuntime::instance().registerAccountGrantLookup(
         [this](const std::string& accountId)
         {
@@ -1539,6 +1624,8 @@ TestHttpServer::~TestHttpServer()
     PublicApiRuntime::instance().resetAccountSessionItemLookup();
     PublicApiRuntime::instance().resetAccountSessionLookup();
     PublicApiRuntime::instance().resetAccountCredentialLookup();
+    PublicApiRuntime::instance().resetDeviceGrantMutation();
+    PublicApiRuntime::instance().resetDeviceGrantLookup();
     PublicApiRuntime::instance().resetAccountGrantMutation();
     PublicApiRuntime::instance().resetAccountGrantLookup();
     PublicApiRuntime::instance().resetAccountCreate();
