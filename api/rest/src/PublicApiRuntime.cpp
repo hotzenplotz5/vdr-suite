@@ -5190,6 +5190,66 @@ bool PublicApiRuntime::tryHandleGet(
         }
     }
 
+    std::string lifecycleDeviceId;
+    std::string lifecycleCredentialId;
+    if (publicDeviceLifecyclePath(
+            path, lifecycleDeviceId, lifecycleCredentialId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (requestTarget != path)
+        {
+            response = invalidRequestProblem(
+                path, "Device lifecycle GET does not accept query.",
+                requestId, correlationId);
+            return true;
+        }
+        DeviceLifecycleLookup lookup;
+        {
+            std::lock_guard<std::mutex> lock(deviceLifecycleLookupMutex_);
+            lookup = deviceLifecycleLookup_;
+        }
+        if (!lookup)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        const PublicDeviceLifecycleResult found =
+            lookup(lifecycleDeviceId, lifecycleCredentialId);
+        switch (found.status)
+        {
+            case PublicDeviceLifecycleStatus::ok:
+                if (found.resource.deviceId != lifecycleDeviceId ||
+                    found.resource.credentialId != lifecycleCredentialId ||
+                    found.resource.actorId.empty() ||
+                    found.resource.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                response = publicDeviceLifecycleResponse(
+                    found.resource, path, requestId, correlationId, ifNoneMatch);
+                return true;
+            case PublicDeviceLifecycleStatus::invalid:
+                response = invalidRequestProblem(
+                    path, "Invalid Device lifecycle target.",
+                    requestId, correlationId);
+                return true;
+            case PublicDeviceLifecycleStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicDeviceLifecycleStatus::revisionConflict:
+            case PublicDeviceLifecycleStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
     std::string deviceGrantDeviceId;
     if (publicDeviceGrantPath(path, deviceGrantDeviceId))
     {
