@@ -12,9 +12,22 @@
 #include <cstddef>
 #include <string>
 #include <vector>
+#include <sqlite3.h>
 
 namespace
 {
+int countRows(Database& database, const char* sql)
+{
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(database.handle(), sql, -1,
+        &statement, nullptr) != SQLITE_OK)
+        return -1;
+    const int count = sqlite3_step(statement) == SQLITE_ROW
+        ? sqlite3_column_int(statement, 0) : -1;
+    sqlite3_finalize(statement);
+    return count;
+}
+
 DevicePairingRequestService::EntropySource deterministicEntropy()
 {
     return [next = static_cast<unsigned char>(0x11)](
@@ -262,6 +275,53 @@ int main()
         DevicePairingCredentialIssueStatus::consumed);
     credentialResult.credential->clearSecret();
     assert(credentialResult.credential->credentialSecret.empty());
+
+
+    // Failure inside the issuer's write transaction must not leave
+    // partially provisioned Actor/Device/Credential or consume approval.
+    DevicePairingIssueResult failingCreate =
+        service.issue(issueRequest("Rollback TV", "mu10c-rollback-create"));
+    assert(failingCreate.status == DevicePairingIssueStatus::issued);
+    assert(failingCreate.pairing.has_value());
+    const std::string failingId =
+        failingCreate.pairing->resource.pairingRequestId;
+    DevicePairingDecisionRequest failingApprove = approve;
+    failingApprove.pairingRequestId = failingId;
+    failingApprove.expectedResourceRevision =
+        "device-pairing:" + failingId + ":1";
+    failingApprove.context.requestId = "mu10c-rollback-approve";
+    assert(service.decide(failingApprove).status ==
+        DevicePairingAdministrationStatus::ok);
+    DevicePairingCredentialIssueRequest failingIssue;
+    failingIssue.pairingRequestId = failingId;
+    failingIssue.pairingToken = failingCreate.pairing->pairingToken;
+    failingIssue.requestId = "mu10c-rollback-issue";
+    const int actorsBefore = countRows(database,
+        "SELECT COUNT(*) FROM security_actors;");
+    const int devicesBefore = countRows(database,
+        "SELECT COUNT(*) FROM security_devices;");
+    const int credentialsBefore = countRows(database,
+        "SELECT COUNT(*) FROM security_credentials;");
+    assert(actorsBefore >= 0 && devicesBefore >= 0 &&
+        credentialsBefore >= 0);
+    assert(database.execute(
+        "DROP TABLE security_device_credential_verifiers;"));
+    assert(service.issueDeviceCredential(
+        failingIssue, provisioning, deviceVerifiers).status ==
+        DevicePairingCredentialIssueStatus::storageError);
+    assert(repository.findById(failingId).request.state == "approved");
+    assert(repository.findById(failingId).request.revision == 2U);
+    assert(countRows(database, "SELECT COUNT(*) FROM security_actors;") ==
+        actorsBefore);
+    assert(countRows(database, "SELECT COUNT(*) FROM security_devices;") ==
+        devicesBefore);
+    assert(countRows(database, "SELECT COUNT(*) FROM security_credentials;") ==
+        credentialsBefore);
+    assert(deviceVerifiers.ensureSchema());
+    assert(service.issueDeviceCredential(
+        failingIssue, provisioning, deviceVerifiers).status ==
+        DevicePairingCredentialIssueStatus::issued);
+    assert(repository.findById(failingId).request.state == "consumed");
 
     DevicePairingIssueResult rejectedCreate =
         service.issue(issueRequest(
