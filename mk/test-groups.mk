@@ -61,6 +61,7 @@ CI_FAST_TESTS := \
 	test-sb10d-live-acceptance-contract \
 	test-live-remote \
 	test-fast \
+	test-security-device-credential-rotation \
 	test-api-router \
 	test-restful-api-vdr-timer-action-executor \
 	test-search-timer-preview-result-json-serializer \
