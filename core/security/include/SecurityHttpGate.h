@@ -408,6 +408,41 @@ public:
                          publicDeviceGrantSuffix) == 0 &&
             path.find('/', publicDeviceGrantPrefix.size()) ==
                 path.size() - publicDeviceGrantSuffix.size();
+        const std::string lifecycleSuffix = "/lifecycle";
+        const bool lifecycleCandidate =
+            path.compare(0U, publicDeviceGrantPrefix.size(),
+                         publicDeviceGrantPrefix) == 0 &&
+            path.size() > publicDeviceGrantPrefix.size() +
+                          lifecycleSuffix.size() &&
+            path.compare(path.size() - lifecycleSuffix.size(),
+                         lifecycleSuffix.size(), lifecycleSuffix) == 0;
+        const std::string lifecycleMiddle = lifecycleCandidate
+            ? path.substr(publicDeviceGrantPrefix.size(),
+                          path.size() - publicDeviceGrantPrefix.size() -
+                              lifecycleSuffix.size())
+            : "";
+        const std::string lifecycleMarker = "/credentials/";
+        const std::size_t lifecycleMarkerAt =
+            lifecycleMiddle.find(lifecycleMarker);
+        const bool isPublicDeviceLifecycleCredential =
+            lifecycleCandidate &&
+            lifecycleMarkerAt != std::string::npos &&
+            lifecycleMarkerAt > 0U &&
+            lifecycleMarkerAt + lifecycleMarker.size() <
+                lifecycleMiddle.size() &&
+            lifecycleMiddle.find('/', lifecycleMarkerAt +
+                    lifecycleMarker.size()) == std::string::npos;
+        const bool isPublicDeviceLifecycleResource =
+            lifecycleCandidate &&
+            ((lifecycleMarkerAt == std::string::npos &&
+              !lifecycleMiddle.empty() &&
+              lifecycleMiddle.find('/') == std::string::npos) ||
+             isPublicDeviceLifecycleCredential);
+        const bool isPublicDeviceLifecycleRead =
+            request.method == "GET" && isPublicDeviceLifecycleResource;
+        const bool isPublicDeviceLifecycleMutation =
+            isPost && isPublicDeviceLifecycleResource;
+
         const bool isPublicDeviceGrantRead =
             request.method == "GET" && isPublicDeviceGrantResource;
         const bool isPublicDeviceGrantMutation =
@@ -735,6 +770,7 @@ public:
             isPublicAccountMutation ||
             isPublicAccountGrantMutation ||
             isPublicDeviceGrantMutation ||
+            isPublicDeviceLifecycleMutation ||
             isPublicAccountCredentialMutation ||
             isPublicAccountSessionMutation ||
             isPublicTimerAssignmentCreate || isTimerUpdateAction ||
@@ -936,6 +972,38 @@ public:
                 return gate;
             }
 
+            gate.authorizationDecision = decision;
+            gate.allowed = true;
+            return gate;
+        }
+
+        if (isPublicDeviceLifecycleRead)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            AuthorizationRequest lifecycle;
+            lifecycle.permission = "devices.lifecycle.view";
+            lifecycle.backendId = "*";
+            lifecycle.action = "devices.lifecycle.view";
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(gate.context, lifecycle);
+            if (!appendDecisionEvent(gate.context, decision, ""))
+            {
+                gate.rejection = errorResponse(
+                    503, "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+            if (!decision.allowed)
+            {
+                gate.rejection = errorResponse(
+                    authenticationFailure(decision) ? 401 : 403,
+                    decision.reasonCode, messageForReason(decision.reasonCode),
+                    gate.context, authenticationFailure(decision),
+                    gate.publicApiV1);
+                return gate;
+            }
             gate.authorizationDecision = decision;
             gate.allowed = true;
             return gate;
@@ -1371,6 +1439,14 @@ public:
                 "accounts.sessions.revoke";
             requestToAuthorize.action =
                 "accounts.sessions.revoke";
+        }
+        else if (isPublicDeviceLifecycleMutation)
+        {
+            requestToAuthorize.backendId = "*";
+            requestToAuthorize.permission =
+                isPublicDeviceLifecycleCredential
+                    ? "devices.credentials.revoke" : "devices.revoke";
+            requestToAuthorize.action = requestToAuthorize.permission;
         }
         else if (isPublicDeviceGrantMutation)
         {
