@@ -107,11 +107,20 @@ public:
         if (!actor.has_value() || actor->type != ActorType::Service)
             return context;
 
+        context.actor.actorId = actor->actorId;
+        context.actor.type = ActorType::Service;
+        context.actor.displayName = actor->displayName;
+        context.actor.active = actor->active && !actor->revoked;
+        context.device = DeviceIdentity{
+            device->deviceId, device->active && !device->revoked};
+        context.credential = CredentialIdentity{
+            credentialId, credential->active, credential->expired,
+            credential->revoked};
+
         // Enforce the canonical lifecycle here as well as in the gate's
-        // persistent resolver: an authenticator must never return an
-        // authenticated revoked/expired identity if reused independently.
-        if (!actor->active || actor->revoked ||
-            !device->active || device->revoked ||
+        // persistent resolver: never return an authenticated revoked/expired
+        // identity, and retain accurate denial reasons for accountability.
+        if (!context.actor.active || !context.device->active ||
             !credential->active || credential->revoked)
         {
             context.authenticationState = AuthenticationState::Revoked;
@@ -124,11 +133,6 @@ public:
         }
 
         context.authenticationState = AuthenticationState::Authenticated;
-        context.actor.actorId = actor->actorId;
-        context.actor.type = ActorType::Service;
-        context.actor.displayName = actor->displayName;
-        context.device = DeviceIdentity{device->deviceId, true};
-        context.credential = CredentialIdentity{credentialId, true, false, false};
         // The persistent resolver enforces actor/device/credential
         // revocation and expiry on every request before authorization.
         const auto resolution = grants_.findActiveGrantsForActor(actor->actorId);
