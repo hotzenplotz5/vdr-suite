@@ -1,6 +1,8 @@
 # MU.10D1 — Device Credential Authentication (Public-v1)
 
-Status: **implementation candidate; automated final-head and real yaVDR acceptance pending**.
+Status: **MU.10D1 repository automation PASS on immutable product SHA `c6dbc6d5b7284d9aa0ff006449001ac570d63252`; real yaVDR acceptance not performed**.
+
+Validation: [VDR-Suite CI #9849](https://github.com/hotzenplotz5/vdr-suite/actions/runs/37744498737), Run-ID `37744498737`: six jobs PASS, including `test_device_credential_authentication` in fast regression and successful `make daemon`. No local yaVDR build or deployment of MU.10D1.
 
 Base: merged MU.10C1 PR #440, main bbc2d5734c74e37a57b87b609afe57b9b2e8f4bb.
 Working branch: work/mu10d-device-authentication.
