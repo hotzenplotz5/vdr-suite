@@ -41,7 +41,8 @@ required = {
     "router": [
         "authorizedBackendRef",
         "ifNoneMatch,",
-        "authorizedBackendRef))",
+        "authorizedBackendRef,",
+        "pairingToken))",
     ],
     "http": [
         'requestHeaderValue(',
