@@ -84,6 +84,9 @@ public:
         const std::string& backendId,
         bool active);
 
+    static std::string computeGrantSetRevision(
+        const std::vector<PermissionGrant>& grants);
+
     static bool supportedGrant(
         const std::string& permission,
         const std::string& backendId);
