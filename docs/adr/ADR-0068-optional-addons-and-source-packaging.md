@@ -65,3 +65,7 @@ Out of scope for this decision: dynamic third-party marketplace, untrusted arbit
 ## C++ import implementation clarification (2026-10-08)
 
 The first Media Tools implementation is being written in C++17 and built as an **optional, standalone CLI/library**, not as a port of Rectools' Bash worker. The old CLI remains available for existing installations but is **not** the execution provider for new Suite import. A later Slice must stage the architecture-specific executable in a distinct add-on package, define its constrained backend Agent invocation and enforce core-owned actor permissions, durable jobs and recording reconciliation before enabling capabilities. The metadata-only scaffold packages remain inert. No public C++ ABI is promised.
+
+## Installed metadata registry (first activation-control slice)
+
+A separate read-only registry inspects package-staged metadata at `/usr/share/vdr-suite/addons/<module>/` and optional administrator-owned desired state under `/etc/vdr-suite/addons-enabled.d/`. For schema-v1 `scaffold` packages, **effectiveEnabled must always be false** even when desired state is true. Invalid, incompatible, duplicate, symlinked or untrusted entries fail closed. The inventory is local diagnostic/development infrastructure, not a web API, authorization gate, dynamic plugin loader, runtime switch or trusted package-manager assertion. No process is launched. A later versioned activation handler must re-evaluate installed provenance, actor grants, backend capabilities, runtime health and job ownership before advertising any capability.

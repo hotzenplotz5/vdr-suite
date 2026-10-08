@@ -12,13 +12,13 @@ Every subdirectory currently in scope must contain:
 Run `make check-addon-contract` to validate the complete source tree and focused tests.
 Run `make stage-addon MODULE=rectools DESTDIR=/path/to/isolated-package-root PREFIX=/usr` to produce a **metadata-only**, reproducible staging payload under `usr/share/vdr-suite/addons/rectools/`. This is package-source readiness, **not** a functioning Rectools import. A separate opt-in `make build-addon-deb` target builds a distinctly labelled, inert `~scaffold1` Debian metadata package. Runnable binary and source package policies follow only after the handler exists.
 
-No add-on is enabled by its presence in the source tree, `make install`, or metadata staging. Activation, public API routes, persistent permissions, protected job execution and web menus require future explicit reviewed implementation. No add-on can bypass the daemon's policy and ownership boundaries.
+No add-on is enabled by its presence in the source tree, `make install`, or metadata staging. A read-only installed-inventory evaluation is available through `tools/addons/addon_registry.py`, with fail-closed requested-vs-effective state. It is **not** activation: public API routes, persistent permissions, protected job execution and web menus require future explicit reviewed implementation. No add-on can bypass the daemon's policy and ownership boundaries.
 
 Current source modules:
 
 | Module | Intended responsibility | State |
 | --- | --- | --- |
-| [rectools](rectools/README.md) | Media import, read-only checking, optionally guarded shrink | scaffold, no executable integration |
+| [rectools](rectools/README.md) | Media import, read-only checking, optionally guarded shrink | standalone C++ preview, no Suite integration |
 | [image](image/README.md) | Photo library/album/diashow | scaffold |
 | [music](music/README.md) | Audio library/playlists | scaffold |
 | [tvscraper](tvscraper/README.md) | External scraper metadata integration | scaffold |
