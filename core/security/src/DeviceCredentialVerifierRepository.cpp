@@ -50,17 +50,33 @@ bool DeviceCredentialVerifierRepository::insertInActiveTransaction(
         return false;
 
     sqlite3_stmt* stmt = nullptr;
+    // Canonical ownership and lifecycle must match at insert time.
+    // This table is only a verifier binding, never another Identity Authority.
     const char* sql =
         "INSERT INTO security_device_credential_verifiers "
-        "(credential_id, device_id, verifier_hash) VALUES (?, ?, ?);";
+        "(credential_id, device_id, verifier_hash) "
+        "SELECT ?, ?, ? WHERE EXISTS ("
+        "SELECT 1 FROM security_credentials c "
+        "JOIN security_devices d ON d.actor_id = c.actor_id "
+        "JOIN security_actors a ON a.actor_id = c.actor_id "
+        "WHERE c.credential_id = ? AND d.device_id = ? "
+        "AND c.credential_type = 'device-app' "
+        "AND c.active = 1 AND c.revoked_at = '' "
+        "AND d.active = 1 AND d.revoked_at = '' "
+        "AND a.active = 1 AND a.revoked_at = '' "
+        "AND a.actor_type = 'service');";
     if (sqlite3_prepare_v2(database_.handle(), sql, -1, &stmt, nullptr)
         != SQLITE_OK)
         return false;
     const bool bound = bindText(stmt, 1, credentialId) &&
-        bindText(stmt, 2, deviceId) && bindText(stmt, 3, verifierHash);
+        bindText(stmt, 2, deviceId) &&
+        bindText(stmt, 3, verifierHash) &&
+        bindText(stmt, 4, credentialId) &&
+        bindText(stmt, 5, deviceId);
     const int step = bound ? sqlite3_step(stmt) : SQLITE_ERROR;
+    const int changed = sqlite3_changes(database_.handle());
     sqlite3_finalize(stmt);
-    return step == SQLITE_DONE;
+    return step == SQLITE_DONE && changed == 1;
 }
 
 std::optional<StoredDeviceCredentialVerifier>
