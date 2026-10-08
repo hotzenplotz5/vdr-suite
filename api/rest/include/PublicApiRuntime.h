@@ -333,6 +333,43 @@ struct PublicAccountGrantMutationResult
     PublicAccountGrantSetResource grantSet;
 };
 
+enum class PublicDeviceGrantStatus
+{
+    ok, invalid, notFound, revisionConflict, unavailable
+};
+
+struct PublicDeviceGrantSetResource
+{
+    std::string deviceId;
+    std::string actorId;
+    std::vector<PublicAccountGrantItem> grants;
+    std::string resourceRevision;
+};
+
+struct PublicDeviceGrantLookupResult
+{
+    PublicDeviceGrantStatus status = PublicDeviceGrantStatus::unavailable;
+    PublicDeviceGrantSetResource grantSet;
+};
+
+struct PublicDeviceGrantMutationRequest
+{
+    std::string actorRef;
+    std::string deviceId;
+    std::string expectedResourceRevision;
+    std::string permission;
+    std::string backendId;
+    bool active = false;
+    std::string requestId;
+    std::string correlationId;
+};
+
+struct PublicDeviceGrantMutationResult
+{
+    PublicDeviceGrantStatus status = PublicDeviceGrantStatus::unavailable;
+    PublicDeviceGrantSetResource grantSet;
+};
+
 enum class PublicAccountSecurityMetadataStatus
 {
     ok,
@@ -702,6 +739,13 @@ public:
         std::function<PublicAccountCreateResult(
             const PublicAccountCreateRequest& request)>;
 
+    using DeviceGrantLookup =
+        std::function<PublicDeviceGrantLookupResult(
+            const std::string& deviceId)>;
+    using DeviceGrantMutation =
+        std::function<PublicDeviceGrantMutationResult(
+            const PublicDeviceGrantMutationRequest& request)>;
+
     using AccountGrantLookup =
         std::function<PublicAccountGrantLookupResult(
             const std::string& accountId)>;
@@ -818,6 +862,11 @@ public:
     void registerAccountCreate(AccountCreate create);
     void resetAccountCreate();
     bool accountCreateConfigured() const;
+
+    void registerDeviceGrantLookup(DeviceGrantLookup lookup);
+    void resetDeviceGrantLookup();
+    void registerDeviceGrantMutation(DeviceGrantMutation mutation);
+    void resetDeviceGrantMutation();
 
     void registerAccountGrantLookup(
         AccountGrantLookup lookup);
@@ -956,6 +1005,12 @@ private:
 
     mutable std::mutex accountCreateMutex_;
     AccountCreate accountCreate_;
+
+    mutable std::mutex deviceGrantLookupMutex_;
+    DeviceGrantLookup deviceGrantLookup_;
+
+    mutable std::mutex deviceGrantMutationMutex_;
+    DeviceGrantMutation deviceGrantMutation_;
 
     mutable std::mutex accountGrantLookupMutex_;
     AccountGrantLookup accountGrantLookup_;
