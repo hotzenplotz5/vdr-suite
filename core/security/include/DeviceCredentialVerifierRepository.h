@@ -27,6 +27,10 @@ public:
     std::optional<StoredDeviceCredentialVerifier> findByCredentialId(
         const std::string& credentialId) const;
 
+    // A canonical device-app binding must exist before grants may be managed.
+    // No secret or verifier hash is returned to grant administration.
+    bool hasDeviceCredentialBinding(const std::string& deviceId) const;
+
 private:
     Database& database_;
 };
