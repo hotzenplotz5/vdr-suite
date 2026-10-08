@@ -34,8 +34,9 @@ int main()
         return response;
     });
     bool called = false;
+    PublicDeviceGrantStatus mutationStatus = PublicDeviceGrantStatus::ok;
     runtime.registerDeviceGrantMutation(
-        [&called](const PublicDeviceGrantMutationRequest& request) {
+        [&called, &mutationStatus](const PublicDeviceGrantMutationRequest& request) {
             called = true;
             assert(request.actorRef == "admin_actor");
             assert(request.deviceId == "device_10001");
@@ -44,7 +45,7 @@ int main()
             assert(!request.active);
             assert(request.expectedResourceRevision == RevisionA);
             PublicDeviceGrantMutationResult response;
-            response.status = PublicDeviceGrantStatus::ok;
+            response.status = mutationStatus;
             response.grantSet = grantSet(RevisionB);
             return response;
         });
@@ -97,6 +98,27 @@ int main()
     assert(mutation.statusCode == 200);
     assert(called);
     assert(mutation.headers.count("ETag") == 1U);
+
+    mutationStatus = PublicDeviceGrantStatus::revisionConflict;
+    ApiResponse revisionConflict;
+    assert(runtime.tryHandlePost(
+        Path, "mu10e-conflict", "", revisionConflict, body,
+        "admin_actor", read.headers.at("ETag"), "",
+        "application/json"));
+    assert(revisionConflict.statusCode == 412);
+
+    mutationStatus = PublicDeviceGrantStatus::invalid;
+    ApiResponse rejectedGrant;
+    assert(runtime.tryHandlePost(
+        Path, "mu10e-invalid", "", rejectedGrant, body,
+        "admin_actor", read.headers.at("ETag"), "",
+        "application/json"));
+    assert(rejectedGrant.statusCode == 422);
+
+    ApiResponse unsupported;
+    assert(runtime.tryHandleUnsupportedMethod(
+        "DELETE", Path, "mu10e-method", "", unsupported));
+    assert(unsupported.statusCode == 405);
 
     runtime.resetDeviceGrantMutation();
     runtime.resetDeviceGrantLookup();
