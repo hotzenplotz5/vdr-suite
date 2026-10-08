@@ -121,6 +121,48 @@ async function run() {
     'pairing-token-0123456789abcdef0123456789'
   );
 
+  responseFactory = () => response(201, {
+    actorId: 'actor_device_0123456789abcdef',
+    deviceId: 'device_0123456789abcdef',
+    credentialId: 'credential_device_0123456789abcdef',
+    credentialSecret: 'opaque-device-credential'
+  });
+  const credential = await client.issueDeviceCredential({
+    pairingRequestId: 'dpr_0123456789abcdef0123456789abcdef',
+    pairingToken: 'pairing-token-0123456789abcdef0123456789'
+  });
+  assert.strictEqual(credential.status, 201);
+  assert.strictEqual(credential.data.credentialSecret,
+    'opaque-device-credential');
+  const activation = requests[requests.length - 1];
+  assert.strictEqual(activation.url,
+    'https://suite.example/api/v1/device-pairings/'
+      + 'dpr_0123456789abcdef0123456789abcdef/credential');
+  assert.strictEqual(activation.options.method, 'POST');
+  assert.strictEqual(activation.options.cache, 'no-store');
+  assert.strictEqual(activation.options.credentials, 'omit');
+  assert.strictEqual(activation.options.headers['X-VDR-Suite-Pairing-Token'],
+    'pairing-token-0123456789abcdef0123456789');
+  assert.strictEqual(activation.options.headers.Authorization, undefined);
+  assert.strictEqual(activation.options.body, undefined);
+
+  responseFactory = () => response(409, {
+    code: 'pairing_state_conflict',
+    status: 409
+  });
+  let consumed = null;
+  try {
+    await client.issueDeviceCredential({
+      pairingRequestId: 'dpr_0123456789abcdef0123456789abcdef',
+      pairingToken: 'pairing-token-0123456789abcdef0123456789'
+    });
+  } catch (error) {
+    consumed = error;
+  }
+  assert.ok(consumed);
+  assert.strictEqual(consumed.status, 409);
+  assert.strictEqual(consumed.code, 'pairing_state_conflict');
+
   const beforeInvalid = requests.length;
   for (const invalidOptions of [
     {},
@@ -130,6 +172,13 @@ async function run() {
   ]) {
     assert.throws(() => client.getDevicePairing(invalidOptions));
   }
+  assert.throws(() => client.issueDeviceCredential({
+    pairingRequestId: 'bad/id', pairingToken: 'secret'
+  }));
+  assert.throws(() => client.issueDeviceCredential({
+    pairingRequestId: 'dpr_good', pairingToken: ''
+  }));
+
   assert.throws(
     () => client.createDevicePairing({
       displayName: '',
