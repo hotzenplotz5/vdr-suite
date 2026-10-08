@@ -26,9 +26,7 @@ int main() {
             result.credentialSecret = "once_only";
             return result;
         });
-    const std::string etag =
-        vdrsuite::http::publicStrongEntityTag(
-            "device-credential-lifecycle:credential_mu10e3:active");
+    const std::string etag = "\"vsr-6465766963652d63726564656e7469616c2d6c6966656379636c653a63726564656e7469616c5f6d75313065333a616374697665\"";
     ApiResponse response;
     assert(runtime.tryHandlePost(path,"mu10e3-anon","",response,"{}",
         "","", "", "application/json"));
