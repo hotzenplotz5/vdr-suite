@@ -348,6 +348,51 @@ int main()
     assert(repository.findById(failingId).request.state == "consumed");
 
 
+
+    // Failing required accountability persistence must also undo every
+    // identity/credential mutation and leave approval retryable.
+    DevicePairingIssueResult auditCreate =
+        service.issue(issueRequest("Audit Rollback TV", "mu10c-audit-create"));
+    assert(auditCreate.status == DevicePairingIssueStatus::issued);
+    assert(auditCreate.pairing.has_value());
+    const std::string auditId =
+        auditCreate.pairing->resource.pairingRequestId;
+    DevicePairingDecisionRequest auditApprove = approve;
+    auditApprove.pairingRequestId = auditId;
+    auditApprove.expectedResourceRevision =
+        "device-pairing:" + auditId + ":1";
+    auditApprove.context.requestId = "mu10c-audit-approve";
+    assert(service.decide(auditApprove).status ==
+        DevicePairingAdministrationStatus::ok);
+    DevicePairingCredentialIssueRequest auditIssue;
+    auditIssue.pairingRequestId = auditId;
+    auditIssue.pairingToken = auditCreate.pairing->pairingToken;
+    auditIssue.requestId = "mu10c-audit-issue";
+    const int auditCredentialsBefore = countRows(database,
+        "SELECT COUNT(*) FROM security_credentials;");
+    const int auditDevicesBefore = countRows(database,
+        "SELECT COUNT(*) FROM security_devices;");
+    assert(database.execute(
+        "CREATE TRIGGER mu10c_block_issuance_audit "
+        "BEFORE INSERT ON accountability_events "
+        "WHEN NEW.event_type = 'device_pairing.credential_issued' "
+        "BEGIN SELECT RAISE(FAIL, 'mu10c injected audit failure'); END;"));
+    assert(service.issueDeviceCredential(
+        auditIssue, provisioning, deviceVerifiers).status ==
+        DevicePairingCredentialIssueStatus::storageError);
+    assert(repository.findById(auditId).request.state == "approved");
+    assert(countRows(database,
+        "SELECT COUNT(*) FROM security_credentials;") ==
+        auditCredentialsBefore);
+    assert(countRows(database,
+        "SELECT COUNT(*) FROM security_devices;") ==
+        auditDevicesBefore);
+    assert(database.execute("DROP TRIGGER mu10c_block_issuance_audit;"));
+    assert(service.issueDeviceCredential(
+        auditIssue, provisioning, deviceVerifiers).status ==
+        DevicePairingCredentialIssueStatus::issued);
+    assert(repository.findById(auditId).request.state == "consumed");
+
     // Two independent issuer instances race for the same approved request.
     // The SQLite consumption fence must allow exactly one materialization.
     DevicePairingIssueResult parallelCreate =
