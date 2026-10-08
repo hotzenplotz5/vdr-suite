@@ -45,6 +45,42 @@ int main()
 
     {
         SecurityHttpGateBrowserTestFixture fixture;
+        HttpServerRequest activation;
+        activation.method = "POST";
+        activation.path = itemPath + "/credential";
+        activation.headers["X-VDR-Suite-Pairing-Token"] =
+            "opaque-activation-token";
+        const SecurityGateDecision decision =
+            fixture.gate.evaluate(activation);
+        assert(decision.allowed);
+        assert(!decision.protectedMutation);
+        assert(!decision.context.authenticated());
+    }
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        HttpServerRequest activation;
+        activation.method = "POST";
+        activation.path = itemPath + "/credential";
+        const SecurityGateDecision decision =
+            fixture.gate.evaluate(activation);
+        assert(!decision.allowed);
+        assert(decision.rejection.statusCode == 401);
+    }
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        HttpServerRequest unrelated;
+        unrelated.method = "POST";
+        unrelated.path = "/api/v1/device-pairings/any/credential/more";
+        unrelated.headers["X-VDR-Suite-Pairing-Token"] = "opaque-token";
+        const SecurityGateDecision decision =
+            fixture.gate.evaluate(unrelated);
+        assert(!decision.allowed);
+    }
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
         HttpServerRequest collection;
         collection.method = "GET";
         collection.path = "/api/v1/device-pairings";
