@@ -288,6 +288,12 @@ HumanAccountGrantAdministrationService(
 {
 }
 
+std::string HumanAccountGrantAdministrationService::computeGrantSetRevision(
+    const std::vector<PermissionGrant>& grants)
+{
+    return grantSetRevision(grants);
+}
+
 bool HumanAccountGrantAdministrationService::supportedGrant(
     const std::string& permission,
     const std::string& backendId)
