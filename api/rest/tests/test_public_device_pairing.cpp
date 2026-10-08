@@ -360,6 +360,25 @@ int main()
         "", invalidToken, "", "", "", "", "", "", PairingToken + "-wrong"));
     assert(invalidToken.statusCode == 401);
 
+    ApiResponse unexpectedBody;
+    assert(runtime.tryHandlePost(credentialPath, "mu10c-unexpected-body",
+        "", unexpectedBody, "{}", "", "", "", "application/json",
+        "", PairingToken));
+    assert(unexpectedBody.statusCode == 400);
+
+    ApiResponse unexpectedPrecondition;
+    assert(runtime.tryHandlePost(credentialPath, "mu10c-if-match",
+        "", unexpectedPrecondition, "", "", "strong-etag", "", "",
+        "", PairingToken));
+    assert(unexpectedPrecondition.statusCode == 400);
+
+    ApiResponse unexpectedQuery;
+    assert(runtime.tryHandlePost(credentialPath + "?unexpected=1",
+        "mu10c-query", "", unexpectedQuery,
+        "", "", "", "", "", "", PairingToken));
+    assert(unexpectedQuery.statusCode == 400);
+    assert(issuedCount == 0);
+
     ApiResponse issuedCredential;
     assert(runtime.tryHandlePost(credentialPath, "mu10c-issued",
         "", issuedCredential, "", "", "", "", "", "", PairingToken));
