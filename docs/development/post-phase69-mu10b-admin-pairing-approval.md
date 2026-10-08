@@ -1,6 +1,6 @@
 # MU.10B — Administrator Pairing Approval
 
-Status: **ACCEPTED — PR #437 / REAL YAVDR ACCEPTANCE PASS / HOSTED CI #9801 GREEN**
+Status: **MERGED — PR #437 / REAL YAVDR ACCEPTANCE PASS / FINAL-HEAD HOSTED CI #9806 GREEN**
 
 Authority:
 - [ADR-0065 Human Account, Profile and Device Identity Boundary](../adr/ADR-0065-human-account-profile-device-identity-boundary.md)
