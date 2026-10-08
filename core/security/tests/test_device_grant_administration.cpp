@@ -1,11 +1,13 @@
 #include "AccountabilityEventRepository.h"
 #include "Database.h"
 #include "DeviceCredentialVerifierRepository.h"
+#include "DeviceCredentialAuthenticator.h"
 #include "DeviceGrantAdministrationService.h"
 #include "SecurityIdentityProvisioningRepository.h"
 #include "SecurityIdentityRepository.h"
 #include "SecurityPermissionGrantRepository.h"
 
+#include <crypt.h>
 #include <cassert>
 #include <string>
 
@@ -14,6 +16,7 @@ namespace
 constexpr const char* ActorId = "actor_device_10001";
 constexpr const char* DeviceId = "device_10001";
 constexpr const char* CredentialId = "credential_device_10001";
+const std::string Secret = "MU10E0123456789ABCDEFGHIJKLMNOPabcdefghi";
 
 struct Fixture
 {
@@ -37,9 +40,11 @@ struct Fixture
             ActorId, ActorType::Service, "Living room VIDAA",
             DeviceId, "Living room VIDAA", CredentialId, "device-app"));
         assert(database.execute("BEGIN IMMEDIATE;"));
-        const std::string hash =
-            "$6$rounds=10000$mu10e-test-salt$"
-            "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUV";
+        crypt_data state{};
+        const char* encoded = crypt_r(Secret.c_str(),
+            "$6$rounds=10000$mu10e-salt0001$", &state);
+        assert(encoded != nullptr);
+        const std::string hash(encoded);
         assert(verifiers.insertInActiveTransaction(
             CredentialId, DeviceId, hash));
         assert(database.execute("COMMIT;"));
@@ -60,6 +65,16 @@ int main()
     assert(initially.grantSet.deviceId == DeviceId);
     assert(initially.grantSet.actorId == ActorId);
     assert(initially.grantSet.grants.empty());
+    DeviceCredentialAuthenticator authenticator(
+        fixture.verifiers, fixture.identities, fixture.grants);
+    const std::map<std::string, std::string> authHeaders = {
+        {"Authorization", std::string(DeviceCredentialAuthenticator::Scheme)
+            + CredentialId + "." + Secret}
+    };
+    const auto unauthorisedForContent = authenticator.authenticate(
+        authHeaders, "mu10e-auth-before", "");
+    assert(unauthorisedForContent.authenticated());
+    assert(unauthorisedForContent.grants.empty());
     assert(initially.grantSet.revision.rfind("grant-set:", 0U) == 0U);
 
     assert(DeviceGrantAdministrationService::supportedGrant(
@@ -89,6 +104,11 @@ int main()
     assert(granted.grantSet.grants[0].permission == "channels.view");
     assert(granted.grantSet.grants[0].backendId == "default");
     assert(granted.grantSet.revision != initially.grantSet.revision);
+    const auto withChannelGrant = authenticator.authenticate(
+        authHeaders, "mu10e-auth-after", "");
+    assert(withChannelGrant.authenticated());
+    assert(withChannelGrant.grants.size() == 1U);
+    assert(withChannelGrant.grants.front().permission == "channels.view");
 
     const auto alreadyActive = fixture.service.setGrant(
         admin(), DeviceId, initially.grantSet.revision,
@@ -129,6 +149,8 @@ int main()
     assert(fixture.identities.revokeDevice(DeviceId));
     assert(fixture.service.read(DeviceId).status ==
         DeviceGrantAdministrationStatus::notFound);
+    assert(!authenticator.authenticate(
+        authHeaders, "mu10e-auth-revoked", "").authenticated());
     assert(fixture.service.setGrant(
         admin(), DeviceId, revoked.grantSet.revision,
         "channels.view", "default", true).status ==
