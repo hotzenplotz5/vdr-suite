@@ -2,6 +2,7 @@
 #include "Database.h"
 #include "DeviceCredentialAuthenticator.h"
 #include "DeviceCredentialRotationService.h"
+#include "DeviceLifecycleAdministrationService.h"
 #include "DeviceCredentialVerifierRepository.h"
 #include "SecurityIdentityProvisioningRepository.h"
 #include "SecurityIdentityRepository.h"
@@ -25,6 +26,7 @@ struct Fixture {
     SecurityPermissionGrantRepository grants{db};
     AccountabilityEventRepository audit{db};
     DeviceCredentialRotationService service{db,identities,verifiers,audit};
+    DeviceLifecycleAdministrationService lifecycle{db,identities,verifiers,audit};
     DeviceCredentialAuthenticator auth{verifiers,identities,grants};
     Fixture() {
         assert(db.open(":memory:"));
@@ -146,6 +148,30 @@ int main() {
                 second==DeviceCredentialRotationStatus::stateConflict) ||
                (second==DeviceCredentialRotationStatus::rotated &&
                 first==DeviceCredentialRotationStatus::stateConflict));
+        assert(!f.login(credentialId,secret));
+    }
+    {
+        Fixture f;
+        auto current=f.lifecycle.read(DeviceLifecycleTarget::Device,deviceId);
+        assert(current.status==DeviceLifecycleStatus::ok);
+        DeviceCredentialRotationStatus rotation=DeviceCredentialRotationStatus::unavailable;
+        DeviceLifecycleStatus revocation=DeviceLifecycleStatus::unavailable;
+        std::thread rotating([&] {
+            rotation=f.service.rotate(f.request()).status;
+        });
+        std::thread revoking([&] {
+            revocation=f.lifecycle.revoke(
+                {"admin.mu10e3","race-revoke",""},
+                DeviceLifecycleTarget::Device,deviceId,"",
+                current.resource.resourceRevision).status;
+        });
+        rotating.join();
+        revoking.join();
+        assert(revocation==DeviceLifecycleStatus::ok);
+        assert(rotation==DeviceCredentialRotationStatus::rotated ||
+               rotation==DeviceCredentialRotationStatus::stateConflict);
+        assert(f.lifecycle.read(DeviceLifecycleTarget::Device,deviceId)
+                   .resource.revoked);
         assert(!f.login(credentialId,secret));
     }
     return 0;
