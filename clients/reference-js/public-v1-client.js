@@ -737,7 +737,7 @@
             || normalizedOptions.pairingToken === '') {
           throw new Error('pairingToken must be a non-empty string');
         }
-        // A lost response is terminal. Callers must not auto-retry issuance.
+        // A lost response is terminal. Callers must not automatically repeat issuance.
         return requestDeviceCredentialIssue(normalizedOptions);
       },
       getBackends(options) {
