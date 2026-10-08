@@ -108,6 +108,13 @@ int main()
         assert(authorized.context.permissionGrantResolution ==
             PermissionGrantResolutionState::Resolved);
 
+        // Device credentials must not authenticate legacy, unversioned
+        // endpoints (which have a different authorization contract).
+        const auto legacy = fixture.evaluate(
+            "/api/vdr/backends", fixture.validAuthorization());
+        assert(!legacy.allowed);
+        assert(legacy.rejection.statusCode == 401);
+
         // Successful identity proof gives no administrative authorization.
         const auto denied = fixture.evaluate(
             "/api/v1/device-pairings", fixture.validAuthorization());
