@@ -110,8 +110,9 @@ class RegistryTests(unittest.TestCase):
         data["package"] = "vdr-suite-addon-media-tools"
         second.write_text(json.dumps(data))
         report = self.scan()
-        self.assertTrue(any(x["reason"] == "invalid_or_untrusted"
+        self.assertTrue(all(x["reason"] == "invalid_or_untrusted"
                             for x in report["modules"]))
+        self.assertTrue(all(not x["effectiveEnabled"] for x in report["modules"]))
         first.chmod(0o777)
         self.assertEqual(
             next(x for x in self.scan()["modules"] if x["id"] == "rectools")["reason"],

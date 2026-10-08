@@ -137,7 +137,6 @@ def discover(installed_root: Path = INSTALLED_ROOT,
         raise ContractError("cannot enumerate installed modules") from exc
     if len(folders) > MAX_MODULES:
         raise ContractError("too many entries in installed add-on directory")
-    seen_packages = set()
     for folder in folders:
         name = folder.name
         if not NAME.fullmatch(name):
@@ -163,9 +162,6 @@ def discover(installed_root: Path = INSTALLED_ROOT,
             item["installed"] = True
             item["version"] = manifest["version"]
             item["package"] = manifest["package"]
-            if manifest["package"] in seen_packages:
-                raise ContractError("duplicate package identity")
-            seen_packages.add(manifest["package"])
             # A bad or untrusted policy blocks the module even if requested.
             item["requestedEnabled"] = _requested(policy_root, name, required_uid)
             item["reason"] = "scaffold_not_executable"
@@ -173,6 +169,17 @@ def discover(installed_root: Path = INSTALLED_ROOT,
             item["reason"] = "invalid_or_untrusted"
             item["requestedEnabled"] = False
         entries.append(item)
+    # Duplicate package identity invalidates *every* claimant, not merely
+    # whichever name happens to sort second.
+    package_counts = {}
+    for item in entries:
+        if item["installed"]:
+            package_counts[item["package"]] = package_counts.get(item["package"], 0) + 1
+    for item in entries:
+        if item["installed"] and package_counts[item["package"]] > 1:
+            item["installed"] = False
+            item["requestedEnabled"] = False
+            item["reason"] = "invalid_or_untrusted"
     return {"schemaVersion": 1, "modules": entries, "enabledCapabilities": []}
 
 
