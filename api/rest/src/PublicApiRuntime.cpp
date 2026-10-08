@@ -2675,6 +2675,7 @@ ApiResponse platformCapabilities(
     const bool accountGrantAdministrationAvailable,
     const bool deviceGrantAdministrationAvailable,
     const bool deviceLifecycleAdministrationAvailable,
+    const bool deviceCredentialRotationAvailable,
     const bool accountSecurityMetadataAvailable,
     const bool accountCredentialRevokeAvailable,
     const bool accountSessionRevokeAvailable,
@@ -2716,6 +2717,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.devices-lifecycle-administration\",\"version\":1,\"availability\":\"" +
         std::string(deviceLifecycleAdministrationAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.devices-credential-rotation\",\"version\":1,\"availability\":\"" +
+        std::string(deviceCredentialRotationAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.accounts-credential-session-metadata\",\"version\":1,\"availability\":\"" +
         std::string(accountSecurityMetadataAvailable ? "available" : "unavailable") +
@@ -4484,6 +4488,7 @@ bool PublicApiRuntime::tryHandleGet(
                 accountGrantMutationConfigured(),
             deviceGrantAdministrationConfigured(),
             deviceLifecycleAdministrationConfigured(),
+            deviceCredentialRotationConfigured(),
             accountCredentialLookupConfigured() &&
                 accountSessionLookupConfigured(),
             accountCredentialItemLookupConfigured() &&
