@@ -10,6 +10,7 @@
 #include <cassert>
 #include <crypt.h>
 #include <string>
+#include <thread>
 
 namespace {
 const std::string actorId = "actor_mu10e3";
@@ -114,6 +115,38 @@ int main() {
         req.expectedResourceRevision="device-credential-lifecycle:other:active";
         assert(f.service.rotate(req).status==DeviceCredentialRotationStatus::invalid);
         assert(f.login(credentialId,secret));
+    }
+    {
+        Fixture f;
+        assert(f.identities.setCredentialExpiry(
+            credentialId, "2020-01-01 00:00:00"));
+        assert(f.service.rotate(f.request()).status==
+            DeviceCredentialRotationStatus::stateConflict);
+        assert(!f.login(credentialId,secret));
+    }
+    {
+        Fixture f;
+        assert(f.db.execute(
+            "CREATE TRIGGER deny_rotation_verifier "
+            "BEFORE INSERT ON device_credential_verifiers "
+            "BEGIN SELECT RAISE(ABORT, 'verifier failed'); END;"));
+        assert(f.service.rotate(f.request()).status==
+            DeviceCredentialRotationStatus::unavailable);
+        assert(f.login(credentialId,secret));
+    }
+    {
+        Fixture f;
+        DeviceCredentialRotationStatus first=DeviceCredentialRotationStatus::unavailable;
+        DeviceCredentialRotationStatus second=DeviceCredentialRotationStatus::unavailable;
+        std::thread a([&] { first=f.service.rotate(f.request()).status; });
+        std::thread b([&] { second=f.service.rotate(f.request()).status; });
+        a.join();
+        b.join();
+        assert((first==DeviceCredentialRotationStatus::rotated &&
+                second==DeviceCredentialRotationStatus::stateConflict) ||
+               (second==DeviceCredentialRotationStatus::rotated &&
+                first==DeviceCredentialRotationStatus::stateConflict));
+        assert(!f.login(credentialId,secret));
     }
     return 0;
 }
