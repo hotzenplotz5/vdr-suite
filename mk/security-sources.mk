@@ -8,6 +8,7 @@ SECURITY_REPOSITORY_SRC := \
 	core/security/src/SecurityPermissionGrantRepository.cpp \
 	core/security/src/CredentialVerifierRepository.cpp \
 	core/security/src/DevicePairingRequestRepository.cpp \
+	core/security/src/DeviceCredentialVerifierRepository.cpp \
 	core/security/src/FirstAdminBootstrapRepository.cpp \
 	core/security/src/HumanAccountRepository.cpp \
 	core/security/src/HumanAccountAdministrationRepository.cpp \
