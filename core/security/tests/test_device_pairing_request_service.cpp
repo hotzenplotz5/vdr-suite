@@ -308,6 +308,42 @@ int main()
     credentialResult.credential->clearSecret();
     assert(credentialResult.credential->credentialSecret.empty());
 
+    // Simulate an HTTP 201 lost after commit: no recovery operation may
+    // reconstruct or reissue the consumed pairing's plaintext secret.
+    // A new administrator-approved pairing is the only issuance path;
+    // its new identity must be distinct and remain grant-free.
+    assert(service.issueDeviceCredential(
+        deviceIssue, provisioning, deviceVerifiers).status ==
+        DevicePairingCredentialIssueStatus::consumed);
+    DevicePairingIssueResult recoveryCreate =
+        service.issue(issueRequest("Paired VIDAA TV", "mu10c-recovery-create"));
+    assert(recoveryCreate.status == DevicePairingIssueStatus::issued);
+    assert(recoveryCreate.pairing.has_value());
+    DevicePairingDecisionRequest recoveryApprove = deviceApprove;
+    recoveryApprove.pairingRequestId =
+        recoveryCreate.pairing->resource.pairingRequestId;
+    recoveryApprove.expectedResourceRevision =
+        "device-pairing:" + recoveryApprove.pairingRequestId + ":1";
+    recoveryApprove.context.requestId = "mu10c-recovery-approve";
+    assert(service.decide(recoveryApprove).status ==
+        DevicePairingAdministrationStatus::ok);
+    DevicePairingCredentialIssueRequest recoveryIssue = deviceIssue;
+    recoveryIssue.pairingRequestId = recoveryApprove.pairingRequestId;
+    recoveryIssue.pairingToken = recoveryCreate.pairing->pairingToken;
+    recoveryIssue.requestId = "mu10c-recovery-issue";
+    auto recovered = service.issueDeviceCredential(
+        recoveryIssue, provisioning, deviceVerifiers);
+    assert(recovered.status == DevicePairingCredentialIssueStatus::issued);
+    assert(recovered.credential.has_value());
+    assert(recovered.credential->actorId != deviceCredential.actorId);
+    assert(recovered.credential->deviceId != deviceCredential.deviceId);
+    assert(recovered.credential->credentialId != deviceCredential.credentialId);
+    assert(countRows(database,
+        "SELECT COUNT(*) FROM security_actor_permission_grants;") == 0);
+    assert(service.issueDeviceCredential(
+        deviceIssue, provisioning, deviceVerifiers).status ==
+        DevicePairingCredentialIssueStatus::consumed);
+    recovered.credential->clearSecret();
 
     // Failure inside the issuer's write transaction must not leave
     // partially provisioned Actor/Device/Credential or consume approval.
