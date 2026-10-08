@@ -48,6 +48,7 @@ int main()
     runtime.resetDevicePairingCreate();
 
     bool decided = false;
+    bool consumed = false;
 
     runtime.registerDevicePairingCreate(
         [](const PublicDevicePairingCreateRequest& request)
@@ -70,7 +71,7 @@ int main()
         });
 
     runtime.registerDevicePairingLookup(
-        [&decided](const PublicDevicePairingLookupRequest& request)
+        [&decided, &consumed](const PublicDevicePairingLookupRequest& request)
         {
             PublicDevicePairingLookupResult result;
             if (request.pairingToken == "wrong")
@@ -81,6 +82,11 @@ int main()
             }
             assert(request.pairingRequestId == PairingId);
             assert(request.pairingToken == PairingToken);
+            if (consumed)
+            {
+                result.status = PublicDevicePairingLookupStatus::consumed;
+                return result;
+            }
             result.status =
                 PublicDevicePairingLookupStatus::ok;
             result.resource =
@@ -320,7 +326,7 @@ int main()
     // MU.10C token-scoped issuance never requires an administrator cookie.
     int issuedCount = 0;
     runtime.registerDeviceCredentialIssue(
-        [&issuedCount](const PublicDeviceCredentialIssueRequest& request)
+        [&issuedCount, &consumed](const PublicDeviceCredentialIssueRequest& request)
         {
             assert(request.pairingRequestId == PairingId);
             PublicDeviceCredentialIssueResult result;
@@ -334,6 +340,7 @@ int main()
                 result.status = PublicDeviceCredentialIssueStatus::consumed;
                 return result;
             }
+            consumed = true;
             result.status = PublicDeviceCredentialIssueStatus::issued;
             result.actorId = "actor-device";
             result.deviceId = "device-tv";
@@ -361,6 +368,14 @@ int main()
     assert(issuedCredential.body.find("\"credentialSecret\":\"opaque-device-secret\"") !=
         std::string::npos);
     assert(issuedCredential.body.find("pairing-token") == std::string::npos);
+
+    ApiResponse consumedPoll;
+    assert(runtime.tryHandleGet(PairingPath, "", "mu10c-consumed-poll",
+        "", consumedPoll, "", "", {}, PairingToken));
+    assert(consumedPoll.statusCode == 410);
+    assert(consumedPoll.body.find("pairing_consumed") != std::string::npos);
+    assert(consumedPoll.body.find("opaque-device-secret") ==
+        std::string::npos);
 
     ApiResponse repeatedIssue;
     assert(runtime.tryHandlePost(credentialPath, "mu10c-replay",
