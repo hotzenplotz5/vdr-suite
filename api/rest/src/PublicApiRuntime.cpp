@@ -2607,6 +2607,7 @@ ApiResponse platformCapabilities(
     const bool accountSessionRevokeAvailable,
     const bool devicePairingBootstrapAvailable,
     const bool devicePairingAdministrationAvailable,
+    const bool deviceCredentialIssueAvailable,
     const std::string& requestId,
     const std::string& correlationId)
 {
@@ -2651,6 +2652,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.device-pairing-administration\",\"version\":1,\"availability\":\"" +
         std::string(devicePairingAdministrationAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.device-credential-issuance\",\"version\":1,\"availability\":\"" +
+        std::string(deviceCredentialIssueAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.compatibility-policy\",\"version\":1,\"availability\":\"available\"},"
         "{\"id\":\"public-api.deprecation-metadata\",\"version\":1,\"availability\":\"available\"}"
@@ -4232,6 +4236,7 @@ bool PublicApiRuntime::tryHandleGet(
             devicePairingAdministrationCollectionLookupConfigured() &&
                 devicePairingAdministrationLookupConfigured() &&
                 devicePairingDecisionConfigured(),
+            deviceCredentialIssueConfigured(),
             requestId,
             correlationId);
         return true;
