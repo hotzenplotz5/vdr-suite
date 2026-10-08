@@ -509,6 +509,7 @@ enum class PublicDevicePairingLookupStatus
     notFound,
     unauthorized,
     expired,
+    consumed,
     unavailable,
 };
 
