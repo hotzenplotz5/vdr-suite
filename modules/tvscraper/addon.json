@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "tvscraper",
+  "version": "0.1.0",
+  "package": "vdr-suite-addon-tvscraper",
+  "state": "scaffold",
+  "displayName": "TVScraper",
+  "description": "Future optional external recording metadata provider; no runnable handlers yet",
+  "entrypoints": [],
+  "capabilities": [],
+  "permissions": [],
+  "dependencies": []
+}
