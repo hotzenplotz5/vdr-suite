@@ -198,6 +198,30 @@ bool publicDeviceLifecyclePath(
         credentialId.find('/') == std::string::npos;
 }
 
+bool publicDeviceCredentialRotationPath(
+    const std::string& path, std::string& deviceId,
+    std::string& credentialId)
+{
+    static const std::string prefix = "/api/v1/devices/";
+    static const std::string marker = "/credentials/";
+    static const std::string suffix = "/rotate";
+    deviceId.clear();
+    credentialId.clear();
+    if (path.compare(0U, prefix.size(), prefix) != 0 ||
+        path.size() <= prefix.size() + marker.size() + suffix.size() ||
+        path.compare(path.size() - suffix.size(), suffix.size(), suffix) != 0)
+        return false;
+    const std::string middle = path.substr(
+        prefix.size(), path.size() - prefix.size() - suffix.size());
+    const auto i = middle.find(marker);
+    if (i == std::string::npos) return false;
+    deviceId = middle.substr(0U, i);
+    credentialId = middle.substr(i + marker.size());
+    return !deviceId.empty() && !credentialId.empty() &&
+        deviceId.find('/') == std::string::npos &&
+        credentialId.find('/') == std::string::npos;
+}
+
 bool publicDeviceGrantPath(
     const std::string& path, std::string& deviceId)
 {
@@ -4118,6 +4142,25 @@ bool PublicApiRuntime::deviceLifecycleAdministrationConfigured() const
            static_cast<bool>(deviceLifecycleMutation_);
 }
 
+void PublicApiRuntime::registerDeviceCredentialRotation(
+    DeviceCredentialRotation rotate)
+{
+    std::lock_guard<std::mutex> lock(deviceCredentialRotationMutex_);
+    deviceCredentialRotation_ = std::move(rotate);
+}
+
+void PublicApiRuntime::resetDeviceCredentialRotation()
+{
+    std::lock_guard<std::mutex> lock(deviceCredentialRotationMutex_);
+    deviceCredentialRotation_ = {};
+}
+
+bool PublicApiRuntime::deviceCredentialRotationConfigured() const
+{
+    std::lock_guard<std::mutex> lock(deviceCredentialRotationMutex_);
+    return static_cast<bool>(deviceCredentialRotation_);
+}
+
 void PublicApiRuntime::registerDeviceGrantLookup(
     DeviceGrantLookup lookup)
 {
@@ -6985,6 +7028,119 @@ bool PublicApiRuntime::tryHandlePost(
         response = methodNotAllowedProblem(
             path, requestId, correlationId, "GET");
         return true;
+    }
+
+    std::string rotationDeviceId;
+    std::string rotationPreviousId;
+    if (publicDeviceCredentialRotationPath(
+            path, rotationDeviceId, rotationPreviousId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (requestTarget != path || !idempotencyKey.empty())
+        {
+            response = invalidRequestProblem(
+                path, "Rotation takes no query or Idempotency-Key.",
+                requestId, correlationId);
+            return true;
+        }
+        if (!applicationJsonContentType(contentType))
+        {
+            response = problemResponse(
+                415, "invalid_request", "Unsupported media type",
+                "Expected application/json.", path, requestId, correlationId);
+            return true;
+        }
+        if (body.size() > 4096U || !emptyJsonObject(body))
+        {
+            response = problemResponse(
+                422, "validation_error", "Validation failed",
+                "Rotation requires an empty JSON object.",
+                path, requestId, correlationId);
+            return true;
+        }
+        if (ifMatch.empty())
+        {
+            response = problemResponse(
+                428, "precondition_required", "Precondition required",
+                "Strong If-Match required.", path, requestId, correlationId);
+            return true;
+        }
+        std::string revision;
+        if (!vdrsuite::http::publicStrongEntityTagResourceRevision(
+                ifMatch, revision) ||
+            revision != "device-credential-lifecycle:" +
+                        rotationPreviousId + ":active")
+        {
+            response = invalidRequestProblem(
+                path, "If-Match must identify the active credential.",
+                requestId, correlationId);
+            return true;
+        }
+        DeviceCredentialRotation callback;
+        {
+            std::lock_guard<std::mutex> lock(deviceCredentialRotationMutex_);
+            callback = deviceCredentialRotation_;
+        }
+        if (!callback)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicDeviceCredentialRotationRequest input;
+        input.actorRef = actorRef;
+        input.deviceId = rotationDeviceId;
+        input.credentialId = rotationPreviousId;
+        input.expectedResourceRevision = revision;
+        input.requestId = requestId;
+        input.correlationId = correlationId;
+        auto result = callback(input);
+        switch (result.status)
+        {
+            case PublicDeviceCredentialRotationStatus::rotated:
+                if (result.deviceId != rotationDeviceId ||
+                    result.actorId.empty() || result.credentialId.empty() ||
+                    result.credentialSecret.empty() ||
+                    result.credentialId == rotationPreviousId)
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                // Secret appears only in this POST issuance response, never
+                // in ordinary lifecycle metadata, URLs, or audit records.
+                response = jsonResponse(
+                    "{\"deviceId\":\"" + jsonEscape(result.deviceId) +
+                    "\",\"actorId\":\"" + jsonEscape(result.actorId) +
+                    "\",\"credentialId\":\"" + jsonEscape(result.credentialId) +
+                    "\",\"credentialSecret\":\"" +
+                    jsonEscape(result.credentialSecret) + "\"}",
+                    requestId, correlationId);
+                response.headers["Cache-Control"] = "no-store";
+                response.headers["Pragma"] = "no-cache";
+                return true;
+            case PublicDeviceCredentialRotationStatus::invalid:
+                response = problemResponse(
+                    422, "validation_error", "Validation failed",
+                    "Invalid rotation request.", path, requestId, correlationId);
+                return true;
+            case PublicDeviceCredentialRotationStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicDeviceCredentialRotationStatus::stateConflict:
+            case PublicDeviceCredentialRotationStatus::revisionConflict:
+                response = problemResponse(
+                    412, "revision_conflict", "Resource revision conflict",
+                    "Previous credential is no longer active.",
+                    path, requestId, correlationId);
+                return true;
+            case PublicDeviceCredentialRotationStatus::unavailable:
+                response = serviceUnavailableProblem(path, requestId, correlationId);
+                return true;
+        }
     }
 
     std::string lifecycleDeviceId;
