@@ -13,6 +13,7 @@
 #include "CredentialVerifierRepository.h"
 #include "DevicePairingRequestRepository.h"
 #include "DeviceCredentialVerifierRepository.h"
+#include "DeviceCredentialAuthenticator.h"
 #include "DevicePairingRequestService.h"
 #include "FirstAdminBootstrapRepository.h"
 #include "FirstAdminClaimHttpService.h"
@@ -87,6 +88,8 @@ private:
         devicePairingRequestRepository_;
     std::unique_ptr<DeviceCredentialVerifierRepository>
         deviceCredentialVerifierRepository_;
+    std::unique_ptr<DeviceCredentialAuthenticator>
+        deviceCredentialAuthenticator_;
     std::unique_ptr<DevicePairingRequestService>
         devicePairingRequestService_;
     std::unique_ptr<HumanAccountRepository>
