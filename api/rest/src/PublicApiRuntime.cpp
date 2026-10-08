@@ -6803,6 +6803,127 @@ bool PublicApiRuntime::tryHandlePost(
         return true;
     }
 
+    std::string deviceGrantDeviceId;
+    if (publicDeviceGrantPath(path, deviceGrantDeviceId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (requestTarget != path || !idempotencyKey.empty())
+        {
+            response = invalidRequestProblem(
+                path, "Device Grant mutation takes no query or Idempotency-Key.",
+                requestId, correlationId);
+            return true;
+        }
+        if (!applicationJsonContentType(contentType))
+        {
+            response = problemResponse(415, "invalid_request",
+                "Unsupported media type", "Expected application/json.",
+                path, requestId, correlationId);
+            return true;
+        }
+        if (body.size() > 4096U)
+        {
+            response = invalidRequestProblem(
+                path, "Device Grant mutation body too large.",
+                requestId, correlationId);
+            return true;
+        }
+        JsonSyntaxValidator validator(body);
+        if (!validator.valid())
+        {
+            response = invalidRequestProblem(
+                path, "Invalid Device Grant JSON.",
+                requestId, correlationId);
+            return true;
+        }
+        std::string permission;
+        std::string backendId;
+        bool active = false;
+        if (!parsePublicAccountGrantMutationBody(
+                body, permission, backendId, active))
+        {
+            response = problemResponse(422, "validation_error",
+                "Validation failed",
+                "Expected exactly permission, backendId and active.",
+                path, requestId, correlationId);
+            return true;
+        }
+        if (ifMatch.empty())
+        {
+            response = problemResponse(428, "precondition_required",
+                "Precondition required", "Strong If-Match required.",
+                path, requestId, correlationId);
+            return true;
+        }
+        std::string revision;
+        if (!vdrsuite::http::publicStrongEntityTagResourceRevision(
+                ifMatch, revision) || !publicGrantSetRevision(revision))
+        {
+            response = invalidRequestProblem(
+                path, "Invalid Device Grant-set If-Match.",
+                requestId, correlationId);
+            return true;
+        }
+        DeviceGrantMutation mutation;
+        {
+            std::lock_guard<std::mutex> lock(deviceGrantMutationMutex_);
+            mutation = deviceGrantMutation_;
+        }
+        if (!mutation)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicDeviceGrantMutationRequest mutationRequest;
+        mutationRequest.actorRef = actorRef;
+        mutationRequest.deviceId = deviceGrantDeviceId;
+        mutationRequest.expectedResourceRevision = revision;
+        mutationRequest.permission = permission;
+        mutationRequest.backendId = backendId;
+        mutationRequest.active = active;
+        mutationRequest.requestId = requestId;
+        mutationRequest.correlationId = correlationId;
+        const PublicDeviceGrantMutationResult result = mutation(mutationRequest);
+        switch (result.status)
+        {
+            case PublicDeviceGrantStatus::ok:
+                if (result.grantSet.deviceId != deviceGrantDeviceId ||
+                    result.grantSet.actorId.empty() ||
+                    !publicGrantSetRevision(result.grantSet.resourceRevision))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                response = publicDeviceGrantSetResponse(
+                    result.grantSet, path, requestId, correlationId, "");
+                return true;
+            case PublicDeviceGrantStatus::invalid:
+                response = problemResponse(422, "validation_error",
+                    "Validation failed",
+                    "Unsupported Device Grant tuple or invalid request.",
+                    path, requestId, correlationId);
+                return true;
+            case PublicDeviceGrantStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicDeviceGrantStatus::revisionConflict:
+                response = problemResponse(412, "revision_conflict",
+                    "Resource revision conflict",
+                    "Device Grant set changed since read.",
+                    path, requestId, correlationId);
+                return true;
+            case PublicDeviceGrantStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
     if (publicAccountGrantPath(path, accountId))
     {
         if (actorRef.empty())
