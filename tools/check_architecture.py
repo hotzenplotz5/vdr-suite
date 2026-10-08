@@ -64,6 +64,7 @@ SQLITE_ALLOWED_CONTRACT_TESTS = {
     "core/agent/tests/test_backend_agent_lifecycle.cpp",
     "core/agent/tests/test_backend_agent_native_probe_delivery.cpp",
     "core/daemon/tests/test_daemon_sqlite_shutdown_cancellation.cpp",
+    "core/security/tests/test_device_pairing_request_service.cpp",
     "core/daemon/tests/test_series_artwork_backend_settings_service.cpp",
     "core/metadata/tests/test_genre_epg_refresh_fast_path.cpp",
     "core/metadata/tests/test_genre_index_repository.cpp",
