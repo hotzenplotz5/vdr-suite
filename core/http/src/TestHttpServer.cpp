@@ -1605,7 +1605,10 @@ HttpServerResponse TestHttpServer::handleRequest(
                 requestHeaderValue(
                     request,
                     "Content-Type"),
-                gate.authorizationDecision.backendId);
+                gate.authorizationDecision.backendId,
+                requestHeaderValue(
+                    request,
+                    "X-VDR-Suite-Pairing-Token"));
     }
     else
     {
