@@ -130,7 +130,7 @@ def main():
     require("slice", "MU.10 remains the planned Device/app pairing successor")
     require("slice", "Phase 70 remains not started")
 
-    require("current", "MU.10B Administrator Pairing Approval [ACCEPTED - PR #437 / REAL YAVDR PASS / HOSTED CI #9801 GREEN]")
+    require("current", "MU.10C durable Device identity/credential issuance [NEXT — MU.10B MERGED PR #437 / REAL YAVDR PASS / HOSTED CI #9806 GREEN]")
     require("current", "MU.10A Device Pairing Bootstrap passed real yaVDR runtime and real VIDAA first-consumer acceptance")
     require("current", "PR #436")
     require("current", "post-merge main CI #9779")
