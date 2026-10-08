@@ -158,6 +158,25 @@ int main() {
         assert(fs::exists(f.source) && runner.probes == 0);
         ++checks;
     }
+
+    {
+        Fixture f;
+        FakeProcess runner;
+        runner.failRemux = true;
+        const auto plan = inspectImport(f.request());
+        mustFail([&] { executeRemuxImport(plan, runner, [](const ImportPlan&) {}); });
+        assert(fs::exists(f.source) && !fs::exists(f.video / "Sample"));
+        ++checks;
+    }
+    {
+        Fixture f;
+        FakeProcess runner;
+        auto plan = inspectImport(f.request());
+        std::ofstream(f.source, std::ios::app) << "source changed";
+        mustFail([&] { executeRemuxImport(plan, runner, [](const ImportPlan&) {}); });
+        assert(fs::exists(f.source) && runner.probes == 0);
+        ++checks;
+    }
     std::cout << "MEDIA_IMPORT_CPP_TEST=PASS checks=" << checks << "\n";
     return 0;
 }

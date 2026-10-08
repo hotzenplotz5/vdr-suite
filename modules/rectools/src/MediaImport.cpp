@@ -1,6 +1,8 @@
 #include "MediaImport.h"
 
 #include <algorithm>
+#include <cctype>
+#include <cstdlib>
 #include <array>
 #include <cerrno>
 #include <chrono>
