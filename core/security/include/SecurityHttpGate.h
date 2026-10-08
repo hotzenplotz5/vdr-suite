@@ -3,6 +3,7 @@
 #include "AccountabilityEventRepository.h"
 #include "AuthorizationService.h"
 #include "BrowserSessionAuthenticator.h"
+#include "DeviceCredentialAuthenticator.h"
 #include "HttpServerRequest.h"
 #include "HttpServerResponse.h"
 #include "ManagedBasicAuthenticator.h"
@@ -27,6 +28,7 @@ struct SecurityGateDecision
     bool protectedMutation = false;
     bool browserSessionPresented = false;
     bool browserAuthenticated = false;
+    bool deviceAuthenticated = false;
     bool publicApiV1 = false;
     AuthorizationDecision authorizationDecision;
     std::vector<std::string> authorizedBackendIds;
@@ -43,6 +45,7 @@ private:
         RequestSecurityContext context;
         bool browserSessionPresented = false;
         bool browserAuthenticated = false;
+        bool deviceAuthenticated = false;
     };
 
 public:
@@ -51,11 +54,13 @@ public:
         AccountabilityEventRepository& accountabilityRepository,
         const PersistentIdentityResolver* persistentIdentityResolver = nullptr,
         const ManagedBasicAuthenticator* managedBasicAuthenticator = nullptr,
-        const BrowserSessionAuthenticator* browserSessionAuthenticator = nullptr)
+        const BrowserSessionAuthenticator* browserSessionAuthenticator = nullptr,
+        const DeviceCredentialAuthenticator* deviceCredentialAuthenticator = nullptr)
         : accountabilityRepository_(accountabilityRepository),
           persistentIdentityResolver_(persistentIdentityResolver),
           managedBasicAuthenticator_(managedBasicAuthenticator),
-          browserSessionAuthenticator_(browserSessionAuthenticator)
+          browserSessionAuthenticator_(browserSessionAuthenticator),
+          deviceCredentialAuthenticator_(deviceCredentialAuthenticator)
     {
         (void)configuration;
     }
@@ -70,6 +75,7 @@ public:
         AuthenticationResult authentication = authenticate(request);
         gate.browserSessionPresented = authentication.browserSessionPresented;
         gate.browserAuthenticated = authentication.browserAuthenticated;
+        gate.deviceAuthenticated = authentication.deviceAuthenticated;
         gate.context = std::move(authentication.context);
 
         if (gate.context.authenticationState !=
@@ -79,7 +85,7 @@ public:
             return rejectAuthentication(gate);
         }
 
-        if (gate.browserAuthenticated &&
+        if ((gate.browserAuthenticated || gate.deviceAuthenticated) &&
             gate.context.permissionGrantResolution ==
                 PermissionGrantResolutionState::Unavailable)
         {
@@ -2251,6 +2257,26 @@ private:
         std::string correlationId = headerValue(request, "X-Correlation-ID");
         if (!correlationId.empty() && !safeContextToken(correlationId)) correlationId.clear();
 
+        if (deviceCredentialAuthenticator_ != nullptr &&
+            DeviceCredentialAuthenticator::hasDeviceAuthorization(request.headers))
+        {
+            result.context = deviceCredentialAuthenticator_->authenticate(
+                request.headers, requestId, correlationId);
+            // No Browser Session may override a presented device credential.
+            if (browserSessionAuthenticator_ != nullptr &&
+                browserSessionAuthenticator_->hasSessionCookie(request.headers))
+            {
+                result.context.authenticationState = AuthenticationState::Invalid;
+                return result;
+            }
+            if (result.context.authenticated())
+            {
+                result.context = resolvePersistentIdentity(std::move(result.context));
+                result.deviceAuthenticated = result.context.authenticated();
+            }
+            return result;
+        }
+
         if (browserSessionAuthenticator_ != nullptr &&
             browserSessionAuthenticator_->hasSessionCookie(request.headers))
         {
@@ -2437,5 +2463,6 @@ private:
     const PersistentIdentityResolver* persistentIdentityResolver_;
     const ManagedBasicAuthenticator* managedBasicAuthenticator_;
     const BrowserSessionAuthenticator* browserSessionAuthenticator_;
+    const DeviceCredentialAuthenticator* deviceCredentialAuthenticator_;
     mutable std::atomic<unsigned long long> idCounter_{0};
 };
