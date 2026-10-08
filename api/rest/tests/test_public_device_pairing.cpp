@@ -40,6 +40,7 @@ PublicDevicePairingAdministrativeResource adminResource(
 int main()
 {
     PublicApiRuntime& runtime = PublicApiRuntime::instance();
+    runtime.resetDeviceCredentialIssue();
     runtime.resetDevicePairingDecision();
     runtime.resetDevicePairingAdministrationLookup();
     runtime.resetDevicePairingAdministrationCollectionLookup();
@@ -315,6 +316,59 @@ int main()
     assert(deleteItem.statusCode == 405);
     assert(deleteItem.headers.at("Allow") ==
         "GET, POST");
+
+    // MU.10C token-scoped issuance never requires an administrator cookie.
+    int issuedCount = 0;
+    runtime.registerDeviceCredentialIssue(
+        [&issuedCount](const PublicDeviceCredentialIssueRequest& request)
+        {
+            assert(request.pairingRequestId == PairingId);
+            PublicDeviceCredentialIssueResult result;
+            if (request.pairingToken != PairingToken)
+            {
+                result.status = PublicDeviceCredentialIssueStatus::unauthorized;
+                return result;
+            }
+            if (issuedCount++ > 0)
+            {
+                result.status = PublicDeviceCredentialIssueStatus::consumed;
+                return result;
+            }
+            result.status = PublicDeviceCredentialIssueStatus::issued;
+            result.actorId = "actor-device";
+            result.deviceId = "device-tv";
+            result.credentialId = "credential-tv";
+            result.credentialSecret = "opaque-device-secret";
+            return result;
+        });
+
+    const std::string credentialPath = PairingPath + "/credential";
+    ApiResponse noToken;
+    assert(runtime.tryHandlePost(credentialPath, "mu10c-no-token",
+        "", noToken, "", "", "", "", "", ""));
+    assert(noToken.statusCode == 401);
+
+    ApiResponse invalidToken;
+    assert(runtime.tryHandlePost(credentialPath, "mu10c-invalid-token",
+        "", invalidToken, "", "", "", "", "", "", PairingToken + "-wrong"));
+    assert(invalidToken.statusCode == 401);
+
+    ApiResponse issuedCredential;
+    assert(runtime.tryHandlePost(credentialPath, "mu10c-issued",
+        "", issuedCredential, "", "", "", "", "", "", PairingToken));
+    assert(issuedCredential.statusCode == 201);
+    assert(issuedCredential.headers.at("Cache-Control") == "no-store");
+    assert(issuedCredential.body.find("\"credentialSecret\":\"opaque-device-secret\"") !=
+        std::string::npos);
+    assert(issuedCredential.body.find("pairing-token") == std::string::npos);
+
+    ApiResponse repeatedIssue;
+    assert(runtime.tryHandlePost(credentialPath, "mu10c-replay",
+        "", repeatedIssue, "", "", "", "", "", "", PairingToken));
+    assert(repeatedIssue.statusCode == 409);
+    assert(repeatedIssue.body.find("opaque-device-secret") ==
+        std::string::npos);
+    runtime.resetDeviceCredentialIssue();
 
     ApiResponse capabilities;
     assert(runtime.tryHandleGet(
