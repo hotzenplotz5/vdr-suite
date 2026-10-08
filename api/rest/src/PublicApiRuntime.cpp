@@ -7917,6 +7917,14 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
         return true;
     }
 
+    std::string deviceGrantDeviceId;
+    if (publicDeviceGrantPath(path, deviceGrantDeviceId))
+    {
+        response = methodNotAllowedProblem(
+            path, requestId, correlationId, "GET, POST");
+        return true;
+    }
+
     if (publicAccountGrantPath(path, accountId))
     {
         response = methodNotAllowedProblem(
