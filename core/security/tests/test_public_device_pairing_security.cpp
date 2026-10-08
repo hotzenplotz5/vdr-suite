@@ -65,9 +65,12 @@ int main()
         const SecurityGateDecision decision =
             fixture.gate.evaluate(activation);
         assert(!decision.allowed);
-        // Anonymous POST without the pairing token is denied by the
-        // existing protected-mutation gate (403), not the issuer (401).
-        assert(decision.rejection.statusCode == 403);
+        // The exact issuance route requires a pairing token at the
+        // security gate; no token is an explicit 401, never an
+        // unmigrated-mutation 503.
+        assert(decision.rejection.statusCode == 401);
+        assert(decision.rejection.body.find("unauthorized") !=
+               std::string::npos);
     }
 
     {
