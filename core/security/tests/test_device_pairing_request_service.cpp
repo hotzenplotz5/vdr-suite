@@ -15,6 +15,7 @@
 #include <vector>
 #include <sqlite3.h>
 #include <crypt.h>
+#include <future>
 
 namespace
 {
@@ -336,6 +337,68 @@ int main()
         failingIssue, provisioning, deviceVerifiers).status ==
         DevicePairingCredentialIssueStatus::issued);
     assert(repository.findById(failingId).request.state == "consumed");
+
+
+    // Two independent issuer instances race for the same approved request.
+    // The SQLite consumption fence must allow exactly one materialization.
+    DevicePairingIssueResult parallelCreate =
+        service.issue(issueRequest("Concurrent TV", "mu10c-parallel-create"));
+    assert(parallelCreate.status == DevicePairingIssueStatus::issued);
+    assert(parallelCreate.pairing.has_value());
+    const std::string parallelId =
+        parallelCreate.pairing->resource.pairingRequestId;
+    DevicePairingDecisionRequest parallelApprove = approve;
+    parallelApprove.pairingRequestId = parallelId;
+    parallelApprove.expectedResourceRevision =
+        "device-pairing:" + parallelId + ":1";
+    parallelApprove.context.requestId = "mu10c-parallel-approve";
+    assert(service.decide(parallelApprove).status ==
+        DevicePairingAdministrationStatus::ok);
+    DevicePairingCredentialIssueRequest parallelIssue;
+    parallelIssue.pairingRequestId = parallelId;
+    parallelIssue.pairingToken =
+        parallelCreate.pairing->pairingToken;
+    parallelIssue.requestId = "mu10c-parallel-issue";
+    const int parallelCredentialsBefore = countRows(database,
+        "SELECT COUNT(*) FROM security_credentials;");
+    auto entropyFor = [](unsigned char first)
+    {
+        return [next = first](unsigned char* output,
+                              std::size_t size) mutable
+        {
+            if (output == nullptr || size == 0U)
+                return false;
+            for (std::size_t index = 0U; index < size; ++index)
+                output[index] = next++;
+            return true;
+        };
+    };
+    DevicePairingRequestService firstIssuer(
+        database, repository, accountability,
+        entropyFor(static_cast<unsigned char>(0x31)));
+    DevicePairingRequestService secondIssuer(
+        database, repository, accountability,
+        entropyFor(static_cast<unsigned char>(0x91)));
+    auto firstResult = std::async(std::launch::async, [&]()
+    {
+        return firstIssuer.issueDeviceCredential(
+            parallelIssue, provisioning, deviceVerifiers);
+    });
+    auto secondResult = std::async(std::launch::async, [&]()
+    {
+        return secondIssuer.issueDeviceCredential(
+            parallelIssue, provisioning, deviceVerifiers);
+    });
+    const auto one = firstResult.get().status;
+    const auto two = secondResult.get().status;
+    assert((one == DevicePairingCredentialIssueStatus::issued &&
+            two == DevicePairingCredentialIssueStatus::consumed) ||
+           (two == DevicePairingCredentialIssueStatus::issued &&
+            one == DevicePairingCredentialIssueStatus::consumed));
+    assert(countRows(database,
+        "SELECT COUNT(*) FROM security_credentials;") ==
+        parallelCredentialsBefore + 1);
+    assert(repository.findById(parallelId).request.state == "consumed");
 
     DevicePairingIssueResult rejectedCreate =
         service.issue(issueRequest(
