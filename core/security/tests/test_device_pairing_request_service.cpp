@@ -216,6 +216,11 @@ int main()
     assert(rejected.status ==
         DevicePairingAdministrationStatus::ok);
     assert(rejected.request.resource.state == "rejected");
+    assert(database.execute("BEGIN IMMEDIATE;"));
+    assert(repository.consumeApprovedInActiveTransaction(
+        rejectedCreate.pairing->resource.pairingRequestId, 2U) ==
+        DevicePairingRequestRepositoryStatus::stateConflict);
+    assert(database.execute("ROLLBACK;"));
 
     DevicePairingPollRequest rejectedPoll;
     rejectedPoll.pairingRequestId =
@@ -251,6 +256,10 @@ int main()
         "device-pairing:" + expiredId + ":1";
     assert(service.decide(expired).status ==
         DevicePairingAdministrationStatus::expired);
+    assert(database.execute("BEGIN IMMEDIATE;"));
+    assert(repository.consumeApprovedInActiveTransaction(expiredId, 1U) ==
+        DevicePairingRequestRepositoryStatus::expired);
+    assert(database.execute("ROLLBACK;"));
 
     DevicePairingIssueRequest invalid =
         issueRequest("Invalid TV", "mu10b-invalid");
