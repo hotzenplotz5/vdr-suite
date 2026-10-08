@@ -308,6 +308,14 @@
   }
 
 
+  function deviceGrantPath(options) {
+    if (!options || typeof options.deviceId !== 'string'
+        || !/^[A-Za-z0-9_-]{1,128}$/.test(options.deviceId)) {
+      throw new Error('deviceId must be a bounded canonical identifier');
+    }
+    return '/api/v1/devices/' + options.deviceId + '/grants';
+  }
+
   function accountGrantPath(options) {
     return accountItemPath(options) + '/grants';
   }
@@ -777,6 +785,26 @@
           },
           normalizedOptions
         );
+      },
+      getDeviceGrants(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return requestRevisioned(deviceGrantPath(normalizedOptions), normalizedOptions);
+      },
+      setDeviceGrant(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        if (typeof normalizedOptions.permission !== 'string' ||
+            normalizedOptions.permission === '' ||
+            typeof normalizedOptions.backendId !== 'string' ||
+            normalizedOptions.backendId === '' ||
+            typeof normalizedOptions.active !== 'boolean') {
+          throw new Error('Device Grant permission, backendId and active are required');
+        }
+        return requestAccountMutation(
+          deviceGrantPath(normalizedOptions),
+          {permission: normalizedOptions.permission,
+           backendId: normalizedOptions.backendId,
+           active: normalizedOptions.active},
+          normalizedOptions);
       },
       getAccountGrants(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
