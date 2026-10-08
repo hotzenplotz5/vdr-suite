@@ -246,6 +246,33 @@ A failed check that is required for the current changed surface or current gate
 must be diagnosed and fixed before crossing that gate. Do not hide failures by
 adding unrelated commits or by bypassing genuinely relevant checks.
 
+## Product-code-first CI and post-merge stabilization
+
+**Do not waste time waiting on documentation-only intermediate CI while
+authorized productive implementation remains.** Documentation changes may be
+committed promptly, but they must not create a CI-watching loop or block
+unrelated product-code development. Continue the approved implementation
+immediately. Never treat a documentation-only milestone as the end of an
+authorized product workstream.
+
+**Finish the bounded productive code and focused tests before spending time on
+full CI stabilization.** Batch coherent implementation commits and validate the
+relevant final candidate. Respect required pre-merge security, architecture,
+test, runtime and branch-protection gates; this rule does not authorize merging
+red or unverified code or skipping required checks.
+
+**After an authorized merge, verify the exact merged `main` head and its hosted
+CI run.** If that run reveals a defect, repair it promptly against the current
+`main` through the repository's permitted branch/PR workflow, then verify the
+resulting merged `main` again. Do not silently rewrite `main`, bypass PR
+restrictions or overlap other developers' work. Avoid endless repetitive CI
+polling: use checks only when they can change the next action; keep advancing
+independent approved product tasks while the run progresses.
+
+**Priority:** shipping safe, tested product functionality over polishing
+intermediate documentation status. Status docs and guards should be updated at
+a meaningful product closeout, not as repeated standalone blockers.
+
 ## Minimal necessary validation
 
 Choose the shortest safe path and treat the user's time as a project resource.
