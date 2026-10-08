@@ -5071,6 +5071,61 @@ bool PublicApiRuntime::tryHandleGet(
         }
     }
 
+    std::string deviceGrantDeviceId;
+    if (publicDeviceGrantPath(path, deviceGrantDeviceId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (requestTarget != path)
+        {
+            response = invalidRequestProblem(
+                path, "Device Grant read takes no query parameters.",
+                requestId, correlationId);
+            return true;
+        }
+
+        DeviceGrantLookup lookup;
+        {
+            std::lock_guard<std::mutex> lock(deviceGrantLookupMutex_);
+            lookup = deviceGrantLookup_;
+        }
+        if (!lookup)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        const PublicDeviceGrantLookupResult found = lookup(deviceGrantDeviceId);
+        switch (found.status)
+        {
+            case PublicDeviceGrantStatus::ok:
+                if (found.grantSet.deviceId != deviceGrantDeviceId ||
+                    found.grantSet.actorId.empty() ||
+                    !publicGrantSetRevision(found.grantSet.resourceRevision))
+                {
+                    response = serviceUnavailableProblem(path, requestId, correlationId);
+                    return true;
+                }
+                response = publicDeviceGrantSetResponse(
+                    found.grantSet, path, requestId, correlationId, ifNoneMatch);
+                return true;
+            case PublicDeviceGrantStatus::invalid:
+                response = invalidRequestProblem(
+                    path, "Invalid Device Grant request.",
+                    requestId, correlationId);
+                return true;
+            case PublicDeviceGrantStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicDeviceGrantStatus::revisionConflict:
+            case PublicDeviceGrantStatus::unavailable:
+                response = serviceUnavailableProblem(path, requestId, correlationId);
+                return true;
+        }
+    }
+
     if (publicAccountGrantPath(path, accountId))
     {
         if (actorRef.empty())
