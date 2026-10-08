@@ -520,7 +520,7 @@ public:
                 request,
                 "X-VDR-Suite-Pairing-Token").empty();
         const std::string publicDeviceCredentialSuffix = "/credential";
-        const bool isPublicDeviceCredentialIssue =
+        const bool isPublicDeviceCredentialIssueResource =
             isPost &&
             path.compare(0U, publicDevicePairingPrefix.size(),
                          publicDevicePairingPrefix) == 0 &&
@@ -530,7 +530,9 @@ public:
                          publicDeviceCredentialSuffix.size(),
                          publicDeviceCredentialSuffix) == 0 &&
             path.find('/', publicDevicePairingPrefix.size()) ==
-                path.size() - publicDeviceCredentialSuffix.size() &&
+                path.size() - publicDeviceCredentialSuffix.size();
+        const bool isPublicDeviceCredentialIssue =
+            isPublicDeviceCredentialIssueResource &&
             hasPublicDevicePairingToken;
         const bool isPublicDevicePairingBootstrapCreate =
             isPost &&
@@ -547,6 +549,19 @@ public:
         const bool isPublicDevicePairingDecision =
             isPost &&
             isPublicDevicePairingItem;
+
+        if (isPublicDeviceCredentialIssueResource &&
+            !hasPublicDevicePairingToken)
+        {
+            AuthorizationDecision decision;
+            decision.reasonCode = "pairing_token_required";
+            decision.permission = "device.pairing.issue";
+            decision.backendId = "*";
+            decision.action = "device_pairing.issue";
+            return rejectWithAudit(
+                gate, decision, 401,
+                "A pairing token is required", "");
+        }
 
         if (isPublicDevicePairingBootstrapCreate ||
             isPublicDevicePairingBootstrapPoll ||
