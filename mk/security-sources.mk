@@ -47,7 +47,7 @@ BROWSER_SESSION_HTTP_SRC := \
 FIRST_ADMIN_HTTP_SRC := \
 	core/http/src/FirstAdminClaimHttpService.cpp
 
-.PHONY: first-admin-bootstrap-issuer human-account-recovery test-security-device-pairing-request test-security test-security-architecture test-security-human-account-credential-session-read test-security-human-account-credential-administration test-security-human-account-session-administration test-security-public-account-security-metadata test-security-public-account-session-revoke test-security-public-account-credential-revoke test-security-legacy-basic-retirement-acceptance test-security-authorization test-security-configuration test-security-accountability-event-repository test-security-identity-repository test-security-permission-grant-repository test-security-first-admin-bootstrap-repository test-security-first-admin-bootstrap-issuance-service test-security-first-admin-claim-service test-security-first-admin-claim-http-service test-security-human-account-read-foundation test-security-human-account-administration test-security-human-account-creation test-security-human-account-grant-administration test-security-public-account-collection test-security-public-account-grants test-security-managed-basic-authenticator test-security-human-password-browser-session test-security-human-account-recovery test-security-browser-session-authenticator test-security-browser-session-issuer-binding test-security-browser-session-issuance-service test-security-browser-session-concurrency-limit test-security-browser-session-idle-expiry test-security-browser-session-retention-cleanup test-security-browser-session-http-service test-security-browser-session-csrf-recovery test-security-browser-session-http-gate test-security-http-gate test-security-recording-marks test-security-series-artwork-route-scope test-security-teletext-read test-security-hbbtv-read test-security-hbbtv-session test-security-osd-session test-security-searchtimer-maintenance test-security-searchtimer-execution test-security-native-fuzzy-refresh test-security-safe-post test-security-manual-recording-metadata
+.PHONY: first-admin-bootstrap-issuer human-account-recovery test-security-device-authentication test-security-device-pairing-request test-security test-security-architecture test-security-human-account-credential-session-read test-security-human-account-credential-administration test-security-human-account-session-administration test-security-public-account-security-metadata test-security-public-account-session-revoke test-security-public-account-credential-revoke test-security-legacy-basic-retirement-acceptance test-security-authorization test-security-configuration test-security-accountability-event-repository test-security-identity-repository test-security-permission-grant-repository test-security-first-admin-bootstrap-repository test-security-first-admin-bootstrap-issuance-service test-security-first-admin-claim-service test-security-first-admin-claim-http-service test-security-human-account-read-foundation test-security-human-account-administration test-security-human-account-creation test-security-human-account-grant-administration test-security-public-account-collection test-security-public-account-grants test-security-managed-basic-authenticator test-security-human-password-browser-session test-security-human-account-recovery test-security-browser-session-authenticator test-security-browser-session-issuer-binding test-security-browser-session-issuance-service test-security-browser-session-concurrency-limit test-security-browser-session-idle-expiry test-security-browser-session-retention-cleanup test-security-browser-session-http-service test-security-browser-session-csrf-recovery test-security-browser-session-http-gate test-security-http-gate test-security-recording-marks test-security-series-artwork-route-scope test-security-teletext-read test-security-hbbtv-read test-security-hbbtv-session test-security-osd-session test-security-searchtimer-maintenance test-security-searchtimer-execution test-security-native-fuzzy-refresh test-security-safe-post test-security-manual-recording-metadata
 
 test-security-architecture:
 	python3 tools/check_security_identity_architecture.py
@@ -115,6 +115,17 @@ test-security-device-pairing-request:
 	node clients/reference-js/tests/test_public_v1_device_pairing_client.js
 	python3 tools/check_mu10a_device_pairing_bootstrap.py
 	python3 tools/check_mu10b_admin_pairing_approval.py
+
+
+
+test-security-device-authentication:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_device_credential_authentication.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_device_credential_authentication
+	$(BUILD_DIR)/test_device_credential_authentication
 
 
 test-security-authorization:
@@ -685,6 +696,7 @@ test-security-manual-recording-metadata:
 test-security: \
 	test-security-architecture \
 	test-security-device-pairing-request \
+	test-security-device-authentication \
 	test-security-authorization \
 	test-security-configuration \
 	test-security-accountability-event-repository \

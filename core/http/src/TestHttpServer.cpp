@@ -1506,13 +1506,20 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             humanPasswordBrowserAuthenticator_.get(),
             humanAccountRepository_.get());
 
+    deviceCredentialAuthenticator_ =
+        std::make_unique<DeviceCredentialAuthenticator>(
+            *deviceCredentialVerifierRepository_,
+            *securityIdentityRepository_,
+            *securityPermissionGrantRepository_);
+
     securityHttpGate_ =
         std::make_unique<SecurityHttpGate>(
             configuration,
             *accountabilityEventRepository_,
             persistentIdentityResolver_.get(),
             managedBasicAuthenticator_.get(),
-            browserSessionAuthenticator_.get());
+            browserSessionAuthenticator_.get(),
+            deviceCredentialAuthenticator_.get());
     securityReady_ = true;
 }
 
