@@ -2260,6 +2260,17 @@ private:
         if (deviceCredentialAuthenticator_ != nullptr &&
             DeviceCredentialAuthenticator::hasDeviceAuthorization(request.headers))
         {
+            // Device credentials are a Public-v1 identity proof only. Never
+            // silently grant access to legacy unversioned HTTP surfaces.
+            const std::string path = requestPath(request.path);
+            if (path != "/api/v1" && path.rfind("/api/v1/", 0U) != 0U)
+            {
+                result.context.requestId = requestId;
+                result.context.correlationId = correlationId;
+                result.context.authenticationState =
+                    AuthenticationState::Invalid;
+                return result;
+            }
             result.context = deviceCredentialAuthenticator_->authenticate(
                 request.headers, requestId, correlationId);
             // No Browser Session may override a presented device credential.
