@@ -175,11 +175,17 @@ DeviceLifecycleResult DeviceLifecycleAdministrationService::revoke(
     const std::string& expectedRevision)
 {
     DeviceLifecycleResult result;
+    const std::string revisionPrefix =
+        target == DeviceLifecycleTarget::Device
+            ? "device-lifecycle:" + deviceId + ":"
+            : "device-credential-lifecycle:" + credentialId + ":";
     if (!safeContext(context.administratorActorId) ||
         !safeContext(context.requestId) ||
-        !safeId(deviceId) || expectedRevision.empty() ||
+        !safeId(deviceId) ||
         (target == DeviceLifecycleTarget::Device
-            ? !credentialId.empty() : !safeId(credentialId)))
+            ? !credentialId.empty() : !safeId(credentialId)) ||
+        (expectedRevision != revisionPrefix + "active" &&
+         expectedRevision != revisionPrefix + "revoked"))
     {
         result.status = DeviceLifecycleStatus::invalid;
         return result;
