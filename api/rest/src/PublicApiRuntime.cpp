@@ -2618,6 +2618,7 @@ ApiResponse platformCapabilities(
     const bool accountMutationAvailable,
     const bool accountCreateAvailable,
     const bool accountGrantAdministrationAvailable,
+    const bool deviceGrantAdministrationAvailable,
     const bool accountSecurityMetadataAvailable,
     const bool accountCredentialRevokeAvailable,
     const bool accountSessionRevokeAvailable,
@@ -2653,6 +2654,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.accounts-grants-administration\",\"version\":1,\"availability\":\"" +
         std::string(accountGrantAdministrationAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.devices-grants-administration\",\"version\":1,\"availability\":\"" +
+        std::string(deviceGrantAdministrationAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.accounts-credential-session-metadata\",\"version\":1,\"availability\":\"" +
         std::string(accountSecurityMetadataAvailable ? "available" : "unavailable") +
@@ -4030,6 +4034,14 @@ void PublicApiRuntime::resetDeviceGrantMutation()
     deviceGrantMutation_ = {};
 }
 
+bool PublicApiRuntime::deviceGrantAdministrationConfigured() const
+{
+    std::lock_guard<std::mutex> lookupLock(deviceGrantLookupMutex_);
+    std::lock_guard<std::mutex> mutationLock(deviceGrantMutationMutex_);
+    return static_cast<bool>(deviceGrantLookup_) &&
+           static_cast<bool>(deviceGrantMutation_);
+}
+
 void PublicApiRuntime::registerAccountGrantLookup(
     AccountGrantLookup lookup)
 {
@@ -4317,6 +4329,7 @@ bool PublicApiRuntime::tryHandleGet(
             accountCreateConfigured(),
             accountGrantLookupConfigured() &&
                 accountGrantMutationConfigured(),
+            deviceGrantAdministrationConfigured(),
             accountCredentialLookupConfigured() &&
                 accountSessionLookupConfigured(),
             accountCredentialItemLookupConfigured() &&
