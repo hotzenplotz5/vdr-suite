@@ -354,6 +354,15 @@ int main()
     assert(rejected.status ==
         DevicePairingAdministrationStatus::ok);
     assert(rejected.request.resource.state == "rejected");
+    DevicePairingCredentialIssueRequest deniedIssue;
+    deniedIssue.pairingRequestId =
+        rejectedCreate.pairing->resource.pairingRequestId;
+    deniedIssue.pairingToken =
+        rejectedCreate.pairing->pairingToken;
+    deniedIssue.requestId = "mu10c-rejected-issue";
+    assert(service.issueDeviceCredential(
+        deniedIssue, provisioning, deviceVerifiers).status ==
+        DevicePairingCredentialIssueStatus::notApproved);
     assert(database.execute("BEGIN IMMEDIATE;"));
     assert(repository.consumeApprovedInActiveTransaction(
         rejectedCreate.pairing->resource.pairingRequestId, 2U) ==
@@ -394,6 +403,14 @@ int main()
         "device-pairing:" + expiredId + ":1";
     assert(service.decide(expired).status ==
         DevicePairingAdministrationStatus::expired);
+    DevicePairingCredentialIssueRequest expiredIssue;
+    expiredIssue.pairingRequestId = expiredId;
+    expiredIssue.pairingToken =
+        expiringCreate.pairing->pairingToken;
+    expiredIssue.requestId = "mu10c-expired-issue";
+    assert(service.issueDeviceCredential(
+        expiredIssue, provisioning, deviceVerifiers).status ==
+        DevicePairingCredentialIssueStatus::expired);
     assert(database.execute("BEGIN IMMEDIATE;"));
     assert(repository.consumeApprovedInActiveTransaction(expiredId, 1U) ==
         DevicePairingRequestRepositoryStatus::expired);
