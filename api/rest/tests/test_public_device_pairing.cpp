@@ -383,8 +383,6 @@ int main()
     assert(repeatedIssue.statusCode == 409);
     assert(repeatedIssue.body.find("opaque-device-secret") ==
         std::string::npos);
-    runtime.resetDeviceCredentialIssue();
-
     ApiResponse capabilities;
     assert(runtime.tryHandleGet(
         "/api/v1/capabilities",
@@ -401,6 +399,12 @@ int main()
         "\"version\":1,\"availability\":\"available\"") !=
         std::string::npos);
 
+    assert(capabilities.body.find(
+        "\"id\":\"public-api.device-credential-issuance\","
+        "\"version\":1,\"availability\":\"available\"") !=
+        std::string::npos);
+
+    runtime.resetDeviceCredentialIssue();
     runtime.resetDevicePairingDecision();
     runtime.resetDevicePairingAdministrationLookup();
     runtime.resetDevicePairingAdministrationCollectionLookup();
