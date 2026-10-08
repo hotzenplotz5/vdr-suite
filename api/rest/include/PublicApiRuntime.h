@@ -867,6 +867,7 @@ public:
     void resetDeviceGrantLookup();
     void registerDeviceGrantMutation(DeviceGrantMutation mutation);
     void resetDeviceGrantMutation();
+    bool deviceGrantAdministrationConfigured() const;
 
     void registerAccountGrantLookup(
         AccountGrantLookup lookup);
