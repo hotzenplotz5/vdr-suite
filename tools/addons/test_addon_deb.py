@@ -18,22 +18,47 @@ class DebianAddonTests(unittest.TestCase):
     def test_invalid_maintainer_fails_closed(self):
         for value in ("", "unknown", "Unknown <x>", "Name <bad@example.org>\nInjected: 1"):
             with self.subTest(value=value):
-                with self.assertRaises(addon.ContractError):
+                with self.assertRaises(builder.ContractError):
                     builder.validate_maintainer(value)
 
     @unittest.skipUnless(shutil.which("dpkg-deb"), "dpkg-deb unavailable")
     def test_build_inert_deb_without_install(self):
-        with tempfile.TemporaryDirectory(prefix="addon-deb-test-") as directory:
-            package = builder.build(addon.ROOT, "rectools", directory, "Test Builder <builder@example.org>")
-            self.assertEqual(package.parent, Path(directory))
-            self.assertEqual(package.name, "vdr-suite-addon-media-tools_0.1.0~scaffold1_all.deb")
-            fields = subprocess.check_output(["dpkg-deb", "--field", str(package)], text=True)
-            self.assertIn("Architecture: all", fields)
-            self.assertIn("Inactive VDR-Suite", fields)
-            names = subprocess.check_output(["dpkg-deb", "--contents", str(package)], text=True)
-            self.assertIn("usr/share/vdr-suite/addons/rectools/addon.json", names)
-            self.assertIn("usr/share/vdr-suite/addons/rectools/AGENTS.md", names)
-            self.assertNotIn("/etc/", names)
-            self.assertNotIn("/lib/systemd/", names)
-            with self.assertRaises(addon.ContractError):
-                builder.build(addon.ROOT, "rectools", directory, "Test Builder <builder@example.org>")
+        expected = {
+            "rectools": "vdr-suite-addon-media-tools",
+            "image": "vdr-suite-addon-image",
+            "music": "vdr-suite-addon-music",
+            "tvscraper": "vdr-suite-addon-tvscraper",
+        }
+        for module, package_name in expected.items():
+            with self.subTest(module=module):
+                with tempfile.TemporaryDirectory(prefix="addon-deb-test-") as directory:
+                    package = builder.build(
+                        addon.ROOT, module, directory, "Test Builder <builder@example.org>"
+                    )
+                    self.assertEqual(package.parent, Path(directory))
+                    self.assertEqual(
+                        package.name, package_name + "_0.1.0~scaffold1_all.deb"
+                    )
+                    fields = subprocess.check_output(
+                        ["dpkg-deb", "--field", str(package)], text=True
+                    )
+                    self.assertIn("Architecture: all", fields)
+                    self.assertIn("Inactive VDR-Suite", fields)
+                    names = subprocess.check_output(
+                        ["dpkg-deb", "--contents", str(package)], text=True
+                    )
+                    self.assertIn(
+                        "usr/share/vdr-suite/addons/" + module + "/addon.json",
+                        names,
+                    )
+                    self.assertIn(
+                        "usr/share/vdr-suite/addons/" + module + "/AGENTS.md",
+                        names,
+                    )
+                    self.assertNotIn("/etc/", names)
+                    self.assertNotIn("/lib/systemd/", names)
+                    with self.assertRaises(builder.ContractError):
+                        builder.build(
+                            addon.ROOT, module, directory,
+                            "Test Builder <builder@example.org>"
+                        )
