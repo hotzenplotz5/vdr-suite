@@ -53,7 +53,7 @@ struct Fixture
 
 DeviceGrantAdministrationContext admin()
 {
-    return {"admin_actor", "mu10e-request", "mu10e-correlation"};
+    return {"admin.actor:mu10e", "mu10e.request:device", "mu10e-correlation"};
 }
 }
 
