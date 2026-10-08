@@ -32,6 +32,8 @@ This is a stable navigation page for development contracts and evidence. It does
 
 ## Current orientation
 
+- [Optional Add-on Source Packaging](addon-source-packaging.md) — versioned scaffold, module-specific AGENTS.md and isolated metadata staging (runtime inactive).
+
 - [Current State](../CURRENT.md)
 - [Current Project Status](current-status.md)
 - [Current Architecture State](current-architecture-state.md)

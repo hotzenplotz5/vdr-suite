@@ -33,13 +33,13 @@ The Strict Roadmap owns future phase sequencing. ADRs own stable architecture an
 Canonical ADR numbers are currently allocated through:
 
 ```text
-ADR-0067
+ADR-0068
 ```
 
 Latest accepted canonical ADR:
 
 ```text
-ADR-0067
+ADR-0068
 ```
 
 Latest accepted ADRs at the end of the sequence:
@@ -60,11 +60,12 @@ Latest accepted ADRs at the end of the sequence:
 - [ADR-0065: Human Account, Profile and Device Identity Boundary](ADR-0065-human-account-profile-device-identity-boundary.md)
 - [ADR-0066: Unclaimed Server, First-Admin Bootstrap and Local Recovery](ADR-0066-unclaimed-server-first-admin-bootstrap-recovery.md)
 - [ADR-0067: Human Account and Backend Access Administration](ADR-0067-human-account-backend-access-administration.md)
+- [ADR-0068: Optional Add-on Boundary and Source Packaging](ADR-0068-optional-addons-and-source-packaging.md)
 
 Next available canonical ADR:
 
 ```text
-ADR-0068
+ADR-0069
 ```
 
 Rules:
@@ -161,6 +162,7 @@ Rules:
 - [ADR-0065: Human Account, Profile and Device Identity Boundary](ADR-0065-human-account-profile-device-identity-boundary.md)
 - [ADR-0066: Unclaimed Server, First-Admin Bootstrap and Local Recovery](ADR-0066-unclaimed-server-first-admin-bootstrap-recovery.md)
 - [ADR-0067: Human Account and Backend Access Administration](ADR-0067-human-account-backend-access-administration.md)
+- [ADR-0068: Optional Add-on Boundary and Source Packaging](ADR-0068-optional-addons-and-source-packaging.md)
 
 ---
 
