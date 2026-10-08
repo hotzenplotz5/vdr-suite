@@ -365,6 +365,31 @@ struct PublicDeviceLifecycleMutationRequest
     std::string correlationId;
 };
 
+enum class PublicDeviceCredentialRotationStatus
+{
+    rotated, invalid, notFound, stateConflict, revisionConflict, unavailable
+};
+
+struct PublicDeviceCredentialRotationRequest
+{
+    std::string actorRef;
+    std::string deviceId;
+    std::string credentialId;
+    std::string expectedResourceRevision;
+    std::string requestId;
+    std::string correlationId;
+};
+
+struct PublicDeviceCredentialRotationResult
+{
+    PublicDeviceCredentialRotationStatus status =
+        PublicDeviceCredentialRotationStatus::unavailable;
+    std::string actorId;
+    std::string deviceId;
+    std::string credentialId;
+    std::string credentialSecret;
+};
+
 enum class PublicDeviceGrantStatus
 {
     ok, invalid, notFound, revisionConflict, unavailable
@@ -778,6 +803,9 @@ public:
     using DeviceLifecycleMutation =
         std::function<PublicDeviceLifecycleResult(
             const PublicDeviceLifecycleMutationRequest& request)>;
+    using DeviceCredentialRotation =
+        std::function<PublicDeviceCredentialRotationResult(
+            const PublicDeviceCredentialRotationRequest& request)>;
 
     using DeviceGrantLookup =
         std::function<PublicDeviceGrantLookupResult(
@@ -908,6 +936,9 @@ public:
     void registerDeviceLifecycleMutation(DeviceLifecycleMutation mutation);
     void resetDeviceLifecycleMutation();
     bool deviceLifecycleAdministrationConfigured() const;
+    void registerDeviceCredentialRotation(DeviceCredentialRotation rotate);
+    void resetDeviceCredentialRotation();
+    bool deviceCredentialRotationConfigured() const;
 
     void registerDeviceGrantLookup(DeviceGrantLookup lookup);
     void resetDeviceGrantLookup();
@@ -1058,6 +1089,8 @@ private:
 
     mutable std::mutex deviceLifecycleMutationMutex_;
     DeviceLifecycleMutation deviceLifecycleMutation_;
+    mutable std::mutex deviceCredentialRotationMutex_;
+    DeviceCredentialRotation deviceCredentialRotation_;
 
     mutable std::mutex deviceGrantLookupMutex_;
     DeviceGrantLookup deviceGrantLookup_;
