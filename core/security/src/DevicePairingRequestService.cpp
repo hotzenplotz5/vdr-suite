@@ -1067,6 +1067,12 @@ DevicePairingRequestService::poll(
         return result;
     }
 
+    if (found.request.state == "consumed")
+    {
+        result.status = DevicePairingPollStatus::consumed;
+        return result;
+    }
+
     if (found.request.state != "pending" &&
         found.request.state != "approved" &&
         found.request.state != "rejected")
