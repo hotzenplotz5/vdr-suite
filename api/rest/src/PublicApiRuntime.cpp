@@ -4479,6 +4479,14 @@ bool PublicApiRuntime::tryHandleGet(
                         correlationId);
                     return true;
 
+                case PublicDevicePairingLookupStatus::consumed:
+                    response = problemResponse(
+                        410, "pairing_consumed",
+                        "Pairing already consumed",
+                        "A new pairing is required.",
+                        path, requestId, correlationId);
+                    return true;
+
                 case PublicDevicePairingLookupStatus::unavailable:
                     response = serviceUnavailableProblem(
                         path,
