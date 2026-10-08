@@ -162,6 +162,12 @@ test-security-device-credential-rotation:
 		$(LDFLAGS) \\
 		-o $(BUILD_DIR)/test_device_credential_rotation
 	$(BUILD_DIR)/test_device_credential_rotation
+	$(BUILD_CXX) $(CXXFLAGS) \\
+		api/rest/src/PublicApiRuntime.cpp \\
+		api/rest/tests/test_public_device_credential_rotation.cpp \\
+		-o $(BUILD_DIR)/test_public_device_credential_rotation
+	$(BUILD_DIR)/test_public_device_credential_rotation
+	node clients/reference-js/tests/test_public_v1_device_rotation_client.js
 
 
 test-security-device-lifecycle-administration:
