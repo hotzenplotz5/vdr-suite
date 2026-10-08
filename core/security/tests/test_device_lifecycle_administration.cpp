@@ -76,7 +76,8 @@ int main()
 
         auto stale = f.service.revoke(
             admin("mu10e2-stale"), DeviceLifecycleTarget::Credential,
-            DeviceId, CredentialId, "device-credential-lifecycle:old:active");
+            DeviceId, CredentialId,
+            "device-credential-lifecycle:" + CredentialId + ":revoked");
         assert(stale.status == DeviceLifecycleStatus::revisionConflict);
         assert(f.login("stale-did-not-revoke"));
 
