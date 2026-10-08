@@ -198,12 +198,6 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
     {
         return;
     }
-    deviceCredentialVerifierRepository_ =
-        std::make_unique<DeviceCredentialVerifierRepository>(
-            *securityDatabase_);
-    if (!deviceCredentialVerifierRepository_->ensureSchema())
-        return;
-
     devicePairingRequestService_ =
         std::make_unique<DevicePairingRequestService>(
             *securityDatabase_,
@@ -218,6 +212,13 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
     {
         return;
     }
+
+    deviceCredentialVerifierRepository_ =
+        std::make_unique<DeviceCredentialVerifierRepository>(
+            *securityDatabase_);
+    if (!deviceCredentialVerifierRepository_->ensureSchema())
+        return;
+
 
     securityIdentityProvisioningRepository_ =
         std::make_unique<SecurityIdentityProvisioningRepository>(
