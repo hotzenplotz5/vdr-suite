@@ -15,10 +15,10 @@ Account read foundation: completed
 First Admin / bootstrap / recovery: completed
 Legacy Basic retirement: completed
 Administration architecture: ADR-0067 [ACCEPTED]
-Current Multiuser productization slice: MU.10B Administrator Pairing Approval [ACCEPTED - PR #437 / REAL YAVDR PASS / HOSTED CI #9801 GREEN]
+Current Multiuser productization slice: MU.10C durable Device identity/credential issuance [NEXT — MU.10B MERGED PR #437 / REAL YAVDR PASS / HOSTED CI #9806 GREEN]
 Latest completed Multiuser milestone: Post-MU.9 Administration Usability [MERGED - PR #433]
 Completed MU.7 sub-slice: Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
-Current acceptance gate: MU.10A merged as PR #436 with post-merge main CI #9779 green; MU.10B PR #437 passed exact real-yaVDR server acceptance and hosted CI #9801 is green
+Current acceptance gate: MU.10A merged as PR #436 with post-merge main CI #9779 green; MU.10B merged as PR #437 after exact real-yaVDR server acceptance and final-head hosted CI #9806 completed successfully
 ```
 
 ## Binding architecture
@@ -316,7 +316,7 @@ ADR-0065 Human Account boundary [ACCEPTED]
        -> Post-MU.9 Administration Usability [MERGED - PR #433]
        -> MU.10 Device/app pairing [ACTIVE]
             -> MU.10A Pairing Request + token-scoped polling [COMPLETED - PR #436 MERGED / REAL YAVDR + REAL VIDAA PASS / POST-MERGE CI #9779 GREEN]
-            -> MU.10B Administrator approval [ACCEPTED - PR #437 / REAL YAVDR PASS / HOSTED CI #9801 GREEN]
+            -> MU.10B Administrator approval [MERGED PR #437 / REAL YAVDR PASS / HOSTED CI #9806 GREEN]
 
 Later:
   -> MU.11 Profiles/personalization
