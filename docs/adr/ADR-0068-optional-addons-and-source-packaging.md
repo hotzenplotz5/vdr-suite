@@ -65,3 +65,14 @@ Out of scope for this decision: dynamic third-party marketplace, untrusted arbit
 ## C++ import implementation clarification (2026-10-08)
 
 The first Media Tools implementation is being written in C++17 and built as an **optional, standalone CLI/library**, not as a port of Rectools' Bash worker. The old CLI remains available for existing installations but is **not** the execution provider for new Suite import. A later Slice must stage the architecture-specific executable in a distinct add-on package, define its constrained backend Agent invocation and enforce core-owned actor permissions, durable jobs and recording reconciliation before enabling capabilities. The metadata-only scaffold packages remain inert. No public C++ ABI is promised.
+
+## Installed metadata registry extension (2026-10-08)
+
+A distinct, read-only installed module inventory is now implemented by
+`tools/addons/installed_registry.py` and tested with isolated installed
+package roots. It uses the same source-manifest validator and a core-owned
+list of reviewed module/package identities. A manifest cannot grant
+capabilities, insert rights or activate itself. The `plan-enable` entrypoint
+only explains why activation is denied and never changes state. **No production
+module management API or activation flow is implied.** See the
+[installed registry contract](../development/addon-installed-registry-contract.md).

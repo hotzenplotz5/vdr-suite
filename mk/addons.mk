@@ -1,4 +1,4 @@
-.PHONY: check-addon-contract check-addon-deb stage-addon build-addon-deb
+.PHONY: check-addon-contract check-addon-deb check-addon-registry stage-addon build-addon-deb
 
 # Optional add-ons are staged individually, never in base make install.
 check-addon-contract:
@@ -7,6 +7,10 @@ check-addon-contract:
 
 check-addon-deb:
 	python3 -m unittest discover -s tools/addons -p 'test_addon_deb.py'
+
+# Pure metadata inventory with no installation, activation or daemon interaction.
+check-addon-registry:
+	python3 -m unittest discover -s tools/addons -p 'test_installed_registry.py'
 
 stage-addon:
 	python3 tools/addons/addon_contract.py stage --module "$(MODULE)" --destdir "$(DESTDIR)" --prefix "$(PREFIX)"
@@ -17,8 +21,8 @@ build-addon-deb:
 	python3 tools/addons/build_deb.py --module "$(MODULE)" --output-dir "$(OUTPUT_DIR)" --maintainer "$(ADDON_MAINTAINER)"
 
 # Reuse existing documentation and packaging regression CI entrypoints.
-test-docs: check-addon-contract
-test-install-staging: check-addon-contract check-addon-deb
+test-docs: check-addon-contract check-addon-registry
+test-install-staging: check-addon-contract check-addon-deb check-addon-registry
 
 # Standalone C++ source implementation, deliberately not part of default install
 # or metadata-only add-on package until backend security/activation is complete.

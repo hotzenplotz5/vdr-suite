@@ -46,10 +46,13 @@ def safe_source(path):
     return raw
 
 
-def validate_module(root, name):
+def validate_directory(module, name):
+    """Validate either a source module or a staged installed module.
+
+    This is syntax/metadata validation, NOT executable/package provenance.
+    """
     if not isinstance(name, str) or not NAME.fullmatch(name):
         raise ContractError("invalid module directory name")
-    module = root / "modules" / name
     if module.is_symlink() or not module.is_dir():
         raise ContractError("missing/symlinked module directory: " + name)
     raw = safe_source(module / FILES[0])
@@ -82,6 +85,10 @@ def validate_module(root, name):
         if obj[field] != []:
             raise ContractError("scaffold cannot activate " + field + ": " + name)
     return obj
+
+
+def validate_module(root, name):
+    return validate_directory(root / "modules" / name, name)
 
 
 def validate_all(root=ROOT):

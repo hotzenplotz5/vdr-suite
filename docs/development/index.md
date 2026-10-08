@@ -32,6 +32,7 @@ This is a stable navigation page for development contracts and evidence. It does
 
 ## Current orientation
 
+- [Installed Add-on Registry Contract](addon-installed-registry-contract.md) — read-only package discovery; activation intentionally denied.
 - [Optional Add-on Source Packaging](addon-source-packaging.md) — versioned scaffold, module-specific AGENTS.md and isolated metadata staging (runtime inactive).
 
 - [Current State](../CURRENT.md)

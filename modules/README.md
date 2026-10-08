@@ -24,3 +24,14 @@ Current source modules:
 | [tvscraper](tvscraper/README.md) | External scraper metadata integration | scaffold |
 
 The core owns VDR-native marks/cut/rename/move, account rights, common jobs, stable client APIs and reconciliation. Future add-ons implement bounded domain functionality through shared APIs instead of duplicating these owners.
+
+## Installed inventory (read-only)
+
+A source manifest and independently installed metadata do not imply activation.
+The [registry contract](../docs/development/addon-installed-registry-contract.md)
+adds `make check-addon-registry` and a deterministic `installed_registry.py`
+inventory/enable-decision preview. Installed module manifests must be complete
+and match a core-owned package name; unknown packages, symlinked entries and
+malformed metadata are rejected. **All listed modules remain disabled**, and
+the preview never writes activation state, installs packages or invokes media.
+This is not a server API, menu or backend module loader.

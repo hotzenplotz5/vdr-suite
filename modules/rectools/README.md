@@ -41,3 +41,5 @@ Legacy feature inventory and security analysis: [C++ import audit](../../docs/de
 ## Isolated source-built C++ Debian package
 
 `make build-media-tools-cpp-deb OUTPUT_DIR=/isolated/output ADDON_MAINTAINER='Name <valid@example.org>'` compiles and tests the standalone C++ engine, then creates an architecture-specific `~cpppreview1` Debian package using its source-produced executable. The package owns `/usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import` plus the common manifest/docs. It advertises no runtime capability, installs no service and does not connect to the daemon. **Do not install this development prototype on the live yaVDR.** The ordinary `build-addon-deb MODULE=rectools` remains the earlier, metadata-only `~scaffold1` package.
+
+The installed catalog recognizes this module metadata only through the [read-only registry](../../docs/development/addon-installed-registry-contract.md). Installation and C++ binaries do **not** activate it, grant privileges or expose API operations.

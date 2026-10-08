@@ -37,9 +37,14 @@ An external Debian source-package build can likewise own a fresh `debian/<packag
 
 The source validator rejects malformed IDs, unknown keys, missing/invalid module-specific `AGENTS.md`, symlinks and runtime capability declarations while `state=scaffold`. Read these rules before changing a module; the repository root `AGENTS.md` remains authoritative.
 
+## Installed module inventory
+
+The [installed registry specification](addon-installed-registry-contract.md) documents the first read-only catalog and its strict no-activation policy. The registry reuses the exact manifest validator used for source packaging; only explicitly core-listed packages are recognized. Nothing in installed metadata permits itself to launch a handler, register a route or acquire a right.
+
 ## Validation gates
 
 - `make check-addon-contract`: validates all manifests and tests non-destructive metadata staging without invoking `dpkg-deb`.
+- `make check-addon-registry`: tests isolated installed catalog discovery and denied activation previews without touching live paths.
 - `make check-addon-deb`: builds and inspects four inert packages in temporary directories (requires `dpkg-deb`, capacity preflight, never installs them).
 - The existing `test-docs` and `test-install-staging` targets pick up the corresponding focused checks without executing a full build merely for metadata edits.
 
