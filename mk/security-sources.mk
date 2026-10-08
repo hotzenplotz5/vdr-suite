@@ -167,6 +167,13 @@ test-security-device-credential-rotation:
 		api/rest/tests/test_public_device_credential_rotation.cpp \\
 		-o $(BUILD_DIR)/test_public_device_credential_rotation
 	$(BUILD_DIR)/test_public_device_credential_rotation
+	$(BUILD_CXX) $(CXXFLAGS) \\
+		$(SQLITE_SRC) \\
+		$(SECURITY_SRC) \\
+		core/security/tests/test_public_device_rotation_security.cpp \\
+		$(LDFLAGS) \\
+		-o $(BUILD_DIR)/test_public_device_rotation_security
+	$(BUILD_DIR)/test_public_device_rotation_security
 	node clients/reference-js/tests/test_public_v1_device_rotation_client.js
 
 
