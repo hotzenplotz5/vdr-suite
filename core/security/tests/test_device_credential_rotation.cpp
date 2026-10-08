@@ -128,7 +128,7 @@ int main() {
         Fixture f;
         assert(f.db.execute(
             "CREATE TRIGGER deny_rotation_verifier "
-            "BEFORE INSERT ON device_credential_verifiers "
+            "BEFORE INSERT ON security_device_credential_verifiers "
             "BEGIN SELECT RAISE(ABORT, 'verifier failed'); END;"));
         assert(f.service.rotate(f.request()).status==
             DeviceCredentialRotationStatus::unavailable);
