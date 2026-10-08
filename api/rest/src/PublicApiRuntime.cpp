@@ -167,6 +167,37 @@ bool publicAccountSubresourcePath(
         accountId.find('/') == std::string::npos;
 }
 
+bool publicDeviceLifecyclePath(
+    const std::string& path, std::string& deviceId,
+    std::string& credentialId)
+{
+    static const std::string prefix = "/api/v1/devices/";
+    static const std::string suffix = "/lifecycle";
+    static const std::string marker = "/credentials/";
+    deviceId.clear();
+    credentialId.clear();
+    if (path.compare(0U, prefix.size(), prefix) != 0 ||
+        path.size() <= prefix.size() + suffix.size() ||
+        path.compare(path.size() - suffix.size(),
+                     suffix.size(), suffix) != 0)
+        return false;
+    const std::string middle = path.substr(
+        prefix.size(), path.size() - prefix.size() - suffix.size());
+    const std::size_t position = middle.find(marker);
+    if (position == std::string::npos)
+    {
+        if (middle.empty() || middle.find('/') != std::string::npos)
+            return false;
+        deviceId = middle;
+        return true;
+    }
+    deviceId = middle.substr(0U, position);
+    credentialId = middle.substr(position + marker.size());
+    return !deviceId.empty() && !credentialId.empty() &&
+        deviceId.find('/') == std::string::npos &&
+        credentialId.find('/') == std::string::npos;
+}
+
 bool publicDeviceGrantPath(
     const std::string& path, std::string& deviceId)
 {
@@ -2619,6 +2650,7 @@ ApiResponse platformCapabilities(
     const bool accountCreateAvailable,
     const bool accountGrantAdministrationAvailable,
     const bool deviceGrantAdministrationAvailable,
+    const bool deviceLifecycleAdministrationAvailable,
     const bool accountSecurityMetadataAvailable,
     const bool accountCredentialRevokeAvailable,
     const bool accountSessionRevokeAvailable,
@@ -2657,6 +2689,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.devices-grants-administration\",\"version\":1,\"availability\":\"" +
         std::string(deviceGrantAdministrationAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.devices-lifecycle-administration\",\"version\":1,\"availability\":\"" +
+        std::string(deviceLifecycleAdministrationAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.accounts-credential-session-metadata\",\"version\":1,\"availability\":\"" +
         std::string(accountSecurityMetadataAvailable ? "available" : "unavailable") +
@@ -3018,6 +3053,47 @@ ApiResponse publicAccountResponse(
         requestId,
         correlationId);
     response.headers["ETag"] = entityTag;
+    return response;
+}
+
+ApiResponse publicDeviceLifecycleResponse(
+    const PublicDeviceLifecycleResource& item,
+    const std::string& path,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::string& ifNoneMatch)
+{
+    const std::string etag =
+        vdrsuite::http::publicStrongEntityTag(item.resourceRevision);
+    if (etag.empty())
+        return serviceUnavailableProblem(path, requestId, correlationId);
+    const auto condition = vdrsuite::http::publicEvaluateIfNoneMatch(
+        ifNoneMatch, etag);
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::malformed)
+        return invalidRequestProblem(
+            path, "Invalid If-None-Match.", requestId, correlationId);
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::matched)
+    {
+        ApiResponse response;
+        response.statusCode = 304;
+        response.contentType = "application/json; charset=utf-8";
+        addPublicSuccessHeaders(response, requestId, correlationId);
+        response.headers["ETag"] = etag;
+        response.headers["Cache-Control"] = "no-store";
+        return response;
+    }
+    std::string body = "{\"deviceId\":\"" +
+        jsonEscape(item.deviceId) + "\",\"actorId\":\"" +
+        jsonEscape(item.actorId) + "\",\"credentialId\":\"" +
+        jsonEscape(item.credentialId) + "\",\"active\":" +
+        std::string(item.active ? "true" : "false") +
+        ",\"revoked\":" + std::string(item.revoked ? "true" : "false") +
+        "}";
+    ApiResponse response = jsonResponse(body, requestId, correlationId);
+    response.headers["ETag"] = etag;
+    response.headers["Cache-Control"] = "no-store";
     return response;
 }
 
@@ -4008,6 +4084,40 @@ bool PublicApiRuntime::accountCreateConfigured() const
     return static_cast<bool>(accountCreate_);
 }
 
+void PublicApiRuntime::registerDeviceLifecycleLookup(
+    DeviceLifecycleLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(deviceLifecycleLookupMutex_);
+    deviceLifecycleLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetDeviceLifecycleLookup()
+{
+    std::lock_guard<std::mutex> lock(deviceLifecycleLookupMutex_);
+    deviceLifecycleLookup_ = {};
+}
+
+void PublicApiRuntime::registerDeviceLifecycleMutation(
+    DeviceLifecycleMutation mutation)
+{
+    std::lock_guard<std::mutex> lock(deviceLifecycleMutationMutex_);
+    deviceLifecycleMutation_ = std::move(mutation);
+}
+
+void PublicApiRuntime::resetDeviceLifecycleMutation()
+{
+    std::lock_guard<std::mutex> lock(deviceLifecycleMutationMutex_);
+    deviceLifecycleMutation_ = {};
+}
+
+bool PublicApiRuntime::deviceLifecycleAdministrationConfigured() const
+{
+    std::lock_guard<std::mutex> a(deviceLifecycleLookupMutex_);
+    std::lock_guard<std::mutex> b(deviceLifecycleMutationMutex_);
+    return static_cast<bool>(deviceLifecycleLookup_) &&
+           static_cast<bool>(deviceLifecycleMutation_);
+}
+
 void PublicApiRuntime::registerDeviceGrantLookup(
     DeviceGrantLookup lookup)
 {
@@ -4330,6 +4440,7 @@ bool PublicApiRuntime::tryHandleGet(
             accountGrantLookupConfigured() &&
                 accountGrantMutationConfigured(),
             deviceGrantAdministrationConfigured(),
+            deviceLifecycleAdministrationConfigured(),
             accountCredentialLookupConfigured() &&
                 accountSessionLookupConfigured(),
             accountCredentialItemLookupConfigured() &&
@@ -5078,6 +5189,66 @@ bool PublicApiRuntime::tryHandleGet(
                     path, requestId, correlationId);
                 return true;
             case PublicAccountSecurityMetadataStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    std::string lifecycleDeviceId;
+    std::string lifecycleCredentialId;
+    if (publicDeviceLifecyclePath(
+            path, lifecycleDeviceId, lifecycleCredentialId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (requestTarget != path)
+        {
+            response = invalidRequestProblem(
+                path, "Device lifecycle GET does not accept query.",
+                requestId, correlationId);
+            return true;
+        }
+        DeviceLifecycleLookup lookup;
+        {
+            std::lock_guard<std::mutex> lock(deviceLifecycleLookupMutex_);
+            lookup = deviceLifecycleLookup_;
+        }
+        if (!lookup)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        const PublicDeviceLifecycleResult found =
+            lookup(lifecycleDeviceId, lifecycleCredentialId);
+        switch (found.status)
+        {
+            case PublicDeviceLifecycleStatus::ok:
+                if (found.resource.deviceId != lifecycleDeviceId ||
+                    found.resource.credentialId != lifecycleCredentialId ||
+                    found.resource.actorId.empty() ||
+                    found.resource.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                response = publicDeviceLifecycleResponse(
+                    found.resource, path, requestId, correlationId, ifNoneMatch);
+                return true;
+            case PublicDeviceLifecycleStatus::invalid:
+                response = invalidRequestProblem(
+                    path, "Invalid Device lifecycle target.",
+                    requestId, correlationId);
+                return true;
+            case PublicDeviceLifecycleStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicDeviceLifecycleStatus::revisionConflict:
+            case PublicDeviceLifecycleStatus::unavailable:
                 response = serviceUnavailableProblem(
                     path, requestId, correlationId);
                 return true;
@@ -6816,6 +6987,136 @@ bool PublicApiRuntime::tryHandlePost(
         return true;
     }
 
+    std::string lifecycleDeviceId;
+    std::string lifecycleCredentialId;
+    if (publicDeviceLifecyclePath(
+            path, lifecycleDeviceId, lifecycleCredentialId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (requestTarget != path || !idempotencyKey.empty())
+        {
+            response = invalidRequestProblem(
+                path, "Lifecycle mutation takes no query or Idempotency-Key.",
+                requestId, correlationId);
+            return true;
+        }
+        if (!applicationJsonContentType(contentType))
+        {
+            response = problemResponse(
+                415, "invalid_request", "Unsupported media type",
+                "Expected application/json.", path, requestId, correlationId);
+            return true;
+        }
+        if (body.size() > 4096U)
+        {
+            response = invalidRequestProblem(
+                path, "Device lifecycle body too large.",
+                requestId, correlationId);
+            return true;
+        }
+        JsonSyntaxValidator validator(body);
+        if (!validator.valid())
+        {
+            response = invalidRequestProblem(
+                path, "Invalid Device lifecycle JSON.",
+                requestId, correlationId);
+            return true;
+        }
+        if (!emptyJsonObject(body))
+        {
+            response = problemResponse(
+                422, "validation_error", "Validation failed",
+                "Device lifecycle revoke requires an empty JSON object.",
+                path, requestId, correlationId);
+            return true;
+        }
+        if (ifMatch.empty())
+        {
+            response = problemResponse(
+                428, "precondition_required", "Precondition required",
+                "Strong If-Match required.", path, requestId, correlationId);
+            return true;
+        }
+        std::string revision;
+        if (!vdrsuite::http::publicStrongEntityTagResourceRevision(
+                ifMatch, revision))
+        {
+            response = invalidRequestProblem(
+                path, "Invalid lifecycle If-Match.",
+                requestId, correlationId);
+            return true;
+        }
+        const std::string prefix = lifecycleCredentialId.empty()
+            ? "device-lifecycle:" + lifecycleDeviceId + ":"
+            : "device-credential-lifecycle:" + lifecycleCredentialId + ":";
+        if (revision != prefix + "active" &&
+            revision != prefix + "revoked")
+        {
+            response = invalidRequestProblem(
+                path, "If-Match does not identify this lifecycle resource.",
+                requestId, correlationId);
+            return true;
+        }
+
+        DeviceLifecycleMutation mutation;
+        {
+            std::lock_guard<std::mutex> lock(deviceLifecycleMutationMutex_);
+            mutation = deviceLifecycleMutation_;
+        }
+        if (!mutation)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicDeviceLifecycleMutationRequest input;
+        input.actorRef = actorRef;
+        input.deviceId = lifecycleDeviceId;
+        input.credentialId = lifecycleCredentialId;
+        input.expectedResourceRevision = revision;
+        input.requestId = requestId;
+        input.correlationId = correlationId;
+        const PublicDeviceLifecycleResult result = mutation(input);
+        switch (result.status)
+        {
+            case PublicDeviceLifecycleStatus::ok:
+                if (result.resource.deviceId != lifecycleDeviceId ||
+                    result.resource.credentialId != lifecycleCredentialId ||
+                    result.resource.actorId.empty() ||
+                    result.resource.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                response = publicDeviceLifecycleResponse(
+                    result.resource, path, requestId, correlationId, "");
+                return true;
+            case PublicDeviceLifecycleStatus::invalid:
+                response = problemResponse(
+                    422, "validation_error", "Validation failed",
+                    "Invalid lifecycle request.", path, requestId,
+                    correlationId);
+                return true;
+            case PublicDeviceLifecycleStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicDeviceLifecycleStatus::revisionConflict:
+                response = problemResponse(
+                    412, "revision_conflict", "Resource revision conflict",
+                    "Device lifecycle changed since read.", path,
+                    requestId, correlationId);
+                return true;
+            case PublicDeviceLifecycleStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
     std::string deviceGrantDeviceId;
     if (publicDeviceGrantPath(path, deviceGrantDeviceId))
     {
@@ -7927,6 +8228,16 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
             requestId,
             correlationId,
             "GET");
+        return true;
+    }
+
+    std::string lifecycleDeviceId;
+    std::string lifecycleCredentialId;
+    if (publicDeviceLifecyclePath(
+            path, lifecycleDeviceId, lifecycleCredentialId))
+    {
+        response = methodNotAllowedProblem(
+            path, requestId, correlationId, "GET, POST");
         return true;
     }
 

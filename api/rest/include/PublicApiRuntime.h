@@ -333,6 +333,38 @@ struct PublicAccountGrantMutationResult
     PublicAccountGrantSetResource grantSet;
 };
 
+enum class PublicDeviceLifecycleStatus
+{
+    ok, invalid, notFound, revisionConflict, unavailable
+};
+
+struct PublicDeviceLifecycleResource
+{
+    std::string deviceId;
+    std::string actorId;
+    std::string credentialId;
+    bool active = false;
+    bool revoked = false;
+    std::string resourceRevision;
+};
+
+struct PublicDeviceLifecycleResult
+{
+    PublicDeviceLifecycleStatus status =
+        PublicDeviceLifecycleStatus::unavailable;
+    PublicDeviceLifecycleResource resource;
+};
+
+struct PublicDeviceLifecycleMutationRequest
+{
+    std::string actorRef;
+    std::string deviceId;
+    std::string credentialId;
+    std::string expectedResourceRevision;
+    std::string requestId;
+    std::string correlationId;
+};
+
 enum class PublicDeviceGrantStatus
 {
     ok, invalid, notFound, revisionConflict, unavailable
@@ -739,6 +771,14 @@ public:
         std::function<PublicAccountCreateResult(
             const PublicAccountCreateRequest& request)>;
 
+    using DeviceLifecycleLookup =
+        std::function<PublicDeviceLifecycleResult(
+            const std::string& deviceId,
+            const std::string& credentialId)>;
+    using DeviceLifecycleMutation =
+        std::function<PublicDeviceLifecycleResult(
+            const PublicDeviceLifecycleMutationRequest& request)>;
+
     using DeviceGrantLookup =
         std::function<PublicDeviceGrantLookupResult(
             const std::string& deviceId)>;
@@ -862,6 +902,12 @@ public:
     void registerAccountCreate(AccountCreate create);
     void resetAccountCreate();
     bool accountCreateConfigured() const;
+
+    void registerDeviceLifecycleLookup(DeviceLifecycleLookup lookup);
+    void resetDeviceLifecycleLookup();
+    void registerDeviceLifecycleMutation(DeviceLifecycleMutation mutation);
+    void resetDeviceLifecycleMutation();
+    bool deviceLifecycleAdministrationConfigured() const;
 
     void registerDeviceGrantLookup(DeviceGrantLookup lookup);
     void resetDeviceGrantLookup();
@@ -1006,6 +1052,12 @@ private:
 
     mutable std::mutex accountCreateMutex_;
     AccountCreate accountCreate_;
+
+    mutable std::mutex deviceLifecycleLookupMutex_;
+    DeviceLifecycleLookup deviceLifecycleLookup_;
+
+    mutable std::mutex deviceLifecycleMutationMutex_;
+    DeviceLifecycleMutation deviceLifecycleMutation_;
 
     mutable std::mutex deviceGrantLookupMutex_;
     DeviceGrantLookup deviceGrantLookup_;

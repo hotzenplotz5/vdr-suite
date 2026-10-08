@@ -308,6 +308,20 @@
   }
 
 
+  function deviceLifecyclePath(options, credential) {
+    if (!options || typeof options.deviceId !== 'string' ||
+        !/^[A-Za-z0-9_-]{1,128}$/.test(options.deviceId)) {
+      throw new Error('deviceId must be a bounded canonical identifier');
+    }
+    const base = '/api/v1/devices/' + options.deviceId;
+    if (!credential) return base + '/lifecycle';
+    if (typeof options.credentialId !== 'string' ||
+        !/^[A-Za-z0-9_-]{1,128}$/.test(options.credentialId)) {
+      throw new Error('credentialId must be a bounded canonical identifier');
+    }
+    return base + '/credentials/' + options.credentialId + '/lifecycle';
+  }
+
   function deviceGrantPath(options) {
     if (!options || typeof options.deviceId !== 'string'
         || !/^[A-Za-z0-9_-]{1,128}$/.test(options.deviceId)) {
@@ -785,6 +799,22 @@
           },
           normalizedOptions
         );
+      },
+      getDeviceLifecycle(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return requestRevisioned(deviceLifecyclePath(input, false), input);
+      },
+      revokeDevice(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return requestAccountMutation(deviceLifecyclePath(input, false), {}, input);
+      },
+      getDeviceCredentialLifecycle(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return requestRevisioned(deviceLifecyclePath(input, true), input);
+      },
+      revokeDeviceCredential(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return requestAccountMutation(deviceLifecyclePath(input, true), {}, input);
       },
       getDeviceGrants(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};

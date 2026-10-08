@@ -131,6 +131,20 @@ int main()
         assert(!selfAdmin.allowed);
         assert(selfAdmin.rejection.statusCode == 403);
 
+        // Possession of a device credential cannot revoke itself or a
+        // sibling credential; these routes are administrator-only.
+        const auto selfLifecycle = fixture.evaluate(
+            "/api/v1/devices/" + DeviceId + "/lifecycle",
+            fixture.validAuthorization());
+        assert(!selfLifecycle.allowed);
+        assert(selfLifecycle.rejection.statusCode == 403);
+        const auto selfCredentialLifecycle = fixture.evaluate(
+            "/api/v1/devices/" + DeviceId + "/credentials/" +
+                CredentialId + "/lifecycle",
+            fixture.validAuthorization());
+        assert(!selfCredentialLifecycle.allowed);
+        assert(selfCredentialLifecycle.rejection.statusCode == 403);
+
         // The bootstrap pairing token cannot authenticate a device.
         const auto pairing = fixture.evaluate(
             "/api/v1/device-pairings", "", Secret);

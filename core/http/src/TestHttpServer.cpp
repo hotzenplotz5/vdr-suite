@@ -416,6 +416,12 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             *securityPermissionGrantRepository_,
             *accountabilityEventRepository_);
 
+    deviceLifecycleAdministrationService_ =
+        std::make_unique<DeviceLifecycleAdministrationService>(
+            *securityDatabase_, *securityIdentityRepository_,
+            *deviceCredentialVerifierRepository_,
+            *accountabilityEventRepository_);
+
     humanAccountCredentialSessionReadRepository_ =
         std::make_unique<HumanAccountCredentialSessionReadRepository>(
             *securityDatabase_);
@@ -1145,6 +1151,86 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             return result;
         });
 
+    PublicApiRuntime::instance().registerDeviceLifecycleLookup(
+        [this](const std::string& deviceId, const std::string& credentialId)
+        {
+            PublicDeviceLifecycleResult response;
+            if (!deviceLifecycleAdministrationService_)
+                return response;
+            const auto result = deviceLifecycleAdministrationService_->read(
+                credentialId.empty() ? DeviceLifecycleTarget::Device
+                                     : DeviceLifecycleTarget::Credential,
+                deviceId, credentialId);
+            switch (result.status)
+            {
+                case DeviceLifecycleStatus::ok:
+                    response.status = PublicDeviceLifecycleStatus::ok;
+                    break;
+                case DeviceLifecycleStatus::invalid:
+                    response.status = PublicDeviceLifecycleStatus::invalid;
+                    return response;
+                case DeviceLifecycleStatus::notFound:
+                    response.status = PublicDeviceLifecycleStatus::notFound;
+                    return response;
+                case DeviceLifecycleStatus::revisionConflict:
+                case DeviceLifecycleStatus::unavailable:
+                    return response;
+            }
+            response.resource.deviceId = result.resource.deviceId;
+            response.resource.actorId = result.resource.actorId;
+            response.resource.credentialId = result.resource.credentialId;
+            response.resource.active = result.resource.active;
+            response.resource.revoked = result.resource.revoked;
+            response.resource.resourceRevision = result.resource.resourceRevision;
+            return response;
+        });
+
+    PublicApiRuntime::instance().registerDeviceLifecycleMutation(
+        [this](const PublicDeviceLifecycleMutationRequest& request)
+        {
+            PublicDeviceLifecycleResult response;
+            if (!deviceLifecycleAdministrationService_ ||
+                !securityIdentityRepository_)
+                return response;
+            const auto administrator =
+                securityIdentityRepository_->findActor(request.actorRef);
+            if (!administrator.has_value() ||
+                administrator->type != ActorType::User ||
+                !administrator->active || administrator->revoked)
+                return response;
+            const auto result = deviceLifecycleAdministrationService_->revoke(
+                {request.actorRef, request.requestId, request.correlationId},
+                request.credentialId.empty() ? DeviceLifecycleTarget::Device
+                    : DeviceLifecycleTarget::Credential,
+                request.deviceId, request.credentialId,
+                request.expectedResourceRevision);
+            switch (result.status)
+            {
+                case DeviceLifecycleStatus::ok:
+                    response.status = PublicDeviceLifecycleStatus::ok;
+                    break;
+                case DeviceLifecycleStatus::invalid:
+                    response.status = PublicDeviceLifecycleStatus::invalid;
+                    return response;
+                case DeviceLifecycleStatus::notFound:
+                    response.status = PublicDeviceLifecycleStatus::notFound;
+                    return response;
+                case DeviceLifecycleStatus::revisionConflict:
+                    response.status =
+                        PublicDeviceLifecycleStatus::revisionConflict;
+                    return response;
+                case DeviceLifecycleStatus::unavailable:
+                    return response;
+            }
+            response.resource.deviceId = result.resource.deviceId;
+            response.resource.actorId = result.resource.actorId;
+            response.resource.credentialId = result.resource.credentialId;
+            response.resource.active = result.resource.active;
+            response.resource.revoked = result.resource.revoked;
+            response.resource.resourceRevision = result.resource.resourceRevision;
+            return response;
+        });
+
     PublicApiRuntime::instance().registerDeviceGrantLookup(
         [this](const std::string& deviceId)
         {
@@ -1624,6 +1710,8 @@ TestHttpServer::~TestHttpServer()
     PublicApiRuntime::instance().resetAccountSessionItemLookup();
     PublicApiRuntime::instance().resetAccountSessionLookup();
     PublicApiRuntime::instance().resetAccountCredentialLookup();
+    PublicApiRuntime::instance().resetDeviceLifecycleMutation();
+    PublicApiRuntime::instance().resetDeviceLifecycleLookup();
     PublicApiRuntime::instance().resetDeviceGrantMutation();
     PublicApiRuntime::instance().resetDeviceGrantLookup();
     PublicApiRuntime::instance().resetAccountGrantMutation();

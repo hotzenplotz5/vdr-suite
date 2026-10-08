@@ -183,6 +183,8 @@ private:
             permission == "accounts.deactivate" ||
             permission == "accounts.grants.modify" ||
             permission == "devices.grants.modify" ||
+            permission == "devices.revoke" ||
+            permission == "devices.credentials.revoke" ||
             permission == "accounts.credentials.revoke" ||
             permission == "accounts.sessions.revoke" ||
             permission == "device.pairing.decide" ||
@@ -207,6 +209,7 @@ private:
             permission == "accounts.view" ||
             permission == "accounts.grants.view" ||
             permission == "devices.grants.view" ||
+            permission == "devices.lifecycle.view" ||
             permission == "accounts.credentials.view" ||
             permission == "accounts.sessions.view" ||
             permission == "device.pairing.view" ||
