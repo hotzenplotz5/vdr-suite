@@ -283,6 +283,15 @@ int main()
         &cryptState);
     assert(computed != nullptr &&
         verifier->verifierHash == computed);
+    assert(provisioning.ensureTechnicalIdentity(
+        "mu10c-other-actor", ActorType::Service,
+        "Other device actor", "mu10c-other-device",
+        "Other device", "mu10c-other-credential", "device-app"));
+    assert(database.execute("BEGIN IMMEDIATE;"));
+    assert(!deviceVerifiers.insertInActiveTransaction(
+        deviceCredential.credentialId, "mu10c-other-device",
+        verifier->verifierHash));
+    assert(database.execute("ROLLBACK;"));
 
     assert(repository.findById(issueId).request.state == "consumed");
     assert(service.issueDeviceCredential(
