@@ -150,7 +150,8 @@ bool validState(const std::string& state)
 {
     return state == "pending" ||
         state == "approved" ||
-        state == "rejected";
+        state == "rejected" ||
+        state == "consumed";
 }
 
 bool readStoredRequest(
@@ -563,6 +564,53 @@ DevicePairingRequestRepository::decideInActiveTransaction(
     if (current.request.revision != expectedRevision)
         return DevicePairingRequestRepositoryStatus::revisionConflict;
     if (current.request.state != "pending")
+        return DevicePairingRequestRepositoryStatus::stateConflict;
+    return DevicePairingRequestRepositoryStatus::storageError;
+}
+
+DevicePairingRequestRepositoryStatus
+DevicePairingRequestRepository::consumeApprovedInActiveTransaction(
+    const std::string& pairingRequestId,
+    std::uint64_t expectedRevision)
+{
+    if (!database_.transactionActive())
+        return DevicePairingRequestRepositoryStatus::transactionRequired;
+    if (!safeIdentifier(pairingRequestId) || expectedRevision == 0U ||
+        expectedRevision > static_cast<std::uint64_t>(
+            std::numeric_limits<sqlite3_int64>::max()))
+    {
+        return DevicePairingRequestRepositoryStatus::invalid;
+    }
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "UPDATE security_device_pairing_requests "
+        "SET state = 'consumed', revision = revision + 1, "
+        "updated_at = CURRENT_TIMESTAMP "
+        "WHERE pairing_request_id = ? AND revision = ? "
+        "AND state = 'approved' AND invalidated_at = '' "
+        "AND expires_at > CURRENT_TIMESTAMP;";
+    if (sqlite3_prepare_v2(database_.handle(), sql, -1,
+                           &statement, nullptr) != SQLITE_OK)
+        return DevicePairingRequestRepositoryStatus::storageError;
+
+    const bool bound = bindText(statement, 1, pairingRequestId) &&
+        sqlite3_bind_int64(statement, 2,
+            static_cast<sqlite3_int64>(expectedRevision)) == SQLITE_OK;
+    const int step = bound ? sqlite3_step(statement) : SQLITE_ERROR;
+    const int changed = sqlite3_changes(database_.handle());
+    sqlite3_finalize(statement);
+    if (step != SQLITE_DONE)
+        return DevicePairingRequestRepositoryStatus::storageError;
+    if (changed == 1)
+        return DevicePairingRequestRepositoryStatus::ok;
+
+    const auto current = findById(pairingRequestId);
+    if (current.status != DevicePairingRequestRepositoryStatus::ok)
+        return current.status;
+    if (current.request.revision != expectedRevision)
+        return DevicePairingRequestRepositoryStatus::revisionConflict;
+    if (current.request.state != "approved")
         return DevicePairingRequestRepositoryStatus::stateConflict;
     return DevicePairingRequestRepositoryStatus::storageError;
 }

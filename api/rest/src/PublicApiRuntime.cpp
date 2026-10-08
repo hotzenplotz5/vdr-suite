@@ -2607,6 +2607,7 @@ ApiResponse platformCapabilities(
     const bool accountSessionRevokeAvailable,
     const bool devicePairingBootstrapAvailable,
     const bool devicePairingAdministrationAvailable,
+    const bool deviceCredentialIssueAvailable,
     const std::string& requestId,
     const std::string& correlationId)
 {
@@ -2651,6 +2652,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.device-pairing-administration\",\"version\":1,\"availability\":\"" +
         std::string(devicePairingAdministrationAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.device-credential-issuance\",\"version\":1,\"availability\":\"" +
+        std::string(deviceCredentialIssueAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.compatibility-policy\",\"version\":1,\"availability\":\"available\"},"
         "{\"id\":\"public-api.deprecation-metadata\",\"version\":1,\"availability\":\"available\"}"
@@ -3632,6 +3636,25 @@ bool PublicApiRuntime::devicePairingLookupConfigured() const
     return static_cast<bool>(devicePairingLookup_);
 }
 
+void PublicApiRuntime::registerDeviceCredentialIssue(
+    DeviceCredentialIssue issue)
+{
+    std::lock_guard<std::mutex> lock(deviceCredentialIssueMutex_);
+    deviceCredentialIssue_ = std::move(issue);
+}
+
+void PublicApiRuntime::resetDeviceCredentialIssue()
+{
+    std::lock_guard<std::mutex> lock(deviceCredentialIssueMutex_);
+    deviceCredentialIssue_ = {};
+}
+
+bool PublicApiRuntime::deviceCredentialIssueConfigured() const
+{
+    std::lock_guard<std::mutex> lock(deviceCredentialIssueMutex_);
+    return static_cast<bool>(deviceCredentialIssue_);
+}
+
 void PublicApiRuntime::registerDevicePairingAdministrationCollectionLookup(
     DevicePairingAdministrationCollectionLookup lookup)
 {
@@ -4213,6 +4236,7 @@ bool PublicApiRuntime::tryHandleGet(
             devicePairingAdministrationCollectionLookupConfigured() &&
                 devicePairingAdministrationLookupConfigured() &&
                 devicePairingDecisionConfigured(),
+            deviceCredentialIssueConfigured(),
             requestId,
             correlationId);
         return true;
@@ -4458,6 +4482,14 @@ bool PublicApiRuntime::tryHandleGet(
                         path,
                         requestId,
                         correlationId);
+                    return true;
+
+                case PublicDevicePairingLookupStatus::consumed:
+                    response = problemResponse(
+                        410, "pairing_consumed",
+                        "Pairing already consumed",
+                        "A new pairing is required.",
+                        path, requestId, correlationId);
                     return true;
 
                 case PublicDevicePairingLookupStatus::unavailable:
@@ -5709,7 +5741,8 @@ bool PublicApiRuntime::tryHandlePost(
     const std::string& ifMatch,
     const std::string& idempotencyKey,
     const std::string& contentType,
-    const std::string& authorizedBackendId) const
+    const std::string& authorizedBackendId,
+    const std::string& pairingToken) const
 {
     const std::string path = requestPath(requestTarget);
     std::string operationId;
@@ -5718,6 +5751,105 @@ bool PublicApiRuntime::tryHandlePost(
     std::string credentialId;
     std::string sessionId;
     std::string pairingRequestId;
+
+    const std::string issueSuffix = "/credential";
+    const std::string pairingPrefix(PublicDevicePairingPrefix);
+    if (path.compare(0U, pairingPrefix.size(), pairingPrefix) == 0 &&
+        path.size() > pairingPrefix.size() + issueSuffix.size() &&
+        path.compare(path.size() - issueSuffix.size(),
+                     issueSuffix.size(), issueSuffix) == 0)
+    {
+        const std::string id = path.substr(
+            pairingPrefix.size(),
+            path.size() - pairingPrefix.size() - issueSuffix.size());
+        if (id.find('/') == std::string::npos && !id.empty())
+        {
+            if (requestTarget != path || !body.empty() ||
+                !ifMatch.empty() || !idempotencyKey.empty())
+            {
+                response = invalidRequestProblem(
+                    path, "Credential issuance takes no body, query, or mutation preconditions.",
+                    requestId, correlationId);
+                return true;
+            }
+            if (pairingToken.empty())
+            {
+                response = unauthorizedProblem(path, requestId, correlationId);
+                return true;
+            }
+            DeviceCredentialIssue handler;
+            {
+                std::lock_guard<std::mutex> lock(deviceCredentialIssueMutex_);
+                handler = deviceCredentialIssue_;
+            }
+            if (!handler)
+            {
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+            }
+            PublicDeviceCredentialIssueRequest request;
+            request.pairingRequestId = id;
+            request.pairingToken = pairingToken;
+            request.requestId = requestId;
+            request.correlationId = correlationId;
+            PublicDeviceCredentialIssueResult issued = handler(request);
+            switch (issued.status)
+            {
+                case PublicDeviceCredentialIssueStatus::issued:
+                    if (issued.actorId.empty() || issued.deviceId.empty() ||
+                        issued.credentialId.empty() ||
+                        issued.credentialSecret.empty())
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                    }
+                    else
+                    {
+                        response = jsonResponse(
+                            "{\"actorId\":\"" + jsonEscape(issued.actorId) +
+                            "\",\"deviceId\":\"" + jsonEscape(issued.deviceId) +
+                            "\",\"credentialId\":\"" + jsonEscape(issued.credentialId) +
+                            "\",\"credentialSecret\":\"" +
+                            jsonEscape(issued.credentialSecret) + "\"}",
+                            requestId, correlationId);
+                        response.statusCode = 201;
+                        response.headers["Cache-Control"] = "no-store";
+                    }
+                    std::fill(issued.credentialSecret.begin(),
+                              issued.credentialSecret.end(), '\0');
+                    issued.credentialSecret.clear();
+                    return true;
+                case PublicDeviceCredentialIssueStatus::invalid:
+                    response = invalidRequestProblem(path,
+                        "Invalid pairing issuance request.",
+                        requestId, correlationId);
+                    return true;
+                case PublicDeviceCredentialIssueStatus::notFound:
+                    response = notFoundProblem(path, requestId, correlationId);
+                    return true;
+                case PublicDeviceCredentialIssueStatus::unauthorized:
+                    response = unauthorizedProblem(path, requestId, correlationId);
+                    return true;
+                case PublicDeviceCredentialIssueStatus::notApproved:
+                case PublicDeviceCredentialIssueStatus::consumed:
+                    response = problemResponse(409, "pairing_state_conflict",
+                        "Pairing state conflict",
+                        "Pairing is not approved or already consumed.",
+                        path, requestId, correlationId);
+                    return true;
+                case PublicDeviceCredentialIssueStatus::expired:
+                    response = problemResponse(410, "pairing_expired",
+                        "Pairing expired", "Pairing request has expired.",
+                        path, requestId, correlationId);
+                    return true;
+                case PublicDeviceCredentialIssueStatus::unavailable:
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+            }
+        }
+    }
 
     if (path == PublicDevicePairingCollectionPath)
     {

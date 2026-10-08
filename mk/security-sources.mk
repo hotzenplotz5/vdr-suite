@@ -8,6 +8,7 @@ SECURITY_REPOSITORY_SRC := \
 	core/security/src/SecurityPermissionGrantRepository.cpp \
 	core/security/src/CredentialVerifierRepository.cpp \
 	core/security/src/DevicePairingRequestRepository.cpp \
+	core/security/src/DeviceCredentialVerifierRepository.cpp \
 	core/security/src/FirstAdminBootstrapRepository.cpp \
 	core/security/src/HumanAccountRepository.cpp \
 	core/security/src/HumanAccountAdministrationRepository.cpp \
@@ -72,6 +73,7 @@ test-security-architecture:
 	python3 tools/check_mu8c_credential_revoke.py
 	python3 tools/check_mu10a_device_pairing_bootstrap.py
 	python3 tools/check_mu10b_admin_pairing_approval.py
+	python3 tools/check_mu10c_device_credential_issuance.py
 	python3 tools/check_browser_session_issuance_architecture.py
 	python3 tools/check_browser_session_issuer_binding.py
 	python3 tools/check_browser_session_concurrency_limit.py
@@ -89,6 +91,10 @@ test-security-device-pairing-request:
 		$(SQLITE_SRC) \
 		core/security/src/AccountabilityEventRepository.cpp \
 		core/security/src/DevicePairingRequestRepository.cpp \
+		core/security/src/DeviceCredentialVerifierRepository.cpp \
+		core/security/src/SecurityIdentityRepository.cpp \
+		core/security/src/SecurityIdentityProvisioningRepository.cpp \
+		core/security/src/SecurityPermissionGrantRepository.cpp \
 		core/security/src/DevicePairingRequestService.cpp \
 		core/security/tests/test_device_pairing_request_service.cpp \
 		$(LDFLAGS) \

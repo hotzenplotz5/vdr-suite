@@ -45,6 +45,63 @@ int main()
 
     {
         SecurityHttpGateBrowserTestFixture fixture;
+        HttpServerRequest activation;
+        activation.method = "POST";
+        activation.path = itemPath + "/credential";
+        activation.headers["X-VDR-Suite-Pairing-Token"] =
+            "opaque-activation-token";
+        const SecurityGateDecision decision =
+            fixture.gate.evaluate(activation);
+        assert(decision.allowed);
+        assert(!decision.protectedMutation);
+        assert(!decision.context.authenticated());
+    }
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        HttpServerRequest activation;
+        activation.method = "POST";
+        activation.path = itemPath + "/credential";
+        const SecurityGateDecision decision =
+            fixture.gate.evaluate(activation);
+        assert(!decision.allowed);
+        // The exact issuance route requires a pairing token at the
+        // security gate; no token is an explicit 401, never an
+        // unmigrated-mutation 503.
+        assert(decision.rejection.statusCode == 401);
+        assert(decision.rejection.body.find("unauthorized") !=
+               std::string::npos);
+    }
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        HttpServerRequest activation;
+        activation.method = "POST";
+        activation.path = itemPath + "/credential";
+        fixture.addBrowserAuthentication(activation, true);
+
+        const SecurityGateDecision decision =
+            fixture.gate.evaluate(activation);
+        // An administrator browser session must never replace the
+        // short-lived proof-of-possession pairing token.
+        assert(!decision.allowed);
+        assert(decision.context.authenticated());
+        assert(decision.rejection.statusCode == 401);
+    }
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        HttpServerRequest unrelated;
+        unrelated.method = "POST";
+        unrelated.path = "/api/v1/device-pairings/any/credential/more";
+        unrelated.headers["X-VDR-Suite-Pairing-Token"] = "opaque-token";
+        const SecurityGateDecision decision =
+            fixture.gate.evaluate(unrelated);
+        assert(!decision.allowed);
+    }
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
         HttpServerRequest collection;
         collection.method = "GET";
         collection.path = "/api/v1/device-pairings";

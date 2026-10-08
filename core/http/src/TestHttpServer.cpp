@@ -213,6 +213,13 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
         return;
     }
 
+    deviceCredentialVerifierRepository_ =
+        std::make_unique<DeviceCredentialVerifierRepository>(
+            *securityDatabase_);
+    if (!deviceCredentialVerifierRepository_->ensureSchema())
+        return;
+
+
     securityIdentityProvisioningRepository_ =
         std::make_unique<SecurityIdentityProvisioningRepository>(
             *securityDatabase_);
@@ -541,6 +548,10 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
                     result.status =
                         PublicDevicePairingLookupStatus::expired;
                     return result;
+                case DevicePairingPollStatus::consumed:
+                    result.status =
+                        PublicDevicePairingLookupStatus::consumed;
+                    return result;
                 case DevicePairingPollStatus::unavailable:
                     result.status =
                         PublicDevicePairingLookupStatus::unavailable;
@@ -561,6 +572,65 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
                 found.resource.expiresAt;
             result.resource.pollIntervalSeconds =
                 found.resource.pollIntervalSeconds;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerDeviceCredentialIssue(
+        [this](const PublicDeviceCredentialIssueRequest& request)
+        {
+            PublicDeviceCredentialIssueResult result;
+            if (!devicePairingRequestService_ ||
+                !securityIdentityProvisioningRepository_ ||
+                !deviceCredentialVerifierRepository_)
+                return result;
+
+            DevicePairingCredentialIssueRequest serviceRequest;
+            serviceRequest.pairingRequestId = request.pairingRequestId;
+            serviceRequest.pairingToken = request.pairingToken;
+            serviceRequest.requestId = request.requestId;
+            serviceRequest.correlationId = request.correlationId;
+            auto issued = devicePairingRequestService_->issueDeviceCredential(
+                serviceRequest, *securityIdentityProvisioningRepository_,
+                *deviceCredentialVerifierRepository_);
+            switch (issued.status)
+            {
+                case DevicePairingCredentialIssueStatus::issued:
+                    result.status = PublicDeviceCredentialIssueStatus::issued;
+                    break;
+                case DevicePairingCredentialIssueStatus::invalidRequest:
+                    result.status = PublicDeviceCredentialIssueStatus::invalid;
+                    break;
+                case DevicePairingCredentialIssueStatus::notFound:
+                    result.status = PublicDeviceCredentialIssueStatus::notFound;
+                    break;
+                case DevicePairingCredentialIssueStatus::unauthorized:
+                    result.status = PublicDeviceCredentialIssueStatus::unauthorized;
+                    break;
+                case DevicePairingCredentialIssueStatus::notApproved:
+                    result.status = PublicDeviceCredentialIssueStatus::notApproved;
+                    break;
+                case DevicePairingCredentialIssueStatus::expired:
+                    result.status = PublicDeviceCredentialIssueStatus::expired;
+                    break;
+                case DevicePairingCredentialIssueStatus::consumed:
+                    result.status = PublicDeviceCredentialIssueStatus::consumed;
+                    break;
+                case DevicePairingCredentialIssueStatus::entropyUnavailable:
+                case DevicePairingCredentialIssueStatus::hashingUnavailable:
+                case DevicePairingCredentialIssueStatus::storageError:
+                    result.status = PublicDeviceCredentialIssueStatus::unavailable;
+                    break;
+            }
+            if (result.status == PublicDeviceCredentialIssueStatus::issued &&
+                issued.credential.has_value())
+            {
+                result.actorId = issued.credential->actorId;
+                result.deviceId = issued.credential->deviceId;
+                result.credentialId = issued.credential->credentialId;
+                result.credentialSecret =
+                    std::move(issued.credential->credentialSecret);
+                issued.credential->clearSecret();
+            }
             return result;
         });
 
@@ -1453,6 +1523,7 @@ TestHttpServer::~TestHttpServer()
         resetDevicePairingAdministrationLookup();
     PublicApiRuntime::instance().
         resetDevicePairingAdministrationCollectionLookup();
+    PublicApiRuntime::instance().resetDeviceCredentialIssue();
     PublicApiRuntime::instance().resetDevicePairingLookup();
     PublicApiRuntime::instance().resetDevicePairingCreate();
     PublicApiRuntime::instance().resetAccountCredentialMutation();
@@ -1599,7 +1670,10 @@ HttpServerResponse TestHttpServer::handleRequest(
                 requestHeaderValue(
                     request,
                     "Content-Type"),
-                gate.authorizationDecision.backendId);
+                gate.authorizationDecision.backendId,
+                requestHeaderValue(
+                    request,
+                    "X-VDR-Suite-Pairing-Token"));
     }
     else
     {

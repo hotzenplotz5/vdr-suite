@@ -350,7 +350,8 @@ public:
         const std::string& ifMatch = "",
         const std::string& idempotencyKey = "",
         const std::string& contentType = "",
-        const std::string& authorizedBackendRef = "")
+        const std::string& authorizedBackendRef = "",
+        const std::string& pairingToken = "")
     {
         ApiResponse response;
 
@@ -364,7 +365,8 @@ public:
                 ifMatch,
                 idempotencyKey,
                 contentType,
-                authorizedBackendRef))
+                authorizedBackendRef,
+                pairingToken))
         {
             return response;
         }

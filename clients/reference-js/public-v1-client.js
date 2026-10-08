@@ -470,6 +470,32 @@
     }
 
 
+    function requestDeviceCredentialIssue(options) {
+      const path = devicePairingItemPath(options) + '/credential';
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'X-VDR-Suite-Pairing-Token': options.pairingToken
+        },
+        credentials: 'omit',
+        cache: 'no-store',
+        signal: options.signal
+      }).then(function (response) {
+        return parseJsonBody(response).then(function (payload) {
+          if (!response.ok) {
+            throw new VdrSuitePublicClientError(
+              path, response.status, payload, response
+            );
+          }
+          return {
+            status: response.status,
+            data: payload
+          };
+        });
+      });
+    }
+
     function requestRevisioned(path, options) {
       const requestOptions = options && typeof options === 'object' ? options : {};
       if (requestOptions.ifNoneMatch !== undefined
@@ -704,6 +730,15 @@
           devicePairingItemPath(normalizedOptions),
           requestOptions
         );
+      },
+      issueDeviceCredential(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        if (typeof normalizedOptions.pairingToken !== 'string'
+            || normalizedOptions.pairingToken === '') {
+          throw new Error('pairingToken must be a non-empty string');
+        }
+        // A lost response is terminal. Callers must not automatically repeat issuance.
+        return requestDeviceCredentialIssue(normalizedOptions);
       },
       getBackends(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};

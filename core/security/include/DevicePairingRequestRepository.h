@@ -88,6 +88,12 @@ public:
         const std::string& state,
         const std::string& decidedByActorId);
 
+    // Requires the caller's active issuance transaction. This is not an
+    // authorization check: the service must verify the pairing token first.
+    DevicePairingRequestRepositoryStatus consumeApprovedInActiveTransaction(
+        const std::string& pairingRequestId,
+        std::uint64_t expectedRevision);
+
     static bool supportsSecretHash(const std::string& secretHash);
 
 private:

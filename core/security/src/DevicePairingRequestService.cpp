@@ -4,6 +4,8 @@
 #include "AccountabilityEventRepository.h"
 #include "Database.h"
 #include "DevicePairingRequestRepository.h"
+#include "DeviceCredentialVerifierRepository.h"
+#include "SecurityIdentityProvisioningRepository.h"
 
 #include <crypt.h>
 #include <sys/random.h>
@@ -821,6 +823,228 @@ DevicePairingRequestService::issue(
     return result;
 }
 
+
+IssuedDeviceCredential::~IssuedDeviceCredential()
+{
+    clearSecret();
+}
+
+IssuedDeviceCredential::IssuedDeviceCredential(
+    IssuedDeviceCredential&& other) noexcept
+    : actorId(std::move(other.actorId)),
+      deviceId(std::move(other.deviceId)),
+      credentialId(std::move(other.credentialId)),
+      credentialSecret(std::move(other.credentialSecret))
+{
+    other.clearSecret();
+}
+
+IssuedDeviceCredential& IssuedDeviceCredential::operator=(
+    IssuedDeviceCredential&& other) noexcept
+{
+    if (this == &other)
+        return *this;
+    clearSecret();
+    actorId = std::move(other.actorId);
+    deviceId = std::move(other.deviceId);
+    credentialId = std::move(other.credentialId);
+    credentialSecret = std::move(other.credentialSecret);
+    other.clearSecret();
+    return *this;
+}
+
+void IssuedDeviceCredential::clearSecret() noexcept
+{
+    secureWipe(credentialSecret);
+}
+
+DevicePairingCredentialIssueResult
+DevicePairingRequestService::issueDeviceCredential(
+    const DevicePairingCredentialIssueRequest& request,
+    SecurityIdentityProvisioningRepository& provisioning,
+    DeviceCredentialVerifierRepository& verifiers)
+{
+    DevicePairingCredentialIssueResult result;
+    if (request.pairingRequestId.empty() ||
+        request.pairingRequestId.size() > 128U ||
+        request.pairingToken.empty() ||
+        request.pairingToken.size() > 256U ||
+        request.requestId.empty() ||
+        request.requestId.size() > 256U ||
+        request.correlationId.size() > 256U)
+    {
+        result.status = DevicePairingCredentialIssueStatus::invalidRequest;
+        return result;
+    }
+
+    // Reject non-approved or unauthorized attempts before producing
+    // expensive fresh credential material. This is only a preflight:
+    // the token, expiry and state are rechecked under BEGIN IMMEDIATE.
+    const auto preliminary = repository_.findById(request.pairingRequestId);
+    if (preliminary.status == DevicePairingRequestRepositoryStatus::notFound ||
+        preliminary.status == DevicePairingRequestRepositoryStatus::invalidated)
+    {
+        result.status = DevicePairingCredentialIssueStatus::notFound;
+        return result;
+    }
+    if (preliminary.status == DevicePairingRequestRepositoryStatus::expired)
+    {
+        result.status = DevicePairingCredentialIssueStatus::expired;
+        return result;
+    }
+    if (preliminary.status != DevicePairingRequestRepositoryStatus::ok)
+        return result;
+    if (!verifySecret(request.pairingToken,
+                      preliminary.request.pairingTokenHash))
+    {
+        result.status = DevicePairingCredentialIssueStatus::unauthorized;
+        return result;
+    }
+    if (preliminary.request.state == "consumed")
+    {
+        result.status = DevicePairingCredentialIssueStatus::consumed;
+        return result;
+    }
+    if (preliminary.request.state != "approved")
+    {
+        result.status = DevicePairingCredentialIssueStatus::notApproved;
+        return result;
+    }
+
+    // Create all secret material before acquiring the write transaction.
+    // Nothing may be issued if secure entropy or hashing fails.
+    std::array<unsigned char, IdentifierBytes> actorBytes{};
+    std::array<unsigned char, IdentifierBytes> deviceBytes{};
+    std::array<unsigned char, IdentifierBytes> credentialBytes{};
+    std::array<unsigned char, TokenBytes> secretBytes{};
+    std::array<unsigned char, SaltBytes> saltBytes{};
+    const bool randomOk =
+        entropySource_(actorBytes.data(), actorBytes.size()) &&
+        entropySource_(deviceBytes.data(), deviceBytes.size()) &&
+        entropySource_(credentialBytes.data(), credentialBytes.size()) &&
+        entropySource_(secretBytes.data(), secretBytes.size()) &&
+        entropySource_(saltBytes.data(), saltBytes.size());
+    if (!randomOk)
+    {
+        secureWipeObject(actorBytes);
+        secureWipeObject(deviceBytes);
+        secureWipeObject(credentialBytes);
+        secureWipeObject(secretBytes);
+        secureWipeObject(saltBytes);
+        result.status = DevicePairingCredentialIssueStatus::entropyUnavailable;
+        return result;
+    }
+
+    IssuedDeviceCredential issued;
+    issued.actorId = "actor_device_" +
+        hexEncode(actorBytes.data(), actorBytes.size());
+    issued.deviceId = "device_" +
+        hexEncode(deviceBytes.data(), deviceBytes.size());
+    issued.credentialId = "credential_device_" +
+        hexEncode(credentialBytes.data(), credentialBytes.size());
+    issued.credentialSecret =
+        base64UrlEncode(secretBytes.data(), secretBytes.size());
+    std::string salt = cryptSaltEncode(saltBytes.data(), saltBytes.size());
+    secureWipeObject(actorBytes);
+    secureWipeObject(deviceBytes);
+    secureWipeObject(credentialBytes);
+    secureWipeObject(secretBytes);
+    secureWipeObject(saltBytes);
+    std::string verifierHash = hashSecret(issued.credentialSecret, salt);
+    secureWipe(salt);
+    if (verifierHash.empty())
+    {
+        result.status = DevicePairingCredentialIssueStatus::hashingUnavailable;
+        return result;
+    }
+
+    // This lock and transaction serialize concurrent issuers. Verify the
+    // token again inside the winning transaction, not only during polling.
+    auto lease = database_.acquireTransactionLease();
+    DatabaseTransaction transaction(database_);
+    if (!transaction.active())
+        return result;
+
+    const auto found = repository_.findById(request.pairingRequestId);
+    if (found.status == DevicePairingRequestRepositoryStatus::notFound ||
+        found.status == DevicePairingRequestRepositoryStatus::invalidated)
+    {
+        result.status = DevicePairingCredentialIssueStatus::notFound;
+        return result;
+    }
+    if (found.status == DevicePairingRequestRepositoryStatus::expired)
+    {
+        result.status = DevicePairingCredentialIssueStatus::expired;
+        return result;
+    }
+    if (found.status != DevicePairingRequestRepositoryStatus::ok)
+        return result;
+    if (!verifySecret(request.pairingToken,
+                      found.request.pairingTokenHash))
+    {
+        result.status = DevicePairingCredentialIssueStatus::unauthorized;
+        return result;
+    }
+    if (found.request.state == "consumed")
+    {
+        result.status = DevicePairingCredentialIssueStatus::consumed;
+        return result;
+    }
+    if (found.request.state != "approved")
+    {
+        result.status = DevicePairingCredentialIssueStatus::notApproved;
+        return result;
+    }
+
+    // Reuse the sole canonical Actor/Device/Credential authority.
+    if (!provisioning.ensureTechnicalIdentity(
+            issued.actorId, ActorType::Service,
+            "Paired device " + found.request.displayName,
+            issued.deviceId, found.request.displayName,
+            issued.credentialId, "device-app") ||
+        !verifiers.insertInActiveTransaction(
+            issued.credentialId, issued.deviceId, verifierHash) ||
+        repository_.consumeApprovedInActiveTransaction(
+            request.pairingRequestId, found.request.revision) !=
+            DevicePairingRequestRepositoryStatus::ok)
+    {
+        return result;
+    }
+
+    const auto auditId = randomAuditId(entropySource_);
+    if (!auditId.has_value())
+    {
+        result.status = DevicePairingCredentialIssueStatus::entropyUnavailable;
+        return result;
+    }
+    AccountabilityEvent event;
+    event.eventId = *auditId;
+    event.classes = "audit,security";
+    event.eventType = "device_pairing.credential_issued";
+    event.severity = "info";
+    event.occurredAt = nowPublicTimestamp(clock_());
+    event.actorId = issued.actorId;
+    event.actorType = "service";
+    event.authenticationState = "anonymous";
+    event.permission = "device.pairing.bootstrap";
+    event.backendId = "*";
+    event.operationId = request.pairingRequestId;
+    event.requestId = request.requestId;
+    event.correlationId = request.correlationId;
+    event.action = "device_pairing.issue_credential";
+    event.decision = "allowed";
+    event.reasonCode = "device_credential_issued";
+    event.outcome = "created";
+    if (event.occurredAt.empty() ||
+        !accountabilityRepository_.append(event) ||
+        !transaction.commit())
+        return result;
+
+    result.status = DevicePairingCredentialIssueStatus::issued;
+    result.credential.emplace(std::move(issued));
+    return result;
+}
+
 DevicePairingPollResult
 DevicePairingRequestService::poll(
     const DevicePairingPollRequest& request) const
@@ -874,6 +1098,12 @@ DevicePairingRequestService::poll(
     {
         result.status =
             DevicePairingPollStatus::unauthorized;
+        return result;
+    }
+
+    if (found.request.state == "consumed")
+    {
+        result.status = DevicePairingPollStatus::consumed;
         return result;
     }
 

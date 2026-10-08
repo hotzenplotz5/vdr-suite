@@ -509,6 +509,7 @@ enum class PublicDevicePairingLookupStatus
     notFound,
     unauthorized,
     expired,
+    consumed,
     unavailable,
 };
 
@@ -555,6 +556,36 @@ struct PublicDevicePairingLookupResult
     PublicDevicePairingLookupStatus status =
         PublicDevicePairingLookupStatus::unavailable;
     PublicDevicePairingResource resource;
+};
+
+enum class PublicDeviceCredentialIssueStatus
+{
+    issued,
+    invalid,
+    notFound,
+    unauthorized,
+    notApproved,
+    expired,
+    consumed,
+    unavailable,
+};
+
+struct PublicDeviceCredentialIssueRequest
+{
+    std::string pairingRequestId;
+    std::string pairingToken;
+    std::string requestId;
+    std::string correlationId;
+};
+
+struct PublicDeviceCredentialIssueResult
+{
+    PublicDeviceCredentialIssueStatus status =
+        PublicDeviceCredentialIssueStatus::unavailable;
+    std::string actorId;
+    std::string deviceId;
+    std::string credentialId;
+    std::string credentialSecret;
 };
 
 enum class PublicDevicePairingAdministrationStatus
@@ -713,6 +744,10 @@ public:
         std::function<PublicDevicePairingLookupResult(
             const PublicDevicePairingLookupRequest& request)>;
 
+    using DeviceCredentialIssue =
+        std::function<PublicDeviceCredentialIssueResult(
+            const PublicDeviceCredentialIssueRequest& request)>;
+
     using DevicePairingAdministrationCollectionLookup =
         std::function<PublicDevicePairingAdministrationCollectionResult(
             const PublicDevicePairingAdministrationCollectionRequest& request)>;
@@ -834,6 +869,10 @@ public:
     void resetDevicePairingLookup();
     bool devicePairingLookupConfigured() const;
 
+    void registerDeviceCredentialIssue(DeviceCredentialIssue issue);
+    void resetDeviceCredentialIssue();
+    bool deviceCredentialIssueConfigured() const;
+
     void registerDevicePairingAdministrationCollectionLookup(
         DevicePairingAdministrationCollectionLookup lookup);
     void resetDevicePairingAdministrationCollectionLookup();
@@ -874,7 +913,8 @@ public:
         const std::string& ifMatch = "",
         const std::string& idempotencyKey = "",
         const std::string& contentType = "",
-        const std::string& authorizedBackendId = "") const;
+        const std::string& authorizedBackendId = "",
+        const std::string& pairingToken = "") const;
 
     bool tryHandleUnsupportedMethod(
         const std::string& method,
@@ -946,6 +986,9 @@ private:
 
     mutable std::mutex devicePairingLookupMutex_;
     DevicePairingLookup devicePairingLookup_;
+
+    mutable std::mutex deviceCredentialIssueMutex_;
+    DeviceCredentialIssue deviceCredentialIssue_;
 
     mutable std::mutex devicePairingAdministrationCollectionLookupMutex_;
     DevicePairingAdministrationCollectionLookup

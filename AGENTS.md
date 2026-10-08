@@ -64,6 +64,66 @@ complete content or use a bounded edit strategy. Recheck the remote branch head
 before every write and inspect the resulting commit or diff before treating the
 change as complete.
 
+## Absolute prohibition on guessing: verified evidence before instructions
+
+**Guessing operational facts is strictly forbidden.** Never invent, assume,
+estimate, extrapolate from an earlier phase, or hand the user plausible-looking
+commands when correctness is verifiable. Urgency, prior success, or pressure to
+finish never waives this rule. The user's time, yaVDR installation, and live
+project state must not be used to discover preventable mistakes.
+
+**Before writing code, starting tests, or handing over executable commands,
+establish the required facts from the current authoritative source:**
+
+- Verify the intended repository, branch, **exact** remote head SHA, checkout
+  root, tested SHA, and whether all necessary fixes are present. Do not
+  present an older checkout's result as evidence for the current PR head.
+- Read the current Makefile and included makefiles (or inspected target list)
+  to prove the actual build/test targets, their prerequisites and flags.
+  **Never invent a Make target, executable name or path.**
+- Derive HTTP status codes, authentication and authorization behavior from
+  the actual gate, router, service and tests. **Never guess a status code,**
+  and never weaken a security check just to match an unsupported expectation.
+- Establish the required filesystem/storage preflight, intended output paths,
+  user privileges, possible side effects and whether the action touches the
+  installed service. Host-dependent facts require a read-only preflight.
+- Check the expected head **before** handing off a long-running, detached or
+  resource-intensive build. Never accidentally start an old checkout after
+  fixing a newer branch.
+
+**The test block itself must fail closed on wrong provenance.** It must
+verify the checkout root, actual SHA against the selected immutable test
+candidate (or an explicitly verified tracking policy), required commands
+and Make targets, and applicable resource preflight *before* work begins.
+If the branch advanced, fetch and establish the corrected candidate first.
+Do not give a detached build script that silently tests stale code.
+Reuse accepted evidence for unaffected inputs; do not restart tests only
+because documentation or unrelated code changed.
+
+**A background process is not proof of a completed build.** `nohup`, a
+printed PID or an absent result file alone does not prove the job is still
+running. Detached jobs require a recorded exact SHA, log, process identity,
+terminal return codes, and a read-only status command distinguishing running,
+completed successfully, completed with error, and unexpectedly missing.
+Never report success before the result is known. Continue to honor existing
+resource safety, minimal-validation and shell-option rules.
+
+**If evidence is unavailable, stop the affected unsafe action, not the entire
+authorized workstream.** Retrieve authoritative information or perform a
+bounded read-only diagnostic; continue independent approved work. State
+precisely what is unknown rather than manufacturing an answer. Never shift
+basic repository fact-checking to the user. Diagnose a failed user test
+against the exact tested SHA and demonstrated failure before requesting
+another test.
+
+**Mandatory pre-handoff self-check:** Inspect every command, checkout path,
+Make target, branch/SHA precondition, expected status, side effect, output,
+failure path and success criterion against the current repository and
+applicable `AGENTS.md` requirements. Correct known discrepancies before
+handing over any test or acceptance block. If some fact is only knowable on
+the host, build a harmless read-only check into the block instead of
+pretending it has already been established.
+
 ## Canonical runtime/frontend deployment
 
 For real yaVDR installation or runtime acceptance of repository-built VDR-Suite
@@ -245,6 +305,40 @@ is not a mandatory gate for every iterative real-runtime test.
 A failed check that is required for the current changed surface or current gate
 must be diagnosed and fixed before crossing that gate. Do not hide failures by
 adding unrelated commits or by bypassing genuinely relevant checks.
+
+## Product-code-first CI and post-merge stabilization
+
+**Do not waste time waiting on documentation-only intermediate CI while
+authorized productive implementation remains.** Documentation changes may be
+committed promptly, but they must not create a CI-watching loop or block
+unrelated product-code development. Continue the approved implementation
+immediately. Never treat a documentation-only milestone as the end of an
+authorized product workstream.
+
+**Finish the bounded productive code and focused tests before spending time on
+full CI stabilization.** Batch coherent implementation commits and validate the
+relevant final candidate. Respect required pre-merge security, architecture,
+test, runtime and branch-protection gates; this rule does not authorize merging
+red or unverified code or skipping required checks.
+
+**A successful local daemon build is sufficient build evidence before merge.**
+When the daemon must be built locally, a successful build of the exact candidate
+is the build proof. Do not demand, repeat or await an additional hosted CI
+build merely to prove that the same daemon compiles. Record the tested commit
+and build result. This does not substitute for distinct functional/security
+acceptance or checks that GitHub branch protection actually requires.
+
+**After an authorized merge, verify the exact merged `main` head and its hosted
+CI run.** If that run reveals a defect, repair it promptly against the current
+`main` through the repository's permitted branch/PR workflow, then verify the
+resulting merged `main` again. Do not silently rewrite `main`, bypass PR
+restrictions or overlap other developers' work. Avoid endless repetitive CI
+polling: use checks only when they can change the next action; keep advancing
+independent approved product tasks while the run progresses.
+
+**Priority:** shipping safe, tested product functionality over polishing
+intermediate documentation status. Status docs and guards should be updated at
+a meaningful product closeout, not as repeated standalone blockers.
 
 ## Minimal necessary validation
 
