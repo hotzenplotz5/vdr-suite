@@ -261,6 +261,13 @@ relevant final candidate. Respect required pre-merge security, architecture,
 test, runtime and branch-protection gates; this rule does not authorize merging
 red or unverified code or skipping required checks.
 
+**A successful local daemon build is sufficient build evidence before merge.**
+When the daemon must be built locally, a successful build of the exact candidate
+is the build proof. Do not demand, repeat or await an additional hosted CI
+build merely to prove that the same daemon compiles. Record the tested commit
+and build result. This does not substitute for distinct functional/security
+acceptance or checks that GitHub branch protection actually requires.
+
 **After an authorized merge, verify the exact merged `main` head and its hosted
 CI run.** If that run reveals a defect, repair it promptly against the current
 `main` through the repository's permitted branch/PR workflow, then verify the
