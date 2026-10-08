@@ -2,6 +2,9 @@
 #include "Database.h"
 #include "DevicePairingRequestRepository.h"
 #include "DevicePairingRequestService.h"
+#include "DeviceCredentialVerifierRepository.h"
+#include "SecurityIdentityRepository.h"
+#include "SecurityIdentityProvisioningRepository.h"
 
 #include <algorithm>
 #include <cassert>
@@ -50,6 +53,12 @@ int main()
     DevicePairingRequestRepository repository(database);
     assert(accountability.ensureSchema());
     assert(repository.ensureSchema());
+
+    SecurityIdentityRepository identity(database);
+    SecurityIdentityProvisioningRepository provisioning(database);
+    DeviceCredentialVerifierRepository deviceVerifiers(database);
+    assert(identity.ensureSchema());
+    assert(deviceVerifiers.ensureSchema());
 
     DevicePairingRequestService service(
         database,
@@ -189,6 +198,70 @@ int main()
         DevicePairingRequestRepositoryStatus::stateConflict);
     assert(database.execute("ROLLBACK;"));
     assert(service.poll(poll).status == DevicePairingPollStatus::unavailable);
+
+
+    // Issue a fresh pairing and prove end-to-end canonical identity issuance.
+    DevicePairingIssueResult deviceCreate =
+        service.issue(issueRequest("Paired VIDAA TV", "mu10c-create"));
+    assert(deviceCreate.status == DevicePairingIssueStatus::issued);
+    assert(deviceCreate.pairing.has_value());
+    const std::string issueId =
+        deviceCreate.pairing->resource.pairingRequestId;
+    DevicePairingCredentialIssueRequest deviceIssue;
+    deviceIssue.pairingRequestId = issueId;
+    deviceIssue.pairingToken = deviceCreate.pairing->pairingToken;
+    deviceIssue.requestId = "mu10c-issue";
+    deviceIssue.correlationId = "mu10c-correlation";
+    assert(service.issueDeviceCredential(
+        deviceIssue, provisioning, deviceVerifiers).status ==
+        DevicePairingCredentialIssueStatus::notApproved);
+
+    DevicePairingDecisionRequest deviceApprove = approve;
+    deviceApprove.pairingRequestId = issueId;
+    deviceApprove.expectedResourceRevision =
+        "device-pairing:" + issueId + ":1";
+    deviceApprove.context.requestId = "mu10c-approve";
+    assert(service.decide(deviceApprove).status ==
+        DevicePairingAdministrationStatus::ok);
+
+    auto wrongIssue = deviceIssue;
+    wrongIssue.pairingToken = "not-the-pairing-token";
+    assert(service.issueDeviceCredential(
+        wrongIssue, provisioning, deviceVerifiers).status ==
+        DevicePairingCredentialIssueStatus::unauthorized);
+
+    DevicePairingCredentialIssueResult credentialResult =
+        service.issueDeviceCredential(
+            deviceIssue, provisioning, deviceVerifiers);
+    assert(credentialResult.status ==
+        DevicePairingCredentialIssueStatus::issued);
+    assert(credentialResult.credential.has_value());
+    const auto& deviceCredential = *credentialResult.credential;
+    assert(!deviceCredential.credentialSecret.empty());
+    assert(deviceCredential.credentialSecret != deviceIssue.pairingToken);
+    const auto actor = identity.findActor(deviceCredential.actorId);
+    const auto device = identity.findDevice(deviceCredential.deviceId);
+    const auto credential =
+        identity.findCredential(deviceCredential.credentialId);
+    const auto verifier = deviceVerifiers.findByCredentialId(
+        deviceCredential.credentialId);
+    assert(actor.has_value() && actor->type == ActorType::Service);
+    assert(actor->actorId != "admin-actor");
+    assert(device.has_value() &&
+        device->actorId == deviceCredential.actorId);
+    assert(credential.has_value() &&
+        credential->actorId == deviceCredential.actorId &&
+        credential->credentialType == "device-app");
+    assert(verifier.has_value() &&
+        verifier->deviceId == deviceCredential.deviceId &&
+        verifier->verifierHash != deviceCredential.credentialSecret &&
+        verifier->verifierHash.rfind("$6$", 0U) == 0U);
+    assert(repository.findById(issueId).request.state == "consumed");
+    assert(service.issueDeviceCredential(
+        deviceIssue, provisioning, deviceVerifiers).status ==
+        DevicePairingCredentialIssueStatus::consumed);
+    credentialResult.credential->clearSecret();
+    assert(credentialResult.credential->credentialSecret.empty());
 
     DevicePairingIssueResult rejectedCreate =
         service.issue(issueRequest(
