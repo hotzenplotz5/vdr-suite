@@ -547,6 +547,10 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
                     result.status =
                         PublicDevicePairingLookupStatus::expired;
                     return result;
+                case DevicePairingPollStatus::consumed:
+                    result.status =
+                        PublicDevicePairingLookupStatus::consumed;
+                    return result;
                 case DevicePairingPollStatus::unavailable:
                     result.status =
                         PublicDevicePairingLookupStatus::unavailable;
