@@ -130,7 +130,10 @@ def main():
     require("slice", "MU.10 remains the planned Device/app pairing successor")
     require("slice", "Phase 70 remains not started")
 
-    require("current", "MU.10A Device Pairing Bootstrap [COMPLETED - REAL YAVDR + REAL VIDAA PASS]")
+    require("current", "MU.10B Administrator Pairing Approval [ACCEPTED - PR #437 / REAL YAVDR PASS / HOSTED CI #9801 GREEN]")
+    require("current", "MU.10A Device Pairing Bootstrap passed real yaVDR runtime and real VIDAA first-consumer acceptance")
+    require("current", "PR #436")
+    require("current", "post-merge main CI #9779")
     require("current", "Post-MU.9 Administration Usability [MERGED - PR #433 / REAL YAVDR PASS / HOSTED CI GREEN]")
     require("workstream", "Post-MU.9 — Administration usability [MERGED — PR #433 / REAL YAVDR PASS / HOSTED CI GREEN]")
 
@@ -138,6 +141,7 @@ def main():
     print("MULTIUSER_ADMIN_UX=MERGED_PR_433_REAL_YAVDR_PASS_HOSTED_CI_GREEN")
     print("MU9=COMPLETED_CLOSEOUT_PR_431")
     print("MU10A=COMPLETED_REAL_YAVDR_REAL_VIDAA_PASS")
+    print("MU10B=ACCEPTED_REAL_YAVDR_PASS_PR_437_HOSTED_CI_GREEN")
     print("PHASE70=NOT_STARTED")
     return 0
 

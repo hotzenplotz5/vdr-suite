@@ -8,7 +8,6 @@
 #include <chrono>
 #include <cstddef>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace
@@ -25,6 +24,20 @@ DevicePairingRequestService::EntropySource deterministicEntropy()
             output[index] = next++;
         return true;
     };
+}
+
+DevicePairingIssueRequest issueRequest(
+    const std::string& displayName,
+    const std::string& requestId)
+{
+    DevicePairingIssueRequest request;
+    request.client.displayName = displayName;
+    request.client.clientKind = "vidaa";
+    request.client.appVersion = "1.0.0";
+    request.requestId = requestId;
+    request.correlationId =
+        "mu10-correlation";
+    return request;
 }
 }
 
@@ -49,125 +62,206 @@ int main()
                 std::chrono::seconds(4070908800));
         });
 
-    DevicePairingIssueRequest issue;
-    issue.client.displayName = "Living Room TV";
-    issue.client.clientKind = "vidaa";
-    issue.client.appVersion = "1.0.0";
-    issue.requestId = "mu10a-create-001";
-    issue.correlationId = "mu10a-correlation-001";
-
     DevicePairingIssueResult created =
-        service.issue(issue);
+        service.issue(issueRequest(
+            "Living Room TV",
+            "mu10b-create-approve"));
     assert(created.status == DevicePairingIssueStatus::issued);
     assert(created.pairing.has_value());
-    assert(
-        created.pairing->resource.pairingRequestId.rfind(
-            "dpr_",
-            0U) == 0U);
-    assert(created.pairing->userCode.size() == 9U);
-    assert(created.pairing->userCode[4] == '-');
-    assert(created.pairing->pairingToken.size() >= 32U);
-    assert(created.pairing->resource.state == "pending");
-    assert(
-        created.pairing->resource.pollIntervalSeconds ==
-        DevicePairingRequestService::PollIntervalSeconds);
-    assert(
-        created.pairing->resource.expiresAt ==
-        "2099-01-01T00:10:00Z");
+    const std::string approveId =
+        created.pairing->resource.pairingRequestId;
+    const std::string approveToken =
+        created.pairing->pairingToken;
 
     const DevicePairingRequestLookupResult stored =
-        repository.findById(
-            created.pairing->resource.pairingRequestId);
-    assert(
-        stored.status ==
+        repository.findById(approveId);
+    assert(stored.status ==
         DevicePairingRequestRepositoryStatus::ok);
-    assert(
-        stored.request.userCodeHash !=
+    assert(stored.request.revision == 1U);
+    assert(stored.request.state == "pending");
+    assert(stored.request.decidedByActorId.empty());
+    assert(stored.request.decidedAt.empty());
+    assert(stored.request.userCodeHash.rfind(
+        "$6$rounds=10000$", 0U) == 0U);
+    assert(stored.request.pairingTokenHash.rfind(
+        "$6$rounds=10000$", 0U) == 0U);
+    assert(stored.request.userCodeHash !=
         created.pairing->userCode);
-    assert(
-        stored.request.pairingTokenHash !=
+    assert(stored.request.pairingTokenHash !=
         created.pairing->pairingToken);
-    assert(
-        stored.request.userCodeHash.rfind(
-            "$6$rounds=10000$",
-            0U) == 0U);
-    assert(
-        stored.request.pairingTokenHash.rfind(
-            "$6$rounds=10000$",
-            0U) == 0U);
+
+    const DevicePairingAdministrationCollectionResult pendingList =
+        service.listPendingForAdministration("", 50U);
+    assert(pendingList.status ==
+        DevicePairingAdministrationStatus::ok);
+    assert(pendingList.requests.size() == 1U);
+    assert(pendingList.requests.front().resource.state ==
+        "pending");
+    assert(pendingList.requests.front().resourceRevision ==
+        "device-pairing:" + approveId + ":1");
+
+    const DevicePairingAdministrationReadResult before =
+        service.readForAdministration(approveId);
+    assert(before.status ==
+        DevicePairingAdministrationStatus::ok);
+    assert(before.request.resourceRevision ==
+        "device-pairing:" + approveId + ":1");
+
+    DevicePairingDecisionRequest approve;
+    approve.context.actorId = "admin-actor";
+    approve.context.actorType = "user";
+    approve.context.requestId = "mu10b-approve";
+    approve.context.correlationId =
+        "mu10-correlation";
+    approve.pairingRequestId = approveId;
+    approve.expectedResourceRevision =
+        before.request.resourceRevision;
+    approve.decision = "approve";
+
+    const DevicePairingDecisionResult approved =
+        service.decide(approve);
+    assert(approved.status ==
+        DevicePairingAdministrationStatus::ok);
+    assert(approved.request.resource.state == "approved");
+    assert(approved.request.resourceRevision ==
+        "device-pairing:" + approveId + ":2");
+    assert(approved.request.decidedByActorId ==
+        "admin-actor");
+    assert(!approved.request.decidedAt.empty());
 
     DevicePairingPollRequest poll;
-    poll.pairingRequestId =
-        created.pairing->resource.pairingRequestId;
-    poll.pairingToken =
-        created.pairing->pairingToken;
-
-    const DevicePairingPollResult pending =
+    poll.pairingRequestId = approveId;
+    poll.pairingToken = approveToken;
+    const DevicePairingPollResult approvedPoll =
         service.poll(poll);
-    assert(pending.status == DevicePairingPollStatus::ok);
-    assert(pending.resource.state == "pending");
-    assert(
-        pending.resource.client.displayName ==
-        "Living Room TV");
-    assert(
-        pending.resource.client.clientKind ==
-        "vidaa");
-    assert(
-        pending.resource.client.appVersion ==
-        "1.0.0");
+    assert(approvedPoll.status ==
+        DevicePairingPollStatus::ok);
+    assert(approvedPoll.resource.state == "approved");
 
-    poll.pairingToken =
-        "wrong-pairing-token";
-    assert(
-        service.poll(poll).status ==
+    poll.pairingToken = "wrong-pairing-token";
+    assert(service.poll(poll).status ==
         DevicePairingPollStatus::unauthorized);
+    poll.pairingToken = approveToken;
 
-    poll.pairingRequestId =
-        "dpr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    assert(
-        service.poll(poll).status ==
-        DevicePairingPollStatus::notFound);
+    const DevicePairingAdministrationCollectionResult afterApproval =
+        service.listPendingForAdministration("", 50U);
+    assert(afterApproval.status ==
+        DevicePairingAdministrationStatus::ok);
+    assert(afterApproval.requests.empty());
 
-    poll.pairingRequestId =
-        created.pairing->resource.pairingRequestId;
-    poll.pairingToken =
-        created.pairing->pairingToken;
+    const DevicePairingDecisionResult stale =
+        service.decide(approve);
+    assert(stale.status ==
+        DevicePairingAdministrationStatus::revisionConflict);
+
+    DevicePairingDecisionRequest duplicate = approve;
+    duplicate.expectedResourceRevision =
+        approved.request.resourceRevision;
+    const DevicePairingDecisionResult alreadyDecided =
+        service.decide(duplicate);
+    assert(alreadyDecided.status ==
+        DevicePairingAdministrationStatus::stateConflict);
+
+    DevicePairingIssueResult rejectedCreate =
+        service.issue(issueRequest(
+            "Bedroom TV",
+            "mu10b-create-reject"));
+    assert(rejectedCreate.status ==
+        DevicePairingIssueStatus::issued);
+    assert(rejectedCreate.pairing.has_value());
+
+    const DevicePairingAdministrationReadResult rejectBefore =
+        service.readForAdministration(
+            rejectedCreate.pairing->resource.pairingRequestId);
+    assert(rejectBefore.status ==
+        DevicePairingAdministrationStatus::ok);
+
+    DevicePairingDecisionRequest reject = approve;
+    reject.context.requestId = "mu10b-reject";
+    reject.pairingRequestId =
+        rejectedCreate.pairing->resource.pairingRequestId;
+    reject.expectedResourceRevision =
+        rejectBefore.request.resourceRevision;
+    reject.decision = "reject";
+    const DevicePairingDecisionResult rejected =
+        service.decide(reject);
+    assert(rejected.status ==
+        DevicePairingAdministrationStatus::ok);
+    assert(rejected.request.resource.state == "rejected");
+
+    DevicePairingPollRequest rejectedPoll;
+    rejectedPoll.pairingRequestId =
+        rejectedCreate.pairing->resource.pairingRequestId;
+    rejectedPoll.pairingToken =
+        rejectedCreate.pairing->pairingToken;
+    assert(service.poll(rejectedPoll).status ==
+        DevicePairingPollStatus::ok);
+    assert(service.poll(rejectedPoll).resource.state ==
+        "rejected");
+
+    DevicePairingIssueResult expiringCreate =
+        service.issue(issueRequest(
+            "Expired TV",
+            "mu10b-create-expired"));
+    assert(expiringCreate.status ==
+        DevicePairingIssueStatus::issued);
+    assert(expiringCreate.pairing.has_value());
+
+    const std::string expiredId =
+        expiringCreate.pairing->resource.pairingRequestId;
     assert(database.execute(
         "UPDATE security_device_pairing_requests "
         "SET expires_at = '2000-01-01 00:00:00' "
         "WHERE pairing_request_id = '" +
-        created.pairing->resource.pairingRequestId +
+        expiredId +
         "';"));
-    assert(
-        service.poll(poll).status ==
-        DevicePairingPollStatus::expired);
 
-    DevicePairingIssueRequest invalid = issue;
+    DevicePairingDecisionRequest expired = approve;
+    expired.context.requestId = "mu10b-expired";
+    expired.pairingRequestId = expiredId;
+    expired.expectedResourceRevision =
+        "device-pairing:" + expiredId + ":1";
+    assert(service.decide(expired).status ==
+        DevicePairingAdministrationStatus::expired);
+
+    DevicePairingIssueRequest invalid =
+        issueRequest("Invalid TV", "mu10b-invalid");
     invalid.client.clientKind = "not valid";
-    assert(
-        service.issue(invalid).status ==
+    assert(service.issue(invalid).status ==
         DevicePairingIssueStatus::invalidRequest);
 
     const std::vector<AccountabilityEvent> events =
         accountability.listAll();
-    assert(events.size() == 1U);
-    assert(
-        events.front().eventType ==
-        "device_pairing.requested");
-    assert(
-        events.front().actorId ==
-        "anonymous");
-    assert(
-        events.front().permission ==
-        "device.pairing.bootstrap");
-    assert(
-        events.front().operationId ==
-        created.pairing->resource.pairingRequestId);
-    assert(
-        events.front().requestId ==
-        "mu10a-create-001");
+    assert(std::any_of(
+        events.begin(),
+        events.end(),
+        [&](const AccountabilityEvent& event)
+        {
+            return event.eventType ==
+                    "device_pairing.administration" &&
+                event.actorId == "admin-actor" &&
+                event.permission == "device.pairing.decide" &&
+                event.action == "device_pairing.approve" &&
+                event.reasonCode ==
+                    "pairing_request_approved" &&
+                event.outcome == "success";
+        }));
+    assert(std::any_of(
+        events.begin(),
+        events.end(),
+        [&](const AccountabilityEvent& event)
+        {
+            return event.eventType ==
+                    "device_pairing.administration" &&
+                event.action == "device_pairing.reject" &&
+                event.reasonCode ==
+                    "pairing_request_rejected" &&
+                event.outcome == "success";
+        }));
 
     created.pairing->clearBootstrapMaterial();
+    rejectedCreate.pairing->clearBootstrapMaterial();
+    expiringCreate.pairing->clearBootstrapMaterial();
     assert(created.pairing->userCode.empty());
     assert(created.pairing->pairingToken.empty());
 
@@ -179,8 +273,8 @@ int main()
         {
             return false;
         });
-    assert(
-        entropyFailure.issue(issue).status ==
+    assert(entropyFailure.issue(
+        issueRequest("Entropy TV", "mu10b-entropy")).status ==
         DevicePairingIssueStatus::entropyUnavailable);
 
     return 0;

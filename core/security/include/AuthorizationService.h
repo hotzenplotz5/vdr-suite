@@ -184,6 +184,7 @@ private:
             permission == "accounts.grants.modify" ||
             permission == "accounts.credentials.revoke" ||
             permission == "accounts.sessions.revoke" ||
+            permission == "device.pairing.decide" ||
             permission == "backend.agent.enroll" ||
             permission == "backend.agent.revoke" ||
             permission == "backend.agent.credential.rotate" ||
@@ -206,6 +207,7 @@ private:
             permission == "accounts.grants.view" ||
             permission == "accounts.credentials.view" ||
             permission == "accounts.sessions.view" ||
+            permission == "device.pairing.view" ||
             permission == "broadcast.teletext.view" ||
             permission == "broadcast.hbbtv.view";
     }

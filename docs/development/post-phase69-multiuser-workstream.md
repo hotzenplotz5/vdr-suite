@@ -15,10 +15,10 @@ Account read foundation: completed
 First Admin / bootstrap / recovery: completed
 Legacy Basic retirement: completed
 Administration architecture: ADR-0067 [ACCEPTED]
-Current Multiuser productization slice: MU.10A Device Pairing Bootstrap [COMPLETED - REAL YAVDR + REAL VIDAA PASS]
+Current Multiuser productization slice: MU.10B Administrator Pairing Approval [ACCEPTED - PR #437 / REAL YAVDR PASS / HOSTED CI #9801 GREEN]
 Latest completed Multiuser milestone: Post-MU.9 Administration Usability [MERGED - PR #433]
 Completed MU.7 sub-slice: Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
-Current acceptance gate: MU.10A real VIDAA first-consumer acceptance complete; hosted integration CI pending before main merge
+Current acceptance gate: MU.10A merged as PR #436 with post-merge main CI #9779 green; MU.10B PR #437 passed exact real-yaVDR server acceptance and hosted CI #9801 is green
 ```
 
 ## Binding architecture
@@ -275,7 +275,7 @@ and Devices; technical identifiers are secondary details.
 Durable scope and acceptance rules:
 [Post-MU.9 Administration Usability](post-phase69-multiuser-administration-usability.md).
 
-### MU.10 — Device/app pairing [ACTIVE — MU.10A ACCEPTED / MU.10B NEXT]
+### MU.10 — Device/app pairing [ACTIVE — MU.10A ACCEPTED / MU.10B ACCEPTED]
 
 The live authority/gap audit is complete:
 [MU.10 Device/App Pairing Architecture and Gap Audit](post-phase69-mu10-device-app-pairing-audit.md).
@@ -285,8 +285,11 @@ MU.10A is the bounded first implementation candidate:
 
 It owns only anonymous short-lived Pairing Request creation and token-scoped
 polling. It creates no Actor, Device, Credential, Session or Grant and cannot
-authorize ordinary Public-v1 resources. Administrator approval and durable
-Device identity remain successor work.
+authorize ordinary Public-v1 resources. MU.10B administrator approval has passed the bounded real-yaVDR server acceptance gate; durable
+Device identity remains successor MU.10C work.
+
+MU.10B contract:
+[MU.10B Administrator Pairing Approval](post-phase69-mu10b-admin-pairing-approval.md).
 
 ### MU.11 — Profiles / household personalization [LATER]
 
@@ -312,8 +315,8 @@ ADR-0065 Human Account boundary [ACCEPTED]
        -> MU.9 Account/access admin UI [COMPLETED - CLOSEOUT PR #431]
        -> Post-MU.9 Administration Usability [MERGED - PR #433]
        -> MU.10 Device/app pairing [ACTIVE]
-            -> MU.10A Pairing Request + token-scoped polling [COMPLETED - REAL YAVDR + REAL VIDAA PASS]
-            -> MU.10B Administrator approval [NEXT - NOT STARTED]
+            -> MU.10A Pairing Request + token-scoped polling [COMPLETED - PR #436 MERGED / REAL YAVDR + REAL VIDAA PASS / POST-MERGE CI #9779 GREEN]
+            -> MU.10B Administrator approval [ACCEPTED - PR #437 / REAL YAVDR PASS / HOSTED CI #9801 GREEN]
 
 Later:
   -> MU.11 Profiles/personalization
@@ -330,5 +333,5 @@ Independent numbered track:
 - Device trust is not user identity or permission.
 - Capability never grants authorization.
 - No client/UI owns authorization policy.
-- ADR-0067 is accepted; MU.6A-D are completed runtime boundaries and MU.6D merged as PR #411. MU.7 grant administration completed after REAL YAVDR acceptance and PR #413 merge. MU.8 implementation is complete through MU.8C: MU.8A merged as PR #415 with separately documented real-runtime acceptance still pending, MU.8B merged as PR #416 after focused yaVDR acceptance, and MU.8C merged as PR #417 after focused yaVDR acceptance with PR and post-merge main CI green. MU.9 is completed through MU.9F / PR #430 after MU.9A merged as PR #418 and MU.9B merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green for both accepted UI slices. MU.9C Session Revoke UI merged as PR #426 after focused yaVDR acceptance and green hosted PR CI. MU.9D Human-password Credential Revoke UI merged as PR #428 after focused yaVDR acceptance; PR and post-merge hosted CI are green. MU.9E Backend Grant Mutation UI merged as PR #429 after focused real-yaVDR acceptance; post-merge main CI #9763 completed successfully with all six jobs green. MU.9F Account CREATE UI passed focused real-yaVDR acceptance, merged as PR #430, and both PR CI #9764 and post-merge main CI #9765 completed with all six jobs green. MU.9A-F and the MU.9 closeout are complete; no MU.9G is selected. Post-MU.9 Administration Usability merged as PR #433 after focused real-yaVDR acceptance and green hosted PR CI. MU.10A is accepted on the real yaVDR and real VIDAA first consumer. MU.10B Administrator approval is the selected next bounded slice and must preserve the accepted MU.9/ADR-0065/ADR-0067 safety contracts.
+- ADR-0067 is accepted; MU.6A-D are completed runtime boundaries and MU.6D merged as PR #411. MU.7 grant administration completed after REAL YAVDR acceptance and PR #413 merge. MU.8 implementation is complete through MU.8C: MU.8A merged as PR #415 with separately documented real-runtime acceptance still pending, MU.8B merged as PR #416 after focused yaVDR acceptance, and MU.8C merged as PR #417 after focused yaVDR acceptance with PR and post-merge main CI green. MU.9 is completed through MU.9F / PR #430 after MU.9A merged as PR #418 and MU.9B merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green for both accepted UI slices. MU.9C Session Revoke UI merged as PR #426 after focused yaVDR acceptance and green hosted PR CI. MU.9D Human-password Credential Revoke UI merged as PR #428 after focused yaVDR acceptance; PR and post-merge hosted CI are green. MU.9E Backend Grant Mutation UI merged as PR #429 after focused real-yaVDR acceptance; post-merge main CI #9763 completed successfully with all six jobs green. MU.9F Account CREATE UI passed focused real-yaVDR acceptance, merged as PR #430, and both PR CI #9764 and post-merge main CI #9765 completed with all six jobs green. MU.9A-F and the MU.9 closeout are complete; no MU.9G is selected. Post-MU.9 Administration Usability merged as PR #433 after focused real-yaVDR acceptance and green hosted PR CI. MU.10A is accepted on the real yaVDR and real VIDAA first consumer, merged as PR #436, and post-merge main CI #9779 is green. MU.10B Administrator approval passed the real-yaVDR server acceptance gate and preserves the accepted MU.9/ADR-0065/ADR-0067 safety contracts. Durable Device identity remains successor MU.10C work.
 - Phase 70 is not started by Multiuser work.

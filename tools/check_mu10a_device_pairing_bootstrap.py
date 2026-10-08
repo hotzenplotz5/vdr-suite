@@ -79,8 +79,10 @@ require(
     "HTTP server must forward the short-lived Pairing polling token",
 )
 require(
-    "if (isPublicDevicePairingRoute)" in gate,
-    "Pairing bootstrap route must be explicitly admitted by the security gate",
+    "isPublicDevicePairingBootstrapCreate" in gate and
+    "isPublicDevicePairingBootstrapPoll" in gate and
+    '"X-VDR-Suite-Pairing-Token"' in gate,
+    "Pairing bootstrap create/poll routes must be explicitly and narrowly admitted by the security gate",
 )
 require(
     'path == "/api/v1/backends"' in gate and
