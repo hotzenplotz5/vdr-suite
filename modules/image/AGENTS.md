@@ -9,3 +9,5 @@ Inherit all requirements from [root AGENTS.md](../../AGENTS.md).
 5. UI is an optional client of stable Suite APIs, never a direct image filesystem endpoint without policy. Design for absent VDR and disabled module.
 6. Each change updates this file, README, addon.json capability declarations and staged package contracts when needed; no active capability until tested.
 7. No live filesystem scans, package installation or service restarts without prior authorization and resource preflight.
+
+8. A package is never a running photo provider merely because the read-only installed registry lists its metadata. Do not advertise image capabilities or scan roots without reviewed core activation, actor-scoped visibility and backend-specific authorization.

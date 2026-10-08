@@ -9,3 +9,5 @@ Inherit all requirements from [root AGENTS.md](../../AGENTS.md).
 5. Keep install optional: no mandatory audio runtime dependencies in core and no startup failure when this module is missing.
 6. Keep this AGENTS file, README, manifest and staging/package tests consistent; no capabilities/entrypoints before implementation and proof.
 7. No media mutation, live installations, external network scans or expensive encoding without explicit authorization and preflight.
+
+8. Registry inventory/enable previews never activate the music library or its playback handlers. Future activation must prove music-domain handler compatibility, actor permissions, source scopes and per-client media rights independently of installed manifest claims.

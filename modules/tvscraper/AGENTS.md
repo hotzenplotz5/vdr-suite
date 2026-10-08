@@ -9,3 +9,5 @@ Inherit all requirements from [root AGENTS.md](../../AGENTS.md).
 5. No recording mutation, cut, rename, move, repair or import in this module.
 6. Keep README, this AGENTS, addon.json and source-package stage in sync; no advertised runtime capabilities without implemented tested handlers.
 7. Real provider probes, restarts, package changes or media writes require authorization and safety preflight.
+
+8. An installed TVScraper add-on is not an available scraper provider until an explicitly authorized backend adapter is registered and healthy. The registry is read-only; no scraping job, credentials or metadata writes may be inferred from it.

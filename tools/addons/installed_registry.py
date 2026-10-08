@@ -11,6 +11,9 @@ import json
 import sys
 from pathlib import Path
 
+# Read-only inventory must not create Python bytecode caches beside the tool.
+sys.dont_write_bytecode = True
+
 from addon_contract import ContractError, validate_directory
 
 # Core-owned review boundary. A package cannot add itself to this table merely
