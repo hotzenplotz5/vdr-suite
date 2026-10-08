@@ -29,6 +29,7 @@ enum class DevicePairingPollStatus
     notFound,
     unauthorized,
     expired,
+    consumed,
     unavailable,
 };
 
