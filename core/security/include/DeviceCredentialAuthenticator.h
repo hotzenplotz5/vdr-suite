@@ -107,6 +107,22 @@ public:
         if (!actor.has_value() || actor->type != ActorType::Service)
             return context;
 
+        // Enforce the canonical lifecycle here as well as in the gate's
+        // persistent resolver: an authenticator must never return an
+        // authenticated revoked/expired identity if reused independently.
+        if (!actor->active || actor->revoked ||
+            !device->active || device->revoked ||
+            !credential->active || credential->revoked)
+        {
+            context.authenticationState = AuthenticationState::Revoked;
+            return context;
+        }
+        if (credential->expired)
+        {
+            context.authenticationState = AuthenticationState::Expired;
+            return context;
+        }
+
         context.authenticationState = AuthenticationState::Authenticated;
         context.actor.actorId = actor->actorId;
         context.actor.type = ActorType::Service;
