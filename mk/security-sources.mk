@@ -93,6 +93,7 @@ test-security-device-pairing-request:
 		core/security/src/DeviceCredentialVerifierRepository.cpp \
 		core/security/src/SecurityIdentityRepository.cpp \
 		core/security/src/SecurityIdentityProvisioningRepository.cpp \
+		core/security/src/SecurityPermissionGrantRepository.cpp \
 		core/security/src/DevicePairingRequestService.cpp \
 		core/security/tests/test_device_pairing_request_service.cpp \
 		$(LDFLAGS) \
