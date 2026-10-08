@@ -38,6 +38,43 @@ Important: choosing a `consumed` state, dedicated consumption timestamp, binding
 
 No durable Device Session is justified at issuance alone. MU.10D may create or resolve a Device Session as part of actual Credential authentication if the canonical lifecycle requires it. Introduce MU.10C2 only if focused implementation proves a separately useful activation step; do not preemptively expand the scope.
 
+## Implemented C1 server contract (candidate)
+
+The implementation selects a narrow one-time endpoint, independent of normal
+device authentication (reserved for MU.10D):
+
+```http
+POST /api/v1/device-pairings/{pairingRequestId}/credential
+X-VDR-Suite-Pairing-Token: <short-lived pairing token>
+```
+
+The request has no JSON body and does not use a Human Account password,
+Browser Session cookie, CSRF secret, or durable Device credential. The token
+authorizes **only** this Pairing Request. Authorization re-checks the hash
+inside the winning SQLite transaction after the initial HTTP gate.
+
+A first successful response returns HTTP 201 with server-owned `actorId`,
+`deviceId`, `credentialId`, and the one-time `credentialSecret`.
+`Cache-Control: no-store` is required. Subsequent issuance attempts receive
+a terminal HTTP 409 without any secret. Token-scoped GET polling after a
+successful consumption returns HTTP 410 `pairing_consumed`, also secret-free.
+
+The dedicated `ActorType::Service` Actor, Device, canonical `device-app`
+Credential and `security_device_credential_verifiers` one-way binding are
+persisted in one transaction with the Pairing Request revision/consumption
+fence and append-only accountability. No permission-grant or Session write is
+performed by the issuer.
+
+If SQLite or accountability persistence fails, the transaction rolls back.
+If the HTTP response is lost after commit, the secret cannot be recovered;
+the bootstrap request stays consumed. A new pairing must be initiated;
+an administrative cleanup policy for unclaimed credentials must be addressed
+before final runtime acceptance, rather than silently creating a second
+credential for the consumed request.
+
+This is a candidate implementation, not real yaVDR or real VIDAA acceptance.
+MU.10D remains responsible for actual device-credential authentication.
+
 ## Required acceptance
 
 - Exactly-once issuance and canonical Actor/Device/Credential binding.
