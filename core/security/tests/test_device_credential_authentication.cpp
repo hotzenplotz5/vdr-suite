@@ -173,6 +173,34 @@ int main()
 
     {
         Fixture fixture;
+        // A verifier-only row cannot authorize a different service actor.
+        assert(fixture.provisioning.ensureTechnicalIdentity(
+            "another-mu10d-actor", ActorType::Service, "Another device",
+            "another-mu10d-device", "Another device",
+            "another-mu10d-credential", "device-app"));
+        assert(fixture.database.execute(
+            "UPDATE security_device_credential_verifiers "
+            "SET device_id = 'another-mu10d-device' "
+            "WHERE credential_id = 'credential_device_mu10d';"));
+        const auto mismatched = fixture.evaluate(
+            "/api/v1", fixture.validAuthorization());
+        assert(!mismatched.allowed);
+        assert(mismatched.rejection.statusCode == 401);
+    }
+
+    {
+        Fixture fixture;
+        // No permission persistence means no successful device login.
+        assert(fixture.database.execute(
+            "DROP TABLE security_actor_permission_grants;"));
+        const auto unavailable = fixture.evaluate(
+            "/api/v1", fixture.validAuthorization());
+        assert(!unavailable.allowed);
+        assert(unavailable.rejection.statusCode == 503);
+    }
+
+    {
+        Fixture fixture;
         assert(fixture.identity.revokeCredential(CredentialId));
         const auto revoked = fixture.evaluate(
             "/api/v1", fixture.validAuthorization());
