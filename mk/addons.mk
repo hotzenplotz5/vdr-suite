@@ -1,4 +1,4 @@
-.PHONY: check-addon-contract stage-addon
+.PHONY: check-addon-contract stage-addon build-addon-deb
 
 # Optional add-ons are staged individually, never in base make install.
 check-addon-contract:
@@ -7,6 +7,11 @@ check-addon-contract:
 
 stage-addon:
 	python3 tools/addons/addon_contract.py stage --module "$(MODULE)" --destdir "$(DESTDIR)" --prefix "$(PREFIX)"
+
+# Build a standalone, explicitly nonfunctional Debian metadata scaffold package.
+# No install, dependency changes or daemon access; caller owns output directory.
+build-addon-deb:
+	python3 tools/addons/build_deb.py --module "$(MODULE)" --output-dir "$(OUTPUT_DIR)" --maintainer "$(ADDON_MAINTAINER)"
 
 # Reuse existing documentation and packaging regression CI entrypoints.
 test-docs: check-addon-contract

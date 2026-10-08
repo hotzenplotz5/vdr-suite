@@ -25,7 +25,7 @@ VDR-Suite shall support **optional source-packageable add-ons** on top of existi
 
 Every `modules/<name>/` contains `addon.json`, `README.md` and `AGENTS.md`. The versioned JSON manifest has a strict schema and a unique module ID/package name. For the scaffold release its state is `scaffold`; **entrypoints, advertised capabilities, required permissions and dependencies are empty**. Presence/staging must never activate routes, inject frontend scripts, launch processes or grant rights.
 
-`make stage-addon MODULE=<name> DESTDIR=<isolated-root> PREFIX=/usr` stages only this metadata and human documentation under `/usr/share/vdr-suite/addons/<name>/`. No optional add-on is part of base `make install`. Sources are separately packageable when implementation exists; staged metadata today is *not* a finished `.deb`.
+`make stage-addon MODULE=<name> DESTDIR=<isolated-root> PREFIX=/usr` stages only this metadata and human documentation under `/usr/share/vdr-suite/addons/<name>/`. No optional add-on is part of base `make install`. An explicit `make build-addon-deb` can produce an inert `~scaffold1` binary Debian package from that source staging and user-supplied maintainer metadata; it does not install or activate anything. Full runnable add-on packages and Debian source-package metadata require implementation-specific dependency, maintainer and migration work.
 
 Package builders must use the same staging contract rather than maintaining an independent file list. They must not install runtime components into live paths from a checkout. FHS paths, configuration ownership, upgrades, remove/purge and migration rules continue to be governed by ADR-0037.
 

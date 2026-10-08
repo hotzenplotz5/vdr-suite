@@ -10,7 +10,7 @@ Every subdirectory currently in scope must contain:
 - `AGENTS.md`: module-specific repository and safety rules, subordinate to root `AGENTS.md`.
 
 Run `make check-addon-contract` to validate the complete source tree and focused tests.
-Run `make stage-addon MODULE=rectools DESTDIR=/path/to/isolated-package-root PREFIX=/usr` to produce a **metadata-only**, reproducible staging payload under `usr/share/vdr-suite/addons/rectools/`. This is package-source readiness, **not** a finished Debian package or a functioning Rectools import.
+Run `make stage-addon MODULE=rectools DESTDIR=/path/to/isolated-package-root PREFIX=/usr` to produce a **metadata-only**, reproducible staging payload under `usr/share/vdr-suite/addons/rectools/`. This is package-source readiness, **not** a functioning Rectools import. A separate opt-in `make build-addon-deb` target builds a distinctly labelled, inert `~scaffold1` Debian metadata package. Runnable binary and source package policies follow only after the handler exists.
 
 No add-on is enabled by its presence in the source tree, `make install`, or metadata staging. Activation, public API routes, persistent permissions, protected job execution and web menus require future explicit reviewed implementation. No add-on can bypass the daemon's policy and ownership boundaries.
 

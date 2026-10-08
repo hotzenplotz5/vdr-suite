@@ -4,7 +4,7 @@
 
 ## Current implementation
 
-The following are **implemented now**: versioned declarative manifest validation, per-module developer rules, offline package staging, and focused regression tests. Everything staged today is inert metadata: no daemon load, no systemd unit, no browser menu, no API route, no database migration and no media worker.
+The following are **implemented now**: versioned declarative manifest validation, per-module developer rules, offline package staging, optional nonfunctional Debian scaffold-package building, and focused regression tests. Everything staged today is inert metadata: no daemon load, no systemd unit, no browser menu, no API route, no database migration and no media worker.
 
 Source modules: `rectools`, `image`, `music`, `tvscraper`. The `rectools` source module's future package is called `vdr-suite-addon-media-tools`, reflecting its bounded functionality.
 
@@ -24,7 +24,16 @@ The staging script rejects unset/unsafe `DESTDIR` values and refuses to overwrit
 <DESTDIR>/usr/share/vdr-suite/addons/<MODULE>/AGENTS.md
 ```
 
-An external Debian package build can own a fresh `debian/<package>/` staging root and invoke the same target; no production `debian/` metadata is being asserted here. Each optional add-on must have its own package/runtime dependency list and be installable/removable without modifying Suite core packaging. Installing a metadata-only scaffold must not be presented to users as enabling functionality.
+To build a **metadata-only Debian package** from the same sources (requires `dpkg-deb`, an existing isolated output directory, and an explicit, real package maintainer identity):
+
+```bash
+cd /home/yavdr/vdr-suite
+make build-addon-deb MODULE=rectools OUTPUT_DIR=/absolute/package-output ADDON_MAINTAINER='Your Name <your-address@example.org>'
+```
+
+The tool refuses live/system output roots, duplicate package names, invalid maintainer metadata, overwritten output packages and insufficient free space. It stages through an isolated temporary package root, constructs a control file, and publishes the `_all.deb` artifact without executing package installation. The Debian version suffix `~scaffold1` and package description explicitly identify this **nonfunctional scaffold**. Do **not** deploy it as a usable Media Tools extension; no runtime feature will appear.
+
+An external Debian source-package build can likewise own a fresh `debian/<package>/` staging root and invoke the same stage target; full `debian/` source package metadata, runtime Depends, maintainer scripts, upgrades and service installation remain future per-module work. Each optional add-on must have its own package/runtime dependency list and be installable/removable without modifying Suite core packaging. Installing a metadata-only scaffold must not be presented to users as enabling functionality.
 
 The source validator rejects malformed IDs, unknown keys, missing/invalid module-specific `AGENTS.md`, symlinks and runtime capability declarations while `state=scaffold`. Read these rules before changing a module; the repository root `AGENTS.md` remains authoritative.
 
