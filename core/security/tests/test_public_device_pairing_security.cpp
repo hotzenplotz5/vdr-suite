@@ -65,7 +65,9 @@ int main()
         const SecurityGateDecision decision =
             fixture.gate.evaluate(activation);
         assert(!decision.allowed);
-        assert(decision.rejection.statusCode == 401);
+        // Anonymous POST without the pairing token is denied by the
+        // existing protected-mutation gate (403), not the issuer (401).
+        assert(decision.rejection.statusCode == 403);
     }
 
     {
