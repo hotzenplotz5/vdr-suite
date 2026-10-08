@@ -155,23 +155,23 @@ test-security-device-grant-administration:
 
 
 test-security-device-credential-rotation:
-	$(BUILD_CXX) $(CXXFLAGS) \\
-		$(SQLITE_SRC) \\
-		$(SECURITY_SRC) \\
-		core/security/tests/test_device_credential_rotation.cpp \\
-		$(LDFLAGS) \\
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_device_credential_rotation.cpp \
+		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_device_credential_rotation
 	$(BUILD_DIR)/test_device_credential_rotation
-	$(BUILD_CXX) $(CXXFLAGS) \\
-		api/rest/src/PublicApiRuntime.cpp \\
-		api/rest/tests/test_public_device_credential_rotation.cpp \\
+	$(BUILD_CXX) $(CXXFLAGS) \
+		api/rest/src/PublicApiRuntime.cpp \
+		api/rest/tests/test_public_device_credential_rotation.cpp \
 		-o $(BUILD_DIR)/test_public_device_credential_rotation
 	$(BUILD_DIR)/test_public_device_credential_rotation
-	$(BUILD_CXX) $(CXXFLAGS) \\
-		$(SQLITE_SRC) \\
-		$(SECURITY_SRC) \\
-		core/security/tests/test_public_device_rotation_security.cpp \\
-		$(LDFLAGS) \\
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_public_device_rotation_security.cpp \
+		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_public_device_rotation_security
 	$(BUILD_DIR)/test_public_device_rotation_security
 	node clients/reference-js/tests/test_public_v1_device_rotation_client.js
@@ -771,6 +771,7 @@ test-security: \
 	test-security-device-authentication \
 	test-security-device-grant-administration \
 	test-security-device-lifecycle-administration \
+	test-security-device-credential-rotation \
 	test-security-authorization \
 	test-security-configuration \
 	test-security-accountability-event-repository \
