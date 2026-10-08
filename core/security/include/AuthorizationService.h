@@ -185,6 +185,7 @@ private:
             permission == "devices.grants.modify" ||
             permission == "devices.revoke" ||
             permission == "devices.credentials.revoke" ||
+            permission == "devices.credentials.rotate" ||
             permission == "accounts.credentials.revoke" ||
             permission == "accounts.sessions.revoke" ||
             permission == "device.pairing.decide" ||
