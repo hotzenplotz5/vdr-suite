@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 #include <sqlite3.h>
+#include <crypt.h>
 
 namespace
 {
@@ -274,6 +275,14 @@ int main()
         verifier->deviceId == deviceCredential.deviceId &&
         verifier->verifierHash != deviceCredential.credentialSecret &&
         verifier->verifierHash.rfind("$6$", 0U) == 0U);
+    crypt_data cryptState{};
+    const char* computed = crypt_r(
+        deviceCredential.credentialSecret.c_str(),
+        verifier->verifierHash.c_str(),
+        &cryptState);
+    assert(computed != nullptr &&
+        verifier->verifierHash == computed);
+
     assert(repository.findById(issueId).request.state == "consumed");
     assert(service.issueDeviceCredential(
         deviceIssue, provisioning, deviceVerifiers).status ==
