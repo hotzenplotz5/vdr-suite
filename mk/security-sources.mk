@@ -137,6 +137,18 @@ test-security-device-grant-administration:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_device_grant_administration
 	$(BUILD_DIR)/test_device_grant_administration
+	$(BUILD_CXX) $(CXXFLAGS) \
+		api/rest/src/PublicApiRuntime.cpp \
+		api/rest/tests/test_public_device_grants.cpp \
+		-o $(BUILD_DIR)/test_public_device_grants
+	$(BUILD_DIR)/test_public_device_grants
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_public_device_grants_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_device_grants_security
+	$(BUILD_DIR)/test_public_device_grants_security
 
 
 test-security-authorization:
