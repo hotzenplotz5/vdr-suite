@@ -1432,6 +1432,22 @@ public:
         }
 
         gate.protectedMutation = isProtectedMutation;
+        // Credential issuance to an existing Device is administrator-browser
+        // only even if a Service Actor somehow obtained an administrative grant.
+        if (isPublicDeviceCredentialRotation && !gate.browserAuthenticated)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            AuthorizationDecision denial;
+            denial.permission = "devices.credentials.rotate";
+            denial.action = "devices.credentials.rotate";
+            denial.backendId = "*";
+            denial.reasonCode = "browser_session_required";
+            return rejectWithAudit(
+                gate, denial, 403,
+                "Credential rotation requires an administrator Browser Session",
+                "");
+        }
         AuthorizationRequest requestToAuthorize;
         requestToAuthorize.backendId = jsonStringValue(request.body, "backendId");
         bool recordingActionSupported = true;
