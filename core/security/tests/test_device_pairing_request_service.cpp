@@ -162,6 +162,34 @@ int main()
     assert(alreadyDecided.status ==
         DevicePairingAdministrationStatus::stateConflict);
 
+    // MU.10C: consumption is an atomic, revision-fenced operation and
+    // must never occur implicitly merely because the TV polls.
+    assert(repository.consumeApprovedInActiveTransaction(approveId, 2U) ==
+        DevicePairingRequestRepositoryStatus::transactionRequired);
+    assert(repository.consumeApprovedInActiveTransaction("", 2U) ==
+        DevicePairingRequestRepositoryStatus::transactionRequired);
+    assert(database.execute("BEGIN IMMEDIATE;"));
+    assert(repository.consumeApprovedInActiveTransaction(approveId, 2U) ==
+        DevicePairingRequestRepositoryStatus::ok);
+    assert(repository.findById(approveId).request.state == "consumed");
+    assert(database.execute("ROLLBACK;"));
+    assert(repository.findById(approveId).request.state == "approved");
+    assert(repository.findById(approveId).request.revision == 2U);
+
+    assert(database.execute("BEGIN IMMEDIATE;"));
+    assert(repository.consumeApprovedInActiveTransaction(approveId, 2U) ==
+        DevicePairingRequestRepositoryStatus::ok);
+    assert(database.execute("COMMIT;"));
+    assert(repository.findById(approveId).request.revision == 3U);
+    assert(repository.findById(approveId).request.state == "consumed");
+    assert(database.execute("BEGIN IMMEDIATE;"));
+    assert(repository.consumeApprovedInActiveTransaction(approveId, 2U) ==
+        DevicePairingRequestRepositoryStatus::revisionConflict);
+    assert(repository.consumeApprovedInActiveTransaction(approveId, 3U) ==
+        DevicePairingRequestRepositoryStatus::stateConflict);
+    assert(database.execute("ROLLBACK;"));
+    assert(service.poll(poll).status == DevicePairingPollStatus::unavailable);
+
     DevicePairingIssueResult rejectedCreate =
         service.issue(issueRequest(
             "Bedroom TV",
