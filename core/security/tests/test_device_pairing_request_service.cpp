@@ -5,6 +5,7 @@
 #include "DeviceCredentialVerifierRepository.h"
 #include "SecurityIdentityRepository.h"
 #include "SecurityIdentityProvisioningRepository.h"
+#include "SecurityPermissionGrantRepository.h"
 
 #include <algorithm>
 #include <cassert>
@@ -72,6 +73,8 @@ int main()
     DeviceCredentialVerifierRepository deviceVerifiers(database);
     assert(identity.ensureSchema());
     assert(deviceVerifiers.ensureSchema());
+    SecurityPermissionGrantRepository grants(database);
+    assert(grants.ensureSchema());
 
     DevicePairingRequestService service(
         database,
@@ -249,6 +252,8 @@ int main()
     assert(credentialResult.status ==
         DevicePairingCredentialIssueStatus::issued);
     assert(credentialResult.credential.has_value());
+    assert(countRows(database,
+        "SELECT COUNT(*) FROM security_actor_permission_grants;") == 0);
     const auto& deviceCredential = *credentialResult.credential;
     assert(!deviceCredential.credentialSecret.empty());
     assert(deviceCredential.credentialSecret != deviceIssue.pairingToken);
