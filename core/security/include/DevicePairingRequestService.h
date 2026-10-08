@@ -10,6 +10,8 @@
 class AccountabilityEventRepository;
 class Database;
 class DevicePairingRequestRepository;
+class SecurityIdentityProvisioningRepository;
+class DeviceCredentialVerifierRepository;
 
 enum class DevicePairingIssueStatus
 {
@@ -153,6 +155,52 @@ struct DevicePairingDecisionResult
     DevicePairingAdministrativeResource request;
 };
 
+
+enum class DevicePairingCredentialIssueStatus
+{
+    issued,
+    invalidRequest,
+    notFound,
+    unauthorized,
+    notApproved,
+    expired,
+    consumed,
+    entropyUnavailable,
+    hashingUnavailable,
+    storageError,
+};
+
+struct DevicePairingCredentialIssueRequest
+{
+    std::string pairingRequestId;
+    std::string pairingToken;
+    std::string requestId;
+    std::string correlationId;
+};
+
+struct IssuedDeviceCredential
+{
+    std::string actorId;
+    std::string deviceId;
+    std::string credentialId;
+    std::string credentialSecret;
+
+    ~IssuedDeviceCredential();
+    IssuedDeviceCredential() = default;
+    IssuedDeviceCredential(const IssuedDeviceCredential&) = delete;
+    IssuedDeviceCredential& operator=(const IssuedDeviceCredential&) = delete;
+    IssuedDeviceCredential(IssuedDeviceCredential&& other) noexcept;
+    IssuedDeviceCredential& operator=(IssuedDeviceCredential&& other) noexcept;
+    void clearSecret() noexcept;
+};
+
+struct DevicePairingCredentialIssueResult
+{
+    DevicePairingCredentialIssueStatus status =
+        DevicePairingCredentialIssueStatus::storageError;
+    std::optional<IssuedDeviceCredential> credential;
+};
+
 class DevicePairingRequestService
 {
 public:
@@ -173,6 +221,11 @@ public:
 
     DevicePairingIssueResult issue(
         const DevicePairingIssueRequest& request);
+
+    DevicePairingCredentialIssueResult issueDeviceCredential(
+        const DevicePairingCredentialIssueRequest& request,
+        SecurityIdentityProvisioningRepository& provisioning,
+        DeviceCredentialVerifierRepository& verifiers);
 
     DevicePairingPollResult poll(
         const DevicePairingPollRequest& request) const;
