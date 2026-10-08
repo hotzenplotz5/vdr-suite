@@ -167,6 +167,22 @@ bool publicAccountSubresourcePath(
         accountId.find('/') == std::string::npos;
 }
 
+bool publicDeviceGrantPath(
+    const std::string& path, std::string& deviceId)
+{
+    static const std::string prefix = "/api/v1/devices/";
+    static const std::string suffix = "/grants";
+    if (path.compare(0U, prefix.size(), prefix) != 0 ||
+        path.size() <= prefix.size() + suffix.size() ||
+        path.compare(path.size() - suffix.size(),
+                     suffix.size(), suffix) != 0)
+        return false;
+    deviceId = path.substr(
+        prefix.size(), path.size() - prefix.size() - suffix.size());
+    return !deviceId.empty() &&
+        deviceId.find('/') == std::string::npos;
+}
+
 bool publicAccountGrantPath(
     const std::string& path,
     std::string& accountId)
@@ -3001,6 +3017,56 @@ ApiResponse publicAccountResponse(
     return response;
 }
 
+ApiResponse publicDeviceGrantSetResponse(
+    const PublicDeviceGrantSetResource& grantSet,
+    const std::string& path,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::string& ifNoneMatch)
+{
+    const std::string etag = vdrsuite::http::publicStrongEntityTag(
+        grantSet.resourceRevision);
+    if (etag.empty())
+        return serviceUnavailableProblem(path, requestId, correlationId);
+
+    const auto condition = vdrsuite::http::publicEvaluateIfNoneMatch(
+        ifNoneMatch, etag);
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::malformed)
+        return invalidRequestProblem(
+            path, "Malformed If-None-Match.", requestId, correlationId);
+    if (condition ==
+        vdrsuite::http::PublicEntityTagConditionResult::matched)
+    {
+        ApiResponse result;
+        result.statusCode = 304;
+        result.contentType = "application/json; charset=utf-8";
+        addPublicSuccessHeaders(result, requestId, correlationId);
+        result.headers["ETag"] = etag;
+        return result;
+    }
+
+    std::string body = "{\"deviceId\":\"" +
+        jsonEscape(grantSet.deviceId) +
+        "\",\"actorId\":\"" +
+        jsonEscape(grantSet.actorId) + "\",\"items\":[";
+    for (std::size_t i = 0; i < grantSet.grants.size(); ++i)
+    {
+        if (i != 0U) body += ",";
+        body += "{\"permission\":\"" +
+            jsonEscape(grantSet.grants[i].permission) +
+            "\",\"backendId\":\"" +
+            jsonEscape(grantSet.grants[i].backendId) + "\"}";
+    }
+    body += "],\"supportedPermissions\":["
+        "\"channels.view\",\"timers.view\","
+        "\"media.live.play\",\"media.recording.play\"]}";
+    ApiResponse result = jsonResponse(body, requestId, correlationId);
+    result.headers["ETag"] = etag;
+    result.headers["Cache-Control"] = "no-store";
+    return result;
+}
+
 ApiResponse publicAccountGrantSetResponse(
     const PublicAccountGrantSetResource& grantSet,
     const std::string& path,
@@ -3936,6 +4002,32 @@ bool PublicApiRuntime::accountCreateConfigured() const
     std::lock_guard<std::mutex> lock(
         accountCreateMutex_);
     return static_cast<bool>(accountCreate_);
+}
+
+void PublicApiRuntime::registerDeviceGrantLookup(
+    DeviceGrantLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(deviceGrantLookupMutex_);
+    deviceGrantLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetDeviceGrantLookup()
+{
+    std::lock_guard<std::mutex> lock(deviceGrantLookupMutex_);
+    deviceGrantLookup_ = {};
+}
+
+void PublicApiRuntime::registerDeviceGrantMutation(
+    DeviceGrantMutation mutation)
+{
+    std::lock_guard<std::mutex> lock(deviceGrantMutationMutex_);
+    deviceGrantMutation_ = std::move(mutation);
+}
+
+void PublicApiRuntime::resetDeviceGrantMutation()
+{
+    std::lock_guard<std::mutex> lock(deviceGrantMutationMutex_);
+    deviceGrantMutation_ = {};
 }
 
 void PublicApiRuntime::registerAccountGrantLookup(
