@@ -90,6 +90,9 @@ test-security-device-pairing-request:
 		$(SQLITE_SRC) \
 		core/security/src/AccountabilityEventRepository.cpp \
 		core/security/src/DevicePairingRequestRepository.cpp \
+		core/security/src/DeviceCredentialVerifierRepository.cpp \
+		core/security/src/SecurityIdentityRepository.cpp \
+		core/security/src/SecurityIdentityProvisioningRepository.cpp \
 		core/security/src/DevicePairingRequestService.cpp \
 		core/security/tests/test_device_pairing_request_service.cpp \
 		$(LDFLAGS) \
