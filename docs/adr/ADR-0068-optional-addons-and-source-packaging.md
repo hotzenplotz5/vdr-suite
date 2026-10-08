@@ -61,3 +61,7 @@ Out of scope for this decision: dynamic third-party marketplace, untrusted arbit
 - [ADR-0037](ADR-0037-packaging-install-api-boundary.md)
 - [ADR-0043](ADR-0043-job-claim-retry-saga-execution-model.md)
 - [ADR-0063](ADR-0063-mutation-complexity-proportionality-reuse.md)
+
+## C++ import implementation clarification (2026-10-08)
+
+The first Media Tools implementation is being written in C++17 and built as an **optional, standalone CLI/library**, not as a port of Rectools' Bash worker. The old CLI remains available for existing installations but is **not** the execution provider for new Suite import. A later Slice must stage the architecture-specific executable in a distinct add-on package, define its constrained backend Agent invocation and enforce core-owned actor permissions, durable jobs and recording reconciliation before enabling capabilities. The metadata-only scaffold packages remain inert. No public C++ ABI is promised.

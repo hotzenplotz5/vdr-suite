@@ -53,3 +53,9 @@ The source validator rejects malformed IDs, unknown keys, missing/invalid module
 6. Image/Music use the same addon contract to demonstrate independent media domains; TVScraper provider remains optional.
 
 These slices require normal AGENTS.md preflight and fresh main evidence. No automatic switch-on or live host operations are implied.
+
+## Media Tools C++ import (separate pre-activation slice)
+
+Media Tools now has a C++17 standalone source target `make addon-media-import` and focused `make test-addon-media-import`. This is deliberately separate from metadata-only `make stage-addon` and `make build-addon-deb`; neither installs the C++ binary while the `addon.json` contract remains `scaffold`. The eventual `vdr-suite-addon-media-tools` package needs real architecture-specific binary staging, dependencies on VDR/FFmpeg and a protected backend service connection.
+
+The first engine intentionally limits itself to single-file remux, without automatic transcode, source deletion, NFO parsing, sub-downloads, scraper integration, background worker or VDR-Suite API changes. It is a standalone proof path, not authorization for writes to the live recordings tree. See [audit](rectools-cpp-import-audit.md).

@@ -1,8 +1,8 @@
 # Media Tools (Rectools) – optional VDR-Suite add-on
 
-**State:** source/packaging scaffold only. **No import, checking or shrink action is wired or enabled.**
+**State:** C++ standalone import prototype and inactive add-on package scaffold. **No import, checking or shrink action is wired into Suite or enabled for clients.**
 
-Source location: `modules/rectools/`; prospective binary package: `vdr-suite-addon-media-tools`. Rectools remains an external tool and independent repository. Integration uses an explicit restricted Suite adapter/worker on the owning backend rather than shell execution from the browser or a VDR plugin.
+Source location: `modules/rectools/`; prospective binary package: `vdr-suite-addon-media-tools`. The legacy Rectools repository is the audited functional reference, **not** the implementation engine: the new importer is C++17 and does not call the Rectools Bash CLI. Integration will require a protected Suite/backend-local execution adapter; no shell access from browser or VDR plugin.
 
 ## Allowed scope
 
@@ -29,3 +29,11 @@ Actor authorization and backend write policy are Suite-owned. Backend Agent gene
 See [module rules](AGENTS.md), [ADR-0068](../../docs/adr/ADR-0068-optional-addons-and-source-packaging.md) and [packaging guide](../../docs/development/addon-source-packaging.md).
 
 To build a distinct, **inactive** metadata-only `.deb` from sources, use the explicit `make build-addon-deb MODULE=rectools OUTPUT_DIR=/isolated/output ADDON_MAINTAINER='Name <valid@example.org>'` target from the repository root. This does not install or enable any runtime functionality.
+
+## C++ import prototype (not a live deployment)
+
+Source implementation: `include/MediaImport.h`, `src/MediaImport.cpp`, `src/main.cpp`. Focused tests: `tests/test_media_import.cpp`. Build and test independently from the daemon via `make addon-media-import test-addon-media-import`. Build output: `.build/addons/vdr-suite-media-import`; this binary is **not installed** by `make install`, `stage-addon` or `build-addon-deb`.
+
+This first slice implements an offline `plan` and an explicit `import ... --confirm-writes` for a **single** input, using allowlisted caller-supplied source/video roots. Backend policy and user authentication have not yet been connected; **do not invoke the write command against your installed VDR video tree**. The C++ process uses fixed `/usr/bin/ffprobe`, `/usr/bin/ffmpeg`, `/usr/bin/vdr` executable paths through `execv` (no shell) only for the write path. It accepts native-compatible `h264`, `hevc` or `mpeg2video` input, performs remux-only TS creation and requires an index before atomic no-replace promotion. It never removes or renames the source; no repair, re-encode, external subtitle search or TVScraper call is allowed. It does not emit a Suite cache refresh, operation ID or progress event, so it is **not production-ready**.
+
+Legacy feature inventory and security analysis: [C++ import audit](../../docs/development/rectools-cpp-import-audit.md).
