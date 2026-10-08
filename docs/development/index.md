@@ -32,6 +32,7 @@ This is a stable navigation page for development contracts and evidence. It does
 
 ## Current orientation
 
+- [Add-on Registry and Activation-Denial Contract](addon-registry-activation-contract.md) — installed package discovery and fail-closed requested/effective separation.
 - [Optional Add-on Source Packaging](addon-source-packaging.md) — versioned scaffold, module-specific AGENTS.md and isolated metadata staging (runtime inactive).
 
 - [Current State](../CURRENT.md)

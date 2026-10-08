@@ -53,3 +53,7 @@ The source validator rejects malformed IDs, unknown keys, missing/invalid module
 6. Image/Music use the same addon contract to demonstrate independent media domains; TVScraper provider remains optional.
 
 These slices require normal AGENTS.md preflight and fresh main evidence. No automatic switch-on or live host operations are implied.
+
+## Installed module registry (read-only)
+
+[Registry and activation-denial contract](addon-registry-activation-contract.md) defines local package metadata discovery and the distinction between an administrator's requested state and **effective server-granted capabilities**. Run `make check-addon-registry` for isolated policy, ownership and malformed-manifest regressions. This does not start the daemon or install packages; the local CLI does not expose any API route or grant permissions. The existing scaffold packages remain inactive.

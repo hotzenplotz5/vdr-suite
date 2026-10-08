@@ -61,3 +61,7 @@ Out of scope for this decision: dynamic third-party marketplace, untrusted arbit
 - [ADR-0037](ADR-0037-packaging-install-api-boundary.md)
 - [ADR-0043](ADR-0043-job-claim-retry-saga-execution-model.md)
 - [ADR-0063](ADR-0063-mutation-complexity-proportionality-reuse.md)
+
+## Installed metadata registry (first activation-control slice)
+
+A separate read-only registry inspects package-staged metadata at `/usr/share/vdr-suite/addons/<module>/` and optional administrator-owned desired state under `/etc/vdr-suite/addons-enabled.d/`. For schema-v1 `scaffold` packages, **effectiveEnabled must always be false** even when desired state is true. Invalid, incompatible, duplicate, symlinked or untrusted entries fail closed. The inventory is local diagnostic/development infrastructure, not a web API, authorization gate, dynamic plugin loader, runtime switch or trusted package-manager assertion. No process is launched. A later versioned activation handler must re-evaluate installed provenance, actor grants, backend capabilities, runtime health and job ownership before advertising any capability.
