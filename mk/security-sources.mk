@@ -173,6 +173,7 @@ test-security-device-lifecycle-administration:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_public_device_lifecycle_security
 	$(BUILD_DIR)/test_public_device_lifecycle_security
+	node clients/reference-js/tests/test_public_v1_device_lifecycle_client.js
 
 
 test-security-authorization:
