@@ -15,6 +15,7 @@
 #include "DeviceCredentialVerifierRepository.h"
 #include "DeviceCredentialAuthenticator.h"
 #include "DeviceGrantAdministrationService.h"
+#include "DeviceLifecycleAdministrationService.h"
 #include "DevicePairingRequestService.h"
 #include "FirstAdminBootstrapRepository.h"
 #include "FirstAdminClaimHttpService.h"
@@ -107,6 +108,8 @@ private:
         humanAccountGrantAdministrationService_;
     std::unique_ptr<DeviceGrantAdministrationService>
         deviceGrantAdministrationService_;
+    std::unique_ptr<DeviceLifecycleAdministrationService>
+        deviceLifecycleAdministrationService_;
     std::unique_ptr<HumanAccountCredentialSessionReadRepository>
         humanAccountCredentialSessionReadRepository_;
     std::unique_ptr<HumanAccountCredentialSessionReadService>
