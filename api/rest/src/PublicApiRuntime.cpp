@@ -8226,6 +8226,16 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
         return true;
     }
 
+    std::string lifecycleDeviceId;
+    std::string lifecycleCredentialId;
+    if (publicDeviceLifecyclePath(
+            path, lifecycleDeviceId, lifecycleCredentialId))
+    {
+        response = methodNotAllowedProblem(
+            path, requestId, correlationId, "GET, POST");
+        return true;
+    }
+
     std::string deviceGrantDeviceId;
     if (publicDeviceGrantPath(path, deviceGrantDeviceId))
     {
