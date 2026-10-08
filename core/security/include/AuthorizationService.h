@@ -182,6 +182,7 @@ private:
             permission == "accounts.activate" ||
             permission == "accounts.deactivate" ||
             permission == "accounts.grants.modify" ||
+            permission == "devices.grants.modify" ||
             permission == "accounts.credentials.revoke" ||
             permission == "accounts.sessions.revoke" ||
             permission == "device.pairing.decide" ||
@@ -205,6 +206,7 @@ private:
         return permission == "backend.settings.media-transcode.read" ||
             permission == "accounts.view" ||
             permission == "accounts.grants.view" ||
+            permission == "devices.grants.view" ||
             permission == "accounts.credentials.view" ||
             permission == "accounts.sessions.view" ||
             permission == "device.pairing.view" ||
