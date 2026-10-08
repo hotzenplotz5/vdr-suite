@@ -442,6 +442,26 @@ public:
             request.method == "GET" && isPublicDeviceLifecycleResource;
         const bool isPublicDeviceLifecycleMutation =
             isPost && isPublicDeviceLifecycleResource;
+        const std::string rotationSuffix = "/rotate";
+        const bool isPublicDeviceCredentialRotation =
+            isPost &&
+            path.compare(0U, publicDeviceGrantPrefix.size(),
+                         publicDeviceGrantPrefix) == 0 &&
+            path.size() > publicDeviceGrantPrefix.size() +
+                          lifecycleMarker.size() + rotationSuffix.size() &&
+            path.compare(path.size() - rotationSuffix.size(),
+                         rotationSuffix.size(), rotationSuffix) == 0 &&
+            [&]() {
+                const std::string middle = path.substr(
+                    publicDeviceGrantPrefix.size(),
+                    path.size() - publicDeviceGrantPrefix.size() -
+                        rotationSuffix.size());
+                const std::size_t marker = middle.find(lifecycleMarker);
+                return marker != std::string::npos && marker > 0U &&
+                    marker + lifecycleMarker.size() < middle.size() &&
+                    middle.find('/', marker + lifecycleMarker.size()) ==
+                        std::string::npos;
+            }();
 
         const bool isPublicDeviceGrantRead =
             request.method == "GET" && isPublicDeviceGrantResource;
@@ -771,6 +791,7 @@ public:
             isPublicAccountGrantMutation ||
             isPublicDeviceGrantMutation ||
             isPublicDeviceLifecycleMutation ||
+            isPublicDeviceCredentialRotation ||
             isPublicAccountCredentialMutation ||
             isPublicAccountSessionMutation ||
             isPublicTimerAssignmentCreate || isTimerUpdateAction ||
@@ -1411,6 +1432,22 @@ public:
         }
 
         gate.protectedMutation = isProtectedMutation;
+        // Credential issuance to an existing Device is administrator-browser
+        // only even if a Service Actor somehow obtained an administrative grant.
+        if (isPublicDeviceCredentialRotation && !gate.browserAuthenticated)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            AuthorizationDecision denial;
+            denial.permission = "devices.credentials.rotate";
+            denial.action = "devices.credentials.rotate";
+            denial.backendId = "*";
+            denial.reasonCode = "browser_session_required";
+            return rejectWithAudit(
+                gate, denial, 403,
+                "Credential rotation requires an administrator Browser Session",
+                "");
+        }
         AuthorizationRequest requestToAuthorize;
         requestToAuthorize.backendId = jsonStringValue(request.body, "backendId");
         bool recordingActionSupported = true;
@@ -1439,6 +1476,12 @@ public:
                 "accounts.sessions.revoke";
             requestToAuthorize.action =
                 "accounts.sessions.revoke";
+        }
+        else if (isPublicDeviceCredentialRotation)
+        {
+            requestToAuthorize.backendId = "*";
+            requestToAuthorize.permission = "devices.credentials.rotate";
+            requestToAuthorize.action = "devices.credentials.rotate";
         }
         else if (isPublicDeviceLifecycleMutation)
         {

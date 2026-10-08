@@ -816,6 +816,12 @@
         const input = options && typeof options === 'object' ? options : {};
         return requestAccountMutation(deviceLifecyclePath(input, true), {}, input);
       },
+      rotateDeviceCredential(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        const lifecycle = deviceLifecyclePath(input, true);
+        return requestAccountMutation(
+          lifecycle.slice(0, -'/lifecycle'.length) + '/rotate', {}, input);
+      },
       getDeviceGrants(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
         return requestRevisioned(deviceGrantPath(normalizedOptions), normalizedOptions);

@@ -422,6 +422,12 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             *deviceCredentialVerifierRepository_,
             *accountabilityEventRepository_);
 
+    deviceCredentialRotationService_ =
+        std::make_unique<DeviceCredentialRotationService>(
+            *securityDatabase_, *securityIdentityRepository_,
+            *deviceCredentialVerifierRepository_,
+            *accountabilityEventRepository_);
+
     humanAccountCredentialSessionReadRepository_ =
         std::make_unique<HumanAccountCredentialSessionReadRepository>(
             *securityDatabase_);
@@ -1231,6 +1237,58 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             return response;
         });
 
+    PublicApiRuntime::instance().registerDeviceCredentialRotation(
+        [this](const PublicDeviceCredentialRotationRequest& input)
+        {
+            PublicDeviceCredentialRotationResult response;
+            if (!deviceCredentialRotationService_ ||
+                !securityIdentityRepository_)
+                return response;
+            const auto admin = securityIdentityRepository_->findActor(
+                input.actorRef);
+            if (!admin || admin->type != ActorType::User ||
+                !admin->active || admin->revoked)
+                return response;
+            DeviceCredentialRotationRequest request;
+            request.administratorActorId = input.actorRef;
+            request.deviceId = input.deviceId;
+            request.previousCredentialId = input.credentialId;
+            request.expectedResourceRevision = input.expectedResourceRevision;
+            request.requestId = input.requestId;
+            request.correlationId = input.correlationId;
+            auto result = deviceCredentialRotationService_->rotate(request);
+            switch (result.status)
+            {
+                case DeviceCredentialRotationStatus::rotated:
+                    response.status =
+                        PublicDeviceCredentialRotationStatus::rotated;
+                    break;
+                case DeviceCredentialRotationStatus::invalid:
+                    response.status = PublicDeviceCredentialRotationStatus::invalid;
+                    break;
+                case DeviceCredentialRotationStatus::notFound:
+                    response.status = PublicDeviceCredentialRotationStatus::notFound;
+                    break;
+                case DeviceCredentialRotationStatus::stateConflict:
+                    response.status = PublicDeviceCredentialRotationStatus::stateConflict;
+                    break;
+                case DeviceCredentialRotationStatus::revisionConflict:
+                    response.status = PublicDeviceCredentialRotationStatus::revisionConflict;
+                    break;
+                case DeviceCredentialRotationStatus::unavailable:
+                    return response;
+            }
+            if (result.issued)
+            {
+                response.actorId = result.issued->actorId;
+                response.deviceId = result.issued->deviceId;
+                response.credentialId = result.issued->credentialId;
+                response.credentialSecret = result.issued->credentialSecret;
+                result.issued->clearSecret();
+            }
+            return response;
+        });
+
     PublicApiRuntime::instance().registerDeviceGrantLookup(
         [this](const std::string& deviceId)
         {
@@ -1711,6 +1769,7 @@ TestHttpServer::~TestHttpServer()
     PublicApiRuntime::instance().resetAccountSessionLookup();
     PublicApiRuntime::instance().resetAccountCredentialLookup();
     PublicApiRuntime::instance().resetDeviceLifecycleMutation();
+    PublicApiRuntime::instance().resetDeviceCredentialRotation();
     PublicApiRuntime::instance().resetDeviceLifecycleLookup();
     PublicApiRuntime::instance().resetDeviceGrantMutation();
     PublicApiRuntime::instance().resetDeviceGrantLookup();
