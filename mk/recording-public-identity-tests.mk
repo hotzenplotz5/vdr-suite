@@ -29,3 +29,8 @@ test-public-recording-collection-api:
 		api/rest/tests/test_public_recording_collection.cpp \
 		-o $(BUILD_DIR)/test_public_recording_collection
 	$(BUILD_DIR)/test_public_recording_collection
+
+.PHONY: test-public-v1-recording-reference-client
+
+test-public-v1-recording-reference-client:
+	node clients/reference-js/tests/test_public_v1_recording_client.js
