@@ -1,6 +1,7 @@
 .PHONY: test-ci-fast test-ci-frontend test-ci-packaging test-all test-vdr test-manual-real test-make-inventory
 
 CI_FAST_TESTS := \
+	test-vdr-public-recording-identity \
 	test-phase69-closeout \
 	test-phase69f-public-v1-operation-reference-client \
 	test-phase69f-public-v1-timer-create-reference-client \
@@ -102,6 +103,7 @@ CI_FAST_TESTS := \
 	test-systemd-unit-contract
 
 VDR_TESTS := \
+	test-vdr-public-recording-identity \
 	test-phase68-osd-agent-local-resync \
 	test-phase68-osd-authenticated-transport \
 	test-phase68-osd-view-session-authorization \
