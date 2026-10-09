@@ -34,3 +34,14 @@ test-public-recording-collection-api:
 
 test-public-v1-recording-reference-client:
 	node clients/reference-js/tests/test_public_v1_recording_client.js
+
+.PHONY: test-public-recording-collection-security
+
+test-public-recording-collection-security:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_public_recording_collection_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_recording_collection_security
+	$(BUILD_DIR)/test_public_recording_collection_security
