@@ -78,6 +78,14 @@ constexpr const char* PublicAccountCollectionOrder = "asc";
 constexpr const char* PublicAccountCursorPrefix = "ac1_";
 constexpr const char* PublicAccountCursorPayloadVersion =
     "accounts/1|";
+constexpr const char* PublicRecordingCollectionPath =
+    "/api/v1/recordings";
+constexpr std::size_t PublicRecordingDefaultLimit = 50U;
+constexpr std::size_t PublicRecordingMaximumLimit = 100U;
+constexpr const char* PublicRecordingCollectionSort = "recordingId";
+constexpr const char* PublicRecordingCollectionOrder = "asc";
+constexpr const char* PublicRecordingCursorPrefix = "rc1_";
+constexpr const char* PublicRecordingCursorPayloadVersion = "recordings/1|";
 constexpr const char* PublicChannelCollectionPath =
     "/api/v1/channels";
 constexpr std::size_t PublicChannelDefaultLimit = 50U;
