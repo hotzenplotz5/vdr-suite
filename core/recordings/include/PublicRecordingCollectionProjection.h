@@ -14,6 +14,7 @@ struct PublicRecordingReadItem
     std::string title;
     std::string recordedAt;
     int durationSeconds = 0;
+    bool durationKnown = false;
 };
 
 struct PublicRecordingReadResult
