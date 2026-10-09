@@ -4375,6 +4375,37 @@ bool PublicApiRuntime::accountSessionMutationConfigured() const
     return static_cast<bool>(accountSessionMutation_);
 }
 
+void PublicApiRuntime::registerRecordingCollectionLookup(
+    RecordingCollectionLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(recordingCollectionLookupMutex_);
+    recordingCollectionLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetRecordingCollectionLookup()
+{
+    std::lock_guard<std::mutex> lock(recordingCollectionLookupMutex_);
+    recordingCollectionLookup_ = {};
+}
+
+bool PublicApiRuntime::recordingCollectionLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(recordingCollectionLookupMutex_);
+    return static_cast<bool>(recordingCollectionLookup_);
+}
+
+PublicRecordingCollectionResult PublicApiRuntime::lookupRecordingCollection(
+    const PublicRecordingCollectionRequest& request) const
+{
+    RecordingCollectionLookup lookup;
+    {
+        std::lock_guard<std::mutex> lock(recordingCollectionLookupMutex_);
+        lookup = recordingCollectionLookup_;
+    }
+    if (!lookup) return {};
+    return lookup(request);
+}
+
 void PublicApiRuntime::registerChannelCollectionLookup(
     ChannelCollectionLookup lookup)
 {
