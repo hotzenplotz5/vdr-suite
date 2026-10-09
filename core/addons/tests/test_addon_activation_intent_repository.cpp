@@ -1,6 +1,8 @@
 #include "AddonActivationIntentRepository.h"
 
+#include <atomic>
 #include <cassert>
+#include <thread>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
@@ -166,6 +168,37 @@ int main()
     read = store.read(actor, "rectools", "backend-a");
     assert(read.status == IntentStatus::ok && !read.intent.desiredEnabled &&
            read.intent.revision == 2);
+    ++checks;
+
+
+    // Competing connections against one SQLite file: a revision must never
+    // be accepted twice, regardless of which thread commits first.
+    Database otherDatabase;
+    assert(otherDatabase.open((f.folder / "state.sqlite").string()));
+    AddonActivationIntentRepository concurrent(otherDatabase);
+    std::atomic<bool> start{false};
+    IntentResult resultA;
+    IntentResult resultB;
+    std::thread first([&] {
+        while (!start.load()) std::this_thread::yield();
+        resultA = store.update(actor, {"rectools", "backend-a", true, 2}, b, evidence);
+    });
+    std::thread second([&] {
+        while (!start.load()) std::this_thread::yield();
+        resultB = concurrent.update(actor, {"rectools", "backend-a", true, 2}, b, evidence);
+    });
+    start.store(true);
+    first.join();
+    second.join();
+    const int successes = static_cast<int>(resultA.status == IntentStatus::ok) +
+        static_cast<int>(resultB.status == IntentStatus::ok);
+    const int conflicts = static_cast<int>(resultA.status == IntentStatus::revisionConflict) +
+        static_cast<int>(resultB.status == IntentStatus::revisionConflict);
+    assert(successes == 1 && conflicts == 1);
+    read = store.read(actor, "rectools", "backend-a");
+    assert(read.status == IntentStatus::ok && read.intent.revision == 3 &&
+           read.intent.desiredEnabled);
+    otherDatabase.close();
     ++checks;
 
     std::cout << "ADDON_ACTIVATION_INTENT=PASS checks=" << checks << "\n";
