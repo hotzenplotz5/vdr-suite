@@ -3174,6 +3174,52 @@ ApiResponse publicBackendCollectionResponse(
         correlationId);
 }
 
+ApiResponse publicRecordingCollectionResponse(
+    const PublicRecordingCollectionResult& page,
+    const PublicRecordingCollectionQuery& query,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    const std::string nextCursor =
+        page.hasMore && !page.recordings.empty()
+            ? publicRecordingCursor(
+                query.backendId, page.recordings.back().recordingId)
+            : std::string();
+    if (page.hasMore && nextCursor.empty())
+        return serviceUnavailableProblem(
+            PublicRecordingCollectionPath, requestId, correlationId);
+
+    const std::string self =
+        publicRecordingCollectionTarget(query, query.cursor);
+    const std::string next = nextCursor.empty()
+        ? std::string()
+        : publicRecordingCollectionTarget(query, nextCursor);
+
+    std::string body = "{\"items\":[";
+    for (std::size_t i = 0U; i < page.recordings.size(); ++i)
+    {
+        if (i > 0U) body += ",";
+        const auto& item = page.recordings[i];
+        body += "{\"recordingId\":\"" + jsonEscape(item.recordingId) +
+            "\",\"backendId\":\"" + jsonEscape(item.backendId) +
+            "\",\"title\":\"" + jsonEscape(item.title) +
+            "\",\"recordedAt\":\"" + jsonEscape(item.recordedAt) +
+            "\",\"durationSeconds\":" +
+            std::to_string(item.durationSeconds) + "}";
+    }
+    body += "],\"page\":{\"limit\":" + std::to_string(query.limit) +
+        ",\"nextCursor\":";
+    body += nextCursor.empty() ? "null" :
+        "\"" + jsonEscape(nextCursor) + "\"";
+    body += ",\"hasMore\":" +
+        std::string(page.hasMore ? "true" : "false") +
+        "},\"meta\":{\"partial\":false},\"links\":{\"self\":\"" +
+        jsonEscape(self) + "\",\"next\":";
+    body += next.empty() ? "null" : "\"" + jsonEscape(next) + "\"";
+    body += "}}";
+    return jsonResponse(body, requestId, correlationId);
+}
+
 ApiResponse publicAccountResponse(
     const PublicAccountResource& account,
     const std::string& path,
