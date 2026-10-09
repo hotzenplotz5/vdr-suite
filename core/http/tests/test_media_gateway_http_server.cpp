@@ -221,7 +221,7 @@ int main()
             "Bearer " + issued.session.accessCredential;
         const auto response = gateway.handleRequest(http);
         assert(response.statusCode == 200);
-        assert(response.body == "#EXTM3U\\nsegment-000001.m4s\\n");
+        assert(response.body == "#EXTM3U\nsegment-000001.m4s\n");
         assert(response.headers.at("Cache-Control") == "no-store");
     }
     {
