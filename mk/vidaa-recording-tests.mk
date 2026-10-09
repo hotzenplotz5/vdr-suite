@@ -24,3 +24,13 @@ test-vdr-public-recording-runtime:
 		api/rest/tests/test_public_recording_collection.cpp \
 		-o $(BUILD_DIR)/test_public_recording_collection
 	$(BUILD_DIR)/test_public_recording_collection
+
+.PHONY: test-vdr-public-recording-security
+test-vdr-public-recording-security:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_public_recording_collection_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_recording_collection_security
+	$(BUILD_DIR)/test_public_recording_collection_security
