@@ -1254,6 +1254,72 @@ bool DaemonRuntime::initialize()
             return result;
         });
 
+    PublicApiRuntime::instance().registerRecordingCollectionLookup(
+        [this](const PublicRecordingCollectionRequest& request)
+        {
+            PublicRecordingCollectionResult result;
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                !publicRecordingIdentities_ ||
+                request.backendId.empty() ||
+                request.limit == 0U || request.limit > 100U)
+            {
+                result.status = PublicRecordingCollectionStatus::invalid;
+                return result;
+            }
+
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled ||
+                !backend->online ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(
+                    request.backendId))
+            {
+                result.status = PublicRecordingCollectionStatus::unavailable;
+                return result;
+            }
+
+            PublicRecordingCollectionProjection projection(
+                *publicRecordingIdentities_);
+            const auto page = projection.project(
+                request.backendId,
+                vdrSnapshotReadService_->getRecordingsForBackend(
+                    request.backendId));
+            if (!page.valid)
+            {
+                result.status = PublicRecordingCollectionStatus::unavailable;
+                return result;
+            }
+
+            std::vector<PublicRecordingReadItem> records = page.items;
+            std::sort(records.begin(), records.end(),
+                [](const PublicRecordingReadItem& lhs,
+                   const PublicRecordingReadItem& rhs) {
+                    return lhs.recordingId < rhs.recordingId;
+                });
+            for (const auto& item : records)
+            {
+                if (!request.afterRecordingId.empty() &&
+                    item.recordingId <= request.afterRecordingId)
+                    continue;
+
+                if (result.recordings.size() >= request.limit)
+                {
+                    result.hasMore = true;
+                    break;
+                }
+
+                PublicRecordingCollectionItem view;
+                view.recordingId = item.recordingId;
+                view.backendId = item.backendId;
+                view.title = item.title;
+                view.recordedAt = item.recordedAt;
+                view.durationSeconds = item.durationSeconds;
+                result.recordings.push_back(std::move(view));
+            }
+            result.status = PublicRecordingCollectionStatus::ok;
+            return result;
+        });
+
     PublicApiRuntime::instance().registerChannelCollectionLookup(
         [this](const PublicChannelCollectionRequest& request)
         {
