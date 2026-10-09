@@ -1312,6 +1312,7 @@ bool DaemonRuntime::initialize()
                 }
                 const std::size_t used = result.folders.size();
                 if (used < request.limit &&
+                    request.offset + used >= folderCount &&
                     request.offset + used < result.totalEntries)
                 {
                     const std::size_t recordingOffset =
