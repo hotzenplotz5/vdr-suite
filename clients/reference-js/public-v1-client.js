@@ -183,6 +183,38 @@
 
 
 
+  function recordingQuery(query) {
+    if (!query || typeof query !== 'object' || Array.isArray(query)) {
+      throw new Error('Recording query must be an object');
+    }
+    const allowed = new Set(['backendId', 'limit', 'cursor']);
+    Object.keys(query).forEach(function (key) {
+      if (!allowed.has(key)) {
+        throw new Error('unsupported Recording query field: ' + key);
+      }
+    });
+    if (typeof query.backendId !== 'string' ||
+        !/^[A-Za-z0-9._-]{1,128}$/.test(query.backendId)) {
+      throw new Error('Recording query requires a valid backendId');
+    }
+    const params = new URLSearchParams();
+    params.set('backendId', query.backendId);
+    if (query.limit !== undefined) {
+      if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) {
+        throw new Error('Recording query limit must be between 1 and 100');
+      }
+      params.set('limit', String(query.limit));
+    }
+    if (query.cursor !== undefined) {
+      if (typeof query.cursor !== 'string' || query.cursor.length < 5 ||
+          query.cursor.length > 1024) {
+        throw new Error('Recording query cursor is invalid');
+      }
+      params.set('cursor', query.cursor);
+    }
+    return '?' + params.toString();
+  }
+
   function channelQuery(query) {
     if (!query || typeof query !== 'object' || Array.isArray(query)) {
       throw new Error('channel query must be an object');
@@ -937,6 +969,10 @@
           {active: false},
           normalizedOptions
         );
+      },
+      getRecordings(options) {
+        const normalized = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/recordings' + recordingQuery(normalized.query), normalized);
       },
       getChannels(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
