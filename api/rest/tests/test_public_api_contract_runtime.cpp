@@ -95,7 +95,7 @@ int main()
         std::string::npos);
 
     assert(capabilities.body.find(
-        "{\\\"id\\\":\\\"public-api.recordings-read\\\",\\\"version\\\":1,\\\"availability\\\":\\\"unavailable\\\"}") !=
+        "{\"id\":\"public-api.recordings-read\",\"version\":1,\"availability\":\"unavailable\"}") !=
         std::string::npos);
 
     runtime.registerRecordingCollectionLookup(
@@ -110,7 +110,7 @@ int main()
         "/api/v1/capabilities", "actor-test",
         "recordings-capability", "", availableRecordings));
     assert(availableRecordings.body.find(
-        "{\\\"id\\\":\\\"public-api.recordings-read\\\",\\\"version\\\":1,\\\"availability\\\":\\\"available\\\"}") !=
+        "{\"id\":\"public-api.recordings-read\",\"version\":1,\"availability\":\"available\"}") !=
         std::string::npos);
     runtime.resetRecordingCollectionLookup();
 
