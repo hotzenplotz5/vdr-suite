@@ -154,18 +154,43 @@ def main():
         (item.get("method"), item.get("template"))
         for item in matrix.get("publicV1Resources", [])
     }
-    if len(resources) != 9:
+    # Phase 69 accepted nine contracts. Recording R2 is separately
+    # inventoried as a candidate and must not inflate that accepted count.
+    recording_candidate = (
+        "GET", "/api/v1/recordings?backendId={backendId}"
+    )
+    if recording_candidate not in resources:
+        raise AssertionError("Recording R2 candidate missing from Public-v1 matrix")
+    accepted_resources = resources - {recording_candidate}
+    if len(accepted_resources) != 9 or len(resources) != 10:
         raise AssertionError(
-            f"expected 9 stable Public-v1 contracts, got {len(resources)}"
+            f"expected 9 accepted and 1 Recording R2 candidate Public-v1 "
+            f"contracts, got {len(accepted_resources)} accepted and "
+            f"{len(resources)} total"
         )
     if ("GET", "/api/v1/accounts") not in resources:
         raise AssertionError("Account collection missing from Public-v1 matrix")
 
     references = matrix.get("publicClientReferences", [])
-    if len(references) != 7:
+    accepted_references = [
+        item for item in references if item.get("status") == "accepted"
+    ]
+    recording_reference = next(
+        (item for item in references
+         if item.get("id") == "reference-js-recording-collection"),
+        None,
+    )
+    if len(accepted_references) != 7 or len(references) != 8:
         raise AssertionError(
-            f"expected 7 Public-v1 reference slices, got {len(references)}"
+            "expected 7 accepted Public-v1 reference slices plus "
+            "1 Recording R2 candidate"
         )
+    if recording_reference is None or (
+        recording_reference.get("status") != "candidate"
+    ) or recording_reference.get("resources") != [
+        "GET /api/v1/recordings?backendId={backendId}"
+    ]:
+        raise AssertionError("Recording R2 reference contract candidate drifted")
     account_reference = next(
         (
             item
@@ -180,8 +205,8 @@ def main():
         raise AssertionError("Account reference resource drifted")
 
     require("matrix_guard", '("GET", "/api/v1/accounts")')
-    require("matrix_guard", "expected exactly seven bounded public client reference slices")
-    require("matrix_guard", "Stable public-v1 method/resource contracts: 9.")
+    require("matrix_guard", "expected eight public client reference slices including R2 candidate")
+    require("matrix_guard", "Public-v1 method/resource contracts: 9 accepted, 1 Recording R2 candidate.")
 
     require("adr61", "accounts.view@*")
     require("adr65", "accounts.view@*")
