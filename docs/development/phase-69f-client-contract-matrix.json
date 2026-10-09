@@ -70,6 +70,12 @@
       "method": "GET",
       "template": "/api/v1/accounts",
       "semantics": "global permission-protected Human Account collection with accountId keyset pagination and secret-free representation"
+    },
+    {
+      "id": "recording-collection",
+      "method": "GET",
+      "template": "/api/v1/recordings?backendId={backendId}",
+      "semantics": "post-Phase-69 additive: permission-protected backend-scoped Recording collection with canonical opaque identity and bounded keyset pagination"
     }
   ],
   "browserClientGroups": [
@@ -187,13 +193,13 @@
     {
       "domain": "recordings",
       "classification": "pre-v1-transition",
-      "publicV1Relation": "missing-public-v1",
+      "publicV1Relation": "partial-non-equivalent",
       "exports": [
         "fetchClientRecordings",
         "fetchClientRecordingActionValidation",
         "fetchClientRecordingActionExecution"
       ],
-      "note": "Recording collection/action contracts are not yet public-v1."
+      "note": "Public Recording read is new and deliberately non-equivalent to legacy browser Recording collection/actions; native actions remain pre-v1."
     },
     {
       "domain": "recording-support",
@@ -339,6 +345,14 @@
         "GET /api/v1/accounts"
       ],
       "note": "Read-only global Human Account collection using accounts.view@*; accountId/actorId/displayName/active only, with no credential, session, grant or mutation surface."
+    },
+    {
+      "id": "post-phase69-vidaa-recording-collection",
+      "path": "clients/reference-js/public-v1-client.js",
+      "resources": [
+        "GET /api/v1/recordings?backendId={backendId}"
+      ],
+      "status": "candidate"
     }
   ]
 }
