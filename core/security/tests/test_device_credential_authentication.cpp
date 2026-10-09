@@ -108,6 +108,23 @@ int main()
         assert(authorized.context.permissionGrantResolution ==
             PermissionGrantResolutionState::Resolved);
 
+        // Pairing authenticates identity; it does not grant Recording access.
+        const auto recordingsDenied = fixture.evaluate(
+            "/api/v1/recordings?backendId=default",
+            fixture.validAuthorization());
+        assert(!recordingsDenied.allowed);
+        assert(recordingsDenied.rejection.statusCode == 403);
+
+        assert(fixture.grants.ensureGrant(
+            ActorId, "recordings.view", "default"));
+        const auto recordingsAllowed = fixture.evaluate(
+            "/api/v1/recordings?backendId=default",
+            fixture.validAuthorization());
+        assert(recordingsAllowed.allowed);
+        assert(recordingsAllowed.deviceAuthenticated);
+        assert(recordingsAllowed.authorizedBackendIds ==
+            (std::vector<std::string>{"default"}));
+
         // Device credentials must not authenticate legacy, unversioned
         // endpoints (which have a different authorization contract).
         const auto legacy = fixture.evaluate(
