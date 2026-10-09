@@ -5898,6 +5898,83 @@ bool PublicApiRuntime::tryHandleGet(
         }
     }
 
+    if (path == PublicRecordingCollectionPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicRecordingCollectionQuery query;
+        if (!parsePublicRecordingCollectionQuery(requestTarget, query) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != query.backendId)
+        {
+            response = invalidRequestProblem(path,
+                "One authorized backendId and a valid Recording query are required.",
+                requestId, correlationId);
+            return true;
+        }
+        std::string afterDate, afterId;
+        if (!query.cursor.empty() &&
+            !decodePublicRecordingCursor(query.cursor, query.backendId,
+                afterDate, afterId))
+        {
+            response = invalidRequestProblem(path,
+                "The Recording cursor is invalid for this backend.",
+                requestId, correlationId);
+            return true;
+        }
+
+        auto collection = lookupRecordingCollection(query.backendId);
+        if (!collection.valid)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        for (const auto& item : collection.items)
+        {
+            if (item.backendId != query.backendId ||
+                item.recordingId.size() != 36U ||
+                item.recordingId.compare(0U, 4U, "rec_") != 0 ||
+                item.recordedAt.empty() ||
+                item.durationSeconds < 0)
+            {
+                response = serviceUnavailableProblem(path, requestId, correlationId);
+                return true;
+            }
+        }
+        std::sort(collection.items.begin(), collection.items.end(),
+            [](const auto& left, const auto& right) {
+                if (left.recordedAt != right.recordedAt)
+                    return left.recordedAt > right.recordedAt;
+                return left.recordingId < right.recordingId;
+            });
+        VdrPublicRecordingCollection page;
+        bool hasMore = false;
+        for (const auto& item : collection.items)
+        {
+            if (!query.cursor.empty() &&
+                (item.recordedAt > afterDate ||
+                 (item.recordedAt == afterDate &&
+                  item.recordingId <= afterId)))
+                continue;
+            if (page.items.size() == query.limit)
+            {
+                hasMore = true;
+                break;
+            }
+            page.items.push_back(item);
+        }
+        const std::string nextCursor =
+            hasMore && !page.items.empty()
+                ? publicRecordingCursor(query.backendId, page.items.back())
+                : std::string();
+        response = publicRecordingCollectionResponse(page, query, nextCursor,
+            requestId, correlationId);
+        return true;
+    }
+
     if (path == PublicChannelCollectionPath)
     {
         if (actorRef.empty())
