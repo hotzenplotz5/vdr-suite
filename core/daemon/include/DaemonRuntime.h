@@ -2,6 +2,8 @@
 
 #include "ApiRouter.h"
 #include "RecordingCacheRefreshQueue.h"
+#include "VdrPublicRecordingIdentityRepository.h"
+#include "VdrPublicRecordingCollection.h"
 #include "RecordingPresentationChangeQueue.h"
 #include "BackendAccessPolicy.h"
 #include "BackendAgentHttpServer.h"
@@ -278,6 +280,7 @@ private:
     std::unique_ptr<EpgArtworkRepository> epgArtworkRepository_;
     std::unique_ptr<EpgArtworkPublicJsonSerializer> epgArtworkPublicJsonSerializer_;
     std::unique_ptr<VdrRecordingCacheRepository> vdrRecordingCacheRepository_;
+    std::unique_ptr<VdrPublicRecordingIdentityRepository> vdrPublicRecordingIdentityRepository_;
     std::unique_ptr<EpgCacheServiceRegistry> epgCacheServiceRegistry_;
     std::unique_ptr<EpgCacheController> epgCacheController_;
     std::unique_ptr<SnapshotCache> snapshotCache_;
