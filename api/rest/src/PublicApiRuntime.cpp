@@ -2742,7 +2742,7 @@ ApiResponse platformCapabilities(
         std::string(deviceCredentialIssueAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.recordings-read\",\"version\":1,\"availability\":\"" +
-        std::string(recordingCollectionLookupConfigured() ? "available" : "unavailable") +
+        std::string(PublicApiRuntime::instance().recordingCollectionLookupConfigured() ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.compatibility-policy\",\"version\":1,\"availability\":\"available\"},"
         "{\"id\":\"public-api.deprecation-metadata\",\"version\":1,\"availability\":\"available\"}"
