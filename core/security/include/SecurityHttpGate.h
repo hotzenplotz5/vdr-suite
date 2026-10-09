@@ -676,6 +676,8 @@ public:
         const bool isPublicAccountSessionMutation =
             isPost &&
             isPublicAccountSessionItemResource;
+        const bool isPublicRecordingRead =
+            request.method == "GET" && path == "/api/v1/recordings";
         const bool isPublicChannelCollection =
             path == "/api/v1/channels";
         std::vector<std::string> publicChannelBackendIds;
