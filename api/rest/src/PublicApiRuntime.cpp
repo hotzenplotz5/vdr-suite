@@ -1208,6 +1208,65 @@ PublicChannelCursorDecodeStatus decodePublicChannelCursor(
     return PublicChannelCursorDecodeStatus::ok;
 }
 
+enum class PublicRecordingCursorDecodeStatus
+{
+    ok,
+    invalid,
+    scopeMismatch,
+};
+
+std::string publicRecordingCursor(
+    const std::string& backendId,
+    const std::string& lastRecordingId)
+{
+    if (backendId.empty() || lastRecordingId.empty()) return {};
+    std::string payload(PublicRecordingCursorPayloadVersion);
+    appendCursorField(payload, backendId);
+    appendCursorField(payload, lastRecordingId);
+    return std::string(PublicRecordingCursorPrefix) + hexEncode(payload);
+}
+
+PublicRecordingCursorDecodeStatus decodePublicRecordingCursor(
+    const std::string& cursor,
+    const std::string& backendId,
+    std::string& afterRecordingId)
+{
+    const std::string prefix(PublicRecordingCursorPrefix);
+    if (cursor.size() <= prefix.size() ||
+        cursor.compare(0U, prefix.size(), prefix) != 0)
+        return PublicRecordingCursorDecodeStatus::invalid;
+    std::string payload;
+    if (!hexDecode(cursor.substr(prefix.size()), payload))
+        return PublicRecordingCursorDecodeStatus::invalid;
+    const std::string version(PublicRecordingCursorPayloadVersion);
+    if (payload.compare(0U, version.size(), version) != 0)
+        return PublicRecordingCursorDecodeStatus::invalid;
+
+    std::size_t position = version.size();
+    std::string cursorBackend;
+    if (!readCursorField(payload, position, cursorBackend) ||
+        !readCursorField(payload, position, afterRecordingId) ||
+        position != payload.size() ||
+        afterRecordingId.empty() || afterRecordingId.size() > 128U)
+        return PublicRecordingCursorDecodeStatus::invalid;
+    if (cursorBackend != backendId)
+        return PublicRecordingCursorDecodeStatus::scopeMismatch;
+    return PublicRecordingCursorDecodeStatus::ok;
+}
+
+std::string publicRecordingCollectionTarget(
+    const PublicRecordingCollectionQuery& query,
+    const std::string& cursor)
+{
+    std::string target = std::string(PublicRecordingCollectionPath) +
+        "?backendId=" + query.backendId +
+        "&limit=" + std::to_string(query.limit) +
+        "&sort=" + PublicRecordingCollectionSort +
+        "&order=" + PublicRecordingCollectionOrder;
+    if (!cursor.empty()) target += "&cursor=" + cursor;
+    return target;
+}
+
 std::string publicBackendCollectionTarget(
     std::size_t limit,
     const std::string& cursor)
