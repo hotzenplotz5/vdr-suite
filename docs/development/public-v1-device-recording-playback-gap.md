@@ -14,7 +14,7 @@ Related accepted architecture: [ADR-0046](../adr/ADR-0046-streaming-gateway-medi
 | --- | --- | --- | --- |
 | Browser play/start/stop | `web/frontend/recordings2-playback.js` | POST `/api/media/sessions` with browser CSRF and same-origin credentials, media profile negotiation, stop and resume | Not a device-credential-protected Public-v1 mutation or media delivery contract |
 | Media session and recording read | `api/rest/src/RecordingMediaSessionCreate.cpp`; `api/rest/src/RecordingMediaSessionController.cpp` | Domain resolves recording using `VdrRecordingQueryService::findRecordingById`, probes source, starts existing MediaSession pipeline | Device actor authorization, backend scope and *canonical Public-v1 recording ID* binding must be checked **before** invoking this pipeline |
-| Public recording identity | `core/recordings/include/PublicRecordingIdentityRepository.h` | `resolveOrCreate(backend,native)`, `find(backend,native)`, move/rebind/delete support | No verified reverse lookup `(backendId, publicRecordingId) -> native recording` on this interface. **Do not** pass `rec_...` directly to a service expecting a different identifier |
+| Public recording identity | `core/recordings/include/PublicRecordingIdentityRepository.h` | `resolveOrCreate(backend,native)`, `find(backend,native)`, move/rebind/delete support | Backend-scoped internal reverse resolution **implemented in a new branch-only repository method**; a MediaSession admission adapter and fresh recording snapshot validation are still missing. **Do not** pass `rec_...` directly to a service expecting a different identifier |
 | Media byte enforcement | `core/http/src/MediaGatewayHttpServer.cpp` | Authenticates media grant on each media GET and validates active route lease; supports progressive and HLS artifacts | Device-compatible entry, authenticated playlist/segment delivery and reverse-proxy path have not been verified |
 | Media bearer transport | `core/http/include/MediaAccessCredentialHttp.h` | Gateway accepts `X-VDR-Suite-Media-Authorization: Bearer ...` or short-lived `vdr_suite_media` cookie with HttpOnly, Secure, SameSite=Strict | A native `<video>`/HLS request cannot assume custom API headers; cookie path/origin and gateway admission need explicit Device-session handling |
 | Client capabilities | `web/frontend/recordings2-playback.js`, `app/src/playback-controller.js` in VIDAA repo | Web example requests HLS/fMP4, H264/AAC; VIDAA currently exposes an unbound player adapter | VIDAA must advertise capabilities measured on the TV; never assume browser profile support on Hisense |
@@ -23,10 +23,13 @@ Related accepted architecture: [ADR-0046](../adr/ADR-0046-streaming-gateway-medi
 
 ### 1. Canonical identity and authorization, no media bytes
 
-- Implement an explicitly backend-scoped *read-only* reverse resolution or
-  lookup in the Suite-owned `PublicRecordingIdentityRepository`. Verify
-  the returned native record still exists in the authorized backend snapshot
-  and is the same canonical recording. Reject stale/rebound/cross-backend IDs.
+- **Repository step implemented on the development branch:** backend-scoped
+  `PublicRecordingIdentityRepository::findNativeForPublicId` is read-only,
+  validates opaque `rec_` IDs and never returns a foreign-backend match.
+  **Still missing:** an authorized MediaSession admission adapter must verify
+  the returned native record against the current backend snapshot; it must
+  reject stale, removed and wrong-backend IDs without disclosing the native
+  identifier to the TV.
 - Add a **new versioned Public-v1 recording media-session operation** routed
   via the existing media session issuance/service; do not copy a session
   repository or recorder/ffmpeg state machine. Actor must be a validated,
@@ -98,6 +101,10 @@ Related accepted architecture: [ADR-0046](../adr/ADR-0046-streaming-gateway-medi
    existing recording first, then seek/stop/back, then growing recordings,
    codec variations and concurrency; verify byte-for-byte HTTPS assets,
    retain backup/rollback and never reset device pairing during updates.
+
+**Reverse identity unit-test target:** `make test-public-recording-identity-repository`.
+The tests cover missing/wrong-backend IDs, moves, removal/reuse and persistent
+reopening. These are identity tests, **not** a working playback gateway.
 
 **Present state:** Recording browsing/details, genres and EPG Now/Next have
 Public-v1 candidates, but playback is **not yet implemented for the TV**.

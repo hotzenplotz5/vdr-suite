@@ -16,6 +16,13 @@ public:
     std::optional<std::string> find(
         const std::string& backendId,
         const std::string& backendNativeId) const;
+
+    // Server-internal reverse mapping only. The caller must separately
+    // authorize backendId and recheck the live recording snapshot.
+    // Never return a native recording identifier to Public-v1 clients.
+    std::optional<std::string> findNativeForPublicId(
+        const std::string& backendId,
+        const std::string& publicRecordingId) const;
     std::optional<std::string> resolveOrCreate(
         const std::string& backendId,
         const std::string& backendNativeId);

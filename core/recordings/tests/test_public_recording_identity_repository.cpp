@@ -22,11 +22,24 @@ int main()
 
     PublicRecordingIdentityRepository sameDatabase(database);
     assert(sameDatabase.find("backend-a", "/vdr/a") == a);
+    assert(repository.findNativeForPublicId("backend-a", *a) ==
+        std::optional<std::string>("/vdr/a"));
+    assert(!repository.findNativeForPublicId("backend-b", *a).has_value());
+    assert(!repository.findNativeForPublicId("backend-a", "rec_invalid").has_value());
+    assert(!repository.findNativeForPublicId("", *a).has_value());
+    assert(!repository.findNativeForPublicId("backend-a",
+        "rec_00000000000000000000000000000000").has_value());
 
     const auto otherBackend = repository.resolveOrCreate("backend-b", "/vdr/a");
     assert(otherBackend.has_value() && otherBackend != a);
     const auto otherRecording = repository.resolveOrCreate("backend-a", "/vdr/b");
     assert(otherRecording.has_value() && otherRecording != a);
+    assert(repository.findNativeForPublicId("backend-b", *otherBackend) ==
+        std::optional<std::string>("/vdr/a"));
+    assert(!repository.findNativeForPublicId("backend-a", *otherBackend)
+        .has_value());
+    assert(repository.findNativeForPublicId("backend-a", *otherRecording) ==
+        std::optional<std::string>("/vdr/b"));
 
     // Collision: a second existing binding must not be overwritten by a move.
     assert(!repository.rebindAfterVerifiedMove("backend-a", "/vdr/a", "/vdr/b"));
@@ -35,14 +48,20 @@ int main()
     // Move is explicit, never inferred from matching title or fingerprints.
     assert(repository.rebindAfterVerifiedMove("backend-a", "/vdr/a", "/new/a"));
     assert(repository.find("backend-a", "/new/a") == a);
+    assert(repository.findNativeForPublicId("backend-a", *a) ==
+        std::optional<std::string>("/new/a"));
     assert(!repository.find("backend-a", "/vdr/a").has_value());
     assert(!repository.rebindAfterVerifiedMove("backend-a", "/vdr/a", "/newer/a"));
 
     // Reuse of a previously deleted backend-native address must get a NEW ID.
     assert(repository.removeAfterVerifiedDeletion("backend-a", "/new/a"));
     assert(!repository.find("backend-a", "/new/a").has_value());
+    assert(!repository.findNativeForPublicId("backend-a", *a).has_value());
     const auto replacement = repository.resolveOrCreate("backend-a", "/new/a");
     assert(replacement.has_value() && replacement != a);
+    assert(!repository.findNativeForPublicId("backend-a", *a).has_value());
+    assert(repository.findNativeForPublicId("backend-a", *replacement) ==
+        std::optional<std::string>("/new/a"));
     assert(!repository.removeAfterVerifiedDeletion("backend-a", "/missing"));
 
     assert(!repository.resolveOrCreate("", "/vdr/a").has_value());
@@ -71,6 +90,8 @@ int main()
         assert(second.ensureSchema());
         assert(second.find("backend-a", "/persistent/recording") ==
             std::optional<std::string>(persistentId));
+        assert(second.findNativeForPublicId("backend-a", persistentId) ==
+            std::optional<std::string>("/persistent/recording"));
     }
     assert(unlink(path) == 0);
 
