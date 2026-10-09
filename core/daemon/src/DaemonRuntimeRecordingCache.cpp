@@ -310,9 +310,16 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                 vdrRecordingCacheRepository_->replaceRecordingsForBackend(
                     backendRuntimeContext->backendId,
                     recordings);
+            // Reconcile the public identity ledger only after the authoritative
+            // Recording snapshot has been persisted successfully. Failure
+            // prevents the public read plane from treating this as complete.
+            const bool identitiesReady = stored &&
+                vdrPublicRecordingIdentityRepository_ &&
+                vdrPublicRecordingIdentityRepository_->reconcileBackend(
+                    backendRuntimeContext->backendId, recordings);
 
             bool genreIndexed = false;
-            if (stored) {
+            if (identitiesReady) {
                 vdrRecordingCacheRepository_->markRefreshFinished(
                     backendRuntimeContext->backendId,
                     static_cast<int>(recordings.size()));
@@ -336,7 +343,8 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                 recordingCacheRefreshQueue_.failed(backendRuntimeContext->backendId);
                 vdrRecordingCacheRepository_->markRefreshFailed(
                     backendRuntimeContext->backendId,
-                    "repository replace failed");
+                    stored ? "public recording identity reconciliation failed" :
+                             "repository replace failed");
             }
 
             std::cout
