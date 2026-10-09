@@ -351,5 +351,5 @@ require("test-phase69f-client-contract-matrix" in test_groups, "fast CI must inc
 
 print("Phase 69.F client-contract matrix guard passed.")
 print("Classified browser Client API operations: 62 exactly once.")
-print("Stable public-v1 method/resource contracts: 9.")
-print("All nine stable public-v1 contracts have exact accepted reference-client coverage; Phase 69 remains closed.")
+print("Public-v1 method/resource contracts: 9 accepted, 1 Recording R2 candidate.")
+print("Nine accepted reference-client contracts retained; Recording R2 candidate is explicitly inventoried and pending validation.")
