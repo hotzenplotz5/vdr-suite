@@ -36,6 +36,8 @@ DAEMON_SRC := \
         core/recordings/src/JobRepository.cpp \
         core/recordings/src/JobDashboardService.cpp \
         core/recordings/src/RecordingRepository.cpp \
+        core/recordings/src/PublicRecordingIdentityRepository.cpp \
+        core/recordings/src/PublicRecordingCollectionProjection.cpp \
         core/recordings/src/MetadataRepository.cpp \
         core/recordings/src/RecordingDashboardService.cpp \
         core/recordings/src/DashboardFacade.cpp \
