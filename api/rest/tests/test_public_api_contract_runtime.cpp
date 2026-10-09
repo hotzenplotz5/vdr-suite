@@ -94,6 +94,26 @@ int main()
         "{\"id\":\"public-api.backends-read\",\"version\":1,\"availability\":\"unavailable\"}") !=
         std::string::npos);
 
+    assert(capabilities.body.find(
+        "{\\\"id\\\":\\\"public-api.recordings-read\\\",\\\"version\\\":1,\\\"availability\\\":\\\"unavailable\\\"}") !=
+        std::string::npos);
+
+    runtime.registerRecordingCollectionLookup(
+        [](const PublicRecordingCollectionRequest&)
+        {
+            PublicRecordingCollectionResult result;
+            result.status = PublicRecordingCollectionStatus::ok;
+            return result;
+        });
+    ApiResponse availableRecordings;
+    assert(runtime.tryHandleGet(
+        "/api/v1/capabilities", "actor-test",
+        "recordings-capability", "", availableRecordings));
+    assert(availableRecordings.body.find(
+        "{\\\"id\\\":\\\"public-api.recordings-read\\\",\\\"version\\\":1,\\\"availability\\\":\\\"available\\\"}") !=
+        std::string::npos);
+    runtime.resetRecordingCollectionLookup();
+
     runtime.registerBackendCollectionLookup(
         [](const PublicBackendCollectionRequest&)
         {
