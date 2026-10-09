@@ -2446,7 +2446,7 @@ ApiResponse contractRoot(
           "\"legacyUnversioned\":\"transition\"},"
           "\"authentication\":{\"authenticated\":"
         + (authenticated ? "true" : "false")
-        + "},\"links\":{\"self\":\"/api/v1\",\"capabilities\":\"/api/v1/capabilities\",\"backends\":\"/api/v1/backends\",\"accounts\":\"/api/v1/accounts\",\"devicePairings\":\"/api/v1/device-pairings\"}}",
+        + "},\"links\":{\"self\":\"/api/v1\",\"capabilities\":\"/api/v1/capabilities\",\"backends\":\"/api/v1/backends\",\"accounts\":\"/api/v1/accounts\",\"devicePairings\":\"/api/v1/device-pairings\",\"recordings\":\"/api/v1/recordings\"}}",
         requestId,
         correlationId);
 }
@@ -2740,6 +2740,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.device-credential-issuance\",\"version\":1,\"availability\":\"" +
         std::string(deviceCredentialIssueAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.recordings-read\",\"version\":1,\"availability\":\"" +
+        std::string(recordingCollectionLookupConfigured() ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.compatibility-policy\",\"version\":1,\"availability\":\"available\"},"
         "{\"id\":\"public-api.deprecation-metadata\",\"version\":1,\"availability\":\"available\"}"
