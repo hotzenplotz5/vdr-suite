@@ -19,6 +19,9 @@ public:
     std::optional<std::string> resolveOrCreate(
         const std::string& backendId,
         const std::string& backendNativeId);
+    bool removeAfterVerifiedDeletion(
+        const std::string& backendId,
+        const std::string& backendNativeId);
     bool rebindAfterVerifiedMove(
         const std::string& backendId,
         const std::string& previousNativeId,
