@@ -110,3 +110,21 @@ reopening. These are identity tests, **not** a working playback gateway.
 Public-v1 candidates, but playback is **not yet implemented for the TV**.
 This document does not authorize production deployment or claim a
 successful real recording play.
+
+### Server-only canonical playback target resolution — implementation candidate
+
+The isolated internal PublicRecordingPlaybackTargetResolver checks the opaque
+rec_ identifier against the exact *previously authorized* backend, performs
+a native-ID-to-current-cache-recording lookup, verifies the current backend
+and native binding, and rechecks the binding after reading the snapshot.
+Unlike the opaque ID, VdrRecording::id is the internal identity expected
+by the existing media controller; it is never exposed to VIDAA.
+
+The CI regression covers wrong backends, malformed IDs, stale/deleted
+recordings, moved identities, mismatched snapshots and missing internal
+recording IDs. This helper is NOT an authorization gate, MediaSession
+operation, fresh-file/lease admission or protected byte-delivery route.
+A future handler must FIRST authenticate the Device and enforce
+media.recording.play on that backend, then validate a live recording source,
+session lifecycle, route lease and media gateway delivery. No Public-v1
+playback endpoint is enabled by this step.

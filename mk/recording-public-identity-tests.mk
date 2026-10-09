@@ -53,3 +53,16 @@ test-public-recording-genre-api:
 		api/rest/tests/test_public_recording_genre_collection.cpp \
 		-o $(BUILD_DIR)/test_public_recording_genre_collection
 	$(BUILD_DIR)/test_public_recording_genre_collection
+
+.PHONY: test-public-recording-playback-target-resolver
+test-public-recording-playback-target-resolver:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
+		core/recordings/src/PublicRecordingIdentityRepository.cpp \
+		core/recordings/src/PublicRecordingPlaybackTargetResolver.cpp \
+		core/recordings/tests/test_public_recording_playback_target_resolver.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_recording_playback_target_resolver
+	$(BUILD_DIR)/test_public_recording_playback_target_resolver
