@@ -3209,7 +3209,8 @@ ApiResponse publicRecordingCollectionResponse(
             "\",\"title\":\"" + jsonEscape(item.title) +
             "\",\"recordedAt\":\"" + jsonEscape(item.recordedAt) +
             "\",\"durationSeconds\":" +
-            std::to_string(item.durationSeconds) + "}";
+            std::to_string(item.durationSeconds) +
+            ",\"durationKnown\":" + (item.durationKnown ? "true" : "false") + "}";
     }
     body += "],\"page\":{\"limit\":" + std::to_string(query.limit) +
         ",\"nextCursor\":";
