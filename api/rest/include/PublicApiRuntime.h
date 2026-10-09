@@ -215,6 +215,39 @@ struct PublicChannelCollectionResult
     bool hasMore = false;
 };
 
+enum class PublicEpgNowNextStatus
+{
+    ok,
+    invalid,
+    notFound,
+    unavailable,
+};
+
+// One authorized backend and one real VDR channel; never an arbitrary native URL.
+struct PublicEpgNowNextRequest
+{
+    std::string backendId;
+    std::string channelId;
+    std::string fromTime;
+    std::size_t limit = 2U;
+};
+
+struct PublicEpgNowNextItem
+{
+    std::string channelId;
+    std::string title;
+    std::string subtitle;
+    std::string startTime;
+    std::string endTime;
+    int durationSeconds = 0;
+};
+
+struct PublicEpgNowNextResult
+{
+    PublicEpgNowNextStatus status = PublicEpgNowNextStatus::unavailable;
+    std::vector<PublicEpgNowNextItem> events;
+};
+
 enum class PublicBackendCollectionStatus
 {
     ok,
@@ -872,6 +905,10 @@ public:
         std::function<PublicChannelCollectionResult(
             const PublicChannelCollectionRequest& request)>;
 
+    using EpgNowNextLookup =
+        std::function<PublicEpgNowNextResult(
+            const PublicEpgNowNextRequest& request)>;
+
     using BackendCollectionLookup =
         std::function<PublicBackendCollectionResult(
             const PublicBackendCollectionRequest& request)>;
@@ -1010,6 +1047,12 @@ public:
     bool channelCollectionLookupConfigured() const;
     PublicChannelCollectionResult lookupChannelCollection(
         const PublicChannelCollectionRequest& request) const;
+
+    void registerEpgNowNextLookup(EpgNowNextLookup lookup);
+    void resetEpgNowNextLookup();
+    bool epgNowNextLookupConfigured() const;
+    PublicEpgNowNextResult lookupEpgNowNext(
+        const PublicEpgNowNextRequest& request) const;
 
     void registerBackendCollectionLookup(
         BackendCollectionLookup lookup);
@@ -1182,6 +1225,9 @@ private:
 
     mutable std::mutex channelCollectionLookupMutex_;
     ChannelCollectionLookup channelCollectionLookup_;
+
+    mutable std::mutex epgNowNextLookupMutex_;
+    EpgNowNextLookup epgNowNextLookup_;
 
     mutable std::mutex backendCollectionLookupMutex_;
     BackendCollectionLookup backendCollectionLookup_;

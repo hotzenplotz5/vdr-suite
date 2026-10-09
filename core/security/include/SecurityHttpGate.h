@@ -683,6 +683,10 @@ public:
              path == "/api/v1/genres/recordings");
         const bool isPublicChannelCollection =
             path == "/api/v1/channels";
+        const bool isPublicEpgNowNext =
+            path == "/api/v1/epg/now-next";
+        const bool isPublicEpgNowNextRead =
+            request.method == "GET" && isPublicEpgNowNext;
         std::vector<std::string> publicChannelBackendIds;
         bool publicChannelBackendScopeValid = true;
         if (isPublicChannelCollection)
@@ -775,6 +779,7 @@ public:
              path == "/api/v1/capabilities" ||
              isPublicBackendCollection ||
              isPublicChannelCollection ||
+             isPublicEpgNowNext ||
              isPublicTimerAssignmentCollection ||
              isPublicOperationResource ||
              isPublicAccountCredentialResource ||
@@ -1293,6 +1298,68 @@ public:
             const AuthorizationDecision decision =
                 authorizationService_.authorize(
                     gate.context, recordingReadRequest);
+            if (!appendDecisionEvent(gate.context, decision, ""))
+            {
+                gate.rejection = errorResponse(
+                    503, "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+            if (!decision.allowed)
+            {
+                const int statusCode =
+                    decision.reasonCode == "invalid_backend_scope"
+                        ? 400
+                        : (authenticationFailure(decision) ? 401 : 403);
+                gate.rejection = errorResponse(
+                    statusCode, decision.reasonCode,
+                    messageForReason(decision.reasonCode),
+                    gate.context, authenticationFailure(decision),
+                    gate.publicApiV1);
+                return gate;
+            }
+
+            gate.authorizationDecision = decision;
+            gate.authorizedBackendIds = scopes;
+            gate.allowed = true;
+            return gate;
+        }
+
+        if (isPublicEpgNowNextRead)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+
+            const auto scopes = queryStringValues(
+                request.path, "backendId");
+            const bool validScope = scopes.size() == 1U &&
+                !scopes.front().empty() &&
+                scopes.front().size() <= 128U &&
+                std::all_of(scopes.front().begin(), scopes.front().end(),
+                    [](unsigned char ch) {
+                        return std::isalnum(ch) || ch == '.' ||
+                            ch == '-' || ch == '_';
+                    });
+            if (!validScope)
+            {
+                AuthorizationDecision invalid;
+                invalid.reasonCode = "invalid_backend_scope";
+                invalid.permission = "epg.view";
+                invalid.backendId = "*";
+                invalid.action = "epg.view";
+                return rejectWithAudit(
+                    gate, invalid, 400,
+                    "A single valid backendId is required.", "");
+            }
+
+            AuthorizationRequest epgReadRequest;
+            epgReadRequest.permission = "epg.view";
+            epgReadRequest.backendId = scopes.front();
+            epgReadRequest.action = "epg.view";
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(
+                    gate.context, epgReadRequest);
             if (!appendDecisionEvent(gate.context, decision, ""))
             {
                 gate.rejection = errorResponse(

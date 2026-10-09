@@ -1500,6 +1500,71 @@ bool DaemonRuntime::initialize()
             return result;
         });
 
+    PublicApiRuntime::instance().registerEpgNowNextLookup(
+        [this](const PublicEpgNowNextRequest& request)
+        {
+            PublicEpgNowNextResult result;
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                !epgCacheServiceRegistry_ ||
+                request.backendId.empty() ||
+                request.channelId.empty() ||
+                request.limit == 0U || request.limit > 2U)
+            {
+                result.status = PublicEpgNowNextStatus::invalid;
+                return result;
+            }
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled ||
+                !backend->online ||
+                !vdrSnapshotReadService_
+                    ->hasSnapshotForBackend(request.backendId))
+            {
+                return result;
+            }
+            const auto channels =
+                vdrSnapshotReadService_
+                    ->getChannelsForBackend(request.backendId);
+            const auto channel = std::find_if(
+                channels.begin(), channels.end(),
+                [&request](const VdrChannel& item) {
+                    return item.id == request.channelId;
+                });
+            if (channel == channels.end())
+            {
+                result.status = PublicEpgNowNextStatus::notFound;
+                return result;
+            }
+            EpgCacheService* service =
+                epgCacheServiceRegistry_->findService(request.backendId);
+            if (service == nullptr) return result;
+            const auto events = service->findNowNextPerChannelForBackend(
+                request.backendId,
+                request.channelId,
+                request.fromTime,
+                static_cast<int>(request.limit));
+            if (events.size() > request.limit) return result;
+            for (const VdrEvent& event : events)
+            {
+                if (event.channelId != request.channelId ||
+                    event.title.empty() ||
+                    event.startTime.empty() ||
+                    event.endTime.empty() ||
+                    event.durationSeconds < 0)
+                    return PublicEpgNowNextResult{};
+                PublicEpgNowNextItem item;
+                item.channelId = event.channelId;
+                item.title = event.title;
+                item.subtitle = event.subtitle;
+                item.startTime = event.startTime;
+                item.endTime = event.endTime;
+                item.durationSeconds = event.durationSeconds;
+                result.events.push_back(std::move(item));
+            }
+            result.status = PublicEpgNowNextStatus::ok;
+            return result;
+        });
+
     PublicApiRuntime::instance().registerChannelCollectionLookup(
         [this](const PublicChannelCollectionRequest& request)
         {

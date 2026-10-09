@@ -91,6 +91,8 @@ constexpr const char* PublicGenreRecordingPath = "/api/v1/genres/recordings";
 constexpr std::size_t PublicGenreMaximumLimit = 30U;
 constexpr const char* PublicChannelCollectionPath =
     "/api/v1/channels";
+constexpr const char* PublicEpgNowNextPath =
+    "/api/v1/epg/now-next";
 constexpr std::size_t PublicChannelDefaultLimit = 50U;
 constexpr std::size_t PublicChannelMaximumLimit = 100U;
 constexpr std::size_t PublicChannelMaximumSources = 16U;
@@ -884,6 +886,87 @@ bool parsePublicGenreCollectionQuery(
     };
     return backendSeen && validId(query.backendId) &&
         (recordings ? genreSeen && validId(query.genreId) : !genreSeen);
+}
+
+struct PublicEpgNowNextQuery
+{
+    std::string backendId;
+    std::string channelId;
+    std::string fromTime;
+    std::size_t limit = 2U;
+};
+
+bool parsePublicEpgNowNextQuery(
+    const std::string& target,
+    PublicEpgNowNextQuery& query)
+{
+    const std::string raw = requestQueryString(target);
+    if (raw.empty() || raw.size() > 640U) return false;
+    bool backendSeen = false;
+    bool channelSeen = false;
+    bool fromSeen = false;
+    bool limitSeen = false;
+    std::size_t position = 0U;
+    while (position < raw.size())
+    {
+        const std::size_t end = raw.find('&', position);
+        const std::string item = raw.substr(position,
+            end == std::string::npos ? std::string::npos : end - position);
+        const std::size_t equals = item.find('=');
+        if (item.empty() || equals == std::string::npos ||
+            item.find('=', equals + 1U) != std::string::npos)
+            return false;
+        const std::string key = item.substr(0U, equals);
+        const std::string value = item.substr(equals + 1U);
+        if (key == "backendId")
+        {
+            if (backendSeen || value.empty() || value.size() > 128U)
+                return false;
+            backendSeen = true;
+            query.backendId = value;
+        }
+        else if (key == "channelId")
+        {
+            if (channelSeen || value.empty() || value.size() > 256U)
+                return false;
+            channelSeen = true;
+            query.channelId = value;
+        }
+        else if (key == "fromTime")
+        {
+            if (fromSeen || value.size() < 10U || value.size() > 12U ||
+                value[0] == '0') return false;
+            fromSeen = true;
+            query.fromTime = value;
+        }
+        else if (key == "limit")
+        {
+            std::size_t parsed = 0U;
+            if (limitSeen || !decimalSize(value, parsed) ||
+                parsed == 0U || parsed > 2U) return false;
+            limitSeen = true;
+            query.limit = parsed;
+        }
+        else return false;
+        if (end == std::string::npos) break;
+        position = end + 1U;
+        if (position == raw.size()) return false;
+    }
+    const auto valid = [](const std::string& id) {
+        return !id.empty() &&
+            std::all_of(id.begin(), id.end(), [](unsigned char ch) {
+                return std::isalnum(ch) || ch == '.' ||
+                    ch == '_' || ch == '-';
+            });
+    };
+    const auto digits = [](const std::string& value) {
+        return std::all_of(value.begin(), value.end(), [](unsigned char ch) {
+            return ch >= '0' && ch <= '9';
+        });
+    };
+    return backendSeen && channelSeen && fromSeen &&
+        valid(query.backendId) && valid(query.channelId) &&
+        digits(query.fromTime);
 }
 
 struct PublicChannelCollectionQuery
@@ -2938,6 +3021,7 @@ ApiResponse platformCapabilities(
     const bool backendCollectionAvailable,
     const bool recordingCollectionAvailable,
     const bool genreCollectionAvailable,
+    const bool epgNowNextAvailable,
     const bool accountCollectionAvailable,
     const bool accountMutationAvailable,
     const bool accountCreateAvailable,
@@ -2977,6 +3061,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.recording-genres-read\",\"version\":1,\"availability\":\"" +
         std::string(genreCollectionAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.epg-now-next-read\",\"version\":1,\"availability\":\"" +
+        std::string(epgNowNextAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.accounts-read\",\"version\":1,\"availability\":\"" +
         std::string(accountCollectionAvailable ? "available" : "unavailable") +
@@ -4840,6 +4927,36 @@ PublicGenreCollectionResult PublicApiRuntime::lookupGenreCollection(
     return lookup ? lookup(request) : PublicGenreCollectionResult{};
 }
 
+void PublicApiRuntime::registerEpgNowNextLookup(
+    EpgNowNextLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(epgNowNextLookupMutex_);
+    epgNowNextLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetEpgNowNextLookup()
+{
+    std::lock_guard<std::mutex> lock(epgNowNextLookupMutex_);
+    epgNowNextLookup_ = {};
+}
+
+bool PublicApiRuntime::epgNowNextLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(epgNowNextLookupMutex_);
+    return static_cast<bool>(epgNowNextLookup_);
+}
+
+PublicEpgNowNextResult PublicApiRuntime::lookupEpgNowNext(
+    const PublicEpgNowNextRequest& request) const
+{
+    EpgNowNextLookup lookup;
+    {
+        std::lock_guard<std::mutex> lock(epgNowNextLookupMutex_);
+        lookup = epgNowNextLookup_;
+    }
+    return lookup ? lookup(request) : PublicEpgNowNextResult{};
+}
+
 void PublicApiRuntime::registerChannelCollectionLookup(
     ChannelCollectionLookup lookup)
 {
@@ -4948,6 +5065,7 @@ bool PublicApiRuntime::tryHandleGet(
             backendCollectionLookupConfigured(),
             recordingCollectionLookupConfigured(),
             genreCollectionLookupConfigured(),
+            epgNowNextLookupConfigured(),
             accountCollectionLookupConfigured(),
             accountMutationConfigured(),
             accountCreateConfigured(),
@@ -6417,6 +6535,83 @@ bool PublicApiRuntime::tryHandleGet(
                     requestId, correlationId);
                 return true;
             case PublicGenreCollectionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    if (path == PublicEpgNowNextPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        PublicEpgNowNextQuery query;
+        if (!parsePublicEpgNowNextQuery(requestTarget, query) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != query.backendId)
+        {
+            response = invalidRequestProblem(
+                path, "An authorized backendId, channelId and fromTime are required.",
+                requestId, correlationId);
+            return true;
+        }
+        const PublicEpgNowNextRequest request{
+            query.backendId, query.channelId, query.fromTime, query.limit
+        };
+        const PublicEpgNowNextResult found = lookupEpgNowNext(request);
+        switch (found.status)
+        {
+            case PublicEpgNowNextStatus::ok:
+            {
+                if (found.events.size() > query.limit)
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                std::string body = "{\"backendId\":\"" +
+                    jsonEscape(query.backendId) + "\",\"channelId\":\"" +
+                    jsonEscape(query.channelId) + "\",\"items\":[";
+                for (std::size_t index = 0U; index < found.events.size(); ++index)
+                {
+                    const PublicEpgNowNextItem& event = found.events[index];
+                    if (event.channelId != query.channelId ||
+                        event.title.empty() ||
+                        event.startTime.empty() || event.endTime.empty() ||
+                        event.durationSeconds < 0)
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    if (index > 0U) body += ",";
+                    body += "{\"channelId\":\"" +
+                        jsonEscape(event.channelId) + "\",\"title\":\"" +
+                        jsonEscape(event.title) + "\",\"subtitle\":\"" +
+                        jsonEscape(event.subtitle) + "\",\"startTime\":\"" +
+                        jsonEscape(event.startTime) + "\",\"endTime\":\"" +
+                        jsonEscape(event.endTime) + "\",\"durationSeconds\":" +
+                        std::to_string(event.durationSeconds) + "}";
+                }
+                body += "],\"page\":{\"limit\":" +
+                    std::to_string(query.limit) +
+                    ",\"hasMore\":false},\"meta\":{\"partial\":false}}";
+                response = jsonResponse(body, requestId, correlationId);
+                return true;
+            }
+            case PublicEpgNowNextStatus::invalid:
+                response = invalidRequestProblem(
+                    path, "Invalid EPG request.",
+                    requestId, correlationId);
+                return true;
+            case PublicEpgNowNextStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicEpgNowNextStatus::unavailable:
                 response = serviceUnavailableProblem(
                     path, requestId, correlationId);
                 return true;
@@ -8987,6 +9182,7 @@ bool PublicApiRuntime::tryHandlePost(
         path == "/api/v1/capabilities" ||
         path == PublicBackendCollectionPath ||
         path == PublicRecordingCollectionPath ||
+        path == PublicEpgNowNextPath ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         publicOperationPath(path, operationId))
@@ -9141,6 +9337,7 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
         path == "/api/v1/capabilities" ||
         path == PublicBackendCollectionPath ||
         path == PublicRecordingCollectionPath ||
+        path == PublicEpgNowNextPath ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         publicOperationPath(path, operationId))

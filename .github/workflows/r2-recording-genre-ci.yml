@@ -27,6 +27,7 @@ jobs:
           make -j1 test-public-recording-collection-api \
             test-public-recording-collection-security \
             test-public-recording-genre-api \
+            test-public-epg-now-next-api \
             test-public-recording-collection-projection \
             test-vdr-recording-cache-repository
       - name: Compile daemon candidate without deploying
