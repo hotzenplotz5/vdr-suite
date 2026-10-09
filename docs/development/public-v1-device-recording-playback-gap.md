@@ -128,3 +128,27 @@ A future handler must FIRST authenticate the Device and enforce
 media.recording.play on that backend, then validate a live recording source,
 session lifecycle, route lease and media gateway delivery. No Public-v1
 playback endpoint is enabled by this step.
+
+### Authenticated device playback admission — internal test slice (2026-10-10)
+
+The new `PublicRecordingDevicePlaybackAdmission` is a **server-only**
+adapter composed from the existing `AuthorizationService` and
+`PublicRecordingPlaybackTargetResolver`. It rejects browser sessions,
+non-Device principals, missing canonical Device/credential identities,
+revoked or expired identities, and unresolved grants. Only a freshly
+authenticated Device Service principal with the **effective**
+`media.recording.play` grant for the selected backend can reach the
+backend-owned availability check and scoped Public-ID resolution.
+`recordings.view` by itself is insufficient. The native media-service ID
+remains internal; negative decisions return no recording/path. Tests cover
+401-like unauthenticated decisions, 403-like permission denials, offline
+backends, invalid and foreign IDs, identity moves and removals.
+
+**Not yet wired to an HTTP handler:** these are internal admission statuses,
+not asserted HTTP response codes. The future route must obtain a verified
+`RequestSecurityContext` from the SecurityHttpGate's Device authentication
+and persistence checks, audit the decision, and call this adapter before
+invoking existing MediaSession issuance. Backend availability and permissions
+must be rechecked at session issuance and on media access. This slice does
+**not** create MediaSessions or authorize HLS bytes. There is still no
+playable VIDAA Recording stream.

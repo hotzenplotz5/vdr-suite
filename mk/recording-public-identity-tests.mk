@@ -66,3 +66,17 @@ test-public-recording-playback-target-resolver:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_public_recording_playback_target_resolver
 	$(BUILD_DIR)/test_public_recording_playback_target_resolver
+
+.PHONY: test-public-recording-device-playback-admission
+test-public-recording-device-playback-admission:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
+		core/recordings/src/PublicRecordingIdentityRepository.cpp \
+		core/recordings/src/PublicRecordingPlaybackTargetResolver.cpp \
+		core/recordings/src/PublicRecordingDevicePlaybackAdmission.cpp \
+		core/recordings/tests/test_public_recording_device_playback_admission.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_recording_device_playback_admission
+	$(BUILD_DIR)/test_public_recording_device_playback_admission
