@@ -38,6 +38,8 @@ DAEMON_SRC := \
         core/recordings/src/RecordingRepository.cpp \
         core/recordings/src/MetadataRepository.cpp \
         core/recordings/src/RecordingDashboardService.cpp \
+        core/vdr/src/VdrPublicRecordingIdentityRepository.cpp \
+        core/vdr/src/VdrPublicRecordingCollection.cpp \
         core/recordings/src/DashboardFacade.cpp \
         core/recordings/src/DashboardJsonSerializer.cpp \
         $(REST_PUBLIC_API_SRC) \
