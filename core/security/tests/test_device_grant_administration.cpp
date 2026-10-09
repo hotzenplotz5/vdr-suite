@@ -80,6 +80,10 @@ int main()
     assert(DeviceGrantAdministrationService::supportedGrant(
         "channels.view", "default"));
     assert(DeviceGrantAdministrationService::supportedGrant(
+        "recordings.view", "default"));
+    assert(!DeviceGrantAdministrationService::supportedGrant(
+        "recordings.view", "bad/scope"));
+    assert(DeviceGrantAdministrationService::supportedGrant(
         "media.live.play", "default"));
     assert(!DeviceGrantAdministrationService::supportedGrant(
         "role.admin", "*"));
