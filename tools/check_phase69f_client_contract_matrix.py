@@ -86,6 +86,7 @@ expected_resource_pairs = {
     ("GET", "/api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}"),
     ("POST", "/api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}"),
     ("GET", "/api/v1/channels?backendId={backendId}"),
+    ("GET", "/api/v1/recordings?backendId={backendId}"),
 }
 require(resource_pairs == expected_resource_pairs, "declared stable public-v1 resource/method set drifted")
 
@@ -97,12 +98,12 @@ for token in (
     '"/api/v1/backends"',
     '"/api/v1/accounts"',
     '"/api/v1/channels"',
+    '"/api/v1/recordings"',
     'if (path == "/api/v1/capabilities")',
 ):
     require(token in public_runtime, "accepted public-v1 runtime token drifted: " + token)
 
 for absent in (
-    "/api/v1/recordings",
     "/api/v1/program-events",
     "/api/v1/search-timers",
 ):
@@ -113,7 +114,7 @@ require('if (path == "/api/backends")' in api_router, "pre-v1 backend discovery 
 require('if (path == "/api/backends/default")' in api_router, "pre-v1 default-backend route disappeared")
 
 references = matrix.get("publicClientReferences", [])
-require(len(references) == 7, "expected exactly seven bounded public client reference slices")
+require(len(references) == 8, "expected seven Phase-69 and one post-Phase-69 client slices")
 discovery_reference = next((r for r in references if r.get("id") == "reference-js-discovery"), None)
 require(discovery_reference is not None, "public discovery reference disappeared")
 require(discovery_reference.get("path") == "clients/reference-js/public-v1-client.js", "public discovery reference path drifted")
@@ -344,5 +345,5 @@ require("test-phase69f-client-contract-matrix" in test_groups, "fast CI must inc
 
 print("Phase 69.F client-contract matrix guard passed.")
 print("Classified browser Client API operations: 62 exactly once.")
-print("Stable public-v1 method/resource contracts: 9.")
-print("All nine stable public-v1 contracts have exact accepted reference-client coverage; Phase 69 remains closed.")
+print("Stable public-v1 method/resource contracts: 10 including Recording.")
+print("All ten public-v1 contracts have exact reference-client coverage; Phase 69 remains closed.")
