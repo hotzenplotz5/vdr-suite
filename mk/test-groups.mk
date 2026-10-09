@@ -3,6 +3,7 @@
 CI_FAST_TESTS := \
 	test-vdr-public-recording-identity \
 	test-vdr-public-recording-collection \
+	test-vdr-public-recording-runtime \
 	test-phase69-closeout \
 	test-phase69f-public-v1-operation-reference-client \
 	test-phase69f-public-v1-timer-create-reference-client \
@@ -106,6 +107,7 @@ CI_FAST_TESTS := \
 VDR_TESTS := \
 	test-vdr-public-recording-identity \
 	test-vdr-public-recording-collection \
+	test-vdr-public-recording-runtime \
 	test-phase68-osd-agent-local-resync \
 	test-phase68-osd-authenticated-transport \
 	test-phase68-osd-view-session-authorization \
