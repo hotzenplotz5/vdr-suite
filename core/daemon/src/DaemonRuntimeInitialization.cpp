@@ -343,6 +343,13 @@ bool DaemonRuntime::initialize()
         return false;
     }
 
+    vdrPublicRecordingIdentityRepository_ =
+        std::make_unique<VdrPublicRecordingIdentityRepository>(database_);
+    if (!vdrPublicRecordingIdentityRepository_->ensureSchema()) {
+        std::cerr << "failed to initialize public Recording identity schema" << std::endl;
+        return false;
+    }
+
     epgCacheServiceRegistry_ = std::make_unique<EpgCacheServiceRegistry>();
 
     for (const BackendNode& runtimeBackend : runtimeBackends) {
