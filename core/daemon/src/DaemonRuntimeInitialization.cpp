@@ -1438,7 +1438,7 @@ bool DaemonRuntime::initialize()
                 {
                     if (item.backendId != request.backendId ||
                         item.backendNativeId.empty())
-                        return {};
+                        return PublicGenreCollectionResult{};
                     const auto found = std::find_if(
                         canonicalRecordings.begin(),
                         canonicalRecordings.end(),
@@ -1449,12 +1449,12 @@ bool DaemonRuntime::initialize()
                     if (found == canonicalRecordings.end() ||
                         found->title.empty() ||
                         found->durationSeconds < 0)
-                        return {};
+                        return PublicGenreCollectionResult{};
                     const auto publicId =
                         publicRecordingIdentities_->resolveOrCreate(
                             request.backendId, found->backendNativeId);
                     if (!publicId.has_value())
-                        return {};
+                        return PublicGenreCollectionResult{};
 
                     PublicGenreRecordingItem view;
                     view.recordingId = *publicId;
@@ -1486,7 +1486,7 @@ bool DaemonRuntime::initialize()
                     const auto& item = overview.genres[index];
                     if (item.genreId.empty() || item.label.empty() ||
                         item.itemCount < 0)
-                        return {};
+                        return PublicGenreCollectionResult{};
                     PublicGenreItem view;
                     view.genreId = item.genreId;
                     view.label = item.label;
