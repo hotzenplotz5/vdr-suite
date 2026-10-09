@@ -160,6 +160,7 @@ void DaemonRuntime::shutdown()
     vdrRecordingFolderController_.reset();
     vdrRecordingQueryResultJsonSerializer_.reset();
     vdrRecordingQueryService_.reset();
+    vdrPublicRecordingIdentityRepository_.reset();
     vdrRecordingCacheRepository_.reset();
     vdrController_.reset();
     vdrOverviewJsonSerializer_.reset();
