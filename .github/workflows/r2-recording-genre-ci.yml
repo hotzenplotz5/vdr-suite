@@ -24,7 +24,8 @@ jobs:
           node --version
       - name: Compile and execute Public-v1 Recording and Genre contract tests
         run: |
-          make -j1 test-public-recording-collection-api \
+          make -j1 test-public-recording-identity-repository \
+            test-public-recording-collection-api \
             test-public-recording-collection-security \
             test-public-recording-genre-api \
             test-public-epg-now-next-api \
