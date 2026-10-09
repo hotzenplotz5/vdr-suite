@@ -1261,6 +1261,7 @@ bool DaemonRuntime::initialize()
             PublicRecordingCollectionResult result;
             if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
                 !publicRecordingIdentities_ ||
+                (request.browseFolders && !vdrRecordingCacheRepository_) ||
                 request.backendId.empty() ||
                 request.limit == 0U || request.limit > 100U)
             {
@@ -1276,6 +1277,79 @@ bool DaemonRuntime::initialize()
                     request.backendId))
             {
                 result.status = PublicRecordingCollectionStatus::unavailable;
+                return result;
+            }
+
+            if (request.browseFolders)
+            {
+                // Reuse the Home cache hierarchy; only opaque folder IDs,
+                // safe labels and Public-v1 recording identities leave here.
+                VdrRecordingFolderPage initial;
+                if (!vdrRecordingCacheRepository_->folderPageForBackendByPublicId(
+                        request.backendId, request.folderId, 1, 0, initial))
+                {
+                    result.status = PublicRecordingCollectionStatus::invalid;
+                    return result;
+                }
+                const std::size_t folderCount = initial.folders.size();
+                const std::size_t recordingCount =
+                    static_cast<std::size_t>(std::max(0, initial.recordingCount));
+                result.totalEntries = folderCount + recordingCount;
+                const std::size_t begin =
+                    std::min(request.offset, folderCount);
+                const std::size_t end =
+                    std::min(folderCount, request.offset + request.limit);
+                for (std::size_t index = begin; index < end; ++index)
+                {
+                    const auto& child = initial.folders[index];
+                    PublicRecordingFolderItem entry;
+                    entry.folderId =
+                        VdrRecordingCacheRepository::publicFolderId(
+                            request.backendId, child.path);
+                    entry.name = child.name;
+                    entry.recordingCount = child.recordingCount;
+                    result.folders.push_back(std::move(entry));
+                }
+                const std::size_t used = result.folders.size();
+                if (used < request.limit &&
+                    request.offset + used < result.totalEntries)
+                {
+                    const std::size_t recordingOffset =
+                        request.offset + used - folderCount;
+                    VdrRecordingFolderPage direct;
+                    if (!vdrRecordingCacheRepository_->folderPageForBackendByPublicId(
+                            request.backendId, request.folderId,
+                            static_cast<int>(request.limit - used),
+                            static_cast<int>(recordingOffset), direct))
+                    {
+                        result.status = PublicRecordingCollectionStatus::unavailable;
+                        return result;
+                    }
+                    PublicRecordingCollectionProjection projector(
+                        *publicRecordingIdentities_);
+                    const auto visible = projector.project(
+                        request.backendId, direct.recordings);
+                    if (!visible.valid)
+                    {
+                        result.status = PublicRecordingCollectionStatus::unavailable;
+                        return result;
+                    }
+                    for (const auto& item : visible.items)
+                    {
+                        PublicRecordingCollectionItem entry;
+                        entry.recordingId = item.recordingId;
+                        entry.backendId = item.backendId;
+                        entry.title = item.title;
+                        entry.recordedAt = item.recordedAt;
+                        entry.durationSeconds = item.durationSeconds;
+                        entry.durationKnown = item.durationKnown;
+                        result.recordings.push_back(std::move(entry));
+                    }
+                }
+                result.hasMore = request.offset +
+                    result.folders.size() + result.recordings.size() <
+                        result.totalEntries;
+                result.status = PublicRecordingCollectionStatus::ok;
                 return result;
             }
 

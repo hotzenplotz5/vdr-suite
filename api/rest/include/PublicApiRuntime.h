@@ -99,11 +99,21 @@ struct PublicRecordingCollectionItem
     bool durationKnown = false;
 };
 
+struct PublicRecordingFolderItem
+{
+    std::string folderId;
+    std::string name;
+    int recordingCount = 0;
+};
+
 struct PublicRecordingCollectionRequest
 {
     std::string backendId;
     std::string afterRecordingId;
     std::size_t limit = 50U;
+    bool browseFolders = false;
+    std::string folderId;
+    std::size_t offset = 0U;
 };
 
 struct PublicRecordingCollectionResult
@@ -111,6 +121,8 @@ struct PublicRecordingCollectionResult
     PublicRecordingCollectionStatus status =
         PublicRecordingCollectionStatus::unavailable;
     std::vector<PublicRecordingCollectionItem> recordings;
+    std::vector<PublicRecordingFolderItem> folders;
+    std::size_t totalEntries = 0U;
     bool hasMore = false;
 };
 

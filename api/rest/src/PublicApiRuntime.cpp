@@ -691,6 +691,9 @@ struct PublicRecordingCollectionQuery
     std::string backendId;
     std::string cursor;
     std::size_t limit = PublicRecordingDefaultLimit;
+    bool browseFolders = false;
+    std::string folderId;
+    std::size_t offset = 0U;
 };
 
 bool parsePublicRecordingCollectionQuery(
@@ -704,6 +707,9 @@ bool parsePublicRecordingCollectionQuery(
     bool cursorSeen = false;
     bool sortSeen = false;
     bool orderSeen = false;
+    bool viewSeen = false;
+    bool folderSeen = false;
+    bool offsetSeen = false;
     std::size_t position = 0U;
 
     while (position <= encoded.size())
@@ -747,6 +753,29 @@ bool parsePublicRecordingCollectionQuery(
             cursorSeen = true;
             query.cursor = value;
         }
+        else if (key == "view")
+        {
+            if (viewSeen || value != "folders") return false;
+            viewSeen = true;
+            query.browseFolders = true;
+        }
+        else if (key == "folderId")
+        {
+            if (folderSeen || value.size() != 37U ||
+                value.rfind("fld1_", 0U) != 0U ||
+                !std::all_of(value.begin() + 5, value.end(),
+                    [](char ch) { return (ch >= '0' && ch <= '9') ||
+                                          (ch >= 'a' && ch <= 'f'); }))
+                return false;
+            folderSeen = true;
+            query.folderId = value;
+        }
+        else if (key == "offset")
+        {
+            if (offsetSeen || !decimalSize(value, query.offset) ||
+                query.offset > 1000000U) return false;
+            offsetSeen = true;
+        }
         else if (key == "sort")
         {
             if (sortSeen || value != PublicRecordingCollectionSort)
@@ -767,7 +796,9 @@ bool parsePublicRecordingCollectionQuery(
         if (separator == std::string::npos) break;
         position = separator + 1U;
     }
-    return backendSeen;
+    return backendSeen &&
+        (query.browseFolders ? (!cursorSeen && !sortSeen && !orderSeen) :
+            (!folderSeen && !offsetSeen));
 }
 
 struct PublicChannelCollectionQuery
@@ -3176,6 +3207,42 @@ ApiResponse publicBackendCollectionResponse(
         body,
         requestId,
         correlationId);
+}
+
+ApiResponse publicRecordingBrowseResponse(
+    const PublicRecordingCollectionResult& page,
+    const PublicRecordingCollectionQuery& query,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    std::string body = "{\"items\":[";
+    std::size_t count = 0U;
+    for (const auto& folder : page.folders)
+    {
+        if (count++) body += ",";
+        body += "{\"kind\":\"folder\",\"folderId\":\"" +
+            jsonEscape(folder.folderId) + "\",\"name\":\"" +
+            jsonEscape(folder.name) + "\",\"recordingCount\":" +
+            std::to_string(folder.recordingCount) + "}";
+    }
+    for (const auto& item : page.recordings)
+    {
+        if (count++) body += ",";
+        body += "{\"kind\":\"recording\",\"recordingId\":\"" +
+            jsonEscape(item.recordingId) + "\",\"backendId\":\"" +
+            jsonEscape(item.backendId) + "\",\"title\":\"" +
+            jsonEscape(item.title) + "\",\"recordedAt\":\"" +
+            jsonEscape(item.recordedAt) + "\",\"durationSeconds\":" +
+            std::to_string(item.durationSeconds) +
+            ",\"durationKnown\":" +
+            (item.durationKnown ? "true" : "false") + "}";
+    }
+    body += "],\"page\":{\"limit\":" + std::to_string(query.limit) +
+        ",\"offset\":" + std::to_string(query.offset) +
+        ",\"totalCount\":" + std::to_string(page.totalEntries) +
+        ",\"hasMore\":" + (page.hasMore ? "true" : "false") +
+        "},\"meta\":{\"partial\":false}}";
+    return jsonResponse(body, requestId, correlationId);
 }
 
 ApiResponse publicRecordingCollectionResponse(
@@ -6004,12 +6071,57 @@ bool PublicApiRuntime::tryHandleGet(
         read.backendId = query.backendId;
         read.afterRecordingId = afterRecordingId;
         read.limit = query.limit;
+        read.browseFolders = query.browseFolders;
+        read.folderId = query.folderId;
+        read.offset = query.offset;
         const auto page = lookupRecordingCollection(read);
 
         switch (page.status)
         {
             case PublicRecordingCollectionStatus::ok:
             {
+                if (query.browseFolders)
+                {
+                    const std::size_t count =
+                        page.folders.size() + page.recordings.size();
+                    if (count > query.limit ||
+                        page.totalEntries < query.offset ||
+                        count > page.totalEntries - query.offset ||
+                        page.hasMore !=
+                            (query.offset + count < page.totalEntries))
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    for (const auto& folder : page.folders)
+                    {
+                        if (folder.folderId.size() != 37U ||
+                            folder.folderId.rfind("fld1_", 0U) != 0U ||
+                            folder.name.empty() || folder.recordingCount < 0)
+                        {
+                            response = serviceUnavailableProblem(
+                                path, requestId, correlationId);
+                            return true;
+                        }
+                    }
+                    for (const auto& recording : page.recordings)
+                    {
+                        if (recording.backendId != query.backendId ||
+                            recording.recordingId.size() != 36U ||
+                            recording.recordingId.rfind("rec_", 0U) != 0U ||
+                            recording.title.empty() ||
+                            recording.durationSeconds < 0)
+                        {
+                            response = serviceUnavailableProblem(
+                                path, requestId, correlationId);
+                            return true;
+                        }
+                    }
+                    response = publicRecordingBrowseResponse(
+                        page, query, requestId, correlationId);
+                    return true;
+                }
                 if (page.recordings.size() > query.limit ||
                     (page.hasMore && page.recordings.size() != query.limit))
                 {

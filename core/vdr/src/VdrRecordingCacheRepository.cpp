@@ -6,6 +6,8 @@
 #include <sqlite3.h>
 
 #include <algorithm>
+#include <cstdint>
+#include <iomanip>
 #include <map>
 #include <sstream>
 #include <string>
@@ -1002,6 +1004,61 @@ bool VdrRecordingCacheRepository::warmBrowseSnapshotForBackend(
 
     return rebuildBrowseSnapshotFromPersistentCacheLocked(
         normalizeBackendId(backendId));
+}
+
+std::string VdrRecordingCacheRepository::publicFolderId(
+    const std::string& backendId, const std::string& folderPath)
+{
+    // Non-path stable identifier, not a security token.
+    std::string scoped = backendId;
+    scoped.push_back('\0');
+    scoped += folderPath;
+    std::uint64_t one = UINT64_C(14695981039346656037);
+    std::uint64_t two = UINT64_C(7809847782465536322);
+    for (const unsigned char ch : scoped)
+    {
+        one = (one ^ ch) * UINT64_C(1099511628211);
+        two = (two ^ ch) * UINT64_C(1099511628211);
+    }
+    std::ostringstream out;
+    out << "fld1_" << std::hex << std::setfill('0')
+        << std::setw(16) << one << std::setw(16) << two;
+    return out.str();
+}
+
+bool VdrRecordingCacheRepository::folderPageForBackendByPublicId(
+    const std::string& backendId, const std::string& folderId,
+    int limit, int offset, VdrRecordingFolderPage& page) const
+{
+    if (!folderId.empty() &&
+        (folderId.size() != 37U || folderId.rfind("fld1_", 0U) != 0U ||
+         !std::all_of(folderId.begin() + 5, folderId.end(),
+             [](char ch) { return (ch >= '0' && ch <= '9') ||
+                                   (ch >= 'a' && ch <= 'f'); })))
+        return false;
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    const std::string normalizedBackendId = normalizeBackendId(backendId);
+    // This is the same indexed hierarchy used by Web Home.
+    (void) folderPageForBackend(normalizedBackendId, "", 1, 0);
+    const auto snapshot = browseSnapshots_.find(normalizedBackendId);
+    if (snapshot == browseSnapshots_.end()) return false;
+    std::string path;
+    if (!folderId.empty())
+    {
+        bool found = false;
+        for (const auto& item : snapshot->second.folders)
+        {
+            if (publicFolderId(normalizedBackendId, item.first) == folderId)
+            {
+                path = item.first;
+                found = true;
+                break;
+            }
+        }
+        if (!found) return false;
+    }
+    page = folderPageForBackend(normalizedBackendId, path, limit, offset);
+    return true;
 }
 
 VdrRecordingFolderPage VdrRecordingCacheRepository::folderPageForBackend(
