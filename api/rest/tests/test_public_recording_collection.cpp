@@ -41,7 +41,7 @@ int main()
                 return page;
             page.status = PublicRecordingCollectionStatus::ok;
             for (const auto& item : {
-                recording("rec_001"), recording("rec_002"), recording("rec_003")})
+                recording("rec_00000000000000000000000000000001"), recording("rec_00000000000000000000000000000002"), recording("rec_00000000000000000000000000000003")})
             {
                 if (!request.afterRecordingId.empty() &&
                     item.recordingId <= request.afterRecordingId)
@@ -62,7 +62,7 @@ int main()
         "actor:tv", "recording-first", "", first, "", "",
         {"backend-a"}));
     assert(first.statusCode == 200);
-    assert(first.body.find("\"recordingId\":\"rec_001\"") != std::string::npos);
+    assert(first.body.find("\"recordingId\":\"rec_00000000000000000000000000000001\"") != std::string::npos);
     assert(first.body.find("\"durationSeconds\":3600") != std::string::npos);
     assert(first.body.find("\"hasMore\":true") != std::string::npos);
     assert(first.body.find("backendNativeId") == std::string::npos);
@@ -78,7 +78,7 @@ int main()
         "actor:tv", "recording-second", "", second, "", "",
         {"backend-a"}));
     assert(second.statusCode == 200);
-    assert(second.body.find("\"recordingId\":\"rec_003\"") != std::string::npos);
+    assert(second.body.find("\"recordingId\":\"rec_00000000000000000000000000000003\"") != std::string::npos);
     assert(second.body.find("\"hasMore\":false") != std::string::npos);
 
     ApiResponse wrongScope;
