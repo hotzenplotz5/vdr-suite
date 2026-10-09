@@ -17,3 +17,5 @@ those specific instructions supplement, rather than override, these rules.
   or package contract changes. Keep tests and higher-level ADRs consistent.
 - Do not install, restart or mutate live VDR files without explicit consent
   and a host-specific read-only resource preflight.
+
+- The `core/addons` policy evaluator is not a replacement for the canonical `RequestSecurityContext` grant resolution or `BackendAccessPolicy` write gate. Do not expose it to the HTTP router, fake package provenance, or claim a live handler before those gates are wired and verified.

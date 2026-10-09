@@ -53,3 +53,16 @@ test-addon-media-tools-package:
 
 test-ci-fast: test-addon-media-import
 test-install-staging: test-addon-media-tools-package
+
+# Core-owned, standalone access-decision library. No daemon/HTTP wiring.
+.PHONY: test-addon-access-policy
+test-addon-access-policy:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror \
+		-I core/addons/include -I core/security/include -I core/vdr/include \
+		core/addons/src/AddonAccessPolicy.cpp \
+		core/addons/tests/test_addon_access_policy.cpp \
+		-o "$(BUILD_DIR)/addons/test_addon_access_policy"
+	"$(BUILD_DIR)/addons/test_addon_access_policy"
+
+test-ci-fast: test-addon-access-policy

@@ -35,3 +35,7 @@ and match a core-owned package name; unknown packages, symlinked entries and
 malformed metadata are rejected. **All listed modules remain disabled**, and
 the preview never writes activation state, installs packages or invokes media.
 This is not a server API, menu or backend module loader.
+
+## C++ access decision contract (offline)
+
+A standalone Suite-Core policy under `core/addons/` now checks authenticated actor context, **resolved** permission grants, exact reviewed module/package binding, package provenance, administrator intent, handler health and canonical backend write policy. `make test-addon-access-policy` validates these gates without a daemon or media access. This contract is not yet connected to API/Agent execution. No live module is enabled; `addons.media.import` is deliberately **not** added to current administrable rights until the backend operation is ready.
