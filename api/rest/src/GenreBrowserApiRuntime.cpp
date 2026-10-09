@@ -494,6 +494,36 @@ bool GenreBrowserApiRuntime::tryHandleGet(
     return true;
 }
 
+bool GenreBrowserApiRuntime::recordingOverview(
+    const std::string& backendId,
+    const std::string& locale,
+    GenreOverview& result) const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    GenreIndexRepository* repository = readRepository_ ?
+        readRepository_.get() : writerRepository_.get();
+    if (!repository) return false;
+    result = repository->overview(backendId, "recording", 0, 0, locale);
+    return true;
+}
+
+bool GenreBrowserApiRuntime::recordingPage(
+    const std::string& backendId,
+    const std::string& genreId,
+    int limit, int offset,
+    GenreRecordingPage& result) const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    GenreIndexRepository* repository = readRepository_ ?
+        readRepository_.get() : writerRepository_.get();
+    if (!repository || backendId.empty() || genreId.empty() ||
+        limit < 1 || limit > 30 || offset < 0 || offset > 1000000)
+        return false;
+    result = repository->recordingsByGenre(
+        backendId, genreId, limit, offset);
+    return true;
+}
+
 bool GenreBrowserApiRuntime::configured() const
 {
     std::lock_guard<std::mutex> lock(mutex_);

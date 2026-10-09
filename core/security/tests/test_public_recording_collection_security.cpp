@@ -117,5 +117,30 @@ int main()
         assert(!decision.allowed);
         assert(decision.rejection.statusCode == 401);
     }
+
+    // Public-v1 Genre collections use the same recordings.view authorization.
+    for (const std::string& target : {
+        "/api/v1/genres?backendId=backend-a&limit=30",
+        "/api/v1/genres/recordings?backendId=backend-a&genreId=crime&limit=30"
+    })
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, Permission, "backend-a"));
+        const auto decision = fixture.gate.evaluate(
+            browserGet(fixture, target));
+        assert(decision.allowed);
+        assert(decision.authorizedBackendIds ==
+            (std::vector<std::string>{"backend-a"}));
+    }
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, Permission, "backend-a"));
+        const auto decision = fixture.gate.evaluate(
+            browserGet(fixture, "/api/v1/genres?backendId=backend-b"));
+        assert(!decision.allowed);
+        assert(decision.rejection.statusCode == 403);
+    }
     return 0;
 }

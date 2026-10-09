@@ -1,0 +1,31 @@
+name: R2 Public-v1 Recording + Genre tests
+
+on:
+  push:
+    branches:
+      - work/r2-recording-folder-browse
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify build dependencies
+        run: |
+          g++ --version
+          pkg-config --modversion sqlite3
+          node --version
+      - name: Compile and execute Public-v1 Recording and Genre contract tests
+        run: |
+          make -j1 test-public-recording-collection-api \
+            test-public-recording-collection-security \
+            test-public-recording-genre-api \
+            test-public-recording-collection-projection \
+            test-vdr-recording-cache-repository
+      - name: Compile daemon candidate without deploying
+        run: make -j2 daemon

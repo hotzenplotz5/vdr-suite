@@ -6,6 +6,7 @@
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "RecordingArtworkHttpServer.h"
 #include "PublicRecordingCollectionProjection.h"
+#include "GenreBrowserApiRuntime.h"
 #include "RecordingSeriesHierarchyApiRuntime.h"
 #include "RestfulApiRecordingActionBackendExecutorAdapter.h"
 #include "RestfulApiSearchTimerDiscoveryProvider.h"
@@ -1394,6 +1395,108 @@ bool DaemonRuntime::initialize()
                 result.recordings.push_back(std::move(view));
             }
             result.status = PublicRecordingCollectionStatus::ok;
+            return result;
+        });
+
+    // Same Suite Genre index as the Web frontend; Public-v1 only projects
+    // authorized, paginated and opaque-ID read models.
+    PublicApiRuntime::instance().registerGenreCollectionLookup(
+        [this](const PublicGenreCollectionRequest& request)
+        {
+            PublicGenreCollectionResult result;
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                !publicRecordingIdentities_ || request.backendId.empty() ||
+                request.limit == 0U || request.limit > 30U ||
+                request.offset > 1000000U)
+            {
+                result.status = PublicGenreCollectionStatus::invalid;
+                return result;
+            }
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled ||
+                !backend->online ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(
+                    request.backendId))
+                return result;
+
+            auto& genres = GenreBrowserApiRuntime::instance();
+            if (request.recordings)
+            {
+                GenreRecordingPage page;
+                if (!genres.recordingPage(request.backendId,
+                    request.genreId, static_cast<int>(request.limit),
+                    static_cast<int>(request.offset), page) ||
+                    page.totalCount < 0 ||
+                    page.recordings.size() > request.limit)
+                    return result;
+
+                const auto canonicalRecordings =
+                    vdrSnapshotReadService_->getRecordingsForBackend(
+                        request.backendId);
+                for (const auto& item : page.recordings)
+                {
+                    if (item.backendId != request.backendId ||
+                        item.backendNativeId.empty())
+                        return {};
+                    const auto found = std::find_if(
+                        canonicalRecordings.begin(),
+                        canonicalRecordings.end(),
+                        [&item](const VdrRecording& current) {
+                            return current.backendNativeId ==
+                                item.backendNativeId;
+                        });
+                    if (found == canonicalRecordings.end() ||
+                        found->title.empty() ||
+                        found->durationSeconds < 0)
+                        return {};
+                    const auto publicId =
+                        publicRecordingIdentities_->resolveOrCreate(
+                            request.backendId, found->backendNativeId);
+                    if (!publicId.has_value())
+                        return {};
+
+                    PublicGenreRecordingItem view;
+                    view.recordingId = *publicId;
+                    view.backendId = request.backendId;
+                    view.title = found->title;
+                    view.recordedAt = found->startTime;
+                    view.durationSeconds = found->durationSeconds;
+                    view.durationKnown = found->recordingDurationKnown;
+                    result.recordings.push_back(std::move(view));
+                }
+                result.totalCount = static_cast<std::size_t>(page.totalCount);
+            }
+            else
+            {
+                GenreOverview overview;
+                if (!genres.recordingOverview(
+                    request.backendId, request.locale, overview))
+                    return result;
+                std::sort(overview.genres.begin(), overview.genres.end(),
+                    [](const GenreOverviewEntry& a,
+                       const GenreOverviewEntry& b) {
+                        return a.genreId < b.genreId;
+                    });
+                result.totalCount = overview.genres.size();
+                const std::size_t end =
+                    std::min(result.totalCount, request.offset + request.limit);
+                for (std::size_t index = request.offset; index < end; ++index)
+                {
+                    const auto& item = overview.genres[index];
+                    if (item.genreId.empty() || item.label.empty() ||
+                        item.itemCount < 0)
+                        return {};
+                    PublicGenreItem view;
+                    view.genreId = item.genreId;
+                    view.label = item.label;
+                    view.labelDe = item.labelDe;
+                    view.labelEn = item.labelEn;
+                    view.count = static_cast<std::size_t>(item.itemCount);
+                    result.genres.push_back(std::move(view));
+                }
+            }
+            result.status = PublicGenreCollectionStatus::ok;
             return result;
         });
 
