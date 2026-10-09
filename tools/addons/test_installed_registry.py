@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from test_addon_contract import addon
+from addon_contract import ContractError, ROOT, stage
 
 spec = importlib.util.spec_from_file_location(
     "installed_registry", Path(__file__).with_name("installed_registry.py")
@@ -17,7 +17,7 @@ spec.loader.exec_module(registry)
 
 class InstalledAddonRegistryTests(unittest.TestCase):
     def _stage(self, root, name):
-        return addon.stage(addon.ROOT, name, str(root))
+        return stage(ROOT, name, str(root))
 
     def test_missing_catalog_keeps_every_module_disabled(self):
         with tempfile.TemporaryDirectory(prefix="addon-registry-test-") as tmp:
@@ -101,9 +101,9 @@ class InstalledAddonRegistryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="addon-registry-test-") as tmp:
             root = Path(tmp)
             (root / "usr").symlink_to(root / "other", target_is_directory=True)
-            with self.assertRaises(addon.ContractError):
+            with self.assertRaises(ContractError):
                 registry.inspect(root)
-            with self.assertRaises(addon.ContractError):
+            with self.assertRaises(ContractError):
                 registry.inspect(Path("relative"))
 
     def test_deterministic_cli_read_only_output(self):
