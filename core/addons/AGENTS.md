@@ -16,3 +16,16 @@ constraints in [ADR-0068](../../docs/adr/ADR-0068-optional-addons-and-source-pac
    administrator intent, handler trust and media reconciliation are ready.
 6. Validate the exact candidate with make test-addon-access-policy without
    live media, daemon deployment, installation or service restarts.
+
+7. The `AddonActivationIntentRepository` stores only administrative desired
+   state, NEVER effective activation. Mutations require canonical resolved
+   global-administrator grants and an exact optimistic revision; enabling
+   additionally requires independent trusted package/handler/backend evidence.
+   Do not wire a public route or runtime hook to this repository without
+   explicit authoritative provenance, audit, migrations, lifecycle and tests.
+8. Never let disabled/uninstalled modules become active merely because an
+   old SQLite desired-enable row survives a restart or package upgrade.
+   Loss of any trust, handler health, permission or backend authority must
+   independently force effective capabilities to empty.
+9. Run `make test-addon-activation-intent` with an isolated build directory
+   and explicitly assigned `TMPDIR`; it creates only a temporary SQLite DB.

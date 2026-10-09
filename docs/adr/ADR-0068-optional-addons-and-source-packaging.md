@@ -76,3 +76,13 @@ capabilities, insert rights or activate itself. The `plan-enable` entrypoint
 only explains why activation is denied and never changes state. **No production
 module management API or activation flow is implied.** See the
 [installed registry contract](../development/addon-installed-registry-contract.md).
+
+## Activation-intent persistence proof (2026-10-09)
+
+A separate internal SQLite repository now models *administrative intent*
+per known module/backend with CAS revision, fail-closed global administrator
+authorization and evidence requirements for future enable intentions. It
+does **not** activate modules. No executor, daemon API, background service,
+effective capability, upgrade migration or production DB schema activation
+is introduced. The existing runtime trust, audit, grant-vocabulary and
+backend reconciliation gates remain mandatory.

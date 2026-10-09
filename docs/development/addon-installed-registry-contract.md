@@ -69,3 +69,34 @@ operational manager until they are satisfied.
 The C++17 `core/addons/AddonAccessPolicy` independently evaluates global-administrator inventory visibility and the strict conjunction for future backend-local Media Tools import. The evaluation uses canonical `RequestSecurityContext` (authenticated, active actor/device/session/credential, resolved grants) and `BackendAccessDecision`; it does **not** reimplement backend read-only/write classification. Even a package with valid metadata remains unusable without independent package provenance, compatible version, explicit administrator enable, reviewed healthy execution handler and an exact backend-scoped `addons.media.import` grant. Generic admin or `recordings.execute` is not an import grant. This new permission is a prospective name **not currently grantable** by the canonical Human Account/Device Grant Administration vocabulary. This isolated evaluator is not connected to the daemon, Public API, worker or persistent settings, so it grants no live capability.
 
 Validation: `make test-addon-access-policy` compiles the actual C++ service and exercises the above permits/denials in a standalone binary. No live media, VDR or daemon services are involved. Productive enable/disable and API wiring need separately audited authentication, persistence, operation fencing and readback/reconciliation.
+
+## Durable desired state proof (not wired to runtime)
+
+`core/addons/AddonActivationIntentRepository` implements a narrowly scoped,
+source-only C++17 SQLite persistence model for administrator **intent**,
+not effective module activation. It stores only reviewed module identities
+and explicitly scoped backend IDs. Defaults are disabled, revision 0;
+every authorized edit compares its expected revision under an SQLite
+`BEGIN IMMEDIATE` transaction and increments a revision. Read/write
+admission requires resolved global `role.admin@*`. Enabling even the
+known `rectools` module requires separately supplied evidence of exact
+package identity, manifest validity, package provenance, Suite compatibility,
+trusted/healthy core handler and canonical writable backend. No other
+scaffold can be marked desired-enabled. Disabling is intentionally possible
+when a provider has disappeared.
+
+The repository is intentionally **not wired** into `DaemonRuntime`,
+`PublicApiRuntime`, the Python inventory, package installation or any
+executor. Stored intent cannot enable an executable, grant permissions,
+refresh the VDR cache or expose a client capability. The first runtime
+consumer must derive effective availability on every use from freshly
+verified package, handler, backend, actor and stored-state evidence, with
+fail-closed behavior if any input becomes unavailable. Future API/activation
+mutations also need accountability logging, durable permission vocabulary,
+CSRF, revision/idempotency and upgrade/removal policy.
+
+Test `make test-addon-activation-intent` creates a temporary isolated SQLite
+file; verifies default-disabled read, forbidden actors, missing trust/handler,
+read-only backend, invalid identities, optimistic conflict, persistence
+across repository reconstruction, and disabling while backend is offline.
+It does not touch production SQLite or VDR.

@@ -66,3 +66,19 @@ test-addon-access-policy:
 	"$(BUILD_DIR)/addons/test_addon_access_policy"
 
 test-ci-fast: test-addon-access-policy
+
+# Durable *desired* state only: SQLite CAS, no live daemon, routes or jobs.
+.PHONY: test-addon-activation-intent
+test-addon-activation-intent:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
+		-I core/addons/include -I core/security/include \
+		-I core/vdr/include -I core/sqlite/include \
+		core/sqlite/src/Database.cpp \
+		core/addons/src/AddonAccessPolicy.cpp \
+		core/addons/src/AddonActivationIntentRepository.cpp \
+		core/addons/tests/test_addon_activation_intent_repository.cpp \
+		-lsqlite3 -o "$(BUILD_DIR)/addons/test_addon_activation_intent"
+	"$(BUILD_DIR)/addons/test_addon_activation_intent"
+
+test-ci-fast: test-addon-activation-intent

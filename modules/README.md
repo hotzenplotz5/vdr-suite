@@ -39,3 +39,11 @@ This is not a server API, menu or backend module loader.
 ## C++ access decision contract (offline)
 
 A standalone Suite-Core policy under `core/addons/` now checks authenticated actor context, **resolved** permission grants, exact reviewed module/package binding, package provenance, administrator intent, handler health and canonical backend write policy. `make test-addon-access-policy` validates these gates without a daemon or media access. This contract is not yet connected to API/Agent execution. No live module is enabled; `addons.media.import` is deliberately **not** added to current administrable rights until the backend operation is ready.
+
+## Administrator desire is not execution
+
+The [SQLite activation-intent proof](../docs/development/addon-installed-registry-contract.md)
+models administrator preference separately from installed and effective
+capabilities. It is **not connected to the daemon** and does not activate
+any of these four packages. No automatic add-on enable or client discovery
+is permitted from persisted preference alone.

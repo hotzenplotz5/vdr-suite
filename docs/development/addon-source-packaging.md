@@ -72,3 +72,9 @@ An explicit `make build-media-tools-cpp-deb OUTPUT_DIR=/absolute/isolated-output
 Offline package test: `make test-addon-media-tools-package` constructs and inspects a test .deb without installing it; `test-install-staging` includes that focused contract. The C++ compile/test run separately under `test-addon-media-import` and through the existing `test-ci-fast` target. Full source-debian `debian/` policy and installation acceptance are not claimed.
 
 A small standalone C++ Core access-gate proof (`make test-addon-access-policy`) is kept separate from metadata package presence. This does **not** make the scaffold packages runnable or grant `addons.media.import` in the canonical security rights vocabulary.
+
+The optional source-only C++ `AddonActivationIntentRepository` persists
+only a revision-fenced administrator wish; neither scaffold packages nor the
+compiled C++ Media Tools preview are enabled by that record. The offline
+`make test-addon-activation-intent` target runs against a caller-controlled
+temporary SQLite database and does not install or alter live state.
