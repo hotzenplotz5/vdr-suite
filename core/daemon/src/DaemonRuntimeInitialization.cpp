@@ -1253,6 +1253,32 @@ bool DaemonRuntime::initialize()
             return result;
         });
 
+    PublicApiRuntime::instance().registerRecordingCollectionLookup(
+        [this](const std::string& backendId)
+        {
+            VdrPublicRecordingCollection unavailable;
+            unavailable.valid = false;
+            if (!backendRegistryService_ ||
+                !vdrRecordingCacheRepository_ ||
+                !vdrPublicRecordingIdentityRepository_)
+                return unavailable;
+
+            const auto backend = backendRegistryService_->getBackend(backendId);
+            if (!backend.has_value() || !backend->enabled || !backend->online)
+                return unavailable;
+
+            const auto status =
+                vdrRecordingCacheRepository_->statusForBackend(backendId);
+            if (status.state != "ready") return unavailable;
+
+            const auto cached =
+                vdrRecordingCacheRepository_->findAllForBackend(backendId);
+            const auto identities =
+                vdrPublicRecordingIdentityRepository_->activeBindingsForBackend(
+                    backendId);
+            return projectPublicRecordings(cached, identities, {backendId});
+        });
+
     PublicApiRuntime::instance().registerChannelCollectionLookup(
         [this](const PublicChannelCollectionRequest& request)
         {
