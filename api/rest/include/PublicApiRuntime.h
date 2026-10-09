@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DashboardController.h"
+#include "VdrPublicRecordingCollection.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -776,6 +777,11 @@ public:
         std::function<PublicChannelCollectionResult(
             const PublicChannelCollectionRequest& request)>;
 
+    // One actor-authorized backend at a time; callback cannot choose scope.
+    using RecordingCollectionLookup =
+        std::function<VdrPublicRecordingCollection(
+            const std::string& backendId)>;
+
     using BackendCollectionLookup =
         std::function<PublicBackendCollectionResult(
             const PublicBackendCollectionRequest& request)>;
@@ -895,6 +901,12 @@ public:
     bool timerAssignmentCollectionLookupConfigured() const;
     PublicTimerAssignmentCollectionResult lookupTimerAssignmentCollection(
         const PublicTimerAssignmentCollectionRequest& request) const;
+
+    void registerRecordingCollectionLookup(RecordingCollectionLookup lookup);
+    void resetRecordingCollectionLookup();
+    bool recordingCollectionLookupConfigured() const;
+    VdrPublicRecordingCollection lookupRecordingCollection(
+        const std::string& backendId) const;
 
     void registerChannelCollectionLookup(
         ChannelCollectionLookup lookup);
@@ -1068,6 +1080,9 @@ private:
 
     mutable std::mutex channelCollectionLookupMutex_;
     ChannelCollectionLookup channelCollectionLookup_;
+
+    mutable std::mutex recordingCollectionLookupMutex_;
+    RecordingCollectionLookup recordingCollectionLookup_;
 
     mutable std::mutex backendCollectionLookupMutex_;
     BackendCollectionLookup backendCollectionLookup_;
