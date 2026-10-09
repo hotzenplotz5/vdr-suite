@@ -57,6 +57,14 @@ int main()
             return page;
         });
 
+    ApiResponse capability;
+    assert(runtime.tryHandleGet(
+        "/api/v1/capabilities", "actor:tv", "caps-r2", "",
+        capability, "", "", {"backend-a"}));
+    assert(capability.statusCode == 200);
+    assert(capability.body.find("public-api.recordings-browse") !=
+        std::string::npos);
+
     ApiResponse first;
     assert(runtime.tryHandleGet(
         "/api/v1/recordings?backendId=backend-a&limit=2",

@@ -2886,6 +2886,9 @@ ApiResponse platformCapabilities(
         "{\"id\":\"public-api.recordings-read\",\"version\":1,\"availability\":\"" +
         std::string(recordingCollectionAvailable ? "available" : "unavailable") +
         "\"},"
+        "{\"id\":\"public-api.recordings-browse\",\"version\":1,\"availability\":\"" +
+        std::string(recordingCollectionAvailable ? "available" : "unavailable") +
+        "\"},"
         "{\"id\":\"public-api.accounts-read\",\"version\":1,\"availability\":\"" +
         std::string(accountCollectionAvailable ? "available" : "unavailable") +
         "\"},"
