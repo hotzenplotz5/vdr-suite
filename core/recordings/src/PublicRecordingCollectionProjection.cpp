@@ -38,6 +38,7 @@ PublicRecordingReadResult PublicRecordingCollectionProjection::project(
         item.title = source.title;
         item.recordedAt = source.startTime;
         item.durationSeconds = source.durationSeconds;
+        item.durationKnown = source.recordingDurationKnown;
         result.items.push_back(std::move(item));
     }
 
