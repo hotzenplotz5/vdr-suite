@@ -1275,6 +1275,56 @@ public:
             return gate;
         }
 
+        if (isPublicRecordingRead)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+
+            if (!publicRecordingScopeValid)
+            {
+                AuthorizationDecision invalid;
+                invalid.reasonCode = "invalid_backend_scope";
+                invalid.permission = "recordings.view";
+                invalid.backendId = "*";
+                invalid.action = "recordings.view";
+                return rejectWithAudit(gate, invalid, 400,
+                    "The public Recording collection requires one valid backendId",
+                    "");
+            }
+
+            AuthorizationRequest recordingRead;
+            recordingRead.permission = "recordings.view";
+            recordingRead.backendId = publicRecordingScopes.front();
+            recordingRead.action = "recordings.view";
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(gate.context, recordingRead);
+            if (!appendDecisionEvent(gate.context, decision, ""))
+            {
+                gate.rejection = errorResponse(
+                    503, "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+            if (!decision.allowed)
+            {
+                const int statusCode =
+                    decision.reasonCode == "invalid_backend_scope"
+                        ? 400
+                        : (authenticationFailure(decision) ? 401 : 403);
+                gate.rejection = errorResponse(
+                    statusCode, decision.reasonCode,
+                    messageForReason(decision.reasonCode),
+                    gate.context, authenticationFailure(decision),
+                    gate.publicApiV1);
+                return gate;
+            }
+            gate.authorizationDecision = decision;
+            gate.authorizedBackendIds = publicRecordingScopes;
+            gate.allowed = true;
+            return gate;
+        }
+
         if (isPublicChannelRead)
         {
             if (!gate.context.authenticated())
