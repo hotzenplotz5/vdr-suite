@@ -5955,6 +5955,97 @@ bool PublicApiRuntime::tryHandleGet(
         }
     }
 
+    if (path == PublicRecordingCollectionPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+
+        PublicRecordingCollectionQuery query;
+        if (!parsePublicRecordingCollectionQuery(requestTarget, query) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != query.backendId)
+        {
+            response = invalidRequestProblem(
+                path, "Recording collection backend scope is invalid.",
+                requestId, correlationId);
+            return true;
+        }
+
+        std::string afterRecordingId;
+        if (!query.cursor.empty())
+        {
+            const auto cursorStatus = decodePublicRecordingCursor(
+                query.cursor, query.backendId, afterRecordingId);
+            if (cursorStatus == PublicRecordingCursorDecodeStatus::scopeMismatch)
+            {
+                response = cursorExpiredProblem(
+                    path, requestId, correlationId);
+                return true;
+            }
+            if (cursorStatus != PublicRecordingCursorDecodeStatus::ok)
+            {
+                response = invalidRequestProblem(
+                    path, "The Recording cursor is invalid.",
+                    requestId, correlationId);
+                return true;
+            }
+        }
+
+        PublicRecordingCollectionRequest read;
+        read.backendId = query.backendId;
+        read.afterRecordingId = afterRecordingId;
+        read.limit = query.limit;
+        const auto page = lookupRecordingCollection(read);
+
+        switch (page.status)
+        {
+            case PublicRecordingCollectionStatus::ok:
+            {
+                if (page.recordings.size() > query.limit ||
+                    (page.hasMore && page.recordings.size() != query.limit))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+
+                std::string previous = afterRecordingId;
+                for (const auto& recording : page.recordings)
+                {
+                    if (recording.backendId != query.backendId ||
+                        recording.recordingId.empty() ||
+                        recording.recordingId.size() > 128U ||
+                        recording.recordingId.rfind("rec_", 0U) != 0U ||
+                        recording.title.empty() ||
+                        recording.durationSeconds < 0 ||
+                        (!previous.empty() &&
+                         recording.recordingId <= previous))
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    previous = recording.recordingId;
+                }
+                response = publicRecordingCollectionResponse(
+                    page, query, requestId, correlationId);
+                return true;
+            }
+            case PublicRecordingCollectionStatus::invalid:
+                response = invalidRequestProblem(
+                    path, "The Recording collection request is invalid.",
+                    requestId, correlationId);
+                return true;
+            case PublicRecordingCollectionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
     if (path == PublicChannelCollectionPath)
     {
         if (actorRef.empty())
