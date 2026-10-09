@@ -2,6 +2,7 @@
 
 CI_FAST_TESTS := \
 	test-public-recording-identity-repository \
+	test-public-recording-collection-projection \
 	test-phase69-closeout \
 	test-phase69f-public-v1-operation-reference-client \
 	test-phase69f-public-v1-timer-create-reference-client \
