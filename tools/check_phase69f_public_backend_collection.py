@@ -166,8 +166,8 @@ require(
     "complete public-v1 reference coverage must allow closeout/final state without a preselected route",
 )
 require(
-    "Stable public-v1 method/resource contracts: 9." in matrix_guard,
-    "client matrix guard must count the Backend contract",
+    "Public-v1 method/resource contracts: 9 accepted, 1 Recording R2 candidate." in matrix_guard,
+    "client matrix guard must retain nine accepted contracts and isolate the Recording R2 candidate",
 )
 
 for token in (
