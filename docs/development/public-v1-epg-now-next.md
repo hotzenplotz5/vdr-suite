@@ -1,6 +1,6 @@
 # Public-v1 EPG Now/Next, server candidate
 
-Status: **Source code only, pending CI and real yaVDR/VIDAA acceptance.**
+Status: **Server-Quellcode implementiert und GitHub-CI SUCCESS; reale yaVDR-/VIDAA-Abnahme ausstehend.**
 Web references inspected first:
 `web/frontend/modules/channels.js`, `web/frontend/home-now-next.js`,
 `api/rest/src/EpgCacheController.cpp` and
@@ -35,11 +35,15 @@ is reused, **not** the old `/api/epg/cache/now-next` web route.
   availability via registered read callback.
 
 Automated test coverage: standalone PublicApiRuntime unit executable,
-separate SecurityHttpGate permission/scope test, branch CI compiles
-full daemon. Follow-on VIDAA slice will require capability and
-`epg.view` scope, request only for a selected channel via the
-Device credential, preserve a loading/offline/permission/empty state,
-and never call unversioned Web routes.
+separate SecurityHttpGate permission/scope test, and successful full daemon build.
+**GitHub-CI:** https://github.com/hotzenplotz5/vdr-suite/actions/runs/37967573659
+**Implementation:** `e9d7e93aca36813fe34fcd9805b552f87f7752a3`.
+
+The paired VIDAA slice exists in commit
+`294ea2667786bb0ad892b4b2b3d1aa79602d98d9` (CI SUCCESS:
+https://github.com/hotzenplotz5/vdr-suite-vidaa/actions/runs/37967912131).
+It checks the capability, requires device authorization, reads at most two events
+for one selected channel, and has D-Pad/OK/BACK navigation without old Web routes.
 
 Hardware acceptance pending: genuine event freshness, time format,
 backend grant propagation, channel identity, timezone, D-Pad and
