@@ -3622,6 +3622,144 @@ ApiResponse publicAccountCollectionResponse(
         correlationId);
 }
 
+struct PublicRecordingCollectionQuery
+{
+    std::string backendId;
+    std::size_t limit = 50U;
+    std::string cursor;
+};
+
+bool parsePublicRecordingCollectionQuery(
+    const std::string& target,
+    PublicRecordingCollectionQuery& query)
+{
+    const std::string text = requestQueryString(target);
+    if (text.empty()) return false;
+    bool seenBackend = false, seenLimit = false, seenCursor = false;
+    std::size_t start = 0U;
+    while (start <= text.size())
+    {
+        const auto end = text.find('&', start);
+        const auto field = text.substr(start, end == std::string::npos
+            ? std::string::npos : end - start);
+        const auto separator = field.find('=');
+        if (separator == std::string::npos || field.empty()) return false;
+        const auto name = field.substr(0, separator);
+        const auto value = field.substr(separator + 1U);
+        if (name == "backendId")
+        {
+            if (seenBackend || value.empty() || value.size() > 128U ||
+                !std::all_of(value.begin(), value.end(),
+                    [](unsigned char c) { return std::isalnum(c) ||
+                        c == '.' || c == '_' || c == '-'; }))
+                return false;
+            query.backendId = value;
+            seenBackend = true;
+        }
+        else if (name == "limit")
+        {
+            std::size_t parsed = 0U;
+            if (seenLimit || !decimalSize(value, parsed) || parsed == 0U ||
+                parsed > PublicRecordingMaximumLimit) return false;
+            query.limit = parsed;
+            seenLimit = true;
+        }
+        else if (name == "cursor")
+        {
+            if (seenCursor || value.empty() || value.size() > 1024U)
+                return false;
+            query.cursor = value;
+            seenCursor = true;
+        }
+        else return false;
+        if (end == std::string::npos) break;
+        start = end + 1U;
+    }
+    return seenBackend;
+}
+
+std::string publicRecordingCursor(
+    const std::string& backend,
+    const VdrPublicRecordingSummary& item)
+{
+    std::string payload = backend;
+    payload.push_back('\0');
+    payload += item.recordedAt;
+    payload.push_back('\0');
+    payload += item.recordingId;
+    return "rc1_" + hexEncode(payload);
+}
+
+bool decodePublicRecordingCursor(
+    const std::string& cursor,
+    const std::string& backend,
+    std::string& recordedAt,
+    std::string& recordingId)
+{
+    if (cursor.compare(0, 4, "rc1_") != 0) return false;
+    std::string decoded;
+    if (!hexDecode(cursor.substr(4), decoded)) return false;
+    const auto first = decoded.find('\0');
+    const auto second = decoded.find('\0', first == std::string::npos
+        ? 0U : first + 1U);
+    if (first == std::string::npos || second == std::string::npos ||
+        decoded.find('\0', second + 1U) != std::string::npos ||
+        decoded.substr(0, first) != backend) return false;
+    recordedAt = decoded.substr(first + 1U, second - first - 1U);
+    recordingId = decoded.substr(second + 1U);
+    return !recordedAt.empty() && recordingId.size() == 36U &&
+        recordingId.compare(0U, 4U, "rec_") == 0;
+}
+
+std::string publicRecordingTarget(
+    const PublicRecordingCollectionQuery& query,
+    const std::string& cursor)
+{
+    std::string target = std::string(PublicRecordingCollectionPath) +
+        "?backendId=" + query.backendId + "&limit=" +
+        std::to_string(query.limit);
+    if (!cursor.empty()) target += "&cursor=" + cursor;
+    return target;
+}
+
+ApiResponse publicRecordingCollectionResponse(
+    const VdrPublicRecordingCollection& page,
+    const PublicRecordingCollectionQuery& query,
+    const std::string& nextCursor,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    const std::string self = publicRecordingTarget(query, query.cursor);
+    const std::string next = nextCursor.empty() ? std::string()
+        : publicRecordingTarget(query, nextCursor);
+    std::string body = "{\"items\":[";
+    for (std::size_t i = 0; i < page.items.size(); ++i)
+    {
+        if (i != 0U) body += ",";
+        const auto& item = page.items[i];
+        body += "{\"recordingId\":\"" + jsonEscape(item.recordingId) +
+            "\",\"backendId\":\"" + jsonEscape(item.backendId) +
+            "\",\"title\":\"" + jsonEscape(item.title) +
+            "\",\"recordedAt\":\"" + jsonEscape(item.recordedAt) +
+            "\",\"durationKnown\":" +
+            std::string(item.durationKnown ? "true" : "false") +
+            ",\"durationSeconds\":" + std::to_string(item.durationSeconds) +
+            "}";
+    }
+    body += "],\"page\":{\"limit\":" + std::to_string(query.limit) +
+        ",\"nextCursor\":";
+    body += nextCursor.empty() ? "null" :
+        "\"" + jsonEscape(nextCursor) + "\"";
+    body += ",\"hasMore\":";
+    body += nextCursor.empty() ? "false" : "true";
+    body += "},\"meta\":{\"partial\":false},\"links\":{\"self\":\"" +
+        jsonEscape(self) + "\",\"next\":";
+    body += next.empty() ? "null" :
+        "\"" + jsonEscape(next) + "\"";
+    body += "}}";
+    return jsonResponse(body, requestId, correlationId);
+}
+
 ApiResponse publicChannelCollectionResponse(
     const PublicChannelCollectionResult& page,
     const PublicChannelCollectionQuery& query,
