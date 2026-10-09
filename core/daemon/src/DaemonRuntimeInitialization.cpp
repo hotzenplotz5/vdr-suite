@@ -140,6 +140,14 @@ bool DaemonRuntime::initialize()
 
     jobRepository_ = std::make_unique<JobRepository>(database_);
     recordingRepository_ = std::make_unique<RecordingRepository>(database_);
+    publicRecordingIdentities_ =
+        std::make_unique<PublicRecordingIdentityRepository>(database_);
+    if (!publicRecordingIdentities_->ensureSchema())
+    {
+        std::cerr << "failed to initialize public Recording identities"
+                  << std::endl;
+        return false;
+    }
     metadataRepository_ = std::make_unique<MetadataRepository>(database_);
     jobDashboardService_ = std::make_unique<JobDashboardService>(*jobRepository_);
     recordingDashboardService_ = std::make_unique<RecordingDashboardService>(*recordingRepository_, *metadataRepository_);
