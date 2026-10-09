@@ -167,6 +167,14 @@ int main()
             permissions.begin(),
             permissions.end(),
             "accounts.view") == permissions.end());
+        assert(std::find(
+            permissions.begin(),
+            permissions.end(),
+            "recordings.view") != permissions.end());
+        assert(HumanAccountGrantAdministrationService::supportedGrant(
+            "recordings.view", "default"));
+        assert(!HumanAccountGrantAdministrationService::supportedGrant(
+            "recordings.view", "bad/scope"));
 
         const std::vector<std::string> scopes =
             HumanAccountGrantAdministrationService::

@@ -102,6 +102,7 @@ const std::set<std::string>& supportedPermissionSet()
         "remote.control",
         "osd.view",
         "osd.control",
+        "recordings.view",
         "recordings.rename",
         "recordings.move",
         "recordings.delete",

@@ -81,6 +81,10 @@ int main()
         "channels.view", "default"));
     assert(DeviceGrantAdministrationService::supportedGrant(
         "media.live.play", "default"));
+    assert(DeviceGrantAdministrationService::supportedGrant(
+        "recordings.view", "default"));
+    assert(!DeviceGrantAdministrationService::supportedGrant(
+        "recordings.view", "bad/scope"));
     assert(!DeviceGrantAdministrationService::supportedGrant(
         "role.admin", "*"));
     assert(!DeviceGrantAdministrationService::supportedGrant(
@@ -161,6 +165,47 @@ int main()
     assert(actorGrants.available);
     assert(actorGrants.grants.size() == 1U);
     assert(actorGrants.grants.front().permission == "media.live.play");
+
+    // Recording R2: verify the scoped public collection read grant can be
+    // administered for an actual paired service device, read back through
+    // authenticated Device grants, and revoked again.
+    {
+        Fixture reader;
+        const auto initialRead = reader.service.read(DeviceId);
+        assert(initialRead.status == DeviceGrantAdministrationStatus::ok);
+        const auto allowed = reader.service.setGrant(
+            admin(), DeviceId, initialRead.grantSet.revision,
+            "recordings.view", "default", true);
+        assert(allowed.status == DeviceGrantAdministrationStatus::ok);
+        assert(allowed.grantSet.grants.size() == 1U);
+        assert(allowed.grantSet.grants.front().permission ==
+               "recordings.view");
+        assert(allowed.grantSet.grants.front().backendId == "default");
+
+        DeviceCredentialAuthenticator auth(
+            reader.verifiers, reader.identities, reader.grants);
+        const std::map<std::string, std::string> headers = {
+            {"Authorization",
+             std::string(DeviceCredentialAuthenticator::Scheme) +
+                 CredentialId + "." + Secret}
+        };
+        const auto authenticated = auth.authenticate(
+            headers, "r2-recording-read-granted", "");
+        assert(authenticated.authenticated());
+        assert(authenticated.grants.size() == 1U);
+        assert(authenticated.grants.front().permission == "recordings.view");
+        assert(authenticated.grants.front().backendId == "default");
+
+        const auto revokedRead = reader.service.setGrant(
+            admin(), DeviceId, allowed.grantSet.revision,
+            "recordings.view", "default", false);
+        assert(revokedRead.status == DeviceGrantAdministrationStatus::ok);
+        assert(revokedRead.grantSet.grants.empty());
+        const auto authenticatedAfterRevoke = auth.authenticate(
+            headers, "r2-recording-read-revoked", "");
+        assert(authenticatedAfterRevoke.authenticated());
+        assert(authenticatedAfterRevoke.grants.empty());
+    }
 
     // A failed accountability insert must roll back a successful grant
     // SQL statement in the same write transaction.

@@ -3369,7 +3369,7 @@ ApiResponse publicDeviceGrantSetResponse(
             jsonEscape(grantSet.grants[i].backendId) + "\"}";
     }
     body += "],\"supportedPermissions\":["
-        "\"channels.view\",\"timers.view\","
+        "\"channels.view\",\"recordings.view\",\"timers.view\","
         "\"media.live.play\",\"media.recording.play\"]}";
     ApiResponse result = jsonResponse(body, requestId, correlationId);
     result.headers["ETag"] = etag;
