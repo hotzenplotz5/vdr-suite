@@ -1314,6 +1314,7 @@ bool DaemonRuntime::initialize()
                 view.title = item.title;
                 view.recordedAt = item.recordedAt;
                 view.durationSeconds = item.durationSeconds;
+                view.durationKnown = item.durationKnown;
                 result.recordings.push_back(std::move(view));
             }
             result.status = PublicRecordingCollectionStatus::ok;
