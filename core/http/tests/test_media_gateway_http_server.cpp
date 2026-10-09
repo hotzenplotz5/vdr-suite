@@ -202,6 +202,79 @@ int main()
         assert(response.body == "media-bytes");
     }
 
+    // Versioned media-plane path: the SAME per-request MediaAccessGrant
+    // and active route lease must protect manifest and every segment.
+    const std::string publicPrefix =
+        "/api/v1/media/sessions/" + issued.session.sessionId + "/hls/";
+    {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = publicPrefix + "master.m3u8";
+        const auto response = gateway.handleRequest(http);
+        assert(response.statusCode == 401);
+    }
+    {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = publicPrefix + "master.m3u8";
+        http.headers["X-VDR-Suite-Media-Authorization"] =
+            "Bearer " + issued.session.accessCredential;
+        const auto response = gateway.handleRequest(http);
+        assert(response.statusCode == 200);
+        assert(response.body == "#EXTM3U\\nsegment-000001.m4s\\n");
+        assert(response.headers.at("Cache-Control") == "no-store");
+    }
+    {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = publicPrefix + "segment-000001.m4s";
+        http.headers["X-VDR-Suite-Media-Authorization"] =
+            "Bearer " + issued.session.accessCredential;
+        const auto response = gateway.handleRequest(http);
+        assert(response.statusCode == 200);
+        assert(response.body == "media-bytes");
+    }
+    {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = publicPrefix + "segment-000001.m4s";
+        http.headers["Cookie"] =
+            "vdr_suite_media=" + issued.session.accessCredential;
+        assert(gateway.handleRequest(http).statusCode == 200);
+    }
+    {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = publicPrefix + "master.m3u8";
+        http.headers["X-VDR-Suite-Media-Authorization"] =
+            "Bearer " + directIssued.session.accessCredential;
+        assert(gateway.handleRequest(http).statusCode == 401);
+    }
+    {
+        HttpServerRequest http;
+        http.method = "POST";
+        http.path = publicPrefix + "master.m3u8";
+        http.headers["X-VDR-Suite-Media-Authorization"] =
+            "Bearer " + issued.session.accessCredential;
+        assert(gateway.handleRequest(http).statusCode == 405);
+    }
+    for (const std::string& invalidPath : {
+        "/api/v1/media/sessions/",
+        "/api/v1/media/sessions/invalid/../../etc/passwd",
+        publicPrefix + "master.m3u8?credential=forbidden",
+        publicPrefix + "not-allowed.exe"
+    }) {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = invalidPath;
+        http.headers["X-VDR-Suite-Media-Authorization"] =
+            "Bearer " + issued.session.accessCredential;
+        const auto response = gateway.handleRequest(http);
+        assert(response.statusCode == 404);
+        assert(response.body.find("media_path_invalid") != std::string::npos);
+        assert(response.body.find(root.string()) == std::string::npos);
+    }
+
     const std::string directPath =
         "/api/media/sessions/" + directIssued.session.sessionId +
         "/recording/stream.ts";
@@ -370,6 +443,16 @@ int main()
     }
 
     assert(sessionRepository.endBundle(issued.session.sessionId, "client_stop"));
+    {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = publicPrefix + "master.m3u8";
+        http.headers["X-VDR-Suite-Media-Authorization"] =
+            "Bearer " + issued.session.accessCredential;
+        const auto response = gateway.handleRequest(http);
+        assert(response.statusCode == 401);
+        assert(response.body.find("media_access_inactive") != std::string::npos);
+    }
     {
         HttpServerRequest http;
         http.method = "GET";

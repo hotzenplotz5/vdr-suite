@@ -19,7 +19,8 @@
 namespace
 {
 
-constexpr const char* Prefix = "/api/media/sessions/";
+constexpr const char* LegacyPrefix = "/api/media/sessions/";
+constexpr const char* PublicV1Prefix = "/api/v1/media/sessions/";
 constexpr const char* HlsMarker = "/hls/";
 constexpr const char* LiveSuffix = "/live/stream.mp4";
 constexpr const char* RecordingDirectSuffix = "/recording/stream.ts";
@@ -49,7 +50,8 @@ struct MediaPath
 MediaPath parseMediaPath(const std::string& path)
 {
     MediaPath result;
-    const std::string prefix(Prefix);
+    const std::string prefix = path.rfind(PublicV1Prefix, 0) == 0
+        ? PublicV1Prefix : LegacyPrefix;
     if (path.rfind(prefix, 0) != 0 || path.find('?') != std::string::npos ||
         path.find('#') != std::string::npos) {
         return result;
@@ -308,6 +310,12 @@ HttpServerResponse MediaGatewayHttpServer::handleRequest(
 {
     const MediaPath mediaPath = parseMediaPath(request.path);
     if (!mediaPath.valid) {
+        // Never delegate malformed paths in the versioned media-plane
+        // namespace to an application/static-file fallback.
+        const std::string publicRoot = "/api/v1/media/sessions";
+        if (request.path == publicRoot ||
+            request.path.rfind(std::string(PublicV1Prefix), 0) == 0)
+            return jsonError(404, "media_path_invalid");
         return inner_->handleRequest(request);
     }
 

@@ -32,6 +32,7 @@ jobs:
             test-public-recording-collection-projection \
             test-vdr-recording-cache-repository \
             test-public-recording-playback-target-resolver \
-            test-public-recording-device-playback-admission
+            test-public-recording-device-playback-admission \
+            test-phase65-media-gateway-http
       - name: Compile daemon candidate without deploying
         run: make -j2 daemon

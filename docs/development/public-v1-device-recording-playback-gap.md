@@ -152,3 +152,24 @@ invoking existing MediaSession issuance. Backend availability and permissions
 must be rechecked at session issuance and on media access. This slice does
 **not** create MediaSessions or authorize HLS bytes. There is still no
 playable VIDAA Recording stream.
+
+### Versioned media-byte path — guarded gateway support (2026-10-10)
+
+The existing `MediaGatewayHttpServer` now recognizes an **additional**
+`/api/v1/media/sessions/{sessionId}/hls/{artifact}` path (and its
+Recording progressive forms), using the **same** session-bound
+`MediaAccessGrantAuthenticator`, active route-lease check, artifact-name
+validation, range checking and response handling as the legacy gateway.
+Missing/mismatched/ended grants fail before any manifest, segment or stream
+byte read. Malformed versioned media paths are rejected at the gateway,
+not delegated to another web/static handler. CI now exercises the
+versioned manifest/segment path with missing and mismatched credentials,
+cross-session grants, invalid paths, method rejection and revocation.
+
+**Important:** This does not grant any Device permission by itself.
+A session-specific media grant remains necessary for *each GET*. The
+versioned gateway accepts existing MediaAccessGrants, not Device
+Authorization headers; issuing a Device-owned session and securely
+transporting a short-lived grant to native VIDAA video/HLS requests are
+still missing. No TV client URL may be activated before verifying the
+HTTPS reverse-proxy prefix and cookie Path/origin on the actual host.
