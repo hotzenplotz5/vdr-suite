@@ -16,3 +16,11 @@ test-vdr-public-recording-collection:
 		core/vdr/tests/test_vdr_public_recording_collection.cpp \
 		-o $(BUILD_DIR)/test_vdr_public_recording_collection
 	$(BUILD_DIR)/test_vdr_public_recording_collection
+
+.PHONY: test-vdr-public-recording-runtime
+test-vdr-public-recording-runtime:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		api/rest/src/PublicApiRuntime.cpp \
+		api/rest/tests/test_public_recording_collection.cpp \
+		-o $(BUILD_DIR)/test_public_recording_collection
+	$(BUILD_DIR)/test_public_recording_collection
