@@ -86,6 +86,7 @@ expected_resource_pairs = {
     ("GET", "/api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}"),
     ("POST", "/api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}"),
     ("GET", "/api/v1/channels?backendId={backendId}"),
+    ("GET", "/api/v1/recordings?backendId={backendId}"),
 }
 require(resource_pairs == expected_resource_pairs, "declared stable public-v1 resource/method set drifted")
 
@@ -97,12 +98,12 @@ for token in (
     '"/api/v1/backends"',
     '"/api/v1/accounts"',
     '"/api/v1/channels"',
+    '"/api/v1/recordings"',
     'if (path == "/api/v1/capabilities")',
 ):
     require(token in public_runtime, "accepted public-v1 runtime token drifted: " + token)
 
 for absent in (
-    "/api/v1/recordings",
     "/api/v1/program-events",
     "/api/v1/search-timers",
 ):
@@ -113,7 +114,13 @@ require('if (path == "/api/backends")' in api_router, "pre-v1 backend discovery 
 require('if (path == "/api/backends/default")' in api_router, "pre-v1 default-backend route disappeared")
 
 references = matrix.get("publicClientReferences", [])
-require(len(references) == 7, "expected exactly seven bounded public client reference slices")
+require(len(references) == 8, "expected eight public client reference slices including R2 candidate")
+recording_reference = next((r for r in references if r.get("id") == "reference-js-recording-collection"), None)
+require(recording_reference is not None, "R2 Recording collection reference not inventoried")
+require(recording_reference.get("status") == "candidate", "Recording collection must remain candidate before acceptance")
+require(recording_reference.get("resources") == ["GET /api/v1/recordings?backendId={backendId}"], "Recording reference drift")
+require("getRecordings(options)" in read("clients/reference-js/public-v1-client.js"), "Recording reference client missing")
+
 discovery_reference = next((r for r in references if r.get("id") == "reference-js-discovery"), None)
 require(discovery_reference is not None, "public discovery reference disappeared")
 require(discovery_reference.get("path") == "clients/reference-js/public-v1-client.js", "public discovery reference path drifted")
