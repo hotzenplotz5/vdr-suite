@@ -36,6 +36,13 @@ int main()
     assert(!repository.find("backend-a", "/vdr/a").has_value());
     assert(!repository.rebindAfterVerifiedMove("backend-a", "/vdr/a", "/newer/a"));
 
+    // Reuse of a previously deleted backend-native address must get a NEW ID.
+    assert(repository.removeAfterVerifiedDeletion("backend-a", "/new/a"));
+    assert(!repository.find("backend-a", "/new/a").has_value());
+    const auto replacement = repository.resolveOrCreate("backend-a", "/new/a");
+    assert(replacement.has_value() && replacement != a);
+    assert(!repository.removeAfterVerifiedDeletion("backend-a", "/missing"));
+
     assert(!repository.resolveOrCreate("", "/vdr/a").has_value());
     assert(!repository.resolveOrCreate("backend-a", "").has_value());
     assert(!repository.find("backend-a", "").has_value());
