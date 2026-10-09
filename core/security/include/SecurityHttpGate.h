@@ -720,6 +720,26 @@ public:
         const bool isPublicChannelRead =
             request.method == "GET" &&
             isPublicChannelCollection;
+        const bool isPublicRecordingCollection =
+            path == "/api/v1/recordings";
+        const bool isPublicRecordingRead =
+            request.method == "GET" && isPublicRecordingCollection;
+        const std::vector<std::string> publicRecordingScopes =
+            isPublicRecordingCollection
+                ? queryStringValues(request.path, "backendId")
+                : std::vector<std::string>{};
+        const bool publicRecordingScopeValid =
+            publicRecordingScopes.size() == 1U &&
+            !publicRecordingScopes.front().empty() &&
+            publicRecordingScopes.front().size() <= 128U &&
+            std::all_of(
+                publicRecordingScopes.front().begin(),
+                publicRecordingScopes.front().end(),
+                [](unsigned char character) {
+                    return std::isalnum(character) ||
+                        character == '.' || character == '_' ||
+                        character == '-';
+                });
         const std::string publicTimerAssignmentCollection =
             "/api/v1/timer-assignments";
         const std::string publicTimerAssignmentPrefix =
@@ -770,6 +790,7 @@ public:
              path == "/api/v1/capabilities" ||
              isPublicBackendCollection ||
              isPublicChannelCollection ||
+             isPublicRecordingCollection ||
              isPublicTimerAssignmentCollection ||
              isPublicOperationResource ||
              isPublicAccountCredentialResource ||
