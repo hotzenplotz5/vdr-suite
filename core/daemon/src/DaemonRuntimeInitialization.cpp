@@ -806,6 +806,15 @@ bool DaemonRuntime::initialize()
                         backendNativeId);
                 }
 
+                // Only the successful, non-dry-run DELETE callback may retire
+                // the opaque identity. Snapshot absence is not deletion proof;
+                // if the native address is later reused it receives a new ID.
+                if (!backendNativeId.empty() && publicRecordingIdentities_) {
+                    publicRecordingIdentities_->removeAfterVerifiedDeletion(
+                        backendId,
+                        backendNativeId);
+                }
+
                 // The mutation is authoritative even if a local cache row was
                 // already absent. Home still needs one immediate invalidation.
                 recordingPresentationChangeQueue_.request(backendId);
