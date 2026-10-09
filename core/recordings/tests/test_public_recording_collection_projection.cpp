@@ -22,6 +22,7 @@ int main()
     first.title = "Film";
     first.startTime = "2026-10-09T20:15:00Z";
     first.durationSeconds = 3600;
+    first.recordingDurationKnown = true;
 
     const auto result = projection.project("backend-a", {first});
     assert(result.valid);
@@ -33,6 +34,7 @@ int main()
     assert(result.items[0].title == "Film");
     assert(result.items[0].recordedAt == first.startTime);
     assert(result.items[0].durationSeconds == 3600);
+    assert(result.items[0].durationKnown);
     assert(projection.project("backend-a", {first}).items[0].recordingId ==
            result.items[0].recordingId);
 
