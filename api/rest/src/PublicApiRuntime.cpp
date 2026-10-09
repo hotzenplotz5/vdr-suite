@@ -3414,7 +3414,9 @@ ApiResponse publicRecordingBrowseResponse(
             jsonEscape(item.recordedAt) + "\",\"durationSeconds\":" +
             std::to_string(item.durationSeconds) +
             ",\"durationKnown\":" +
-            (item.durationKnown ? "true" : "false") + "}";
+            (item.durationKnown ? "true" : "false") +
+            ",\"description\":\"" + jsonEscape(item.description) +
+            "\",\"sizeMb\":" + std::to_string(item.sizeMb) + "}";
     }
     body += "],\"page\":{\"limit\":" + std::to_string(query.limit) +
         ",\"offset\":" + std::to_string(query.offset) +
@@ -3499,7 +3501,9 @@ ApiResponse publicRecordingCollectionResponse(
             "\",\"recordedAt\":\"" + jsonEscape(item.recordedAt) +
             "\",\"durationSeconds\":" +
             std::to_string(item.durationSeconds) +
-            ",\"durationKnown\":" + (item.durationKnown ? "true" : "false") + "}";
+            ",\"durationKnown\":" + (item.durationKnown ? "true" : "false") +
+            ",\"description\":\"" + jsonEscape(item.description) +
+            "\",\"sizeMb\":" + std::to_string(item.sizeMb) + "}";
     }
     body += "],\"page\":{\"limit\":" + std::to_string(query.limit) +
         ",\"nextCursor\":";
@@ -6395,7 +6399,9 @@ bool PublicApiRuntime::tryHandleGet(
                             recording.recordingId.size() != 36U ||
                             recording.recordingId.rfind("rec_", 0U) != 0U ||
                             recording.title.empty() ||
-                            recording.durationSeconds < 0)
+                            recording.durationSeconds < 0 ||
+                            recording.sizeMb < 0 ||
+                            recording.description.size() > 2048U)
                         {
                             response = serviceUnavailableProblem(
                                 path, requestId, correlationId);
@@ -6430,6 +6436,8 @@ bool PublicApiRuntime::tryHandleGet(
                             }) ||
                         recording.title.empty() ||
                         recording.durationSeconds < 0 ||
+                        recording.sizeMb < 0 ||
+                        recording.description.size() > 2048U ||
                         (!previous.empty() &&
                          recording.recordingId <= previous))
                     {

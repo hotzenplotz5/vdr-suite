@@ -26,6 +26,8 @@ PublicRecordingCollectionItem recording(const char* id)
     value.recordedAt = "2026-10-09T20:15:00Z";
     value.durationSeconds = 3600;
     value.durationKnown = true;
+    value.description = "Kurzbeschreibung";
+    value.sizeMb = 2048;
     return value;
 }
 }
@@ -74,6 +76,8 @@ int main()
     assert(first.body.find("\"recordingId\":\"rec_00000000000000000000000000000001\"") != std::string::npos);
     assert(first.body.find("\"durationSeconds\":3600") != std::string::npos);
     assert(first.body.find("\"durationKnown\":true") != std::string::npos);
+    assert(first.body.find("\"description\":\"Kurzbeschreibung\"") != std::string::npos);
+    assert(first.body.find("\"sizeMb\":2048") != std::string::npos);
     assert(first.body.find("\"hasMore\":true") != std::string::npos);
     assert(first.body.find("backendNativeId") == std::string::npos);
     assert(first.body.find("recordingPath") == std::string::npos);

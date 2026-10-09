@@ -1345,6 +1345,8 @@ bool DaemonRuntime::initialize()
                         entry.recordedAt = item.recordedAt;
                         entry.durationSeconds = item.durationSeconds;
                         entry.durationKnown = item.durationKnown;
+                        entry.description = item.description;
+                        entry.sizeMb = item.sizeMb;
                         result.recordings.push_back(std::move(entry));
                     }
                 }
@@ -1392,6 +1394,8 @@ bool DaemonRuntime::initialize()
                 view.recordedAt = item.recordedAt;
                 view.durationSeconds = item.durationSeconds;
                 view.durationKnown = item.durationKnown;
+                view.description = item.description;
+                view.sizeMb = item.sizeMb;
                 result.recordings.push_back(std::move(view));
             }
             result.status = PublicRecordingCollectionStatus::ok;
