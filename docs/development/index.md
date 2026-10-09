@@ -14,6 +14,7 @@
 - [Phase 69.F SearchTimer Client Fallback Removal](phase-69f-searchtimer-fallback-removal.md)
 - [Phase 69.F Same-Handler Read Alias Fallback Removal](phase-69f-read-alias-fallback-removal.md)
 - [Phase 69.F Client Contract Matrix](phase-69f-client-contract-matrix.md)
+- [VIDAA Recording R1 Public-v1 Identity and Playback Gap Audit](vidaa-recording-r1-public-api-audit.md)
 - [Phase 69.F Public Backend Collection](phase-69f-public-backend-collection.md)
 - [Phase 69.F Home EPG Single-Route Hardening](phase-69f-home-epg-fallback-removal.md)
 - [Phase 69.F Timer Live Single-Route Hardening](phase-69f-timer-live-fallback-removal.md)
