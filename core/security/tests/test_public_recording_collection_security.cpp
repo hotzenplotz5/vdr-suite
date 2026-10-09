@@ -53,6 +53,17 @@ int main()
     {
         SecurityHttpGateBrowserTestFixture fixture;
         assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, Permission, "backend-a"));
+        const auto decision = fixture.gate.evaluate(
+            browserGet(fixture, std::string(Route) +
+                "?backendId=backend-a&view=folders&limit=30&offset=0"));
+        assert(decision.allowed);
+        assert(decision.authorizedBackendIds ==
+            (std::vector<std::string>{"backend-a"}));
+    }
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
             fixture.actorId, "channels.view", "backend-a"));
         const auto decision = fixture.gate.evaluate(
             browserGet(fixture, std::string(Route) +

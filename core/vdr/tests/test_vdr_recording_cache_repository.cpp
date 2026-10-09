@@ -285,6 +285,49 @@ static void test_recording_cache_repository_normalizes_empty_backend()
     assert(cached.at(0).title == "Default Recording");
 }
 
+
+static void test_public_folder_browse_reuses_home_hierarchy()
+{
+    Database database;
+    assert(database.open(":memory:"));
+    VdrRecordingCacheRepository repository(database);
+    assert(repository.replaceRecordingsForBackend("home-vdr", {
+        makeRecording("a", "/srv/vdr/video/Series/Alpha/1.rec",
+                      "Alpha", "/Series/Alpha/1.rec", "123", 60, 10),
+        makeRecording("b", "/srv/vdr/video/Series/Beta/2.rec",
+                      "Beta", "/Series/Beta/2.rec", "124", 60, 10),
+        makeRecording("c", "/srv/vdr/video/Movies/Zeta/3.rec",
+                      "Zeta", "/Movies/Zeta/3.rec", "125", 60, 10)
+    }));
+
+    VdrRecordingFolderPage root;
+    assert(repository.folderPageForBackendByPublicId(
+        "home-vdr", "", 30, 0, root));
+    assert(root.folderCount == 2);
+    assert(root.folders.size() == 2U);
+    std::string seriesPath;
+    for (const auto& folder : root.folders)
+        if (folder.name == "Series") seriesPath = folder.path;
+    assert(!seriesPath.empty());
+
+    const auto id = VdrRecordingCacheRepository::publicFolderId(
+        "home-vdr", seriesPath);
+    assert(id.size() == 37U && id.rfind("fld1_", 0U) == 0U);
+    assert(id.find("Series") == std::string::npos);
+    assert(id == VdrRecordingCacheRepository::publicFolderId(
+        "home-vdr", seriesPath));
+
+    VdrRecordingFolderPage children;
+    assert(repository.folderPageForBackendByPublicId(
+        "home-vdr", id, 30, 0, children));
+    assert(children.folderCount == 2);
+    assert(children.folders.size() == 2U);
+    assert(!repository.folderPageForBackendByPublicId(
+        "other-backend", id, 30, 0, children));
+    assert(!repository.folderPageForBackendByPublicId(
+        "home-vdr", "/Series", 30, 0, children));
+}
+
 int main()
 {
     test_recording_cache_repository_schema();
@@ -293,6 +336,7 @@ int main()
     test_recording_cache_repository_replace_removes_stale_recordings();
     test_recording_cache_repository_removes_one_native_recording();
     test_recording_cache_repository_normalizes_empty_backend();
+    test_public_folder_browse_reuses_home_hierarchy();
 
     std::cout
         << "test_vdr_recording_cache_repository passed"
