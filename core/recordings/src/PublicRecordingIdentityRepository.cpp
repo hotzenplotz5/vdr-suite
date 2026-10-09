@@ -96,6 +96,28 @@ std::optional<std::string> PublicRecordingIdentityRepository::resolveOrCreate(
                    : std::nullopt;
 }
 
+bool PublicRecordingIdentityRepository::removeAfterVerifiedDeletion(
+    const std::string& backendId,
+    const std::string& backendNativeId)
+{
+    if (!valid(backendId, backendNativeId)) return false;
+    auto lease = database_.acquireTransactionLease();
+
+    sqlite3_stmt* statement = nullptr;
+    constexpr const char* sql =
+        "DELETE FROM public_recording_identity "
+        "WHERE backend_id=?1 AND native_id=?2;";
+    if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr)
+        != SQLITE_OK) return false;
+
+    const bool success = bind(statement, 1, backendId) &&
+        bind(statement, 2, backendNativeId) &&
+        sqlite3_step(statement) == SQLITE_DONE &&
+        sqlite3_changes(database_.handle()) == 1;
+    sqlite3_finalize(statement);
+    return success;
+}
+
 bool PublicRecordingIdentityRepository::rebindAfterVerifiedMove(
     const std::string& backendId,
     const std::string& previousNativeId,
