@@ -686,6 +686,90 @@ bool parsePublicAccountCollectionQuery(
     return true;
 }
 
+struct PublicRecordingCollectionQuery
+{
+    std::string backendId;
+    std::string cursor;
+    std::size_t limit = PublicRecordingDefaultLimit;
+};
+
+bool parsePublicRecordingCollectionQuery(
+    const std::string& requestTarget,
+    PublicRecordingCollectionQuery& query)
+{
+    const std::string encoded = requestQueryString(requestTarget);
+    if (encoded.empty()) return false;
+    bool backendSeen = false;
+    bool limitSeen = false;
+    bool cursorSeen = false;
+    bool sortSeen = false;
+    bool orderSeen = false;
+    std::size_t position = 0U;
+
+    while (position <= encoded.size())
+    {
+        const std::size_t separator = encoded.find('&', position);
+        const std::string field = encoded.substr(
+            position, separator == std::string::npos
+                ? std::string::npos : separator - position);
+        const std::size_t equals = field.find('=');
+        if (equals == std::string::npos) return false;
+        const std::string key = field.substr(0U, equals);
+        const std::string value = field.substr(equals + 1U);
+
+        if (key == "backendId")
+        {
+            if (backendSeen || value.empty() || value.size() > 128U)
+                return false;
+            backendSeen = true;
+            query.backendId = value;
+            if (!std::all_of(value.begin(), value.end(),
+                    [](unsigned char ch) {
+                        return std::isalnum(ch) || ch == '.' ||
+                            ch == '-' || ch == '_';
+                    }))
+                return false;
+        }
+        else if (key == "limit")
+        {
+            if (limitSeen) return false;
+            limitSeen = true;
+            std::size_t parsed = 0U;
+            if (!decimalSize(value, parsed) || parsed == 0U ||
+                parsed > PublicRecordingMaximumLimit)
+                return false;
+            query.limit = parsed;
+        }
+        else if (key == "cursor")
+        {
+            if (cursorSeen || value.empty() || value.size() > 4096U)
+                return false;
+            cursorSeen = true;
+            query.cursor = value;
+        }
+        else if (key == "sort")
+        {
+            if (sortSeen || value != PublicRecordingCollectionSort)
+                return false;
+            sortSeen = true;
+        }
+        else if (key == "order")
+        {
+            if (orderSeen || value != PublicRecordingCollectionOrder)
+                return false;
+            orderSeen = true;
+        }
+        else
+        {
+            return false;
+        }
+
+        if (separator == std::string::npos) break;
+        position = separator + 1U;
+    }
+    return backendSeen;
+}
+
 struct PublicChannelCollectionQuery
 {
     std::size_t limit = PublicChannelDefaultLimit;
