@@ -6022,8 +6022,15 @@ bool PublicApiRuntime::tryHandleGet(
                 {
                     if (recording.backendId != query.backendId ||
                         recording.recordingId.empty() ||
-                        recording.recordingId.size() > 128U ||
+                        recording.recordingId.size() != 36U ||
                         recording.recordingId.rfind("rec_", 0U) != 0U ||
+                        !std::all_of(
+                            recording.recordingId.begin() + 4,
+                            recording.recordingId.end(),
+                            [](char ch) {
+                                return (ch >= '0' && ch <= '9') ||
+                                       (ch >= 'a' && ch <= 'f');
+                            }) ||
                         recording.title.empty() ||
                         recording.durationSeconds < 0 ||
                         (!previous.empty() &&
