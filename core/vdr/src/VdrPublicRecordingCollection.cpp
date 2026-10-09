@@ -8,11 +8,6 @@
 
 namespace
 {
-std::string key(const std::string& backend, const std::string& address)
-{
-    return backend + "\0" + address; // overwritten below: std::string concatenation
-}
-
 std::string scopedKey(const std::string& backend, const std::string& address)
 {
     std::string result = backend;
