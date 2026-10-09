@@ -45,3 +45,11 @@ test-public-recording-collection-security:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_public_recording_collection_security
 	$(BUILD_DIR)/test_public_recording_collection_security
+
+.PHONY: test-public-recording-genre-api
+test-public-recording-genre-api:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		api/rest/src/PublicApiRuntime.cpp \
+		api/rest/tests/test_public_recording_genre_collection.cpp \
+		-o $(BUILD_DIR)/test_public_recording_genre_collection
+	$(BUILD_DIR)/test_public_recording_genre_collection

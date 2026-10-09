@@ -86,6 +86,9 @@ constexpr const char* PublicRecordingCollectionSort = "recordingId";
 constexpr const char* PublicRecordingCollectionOrder = "asc";
 constexpr const char* PublicRecordingCursorPrefix = "rc1_";
 constexpr const char* PublicRecordingCursorPayloadVersion = "recordings/1|";
+constexpr const char* PublicGenreCollectionPath = "/api/v1/genres";
+constexpr const char* PublicGenreRecordingPath = "/api/v1/genres/recordings";
+constexpr std::size_t PublicGenreMaximumLimit = 30U;
 constexpr const char* PublicChannelCollectionPath =
     "/api/v1/channels";
 constexpr std::size_t PublicChannelDefaultLimit = 50U;
@@ -799,6 +802,88 @@ bool parsePublicRecordingCollectionQuery(
     return backendSeen &&
         (query.browseFolders ? (!cursorSeen && !sortSeen && !orderSeen) :
             (!folderSeen && !offsetSeen));
+}
+
+struct PublicGenreCollectionQuery
+{
+    std::string backendId;
+    std::string genreId;
+    std::string locale = "de";
+    std::size_t limit = PublicGenreMaximumLimit;
+    std::size_t offset = 0U;
+    bool recordings = false;
+};
+
+bool parsePublicGenreCollectionQuery(
+    const std::string& requestTarget,
+    bool recordings,
+    PublicGenreCollectionQuery& query)
+{
+    query.recordings = recordings;
+    const std::string encoded = requestQueryString(requestTarget);
+    if (encoded.empty()) return false;
+    bool backendSeen = false;
+    bool genreSeen = false;
+    bool localeSeen = false;
+    bool limitSeen = false;
+    bool offsetSeen = false;
+    std::size_t position = 0U;
+    while (position <= encoded.size())
+    {
+        const std::size_t sep = encoded.find('&', position);
+        const std::string field = encoded.substr(
+            position, sep == std::string::npos
+                ? std::string::npos : sep - position);
+        const std::size_t equals = field.find('=');
+        if (equals == std::string::npos) return false;
+        const std::string key = field.substr(0U, equals);
+        const std::string value = field.substr(equals + 1U);
+        if (key == "backendId")
+        {
+            if (backendSeen || value.empty() || value.size() > 128U)
+                return false;
+            backendSeen = true;
+            query.backendId = value;
+        }
+        else if (key == "genreId")
+        {
+            if (genreSeen || !recordings || value.empty() ||
+                value.size() > 128U) return false;
+            genreSeen = true;
+            query.genreId = value;
+        }
+        else if (key == "locale")
+        {
+            if (localeSeen || (value != "de" && value != "en"))
+                return false;
+            localeSeen = true;
+            query.locale = value;
+        }
+        else if (key == "limit")
+        {
+            if (limitSeen || !decimalSize(value, query.limit) ||
+                query.limit == 0U || query.limit > PublicGenreMaximumLimit)
+                return false;
+            limitSeen = true;
+        }
+        else if (key == "offset")
+        {
+            if (offsetSeen || !decimalSize(value, query.offset) ||
+                query.offset > 1000000U) return false;
+            offsetSeen = true;
+        }
+        else return false;
+        if (sep == std::string::npos) break;
+        position = sep + 1U;
+    }
+    const auto validId = [](const std::string& id) {
+        return std::all_of(id.begin(), id.end(), [](unsigned char ch) {
+            return std::isalnum(ch) || ch == '.' ||
+                ch == '_' || ch == '-';
+        });
+    };
+    return backendSeen && validId(query.backendId) &&
+        (recordings ? genreSeen && validId(query.genreId) : !genreSeen);
 }
 
 struct PublicChannelCollectionQuery
@@ -2852,6 +2937,7 @@ ApiResponse platformCapabilities(
     const bool timerCreateAdmissionAvailable,
     const bool backendCollectionAvailable,
     const bool recordingCollectionAvailable,
+    const bool genreCollectionAvailable,
     const bool accountCollectionAvailable,
     const bool accountMutationAvailable,
     const bool accountCreateAvailable,
@@ -2888,6 +2974,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.recordings-browse\",\"version\":1,\"availability\":\"" +
         std::string(recordingCollectionAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.recording-genres-read\",\"version\":1,\"availability\":\"" +
+        std::string(genreCollectionAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.accounts-read\",\"version\":1,\"availability\":\"" +
         std::string(accountCollectionAvailable ? "available" : "unavailable") +
@@ -3244,6 +3333,49 @@ ApiResponse publicRecordingBrowseResponse(
         ",\"offset\":" + std::to_string(query.offset) +
         ",\"totalCount\":" + std::to_string(page.totalEntries) +
         ",\"hasMore\":" + (page.hasMore ? "true" : "false") +
+        "},\"meta\":{\"partial\":false}}";
+    return jsonResponse(body, requestId, correlationId);
+}
+
+ApiResponse publicGenreCollectionResponse(
+    const PublicGenreCollectionResult& page,
+    const PublicGenreCollectionQuery& query,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    std::string body = "{\"items\":[";
+    std::size_t count = 0U;
+    if (query.recordings)
+    {
+        for (const auto& item : page.recordings)
+        {
+            if (count++) body += ",";
+            body += "{\"recordingId\":\"" + jsonEscape(item.recordingId) +
+                "\",\"backendId\":\"" + jsonEscape(item.backendId) +
+                "\",\"title\":\"" + jsonEscape(item.title) +
+                "\",\"recordedAt\":\"" + jsonEscape(item.recordedAt) +
+                "\",\"durationSeconds\":" + std::to_string(item.durationSeconds) +
+                ",\"durationKnown\":" +
+                std::string(item.durationKnown ? "true" : "false") + "}";
+        }
+    }
+    else
+    {
+        for (const auto& item : page.genres)
+        {
+            if (count++) body += ",";
+            body += "{\"genreId\":\"" + jsonEscape(item.genreId) +
+                "\",\"label\":\"" + jsonEscape(item.label) +
+                "\",\"labelDe\":\"" + jsonEscape(item.labelDe) +
+                "\",\"labelEn\":\"" + jsonEscape(item.labelEn) +
+                "\",\"count\":" + std::to_string(item.count) + "}";
+        }
+    }
+    body += "],\"page\":{\"limit\":" + std::to_string(query.limit) +
+        ",\"offset\":" + std::to_string(query.offset) +
+        ",\"totalCount\":" + std::to_string(page.totalCount) +
+        ",\"hasMore\":" +
+        std::string(query.offset + count < page.totalCount ? "true" : "false") +
         "},\"meta\":{\"partial\":false}}";
     return jsonResponse(body, requestId, correlationId);
 }
@@ -4678,6 +4810,36 @@ PublicRecordingCollectionResult PublicApiRuntime::lookupRecordingCollection(
     return lookup(request);
 }
 
+void PublicApiRuntime::registerGenreCollectionLookup(
+    GenreCollectionLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(genreCollectionLookupMutex_);
+    genreCollectionLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetGenreCollectionLookup()
+{
+    std::lock_guard<std::mutex> lock(genreCollectionLookupMutex_);
+    genreCollectionLookup_ = {};
+}
+
+bool PublicApiRuntime::genreCollectionLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(genreCollectionLookupMutex_);
+    return static_cast<bool>(genreCollectionLookup_);
+}
+
+PublicGenreCollectionResult PublicApiRuntime::lookupGenreCollection(
+    const PublicGenreCollectionRequest& request) const
+{
+    GenreCollectionLookup lookup;
+    {
+        std::lock_guard<std::mutex> lock(genreCollectionLookupMutex_);
+        lookup = genreCollectionLookup_;
+    }
+    return lookup ? lookup(request) : PublicGenreCollectionResult{};
+}
+
 void PublicApiRuntime::registerChannelCollectionLookup(
     ChannelCollectionLookup lookup)
 {
@@ -4785,6 +4947,7 @@ bool PublicApiRuntime::tryHandleGet(
             timerCreateAdmissionConfigured(),
             backendCollectionLookupConfigured(),
             recordingCollectionLookupConfigured(),
+            genreCollectionLookupConfigured(),
             accountCollectionLookupConfigured(),
             accountMutationConfigured(),
             accountCreateConfigured(),
@@ -6168,6 +6331,92 @@ bool PublicApiRuntime::tryHandleGet(
                     requestId, correlationId);
                 return true;
             case PublicRecordingCollectionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    if (path == PublicGenreCollectionPath ||
+        path == PublicGenreRecordingPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicGenreCollectionQuery query;
+        const bool recordings = path == PublicGenreRecordingPath;
+        if (!parsePublicGenreCollectionQuery(requestTarget, recordings, query) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != query.backendId)
+        {
+            response = invalidRequestProblem(
+                path, "Genre collection backend scope is invalid.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicGenreCollectionRequest read;
+        read.backendId = query.backendId;
+        read.genreId = query.genreId;
+        read.locale = query.locale;
+        read.limit = query.limit;
+        read.offset = query.offset;
+        read.recordings = recordings;
+        const auto page = lookupGenreCollection(read);
+        switch (page.status)
+        {
+            case PublicGenreCollectionStatus::ok:
+            {
+                const std::size_t count = recordings ?
+                    page.recordings.size() : page.genres.size();
+                if (count > query.limit ||
+                    page.totalCount < query.offset ||
+                    count > page.totalCount - query.offset ||
+                    (recordings && !page.genres.empty()) ||
+                    (!recordings && !page.recordings.empty()))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                for (const auto& item : page.recordings)
+                {
+                    if (item.backendId != query.backendId ||
+                        item.recordingId.size() != 36U ||
+                        item.recordingId.rfind("rec_", 0U) != 0U ||
+                        !std::all_of(item.recordingId.begin() + 4,
+                            item.recordingId.end(), [](char ch) {
+                                return (ch >= '0' && ch <= '9') ||
+                                    (ch >= 'a' && ch <= 'f');
+                            }) ||
+                        item.title.empty() || item.durationSeconds < 0)
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                }
+                for (const auto& item : page.genres)
+                {
+                    if (item.genreId.empty() || item.label.empty() ||
+                        item.genreId.size() > 128U)
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                }
+                response = publicGenreCollectionResponse(
+                    page, query, requestId, correlationId);
+                return true;
+            }
+            case PublicGenreCollectionStatus::invalid:
+                response = invalidRequestProblem(
+                    path, "Invalid Genre collection request.",
+                    requestId, correlationId);
+                return true;
+            case PublicGenreCollectionStatus::unavailable:
                 response = serviceUnavailableProblem(
                     path, requestId, correlationId);
                 return true;

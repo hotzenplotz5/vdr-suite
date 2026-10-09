@@ -126,6 +126,50 @@ struct PublicRecordingCollectionResult
     bool hasMore = false;
 };
 
+enum class PublicGenreCollectionStatus
+{
+    ok,
+    invalid,
+    unavailable,
+};
+
+struct PublicGenreCollectionRequest
+{
+    std::string backendId;
+    std::string genreId;
+    std::string locale = "de";
+    std::size_t limit = 30U;
+    std::size_t offset = 0U;
+    bool recordings = false;
+};
+
+struct PublicGenreItem
+{
+    std::string genreId;
+    std::string label;
+    std::string labelDe;
+    std::string labelEn;
+    std::size_t count = 0U;
+};
+
+struct PublicGenreRecordingItem
+{
+    std::string recordingId;
+    std::string backendId;
+    std::string title;
+    std::string recordedAt;
+    int durationSeconds = 0;
+    bool durationKnown = false;
+};
+
+struct PublicGenreCollectionResult
+{
+    PublicGenreCollectionStatus status = PublicGenreCollectionStatus::unavailable;
+    std::vector<PublicGenreItem> genres;
+    std::vector<PublicGenreRecordingItem> recordings;
+    std::size_t totalCount = 0U;
+};
+
 enum class PublicChannelCollectionStatus
 {
     ok,
@@ -820,6 +864,10 @@ public:
         std::function<PublicRecordingCollectionResult(
             const PublicRecordingCollectionRequest& request)>;
 
+    using GenreCollectionLookup =
+        std::function<PublicGenreCollectionResult(
+            const PublicGenreCollectionRequest& request)>;
+
     using ChannelCollectionLookup =
         std::function<PublicChannelCollectionResult(
             const PublicChannelCollectionRequest& request)>;
@@ -949,6 +997,12 @@ public:
     bool recordingCollectionLookupConfigured() const;
     PublicRecordingCollectionResult lookupRecordingCollection(
         const PublicRecordingCollectionRequest& request) const;
+
+    void registerGenreCollectionLookup(GenreCollectionLookup lookup);
+    void resetGenreCollectionLookup();
+    bool genreCollectionLookupConfigured() const;
+    PublicGenreCollectionResult lookupGenreCollection(
+        const PublicGenreCollectionRequest& request) const;
 
     void registerChannelCollectionLookup(
         ChannelCollectionLookup lookup);
@@ -1122,6 +1176,9 @@ private:
 
     mutable std::mutex recordingCollectionLookupMutex_;
     RecordingCollectionLookup recordingCollectionLookup_;
+
+    mutable std::mutex genreCollectionLookupMutex_;
+    GenreCollectionLookup genreCollectionLookup_;
 
     mutable std::mutex channelCollectionLookupMutex_;
     ChannelCollectionLookup channelCollectionLookup_;
