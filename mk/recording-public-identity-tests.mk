@@ -20,3 +20,12 @@ test-public-recording-collection-projection:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_public_recording_collection_projection
 	$(BUILD_DIR)/test_public_recording_collection_projection
+
+.PHONY: test-public-recording-collection-api
+
+test-public-recording-collection-api:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		api/rest/src/PublicApiRuntime.cpp \
+		api/rest/tests/test_public_recording_collection.cpp \
+		-o $(BUILD_DIR)/test_public_recording_collection
+	$(BUILD_DIR)/test_public_recording_collection
