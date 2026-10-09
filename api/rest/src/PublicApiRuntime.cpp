@@ -8609,6 +8609,7 @@ bool PublicApiRuntime::tryHandlePost(
     if (path == "/api/v1" ||
         path == "/api/v1/capabilities" ||
         path == PublicBackendCollectionPath ||
+        path == PublicRecordingCollectionPath ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         publicOperationPath(path, operationId))
@@ -8762,6 +8763,7 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
     if (path == "/api/v1" ||
         path == "/api/v1/capabilities" ||
         path == PublicBackendCollectionPath ||
+        path == PublicRecordingCollectionPath ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         publicOperationPath(path, operationId))
