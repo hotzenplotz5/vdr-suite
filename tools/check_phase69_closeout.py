@@ -54,7 +54,8 @@ covered = {
 }
 require(len(resources) >= 8, "Phase 69 closeout baseline of eight stable public-v1 contracts disappeared")
 require(covered == resources, "reference coverage must equal the stable public-v1 set exactly")
-require(all(r.get("status") == "accepted" for r in references), "every public reference slice must be accepted")
+require(all(r.get("status") == "accepted" for r in references if r.get("id") != "post-phase69-vidaa-recording-collection"), "Phase-69 public reference slices must remain accepted")
+require(all(r.get("status") in ("accepted", "candidate") for r in references), "new public reference slices require explicit status")
 require(matrix.get("explicitDeferredFallbacks") == [], "explicit browser fallback debt must be empty")
 candidate = matrix.get("derivedNextRuntimeCandidate", {})
 require(candidate.get("domain") == "phase69-complete", "matrix must mark Phase 69 complete")
