@@ -139,6 +139,15 @@ IntentResult AddonActivationIntentRepository::read(
     return readInTransaction(moduleId, backendId);
 }
 
+IntentResult AddonActivationIntentRepository::readForAdmission(
+    const std::string& moduleId, const std::string& backendId) const
+{
+    if (!validModule(moduleId) || !validBackend(backendId))
+        return outcome(IntentStatus::invalid, moduleId, backendId);
+    auto lease = database_.acquireTransactionLease();
+    return readInTransaction(moduleId, backendId);
+}
+
 bool AddonActivationIntentRepository::eligibleForFutureEnable(
     const IntentMutation& mutation,
     const BackendAccessDecision& backend,

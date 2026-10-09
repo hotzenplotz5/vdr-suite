@@ -44,3 +44,27 @@ The SQLite schema is created only in the isolated tests by calling
 
 `make test-addon-activation-intent` compiles and tests the code against a
 temporary SQLite DB on an explicitly selected non-live `TMPDIR`.
+
+## Read-only preview joining policy and SQLite intent
+
+`AddonAdmissionReadService` now connects the preexisting C++ policy
+and SQLite desired-state repository **in memory**. It checks actor-scoped
+media-import grants and the independent supplied package/handler/backend
+evidence, reads the scoped desired state internally, replaces any caller
+claim of administrator enablement, and evaluates the policy again. A failed
+or absent SQLite schema denies. The preview exposes the observed revision,
+but `executable=false` is unconditional, including for the positive synthetic
+unit fixture. This revision is diagnostic, **not** a backend execution fence.
+
+Run `make test-addon-admission-preview` in an isolated source tree and
+`TMPDIR`. The tests exercise fake enable claims, missing table, admin-only
+grants, explicit desired enable/disable, actor/session revocation, backend
+scoping, package/handler failures and database loss.
+
+Still missing: trusted host package provenance and compatibility verifier,
+real handler registration/health, canonical grant administration support for
+`addons.media.import`, durable audit/operation fencing, backend-Agent
+runtime, public API and authoritative VDR cache reconciliation. The Python
+installed-metadata registry remains a separate offline inventory, not a
+trusted C++ provider or server API; the synthetic `RuntimeEvidence` fixture
+is not derived from `dpkg` or a running handler.

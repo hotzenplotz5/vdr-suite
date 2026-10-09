@@ -100,3 +100,34 @@ file; verifies default-disabled read, forbidden actors, missing trust/handler,
 read-only backend, invalid identities, optimistic conflict, persistence
 across repository reconstruction, and disabling while backend is offline.
 It does not touch production SQLite or VDR.
+
+## SQLite-to-C++ policy read bridge (2026-10-09)
+
+The internal `AddonAdmissionReadService` supplies a **non-executing**
+Media Tools eligibility preview. It first applies existing
+`RequestSecurityContext` actor/grant and `BackendAccessDecision`
+backend gates with separately supplied package/handler evidence. If
+those gates pass, it reads the desired state from the SQLite repository
+and **overwrites** the caller-provided `administratorEnabled` flag.
+An absent row is disabled, an inaccessible/invalid table denies,
+and revocation of backend authority, package trust, handler health or
+actor grant denies regardless of a previously enabled row.
+
+Only the bounded core-internal preview can read SQLite state without
+a global administrative role. A global administrator grant never
+substitutes for the backend-scoped `addons.media.import` right.
+Its reported `policy.allowed=true` means a **hypothetically eligible
+combination of injected evidence**, not an installed executable provider.
+`executable=false` is always returned. It does not dispatch jobs,
+expose an HTTP route, load modules or start any VDR operation.
+Its observed revision is diagnostic only, not a valid operation lease.
+
+`make test-addon-admission-preview` compiles the C++ service with SQLite
+against a newly created temporary database. Nothing is installed on
+the running yaVDR host.
+
+This slice still does **not** consume live `dpkg` proof, nor does it
+connect the Python installed-metadata inventory to the C++ runtime.
+A future runtime must independently verify package provenance, owner,
+schema/version compatibility, handler identity and backend generation,
+and recheck desired-state/revision at the fenced operation boundary.

@@ -56,6 +56,13 @@ public:
                         const RuntimeEvidence& evidence);
 
 private:
+    // Only the internal dry-run admission service may read desired state
+    // without a global administrator context. No public route may use it.
+    friend class AddonAdmissionReadService;
+
+    IntentResult readForAdmission(const std::string& moduleId,
+                                  const std::string& backendId) const;
+
     IntentResult readInTransaction(const std::string& moduleId,
                                    const std::string& backendId) const;
     static bool validModule(const std::string& moduleId);

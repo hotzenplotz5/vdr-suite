@@ -78,3 +78,9 @@ only a revision-fenced administrator wish; neither scaffold packages nor the
 compiled C++ Media Tools preview are enabled by that record. The offline
 `make test-addon-activation-intent` target runs against a caller-controlled
 temporary SQLite database and does not install or alter live state.
+
+The non-executing C++ admission preview (`make test-addon-admission-preview`)
+reads only SQLite desired state and injected core policy evidence. It does
+not make metadata-only packages authoritative or discover executable
+handlers. The source-only registry, package verifier and live activation
+remain separate security-gated implementation work.

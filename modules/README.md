@@ -47,3 +47,11 @@ models administrator preference separately from installed and effective
 capabilities. It is **not connected to the daemon** and does not activate
 any of these four packages. No automatic add-on enable or client discovery
 is permitted from persisted preference alone.
+
+## Non-executing admission preview
+
+The Suite Core now has a [SQLite-to-policy admission read bridge](../docs/development/addon-installed-registry-contract.md).
+It ignores fabricated module-enabled claims and checks the persisted
+backend-specific intent only after independent policy checks. Its
+`executable` result is always false. This is not installed-package
+trust verification, live capability discovery, or a module activation.

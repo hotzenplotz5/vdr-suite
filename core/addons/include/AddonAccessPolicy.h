@@ -33,6 +33,7 @@ enum class AccessReason {
     untrustedPackage,
     incompatibleVersion,
     disabled,
+    activationStateUnavailable,
     handlerUnavailable,
     backendUnavailable,
     permissionDenied,

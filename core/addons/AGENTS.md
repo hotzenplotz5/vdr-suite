@@ -29,3 +29,11 @@ constraints in [ADR-0068](../../docs/adr/ADR-0068-optional-addons-and-source-pac
    independently force effective capabilities to empty.
 9. Run `make test-addon-activation-intent` with an isolated build directory
    and explicitly assigned `TMPDIR`; it creates only a temporary SQLite DB.
+
+10. The internal `AddonAdmissionReadService` always replaces any caller
+    claim of `administratorEnabled` with the persisted per-backend desired
+    state. Missing schema, invalid state or SQLite failure must deny, never
+    fall back to a caller-provided true flag. It is diagnostic-only:
+    `AdmissionPreview.executable` remains false; no router/worker may use a
+    positive preview as execution authorization. Recheck authoritative state
+    with generation and revision fencing for any future actual operation.

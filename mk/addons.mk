@@ -82,3 +82,21 @@ test-addon-activation-intent:
 	"$(BUILD_DIR)/addons/test_addon_activation_intent"
 
 test-ci-fast: test-addon-activation-intent
+
+# Dry-run C++ bridge between persisted intent and existing actor/backend gate.
+# No runtime worker, provider discovery, API route or package installation.
+.PHONY: test-addon-admission-preview
+test-addon-admission-preview:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
+		-I core/addons/include -I core/security/include \
+		-I core/vdr/include -I core/sqlite/include \
+		core/sqlite/src/Database.cpp \
+		core/addons/src/AddonAccessPolicy.cpp \
+		core/addons/src/AddonActivationIntentRepository.cpp \
+		core/addons/src/AddonAdmissionReadService.cpp \
+		core/addons/tests/test_addon_admission_read_service.cpp \
+		-lsqlite3 -o "$(BUILD_DIR)/addons/test_addon_admission_preview"
+	"$(BUILD_DIR)/addons/test_addon_admission_preview"
+
+test-ci-fast: test-addon-admission-preview
