@@ -63,6 +63,8 @@ stabilized:
 | POST | `/api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}` | Preconditions + Idempotency-Key protected native Timer CREATE admission for an existing assignment. |
 | GET | `/api/v1/channels?backendId={backendId}` | Explicit-source federated Channel collection with keyset pagination and partial-source metadata. |
 
+The R2 successor workstream adds a **candidate** `GET /api/v1/recordings?backendId={backendId}` public collection. It uses a Suite-owned opaque ID, `recordings.view` grants, a backend-bound cursor and a private-field-free response. This successor is **not accepted or deployed** until the recording identity lifecycle and focused build/security tests pass. The existing Phase 69.F acceptance remains unchanged.
+
 No route is promoted by this slice. The matrix describes repository truth only.
 
 ## Why the existing browser wrappers are not migrated blindly
@@ -367,8 +369,8 @@ The dedicated architecture guard must fail when:
 - the browser Client API starts consuming `/api/v1` without the matrix being
   intentionally advanced;
 - the declared stable public resources disappear from the accepted runtime/docs;
-- a currently absent `/api/v1/recordings`, `/api/v1/program-events` or
-  `/api/v1/search-timers` is silently invented;
+- a new public resource is introduced without an explicit contract-inventory successor;
+- `/api/v1/program-events` or `/api/v1/search-timers` is silently invented;
 - the stabilized `/api/v1/backends` contract disappears or is treated as a
   drop-in legacy-browser replacement;
 - the retired Timer live/snapshot fallback or generic
