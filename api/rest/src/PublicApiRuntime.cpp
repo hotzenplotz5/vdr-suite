@@ -78,6 +78,8 @@ constexpr const char* PublicAccountCollectionOrder = "asc";
 constexpr const char* PublicAccountCursorPrefix = "ac1_";
 constexpr const char* PublicAccountCursorPayloadVersion =
     "accounts/1|";
+constexpr const char* PublicRecordingCollectionPath = "/api/v1/recordings";
+constexpr std::size_t PublicRecordingMaximumLimit = 100U;
 constexpr const char* PublicChannelCollectionPath =
     "/api/v1/channels";
 constexpr std::size_t PublicChannelDefaultLimit = 50U;
@@ -4373,6 +4375,37 @@ bool PublicApiRuntime::accountSessionMutationConfigured() const
     std::lock_guard<std::mutex> lock(
         accountSessionMutationMutex_);
     return static_cast<bool>(accountSessionMutation_);
+}
+
+void PublicApiRuntime::registerRecordingCollectionLookup(
+    RecordingCollectionLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(recordingCollectionLookupMutex_);
+    recordingCollectionLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetRecordingCollectionLookup()
+{
+    std::lock_guard<std::mutex> lock(recordingCollectionLookupMutex_);
+    recordingCollectionLookup_ = {};
+}
+
+bool PublicApiRuntime::recordingCollectionLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(recordingCollectionLookupMutex_);
+    return static_cast<bool>(recordingCollectionLookup_);
+}
+
+VdrPublicRecordingCollection PublicApiRuntime::lookupRecordingCollection(
+    const std::string& backendId) const
+{
+    RecordingCollectionLookup lookup;
+    {
+        std::lock_guard<std::mutex> lock(recordingCollectionLookupMutex_);
+        lookup = recordingCollectionLookup_;
+    }
+    if (!lookup) return {{}, false};
+    return lookup(backendId);
 }
 
 void PublicApiRuntime::registerChannelCollectionLookup(
