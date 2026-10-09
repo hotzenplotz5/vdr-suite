@@ -11,13 +11,13 @@ permissions:
 jobs:
   recording-contracts:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - name: Install focused C++ dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential make libsqlite3-dev libcrypt-dev
+          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev libcrypt-dev libcurl4-openssl-dev libssl-dev ffmpeg
       - name: Run Recording Public API identity and permission tests
         run: |
           make -j2 --output-sync=target             test-public-recording-identity-repository             test-public-recording-collection-projection             test-public-recording-collection-api             test-public-recording-collection-security             test-phase69-public-api-contract-root             test-security-device-authentication
@@ -26,3 +26,17 @@ jobs:
           python3 tools/check_phase69_public_api_inventory.py
           python3 tools/check_phase69f_client_contract_matrix.py
           node clients/reference-js/tests/test_public_v1_recording_client.js
+
+  daemon-build-and-fast-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install runtime compilation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev libcrypt-dev libcurl4-openssl-dev libssl-dev ffmpeg
+      - name: Compile the complete daemon
+        run: make daemon
+      - name: Run fast CI suite
+        run: make -j2 --output-sync=target test-ci-fast
