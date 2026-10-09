@@ -5,6 +5,7 @@
 #include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "RecordingArtworkHttpServer.h"
+#include "PublicRecordingCollectionProjection.h"
 #include "RecordingSeriesHierarchyApiRuntime.h"
 #include "RestfulApiRecordingActionBackendExecutorAdapter.h"
 #include "RestfulApiSearchTimerDiscoveryProvider.h"
