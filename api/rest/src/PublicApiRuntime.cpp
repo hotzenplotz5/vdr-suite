@@ -2820,6 +2820,7 @@ ApiResponse platformCapabilities(
     const bool timerAssignmentReadAvailable,
     const bool timerCreateAdmissionAvailable,
     const bool backendCollectionAvailable,
+    const bool recordingCollectionAvailable,
     const bool accountCollectionAvailable,
     const bool accountMutationAvailable,
     const bool accountCreateAvailable,
@@ -2850,6 +2851,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.backends-read\",\"version\":1,\"availability\":\"" +
         std::string(backendCollectionAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.recordings-read\",\"version\":1,\"availability\":\"" +
+        std::string(recordingCollectionAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.accounts-read\",\"version\":1,\"availability\":\"" +
         std::string(accountCollectionAvailable ? "available" : "unavailable") +
@@ -4709,6 +4713,7 @@ bool PublicApiRuntime::tryHandleGet(
             timerAssignmentLookupConfigured(),
             timerCreateAdmissionConfigured(),
             backendCollectionLookupConfigured(),
+            recordingCollectionLookupConfigured(),
             accountCollectionLookupConfigured(),
             accountMutationConfigured(),
             accountCreateConfigured(),
