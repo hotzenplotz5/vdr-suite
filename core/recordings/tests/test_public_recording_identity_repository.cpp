@@ -2,6 +2,8 @@
 #include "Database.h"
 
 #include <cassert>
+#include <cstdlib>
+#include <unistd.h>
 #include <string>
 
 int main()
@@ -47,6 +49,30 @@ int main()
     assert(!repository.resolveOrCreate("backend-a", "").has_value());
     assert(!repository.find("backend-a", "").has_value());
     assert(!repository.rebindAfterVerifiedMove("backend-a", "/new/a", ""));
+
+    char path[] = "/tmp/vdr-suite-recording-identity-XXXXXX";
+    const int temporary = mkstemp(path);
+    assert(temporary >= 0);
+    assert(close(temporary) == 0);
+    std::string persistentId;
+    {
+        Database persisted;
+        assert(persisted.open(path));
+        PublicRecordingIdentityRepository first(persisted);
+        assert(first.ensureSchema());
+        const auto id = first.resolveOrCreate("backend-a", "/persistent/recording");
+        assert(id.has_value());
+        persistentId = *id;
+    }
+    {
+        Database reopened;
+        assert(reopened.open(path));
+        PublicRecordingIdentityRepository second(reopened);
+        assert(second.ensureSchema());
+        assert(second.find("backend-a", "/persistent/recording") ==
+            std::optional<std::string>(persistentId));
+    }
+    assert(unlink(path) == 0);
 
     return 0;
 }
