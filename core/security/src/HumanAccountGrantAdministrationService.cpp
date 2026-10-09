@@ -92,6 +92,7 @@ const std::set<std::string>& supportedPermissionSet()
         "role.admin",
         "role.read-only",
         "channels.view",
+        "recordings.view",
         "channels.move",
         "timers.view",
         "timers.create",
