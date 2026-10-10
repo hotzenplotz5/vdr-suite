@@ -350,14 +350,14 @@ HttpServerResponse MediaGatewayHttpServer::handleRequest(
         return jsonError(409, "media_route_not_active");
     }
 
-    // MediaAccessGrant alone is intentionally insufficient for Public-v1:
-    // every manifest, segment and stream request also requires a fresh
-    // server-side Device identity + play-grant/owner check. Absence of a
-    // wired authorizer fails closed, including for legacy-issued grants.
-    if (mediaPath.publicV1 &&
-        (!publicSessionAuthorizer_ ||
+    // A Device-issued credential must never bypass a Device grant check by
+    // requesting the *legacy* path instead. The callback can distinguish a
+    // legacy Browser session from a registered Public-v1 Device session.
+    if ((mediaPath.publicV1 && !publicSessionAuthorizer_) ||
+        (publicSessionAuthorizer_ &&
          !publicSessionAuthorizer_(
-            mediaPath.sessionId, authentication.actorId, lease->backendId))) {
+            mediaPath.sessionId, authentication.actorId,
+            lease->backendId, mediaPath.publicV1))) {
         return jsonError(403, "device_media_permission_denied");
     }
 

@@ -18,7 +18,8 @@ public:
         std::function<bool(
             const std::string& sessionId,
             const std::string& actorId,
-            const std::string& backendId)>;
+            const std::string& backendId,
+            bool publicV1Path)>;
 
     MediaGatewayHttpServer(
         std::unique_ptr<IHttpServer> inner,

@@ -157,11 +157,14 @@ int main()
         &directRegistry,
         [&](const std::string& session,
             const std::string& actor,
-            const std::string& backend) {
-            return publicAuthorized &&
-                session == issued.session.sessionId &&
-                actor == "actor-test" &&
-                backend == "backend-a";
+            const std::string& backend,
+            bool publicV1Path) {
+            // Fixture binds only the HLS issuance to Public-v1. The
+            // direct-progression and live legacy sessions are unchanged.
+            if (session != issued.session.sessionId)
+                return !publicV1Path;
+            return publicAuthorized && actor == "actor-1" &&
+                backend == "default";
         });
 
     const std::string prefix =
@@ -286,6 +289,22 @@ int main()
         assert(response.body.find("media_path_invalid") != std::string::npos);
         assert(response.body.find(root.string()) == std::string::npos);
     }
+
+    // After live device revocation, neither the Public-v1 nor the
+    // equivalent legacy URL may serve the same Device-owned grant.
+    publicAuthorized = false;
+    for (const std::string& deniedPrefix : {
+        publicPrefix,
+        prefix
+    }) {
+        HttpServerRequest http;
+        http.method = "GET";
+        http.path = deniedPrefix + "master.m3u8";
+        http.headers["X-VDR-Suite-Media-Authorization"] =
+            "Bearer " + issued.session.accessCredential;
+        assert(gateway.handleRequest(http).statusCode == 403);
+    }
+    publicAuthorized = true;
 
     const std::string directPath =
         "/api/media/sessions/" + directIssued.session.sessionId +
