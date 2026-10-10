@@ -173,3 +173,22 @@ Authorization headers; issuing a Device-owned session and securely
 transporting a short-lived grant to native VIDAA video/HLS requests are
 still missing. No TV client URL may be activated before verifying the
 HTTPS reverse-proxy prefix and cookie Path/origin on the actual host.
+
+### Versioned media cookie Path builder (2026-10-10)
+
+`MediaAccessCredentialHttp` now offers a **separate, opt-in** secure
+`publicV1SessionCookie` / expiry pair alongside the unchanged legacy Web
+cookie. They scope `vdr_suite_media` to
+`<trusted external mount>/api/v1/media/sessions/{sessionId}/` rather than
+`/api/media/sessions/{sessionId}/`. The external mount prefix must come
+**only from trusted deployment configuration** (never client, Host or forwarded
+request headers); malformed, ambiguous, encoded, traversal, CRLF or
+oversized prefixes fail closed. Tests cover root deployment and the
+`/vdr-suite` prefix shown in VIDAA's verified HTTPS API root, legacy-path
+regression, expiry, malformed credential and cookie-injection cases.
+
+This is **transport preparation, not yet an issuing Public-v1 endpoint**:
+no Device can obtain a playable MediaSession through this helper alone.
+The actual HTTPS proxy/media route and VIDAA native-video cookie behavior
+must be verified on the real host before a Device-issuing handler is enabled.
+No media credential is ever embedded into an HLS URL.
