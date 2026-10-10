@@ -1591,6 +1591,35 @@ public:
                 gate, denial, 403,
                 "A verified Device credential is required for recording playback", "");
         }
+        if (isPublicDeviceRecordingSessionCreate)
+        {
+            // Match the canonical PublicRecordingPlaybackTargetResolver's
+            // backend grammar before authorization or domain resolution.
+            const std::string backendId =
+                jsonStringValue(request.body, "backendId");
+            const bool validBackend =
+                !backendId.empty() && backendId.size() <= 128U &&
+                backendId != "*" && backendId != "." &&
+                backendId != ".." &&
+                std::all_of(
+                    backendId.begin(), backendId.end(),
+                    [](unsigned char character) {
+                        return std::isalnum(character) ||
+                            character == '-' || character == '_' ||
+                            character == '.';
+                    });
+            if (!validBackend)
+            {
+                AuthorizationDecision denial;
+                denial.permission = "media.recording.play";
+                denial.action = "media.recording.play";
+                denial.backendId = backendId;
+                denial.reasonCode = "invalid_backend_scope";
+                return rejectWithAudit(
+                    gate, denial, 400,
+                    "Invalid backend scope for Device recording playback", "");
+            }
+        }
         // Credential issuance to an existing Device is administrator-browser
         // only even if a Service Actor somehow obtained an administrative grant.
         if (isPublicDeviceCredentialRotation && !gate.browserAuthenticated)
