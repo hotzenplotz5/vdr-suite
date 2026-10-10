@@ -54,6 +54,7 @@ def main() -> int:
         write(stage / "usr/share/vdr-suite/web/frontend/composed.js", "part-a\npart-b\n")
         mkdir(stage / "var/lib/vdr-suite/backend-agent", 0o700)
         mkdir(stage / "var/lib/vdr-suite/secrets/series-artwork", 0o700)
+        mkdir(stage / "var/lib/vdr-suite/secrets", 0o700)
         # Reproduce a staging tree built with umask 077. Those
         # ancestor modes must NEVER alter existing system folders.
         for rel in ("usr", "usr/bin", "usr/sbin", "usr/share",
