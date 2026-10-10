@@ -241,3 +241,17 @@ an internal `Path=/api/v1/...` exactly once. Without that rewriting proxy,
 use `/vdr-suite` for both. Neither prefix may come from client-provided
 Host/Origin/forwarded headers. Tests cover both cases. The issuer is not
 wired yet and must choose verified deployment configuration, not guess.
+
+### Shared runtime issuer, native identity recheck (2026-10-10)
+
+The legacy RecordingMediaSessionController now provides a distinct
+`createDeviceSession` entry point for a **pre-admitted canonical Public ID**.
+It rejects client-provided native IDs, re-queries the live VDR service and
+checks its `backendNativeId` against the admitted identity before selecting
+the existing native source, ffprobe/presentation, MediaSession issuer and
+HLS/progressive provisioning. On success it returns the canonical Public-v1
+media response rather than legacy URLs/cookies; unsuccessful response
+construction revokes the provisioned session. This does **not** register a
+Public-v1 HTTP route by itself. Authentication and live Device permissions,
+owner registration, revocation on media access, and TV player integration
+must be wired separately.

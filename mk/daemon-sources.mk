@@ -76,6 +76,7 @@ DAEMON_SRC := \
         api/rest/src/LegacyOsdApiRuntime.cpp \
         api/rest/src/HbbtvMediaSessionController.cpp \
         api/rest/src/RecordingMediaSessionController.cpp \
+        api/rest/src/PublicRecordingDeviceMediaSessionResponse.cpp \
         api/rest/src/RecordingMediaSessionRequestParser.cpp \
         api/rest/src/LiveMediaSessionController.cpp \
         api/rest/src/LiveMediaSessionRequestParser.cpp \

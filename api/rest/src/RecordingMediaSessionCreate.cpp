@@ -1,4 +1,5 @@
 #include "RecordingMediaSessionController.h"
+#include "PublicRecordingDeviceMediaSessionResponse.h"
 
 #include "FfprobeRecordingSource.h"
 #include "LocalVdrRecordingSourceResolver.h"
@@ -203,12 +204,39 @@ ApiResponse RecordingMediaSessionController::createSession(
     const std::string& body,
     const std::string& actorId) const
 {
+    return createSessionInternal(body, actorId, nullptr, {}, {}, {}, nullptr);
+}
+
+ApiResponse RecordingMediaSessionController::createDeviceSession(
+    const std::string& body,
+    const std::string& actorId,
+    const VdrRecording& authorizedRecording,
+    const std::string& publicRecordingId,
+    const std::string& externalMediaPrefix,
+    const std::string& cookiePrefix,
+    std::string& activatedSessionId) const
+{
+    activatedSessionId.clear();
+    return createSessionInternal(
+        body, actorId, &authorizedRecording, publicRecordingId,
+        externalMediaPrefix, cookiePrefix, &activatedSessionId);
+}
+
+ApiResponse RecordingMediaSessionController::createSessionInternal(
+    const std::string& body,
+    const std::string& actorId,
+    const VdrRecording* authorizedRecording,
+    const std::string& publicRecordingId,
+    const std::string& externalMediaPrefix,
+    const std::string& cookiePrefix,
+    std::string* activatedSessionId) const
+{
     const auto requestStartedAt = std::chrono::steady_clock::now();
     if (actorId.empty()) {
         return jsonError(401, "media_actor_required");
     }
 
-    const RecordingMediaSessionRequest request =
+    RecordingMediaSessionRequest request =
         RecordingMediaSessionRequestParser().parse(body);
     if (!request.valid) {
         return jsonError(
@@ -239,11 +267,30 @@ ApiResponse RecordingMediaSessionController::createSession(
                 : requestedAudioTrack.reasonCode);
     }
 
+    if (authorizedRecording != nullptr) {
+        // Never allow a Device to supply a VDR-native identifier. The
+        // admission boundary must have resolved the exact public ID.
+        if (request.recordingId != publicRecordingId ||
+            authorizedRecording->backendId != request.backendId ||
+            authorizedRecording->id.empty() ||
+            authorizedRecording->backendNativeId.empty()) {
+            return jsonError(404, "recording_not_found");
+        }
+        request.recordingId = authorizedRecording->id;
+    }
+
     VdrRecording recording;
     if (!recordingQueryService_.findRecordingById(
             request.backendId,
             request.recordingId,
             recording)) {
+        return jsonError(404, "recording_not_found");
+    }
+    if (authorizedRecording != nullptr &&
+        (recording.backendNativeId != authorizedRecording->backendNativeId ||
+         recording.id != authorizedRecording->id ||
+         (recording.backendId != request.backendId &&
+             !(recording.backendId.empty() && request.backendId == "default")))) {
         return jsonError(404, "recording_not_found");
     }
 
@@ -473,10 +520,16 @@ ApiResponse RecordingMediaSessionController::createSession(
                 : issuance.reasonCode);
     }
 
-    const std::string cookie = MediaAccessCredentialHttp::sessionCookie(
-        issuance.session.sessionId,
-        issuance.session.accessCredential,
-        MediaSessionLifetimeSeconds);
+    const std::string cookie = authorizedRecording != nullptr
+        ? MediaAccessCredentialHttp::publicV1SessionCookie(
+            issuance.session.sessionId,
+            issuance.session.accessCredential,
+            MediaSessionLifetimeSeconds,
+            cookiePrefix)
+        : MediaAccessCredentialHttp::sessionCookie(
+            issuance.session.sessionId,
+            issuance.session.accessCredential,
+            MediaSessionLifetimeSeconds);
     if (cookie.empty()) {
         mediaSessionRepository_.endBundle(
             issuance.session.sessionId,
@@ -636,6 +689,33 @@ ApiResponse RecordingMediaSessionController::createSession(
         << " provision_ms=" << elapsedMilliseconds(sessionIssuedAt, provisionReadyAt)
         << " total_server_ms=" << elapsedMilliseconds(requestStartedAt, provisionReadyAt)
         << std::endl;
+
+    if (authorizedRecording != nullptr) {
+        PublicRecordingDeviceMediaSessionReady ready;
+        ready.sessionId = issuance.session.sessionId;
+        ready.backendId = request.backendId;
+        ready.publicRecordingId = publicRecordingId;
+        ready.presentationProfileId = profile.profileId;
+        ready.expiresAt = issuance.session.expiresAt;
+        ready.mediaCredential = issuance.session.accessCredential;
+        ready.trustedExternalPrefix = externalMediaPrefix;
+        ready.trustedCookiePrefix = cookiePrefix;
+        ready.lifetimeSeconds = MediaSessionLifetimeSeconds;
+        ApiResponse deviceResponse =
+            PublicRecordingDeviceMediaSessionResponse::afterActivation(ready);
+        if (deviceResponse.statusCode != 201) {
+            mediaSessionRuntime_->stop(
+                issuance.session.sessionId, "public_response_invalid");
+            mediaSessionRepository_.endBundle(
+                issuance.session.sessionId, "public_response_invalid");
+            issuance.session.clearSecret();
+            return deviceResponse;
+        }
+        if (activatedSessionId != nullptr)
+            *activatedSessionId = issuance.session.sessionId;
+        issuance.session.clearSecret();
+        return deviceResponse;
+    }
 
     ApiResponse response;
     response.statusCode = 201;
