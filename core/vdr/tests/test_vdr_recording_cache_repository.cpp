@@ -335,8 +335,32 @@ static void test_public_folder_browse_reuses_home_hierarchy()
         "home-vdr", "/Series", 30, 0, children));
 }
 
+static void test_genre_members_resolve_from_cache_without_startup_recording_snapshot()
+{
+    // The daemon's startup VDR snapshot intentionally has no recordings.
+    // Genre member resolution must use the independently warmed cache.
+    Database database;
+    assert(database.open(":memory:"));
+    VdrRecordingCacheRepository repository(database);
+    const std::string nativeId =
+        "/srv/vdr/video/Movies/48_Hrs/2026-10-09.20.15.1-0.rec";
+    assert(repository.replaceRecordingsForBackend("default", {
+        makeRecording("cached-1", nativeId, "48 Hrs",
+                      "/Movies/48_Hrs/2026-10-09.20.15.1-0.rec",
+                      "1791576900", 5700, 2800)
+    }));
+    VdrRecording found;
+    assert(repository.findByBackendNativeId("default", nativeId, found));
+    assert(found.backendId == "default");
+    assert(found.backendNativeId == nativeId);
+    assert(found.title == "48 Hrs");
+    assert(found.durationSeconds == 5700);
+    assert(!repository.findByBackendNativeId("other-backend", nativeId, found));
+}
+
 int main()
 {
+    test_genre_members_resolve_from_cache_without_startup_recording_snapshot();
     test_recording_cache_repository_schema();
     test_recording_cache_repository_migrates_duration_authority();
     test_recording_cache_repository_upserts_and_reads_recordings();

@@ -1462,38 +1462,38 @@ bool DaemonRuntime::initialize()
                     page.recordings.size() > request.limit)
                     return result;
 
-                const auto canonicalRecordings =
-                    vdrSnapshotReadService_->getRecordingsForBackend(
-                        request.backendId);
+                // The fast startup snapshot deliberately omits recordings.
+                // Genre membership is indexed from the persisted VDR recording
+                // cache, so resolve each member against that same backend-
+                // scoped, current inventory instead of the empty snapshot.
+                if (!vdrRecordingCacheRepository_)
+                    return result;
                 for (const auto& item : page.recordings)
                 {
                     if (item.backendId != request.backendId ||
                         item.backendNativeId.empty())
                         return PublicGenreCollectionResult{};
-                    const auto found = std::find_if(
-                        canonicalRecordings.begin(),
-                        canonicalRecordings.end(),
-                        [&item](const VdrRecording& current) {
-                            return current.backendNativeId ==
-                                item.backendNativeId;
-                        });
-                    if (found == canonicalRecordings.end() ||
-                        found->title.empty() ||
-                        found->durationSeconds < 0)
+                    VdrRecording found;
+                    if (!vdrRecordingCacheRepository_->findByBackendNativeId(
+                            request.backendId, item.backendNativeId, found) ||
+                        found.backendId != request.backendId ||
+                        found.backendNativeId != item.backendNativeId ||
+                        found.title.empty() ||
+                        found.durationSeconds < 0)
                         return PublicGenreCollectionResult{};
                     const auto publicId =
                         publicRecordingIdentities_->resolveOrCreate(
-                            request.backendId, found->backendNativeId);
+                            request.backendId, found.backendNativeId);
                     if (!publicId.has_value())
                         return PublicGenreCollectionResult{};
 
                     PublicGenreRecordingItem view;
                     view.recordingId = *publicId;
                     view.backendId = request.backendId;
-                    view.title = found->title;
-                    view.recordedAt = found->startTime;
-                    view.durationSeconds = found->durationSeconds;
-                    view.durationKnown = found->recordingDurationKnown;
+                    view.title = found.title;
+                    view.recordedAt = found.startTime;
+                    view.durationSeconds = found.durationSeconds;
+                    view.durationKnown = found.recordingDurationKnown;
                     result.recordings.push_back(std::move(view));
                 }
                 result.totalCount = static_cast<std::size_t>(page.totalCount);
