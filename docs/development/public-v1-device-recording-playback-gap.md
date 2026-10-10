@@ -1,7 +1,10 @@
 # Public-v1 Device recording playback — source-verified implementation gap
 
-**Status:** implementation design and evidence audit, **no new playback route**.
-**Date:** 2026-10-09. **Branch:** `work/r2-recording-folder-browse`.
+**Status (2026-10-10):** **versioned Device Playback first-hardware candidate
+implemented and hosted-CI tested, no productive yaVDR/Hisense acceptance**.
+The original 2026-10-09 gap audit below is retained as historical baseline;
+later implementation notes and the current contract supersede its TODO rows.
+**Branch:** `work/r2-recording-folder-browse`.
 **Purpose:** make an authorized VIDAA recording *playable* without reusing a
 Web browser session or exposing VDR/Streamdev private media URLs.
 Related accepted architecture: [ADR-0046](../adr/ADR-0046-streaming-gateway-media-session-boundary.md),
@@ -19,7 +22,7 @@ Related accepted architecture: [ADR-0046](../adr/ADR-0046-streaming-gateway-medi
 | Media bearer transport | `core/http/include/MediaAccessCredentialHttp.h` | Gateway accepts `X-VDR-Suite-Media-Authorization: Bearer ...` or short-lived `vdr_suite_media` cookie with HttpOnly, Secure, SameSite=Strict | A native `<video>`/HLS request cannot assume custom API headers; cookie path/origin and gateway admission need explicit Device-session handling |
 | Client capabilities | `web/frontend/recordings2-playback.js`, `app/src/playback-controller.js` in VIDAA repo | Web example requests HLS/fMP4, H264/AAC; VIDAA currently exposes an unbound player adapter | VIDAA must advertise capabilities measured on the TV; never assume browser profile support on Hisense |
 
-## Concrete proposed next implementation slices (NOT implemented)
+## Original proposed implementation slices (historical 2026-10-09 audit)
 
 ### 1. Canonical identity and authorization, no media bytes
 
@@ -106,10 +109,12 @@ Related accepted architecture: [ADR-0046](../adr/ADR-0046-streaming-gateway-medi
 The tests cover missing/wrong-backend IDs, moves, removal/reuse and persistent
 reopening. These are identity tests, **not** a working playback gateway.
 
-**Present state:** Recording browsing/details, genres and EPG Now/Next have
-Public-v1 candidates, but playback is **not yet implemented for the TV**.
-This document does not authorize production deployment or claim a
-successful real recording play.
+**Current state (2026-10-10):** Versioned Device Recording start/stop,
+canonical identity admission, native MediaSession issuing, live Device-grant
+revalidation on every media request, and VIDAA player integration now exist
+as development-branch candidates. These changes have **not** been installed
+or validated on real Hisense hardware. This document does not authorize
+production deployment or claim a successful recording play.
 
 ### Server-only canonical playback target resolution — implementation candidate
 
