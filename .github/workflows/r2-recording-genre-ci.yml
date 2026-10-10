@@ -34,6 +34,7 @@ jobs:
             test-public-recording-playback-target-resolver \
             test-public-recording-device-playback-admission \
             test-security-device-authentication \
+            test-public-device-playback-registry \
             test-public-recording-device-media-session-response \
             test-phase65-media-access-credential-http \
             test-phase65-media-gateway-http

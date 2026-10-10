@@ -80,3 +80,14 @@ test-public-recording-device-playback-admission:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_public_recording_device_playback_admission
 	$(BUILD_DIR)/test_public_recording_device_playback_admission
+
+.PHONY: test-public-device-playback-registry
+test-public-device-playback-registry:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) $(SECURITY_SRC) \
+		core/media/src/MediaSessionRepository.cpp \
+		core/media/src/MediaSessionIssuanceService.cpp \
+		core/media/tests/test_public_device_playback_registry.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_device_playback_registry
+	$(BUILD_DIR)/test_public_device_playback_registry
