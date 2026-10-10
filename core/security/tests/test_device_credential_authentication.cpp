@@ -72,13 +72,20 @@ public:
 
     SecurityGateDecision evaluatePlayback(
         const std::string& backend,
-        const std::string& authorization = "") const
+        const std::string& authorization = "",
+        bool stop = false) const
     {
         HttpServerRequest request;
         request.method = "POST";
-        request.path = "/api/v1/recording-playback-sessions";
-        request.body = "{\"backendId\":\"" + backend +
-            "\",\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\"}";
+        request.path = stop
+            ? "/api/v1/recording-playback-sessions/"
+              "ms_0123456789abcdef0123456789abcdef/stop"
+            : "/api/v1/recording-playback-sessions";
+        request.body = stop
+            ? "{\"operation\":\"stop\",\"backendId\":\"" + backend +
+              "\",\"sessionId\":\"ms_0123456789abcdef0123456789abcdef\"}"
+            : "{\"backendId\":\"" + backend +
+              "\",\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\"}";
         request.headers["X-Request-ID"] = "mu10d-device-playback-admission";
         if (!authorization.empty())
             request.headers["Authorization"] = authorization;
@@ -158,6 +165,21 @@ int main()
         assert(playbackAllowed.authorizationDecision.backendId == "default");
         assert(playbackAllowed.authorizationDecision.permission ==
             "media.recording.play");
+        const auto stopAllowed = fixture.evaluatePlayback(
+            "default", fixture.validAuthorization(), true);
+        assert(stopAllowed.allowed);
+        assert(stopAllowed.deviceAuthenticated);
+        assert(stopAllowed.protectedMutation);
+        assert(stopAllowed.authorizationDecision.permission ==
+            "media.recording.play");
+        const auto stopWrongBackend = fixture.evaluatePlayback(
+            "foreign", fixture.validAuthorization(), true);
+        assert(!stopWrongBackend.allowed);
+        assert(stopWrongBackend.rejection.statusCode == 403);
+        const auto stopAnonymous = fixture.evaluatePlayback("default", "", true);
+        assert(!stopAnonymous.allowed);
+        assert(stopAnonymous.rejection.statusCode == 401);
+
         const auto playbackWrongBackend = fixture.evaluatePlayback(
             "foreign", fixture.validAuthorization());
         assert(!playbackWrongBackend.allowed);
