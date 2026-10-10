@@ -313,8 +313,10 @@ HttpServerResponse MediaGatewayHttpServer::handleRequest(
         // Never delegate malformed paths in the versioned media-plane
         // namespace to an application/static-file fallback.
         const std::string publicRoot = "/api/v1/media/sessions";
-        if (request.path == publicRoot ||
-            request.path.rfind(std::string(PublicV1Prefix), 0) == 0)
+        // Reserve the entire Public-v1 media-session namespace, including
+        // encoded separators, query tails and near-miss path variants.
+        // None may reach another API or static-file handler unauthenticated.
+        if (request.path.rfind(publicRoot, 0) == 0)
             return jsonError(404, "media_path_invalid");
         return inner_->handleRequest(request);
     }

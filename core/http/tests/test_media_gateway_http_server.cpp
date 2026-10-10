@@ -261,6 +261,9 @@ int main()
     for (const std::string& invalidPath : {
         std::string("/api/v1/media/sessions/"),
         std::string("/api/v1/media/sessions/invalid/../../etc/passwd"),
+        std::string("/api/v1/media/sessions?credential=forbidden"),
+        std::string("/api/v1/media/sessions%2Fsession/hls/master.m3u8"),
+        std::string("/api/v1/media/sessions-escape/"),
         publicPrefix + "master.m3u8?credential=forbidden",
         publicPrefix + "not-allowed.exe"
     }) {
