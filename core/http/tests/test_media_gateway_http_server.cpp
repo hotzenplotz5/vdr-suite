@@ -259,8 +259,8 @@ int main()
         assert(gateway.handleRequest(http).statusCode == 405);
     }
     for (const std::string& invalidPath : {
-        "/api/v1/media/sessions/",
-        "/api/v1/media/sessions/invalid/../../etc/passwd",
+        std::string("/api/v1/media/sessions/"),
+        std::string("/api/v1/media/sessions/invalid/../../etc/passwd"),
         publicPrefix + "master.m3u8?credential=forbidden",
         publicPrefix + "not-allowed.exe"
     }) {
