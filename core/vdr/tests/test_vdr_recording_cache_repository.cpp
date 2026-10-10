@@ -335,6 +335,39 @@ static void test_public_folder_browse_reuses_home_hierarchy()
         "home-vdr", "/Series", 30, 0, children));
 }
 
+static void test_public_root_leaf_preserves_backend_scope_after_replace()
+{
+    // Production VDR inventory entries may have an empty backendId.
+    // The in-memory browse snapshot must be scoped like the SQLite rows.
+    Database database;
+    assert(database.open(":memory:"));
+    VdrRecordingCacheRepository repository(database);
+    const std::string nativeId =
+        "/srv/vdr/video/Die_Fotografin/2026-10-09.20.15.1-0.rec";
+    VdrRecording raw = makeRecording(
+        "raw-1", nativeId, "Die Fotografin",
+        "/Die_Fotografin/2026-10-09.20.15.1-0.rec",
+        "1791576900", 5700, 2800);
+    assert(raw.backendId.empty());
+    assert(repository.replaceRecordingsForBackend("default", {raw}));
+
+    VdrRecordingFolderPage root;
+    assert(repository.folderPageForBackendByPublicId(
+        "default", "", 12, 0, root));
+    assert(root.folderCount == 1);
+    assert(root.folders.size() == 1U);
+    const auto& leaf = root.folders.front();
+    assert(leaf.singleRecordingLeaf);
+    assert(leaf.name == "Die_Fotografin");
+    assert(leaf.singleRecording.backendId == "default");
+    assert(leaf.singleRecording.backendNativeId == nativeId);
+    assert(leaf.singleRecording.title == "Die Fotografin");
+    assert(leaf.singleRecording.durationSeconds == 5700);
+    assert(!repository.folderPageForBackendByPublicId(
+        "other-backend", VdrRecordingCacheRepository::publicFolderId(
+            "default", leaf.path), 12, 0, root));
+}
+
 static void test_genre_members_resolve_from_cache_without_startup_recording_snapshot()
 {
     // The daemon's startup VDR snapshot intentionally has no recordings.
@@ -360,6 +393,7 @@ static void test_genre_members_resolve_from_cache_without_startup_recording_snap
 
 int main()
 {
+    test_public_root_leaf_preserves_backend_scope_after_replace();
     test_genre_members_resolve_from_cache_without_startup_recording_snapshot();
     test_recording_cache_repository_schema();
     test_recording_cache_repository_migrates_duration_authority();

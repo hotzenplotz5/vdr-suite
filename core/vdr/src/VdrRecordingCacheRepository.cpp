@@ -486,6 +486,14 @@ bool VdrRecordingCacheRepository::replaceRecordingsForBackend(
         }
     }
 
+    // The persisted cache writes the scoped backend ID explicitly.
+    // Keep the in-memory browse snapshot identical: VDR inventories can
+    // carry an empty backendId, and Public-v1 rejects unscoped leaves.
+    for (VdrRecording& recording : mergedRecordings)
+    {
+        recording.backendId = normalizedBackendId;
+    }
+
     auto transactionLease = database_.acquireTransactionLease();
     if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
     {
