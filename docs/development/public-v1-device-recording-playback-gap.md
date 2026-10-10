@@ -229,3 +229,15 @@ This is a response-construction primitive, **not an HTTP endpoint**, and does
 not authorize or activate sessions by itself. On any response-construction
 failure after issuing a bundle, its caller MUST end that bundle; the Device
 session creation handler, ownership and revocation checks remain outstanding.
+
+### Proxy cookie rewrite in deployed Suite Nginx (2026-10-10)
+
+The repository's `packaging/nginx/vdr-suite.conf` currently applies
+`proxy_cookie_path / /vdr-suite/;`. Response assembly therefore uses
+**independent trusted configuration** for external video URL prefix and
+internal cookie prefix: behind this nginx proxy use `trustedExternalPrefix`
+`/vdr-suite` but empty `trustedCookiePrefix`, allowing nginx to rewrite
+an internal `Path=/api/v1/...` exactly once. Without that rewriting proxy,
+use `/vdr-suite` for both. Neither prefix may come from client-provided
+Host/Origin/forwarded headers. Tests cover both cases. The issuer is not
+wired yet and must choose verified deployment configuration, not guess.

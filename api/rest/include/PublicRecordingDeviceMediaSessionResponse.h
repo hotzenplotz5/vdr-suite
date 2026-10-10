@@ -15,7 +15,9 @@ struct PublicRecordingDeviceMediaSessionReady
     std::string presentationProfileId;
     std::string expiresAt;
     std::string mediaCredential;
+    // External video path and cookie Path may differ under nginx proxy rewriting.
     std::string trustedExternalPrefix;
+    std::string trustedCookiePrefix;
     int lifetimeSeconds = 0;
 };
 

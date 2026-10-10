@@ -15,6 +15,7 @@ int main()
         "mg_0123456789abcdef0123456789abcdef." 
         "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_";
     ready.trustedExternalPrefix = "/vdr-suite";
+    ready.trustedCookiePrefix = "/vdr-suite"; // no rewriting proxy
     ready.lifetimeSeconds = 300;
 
     auto response = PublicRecordingDeviceMediaSessionResponse::afterActivation(ready);
@@ -45,6 +46,18 @@ int main()
     ready.presentationProfileId = "hls-ts";
     response = PublicRecordingDeviceMediaSessionResponse::afterActivation(ready);
     assert(response.statusCode == 201);
+    // With Suite nginx rewriting, the daemon emits an internal cookie Path
+    // while video URLs retain the external mount. The proxy rewrites once.
+    ready.trustedCookiePrefix = "";
+    response = PublicRecordingDeviceMediaSessionResponse::afterActivation(ready);
+    assert(response.statusCode == 201);
+    assert(response.headers.at("Set-Cookie").find(
+        "Path=/api/v1/media/sessions/" + ready.sessionId + "/") !=
+        std::string::npos);
+    assert(response.body.find(
+        "/vdr-suite/api/v1/media/sessions/" + ready.sessionId) !=
+        std::string::npos);
+
     ready.trustedExternalPrefix = "";
     response = PublicRecordingDeviceMediaSessionResponse::afterActivation(ready);
     assert(response.statusCode == 201);

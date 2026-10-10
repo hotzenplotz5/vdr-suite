@@ -82,11 +82,18 @@ ApiResponse PublicRecordingDeviceMediaSessionResponse::afterActivation(
         suffix(ready.presentationProfileId) == nullptr)
         return failure();
 
+    const std::string externalMediaBase =
+        MediaAccessCredentialHttp::publicV1CookiePath(
+            ready.sessionId, ready.trustedExternalPrefix);
+    if (externalMediaBase.empty()) return failure();
+
+    // The Suite nginx proxy rewrites Path=/api/v1/... into /vdr-suite/api/v1/...
+    // itself. Keep cookie scope and externally advertised media URL distinct.
     const std::string cookie = MediaAccessCredentialHttp::publicV1SessionCookie(
         ready.sessionId,
         ready.mediaCredential,
         ready.lifetimeSeconds,
-        ready.trustedExternalPrefix);
+        ready.trustedCookiePrefix);
     if (cookie.empty()) return failure();
 
     ApiResponse result;
@@ -95,8 +102,8 @@ ApiResponse PublicRecordingDeviceMediaSessionResponse::afterActivation(
     result.headers["Cache-Control"] = "no-store";
     result.headers["X-Content-Type-Options"] = "nosniff";
     result.headers["Set-Cookie"] = cookie;
-    const std::string path = ready.trustedExternalPrefix +
-        "/api/v1/media/sessions/" + ready.sessionId +
+    const std::string path =
+        externalMediaBase.substr(0, externalMediaBase.size() - 1U) +
         suffix(ready.presentationProfileId);
     result.body = "{\"mediaSession\":{\"id\":\"" +
         ready.sessionId + "\",\"state\":\"ready\",\"backendId\":\"" +
