@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <iostream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -6395,6 +6396,9 @@ bool PublicApiRuntime::tryHandleGet(
                         page.hasMore !=
                             (query.offset + count < page.totalEntries))
                     {
+                        std::cerr << "Public-v1 Recording browse unavailable: "
+                                     "page shape/pagination invariant failed"
+                                  << std::endl;
                         response = serviceUnavailableProblem(
                             path, requestId, correlationId);
                         return true;
@@ -6412,6 +6416,9 @@ bool PublicApiRuntime::tryHandleGet(
                                 item.sizeMb < 0 ||
                                 item.description.size() > 2048U)
                             {
+                                std::cerr << "Public-v1 Recording browse unavailable: "
+                                             "single-recording leaf response invalid"
+                                          << std::endl;
                                 response = serviceUnavailableProblem(
                                     path, requestId, correlationId);
                                 return true;
@@ -6422,6 +6429,9 @@ bool PublicApiRuntime::tryHandleGet(
                                  folder.name.empty() ||
                                  folder.recordingCount < 0)
                         {
+                            std::cerr << "Public-v1 Recording browse unavailable: "
+                                         "folder response invalid"
+                                      << std::endl;
                             response = serviceUnavailableProblem(
                                 path, requestId, correlationId);
                             return true;
@@ -6437,6 +6447,9 @@ bool PublicApiRuntime::tryHandleGet(
                             recording.sizeMb < 0 ||
                             recording.description.size() > 2048U)
                         {
+                            std::cerr << "Public-v1 Recording browse unavailable: "
+                                         "recording response invalid"
+                                      << std::endl;
                             response = serviceUnavailableProblem(
                                 path, requestId, correlationId);
                             return true;

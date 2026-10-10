@@ -1277,6 +1277,8 @@ bool DaemonRuntime::initialize()
                 !vdrSnapshotReadService_->hasSnapshotForBackend(
                     request.backendId))
             {
+                std::cerr << "Public-v1 Recording browse unavailable: "
+                             "backend/snapshot precondition failed" << std::endl;
                 result.status = PublicRecordingCollectionStatus::unavailable;
                 return result;
             }
@@ -1319,6 +1321,9 @@ bool DaemonRuntime::initialize()
                             request.backendId, {child.singleRecording});
                         if (!visible.valid || visible.items.size() != 1U)
                         {
+                            std::cerr << "Public-v1 Recording browse unavailable: "
+                                         "single-recording leaf projection failed"
+                                      << std::endl;
                             result.status =
                                 PublicRecordingCollectionStatus::unavailable;
                             return result;
@@ -1360,6 +1365,9 @@ bool DaemonRuntime::initialize()
                         request.backendId, direct.recordings);
                     if (!visible.valid)
                     {
+                        std::cerr << "Public-v1 Recording browse unavailable: "
+                                     "direct-recording projection failed"
+                                  << std::endl;
                         result.status = PublicRecordingCollectionStatus::unavailable;
                         return result;
                     }

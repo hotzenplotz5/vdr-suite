@@ -3,6 +3,7 @@
 #include "PublicRecordingIdentityRepository.h"
 
 #include <algorithm>
+#include <iostream>
 #include <utility>
 
 namespace
@@ -46,12 +47,20 @@ PublicRecordingReadResult PublicRecordingCollectionProjection::project(
             source.backendNativeId.empty() ||
             source.title.empty() ||
             source.durationSeconds < 0)
+        {
+            std::cerr << "Public-v1 Recording projection unavailable: "
+                         "source identity/metadata invalid" << std::endl;
             return {};
+        }
 
         const auto publicId = identities_.resolveOrCreate(
             authorizedBackendId, source.backendNativeId);
         if (!publicId.has_value())
+        {
+            std::cerr << "Public-v1 Recording projection unavailable: "
+                         "public identity resolution failed" << std::endl;
             return {};
+        }
 
         PublicRecordingReadItem item;
         item.recordingId = *publicId;
