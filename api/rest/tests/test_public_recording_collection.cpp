@@ -149,7 +149,7 @@ int main()
     ApiResponse direct;
     assert(runtime.tryHandleGet(
         "/api/v1/recordings?backendId=backend-a&view=folders&limit=1&offset=2",
-        "actor:tv", "browse-direct", "", direct, "", {"backend-a"}));
+        "actor:tv", "browse-direct", "", direct, "", "", {"backend-a"}));
     assert(direct.statusCode == 200);
     assert(direct.body.find("\"kind\":\"recording\"") != std::string::npos);
     assert(direct.body.find("\"hasMore\":false") != std::string::npos);
