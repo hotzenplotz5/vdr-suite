@@ -172,6 +172,23 @@ int main()
         assert(stopAllowed.protectedMutation);
         assert(stopAllowed.authorizationDecision.permission ==
             "media.recording.play");
+        // Status GET is a Device-only Public-v1 read, not an unversioned
+        // browser or cookie-based session inspection shortcut.
+        const std::string statusPath =
+            "/api/v1/recording-playback-sessions/"
+            "ms_0123456789abcdef0123456789abcdef";
+        const auto readAllowed = fixture.evaluate(
+            statusPath, fixture.validAuthorization());
+        assert(readAllowed.allowed);
+        assert(readAllowed.deviceAuthenticated);
+        const auto readAnonymous = fixture.evaluate(statusPath);
+        assert(!readAnonymous.allowed);
+        assert(readAnonymous.rejection.statusCode == 401);
+        const auto readWithPairingToken = fixture.evaluate(
+            statusPath, "", Secret);
+        assert(!readWithPairingToken.allowed);
+        assert(readWithPairingToken.rejection.statusCode == 401);
+
         const auto stopWrongBackend = fixture.evaluatePlayback(
             "foreign", fixture.validAuthorization(), true);
         assert(!stopWrongBackend.allowed);

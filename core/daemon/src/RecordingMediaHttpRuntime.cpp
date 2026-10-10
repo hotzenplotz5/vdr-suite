@@ -197,6 +197,43 @@ int runRecordingMediaHttpRuntime(
                 return created;
             }
             const std::string prefix = collection + "/";
+            // Versioned Device-only GET /{ms-id}. Never return the native
+            // Recording ID, worker location, provider URL or media secret.
+            if (body.empty() &&
+                target.rfind(prefix, 0) == 0 &&
+                target.size() == prefix.size() + 35U &&
+                target.compare(prefix.size(), 3U, "ms_") == 0 &&
+                std::all_of(
+                    target.begin() + prefix.size() + 3U,
+                    target.end(), [](unsigned char ch) {
+                        return (ch >= '0' && ch <= '9') ||
+                            (ch >= 'a' && ch <= 'f');
+                    }))
+            {
+                const std::string id = target.substr(prefix.size());
+                const auto owned = deviceSessions.describeOwned(
+                    id, verifiedDevice);
+                if (!owned) return error(404, "media_session_not_found");
+                // Both values originate from internally validated issuance.
+                // Do not mirror arbitrary client input in this read model.
+                const auto profile = owned->presentationProfileId;
+                if (profile != "hls-ts" && profile != "hls-fmp4" &&
+                    profile != "progressive-direct" &&
+                    profile != "progressive-fmp4")
+                    return error(503, "media_session_profile_unavailable");
+                ApiResponse response;
+                response.statusCode = 200;
+                response.contentType = "application/json";
+                response.headers["Cache-Control"] = "no-store";
+                response.headers["X-Content-Type-Options"] = "nosniff";
+                response.body =
+                    "{\"mediaSession\":{\"id\":\"" + id +
+                    "\",\"state\":\"ready\",\"backendId\":\"" +
+                    owned->backendId +
+                    "\",\"presentationProfileId\":\"" +
+                    profile + "\"}}";
+                return response;
+            }
             if (target.rfind(prefix, 0) == 0 &&
                 target.size() > prefix.size() + 5U &&
                 target.compare(target.size() - 5U, 5U, "/stop") == 0) {

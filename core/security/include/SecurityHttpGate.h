@@ -344,6 +344,9 @@ public:
             isPost && path == "/api/v1/recording-playback-sessions";
         const std::string playbackStopPrefix =
             "/api/v1/recording-playback-sessions/";
+        const bool isPublicDeviceRecordingSessionRead =
+            request.method == "GET" &&
+            path.rfind(playbackStopPrefix, 0) == 0;
         const bool isPublicDeviceRecordingSessionStop =
             isPost && path.rfind(playbackStopPrefix, 0) == 0 &&
             path.size() > playbackStopPrefix.size() +
@@ -1516,6 +1519,31 @@ public:
             }
 
             gate.authorizationDecision = decision;
+            gate.allowed = true;
+            return gate;
+        }
+
+        if (isPublicDeviceRecordingSessionRead)
+        {
+            // The actual owner and live play grant are rechecked against
+            // persistence by PublicDevicePlaybackRegistry before returning
+            // any session state. Browser and anonymous GETs cannot inspect it.
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            if (!gate.deviceAuthenticated ||
+                gate.context.actor.type != ActorType::Service ||
+                !gate.context.device || !gate.context.credential ||
+                gate.context.session.has_value())
+            {
+                AuthorizationDecision denial;
+                denial.permission = "media.recording.play";
+                denial.action = "media.recording.status";
+                denial.backendId = "*";
+                denial.reasonCode = "device_credential_required";
+                return rejectWithAudit(
+                    gate, denial, 403,
+                    "A verified Device credential is required for recording playback", "");
+            }
             gate.allowed = true;
             return gate;
         }

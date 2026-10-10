@@ -83,6 +83,21 @@ The native RecordingMediaSessionRuntime performs process/lease cleanup;
 the owner binding is released and the versioned media cookie expires.
 An unknown or foreign session is never stopped by another Device.
 
+## Device-only status read
+
+`GET /api/v1/recording-playback-sessions/{ms-id}` is read-only and
+requires the same verified Device principal that owns the active session.
+The server reads the current persisted Session, active Device/Credential
+identities and backend playback grant before returning
+`mediaSession.id`, `state=ready`, `backendId` and
+`presentationProfileId`. This does **not** return a native Recording ID,
+MediaAccessGrant, provider URL, VDR path or HLS token. Unknown, stale,
+revoked or foreign sessions return no session detail; no Browser session
+or anonymous caller can inspect status. Results are `no-store`.
+Session termination/restart is reported as unavailable, never as a
+synthetic playable session. This is a read of server state, **not**
+persistent timeline position or Resume management.
+
 ## Failure and limits
 
 Malformed/publicly unknown IDs, unsupported source formats, missing
@@ -92,8 +107,8 @@ session bearer with a maximum six-hour issuance window and a configured
 five-minute media-access idle timeout. The actual runtime profile/format
 depends on the real Hisense decoder and source recording.
 
-This first-play candidate intentionally **does not** implement a Public-v1
-session-status GET, server-driven seek replacement, progress, subtitles,
+This first-play candidate intentionally **does not** implement server-driven
+seek replacement, persistent progress, subtitles,
 audio-track selection or live-TV playback. These remain later slices; no
 legacy Web media endpoint is used as a fallback.
 

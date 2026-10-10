@@ -109,6 +109,21 @@ public:
             currentGrant(owner, sessionId);
     }
 
+    std::optional<StoredMediaSession> describeOwned(
+        const std::string& sessionId,
+        const RequestSecurityContext& verifiedDevice) const
+    {
+        // No caller-provided backend and no native recording ID in the API.
+        // Resolve the session only after the same persistent Device,
+        // Credential and current grant checks used for media bytes.
+        const auto stored = sessions_.findSession(sessionId);
+        if (!stored || stored->state != "ready" ||
+            stored->resourceKind != "recording" ||
+            !owned(sessionId, stored->backendId, verifiedDevice))
+            return std::nullopt;
+        return stored;
+    }
+
     void erase(const std::string& sessionId)
     {
         std::lock_guard<std::mutex> lock(mutex_);

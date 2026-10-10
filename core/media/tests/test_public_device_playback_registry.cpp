@@ -68,17 +68,28 @@ int main() {
     assert(!registry.authorized(id,"other","backend-a",true));
     assert(!registry.authorized(id,"actor-playback","backend-b",true));
     assert(registry.owned(id,"backend-a",device()));
+    auto described=registry.describeOwned(id,device());
+    assert(described.has_value());
+    assert(described->sessionId==id);
+    assert(described->state=="ready");
+    assert(described->resourceId=="native-opaque");
+    assert(described->presentationProfileId=="hls-ts");
+    assert(!registry.describeOwned("ms_ffffffffffffffffffffffffffffffff",device()));
+
     auto other=device();
     other.credential->credentialId="other-credential";
     assert(!registry.owned(id,"backend-a",other));
+    assert(!registry.describeOwned(id,other));
 
     assert(grants.revokeGrant("actor-playback","media.recording.play","backend-a"));
     assert(!registry.authorized(id,"actor-playback","backend-a",true));
     assert(!registry.authorized(id,"actor-playback","backend-a",false));
+    assert(!registry.describeOwned(id,device()));
     assert(grants.ensureGrant("actor-playback","media.recording.play","backend-a"));
     assert(registry.authorized(id,"actor-playback","backend-a",true));
     assert(identities.revokeCredential("credential-playback"));
     assert(!registry.authorized(id,"actor-playback","backend-a",true));
+    assert(!registry.describeOwned(id,device()));
     registry.erase(id);
     assert(!registry.authorized(id,"actor-playback","backend-a",true));
     return 0;
