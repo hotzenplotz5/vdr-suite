@@ -54,6 +54,11 @@ def main() -> int:
         write(stage / "usr/share/vdr-suite/web/frontend/composed.js", "part-a\npart-b\n")
         mkdir(stage / "var/lib/vdr-suite/backend-agent", 0o700)
         mkdir(stage / "var/lib/vdr-suite/secrets/series-artwork", 0o700)
+        # Reproduce a staging tree built with umask 077. Those
+        # ancestor modes must NEVER alter existing system folders.
+        for rel in ("usr", "usr/bin", "usr/sbin", "usr/share",
+                    "var", "var/lib", "var/cache", "var/lib/vdr-suite"):
+            mkdir(stage / rel, 0o700)
 
         sealed = run("seal", "--stage-root", str(stage))
         assert "INSTALL_RUNTIME_STAGE_SEALED=YES" in sealed.stdout
@@ -65,6 +70,9 @@ def main() -> int:
         write(live / "usr/share/vdr-suite/web/frontend/app.js", "app-v1-stale\n")
         write(live / "usr/share/vdr-suite/web/frontend/stale-only.js", "stale\n")
         mkdir(live / "usr/share/vdr-suite/web/frontend/stale-empty-dir", 0o755)
+        for rel in ("usr", "usr/bin", "usr/sbin", "usr/share",
+                    "var", "var/lib", "var/cache", "var/lib/vdr-suite"):
+            mkdir(live / rel, 0o755)
 
         drift = run("check", "--stage-root", str(stage), "--live-root", str(live), expect=1)
         assert "RUNTIME_DEPLOYMENT_DRIFT=content:usr/share/vdr-suite/web/frontend/app.js" in drift.stdout
@@ -84,9 +92,25 @@ def main() -> int:
         assert mode(live / "var/lib/vdr-suite/backend-agent") == 0o700
         assert (live / "var/lib/vdr-suite/secrets/series-artwork").is_dir()
         assert mode(live / "var/lib/vdr-suite/secrets/series-artwork") == 0o700
+        for rel in ("usr", "usr/bin", "usr/sbin", "usr/share",
+                    "var", "var/lib", "var/cache", "var/lib/vdr-suite"):
+            assert mode(live / rel) == 0o755, f"installer changed system permissions: {rel}"
 
         matched = run("check", "--stage-root", str(stage), "--live-root", str(live))
         assert "RUNTIME_DEPLOYMENT_MATCH=YES" in matched.stdout
+
+        # A pre-existing private directory with unsafe permissions must
+        # fail closed without repairing or replacing live files.
+        private_dir = live / "var/lib/vdr-suite/secrets"
+        os.chmod(private_dir, 0o755)
+        rejected = run("deploy", "--stage-root", str(stage),
+                       "--live-root", str(live), expect=1)
+        assert "private runtime directory needs explicit repair" in rejected.stdout
+        assert mode(private_dir) == 0o755
+        os.chmod(private_dir, 0o700)
+        assert "RUNTIME_DEPLOYMENT_MATCH=YES" in run(
+            "check", "--stage-root", str(stage), "--live-root", str(live)
+        ).stdout
 
         write(stage / "usr/share/vdr-suite/web/frontend/app.js", "tampered-after-seal\n")
         tampered = run("check", "--stage-root", str(stage), "--live-root", str(live), expect=1)

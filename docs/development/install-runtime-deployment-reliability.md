@@ -46,7 +46,7 @@ The seal prevents files, directories or their modes from being modified between 
 `deploy-install-runtime` consumes only the sealed staging tree. It does not
 read deployable frontend files directly from `web/frontend`.
 
-Existing files and directories below `/etc` are preserved, matching the repository's non-destructive configuration-upgrade rule. Other install-runtime directories are created with their staged modes and regular files are replaced from staging.
+Existing files and directories below `/etc` are preserved, matching the repository's non-destructive configuration-upgrade rule. **All existing directory modes remain unchanged**, including `/usr`, `/usr/share`, `/var`, `/var/lib` and `/var/cache`. In particular, staging under `umask 077` must never make these shared system directories private. Newly created shared install-runtime directories use mode `0755`; only explicitly owned private runtime directories use `0700`. An existing private directory with an unexpected mode fails closed rather than being silently chmodded. Regular install-runtime files are replaced from staging, subject to the existing `/etc` preservation rule.
 
 The staged frontend tree at
 `/usr/share/vdr-suite/web/frontend` is deployed as one complete replacement
@@ -67,7 +67,10 @@ RUNTIME_DEPLOYMENT_MATCH=YES
 ```
 
 The check compares the sealed install-runtime manifest with the live
-installation. For the frontend it additionally requires an exact file-set match,
+installation. Existing shared ancestor directory modes are intentionally
+excluded from stage-mode comparison, since they are host-owned and must be
+preserved; private runtime directories and the managed frontend tree are still
+mode-checked. For the frontend it additionally requires an exact file-set match,
 so missing, stale and extra frontend artifacts fail the check.
 
 Do not use `find web/frontend` versus the live frontend as deployment evidence.

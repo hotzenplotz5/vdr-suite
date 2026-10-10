@@ -39,5 +39,7 @@ jobs:
             test-public-recording-device-media-session-response \
             test-phase65-media-access-credential-http \
             test-phase65-media-gateway-http
+      - name: Guard existing host directory permissions during deployment
+        run: python3 tools/test_install_runtime_stage.py
       - name: Compile daemon candidate without deploying
         run: make -j2 daemon
