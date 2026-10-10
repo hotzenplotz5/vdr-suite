@@ -114,6 +114,14 @@ test-phase65-recording-playback-authorization:
 		-o $(BUILD_DIR)/test_phase65_recording_playback_authorization
 	$(BUILD_DIR)/test_phase65_recording_playback_authorization
 
+.PHONY: test-public-recording-device-media-session-response
+test-public-recording-device-media-session-response:
+	$(BUILD_CXX) $(CXXFLAGS) -Iapi/rest/include -Icore/http/include \
+		api/rest/src/PublicRecordingDeviceMediaSessionResponse.cpp \
+		api/rest/tests/test_public_recording_device_media_session_response.cpp \
+		-o $(BUILD_DIR)/test_public_recording_device_media_session_response
+	$(BUILD_DIR)/test_public_recording_device_media_session_response
+
 test-phase65-media-access-credential-http:
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/http/include \
 		core/http/tests/test_media_access_credential_http.cpp \

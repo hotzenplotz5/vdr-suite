@@ -211,3 +211,21 @@ current native recording and backend, issue a session using Suite-owned
 services, return only canonical IDs, use the versioned cookie+gateway and
 stop/cleanup safely. Until then a permitted POST remains unhandled and
 no capability is advertised.
+
+### Canonical Device session response after activation (2026-10-10)
+
+`PublicRecordingDeviceMediaSessionResponse::afterActivation` now builds a
+strict, versioned response for an **already activated, authorized** recording
+session. The response exposes only the backend, canonical `rec_...` ID,
+opaque `ms_...` session, supported presentation profile, expiry and an
+HTTPS-mount-aware `/api/v1/media/sessions/{id}/...` media path; the short-lived
+media credential is confined to `Secure; HttpOnly; SameSite=Strict` cookie
+transport. It rejects unknown profiles, malformed IDs, expiry, credentials
+and mount prefixes without emitting any token, native VDR path or legacy URL.
+Regression tests cover HLS, direct TS, fMP4, root and `/vdr-suite` mounts,
+missing/injected credentials and no-cache responses.
+
+This is a response-construction primitive, **not an HTTP endpoint**, and does
+not authorize or activate sessions by itself. On any response-construction
+failure after issuing a bundle, its caller MUST end that bundle; the Device
+session creation handler, ownership and revocation checks remain outstanding.
