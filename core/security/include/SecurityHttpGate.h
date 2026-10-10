@@ -338,6 +338,10 @@ public:
                 recordingSeriesHierarchyBackendId);
         const bool isMediaSessionMutation = isPost && path == "/api/media/sessions";
         const bool isRecordingPlaybackSessionCreate = isMediaSessionMutation;
+        // Control-plane reservation. Media bytes use the separately guarded
+        // /api/v1/media/sessions/{sessionId}/... gateway namespace.
+        const bool isPublicDeviceRecordingSessionCreate =
+            isPost && path == "/api/v1/recording-playback-sessions";
         const std::string publicOperationPrefix =
             "/api/v1/operations/";
         const bool isPublicOperationResource =
@@ -804,7 +808,8 @@ public:
             isPublicDeviceCredentialRotation ||
             isPublicAccountCredentialMutation ||
             isPublicAccountSessionMutation ||
-            isPublicTimerAssignmentCreate || isTimerUpdateAction ||
+            isPublicTimerAssignmentCreate ||
+            isPublicDeviceRecordingSessionCreate || isTimerUpdateAction ||
             isTimerDeleteAction || isChannelMoveAction || isRecordingExecutionAction ||
             isRecordingMarksModifyAction || isRecordingCutAction ||
             isSearchTimerCreateAction || isSearchTimerUpdateAction || isSearchTimerDeleteAction ||
@@ -1566,6 +1571,26 @@ public:
         }
 
         gate.protectedMutation = isProtectedMutation;
+        // Versioned Recording session creation is Device-only. Browser
+        // credentials and even user/admin grants are not Device proof.
+        // This policy does not itself create sessions or expose media bytes.
+        if (isPublicDeviceRecordingSessionCreate &&
+            (!gate.deviceAuthenticated ||
+             gate.context.actor.type != ActorType::Service ||
+             !gate.context.device || !gate.context.credential ||
+             gate.context.session.has_value()))
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            AuthorizationDecision denial;
+            denial.permission = "media.recording.play";
+            denial.action = "media.recording.play";
+            denial.backendId = jsonStringValue(request.body, "backendId");
+            denial.reasonCode = "device_credential_required";
+            return rejectWithAudit(
+                gate, denial, 403,
+                "A verified Device credential is required for recording playback", "");
+        }
         // Credential issuance to an existing Device is administrator-browser
         // only even if a Service Actor somehow obtained an administrative grant.
         if (isPublicDeviceCredentialRotation && !gate.browserAuthenticated)
@@ -1710,6 +1735,11 @@ public:
             requestToAuthorize.permission = "backend.settings.media-transcode.modify";
             requestToAuthorize.action = "backend.settings.media-transcode.modify";
             requestToAuthorize.backendId = mediaTranscodeSettingsBackendId;
+        }
+        else if (isPublicDeviceRecordingSessionCreate)
+        {
+            requestToAuthorize.permission = "media.recording.play";
+            requestToAuthorize.action = "media.recording.play";
         }
         else if (isMediaSessionMutation)
         {

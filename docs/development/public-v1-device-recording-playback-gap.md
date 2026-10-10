@@ -192,3 +192,22 @@ no Device can obtain a playable MediaSession through this helper alone.
 The actual HTTPS proxy/media route and VIDAA native-video cookie behavior
 must be verified on the real host before a Device-issuing handler is enabled.
 No media credential is ever embedded into an HLS URL.
+
+### Device-only HTTP authorization at proposed session-control path (2026-10-10)
+
+`SecurityHttpGate` now recognizes POST
+`/api/v1/recording-playback-sessions` as a **protected** Device-only
+mutation. It requires cryptographically verified, persistently active Device
+and Credential identities plus `media.recording.play@backend`; browser
+sessions, missing permission, invalid/foreign backend scopes and anonymous
+requests are rejected. The existing device-authentication regression now
+checks these decisions, including the distinction from `recordings.view`.
+
+**This is NOT an enabled playback endpoint:** no route handler, actual
+MediaSession issuance, stop/read operation or TV client binding is registered
+by this change. The security gate is the first HTTP defense; the future
+handler must re-run `PublicRecordingDevicePlaybackAdmission`, validate the
+current native recording and backend, issue a session using Suite-owned
+services, return only canonical IDs, use the versioned cookie+gateway and
+stop/cleanup safely. Until then a permitted POST remains unhandled and
+no capability is advertised.
