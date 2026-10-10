@@ -2,6 +2,7 @@
 
 #include "IHttpServer.h"
 
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -13,13 +14,20 @@ class RecordingDirectSourceRegistry;
 class MediaGatewayHttpServer : public IHttpServer
 {
 public:
+    using PublicSessionAuthorizer =
+        std::function<bool(
+            const std::string& sessionId,
+            const std::string& actorId,
+            const std::string& backendId)>;
+
     MediaGatewayHttpServer(
         std::unique_ptr<IHttpServer> inner,
         const MediaAccessGrantAuthenticator& authenticator,
         const MediaRouteLeaseRepository& routeLeaseRepository,
         const MediaHlsArtifactReader& artifactReader,
         std::string workspaceRoot = "/var/cache/vdr-suite/media-sessions",
-        const RecordingDirectSourceRegistry* directSourceRegistry = nullptr);
+        const RecordingDirectSourceRegistry* directSourceRegistry = nullptr,
+        PublicSessionAuthorizer publicSessionAuthorizer = {});
 
     HttpServerResponse handleRequest(
         const HttpServerRequest& request) const override;
@@ -31,4 +39,5 @@ private:
     const MediaHlsArtifactReader& artifactReader_;
     std::string workspaceRoot_;
     const RecordingDirectSourceRegistry* directSourceRegistry_ = nullptr;
+    PublicSessionAuthorizer publicSessionAuthorizer_;
 };

@@ -255,3 +255,13 @@ construction revokes the provisioned session. This does **not** register a
 Public-v1 HTTP route by itself. Authentication and live Device permissions,
 owner registration, revocation on media access, and TV player integration
 must be wired separately.
+
+### Every Public-v1 media GET reauthorizes (2026-10-10)
+
+The MediaGateway now differentiates versioned and legacy media paths. A
+versioned request cannot obtain HLS manifests, segments, progressive TS or
+fMP4 with a MediaAccessGrant alone: a server-supplied
+`PublicSessionAuthorizer(sessionId,actorId,backendId)` must also approve.
+Missing callback fails closed; no client-supplied URL token can bypass it.
+The daemon must next register an ownership/Device identity/revocation checker;
+until that wiring, Public-v1 media delivery deliberately returns 403.

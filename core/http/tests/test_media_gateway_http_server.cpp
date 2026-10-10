@@ -147,13 +147,22 @@ int main()
 
     MediaAccessGrantAuthenticator authenticator(sessionRepository, 300, 60);
     MediaHlsArtifactReader artifactReader(root.string());
+    bool publicAuthorized = true;
     MediaGatewayHttpServer gateway(
         std::make_unique<FallbackServer>(),
         authenticator,
         routeRepository,
         artifactReader,
         root.string(),
-        &directRegistry);
+        &directRegistry,
+        [&](const std::string& session,
+            const std::string& actor,
+            const std::string& backend) {
+            return publicAuthorized &&
+                session == issued.session.sessionId &&
+                actor == "actor-test" &&
+                backend == "backend-a";
+        });
 
     const std::string prefix =
         "/api/media/sessions/" + issued.session.sessionId + "/hls/";

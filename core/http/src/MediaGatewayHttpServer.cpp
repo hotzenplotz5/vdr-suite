@@ -40,6 +40,7 @@ bool safeIdentifier(const std::string& value)
 struct MediaPath
 {
     bool valid = false;
+    bool publicV1 = false;
     bool live = false;
     bool recordingDirect = false;
     bool recordingStream = false;
@@ -52,6 +53,7 @@ MediaPath parseMediaPath(const std::string& path)
     MediaPath result;
     const std::string prefix = path.rfind(PublicV1Prefix, 0) == 0
         ? PublicV1Prefix : LegacyPrefix;
+    result.publicV1 = prefix == PublicV1Prefix;
     if (path.rfind(prefix, 0) != 0 || path.find('?') != std::string::npos ||
         path.find('#') != std::string::npos) {
         return result;
@@ -295,13 +297,15 @@ MediaGatewayHttpServer::MediaGatewayHttpServer(
     const MediaRouteLeaseRepository& routeLeaseRepository,
     const MediaHlsArtifactReader& artifactReader,
     std::string workspaceRoot,
-    const RecordingDirectSourceRegistry* directSourceRegistry)
+    const RecordingDirectSourceRegistry* directSourceRegistry,
+    PublicSessionAuthorizer publicSessionAuthorizer)
     : inner_(std::move(inner)),
       authenticator_(authenticator),
       routeLeaseRepository_(routeLeaseRepository),
       artifactReader_(artifactReader),
       workspaceRoot_(std::move(workspaceRoot)),
-      directSourceRegistry_(directSourceRegistry)
+      directSourceRegistry_(directSourceRegistry),
+      publicSessionAuthorizer_(std::move(publicSessionAuthorizer))
 {
 }
 
@@ -344,6 +348,17 @@ HttpServerResponse MediaGatewayHttpServer::handleRequest(
         authentication.routeEpoch);
     if (!lease.has_value()) {
         return jsonError(409, "media_route_not_active");
+    }
+
+    // MediaAccessGrant alone is intentionally insufficient for Public-v1:
+    // every manifest, segment and stream request also requires a fresh
+    // server-side Device identity + play-grant/owner check. Absence of a
+    // wired authorizer fails closed, including for legacy-issued grants.
+    if (mediaPath.publicV1 &&
+        (!publicSessionAuthorizer_ ||
+         !publicSessionAuthorizer_(
+            mediaPath.sessionId, authentication.actorId, lease->backendId))) {
+        return jsonError(403, "device_media_permission_denied");
     }
 
     if (mediaPath.live) {
