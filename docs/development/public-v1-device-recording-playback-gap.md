@@ -283,3 +283,15 @@ trusted static reverse-proxy configuration, never user headers.
 This is a first integration candidate; only hosted CI and later real-Hisense
 and proxy/media acceptance can prove that actual codecs and the native player
 work. No server installation is authorized by this commit.
+
+### Bounded single-recording playback source (2026-10-10)
+
+The Device session issuer now consumes the native VdrRecording returned by
+the already-authorized `PublicRecordingPlaybackTargetResolver` (scoped
+indexed cache lookup and identity recheck). The Web legacy
+`VdrRecordingQueryService::findRecordingById` implementation first loads
+all recordings for a backend, so the Device route intentionally never invokes
+that bulk lookup. The real source is still validated by the shared
+`LocalVdrRecordingSourceResolver`, with source fingerprint/segment checks
+before a Session can become ready. This prevents a 1,000+ item in-memory
+catalogue load for each TV playback start.

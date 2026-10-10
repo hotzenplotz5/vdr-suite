@@ -280,17 +280,17 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
     }
 
     VdrRecording recording;
-    if (!recordingQueryService_.findRecordingById(
+    if (authorizedRecording != nullptr) {
+        // Device admission already performed a backend-scoped indexed lookup,
+        // including a repeat identity binding check. Never run legacy
+        // findRecordingById here: its cache path loads the whole backend
+        // recording catalogue into memory for one requested recording.
+        recording = *authorizedRecording;
+    }
+    else if (!recordingQueryService_.findRecordingById(
             request.backendId,
             request.recordingId,
             recording)) {
-        return jsonError(404, "recording_not_found");
-    }
-    if (authorizedRecording != nullptr &&
-        (recording.backendNativeId != authorizedRecording->backendNativeId ||
-         recording.id != authorizedRecording->id ||
-         (recording.backendId != request.backendId &&
-             !(recording.backendId.empty() && request.backendId == "default")))) {
         return jsonError(404, "recording_not_found");
     }
 
