@@ -104,7 +104,7 @@ int main()
             if (!request.browseFolders || request.backendId != "backend-a")
                 return page;
             page.status = PublicRecordingCollectionStatus::ok;
-            page.totalEntries = 2U;
+            page.totalEntries = 3U;
             if (request.offset == 0U)
             {
                 PublicRecordingFolderItem folder;
@@ -114,9 +114,18 @@ int main()
                 page.folders.push_back(folder);
             }
             else if (request.offset == 1U)
+            {
+                PublicRecordingFolderItem leaf;
+                leaf.singleRecordingLeaf = true;
+                leaf.singleRecording =
+                    recording("rec_00000000000000000000000000000001");
+                leaf.singleRecording.title = "48 Hrs";
+                page.folders.push_back(leaf);
+            }
+            else if (request.offset == 2U)
                 page.recordings.push_back(
-                    recording("rec_00000000000000000000000000000001"));
-            page.hasMore = request.offset == 0U;
+                    recording("rec_00000000000000000000000000000002"));
+            page.hasMore = request.offset < 2U;
             return page;
         });
     ApiResponse folders;
@@ -134,6 +143,16 @@ int main()
         "actor:tv", "browse-child", "", children, "", "", {"backend-a"}));
     assert(children.statusCode == 200);
     assert(children.body.find("\"kind\":\"recording\"") != std::string::npos);
+    assert(children.body.find("\"title\":\"48 Hrs\"") != std::string::npos);
+    assert(children.body.find("\"folderId\"") == std::string::npos);
+    assert(children.body.find("\"hasMore\":true") != std::string::npos);
+    ApiResponse direct;
+    assert(runtime.tryHandleGet(
+        "/api/v1/recordings?backendId=backend-a&view=folders&limit=1&offset=2",
+        "actor:tv", "browse-direct", "", direct, "", {"backend-a"}));
+    assert(direct.statusCode == 200);
+    assert(direct.body.find("\"kind\":\"recording\"") != std::string::npos);
+    assert(direct.body.find("\"hasMore\":false") != std::string::npos);
     ApiResponse invalidFolder;
     assert(runtime.tryHandleGet(
         "/api/v1/recordings?backendId=backend-a&view=folders&folderId=/srv/private",

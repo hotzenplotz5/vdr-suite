@@ -3399,10 +3399,27 @@ ApiResponse publicRecordingBrowseResponse(
     for (const auto& folder : page.folders)
     {
         if (count++) body += ",";
-        body += "{\"kind\":\"folder\",\"folderId\":\"" +
-            jsonEscape(folder.folderId) + "\",\"name\":\"" +
-            jsonEscape(folder.name) + "\",\"recordingCount\":" +
-            std::to_string(folder.recordingCount) + "}";
+        if (folder.singleRecordingLeaf)
+        {
+            const auto& item = folder.singleRecording;
+            body += "{\"kind\":\"recording\",\"recordingId\":\"" +
+                jsonEscape(item.recordingId) + "\",\"backendId\":\"" +
+                jsonEscape(item.backendId) + "\",\"title\":\"" +
+                jsonEscape(item.title) + "\",\"recordedAt\":\"" +
+                jsonEscape(item.recordedAt) + "\",\"durationSeconds\":" +
+                std::to_string(item.durationSeconds) +
+                ",\"durationKnown\":" +
+                (item.durationKnown ? "true" : "false") +
+                ",\"description\":\"" + jsonEscape(item.description) +
+                "\",\"sizeMb\":" + std::to_string(item.sizeMb) + "}";
+        }
+        else
+        {
+            body += "{\"kind\":\"folder\",\"folderId\":\"" +
+                jsonEscape(folder.folderId) + "\",\"name\":\"" +
+                jsonEscape(folder.name) + "\",\"recordingCount\":" +
+                std::to_string(folder.recordingCount) + "}";
+        }
     }
     for (const auto& item : page.recordings)
     {
@@ -6384,9 +6401,26 @@ bool PublicApiRuntime::tryHandleGet(
                     }
                     for (const auto& folder : page.folders)
                     {
-                        if (folder.folderId.size() != 37U ||
-                            folder.folderId.rfind("fld1_", 0U) != 0U ||
-                            folder.name.empty() || folder.recordingCount < 0)
+                        if (folder.singleRecordingLeaf)
+                        {
+                            const auto& item = folder.singleRecording;
+                            if (item.backendId != query.backendId ||
+                                item.recordingId.size() != 36U ||
+                                item.recordingId.rfind("rec_", 0U) != 0U ||
+                                item.title.empty() ||
+                                item.durationSeconds < 0 ||
+                                item.sizeMb < 0 ||
+                                item.description.size() > 2048U)
+                            {
+                                response = serviceUnavailableProblem(
+                                    path, requestId, correlationId);
+                                return true;
+                            }
+                        }
+                        else if (folder.folderId.size() != 37U ||
+                                 folder.folderId.rfind("fld1_", 0U) != 0U ||
+                                 folder.name.empty() ||
+                                 folder.recordingCount < 0)
                         {
                             response = serviceUnavailableProblem(
                                 path, requestId, correlationId);

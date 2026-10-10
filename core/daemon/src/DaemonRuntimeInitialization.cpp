@@ -1309,6 +1309,33 @@ bool DaemonRuntime::initialize()
                             request.backendId, child.path);
                     entry.name = child.name;
                     entry.recordingCount = child.recordingCount;
+                    if (child.singleRecordingLeaf)
+                    {
+                        // A VDR title directory with exactly one recording is
+                        // presented as a recording, not as another TV folder.
+                        PublicRecordingCollectionProjection projector(
+                            *publicRecordingIdentities_);
+                        const auto visible = projector.project(
+                            request.backendId, {child.singleRecording});
+                        if (!visible.valid || visible.items.size() != 1U)
+                        {
+                            result.status =
+                                PublicRecordingCollectionStatus::unavailable;
+                            return result;
+                        }
+                        const auto& item = visible.items.front();
+                        entry.singleRecordingLeaf = true;
+                        entry.singleRecording.recordingId = item.recordingId;
+                        entry.singleRecording.backendId = item.backendId;
+                        entry.singleRecording.title = item.title;
+                        entry.singleRecording.recordedAt = item.recordedAt;
+                        entry.singleRecording.durationSeconds =
+                            item.durationSeconds;
+                        entry.singleRecording.durationKnown =
+                            item.durationKnown;
+                        entry.singleRecording.description = item.description;
+                        entry.singleRecording.sizeMb = item.sizeMb;
+                    }
                     result.folders.push_back(std::move(entry));
                 }
                 const std::size_t used = result.folders.size();

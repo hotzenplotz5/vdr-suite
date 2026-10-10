@@ -107,6 +107,10 @@ struct PublicRecordingFolderItem
     std::string folderId;
     std::string name;
     int recordingCount = 0;
+    // The Web Home hierarchy marks title folders containing one recording
+    // as recording leaves. Preserve that distinction in Public-v1.
+    bool singleRecordingLeaf = false;
+    PublicRecordingCollectionItem singleRecording;
 };
 
 struct PublicRecordingCollectionRequest

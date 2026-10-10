@@ -15,7 +15,7 @@ The feature branch work/r2-recording-folder-browse is derived from the installed
 - New additive GET /api/v1/recordings?backendId=home&view=folders&limit=30&offset=0; optional folderId=fld1_ followed by 32 lowercase hex characters.
 - Items have kind=folder, folderId, name and recordingCount; or kind=recording, canonical recordingId, backendId, title, recordedAt, durationSeconds, durationKnown. Page has limit, offset, totalCount and hasMore. No native path, backendNativeId, private media transport or secret is exposed.
 - Folder IDs are stable backend-scoped references, not credentials. Only existing authenticated SecurityHttpGate recordings.view for the specified backend authorizes access. Unknown IDs / illegal parameters fail closed; there is no automatic legacy fallback.
-- Page combines sorted immediate subfolders and direct recordings from the existing Web Home browse snapshot. Only the requested bounded page is serialized. VIDAA uses 30 objects/page; no 1033-item frontend DOM.
+- Page combines sorted immediate subfolders and direct recordings from the existing Web Home browse snapshot. A VDR title folder marked `singleRecordingLeaf` is emitted as `kind=recording` with its authorized canonical `recordingId`, preserving the original position within the page; it must not appear as a navigable folder. Only the requested bounded page is serialized. VIDAA uses 30 objects/page; no 1033-item frontend DOM.
 
 ## Required regression and production acceptance
 

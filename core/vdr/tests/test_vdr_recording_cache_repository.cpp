@@ -322,6 +322,13 @@ static void test_public_folder_browse_reuses_home_hierarchy()
         "home-vdr", id, 30, 0, children));
     assert(children.folderCount == 2);
     assert(children.folders.size() == 2U);
+    // VDR title folders with exactly one .rec are recording leaves.
+    for (const auto& child : children.folders)
+    {
+        assert(child.singleRecordingLeaf);
+        assert(!child.singleRecording.backendNativeId.empty());
+        assert(child.singleRecording.title == child.name);
+    }
     assert(!repository.folderPageForBackendByPublicId(
         "other-backend", id, 30, 0, children));
     assert(!repository.folderPageForBackendByPublicId(
