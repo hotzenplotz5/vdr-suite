@@ -57,6 +57,10 @@ int main() {
     PublicDevicePlaybackRegistry registry(sessions,identities,grants);
     assert(!registry.authorized(id,"actor-playback","backend-a",true));
     assert(registry.authorized(id,"actor-playback","backend-a",false));
+    // Device grants can be revoked while HLS provisioning is running.
+    assert(grants.revokeGrant("actor-playback","media.recording.play","backend-a"));
+    assert(!registry.add(id,"backend-a",device()));
+    assert(grants.ensureGrant("actor-playback","media.recording.play","backend-a"));
     assert(registry.add(id,"backend-a",device()));
     assert(!registry.add(id,"backend-a",device()));
     assert(registry.authorized(id,"actor-playback","backend-a",true));

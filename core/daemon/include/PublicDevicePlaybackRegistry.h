@@ -46,6 +46,14 @@ public:
             stored->backendId != backendId)
             return false;
 
+        const Owner owner{
+            verifiedContext.actor.actorId,
+            verifiedContext.device->deviceId,
+            verifiedContext.credential->credentialId,
+            backendId};
+        // Admission may take seconds to probe/transcode. Recheck persistent
+        // grants and revocation immediately before publishing a Session.
+        if (!currentGrant(owner, sessionId)) return false;
         std::lock_guard<std::mutex> lock(mutex_);
         if (owners_.count(sessionId) || owners_.size() >= 128)
             return false;
@@ -55,11 +63,7 @@ public:
                 ++actorSessions;
         if (actorSessions >= 4)
             return false;
-        owners_.emplace(sessionId, Owner{
-            verifiedContext.actor.actorId,
-            verifiedContext.device->deviceId,
-            verifiedContext.credential->credentialId,
-            backendId});
+        owners_.emplace(sessionId, owner);
         return true;
     }
 
