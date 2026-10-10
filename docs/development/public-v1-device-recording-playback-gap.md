@@ -265,3 +265,21 @@ fMP4 with a MediaAccessGrant alone: a server-supplied
 Missing callback fails closed; no client-supplied URL token can bypass it.
 The daemon must next register an ownership/Device identity/revocation checker;
 until that wiring, Public-v1 media delivery deliberately returns 403.
+
+### HTTP Device creation, owner binding and stop (2026-10-10)
+
+The daemon now registers POST `/api/v1/recording-playback-sessions` and
+POST `/api/v1/recording-playback-sessions/{ms-id}/stop` through a
+Device-only `SecurityHttpGate`, an independent PublicRecording admission,
+existing native MediaSession issuer, and a bounded runtime Device owner map.
+The owner map retains actor/device/credential/backend and re-reads current
+persistent Actor, Device, Credential and play grants on *each* HLS manifest,
+segment and progressive media request, including attempts to downgrade to a
+legacy media path. A server restart invalidates all sessions via the
+existing MediaSession recovery. Stopping uses native cleanup and expires the
+versioned cookie. The VIDAA HTTP entry remains /vdr-suite/api/v1/... with
+trusted static reverse-proxy configuration, never user headers.
+
+This is a first integration candidate; only hosted CI and later real-Hisense
+and proxy/media acceptance can prove that actual codecs and the native player
+work. No server installation is authorized by this commit.

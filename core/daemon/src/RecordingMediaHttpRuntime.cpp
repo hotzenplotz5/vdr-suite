@@ -17,6 +17,15 @@
 #include "MediaRouteLeaseRepository.h"
 #include "MediaSessionIssuanceService.h"
 #include "MediaSessionRepository.h"
+#include "PublicDevicePlaybackRegistry.h"
+#include "PublicRecordingDevicePlaybackAdmission.h"
+#include "PublicRecordingIdentityRepository.h"
+#include "PublicRecordingPlaybackTargetResolver.h"
+#include "RecordingMediaSessionRequestParser.h"
+#include "SecurityIdentityRepository.h"
+#include "SecurityPermissionGrantRepository.h"
+#include "VdrRecordingCacheRepository.h"
+#include "MediaAccessCredentialHttp.h"
 #include "MediaTranscodeSettingsApiRuntime.h"
 #include "RecordingDirectSourceRegistry.h"
 #include "RecordingMediaSessionController.h"
@@ -99,6 +108,24 @@ int runRecordingMediaHttpRuntime(
                 request);
         });
 
+    SecurityIdentityRepository securityIdentities(database);
+    SecurityPermissionGrantRepository securityGrants(database);
+    PublicRecordingIdentityRepository recordingIdentities(database);
+    VdrRecordingCacheRepository recordingCache(database);
+    if (!securityIdentities.ensureSchema() || !securityGrants.ensureSchema() ||
+        !recordingIdentities.ensureSchema() || !recordingCache.ensureSchema()) {
+        std::cerr << "Device Playback security persistence unavailable" << std::endl;
+        return 1;
+    }
+    PublicRecordingPlaybackTargetResolver targetResolver(
+        recordingIdentities, recordingCache);
+    PublicRecordingDevicePlaybackAdmission admission(
+        targetResolver, [&recordingCache](const std::string& backend) {
+            return recordingCache.statusForBackend(backend).state == "ready";
+        });
+    PublicDevicePlaybackRegistry deviceSessions(
+        mediaSessionRepository, securityIdentities, securityGrants);
+
     MediaAccessGrantAuthenticator mediaAccessGrantAuthenticator(
         mediaSessionRepository,
         MediaAccessIdleTimeoutSeconds);
@@ -119,17 +146,95 @@ int runRecordingMediaHttpRuntime(
                 liveResource);
         });
 
+    // Separate versioned Device control plane. SecurityHttpGate has already
+    // verified the live Device proof and media.recording.play@backend; the
+    // domain Admission checks it again before native ID resolution.
+    apiRouter.setDeviceRecordingPlaybackHandler(
+        [&](const std::string& target, const std::string& body,
+            const RequestSecurityContext& verifiedDevice) {
+            auto error = [](int code, const std::string& reason) {
+                ApiResponse r;
+                r.statusCode = code;
+                r.headers["Cache-Control"] = "no-store";
+                r.body = "{\"error\":{\"code\":\"" + reason + "\"}}";
+                return r;
+            };
+            const std::string collection =
+                "/api/v1/recording-playback-sessions";
+            if (target == collection) {
+                const auto request = RecordingMediaSessionRequestParser().parse(body);
+                if (!request.valid) return error(400,
+                    request.reasonCode.empty() ? "invalid_playback_request" :
+                    request.reasonCode);
+                const auto allowed = admission.admit(
+                    verifiedDevice, request.backendId, request.recordingId);
+                using Status = PublicRecordingDevicePlaybackAdmissionStatus;
+                if (allowed.status == Status::unauthenticated)
+                    return error(401, "unauthorized");
+                if (allowed.status == Status::forbidden)
+                    return error(403, "forbidden");
+                if (allowed.status == Status::invalidRequest)
+                    return error(400, "invalid_recording_id");
+                if (allowed.status == Status::notFound)
+                    return error(404, "recording_not_found");
+                if (allowed.status != Status::ready)
+                    return error(503, "recording_backend_unavailable");
+
+                std::string sessionId;
+                ApiResponse created = recordingMediaSessionController.createDeviceSession(
+                    body, verifiedDevice.actor.actorId, allowed.recording,
+                    request.recordingId, "/vdr-suite", "", sessionId);
+                if (created.statusCode != 201) return created;
+                if (!deviceSessions.add(sessionId, request.backendId, verifiedDevice)) {
+                    const std::string stop =
+                        "{\"operation\":\"stop\",\"backendId\":\"" +
+                        request.backendId + "\",\"sessionId\":\"" +
+                        sessionId + "\"}";
+                    recordingMediaSessionController.handleRequest(
+                        stop, verifiedDevice.actor.actorId);
+                    return error(503, "device_playback_owner_unavailable");
+                }
+                return created;
+            }
+            const std::string prefix = collection + "/";
+            if (target.rfind(prefix, 0) == 0 &&
+                target.size() > prefix.size() + 5U &&
+                target.compare(target.size() - 5U, 5U, "/stop") == 0) {
+                const std::string sessionId =
+                    target.substr(prefix.size(), target.size() -
+                                  prefix.size() - 5U);
+                const auto stop = RecordingMediaSessionRequestParser().parseStop(body);
+                if (!stop.valid || stop.sessionId != sessionId)
+                    return error(400, "invalid_media_session_stop");
+                if (!deviceSessions.owned(
+                        sessionId, stop.backendId, verifiedDevice))
+                    return error(403, "device_media_session_not_owned");
+                ApiResponse ended = recordingMediaSessionController.handleRequest(
+                    body, verifiedDevice.actor.actorId);
+                deviceSessions.erase(sessionId);
+                ended.headers.erase("Set-Cookie");
+                const std::string expired =
+                    MediaAccessCredentialHttp::expiredPublicV1SessionCookie(
+                        sessionId, "");
+                if (!expired.empty()) ended.headers["Set-Cookie"] = expired;
+                return ended;
+            }
+            return error(404, "device_playback_route_not_found");
+        });
+
     auto nextMediaSessionReap = std::chrono::steady_clock::now();
     auto mediaRuntimeTick =
         [&recordingMediaSessionController,
          &liveMediaSessionController,
          &hbbtvMediaSessionController,
+         &deviceSessions,
          nextMediaSessionReap,
          onTick = std::move(onTick)]() mutable {
             const auto now = std::chrono::steady_clock::now();
             if (now >= nextMediaSessionReap) {
                 recordingMediaSessionController.reapInactiveSessions(
                     MediaAccessIdleTimeoutSeconds);
+                deviceSessions.pruneTerminal();
                 // A direct live response is one long authenticated GET. There
                 // is no HLS polling to refresh last_seen_at, so liveness is
                 // fenced by worker/provider/grant expiry rather than an idle
@@ -149,7 +254,13 @@ int runRecordingMediaHttpRuntime(
         mediaRouteLeaseRepository,
         mediaHlsArtifactReader,
         MediaSessionWorkspaceRoot,
-        &recordingDirectSourceRegistry);
+        &recordingDirectSourceRegistry,
+        [&deviceSessions](const std::string& sessionId,
+            const std::string& actorId,
+            const std::string& backendId, bool publicV1Path) {
+            return deviceSessions.authorized(
+                sessionId, actorId, backendId, publicV1Path);
+        });
     httpListener = std::make_unique<SimpleHttpListener>(
         listenHost,
         listenPort,
@@ -172,6 +283,7 @@ int runRecordingMediaHttpRuntime(
     HbbtvApiRuntime::instance().setMediaSessionHandler({});
     httpServer.reset();
     apiRouter.setRecordingMediaSessionHandler({});
+    apiRouter.setDeviceRecordingPlaybackHandler({});
     MediaTranscodeSettingsApiRuntime::instance().reset();
     return result;
 }

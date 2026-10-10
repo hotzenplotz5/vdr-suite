@@ -342,6 +342,17 @@ public:
         // /api/v1/media/sessions/{sessionId}/... gateway namespace.
         const bool isPublicDeviceRecordingSessionCreate =
             isPost && path == "/api/v1/recording-playback-sessions";
+        const std::string playbackStopPrefix =
+            "/api/v1/recording-playback-sessions/";
+        const bool isPublicDeviceRecordingSessionStop =
+            isPost && path.rfind(playbackStopPrefix, 0) == 0 &&
+            path.size() > playbackStopPrefix.size() +
+                std::string("/stop").size() &&
+            path.compare(
+                path.size() - std::string("/stop").size(),
+                std::string("/stop").size(), "/stop") == 0 &&
+            path.find('/', playbackStopPrefix.size()) ==
+                path.size() - std::string("/stop").size();
         const std::string publicOperationPrefix =
             "/api/v1/operations/";
         const bool isPublicOperationResource =
@@ -809,7 +820,8 @@ public:
             isPublicAccountCredentialMutation ||
             isPublicAccountSessionMutation ||
             isPublicTimerAssignmentCreate ||
-            isPublicDeviceRecordingSessionCreate || isTimerUpdateAction ||
+            isPublicDeviceRecordingSessionCreate ||
+            isPublicDeviceRecordingSessionStop || isTimerUpdateAction ||
             isTimerDeleteAction || isChannelMoveAction || isRecordingExecutionAction ||
             isRecordingMarksModifyAction || isRecordingCutAction ||
             isSearchTimerCreateAction || isSearchTimerUpdateAction || isSearchTimerDeleteAction ||
@@ -1574,7 +1586,8 @@ public:
         // Versioned Recording session creation is Device-only. Browser
         // credentials and even user/admin grants are not Device proof.
         // This policy does not itself create sessions or expose media bytes.
-        if (isPublicDeviceRecordingSessionCreate &&
+        if ((isPublicDeviceRecordingSessionCreate ||
+             isPublicDeviceRecordingSessionStop) &&
             (!gate.deviceAuthenticated ||
              gate.context.actor.type != ActorType::Service ||
              !gate.context.device || !gate.context.credential ||
@@ -1591,7 +1604,8 @@ public:
                 gate, denial, 403,
                 "A verified Device credential is required for recording playback", "");
         }
-        if (isPublicDeviceRecordingSessionCreate)
+        if (isPublicDeviceRecordingSessionCreate ||
+            isPublicDeviceRecordingSessionStop)
         {
             // Match the canonical PublicRecordingPlaybackTargetResolver's
             // backend grammar before authorization or domain resolution.
@@ -1765,7 +1779,8 @@ public:
             requestToAuthorize.action = "backend.settings.media-transcode.modify";
             requestToAuthorize.backendId = mediaTranscodeSettingsBackendId;
         }
-        else if (isPublicDeviceRecordingSessionCreate)
+        else if (isPublicDeviceRecordingSessionCreate ||
+                 isPublicDeviceRecordingSessionStop)
         {
             requestToAuthorize.permission = "media.recording.play";
             requestToAuthorize.action = "media.recording.play";

@@ -10,6 +10,7 @@
 #include "LegacyOsdApiRuntime.h"
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "PublicApiRuntime.h"
+#include "SecurityIdentity.h"
 #include "RecordingSeriesHierarchyApiRuntime.h"
 #include "MediaTranscodeSettingsApiRuntime.h"
 #include "RecordingCutApiRuntime.h"
@@ -123,6 +124,11 @@ public:
         std::function<ApiResponse(
             const std::string& body,
             const std::string& actorRef)>;
+    using DeviceRecordingPlaybackHandler =
+        std::function<ApiResponse(
+            const std::string& requestTarget,
+            const std::string& body,
+            const RequestSecurityContext& verifiedDevice)>;
 
     ApiRouter(
         DashboardController& dashboardController,
@@ -167,6 +173,26 @@ public:
         RecordingMediaSessionHandler handler)
     {
         recordingMediaSessionHandler_ = std::move(handler);
+    }
+
+    void setDeviceRecordingPlaybackHandler(DeviceRecordingPlaybackHandler handler)
+    {
+        deviceRecordingPlaybackHandler_ = std::move(handler);
+    }
+
+    ApiResponse handleDeviceRecordingPlayback(
+        const std::string& requestTarget,
+        const std::string& body,
+        const RequestSecurityContext& verifiedDevice)
+    {
+        if (deviceRecordingPlaybackHandler_)
+            return deviceRecordingPlaybackHandler_(
+                requestTarget, body, verifiedDevice);
+        ApiResponse response;
+        response.statusCode = 503;
+        response.headers["Cache-Control"] = "no-store";
+        response.body = "{\"error\":{\"code\":\"device_playback_unavailable\"}}";
+        return response;
     }
 
     ApiResponse getEpgArtwork(
@@ -512,4 +538,5 @@ private:
     VdrChannelMoveController* vdrChannelMoveController_;
     VdrRecordingFolderController* vdrRecordingFolderController_;
     RecordingMediaSessionHandler recordingMediaSessionHandler_;
+    DeviceRecordingPlaybackHandler deviceRecordingPlaybackHandler_;
 };
