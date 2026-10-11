@@ -7,6 +7,7 @@
 - [Device pairing and Device-grant boundary](device-pairing.md)
 - [Administrative Device grant API](device-administration.md)
 - [Human Account create/lifecycle/grant mutations](account-mutations.md)
+- [Account Credential and Browser Session metadata/revocation](account-security-administration.md)
 - [MU.6B Account item and ETag acceptance](../docs/development/post-phase69-mu6b-public-account-item.md)
 - [MU.7 accepted Account Grant administration](../docs/development/post-phase69-mu7-account-grant-administration.md)
 - [Public-v1 compatibility contract](../docs/adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)

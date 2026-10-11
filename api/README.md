@@ -14,6 +14,7 @@
 - [TV/Device pairing bootstrap and credential issuance](device-pairing.md)
 - [Administrator pairing approval and Device grant management](device-administration.md)
 - [Human Account create/lifecycle/grant mutations](account-mutations.md)
+- [Human Credential and Browser Session administration](account-security-administration.md)
 - [Device and Credential revocation/rotation](device-lifecycle.md)
 - [Public API compatibility ADR-0048](../docs/adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [Public v1 reference client](../clients/reference-js/README.md)
@@ -22,7 +23,7 @@
 
 **Documentation bootstrap — 2026-10-11; source baseline main `8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0`.**
 
-The OpenAPI file currently specifies exactly **26 source-verified HTTP method/resource contracts** across **17 path templates**: discovery root/capabilities, Backend and Channel collections, TimerAssignment collection and item GET, protected TimerAssignment item POST for Timer CREATE, and actor-owned Operation item GET, with selected Account/Device security administration contracts detailed below. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
+The OpenAPI file currently specifies exactly **32 source-verified HTTP method/resource contracts** across **21 path templates**: discovery root/capabilities, Backend and Channel collections, TimerAssignment collection and item GET, protected TimerAssignment item POST for Timer CREATE, and actor-owned Operation item GET, with selected Account/Device security administration contracts detailed below. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
 
 The public-v1 contract is distinct from older or browser-private `/api/...` routes, transport/provider implementation details, and the independent acceptance state of the VIDAA app.
 
@@ -59,6 +60,10 @@ The [Account/Grant guide](accounts-and-grants.md) documents three global-adminis
 ## Documented Account mutations and Device lifecycle
 
 [Account mutation guidance](account-mutations.md) now covers global account CREATE with durable Idempotency-Key, ETag-fenced Account lifecycle changes and grant-set desired-state writes. [Device lifecycle guidance](device-lifecycle.md) covers Device/Credential revocation and one-time Credential rotation, including the Browser Session requirement and unrecoverable-secret failure mode. No installed-runtime acceptance is inferred from this documentation-only branch.
+
+## Documented Human Credential and Session administration
+
+The [Credential/Session administration guide](account-security-administration.md) covers secret-free Account Credential and Browser Session collections, independent item lifecycle ETags and synchronous administrator revocation. In contrast with item GETs, collection GETs are **not paginated and have no ETag**. Revoking a human-password Credential also fences its issuing Browser Sessions and preserves the final usable administrator.
 
 ## What is implemented but not yet in this OpenAPI subset?
 

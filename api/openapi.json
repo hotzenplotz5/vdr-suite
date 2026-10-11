@@ -3,7 +3,7 @@
   "info": {
     "title": "VDR-Suite Public API v1 — source-verified selected contract subset",
     "version": "1.0.0",
-    "description": "PARTIAL developer reference, source cross-checked against main 8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0 (2026-10-11). Documents original Phase69.F resources plus Human Account lifecycle/CREATE, grant desired-state read/write, Device pairing/approval/credential issuance, Device grant administration, Device/Credential revoke and one-time credential rotation. This is not full current API coverage, complete account/device administration coverage, or installed daemon/VIDAA runtime acceptance."
+    "description": "PARTIAL developer reference, source cross-checked against main 8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0 (2026-10-11). Documents original Phase69.F resources plus Human Account lifecycle/CREATE, grant desired-state read/write, Device pairing/approval/credential issuance, Device grant administration, Device/Credential revoke and one-time credential rotation, plus Human Account Credential/Browser Session metadata and item revoke. This is not full current API coverage, complete account/device administration coverage, or installed daemon/VIDAA runtime acceptance."
   },
   "x-vdr-suite-coverage": "partial",
   "tags": [
@@ -42,6 +42,10 @@
     {
       "name": "Device lifecycle",
       "description": "Admin-only Device/Credential read, revocation and once-only credential rotation"
+    },
+    {
+      "name": "Human security administration",
+      "description": "Global administrator-only secret-free Credential/Browser Session metadata and safe lifecycle revocation"
     }
   ],
   "paths": {
@@ -3877,6 +3881,922 @@
           }
         }
       }
+    },
+    "/api/v1/accounts/{accountId}/credentials": {
+      "get": {
+        "tags": [
+          "Human security administration"
+        ],
+        "operationId": "listHumanAccountCredentials",
+        "summary": "Read safe Human Account credential metadata",
+        "description": "Global accounts.credentials.view@* required. No query/pagination, no ETag or If-None-Match contract. Excludes internal browser-session credentials. Items have only identity, type, flags, optional expiry and creation timestamp; verifier hashes and browser tokens never appear. This is not Device Credential listing.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "accounts.credentials.view@*; Suite-global Human Account administration",
+          "securitySchemeDocumentation": "Deployment-approved authenticated administrator; global role expansion and CSRF enforced in SecurityHttpGate. This is not a Device credential or pairing-token API."
+        },
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "description": "Opaque canonical Human Account ID.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Secret-free Account credential lifecycle metadata (no pagination or collection ETag).",
+            "headers": {
+              "Cache-Control": {
+                "description": "The response must not be cached.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HumanCredentialCollection"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed Account identity or query.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Global accounts.credentials.view@* denied.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Human Account absent.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Collection is GET-only.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Only GET.",
+                "schema": {
+                  "type": "string",
+                  "const": "GET"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Canonical Credential/Account read or audit authority unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounts/{accountId}/sessions": {
+      "get": {
+        "tags": [
+          "Human security administration"
+        ],
+        "operationId": "listHumanAccountSessions",
+        "summary": "Read safe Account Browser Session metadata",
+        "description": "Global accounts.sessions.view@* required; no query, pagination, collection ETag or If-None-Match. Only safe session lifecycle and issuing credential references are exposed, never a Cookie, CSRF token or Session verifier. Issuer Credential revocation fences projected active Session state.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "accounts.sessions.view@*; Suite-global Human Account administration",
+          "securitySchemeDocumentation": "Deployment-approved authenticated administrator; global role expansion and CSRF enforced in SecurityHttpGate. This is not a Device credential or pairing-token API."
+        },
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "description": "Opaque canonical Human Account ID.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Secret-free Account Browser Session metadata without pagination.",
+            "headers": {
+              "Cache-Control": {
+                "description": "The response must not be cached.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HumanSessionCollection"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed Account identity or query.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Global accounts.sessions.view@* denied.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Human Account absent.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Collection is GET-only.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Only GET.",
+                "schema": {
+                  "type": "string",
+                  "const": "GET"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Canonical Session/issuer credential projection unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounts/{accountId}/credentials/{credentialId}": {
+      "get": {
+        "tags": [
+          "Human security administration"
+        ],
+        "operationId": "getHumanAccountCredential",
+        "summary": "Read one Credential's revisioned, secret-free lifecycle",
+        "description": "Authenticated accounts.credentials.view@*. Credential lifecycle ETag is independent from Account ETag. A conditional If-None-Match returns bodyless 304. No password verifier material is exposed.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "accounts.credentials.view@*; Suite-global Human Account administration",
+          "securitySchemeDocumentation": "Deployment-approved authenticated administrator; global role expansion and CSRF enforced in SecurityHttpGate. This is not a Device credential or pairing-token API."
+        },
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "description": "Opaque canonical Human Account ID.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "credentialId",
+            "in": "path",
+            "required": true,
+            "description": "Account-owned credential ID; the revoke operation accepts human-password type only.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "description": "Previously received opaque item lifecycle ETag; matching GET returns bodyless 304.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account-owned Credential lifecycle and opaque strong ETag.",
+            "headers": {
+              "Cache-Control": {
+                "description": "The response must not be cached.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Current strong opaque lifecycle ETag. Never construct from metadata.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HumanCredentialItem"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Unchanged; empty response body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "The response must not be cached.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Current strong opaque lifecycle ETag. Never construct from metadata.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid identity, query or If-None-Match.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Global Credential view denied.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Account-owned Credential not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Only GET/POST are supported.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "GET, POST",
+                "schema": {
+                  "type": "string",
+                  "const": "GET, POST"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Credential identity or lifecycle authority unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Human security administration"
+        ],
+        "operationId": "revokeHumanPasswordCredential",
+        "summary": "Revoke a Human-password credential and fence issuer Browser Sessions",
+        "description": "Revoke only the human-password Credential, transactionally fence all Browser Sessions issued from it, and protect the last usable administrator. Credential terminal state is immediate and does not delete the Human Account. Only {} is valid JSON, max 1024 request bytes; Content-Type application/json. Requires exactly one canonical strong lifecycle If-Match from matching item GET. No separate bulk revoke, password reset, rotation or secret retrieval. Desired-state terminal replay may succeed even with an old tag, but stale active state returns 412. This is distinct from Device lifecycle administration.",
+        "x-vdr-suite-max-body-bytes": 1024,
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "accounts.credentials.revoke@*; Suite-global Human Account administration; protected mutation with browser-session CSRF where relevant",
+          "securitySchemeDocumentation": "Deployment-approved authenticated administrator; global role expansion and CSRF enforced in SecurityHttpGate. This is not a Device credential or pairing-token API."
+        },
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "description": "Opaque canonical Human Account ID.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "credentialId",
+            "in": "path",
+            "required": true,
+            "description": "Account-owned credential ID; the revoke operation accepts human-password type only.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "description": "Exactly one canonical strong ETag from the matching Credential or Session ITEM GET. Account/collection ETags are not interchangeable.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "maxProperties": 0
+              },
+              "example": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Revocation completed or was already terminal; new/current lifecycle ETag and secret-free metadata.",
+            "headers": {
+              "Cache-Control": {
+                "description": "The response must not be cached.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Current strong opaque lifecycle ETag. Never construct from metadata.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HumanCredentialItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON, path, query or wrong/invalid strong If-Match.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Global revoke permission or browser-session CSRF denied.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Requested Account/Credential/Session not found or not owned by the Account.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "operation_conflict: revocation would remove the final usable administrator.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "revision_conflict: active lifecycle changed after If-Match.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "application/json required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "validation_error: invalid body or Credential type is not human-password.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "precondition_required: If-Match missing.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Canonical lifecycle, issuer-session fencing, audit or storage unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounts/{accountId}/sessions/{sessionId}": {
+      "get": {
+        "tags": [
+          "Human security administration"
+        ],
+        "operationId": "getHumanAccountSession",
+        "summary": "Read one Account-owned Browser Session with lifecycle ETag",
+        "description": "Authenticated accounts.sessions.view@*. Session lifecycle ETag is independent of Account and Credential revisions. Routine lastSeenAt updates are excluded from the revision, avoiding false revoke conflicts. Matching If-None-Match returns 304 and no body. No Browser Session secrets are exposed.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "accounts.sessions.view@*; Suite-global Human Account administration",
+          "securitySchemeDocumentation": "Deployment-approved authenticated administrator; global role expansion and CSRF enforced in SecurityHttpGate. This is not a Device credential or pairing-token API."
+        },
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "description": "Opaque canonical Human Account ID.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "description": "Account-owned Browser Session ID.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "description": "Previously received opaque item lifecycle ETag; matching GET returns bodyless 304.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account-owned Browser Session lifecycle metadata and opaque strong ETag.",
+            "headers": {
+              "Cache-Control": {
+                "description": "The response must not be cached.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Current strong opaque lifecycle ETag. Never construct from metadata.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HumanSessionItem"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Unchanged; empty body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "The response must not be cached.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Current strong opaque lifecycle ETag. Never construct from metadata.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed identifier, query or conditional header.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Global Session view permission denied.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Account-owned Session not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Only GET/POST are supported.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "GET, POST",
+                "schema": {
+                  "type": "string",
+                  "const": "GET, POST"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Canonical Session projection/revision unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Human security administration"
+        ],
+        "operationId": "revokeHumanAccountSession",
+        "summary": "Revoke one Account-owned Browser Session",
+        "description": "Revoke one browser Session synchronously in the canonical BrowserSessionLifecycleService and its bound credential/session records; preserve unrelated Sessions. Only {} is valid JSON, max 1024 request bytes; Content-Type application/json. Requires exactly one canonical strong lifecycle If-Match from matching item GET. No separate bulk revoke, password reset, rotation or secret retrieval. Desired-state terminal replay may succeed even with an old tag, but stale active state returns 412. This is distinct from Device lifecycle administration.",
+        "x-vdr-suite-max-body-bytes": 1024,
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "accounts.sessions.revoke@*; Suite-global Human Account administration; protected mutation with browser-session CSRF where relevant",
+          "securitySchemeDocumentation": "Deployment-approved authenticated administrator; global role expansion and CSRF enforced in SecurityHttpGate. This is not a Device credential or pairing-token API."
+        },
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "description": "Opaque canonical Human Account ID.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "description": "Account-owned Browser Session ID.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "description": "Exactly one canonical strong ETag from the matching Credential or Session ITEM GET. Account/collection ETags are not interchangeable.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "maxProperties": 0
+              },
+              "example": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Revocation completed or was already terminal; new/current lifecycle ETag and secret-free metadata.",
+            "headers": {
+              "Cache-Control": {
+                "description": "The response must not be cached.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Current strong opaque lifecycle ETag. Never construct from metadata.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HumanSessionItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON, path, query or wrong/invalid strong If-Match.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Global revoke permission or browser-session CSRF denied.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Requested Account/Credential/Session not found or not owned by the Account.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "revision_conflict: active lifecycle changed after If-Match.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "application/json required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "validation_error: request must be closed empty JSON object.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "precondition_required: If-Match missing.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Canonical lifecycle, issuer-session fencing, audit or storage unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5003,6 +5923,292 @@
           "credentialSecret": {
             "type": "string",
             "description": "One-time issuance response only. No GET, logs or replay of this secret."
+          }
+        }
+      },
+      "HumanCredentialMetadata": {
+        "type": "object",
+        "required": [
+          "credentialId",
+          "credentialType",
+          "active",
+          "expired",
+          "revoked",
+          "expiresAt",
+          "createdAt"
+        ],
+        "properties": {
+          "credentialId": {
+            "type": "string"
+          },
+          "credentialType": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "expired": {
+            "type": "boolean"
+          },
+          "revoked": {
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional timestamp; null when no expiry."
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Server-provided timestamp literal, currently SQLite-style text. Do not assume RFC3339."
+          }
+        }
+      },
+      "HumanCredentialCollection": {
+        "type": "object",
+        "required": [
+          "accountId",
+          "actorId",
+          "items",
+          "links"
+        ],
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "actorId": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HumanCredentialMetadata"
+            }
+          },
+          "links": {
+            "type": "object",
+            "required": [
+              "self"
+            ],
+            "properties": {
+              "self": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "HumanCredentialItem": {
+        "type": "object",
+        "required": [
+          "accountId",
+          "actorId",
+          "credentialId",
+          "credentialType",
+          "active",
+          "expired",
+          "revoked",
+          "expiresAt",
+          "createdAt",
+          "links"
+        ],
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "actorId": {
+            "type": "string"
+          },
+          "credentialId": {
+            "type": "string"
+          },
+          "credentialType": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "expired": {
+            "type": "boolean"
+          },
+          "revoked": {
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional timestamp; null when no expiry."
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Server-provided timestamp literal, currently SQLite-style text. Do not assume RFC3339."
+          },
+          "links": {
+            "type": "object",
+            "required": [
+              "self"
+            ],
+            "properties": {
+              "self": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "HumanSessionMetadata": {
+        "type": "object",
+        "required": [
+          "sessionId",
+          "deviceId",
+          "issuedFromCredentialId",
+          "active",
+          "expired",
+          "revoked",
+          "expiresAt",
+          "lastSeenAt",
+          "createdAt"
+        ],
+        "properties": {
+          "sessionId": {
+            "type": "string"
+          },
+          "deviceId": {
+            "type": "string"
+          },
+          "issuedFromCredentialId": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "expired": {
+            "type": "boolean"
+          },
+          "revoked": {
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastSeenAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        }
+      },
+      "HumanSessionCollection": {
+        "type": "object",
+        "required": [
+          "accountId",
+          "actorId",
+          "items",
+          "links"
+        ],
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "actorId": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HumanSessionMetadata"
+            }
+          },
+          "links": {
+            "type": "object",
+            "required": [
+              "self"
+            ],
+            "properties": {
+              "self": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "HumanSessionItem": {
+        "type": "object",
+        "required": [
+          "accountId",
+          "actorId",
+          "sessionId",
+          "deviceId",
+          "issuedFromCredentialId",
+          "active",
+          "expired",
+          "revoked",
+          "expiresAt",
+          "lastSeenAt",
+          "createdAt",
+          "links"
+        ],
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "actorId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "deviceId": {
+            "type": "string"
+          },
+          "issuedFromCredentialId": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "expired": {
+            "type": "boolean"
+          },
+          "revoked": {
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastSeenAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "links": {
+            "type": "object",
+            "required": [
+              "self"
+            ],
+            "properties": {
+              "self": {
+                "type": "string"
+              }
+            }
           }
         }
       }

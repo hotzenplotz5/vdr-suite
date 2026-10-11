@@ -8,6 +8,7 @@
 - [Accepted MU.6C Account lifecycle](../docs/development/post-phase69-mu6c-public-account-lifecycle-mutation.md)
 - [Accepted MU.6D Account CREATE with idempotency](../docs/development/post-phase69-mu6d-account-create-idempotency.md)
 - [Accepted MU.7 grant desired state](../docs/development/post-phase69-mu7-account-grant-administration.md)
+- [Account Credential and Browser Session administration](account-security-administration.md)
 
 ## Scope
 
