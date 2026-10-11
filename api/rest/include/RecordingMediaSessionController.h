@@ -55,6 +55,13 @@ public:
         const std::string& cookiePrefix,
         std::string& activatedSessionId) const;
 
+    // Call only after PublicDevicePlaybackRegistry::describeOwned has verified
+    // the Device, grant and canonical MediaSession identity.
+    // Returns a minimal playback/status shape without native Recording IDs.
+    ApiResponse devicePlaybackStatus(
+        const std::string& body,
+        const std::string& actorId) const;
+
     std::size_t reapInactiveSessions(int idleTimeoutSeconds) const;
 
 private:
@@ -91,7 +98,8 @@ private:
 
     ApiResponse playbackStatus(
         const std::string& body,
-        const std::string& actorId) const;
+        const std::string& actorId,
+        bool deviceOnly = false) const;
 
     ApiResponse trackStatus(
         const std::string& body,
