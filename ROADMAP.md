@@ -30,6 +30,8 @@ The historical closeout markers below are retained as **stable completed evidenc
 
 Accepted historical closeouts, for example the [Phase-69 closeout](docs/development/phase-69-closeout.md) and [Legacy Basic retirement](docs/development/post-phase69-p2-legacy-basic-retirement-closeout.md), are immutable evidence of their own checkpoints. Additive Account/Device/Recording work does not retroactively alter earlier accepted phase scope.
 
+The accepted Multiuser foundation also retains these **historical** milestone markers (not a live implementation queue): **MU.6C** public Account lifecycle, **MU.6D** Account CREATE/idempotency, **MU.7** permission-grant administration with **REAL YAVDR** acceptance, and its **MU.8** Account-security successor. Consult [the canonical Multiuser workstream](docs/development/post-phase69-multiuser-workstream.md) for exact slice evidence and [CURRENT](docs/CURRENT.md) for present acceptance gates.
+
 **Maintenance rule:** Do not add a second living status register here. Update the primary source and link to it; verify current branch, CI and runtime claims separately.
 
 ## Back

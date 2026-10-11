@@ -157,3 +157,8 @@ The initial branch inventory found **22 zero-byte Markdown files**. In this docu
 - The first PR #453 CI on `fb45313bc8dcc551cca2cdd4c55733c3ecfd0651` failed architecture and docs/fast guards because the root `ROADMAP.md` had dropped the exact accepted Phase-69 and Legacy Basic retirement completion markers when consolidating redundant live status. The underlying accepted runtime/phase contracts were unchanged.
 - Restored only the required **stable historical completion markers**, with links to the canonical closeouts, instead of recreating the full parallel live roadmap/MU status list. Required tokens derive from `tools/check_phase69_closeout.py` and `tools/check_p2_enforced_legacy_basic_retirement.py`.
 - A passing PR CI must be confirmed on this follow-up head; prior failing run #9928 is not acceptance evidence for the corrected commit.
+
+## CI #9929 retained Multiuser marker correction (2026-10-11)
+
+- The updated root-roadmap navigation still needed to preserve the static `MU.6C`, `MU.6D`, `MU.7`, `REAL YAVDR` and `MU.8` historical progress markers consumed by the accepted P2/MU architecture guards. PR #453 CI #9929 flagged this exact gap; the guarded runtime contracts were unchanged.
+- Inserted one compact historical summary linking to the canonical Multiuser workstream and `CURRENT`, rather than a second mutable list of all PRs/current phases. No test outcome claimed on this new head until the corresponding PR run completes.
