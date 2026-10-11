@@ -100,6 +100,20 @@ configuration remains unchanged, and any post-seal staging mutation is rejected.
 
 The guard is part of `test-ci-packaging`.
 
+## Dedicated daemon-only updates
+
+A change that replaces **only** the daemon executable and does not claim a
+coordinated frontend/runtime release may follow the more narrowly scoped
+`tools/install_daemon.py` procedure. See
+`docs/development/daemon-only-installer.md`. This is an explicit exception
+to the **full** install-runtime payload workflow, not a bypass for the normal
+staging, database migration or frontend acceptance gates. The dedicated tool
+pins source ancestry, keeps verified build artifacts across interruptions,
+requires an explicit installation decision, and evaluates schema-sensitive
+changes **before** deciding whether a database backup needs review. Its
+post-install proof is the actual running daemon executable's hash. It must
+not claim full staged frontend parity on the strength of a binary-only update.
+
 ## Non-goals
 
 This slice does not add:
