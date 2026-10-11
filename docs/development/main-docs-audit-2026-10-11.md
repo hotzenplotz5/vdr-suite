@@ -74,3 +74,11 @@ The initial branch inventory found **22 zero-byte Markdown files**. In this docu
 - [Development Index](index.md)
 - [Documentation Index](../index.md)
 - [README](../../README.md)
+
+## Remaining placeholder cleanup (2026-10-11)
+
+- Verified the complete recursive branch tree at `76588914d60d488baa58e17bf7b614b8e3afc4c0` (3,781 entries, not truncated): exactly **13 zero-byte Markdown placeholders** remained.
+- Replaced all 13 with concise, explicit scope/status documents: five under `modules/`, two under `legacy/`, three under `ui/`, one under `database/migrations/`, one under `services/jobs/`, plus `.github/PULL_REQUEST_TEMPLATE.md`. **No files were deleted.**
+- Tree inspection showed these directories contained no implementation beyond their placeholder Markdown files. In particular, the four named module leaves are not implemented/installable add-ons in this branch, and add-on platform work elsewhere was not imported.
+- Verified relative targets in the new documents against the original recursive tree. Retention rather than deletion avoids breaking potential incoming links and reserved organizational boundaries; exhaustive incoming-reference and generator scans remain an open validation item.
+- No Makefile, source, workflow, production filesystem, database, deployment or service was changed. GitHub-only static review is not a successful local `make test-docs`, formal OpenAPI validation, or hosted CI result.
