@@ -1,8 +1,13 @@
-# Public-v1 Device Recording playback — first hardware candidate
+# Public-v1 Device Recording playback — merged source, hardware acceptance pending
 
-**Status:** implemented as a branch-only candidate; no installed real-TV
-acceptance. The original audit and security rationale are in
-[the playback gap record](public-v1-device-recording-playback-gap.md).
+## Navigation
+
+- [Current State](../CURRENT.md)
+- [Development Index](index.md)
+- [Historical playback gap audit](public-v1-device-recording-playback-gap.md)
+- [Tracks / index / SRT integration](vidaa-device-tracks-index-srt-integration-20261011.md)
+
+**Status (source checkpoint 2026-10-11):** Device Recording playback and track/index/SRT successor code are merged into `main` at `8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0`. This is still a separately gated R2 **candidate**, not an implicit addition to the accepted Phase-69.F reference-client baseline. The installed yaVDR binary and real Hisense sound/subtitle/cleanup acceptance have not been established by the GitHub merge. The original audit and security rationale remain in [the playback gap record](public-v1-device-recording-playback-gap.md).
 
 ## Trust and source of truth
 
@@ -95,8 +100,7 @@ MediaAccessGrant, provider URL, VDR path or HLS token. Unknown, stale,
 revoked or foreign sessions return no session detail; no Browser session
 or anonymous caller can inspect status. Results are `no-store`.
 Session termination/restart is reported as unavailable, never as a
-synthetic playable session. This is a read of server state, **not**
-persistent timeline position or Resume management.
+synthetic playable session. The status also projects verified index-backed `playback.durationSeconds` (or `null` when unknown) and `playback.resume.preparing` from the canonical VDR index/reconciliation path. This is a read of current session state, **not** persistent timeline position or a generic Resume-management API; no native path, provider location or media secret is returned.
 
 ## Failure and limits
 
@@ -107,10 +111,9 @@ session bearer with a maximum six-hour issuance window and a configured
 five-minute media-access idle timeout. The actual runtime profile/format
 depends on the real Hisense decoder and source recording.
 
-This first-play candidate intentionally **does not** implement server-driven
-seek replacement, persistent progress, subtitles,
-audio-track selection or live-TV playback. These remain later slices; no
-legacy Web media endpoint is used as a fallback.
+The merged R2 code adds `GET /api/v1/recording-playback-sessions/{ms-id}/tracks` for a bounded, sanitized owned-session audio/subtitle inventory and `POST /api/v1/recording-playback-sessions/{ms-id}/subtitles` for Device-only canonical WebVTT selection (including supported SRT source conversion). Audio track changes reuse existing MediaSession creation/replacement with `audioTrackId`, not an unrestricted new Device mutation route. Subtitle conversion still does **not** support DVB bitmap/Teletext as WebVTT text. The implementation does **not** claim persistent position management, universal server-side seek or Live-TV Device playback; no legacy Web media endpoint is used as a fallback.
+
+VDR 2.7.9 index regeneration is not a safe read-only check: the updater refuses to launch the destructive generator when `index`, `index.vdr` or symlinked indexes already exist. No documentation action should delete/rewrite indexes or change Recording ownership. Device track and subtitle handlers validate current Device identity, backend scope, session ownership and play grant; the track envelope is bounded at 64 KiB and successful WebVTT delivery at 1 MiB.
 
 ## Test and deployment boundary
 
@@ -120,9 +123,14 @@ VIDAA Node CI covers contract validation, same-origin media paths, and
 existing browsing/navigation regressions. A fully playable picture with
 sound cannot be proven by CI.
 
-**No production deployment has happened.** To perform the first real test,
+**A GitHub merge does not prove production deployment or hardware acceptance.** To perform the real acceptance,
 follow existing backed-up deployment/rollback runbooks, first verify HTTPS
 cookie path and exact installed assets, then select one existing completed
 recording on Hisense and verify picture/sound, pause, resume, STOP/BACK
 cleanup and that a revoked grant denies further segments. Never reset
 pairing or replace production services as part of documentation updates.
+
+## Back
+
+- [Development Index](index.md)
+- [Documentation Index](../index.md)

@@ -1,4 +1,8 @@
-# Public-v1 Device recording playback — source-verified implementation gap
+# Public-v1 Device recording playback — historical gap audit
+
+**Current repository status (2026-10-11):** The consolidated R2 source was merged into `main` at `8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0`. The original branch/provenance notes below are **historical** and must not be read as a claim that this code is still unmerged. This source checkpoint alone does **not** prove which daemon binary is installed on yaVDR, nor successful real Hisense audio, SRT/WebVTT or STOP/cleanup acceptance. A deployment/restart still needs separate explicit authorization.
+
+Current merged Device contract: [Device Recording playback](public-v1-device-recording-playback.md). The original TODO tables below are historical 2026-10-09 evidence; do not recreate already implemented routes or assume the running host has been updated.
 
 **Status (2026-10-10):** **versioned Device Playback first-hardware candidate
 implemented and hosted-CI tested, no productive yaVDR/Hisense acceptance**.

@@ -103,7 +103,7 @@ For current Multiuser work:
 1. re-read live `main`, `CURRENT.md`, the Strict Roadmap, the Multiuser workstream and ADR-0065/0066/0067 before successor planning;
 2. treat ADR-0067 as accepted architecture and MU.5 as completed;
 3. treat MU.7 as completed after real yaVDR acceptance and PR #413 merge; for MU.8 successor work, re-read live `main`, preserve the bounded MU.8A metadata contract and derive the next revoke slice from the accepted lifecycle authority; do not redo MU.6A/MU.6B without a demonstrated regression;
-4. keep pairing and Profiles as later separate slices rather than conflating them with Human Account administration;
+4. treat MU.10A/MU.10B Device pairing as accepted bounded successors while keeping Profiles a separate future product slice; do not conflate Device and Human Account authority;
 5. keep Broad Timer Product UI gated on the required Multiuser Account/backend access administration surface.
 
 For the next numbered work:

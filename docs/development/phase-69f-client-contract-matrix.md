@@ -1,5 +1,7 @@
 # Phase 69.F — Client Contract Matrix and Stable Integration Boundary
 
+**2026-10-11 reconciliation:** The Phase-69.F **original eight accepted method/resource contracts** and their accepted reference-client coverage remain the frozen closeout baseline. Subsequent Account work extends the accepted inventory; the later Recording R2 collection is represented in the machine-readable `publicV1Resources` inventory as a separately gated candidate. The 2026-10-11 matrix currently contains **10 entries: nine accepted plus one named Recording candidate**; inclusion in the JSON array or merge into `main` does not itself promote R2 to accepted compatibility. The historical slice-specific statements below retain their acceptance-time meaning. See [Current State](../CURRENT.md).
+
 ## Status
 
 **ACCEPTED — fourth bounded 69.F slice via PR #372.**
@@ -47,7 +49,7 @@ different contract classes:
 Treating all browser routes as public would freeze implementation details that
 ADR-0048 explicitly keeps outside the public compatibility promise.
 
-## Stable public-v1 surface today
+## Original Phase-69.F stable public-v1 surface (acceptance-time baseline)
 
 The matrix records only contracts that the current repository has deliberately
 stabilized:
