@@ -1,0 +1,23 @@
+name: SRT sidecar regression
+
+on:
+  push:
+    branches:
+      - "work/vidaa-srt-sidecar-discovery-*"
+  pull_request:
+    paths:
+      - "core/media/src/RecordingSubtitleSidecar.cpp"
+      - "core/media/tests/test_recording_subtitle_sidecar.cpp"
+      - "mk/phase65d-audio-subtitle-selection-tests.mk"
+
+permissions:
+  contents: read
+
+jobs:
+  srt-sidecar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and execute bounded SRT sidecar tests
+        run: make -j2 test-phase65d-recording-subtitle-sidecar
