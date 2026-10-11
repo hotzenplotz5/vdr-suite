@@ -397,6 +397,34 @@ int main()
     assert(!browserStopDecision.allowed);
     assert(browserStopDecision.rejection.statusCode == 403);
 
+    // The WebVTT route must never accept a Browser session as Device
+    // proof, even if the human account owns media.recording.play.
+    HttpServerRequest browserDeviceSubtitles =
+        fixture.mutationRequest(
+            "/api/v1/recording-playback-sessions/"
+            "ms_0123456789abcdef0123456789abcdef/subtitles",
+            "default");
+    fixture.addBrowserAuthentication(browserDeviceSubtitles, true);
+    const auto browserSubtitlesDecision =
+        fixture.gate.evaluate(browserDeviceSubtitles);
+    assert(!browserSubtitlesDecision.allowed);
+    assert(browserSubtitlesDecision.rejection.statusCode == 403);
+
+    HttpServerRequest anonymousTracks = getRequest();
+    anonymousTracks.path =
+        "/api/v1/recording-playback-sessions/"
+        "ms_0123456789abcdef0123456789abcdef/tracks";
+    const auto anonymousTracksDecision =
+        fixture.gate.evaluate(anonymousTracks);
+    assert(!anonymousTracksDecision.allowed);
+    assert(anonymousTracksDecision.rejection.statusCode == 401);
+
+    HttpServerRequest browserTracks = anonymousTracks;
+    fixture.addBrowserAuthentication(browserTracks);
+    const auto browserTracksDecision = fixture.gate.evaluate(browserTracks);
+    assert(!browserTracksDecision.allowed);
+    assert(browserTracksDecision.rejection.statusCode == 403);
+
     HttpServerRequest unknownPublicPost =
         fixture.mutationRequest(
             "/api/v1/private",
