@@ -55,6 +55,14 @@ public:
         const std::string& cookiePrefix,
         std::string& activatedSessionId) const;
 
+    // Minimal track-inventory projection only, for an already verified
+    // Device-owned session. Returns the serialized tracks JSON by itself:
+    // never return source Recording IDs, media paths, credentials or cookies.
+    ApiResponse deviceTrackInventory(
+        const std::string& backendId,
+        const std::string& sessionId,
+        const std::string& actorId) const;
+
     std::size_t reapInactiveSessions(int idleTimeoutSeconds) const;
 
 private:
@@ -95,7 +103,8 @@ private:
 
     ApiResponse trackStatus(
         const std::string& body,
-        const std::string& actorId) const;
+        const std::string& actorId,
+        bool deviceOnlyProjection = false) const;
 
     ApiResponse selectAudioTrack(
         const std::string& body,
