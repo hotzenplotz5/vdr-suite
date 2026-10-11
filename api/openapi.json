@@ -1619,7 +1619,7 @@
             }
           },
           "405": {
-            "description": "Only the POST bootstrap operation is specified here; admin GET is separately implemented.",
+            "description": "The same collection path also implements separately authorized administrative GET; this POST operation is the anonymous bootstrap variant, not a substitute for administrative reads.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1832,7 +1832,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "oneOf": [
+                  "anyOf": [
                     {
                       "$ref": "#/components/schemas/DevicePairingStatus"
                     },
@@ -3576,5 +3576,6 @@
         }
       }
     }
-  }
+  },
+  "x-vdr-suite-authentication-coverage": "partial: abstract actor/Device/bootstrap variants are documented in each operation's x-vdr-suite-authentication; a complete machine-readable OpenAPI securitySchemes model has not yet been verified. Do not infer that an endpoint is anonymously callable merely because security is not formalized here."
 }
