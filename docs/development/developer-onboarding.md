@@ -67,6 +67,9 @@ For current code ownership, start with the relevant repository-area README rathe
 
 These links are documentation entrypoints; do not deploy to a live system from an unverified checkout.
 
+For **reserved-only paths** rather than implemented runtime components, see the [module](../../modules/README.md), [UI](../../ui/README.md), [legacy](../../legacy/README.md), [migration](../../database/migrations/README.md), and [job-service](../../services/jobs/README.md) status pages. Their directory names alone are not evidence of packaged modules, a standalone worker or an alternative frontend.
+
+
 ## Development Workflow
 
 Before making recommendations or code changes, inspect the real repository state.

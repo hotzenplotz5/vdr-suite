@@ -63,6 +63,14 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 
 These pages distinguish implemented code from historical plans and are not instructions to deploy or modify a running installation.
 
+### Reserved repository namespaces (not runtime implementations)
+
+- [Module/add-on placeholders](../modules/README.md) — `image`, `music`, `rectools` and `tvscraper` are reserved directories, not installable modules in this audited tree.
+- [Legacy compatibility namespace](../legacy/README.md) — historical organization placeholder, not an implementation owner.
+- [UI namespace](../ui/README.md) — reserved `web`/`osd` paths, not the built web frontend or native OSD.
+- [Database migration placeholder](../database/migrations/README.md) and [job-service placeholder](../services/jobs/README.md) — no runner or deployable worker in these paths.
+
+
 ## Development and history
 
 - [Development Documentation](development/index.md)

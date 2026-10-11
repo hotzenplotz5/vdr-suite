@@ -101,3 +101,9 @@ The initial branch inventory found **22 zero-byte Markdown files**. In this docu
 - After PR #452 merged at `65a2c2a96c1a632e2e0db6cca01584ab4e620432`, the existing documentation branch was fast-forwarded to that exact merged main checkpoint (no new branch).
 - Reconciled a stale current-facing Legacy Basic compatibility sentence in [Current Architecture State](current-architecture-state.md) against the accepted [P2 retirement closeout](post-phase69-p2-legacy-basic-retirement-closeout.md) and `core/security/include/SecurityHttpGate.h`.
 - The current authority is Human Account browser sessions and optional explicitly configured Managed Basic; the retired Legacy Basic runtime mode must not be described as transitional supported authentication. No phase-history document was rewritten, and no code or runtime behavior was changed.
+
+## Reserved-directory navigation (2026-10-11)
+
+- Linked the previously repaired `modules`, `legacy`, `ui`, `database/migrations`, and `services/jobs` reserved entrypoints from [Documentation Index](../index.md) and [Developer Onboarding](developer-onboarding.md).
+- Kept a clear divide between these placeholders and executable source owners; no add-on installability or packaged service status is claimed.
+- Changes are navigation and status text only. Relative targets were checked against the recursive Git tree; no local test or GitHub CI result is claimed for this new commit.
