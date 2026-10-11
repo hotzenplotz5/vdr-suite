@@ -347,6 +347,14 @@ public:
         const bool isPublicDeviceRecordingSessionRead =
             request.method == "GET" &&
             path.rfind(playbackStopPrefix, 0) == 0;
+        const bool isPublicDeviceRecordingSubtitleSelection =
+            isPost && path.rfind(playbackStopPrefix, 0) == 0 &&
+            path.size() > playbackStopPrefix.size() +
+                std::string("/subtitles").size() &&
+            path.compare(path.size() - std::string("/subtitles").size(),
+                         std::string("/subtitles").size(), "/subtitles") == 0 &&
+            path.find('/', playbackStopPrefix.size()) ==
+                path.size() - std::string("/subtitles").size();
         const bool isPublicDeviceRecordingSessionStop =
             isPost && path.rfind(playbackStopPrefix, 0) == 0 &&
             path.size() > playbackStopPrefix.size() +
@@ -824,7 +832,8 @@ public:
             isPublicAccountSessionMutation ||
             isPublicTimerAssignmentCreate ||
             isPublicDeviceRecordingSessionCreate ||
-            isPublicDeviceRecordingSessionStop || isTimerUpdateAction ||
+            isPublicDeviceRecordingSessionStop ||
+            isPublicDeviceRecordingSubtitleSelection || isTimerUpdateAction ||
             isTimerDeleteAction || isChannelMoveAction || isRecordingExecutionAction ||
             isRecordingMarksModifyAction || isRecordingCutAction ||
             isSearchTimerCreateAction || isSearchTimerUpdateAction || isSearchTimerDeleteAction ||
@@ -1615,7 +1624,8 @@ public:
         // credentials and even user/admin grants are not Device proof.
         // This policy does not itself create sessions or expose media bytes.
         if ((isPublicDeviceRecordingSessionCreate ||
-             isPublicDeviceRecordingSessionStop) &&
+             isPublicDeviceRecordingSessionStop ||
+              isPublicDeviceRecordingSubtitleSelection) &&
             (!gate.deviceAuthenticated ||
              gate.context.actor.type != ActorType::Service ||
              !gate.context.device || !gate.context.credential ||
@@ -1633,7 +1643,8 @@ public:
                 "A verified Device credential is required for recording playback", "");
         }
         if (isPublicDeviceRecordingSessionCreate ||
-            isPublicDeviceRecordingSessionStop)
+            isPublicDeviceRecordingSessionStop ||
+            isPublicDeviceRecordingSubtitleSelection)
         {
             // Match the canonical PublicRecordingPlaybackTargetResolver's
             // backend grammar before authorization or domain resolution.
@@ -1808,7 +1819,8 @@ public:
             requestToAuthorize.backendId = mediaTranscodeSettingsBackendId;
         }
         else if (isPublicDeviceRecordingSessionCreate ||
-                 isPublicDeviceRecordingSessionStop)
+                 isPublicDeviceRecordingSessionStop ||
+                  isPublicDeviceRecordingSubtitleSelection)
         {
             requestToAuthorize.permission = "media.recording.play";
             requestToAuthorize.action = "media.recording.play";
