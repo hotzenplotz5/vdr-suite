@@ -61,6 +61,21 @@ bool isSafeTsRecording(
         }
     }
 
+    // VDR 2.7.9 maps --updindex to --genindex, which unlinks an existing
+    // index before rebuilding it. Only create a genuinely absent TS index.
+    // An existing regular file, directory, or symlink must never be replaced.
+    for (const char* name : {"index", "index.vdr"}) {
+        struct stat existing {};
+        if (::lstat((canonicalDirectory / name).c_str(), &existing) == 0) {
+            reasonCode = "recording_index_update_existing_index";
+            return false;
+        }
+        if (errno != ENOENT) {
+            reasonCode = "recording_index_update_source_unavailable";
+            return false;
+        }
+    }
+
     if (::stat(canonicalDirectory.c_str(), &directoryStatus) != 0) {
         reasonCode = "recording_index_update_source_unavailable";
         return false;
@@ -206,6 +221,15 @@ pid_t VdrRecordingIndexUpdater::spawnAsOwner(
         ::_exit(126);
     }
 
+    // Repeat the no-overwrite check immediately before VDR's destructive
+    // --genindex alias. This cannot synchronize external writers, but it
+    // prevents our worker from knowingly clobbering an existing index.
+    for (const char* name : {"index", "index.vdr"}) {
+        struct stat existing {};
+        if (::lstat((recordingDirectory + "/" + name).c_str(), &existing) == 0 ||
+            errno != ENOENT)
+            ::_exit(126);
+    }
     const std::string argument =
         "--updindex=" + recordingDirectory;
     ::execl(
