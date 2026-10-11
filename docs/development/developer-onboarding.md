@@ -54,6 +54,19 @@ Important top-level areas:
 
 ---
 
+## Source-linked area entrypoints
+
+For current code ownership, start with the relevant repository-area README rather than an early Phase-1 sketch:
+
+- [Core C++ domains and runtime owners](../../core/README.md)
+- [Database and schema boundaries](../../database/README.md)
+- [Runtime staging and packaging assets](../../packaging/README.md)
+- [Historical service designs and their modern owners](../../services/README.md)
+- [Read-only repository checks and potentially mutating tools](../../tools/README.md)
+- [Partial Public-v1 API and checked OpenAPI](../../api/README.md)
+
+These links are documentation entrypoints; do not deploy to a live system from an unverified checkout.
+
 ## Development Workflow
 
 Before making recommendations or code changes, inspect the real repository state.

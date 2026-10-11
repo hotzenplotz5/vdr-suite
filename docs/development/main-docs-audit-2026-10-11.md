@@ -56,6 +56,12 @@ The initial branch inventory found **22 zero-byte Markdown files**. In this docu
 - The disposition table above records the *initial* zero-byte inventory and its intended handling. It is preserved as audit evidence, not a claim that those nine are still empty. Remaining 13 files still require reference/owner checks before deletion or replacement.
 - This checkpoint does not retroactively rewrite historical planning pages or infer live yaVDR behavior from source presence.
 
+## Phase-1 direct-entrypoint clarification
+
+- Added **non-destructive historical-context banners** to four early [`services/`](../../services/README.md) implementation sketches (MetadataService, RecordingService, RecordingRepository, ActionService). Their original design content remains intact; present-tense implementation claims must instead cite current Core and runtime contracts.
+- Marked [`docs/database-design.md`](../database-design.md) explicitly as the legacy Phase-1 schema overview and linked the live source-schema indexes and additive metadata architecture.
+- Linked the newly repaired repository-area entrypoints from [Developer Onboarding](developer-onboarding.md). No historical content was silently deleted and no production code was edited.
+
 ## Verification and limits
 
 - Verified: relative Markdown link targets of the first 18 distinct edited documents (587 references; no missing target paths), exact GitHub `main` merge SHA, recursive file inventory, Device route implementations in `core/daemon/src/RecordingMediaHttpRuntime.cpp`, authorization classification in `core/security/include/SecurityHttpGate.h`, and matrix resource entries.

@@ -1,5 +1,8 @@
 # ActionService
 
+> **Historische Phase-1-Aktionsskizze.** Diese Datei ist weder eine Liste freigeschalteter nativer Recording-Aktionen noch ein Nachweis, dass heutige Operationen noch ausstehen. Siehe [aktuelle Architektur](../../docs/development/current-architecture-state.md), [Recording-Services](README.md) und die [Public-v1-Schnittstellen](../../api/README.md).
+
+
 ## Ziel
 
 Der ActionService verwaltet Aktionen, die auf VDR-Aufnahmen ausgeführt werden können.
