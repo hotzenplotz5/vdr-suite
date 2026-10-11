@@ -1,0 +1,26 @@
+name: VIDAA Device tracks focused CI
+
+on:
+  push:
+    branches:
+      - "work/vidaa-device-track-api-for-b20261011-9"
+
+permissions:
+  contents: read
+
+jobs:
+  recording-track-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run backend Audio, Subtitle, Device gate regressions
+        run: |
+          set -euo pipefail
+          make -j2 --output-sync=target \
+            test-phase65d-recording-media-track-contract \
+            test-phase65d-recording-subtitle-sidecar \
+            test-phase65d-recording-subtitle-webvtt \
+            test-phase65d-recording-audio-track-preference-parser \
+            test-phase65d-recording-subtitle-track-selection-request-parser \
+            test-security-http-gate
