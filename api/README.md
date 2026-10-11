@@ -67,7 +67,7 @@ The [Credential/Session administration guide](account-security-administration.md
 
 ## What is implemented but not yet in this OpenAPI subset?
 
-The source contains additional public-v1 areas including Account and Device grants/lifecycle **mutations**, other Account/Device lifecycle mutations, Credential revoke/rotation, Recording browse, and Device-owned Recording playback/media-track flows. **None** of those is automatically documented or promoted merely by appearing in implementation code.
+The source contains additional public-v1 resources still **outside this partial OpenAPI**, notably Account password reset/rotation (if and when accepted), Device metadata and administration surfaces, Recording and genre browsing, and Device-owned Recording playback/media-track routes. The Account lifecycle/CREATE, Account and Device grants, Device revocation/rotation, and Account Credential/Session revoke operations listed above **are documented**; no further route is promoted merely because it appears in the implementation code.
 
 For extension work, audit the exact route, method, response, authentication/permission rules, error cases, tests, and accepted contract status **before** adding each operation to `openapi.json`. The historical [Phase 69.F client matrix](../docs/development/phase-69f-client-contract-matrix.json) is bounded evidence, **not** a complete present-day route manifest.
 
