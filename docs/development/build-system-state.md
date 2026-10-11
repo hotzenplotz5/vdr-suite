@@ -1,64 +1,41 @@
-# VDR-Suite – Build System State
+# VDR-Suite Build and Documentation Test State
 
 ## Navigation
 
 - [README](../../README.md)
-- [Documentation Index](../index.md)
-- [Project Overview](../project-overview.md)
+- [Developer Onboarding](developer-onboarding.md)
+- [Current Architecture](current-architecture-state.md)
+- [Current State](../CURRENT.md)
 - [Development Index](index.md)
 
----
+## Source of truth
 
-This document contains the build system state that was split out of `docs/development/current-status.md` during Phase 10.21.1.
+The top-level [Makefile](../../Makefile) composes C++ source groups and targets through many `mk/*.mk` fragments; it is not a single, independently maintained list of fixed modules. [`mk/common.mk`](../../mk/common.mk) sets the C++17 build flags, `.build` output default and shared compiler variables. [`mk/local-test-groups.mk`](../../mk/local-test-groups.mk) composes test groups.
 
----
+The former Phase-10.21.1 snapshot is retained as historical context; use the current Makefile and included fragments to establish exact target dependencies before running commands.
 
-## Build System State
+## Current documentation checks
 
-The top-level `Makefile` delegates source groups to modular include files under `mk/`.
+[`mk/maintenance-tests.mk`](../../mk/maintenance-tests.mk) defines `make test-docs`. Its recipe includes:
 
-Implemented build modules include:
+1. `tools/check_docs.py` for document headings and links in `docs/`.
+2. `tools/check_public_v1_openapi.py` plus focused `tools/tests/test_public_v1_openapi.py` unit tests, guarding only the documented Public-v1 subset.
+3. `tools/check_doc_indexes.py`, `tools/check_doc_reachability.py` and `tools/check_doc_entrypoints.py`.
+4. `tools/check_adr_index.py`, `tools/check_mu5_administration_architecture.py`, `tools/check_p2_first_admin_bootstrap_boundary.py` and `tools/check_completed_phase_markers.py`.
 
-- `mk/common.mk`
-- `mk/recording-sources.mk`
-- `mk/action-job-sources.mk`
-- `mk/rest-sources.mk`
-- `mk/daemon-sources.mk`
-- `mk/http-sources.mk`
-- `mk/runtime-sources.mk`
-- `mk/vdr-sources.mk`
-- `mk/vdr-tests.mk`
+These are source-tree quality checks, **not** proof that the full HTTP surface has an OpenAPI schema or that a formal external OpenAPI validator, live runtime or installed TV client passed acceptance.
 
-The public targets remain stable:
+The existing [GitHub CI workflow](../../.github/workflows/ci.yml) defines a `docs-check` job that invokes `make -j2 --output-sync=target test-docs test-phase` on configured events. Its presence is not evidence that a run succeeded for this documentation branch.
 
-- `make test`
-- `make clean`
-- `make daemon`
-- `make dashboard-cli`
-- `make prepare-test-db`
+## Build and execution boundaries
 
-Runtime diagnostics test state:
-
-- `make test-runtime-diagnostics` validates the internal `RuntimeDiagnostics` and `RuntimeMeasurement` model.
-- `test_runtime_diagnostics_service` validates `RuntimeDiagnosticsService`, `IRuntimeMeasurementSink` usage, retention behavior and internal measurement summaries.
-- `test_vdr_snapshot_builder` validates `VdrSnapshotBuilder` measurement-sink recording.
-- `test_polling_service` validates `PollingService` measurement-sink recording while preserving existing polling behavior.
-- `test_runtime_diagnostics_json_serializer` validates diagnostics JSON serialization.
-- `test_runtime_diagnostics_controller` validates the read-only REST controller response.
-- `test_api_router` validates `/api/runtime` and `/api/runtime/summary` routing.
-- `test_test_http_server` validates `/api/runtime` and `/api/runtime/summary` through the HTTP server layer.
-- `make test` includes the runtime diagnostics, serializer, summary endpoint, controller, router, HTTP server, snapshot-builder and polling-service measurement tests.
-
-Local VDR integration targets are intentionally optional and are not part of `make test`:
-
-- `make test-local-restfulapi-integration`
-- `make test-local-snapshot-runtime-integration`
-- `make test-local-partial-refresh-validation`
----
+- `make daemon` is a source build target, not deployment or live-service acceptance.
+- `make test-architecture` and `make test-phase` have distinct validation responsibilities in the included makefile.
+- `make clean` and test database setup may affect local build/test artifacts; review their actual recipes and output destinations before running them, especially on a real yaVDR host.
+- Installation staging, deployment and packaging are separate contracts: [packaging](../../packaging/README.md) and [developer onboarding](developer-onboarding.md).
+- There is no CI or local-test pass claimed by this text-only documentation reconciliation.
 
 ## Back
 
-- [Back to Development Index](index.md)
-- [Back to Documentation Index](../index.md)
-- [Back to Project Overview](../project-overview.md)
-- [Back to README](../../README.md)
+- [Development Index](index.md)
+- [Documentation Index](../index.md)

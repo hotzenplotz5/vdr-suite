@@ -82,3 +82,10 @@ The initial branch inventory found **22 zero-byte Markdown files**. In this docu
 - Tree inspection showed these directories contained no implementation beyond their placeholder Markdown files. In particular, the four named module leaves are not implemented/installable add-ons in this branch, and add-on platform work elsewhere was not imported.
 - Verified relative targets in the new documents against the original recursive tree. Retention rather than deletion avoids breaking potential incoming links and reserved organizational boundaries; exhaustive incoming-reference and generator scans remain an open validation item.
 - No Makefile, source, workflow, production filesystem, database, deployment or service was changed. GitHub-only static review is not a successful local `make test-docs`, formal OpenAPI validation, or hosted CI result.
+
+## Developer/build-guide source reconciliation (2026-10-11)
+
+- Compared `docs/development/developer-onboarding.md` and `build-system-state.md` with `tools/check_docs.py`, the index/reachability checkers, `mk/maintenance-tests.mk`, `mk/common.mk`, `mk/local-test-groups.mk` and `.github/workflows/ci.yml`.
+- Corrected the obsolete blanket Navigation/Back heading mandate, documented the **actual** current `test-docs` recipe (including scoped OpenAPI guard and unit tests), and separated source build/test from deployed-runtime acceptance.
+- Clarified that the multi-backend topology illustration is not an installation claim; the current Agent, registry and authorization boundaries are source-backed.
+- No Makefile, CI, security or runtime changes were made; tests remain unexecuted in this GitHub-only review.
