@@ -1622,7 +1622,8 @@ public:
         // credentials and even user/admin grants are not Device proof.
         // This policy does not itself create sessions or expose media bytes.
         if ((isPublicDeviceRecordingSessionCreate ||
-             isPublicDeviceRecordingSessionStop) &&
+             isPublicDeviceRecordingSessionStop ||
+             isPublicDeviceRecordingSubtitle) &&
             (!gate.deviceAuthenticated ||
              gate.context.actor.type != ActorType::Service ||
              !gate.context.device || !gate.context.credential ||
@@ -1816,7 +1817,8 @@ public:
             requestToAuthorize.backendId = mediaTranscodeSettingsBackendId;
         }
         else if (isPublicDeviceRecordingSessionCreate ||
-                 isPublicDeviceRecordingSessionStop)
+                 isPublicDeviceRecordingSessionStop ||
+                  isPublicDeviceRecordingSubtitle)
         {
             requestToAuthorize.permission = "media.recording.play";
             requestToAuthorize.action = "media.recording.play";
