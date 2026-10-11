@@ -154,18 +154,33 @@ def main():
         (item.get("method"), item.get("template"))
         for item in matrix.get("publicV1Resources", [])
     }
-    if len(resources) != 9:
-        raise AssertionError(
-            f"expected 9 stable Public-v1 contracts, got {len(resources)}"
-        )
     if ("GET", "/api/v1/accounts") not in resources:
         raise AssertionError("Account collection missing from Public-v1 matrix")
 
     references = matrix.get("publicClientReferences", [])
-    if len(references) != 7:
+    accepted = [ref for ref in references if ref.get("status") == "accepted"]
+    candidates = [ref for ref in references if ref.get("status") == "candidate"]
+    if len(accepted) != 7 or len(candidates) != 1:
         raise AssertionError(
-            f"expected 7 Public-v1 reference slices, got {len(references)}"
+            "expected seven accepted reference slices and one R2 candidate"
         )
+    if candidates[0].get("id") != "reference-js-recording-collection" or (
+        candidates[0].get("resources") !=
+        ["GET /api/v1/recordings?backendId={backendId}"]
+    ):
+        raise AssertionError("unexpected Public-v1 candidate contract")
+    accepted_contracts = {
+        contract
+        for reference in accepted
+        for contract in reference.get("resources", [])
+    }
+    all_contracts = {
+        method + " " + template for method, template in resources
+    }
+    if len(accepted_contracts) != 9 or not accepted_contracts.issubset(all_contracts):
+        raise AssertionError("accepted nine Public-v1 contracts drifted")
+    if all_contracts - accepted_contracts != set(candidates[0]["resources"]):
+        raise AssertionError("Public-v1 matrix gained an unreviewed contract")
     account_reference = next(
         (
             item
@@ -180,8 +195,8 @@ def main():
         raise AssertionError("Account reference resource drifted")
 
     require("matrix_guard", '("GET", "/api/v1/accounts")')
-    require("matrix_guard", "expected exactly seven bounded public client reference slices")
-    require("matrix_guard", "Stable public-v1 method/resource contracts: 9.")
+    require("matrix_guard", "expected eight public client reference slices including R2 candidate")
+    require("matrix_guard", "Public-v1 method/resource contracts: 9 accepted, 1 Recording R2 candidate.")
 
     require("adr61", "accounts.view@*")
     require("adr65", "accounts.view@*")
