@@ -37,6 +37,18 @@ clients
 
 VDR remains authoritative for VDR-native runtime state and execution. VDR-Suite owns external identity, authorization, policy, orchestration, reconciliation and client-facing semantics. Private adapters/providers remain behind Suite boundaries.
 
+## Earlier designs and historical context
+
+The following material is retained for traceability, **not** as an alternative
+current component inventory:
+
+- [Early component topology](suite-components.md) — proposed clients/plugins
+  and adapters are not proof of installed implementations.
+- [Early snapshot-era architecture](snapshot-architecture.md) — Phase-8
+  “planned” statements are historical checkpoints.
+- [Early OSD/federation strategy ADRs](adr/index.md) — read later numbered
+  ADRs and accepted closeouts for the binding boundaries.
+
 ## Main architecture areas
 
 ### Security and mutation safety

@@ -123,3 +123,11 @@ The initial branch inventory found **22 zero-byte Markdown files**. In this docu
 - Replaced obsolete live-facing dependency/OS minimum claims in `docs/dependencies.md` and `docs/build-requirements.md` with source-linked build/packaging pointers and preserved the original early sketches as **non-certified historical context**.
 - Linked these consolidated entrypoints from `docs/index.md`. No file was deleted: no exact duplicate content was found, and an exhaustive incoming-reference/generator check for deletion candidates has **not** been completed. Intentional multi-language introductions and historical ADR/phase plans are not redundant files by mere title overlap.
 - Still open: semantic content-level inspection of the remaining prose archive, active-facing current-status drift checks outside the selected pages, and final-head GitHub CI. This GitHub-only pass did not run local tests or touch runtime systems.
+
+## Historical architecture overlap triage (2026-10-11)
+
+- Distinct accepted/historical designs were being presented as parallel current contracts: early `docs/architecture/adr/ADR-OSD-STRATEGY.md` says no classic OSD mirroring, while the later implemented Phase-68 / ADR-0047 isolates legacy OSD compatibility; early `ADR-BACKEND-FEDERATION-STRATEGY.md` sketches hypothetical TVHeadend support while ADR-0060 separates planned site federation from implemented Agent-managed VDR backends.
+- Kept the early ADR decisions intact; added contextual pointers without rewriting historical acceptance, and marked the secondary ADR index as **early strategy**, not the canonical numbered ADR index.
+- Marked `docs/architecture/suite-components.md` as an early component proposal: its named `vdr-plugin-suite` frontend and Windows/iOS clients are not installed components by virtue of that design. Actual SuiteBridge and current ownership are linked.
+- Marked `docs/architecture/snapshot-architecture.md` Phase-8 “current/planned” wording as checkpoint history, then separated these documents in the architecture index from canonical current contracts.
+- This slice changes documentation only; local build/CI and exhaustive semantic review of 739 Markdown documents remain outstanding.
