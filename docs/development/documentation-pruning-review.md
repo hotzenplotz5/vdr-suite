@@ -29,7 +29,7 @@ before calling deletions accepted.
 
 | File | Decision | Specific evidence and replacement |
 | --- | --- | --- |
-| `docs/development/contributor-guide.md` (608 bytes) | **DELETE in this cleanup** | Generic instructions: read onboarding, follow coding standards, run matching tests. No unique phase/implementation/acceptance data. Replaced by [CONTRIBUTING](../../CONTRIBUTING.md), [AGENTS](../../AGENTS.md), [Developer Onboarding](developer-onboarding.md) and [Documentation Standards](documentation-standards.md). No references found in canonical docs/development indexes or indexed code search. |
+| `docs/development/contributor-guide.md` (608 bytes) | **DELETE in this cleanup** | Generic instructions: read onboarding, follow coding standards, run matching tests. No unique phase/implementation/acceptance data. Replaced by the updated [CONTRIBUTING](../../CONTRIBUTING.md), [AGENTS](../../AGENTS.md), [Developer Onboarding](developer-onboarding.md) and [Documentation Standards](documentation-standards.md). No references found in canonical docs/development indexes or indexed code search. |
 | `docs/development/release-process.md` (661 bytes) | **DELETE in this cleanup** | Generic 'run relevant tests, review history, tag when appropriate' checklist; no release-build, package, versioning or rollout contract. Superseded by [CONTRIBUTING](../../CONTRIBUTING.md), [AGENTS](../../AGENTS.md), the [Make infrastructure](../../mk/README.md) and [Packaging Status](../../packaging/README.md). No references found in canonical indexes or indexed code search. |
 
 Deleted content remains recoverable from the parent Git commit. Neither

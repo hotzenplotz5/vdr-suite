@@ -170,3 +170,8 @@ The initial branch inventory found **22 zero-byte Markdown files**. In this docu
 - Added [`docs/development/documentation-pruning-review.md`](documentation-pruning-review.md) with per-file evidence and protect/retain/defer decisions. The 739-file recursive Markdown inventory had no exact duplicate content blobs; semantic equivalence is **not** established for every file.
 - Removed two short generic, non-indexed development leaf pages (`contributor-guide.md`, `release-process.md`) after content overlap and zero indexed filename backlinks were checked. Canonical `CONTRIBUTING.md`, `AGENTS.md`, onboarding, documentation standards, Make and packaging pages remain the relevant instructions. External bookmarks are an acknowledged residual risk.
 - The old 64-file roadmap and accepted historical ADRs, closeouts, phase/provenance and real-device evidence are preserved. All operations are documentation-only; no yaVDR/database/Recording state touched. CI result of this new cleanup head must be checked separately.
+
+## Canonical contributor guidance correction (2026-10-11)
+
+- Follow-up discovered root `CONTRIBUTING.md` still hardcoded `git checkout phase-2-actions` and described heading/back requirements beyond the current actual docs checker. Updated that living contributor authority to demand verified branch provenance, scoped checks and exact PR-head GitHub CI rather than obsolete phase branches or unproved blanket local `make test` runs.
+- This correction is intentionally part of the same follow-up cleanup PR as deletion of the redundant contributor leaf, so that its surviving replacement is accurate. Runtime/build/check implementations remain untouched; a fresh PR-head CI is required after the new commit.
