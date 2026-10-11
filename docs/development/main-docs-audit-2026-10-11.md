@@ -131,3 +131,9 @@ The initial branch inventory found **22 zero-byte Markdown files**. In this docu
 - Marked `docs/architecture/suite-components.md` as an early component proposal: its named `vdr-plugin-suite` frontend and Windows/iOS clients are not installed components by virtue of that design. Actual SuiteBridge and current ownership are linked.
 - Marked `docs/architecture/snapshot-architecture.md` Phase-8 “current/planned” wording as checkpoint history, then separated these documents in the architecture index from canonical current contracts.
 - This slice changes documentation only; local build/CI and exhaustive semantic review of 739 Markdown documents remain outstanding.
+
+## Root-roadmap and translated-overview duplication cleanup (2026-10-11)
+
+- Replaced the repeated numbered phase/MU.6–MU.10 status paragraphs in root `ROADMAP.md` with a compact question-to-authority navigation table. The [Strict Roadmap](../planning/roadmap.md), [CURRENT](../CURRENT.md), existing closeouts and historical phase data were not rewritten. This avoids needing to update the same accepted PR/phase status in several active-facing locations.
+- Marked `docs/project-overview.en.md` and `docs/project-overview.de.md` as language-specific introductions rather than alternative canonical architecture/current-status sources. These are **not** byte-identical duplicates and intentionally remain available in both languages.
+- No files deleted; no runtime/CI/system changes. Paths were checked statically against the complete tree; final-head CI for this docs branch is unverified.
