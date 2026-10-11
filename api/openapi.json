@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "VDR-Suite Public API v1 — verified discovery, Backend and Channel collection subset",
+    "title": "VDR-Suite Public API v1 — source-verified selected contract subset",
     "version": "1.0.0",
-    "description": "PARTIAL public-v1 developer contract for the two discovery GETs, actor-scoped Backend discovery and federated GET Channel collection, checked against source main 8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0 (2026-10-11). Not exhaustive and not a runtime installation/TV acceptance certificate. See api/README.md and ADR-0048."
+    "description": "PARTIAL developer reference, source cross-checked against main 8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0 (2026-10-11). Documents original Phase69.F resources plus selected Human Account reads, global Account Grant reads, and the short-lived Device pairing/polling/credential issuance flow. This is not full current API coverage, complete account/device administration coverage, or installed daemon/VIDAA runtime acceptance."
   },
   "x-vdr-suite-coverage": "partial",
   "tags": [
@@ -26,6 +26,14 @@
     {
       "name": "Operations",
       "description": "Actor-owned durable mutation operation read and reconciliation"
+    },
+    {
+      "name": "Accounts",
+      "description": "Administrator-scoped Human Account and Grant read API; mutations not yet exhaustively specified"
+    },
+    {
+      "name": "Device pairing",
+      "description": "Anonymous/short-lived token bootstrap, polling and one-time credential issuance; administrative approval and Device grants are separate"
     }
   ],
   "paths": {
@@ -1152,6 +1160,727 @@
           }
         }
       }
+    },
+    "/api/v1/accounts": {
+      "get": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "listHumanAccounts",
+        "summary": "Read Human Account identities (global administration permission)",
+        "description": "Requires authenticated accounts.view@*. A scoped grant for only one backend is insufficient. Actor-scoped Device pairing does not grant Account administration. Keyset pagination by accountId ASC, optional 1–100 limit, no collection ETag. This OpenAPI does not yet describe the separately implemented Account CREATE mutation on this collection path.",
+        "x-vdr-suite-partial-path": true,
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "securitySchemeDocumentation": "The accepted suite authenticator/credential transport is deployment-specific; this partial OpenAPI does not invent a generic Bearer scheme.",
+          "authorization": "accounts.view@*"
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Default 50, limit 1–100.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque keyset cursor, at most 4096 characters.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "Only accountId.",
+            "schema": {
+              "type": "string",
+              "const": "accountId",
+              "default": "accountId"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "description": "Only asc.",
+            "schema": {
+              "type": "string",
+              "const": "asc",
+              "default": "asc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Secret-free Account collection: Account IDs, bound Actor IDs, names and active state.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Response must not be stored.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HumanAccountCollection"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed query, unsupported sorting or cursor.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Global accounts.view@* authority denied.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Account read authority or persistence unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounts/{accountId}": {
+      "get": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "getHumanAccount",
+        "summary": "Read one Human Account and opaque revision",
+        "description": "Requires accounts.view@*. Account revision appears only as a strong opaque ETag and not in JSON. Matching If-None-Match yields bodyless 304. POST lifecycle mutation exists in source but is NOT described by this partial spec.",
+        "x-vdr-suite-partial-path": true,
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "securitySchemeDocumentation": "The accepted suite authenticator/credential transport is deployment-specific; this partial OpenAPI does not invent a generic Bearer scheme.",
+          "authorization": "accounts.view@*"
+        },
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "description": "Opaque Human Account ID, not Actor ID or Device ID.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "description": "Optional opaque entity-tag condition. Matching value returns 304 with no body.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Secret-free Account item with ETag.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Response must not be stored.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Strong opaque resource ETag; do not interpret it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HumanAccount"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Unchanged; no body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Response must not be stored.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Strong opaque resource ETag; do not interpret it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid Account identity or If-None-Match syntax.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Global account read permission denied.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Account not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Read failure or inconsistent durable revision.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounts/{accountId}/grants": {
+      "get": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "getHumanAccountGrantSet",
+        "summary": "Read the approved grant set for a Human Account",
+        "description": "Global accounts.grants.view@* required, distinct from accounts.view. Effective supported grants use a separate strong ETag from the Human Account lifecycle ETag. GET takes no query fields. Server exposes only allowlisted supported product grants, supportedPermissions and supportedScopeKinds/options to aid an administrator. POST desired-state grant mutation is separately implemented but not modeled in this partial OpenAPI. These are Human Account grants: Device grants are a different API path/authorization context.",
+        "x-vdr-suite-partial-path": true,
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "securitySchemeDocumentation": "The accepted suite authenticator/credential transport is deployment-specific; this partial OpenAPI does not invent a generic Bearer scheme.",
+          "authorization": "accounts.grants.view@*"
+        },
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "description": "Opaque Human Account ID, not Actor ID or Device ID.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "description": "Optional opaque entity-tag condition. Matching value returns 304 with no body.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Secret-free filtered grants and independently revisioned effective grant set.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Response must not be stored.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Strong opaque resource ETag; do not interpret it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HumanAccountGrantSet"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Grant set unchanged; empty body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Response must not be stored.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Strong opaque resource ETag; do not interpret it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed query or entity-tag condition.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Global grant administration read permission denied.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Account not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Grant read/permission persistence failure.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/device-pairings": {
+      "post": {
+        "tags": [
+          "Device pairing"
+        ],
+        "operationId": "createDevicePairing",
+        "summary": "Begin an anonymous, short-lived Device pairing",
+        "description": "Anonymous bootstrap; it neither authenticates an Actor nor grants Device permissions. Body is a closed JSON object with displayName, clientKind and optional appVersion. No If-Match or Idempotency-Key supported, no query fields. At most 2048 body bytes. Created response returns one-time userCode and pairingToken; preserve transient secret securely and do not log. Successful creation does not imply admin approval, Device identity or credential issuance. A separate administrative GET collection exists but is intentionally not covered by this bootstrap operation.",
+        "x-vdr-suite-partial-path": true,
+        "x-vdr-suite-authentication": {
+          "actorRequired": false,
+          "authorization": "Anonymous bootstrap only; no Actor grants; no durable Device authority acquired."
+        },
+        "x-vdr-suite-max-body-bytes": 2048,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevicePairingCreateInput"
+              },
+              "example": {
+                "displayName": "Hisense 43A6K",
+                "clientKind": "vidaa",
+                "appVersion": "phase1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Short-lived pairing request with one-time userCode and pairingToken.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Response must not be stored.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Location": {
+                "description": "Pairing Request item URI.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePairingCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query, malformed JSON or unsupported If-Match/Idempotency-Key (invalid_request).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Only the POST bootstrap operation is specified here; admin GET is separately implemented.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported media type; application/json required (code invalid_request).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid/unknown presentation metadata (validation_error).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Entropy, hash, storage or audit authority unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/device-pairings/{pairingRequestId}": {
+      "get": {
+        "tags": [
+          "Device pairing"
+        ],
+        "operationId": "pollDevicePairing",
+        "summary": "Poll only the Pairing Request associated with the caller's bootstrap token",
+        "description": "This definition covers the TOKEN-SCOPED bootstrap variant only; without the header, the same route has a separately authorized administrative GET representation and also an administrator POST decision. The token is not an Actor login and does not authenticate general Public-v1 endpoints. Token-scoped GET must not expose the original userCode or pairingToken. Status may be pending, approved or rejected. No query parameters, no ETag, no conditional read; pollIntervalSeconds is advisory to the caller and client polling remains explicit.",
+        "x-vdr-suite-partial-path": true,
+        "x-vdr-suite-authentication": {
+          "actorRequired": false,
+          "authorization": "X-VDR-Suite-Pairing-Token, limited to exactly this Pairing Request; admin GET/POST are distinct variants to document separately."
+        },
+        "parameters": [
+          {
+            "name": "pairingRequestId",
+            "in": "path",
+            "required": true,
+            "description": "Short-lived Pairing Request ID; not a Device identity or credential.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "X-VDR-Suite-Pairing-Token",
+            "in": "header",
+            "required": true,
+            "description": "One-time short-lived opaque token from bootstrap creation. Only authorizes this pairing request and credential issuance; not general Public-v1 Device authentication.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Secret-free token-scoped Pairing Request state.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Response must not be stored.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePairingStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid item identifier or nonempty query.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing/invalid pairing token for polling variant.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Pairing Request missing or invalidated.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "pairing_expired or pairing_consumed: start a fresh pairing when appropriate.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Pairing lookup/storage unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/device-pairings/{pairingRequestId}/credential": {
+      "post": {
+        "tags": [
+          "Device pairing"
+        ],
+        "operationId": "issuePairedDeviceCredential",
+        "summary": "Issue the approved Device identity and a secret exactly once",
+        "description": "Token-scoped one-time issuance after a separate administrator approval. No query, no body, no If-Match and no Idempotency-Key. Successful 201 includes Actor, Device, Credential identifiers and one-time high-entropy credentialSecret. It creates no permission grants and not a Browser Session. The secret can never be recovered after a committed issuance. A duplicate call results in a terminal conflict, not a regenerated secret. Use Authorization: VDR-Suite-Device <credentialId>.<credentialSecret> for later HTTPS Public-v1 calls; do not use pairingToken for that purpose.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": false,
+          "authorization": "Short-lived request-specific pairing token AND approved, unexpired, unconsumed pairing state."
+        },
+        "parameters": [
+          {
+            "name": "pairingRequestId",
+            "in": "path",
+            "required": true,
+            "description": "Short-lived Pairing Request ID; not a Device identity or credential.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "X-VDR-Suite-Pairing-Token",
+            "in": "header",
+            "required": true,
+            "description": "One-time short-lived opaque token from bootstrap creation. Only authorizes this pairing request and credential issuance; not general Public-v1 Device authentication.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "One-time Device credential secret; protect and never log.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Response must not be stored.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceCredentialIssued"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Body/query/preconditions unexpectedly supplied, or invalid item.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Pairing token missing/invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Pairing Request unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "pairing_state_conflict: not approved or already consumed.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "pairing_expired.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Credential creation/storage/audit unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1766,6 +2495,314 @@
                 "type": "string"
               }
             }
+          }
+        }
+      },
+      "HumanAccountCollection": {
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "meta",
+          "links"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HumanAccountListItem"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/BackendPage"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/BackendCollectionMeta"
+          },
+          "links": {
+            "$ref": "#/components/schemas/BackendCollectionLinks"
+          }
+        }
+      },
+      "HumanAccountListItem": {
+        "type": "object",
+        "required": [
+          "accountId",
+          "actorId",
+          "displayName",
+          "active"
+        ],
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "actorId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "HumanAccount": {
+        "type": "object",
+        "required": [
+          "accountId",
+          "actorId",
+          "displayName",
+          "active",
+          "links"
+        ],
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "actorId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "links": {
+            "type": "object",
+            "required": [
+              "self"
+            ],
+            "properties": {
+              "self": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "HumanAccountGrantItem": {
+        "type": "object",
+        "required": [
+          "permission",
+          "backendId"
+        ],
+        "properties": {
+          "permission": {
+            "type": "string"
+          },
+          "backendId": {
+            "type": "string",
+            "description": "Target scope; does not authorize the administrator by itself."
+          }
+        }
+      },
+      "HumanAccountGrantOption": {
+        "type": "object",
+        "required": [
+          "permission",
+          "presentationKey",
+          "category"
+        ],
+        "properties": {
+          "permission": {
+            "type": "string"
+          },
+          "presentationKey": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          }
+        }
+      },
+      "HumanAccountGrantSet": {
+        "type": "object",
+        "required": [
+          "accountId",
+          "actorId",
+          "items",
+          "supportedPermissions",
+          "supportedPermissionOptions",
+          "supportedScopeKinds",
+          "links"
+        ],
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "actorId": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HumanAccountGrantItem"
+            }
+          },
+          "supportedPermissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "supportedPermissionOptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HumanAccountGrantOption"
+            }
+          },
+          "supportedScopeKinds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "links": {
+            "type": "object",
+            "required": [
+              "self"
+            ],
+            "properties": {
+              "self": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "DevicePairingCreateInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "displayName",
+          "clientKind"
+        ],
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "clientKind": {
+            "type": "string",
+            "minLength": 1
+          },
+          "appVersion": {
+            "type": "string"
+          }
+        }
+      },
+      "DevicePairingClientMetadata": {
+        "type": "object",
+        "required": [
+          "displayName",
+          "clientKind",
+          "appVersion"
+        ],
+        "properties": {
+          "displayName": {
+            "type": "string"
+          },
+          "clientKind": {
+            "type": "string"
+          },
+          "appVersion": {
+            "type": "string"
+          }
+        }
+      },
+      "DevicePairingStatus": {
+        "type": "object",
+        "required": [
+          "pairingRequestId",
+          "status",
+          "expiresAt",
+          "pollIntervalSeconds",
+          "client",
+          "links"
+        ],
+        "properties": {
+          "pairingRequestId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected"
+            ]
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "pollIntervalSeconds": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "client": {
+            "$ref": "#/components/schemas/DevicePairingClientMetadata"
+          },
+          "links": {
+            "type": "object",
+            "required": [
+              "self"
+            ],
+            "properties": {
+              "self": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "DevicePairingCreated": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DevicePairingStatus"
+          },
+          {
+            "type": "object",
+            "required": [
+              "userCode",
+              "pairingToken"
+            ],
+            "properties": {
+              "userCode": {
+                "type": "string",
+                "description": "Human display bootstrap code. One-time only."
+              },
+              "pairingToken": {
+                "type": "string",
+                "description": "Short-lived polling and issuance token. One-time response, not a Device credential."
+              }
+            }
+          }
+        ]
+      },
+      "DeviceCredentialIssued": {
+        "type": "object",
+        "required": [
+          "actorId",
+          "deviceId",
+          "credentialId",
+          "credentialSecret"
+        ],
+        "properties": {
+          "actorId": {
+            "type": "string"
+          },
+          "deviceId": {
+            "type": "string"
+          },
+          "credentialId": {
+            "type": "string"
+          },
+          "credentialSecret": {
+            "type": "string",
+            "writeOnly": false,
+            "description": "Returned only on successful first issuance. Never recoverable through polling/GET; keep secret out of logs, URLs and screenshots."
           }
         }
       }

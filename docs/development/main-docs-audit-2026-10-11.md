@@ -32,6 +32,7 @@
 - The dedicated [Backend discovery developer contract](../../api/backend-discovery.md) links implemented route/security/test evidence and documents cursor expiry, filtering and errors.
 - The [Channel collection developer contract](../../api/channel-collection.md) documents explicit source selection, per-backend permissions and partial-federation semantics.
 - The [TimerAssignment guide](../../api/timer-assignments.md) documents actor/backend scoped list and item reads, opaque ETags, conditional 304 and safe `If-Match` + `Idempotency-Key` Timer CREATE admission. The [Operation guide](../../api/operation-status.md) documents actor-owned durable states and safe reconciliation without automatic retries. OpenAPI now covers the original eight accepted Phase-69.F method/resource contracts across seven paths; this is not a claim of complete modern Public-v1 coverage.
+- The [Account/Grant guide](../../api/accounts-and-grants.md) and [Device pairing guide](../../api/device-pairing.md) now specify selected read/bootstrap flows, distinct administrator/Device authority, one-time credential issuance and explicit omitted administration operations. OpenAPI coverage remains partial: 14 method/resource contracts across 13 paths as of this docs-only checkpoint.
 - A route-to-OpenAPI drift guard and complete current public-v1 reference remain open work; no CI/runtime acceptance is claimed for this documentation-only slice.
 
 ## Verification and limits

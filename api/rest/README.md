@@ -8,6 +8,8 @@
 - [Federated Channel collection source contract](../channel-collection.md)
 - [TimerAssignment and protected Timer CREATE source contract](../timer-assignments.md)
 - [Actor-owned durable Operations source contract](../operation-status.md)
+- [Human Accounts and grants read contract](../accounts-and-grants.md)
+- [TV/Device pairing and one-time credential issuance](../device-pairing.md)
 - [Public API compatibility contract (ADR-0048)](../../docs/adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [REST API developer boundary guide](../../docs/development/phase-56.26-rest-api-developer-boundary-guide.md)
 
@@ -32,7 +34,7 @@
 4. If its public-v1 contract is verified and accepted, update [the OpenAPI specification](../openapi.json), examples, reference-client notes and relevant tests in the same implementation change.
 5. Validate on the exact candidate revision; separately record deployment/runtime/TV acceptance where required. A successful source merge is not evidence of deployment.
 
-**Current limitation:** the OpenAPI document covers the two discovery routes, Backend and Channel collections, TimerAssignment collection and item GET/POST, and the durable Operation item; automatic full route-to-spec equivalence checking has not yet been wired into CI.
+**Current limitation:** the OpenAPI document covers the two discovery routes, Backend and Channel collections, TimerAssignment collection and item GET/POST, and the durable Operation item, selected Account/Grant reads and Device pairing bootstrap flows; automatic full route-to-spec equivalence checking has not yet been wired into CI.
 
 ## Back
 
