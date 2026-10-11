@@ -221,6 +221,22 @@ int runRecordingMediaHttpRuntime(
                     profile != "progressive-direct" &&
                     profile != "progressive-fmp4")
                     return error(503, "media_session_profile_unavailable");
+                // This GET is already Device/credential/grant-bound by
+                // describeOwned(). Reuse the same pending-index controller
+                // that Web polls, without exposing its native Recording ID
+                // or unversioned Browser-only mediaPath.
+                const std::string statusRequest =
+                    "{\"operation\":\"playback-status\",\"backendId\":\"" +
+                    owned->backendId + "\",\"sessionId\":\"" + id + "\"}";
+                const ApiResponse index = recordingMediaSessionController
+                    .devicePlaybackStatus(
+                        statusRequest, verifiedDevice.actor.actorId);
+                if (index.statusCode == 200) return index;
+                if (index.statusCode != 409 ||
+                    index.body.find("recording_index_update_not_pending") ==
+                        std::string::npos)
+                    return index;
+
                 ApiResponse response;
                 response.statusCode = 200;
                 response.contentType = "application/json";
