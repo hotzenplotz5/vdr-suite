@@ -197,6 +197,47 @@ int runRecordingMediaHttpRuntime(
                 return created;
             }
             const std::string prefix = collection + "/";
+            // Authenticated Device-only GET /{ms-id}/tracks. Reuse the
+            // first-party track-status controller but project ONLY the
+            // allowlisted track contract, never native recording IDs,
+            // media paths, cookies or worker locations.
+            const std::string tracksSuffix = "/tracks";
+            if (body.empty() && target.rfind(prefix, 0) == 0 &&
+                target.size() == prefix.size() + 35U + tracksSuffix.size() &&
+                target.compare(prefix.size() + 35U, tracksSuffix.size(),
+                               tracksSuffix) == 0) {
+                const std::string id = target.substr(prefix.size(), 35U);
+                const auto owned = deviceSessions.describeOwned(id, verifiedDevice);
+                if (!owned) return error(404, "media_session_not_found");
+                const std::string statusBody =
+                    "{\"operation\":\"track-status\",\"backendId\":\"" +
+                    owned->backendId + "\",\"sessionId\":\"" + id + "\"}";
+                const ApiResponse status = recordingMediaSessionController.handleRequest(
+                    statusBody, verifiedDevice.actor.actorId);
+                if (status.statusCode != 200) return error(
+                    status.statusCode, "recording_tracks_unavailable");
+                const std::string marker = "\"tracks\":";
+                const std::size_t pos = status.body.find(marker);
+                if (pos == std::string::npos || status.body.size() < pos + marker.size() + 5U ||
+                    status.body.size() > 65536U ||
+                    status.body.compare(status.body.size() - 2U, 2U, "}}") != 0)
+                    return error(503, "recording_tracks_invalid");
+                const std::string tracks =
+                    status.body.substr(pos + marker.size(),
+                                       status.body.size() - pos - marker.size() - 2U);
+                if (tracks.size() < 2U || tracks.front() != '{' ||
+                    tracks.back() != '}')
+                    return error(503, "recording_tracks_invalid");
+                ApiResponse reply;
+                reply.statusCode = 200;
+                reply.contentType = "application/json";
+                reply.headers["Cache-Control"] = "no-store";
+                reply.headers["X-Content-Type-Options"] = "nosniff";
+                reply.body = "{\"mediaSession\":{\"id\":\"" + id +
+                    "\",\"backendId\":\"" + owned->backendId +
+                    "\",\"state\":\"ready\",\"tracks\":" + tracks + "}}";
+                return reply;
+            }
             // Versioned Device-only GET /{ms-id}. Never return the native
             // Recording ID, worker location, provider URL or media secret.
             if (body.empty() &&
@@ -233,6 +274,34 @@ int runRecordingMediaHttpRuntime(
                     "\",\"presentationProfileId\":\"" +
                     profile + "\"}}";
                 return response;
+            }
+            // Subtitle delivery is an explicit Device-owned mutation. Its
+            // WebVTT bytes are prepared by the existing first-party
+            // converter. No Browser Session credentials/paths are used.
+            if (target.rfind(prefix, 0) == 0 &&
+                target.size() == prefix.size() + 35U + 10U &&
+                target.compare(prefix.size() + 35U, 10U, "/subtitles") == 0) {
+                const std::string id = target.substr(prefix.size(), 35U);
+                const auto request = RecordingMediaSessionRequestParser()
+                    .parseSubtitleTrackSelection(body);
+                if (!request.valid || request.sessionId != id)
+                    return error(400, "invalid_device_subtitle_selection");
+                if (!deviceSessions.owned(id, request.backendId, verifiedDevice))
+                    return error(403, "device_media_session_not_owned");
+                ApiResponse result = recordingMediaSessionController.handleRequest(
+                    body, verifiedDevice.actor.actorId);
+                result.headers.erase("Set-Cookie");
+                result.headers["Cache-Control"] = "no-store";
+                result.headers["X-Content-Type-Options"] = "nosniff";
+                // Fail closed if a faulty upstream converter emits unexpected
+                // content; never send an unbounded subtitle body to a TV.
+                if (result.statusCode == 200 &&
+                    (result.body.size() > 8U * 1024U * 1024U ||
+                     (request.subtitleTrackId != "off" &&
+                      (result.contentType.rfind("text/vtt", 0) != 0 ||
+                       result.body.rfind("WEBVTT", 0) != 0))))
+                    return error(503, "device_subtitle_delivery_invalid");
+                return result;
             }
             if (target.rfind(prefix, 0) == 0 &&
                 target.size() > prefix.size() + 5U &&
