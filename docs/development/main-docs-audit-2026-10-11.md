@@ -28,8 +28,9 @@
 ## Public API documentation bootstrap
 
 - The previously empty `api/README.md` and `api/rest/README.md` now give developers a source-linked API entry point and REST implementation boundary.
-- A **partial** OpenAPI 3.1 JSON contract covers verified `GET /api/v1`, `GET /api/v1/capabilities` and actor-filtered `GET /api/v1/backends` models, query semantics and errors. Other implemented routes are not silently promoted to stable public-v1 contracts.
+- A **partial** OpenAPI 3.1 JSON contract covers verified `GET /api/v1`, `GET /api/v1/capabilities` actor-filtered `GET /api/v1/backends` and federated `GET /api/v1/channels` models, query semantics and errors. Other implemented routes are not silently promoted to stable public-v1 contracts.
 - The dedicated [Backend discovery developer contract](../../api/backend-discovery.md) links implemented route/security/test evidence and documents cursor expiry, filtering and errors.
+- The [Channel collection developer contract](../../api/channel-collection.md) documents explicit source selection, per-backend permissions and partial-federation semantics.
 - A route-to-OpenAPI drift guard and complete current public-v1 reference remain open work; no CI/runtime acceptance is claimed for this documentation-only slice.
 
 ## Verification and limits
