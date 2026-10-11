@@ -1,5 +1,20 @@
 # Public-v1 VIDAA Recording audio and subtitle Device routes (draft)
 
+> **b20261011.9 Device-track candidate (2026-10-11, development only):**
+> This isolated branch `work/vidaa-device-track-api-for-b20261011-9`
+> extends existing Browser-backed trackStatus, audioTrackId HLS session
+> creation and subtitleWebVtt over owned Device Public-v1 routes.
+> It also incorporates the bounded, symlink-rejecting named .srt
+> sidecar lookup from draft PR #449 and constrains Device WebVTT to
+> 1 MiB (matching the paired VIDAA consumer). Both GET /tracks and
+> POST /subtitles validate canonical `ms_<32hex>` IDs, while Device
+> authentication, live play grant and session ownership remain required.
+> **No Index-Updater or Recording index files are modified here.**
+> Do not deploy this branch as a replacement for the running backend
+> without verifying the actually installed server revision and preserving
+> all existing index/duration work. No backend production change is
+> authorized by this branch or by successful CI alone.
+
 Review-only branch `work/vidaa-public-v1-track-selection-20261011`,
 PR https://github.com/hotzenplotz5/vdr-suite/pull/446 .
 **Not merged, not approved for server deployment.**
