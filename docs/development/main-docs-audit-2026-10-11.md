@@ -89,3 +89,9 @@ The initial branch inventory found **22 zero-byte Markdown files**. In this docu
 - Corrected the obsolete blanket Navigation/Back heading mandate, documented the **actual** current `test-docs` recipe (including scoped OpenAPI guard and unit tests), and separated source build/test from deployed-runtime acceptance.
 - Clarified that the multi-backend topology illustration is not an installation claim; the current Agent, registry and authorization boundaries are source-backed.
 - No Makefile, CI, security or runtime changes were made; tests remain unexecuted in this GitHub-only review.
+
+## PR #452 CI compatibility correction
+
+- The initial PR check run `38166892812` exposed a stale dashboard label versus the accepted Phase-69 closeout guards (`tools/check_phase69e_closeout.py` and `tools/check_phase69_closeout.py`); this is a **documentation classification drift**, not a reason to alter historical guard evidence.
+- Restored the guarded `Stable public API/SDK | Completed numbered domain` row and separately documented additive Account/Device Recording R2 contracts and their unverified client/hardware acceptance.
+- Initial PR architecture/docs jobs failed; passing final CI must be verified independently after this fix. No CI success is inferred from this edit.

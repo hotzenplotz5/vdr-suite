@@ -29,7 +29,8 @@ This page is a capability dashboard, not a second operational-status authority. 
 | Native Recording marks/cutting | Completed non-numbered capability | VDR remains canonical marks/cutter authority. |
 | Teletext / HbbTV | Completed numbered domain | Phase 67 / ADR-0054 / Phase-67 closeout. |
 | Legacy OSD compatibility | Completed numbered domain | Phase 68 / ADR-0047 / Phase-68 closeout. |
-| Public API / SDK and additive R2 | Completed Phase-69 numbered baseline; later bounded candidate | Eight original Phase-69.F contracts have accepted reference-client coverage. Later Account contracts and the Recording R2/Device work must be tracked independently; merged `main` code does not imply R2 hardware or external-client acceptance. |
+| Stable public API/SDK | Completed numbered domain | Phase 69; original Phase-69.F reference-client contracts remain historically accepted. |
+| Additive Account and Device Recording R2 APIs | Separately gated expansion | Later Account contracts and Recording R2/Device source must be tracked independently; merged code does not imply hardware or external-client acceptance. |
 | Recommendation/content graph | Later vision | Phase 70. |
 
 ## Current Home capability
