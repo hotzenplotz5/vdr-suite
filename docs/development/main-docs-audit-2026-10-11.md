@@ -151,3 +151,9 @@ The initial branch inventory found **22 zero-byte Markdown files**. In this docu
 - Marked `post-phase66-native-recording-editing-status.md` as a 2026-09-07 installed-runtime snapshot rather than a living page: its 'Phase 67 has not started' was true only at that historical checkpoint.
 - Marked Phase-10 diagnostics snapshot and old lazy-loading implementation plan as historical, leaving original implementation/test evidence intact. Current gaps are to be verified from the architecture gap matrix and source, not assumed from an old milestone.
 - Added architecture index links under the historical section. No runtime, API code, installations, current ADRs, accepted closeouts or phase gates changed. No Markdown deleted; backlink/validator impact must be established before later deletions.
+
+## CI #9928 static historical-marker compatibility (2026-10-11)
+
+- The first PR #453 CI on `fb45313bc8dcc551cca2cdd4c55733c3ecfd0651` failed architecture and docs/fast guards because the root `ROADMAP.md` had dropped the exact accepted Phase-69 and Legacy Basic retirement completion markers when consolidating redundant live status. The underlying accepted runtime/phase contracts were unchanged.
+- Restored only the required **stable historical completion markers**, with links to the canonical closeouts, instead of recreating the full parallel live roadmap/MU status list. Required tokens derive from `tools/check_phase69_closeout.py` and `tools/check_p2_enforced_legacy_basic_retirement.py`.
+- A passing PR CI must be confirmed on this follow-up head; prior failing run #9928 is not acceptance evidence for the corrected commit.
