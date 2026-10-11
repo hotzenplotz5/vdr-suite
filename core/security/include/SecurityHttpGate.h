@@ -347,6 +347,12 @@ public:
         const bool isPublicDeviceRecordingSessionRead =
             request.method == "GET" &&
             path.rfind(playbackStopPrefix, 0) == 0;
+        const bool isPublicDeviceRecordingSubtitle =
+            isPost && path.rfind(playbackStopPrefix, 0) == 0 &&
+            path.size() > playbackStopPrefix.size() +
+                std::string("/subtitle").size() &&
+            path.compare(path.size() - 9U, 9U, "/subtitle") == 0 &&
+            path.find('/', playbackStopPrefix.size()) == path.size() - 9U;
         const bool isPublicDeviceRecordingSessionStop =
             isPost && path.rfind(playbackStopPrefix, 0) == 0 &&
             path.size() > playbackStopPrefix.size() +
@@ -824,7 +830,8 @@ public:
             isPublicAccountSessionMutation ||
             isPublicTimerAssignmentCreate ||
             isPublicDeviceRecordingSessionCreate ||
-            isPublicDeviceRecordingSessionStop || isTimerUpdateAction ||
+            isPublicDeviceRecordingSessionStop ||
+            isPublicDeviceRecordingSubtitle || isTimerUpdateAction ||
             isTimerDeleteAction || isChannelMoveAction || isRecordingExecutionAction ||
             isRecordingMarksModifyAction || isRecordingCutAction ||
             isSearchTimerCreateAction || isSearchTimerUpdateAction || isSearchTimerDeleteAction ||
@@ -1633,7 +1640,8 @@ public:
                 "A verified Device credential is required for recording playback", "");
         }
         if (isPublicDeviceRecordingSessionCreate ||
-            isPublicDeviceRecordingSessionStop)
+            isPublicDeviceRecordingSessionStop ||
+            isPublicDeviceRecordingSubtitle)
         {
             // Match the canonical PublicRecordingPlaybackTargetResolver's
             // backend grammar before authorization or domain resolution.
