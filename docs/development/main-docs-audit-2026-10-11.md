@@ -162,3 +162,16 @@ The initial branch inventory found **22 zero-byte Markdown files**. In this docu
 
 - The updated root-roadmap navigation still needed to preserve the static `MU.6C`, `MU.6D`, `MU.7`, `REAL YAVDR` and `MU.8` historical progress markers consumed by the accepted P2/MU architecture guards. PR #453 CI #9929 flagged this exact gap; the guarded runtime contracts were unchanged.
 - Inserted one compact historical summary linking to the canonical Multiuser workstream and `CURRENT`, rather than a second mutable list of all PRs/current phases. No test outcome claimed on this new head until the corresponding PR run completes.
+
+## Post-PR-453 documentation taxonomy and bounded pruning (2026-10-11)
+
+- PR #453 merged into `main` at `23ea528d651eb8422cb5ae997fb25f2620465439` after exact PR-head CI #9930 succeeded. The post-merge main CI is a separate check and must be verified independently.
+- Added [`docs/documentation-guide.md`](../documentation-guide.md) as a question-to-authority map for current references; added [`docs/history/index.md`](../history/index.md) as a cross-directory historical navigation hub; neither creates a second CURRENT status file nor moves accepted closeouts.
+- Added [`docs/development/documentation-pruning-review.md`](documentation-pruning-review.md) with per-file evidence and protect/retain/defer decisions. The 739-file recursive Markdown inventory had no exact duplicate content blobs; semantic equivalence is **not** established for every file.
+- Removed two short generic, non-indexed development leaf pages (`contributor-guide.md`, `release-process.md`) after content overlap and zero indexed filename backlinks were checked. Canonical `CONTRIBUTING.md`, `AGENTS.md`, onboarding, documentation standards, Make and packaging pages remain the relevant instructions. External bookmarks are an acknowledged residual risk.
+- The old 64-file roadmap and accepted historical ADRs, closeouts, phase/provenance and real-device evidence are preserved. All operations are documentation-only; no yaVDR/database/Recording state touched. CI result of this new cleanup head must be checked separately.
+
+## Canonical contributor guidance correction (2026-10-11)
+
+- Follow-up discovered root `CONTRIBUTING.md` still hardcoded `git checkout phase-2-actions` and described heading/back requirements beyond the current actual docs checker. Updated that living contributor authority to demand verified branch provenance, scoped checks and exact PR-head GitHub CI rather than obsolete phase branches or unproved blanket local `make test` runs.
+- This correction is intentionally part of the same follow-up cleanup PR as deletion of the redundant contributor leaf, so that its surviving replacement is accurate. Runtime/build/check implementations remain untouched; a fresh PR-head CI is required after the new commit.

@@ -124,6 +124,10 @@ Growing-Recording seek and Live-TV timeshift remain truthful deferred capability
 
 ## Developer references
 
+- [Documentation Guide / authority map](../documentation-guide.md)
+- [Historical Documentation Hub](../history/index.md)
+- [Pruning Decisions and Deletion Evidence](documentation-pruning-review.md)
+- [Canonical contribution instructions](../../CONTRIBUTING.md)
 - [Developer Onboarding](developer-onboarding.md)
 - [Build System State](build-system-state.md)
 - [GitHub Actions Status Handoff](github-actions-status-handoff.md)

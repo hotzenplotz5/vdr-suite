@@ -12,7 +12,7 @@ These rules are non-negotiable and must be checked before every implementation c
 6. Do not use `sed` for code changes unless it is clearly the safest and smallest tool for the job.
 7. Do not generate CRAP patches, broad rewrites or unrelated cleanup.
 8. Keep patches minimal, reviewable and tied to the proven cause.
-9. Run the matching checks before commit.
+9. Establish the relevant validation for the exact candidate; hosted PR CI may provide the final result after the commit.
 10. Commit only explicit files, never `git add .`.
 11. Patch only after the intended change is understood.
 12. If the diagnosis is uncertain, stop and ask instead of guessing.
@@ -30,6 +30,8 @@ These rules are non-negotiable and must be checked before every implementation c
 * [Project Overview](docs/project-overview.md)
 * [Development Documentation](docs/development/index.md)
 * [Architecture Documentation](docs/architecture/index.md)
+* [Documentation authority and history guide](docs/documentation-guide.md)
+* [Repository agent/workflow rules](AGENTS.md)
 
 ---
 
@@ -43,6 +45,8 @@ Contributions should follow the documented architecture and development workflow
 
 ## Before You Start
 
+Start with the [Documentation Guide](docs/documentation-guide.md) to distinguish current and historical sources. Automated repository work additionally follows [AGENTS.md](AGENTS.md).
+
 Please read:
 
 * [Project Overview](docs/project-overview.md)
@@ -52,27 +56,11 @@ Please read:
 
 ## Development Workflow
 
-Typical workflow:
+Work on the **explicitly selected, verified current branch**, never an old phase name copied from a document. Read the current `main` and branch heads, `AGENTS.md`, and the relevant source before editing. Keep changes reviewable and use fast-forward-only updates.
 
-```bash
-git checkout phase-2-actions
+Pick checks by scope: the [Make infrastructure](mk/README.md) describes supported target groups; documentation checks are wired through [`make test-docs`](mk/maintenance-tests.mk), and GitHub Actions verifies the PR's **exact commit**. A docs-only change does not require automatically rerunning the full C++ test graph locally or interacting with a live VDR host. Fix a failing check at its evidenced cause, then verify the final head in hosted CI.
 
-make test
-
-make test-docs
-```
-
-Implement changes.
-
-Run all checks again:
-
-```bash
-make test
-
-make test-docs
-```
-
-Commit only after all checks pass.
+Never deploy, restart services, modify VDR recordings/databases, alter credentials or change a protected branch without the separately required authorization and acceptance gates.
 
 ## Documentation Requirements
 
@@ -87,21 +75,9 @@ When adding or changing functionality:
 
 ## Documentation Quality Gate
 
-The documentation quality gate verifies:
+The implemented documentation gates verify Markdown headings and relative links, directory index rules, required root-README reachability, and further scoped API/ADR/phase contracts. They **do not** require literal `## Navigation` and `## Back` headings on every page, nor complete machine-readable OpenAPI coverage. See [Documentation Standards](docs/development/documentation-standards.md).
 
-* navigation sections
-* back sections
-* valid markdown links
-* complete index structures
-* documentation reachability from README.md
-
-Run:
-
-```bash
-make test-docs
-```
-
-before committing documentation changes.
+Run `make test-docs` in a verified checkout when appropriate, or use the repository's hosted **docs-check** on the exact PR head as the validation evidence. Do not report a check as passed solely because its command is documented.
 
 ## Architecture Changes
 
