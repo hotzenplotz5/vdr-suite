@@ -105,11 +105,25 @@ ApiResponse PublicRecordingDeviceMediaSessionResponse::afterActivation(
     const std::string path =
         externalMediaBase.substr(0, externalMediaBase.size() - 1U) +
         suffix(ready.presentationProfileId);
+    // Device clients must not guess a complete Recording's duration from
+    // an unbounded HLS MediaSource. Use the server's indexed truth.
+    const int duration = ready.durationSeconds > 0 ?
+        ready.durationSeconds : 0;
+    const bool supported = duration > 0 && ready.resumeSupported;
+    const bool preparing = !supported && ready.indexPreparing;
+    const std::string playback =
+        "{\"durationSeconds\":" +
+        (duration > 0 ? std::to_string(duration) : "null") +
+        ",\"resume\":{\"supported\":" +
+        std::string(supported ? "true" : "false") +
+        ",\"preparing\":" +
+        std::string(preparing ? "true" : "false") + "}}";
     result.body = "{\"mediaSession\":{\"id\":\"" +
         ready.sessionId + "\",\"state\":\"ready\",\"backendId\":\"" +
         ready.backendId + "\",\"recordingId\":\"" +
         ready.publicRecordingId + "\",\"presentationProfileId\":\"" +
         ready.presentationProfileId + "\",\"mediaPath\":\"" +
-        path + "\",\"expiresAt\":\"" + ready.expiresAt + "\"}}";
+        path + "\",\"playback\":" + playback +
+        ",\"expiresAt\":\"" + ready.expiresAt + "\"}}";
     return result;
 }
