@@ -3,7 +3,7 @@
   "info": {
     "title": "VDR-Suite Public API v1 — source-verified selected contract subset",
     "version": "1.0.0",
-    "description": "PARTIAL developer reference, source cross-checked against main 8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0 (2026-10-11). Documents original Phase69.F resources plus Human Account lifecycle/CREATE, grant desired-state read/write, Device pairing/approval/credential issuance, Device grant administration, Device/Credential revoke and one-time credential rotation, plus Human Account Credential/Browser Session metadata and item revoke. This is not full current API coverage, complete account/device administration coverage, or installed daemon/VIDAA runtime acceptance."
+    "description": "PARTIAL developer reference, source cross-checked against main 8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0 (2026-10-11). Documents original Phase69.F resources plus Human Account lifecycle/CREATE, grant desired-state read/write, Device pairing/approval/credential issuance, Device grant administration, Device/Credential revoke and one-time credential rotation, plus Human Account Credential/Browser Session metadata and item revoke, authorized Recording keyset/folder browse, recording genre facets and EPG now/next cached reads. This is not full current API coverage, complete account/device administration coverage, or installed daemon/VIDAA runtime acceptance."
   },
   "x-vdr-suite-coverage": "partial",
   "tags": [
@@ -46,6 +46,18 @@
     {
       "name": "Human security administration",
       "description": "Global administrator-only secret-free Credential/Browser Session metadata and safe lifecycle revocation"
+    },
+    {
+      "name": "Recording browse",
+      "description": "Authorized Suite recording identity, bounded keyset recording collection and folder-aware view"
+    },
+    {
+      "name": "Recording genres",
+      "description": "Backend-scoped recording genre facets and genre-membership listing"
+    },
+    {
+      "name": "EPG",
+      "description": "Read-only per-channel cached EPG now/next; not a live refresh"
     }
   ],
   "paths": {
@@ -4797,6 +4809,590 @@
           }
         }
       }
+    },
+    "/api/v1/recordings": {
+      "get": {
+        "tags": [
+          "Recording browse"
+        ],
+        "operationId": "listOrBrowsePublicRecordings",
+        "summary": "List authorized recordings or browse a folder hierarchy",
+        "description": "Requires recordings.view@backendId. Two exclusive query modes exist on the same GET URL. Default/list: backendId, limit (1–100; default 50), opaque rc1_ cursor, optional sort=recordingId and order=asc; keyset recordingId order with page.nextCursor and links. Folder mode: view=folders, optional folderId matching fld1_+32 lowercase hex, limit (1–100), offset (0–1,000,000); returns mixed kind=folder/kind=recording items and offset/totalCount pagination. Folder mode prohibits cursor/sort/order; list mode prohibits folderId/offset. Folder leaf items may be recorded as kind=recording even when representing a single-recording title folder. Durable Suite recordingId is rec_+32 lowercase hex, not a native path or playable media URL. No collection ETag, native path, backendNativeId or automatic playlist/session creation.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "recordings.view@backendId; exactly one authorized backend; permission checked in SecurityHttpGate and runtime scope",
+          "securitySchemeDocumentation": "A supported deployed actor credential is required; this partial spec still does not define all authentication transport schemes."
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "description": "Exactly one authorized backend scope; per-backend permission applies. Never infer an automatic default.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]+$",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Default 50; inclusive range 1–100.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque rc1_-prefixed, backend-scoped keyset cursor; only for default list view. Scope mismatch returns 409 cursor_expired.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "List view only.",
+            "schema": {
+              "type": "string",
+              "const": "recordingId"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "description": "List view only.",
+            "schema": {
+              "type": "string",
+              "const": "asc"
+            }
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "description": "Enable folder browsing; when omitted use keyset list view.",
+            "schema": {
+              "type": "string",
+              "const": "folders"
+            }
+          },
+          {
+            "name": "folderId",
+            "in": "query",
+            "required": false,
+            "description": "Folder mode only, 37-byte fld1_ plus 32 lowercase hexadecimal characters.",
+            "schema": {
+              "type": "string",
+              "pattern": "^fld1_[0-9a-f]{32}$"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000,
+              "default": 0
+            },
+            "description": "Offset in backend-scoped folder/genre view. Not a cursor."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Either the keyset recording collection or folder browse representation (selected by view=folders).",
+            "headers": {
+              "Cache-Control": {
+                "description": "No storage.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RecordingCollection"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RecordingFolderBrowse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed backendId, view combination, cursor, paging or unknown query.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "recordings.view denied on requested backend.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "cursor_expired: list cursor belongs to different backend scope.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Recording repository/provider, consistency check or security accountability unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/genres": {
+      "get": {
+        "tags": [
+          "Recording genres"
+        ],
+        "operationId": "listRecordingGenres",
+        "summary": "List genre facet counts from one authorized recording backend",
+        "description": "Requires recordings.view@backendId; no special genres.view grant. Closed query with backendId and optional locale=de|en, limit=1–30 (default 30), offset 0–1,000,000. genreId is invalid on this root. Offset pagination returns totalCount and hasMore; no cursor or ETag. Genre count is not a live VDR timer/source path.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "recordings.view@backendId; exactly one authorized backend; permission checked in SecurityHttpGate and runtime scope",
+          "securitySchemeDocumentation": "A supported deployed actor credential is required; this partial spec still does not define all authentication transport schemes."
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "description": "Exactly one authorized backend scope; per-backend permission applies. Never infer an automatic default.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]+$",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Default 30; inclusive range 1–30.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30,
+              "default": 30
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000,
+              "default": 0
+            },
+            "description": "Offset in backend-scoped folder/genre view. Not a cursor."
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "description": "Presentation locale of displayed genre label.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "de",
+                "en"
+              ],
+              "default": "de"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Genre IDs, localized labels and counts for the requested backend.",
+            "headers": {
+              "Cache-Control": {
+                "description": "No storage.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordingGenreCollection"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid, duplicate, unsupported or backend-scope-mismatched query.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authenticated actor required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Backend-scoped read grant denied.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Provider, backend, cache or auditing authority unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/genres/recordings": {
+      "get": {
+        "tags": [
+          "Recording genres"
+        ],
+        "operationId": "listRecordingsForGenre",
+        "summary": "List recording identities in a genre, with bounded offset pagination",
+        "description": "Requires recordings.view@backendId. The genreId identifier must be 1–128 letters/digits/dot/dash/underscore. Closed query: backendId, genreId, optional locale=de|en, limit=1–30 default 30, offset up to 1,000,000. Items contain Suite-owned recordingId, backendId, title, recordedAt, durationSeconds, durationKnown; no native path. page.totalCount supports bounded pagination; no ETag or auto-play.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "recordings.view@backendId; exactly one authorized backend; permission checked in SecurityHttpGate and runtime scope",
+          "securitySchemeDocumentation": "A supported deployed actor credential is required; this partial spec still does not define all authentication transport schemes."
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "description": "Exactly one authorized backend scope; per-backend permission applies. Never infer an automatic default.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]+$",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "genreId",
+            "in": "query",
+            "required": true,
+            "description": "Opaque genre key, bounded alphanumeric/dot/hyphen/underscore.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]+$",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Default 30; inclusive range 1–30.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30,
+              "default": 30
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000,
+              "default": 0
+            },
+            "description": "Offset in backend-scoped folder/genre view. Not a cursor."
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "description": "Presentation locale of displayed genre label.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "de",
+                "en"
+              ],
+              "default": "de"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bounded recording membership page for one genre.",
+            "headers": {
+              "Cache-Control": {
+                "description": "No storage.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordingGenreMembership"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid, duplicate, unsupported or backend-scope-mismatched query.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authenticated actor required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Backend-scoped read grant denied.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Provider, backend, cache or auditing authority unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/epg/now-next": {
+      "get": {
+        "tags": [
+          "EPG"
+        ],
+        "operationId": "getCachedEpgNowNext",
+        "summary": "Read up to two cached EPG events for one authorized backend/channel",
+        "description": "Requires epg.view@backendId independently of channels.view. Strict query: backendId, channelId (1–256 alphanumeric/dot/hyphen/underscore), fromTime decimal Unix epoch seconds with 10–12 digits and no leading zero, optional limit 1 or 2 (default 2). Returns cached read-model only; no live refresh, private provider fields, native event IDs or implicit network requests. A 200 with empty items means no cached match, NOT that the source had no real programmes. No pagination cursor/offset, no ETag.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "epg.view@backendId; exactly one authorized backend; permission checked in SecurityHttpGate and runtime scope",
+          "securitySchemeDocumentation": "A supported deployed actor credential is required; this partial spec still does not define all authentication transport schemes."
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "description": "Exactly one authorized backend scope; per-backend permission applies. Never infer an automatic default.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]+$",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "channelId",
+            "in": "query",
+            "required": true,
+            "description": "Channel identity from selected backend, no path separators.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]+$",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "fromTime",
+            "in": "query",
+            "required": true,
+            "description": "Unix epoch seconds as canonical 10–12 digit decimal text.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{9,11}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "At most two cached events.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2,
+              "default": 2
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "At most two cache events for the specified channel, hasMore always false.",
+            "headers": {
+              "Cache-Control": {
+                "description": "No storage.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EpgNowNext"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid, duplicate, unsupported or backend-scope-mismatched query.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authenticated actor required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Backend-scoped read grant denied.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown requested channel within the selected backend.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Provider, backend, cache or auditing authority unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -6209,6 +6805,368 @@
                 "type": "string"
               }
             }
+          }
+        }
+      },
+      "PublicNonpartialMeta": {
+        "type": "object",
+        "required": [
+          "partial"
+        ],
+        "properties": {
+          "partial": {
+            "type": "boolean",
+            "const": false
+          }
+        }
+      },
+      "PublicOffsetPage": {
+        "type": "object",
+        "required": [
+          "limit",
+          "offset",
+          "totalCount",
+          "hasMore"
+        ],
+        "properties": {
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "totalCount": {
+            "type": "integer"
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PublicRecordingItem": {
+        "type": "object",
+        "required": [
+          "recordingId",
+          "backendId",
+          "title",
+          "recordedAt",
+          "durationSeconds",
+          "durationKnown",
+          "description",
+          "sizeMb"
+        ],
+        "properties": {
+          "recordingId": {
+            "type": "string",
+            "pattern": "^rec_[0-9a-f]{32}$"
+          },
+          "backendId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "type": "string"
+          },
+          "durationSeconds": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "durationKnown": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string"
+          },
+          "sizeMb": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "RecordingCollection": {
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "meta",
+          "links"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicRecordingItem"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/BackendPage"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PublicNonpartialMeta"
+          },
+          "links": {
+            "$ref": "#/components/schemas/BackendCollectionLinks"
+          }
+        }
+      },
+      "RecordingFolderItem": {
+        "type": "object",
+        "required": [
+          "kind",
+          "folderId",
+          "name",
+          "recordingCount"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "folder"
+          },
+          "folderId": {
+            "type": "string",
+            "pattern": "^fld1_[0-9a-f]{32}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "recordingCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "RecordingFolderLeaf": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PublicRecordingItem"
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "recording"
+              }
+            }
+          }
+        ]
+      },
+      "RecordingFolderBrowse": {
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "meta"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/RecordingFolderItem"
+                },
+                {
+                  "$ref": "#/components/schemas/RecordingFolderLeaf"
+                }
+              ]
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/PublicOffsetPage"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PublicNonpartialMeta"
+          }
+        }
+      },
+      "PublicGenreItem": {
+        "type": "object",
+        "required": [
+          "genreId",
+          "label",
+          "labelDe",
+          "labelEn",
+          "count"
+        ],
+        "properties": {
+          "genreId": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "labelDe": {
+            "type": "string"
+          },
+          "labelEn": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "PublicGenreRecordingItem": {
+        "type": "object",
+        "required": [
+          "recordingId",
+          "backendId",
+          "title",
+          "recordedAt",
+          "durationSeconds",
+          "durationKnown"
+        ],
+        "properties": {
+          "recordingId": {
+            "type": "string",
+            "pattern": "^rec_[0-9a-f]{32}$"
+          },
+          "backendId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "type": "string"
+          },
+          "durationSeconds": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "durationKnown": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RecordingGenreCollection": {
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "meta"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicGenreItem"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/PublicOffsetPage"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PublicNonpartialMeta"
+          }
+        }
+      },
+      "RecordingGenreMembership": {
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "meta"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicGenreRecordingItem"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/PublicOffsetPage"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PublicNonpartialMeta"
+          }
+        }
+      },
+      "PublicEpgNowNextItem": {
+        "type": "object",
+        "required": [
+          "channelId",
+          "title",
+          "subtitle",
+          "startTime",
+          "endTime",
+          "durationSeconds"
+        ],
+        "properties": {
+          "channelId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "subtitle": {
+            "type": "string"
+          },
+          "startTime": {
+            "type": "string",
+            "description": "Unix seconds text."
+          },
+          "endTime": {
+            "type": "string",
+            "description": "Unix seconds text."
+          },
+          "durationSeconds": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "EpgNowNext": {
+        "type": "object",
+        "required": [
+          "backendId",
+          "channelId",
+          "items",
+          "page",
+          "meta"
+        ],
+        "properties": {
+          "backendId": {
+            "type": "string"
+          },
+          "channelId": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 2,
+            "items": {
+              "$ref": "#/components/schemas/PublicEpgNowNextItem"
+            }
+          },
+          "page": {
+            "type": "object",
+            "required": [
+              "limit",
+              "hasMore"
+            ],
+            "properties": {
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2
+              },
+              "hasMore": {
+                "type": "boolean",
+                "const": false
+              }
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PublicNonpartialMeta"
           }
         }
       }

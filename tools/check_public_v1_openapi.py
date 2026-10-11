@@ -26,6 +26,10 @@ AUDITED = {
     "/api/v1/capabilities": {"get": 'if (path == "/api/v1/capabilities")'},
     "/api/v1/backends": {"get": "if (path == PublicBackendCollectionPath)"},
     "/api/v1/channels": {"get": "if (path == PublicChannelCollectionPath)"},
+    "/api/v1/recordings": {"get": "if (path == PublicRecordingCollectionPath)"},
+    "/api/v1/genres": {"get": "if (path == PublicGenreCollectionPath || path == PublicGenreRecordingPath)"},
+    "/api/v1/genres/recordings": {"get": "if (path == PublicGenreCollectionPath || path == PublicGenreRecordingPath)"},
+    "/api/v1/epg/now-next": {"get": "if (path == PublicEpgNowNextPath)"},
     "/api/v1/timer-assignments": {"get": "if (path == PublicTimerAssignmentCollectionPath)"},
     "/api/v1/timer-assignments/{timerAssignmentId}": {
         "get": "if (publicTimerAssignmentPath(",

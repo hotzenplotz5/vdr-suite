@@ -49,6 +49,19 @@ class OpenApiDriftTests(unittest.TestCase):
         )
         self.assert_rejected(source=source, reason="source route handler anchor disappeared")
 
+    def test_missing_recording_browse_route(self):
+        changed = copy.deepcopy(self.document)
+        del changed["paths"]["/api/v1/recordings"]
+        self.assert_rejected(changed, reason="audited path inventory changed")
+
+    def test_missing_epg_handler(self):
+        changed_source = self.source.replace(
+            "if (path == PublicEpgNowNextPath)",
+            "if (path == ObsoleteEpgNowNextPath)",
+            1,
+        )
+        self.assert_rejected(source=changed_source, reason="source route handler anchor disappeared")
+
     def test_dangling_schema(self):
         changed = copy.deepcopy(self.document)
         changed["paths"]["/api/v1/accounts"]["get"]["responses"]["200"]["content"]["application/json"]["schema"] = {

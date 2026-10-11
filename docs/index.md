@@ -15,7 +15,7 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 
 ## Start here
 
-- [Public API developer entry point and OpenAPI 3.1 subset](../api/README.md) — verified discovery contract and remaining coverage gaps
+- [Public API developer entry point and OpenAPI 3.1 subset](../api/README.md) — 36 source-reviewed operations, current coverage limits and the drift guard
 
 - [Project Principles](project-principles.md) — stable product/architecture principles.
 - [Current State](CURRENT.md) — sole volatile operational authority.

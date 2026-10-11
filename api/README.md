@@ -15,6 +15,7 @@
 - [Administrator pairing approval and Device grant management](device-administration.md)
 - [Human Account create/lifecycle/grant mutations](account-mutations.md)
 - [Human Credential and Browser Session administration](account-security-administration.md)
+- [Recording browse, genre facets and EPG now/next](recording-browse-epg.md)
 - [Device and Credential revocation/rotation](device-lifecycle.md)
 - [Public API compatibility ADR-0048](../docs/adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [Public v1 reference client](../clients/reference-js/README.md)
@@ -23,7 +24,7 @@
 
 **Documentation bootstrap — 2026-10-11; source baseline main `8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0`.**
 
-The OpenAPI file currently specifies exactly **32 source-verified HTTP method/resource contracts** across **21 path templates**: discovery root/capabilities, Backend and Channel collections, TimerAssignment collection and item GET, protected TimerAssignment item POST for Timer CREATE, and actor-owned Operation item GET, with selected Account/Device security administration contracts detailed below. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
+The OpenAPI file currently specifies exactly **36 source-verified HTTP method/resource contracts** across **25 path templates**: discovery root/capabilities, Backend and Channel collections, TimerAssignment collection and item GET, protected TimerAssignment item POST for Timer CREATE, and actor-owned Operation item GET, with selected Account/Device security administration contracts detailed below. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
 
 The public-v1 contract is distinct from older or browser-private `/api/...` routes, transport/provider implementation details, and the independent acceptance state of the VIDAA app.
 
@@ -65,9 +66,13 @@ The [Account/Grant guide](accounts-and-grants.md) documents three global-adminis
 
 The [Credential/Session administration guide](account-security-administration.md) covers secret-free Account Credential and Browser Session collections, independent item lifecycle ETags and synchronous administrator revocation. In contrast with item GETs, collection GETs are **not paginated and have no ETag**. Revoking a human-password Credential also fences its issuing Browser Sessions and preserves the final usable administrator.
 
+## Recording, genre and EPG read contracts
+
+[Recording/genre/EPG guide](recording-browse-epg.md) documents four additional backend-scoped GET operations. The Recording endpoint has **two deliberately different pagination modes** (keyset list vs offset folder view), genre membership uses offset, and cached EPG now/next returns at most two items. These are read-only metadata contracts, **not** Device Recording playback or media-track endpoints.
+
 ## What is implemented but not yet in this OpenAPI subset?
 
-The source contains additional public-v1 resources still **outside this partial OpenAPI**, notably Account password reset/rotation (if and when accepted), Device metadata and administration surfaces, Recording and genre browsing, and Device-owned Recording playback/media-track routes. The Account lifecycle/CREATE, Account and Device grants, Device revocation/rotation, and Account Credential/Session revoke operations listed above **are documented**; no further route is promoted merely because it appears in the implementation code.
+The source contains additional public-v1 resources still **outside this partial OpenAPI**, notably Account password reset/rotation (if and when accepted), Device metadata and administration surfaces, Device-owned Recording playback/media-track routes. The Account lifecycle/CREATE, Account and Device grants, Device revocation/rotation, and Account Credential/Session revoke operations listed above **are documented**; no further route is promoted merely because it appears in the implementation code.
 
 For extension work, audit the exact route, method, response, authentication/permission rules, error cases, tests, and accepted contract status **before** adding each operation to `openapi.json`. The historical [Phase 69.F client matrix](../docs/development/phase-69f-client-contract-matrix.json) is bounded evidence, **not** a complete present-day route manifest.
 
@@ -84,7 +89,7 @@ Relevant implementation and verification entry points:
 
 The dependency-free [audited Public-v1 checker](../tools/check_public_v1_openapi.py) and its [regression tests](../tools/tests/test_public_v1_openapi.py) are run by the existing `make test-docs` CI job. They fail when an audited method/path disappears from this OpenAPI, a matching actual C++ GET/POST handler anchor disappears, a local schema reference is missing, path parameters/operation IDs become inconsistent, or a documented strong precondition or actor/token boundary is weakened. No runtime credentials or server connection is involved.
 
-The inventory is deliberately **limited to the 32 already source-reviewed methods**, not the entire present-day Public-v1 API. Newly introduced routes still require a deliberate API review and explicit expansion of the audited inventory; this is not full OpenAPI Schema validation or proof of live HTTP behavior. GitHub CI for this branch is only automatically triggered when its workflow event rules match (e.g. a PR), so code inclusion alone does not prove the CI job has run.
+The inventory is deliberately **limited to the 36 already source-reviewed methods**, not the entire present-day Public-v1 API. Newly introduced routes still require a deliberate API review and explicit expansion of the audited inventory; this is not full OpenAPI Schema validation or proof of live HTTP behavior. GitHub CI for this branch is only automatically triggered when its workflow event rules match (e.g. a PR), so code inclusion alone does not prove the CI job has run.
 
 ## Maintenance rule
 
