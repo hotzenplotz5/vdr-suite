@@ -233,12 +233,16 @@ int runRecordingMediaHttpRuntime(
                 // envelope, which closes with exactly two braces.
                 if (at == std::string::npos ||
                     internal.body.size() < at + marker.size() + 4U ||
+                    internal.body.size() > 65536U ||
                     internal.body.compare(internal.body.size() - 2U, 2U, "}}") != 0 ||
                     internal.body[at + marker.size()] != '{')
                     return error(503, "recording_track_projection_invalid");
                 const std::string tracks = internal.body.substr(
                     at + marker.size(),
                     internal.body.size() - 2U - (at + marker.size()));
+                if (tracks.size() < 2U || tracks.front() != '{' ||
+                    tracks.back() != '}')
+                    return error(503, "recording_track_projection_invalid");
                 ApiResponse projected;
                 projected.statusCode = 200;
                 projected.contentType = "application/json";
@@ -354,6 +358,18 @@ int runRecordingMediaHttpRuntime(
                 ApiResponse result = recordingMediaSessionController.handleRequest(
                     safeRequest, verifiedDevice.actor.actorId);
                 result.headers.erase("Set-Cookie");
+                result.headers["Cache-Control"] = "no-store";
+                result.headers["X-Content-Type-Options"] = "nosniff";
+                // Restrict the Device delivery only; do not modify the
+                // established Browser subtitle controller/converter.
+                if (result.statusCode == 200 &&
+                    (result.body.size() > 1024U * 1024U ||
+                     (selection.subtitleTrackId != "off" &&
+                      (result.contentType.rfind("text/vtt", 0) != 0 ||
+                       result.body.rfind("WEBVTT", 0) != 0)) ||
+                     (selection.subtitleTrackId == "off" &&
+                      result.contentType != "application/json")))
+                    return error(503, "device_subtitle_delivery_invalid");
                 return result;
             }
             if (target.rfind(prefix, 0) == 0 &&
