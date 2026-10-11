@@ -100,6 +100,52 @@ int main()
     assert(active.reasonCode == "recording_index_update_recording_active");
     assert(spawnCalls == 1);
 
+    // VDR 2.7.9 --updindex is an alias for --genindex, which unlinks
+    // an existing index. Ensure the Suite refuses any index entry.
+    const std::filesystem::path existingRoot = root.parent_path() /
+        ("vdr-suite-index-updater-existing-" + std::to_string(::getpid()) + ".rec");
+    std::filesystem::create_directories(existingRoot);
+    const std::filesystem::path existingSegment = existingRoot / "00001.ts";
+    const std::filesystem::path existingIndex = existingRoot / "index";
+    {
+        std::ofstream output(existingSegment, std::ios::binary);
+        output << "transport-stream";
+        std::ofstream idx(existingIndex, std::ios::binary);
+        idx << "existing-original-index-must-survive";
+    }
+    const auto existing = updater.ensure(existingRoot.string(),
+        {existingSegment.string()});
+    assert(existing.state == VdrRecordingIndexUpdateState::Failed);
+    assert(existing.reasonCode == "recording_index_update_existing_index_unsafe");
+    {
+        std::ifstream indexStream(existingIndex, std::ios::binary);
+        std::string indexContents;
+        std::getline(indexStream, indexContents);
+        assert(indexContents == "existing-original-index-must-survive");
+    }
+    assert(spawnCalls == 1);
+    std::filesystem::remove(existingIndex);
+
+    // A dangling symlink must not be interpreted as a missing index.
+    std::filesystem::create_symlink("missing-target", existingIndex);
+    const auto symlinked = updater.ensure(existingRoot.string(),
+        {existingSegment.string()});
+    assert(symlinked.state == VdrRecordingIndexUpdateState::Failed);
+    assert(symlinked.reasonCode == "recording_index_update_existing_index_unsafe");
+    assert(std::filesystem::is_symlink(existingIndex));
+    assert(spawnCalls == 1);
+    std::filesystem::remove(existingIndex);
+    {
+        std::ofstream legacyIndex(existingRoot / "index.vdr", std::ios::binary);
+        legacyIndex << "preserve legacy index entry";
+    }
+    const auto legacyIndexResult = updater.ensure(existingRoot.string(),
+        {existingSegment.string()});
+    assert(legacyIndexResult.state == VdrRecordingIndexUpdateState::Failed);
+    assert(legacyIndexResult.reasonCode ==
+        "recording_index_update_existing_index_unsafe");
+    assert(spawnCalls == 1);
+
     const std::filesystem::path legacyRoot = root.parent_path() /
         ("vdr-suite-index-updater-legacy-" + std::to_string(::getpid()) + ".rec");
     std::filesystem::create_directories(legacyRoot);
@@ -129,5 +175,6 @@ int main()
     std::filesystem::remove_all(root);
     std::filesystem::remove_all(activeRoot);
     std::filesystem::remove_all(legacyRoot);
+    std::filesystem::remove_all(existingRoot);
     return 0;
 }
