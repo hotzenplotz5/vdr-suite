@@ -3,7 +3,7 @@
   "info": {
     "title": "VDR-Suite Public API v1 — source-verified selected contract subset",
     "version": "1.0.0",
-    "description": "PARTIAL developer reference, source cross-checked against main 8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0 (2026-10-11). Documents original Phase69.F resources plus selected Human Account reads, global Account Grant reads, and the short-lived Device pairing/polling/credential issuance flow. This is not full current API coverage, complete account/device administration coverage, or installed daemon/VIDAA runtime acceptance."
+    "description": "PARTIAL developer reference, source cross-checked against main 8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0 (2026-10-11). Documents original Phase69.F resources plus Human Account lifecycle/CREATE, grant desired-state read/write, Device pairing/approval/credential issuance, Device grant administration, Device/Credential revoke and one-time credential rotation. This is not full current API coverage, complete account/device administration coverage, or installed daemon/VIDAA runtime acceptance."
   },
   "x-vdr-suite-coverage": "partial",
   "tags": [
@@ -38,6 +38,10 @@
     {
       "name": "Device administration",
       "description": "Explicit global administrative pairing approval and Device grant management"
+    },
+    {
+      "name": "Device lifecycle",
+      "description": "Admin-only Device/Credential read, revocation and once-only credential rotation"
     }
   ],
   "paths": {
@@ -1172,8 +1176,7 @@
         ],
         "operationId": "listHumanAccounts",
         "summary": "Read Human Account identities (global administration permission)",
-        "description": "Requires authenticated accounts.view@*. A scoped grant for only one backend is insufficient. Actor-scoped Device pairing does not grant Account administration. Keyset pagination by accountId ASC, optional 1–100 limit, no collection ETag. This OpenAPI does not yet describe the separately implemented Account CREATE mutation on this collection path.",
-        "x-vdr-suite-partial-path": true,
+        "description": "Requires authenticated accounts.view@*. A scoped grant for only one backend is insufficient. Actor-scoped Device pairing does not grant Account administration. Keyset pagination by accountId ASC, optional 1–100 limit, no collection ETag. POST Account CREATE is specified independently with an Idempotency-Key.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "securitySchemeDocumentation": "The accepted suite authenticator/credential transport is deployment-specific; this partial OpenAPI does not invent a generic Bearer scheme.",
@@ -1287,6 +1290,152 @@
             }
           }
         }
+      },
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "createHumanAccount",
+        "summary": "Create a Human Account with durable bounded idempotency",
+        "description": "Protected authenticated accounts.create@* operation with Browser Session CSRF when applicable. Closed JSON body loginName/displayName/password; max 4096 bytes. The password is request-only and never returned, persisted in plaintext or used in idempotency fingerprint. Idempotency scope binds actor and caller key plus non-secret fields. Exact replay returns the existing account (201), even if supplied password differs, without resetting credential. Reusing key with different non-secret fields is 409 idempotency_conflict. No automatic grants or admin role assignment.",
+        "x-vdr-suite-max-body-bytes": 4096,
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "securitySchemeDocumentation": "Global permissions resolved through the deployed SecurityHttpGate; Browser Session CSRF is required for applicable protected mutations.",
+          "authorization": "accounts.create@*"
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160,
+              "pattern": "^[!-~]+$"
+            },
+            "description": "Caller-owned visible ASCII key, 1–160 bytes. Exact replay binds authenticated actor and the same non-secret loginName/displayName fields, not password."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HumanAccountCreateInput"
+              },
+              "example": {
+                "loginName": "viewer",
+                "displayName": "Living Room",
+                "password": "<initial-password>"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "New or idempotently replayed Human Account with strong ETag; Location points to Account item.",
+            "headers": {
+              "Cache-Control": {
+                "description": "No caching.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Current strong opaque revision ETag.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Location": {
+                "description": "New Account item URL /api/v1/accounts/{accountId}.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HumanAccount"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON, missing/malformed Idempotency-Key or unsupported query.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Global creation permission denied or CSRF/read-only role blocks mutation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "idempotency_conflict or operation_conflict (loginName already taken).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "application/json required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "validation_error for invalid/unknown/absent required fields.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Credential hashing or authoritative account/identity/audit persistence unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/accounts/{accountId}": {
@@ -1296,8 +1445,7 @@
         ],
         "operationId": "getHumanAccount",
         "summary": "Read one Human Account and opaque revision",
-        "description": "Requires accounts.view@*. Account revision appears only as a strong opaque ETag and not in JSON. Matching If-None-Match yields bodyless 304. POST lifecycle mutation exists in source but is NOT described by this partial spec.",
-        "x-vdr-suite-partial-path": true,
+        "description": "Requires accounts.view@*. Account revision appears only as a strong opaque ETag and not in JSON. Matching If-None-Match yields bodyless 304. POST lifecycle mutation is specified separately and requires a strong Account ETag.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "securitySchemeDocumentation": "The accepted suite authenticator/credential transport is deployment-specific; this partial OpenAPI does not invent a generic Bearer scheme.",
@@ -1419,6 +1567,219 @@
             }
           }
         }
+      },
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "mutateHumanAccountLifecycle",
+        "summary": "Change a Human Account display name or active state",
+        "description": "One closed JSON member per request: {displayName:string} OR {active:boolean}. Permission is selected by desired action: accounts.modify@* for displayName, accounts.activate@* for true, accounts.deactivate@* for false. Authenticated protected mutation with Browser Session CSRF when applicable; Account ETag If-Match required. Deactivation revokes active Browser Sessions; the final usable administrator cannot be deactivated. Success returns the new secret-free Account resource and ETag. This is not Account DELETE.",
+        "x-vdr-suite-max-body-bytes": 4096,
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "securitySchemeDocumentation": "Global permissions resolved through the deployed SecurityHttpGate; Browser Session CSRF is required for applicable protected mutations.",
+          "authorization": "accounts.modify@* OR accounts.activate@* OR accounts.deactivate@* depending on exactly one requested field"
+        },
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Opaque Human Account ID."
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "description": "Exactly one canonical strong ETag from Account item GET; not Grant-set ETag.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "displayName"
+                    ],
+                    "additionalProperties": false,
+                    "maxProperties": 1,
+                    "properties": {
+                      "displayName": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "active"
+                    ],
+                    "additionalProperties": false,
+                    "maxProperties": 1,
+                    "properties": {
+                      "active": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                ]
+              },
+              "examples": {
+                "rename": {
+                  "value": {
+                    "displayName": "Living Room Admin"
+                  }
+                },
+                "deactivate": {
+                  "value": {
+                    "active": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated Account representation with new strong opaque ETag.",
+            "headers": {
+              "Cache-Control": {
+                "description": "No caching.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Current strong opaque revision ETag.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HumanAccount"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, stale format of If-Match or malformed Account identity.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing matching global permission, read-only role or Browser CSRF denial.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Account not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "operation_conflict: final usable Administrator may not be deactivated.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "revision_conflict: Account changed since If-Match.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "application/json required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid/ambiguous/unknown Account lifecycle body.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "precondition_required: If-Match absent.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Account lifecycle authority unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/accounts/{accountId}/grants": {
@@ -1428,8 +1789,7 @@
         ],
         "operationId": "getHumanAccountGrantSet",
         "summary": "Read the approved grant set for a Human Account",
-        "description": "Global accounts.grants.view@* required, distinct from accounts.view. Effective supported grants use a separate strong ETag from the Human Account lifecycle ETag. GET takes no query fields. Server exposes only allowlisted supported product grants, supportedPermissions and supportedScopeKinds/options to aid an administrator. POST desired-state grant mutation is separately implemented but not modeled in this partial OpenAPI. These are Human Account grants: Device grants are a different API path/authorization context.",
-        "x-vdr-suite-partial-path": true,
+        "description": "Global accounts.grants.view@* required, distinct from accounts.view. Effective supported grants use a separate strong ETag from the Human Account lifecycle ETag. GET takes no query fields. Server exposes only allowlisted supported product grants, supportedPermissions and supportedScopeKinds/options to aid an administrator. POST desired-state grant mutation is specified separately using the Grant-set ETag. These are Human Account grants: Device grants are a different API path/authorization context.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "securitySchemeDocumentation": "The accepted suite authenticator/credential transport is deployment-specific; this partial OpenAPI does not invent a generic Bearer scheme.",
@@ -1542,6 +1902,184 @@
           },
           "503": {
             "description": "Grant read/permission persistence failure.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "operationId": "setHumanAccountGrant",
+        "summary": "Ensure or revoke an allowlisted Human Account permission grant",
+        "description": "Requires global accounts.grants.modify@*; target backendId scope does NOT authorize the administrator. Browser Session CSRF applies. Closed desired-state body {permission,backendId,active}, 4096 bytes max, with strong Grant-set If-Match. Grant ETag is independent of Account lifecycle ETag. Final usable admin role removal fails 409. A stale ETag may succeed only if the requested desired state is already in effect; otherwise 412.",
+        "x-vdr-suite-max-body-bytes": 4096,
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "securitySchemeDocumentation": "Global permissions resolved through the deployed SecurityHttpGate; Browser Session CSRF is required for applicable protected mutations.",
+          "authorization": "accounts.grants.modify@*"
+        },
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Opaque Human Account ID."
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "description": "Opaque strong Grant-set ETag from GET /api/v1/accounts/{accountId}/grants, not the Account ETag.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HumanAccountGrantMutation"
+              },
+              "example": {
+                "permission": "channels.view",
+                "backendId": "backend-one",
+                "active": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Grant mutation accepted as desired-state change, returns entire effective Grant set.",
+            "headers": {
+              "Cache-Control": {
+                "description": "No caching.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Current strong opaque revision ETag.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HumanAccountGrantSet"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON, query or Grant-set If-Match.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing global grant administration or Browser CSRF failed.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Target Account unknown.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "operation_conflict: would remove final usable administrator.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "revision_conflict: effective grant set changed and desired state is not already reached.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "application/json required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unsupported grant permission/scope or invalid closed body.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "precondition_required: strong If-Match missing.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Canonical grant repository/transaction/accountability unavailable.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2537,6 +3075,798 @@
           },
           "503": {
             "description": "Grant store/accountability/service unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/devices/{deviceId}/lifecycle": {
+      "get": {
+        "tags": [
+          "Device lifecycle"
+        ],
+        "operationId": "getDeviceLifecycle",
+        "summary": "Read Device active/revoked lifecycle with opaque ETag",
+        "description": "Requires devices.lifecycle.view@*. Returns canonical Device/Service Actor metadata and empty string credentialId for the device-level resource; no secret. If-None-Match can yield 304 with empty body.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "securitySchemeDocumentation": "Global permissions resolved through the deployed SecurityHttpGate; Browser Session CSRF is required for applicable protected mutations.",
+          "authorization": "devices.lifecycle.view@*"
+        },
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Canonical Device ID."
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque ETag from a previous GET, supports 304 without response body."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Device lifecycle state with revision ETag.",
+            "headers": {
+              "Cache-Control": {
+                "description": "No caching.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Current strong opaque revision ETag.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceLifecycle"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Unchanged, no response body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "No caching.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Current strong opaque revision ETag.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed path, query or If-None-Match.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Global lifecycle read permission denied.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Device not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Canonical lifecycle lookup unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Device lifecycle"
+        ],
+        "operationId": "revokeDevice",
+        "summary": "Revoke the complete Device, invalidating all of its credentials",
+        "description": "Authenticated administrator-only protected revocation of a Device. Device revoke makes ALL of its associated credentials fail subsequent authentication. Request body is exactly {} (at most 4096 bytes) with application/json, no query or Idempotency-Key. Caller must supply the canonical strong lifecycle resource If-Match. A repeated revoke of the already revoked resource is successful; an unrelated stale active revision is 412. The original paired Account/Actor grant history is not modified.",
+        "x-vdr-suite-max-body-bytes": 4096,
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "securitySchemeDocumentation": "Global permissions resolved through the deployed SecurityHttpGate; Browser Session CSRF is required for applicable protected mutations.",
+          "authorization": "devices.revoke@*"
+        },
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Canonical Device ID."
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "description": "Exactly one canonical strong ETag acquired from a previous GET.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "maxProperties": 0,
+                "additionalProperties": false
+              },
+              "example": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Revoke completed or resource was already in the requested revoked state.",
+            "headers": {
+              "Cache-Control": {
+                "description": "No caching.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Current strong opaque revision ETag.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceLifecycle"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, query, Idempotency-Key, strong If-Match or wrong resource ETag.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin permission/Browser CSRF denied.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Device/Credential not found or not owned by this Device.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "revision_conflict: active lifecycle revision stale.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "application/json required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "validation_error: nonempty JSON body or invalid revoke.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "precondition_required: If-Match required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lifecycle authority/storage/audit unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/devices/{deviceId}/credentials/{credentialId}/lifecycle": {
+      "get": {
+        "tags": [
+          "Device lifecycle"
+        ],
+        "operationId": "getDeviceCredentialLifecycle",
+        "summary": "Read one credential's Device-bound lifecycle and ETag",
+        "description": "Requires devices.lifecycle.view@*. Credential must belong to the Device and be a canonical device-app credential with verified binding. Read contains no secret; optional If-None-Match returns 304.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "securitySchemeDocumentation": "Global permissions resolved through the deployed SecurityHttpGate; Browser Session CSRF is required for applicable protected mutations.",
+          "authorization": "devices.lifecycle.view@*"
+        },
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Canonical Device ID."
+          },
+          {
+            "name": "credentialId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Credential owned by this canonical Device."
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque ETag from a previous GET, supports 304 without response body."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Device Credential lifecycle state without plaintext secret.",
+            "headers": {
+              "Cache-Control": {
+                "description": "No caching.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Current strong opaque revision ETag.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceLifecycle"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Unchanged, empty body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "No caching.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Current strong opaque revision ETag.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed identifier, query or conditional header.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Global lifecycle read permission denied.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Device/Credential not found or ownership mismatch.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lifecycle metadata authority unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Device lifecycle"
+        ],
+        "operationId": "revokeDeviceCredential",
+        "summary": "Revoke one Device Credential without re-enabling any other credential",
+        "description": "Authenticated administrator-only protected revocation of one canonical device-app credential bound to the Device. Other independently active credentials on the same Device are not revoked by this targeted operation. Request body is exactly {} (at most 4096 bytes) with application/json, no query or Idempotency-Key. Caller must supply the canonical strong lifecycle resource If-Match. A repeated revoke of the already revoked resource is successful; an unrelated stale active revision is 412. The original paired Account/Actor grant history is not modified.",
+        "x-vdr-suite-max-body-bytes": 4096,
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "securitySchemeDocumentation": "Global permissions resolved through the deployed SecurityHttpGate; Browser Session CSRF is required for applicable protected mutations.",
+          "authorization": "devices.credentials.revoke@*"
+        },
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Canonical Device ID."
+          },
+          {
+            "name": "credentialId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Credential owned by this canonical Device."
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "description": "Exactly one canonical strong ETag acquired from a previous GET.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "maxProperties": 0,
+                "additionalProperties": false
+              },
+              "example": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Revoke completed or resource was already in the requested revoked state.",
+            "headers": {
+              "Cache-Control": {
+                "description": "No caching.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Current strong opaque revision ETag.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceLifecycle"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, query, Idempotency-Key, strong If-Match or wrong resource ETag.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin permission/Browser CSRF denied.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Device/Credential not found or not owned by this Device.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "revision_conflict: active lifecycle revision stale.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "application/json required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "validation_error: nonempty JSON body or invalid revoke.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "precondition_required: If-Match required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lifecycle authority/storage/audit unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/devices/{deviceId}/credentials/{credentialId}/rotate": {
+      "post": {
+        "tags": [
+          "Device lifecycle"
+        ],
+        "operationId": "rotateDeviceCredential",
+        "summary": "Atomically revoke the current credential and deliver a successor secret exactly once",
+        "description": "Administrator Browser Session REQUIRED (not merely a Device credential), global devices.credentials.rotate@*, and Browser CSRF. Request only {} up to 4096 bytes, no query or Idempotency-Key, with If-Match from the ACTIVE predecessor's credential lifecycle GET. A successful 200 includes new credentialId and one-time credentialSecret; predecessor becomes revoked and existing Service Actor grants remain unchanged. This is NOT an idempotent replay interface. Same-predecessor retry after commit is 412 revision_conflict with NO secret. If response is lost after commit, no old/new plaintext secret can be recovered; require explicit administrative recovery/pairing workflow.",
+        "x-vdr-suite-max-body-bytes": 4096,
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "admin Browser Session, devices.credentials.rotate@*, protected mutation CSRF; Device authorization alone is explicitly forbidden."
+        },
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Canonical Device ID."
+          },
+          {
+            "name": "credentialId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Credential owned by this canonical Device."
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "description": "Exactly one strong active predecessor Credential lifecycle ETag; not Device or Grant-set ETag.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "maxProperties": 0,
+                "additionalProperties": false
+              },
+              "example": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "New credential and one-time secret; successor replaces predecessor.",
+            "headers": {
+              "Cache-Control": {
+                "description": "No caching.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Pragma": {
+                "description": "Additional no-cache.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-cache"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RotatedDeviceCredential"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed/wrong resource If-Match, unexpected query or Idempotency-Key.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Administrator authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Must be authorized Browser Session with Device rotation permission and CSRF.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Predecessor Credential/Device not found or ownership mismatch.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "revision_conflict: predecessor no longer active or already rotated (NO replayed secret).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "application/json required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "validation_error: nonempty/oversized JSON body or invalid rotation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "precondition_required: If-Match absent.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Entropy/hash, transaction, audit or rotation authority unavailable.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3572,6 +4902,107 @@
                 "media.recording.play"
               ]
             }
+          }
+        }
+      },
+      "HumanAccountCreateInput": {
+        "type": "object",
+        "required": [
+          "loginName",
+          "displayName",
+          "password"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "loginName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "format": "password",
+            "writeOnly": true,
+            "description": "Request-only secret, never present in response or idempotency fingerprint."
+          }
+        }
+      },
+      "HumanAccountGrantMutation": {
+        "type": "object",
+        "required": [
+          "permission",
+          "backendId",
+          "active"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "permission": {
+            "type": "string",
+            "description": "Only server-advertised supported effective product grants/roles."
+          },
+          "backendId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Managed target scope, wildcard or product backend, distinct from administrator authority."
+          },
+          "active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DeviceLifecycle": {
+        "type": "object",
+        "required": [
+          "deviceId",
+          "actorId",
+          "credentialId",
+          "active",
+          "revoked"
+        ],
+        "properties": {
+          "deviceId": {
+            "type": "string"
+          },
+          "actorId": {
+            "type": "string"
+          },
+          "credentialId": {
+            "type": "string",
+            "description": "Empty string for a Device-level lifecycle; Credential ID for credential-level lifecycle."
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "revoked": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RotatedDeviceCredential": {
+        "type": "object",
+        "required": [
+          "deviceId",
+          "actorId",
+          "credentialId",
+          "credentialSecret"
+        ],
+        "properties": {
+          "deviceId": {
+            "type": "string"
+          },
+          "actorId": {
+            "type": "string"
+          },
+          "credentialId": {
+            "type": "string"
+          },
+          "credentialSecret": {
+            "type": "string",
+            "description": "One-time issuance response only. No GET, logs or replay of this secret."
           }
         }
       }

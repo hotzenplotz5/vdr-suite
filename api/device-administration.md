@@ -8,6 +8,7 @@
 - [Human Account grant boundary](accounts-and-grants.md)
 - [MU.10B accepted administrator pairing approval](../docs/development/post-phase69-mu10b-admin-pairing-approval.md)
 - [MU.10E1 Device grant contract](../docs/development/post-phase69-mu10e1-device-grant-administration.md)
+- [Device/Credential revoke and rotation](device-lifecycle.md)
 
 ## Source baseline and authority
 

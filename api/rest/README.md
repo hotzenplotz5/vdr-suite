@@ -11,6 +11,8 @@
 - [Human Accounts and grants read contract](../accounts-and-grants.md)
 - [TV/Device pairing and one-time credential issuance](../device-pairing.md)
 - [Administrator pairing approval and Device grants](../device-administration.md)
+- [Account mutation contract](../account-mutations.md)
+- [Device revoke and rotation contract](../device-lifecycle.md)
 - [Public API compatibility contract (ADR-0048)](../../docs/adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [REST API developer boundary guide](../../docs/development/phase-56.26-rest-api-developer-boundary-guide.md)
 

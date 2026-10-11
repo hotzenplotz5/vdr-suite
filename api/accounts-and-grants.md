@@ -6,6 +6,7 @@
 - [OpenAPI 3.1 partial contract](openapi.json)
 - [Device pairing and Device-grant boundary](device-pairing.md)
 - [Administrative Device grant API](device-administration.md)
+- [Human Account create/lifecycle/grant mutations](account-mutations.md)
 - [MU.6B Account item and ETag acceptance](../docs/development/post-phase69-mu6b-public-account-item.md)
 - [MU.7 accepted Account Grant administration](../docs/development/post-phase69-mu7-account-grant-administration.md)
 - [Public-v1 compatibility contract](../docs/adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)
@@ -53,7 +54,7 @@ Requires the distinct global permission `accounts.grants.view@*`. Grants are sor
 
 The support arrays above are **illustrative**, not an exhaustive hardcoded permission allowlist. Use the server response as authority. The Grant-set ETag is independently derived from supported effective grants; it does **not** equal the Human Account ETag. `If-None-Match` works like other revisioned read resources.
 
-The source also implements desired-state `POST /api/v1/accounts/{accountId}/grants` using `accounts.grants.modify@*`, `If-Match`, a closed `{permission,backendId,active}` body, and protection of the final usable administrator. That mutation is **not yet in this partial OpenAPI**; never infer its request from the GET schema. Account permission grants and Device permission grants are separate target scopes; the Device-specific GET/POST contract is documented in [Device administration](device-administration.md). Pairing by itself does not grant any Device permission.
+The [mutation guide](account-mutations.md) and OpenAPI specify desired-state `POST /api/v1/accounts/{accountId}/grants` using `accounts.grants.modify@*`, `If-Match`, a closed `{permission,backendId,active}` body, and protection of the final usable administrator. The mutation requires the grant-set ETag and is distinct from the Account item ETag. Account permission grants and Device permission grants are separate target scopes; the Device-specific GET/POST contract is documented in [Device administration](device-administration.md). Pairing by itself does not grant any Device permission.
 
 ## Error behavior
 
