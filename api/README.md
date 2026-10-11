@@ -80,9 +80,15 @@ Relevant implementation and verification entry points:
 - [Public-v1 reference client](../clients/reference-js/public-v1-client.js)
 - [Merged Device Recording playback contract](../docs/development/public-v1-device-recording-playback.md)
 
+## Automatic audited OpenAPI drift check
+
+The dependency-free [audited Public-v1 checker](../tools/check_public_v1_openapi.py) and its [regression tests](../tools/tests/test_public_v1_openapi.py) are run by the existing `make test-docs` CI job. They fail when an audited method/path disappears from this OpenAPI, a matching actual C++ GET/POST handler anchor disappears, a local schema reference is missing, path parameters/operation IDs become inconsistent, or a documented strong precondition or actor/token boundary is weakened. No runtime credentials or server connection is involved.
+
+The inventory is deliberately **limited to the 32 already source-reviewed methods**, not the entire present-day Public-v1 API. Newly introduced routes still require a deliberate API review and explicit expansion of the audited inventory; this is not full OpenAPI Schema validation or proof of live HTTP behavior. GitHub CI for this branch is only automatically triggered when its workflow event rules match (e.g. a PR), so code inclusion alone does not prove the CI job has run.
+
 ## Maintenance rule
 
-API changes must be reviewed together with the **matching developer contract**, tests and classification (public-v1, pre-v1 transition, first-party private, or internal/provider). Updating a static OpenAPI file alone does **not** prove conformance. Automated route/spec drift enforcement has **not yet been implemented** as part of this documentation bootstrap and remains required follow-up work.
+API changes must be reviewed together with the **matching developer contract**, tests and classification (public-v1, pre-v1 transition, first-party private, or internal/provider). Updating a static OpenAPI file alone does **not** prove conformance. Bounded audited route/spec drift enforcement is now wired into `make test-docs`; a complete route-discovery and formal OpenAPI security/schema conformance gate remains follow-up work.
 
 ## Back
 

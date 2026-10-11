@@ -38,7 +38,7 @@
 4. If its public-v1 contract is verified and accepted, update [the OpenAPI specification](../openapi.json), examples, reference-client notes and relevant tests in the same implementation change.
 5. Validate on the exact candidate revision; separately record deployment/runtime/TV acceptance where required. A successful source merge is not evidence of deployment.
 
-**Current limitation:** the OpenAPI document covers 32 audited HTTP method/resource contracts across 21 URL templates, including discovery, Backend/Channel/TimerAssignment/Operation, Account mutations and grants, Device pairing, Device grants, revocation and credential rotation. It is not a complete public-v1 inventory; the operation-specific authentication alternatives still need a formal OpenAPI `securitySchemes` model and automatic route-to-spec equivalence checking has not been wired into CI.
+**Current limitation:** the OpenAPI document covers 32 audited HTTP method/resource contracts across 21 URL templates, including discovery, Backend/Channel/TimerAssignment/Operation, Account mutations and grants, Device pairing, Device grants, revocation and credential rotation. It is not a complete public-v1 inventory; the operation-specific authentication alternatives still need a formal OpenAPI `securitySchemes` model and a bounded audited-handler-to-spec check now runs in `make test-docs`, but complete discovery and OpenAPI Schema/security equivalence checking remain open.
 
 ## Back
 
