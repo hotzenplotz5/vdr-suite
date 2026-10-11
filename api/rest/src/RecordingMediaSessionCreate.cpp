@@ -701,6 +701,9 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
         ready.trustedExternalPrefix = externalMediaPrefix;
         ready.trustedCookiePrefix = cookiePrefix;
         ready.lifetimeSeconds = MediaSessionLifetimeSeconds;
+        ready.durationSeconds = truthfulDurationSeconds;
+        ready.resumeSupported = resumeSupported;
+        ready.indexPreparing = indexPreparing;
         ApiResponse deviceResponse =
             PublicRecordingDeviceMediaSessionResponse::afterActivation(ready);
         if (deviceResponse.statusCode != 201) {
