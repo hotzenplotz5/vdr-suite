@@ -1,5 +1,12 @@
 # Contribution Guides
 
+> **Historical contribution-process sketches.** The linked checklists and
+> example `make` commands preserve the early roadmap's intentions; they
+> are not current test, tag, release or merge instructions. For working
+> procedures use [CONTRIBUTING](../../../CONTRIBUTING.md), [AGENTS](../../../AGENTS.md),
+> [Developer Onboarding](../../development/developer-onboarding.md) and the
+> actual [Make targets](../../../mk/maintenance-tests.mk).
+
 ## Navigation
 
 - [README](../../../README.md)
