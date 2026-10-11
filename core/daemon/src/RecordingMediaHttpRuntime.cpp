@@ -249,6 +249,41 @@ int runRecordingMediaHttpRuntime(
                     profile + "\",\"tracks\":" + tracks + "}}";
                 return response;
             }
+            // Device-only subtitle operation: reuse the canonical
+            // Webfrontend converter, but never expose its Browser endpoint.
+            // SecurityHttpGate requires a verified Device + playback grant;
+            // the live Device-session registry checks current ownership
+            // again before invoking the canonical actor-owned controller.
+            if (target.rfind(prefix, 0) == 0 &&
+                target.size() == prefix.size() + 35U + 9U &&
+                target.compare(target.size() - 9U, 9U, "/subtitle") == 0 &&
+                target.compare(prefix.size(), 3U, "ms_") == 0 &&
+                std::all_of(
+                    target.begin() + prefix.size() + 3U,
+                    target.begin() + prefix.size() + 35U,
+                    [](unsigned char ch) {
+                        return (ch >= '0' && ch <= '9') ||
+                               (ch >= 'a' && ch <= 'f');
+                    })) {
+                const std::string id = target.substr(prefix.size(), 35U);
+                const auto request =
+                    RecordingMediaSessionRequestParser().parseSubtitleTrackSelection(body);
+                if (!request.valid || request.sessionId != id)
+                    return error(400, "invalid_device_subtitle_request");
+                if (!deviceSessions.owned(
+                        id, request.backendId, verifiedDevice))
+                    return error(403, "device_media_session_not_owned");
+                ApiResponse vtt = recordingMediaSessionController.handleRequest(
+                    body, verifiedDevice.actor.actorId);
+                vtt.headers.erase("Set-Cookie");
+                // No unbounded WebVTT may be served through the Device
+                // path; the managed VIDEO <track> must stay lightweight.
+                if (vtt.statusCode == 200 &&
+                    vtt.contentType.find("text/vtt") == 0 &&
+                    vtt.body.size() > 2097152U)
+                    return error(413, "device_subtitle_too_large");
+                return vtt;
+            }
             if (target.rfind(prefix, 0) == 0 &&
                 target.size() > prefix.size() + 5U &&
                 target.compare(target.size() - 5U, 5U, "/stop") == 0) {
