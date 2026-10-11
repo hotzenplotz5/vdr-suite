@@ -99,7 +99,7 @@ class InstallerTests(unittest.TestCase):
                          "for arg in \"$@\"; do case \"$arg\" in BUILD_DIR=*) out=$(printf '%s' \"$arg\" | cut -c11-);; esac; done\n"
                          "mkdir -p \"$out\"\n"
                          f"echo built >> '{counter}'\n"
-                         f"printf '%s\\n' 'git-{new[:12]} device_subtitle_delivery_invalid track-status /tracks /subtitles' > \"$out/vdr-suite-daemon\"\n"
+                         f"printf '\\177ELFgit-{new[:12]} device_subtitle_delivery_invalid track-status /tracks /subtitles\\n' > \"$out/vdr-suite-daemon\"\n"
                          "chmod 755 \"$out/vdr-suite-daemon\"\n")
         faker.chmod(0o755)
         with mock.patch.object(mod, "free_budget"):
@@ -117,7 +117,7 @@ class InstallerTests(unittest.TestCase):
         new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// no schema\n")
         directory, binary, seal = mod.candidate(self.root, new)
         directory.mkdir(parents=True)
-        binary.write_bytes(b"git-" + new[:12].encode() + b" " + b" ".join(mod.FEATURES))
+        binary.write_bytes(b"\x7fELFgit-" + new[:12].encode() + b" " + b" ".join(mod.FEATURES))
         binary.chmod(0o755)
         with mock.patch.object(mod, "free_budget"):
             with mock.patch.object(mod.subprocess, "run", side_effect=AssertionError("make must not run")):
@@ -128,7 +128,7 @@ class InstallerTests(unittest.TestCase):
     def _sealed_binary(self, new):
         directory, binary, seal = mod.candidate(self.root, new)
         directory.mkdir(parents=True)
-        binary.write_bytes(b"git-" + new[:12].encode() + b" " + b" ".join(mod.FEATURES))
+        binary.write_bytes(b"\x7fELFgit-" + new[:12].encode() + b" " + b" ".join(mod.FEATURES))
         binary.chmod(0o755)
         seal.write_text(__import__("json").dumps({"schema": 1, "source": new,
                                                      "binary_sha256": mod.digest(binary)}))
