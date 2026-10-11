@@ -95,6 +95,48 @@ endpoint and observed counts are unique time-bound evidence, not current
 deployment instructions. No accepted ADR, slice/phase closeout, security
 test or real-yaVDR proof was edited, relocated or removed.
 
+### Historical roadmap — complete bounded content pass
+
+Read all **64 Markdown bodies** listed by the `docs/roadmap/` directory
+inventory at the pre-banner round-3 checkpoint
+`13b7ea87a4a9fc7279338d50c804009049457fe0`:
+root README (1), contribution sketches (5), final examples (5),
+Phase 11–14 (8), Phase 15 (6), Phase 16 (3), Phase 17 (2),
+Phase 18 (32) and the miscellaneous phases group (2).
+This is a content pass of this **one archive**, not of all repository docs.
+
+- The many short Phase-18 documents have recurring navigation/Goals/Expected
+  Result scaffolding, but address **different original concerns**:
+  identity, discovery, versioning, safety, permissions, trust, backend-specific
+  channel/recording/Timer views, offline behavior, conflict resolution and
+  remote jobs. Repetitive formatting is not evidence of interchangeable
+  technical meaning. All 32 remain discoverable from
+  [the Phase-18 index](../roadmap/phase-18/index.md); that index now explains
+  the difference from accepted ADR-0060/0061 and implemented Agent ownership.
+- The [Phase-17 outline](../roadmap/phase-17/overview.md) actually describes
+  a **native OSD frontend**, not mobile frontends. Corrected only its label
+  in the archive root; the original outline remains untouched.
+- [Contribution-guide sketches](../roadmap/contribution-guides/index.md) still
+  uniquely show early workflow expectations, including historical tag/Make
+  suggestions. Their section index now points to the actual current
+  contribution rules and Make recipes; deleting the leaves would remove
+  provenance and break their sub-index.
+- [Reference-client examples](../roadmap/final-example/README.md) preserve
+  early Windows OSD, multi-client and VDR Live reimplementation aspirations,
+  including historical `/api/...` route examples. Their index now warns
+  that these do not establish a current installed client or Public-v1 API
+  inventory; the present [API entrypoint](../../api/README.md) owns coverage.
+- The remaining phase directories have distinct overview goals and local
+  indexes. Their shortness does not justify removing paths linked by the
+  [archive root](../roadmap/README.md). A future consolidation would need
+  replacement of every individual topic and an exhaustive inbound-link scan.
+
+**Disposition for the entire 64-file historical roadmap group: RETAIN.**
+No semantic line was rewritten in a historical leaf, and no phase or
+security acceptance is inferred from roadmap proposals. Cross-repository
+external links and references outside the reviewed GitHub inventory remain
+unverified; therefore this review does **not** approve a deletion.
+
 ### Verification boundary for this round
 
 - Reviewed `AGENTS.md`, the current/history/pruning guides, the main-docs
