@@ -5,7 +5,7 @@
 - [Project README](../README.md)
 - [Documentation index](../docs/index.md)
 - [REST source boundary](rest/README.md)
-- [Public API v1 OpenAPI 3.1 — audited discovery and Backend subset](openapi.json)
+- [Public API v1 OpenAPI 3.1 — source-audited partial contract](openapi.json)
 - [Backend discovery developer contract](backend-discovery.md)
 - [Federated Channel collection developer contract](channel-collection.md)
 - [TimerAssignments and Timer CREATE developer contract](timer-assignments.md)
@@ -54,7 +54,7 @@ The [TimerAssignment developer contract](timer-assignments.md) covers Backend-sc
 
 ## Documented Account and Device bootstrap contracts
 
-The [Account/Grant guide](accounts-and-grants.md) documents three global-administration read routes and separate Account vs grant-set ETags. The [Device pairing guide](device-pairing.md) documents anonymous bootstrap, token-only polling and one-time Device credential issuance. The [administrative Device guide](device-administration.md) additionally specifies pairing decision and Device grant administration (including scoped grant mutation). These operations **do not** mean the full Account/Device lifecycle, revoke/rotation or private client surface is documented, and a Device still has **zero automatic content grants** after pairing.
+The [Account/Grant guide](accounts-and-grants.md) documents three global-administration read routes and separate Account vs grant-set ETags. The [Device pairing guide](device-pairing.md) documents anonymous bootstrap, token-only polling and one-time Device credential issuance. The [administrative Device guide](device-administration.md) additionally specifies pairing decision and Device grant administration (including scoped grant mutation). These operations **do not** mean the full Account/Device credential/session metadata, revoke/rotation or private client surface is documented, and a Device still has **zero automatic content grants** after pairing.
 
 ## Documented Account mutations and Device lifecycle
 

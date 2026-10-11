@@ -28,7 +28,7 @@
 ## Public API documentation bootstrap
 
 - The previously empty `api/README.md` and `api/rest/README.md` now give developers a source-linked API entry point and REST implementation boundary.
-- A **partial** OpenAPI 3.1 JSON contract covers verified `GET /api/v1`, `GET /api/v1/capabilities` actor-filtered `GET /api/v1/backends` and federated `GET /api/v1/channels` models, query semantics and errors. Other implemented routes are not silently promoted to stable public-v1 contracts.
+- A **partial** OpenAPI 3.1 JSON contract began with verified `GET /api/v1`, `GET /api/v1/capabilities`, actor-filtered `GET /api/v1/backends` and federated `GET /api/v1/channels`. It now additionally covers the separately source-reviewed Timer, Operation, Account and Device HTTP contracts listed below; other implemented routes are not silently promoted to stable public-v1 contracts.
 - The dedicated [Backend discovery developer contract](../../api/backend-discovery.md) links implemented route/security/test evidence and documents cursor expiry, filtering and errors.
 - The [Channel collection developer contract](../../api/channel-collection.md) documents explicit source selection, per-backend permissions and partial-federation semantics.
 - The [TimerAssignment guide](../../api/timer-assignments.md) documents actor/backend scoped list and item reads, opaque ETags, conditional 304 and safe `If-Match` + `Idempotency-Key` Timer CREATE admission. The [Operation guide](../../api/operation-status.md) documents actor-owned durable states and safe reconciliation without automatic retries. OpenAPI now covers the original eight accepted Phase-69.F method/resource contracts across seven paths; this is not a claim of complete modern Public-v1 coverage.
