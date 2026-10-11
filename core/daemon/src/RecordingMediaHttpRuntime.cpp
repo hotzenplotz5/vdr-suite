@@ -221,6 +221,21 @@ int runRecordingMediaHttpRuntime(
                     profile != "progressive-direct" &&
                     profile != "progressive-fmp4")
                     return error(503, "media_session_profile_unavailable");
+                // Never forward Browser track-status: it contains a native
+                // Recording ID. Ask the canonical MediaSession controller for
+                // its purpose-built track-only projection, after the live
+                // Device ownership + grant checks above.
+                const ApiResponse inventory =
+                    recordingMediaSessionController.deviceTrackInventory(
+                        owned->backendId, id, verifiedDevice.actor.actorId);
+                const std::string tracks =
+                    inventory.statusCode == 200 &&
+                    inventory.body.size() < 65536 &&
+                    !inventory.body.empty() &&
+                    inventory.body.front() == '{' &&
+                    inventory.body.back() == '}'
+                        ? inventory.body : "null";
+
                 ApiResponse response;
                 response.statusCode = 200;
                 response.contentType = "application/json";
@@ -231,7 +246,7 @@ int runRecordingMediaHttpRuntime(
                     "\",\"state\":\"ready\",\"backendId\":\"" +
                     owned->backendId +
                     "\",\"presentationProfileId\":\"" +
-                    profile + "\"}}";
+                    profile + "\",\"tracks\":" + tracks + "}}";
                 return response;
             }
             if (target.rfind(prefix, 0) == 0 &&
