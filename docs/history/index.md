@@ -31,6 +31,10 @@ work can supersede a plan without invalidating what that plan recorded.
   explicitly historical phase checkpoints.
 - [Early VDR Runtime Status Snapshot](../development/status/overview.md):
   preserves old machine/RESTfulAPI observations, not a current service probe.
+- [Phase-64 private SuiteBridge NTMOD implementation note](../phase64-suitebridge-native-timer-modify-command-service.md):
+  preserves replay/fence/readback specifics from a pre-acceptance slice;
+  [Phase-64 final closeout](../development/phase-64-closeout.md) records the
+  later real-yaVDR acceptance and private-command boundary.
 
 ## Early architecture and roadmap proposals
 

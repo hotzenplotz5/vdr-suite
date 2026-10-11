@@ -1,5 +1,14 @@
 # Roadmap Phase 18
 
+> **Early multi-VDR planning archive (not current federation authority).**
+> These topic-specific goals record the original client/backend proposal, not
+> proof of implemented remote-site trust, permission enforcement or transport.
+> Current implemented owners are described in [Current Architecture State](../../development/current-architecture-state.md);
+> [ADR-0060](../../adr/ADR-0060-federated-vdr-suite-sharing-reciprocal-site-trust.md)
+> distinguishes independent-site federation from Agent-managed backends,
+> and [ADR-0061](../../adr/ADR-0061-actor-permissions-federation-client-access.md)
+> defines the later permission design. Keep the original topic sketches below.
+
 ## Navigation
 
 - [README](../../../README.md)

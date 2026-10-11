@@ -21,7 +21,7 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 
 ## Start here
 
-- [Public API developer entry point and OpenAPI 3.1 subset](../api/README.md) — 36 source-reviewed operations, current coverage limits and the drift guard
+- [Public API developer entry point and OpenAPI 3.1 subset](../api/README.md) — source-reviewed method coverage, explicitly partial scope and drift guard; count and coverage belong to the API guide
 
 - [Project Principles](project-principles.md) — stable product/architecture principles.
 - [Current State](CURRENT.md) — sole volatile operational authority.
