@@ -5,6 +5,7 @@
 - [API entry point](README.md)
 - [OpenAPI 3.1 partial contract](openapi.json)
 - [Account and permission-grant boundary](accounts-and-grants.md)
+- [Administrative pairing approval and Device grants](device-administration.md)
 - [MU.10A accepted pairing bootstrap](../docs/development/post-phase69-mu10a-device-pairing-bootstrap.md)
 - [MU.10B approval contract](../docs/development/post-phase69-mu10b-admin-pairing-approval.md)
 - [MU.10D Device authentication contract](../docs/development/post-phase69-mu10d-device-authentication.md)
@@ -52,7 +53,7 @@ The **same path without the Pairing token** also supports a separately authorize
 
 An administrator uses server-owned read/decision resources on `/api/v1/device-pairings` and `/api/v1/device-pairings/{pairingRequestId}`. Global `device.pairing.view@*` and `device.pairing.decide@*` permissions and protected browser-session CSRF apply to the respective administrative operations. The decision resource uses a revision-based precondition; never substitute the TV's bootstrap token for an administrator identity.
 
-The exact administrator collection/decision request/response contracts are **not yet included in this OpenAPI subset**. See [MU.10B approval](../docs/development/post-phase69-mu10b-admin-pairing-approval.md) and current SecurityHttpGate/source before implementing admin client calls.
+The [administrative pairing and Device grants guide](device-administration.md) and OpenAPI now document the global administrator collection/decision contract, including `If-Match` and CSRF. The same item GET URL has two credential modes: token-scoped TV polling and global administrator read; keep their representations separate.
 
 ## 4. Issue the approved credential once
 
@@ -78,7 +79,7 @@ GET /api/v1
 Authorization: VDR-Suite-Device <credentialId>.<credentialSecret>
 ```
 
-This is **not HTTP Bearer**, not Browser Basic and not the Pairing Token. The authenticated Device principal starts with no grants. Backend, channel, recording and playback access require **separately administered Device-targeted grants**. Human `accounts/{id}/grants` is not a shortcut for Device grants. Revoke/rotation use their own Device administration authority; do not store credentials in URLs, query strings, logs or screenshots.
+This is **not HTTP Bearer**, not Browser Basic and not the Pairing Token. The authenticated Device principal starts with no grants. Backend, channel, recording and playback access require **separately administered Device-targeted grants**. Human `accounts/{id}/grants` is not a shortcut for Device grants. Use the [Device grant administration contract](device-administration.md) for explicit scoped permissions. Revoke/rotation use their own Device administration authority; do not store credentials in URLs, query strings, logs or screenshots.
 
 For the VIDAA client, a Device authentication or HTTP 404 in a media-track route must be diagnosed against the actual path, HTTP method, installed daemon SHA and grant requirements; neither successful pairing nor a working Web frontend proves Device route acceptance. A merged server route alone does not prove real Hisense runtime behavior.
 

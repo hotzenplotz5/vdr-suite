@@ -34,6 +34,10 @@
     {
       "name": "Device pairing",
       "description": "Anonymous/short-lived token bootstrap, polling and one-time credential issuance; administrative approval and Device grants are separate"
+    },
+    {
+      "name": "Device administration",
+      "description": "Explicit global administrative pairing approval and Device grant management"
     }
   ],
   "paths": {
@@ -1655,49 +1659,72 @@
             }
           }
         }
-      }
-    },
-    "/api/v1/device-pairings/{pairingRequestId}": {
+      },
       "get": {
         "tags": [
-          "Device pairing"
+          "Device administration"
         ],
-        "operationId": "pollDevicePairing",
-        "summary": "Poll only the Pairing Request associated with the caller's bootstrap token",
-        "description": "This definition covers the TOKEN-SCOPED bootstrap variant only; without the header, the same route has a separately authorized administrative GET representation and also an administrator POST decision. The token is not an Actor login and does not authenticate general Public-v1 endpoints. Token-scoped GET must not expose the original userCode or pairingToken. Status may be pending, approved or rejected. No query parameters, no ETag, no conditional read; pollIntervalSeconds is advisory to the caller and client polling remains explicit.",
-        "x-vdr-suite-partial-path": true,
+        "operationId": "listPendingDevicePairings",
+        "summary": "List pending pairing requests for an authorized administrator",
+        "description": "Requires device.pairing.view@*, no token-only bootstrap authority. Returns pending unexpired pairing requests only, sorted by pairingRequestId ASC with cursor pagination. No userCode or pairingToken; items contain secret-free decision metadata and link. This administrative GET shares a URL with anonymous bootstrap POST and does not confer Device grants.",
         "x-vdr-suite-authentication": {
-          "actorRequired": false,
-          "authorization": "X-VDR-Suite-Pairing-Token, limited to exactly this Pairing Request; admin GET/POST are distinct variants to document separately."
+          "actorRequired": true,
+          "securitySchemeDocumentation": "Authenticate as an authorized administrator through the accepted deployment SecurityHttpGate; browser-session mutations additionally require CSRF.",
+          "authorization": "device.pairing.view@*"
         },
         "parameters": [
           {
-            "name": "pairingRequestId",
-            "in": "path",
-            "required": true,
-            "description": "Short-lived Pairing Request ID; not a Device identity or credential.",
+            "name": "limit",
+            "in": "query",
+            "required": false,
             "schema": {
-              "type": "string",
-              "minLength": 1
-            }
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "description": "Default 50, allowed 1–100."
           },
           {
-            "name": "X-VDR-Suite-Pairing-Token",
-            "in": "header",
-            "required": true,
-            "description": "One-time short-lived opaque token from bootstrap creation. Only authorizes this pairing request and credential issuance; not general Public-v1 Device authentication.",
+            "name": "cursor",
+            "in": "query",
+            "required": false,
             "schema": {
               "type": "string",
-              "minLength": 1
-            }
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "description": "Opaque administrative keyset cursor."
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "const": "pairingRequestId",
+              "default": "pairingRequestId"
+            },
+            "description": "Only pairingRequestId."
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "const": "asc",
+              "default": "asc"
+            },
+            "description": "Only ascending."
           }
         ],
         "responses": {
           "200": {
-            "description": "Secret-free token-scoped Pairing Request state.",
+            "description": "Pending secret-free Device pairing administration list; not the full history.",
             "headers": {
               "Cache-Control": {
-                "description": "Response must not be stored.",
+                "description": "Must not be stored.",
                 "schema": {
                   "type": "string",
                   "const": "no-store"
@@ -1707,7 +1734,112 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DevicePairingStatus"
+                  "$ref": "#/components/schemas/PendingDevicePairingCollection"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid limit, cursor, sorting or query fields.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Administrator authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Global device.pairing.view@* denied.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Administrative pairing lookup or audit authority unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/device-pairings/{pairingRequestId}": {
+      "get": {
+        "tags": [
+          "Device pairing"
+        ],
+        "operationId": "getDevicePairingByTokenOrAdmin",
+        "summary": "Read Pairing status by short-lived token, or administrative item by global permission",
+        "description": "Two security modes share one GET path: X-VDR-Suite-Pairing-Token yields a secret-free, non-Actor bootstrap status; WITHOUT this header, only an authenticated admin with device.pairing.view@* can read full secret-free decision metadata and current ETag. An admin item read returns 200 with ETag, not conditional 304. The token mode never discloses administrator identity, userCode or pairingToken.",
+        "x-vdr-suite-partial-path": false,
+        "x-vdr-suite-authentication": {
+          "actorRequired": false,
+          "authorization": "EITHER short-lived matching pairing token for bootstrap status OR authenticated global device.pairing.view@* admin read; never both implied by one credential."
+        },
+        "parameters": [
+          {
+            "name": "pairingRequestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Opaque short-lived Pairing Request ID."
+          },
+          {
+            "name": "X-VDR-Suite-Pairing-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "When present: use bootstrap token-scoped read; when absent: requires authenticated administrator with device.pairing.view@*. Pairing tokens never confer administrative access."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Variant determined by request: token-scoped secret-free status OR administrative item with decision metadata and ETag.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Must not be stored.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DevicePairingStatus"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DevicePairingAdministrativeItem"
+                    }
+                  ]
                 }
               }
             }
@@ -1724,6 +1856,16 @@
           },
           "401": {
             "description": "Missing/invalid pairing token for polling variant.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated administrator lacks device.pairing.view@*.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1753,7 +1895,207 @@
             }
           },
           "503": {
-            "description": "Pairing lookup/storage unavailable.",
+            "description": "Token or admin pairing read unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Device administration"
+        ],
+        "operationId": "decideDevicePairing",
+        "summary": "Approve or reject pending pairing with a strong If-Match revision fence",
+        "description": "Authenticated admin must have device.pairing.decide@*; normal browser-session CSRF and protected mutation rules apply. Body is closed {decision:'approve'|'reject'}, max 1024 bytes. No query or Idempotency-Key. If-Match is exactly one canonical strong Pairing Request ETag from a prior ADMIN GET (NOT token polling, which has no ETag). A successful decision only changes Pairing Request state and decision metadata, creates no Actor, Device, Credential, Session or grant. 412 if revision changed; 409 if already decided.",
+        "x-vdr-suite-max-body-bytes": 1024,
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "securitySchemeDocumentation": "Authenticate as an authorized administrator through the accepted deployment SecurityHttpGate; browser-session mutations additionally require CSRF.",
+          "authorization": "device.pairing.decide@* plus protected browser CSRF where applicable"
+        },
+        "parameters": [
+          {
+            "name": "pairingRequestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Opaque short-lived Pairing Request ID."
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Strong opaque Pairing Request item ETag from admin GET."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "decision"
+                ],
+                "additionalProperties": false,
+                "maxProperties": 1,
+                "properties": {
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "approve",
+                      "reject"
+                    ]
+                  }
+                }
+              },
+              "example": {
+                "decision": "approve"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Secret-free post-decision item and new ETag.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Must not be stored.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Current opaque strong ETag.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePairingAdministrativeItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON, query, precondition or Idempotency-Key.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Administrator authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Global device.pairing.decide grant or browser CSRF denied.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Pairing missing or invalidated.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "operation_conflict: already approved or rejected.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "pairing_expired.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "revision_conflict: supplied Pairing Request ETag stale.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type must be application/json.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Body must be exactly one decision field with approve/reject.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Pairing decision/storage/accountability unavailable.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1871,6 +2213,330 @@
           },
           "503": {
             "description": "Credential creation/storage/audit unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/devices/{deviceId}/grants": {
+      "get": {
+        "tags": [
+          "Device administration"
+        ],
+        "operationId": "getDeviceGrantSet",
+        "summary": "Read grants for a Device's dedicated Service Actor",
+        "description": "Requires authenticated global devices.grants.view@*. This is NOT Human accounts/{id}/grants and the newly paired Device cannot administer itself. ETag is derived from the normalized effective Device grant set, separate from Device/Credential/Account revisions. If-None-Match can return bodyless 304. Only the supported Device grant allowlist is exposed.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "securitySchemeDocumentation": "Authenticate as an authorized administrator through the accepted deployment SecurityHttpGate; browser-session mutations additionally require CSRF.",
+          "authorization": "devices.grants.view@*"
+        },
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Canonical Device ID returned by one-time pairing credential issuance."
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque grant-set ETag from prior GET."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Secret-free Device/Service Actor grants and ETag.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Must not be stored.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Current opaque strong ETag.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceGrantSet"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Grant set unchanged; empty body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Must not be stored.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Current opaque strong ETag.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid Device ID, query or conditional header.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authenticated admin required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "devices.grants.view@* denied.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Device not found or ineligible.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Device grant authority or storage unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Device administration"
+        ],
+        "operationId": "setDeviceGrant",
+        "summary": "Ensure or revoke one allowlisted Device grant using a fenced desired-state mutation",
+        "description": "Requires devices.grants.modify@* and protected browser-session CSRF where applicable. Closed JSON object {permission,backendId,active}, at most 4096 bytes, no query or Idempotency-Key. Strong If-Match from Device Grant-set GET. Only channels.view, timers.view, media.live.play, media.recording.play are allowlisted; neither admin roles nor generic Account permissions can be granted. Successful 200 returns current full grant-set and ETag. A stale ETag may still succeed if the desired state was already reached, otherwise 412.",
+        "x-vdr-suite-max-body-bytes": 4096,
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "securitySchemeDocumentation": "Authenticate as an authorized administrator through the accepted deployment SecurityHttpGate; browser-session mutations additionally require CSRF.",
+          "authorization": "devices.grants.modify@* with protected mutation CSRF where relevant"
+        },
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Canonical Device ID returned by one-time pairing credential issuance."
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Current canonical strong Device grant-set ETag."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "permission",
+                  "backendId",
+                  "active"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "permission": {
+                    "type": "string",
+                    "enum": [
+                      "channels.view",
+                      "timers.view",
+                      "media.live.play",
+                      "media.recording.play"
+                    ]
+                  },
+                  "backendId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Explicit configured backend ID or *."
+                  },
+                  "active": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "example": {
+                "permission": "channels.view",
+                "backendId": "backend-one",
+                "active": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Effective Device grant set after desired-state mutation.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Must not be stored.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "ETag": {
+                "description": "Current opaque strong ETag.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceGrantSet"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON, scope, strong If-Match or forbidden query/idempotency input.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Global Device grant administration or CSRF permission denied.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Device not found or revoked/ineligible.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "revision_conflict: grant set changed and desired action still needed.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "application/json required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "validation_error: invalid/unsupported Device grant tuple or closed body.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Grant store/accountability/service unavailable.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2803,6 +3469,109 @@
             "type": "string",
             "writeOnly": false,
             "description": "Returned only on successful first issuance. Never recoverable through polling/GET; keep secret out of logs, URLs and screenshots."
+          }
+        }
+      },
+      "DevicePairingDecisionDetails": {
+        "type": "object",
+        "required": [
+          "decidedByActorId",
+          "decidedAt"
+        ],
+        "properties": {
+          "decidedByActorId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Null before decision."
+          },
+          "decidedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Null before decision."
+          }
+        }
+      },
+      "DevicePairingAdministrativeItem": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DevicePairingStatus"
+          },
+          {
+            "type": "object",
+            "required": [
+              "decision"
+            ],
+            "properties": {
+              "decision": {
+                "$ref": "#/components/schemas/DevicePairingDecisionDetails"
+              }
+            }
+          }
+        ]
+      },
+      "PendingDevicePairingCollection": {
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "meta",
+          "links"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DevicePairingAdministrativeItem"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/BackendPage"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/BackendCollectionMeta"
+          },
+          "links": {
+            "$ref": "#/components/schemas/BackendCollectionLinks"
+          }
+        }
+      },
+      "DeviceGrantSet": {
+        "type": "object",
+        "required": [
+          "deviceId",
+          "actorId",
+          "items",
+          "supportedPermissions"
+        ],
+        "properties": {
+          "deviceId": {
+            "type": "string"
+          },
+          "actorId": {
+            "type": "string",
+            "description": "Dedicated Service Actor; not approving Human Actor."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HumanAccountGrantItem"
+            }
+          },
+          "supportedPermissions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "channels.view",
+                "timers.view",
+                "media.live.play",
+                "media.recording.play"
+              ]
+            }
           }
         }
       }
