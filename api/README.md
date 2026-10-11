@@ -5,7 +5,8 @@
 - [Project README](../README.md)
 - [Documentation index](../docs/index.md)
 - [REST source boundary](rest/README.md)
-- [Public API v1 OpenAPI 3.1 — audited discovery subset](openapi.json)
+- [Public API v1 OpenAPI 3.1 — audited discovery and Backend subset](openapi.json)
+- [Backend discovery developer contract](backend-discovery.md)
 - [Public API compatibility ADR-0048](../docs/adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [Public v1 reference client](../clients/reference-js/README.md)
 
@@ -13,7 +14,7 @@
 
 **Documentation bootstrap — 2026-10-11; source baseline main `8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0`.**
 
-The OpenAPI file currently specifies exactly **two source-verified discovery operations**: `GET /api/v1` and `GET /api/v1/capabilities`. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
+The OpenAPI file currently specifies exactly **three source-verified GET operations**: `GET /api/v1`, `GET /api/v1/capabilities` and the authenticated `GET /api/v1/backends` Backend collection. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
 
 The public-v1 contract is distinct from older or browser-private `/api/...` routes, transport/provider implementation details, and the independent acceptance state of the VIDAA app.
 
@@ -31,9 +32,13 @@ Here `SUITE_BASE` is the actual externally reachable URL prefix immediately befo
 
 Both discovery handlers can return their contract without an authenticated actor. A gateway, reverse proxy or other public-v1 resource may still require authentication. Never infer write permissions from discovery responses. Clients should supply their own supported credentials and headers, rather than assuming browser cookies or falling back to private routes.
 
+## Documented Backend collection
+
+The [Backend discovery guide](backend-discovery.md) covers `GET /api/v1/backends`, filtered identity results, `limit`/`cursor` pagination, the authorization-scope boundary, and public Problem Details errors. The machine-readable contract documents the request and response shape but **does not yet define all supported deployment authentication schemes**.
+
 ## What is implemented but not yet in this OpenAPI subset?
 
-The source contains additional public-v1 areas including Backend and Channel collections, Accounts and grants, Device pairing/lifecycle, TimerAssignments, Operations, Recording browse, and Device-owned Recording playback/media-track flows. **None** of those is automatically documented or promoted merely by appearing in implementation code.
+The source contains additional public-v1 areas including Channel collections, Accounts and grants, Device pairing/lifecycle, TimerAssignments, Operations, Recording browse, and Device-owned Recording playback/media-track flows. **None** of those is automatically documented or promoted merely by appearing in implementation code.
 
 For extension work, audit the exact route, method, response, authentication/permission rules, error cases, tests, and accepted contract status **before** adding each operation to `openapi.json`. The historical [Phase 69.F client matrix](../docs/development/phase-69f-client-contract-matrix.json) is bounded evidence, **not** a complete present-day route manifest.
 

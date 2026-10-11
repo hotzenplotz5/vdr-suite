@@ -1,15 +1,19 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "VDR-Suite Public API v1 — verified discovery subset",
+    "title": "VDR-Suite Public API v1 — verified discovery and Backend collection subset",
     "version": "1.0.0",
-    "description": "PARTIAL developer contract for the two verified discovery GET endpoints only, based on source main 8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0 (2026-10-11). This is not an inventory of all deployed or stable /api/v1 routes, nor proof of a live installed daemon. See api/README.md and ADR-0048."
+    "description": "PARTIAL public-v1 developer contract for the two discovery GET endpoints and the actor-scoped GET Backend collection, checked against source main 8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0 (2026-10-11). This is not an exhaustive route inventory and says nothing about which daemon binary is installed. See api/README.md and ADR-0048."
   },
   "x-vdr-suite-coverage": "partial",
   "tags": [
     {
       "name": "Discovery",
       "description": "Public-v1 contract discovery and per-runtime capabilities"
+    },
+    {
+      "name": "Backends",
+      "description": "Authenticated, actor-scoped Suite Backend identity discovery"
     }
   ],
   "paths": {
@@ -52,6 +56,156 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CapabilityDiscovery"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/backends": {
+      "get": {
+        "tags": [
+          "Backends"
+        ],
+        "operationId": "listPublicBackends",
+        "summary": "List backend identities visible to the authenticated actor",
+        "description": "Source: api/rest/src/PublicApiRuntime.cpp, parsePublicBackendCollectionQuery()/publicBackendCollectionResponse(), and core/security/include/SecurityHttpGate.h. An authenticated actor is mandatory; visibility is derived from positive permission-grant backend scopes, not a new backends.view permission. role.read-only alone does not contribute scope. Authenticated users with no positive backend scopes receive an empty 200 collection. The exact authentication transport is deployment-dependent and is not expressed here as a single invented HTTP security scheme (see x-vdr-suite-authentication). A query cursor is opaque (currently be1_-prefixed) and bound to the normalized authorization scope. Restart pagination on 409 cursor_expired; never synthesize or parse cursors. Success responses include Cache-Control: no-store and do not include ETag. Other HTTP methods, including HEAD/OPTIONS, return 405 method_not_allowed with Allow: GET.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Positive permission grants determine visible backend scopes; no backends.view permission exists.",
+          "securitySchemeDocumentation": "See ADR-0048, security gate and deployment identity configuration; credential transport is not fully modeled in this partial OpenAPI."
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size, default 50.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque keyset cursor returned by page.nextCursor; no more than 4096 characters; tied to the actor's effective permission scopes.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "Only backendId is accepted.",
+            "schema": {
+              "type": "string",
+              "const": "backendId",
+              "default": "backendId"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "description": "Only ascending order is accepted.",
+            "schema": {
+              "type": "string",
+              "const": "asc",
+              "default": "asc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Actor-filtered Backends ordered by backendId ascending. No backend I/O; meta.partial is always false.",
+            "headers": {
+              "Cache-Control": {
+                "description": "No client or proxy caching for this response.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackendCollection"
+                },
+                "examples": {
+                  "singlePage": {
+                    "summary": "Example with one visible backend",
+                    "value": {
+                      "items": [
+                        {
+                          "backendId": "backend-a",
+                          "name": "Living Room",
+                          "enabled": true,
+                          "online": true
+                        }
+                      ],
+                      "page": {
+                        "limit": 50,
+                        "nextCursor": null,
+                        "hasMore": false
+                      },
+                      "meta": {
+                        "partial": false
+                      },
+                      "links": {
+                        "self": "/api/v1/backends?limit=50&sort=backendId&order=asc",
+                        "next": null
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid/duplicate query parameter, malformed cursor or invalid Backend discovery scope.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No authenticated actor.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The authorization scope no longer matches the cursor; code cursor_expired.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Permission resolution, collection runtime or its validated output is unavailable; code may depend on rejection layer.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
                 }
               }
             }
@@ -282,6 +436,153 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "PublicProblemDetails": {
+        "type": "object",
+        "description": "Problem Details-compatible error payload serialized by core/http/include/PublicProblemDetails.h and the public REST runtime. Some security-gate rejections occur before the REST handler.",
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code",
+          "requestId"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "urn:vdr-suite:error:<code with underscores replaced by hyphens>"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "correlationId": {
+            "type": "string"
+          }
+        }
+      },
+      "BackendCollection": {
+        "type": "object",
+        "description": "Suite-owned actor-scoped Backend collection. No legacy frontend selector/write flags, backend connection/transport/provider details, or credentials.",
+        "required": [
+          "items",
+          "page",
+          "meta",
+          "links"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BackendIdentity"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/BackendPage"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/BackendCollectionMeta"
+          },
+          "links": {
+            "$ref": "#/components/schemas/BackendCollectionLinks"
+          }
+        }
+      },
+      "BackendIdentity": {
+        "type": "object",
+        "required": [
+          "backendId",
+          "name",
+          "enabled",
+          "online"
+        ],
+        "properties": {
+          "backendId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "online": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BackendPage": {
+        "type": "object",
+        "required": [
+          "limit",
+          "nextCursor",
+          "hasMore"
+        ],
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Opaque cursor, or null if there is no next page."
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BackendCollectionMeta": {
+        "type": "object",
+        "required": [
+          "partial"
+        ],
+        "properties": {
+          "partial": {
+            "type": "boolean",
+            "const": false
+          }
+        }
+      },
+      "BackendCollectionLinks": {
+        "type": "object",
+        "required": [
+          "self",
+          "next"
+        ],
+        "properties": {
+          "self": {
+            "type": "string",
+            "description": "Server-generated canonical collection URL with normalized parameters."
+          },
+          "next": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Next-page URL or null."
           }
         }
       }
