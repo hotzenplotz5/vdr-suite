@@ -46,6 +46,8 @@ current component inventory:
   and adapters are not proof of installed implementations.
 - [Early snapshot-era architecture](snapshot-architecture.md) — Phase-8
   “planned” statements are historical checkpoints.
+- [Early REST controller topology](rest-api-runtime.md) and [Daemon REST wiring sketch](daemon-rest-runtime.md) — not exhaustive current HTTP/API diagrams.
+- [Adapter-era VDR backend topology](vdr-backends.md) — not the current full Agent/SuiteBridge transport picture.
 - [Early OSD/federation strategy ADRs](adr/index.md) — read later numbered
   ADRs and accepted closeouts for the binding boundaries.
 

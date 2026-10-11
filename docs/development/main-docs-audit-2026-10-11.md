@@ -137,3 +137,9 @@ The initial branch inventory found **22 zero-byte Markdown files**. In this docu
 - Replaced the repeated numbered phase/MU.6–MU.10 status paragraphs in root `ROADMAP.md` with a compact question-to-authority navigation table. The [Strict Roadmap](../planning/roadmap.md), [CURRENT](../CURRENT.md), existing closeouts and historical phase data were not rewritten. This avoids needing to update the same accepted PR/phase status in several active-facing locations.
 - Marked `docs/project-overview.en.md` and `docs/project-overview.de.md` as language-specific introductions rather than alternative canonical architecture/current-status sources. These are **not** byte-identical duplicates and intentionally remain available in both languages.
 - No files deleted; no runtime/CI/system changes. Paths were checked statically against the complete tree; final-head CI for this docs branch is unverified.
+
+## Early REST/backend architecture scope corrections (2026-10-11)
+
+- Confirmed that `docs/architecture/rest-api-runtime.md` and `daemon-rest-runtime.md` describe an early REST controller/wiring checkpoint with “future” HTTP and web UI language, whereas `api/rest/`, `core/daemon/`, `SecurityHttpGate` and the current Public-v1 API are already implemented. Both documents are explicitly contextualized as historical sketches, not duplicate live route inventories.
+- Clarified that `docs/architecture/vdr-backends.md` describes early `IVdrAdapter` evolution; its “future SVDRP adapter” class note must not be mistaken for the present SuiteBridge/SVDRP Agent transport capability.
+- Linked these early designs under the clearly separated historical section of the architecture index instead of deleting valuable background or claiming implemented code changes. No tests/deployment were run for this documentation-only checkpoint.
