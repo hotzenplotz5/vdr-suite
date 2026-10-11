@@ -35,6 +35,29 @@ int main()
     assert(response.body.find("/api/media/sessions") == std::string::npos);
     assert(response.body.find("/srv/vdr") == std::string::npos);
 
+    // A valid completed index provides authoritative total duration.
+    ready.durationSeconds = 5322;
+    ready.resumeSupported = true;
+    response = PublicRecordingDeviceMediaSessionResponse::afterActivation(ready);
+    assert(response.statusCode == 201);
+    assert(response.body.find(
+        "\"durationSeconds\":5322") != std::string::npos);
+    assert(response.body.find(
+        "\"resume\":{\"supported\":true,\"preparing\":false}") !=
+        std::string::npos);
+    // Missing index: allow silent playback while the existing VDR-Suite
+    // index worker runs; never fabricate a total duration.
+    ready.durationSeconds = 0;
+    ready.resumeSupported = false;
+    ready.indexPreparing = true;
+    response = PublicRecordingDeviceMediaSessionResponse::afterActivation(ready);
+    assert(response.statusCode == 201);
+    assert(response.body.find("\"durationSeconds\":null") !=
+        std::string::npos);
+    assert(response.body.find("\"preparing\":true") !=
+        std::string::npos);
+    ready.indexPreparing = false;
+
     ready.presentationProfileId = "progressive-direct";
     response = PublicRecordingDeviceMediaSessionResponse::afterActivation(ready);
     assert(response.statusCode == 201);
