@@ -347,6 +347,10 @@ public:
         const bool isPublicDeviceRecordingSessionRead =
             request.method == "GET" &&
             path.rfind(playbackStopPrefix, 0) == 0;
+        const bool isPublicDeviceRecordingSessionSubtitle =
+            isPost && path.rfind(playbackStopPrefix, 0) == 0 &&
+            path.size() == playbackStopPrefix.size() + 35U + 10U &&
+            path.compare(path.size() - 10U, 10U, "/subtitles") == 0;
         const bool isPublicDeviceRecordingSessionStop =
             isPost && path.rfind(playbackStopPrefix, 0) == 0 &&
             path.size() > playbackStopPrefix.size() +
@@ -824,7 +828,8 @@ public:
             isPublicAccountSessionMutation ||
             isPublicTimerAssignmentCreate ||
             isPublicDeviceRecordingSessionCreate ||
-            isPublicDeviceRecordingSessionStop || isTimerUpdateAction ||
+            isPublicDeviceRecordingSessionStop ||
+            isPublicDeviceRecordingSessionSubtitle || isTimerUpdateAction ||
             isTimerDeleteAction || isChannelMoveAction || isRecordingExecutionAction ||
             isRecordingMarksModifyAction || isRecordingCutAction ||
             isSearchTimerCreateAction || isSearchTimerUpdateAction || isSearchTimerDeleteAction ||
@@ -1615,7 +1620,8 @@ public:
         // credentials and even user/admin grants are not Device proof.
         // This policy does not itself create sessions or expose media bytes.
         if ((isPublicDeviceRecordingSessionCreate ||
-             isPublicDeviceRecordingSessionStop) &&
+             isPublicDeviceRecordingSessionStop ||
+             isPublicDeviceRecordingSessionSubtitle) &&
             (!gate.deviceAuthenticated ||
              gate.context.actor.type != ActorType::Service ||
              !gate.context.device || !gate.context.credential ||
@@ -1633,7 +1639,8 @@ public:
                 "A verified Device credential is required for recording playback", "");
         }
         if (isPublicDeviceRecordingSessionCreate ||
-            isPublicDeviceRecordingSessionStop)
+            isPublicDeviceRecordingSessionStop ||
+            isPublicDeviceRecordingSessionSubtitle)
         {
             // Match the canonical PublicRecordingPlaybackTargetResolver's
             // backend grammar before authorization or domain resolution.
@@ -1808,7 +1815,8 @@ public:
             requestToAuthorize.backendId = mediaTranscodeSettingsBackendId;
         }
         else if (isPublicDeviceRecordingSessionCreate ||
-                 isPublicDeviceRecordingSessionStop)
+                 isPublicDeviceRecordingSessionStop ||
+                 isPublicDeviceRecordingSessionSubtitle)
         {
             requestToAuthorize.permission = "media.recording.play";
             requestToAuthorize.action = "media.recording.play";
