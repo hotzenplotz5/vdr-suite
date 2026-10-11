@@ -13,6 +13,12 @@
 
 This index is a stable navigation page. It deliberately does not duplicate active PR tips or transient CI state. Exact operational truth belongs in [Current State](CURRENT.md).
 
+## Documentation categories
+
+- [Documentation Guide: current, historical and deletion review](documentation-guide.md)
+- [Historical Documentation Hub](history/index.md)
+- [Source-backed Pruning Review](development/documentation-pruning-review.md)
+
 ## Start here
 
 - [Public API developer entry point and OpenAPI 3.1 subset](../api/README.md) — 36 source-reviewed operations, current coverage limits and the drift guard
