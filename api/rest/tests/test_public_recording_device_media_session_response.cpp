@@ -17,6 +17,8 @@ int main()
     ready.trustedExternalPrefix = "/vdr-suite";
     ready.trustedCookiePrefix = "/vdr-suite"; // no rewriting proxy
     ready.lifetimeSeconds = 300;
+    ready.durationSeconds = 5322;
+    ready.resumeSupported = true;
 
     auto response = PublicRecordingDeviceMediaSessionResponse::afterActivation(ready);
     assert(response.statusCode == 201);
@@ -34,6 +36,21 @@ int main()
     assert(response.body.find(ready.mediaCredential) == std::string::npos);
     assert(response.body.find("/api/media/sessions") == std::string::npos);
     assert(response.body.find("/srv/vdr") == std::string::npos);
+    assert(response.body.find("\"durationSeconds\":5322") != std::string::npos);
+    assert(response.body.find(
+        "\"resume\":{\"supported\":true,\"preparing\":false}") !=
+        std::string::npos);
+    ready.resumeSupported = false;
+    ready.resumePreparing = true;
+    ready.durationSeconds = 0;
+    response = PublicRecordingDeviceMediaSessionResponse::afterActivation(ready);
+    assert(response.statusCode == 201);
+    assert(response.body.find("\"durationSeconds\":null") != std::string::npos);
+    assert(response.body.find("\"preparing\":true") != std::string::npos);
+    assert(response.body.find("/srv/vdr") == std::string::npos);
+    ready.resumePreparing = false;
+    ready.resumeSupported = true;
+    ready.durationSeconds = 5322;
 
     ready.presentationProfileId = "progressive-direct";
     response = PublicRecordingDeviceMediaSessionResponse::afterActivation(ready);
