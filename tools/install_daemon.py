@@ -68,7 +68,9 @@ def verify_source(root: Path, expected: str) -> None:
     require(run("git", "rev-parse", "HEAD", cwd=root) == expected, "SOURCE_SHA_MISMATCH")
     require(not run("git", "status", "--porcelain", "--untracked-files=no", cwd=root),
             "SOURCE_TRACKED_DIRTY")
-    require((root / "tools" / "install_daemon.py").is_file(), "INSTALL_TOOL_NOT_IN_CHECKOUT")
+    installer = root / "tools" / "install_daemon.py"
+    require(installer.is_file() and not installer.is_symlink(), "INSTALL_TOOL_NOT_IN_CHECKOUT")
+    require(digest(Path(__file__).resolve()) == digest(installer), "INSTALL_TOOL_SOURCE_MISMATCH")
     require((root / "mk" / "runtime-api-tests.mk").is_file(), "DAEMON_TARGET_MISSING")
 
 
@@ -135,6 +137,7 @@ def verify_binary(path: Path, sha: str) -> None:
     require(os.access(path, os.X_OK), "BUILD_BINARY_NOT_EXECUTABLE")
     require(path.stat().st_size <= 256 * 1024 * 1024, "BUILD_BINARY_UNEXPECTED_SIZE")
     data = path.read_bytes()
+    require(data.startswith(b"\x7fELF"), "BUILD_BINARY_NOT_ELF")
     require(all(feature in data for feature in FEATURES), "BUILD_DEVICE_FEATURE_MISSING")
     require(b"git-" + sha[:12].encode("ascii") in data, "BUILD_PROVENANCE_MISMATCH")
 
@@ -223,12 +226,16 @@ def atomic_replace(source: Path, target: Path, owner: os.stat_result) -> None:
 def backup_database_offline(database: Path, destination: Path) -> None:
     require(database.is_file() and not database.is_symlink(), "DATABASE_PATH_UNSAFE")
     free_budget(destination, 2 * database.stat().st_size + 64 * 1024 * 1024)
+    started = time.monotonic()
+    def bounded_progress(_status: int, _remaining: int, _total: int) -> None:
+        if time.monotonic() - started > 120:
+            raise Rejected("DATABASE_BACKUP_TIMEOUT")
     try:
         source = sqlite3.connect(f"file:{database}?mode=ro", uri=True, timeout=5)
         try:
             dest = sqlite3.connect(destination, timeout=5)
             try:
-                source.backup(dest, pages=256)
+                source.backup(dest, pages=256, progress=bounded_progress)
                 require(dest.execute("PRAGMA quick_check").fetchone()[0] == "ok", "BACKUP_INVALID")
             finally:
                 dest.close()
