@@ -19,6 +19,10 @@ struct PublicRecordingDeviceMediaSessionReady
     std::string trustedExternalPrefix;
     std::string trustedCookiePrefix;
     int lifetimeSeconds = 0;
+    // Authenticated Public-v1 playback projection: no native paths.
+    int durationSeconds = 0;
+    bool resumeSupported = false;
+    bool resumePreparing = false;
 };
 
 class PublicRecordingDeviceMediaSessionResponse final
