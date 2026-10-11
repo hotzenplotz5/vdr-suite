@@ -95,3 +95,9 @@ The initial branch inventory found **22 zero-byte Markdown files**. In this docu
 - The initial PR check run `38166892812` exposed a stale dashboard label versus the accepted Phase-69 closeout guards (`tools/check_phase69e_closeout.py` and `tools/check_phase69_closeout.py`); this is a **documentation classification drift**, not a reason to alter historical guard evidence.
 - Restored the guarded `Stable public API/SDK | Completed numbered domain` row and separately documented additive Account/Device Recording R2 contracts and their unverified client/hardware acceptance.
 - Initial PR architecture/docs jobs failed; passing final CI must be verified independently after this fix. No CI success is inferred from this edit.
+
+## Post-merge active authentication authority correction (2026-10-11)
+
+- After PR #452 merged at `65a2c2a96c1a632e2e0db6cca01584ab4e620432`, the existing documentation branch was fast-forwarded to that exact merged main checkpoint (no new branch).
+- Reconciled a stale current-facing Legacy Basic compatibility sentence in [Current Architecture State](current-architecture-state.md) against the accepted [P2 retirement closeout](post-phase69-p2-legacy-basic-retirement-closeout.md) and `core/security/include/SecurityHttpGate.h`.
+- The current authority is Human Account browser sessions and optional explicitly configured Managed Basic; the retired Legacy Basic runtime mode must not be described as transitional supported authentication. No phase-history document was rewritten, and no code or runtime behavior was changed.

@@ -82,7 +82,7 @@ The implemented security boundary includes:
 - append-only pre-dispatch accountability and protected operation outcomes;
 - secret handling that keeps raw session/credential material out of durable accountability data.
 
-Legacy Basic compatibility remains transitional where retained by deployment compatibility policy; its historical Phase-62 decision does not define the target identity architecture.
+Legacy Basic authentication is **retired** as an active runtime authority following the accepted P2 removal. Current human/browser authentication uses Human Account passwords with browser sessions, with optional explicitly configured Managed Basic. Old Legacy Basic environment/defaults settings do not reactivate the removed authenticator. The historical Phase-62 transitional design remains valid evidence for its own checkpoint, not a current supported mode. See the [P2 retirement closeout](post-phase69-p2-legacy-basic-retirement-closeout.md) and the current [SecurityHttpGate](../../core/security/include/SecurityHttpGate.h).
 
 ## Backend Agent and secure multi-site foundation
 
