@@ -323,6 +323,39 @@ int runRecordingMediaHttpRuntime(
                     "}}}}";
                 return response;
             }
+            // Device-owned WebVTT selection: reuse the existing subtitle
+            // converter, not the Browser /api/media/sessions endpoint.
+            // SecurityHttpGate requires Device proof and play grant first.
+            const std::string subtitleSuffix = "/subtitles";
+            if (target.rfind(prefix, 0) == 0 &&
+                target.size() == prefix.size() + 35U + subtitleSuffix.size() &&
+                target.compare(target.size() - subtitleSuffix.size(),
+                               subtitleSuffix.size(), subtitleSuffix) == 0 &&
+                target.compare(prefix.size(), 3U, "ms_") == 0 &&
+                std::all_of(target.begin() + prefix.size() + 3U,
+                            target.begin() + prefix.size() + 35U,
+                            [](unsigned char ch) {
+                                return (ch >= '0' && ch <= '9') ||
+                                       (ch >= 'a' && ch <= 'f');
+                            })) {
+                const std::string id = target.substr(prefix.size(), 35U);
+                const auto selection =
+                    RecordingMediaSessionRequestParser().parseSubtitleTrackSelection(body);
+                if (!selection.valid || selection.sessionId != id)
+                    return error(400, "invalid_device_subtitle_selection");
+                if (!deviceSessions.owned(id, selection.backendId, verifiedDevice))
+                    return error(403, "device_media_session_not_owned");
+                const std::string safeRequest =
+                    "{\"operation\":\"select-subtitle-track\",\"backendId\":\"" +
+                    selection.backendId + "\",\"sessionId\":\"" + id +
+                    "\",\"subtitleTrackId\":\"" + selection.subtitleTrackId +
+                    "\",\"streamBasePositionSeconds\":" +
+                    std::to_string(selection.streamBasePositionSeconds) + "}";
+                ApiResponse result = recordingMediaSessionController.handleRequest(
+                    safeRequest, verifiedDevice.actor.actorId);
+                result.headers.erase("Set-Cookie");
+                return result;
+            }
             if (target.rfind(prefix, 0) == 0 &&
                 target.size() > prefix.size() + 5U &&
                 target.compare(target.size() - 5U, 5U, "/stop") == 0) {
