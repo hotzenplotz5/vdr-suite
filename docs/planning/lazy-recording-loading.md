@@ -1,5 +1,14 @@
 # Lazy Recording Loading and Backend-Scoped Recording Refresh
 
+> **Historical performance requirement and implementation plan, not the
+> current implementation-status authority.** The original “until it is
+> implemented” and sequenced TODOs below describe the requirement's planning
+> checkpoint. Reassess any *remaining* lazy-loading/backend-scoped refresh gap
+> using [CURRENT](../CURRENT.md), the [architecture gap matrix](architecture-audit-gap-matrix.md)
+> and [ADR-0035](../adr/ADR-0035-lazy-recording-loading-and-backend-scoped-refresh.md)
+> rather than assuming the full Phase-54-era plan is still unimplemented.
+
+
 ## Navigation
 
 - [Planning Index](index.md)

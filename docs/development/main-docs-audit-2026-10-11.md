@@ -143,3 +143,11 @@ The initial branch inventory found **22 zero-byte Markdown files**. In this docu
 - Confirmed that `docs/architecture/rest-api-runtime.md` and `daemon-rest-runtime.md` describe an early REST controller/wiring checkpoint with “future” HTTP and web UI language, whereas `api/rest/`, `core/daemon/`, `SecurityHttpGate` and the current Public-v1 API are already implemented. Both documents are explicitly contextualized as historical sketches, not duplicate live route inventories.
 - Clarified that `docs/architecture/vdr-backends.md` describes early `IVdrAdapter` evolution; its “future SVDRP adapter” class note must not be mistaken for the present SuiteBridge/SVDRP Agent transport capability.
 - Linked these early designs under the clearly separated historical section of the architecture index instead of deleting valuable background or claiming implemented code changes. No tests/deployment were run for this documentation-only checkpoint.
+
+## Historical status and early-architecture pointer cleanup (2026-10-11)
+
+- Marked the long `docs/architecture/recording-actions-architecture.md` Phase-30/32 design as historical rather than deleting the recording safety reasoning or implying no native marks/cutting exists after accepted post-Phase-66 work.
+- Demoted the old `snapshot-change-feed-architecture.md` Phase-12 proposal and Phase-8.94 runtime note from apparent current status; retained the original phase-specific text and links to modern current/target owners.
+- Marked `post-phase66-native-recording-editing-status.md` as a 2026-09-07 installed-runtime snapshot rather than a living page: its 'Phase 67 has not started' was true only at that historical checkpoint.
+- Marked Phase-10 diagnostics snapshot and old lazy-loading implementation plan as historical, leaving original implementation/test evidence intact. Current gaps are to be verified from the architecture gap matrix and source, not assumed from an old milestone.
+- Added architecture index links under the historical section. No runtime, API code, installations, current ADRs, accepted closeouts or phase gates changed. No Markdown deleted; backlink/validator impact must be established before later deletions.

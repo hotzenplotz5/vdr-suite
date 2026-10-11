@@ -1,5 +1,12 @@
 # VDR-Suite – Runtime Diagnostics Status
 
+> **Historical Phase-10.21.1 status extract.** The components and “not implemented
+> yet” notes below reflect that early diagnostics milestone, not the current
+> daemon or the next work item. Consult [Current Architecture
+> State](current-architecture-state.md), [Build System State](build-system-state.md)
+> and [CURRENT](../CURRENT.md) before drawing present-day conclusions.
+
+
 ## Navigation
 
 - [README](../../README.md)

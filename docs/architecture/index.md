@@ -114,6 +114,8 @@ Do not copy active-head or CI checkpoint data into architecture pages.
 ## Historical notes
 
 - [Architecture History](history/README.md)
+- [Phase-30–32 Recording Action design](recording-actions-architecture.md) — original safety model; later marks/cutting completion is separately evidenced
+- [Phase-12 Snapshot Change Feed proposal](snapshot-change-feed-architecture.md) and [Phase-8.94 wiring note](phase-8.94-runtime-wiring-notes.md) — early implementations/plans, not current phase gates
 
 Historical snapshots remain traceability only and do not override accepted ADRs or current project state.
 

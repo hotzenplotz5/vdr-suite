@@ -1,5 +1,16 @@
 # Recording Actions Architecture
 
+> **Historical Phase-30–32 Recording Action design, not a current feature-status page.**
+> The original wording below that destructive actions were not implemented describes
+> the Phase-30.0 design checkpoint. The later accepted [native Recording editing
+> closeout](../development/post-phase66-recording-editing-closeout.md) documents
+> marks/cutting under VDR-native authority. See [Current Architecture
+> State](../development/current-architecture-state.md) and [CURRENT](../CURRENT.md)
+> for present-day implementation scope and any separately gated follow-ups.
+> Retain original safety rules as design history; do not treat early 'future'
+> sections as today's implementation backlog.
+
+
 ## Navigation
 
 - [README](../../README.md)

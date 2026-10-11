@@ -1,5 +1,14 @@
 # VDR-Suite – Snapshot Change Feed Architecture
 
+> **Historical Phase-12 design proposal.** The “Proposed for Phase 12.0” status,
+> future steps and transport exclusions below describe the initial phase boundary,
+> not an active project phase or current transport limitation. For accepted
+> present-day snapshot/observation ownership consult [Current Architecture
+> State](../development/current-architecture-state.md), [Target Architecture](target-platform-architecture.md)
+> and [CURRENT](../CURRENT.md). Keep the original phase design unchanged as
+> historical rationale.
+
+
 ## Navigation
 
 - [README](../../README.md)
