@@ -502,3 +502,19 @@ test-phase69f-public-v1-operation-reference-client:
 
 test-phase69-closeout:
 	python3 tools/check_phase69_closeout.py
+
+.PHONY: test-public-epg-now-next-api
+
+test-public-epg-now-next-api:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		api/rest/src/PublicApiRuntime.cpp \
+		api/rest/tests/test_public_epg_now_next.cpp \
+		-o $(BUILD_DIR)/test_public_epg_now_next
+	$(BUILD_DIR)/test_public_epg_now_next
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_public_epg_now_next_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_epg_now_next_security
+	$(BUILD_DIR)/test_public_epg_now_next_security

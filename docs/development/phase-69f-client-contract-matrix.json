@@ -70,6 +70,12 @@
       "method": "GET",
       "template": "/api/v1/accounts",
       "semantics": "global permission-protected Human Account collection with accountId keyset pagination and secret-free representation"
+    },
+    {
+      "id": "recording-collection",
+      "method": "GET",
+      "template": "/api/v1/recordings?backendId={backendId}",
+      "semantics": "candidate: actor-authorized recordings.view backend-scoped paged Recording collection with opaque Suite recordingId and no provider identifiers; requires R2 validation"
     }
   ],
   "browserClientGroups": [
@@ -339,6 +345,15 @@
         "GET /api/v1/accounts"
       ],
       "note": "Read-only global Human Account collection using accounts.view@*; accountId/actorId/displayName/active only, with no credential, session, grant or mutation surface."
+    },
+    {
+      "id": "reference-js-recording-collection",
+      "path": "clients/reference-js/public-v1-client.js",
+      "status": "candidate",
+      "resources": [
+        "GET /api/v1/recordings?backendId={backendId}"
+      ],
+      "note": "Device-capable independent Recording Collection consumer; no private provider/browser fallback; pending compilation and CI acceptance."
     }
   ]
 }

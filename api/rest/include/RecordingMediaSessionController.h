@@ -2,6 +2,7 @@
 
 #include "DashboardController.h"
 #include "MediaCapabilities.h"
+#include "VdrRecording.h"
 
 #include <cstddef>
 #include <map>
@@ -43,9 +44,29 @@ public:
         const std::string& body,
         const std::string& actorId) const;
 
+    // Only after live Device authentication, grant verification, and
+    // canonical public-ID admission. No native identity reaches the response.
+    ApiResponse createDeviceSession(
+        const std::string& body,
+        const std::string& actorId,
+        const VdrRecording& authorizedRecording,
+        const std::string& publicRecordingId,
+        const std::string& externalMediaPrefix,
+        const std::string& cookiePrefix,
+        std::string& activatedSessionId) const;
+
     std::size_t reapInactiveSessions(int idleTimeoutSeconds) const;
 
 private:
+    ApiResponse createSessionInternal(
+        const std::string& body,
+        const std::string& actorId,
+        const VdrRecording* authorizedRecording,
+        const std::string& publicRecordingId,
+        const std::string& externalMediaPrefix,
+        const std::string& cookiePrefix,
+        std::string* activatedSessionId) const;
+
     struct CachedSourceDescriptor
     {
         std::string sourceFingerprint;

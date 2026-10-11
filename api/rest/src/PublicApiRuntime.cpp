@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <iostream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -78,8 +79,21 @@ constexpr const char* PublicAccountCollectionOrder = "asc";
 constexpr const char* PublicAccountCursorPrefix = "ac1_";
 constexpr const char* PublicAccountCursorPayloadVersion =
     "accounts/1|";
+constexpr const char* PublicRecordingCollectionPath =
+    "/api/v1/recordings";
+constexpr std::size_t PublicRecordingDefaultLimit = 50U;
+constexpr std::size_t PublicRecordingMaximumLimit = 100U;
+constexpr const char* PublicRecordingCollectionSort = "recordingId";
+constexpr const char* PublicRecordingCollectionOrder = "asc";
+constexpr const char* PublicRecordingCursorPrefix = "rc1_";
+constexpr const char* PublicRecordingCursorPayloadVersion = "recordings/1|";
+constexpr const char* PublicGenreCollectionPath = "/api/v1/genres";
+constexpr const char* PublicGenreRecordingPath = "/api/v1/genres/recordings";
+constexpr std::size_t PublicGenreMaximumLimit = 30U;
 constexpr const char* PublicChannelCollectionPath =
     "/api/v1/channels";
+constexpr const char* PublicEpgNowNextPath =
+    "/api/v1/epg/now-next";
 constexpr std::size_t PublicChannelDefaultLimit = 50U;
 constexpr std::size_t PublicChannelMaximumLimit = 100U;
 constexpr std::size_t PublicChannelMaximumSources = 16U;
@@ -678,6 +692,284 @@ bool parsePublicAccountCollectionQuery(
     return true;
 }
 
+struct PublicRecordingCollectionQuery
+{
+    std::string backendId;
+    std::string cursor;
+    std::size_t limit = PublicRecordingDefaultLimit;
+    bool browseFolders = false;
+    std::string folderId;
+    std::size_t offset = 0U;
+};
+
+bool parsePublicRecordingCollectionQuery(
+    const std::string& requestTarget,
+    PublicRecordingCollectionQuery& query)
+{
+    const std::string encoded = requestQueryString(requestTarget);
+    if (encoded.empty()) return false;
+    bool backendSeen = false;
+    bool limitSeen = false;
+    bool cursorSeen = false;
+    bool sortSeen = false;
+    bool orderSeen = false;
+    bool viewSeen = false;
+    bool folderSeen = false;
+    bool offsetSeen = false;
+    std::size_t position = 0U;
+
+    while (position <= encoded.size())
+    {
+        const std::size_t separator = encoded.find('&', position);
+        const std::string field = encoded.substr(
+            position, separator == std::string::npos
+                ? std::string::npos : separator - position);
+        const std::size_t equals = field.find('=');
+        if (equals == std::string::npos) return false;
+        const std::string key = field.substr(0U, equals);
+        const std::string value = field.substr(equals + 1U);
+
+        if (key == "backendId")
+        {
+            if (backendSeen || value.empty() || value.size() > 128U)
+                return false;
+            backendSeen = true;
+            query.backendId = value;
+            if (!std::all_of(value.begin(), value.end(),
+                    [](unsigned char ch) {
+                        return std::isalnum(ch) || ch == '.' ||
+                            ch == '-' || ch == '_';
+                    }))
+                return false;
+        }
+        else if (key == "limit")
+        {
+            if (limitSeen) return false;
+            limitSeen = true;
+            std::size_t parsed = 0U;
+            if (!decimalSize(value, parsed) || parsed == 0U ||
+                parsed > PublicRecordingMaximumLimit)
+                return false;
+            query.limit = parsed;
+        }
+        else if (key == "cursor")
+        {
+            if (cursorSeen || value.empty() || value.size() > 4096U)
+                return false;
+            cursorSeen = true;
+            query.cursor = value;
+        }
+        else if (key == "view")
+        {
+            if (viewSeen || value != "folders") return false;
+            viewSeen = true;
+            query.browseFolders = true;
+        }
+        else if (key == "folderId")
+        {
+            if (folderSeen || value.size() != 37U ||
+                value.rfind("fld1_", 0U) != 0U ||
+                !std::all_of(value.begin() + 5, value.end(),
+                    [](char ch) { return (ch >= '0' && ch <= '9') ||
+                                          (ch >= 'a' && ch <= 'f'); }))
+                return false;
+            folderSeen = true;
+            query.folderId = value;
+        }
+        else if (key == "offset")
+        {
+            if (offsetSeen || !decimalSize(value, query.offset) ||
+                query.offset > 1000000U) return false;
+            offsetSeen = true;
+        }
+        else if (key == "sort")
+        {
+            if (sortSeen || value != PublicRecordingCollectionSort)
+                return false;
+            sortSeen = true;
+        }
+        else if (key == "order")
+        {
+            if (orderSeen || value != PublicRecordingCollectionOrder)
+                return false;
+            orderSeen = true;
+        }
+        else
+        {
+            return false;
+        }
+
+        if (separator == std::string::npos) break;
+        position = separator + 1U;
+    }
+    return backendSeen &&
+        (query.browseFolders ? (!cursorSeen && !sortSeen && !orderSeen) :
+            (!folderSeen && !offsetSeen));
+}
+
+struct PublicGenreCollectionQuery
+{
+    std::string backendId;
+    std::string genreId;
+    std::string locale = "de";
+    std::size_t limit = PublicGenreMaximumLimit;
+    std::size_t offset = 0U;
+    bool recordings = false;
+};
+
+bool parsePublicGenreCollectionQuery(
+    const std::string& requestTarget,
+    bool recordings,
+    PublicGenreCollectionQuery& query)
+{
+    query.recordings = recordings;
+    const std::string encoded = requestQueryString(requestTarget);
+    if (encoded.empty()) return false;
+    bool backendSeen = false;
+    bool genreSeen = false;
+    bool localeSeen = false;
+    bool limitSeen = false;
+    bool offsetSeen = false;
+    std::size_t position = 0U;
+    while (position <= encoded.size())
+    {
+        const std::size_t sep = encoded.find('&', position);
+        const std::string field = encoded.substr(
+            position, sep == std::string::npos
+                ? std::string::npos : sep - position);
+        const std::size_t equals = field.find('=');
+        if (equals == std::string::npos) return false;
+        const std::string key = field.substr(0U, equals);
+        const std::string value = field.substr(equals + 1U);
+        if (key == "backendId")
+        {
+            if (backendSeen || value.empty() || value.size() > 128U)
+                return false;
+            backendSeen = true;
+            query.backendId = value;
+        }
+        else if (key == "genreId")
+        {
+            if (genreSeen || !recordings || value.empty() ||
+                value.size() > 128U) return false;
+            genreSeen = true;
+            query.genreId = value;
+        }
+        else if (key == "locale")
+        {
+            if (localeSeen || (value != "de" && value != "en"))
+                return false;
+            localeSeen = true;
+            query.locale = value;
+        }
+        else if (key == "limit")
+        {
+            if (limitSeen || !decimalSize(value, query.limit) ||
+                query.limit == 0U || query.limit > PublicGenreMaximumLimit)
+                return false;
+            limitSeen = true;
+        }
+        else if (key == "offset")
+        {
+            if (offsetSeen || !decimalSize(value, query.offset) ||
+                query.offset > 1000000U) return false;
+            offsetSeen = true;
+        }
+        else return false;
+        if (sep == std::string::npos) break;
+        position = sep + 1U;
+    }
+    const auto validId = [](const std::string& id) {
+        return std::all_of(id.begin(), id.end(), [](unsigned char ch) {
+            return std::isalnum(ch) || ch == '.' ||
+                ch == '_' || ch == '-';
+        });
+    };
+    return backendSeen && validId(query.backendId) &&
+        (recordings ? genreSeen && validId(query.genreId) : !genreSeen);
+}
+
+struct PublicEpgNowNextQuery
+{
+    std::string backendId;
+    std::string channelId;
+    std::string fromTime;
+    std::size_t limit = 2U;
+};
+
+bool parsePublicEpgNowNextQuery(
+    const std::string& target,
+    PublicEpgNowNextQuery& query)
+{
+    const std::string raw = requestQueryString(target);
+    if (raw.empty() || raw.size() > 640U) return false;
+    bool backendSeen = false;
+    bool channelSeen = false;
+    bool fromSeen = false;
+    bool limitSeen = false;
+    std::size_t position = 0U;
+    while (position < raw.size())
+    {
+        const std::size_t end = raw.find('&', position);
+        const std::string item = raw.substr(position,
+            end == std::string::npos ? std::string::npos : end - position);
+        const std::size_t equals = item.find('=');
+        if (item.empty() || equals == std::string::npos ||
+            item.find('=', equals + 1U) != std::string::npos)
+            return false;
+        const std::string key = item.substr(0U, equals);
+        const std::string value = item.substr(equals + 1U);
+        if (key == "backendId")
+        {
+            if (backendSeen || value.empty() || value.size() > 128U)
+                return false;
+            backendSeen = true;
+            query.backendId = value;
+        }
+        else if (key == "channelId")
+        {
+            if (channelSeen || value.empty() || value.size() > 256U)
+                return false;
+            channelSeen = true;
+            query.channelId = value;
+        }
+        else if (key == "fromTime")
+        {
+            if (fromSeen || value.size() < 10U || value.size() > 12U ||
+                value[0] == '0') return false;
+            fromSeen = true;
+            query.fromTime = value;
+        }
+        else if (key == "limit")
+        {
+            std::size_t parsed = 0U;
+            if (limitSeen || !decimalSize(value, parsed) ||
+                parsed == 0U || parsed > 2U) return false;
+            limitSeen = true;
+            query.limit = parsed;
+        }
+        else return false;
+        if (end == std::string::npos) break;
+        position = end + 1U;
+        if (position == raw.size()) return false;
+    }
+    const auto valid = [](const std::string& id) {
+        return !id.empty() &&
+            std::all_of(id.begin(), id.end(), [](unsigned char ch) {
+                return std::isalnum(ch) || ch == '.' ||
+                    ch == '_' || ch == '-';
+            });
+    };
+    const auto digits = [](const std::string& value) {
+        return std::all_of(value.begin(), value.end(), [](unsigned char ch) {
+            return ch >= '0' && ch <= '9';
+        });
+    };
+    return backendSeen && channelSeen && fromSeen &&
+        valid(query.backendId) && valid(query.channelId) &&
+        digits(query.fromTime);
+}
+
 struct PublicChannelCollectionQuery
 {
     std::size_t limit = PublicChannelDefaultLimit;
@@ -1114,6 +1406,65 @@ PublicChannelCursorDecodeStatus decodePublicChannelCursor(
         return PublicChannelCursorDecodeStatus::scopeMismatch;
 
     return PublicChannelCursorDecodeStatus::ok;
+}
+
+enum class PublicRecordingCursorDecodeStatus
+{
+    ok,
+    invalid,
+    scopeMismatch,
+};
+
+std::string publicRecordingCursor(
+    const std::string& backendId,
+    const std::string& lastRecordingId)
+{
+    if (backendId.empty() || lastRecordingId.empty()) return {};
+    std::string payload(PublicRecordingCursorPayloadVersion);
+    appendCursorField(payload, backendId);
+    appendCursorField(payload, lastRecordingId);
+    return std::string(PublicRecordingCursorPrefix) + hexEncode(payload);
+}
+
+PublicRecordingCursorDecodeStatus decodePublicRecordingCursor(
+    const std::string& cursor,
+    const std::string& backendId,
+    std::string& afterRecordingId)
+{
+    const std::string prefix(PublicRecordingCursorPrefix);
+    if (cursor.size() <= prefix.size() ||
+        cursor.compare(0U, prefix.size(), prefix) != 0)
+        return PublicRecordingCursorDecodeStatus::invalid;
+    std::string payload;
+    if (!hexDecode(cursor.substr(prefix.size()), payload))
+        return PublicRecordingCursorDecodeStatus::invalid;
+    const std::string version(PublicRecordingCursorPayloadVersion);
+    if (payload.compare(0U, version.size(), version) != 0)
+        return PublicRecordingCursorDecodeStatus::invalid;
+
+    std::size_t position = version.size();
+    std::string cursorBackend;
+    if (!readCursorField(payload, position, cursorBackend) ||
+        !readCursorField(payload, position, afterRecordingId) ||
+        position != payload.size() ||
+        afterRecordingId.empty() || afterRecordingId.size() > 128U)
+        return PublicRecordingCursorDecodeStatus::invalid;
+    if (cursorBackend != backendId)
+        return PublicRecordingCursorDecodeStatus::scopeMismatch;
+    return PublicRecordingCursorDecodeStatus::ok;
+}
+
+std::string publicRecordingCollectionTarget(
+    const PublicRecordingCollectionQuery& query,
+    const std::string& cursor)
+{
+    std::string target = std::string(PublicRecordingCollectionPath) +
+        "?backendId=" + query.backendId +
+        "&limit=" + std::to_string(query.limit) +
+        "&sort=" + PublicRecordingCollectionSort +
+        "&order=" + PublicRecordingCollectionOrder;
+    if (!cursor.empty()) target += "&cursor=" + cursor;
+    return target;
 }
 
 std::string publicBackendCollectionTarget(
@@ -2669,6 +3020,9 @@ ApiResponse platformCapabilities(
     const bool timerAssignmentReadAvailable,
     const bool timerCreateAdmissionAvailable,
     const bool backendCollectionAvailable,
+    const bool recordingCollectionAvailable,
+    const bool genreCollectionAvailable,
+    const bool epgNowNextAvailable,
     const bool accountCollectionAvailable,
     const bool accountMutationAvailable,
     const bool accountCreateAvailable,
@@ -2699,6 +3053,18 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.backends-read\",\"version\":1,\"availability\":\"" +
         std::string(backendCollectionAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.recordings-read\",\"version\":1,\"availability\":\"" +
+        std::string(recordingCollectionAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.recordings-browse\",\"version\":1,\"availability\":\"" +
+        std::string(recordingCollectionAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.recording-genres-read\",\"version\":1,\"availability\":\"" +
+        std::string(genreCollectionAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.epg-now-next-read\",\"version\":1,\"availability\":\"" +
+        std::string(epgNowNextAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.accounts-read\",\"version\":1,\"availability\":\"" +
         std::string(accountCollectionAvailable ? "available" : "unavailable") +
@@ -3021,6 +3387,153 @@ ApiResponse publicBackendCollectionResponse(
         body,
         requestId,
         correlationId);
+}
+
+ApiResponse publicRecordingBrowseResponse(
+    const PublicRecordingCollectionResult& page,
+    const PublicRecordingCollectionQuery& query,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    std::string body = "{\"items\":[";
+    std::size_t count = 0U;
+    for (const auto& folder : page.folders)
+    {
+        if (count++) body += ",";
+        if (folder.singleRecordingLeaf)
+        {
+            const auto& item = folder.singleRecording;
+            body += "{\"kind\":\"recording\",\"recordingId\":\"" +
+                jsonEscape(item.recordingId) + "\",\"backendId\":\"" +
+                jsonEscape(item.backendId) + "\",\"title\":\"" +
+                jsonEscape(item.title) + "\",\"recordedAt\":\"" +
+                jsonEscape(item.recordedAt) + "\",\"durationSeconds\":" +
+                std::to_string(item.durationSeconds) +
+                ",\"durationKnown\":" +
+                (item.durationKnown ? "true" : "false") +
+                ",\"description\":\"" + jsonEscape(item.description) +
+                "\",\"sizeMb\":" + std::to_string(item.sizeMb) + "}";
+        }
+        else
+        {
+            body += "{\"kind\":\"folder\",\"folderId\":\"" +
+                jsonEscape(folder.folderId) + "\",\"name\":\"" +
+                jsonEscape(folder.name) + "\",\"recordingCount\":" +
+                std::to_string(folder.recordingCount) + "}";
+        }
+    }
+    for (const auto& item : page.recordings)
+    {
+        if (count++) body += ",";
+        body += "{\"kind\":\"recording\",\"recordingId\":\"" +
+            jsonEscape(item.recordingId) + "\",\"backendId\":\"" +
+            jsonEscape(item.backendId) + "\",\"title\":\"" +
+            jsonEscape(item.title) + "\",\"recordedAt\":\"" +
+            jsonEscape(item.recordedAt) + "\",\"durationSeconds\":" +
+            std::to_string(item.durationSeconds) +
+            ",\"durationKnown\":" +
+            (item.durationKnown ? "true" : "false") +
+            ",\"description\":\"" + jsonEscape(item.description) +
+            "\",\"sizeMb\":" + std::to_string(item.sizeMb) + "}";
+    }
+    body += "],\"page\":{\"limit\":" + std::to_string(query.limit) +
+        ",\"offset\":" + std::to_string(query.offset) +
+        ",\"totalCount\":" + std::to_string(page.totalEntries) +
+        ",\"hasMore\":" + (page.hasMore ? "true" : "false") +
+        "},\"meta\":{\"partial\":false}}";
+    return jsonResponse(body, requestId, correlationId);
+}
+
+ApiResponse publicGenreCollectionResponse(
+    const PublicGenreCollectionResult& page,
+    const PublicGenreCollectionQuery& query,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    std::string body = "{\"items\":[";
+    std::size_t count = 0U;
+    if (query.recordings)
+    {
+        for (const auto& item : page.recordings)
+        {
+            if (count++) body += ",";
+            body += "{\"recordingId\":\"" + jsonEscape(item.recordingId) +
+                "\",\"backendId\":\"" + jsonEscape(item.backendId) +
+                "\",\"title\":\"" + jsonEscape(item.title) +
+                "\",\"recordedAt\":\"" + jsonEscape(item.recordedAt) +
+                "\",\"durationSeconds\":" + std::to_string(item.durationSeconds) +
+                ",\"durationKnown\":" +
+                std::string(item.durationKnown ? "true" : "false") + "}";
+        }
+    }
+    else
+    {
+        for (const auto& item : page.genres)
+        {
+            if (count++) body += ",";
+            body += "{\"genreId\":\"" + jsonEscape(item.genreId) +
+                "\",\"label\":\"" + jsonEscape(item.label) +
+                "\",\"labelDe\":\"" + jsonEscape(item.labelDe) +
+                "\",\"labelEn\":\"" + jsonEscape(item.labelEn) +
+                "\",\"count\":" + std::to_string(item.count) + "}";
+        }
+    }
+    body += "],\"page\":{\"limit\":" + std::to_string(query.limit) +
+        ",\"offset\":" + std::to_string(query.offset) +
+        ",\"totalCount\":" + std::to_string(page.totalCount) +
+        ",\"hasMore\":" +
+        std::string(query.offset + count < page.totalCount ? "true" : "false") +
+        "},\"meta\":{\"partial\":false}}";
+    return jsonResponse(body, requestId, correlationId);
+}
+
+ApiResponse publicRecordingCollectionResponse(
+    const PublicRecordingCollectionResult& page,
+    const PublicRecordingCollectionQuery& query,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    const std::string nextCursor =
+        page.hasMore && !page.recordings.empty()
+            ? publicRecordingCursor(
+                query.backendId, page.recordings.back().recordingId)
+            : std::string();
+    if (page.hasMore && nextCursor.empty())
+        return serviceUnavailableProblem(
+            PublicRecordingCollectionPath, requestId, correlationId);
+
+    const std::string self =
+        publicRecordingCollectionTarget(query, query.cursor);
+    const std::string next = nextCursor.empty()
+        ? std::string()
+        : publicRecordingCollectionTarget(query, nextCursor);
+
+    std::string body = "{\"items\":[";
+    for (std::size_t i = 0U; i < page.recordings.size(); ++i)
+    {
+        if (i > 0U) body += ",";
+        const auto& item = page.recordings[i];
+        body += "{\"recordingId\":\"" + jsonEscape(item.recordingId) +
+            "\",\"backendId\":\"" + jsonEscape(item.backendId) +
+            "\",\"title\":\"" + jsonEscape(item.title) +
+            "\",\"recordedAt\":\"" + jsonEscape(item.recordedAt) +
+            "\",\"durationSeconds\":" +
+            std::to_string(item.durationSeconds) +
+            ",\"durationKnown\":" + (item.durationKnown ? "true" : "false") +
+            ",\"description\":\"" + jsonEscape(item.description) +
+            "\",\"sizeMb\":" + std::to_string(item.sizeMb) + "}";
+    }
+    body += "],\"page\":{\"limit\":" + std::to_string(query.limit) +
+        ",\"nextCursor\":";
+    body += nextCursor.empty() ? "null" :
+        "\"" + jsonEscape(nextCursor) + "\"";
+    body += ",\"hasMore\":" +
+        std::string(page.hasMore ? "true" : "false") +
+        "},\"meta\":{\"partial\":false},\"links\":{\"self\":\"" +
+        jsonEscape(self) + "\",\"next\":";
+    body += next.empty() ? "null" : "\"" + jsonEscape(next) + "\"";
+    body += "}}";
+    return jsonResponse(body, requestId, correlationId);
 }
 
 ApiResponse publicAccountResponse(
@@ -4375,6 +4888,97 @@ bool PublicApiRuntime::accountSessionMutationConfigured() const
     return static_cast<bool>(accountSessionMutation_);
 }
 
+void PublicApiRuntime::registerRecordingCollectionLookup(
+    RecordingCollectionLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(recordingCollectionLookupMutex_);
+    recordingCollectionLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetRecordingCollectionLookup()
+{
+    std::lock_guard<std::mutex> lock(recordingCollectionLookupMutex_);
+    recordingCollectionLookup_ = {};
+}
+
+bool PublicApiRuntime::recordingCollectionLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(recordingCollectionLookupMutex_);
+    return static_cast<bool>(recordingCollectionLookup_);
+}
+
+PublicRecordingCollectionResult PublicApiRuntime::lookupRecordingCollection(
+    const PublicRecordingCollectionRequest& request) const
+{
+    RecordingCollectionLookup lookup;
+    {
+        std::lock_guard<std::mutex> lock(recordingCollectionLookupMutex_);
+        lookup = recordingCollectionLookup_;
+    }
+    if (!lookup) return {};
+    return lookup(request);
+}
+
+void PublicApiRuntime::registerGenreCollectionLookup(
+    GenreCollectionLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(genreCollectionLookupMutex_);
+    genreCollectionLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetGenreCollectionLookup()
+{
+    std::lock_guard<std::mutex> lock(genreCollectionLookupMutex_);
+    genreCollectionLookup_ = {};
+}
+
+bool PublicApiRuntime::genreCollectionLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(genreCollectionLookupMutex_);
+    return static_cast<bool>(genreCollectionLookup_);
+}
+
+PublicGenreCollectionResult PublicApiRuntime::lookupGenreCollection(
+    const PublicGenreCollectionRequest& request) const
+{
+    GenreCollectionLookup lookup;
+    {
+        std::lock_guard<std::mutex> lock(genreCollectionLookupMutex_);
+        lookup = genreCollectionLookup_;
+    }
+    return lookup ? lookup(request) : PublicGenreCollectionResult{};
+}
+
+void PublicApiRuntime::registerEpgNowNextLookup(
+    EpgNowNextLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(epgNowNextLookupMutex_);
+    epgNowNextLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetEpgNowNextLookup()
+{
+    std::lock_guard<std::mutex> lock(epgNowNextLookupMutex_);
+    epgNowNextLookup_ = {};
+}
+
+bool PublicApiRuntime::epgNowNextLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(epgNowNextLookupMutex_);
+    return static_cast<bool>(epgNowNextLookup_);
+}
+
+PublicEpgNowNextResult PublicApiRuntime::lookupEpgNowNext(
+    const PublicEpgNowNextRequest& request) const
+{
+    EpgNowNextLookup lookup;
+    {
+        std::lock_guard<std::mutex> lock(epgNowNextLookupMutex_);
+        lookup = epgNowNextLookup_;
+    }
+    return lookup ? lookup(request) : PublicEpgNowNextResult{};
+}
+
 void PublicApiRuntime::registerChannelCollectionLookup(
     ChannelCollectionLookup lookup)
 {
@@ -4481,6 +5085,9 @@ bool PublicApiRuntime::tryHandleGet(
             timerAssignmentLookupConfigured(),
             timerCreateAdmissionConfigured(),
             backendCollectionLookupConfigured(),
+            recordingCollectionLookupConfigured(),
+            genreCollectionLookupConfigured(),
+            epgNowNextLookupConfigured(),
             accountCollectionLookupConfigured(),
             accountMutationConfigured(),
             accountCreateConfigured(),
@@ -5721,6 +6328,345 @@ bool PublicApiRuntime::tryHandleGet(
             }
 
             case PublicAccountCollectionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    if (path == PublicRecordingCollectionPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+
+        PublicRecordingCollectionQuery query;
+        if (!parsePublicRecordingCollectionQuery(requestTarget, query) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != query.backendId)
+        {
+            response = invalidRequestProblem(
+                path, "Recording collection backend scope is invalid.",
+                requestId, correlationId);
+            return true;
+        }
+
+        std::string afterRecordingId;
+        if (!query.cursor.empty())
+        {
+            const auto cursorStatus = decodePublicRecordingCursor(
+                query.cursor, query.backendId, afterRecordingId);
+            if (cursorStatus == PublicRecordingCursorDecodeStatus::scopeMismatch)
+            {
+                response = cursorExpiredProblem(
+                    path, requestId, correlationId);
+                return true;
+            }
+            if (cursorStatus != PublicRecordingCursorDecodeStatus::ok)
+            {
+                response = invalidRequestProblem(
+                    path, "The Recording cursor is invalid.",
+                    requestId, correlationId);
+                return true;
+            }
+        }
+
+        PublicRecordingCollectionRequest read;
+        read.backendId = query.backendId;
+        read.afterRecordingId = afterRecordingId;
+        read.limit = query.limit;
+        read.browseFolders = query.browseFolders;
+        read.folderId = query.folderId;
+        read.offset = query.offset;
+        const auto page = lookupRecordingCollection(read);
+
+        switch (page.status)
+        {
+            case PublicRecordingCollectionStatus::ok:
+            {
+                if (query.browseFolders)
+                {
+                    const std::size_t count =
+                        page.folders.size() + page.recordings.size();
+                    if (count > query.limit ||
+                        page.totalEntries < query.offset ||
+                        count > page.totalEntries - query.offset ||
+                        page.hasMore !=
+                            (query.offset + count < page.totalEntries))
+                    {
+                        std::cerr << "Public-v1 Recording browse unavailable: "
+                                     "page shape/pagination invariant failed"
+                                  << std::endl;
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    for (const auto& folder : page.folders)
+                    {
+                        if (folder.singleRecordingLeaf)
+                        {
+                            const auto& item = folder.singleRecording;
+                            if (item.backendId != query.backendId ||
+                                item.recordingId.size() != 36U ||
+                                item.recordingId.rfind("rec_", 0U) != 0U ||
+                                item.title.empty() ||
+                                item.durationSeconds < 0 ||
+                                item.sizeMb < 0 ||
+                                item.description.size() > 2048U)
+                            {
+                                std::cerr << "Public-v1 Recording browse unavailable: "
+                                             "single-recording leaf response invalid"
+                                          << std::endl;
+                                response = serviceUnavailableProblem(
+                                    path, requestId, correlationId);
+                                return true;
+                            }
+                        }
+                        else if (folder.folderId.size() != 37U ||
+                                 folder.folderId.rfind("fld1_", 0U) != 0U ||
+                                 folder.name.empty() ||
+                                 folder.recordingCount < 0)
+                        {
+                            std::cerr << "Public-v1 Recording browse unavailable: "
+                                         "folder response invalid"
+                                      << std::endl;
+                            response = serviceUnavailableProblem(
+                                path, requestId, correlationId);
+                            return true;
+                        }
+                    }
+                    for (const auto& recording : page.recordings)
+                    {
+                        if (recording.backendId != query.backendId ||
+                            recording.recordingId.size() != 36U ||
+                            recording.recordingId.rfind("rec_", 0U) != 0U ||
+                            recording.title.empty() ||
+                            recording.durationSeconds < 0 ||
+                            recording.sizeMb < 0 ||
+                            recording.description.size() > 2048U)
+                        {
+                            std::cerr << "Public-v1 Recording browse unavailable: "
+                                         "recording response invalid"
+                                      << std::endl;
+                            response = serviceUnavailableProblem(
+                                path, requestId, correlationId);
+                            return true;
+                        }
+                    }
+                    response = publicRecordingBrowseResponse(
+                        page, query, requestId, correlationId);
+                    return true;
+                }
+                if (page.recordings.size() > query.limit ||
+                    (page.hasMore && page.recordings.size() != query.limit))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+
+                std::string previous = afterRecordingId;
+                for (const auto& recording : page.recordings)
+                {
+                    if (recording.backendId != query.backendId ||
+                        recording.recordingId.empty() ||
+                        recording.recordingId.size() != 36U ||
+                        recording.recordingId.rfind("rec_", 0U) != 0U ||
+                        !std::all_of(
+                            recording.recordingId.begin() + 4,
+                            recording.recordingId.end(),
+                            [](char ch) {
+                                return (ch >= '0' && ch <= '9') ||
+                                       (ch >= 'a' && ch <= 'f');
+                            }) ||
+                        recording.title.empty() ||
+                        recording.durationSeconds < 0 ||
+                        recording.sizeMb < 0 ||
+                        recording.description.size() > 2048U ||
+                        (!previous.empty() &&
+                         recording.recordingId <= previous))
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    previous = recording.recordingId;
+                }
+                response = publicRecordingCollectionResponse(
+                    page, query, requestId, correlationId);
+                return true;
+            }
+            case PublicRecordingCollectionStatus::invalid:
+                response = invalidRequestProblem(
+                    path, "The Recording collection request is invalid.",
+                    requestId, correlationId);
+                return true;
+            case PublicRecordingCollectionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    if (path == PublicGenreCollectionPath ||
+        path == PublicGenreRecordingPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicGenreCollectionQuery query;
+        const bool recordings = path == PublicGenreRecordingPath;
+        if (!parsePublicGenreCollectionQuery(requestTarget, recordings, query) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != query.backendId)
+        {
+            response = invalidRequestProblem(
+                path, "Genre collection backend scope is invalid.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicGenreCollectionRequest read;
+        read.backendId = query.backendId;
+        read.genreId = query.genreId;
+        read.locale = query.locale;
+        read.limit = query.limit;
+        read.offset = query.offset;
+        read.recordings = recordings;
+        const auto page = lookupGenreCollection(read);
+        switch (page.status)
+        {
+            case PublicGenreCollectionStatus::ok:
+            {
+                const std::size_t count = recordings ?
+                    page.recordings.size() : page.genres.size();
+                if (count > query.limit ||
+                    page.totalCount < query.offset ||
+                    count > page.totalCount - query.offset ||
+                    (recordings && !page.genres.empty()) ||
+                    (!recordings && !page.recordings.empty()))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                for (const auto& item : page.recordings)
+                {
+                    if (item.backendId != query.backendId ||
+                        item.recordingId.size() != 36U ||
+                        item.recordingId.rfind("rec_", 0U) != 0U ||
+                        !std::all_of(item.recordingId.begin() + 4,
+                            item.recordingId.end(), [](char ch) {
+                                return (ch >= '0' && ch <= '9') ||
+                                    (ch >= 'a' && ch <= 'f');
+                            }) ||
+                        item.title.empty() || item.durationSeconds < 0)
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                }
+                for (const auto& item : page.genres)
+                {
+                    if (item.genreId.empty() || item.label.empty() ||
+                        item.genreId.size() > 128U)
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                }
+                response = publicGenreCollectionResponse(
+                    page, query, requestId, correlationId);
+                return true;
+            }
+            case PublicGenreCollectionStatus::invalid:
+                response = invalidRequestProblem(
+                    path, "Invalid Genre collection request.",
+                    requestId, correlationId);
+                return true;
+            case PublicGenreCollectionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    if (path == PublicEpgNowNextPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        PublicEpgNowNextQuery query;
+        if (!parsePublicEpgNowNextQuery(requestTarget, query) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != query.backendId)
+        {
+            response = invalidRequestProblem(
+                path, "An authorized backendId, channelId and fromTime are required.",
+                requestId, correlationId);
+            return true;
+        }
+        const PublicEpgNowNextRequest request{
+            query.backendId, query.channelId, query.fromTime, query.limit
+        };
+        const PublicEpgNowNextResult found = lookupEpgNowNext(request);
+        switch (found.status)
+        {
+            case PublicEpgNowNextStatus::ok:
+            {
+                if (found.events.size() > query.limit)
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                std::string body = "{\"backendId\":\"" +
+                    jsonEscape(query.backendId) + "\",\"channelId\":\"" +
+                    jsonEscape(query.channelId) + "\",\"items\":[";
+                for (std::size_t index = 0U; index < found.events.size(); ++index)
+                {
+                    const PublicEpgNowNextItem& event = found.events[index];
+                    if (event.channelId != query.channelId ||
+                        event.title.empty() ||
+                        event.startTime.empty() || event.endTime.empty() ||
+                        event.durationSeconds < 0)
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    if (index > 0U) body += ",";
+                    body += "{\"channelId\":\"" +
+                        jsonEscape(event.channelId) + "\",\"title\":\"" +
+                        jsonEscape(event.title) + "\",\"subtitle\":\"" +
+                        jsonEscape(event.subtitle) + "\",\"startTime\":\"" +
+                        jsonEscape(event.startTime) + "\",\"endTime\":\"" +
+                        jsonEscape(event.endTime) + "\",\"durationSeconds\":" +
+                        std::to_string(event.durationSeconds) + "}";
+                }
+                body += "],\"page\":{\"limit\":" +
+                    std::to_string(query.limit) +
+                    ",\"hasMore\":false},\"meta\":{\"partial\":false}}";
+                response = jsonResponse(body, requestId, correlationId);
+                return true;
+            }
+            case PublicEpgNowNextStatus::invalid:
+                response = invalidRequestProblem(
+                    path, "Invalid EPG request.",
+                    requestId, correlationId);
+                return true;
+            case PublicEpgNowNextStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicEpgNowNextStatus::unavailable:
                 response = serviceUnavailableProblem(
                     path, requestId, correlationId);
                 return true;
@@ -8290,6 +9236,8 @@ bool PublicApiRuntime::tryHandlePost(
     if (path == "/api/v1" ||
         path == "/api/v1/capabilities" ||
         path == PublicBackendCollectionPath ||
+        path == PublicRecordingCollectionPath ||
+        path == PublicEpgNowNextPath ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         publicOperationPath(path, operationId))
@@ -8443,6 +9391,8 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
     if (path == "/api/v1" ||
         path == "/api/v1/capabilities" ||
         path == PublicBackendCollectionPath ||
+        path == PublicRecordingCollectionPath ||
+        path == PublicEpgNowNextPath ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         publicOperationPath(path, operationId))

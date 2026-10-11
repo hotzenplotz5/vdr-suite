@@ -1,0 +1,45 @@
+name: R2 Public-v1 Recording + Genre tests
+
+on:
+  push:
+    branches:
+      - work/r2-recording-folder-browse
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install native build prerequisite
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libcurl4-openssl-dev
+      - name: Verify build dependencies
+        run: |
+          g++ --version
+          pkg-config --modversion sqlite3
+          node --version
+      - name: Compile and execute Public-v1 Recording and Genre contract tests
+        run: |
+          make -j1 test-public-recording-identity-repository \
+            test-public-recording-collection-api \
+            test-public-recording-collection-security \
+            test-public-recording-genre-api \
+            test-public-epg-now-next-api \
+            test-public-recording-collection-projection \
+            test-vdr-recording-cache-repository \
+            test-public-recording-playback-target-resolver \
+            test-public-recording-device-playback-admission \
+            test-security-device-authentication \
+            test-security-http-gate \
+            test-public-device-playback-registry \
+            test-public-recording-device-media-session-response \
+            test-phase65-media-access-credential-http \
+            test-phase65-media-gateway-http
+      - name: Guard existing host directory permissions during deployment
+        run: python3 tools/test_install_runtime_stage.py
+      - name: Compile daemon candidate without deploying
+        run: make -j2 daemon

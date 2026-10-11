@@ -70,6 +70,28 @@ public:
         return gate.evaluate(request);
     }
 
+    SecurityGateDecision evaluatePlayback(
+        const std::string& backend,
+        const std::string& authorization = "",
+        bool stop = false) const
+    {
+        HttpServerRequest request;
+        request.method = "POST";
+        request.path = stop
+            ? "/api/v1/recording-playback-sessions/"
+              "ms_0123456789abcdef0123456789abcdef/stop"
+            : "/api/v1/recording-playback-sessions";
+        request.body = stop
+            ? "{\"operation\":\"stop\",\"backendId\":\"" + backend +
+              "\",\"sessionId\":\"ms_0123456789abcdef0123456789abcdef\"}"
+            : "{\"backendId\":\"" + backend +
+              "\",\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\"}";
+        request.headers["X-Request-ID"] = "mu10d-device-playback-admission";
+        if (!authorization.empty())
+            request.headers["Authorization"] = authorization;
+        return gate.evaluate(request);
+    }
+
     std::string validAuthorization() const
     {
         return std::string(DeviceCredentialAuthenticator::Scheme) +
@@ -107,6 +129,85 @@ int main()
         assert(authorized.context.grants.empty());
         assert(authorized.context.permissionGrantResolution ==
             PermissionGrantResolutionState::Resolved);
+
+        // Pairing authenticates identity; it does not grant Recording access.
+        const auto recordingsDenied = fixture.evaluate(
+            "/api/v1/recordings?backendId=default",
+            fixture.validAuthorization());
+        assert(!recordingsDenied.allowed);
+        assert(recordingsDenied.rejection.statusCode == 403);
+
+        assert(fixture.grants.ensureGrant(
+            ActorId, "recordings.view", "default"));
+        const auto recordingsAllowed = fixture.evaluate(
+            "/api/v1/recordings?backendId=default",
+            fixture.validAuthorization());
+        assert(recordingsAllowed.allowed);
+        assert(recordingsAllowed.deviceAuthenticated);
+        assert(recordingsAllowed.authorizedBackendIds ==
+            (std::vector<std::string>{"default"}));
+
+        // Device recording session control requires its own play grant.
+        // recordings.view alone is not sufficient and wrong backends fail.
+        const auto playbackDenied = fixture.evaluatePlayback(
+            "default", fixture.validAuthorization());
+        assert(!playbackDenied.allowed);
+        assert(playbackDenied.rejection.statusCode == 403);
+        assert(fixture.grants.ensureGrant(
+            ActorId, "media.recording.play", "default"));
+        const auto playbackAllowed = fixture.evaluatePlayback(
+            "default", fixture.validAuthorization());
+        assert(playbackAllowed.allowed);
+        assert(playbackAllowed.deviceAuthenticated);
+        assert(playbackAllowed.protectedMutation);
+        assert(playbackAllowed.context.device.has_value());
+        assert(playbackAllowed.context.credential.has_value());
+        assert(playbackAllowed.authorizationDecision.backendId == "default");
+        assert(playbackAllowed.authorizationDecision.permission ==
+            "media.recording.play");
+        const auto stopAllowed = fixture.evaluatePlayback(
+            "default", fixture.validAuthorization(), true);
+        assert(stopAllowed.allowed);
+        assert(stopAllowed.deviceAuthenticated);
+        assert(stopAllowed.protectedMutation);
+        assert(stopAllowed.authorizationDecision.permission ==
+            "media.recording.play");
+        // Status GET is a Device-only Public-v1 read, not an unversioned
+        // browser or cookie-based session inspection shortcut.
+        const std::string statusPath =
+            "/api/v1/recording-playback-sessions/"
+            "ms_0123456789abcdef0123456789abcdef";
+        const auto readAllowed = fixture.evaluate(
+            statusPath, fixture.validAuthorization());
+        assert(readAllowed.allowed);
+        assert(readAllowed.deviceAuthenticated);
+        const auto readAnonymous = fixture.evaluate(statusPath);
+        assert(!readAnonymous.allowed);
+        assert(readAnonymous.rejection.statusCode == 401);
+        const auto readWithPairingToken = fixture.evaluate(
+            statusPath, "", Secret);
+        assert(!readWithPairingToken.allowed);
+        assert(readWithPairingToken.rejection.statusCode == 401);
+
+        const auto stopWrongBackend = fixture.evaluatePlayback(
+            "foreign", fixture.validAuthorization(), true);
+        assert(!stopWrongBackend.allowed);
+        assert(stopWrongBackend.rejection.statusCode == 403);
+        const auto stopAnonymous = fixture.evaluatePlayback("default", "", true);
+        assert(!stopAnonymous.allowed);
+        assert(stopAnonymous.rejection.statusCode == 401);
+
+        const auto playbackWrongBackend = fixture.evaluatePlayback(
+            "foreign", fixture.validAuthorization());
+        assert(!playbackWrongBackend.allowed);
+        assert(playbackWrongBackend.rejection.statusCode == 403);
+        const auto playbackAnonymous = fixture.evaluatePlayback("default");
+        assert(!playbackAnonymous.allowed);
+        assert(playbackAnonymous.rejection.statusCode == 401);
+        const auto playbackInvalidBackend = fixture.evaluatePlayback(
+            "../private", fixture.validAuthorization());
+        assert(!playbackInvalidBackend.allowed);
+        assert(playbackInvalidBackend.rejection.statusCode == 400);
 
         // Device credentials must not authenticate legacy, unversioned
         // endpoints (which have a different authorization contract).

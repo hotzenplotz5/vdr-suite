@@ -82,6 +82,101 @@ struct PublicTimerAssignmentCollectionResult
     bool hasMore = false;
 };
 
+enum class PublicRecordingCollectionStatus
+{
+    ok,
+    invalid,
+    unavailable,
+};
+
+struct PublicRecordingCollectionItem
+{
+    std::string recordingId;
+    std::string backendId;
+    std::string title;
+    std::string recordedAt;
+    int durationSeconds = 0;
+    bool durationKnown = false;
+    // Read-only descriptive facts; no artwork/provider URL or native path.
+    std::string description;
+    long long sizeMb = 0;
+};
+
+struct PublicRecordingFolderItem
+{
+    std::string folderId;
+    std::string name;
+    int recordingCount = 0;
+    // The Web Home hierarchy marks title folders containing one recording
+    // as recording leaves. Preserve that distinction in Public-v1.
+    bool singleRecordingLeaf = false;
+    PublicRecordingCollectionItem singleRecording;
+};
+
+struct PublicRecordingCollectionRequest
+{
+    std::string backendId;
+    std::string afterRecordingId;
+    std::size_t limit = 50U;
+    bool browseFolders = false;
+    std::string folderId;
+    std::size_t offset = 0U;
+};
+
+struct PublicRecordingCollectionResult
+{
+    PublicRecordingCollectionStatus status =
+        PublicRecordingCollectionStatus::unavailable;
+    std::vector<PublicRecordingCollectionItem> recordings;
+    std::vector<PublicRecordingFolderItem> folders;
+    std::size_t totalEntries = 0U;
+    bool hasMore = false;
+};
+
+enum class PublicGenreCollectionStatus
+{
+    ok,
+    invalid,
+    unavailable,
+};
+
+struct PublicGenreCollectionRequest
+{
+    std::string backendId;
+    std::string genreId;
+    std::string locale = "de";
+    std::size_t limit = 30U;
+    std::size_t offset = 0U;
+    bool recordings = false;
+};
+
+struct PublicGenreItem
+{
+    std::string genreId;
+    std::string label;
+    std::string labelDe;
+    std::string labelEn;
+    std::size_t count = 0U;
+};
+
+struct PublicGenreRecordingItem
+{
+    std::string recordingId;
+    std::string backendId;
+    std::string title;
+    std::string recordedAt;
+    int durationSeconds = 0;
+    bool durationKnown = false;
+};
+
+struct PublicGenreCollectionResult
+{
+    PublicGenreCollectionStatus status = PublicGenreCollectionStatus::unavailable;
+    std::vector<PublicGenreItem> genres;
+    std::vector<PublicGenreRecordingItem> recordings;
+    std::size_t totalCount = 0U;
+};
+
 enum class PublicChannelCollectionStatus
 {
     ok,
@@ -125,6 +220,39 @@ struct PublicChannelCollectionResult
     std::vector<PublicChannelCollectionItem> channels;
     std::vector<PublicChannelCollectionSource> sources;
     bool hasMore = false;
+};
+
+enum class PublicEpgNowNextStatus
+{
+    ok,
+    invalid,
+    notFound,
+    unavailable,
+};
+
+// One authorized backend and one real VDR channel; never an arbitrary native URL.
+struct PublicEpgNowNextRequest
+{
+    std::string backendId;
+    std::string channelId;
+    std::string fromTime;
+    std::size_t limit = 2U;
+};
+
+struct PublicEpgNowNextItem
+{
+    std::string channelId;
+    std::string title;
+    std::string subtitle;
+    std::string startTime;
+    std::string endTime;
+    int durationSeconds = 0;
+};
+
+struct PublicEpgNowNextResult
+{
+    PublicEpgNowNextStatus status = PublicEpgNowNextStatus::unavailable;
+    std::vector<PublicEpgNowNextItem> events;
 };
 
 enum class PublicBackendCollectionStatus
@@ -772,9 +900,21 @@ public:
         std::function<PublicTimerAssignmentCollectionResult(
             const PublicTimerAssignmentCollectionRequest& request)>;
 
+    using RecordingCollectionLookup =
+        std::function<PublicRecordingCollectionResult(
+            const PublicRecordingCollectionRequest& request)>;
+
+    using GenreCollectionLookup =
+        std::function<PublicGenreCollectionResult(
+            const PublicGenreCollectionRequest& request)>;
+
     using ChannelCollectionLookup =
         std::function<PublicChannelCollectionResult(
             const PublicChannelCollectionRequest& request)>;
+
+    using EpgNowNextLookup =
+        std::function<PublicEpgNowNextResult(
+            const PublicEpgNowNextRequest& request)>;
 
     using BackendCollectionLookup =
         std::function<PublicBackendCollectionResult(
@@ -896,12 +1036,30 @@ public:
     PublicTimerAssignmentCollectionResult lookupTimerAssignmentCollection(
         const PublicTimerAssignmentCollectionRequest& request) const;
 
+    void registerRecordingCollectionLookup(RecordingCollectionLookup lookup);
+    void resetRecordingCollectionLookup();
+    bool recordingCollectionLookupConfigured() const;
+    PublicRecordingCollectionResult lookupRecordingCollection(
+        const PublicRecordingCollectionRequest& request) const;
+
+    void registerGenreCollectionLookup(GenreCollectionLookup lookup);
+    void resetGenreCollectionLookup();
+    bool genreCollectionLookupConfigured() const;
+    PublicGenreCollectionResult lookupGenreCollection(
+        const PublicGenreCollectionRequest& request) const;
+
     void registerChannelCollectionLookup(
         ChannelCollectionLookup lookup);
     void resetChannelCollectionLookup();
     bool channelCollectionLookupConfigured() const;
     PublicChannelCollectionResult lookupChannelCollection(
         const PublicChannelCollectionRequest& request) const;
+
+    void registerEpgNowNextLookup(EpgNowNextLookup lookup);
+    void resetEpgNowNextLookup();
+    bool epgNowNextLookupConfigured() const;
+    PublicEpgNowNextResult lookupEpgNowNext(
+        const PublicEpgNowNextRequest& request) const;
 
     void registerBackendCollectionLookup(
         BackendCollectionLookup lookup);
@@ -1066,8 +1224,17 @@ private:
     mutable std::mutex timerAssignmentCollectionLookupMutex_;
     TimerAssignmentCollectionLookup timerAssignmentCollectionLookup_;
 
+    mutable std::mutex recordingCollectionLookupMutex_;
+    RecordingCollectionLookup recordingCollectionLookup_;
+
+    mutable std::mutex genreCollectionLookupMutex_;
+    GenreCollectionLookup genreCollectionLookup_;
+
     mutable std::mutex channelCollectionLookupMutex_;
     ChannelCollectionLookup channelCollectionLookup_;
+
+    mutable std::mutex epgNowNextLookupMutex_;
+    EpgNowNextLookup epgNowNextLookup_;
 
     mutable std::mutex backendCollectionLookupMutex_;
     BackendCollectionLookup backendCollectionLookup_;

@@ -5,6 +5,8 @@
 #include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "RecordingArtworkHttpServer.h"
+#include "PublicRecordingCollectionProjection.h"
+#include "GenreBrowserApiRuntime.h"
 #include "RecordingSeriesHierarchyApiRuntime.h"
 #include "RestfulApiRecordingActionBackendExecutorAdapter.h"
 #include "RestfulApiSearchTimerDiscoveryProvider.h"
@@ -140,6 +142,14 @@ bool DaemonRuntime::initialize()
 
     jobRepository_ = std::make_unique<JobRepository>(database_);
     recordingRepository_ = std::make_unique<RecordingRepository>(database_);
+    publicRecordingIdentities_ =
+        std::make_unique<PublicRecordingIdentityRepository>(database_);
+    if (!publicRecordingIdentities_->ensureSchema())
+    {
+        std::cerr << "failed to initialize public Recording identities"
+                  << std::endl;
+        return false;
+    }
     metadataRepository_ = std::make_unique<MetadataRepository>(database_);
     jobDashboardService_ = std::make_unique<JobDashboardService>(*jobRepository_);
     recordingDashboardService_ = std::make_unique<RecordingDashboardService>(*recordingRepository_, *metadataRepository_);
@@ -1243,6 +1253,354 @@ bool DaemonRuntime::initialize()
             result.backends = std::move(eligible);
             result.status =
                 PublicBackendCollectionStatus::ok;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerRecordingCollectionLookup(
+        [this](const PublicRecordingCollectionRequest& request)
+        {
+            PublicRecordingCollectionResult result;
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                !publicRecordingIdentities_ ||
+                (request.browseFolders && !vdrRecordingCacheRepository_) ||
+                request.backendId.empty() ||
+                request.limit == 0U || request.limit > 100U)
+            {
+                result.status = PublicRecordingCollectionStatus::invalid;
+                return result;
+            }
+
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled ||
+                !backend->online ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(
+                    request.backendId))
+            {
+                std::cerr << "Public-v1 Recording browse unavailable: "
+                             "backend/snapshot precondition failed" << std::endl;
+                result.status = PublicRecordingCollectionStatus::unavailable;
+                return result;
+            }
+
+            if (request.browseFolders)
+            {
+                // Reuse the Home cache hierarchy; only opaque folder IDs,
+                // safe labels and Public-v1 recording identities leave here.
+                VdrRecordingFolderPage initial;
+                if (!vdrRecordingCacheRepository_->folderPageForBackendByPublicId(
+                        request.backendId, request.folderId, 1, 0, initial))
+                {
+                    result.status = PublicRecordingCollectionStatus::invalid;
+                    return result;
+                }
+                const std::size_t folderCount = initial.folders.size();
+                const std::size_t recordingCount =
+                    static_cast<std::size_t>(std::max(0, initial.recordingCount));
+                result.totalEntries = folderCount + recordingCount;
+                const std::size_t begin =
+                    std::min(request.offset, folderCount);
+                const std::size_t end =
+                    std::min(folderCount, request.offset + request.limit);
+                for (std::size_t index = begin; index < end; ++index)
+                {
+                    const auto& child = initial.folders[index];
+                    PublicRecordingFolderItem entry;
+                    entry.folderId =
+                        VdrRecordingCacheRepository::publicFolderId(
+                            request.backendId, child.path);
+                    entry.name = child.name;
+                    entry.recordingCount = child.recordingCount;
+                    if (child.singleRecordingLeaf)
+                    {
+                        // A VDR title directory with exactly one recording is
+                        // presented as a recording, not as another TV folder.
+                        PublicRecordingCollectionProjection projector(
+                            *publicRecordingIdentities_);
+                        const auto visible = projector.project(
+                            request.backendId, {child.singleRecording});
+                        if (!visible.valid || visible.items.size() != 1U)
+                        {
+                            std::cerr << "Public-v1 Recording browse unavailable: "
+                                         "single-recording leaf projection failed"
+                                      << std::endl;
+                            result.status =
+                                PublicRecordingCollectionStatus::unavailable;
+                            return result;
+                        }
+                        const auto& item = visible.items.front();
+                        entry.singleRecordingLeaf = true;
+                        entry.singleRecording.recordingId = item.recordingId;
+                        entry.singleRecording.backendId = item.backendId;
+                        entry.singleRecording.title = item.title;
+                        entry.singleRecording.recordedAt = item.recordedAt;
+                        entry.singleRecording.durationSeconds =
+                            item.durationSeconds;
+                        entry.singleRecording.durationKnown =
+                            item.durationKnown;
+                        entry.singleRecording.description = item.description;
+                        entry.singleRecording.sizeMb = item.sizeMb;
+                    }
+                    result.folders.push_back(std::move(entry));
+                }
+                const std::size_t used = result.folders.size();
+                if (used < request.limit &&
+                    request.offset + used >= folderCount &&
+                    request.offset + used < result.totalEntries)
+                {
+                    const std::size_t recordingOffset =
+                        request.offset + used - folderCount;
+                    VdrRecordingFolderPage direct;
+                    if (!vdrRecordingCacheRepository_->folderPageForBackendByPublicId(
+                            request.backendId, request.folderId,
+                            static_cast<int>(request.limit - used),
+                            static_cast<int>(recordingOffset), direct))
+                    {
+                        result.status = PublicRecordingCollectionStatus::unavailable;
+                        return result;
+                    }
+                    PublicRecordingCollectionProjection projector(
+                        *publicRecordingIdentities_);
+                    const auto visible = projector.project(
+                        request.backendId, direct.recordings);
+                    if (!visible.valid)
+                    {
+                        std::cerr << "Public-v1 Recording browse unavailable: "
+                                     "direct-recording projection failed"
+                                  << std::endl;
+                        result.status = PublicRecordingCollectionStatus::unavailable;
+                        return result;
+                    }
+                    for (const auto& item : visible.items)
+                    {
+                        PublicRecordingCollectionItem entry;
+                        entry.recordingId = item.recordingId;
+                        entry.backendId = item.backendId;
+                        entry.title = item.title;
+                        entry.recordedAt = item.recordedAt;
+                        entry.durationSeconds = item.durationSeconds;
+                        entry.durationKnown = item.durationKnown;
+                        entry.description = item.description;
+                        entry.sizeMb = item.sizeMb;
+                        result.recordings.push_back(std::move(entry));
+                    }
+                }
+                result.hasMore = request.offset +
+                    result.folders.size() + result.recordings.size() <
+                        result.totalEntries;
+                result.status = PublicRecordingCollectionStatus::ok;
+                return result;
+            }
+
+            PublicRecordingCollectionProjection projection(
+                *publicRecordingIdentities_);
+            const auto page = projection.project(
+                request.backendId,
+                vdrSnapshotReadService_->getRecordingsForBackend(
+                    request.backendId));
+            if (!page.valid)
+            {
+                result.status = PublicRecordingCollectionStatus::unavailable;
+                return result;
+            }
+
+            std::vector<PublicRecordingReadItem> records = page.items;
+            std::sort(records.begin(), records.end(),
+                [](const PublicRecordingReadItem& lhs,
+                   const PublicRecordingReadItem& rhs) {
+                    return lhs.recordingId < rhs.recordingId;
+                });
+            for (const auto& item : records)
+            {
+                if (!request.afterRecordingId.empty() &&
+                    item.recordingId <= request.afterRecordingId)
+                    continue;
+
+                if (result.recordings.size() >= request.limit)
+                {
+                    result.hasMore = true;
+                    break;
+                }
+
+                PublicRecordingCollectionItem view;
+                view.recordingId = item.recordingId;
+                view.backendId = item.backendId;
+                view.title = item.title;
+                view.recordedAt = item.recordedAt;
+                view.durationSeconds = item.durationSeconds;
+                view.durationKnown = item.durationKnown;
+                view.description = item.description;
+                view.sizeMb = item.sizeMb;
+                result.recordings.push_back(std::move(view));
+            }
+            result.status = PublicRecordingCollectionStatus::ok;
+            return result;
+        });
+
+    // Same Suite Genre index as the Web frontend; Public-v1 only projects
+    // authorized, paginated and opaque-ID read models.
+    PublicApiRuntime::instance().registerGenreCollectionLookup(
+        [this](const PublicGenreCollectionRequest& request)
+        {
+            PublicGenreCollectionResult result;
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                !publicRecordingIdentities_ || request.backendId.empty() ||
+                request.limit == 0U || request.limit > 30U ||
+                request.offset > 1000000U)
+            {
+                result.status = PublicGenreCollectionStatus::invalid;
+                return result;
+            }
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled ||
+                !backend->online ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(
+                    request.backendId))
+                return result;
+
+            auto& genres = GenreBrowserApiRuntime::instance();
+            if (request.recordings)
+            {
+                GenreRecordingPage page;
+                if (!genres.recordingPage(request.backendId,
+                    request.genreId, static_cast<int>(request.limit),
+                    static_cast<int>(request.offset), page) ||
+                    page.totalCount < 0 ||
+                    page.recordings.size() > request.limit)
+                    return result;
+
+                // The fast startup snapshot deliberately omits recordings.
+                // Genre membership is indexed from the persisted VDR recording
+                // cache, so resolve each member against that same backend-
+                // scoped, current inventory instead of the empty snapshot.
+                if (!vdrRecordingCacheRepository_)
+                    return result;
+                for (const auto& item : page.recordings)
+                {
+                    if (item.backendId != request.backendId ||
+                        item.backendNativeId.empty())
+                        return PublicGenreCollectionResult{};
+                    VdrRecording found;
+                    if (!vdrRecordingCacheRepository_->findByBackendNativeId(
+                            request.backendId, item.backendNativeId, found) ||
+                        found.backendId != request.backendId ||
+                        found.backendNativeId != item.backendNativeId ||
+                        found.title.empty() ||
+                        found.durationSeconds < 0)
+                        return PublicGenreCollectionResult{};
+                    const auto publicId =
+                        publicRecordingIdentities_->resolveOrCreate(
+                            request.backendId, found.backendNativeId);
+                    if (!publicId.has_value())
+                        return PublicGenreCollectionResult{};
+
+                    PublicGenreRecordingItem view;
+                    view.recordingId = *publicId;
+                    view.backendId = request.backendId;
+                    view.title = found.title;
+                    view.recordedAt = found.startTime;
+                    view.durationSeconds = found.durationSeconds;
+                    view.durationKnown = found.recordingDurationKnown;
+                    result.recordings.push_back(std::move(view));
+                }
+                result.totalCount = static_cast<std::size_t>(page.totalCount);
+            }
+            else
+            {
+                GenreOverview overview;
+                if (!genres.recordingOverview(
+                    request.backendId, request.locale, overview))
+                    return result;
+                std::sort(overview.genres.begin(), overview.genres.end(),
+                    [](const GenreOverviewEntry& a,
+                       const GenreOverviewEntry& b) {
+                        return a.genreId < b.genreId;
+                    });
+                result.totalCount = overview.genres.size();
+                const std::size_t end =
+                    std::min(result.totalCount, request.offset + request.limit);
+                for (std::size_t index = request.offset; index < end; ++index)
+                {
+                    const auto& item = overview.genres[index];
+                    if (item.genreId.empty() || item.label.empty() ||
+                        item.itemCount < 0)
+                        return PublicGenreCollectionResult{};
+                    PublicGenreItem view;
+                    view.genreId = item.genreId;
+                    view.label = item.label;
+                    view.labelDe = item.labelDe;
+                    view.labelEn = item.labelEn;
+                    view.count = static_cast<std::size_t>(item.itemCount);
+                    result.genres.push_back(std::move(view));
+                }
+            }
+            result.status = PublicGenreCollectionStatus::ok;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerEpgNowNextLookup(
+        [this](const PublicEpgNowNextRequest& request)
+        {
+            PublicEpgNowNextResult result;
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                !epgCacheServiceRegistry_ ||
+                request.backendId.empty() ||
+                request.channelId.empty() ||
+                request.limit == 0U || request.limit > 2U)
+            {
+                result.status = PublicEpgNowNextStatus::invalid;
+                return result;
+            }
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled ||
+                !backend->online ||
+                !vdrSnapshotReadService_
+                    ->hasSnapshotForBackend(request.backendId))
+            {
+                return result;
+            }
+            const auto channels =
+                vdrSnapshotReadService_
+                    ->getChannelsForBackend(request.backendId);
+            const auto channel = std::find_if(
+                channels.begin(), channels.end(),
+                [&request](const VdrChannel& item) {
+                    return item.id == request.channelId;
+                });
+            if (channel == channels.end())
+            {
+                result.status = PublicEpgNowNextStatus::notFound;
+                return result;
+            }
+            EpgCacheService* service =
+                epgCacheServiceRegistry_->findService(request.backendId);
+            if (service == nullptr) return result;
+            const auto events = service->findNowNextPerChannelForBackend(
+                request.backendId,
+                request.channelId,
+                request.fromTime,
+                static_cast<int>(request.limit));
+            if (events.size() > request.limit) return result;
+            for (const VdrEvent& event : events)
+            {
+                if (event.channelId != request.channelId ||
+                    event.title.empty() ||
+                    event.startTime.empty() ||
+                    event.endTime.empty() ||
+                    event.durationSeconds < 0)
+                    return PublicEpgNowNextResult{};
+                PublicEpgNowNextItem item;
+                item.channelId = event.channelId;
+                item.title = event.title;
+                item.subtitle = event.subtitle;
+                item.startTime = event.startTime;
+                item.endTime = event.endTime;
+                item.durationSeconds = event.durationSeconds;
+                result.events.push_back(std::move(item));
+            }
+            result.status = PublicEpgNowNextStatus::ok;
             return result;
         });
 

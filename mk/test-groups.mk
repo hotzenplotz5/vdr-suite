@@ -1,6 +1,11 @@
 .PHONY: test-ci-fast test-ci-frontend test-ci-packaging test-all test-vdr test-manual-real test-make-inventory
 
 CI_FAST_TESTS := \
+	test-public-recording-identity-repository \
+	test-public-recording-collection-projection \
+	test-public-recording-collection-api \
+	test-public-recording-collection-security \
+	test-public-v1-recording-reference-client \
 	test-phase69-closeout \
 	test-phase69f-public-v1-operation-reference-client \
 	test-phase69f-public-v1-timer-create-reference-client \

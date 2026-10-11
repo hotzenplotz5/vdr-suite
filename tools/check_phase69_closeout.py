@@ -47,14 +47,24 @@ resources = {
     for item in matrix.get("publicV1Resources", [])
 }
 references = matrix.get("publicClientReferences", [])
-covered = {
-    contract
-    for reference in references
+accepted_references = [r for r in references if r.get("status") == "accepted"]
+successor_references = [r for r in references if r.get("status") == "candidate"]
+accepted_coverage = {
+    contract for reference in accepted_references
     for contract in reference.get("resources", [])
 }
-require(len(resources) >= 8, "Phase 69 closeout baseline of eight stable public-v1 contracts disappeared")
-require(covered == resources, "reference coverage must equal the stable public-v1 set exactly")
-require(all(r.get("status") == "accepted" for r in references), "every public reference slice must be accepted")
+successor_coverage = {
+    contract for reference in successor_references
+    for contract in reference.get("resources", [])
+}
+require(len(accepted_coverage) >= 8, "Phase 69 closeout baseline of eight accepted public-v1 contracts disappeared")
+require(not (accepted_coverage & successor_coverage), "candidate may not silently replace accepted coverage")
+require(accepted_coverage | successor_coverage == resources, "every resource must have explicit accepted or candidate coverage")
+require(all(r.get("status") in {"accepted", "candidate"} for r in references), "unexpected public client reference status")
+require(
+    successor_coverage in (set(), {"GET /api/v1/recordings?backendId={backendId}"}),
+    "only the explicit Recording R2 successor is permitted beyond Phase 69",
+)
 require(matrix.get("explicitDeferredFallbacks") == [], "explicit browser fallback debt must be empty")
 candidate = matrix.get("derivedNextRuntimeCandidate", {})
 require(candidate.get("domain") == "phase69-complete", "matrix must mark Phase 69 complete")

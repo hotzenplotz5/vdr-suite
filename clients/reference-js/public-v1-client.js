@@ -242,6 +242,45 @@
 
 
 
+  function recordingCollectionQuery(query) {
+    if (!query || typeof query !== 'object' || Array.isArray(query)) {
+      throw new Error('Recording collection query must be an object');
+    }
+    const allowed = new Set(['backendId', 'limit', 'cursor', 'sort', 'order']);
+    Object.keys(query).forEach(function (key) {
+      if (!allowed.has(key)) {
+        throw new Error('unsupported Recording query field: ' + key);
+      }
+    });
+    if (typeof query.backendId !== 'string'
+        || !/^[A-Za-z0-9._-]{1,128}$/.test(query.backendId)) {
+      throw new Error('Recording collection requires canonical backendId');
+    }
+    const params = new URLSearchParams();
+    params.set('backendId', query.backendId);
+    if (query.limit !== undefined) {
+      if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) {
+        throw new Error('Recording collection limit must be 1..100');
+      }
+      params.set('limit', String(query.limit));
+    }
+    if (query.cursor !== undefined) {
+      if (typeof query.cursor !== 'string' || !/^rc1_[a-f0-9]+$/.test(query.cursor)) {
+        throw new Error('Recording cursor is invalid');
+      }
+      params.set('cursor', query.cursor);
+    }
+    if (query.sort !== undefined) {
+      if (query.sort !== 'recordingId') throw new Error('Recording sort must be recordingId');
+      params.set('sort', query.sort);
+    }
+    if (query.order !== undefined) {
+      if (query.order !== 'asc') throw new Error('Recording order must be asc');
+      params.set('order', query.order);
+    }
+    return '?' + params.toString();
+  }
+
   function timerAssignmentCollectionQuery(query) {
     if (!query || typeof query !== 'object' || Array.isArray(query)) {
       throw new Error('TimerAssignment collection query must be an object');
@@ -935,6 +974,13 @@
         return requestAccountMutation(
           accountItemPath(normalizedOptions),
           {active: false},
+          normalizedOptions
+        );
+      },
+      getRecordings(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return request(
+          '/api/v1/recordings' + recordingCollectionQuery(normalizedOptions.query),
           normalizedOptions
         );
       },

@@ -338,6 +338,32 @@ public:
                 recordingSeriesHierarchyBackendId);
         const bool isMediaSessionMutation = isPost && path == "/api/media/sessions";
         const bool isRecordingPlaybackSessionCreate = isMediaSessionMutation;
+        // Control-plane reservation. Media bytes use the separately guarded
+        // /api/v1/media/sessions/{sessionId}/... gateway namespace.
+        const bool isPublicDeviceRecordingSessionCreate =
+            isPost && path == "/api/v1/recording-playback-sessions";
+        const std::string playbackStopPrefix =
+            "/api/v1/recording-playback-sessions/";
+        const bool isPublicDeviceRecordingSessionRead =
+            request.method == "GET" &&
+            path.rfind(playbackStopPrefix, 0) == 0;
+        const bool isPublicDeviceRecordingSubtitleSelection =
+            isPost && path.rfind(playbackStopPrefix, 0) == 0 &&
+            path.size() > playbackStopPrefix.size() +
+                std::string("/subtitles").size() &&
+            path.compare(path.size() - std::string("/subtitles").size(),
+                         std::string("/subtitles").size(), "/subtitles") == 0 &&
+            path.find('/', playbackStopPrefix.size()) ==
+                path.size() - std::string("/subtitles").size();
+        const bool isPublicDeviceRecordingSessionStop =
+            isPost && path.rfind(playbackStopPrefix, 0) == 0 &&
+            path.size() > playbackStopPrefix.size() +
+                std::string("/stop").size() &&
+            path.compare(
+                path.size() - std::string("/stop").size(),
+                std::string("/stop").size(), "/stop") == 0 &&
+            path.find('/', playbackStopPrefix.size()) ==
+                path.size() - std::string("/stop").size();
         const std::string publicOperationPrefix =
             "/api/v1/operations/";
         const bool isPublicOperationResource =
@@ -676,8 +702,17 @@ public:
         const bool isPublicAccountSessionMutation =
             isPost &&
             isPublicAccountSessionItemResource;
+        const bool isPublicRecordingRead =
+            request.method == "GET" &&
+            (path == "/api/v1/recordings" ||
+             path == "/api/v1/genres" ||
+             path == "/api/v1/genres/recordings");
         const bool isPublicChannelCollection =
             path == "/api/v1/channels";
+        const bool isPublicEpgNowNext =
+            path == "/api/v1/epg/now-next";
+        const bool isPublicEpgNowNextRead =
+            request.method == "GET" && isPublicEpgNowNext;
         std::vector<std::string> publicChannelBackendIds;
         bool publicChannelBackendScopeValid = true;
         if (isPublicChannelCollection)
@@ -770,6 +805,7 @@ public:
              path == "/api/v1/capabilities" ||
              isPublicBackendCollection ||
              isPublicChannelCollection ||
+             isPublicEpgNowNext ||
              isPublicTimerAssignmentCollection ||
              isPublicOperationResource ||
              isPublicAccountCredentialResource ||
@@ -794,7 +830,10 @@ public:
             isPublicDeviceCredentialRotation ||
             isPublicAccountCredentialMutation ||
             isPublicAccountSessionMutation ||
-            isPublicTimerAssignmentCreate || isTimerUpdateAction ||
+            isPublicTimerAssignmentCreate ||
+            isPublicDeviceRecordingSessionCreate ||
+            isPublicDeviceRecordingSessionStop ||
+            isPublicDeviceRecordingSubtitleSelection || isTimerUpdateAction ||
             isTimerDeleteAction || isChannelMoveAction || isRecordingExecutionAction ||
             isRecordingMarksModifyAction || isRecordingCutAction ||
             isSearchTimerCreateAction || isSearchTimerUpdateAction || isSearchTimerDeleteAction ||
@@ -1254,6 +1293,130 @@ public:
             return gate;
         }
 
+        if (isPublicRecordingRead)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+
+            const auto scopes = queryStringValues(
+                request.path, "backendId");
+            const bool validScope = scopes.size() == 1U &&
+                !scopes.front().empty() &&
+                scopes.front().size() <= 128U &&
+                std::all_of(scopes.front().begin(), scopes.front().end(),
+                    [](unsigned char ch) {
+                        return std::isalnum(ch) || ch == '.' ||
+                            ch == '-' || ch == '_';
+                    });
+            if (!validScope)
+            {
+                AuthorizationDecision invalid;
+                invalid.reasonCode = "invalid_backend_scope";
+                invalid.permission = "recordings.view";
+                invalid.backendId = "*";
+                invalid.action = "recordings.view";
+                return rejectWithAudit(
+                    gate, invalid, 400,
+                    "A single valid backendId is required.", "");
+            }
+
+            AuthorizationRequest recordingReadRequest;
+            recordingReadRequest.permission = "recordings.view";
+            recordingReadRequest.backendId = scopes.front();
+            recordingReadRequest.action = "recordings.view";
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(
+                    gate.context, recordingReadRequest);
+            if (!appendDecisionEvent(gate.context, decision, ""))
+            {
+                gate.rejection = errorResponse(
+                    503, "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+            if (!decision.allowed)
+            {
+                const int statusCode =
+                    decision.reasonCode == "invalid_backend_scope"
+                        ? 400
+                        : (authenticationFailure(decision) ? 401 : 403);
+                gate.rejection = errorResponse(
+                    statusCode, decision.reasonCode,
+                    messageForReason(decision.reasonCode),
+                    gate.context, authenticationFailure(decision),
+                    gate.publicApiV1);
+                return gate;
+            }
+
+            gate.authorizationDecision = decision;
+            gate.authorizedBackendIds = scopes;
+            gate.allowed = true;
+            return gate;
+        }
+
+        if (isPublicEpgNowNextRead)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+
+            const auto scopes = queryStringValues(
+                request.path, "backendId");
+            const bool validScope = scopes.size() == 1U &&
+                !scopes.front().empty() &&
+                scopes.front().size() <= 128U &&
+                std::all_of(scopes.front().begin(), scopes.front().end(),
+                    [](unsigned char ch) {
+                        return std::isalnum(ch) || ch == '.' ||
+                            ch == '-' || ch == '_';
+                    });
+            if (!validScope)
+            {
+                AuthorizationDecision invalid;
+                invalid.reasonCode = "invalid_backend_scope";
+                invalid.permission = "epg.view";
+                invalid.backendId = "*";
+                invalid.action = "epg.view";
+                return rejectWithAudit(
+                    gate, invalid, 400,
+                    "A single valid backendId is required.", "");
+            }
+
+            AuthorizationRequest epgReadRequest;
+            epgReadRequest.permission = "epg.view";
+            epgReadRequest.backendId = scopes.front();
+            epgReadRequest.action = "epg.view";
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(
+                    gate.context, epgReadRequest);
+            if (!appendDecisionEvent(gate.context, decision, ""))
+            {
+                gate.rejection = errorResponse(
+                    503, "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+            if (!decision.allowed)
+            {
+                const int statusCode =
+                    decision.reasonCode == "invalid_backend_scope"
+                        ? 400
+                        : (authenticationFailure(decision) ? 401 : 403);
+                gate.rejection = errorResponse(
+                    statusCode, decision.reasonCode,
+                    messageForReason(decision.reasonCode),
+                    gate.context, authenticationFailure(decision),
+                    gate.publicApiV1);
+                return gate;
+            }
+
+            gate.authorizationDecision = decision;
+            gate.authorizedBackendIds = scopes;
+            gate.allowed = true;
+            return gate;
+        }
+
         if (isPublicChannelRead)
         {
             if (!gate.context.authenticated())
@@ -1369,6 +1532,31 @@ public:
             return gate;
         }
 
+        if (isPublicDeviceRecordingSessionRead)
+        {
+            // The actual owner and live play grant are rechecked against
+            // persistence by PublicDevicePlaybackRegistry before returning
+            // any session state. Browser and anonymous GETs cannot inspect it.
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            if (!gate.deviceAuthenticated ||
+                gate.context.actor.type != ActorType::Service ||
+                !gate.context.device || !gate.context.credential ||
+                gate.context.session.has_value())
+            {
+                AuthorizationDecision denial;
+                denial.permission = "media.recording.play";
+                denial.action = "media.recording.status";
+                denial.backendId = "*";
+                denial.reasonCode = "device_credential_required";
+                return rejectWithAudit(
+                    gate, denial, 403,
+                    "A verified Device credential is required for recording playback", "");
+            }
+            gate.allowed = true;
+            return gate;
+        }
+
         if (isPublicOperationRead)
         {
             if (!gate.context.authenticated())
@@ -1432,6 +1620,59 @@ public:
         }
 
         gate.protectedMutation = isProtectedMutation;
+        // Versioned Recording session creation is Device-only. Browser
+        // credentials and even user/admin grants are not Device proof.
+        // This policy does not itself create sessions or expose media bytes.
+        if ((isPublicDeviceRecordingSessionCreate ||
+             isPublicDeviceRecordingSessionStop ||
+              isPublicDeviceRecordingSubtitleSelection) &&
+            (!gate.deviceAuthenticated ||
+             gate.context.actor.type != ActorType::Service ||
+             !gate.context.device || !gate.context.credential ||
+             gate.context.session.has_value()))
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            AuthorizationDecision denial;
+            denial.permission = "media.recording.play";
+            denial.action = "media.recording.play";
+            denial.backendId = jsonStringValue(request.body, "backendId");
+            denial.reasonCode = "device_credential_required";
+            return rejectWithAudit(
+                gate, denial, 403,
+                "A verified Device credential is required for recording playback", "");
+        }
+        if (isPublicDeviceRecordingSessionCreate ||
+            isPublicDeviceRecordingSessionStop ||
+            isPublicDeviceRecordingSubtitleSelection)
+        {
+            // Match the canonical PublicRecordingPlaybackTargetResolver's
+            // backend grammar before authorization or domain resolution.
+            const std::string backendId =
+                jsonStringValue(request.body, "backendId");
+            const bool validBackend =
+                !backendId.empty() && backendId.size() <= 128U &&
+                backendId != "*" && backendId != "." &&
+                backendId != ".." &&
+                std::all_of(
+                    backendId.begin(), backendId.end(),
+                    [](unsigned char character) {
+                        return std::isalnum(character) ||
+                            character == '-' || character == '_' ||
+                            character == '.';
+                    });
+            if (!validBackend)
+            {
+                AuthorizationDecision denial;
+                denial.permission = "media.recording.play";
+                denial.action = "media.recording.play";
+                denial.backendId = backendId;
+                denial.reasonCode = "invalid_backend_scope";
+                return rejectWithAudit(
+                    gate, denial, 400,
+                    "Invalid backend scope for Device recording playback", "");
+            }
+        }
         // Credential issuance to an existing Device is administrator-browser
         // only even if a Service Actor somehow obtained an administrative grant.
         if (isPublicDeviceCredentialRotation && !gate.browserAuthenticated)
@@ -1576,6 +1817,13 @@ public:
             requestToAuthorize.permission = "backend.settings.media-transcode.modify";
             requestToAuthorize.action = "backend.settings.media-transcode.modify";
             requestToAuthorize.backendId = mediaTranscodeSettingsBackendId;
+        }
+        else if (isPublicDeviceRecordingSessionCreate ||
+                 isPublicDeviceRecordingSessionStop ||
+                  isPublicDeviceRecordingSubtitleSelection)
+        {
+            requestToAuthorize.permission = "media.recording.play";
+            requestToAuthorize.action = "media.recording.play";
         }
         else if (isMediaSessionMutation)
         {
