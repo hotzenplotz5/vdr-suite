@@ -42,7 +42,7 @@ This is a stable navigation page for development contracts and evidence. It does
 - [Strict Roadmap](../planning/roadmap.md)
 - [Frontend Playback Integration Contract](frontend-playback-integration-contract.md)
 - [Phase 69 Closeout](phase-69-closeout.md) — completed public API/client compatibility phase.
-- [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md) — active cross-cutting Account/backend administration sequence.
+- [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md) — cross-cutting Account/backend administration scope and dependency history; the active successor is recorded only in [Current State](../CURRENT.md).
 - [MU.6C Public Account Lifecycle Mutation](post-phase69-mu6c-public-account-lifecycle-mutation.md) — completed lifecycle mutation boundary.
 - [MU.6D Atomic Account CREATE + Durable Idempotency](post-phase69-mu6d-account-create-idempotency.md) — completed Account CREATE boundary; real yaVDR acceptance passed and PR #411 merged.
 - [MU.7 Backend Access / Permission Grant Administration](post-phase69-mu7-account-grant-administration.md) — completed grant administration boundary; real yaVDR acceptance passed and PR #413 merged.
@@ -55,7 +55,7 @@ This is a stable navigation page for development contracts and evidence. It does
 - [MU.9D Human-password Credential Revoke UI](post-phase69-mu9d-credential-revoke-ui.md) — merged as PR #428 after focused yaVDR acceptance with green PR/post-merge hosted CI.
 - [MU.9E Backend Grant Mutation UI](post-phase69-mu9e-grant-mutation-ui.md) — merged as PR #429 after focused real-yaVDR acceptance; post-merge CI #9763 green.
 - [MU.9F Account CREATE UI](post-phase69-mu9f-account-create-ui.md)
-- [MU.9 Closeout](post-phase69-mu9-closeout.md) — closes the MU.9A-F browser administration surface after PR #430. — active implementation candidate over the accepted MU.6D Account CREATE/idempotency contract.
+- [MU.9 Closeout](post-phase69-mu9-closeout.md) — accepted MU.9A-F browser administration surface after PR #430, over the previously accepted MU.6D Account CREATE/idempotency contract.
 - [Phase 67 Closeout](phase-67-closeout.md) — completed Teletext + HbbTV Broadcast Companion phase.
 - [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md) — completed Teletext vertical.
 - [Phase 66 Closeout](phase-66-closeout.md)
@@ -151,4 +151,4 @@ Growing-Recording seek and Live-TV timeshift remain truthful deferred capability
 - [Back to README](../../README.md)
 
 - [MU.10 Device/App Pairing Architecture and Gap Audit](post-phase69-mu10-device-app-pairing-audit.md) — live authority/gap audit selecting the bounded first slice.
-- [MU.10A Device Pairing Bootstrap](post-phase69-mu10a-device-pairing-bootstrap.md) — short-lived Pairing Request creation and token-scoped polling; implementation candidate.
+- [MU.10A Device Pairing Bootstrap](post-phase69-mu10a-device-pairing-bootstrap.md) — short-lived Pairing Request creation and token-scoped polling; see [Current State](../CURRENT.md) for accepted scope and latest successor.
