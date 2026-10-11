@@ -87,6 +87,10 @@ These pages distinguish implemented code from historical plans and are not instr
 - [Phase 65.D.1 Persistent Browser Playback Shell Closeout](development/phase-65d1-persistent-browser-playback-shell-closeout.md)
 - [Developer Onboarding](development/developer-onboarding.md)
 - [Build System State](development/build-system-state.md)
+- [Documentation Standards and authority rules](development/documentation-standards.md)
+- [Build Requirements](build-requirements.md) — source-linked, not a certified OS matrix
+- [Dependencies](dependencies.md) — preserved early sketch with current source pointers
+- [Development Milestone History](development/milestones.md) and [Planning Milestone History](planning/milestones.md) — archived-status context, not active phase authority
 
 ## Planning
 
