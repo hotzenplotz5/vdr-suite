@@ -33,6 +33,7 @@
 #include "SuiteBridgeLocalControlTransport.h"
 #include "SuiteBridgeSvdrpTransport.h"
 #include "VdrRecordingQueryService.h"
+#include "VdrRecordingDuration.h"
 
 #include <chrono>
 #include <iostream>
@@ -221,6 +222,35 @@ int runRecordingMediaHttpRuntime(
                     profile != "progressive-direct" &&
                     profile != "progressive-fmp4")
                     return error(503, "media_session_profile_unavailable");
+                // Reuse the established first-party index completion path:
+                // it updates the Recording cache when VDR's generator finishes.
+                // The internal playback-status response contains a native
+                // Recording ID; NEVER forward it to a Device client.
+                const std::string internalRead =
+                    "{\"operation\":\"playback-status\",\"backendId\":\"" +
+                    owned->backendId + "\",\"sessionId\":\"" + id + "\"}";
+                const ApiResponse indexStatus =
+                    recordingMediaSessionController.handleRequest(
+                        internalRead, verifiedDevice.actor.actorId);
+                const bool preparing =
+                    indexStatus.statusCode == 200 &&
+                    indexStatus.body.find(
+                        "\"resume\":{\"supported\":false,\"preparing\":true") !=
+                        std::string::npos;
+
+                // The real Recording duration is frames(index) / fps(info).
+                // Never infer it from the rolling HLS playlist or EPG length.
+                int durationSeconds = 0;
+                VdrRecording indexedRecording;
+                if (recordingQueryService.findRecordingById(
+                        owned->backendId,
+                        owned->resourceId,
+                        indexedRecording)) {
+                    durationSeconds =
+                        vdrsuite::recording::durationSecondsFromIndex(
+                            indexedRecording);
+                }
+
                 ApiResponse response;
                 response.statusCode = 200;
                 response.contentType = "application/json";
@@ -231,7 +261,14 @@ int runRecordingMediaHttpRuntime(
                     "\",\"state\":\"ready\",\"backendId\":\"" +
                     owned->backendId +
                     "\",\"presentationProfileId\":\"" +
-                    profile + "\"}}";
+                    profile +
+                    "\",\"playback\":{\"durationSeconds\":" +
+                    (durationSeconds > 0
+                        ? std::to_string(durationSeconds)
+                        : "null") +
+                    ",\"resume\":{\"preparing\":" +
+                    (preparing ? "true" : "false") +
+                    "}}}}";
                 return response;
             }
             if (target.rfind(prefix, 0) == 0 &&
