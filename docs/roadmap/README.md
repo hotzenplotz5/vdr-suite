@@ -13,11 +13,7 @@
 
 This directory contains older forward-looking roadmap sketches from the early runtime-diagnostics period.
 
-The current authoritative roadmap is:
-
-- [Planning Roadmap](../planning/roadmap.md)
-- [Project Progress](../planning/project-progress.md)
-- [Current Project Status](../development/current-status.md)
+The binding phase order and execution gates live only in the [Strict Roadmap](../planning/roadmap.md). For current operational phase, branch and acceptance status, consult [Current State](../CURRENT.md) and fresh GitHub evidence. [Project Progress](../planning/project-progress.md) is a maintained snapshot/template, while [Current Project Status](../development/current-status.md) provides stable narrative context; neither is a second roadmap authority.
 
 The files in this directory are kept for historical planning traceability only.
 
