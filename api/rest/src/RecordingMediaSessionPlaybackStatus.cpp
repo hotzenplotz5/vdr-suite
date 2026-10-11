@@ -76,7 +76,8 @@ std::string playbackJson(
     bool seekPreparing,
     bool resumeSupported,
     bool resumePreparing,
-    const std::string& reason = {})
+    const std::string& reason = {},
+    bool deviceOnly = false)
 {
     std::string result =
         "{\"positionSeconds\":" + std::to_string(std::max(0, positionSeconds)) +
@@ -124,6 +125,19 @@ ApiResponse recordingPlaybackResponse(
     response.contentType = "application/json";
     response.headers["Cache-Control"] = "no-store";
     response.headers["X-Content-Type-Options"] = "nosniff";
+    if (deviceOnly) {
+        response.body =
+            "{\"mediaSession\":{"
+            "\"id\":\"" + jsonEscape(stored.sessionId) + "\"," +
+            "\"state\":\"ready\"," +
+            "\"backendId\":\"" + jsonEscape(stored.backendId) + "\"," +
+            "\"presentationProfileId\":\"" +
+                jsonEscape(stored.presentationProfileId) + "\"," +
+            "\"playback\":" + playbackJson(
+                positionSeconds, durationSeconds, seekSupported,
+                seekPreparing, resumeSupported, resumePreparing, reason) + "}}";
+        return response;
+    }
     response.body =
         "{\"mediaSession\":{"
         "\"id\":\"" + jsonEscape(stored.sessionId) + "\"," +
@@ -147,10 +161,26 @@ ApiResponse recordingPlaybackResponse(
 
 } // namespace
 
-ApiResponse RecordingMediaSessionController::playbackStatus(
+ApiResponse RecordingMediaSessionController::devicePlaybackStatus(
     const std::string& body,
     const std::string& actorId) const
 {
+    return playbackStatus(body, actorId, true);
+}
+
+ApiResponse RecordingMediaSessionController::playbackStatus(
+    const std::string& body,
+    const std::string& actorId,
+    bool deviceOnly) const
+{
+    const auto playbackResponse = [deviceOnly](
+        const StoredMediaSession& stored, int position, int duration,
+        bool seek, bool seeking, bool resume, bool preparing,
+        const std::string& reason = std::string{}) {
+        return recordingPlaybackResponse(
+            stored, position, duration, seek, seeking, resume, preparing,
+            reason, deviceOnly);
+    };
     const RecordingMediaSessionPlaybackStatusRequest request =
         RecordingMediaSessionRequestParser().parsePlaybackStatus(body);
     if (!request.valid) {
@@ -190,7 +220,7 @@ ApiResponse RecordingMediaSessionController::playbackStatus(
     const VdrRecordingIndexUpdateResult update =
         indexUpdater_->status(context.recordingDirectory);
     if (update.running()) {
-        return recordingPlaybackResponse(
+        return playbackResponse(
             *stored,
             0,
             0,
@@ -205,7 +235,7 @@ ApiResponse RecordingMediaSessionController::playbackStatus(
             std::lock_guard<std::mutex> lock(pendingIndexMutex_);
             pendingIndex_.erase(request.sessionId);
         }
-        return recordingPlaybackResponse(
+        return playbackResponse(
             *stored,
             0,
             0,
@@ -225,7 +255,7 @@ ApiResponse RecordingMediaSessionController::playbackStatus(
             recording)) {
         std::lock_guard<std::mutex> lock(pendingIndexMutex_);
         pendingIndex_.erase(request.sessionId);
-        return recordingPlaybackResponse(
+        return playbackResponse(
             *stored,
             0,
             0,
@@ -249,7 +279,7 @@ ApiResponse RecordingMediaSessionController::playbackStatus(
     if (durationSeconds <= 0 || segmentDurations.size() != context.sourceSegments.size()) {
         std::lock_guard<std::mutex> lock(pendingIndexMutex_);
         pendingIndex_.erase(request.sessionId);
-        return recordingPlaybackResponse(
+        return playbackResponse(
             *stored,
             0,
             durationSeconds,
@@ -265,7 +295,7 @@ ApiResponse RecordingMediaSessionController::playbackStatus(
     if (hls) {
         std::lock_guard<std::mutex> lock(pendingIndexMutex_);
         pendingIndex_.erase(request.sessionId);
-        return recordingPlaybackResponse(
+        return playbackResponse(
             *stored,
             0,
             durationSeconds,
@@ -284,7 +314,7 @@ ApiResponse RecordingMediaSessionController::playbackStatus(
     if (!enabled.enabled) {
         std::lock_guard<std::mutex> lock(pendingIndexMutex_);
         pendingIndex_.erase(request.sessionId);
-        return recordingPlaybackResponse(
+        return playbackResponse(
             *stored,
             0,
             durationSeconds,
@@ -301,7 +331,7 @@ ApiResponse RecordingMediaSessionController::playbackStatus(
         std::lock_guard<std::mutex> lock(pendingIndexMutex_);
         pendingIndex_.erase(request.sessionId);
     }
-    return recordingPlaybackResponse(
+    return playbackResponse(
         *stored,
         0,
         enabled.durationSeconds,
