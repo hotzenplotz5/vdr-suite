@@ -8,6 +8,8 @@
 - [Public API v1 OpenAPI 3.1 — audited discovery and Backend subset](openapi.json)
 - [Backend discovery developer contract](backend-discovery.md)
 - [Federated Channel collection developer contract](channel-collection.md)
+- [TimerAssignments and Timer CREATE developer contract](timer-assignments.md)
+- [Durable Operation read and reconciliation](operation-status.md)
 - [Public API compatibility ADR-0048](../docs/adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [Public v1 reference client](../clients/reference-js/README.md)
 
@@ -15,7 +17,7 @@
 
 **Documentation bootstrap — 2026-10-11; source baseline main `8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0`.**
 
-The OpenAPI file currently specifies exactly **four source-verified GET operations**: `GET /api/v1`, `GET /api/v1/capabilities`, authenticated Backend collection `GET /api/v1/backends` and federated Channel collection `GET /api/v1/channels`. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
+The OpenAPI file currently specifies exactly **eight source-verified HTTP method/resource contracts** across **seven path templates**: discovery root/capabilities, Backend and Channel collections, TimerAssignment collection and item GET, protected TimerAssignment item POST for Timer CREATE, and actor-owned Operation item GET. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
 
 The public-v1 contract is distinct from older or browser-private `/api/...` routes, transport/provider implementation details, and the independent acceptance state of the VIDAA app.
 
@@ -41,9 +43,13 @@ The [Backend discovery guide](backend-discovery.md) covers `GET /api/v1/backends
 
 The [Channel federation guide](channel-collection.md) documents explicit 1–16 backend scope selection, `channels.view` authorization, composite identity, keyset pagination, per-source partial success and structured failures. A 200 response can include unavailable sources.
 
+## Documented TimerAssignments and Operations
+
+The [TimerAssignment developer contract](timer-assignments.md) covers Backend-scoped keyset pagination, minimal item reads with `ETag`/conditional `304`, and safe CREATE admission requiring `If-Match`, `Idempotency-Key` and an empty `{}` request body. The [Operation read contract](operation-status.md) describes the durable actor-owned status record and explains why HTTP `200`/`202` must not be confused with successful native Timer execution. This corresponds to the eight historical Phase-69.F stable method/resource pairs, while the full modern source contains additional separately gated endpoints.
+
 ## What is implemented but not yet in this OpenAPI subset?
 
-The source contains additional public-v1 areas including Accounts and grants, Device pairing/lifecycle, TimerAssignments, Operations, Recording browse, and Device-owned Recording playback/media-track flows. **None** of those is automatically documented or promoted merely by appearing in implementation code.
+The source contains additional public-v1 areas including Accounts and grants, Device pairing/lifecycle, Recording browse, and Device-owned Recording playback/media-track flows. **None** of those is automatically documented or promoted merely by appearing in implementation code.
 
 For extension work, audit the exact route, method, response, authentication/permission rules, error cases, tests, and accepted contract status **before** adding each operation to `openapi.json`. The historical [Phase 69.F client matrix](../docs/development/phase-69f-client-contract-matrix.json) is bounded evidence, **not** a complete present-day route manifest.
 

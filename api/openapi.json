@@ -18,6 +18,14 @@
     {
       "name": "Channels",
       "description": "Authorized public-v1 federated Channel collection with explicit backend source selection and partial-source metadata"
+    },
+    {
+      "name": "TimerAssignments",
+      "description": "Suite-owned Backend-scoped TimerAssignment collection, item revision and protected native CREATE admission"
+    },
+    {
+      "name": "Operations",
+      "description": "Actor-owned durable mutation operation read and reconciliation"
     }
   ],
   "paths": {
@@ -421,6 +429,719 @@
           },
           "503": {
             "description": "All requested sources unavailable (backend_unavailable), or a required runtime/service/accountability layer is unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/timer-assignments": {
+      "get": {
+        "tags": [
+          "TimerAssignments"
+        ],
+        "operationId": "listTimerAssignments",
+        "summary": "List TimerAssignments from one authorized backend",
+        "description": "Suite-owned durable collection; GET only. Requires timers.view for the backend query. Page order timerAssignmentId ASC; 50 default, maximum 100. Cursor is opaque, ta1_-prefixed in current implementation, bound to backend. A cursor from another backend is rejected as 400 invalid_request, not 409. The collection has no ETag, no native-VDR fallback or backend fanout, and meta.partial is always false. Authenticated scope is established by the security gate before the runtime handler.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "securitySchemeDocumentation": "Supported actor authentication mechanisms are deployment-specific and not yet expressed as a single OpenAPI securityScheme; see SecurityHttpGate and identity contracts.",
+          "authorization": "timers.view@backend"
+        },
+        "parameters": [
+          {
+            "name": "backend",
+            "in": "query",
+            "required": true,
+            "description": "Exactly one authorized backend scope. No default; letters, digits, dot, underscore and hyphen; 1–128 characters. Client reference parameter is called backendId but wire query key is backend.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Default 50, minimum 1, maximum 100.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque backend-scoped keyset cursor; maximum 2048 characters.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "Only timerAssignmentId is supported.",
+            "schema": {
+              "type": "string",
+              "const": "timerAssignmentId",
+              "default": "timerAssignmentId"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "description": "Only asc is supported.",
+            "schema": {
+              "type": "string",
+              "const": "asc",
+              "default": "asc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ordered TimerAssignments for one backend; not a live native Timer list.",
+            "headers": {
+              "Cache-Control": {
+                "description": "No caching.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimerAssignmentCollection"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "timerAssignmentId": "assignment:one",
+                      "backendId": "backend-one",
+                      "links": {
+                        "self": "/api/v1/timer-assignments/assignment:one?backend=backend-one"
+                      }
+                    }
+                  ],
+                  "page": {
+                    "limit": 50,
+                    "nextCursor": null,
+                    "hasMore": false
+                  },
+                  "meta": {
+                    "partial": false
+                  },
+                  "links": {
+                    "self": "/api/v1/timer-assignments?backend=backend-one&limit=50&sort=timerAssignmentId&order=asc",
+                    "next": null
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed collection query, cursor, or backend scope.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "timers.view denied for the requested backend.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Non-GET method rejected.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "const": "GET"
+                },
+                "description": "Only GET is supported."
+              }
+            }
+          },
+          "503": {
+            "description": "Repository, permissions, accountability, or collection callback unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/timer-assignments/{timerAssignmentId}": {
+      "get": {
+        "tags": [
+          "TimerAssignments"
+        ],
+        "operationId": "getTimerAssignment",
+        "summary": "Read a backend-scoped TimerAssignment and its opaque ETag",
+        "description": "Authenticated timers.view@backend. Public JSON does not expose assignmentRevision, native Timer data, state or scheduler internals. The ETag is a strong opaque encoding of durable revision; If-None-Match may return bodyless 304. No resource exists independently of backend authorization.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "securitySchemeDocumentation": "Supported actor authentication mechanisms are deployment-specific and not yet expressed as a single OpenAPI securityScheme; see SecurityHttpGate and identity contracts.",
+          "authorization": "timers.view@backend"
+        },
+        "parameters": [
+          {
+            "name": "timerAssignmentId",
+            "in": "path",
+            "required": true,
+            "description": "Opaque Suite-owned TimerAssignment identity, not a native VDR Timer ID.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "backend",
+            "in": "query",
+            "required": true,
+            "description": "Exactly one authorized backend scope. No default; letters, digits, dot, underscore and hyphen; 1–128 characters. Client reference parameter is called backendId but wire query key is backend.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "description": "Caller-held opaque ETag; server evaluates entity-tag syntax/matching, including weak/list/wildcard read conditions.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Visible minimal TimerAssignment item and its current ETag.",
+            "headers": {
+              "ETag": {
+                "description": "Current strong opaque resource ETag; never parse or construct.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "No caching.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimerAssignment"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "If-None-Match matched the current revision: no response body.",
+            "headers": {
+              "ETag": {
+                "description": "Current strong opaque resource ETag; never parse or construct.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "No caching.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed If-None-Match or backend/identifier input.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "timers.view denied.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Missing, wrong-backend or otherwise hidden assignment.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method; this item accepts GET and POST only.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "const": "GET, POST"
+                },
+                "description": "GET and POST are allowed."
+              }
+            }
+          },
+          "503": {
+            "description": "Lookup failed or returned inconsistent revision identity.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "TimerAssignments"
+        ],
+        "operationId": "submitTimerCreate",
+        "summary": "Safely admit native Timer CREATE for an existing TimerAssignment",
+        "description": "Protected mutation: authenticated actor and timers.create@backend are checked before existence disclosure. Browser-session CSRF applies where relevant. The backend is selected via query, not JSON. Must supply a canonical strong assignment If-Match plus an opaque Idempotency-Key; body is exactly {} (max 4096 bytes). A successful admission/replay returns 202 with Operation body/ETag/Location; it is NOT proof of successful native VDR Timer creation. No automatic retry after an uncertain result; any deliberate exact replay must retain the same scope, If-Match, key and request fingerprint. Server rechecks authorization/write policy even for replay.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "securitySchemeDocumentation": "Supported actor authentication mechanisms are deployment-specific and not yet expressed as a single OpenAPI securityScheme; see SecurityHttpGate and identity contracts.",
+          "authorization": "timers.create@backend plus protected-mutation security (including browser-session CSRF when applicable)"
+        },
+        "x-vdr-suite-max-body-bytes": 4096,
+        "parameters": [
+          {
+            "name": "timerAssignmentId",
+            "in": "path",
+            "required": true,
+            "description": "Opaque Suite-owned TimerAssignment identity, not a native VDR Timer ID.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "backend",
+            "in": "query",
+            "required": true,
+            "description": "Exactly one authorized backend scope. No default; letters, digits, dot, underscore and hyphen; 1–128 characters. Client reference parameter is called backendId but wire query key is backend.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "description": "Exactly one current canonical strong opaque TimerAssignment ETag from GET; no wildcard, list or weak tag.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Caller-chosen opaque visible ASCII key 1–160 bytes (0x21..0x7E); stable for explicit exact replay and never automatically regenerated on retry.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160,
+              "pattern": "^[!-~]+$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "The only valid payload is an empty JSON object. No public native Timer specification.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "maxProperties": 0,
+                "additionalProperties": false
+              },
+              "example": {}
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted or explicitly replayed durable Operation; native effect is not yet proven.",
+            "headers": {
+              "ETag": {
+                "description": "Current strong opaque resource ETag; never parse or construct.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "No caching.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Location": {
+                "description": "Actor-owned Operation URI /api/v1/operations/{operationId}.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DurableOperation"
+                },
+                "example": {
+                  "operationId": "op_1",
+                  "state": "accepted",
+                  "backendId": "backend-one",
+                  "links": {
+                    "self": "/api/v1/operations/op_1"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, If-Match syntax, Idempotency-Key syntax, identifier or backend scope (codes include invalid_json and invalid_request).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing timers.create grant, read-only backend, or protected-mutation policy failure.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No visible matching TimerAssignment.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method; the item supports GET and POST.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Only GET and POST are supported.",
+                "schema": {
+                  "type": "string",
+                  "const": "GET, POST"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "operation_conflict, generation_conflict, or idempotency_conflict.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "revision_conflict: assignment changed since the caller's ETag.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "unsupported_media_type; application/json required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "validation_error; valid JSON other than an empty object or invalid admission.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "precondition_required; If-Match missing.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "backend_unavailable or service_unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/operations/{operationId}": {
+      "get": {
+        "tags": [
+          "Operations"
+        ],
+        "operationId": "getDurableOperation",
+        "summary": "Read the durable Operation owned by the authenticated actor",
+        "description": "Item-only read; no /api/v1/operations collection. Exact actor ownership is checked in the read facade; other actors' Operation IDs and missing IDs both appear as 404. HTTP 200 means representation read, NOT mutation completion. State can be pending, terminal failure or uncertain (outcome_unknown). Strong opaque ETag and If-None-Match support conditional 304. No implicit polling, cancellation, backend fallback or automatic retry is part of the contract.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "securitySchemeDocumentation": "Supported actor authentication mechanisms are deployment-specific and not yet expressed as a single OpenAPI securityScheme; see SecurityHttpGate and identity contracts.",
+          "authorization": "authenticated actor must own the durable Operation"
+        },
+        "parameters": [
+          {
+            "name": "operationId",
+            "in": "path",
+            "required": true,
+            "description": "Opaque durable Operation ID; only the owning actor may inspect its resource.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "description": "Caller-held opaque Operation ETag; may return 304 with an empty body.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Actor-owned durable Operation and current opaque ETag; independent of native success.",
+            "headers": {
+              "ETag": {
+                "description": "Current strong opaque resource ETag; never parse or construct.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "No caching.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DurableOperation"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "If-None-Match matched the current revision: no response body.",
+            "headers": {
+              "ETag": {
+                "description": "Current strong opaque resource ETag; never parse or construct.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "No caching.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed If-None-Match or Operation identity.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Operation missing or belongs to a different actor; cases deliberately indistinguishable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method; Allow: GET.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "const": "GET"
+                },
+                "description": "Only GET is supported."
+              }
+            }
+          },
+          "503": {
+            "description": "Durable operation lookup/underlying storage unavailable.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -918,6 +1639,133 @@
           "code": {
             "type": "string",
             "description": "Present for unavailable sources; backend_unavailable is used by current source."
+          }
+        }
+      },
+      "TimerAssignmentSummary": {
+        "type": "object",
+        "required": [
+          "timerAssignmentId",
+          "backendId",
+          "links"
+        ],
+        "properties": {
+          "timerAssignmentId": {
+            "type": "string",
+            "description": "Suite-owned opaque identifier; not native VDR Timer ID."
+          },
+          "backendId": {
+            "type": "string"
+          },
+          "links": {
+            "type": "object",
+            "required": [
+              "self"
+            ],
+            "properties": {
+              "self": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "TimerAssignment": {
+        "type": "object",
+        "required": [
+          "timerAssignmentId",
+          "backendId",
+          "links"
+        ],
+        "properties": {
+          "timerAssignmentId": {
+            "type": "string",
+            "description": "Suite-owned opaque identifier; not native VDR Timer ID."
+          },
+          "backendId": {
+            "type": "string"
+          },
+          "links": {
+            "type": "object",
+            "required": [
+              "self"
+            ],
+            "properties": {
+              "self": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "TimerAssignmentCollection": {
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "meta",
+          "links"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimerAssignmentSummary"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/BackendPage"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/BackendCollectionMeta"
+          },
+          "links": {
+            "$ref": "#/components/schemas/BackendCollectionLinks"
+          }
+        }
+      },
+      "DurableOperation": {
+        "type": "object",
+        "required": [
+          "operationId",
+          "state",
+          "backendId",
+          "links"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string"
+          },
+          "backendId": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "description": "Durable lifecycle state. HTTP status 200/202 is not evidence of native effect.",
+            "enum": [
+              "accepted",
+              "rejected",
+              "conflict",
+              "queued",
+              "dispatching",
+              "executed_unverified",
+              "succeeded",
+              "failed_before_dispatch",
+              "failed_verified",
+              "outcome_unknown",
+              "cancelled"
+            ]
+          },
+          "links": {
+            "type": "object",
+            "required": [
+              "self"
+            ],
+            "properties": {
+              "self": {
+                "type": "string"
+              }
+            }
           }
         }
       }
