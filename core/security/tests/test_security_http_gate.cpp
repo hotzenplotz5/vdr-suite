@@ -396,6 +396,18 @@ int main()
     const auto browserStopDecision = fixture.gate.evaluate(browserDeviceStop);
     assert(!browserStopDecision.allowed);
     assert(browserStopDecision.rejection.statusCode == 403);
+    // Subtitles use the same Device proof, play grant, CSRF-independent
+    // session-owner boundary as protected Device Playback STOP.
+    HttpServerRequest browserDeviceSubtitles =
+        fixture.mutationRequest(
+            "/api/v1/recording-playback-sessions/"
+            "ms_0123456789abcdef0123456789abcdef/subtitles",
+            "default");
+    fixture.addBrowserAuthentication(browserDeviceSubtitles, true);
+    const auto browserSubtitlesDecision =
+        fixture.gate.evaluate(browserDeviceSubtitles);
+    assert(!browserSubtitlesDecision.allowed);
+    assert(browserSubtitlesDecision.rejection.statusCode == 403);
 
     HttpServerRequest unknownPublicPost =
         fixture.mutationRequest(
