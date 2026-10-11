@@ -48,7 +48,7 @@ Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
 
 The following are deliberately not inserted as numbered phases:
 
-- Multiuser / Account and Backend Access Administration **[ACTIVE — MU.9F ACCOUNT CREATE UI CANDIDATE]**;
+- Multiuser / Account and Backend Access Administration **[ACTIVE CROSS-CUTTING WORKSTREAM — current accepted gate in `docs/CURRENT.md`]**;
 - Broad Timer Product UI **[PLANNED — gated on Multiuser administration]**;
 - Audit/Security/Operations product surfaces;
 - Legacy Basic retirement **[COMPLETED]**;
@@ -58,6 +58,8 @@ The following are deliberately not inserted as numbered phases:
 Active Multiuser authority: [Post-Phase-69 Multiuser Productization Workstream](docs/development/post-phase69-multiuser-workstream.md).
 
 Completed Multiuser foundation through MU.7: explicit Human Accounts, First Admin/bootstrap/recovery, Legacy Basic retirement and accepted ADR-0067 administration architecture. MU.6B Public Account item/revision and MU.6C public lifecycle mutation are completed; MU.6D Atomic Account CREATE + durable idempotency merged as PR #411. MU.7 Backend access / permission grant administration passed REAL YAVDR acceptance and merged as PR #413. MU.8 implementation is complete through MU.8C; MU.8A still carries separately documented real-runtime acceptance debt. MU.8B merged as PR #416 after focused yaVDR acceptance. MU.8C merged as PR #417 after focused yaVDR acceptance, with PR and post-merge main CI green. MU.9A read-only Account administration UI merged as PR #418 after exact merged-main yaVDR acceptance; PR and post-merge hosted CI are green. MU.9B Account Lifecycle Mutation UI merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green. MU.9C Session Revoke UI merged as PR #426 after focused yaVDR acceptance and green hosted PR CI. MU.9D Human-password Credential Revoke UI merged as PR #428 after focused yaVDR acceptance; PR and post-merge hosted CI are green. MU.9E Backend Grant Mutation UI merged as PR #429 after focused real-yaVDR acceptance and post-merge main CI #9763 green. MU.9F Account CREATE UI passed focused real-yaVDR acceptance, merged as PR #430, and both PR CI #9764 and post-merge main CI #9765 completed with all six jobs green. MU.9A-F are complete; no MU.9G is selected.
+
+The later MU.10A pairing-bootstrap and MU.10B administrator-approval work have accepted real-system evidence; their exact operational status belongs to [Current State](docs/CURRENT.md). Post-Phase-69 Recording R2/Device additions are additive candidates and do not reopen accepted 69.F compatibility.
 
 Phase 70 remains a separate not-started numbered phase.
 

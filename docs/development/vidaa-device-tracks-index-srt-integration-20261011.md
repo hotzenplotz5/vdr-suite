@@ -1,6 +1,8 @@
-# VIDAA Device track integration — isolated candidate, 2026-10-11
+# VIDAA Device track integration — merge provenance, 2026-10-11
 
-**Development only. DO NOT DEPLOY, MERGE, or replace the live daemon without separate production authorization.**
+**Current repository status (2026-10-11):** The consolidated R2 source was merged into `main` at `8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0`. The original branch/provenance notes below are **historical** and must not be read as a claim that this code is still unmerged. This source checkpoint alone does **not** prove which daemon binary is installed on yaVDR, nor successful real Hisense audio, SRT/WebVTT or STOP/cleanup acceptance. A deployment/restart still needs separate explicit authorization.
+
+**Safety:** Do not deploy or replace the live daemon solely because this source branch merged.
 
 ## Provenance
 
@@ -24,4 +26,4 @@ The first complete PR CI observed three pre-existing historical guard discrepanc
 - The P2 account guard incorrectly counted the candidate Recording reference as an accepted 69.F contract (10 vs 9). It now explicitly proves **nine accepted resources covered by seven accepted references, plus the single named R2 Recording candidate**. Unknown resources/references fail closed.
 - The Backend collection guard's literal assertion of the removed historical print phrase is updated to the **actual 9 accepted + 1 candidate** report and exact method/resource-set validation.
 
-The original accepted 69.F contract semantics remain frozen; the newer Recording candidate is **not silently promoted to accepted**. The branch still requires a green full GitHub CI before merging to `main`; the focused Device track CI alone was insufficient.
+The original accepted 69.F contract semantics remain frozen; the newer Recording candidate is **not silently promoted to accepted**. At the time of the original candidate, the branch still required full CI before merging; the focused Device track CI alone was insufficient. That sentence describes the **historical pre-merge gate**, not the current `main` state.

@@ -15,8 +15,12 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 
 ## Start here
 
+- [Public API developer entry point and OpenAPI 3.1 subset](../api/README.md) — 36 source-reviewed operations, current coverage limits and the drift guard
+
 - [Project Principles](project-principles.md) — stable product/architecture principles.
 - [Current State](CURRENT.md) — sole volatile operational authority.
+- [Post-Phase-69 Device Recording playback](development/public-v1-device-recording-playback.md) — merged R2 source contract; installed hardware acceptance remains separate.
+- [Device Tracks/Index/SRT Merge History](development/vidaa-device-tracks-index-srt-integration-20261011.md) — 2026-10-11 integration provenance and open runtime gates.
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md) — mandatory new-session entry point.
 - [Current Project Status](development/current-status.md) — stable narrative platform context.
 - [Current Architecture State](development/current-architecture-state.md) — implemented durable ownership/capability boundaries.
@@ -48,6 +52,16 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 - [ADR-0061 Actor Permissions, Federation and Client Access](adr/ADR-0061-actor-permissions-federation-client-access.md)
 - [ADR-0062 First-Party Living-Room Output Client](adr/ADR-0062-first-party-living-room-output-client.md)
 - [Architecture Decision Records](adr/index.md)
+
+## Repository-area developer entrypoints
+
+- [Core domains and internal runtime owners](../core/README.md)
+- [SQLite schema and sample-data boundaries](../database/README.md)
+- [Install staging and packaging assets](../packaging/README.md)
+- [Historical service sketches and actual Core owners](../services/README.md)
+- [Repository checks and operator-tool safety](../tools/README.md)
+
+These pages distinguish implemented code from historical plans and are not instructions to deploy or modify a running installation.
 
 ## Development and history
 

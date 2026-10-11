@@ -1,5 +1,8 @@
 # RecordingService
 
+> **Historischer Phase-1-Serviceentwurf (kein aktueller Runtime-Status).** Aussagen über später zu implementierende Aktionen sind zeitgebunden. Heute maßgeblich sind [Core](../../core/README.md), [Recording-Service-Einordnung](README.md) und die [aktuelle Architektur](../../docs/development/current-architecture-state.md).
+
+
 ## Ziel
 
 Der RecordingService ist die zentrale Schnittstelle für VDR-Aufnahmen innerhalb der VDR-Suite.

@@ -63,23 +63,23 @@ Current Multiuser architecture slice:
 MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
 
 Current Multiuser runtime slice:
-MU.9F - Account CREATE UI [IMPLEMENTATION MERGED - PR #430 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
+MU.10B - Administrator Pairing Approval [ACCEPTED; authoritative current checkpoint in docs/CURRENT.md]
 
-Latest completed Multiuser runtime slice:
-MU.9E - Backend Grant Mutation UI [IMPLEMENTATION MERGED - PR #429 / FOCUSED YAVDR PASS / POST-MERGE CI #9763 GREEN]
+Latest completed Multiuser milestone:
+Post-MU.9 Administration Usability [MERGED; authoritative current checkpoint in docs/CURRENT.md]
 
 Completed MU.7 sub-slice:
 Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
 
 Next product slice:
-MU.9F - Account CREATE UI [IMPLEMENTATION MERGED - PR #430 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
+Read docs/CURRENT.md and the Multiuser workstream; MU.9F is already completed
 ```
 
 Phases 65 through 69 are completed. Durable Phase-69 evidence lives in [Phase 69 Closeout](../development/phase-69-closeout.md). Phase 70 is the next strict numbered phase but is not started and has no runtime authorization until its required ADR is accepted.
 
 The active cross-cutting productization work is the [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md). MU.0-MU.7 are complete, [ADR-0067](../adr/ADR-0067-human-account-backend-access-administration.md) is accepted; MU.6B Public Account item/revision and MU.6C public lifecycle mutation are completed, MU.6D Atomic Account CREATE + durable idempotency merged as PR #411, and MU.7 grant administration passed REAL YAVDR acceptance and merged as PR #413. MU.8 implementation is complete through MU.8C; MU.8A retains its separately documented real-runtime acceptance debt. MU.9 is completed through MU.9F / PR #430: MU.9A merged as PR #418 after exact merged-main yaVDR acceptance, with PR and post-merge hosted CI green; MU.9B Account Lifecycle Mutation UI merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green. MU.9C Session Revoke UI merged as PR #426 after focused yaVDR acceptance and green hosted PR CI. MU.9D Human-password Credential Revoke UI merged as PR #428 after focused yaVDR acceptance; PR and post-merge hosted CI are green. MU.9E Backend Grant Mutation UI merged as PR #429 after focused real-yaVDR acceptance, and post-merge main CI #9763 completed successfully with all six jobs green. MU.9F Account CREATE UI passed focused real-yaVDR acceptance, merged as PR #430, and both PR CI #9764 and post-merge main CI #9765 completed with all six jobs green. MU.9A-F are complete; no MU.9G is selected. MU.8A merged as PR #415. MU.8B passed focused yaVDR acceptance, merged as PR #416, and both PR and post-merge hosted CI are green; live daemon installation/restart was not required for that bounded slice.
 
-Future order: Phase 67 Broadcast Companion -> Phase 68 Legacy OSD -> Phase 69 Public API hardening -> Phase 70 Recommendation / Knowledge Graph.
+Historical numbered order: Phase 67 Broadcast Companion -> Phase 68 Legacy OSD -> Phase 69 Public API hardening -> Phase 70 Recommendation / Knowledge Graph. The first three are completed; Phase 70 is still not started. Post-69 R2 Device playback is separately gated and does not retroactively reopen Phase 69.F.
 
 ## Phase 61 - Suite Metadata and Genre Platform
 
@@ -972,7 +972,7 @@ MU.7 Backend access / permission grant administration           [COMPLETED — R
 MU.8A Safe credential/session metadata                          [IMPLEMENTATION MERGED — PR #415 / RUNTIME ACCEPTANCE PENDING]
 MU.8B Session Revoke                                            [IMPLEMENTATION MERGED - PR #416 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
 MU.8C Human-password Credential Revoke                           [IMPLEMENTATION MERGED - PR #417 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
-MU.9 Account and access administration UI                      [COMPLETED - MU.9F ACCOUNT CREATE UI CANDIDATE]
+MU.9 Account and access administration UI                      [COMPLETED - MU.10B Administrator Pairing Approval [ACCEPTED; current gate in docs/CURRENT.md]
 MU.10 Device/app pairing                                        [LATER]
 MU.11 Profiles / household personalization                      [LATER]
 ```

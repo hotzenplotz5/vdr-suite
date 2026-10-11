@@ -8,13 +8,17 @@
 
 ---
 
-## Branch
+## Historical status snapshot — not the current branch
+
+This document preserves an early VDR HTTP/RESTfulAPI integration checkpoint. Its branch, daemon layout and milestones describe the project **at that time**, not the present `main` source or an installed 2026 daemon. For actual phase/device status use [Current State](../../CURRENT.md), and for current platform ownership use [Current Architecture State](../current-architecture-state.md).
+
+### Historical branch
 
 ```text
 phase-2-actions
 ```
 
-## Current milestone
+## Milestone at the historical checkpoint
 
 The project has reached the first successful live VDR integration through the real VDR-Suite daemon HTTP path.
 
@@ -68,7 +72,7 @@ Events: 36807+
 Timers: 0
 ```
 
-## Current focus
+## Focus at the historical checkpoint
 
 Return from architecture-only work to real VDR usefulness.
 

@@ -8,9 +8,13 @@
 
 ---
 
+## Stand und Geltungsbereich
+
+**Historischer Phase-1-Entwurf.** Die folgende „Schema Version 1“-Beschreibung bildet **nicht** die vollständige heutige VDR-Suite-Datenbank ab. Für tatsächlich versionierte SQL-Quellen siehe [Datenbank-Einstieg](../database/README.md) und [Schema-Index](../database/schema/README.md). Die additive Suite-Metadatenplattform ist in der [Schemaarchitektur](architecture/metadata-platform-schema-v1.md) spezifiziert. Credential-/Session-, Timer-, Operations- und spätere Metadaten-Repositories gehören zu ihren jeweiligen Runtime-Domänen; aus diesem historischen Tabellenüberblick darf kein vollständiges Upgrade- oder Installationsverfahren abgeleitet werden.
+
 ## Version
 
-Schema Version 1
+Schema Version 1 (historischer Phase-1-Plan)
 
 ## Ziel
 

@@ -1,4 +1,6 @@
-# VIDAA: protected Recording audio tracks and WebVTT — DRAFT
+# VIDAA: protected Recording audio tracks and WebVTT — historical draft
+
+**Current repository status (2026-10-11):** The consolidated R2 source was merged into `main` at `8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0`. The original branch/provenance notes below are **historical** and must not be read as a claim that this code is still unmerged. This source checkpoint alone does **not** prove which daemon binary is installed on yaVDR, nor successful real Hisense audio, SRT/WebVTT or STOP/cleanup acceptance. A deployment/restart still needs separate explicit authorization.
 
 ## Source parity (2026-10-11)
 

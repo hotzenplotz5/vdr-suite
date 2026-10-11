@@ -54,6 +54,19 @@ Important top-level areas:
 
 ---
 
+## Source-linked area entrypoints
+
+For current code ownership, start with the relevant repository-area README rather than an early Phase-1 sketch:
+
+- [Core C++ domains and runtime owners](../../core/README.md)
+- [Database and schema boundaries](../../database/README.md)
+- [Runtime staging and packaging assets](../../packaging/README.md)
+- [Historical service designs and their modern owners](../../services/README.md)
+- [Read-only repository checks and potentially mutating tools](../../tools/README.md)
+- [Partial Public-v1 API and checked OpenAPI](../../api/README.md)
+
+These links are documentation entrypoints; do not deploy to a live system from an unverified checkout.
+
 ## Development Workflow
 
 Before making recommendations or code changes, inspect the real repository state.
@@ -73,11 +86,7 @@ make test-fast
 make test-vdr
 ```
 
-For documentation validation, use:
-
-```bash
-make test-docs
-```
+For documentation validation in a verified, isolated source checkout, use `make test-docs`. This checks more than link structure, including a source-scoped partial OpenAPI drift guard; it does not install or deploy anything.
 
 The full regression test is:
 
@@ -113,13 +122,9 @@ make test-docs
 
 Documentation is part of the definition of done for architecture work.
 
-Every documentation page must provide:
+The current `tools/check_docs.py` enforces a top-level `#` heading and resolvable local links for Markdown under `docs/` (with historical relocation exceptions). It does **not** require literal `## Navigation` or `## Back` headings on every page; consistent navigation is still encouraged for current entrypoints.
 
-- a top-level `#` heading
-- a `## Navigation` section
-- a `## Back` section
-
-New documentation must be linked from the local directory index.
+`tools/check_doc_indexes.py` checks local index coverage, with stricter archive rules. `tools/check_doc_reachability.py` checks the canonical/relevant archive reachability graph starting from the root README. New current-facing documents should be linked from appropriate indexes.
 
 If it is part of a new documentation area, it must also be reachable from the root README through `docs/index.md` and the relevant local index.
 
@@ -129,11 +134,13 @@ The documentation checks are:
 make test-docs
 ```
 
-This runs:
+The `mk/maintenance-tests.mk` target currently runs:
 
-- `tools/check_docs.py`
-- `tools/check_doc_indexes.py`
-- `tools/check_doc_reachability.py`
+- `tools/check_docs.py`, `tools/check_doc_indexes.py`, `tools/check_doc_reachability.py`, and `tools/check_doc_entrypoints.py`
+- `tools/check_public_v1_openapi.py` and the scoped `tools/tests/test_public_v1_openapi.py` unit tests
+- ADR, MU.5 administration, first-admin bootstrap, and completed-phase marker guards.
+
+This is **not** a formal OpenAPI schema-validation pass and does not prove complete route coverage.
 
 ---
 
@@ -156,15 +163,9 @@ Important rules:
 
 ## Backend and Multi-VDR Direction
 
-Current backend-related foundations include:
+Implemented backend foundations include identity/registry and backend-scoped snapshot access, plus the enrolled Backend Agent, bounded observation and durable command/result transport, and actor/backend-scoped permissions. See [current architecture](current-architecture-state.md) and [CURRENT](../CURRENT.md) for the boundary between established implementation and current acceptance.
 
-- backend identity
-- backend-aware snapshot read metadata
-- backend-aware snapshot access lookup
-- `BackendNode`
-- `BackendRegistry`
-
-The long-term direction is to support multiple VDR backends, for example:
+An illustrative multi-backend arrangement is:
 
 ```text
 BackendRegistry
@@ -173,7 +174,7 @@ BackendRegistry
   └─ testsystem
 ```
 
-Runtime integration, permissions, health and multi-backend polling must be introduced incrementally.
+This diagram is illustrative, not a deployed topology. Runtime health, provider eligibility, actor permissions and per-backend execution must follow the implemented Agent and authorization contracts; do not infer availability from registry entries.
 
 ---
 
