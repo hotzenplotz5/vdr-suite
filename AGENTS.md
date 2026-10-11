@@ -149,6 +149,18 @@ current candidate.
 The detailed contract is
 `docs/development/install-runtime-deployment-reliability.md`.
 
+**Narrow daemon-only exception (reviewed source deployment):** When the change
+requires strictly the daemon executable and no coordinated frontend/runtime
+payload, use `tools/install_daemon.py` and
+`docs/development/daemon-only-installer.md`. Its read-only `check`, persistent
+`build` and separately confirmed `apply` gates enforce exact source provenance,
+pre-install database-schema risk review, no unconditional SQLite backups,
+service-process identity and binary rollback. This exception **must not** be
+used for full runtime/frontend installations, package upgrades or unreviewed
+schema migrations. A successful daemon-only `apply` is verified by its own
+running-binary hash, **not** by pretending the full frontend/runtime
+`RUNTIME_DEPLOYMENT_MATCH=YES` contract was performed.
+
 ## Real yaVDR resource-safety gate
 
 Every real yaVDR operation that can materially consume persistent or temporary
