@@ -353,6 +353,17 @@ The accepted post-Phase-66 Home rebuild branch `work/home-rebuild` ended at `0cc
 
 The later accepted post-phase runtime chain includes the Recordings 2 cinematic detail/presentation work, the related-Genre portrait correction, the Live-TV `ended` lifecycle stabilization, and the subsequent Recording-detail hardening through clickable cast/person search, corrected metadata navigation, strict paused prewarm and inline YouTube trailers. The current live `main` head must still be queried before repository-state actions; the runtime checkpoint above is historical evidence, not a permanent branch tip.
 
+## Post-Phase-69 Recording R2 and VIDAA Device status — `main` as of 2026-10-11
+
+The verified `main` source head for this documentation comparison is `8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0`, the merged R2 Recording Device audio/index/SRT/WebVTT integration. This is **repository source identity only**: it does not establish the running yaVDR daemon binary, selected TV build, a completed hardware smoke test or deployment approval.
+
+- The R2 Recording successor now has merged `main` code for canonical backend-scoped Recording collections, bounded folder/genre browse, `durationKnown` and public EPG now/next. The Phase-69.F accepted public-contract baseline remains closed; later additions must be validated independently and must **not** be silently relabelled as accepted Phase 69.F references.
+- Device-owned `POST /api/v1/recording-playback-sessions`, owned `GET` status and STOP use Device proof, backend-scoped `media.recording.play` authorization, canonical MediaSession/Gateway ownership and reauthorization of protected media artifacts. Browser credentials or `recordings.view` alone do not grant Device playback control.
+- The merged Device status projection reports only verified index-backed duration and bounded index-preparing state. The VDR index updater refuses existing `index`, `index.vdr` and symlink paths rather than invoking the potentially destructive VDR 2.7.9 generator over them.
+- Device-owned tracks and subtitle routes reuse the canonical Recording track/WebVTT implementation. Track inventory and successful WebVTT responses are bounded; a Device-owned subtitle mutation must not return native paths, private cookies or Browser-session capabilities. Audio changes reuse MediaSession replacement instead of a new unrestricted control route.
+- **Unverified at this source-only checkpoint:** exact installed daemon versus this `main` SHA, registered routes on the running server, real Hisense audio/SRT/WebVTT selection and the complete physical playback/cleanup acceptance. These remain explicit runtime/deployment gates, not completed facts.
+
+Evidence: [Device Recording playback](development/public-v1-device-recording-playback.md), [Device tracks/index/SRT integration](development/vidaa-device-tracks-index-srt-integration-20261011.md), [Index-status draft history](development/vidaa-index-status-public-v1-20261011.md).
 ## Phase 66 and post-phase completion state
 
 **Phase 66 is completed.** Slices 66.1 through 66.8 remain the numbered Phase-66 completion boundary. The later work below is deliberately non-numbered hardening/correctness work and does not reopen Phase 66 or start Phase 67.

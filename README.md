@@ -30,7 +30,9 @@ VDR remains authoritative for native VDR state and execution. VDR-Suite owns dur
 
 ## Phase direction
 
-The current numbered platform sequence is defined only by the [Strict Roadmap](docs/planning/roadmap.md). In particular, Phase 65 Streaming follows completion of the reliable Phase-64 Timer orchestration engine; a broad polished Timer UI is separately gated on account/backend access management and is not a prerequisite for Streaming.
+Phases 64–69 are completed for their accepted bounded scopes. The next strict numbered phase is Phase 70, which has not started. The binding sequence and prerequisites live in the [Strict Roadmap](docs/planning/roadmap.md); the current cross-cutting Multiuser/device work and operational acceptance state live only in [Current State](docs/CURRENT.md).
+
+Post-Phase-69 Public-v1 Recording browse, Device-owned playback, validated index-duration status, audio-track inventory and WebVTT/SRT subtitle handling have subsequently been integrated into `main` as separately gated R2 work. **Merged code is not proof of installation or real Hisense acceptance**, and the R2 candidate must not be counted as accepted Phase-69.F API compatibility.
 
 Do not copy exact branch heads, active PR numbers or CI checkpoints from this README. Those facts change quickly and belong only in [Current State](docs/CURRENT.md), with live GitHub state re-read before any action.
 

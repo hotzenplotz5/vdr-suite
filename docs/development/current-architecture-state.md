@@ -264,7 +264,9 @@ The Recording-detail presentation is a presentation layer over the existing Reco
 
 ## Public API and client boundary
 
-Current first-party clients use Suite-owned REST/client-wrapper semantics rather than private provider contracts. Stable independent third-party `/api/v1` compatibility remains governed by its separate roadmap/ADR boundary and must not be inferred from internal transition endpoints.
+Current first-party clients use Suite-owned REST/client-wrapper semantics rather than private provider contracts. Stable independent third-party `/api/v1` compatibility remains governed by ADR-0048 and the Phase-69.F accepted contract inventory; it must not be inferred from internal transition endpoints.
+
+The post-Phase-69 Recording R2 successor is implemented in the 2026-10-11 `main` code for backend-scoped Recording browse/identities and Device-owned Recording MediaSessions. Device status/index duration, track inventory and subtitle selection reuse the canonical media runtime while retaining Device identity, live playback-grant checks, owner/backend scope and private/native-path exclusion. Implementation in `main` is **not** evidence of a corresponding installed daemon or accepted Hisense behavior; the additive R2 candidate remains separately gated from the accepted Phase-69.F public compatibility baseline.
 
 `MediaPlaybackContract` is first-party Phase-65 semantic architecture. ADR-0056 does not by itself promote the current internal media endpoints to a stable third-party `/api/v1` contract.
 

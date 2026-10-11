@@ -972,7 +972,7 @@ MU.7 Backend access / permission grant administration           [COMPLETED — R
 MU.8A Safe credential/session metadata                          [IMPLEMENTATION MERGED — PR #415 / RUNTIME ACCEPTANCE PENDING]
 MU.8B Session Revoke                                            [IMPLEMENTATION MERGED - PR #416 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
 MU.8C Human-password Credential Revoke                           [IMPLEMENTATION MERGED - PR #417 / FOCUSED YAVDR PASS / HOSTED CI GREEN]
-MU.9 Account and access administration UI                      [COMPLETED - MU.9F ACCOUNT CREATE UI CANDIDATE]
+MU.9 Account and access administration UI                      [COMPLETED - MU.10B Administrator Pairing Approval [ACCEPTED; current gate in docs/CURRENT.md]
 MU.10 Device/app pairing                                        [LATER]
 MU.11 Profiles / household personalization                      [LATER]
 ```

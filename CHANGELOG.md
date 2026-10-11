@@ -1,5 +1,17 @@
 # VDR-Suite Changelog
 
+## 2026-10-11 — main documentation reconciliation (post-Phase 69)
+
+The repository's `main` history has advanced beyond the July 2026 Phase-61 documentation entry below. Verified source baseline: `8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0` (merge: R2 Recording Device audio/index/SRT/WebVTT). This section reports **source merged to `main`**, not installed binary identity, live yaVDR acceptance or Phase-69.F compatibility acceptance.
+
+- Numbered Phase 62 identity/security, Phase 63 Agent, Phase 64 Timer orchestration, Phase 65 media sessions, Phase 66 Home, Phase 67 Teletext/HbbTV, Phase 68 Legacy OSD and Phase 69 public API/client hardening reached their bounded closeouts; Phase 70 remains not started.
+- Post-Phase-69 Multiuser added Human Account lifecycle, administration UI, Device pairing bootstrap and administrator approval. See [Current State](docs/CURRENT.md) for accepted scope and runtime gates.
+- R2 Public-v1 Recording gained backend-scoped canonical Recording identities, bounded collection/folder/genre browsing, now/next EPG and Device-owned Recording session creation/status/stop. Access is grant- and backend-scoped; the R2 candidate is **not automatically promoted** into the accepted Phase-69.F baseline.
+- 2026-10-11 changes add bounded Device index-backed duration/preparing status, authorized audio/subtitle track inventory, canonical WebVTT/SRT rendering and Device-owned subtitle selection without exposing native Recording paths or Browser sessions. Existing VDR index files are never silently overwritten for regeneration.
+- CI and merge history must not be confused with a real installed yaVDR daemon or Hisense audio/subtitle playback acceptance. Separate deployment authorization and runtime evidence remain necessary.
+
+## Historical changelog entries
+
 ## Unreleased — documentation truth refresh
 
 Repository documentation was reconciled against `origin/main` commit `44ae3102ab202ee0dfc974ee0bc9624b9219ad2d` on 2026-07-27.

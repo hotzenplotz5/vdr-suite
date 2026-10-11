@@ -33,6 +33,8 @@ This is a stable navigation page for development contracts and evidence. It does
 ## Current orientation
 
 - [Current State](../CURRENT.md)
+- [Post-Phase-69 Device Recording playback](public-v1-device-recording-playback.md) — merged R2 source and independently gated hardware acceptance.
+- [Device Tracks/Index/SRT Merge History](vidaa-device-tracks-index-srt-integration-20261011.md)
 - [Current Project Status](current-status.md)
 - [Current Architecture State](current-architecture-state.md)
 - [Architecture Map](architecture-map.md)

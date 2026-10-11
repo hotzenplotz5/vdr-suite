@@ -17,6 +17,8 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 
 - [Project Principles](project-principles.md) — stable product/architecture principles.
 - [Current State](CURRENT.md) — sole volatile operational authority.
+- [Post-Phase-69 Device Recording playback](development/public-v1-device-recording-playback.md) — merged R2 source contract; installed hardware acceptance remains separate.
+- [Device Tracks/Index/SRT Merge History](development/vidaa-device-tracks-index-srt-integration-20261011.md) — 2026-10-11 integration provenance and open runtime gates.
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md) — mandatory new-session entry point.
 - [Current Project Status](development/current-status.md) — stable narrative platform context.
 - [Current Architecture State](development/current-architecture-state.md) — implemented durable ownership/capability boundaries.
