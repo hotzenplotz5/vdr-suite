@@ -8,6 +8,7 @@ The repository's `main` history has advanced beyond the July 2026 Phase-61 docum
 - Post-Phase-69 Multiuser added Human Account lifecycle, administration UI, Device pairing bootstrap and administrator approval. See [Current State](docs/CURRENT.md) for accepted scope and runtime gates.
 - R2 Public-v1 Recording gained backend-scoped canonical Recording identities, bounded collection/folder/genre browsing, now/next EPG and Device-owned Recording session creation/status/stop. Access is grant- and backend-scoped; the R2 candidate is **not automatically promoted** into the accepted Phase-69.F baseline.
 - 2026-10-11 changes add bounded Device index-backed duration/preparing status, authorized audio/subtitle track inventory, canonical WebVTT/SRT rendering and Device-owned subtitle selection without exposing native Recording paths or Browser sessions. Existing VDR index files are never silently overwritten for regeneration.
+- 2026-10-10 deployment hardening avoids applying staged restrictive umask permissions to pre-existing system directories and keeps secrets modes explicit; a documentation reconciliation never modifies host permissions or databases.
 - CI and merge history must not be confused with a real installed yaVDR daemon or Hisense audio/subtitle playback acceptance. Separate deployment authorization and runtime evidence remain necessary.
 
 ## Historical changelog entries

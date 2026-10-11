@@ -82,12 +82,7 @@ Efficiency
 
 A major development goal is to avoid unnecessary full refresh operations.
 
-Current work focuses on:
-
-- selective EPG refresh
-- targeted event queries
-- reduced network traffic
-- lower resource consumption
+Selective EPG refresh, targeted event queries and resource-conscious snapshot processing are now established platform capabilities. Numbered phases through Phase 69 are completed for their accepted bounded scope. Cross-cutting Multiuser/Device integration is tracked separately, and Phase 70 has not started. See [Current State](CURRENT.md) for the authoritative live position.
 
 This becomes increasingly important in multi-VDR environments.
 
@@ -116,8 +111,12 @@ Implemented features already include:
 - cache architecture
 - change tracking
 - live updates
-- multi-backend preparation
+- backend-scoped identity and permission enforcement
 - selective refresh strategies
+- Streaming Gateway and MediaSessions for Live TV and Recordings
+- responsive Media Home, Teletext/HbbTV and the Legacy OSD bridge
+- VDR-native Recording marks/editing integration
+- Public-v1 API plus separately gated Device playback endpoints
 - extensive test infrastructure
 
 Long-Term Vision

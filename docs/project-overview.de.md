@@ -80,12 +80,7 @@ Effizienz
 
 Ein wichtiges Entwicklungsziel ist die Vermeidung unnötiger Vollabfragen.
 
-Aktuelle Entwicklungsphasen konzentrieren sich auf:
-
-- selektive EPG-Aktualisierung
-- gezielte Event-Abfragen
-- reduzierte Netzwerklast
-- geringeren Ressourcenverbrauch
+Die selektive EPG-Aktualisierung, gezielte Event-Abfragen und ressourcenschonende Snapshot-Verarbeitung gehören inzwischen zur umgesetzten Plattform. Die nummerierten Phasen bis einschließlich Phase 69 sind für ihren jeweils abgenommenen Umfang abgeschlossen. Die nicht nummerierte Multiuser-/Geräteintegration wird separat weiterentwickelt; Phase 70 ist noch nicht gestartet. Der verbindliche aktuelle Stand steht in [CURRENT.md](CURRENT.md).
 
 Dies wird insbesondere bei mehreren VDR-Systemen wichtig.
 
@@ -114,8 +109,12 @@ Bereits umgesetzt wurden unter anderem:
 - Cache-System
 - Änderungsverfolgung
 - Live-Updates
-- Multi-Backend-Vorbereitungen
+- Backend-übergreifende Identitäts- und Rechteverwaltung
 - Selektive Aktualisierungsstrategien
+- Streaming Gateway und MediaSessions für Live-TV und Aufnahmen
+- Responsive Media Home, Videotext/HbbTV und Legacy-OSD-Brücke
+- Native Schnittmarken und Aufnahmebearbeitung
+- Public-v1-API und getrennte Device-Wiedergabeschnittstellen
 - Umfangreiche Testinfrastruktur
 
 Langfristige Vision

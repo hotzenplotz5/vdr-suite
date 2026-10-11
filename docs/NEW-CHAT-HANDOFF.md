@@ -31,8 +31,8 @@ Root-level `AGENTS.md` is binding. In particular, once the user has authorized a
 19. [MU.9D Human-password Credential Revoke UI](development/post-phase69-mu9d-credential-revoke-ui.md) — merged as PR #428 after focused yaVDR acceptance with green PR/post-merge hosted CI.
 20. [MU.9E Backend Grant Mutation UI](development/post-phase69-mu9e-grant-mutation-ui.md) — merged as PR #429 after focused real-yaVDR acceptance; post-merge CI #9763 green.
 21. [MU.9F Account CREATE UI](development/post-phase69-mu9f-account-create-ui.md) — merged and accepted historical MU.9F implementation; current successor state is in [Current State](CURRENT.md).
-20. [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md) — completed migration and runtime-retirement evidence.
-21. [Phase 69 Closeout](development/phase-69-closeout.md) — completed 69.A-F public API/client compatibility evidence.
+24. [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md) — completed migration and runtime-retirement evidence.
+23. [Phase 69 Closeout](development/phase-69-closeout.md) — completed 69.A-F public API/client compatibility evidence.
 22. [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md) and retained 69.B-F closeouts when historical Phase-69 detail is needed.
 23. [Phase 68 Closeout](development/phase-68-closeout.md), [Phase 67 Closeout](development/phase-67-closeout.md), [Phase 66 Closeout](development/phase-66-closeout.md) and [Phase 65 Closeout](development/phase-65-closeout.md) for completed numbered foundations.
 24. [Golden User Journeys](planning/golden-user-journeys.md) for user-facing acceptance.
