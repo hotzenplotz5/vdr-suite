@@ -16,6 +16,7 @@
 - [Human Account create/lifecycle/grant mutations](account-mutations.md)
 - [Human Credential and Browser Session administration](account-security-administration.md)
 - [Recording browse, genre facets and EPG now/next](recording-browse-epg.md)
+- [Device Recording playback/session and media track implementation guide](device-recording-playback.md) — source-linked, not yet modeled in OpenAPI
 - [Device and Credential revocation/rotation](device-lifecycle.md)
 - [Public API compatibility ADR-0048](../docs/adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [Public v1 reference client](../clients/reference-js/README.md)

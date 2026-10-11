@@ -107,3 +107,9 @@ The initial branch inventory found **22 zero-byte Markdown files**. In this docu
 - Linked the previously repaired `modules`, `legacy`, `ui`, `database/migrations`, and `services/jobs` reserved entrypoints from [Documentation Index](../index.md) and [Developer Onboarding](developer-onboarding.md).
 - Kept a clear divide between these placeholders and executable source owners; no add-on installability or packaged service status is claimed.
 - Changes are navigation and status text only. Relative targets were checked against the recursive Git tree; no local test or GitHub CI result is claimed for this new commit.
+
+## Device Recording API developer-navigation slice (2026-10-11)
+
+- Added [Device Recording playback and media tracks](../../api/device-recording-playback.md) as a human-readable source-linked developer map for Device create/status/stop, track inventory and subtitle selection, matching `RecordingMediaHttpRuntime.cpp`, `SecurityHttpGate.h`, and the existing R2 source/historical notes.
+- Linked the guide from `api/README.md`. Kept the machine-readable OpenAPI inventory at **36 methods / 25 paths**; routes are **not** promoted to accepted Phase-69.F scope or falsely marked as hardware-tested. Formal schemas and full route/denial testing remain open.
+- No C++/CI/JSON API spec/runtime changes; static link check only until actual branch CI is run.
