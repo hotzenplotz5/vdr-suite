@@ -1,0 +1,56 @@
+# VDR-Suite API — developer entry point
+
+## Navigation
+
+- [Project README](../README.md)
+- [Documentation index](../docs/index.md)
+- [REST source boundary](rest/README.md)
+- [Public API v1 OpenAPI 3.1 — audited discovery subset](openapi.json)
+- [Public API compatibility ADR-0048](../docs/adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)
+- [Public v1 reference client](../clients/reference-js/README.md)
+
+## Status and scope
+
+**Documentation bootstrap — 2026-10-11; source baseline main `8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0`.**
+
+The OpenAPI file currently specifies exactly **two source-verified discovery operations**: `GET /api/v1` and `GET /api/v1/capabilities`. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
+
+The public-v1 contract is distinct from older or browser-private `/api/...` routes, transport/provider implementation details, and the independent acceptance state of the VIDAA app.
+
+## Getting started
+
+Use the origin and reverse-proxy base path of **your own** VDR-Suite deployment, then read the discovery root:
+
+```bash
+SUITE_BASE='https://YOUR-SERVER/VDR-SUITE-BASE'
+curl --fail-with-body -sS "${SUITE_BASE}/api/v1"
+curl --fail-with-body -sS "${SUITE_BASE}/api/v1/capabilities"
+```
+
+Here `SUITE_BASE` is the actual externally reachable URL prefix immediately before `/api/v1`; deployments may expose the API at the site root rather than under a proxy prefix. The discovery responses describe compatibility metadata and runtime capability availability; capability `available` is **not** an authorization grant.
+
+Both discovery handlers can return their contract without an authenticated actor. A gateway, reverse proxy or other public-v1 resource may still require authentication. Never infer write permissions from discovery responses. Clients should supply their own supported credentials and headers, rather than assuming browser cookies or falling back to private routes.
+
+## What is implemented but not yet in this OpenAPI subset?
+
+The source contains additional public-v1 areas including Backend and Channel collections, Accounts and grants, Device pairing/lifecycle, TimerAssignments, Operations, Recording browse, and Device-owned Recording playback/media-track flows. **None** of those is automatically documented or promoted merely by appearing in implementation code.
+
+For extension work, audit the exact route, method, response, authentication/permission rules, error cases, tests, and accepted contract status **before** adding each operation to `openapi.json`. The historical [Phase 69.F client matrix](../docs/development/phase-69f-client-contract-matrix.json) is bounded evidence, **not** a complete present-day route manifest.
+
+Relevant implementation and verification entry points:
+
+- [Public-v1 runtime](rest/src/PublicApiRuntime.cpp) and [headers](rest/include/PublicApiRuntime.h)
+- [HTTP router](rest/src/ApiRouter.cpp) and [security gate](../core/security/include/SecurityHttpGate.h)
+- [Public-v1 inventory guard](../tools/check_phase69_public_api_inventory.py)
+- [Phase 69.F contract matrix guard](../tools/check_phase69f_client_contract_matrix.py)
+- [Public-v1 reference client](../clients/reference-js/public-v1-client.js)
+- [Merged Device Recording playback contract](../docs/development/public-v1-device-recording-playback.md)
+
+## Maintenance rule
+
+API changes must be reviewed together with the **matching developer contract**, tests and classification (public-v1, pre-v1 transition, first-party private, or internal/provider). Updating a static OpenAPI file alone does **not** prove conformance. Automated route/spec drift enforcement has **not yet been implemented** as part of this documentation bootstrap and remains required follow-up work.
+
+## Back
+
+- [Project README](../README.md)
+- [Documentation index](../docs/index.md)

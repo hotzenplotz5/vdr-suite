@@ -15,6 +15,8 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 
 ## Start here
 
+- [Public API developer entry point and OpenAPI 3.1 subset](../api/README.md) — verified discovery contract and remaining coverage gaps
+
 - [Project Principles](project-principles.md) — stable product/architecture principles.
 - [Current State](CURRENT.md) — sole volatile operational authority.
 - [Post-Phase-69 Device Recording playback](development/public-v1-device-recording-playback.md) — merged R2 source contract; installed hardware acceptance remains separate.

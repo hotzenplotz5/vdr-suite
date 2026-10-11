@@ -4,6 +4,8 @@ VDR-Suite is a VDR-centred, domain-first platform for modern Web, mobile, deskto
 
 ## Start here
 
+- [API documentation and partial OpenAPI 3.1 contract](api/README.md) — verified public-v1 discovery, developer boundary and documentation coverage
+
 - [Current State](docs/CURRENT.md) — sole repository authority for volatile operational status
 - [New Chat Handoff](docs/NEW-CHAT-HANDOFF.md) — mandatory entry point for a new VDR-Suite chat
 - [Strict Roadmap](docs/planning/roadmap.md) — binding forward execution order and phase gates

@@ -1,0 +1,290 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "VDR-Suite Public API v1 — verified discovery subset",
+    "version": "1.0.0",
+    "description": "PARTIAL developer contract for the two verified discovery GET endpoints only, based on source main 8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0 (2026-10-11). This is not an inventory of all deployed or stable /api/v1 routes, nor proof of a live installed daemon. See api/README.md and ADR-0048."
+  },
+  "x-vdr-suite-coverage": "partial",
+  "tags": [
+    {
+      "name": "Discovery",
+      "description": "Public-v1 contract discovery and per-runtime capabilities"
+    }
+  ],
+  "paths": {
+    "/api/v1": {
+      "get": {
+        "tags": [
+          "Discovery"
+        ],
+        "operationId": "getPublicApiRoot",
+        "summary": "Read the Public API v1 contract root",
+        "description": "Source: api/rest/src/PublicApiRuntime.cpp, contractRoot(). Discovery may represent an anonymous caller; application-level authorization requirements of other resources are separate.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Compatibility/version metadata and discovery links",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractRoot"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/capabilities": {
+      "get": {
+        "tags": [
+          "Discovery"
+        ],
+        "operationId": "getPublicApiCapabilities",
+        "summary": "Read runtime capabilities",
+        "description": "Source: api/rest/src/PublicApiRuntime.cpp, platformCapabilities(). Each availability value depends on configured runtime services. Available here does not mean an individual actor has permission or that the installed TV integration has passed acceptance.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Runtime capability and compatibility description",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilityDiscovery"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ContractRoot": {
+        "type": "object",
+        "required": [
+          "apiVersion",
+          "serverVersion",
+          "supportedApiMajors",
+          "compatibilityPolicy",
+          "authentication",
+          "links"
+        ],
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "const": "v1"
+          },
+          "serverVersion": {
+            "type": "string",
+            "description": "Running daemon's build identity, not the API major."
+          },
+          "supportedApiMajors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "compatibilityPolicy": {
+            "$ref": "#/components/schemas/CompatibilityPolicy"
+          },
+          "authentication": {
+            "type": "object",
+            "required": [
+              "authenticated"
+            ],
+            "properties": {
+              "authenticated": {
+                "type": "boolean"
+              }
+            }
+          },
+          "links": {
+            "type": "object",
+            "required": [
+              "self",
+              "capabilities",
+              "backends",
+              "accounts",
+              "devicePairings"
+            ],
+            "properties": {
+              "self": {
+                "type": "string"
+              },
+              "capabilities": {
+                "type": "string"
+              },
+              "backends": {
+                "type": "string"
+              },
+              "accounts": {
+                "type": "string"
+              },
+              "devicePairings": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "CompatibilityPolicy": {
+        "type": "object",
+        "required": [
+          "version",
+          "responseEvolution",
+          "breakingChanges",
+          "unknownRequestFields",
+          "legacyUnversioned"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "const": 1
+          },
+          "responseEvolution": {
+            "type": "string",
+            "const": "additive"
+          },
+          "breakingChanges": {
+            "type": "string",
+            "const": "new-major"
+          },
+          "unknownRequestFields": {
+            "type": "string",
+            "const": "reject"
+          },
+          "legacyUnversioned": {
+            "type": "string",
+            "const": "transition"
+          }
+        }
+      },
+      "CapabilityDiscovery": {
+        "type": "object",
+        "required": [
+          "apiVersion",
+          "capabilities",
+          "compatibility",
+          "links"
+        ],
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "const": "v1"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Capability"
+            }
+          },
+          "compatibility": {
+            "$ref": "#/components/schemas/CapabilityCompatibility"
+          },
+          "links": {
+            "type": "object",
+            "required": [
+              "self",
+              "root"
+            ],
+            "properties": {
+              "self": {
+                "type": "string"
+              },
+              "root": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "Capability": {
+        "type": "object",
+        "required": [
+          "id",
+          "version",
+          "availability"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "available",
+              "unavailable"
+            ]
+          }
+        }
+      },
+      "CapabilityCompatibility": {
+        "type": "object",
+        "required": [
+          "policyVersion",
+          "supportedApiMajors",
+          "responseEvolution",
+          "breakingChanges",
+          "unknownRequestFields",
+          "legacyUnversioned",
+          "lifecycle",
+          "deprecationHeaders",
+          "deprecatedAliases"
+        ],
+        "properties": {
+          "policyVersion": {
+            "type": "integer",
+            "const": 1
+          },
+          "supportedApiMajors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "responseEvolution": {
+            "type": "string",
+            "const": "additive"
+          },
+          "breakingChanges": {
+            "type": "string",
+            "const": "new-major"
+          },
+          "unknownRequestFields": {
+            "type": "string",
+            "const": "reject"
+          },
+          "legacyUnversioned": {
+            "type": "string",
+            "const": "transition"
+          },
+          "lifecycle": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "deprecationHeaders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "deprecatedAliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

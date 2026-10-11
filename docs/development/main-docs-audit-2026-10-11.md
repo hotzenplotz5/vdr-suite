@@ -25,6 +25,12 @@
 6. The historical Phase-69.F original eight accepted method/resource contracts remain frozen. Account extensions and the separately gated Recording candidate must not be counted as retroactive Phase-69.F acceptance (current matrix: nine accepted plus one R2 candidate).
 7. VDR 2.7.9 index generation is potentially destructive to an existing index; the implemented guard refuses existing `index`, `index.vdr` or symlink paths. Nothing in this documentation change triggers index operations.
 
+## Public API documentation bootstrap
+
+- The previously empty `api/README.md` and `api/rest/README.md` now give developers a source-linked API entry point and REST implementation boundary.
+- A **partial** OpenAPI 3.1 JSON contract covers only verified `GET /api/v1` and `GET /api/v1/capabilities` response models. Other implemented routes are not silently promoted to stable public-v1 contracts.
+- A route-to-OpenAPI drift guard and complete current public-v1 reference remain open work; no CI/runtime acceptance is claimed for this documentation-only slice.
+
 ## Verification and limits
 
 - Verified: relative Markdown link targets of the first 18 distinct edited documents (587 references; no missing target paths), exact GitHub `main` merge SHA, recursive file inventory, Device route implementations in `core/daemon/src/RecordingMediaHttpRuntime.cpp`, authorization classification in `core/security/include/SecurityHttpGate.h`, and matrix resource entries.
