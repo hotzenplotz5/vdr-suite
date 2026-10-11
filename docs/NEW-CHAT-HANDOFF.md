@@ -31,14 +31,14 @@ Root-level `AGENTS.md` is binding. In particular, once the user has authorized a
 19. [MU.9D Human-password Credential Revoke UI](development/post-phase69-mu9d-credential-revoke-ui.md) — merged as PR #428 after focused yaVDR acceptance with green PR/post-merge hosted CI.
 20. [MU.9E Backend Grant Mutation UI](development/post-phase69-mu9e-grant-mutation-ui.md) — merged as PR #429 after focused real-yaVDR acceptance; post-merge CI #9763 green.
 21. [MU.9F Account CREATE UI](development/post-phase69-mu9f-account-create-ui.md) — merged and accepted historical MU.9F implementation; current successor state is in [Current State](CURRENT.md).
-24. [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md) — completed migration and runtime-retirement evidence.
+22. [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md) — completed migration and runtime-retirement evidence.
 23. [Phase 69 Closeout](development/phase-69-closeout.md) — completed 69.A-F public API/client compatibility evidence.
-22. [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md) and retained 69.B-F closeouts when historical Phase-69 detail is needed.
-23. [Phase 68 Closeout](development/phase-68-closeout.md), [Phase 67 Closeout](development/phase-67-closeout.md), [Phase 66 Closeout](development/phase-66-closeout.md) and [Phase 65 Closeout](development/phase-65-closeout.md) for completed numbered foundations.
-24. [Golden User Journeys](planning/golden-user-journeys.md) for user-facing acceptance.
-25. Relevant accepted architecture ADRs for the touched domain, including ADR-0046/0053/0055/0056/0057 for playback, ADR-0054 for Broadcast Companion and ADR-0064 for SuiteBridge control-plane work.
-26. [Target Platform Architecture](architecture/target-platform-architecture.md), [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md) and [ADR Index](adr/index.md) as required.
-27. [Agent Workflow Rules](../AGENTS.md) before repository writes, PR-state changes or installation guidance.
+24. [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md) and retained 69.B-F closeouts when historical Phase-69 detail is needed.
+25. [Phase 68 Closeout](development/phase-68-closeout.md), [Phase 67 Closeout](development/phase-67-closeout.md), [Phase 66 Closeout](development/phase-66-closeout.md) and [Phase 65 Closeout](development/phase-65-closeout.md) for completed numbered foundations.
+26. [Golden User Journeys](planning/golden-user-journeys.md) for user-facing acceptance.
+27. Relevant accepted architecture ADRs for the touched domain, including ADR-0046/0053/0055/0056/0057 for playback, ADR-0054 for Broadcast Companion and ADR-0064 for SuiteBridge control-plane work.
+28. [Target Platform Architecture](architecture/target-platform-architecture.md), [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md) and [ADR Index](adr/index.md) as required.
+29. [Agent Workflow Rules](../AGENTS.md) before repository writes, PR-state changes or installation guidance.
 
 [Current Project Status](development/current-status.md), [Current Architecture State](development/current-architecture-state.md), [Completed Phases](development/completed-phases.md), [Phase 62 Closeout](development/phase-62-closeout.md), [Phase 64 Closeout](development/phase-64-closeout.md) and older Phase-65 development records provide stable historical context.
 
