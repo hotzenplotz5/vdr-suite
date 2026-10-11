@@ -118,13 +118,22 @@ std::string transcodePolicyReasonCode(const MediaPresentationProfile& profile)
 ApiResponse trackResponse(
     const StoredMediaSession& stored,
     bool growing,
-    const std::string& tracksJson)
+    const std::string& tracksJson,
+    bool deviceOnlyProjection)
 {
     ApiResponse response;
     response.statusCode = 200;
     response.contentType = "application/json";
     response.headers["Cache-Control"] = "no-store";
     response.headers["X-Content-Type-Options"] = "nosniff";
+    // This projection is spliced into a Public-v1 Device-owned GET only
+    // after Device authentication and live grant/ownership verification.
+    // Reuse the exact canonical track descriptor; never serialize stored
+    // resourceId, filesystem path, selected workspace or access cookie.
+    if (deviceOnlyProjection) {
+        response.body = tracksJson;
+        return response;
+    }
     response.body =
         "{\"mediaSession\":{" 
         "\"id\":\"" + jsonEscape(stored.sessionId) + "\"," +
@@ -227,9 +236,24 @@ bool hlsRestartTimelineReady(
 
 } // namespace
 
+ApiResponse RecordingMediaSessionController::deviceTrackInventory(
+    const std::string& backendId,
+    const std::string& sessionId,
+    const std::string& actorId) const
+{
+    // IDs are supplied exclusively by the already Device-verified registry.
+    // The usual actor ownership check is repeated inside trackStatus().
+    const std::string request =
+        "{\"operation\":\"track-status\",\"backendId\":\"" +
+        jsonEscape(backendId) + "\",\"sessionId\":\"" +
+        jsonEscape(sessionId) + "\"}";
+    return trackStatus(request, actorId, true);
+}
+
 ApiResponse RecordingMediaSessionController::trackStatus(
     const std::string& body,
-    const std::string& actorId) const
+    const std::string& actorId,
+    bool deviceOnlyProjection) const
 {
     const RecordingMediaSessionTrackStatusRequest request =
         RecordingMediaSessionRequestParser().parseTrackStatus(body);
@@ -310,7 +334,7 @@ ApiResponse RecordingMediaSessionController::trackStatus(
         adaptedProfile,
         adaptedProfile ? (selectedSubtitleStreamIndex < 0 ? 1 : 0) : -1,
         selectedSubtitleStreamIndex);
-    return trackResponse(*stored, source.growing, tracks);
+    return trackResponse(*stored, source.growing, tracks, deviceOnlyProjection);
 }
 
 ApiResponse RecordingMediaSessionController::selectAudioTrack(
