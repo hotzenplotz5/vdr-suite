@@ -204,6 +204,14 @@ int runRecordingMediaHttpRuntime(
             const std::string tracksSuffix = "/tracks";
             if (body.empty() && target.rfind(prefix, 0) == 0 &&
                 target.size() == prefix.size() + 35U + tracksSuffix.size() &&
+                target.compare(prefix.size(), 3U, "ms_") == 0 &&
+                std::all_of(
+                    target.begin() + prefix.size() + 3U,
+                    target.begin() + prefix.size() + 35U,
+                    [](unsigned char ch) {
+                        return (ch >= '0' && ch <= '9') ||
+                               (ch >= 'a' && ch <= 'f');
+                    }) &&
                 target.compare(prefix.size() + 35U, tracksSuffix.size(),
                                tracksSuffix) == 0) {
                 const std::string id = target.substr(prefix.size(), 35U);
@@ -280,6 +288,14 @@ int runRecordingMediaHttpRuntime(
             // converter. No Browser Session credentials/paths are used.
             if (target.rfind(prefix, 0) == 0 &&
                 target.size() == prefix.size() + 35U + 10U &&
+                target.compare(prefix.size(), 3U, "ms_") == 0 &&
+                std::all_of(
+                    target.begin() + prefix.size() + 3U,
+                    target.begin() + prefix.size() + 35U,
+                    [](unsigned char ch) {
+                        return (ch >= '0' && ch <= '9') ||
+                               (ch >= 'a' && ch <= 'f');
+                    }) &&
                 target.compare(prefix.size() + 35U, 10U, "/subtitles") == 0) {
                 const std::string id = target.substr(prefix.size(), 35U);
                 const auto request = RecordingMediaSessionRequestParser()
@@ -296,10 +312,12 @@ int runRecordingMediaHttpRuntime(
                 // Fail closed if a faulty upstream converter emits unexpected
                 // content; never send an unbounded subtitle body to a TV.
                 if (result.statusCode == 200 &&
-                    (result.body.size() > 8U * 1024U * 1024U ||
+                    (result.body.size() > 1024U * 1024U ||
                      (request.subtitleTrackId != "off" &&
                       (result.contentType.rfind("text/vtt", 0) != 0 ||
-                       result.body.rfind("WEBVTT", 0) != 0))))
+                       result.body.rfind("WEBVTT", 0) != 0)) ||
+                     (request.subtitleTrackId == "off" &&
+                      result.contentType != "application/json")))
                     return error(503, "device_subtitle_delivery_invalid");
                 return result;
             }
