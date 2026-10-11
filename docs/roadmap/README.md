@@ -29,7 +29,7 @@ Do not use this directory as the current roadmap entry point.
 - [Phase 14 – Frontend API Foundation](phase-14/overview.md)
 - [Phase 15 – Web Frontend](phase-15/overview.md)
 - [Phase 16 – Desktop Frontend](phase-16/overview.md)
-- [Phase 17 – Mobile Frontends](phase-17/overview.md)
+- [Phase 17 – Native OSD Frontend (original historical outline)](phase-17/overview.md)
 - [Phase 18 – Multi-VDR Federation](phase-18/overview.md)
 
 ---
