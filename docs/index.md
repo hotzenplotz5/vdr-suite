@@ -53,6 +53,16 @@ This index is a stable navigation page. It deliberately does not duplicate activ
 - [ADR-0062 First-Party Living-Room Output Client](adr/ADR-0062-first-party-living-room-output-client.md)
 - [Architecture Decision Records](adr/index.md)
 
+## Repository-area developer entrypoints
+
+- [Core domains and internal runtime owners](../core/README.md)
+- [SQLite schema and sample-data boundaries](../database/README.md)
+- [Install staging and packaging assets](../packaging/README.md)
+- [Historical service sketches and actual Core owners](../services/README.md)
+- [Repository checks and operator-tool safety](../tools/README.md)
+
+These pages distinguish implemented code from historical plans and are not instructions to deploy or modify a running installation.
+
 ## Development and history
 
 - [Development Documentation](development/index.md)

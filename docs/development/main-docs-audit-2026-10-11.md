@@ -38,7 +38,7 @@
 
 ## Empty documentation placeholders: deletion audit
 
-The current recursive branch tree contains **22 zero-byte Markdown files**. That is a file-size finding, **not** evidence that all can safely be deleted. They are divided by the actual file contents currently present beneath each directory:
+The initial branch inventory found **22 zero-byte Markdown files**. In this documentation slice **nine** were replaced by source-linked entrypoints, leaving **13** untouched empty placeholders. These counts concern the audited branch snapshot; future additions/removals need a new tree check. This is a file-size finding, **not** evidence that the remaining files can safely be deleted. They are divided by the actual file contents currently present beneath each directory:
 
 | Disposition | Exact empty paths | Source-tree evidence and action |
 | --- | --- | --- |
@@ -48,6 +48,13 @@ The current recursive branch tree contains **22 zero-byte Markdown files**. That
 | **Fill short indexes that point to existing service contracts** | `services/README.md`, `services/metadata/README.md`, `services/recordings/README.md` | `services/metadata/metadata-service.md` and several `services/recordings/*.md` contracts already exist; a small truthful navigational README is more useful than removing their directory entry point. |
 
 **Deletion count in this checkpoint: zero.** No path is removed without checking references and its purpose against current `main`. The next documentation-cleanup slice should first replace the useful empty entry points with concise, source-linked guides, then verify any candidate deletion with the existing docs-link/reachability checks. The historical 736-file content-level review remains open; this list is a targeted inventory of empty files only.
+
+## Repository-area README repair (2026-10-11)
+
+- Replaced nine zero-byte Markdown entrypoints with bounded, source-linked guides: [Core](../../core/README.md), [Tools](../../tools/README.md), [Database](../../database/README.md), [Database schemas](../../database/schema/README.md), [Packaging](../../packaging/README.md), [Debian status](../../packaging/debian/README.md), [Service sketches](../../services/README.md), [Metadata sketches](../../services/metadata/README.md), and [Recording sketches](../../services/recordings/README.md).
+- The new entrypoints distinguish actual C++/SQL/Makefile assets from early Phase-1 interface sketches and planned Debian packaging. No empty file is removed and no existing schema, executable, CI workflow, or systemd unit is changed.
+- The disposition table above records the *initial* zero-byte inventory and its intended handling. It is preserved as audit evidence, not a claim that those nine are still empty. Remaining 13 files still require reference/owner checks before deletion or replacement.
+- This checkpoint does not retroactively rewrite historical planning pages or infer live yaVDR behavior from source presence.
 
 ## Verification and limits
 
