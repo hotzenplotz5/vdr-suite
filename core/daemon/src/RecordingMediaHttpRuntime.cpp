@@ -198,6 +198,58 @@ int runRecordingMediaHttpRuntime(
                 return created;
             }
             const std::string prefix = collection + "/";
+            // Device-only track inventory of the currently owned Session.
+            // The existing Browser trackStatus computes the source inventory,
+            // but its response also contains a native Recording ID: NEVER
+            // forward that full response to the paired device.
+            const std::string tracksSuffix = "/tracks";
+            if (body.empty() &&
+                target.rfind(prefix, 0) == 0 &&
+                target.size() == prefix.size() + 35U + tracksSuffix.size() &&
+                target.compare(prefix.size(), 3U, "ms_") == 0 &&
+                target.compare(target.size() - tracksSuffix.size(),
+                               tracksSuffix.size(), tracksSuffix) == 0 &&
+                std::all_of(target.begin() + prefix.size() + 3U,
+                            target.begin() + prefix.size() + 35U,
+                            [](unsigned char ch) {
+                                return (ch >= '0' && ch <= '9') ||
+                                       (ch >= 'a' && ch <= 'f');
+                            })) {
+                const std::string id = target.substr(prefix.size(), 35U);
+                const auto owned = deviceSessions.describeOwned(id, verifiedDevice);
+                if (!owned) return error(404, "media_session_not_found");
+                const std::string statusRequest =
+                    "{\"operation\":\"track-status\",\"backendId\":\"" +
+                    owned->backendId + "\",\"sessionId\":\"" + id + "\"}";
+                const ApiResponse internal =
+                    recordingMediaSessionController.handleRequest(
+                        statusRequest, verifiedDevice.actor.actorId);
+                if (internal.statusCode != 200)
+                    return error(409, "recording_track_status_unavailable");
+                const std::string marker = "\"tracks\":";
+                const auto at = internal.body.find(marker);
+                // Only extract the canonical RecordingMediaTrackContract JSON.
+                // It is the last field of the trusted internal mediaSession
+                // envelope, which closes with exactly two braces.
+                if (at == std::string::npos ||
+                    internal.body.size() < at + marker.size() + 4U ||
+                    internal.body.compare(internal.body.size() - 2U, 2U, "}}") != 0 ||
+                    internal.body[at + marker.size()] != '{')
+                    return error(503, "recording_track_projection_invalid");
+                const std::string tracks = internal.body.substr(
+                    at + marker.size(),
+                    internal.body.size() - 2U - (at + marker.size()));
+                ApiResponse projected;
+                projected.statusCode = 200;
+                projected.contentType = "application/json";
+                projected.headers["Cache-Control"] = "no-store";
+                projected.headers["X-Content-Type-Options"] = "nosniff";
+                projected.body =
+                    "{\"mediaSession\":{\"id\":\"" + id +
+                    "\",\"state\":\"ready\",\"backendId\":\"" +
+                    owned->backendId + "\",\"tracks\":" + tracks + "}}";
+                return projected;
+            }
             // Versioned Device-only GET /{ms-id}. Never return the native
             // Recording ID, worker location, provider URL or media secret.
             if (body.empty() &&
