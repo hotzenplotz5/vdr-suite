@@ -1,5 +1,12 @@
 # Phase 8.94 Runtime Wiring Notes
 
+> **Historical Phase-8.94 wiring note.** The listed “out of scope” items belong
+> to that phase only; they are not declarations that permissions, the Backend
+> Agent, federation foundations or event transport are absent from current
+> VDR-Suite. See [Current Architecture State](../development/current-architecture-state.md)
+> and [CURRENT](../CURRENT.md) for current runtime scope.
+
+
 ## Navigation
 
 - [README](../../README.md)

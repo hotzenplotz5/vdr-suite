@@ -1,5 +1,16 @@
 # VDR Backend Architecture
 
+
+> **Adapter-era design overview, not the full modern backend transport map.**
+> The adapter classes and SVDRP “future” statements below describe the
+> early `IVdrAdapter` evolution. Modern accepted runtime scope additionally
+> includes the enrolled Backend Agent, SuiteBridge/SVDRP transports, provider
+> selection and backend-generation fencing. Do not infer that SVDRP is wholly
+> unimplemented, nor that a hypothetical adapter is installed, from this older
+> class-oriented overview. Read [current architecture](../development/current-architecture-state.md),
+> [Agent/transport ownership](suitebridge-control-plane-audit.md) and
+> [current status](../CURRENT.md) first.
+
 ## Navigation
 
 - [README](../../README.md)

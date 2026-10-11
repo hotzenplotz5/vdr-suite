@@ -37,6 +37,20 @@ clients
 
 VDR remains authoritative for VDR-native runtime state and execution. VDR-Suite owns external identity, authorization, policy, orchestration, reconciliation and client-facing semantics. Private adapters/providers remain behind Suite boundaries.
 
+## Earlier designs and historical context
+
+The following material is retained for traceability, **not** as an alternative
+current component inventory:
+
+- [Early component topology](suite-components.md) — proposed clients/plugins
+  and adapters are not proof of installed implementations.
+- [Early snapshot-era architecture](snapshot-architecture.md) — Phase-8
+  “planned” statements are historical checkpoints.
+- [Early REST controller topology](rest-api-runtime.md) and [Daemon REST wiring sketch](daemon-rest-runtime.md) — not exhaustive current HTTP/API diagrams.
+- [Adapter-era VDR backend topology](vdr-backends.md) — not the current full Agent/SuiteBridge transport picture.
+- [Early OSD/federation strategy ADRs](adr/index.md) — read later numbered
+  ADRs and accepted closeouts for the binding boundaries.
+
 ## Main architecture areas
 
 ### Security and mutation safety
@@ -100,6 +114,8 @@ Do not copy active-head or CI checkpoint data into architecture pages.
 ## Historical notes
 
 - [Architecture History](history/README.md)
+- [Phase-30–32 Recording Action design](recording-actions-architecture.md) — original safety model; later marks/cutting completion is separately evidenced
+- [Phase-12 Snapshot Change Feed proposal](snapshot-change-feed-architecture.md) and [Phase-8.94 wiring note](phase-8.94-runtime-wiring-notes.md) — early implementations/plans, not current phase gates
 
 Historical snapshots remain traceability only and do not override accepted ADRs or current project state.
 

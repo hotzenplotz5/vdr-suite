@@ -9,7 +9,7 @@
 
 ---
 
-This file keeps implementation milestone and tag history out of `docs/development/current-status.md`.
+This file preserves early implementation milestone/tag history and the Phase-11-to-12 transition as **historical evidence**. It is not a current status or active-phase document. Use [CURRENT](../CURRENT.md) for volatile operational truth and the [strict roadmap](../planning/roadmap.md) for future order.
 
 Forward-looking milestone planning is tracked in:
 
@@ -211,13 +211,13 @@ Verified work included:
 - recording JSON serialization
 - controller and router tests for all current snapshot read domains
 
-Latest verified implementation state:
+Historical latest implementation state at this checkpoint:
 
 ```text
 Phase 11.6: Complete snapshot read domain JSON serialization
 ```
 
-Verified with:
+The original Phase-11 checkpoint recorded the following validation commands; this is **not** a claim they were rerun in the present audit:
 
 ```text
 make test-api-router
@@ -226,9 +226,11 @@ make test
 
 ---
 
-## Current Development Transition
+## Historical Phase-11 development transition (superseded)
 
-Current transition:
+The following was the transition described by this early milestone record; the current programme is no longer at Phase 11. See [CURRENT](../CURRENT.md) for the completed Phase-69 checkpoint and subsequent non-numbered product work.
+
+Recorded transition:
 
 ```text
 Phase 11 complete
@@ -238,7 +240,7 @@ Documentation cleanup
 Phase 12.0 Snapshot Change Feed Architecture
 ```
 
-Phase 12 should start with architecture review and documentation before new live-update transport is implemented.
+That was a Phase-12 planning instruction at its historical checkpoint, **not** a pending action today.
 
 ---
 

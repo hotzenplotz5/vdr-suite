@@ -1,5 +1,15 @@
 # ADR: Backend Federation Strategy
 
+
+> **Historical early target strategy, not proof of TVHeadend support or
+> inter-Control-Plane federation in the runtime.** The current managed remote
+> VDR model uses an enrolled Backend Agent; separate autonomous VDR-Suite site
+> federation is an accepted **architecture/implementation-pending** direction
+> under [ADR-0060](../../adr/ADR-0060-federated-vdr-suite-sharing-reciprocal-site-trust.md).
+> The present implementation boundary is in [Current Architecture State](../../development/current-architecture-state.md).
+> Examples of TVHeadend mappings in this early ADR are proposals, not installed
+> adapters or guaranteed compatibility.
+
 ## Status
 Accepted
 

@@ -1,5 +1,7 @@
 # VDR-Suite Project Overview
 
+> **English-language introduction.** This is a concise reader-facing overview, not a second current-status or architecture authority. Use [canonical project overview](project-overview.md), [CURRENT](CURRENT.md) and the [current architecture](development/current-architecture-state.md) for current source-backed facts.
+
 ## Navigation
 
 - [README](../README.md)

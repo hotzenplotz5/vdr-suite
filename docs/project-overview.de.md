@@ -1,5 +1,7 @@
 # VDR-Suite Projektübersicht
 
+> **Deutschsprachige Einführung.** Diese Seite ist eine zusammenfassende Projektbeschreibung, keine zweite Quelle für den laufenden Projektstatus. Maßgeblich sind die [kanonische Projektübersicht](project-overview.md), [CURRENT](CURRENT.md) und die [aktuelle Architektur](development/current-architecture-state.md).
+
 ## Navigation
 
 - [README](../README.md)

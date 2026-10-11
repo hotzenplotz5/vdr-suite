@@ -1,5 +1,15 @@
 # ADR: Frontend OSD Strategy
 
+
+> **Historical early strategy, not the complete present-day OSD contract.**
+> Its domain-first first-party UI direction remains relevant, but the categorical
+> “classic VDR OSD will not be mirrored” below was an earlier primary-UI
+> design decision. The later accepted [ADR-0047 Legacy OSD bridge](../../adr/ADR-0047-legacy-osd-compatibility-bridge.md)
+> permits an **isolated permissioned compatibility viewer/controller** rather
+> than turning native OSD into the primary application UI. [Phase 68 closeout](../../development/phase-68-closeout.md)
+> records the implemented and accepted 68.A–G scope. See [CURRENT](../../CURRENT.md)
+> for current runtime status. The original decision text is preserved below.
+
 ## Status
 Accepted
 
