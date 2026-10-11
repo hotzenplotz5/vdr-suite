@@ -72,6 +72,41 @@ archive/index impact, link-check outcome, PR CI on exact head, and rollback path
 'planned', 'future', or resemble another title. Historic closeouts, ADRs and
 real-device acceptance have no blanket deletion authorization.
 
+## Follow-up content-level decisions — round 3 (2026-10-11)
+
+Compared with verified `main` commit
+`03a13193d8a57a47e877ef598ddd5617835c8550`.
+The following are **individual retention decisions**, not a declaration that
+all development or roadmap prose was semantically audited. No files are
+deleted in this round. Index/Markdown-source inspection and GitHub indexed
+code search do not prove the absence of external URLs or every unindexed
+reference.
+
+| Exact candidate | Distinct content and authoritative successor | Reference and deletion impact | Decision |
+| --- | --- | --- | --- |
+| [`docs/phase64-suitebridge-native-timer-modify-command-service.md`](../phase64-suitebridge-native-timer-modify-command-service.md) | Unique short description of private `NTMOD` UPDATE/TOGGLE, operation/provider fencing, persisted Agent start time, Timer write lock, `accepted_unverified` and authoritative readback. The later [Phase-64 closeout](phase-64-closeout.md) owns real-yaVDR acceptance and the continuing private SVDRP-help boundary; [CURRENT](../CURRENT.md) owns live status. | GitHub indexed search for the filename stem found a corresponding Make test target in `mk/phase64-suitebridge-native-timer-modify-command-service-tests.mk`, **not proof of a Markdown backlink**. Separate source/tests contain `NTMOD` (`vdr-plugin-suite-bridge/suitebridge_native_timer_modify.cpp` and `tools/check_phase64_suitebridge_native_timer_modify_command_service.py`). The [history hub](../history/index.md) now links the retained page. Full external-link coverage is unknowable. | **RETAIN and label as historical**, preserving its original pre-acceptance wording beneath a dated context notice. Do not collapse its technical constraints into a generic closeout summary. |
+| [`docs/roadmap/phase-11/index.md`](../roadmap/phase-11/index.md) | Its unique role is the Phase-11 archive directory entry linking the distinct [runtime-hardening outline](../roadmap/phase-11/overview.md), whose five goals and expected outcome document historical intent, not implementation acceptance. [Strict Roadmap](../planning/roadmap.md) owns future sequencing. | [Archive parent](../roadmap/README.md) links `phase-11/index.md`, and the index itself links `overview.md`. Removing the short index creates a broken inbound link and loses local navigation; the current index validator distinguishes designated strict archives from ordinary directories, so passing a checker alone would not prove a safe removal. Other code/CI/external refs are not exhaustively excluded. | **RETAIN**, not a duplicate phase plan. No flattening without comprehensive inbound/reference and archive-discoverability checks. |
+| [`docs/roadmap/README.md`](../roadmap/README.md) | Navigation to Phase-11–18 sketches and their sub-indexes; no authority over current phase gates. | Linked by the [history hub](../history/index.md) and [documentation guide](../documentation-guide.md); removal breaks the archival entrypoint. | **RETAIN**; correct the misleading alternate-current-roadmap pointers in place. |
+| [`docs/development/index.md`](index.md) and [`docs/planning/index.md`](../planning/index.md) | Distinct development-contract and planning navigation, unlike the volatile MU PR/CI status register. [CURRENT](../CURRENT.md) and original MU closeouts own current state and historical evidence respectively. | Both are canonical discoverability entrypoints and are referenced from root/current navigation; preserved all original contract/closeout links, updated only duplicate status prose. Historical static guards may inspect index anchors. | **RETAIN**; remove stale MU.9 candidate language and parallel MU.6–10 status ledger rather than delete either index. |
+
+The separate [early VDR status snapshot](status/overview.md) remains
+**RETAINED** under Decision B: historical daemon URL, RESTfulAPI version,
+endpoint and observed counts are unique time-bound evidence, not current
+deployment instructions. No accepted ADR, slice/phase closeout, security
+test or real-yaVDR proof was edited, relocated or removed.
+
+### Verification boundary for this round
+
+- Reviewed `AGENTS.md`, the current/history/pruning guides, the main-docs
+  audit, index and reachability scripts, and the actual
+  `mk/maintenance-tests.mk` `test-docs` recipe.
+- The changes affect navigation, historical context and this decision
+  register only. They do not change C++, tests, Make, CI, DB, packages,
+  running servers, recordings or clients.
+- Final-head PR checks remain a **separate requirement**; GitHub search
+  results can reflect an older indexed revision. No local test run or live
+  yaVDR validation is inferred from these edits.
+
 ## Acceptance limits
 
 This review provides **two concrete reviewed removals** and an explicit
