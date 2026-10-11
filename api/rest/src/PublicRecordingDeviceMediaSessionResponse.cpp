@@ -79,6 +79,9 @@ ApiResponse PublicRecordingDeviceMediaSessionResponse::afterActivation(
         !identifier(ready.publicRecordingId, "rec_") ||
         !backend(ready.backendId) ||
         !expiry(ready.expiresAt) ||
+        ready.durationSeconds < 0 ||
+        (ready.resumeSupported && (ready.durationSeconds <= 0 ||
+                                   ready.resumePreparing)) ||
         suffix(ready.presentationProfileId) == nullptr)
         return failure();
 
@@ -110,6 +113,12 @@ ApiResponse PublicRecordingDeviceMediaSessionResponse::afterActivation(
         ready.backendId + "\",\"recordingId\":\"" +
         ready.publicRecordingId + "\",\"presentationProfileId\":\"" +
         ready.presentationProfileId + "\",\"mediaPath\":\"" +
-        path + "\",\"expiresAt\":\"" + ready.expiresAt + "\"}}";
+        path + "\",\"expiresAt\":\"" + ready.expiresAt +
+        "\",\"playback\":{\"durationSeconds\":" +
+        (ready.durationSeconds > 0 ? std::to_string(ready.durationSeconds) : "null") +
+        ",\"resume\":{\"supported\":" +
+        (ready.resumeSupported ? "true" : "false") +
+        ",\"preparing\":" + (ready.resumePreparing ? "true" : "false") +
+        "}}}}";
     return result;
 }
