@@ -216,7 +216,7 @@ Required rules:
 - classified failure semantics do not themselves trigger silent provider/profile/session recovery;
 - product acceptance proves real picture/sound and cleanup.
 
-ADR-0056 adds an implementation dependency inside active Phase 65.D:
+ADR-0056 defined the following implementation dependency inside Phase 65.D, which is now completed for its accepted scope:
 
 ```text
 normalized MediaPlaybackContract
@@ -226,7 +226,7 @@ normalized MediaPlaybackContract
   -> optional read-only media diagnostics
 ```
 
-The first four semantic steps are required to close the active Phase-65.D architecture gap. Diagnostics are sequenced after semantic correctness and are observational only. Shared fMP4/MSE helper deduplication is technical debt and is not a dependency gate.
+The first four semantic steps were the required closure chain for Phase 65.D, and that chain is accepted for the supported profiles. Diagnostics are sequenced after semantic correctness and are observational only. Shared fMP4/MSE helper deduplication is technical debt and is not a dependency gate.
 
 VDR-Suite does not vendor one universal decoder/rendering core.
 
@@ -422,7 +422,7 @@ Append-only accountability is already a foundation. Reader/filter/export/redacti
 
 ## First-party clients
 
-Browser validates Phase-65 media first. TV/native/Kodi adapters reuse Suite semantics and platform-appropriate playback/application engines. Third-party public compatibility is formalized in Phase 69.
+The browser's accepted Phase-65 playback work precedes independent client rollout. TV/native/Kodi adapters must reuse Suite semantics with platform-appropriate playback/application engines. Phase 69 formalized the accepted public compatibility baseline; Device Recording R2 is a later separately gated source implementation and real hardware acceptance cannot be inferred from the merge.
 
 ---
 

@@ -20,9 +20,10 @@
 1. Root changelog had stopped at a 2026-07-27 Phase-61 documentation reconciliation. It now separates the July history from post-Phase-69 merged source developments.
 2. Root README, ROADMAP, development/current-status and the new-chat handoff included stale or contradictory MU.9F current-slice statements despite MU.10B acceptance in `CURRENT.md`. They are aligned to `CURRENT.md` as the volatile status authority.
 3. Public Device Recording playback and index/track/SRT documents described code as an unfinished isolated candidate. The R2 source is on `main`; exact installed yaVDR daemon and Hisense hardware acceptance remain **unverified by this GitHub-only audit**.
-4. Planning index, architecture gap matrix and project overviews (English/German) also contained current-tense Phase-69 or MU.9F statements and were aligned with the authoritative closeouts. The old `docs/development/status/overview.md` now explicitly identifies itself as a historical early-daemon snapshot.
-5. The historical Phase-69.F original eight accepted method/resource contracts remain frozen. Account extensions and the separately gated Recording candidate must not be counted as retroactive Phase-69.F acceptance (current matrix: nine accepted plus one R2 candidate).
-6. VDR 2.7.9 index generation is potentially destructive to an existing index; the implemented guard refuses existing `index`, `index.vdr` or symlink paths. Nothing in this documentation change triggers index operations.
+4. The legacy `docs/planning/project-progress.md` template still advertised Phase 58 as currently active and unimplemented identity/metadata functionality that is now accepted. Its snapshot has been reconciled to current phase foundations while preserving the generator delimiters. The implementation dependency map's present-tense Phase-65.D statements were recast as accepted history.
+5. Planning index, architecture gap matrix and project overviews (English/German) also contained current-tense Phase-69 or MU.9F statements and were aligned with the authoritative closeouts. The old `docs/development/status/overview.md` now explicitly identifies itself as a historical early-daemon snapshot.
+6. The historical Phase-69.F original eight accepted method/resource contracts remain frozen. Account extensions and the separately gated Recording candidate must not be counted as retroactive Phase-69.F acceptance (current matrix: nine accepted plus one R2 candidate).
+7. VDR 2.7.9 index generation is potentially destructive to an existing index; the implemented guard refuses existing `index`, `index.vdr` or symlink paths. Nothing in this documentation change triggers index operations.
 
 ## Verification and limits
 
