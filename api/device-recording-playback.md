@@ -26,7 +26,7 @@ The implementation guards active sessions, media fragments, track reads and subt
 | Method | Relative path | Implemented boundary |
 | --- | --- | --- |
 | POST | `/api/v1/recording-playback-sessions` | Device-owned create; validates client capabilities, public `rec_<32 lowercase hex>` Recording ID and backend grant, then issues a scoped MediaSession |
-| GET | `/api/v1/recording-playback-sessions/{sessionId}` | Owner-only `ms_<32 lowercase hex>` Session read; bounded profile and index-derived duration/preparing projection, not native Recording identity or persistent position |
+| GET | `/api/v1/recording-playback-sessions/{sessionId}` | Owner-only `ms_<32 lowercase hex>` Session read; bounded index-derived duration and authoritative `resume.supported`/`preparing`/fixed reason, not native Recording identity or persistent position |
 | POST | `/api/v1/recording-playback-sessions/{sessionId}/stop` | Explicit owner-controlled teardown of session/process/lease/cookie |
 | GET | `/api/v1/recording-playback-sessions/{sessionId}/tracks` | Owner-only canonical audio/subtitle inventory, stripped of the internal native Recording ID |
 | POST | `/api/v1/recording-playback-sessions/{sessionId}/subtitles` | Device-only validated subtitle-track selection; returns WebVTT text for supported text tracks, or JSON for `off` |
@@ -61,3 +61,13 @@ Next machine-readable step: independently confirm request/response schemas, each
 
 - [API entrypoint](README.md)
 - [Documentation index](../docs/index.md)
+
+## Development-only resume/seek status parity (2026-10-12)
+
+The **unmerged** work branch `work/device-recording-resume-status-parity-20261012` adds the read-only projection `DeviceRecordingResumeProjection.h` to an already owner-/grant-verified `GET /api/v1/recording-playback-sessions/{ms-id}`.
+
+The status always distinguishes the index-derived total duration from whether the **whole TS segment set** has a mapped VDR index timeline. `playback.resume.supported` is true only for an existing HLS session with a valid non-growing source, completed canonical index, positive duration and exactly mapped, non-empty segments, and when the index updater is no longer preparing. `resume.preparing` reports the existing session's updater state. `resume.reasonCode` is null when supported and otherwise a fixed, path-free code from this allowlist: `recording_resume_profile_not_supported`, `recording_resume_preparing`, `recording_resume_source_unavailable`, `recording_resume_growing_not_supported`, `recording_resume_index_unavailable`, `recording_resume_segment_timeline_unavailable`.
+
+The last code specifically describes **a displayed duration without complete TS-to-index mapping**. The projection runs from the native server-held recording identity under the existing Device owner boundary; it is not a new Device browser-cookie access route. It performs no index generation or writes. Positive `supported` establishes *eligibility*, not a guaranteed available HLS sync frame at an arbitrary target: actual `startPositionSeconds` CREATE remains independently validated and may return `recording_resume_sync_profile_unavailable`.
+
+This is **source work in an isolated branch, not installed yaVDR functionality**; no production index, backend, permissions or recordings were changed. Tests are `test-device-recording-resume-projection`, existing Device SecurityHttpGate contracts, and a full daemon build in branch-scoped GitHub CI. This is not a real Hisense acceptance.

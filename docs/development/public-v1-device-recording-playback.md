@@ -100,7 +100,7 @@ MediaAccessGrant, provider URL, VDR path or HLS token. Unknown, stale,
 revoked or foreign sessions return no session detail; no Browser session
 or anonymous caller can inspect status. Results are `no-store`.
 Session termination/restart is reported as unavailable, never as a
-synthetic playable session. The status also projects verified index-backed `playback.durationSeconds` (or `null` when unknown) and `playback.resume.preparing` from the canonical VDR index/reconciliation path. This is a read of current session state, **not** persistent timeline position or a generic Resume-management API; no native path, provider location or media secret is returned.
+synthetic playable session. The merged baseline projects verified index-backed `playback.durationSeconds` (or `null` when unknown) and `playback.resume.preparing`; in isolated development branch `work/device-recording-resume-status-parity-20261012`, it additionally projects `playback.resume.supported` from **all actual indexed TS segments** and a fixed allowlisted `reasonCode` when unsupported. The status remains a read of current session state, **not** persistent timeline position or a generic Resume-management API; no native path, provider location or media secret is returned.
 
 ## Failure and limits
 
@@ -134,3 +134,11 @@ pairing or replace production services as part of documentation updates.
 
 - [Development Index](index.md)
 - [Documentation Index](../index.md)
+
+## 2026-10-12: Web HLS seek parity (isolated, unmerged)
+
+Source comparison with `web/frontend/api/recording-fallback-restart-seek.js` and `recording-fallback-controls.js`: Web HLS skip buttons check **`resume.supported`**, not `durationSeconds > 0` alone. Browser progressive-fMP4 has a separate same-session `operation=seek` mutation under a Browser-CSRF/Session, which cannot be invoked with a paired Device credential. Device HLS still uses a grant-checked replacement MediaSession at a non-zero start position, preserving the old player until the server accepts the candidate.
+
+Before this branch, Device CREATE returned `resume.supported` but later owner-only Device GET returned only duration and `resume.preparing`. This branch computes the same index-to-segment readiness from `VdrRecordingDuration.h`, the existing read-only `LocalVdrRecordingSourceResolver`, and the session's HLS profile; it refuses false `supported` for missing TS, stale/partial index, missing segments, `.timer` growing recording, unsupported profile or pending index update. It serializes **only** boolean, duration and fixed path-free reasons. The `recording_resume_segment_timeline_unavailable` reason is distinct from missing/incomplete `recording_resume_index_unavailable` and does **not** imply permission to delete/rebuild the existing index automatically.
+
+Test fixture deliberately creates a valid index duration with an unmapped *middle* TS segment and asserts `supported=false`; other tests cover ready, pending, growing, missing index/profile, no native source path in JSON and the complete daemon build. Neither green tests nor this source change prove the actual Hisense film's index state. Production index changes, daemon installation or restart require independent review and approval.
