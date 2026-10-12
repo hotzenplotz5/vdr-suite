@@ -39,6 +39,8 @@ Completed MU.7 sub-slice: **MU.7 - Grant-set read + desired-state grant mutation
 
 Next product slice: **not determined by this narrative document; consult [Current State](../CURRENT.md) and the active Multiuser workstream**.
 
+The accepted historical Account lifecycle contracts remain discoverable via [MU.6B Public Account item / revision](post-phase69-mu6b-public-account-item.md), [MU.6C Public Account lifecycle mutation](post-phase69-mu6c-public-account-lifecycle-mutation.md) and [MU.6D Account CREATE / idempotency](post-phase69-mu6d-account-create-idempotency.md); these pointers are not a second active status record.
+
 MU.0–MU.9 administration work and MU.10A/B pairing have accepted bounded evidence, while the later MU.10C1/D1/E1-E3 code is also merged without that merge proving live runtime acceptance. MU.8A retains a separately documented real-runtime acceptance gap. Consult [Current State](../CURRENT.md) for volatile gates, [Multiuser Productization Workstream](post-phase69-multiuser-workstream.md) for dependencies, and the original slice documents for exact PR-specific evidence.
 
 69.D is completed; durable evidence is in
