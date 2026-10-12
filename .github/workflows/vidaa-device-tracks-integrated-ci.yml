@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "work/vidaa-device-tracks-index-srt-webvtt-integrated-20261011"
+      - "work/device-recording-resume-status-parity-20261012"
 
 permissions:
   contents: read
@@ -25,3 +26,23 @@ jobs:
             test-phase65d-recording-subtitle-track-selection-request-parser \
             test-security-http-gate \
             test-public-recording-device-media-session-response
+
+  device-resume:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install daemon dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev libcrypt-dev libcurl4-openssl-dev libssl-dev ffmpeg
+      - name: Verify read-only index projection and public Device authorization
+        run: |
+          set -euo pipefail
+          make -j2 --output-sync=target \
+            test-device-recording-resume-projection \
+            test-phase65-local-recording-source \
+            test-security-http-gate \
+            test-public-recording-device-media-session-response
+      - name: Compile real VDR-Suite daemon with the Device response projection
+        run: make daemon
