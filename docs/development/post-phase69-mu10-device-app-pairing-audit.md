@@ -1,5 +1,7 @@
 # MU.10 — Device/App Pairing Architecture and Gap Audit
 
+> **Historical MU.10 pre-implementation audit.** The initial `MU.10A candidate` and no-open-PR observations below describe the original audit checkpoint, not today's `main`. Later Device source implementations through MU.10E3 are merged; consult [CURRENT](../CURRENT.md) and the [Multiuser workstream](post-phase69-multiuser-workstream.md) for present integration and separate runtime-acceptance evidence.
+
 Status: **LIVE AUDIT COMPLETE — MU.10A IMPLEMENTATION CANDIDATE / REAL YAVDR RUNTIME PASS**
 
 Audited against `main` `5199bfadff4f2219f623fa5ce841d5b6139a026c`.
