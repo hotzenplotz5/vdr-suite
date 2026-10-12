@@ -150,7 +150,7 @@ int main()
         const auto pq = probe.parse(
             "codec_name=hevc|codec_type=video|width=3840|height=2160|"
             "r_frame_rate=24000/1001|color_primaries=bt2020|color_transfer=smpte2084|"
-            "color_space=bt2020nc|pix_fmt=yuv420p10le|time_base=1/90000|bit_rate=15000000\\n");
+            "color_space=bt2020nc|pix_fmt=yuv420p10le|time_base=1/90000|bit_rate=15000000\n");
         assert(pq.valid);
         const auto& video = pq.source.videoStreams.front();
         assert(video.hdr);
@@ -161,10 +161,10 @@ int main()
         assert(video.timeBase == "1/90000");
         assert(video.bitRate == 15000000);
         const auto hlg = probe.parse(
-            "codec_name=hevc|codec_type=video|width=1920|height=1080|color_transfer=arib-std-b67\\n");
+            "codec_name=hevc|codec_type=video|width=1920|height=1080|color_transfer=arib-std-b67\n");
         assert(hlg.valid && hlg.source.videoStreams.front().hdr);
         const auto unknown = probe.parse(
-            "codec_name=h264|codec_type=video|width=1920|height=1080|bit_rate=N/A\\n");
+            "codec_name=h264|codec_type=video|width=1920|height=1080|bit_rate=N/A\n");
         assert(unknown.valid);
         assert(!unknown.source.videoStreams.front().hdr);
         assert(unknown.source.videoStreams.front().bitRate == 0);
