@@ -14,7 +14,7 @@ VDR-Suite – Modern Platform for VDR
 
 What is VDR-Suite?
 
-VDR-Suite is a modern open-source platform built around the Video Disk Recorder (VDR).
+VDR-Suite is a modern platform built around the Video Disk Recorder (VDR). The source is publicly readable, but a project-wide open-source license has not yet been published. See [licensing and publication readiness](publication-readiness.md).
 
 The goal is not to replace VDR.
 
