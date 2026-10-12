@@ -86,9 +86,9 @@ class RecordingIndexReadOnlyTest(unittest.TestCase):
     def test_two_recordings_are_examined_separately_read_only(self):
         alternate = self.root / "Der_Mann_den_sie_Pferd_nannten" / "2026-04-01.00.00.1-0.rec"
         alternate.mkdir(parents=True)
-        (alternate / "info").write_text("F 25 1920 1080 p 16:9\\n")
-        (alternate / "00001.ts").write_bytes(b"\\0" * 188)
-        (alternate / "00002.ts").write_bytes(b"\\0" * 188)
+        (alternate / "info").write_text("F 25 1920 1080 p 16:9\n")
+        (alternate / "00001.ts").write_bytes(b"\0" * 188)
+        (alternate / "00002.ts").write_bytes(b"\0" * 188)
         (alternate / "index").write_bytes((self.recording / "index").read_bytes())
         before = [(p / "index").read_bytes() for p in (self.recording, alternate)]
         matches = diagnostic.find_recordings([self.root], "Pferd")
@@ -111,8 +111,8 @@ class RecordingIndexReadOnlyTest(unittest.TestCase):
     def test_one_broken_recording_does_not_prevent_second_diagnosis(self):
         alternate = self.root / "Der_Mann_den_sie_Pferd_nannten" / "2026-04-01.00.00.1-0.rec"
         alternate.mkdir(parents=True)
-        (alternate / "info").write_text("F 25 1920 1080 p 16:9\\n")
-        (alternate / "00001.ts").write_bytes(b"\\0" * 188)
+        (alternate / "info").write_text("F 25 1920 1080 p 16:9\n")
+        (alternate / "00001.ts").write_bytes(b"\0" * 188)
         matches = diagnostic.find_recordings([self.root], "Pferd")
         result = io.StringIO()
         with self.assertRaisesRegex(RuntimeError, "ONE_OR_MORE_RECORDINGS_INCOMPLETE"):
