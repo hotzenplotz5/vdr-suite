@@ -113,6 +113,44 @@ int main()
     profile.verifiedPaths[0].hdrTransfer = "arib-std-b67";
     assert(!selector.select(hevcSource, advertised(), profile, key).available);
 
+    // Two authenticated devices negotiate the same Recording independently.
+    // Kodi's external engine with verified byte ranges can direct-play TS
+    // while the VIDAA MSE engine requires HLS-fMP4 and audio-only transcode.
+    DeviceMediaProfileKey kodiKey{
+        "dev_kodi", "kodi22", "android14", "videoplayer_v1",
+        MediaPlaybackEngine::External};
+    DeviceMediaCapabilityProfile kodiProfile;
+    kodiProfile.key = kodiKey;
+    auto kodiPath = path(MediaCodec::H264, MediaCodec::Ac3);
+    kodiPath.engine = MediaPlaybackEngine::External;
+    kodiPath.protocol = MediaDeliveryProtocol::Progressive;
+    kodiPath.container = MediaContainer::MpegTs;
+    kodiPath.byteRangeHttpObserved = true;
+    kodiProfile.verifiedPaths = {kodiPath};
+    ClientMediaCapabilities kodiCaps;
+    kodiCaps.protocols = {MediaDeliveryProtocol::Progressive};
+    kodiCaps.containers = {MediaContainer::MpegTs};
+    kodiCaps.videoCodecs = {MediaCodec::H264};
+    kodiCaps.audioCodecs = {MediaCodec::Ac3};
+    kodiCaps.supportsByteRanges = true;
+    kodiCaps.maxVideoWidth = 3840;
+    kodiCaps.maxVideoHeight = 2160;
+    kodiCaps.maxAudioChannels = 6;
+    const auto shared = source(MediaCodec::H264, MediaCodec::Ac3);
+    const auto kodiSelected = selector.select(shared, kodiCaps, kodiProfile, kodiKey);
+    assert(kodiSelected.available);
+    assert(kodiSelected.presentation.profileId == "progressive-direct");
+    assert(kodiSelected.presentation.adaptationClass == MediaAdaptationClass::PassThrough);
+    assert(kodiSelected.presentation.videoAction == MediaTrackAction::Copy);
+    assert(kodiSelected.presentation.audioAction == MediaTrackAction::Copy);
+    profile.verifiedPaths = {path(MediaCodec::H264, MediaCodec::Aac)};
+    const auto vidaaSelected = selector.select(shared, advertised(), profile, key);
+    assert(vidaaSelected.available);
+    assert(vidaaSelected.presentation.profileId == "hls-fmp4");
+    assert(vidaaSelected.presentation.videoAction == MediaTrackAction::Copy);
+    assert(vidaaSelected.presentation.audioAction == MediaTrackAction::Transcode);
+    assert(!selector.select(shared, kodiCaps, profile, kodiKey).available);
+
     profile.version = 2;
     assert(!selector.select(hevcSource, advertised(), profile, key).available);
     profile.version = 1;
