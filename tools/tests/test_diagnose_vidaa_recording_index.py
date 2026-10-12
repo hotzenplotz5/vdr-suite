@@ -83,6 +83,54 @@ class RecordingIndexReadOnlyTest(unittest.TestCase):
         self.assertIsNone(diagnostic.resolved_video_root(Path("/")))
         self.assertIsNone(diagnostic.resolved_video_root(Path("relative/video")))
 
+    def test_two_recordings_are_examined_separately_read_only(self):
+        alternate = self.root / "Der_Mann_den_sie_Pferd_nannten" / "2026-04-01.00.00.1-0.rec"
+        alternate.mkdir(parents=True)
+        (alternate / "info").write_text("F 25 1920 1080 p 16:9\\n")
+        (alternate / "00001.ts").write_bytes(b"\\0" * 188)
+        (alternate / "00002.ts").write_bytes(b"\\0" * 188)
+        (alternate / "index").write_bytes((self.recording / "index").read_bytes())
+        before = [(p / "index").read_bytes() for p in (self.recording, alternate)]
+        matches = diagnostic.find_recordings([self.root], "Pferd")
+        self.assertEqual(len(matches), 2)
+        with self.assertRaisesRegex(RuntimeError, "RECORDING_NOT_UNIQUE"):
+            with contextlib.redirect_stdout(io.StringIO()):
+                diagnostic.diagnose_matches(matches)
+        result = io.StringIO()
+        with contextlib.redirect_stdout(result):
+            diagnostic.diagnose_matches(matches, all_matches=True)
+        output = result.getvalue()
+        self.assertIn("MATCHED_RECORDINGS=2", output)
+        self.assertIn("=== RECORDING_1_OF_2 ===", output)
+        self.assertIn("=== RECORDING_2_OF_2 ===", output)
+        self.assertEqual(output.count("INDEX_TS_FULLY_MAPPED=YES"), 2)
+        self.assertIn("RESULT=READ_ONLY_COMPLETE", output)
+        self.assertEqual(before, [(p / "index").read_bytes()
+                                  for p in (self.recording, alternate)])
+
+    def test_one_broken_recording_does_not_prevent_second_diagnosis(self):
+        alternate = self.root / "Der_Mann_den_sie_Pferd_nannten" / "2026-04-01.00.00.1-0.rec"
+        alternate.mkdir(parents=True)
+        (alternate / "info").write_text("F 25 1920 1080 p 16:9\\n")
+        (alternate / "00001.ts").write_bytes(b"\\0" * 188)
+        matches = diagnostic.find_recordings([self.root], "Pferd")
+        result = io.StringIO()
+        with self.assertRaisesRegex(RuntimeError, "ONE_OR_MORE_RECORDINGS_INCOMPLETE"):
+            with contextlib.redirect_stdout(result):
+                diagnostic.diagnose_matches(matches, all_matches=True)
+        output = result.getvalue()
+        self.assertEqual(output.count("RECORDING_RESULT="), 2)
+        self.assertIn("RECORDING_STOP=INDEX_MISSING_OR_UNSAFE", output)
+        self.assertIn("INDEX_TS_FULLY_MAPPED=YES", output)
+
+    def test_bounded_all_matches_rejects_five_before_inspecting(self):
+        matches = [self.recording] * 5
+        output = io.StringIO()
+        with self.assertRaisesRegex(RuntimeError, "TOO_MANY_RECORDINGS_FOR_BOUNDED_DIAGNOSIS"):
+            with contextlib.redirect_stdout(output):
+                diagnostic.diagnose_matches(matches, all_matches=True)
+        self.assertNotIn("INDEX_FRAMES=", output.getvalue())
+
     def test_matches_only_requested_recording_directory(self):
         self.assertEqual(
             diagnostic.find_recordings([self.root], "Pferd"),
