@@ -1,0 +1,24 @@
+#!/usr/bin/make -f
+export DH_VERBOSE = 1
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+%:
+	dh $@ --with vdrplugin
+
+override_dh_auto_build:
+	$(MAKE) build-installable PREFIX=/usr
+	$(MAKE) -C vdr-plugin-suite-bridge
+
+override_dh_auto_install:
+	$(MAKE) install DESTDIR=$(CURDIR)/debian/tmp PREFIX=/usr
+	$(MAKE) -C vdr-plugin-suite-bridge install DESTDIR=$(CURDIR)/debian/tmp
+	# Packaging must not ship runtime-generated state or secrets.
+	test ! -e debian/tmp/var/lib/vdr-suite/vdr-suite.db
+	test ! -e debian/tmp/var/lib/vdr-suite/secrets/credentials
+
+override_dh_installsystemd:
+	dh_installsystemd --no-enable --no-start
+
+override_dh_auto_test:
+	python3 tools/check_packaging_version.py
+	python3 -m unittest discover -s tools -p test_packaging_inventory.py
