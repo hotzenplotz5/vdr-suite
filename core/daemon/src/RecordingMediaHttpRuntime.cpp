@@ -330,15 +330,8 @@ int runRecordingMediaHttpRuntime(
                     owned->backendId +
                     "\",\"presentationProfileId\":\"" +
                     profile +
-                    "\",\"playback\":{\"durationSeconds\":" +
-                    (resume.durationSeconds > 0
-                        ? std::to_string(resume.durationSeconds)
-                        : "null") +
-                    ",\"resume\":{\"supported\":" +
-                    (resume.supported ? "true" : "false") +
-                    ",\"preparing\":" +
-                    (resume.preparing ? "true" : "false") +
-                    "}}}}";
+                    ",\"playback\":" +
+                    deviceRecordingResumePlaybackJson(resume) + "}}";
                 return response;
             }
             // Device-owned WebVTT selection: reuse the existing subtitle
