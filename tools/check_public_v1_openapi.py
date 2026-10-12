@@ -17,6 +17,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 OPENAPI = ROOT / "api/openapi.json"
 RUNTIME = ROOT / "api/rest/src/PublicApiRuntime.cpp"
+DEVICE_RUNTIME = ROOT / "core/daemon/src/RecordingMediaHttpRuntime.cpp"
+DEVICE_GATE = ROOT / "core/security/include/SecurityHttpGate.h"
 
 # Each anchor is an actual branch in the corresponding C++ GET/POST dispatcher.
 # Method-specific bounds prevent mistaking a POST 405 fallback for a real route.
@@ -90,6 +92,32 @@ AUDITED = {
     },
 }
 
+# Versioned Recording playback is registered in the daemon media composition
+# root, rather than PublicApiRuntime. Require an actual route branch AND its
+# SecurityHttpGate Device-only admission marker for every documented method.
+# The GET status and track branches use an empty body to distinguish reads.
+DEVICE_AUDITED = {
+    "/api/v1/recording-playback-sessions": {
+        "post": ('if (target == collection)', 'isPublicDeviceRecordingSessionCreate'),
+    },
+    "/api/v1/recording-playback-sessions/{sessionId}": {
+        "get": ('target.size() == prefix.size() + 35U &&',
+                'isPublicDeviceRecordingSessionRead'),
+    },
+    "/api/v1/recording-playback-sessions/{sessionId}/tracks": {
+        "get": ('const std::string tracksSuffix = "/tracks";',
+                'isPublicDeviceRecordingSessionRead'),
+    },
+    "/api/v1/recording-playback-sessions/{sessionId}/subtitles": {
+        "post": ('const std::string subtitleSuffix = "/subtitles";',
+                 'isPublicDeviceRecordingSubtitleSelection'),
+    },
+    "/api/v1/recording-playback-sessions/{sessionId}/stop": {
+        "post": ('target.compare(target.size() - 5U, 5U, "/stop")',
+                 'isPublicDeviceRecordingSessionStop'),
+    },
+}
+
 # The three intentionally anonymous bootstrap/discovery cases and dual-mode
 # pairing poll/admin GET need explicit human review of the x-vdr-suite-authentication
 # extension. The OpenAPI securitySchemes model is not yet complete.
@@ -148,9 +176,17 @@ def _handler_sections(source: str) -> dict[str, str]:
     }
 
 
-def validate(spec: Any, source: str) -> list[str]:
+def validate(
+    spec: Any, source: str,
+    device_source: str | None = None,
+    security_source: str | None = None,
+) -> list[str]:
     """Return all detected contract drift without mutating a file or system."""
     errors: list[str] = []
+    if device_source is None:
+        device_source = DEVICE_RUNTIME.read_text(encoding="utf-8")
+    if security_source is None:
+        security_source = DEVICE_GATE.read_text(encoding="utf-8")
     if not isinstance(spec, dict):
         return ["OpenAPI root must be a JSON object"]
 
@@ -166,9 +202,10 @@ def validate(spec: Any, source: str) -> list[str]:
     paths = spec.get("paths")
     if not isinstance(paths, dict):
         return errors + ["OpenAPI paths must be an object"]
-    if set(paths) != set(AUDITED):
-        missing = sorted(set(AUDITED) - set(paths))
-        extra = sorted(set(paths) - set(AUDITED))
+    expected_paths = set(AUDITED) | set(DEVICE_AUDITED)
+    if set(paths) != expected_paths:
+        missing = sorted(expected_paths - set(paths))
+        extra = sorted(set(paths) - expected_paths)
         errors.append(f"audited path inventory changed: missing={missing}, extra={extra}; audit new routes before expanding")
 
     section = _handler_sections(source)
@@ -186,7 +223,10 @@ def validate(spec: Any, source: str) -> list[str]:
 
     tag_names = {x.get("name") for x in spec.get("tags", []) if isinstance(x, dict)}
     operation_ids: set[str] = set()
-    for path, methods in AUDITED.items():
+    # Registration plus cleanup are expected: cleanup alone is NOT a live route.
+    if device_source.count('apiRouter.setDeviceRecordingPlaybackHandler(') != 2:
+        errors.append("Device Recording playback composition handler disappeared")
+    for path, methods in {**AUDITED, **DEVICE_AUDITED}.items():
         data = paths.get(path)
         if not isinstance(data, dict):
             errors.append(f"{path}: path object absent")
@@ -197,7 +237,13 @@ def validate(spec: Any, source: str) -> list[str]:
             errors.append(f"{path}: documented methods changed, expected {sorted(expected)}, got {sorted(current)}")
         for method, marker in methods.items():
             where = f"{method.upper()} {path}"
-            if section and marker not in section[method]:
+            if path in DEVICE_AUDITED:
+                device_marker, gate_marker = marker
+                if device_marker not in device_source:
+                    errors.append(f"{where}: Device source route handler anchor disappeared: {device_marker}")
+                if gate_marker not in security_source:
+                    errors.append(f"{where}: Device SecurityHttpGate admission marker disappeared: {gate_marker}")
+            elif section and marker not in section[method]:
                 errors.append(f"{where}: source route handler anchor disappeared: {marker}")
             op = data.get(method)
             if not isinstance(op, dict):
@@ -237,6 +283,12 @@ def validate(spec: Any, source: str) -> list[str]:
                     errors.append(f"{where}: documented authorization boundary missing")
                 elif ext.get("actorRequired") is not (key not in NO_ACTOR):
                     errors.append(f"{where}: actorRequired does not match audited actor/token scope")
+                if path in DEVICE_AUDITED and (
+                    not isinstance(ext, dict) or
+                    "Device" not in ext.get("authorization", "") or
+                    "media.recording.play" not in ext.get("authorization", "")
+                ):
+                    errors.append(f"{where}: Device playback ownership/play grant boundary missing")
             required_headers = [p.get("name") for p in params if isinstance(p, dict) and p.get("in") == "header" and p.get("required") is True]
             if ("If-Match" in required_headers) != (key in IF_MATCH):
                 errors.append(f"{where}: strong If-Match requirement drifted")
@@ -262,16 +314,19 @@ def main() -> int:
     try:
         spec = json.loads(OPENAPI.read_text(encoding="utf-8"))
         runtime = RUNTIME.read_text(encoding="utf-8")
+        device_runtime = DEVICE_RUNTIME.read_text(encoding="utf-8")
+        device_gate = DEVICE_GATE.read_text(encoding="utf-8")
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         print(f"OPENAPI_DRIFT=FAIL: cannot read source/spec: {exc}", file=sys.stderr)
         return 2
-    errors = validate(spec, runtime)
+    errors = validate(spec, runtime, device_runtime, device_gate)
     if errors:
         print("OPENAPI_DRIFT=FAIL")
         for message in errors:
             print(f"- {message}")
         return 1
-    print(f"OPENAPI_DRIFT=PASS paths={len(AUDITED)} methods={sum(len(v) for v in AUDITED.values())} scope=audited-partial")
+    paths = {**AUDITED, **DEVICE_AUDITED}
+    print(f"OPENAPI_DRIFT=PASS paths={len(paths)} methods={sum(len(v) for v in paths.values())} scope=audited-partial")
     return 0
 
 

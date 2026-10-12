@@ -16,7 +16,7 @@
 - [Human Account create/lifecycle/grant mutations](account-mutations.md)
 - [Human Credential and Browser Session administration](account-security-administration.md)
 - [Recording browse, genre facets and EPG now/next](recording-browse-epg.md)
-- [Device Recording playback/session and media track implementation guide](device-recording-playback.md) — source-linked, not yet modeled in OpenAPI
+- [Device Recording playback/session and media track implementation guide](device-recording-playback.md) — five audited R2 Device playback routes, separate from Phase-69.F
 - [Device and Credential revocation/rotation](device-lifecycle.md)
 - [Public API compatibility ADR-0048](../docs/adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [Public v1 reference client](../clients/reference-js/README.md)
@@ -25,7 +25,7 @@
 
 **Documentation bootstrap — 2026-10-11; source baseline main `8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0`.**
 
-The OpenAPI file currently specifies exactly **36 source-verified HTTP method/resource contracts** across **25 path templates**: discovery root/capabilities, Backend and Channel collections, TimerAssignment collection and item GET, protected TimerAssignment item POST for Timer CREATE, and actor-owned Operation item GET, with selected Account/Device security administration contracts detailed below. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
+The OpenAPI file currently specifies exactly **41 source-verified HTTP method/resource contracts** across **30 path templates**: discovery root/capabilities, Backend and Channel collections, TimerAssignment collection and item GET, protected TimerAssignment item POST for Timer CREATE, and actor-owned Operation item GET, with selected Account/Device security administration contracts detailed below. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
 
 The public-v1 contract is distinct from older or browser-private `/api/...` routes, transport/provider implementation details, and the independent acceptance state of the VIDAA app.
 
@@ -71,9 +71,13 @@ The [Credential/Session administration guide](account-security-administration.md
 
 [Recording/genre/EPG guide](recording-browse-epg.md) documents four additional backend-scoped GET operations. The Recording endpoint has **two deliberately different pagination modes** (keyset list vs offset folder view), genre membership uses offset, and cached EPG now/next returns at most two items. These are read-only metadata contracts, **not** Device Recording playback or media-track endpoints.
 
+## Machine-readable Device Recording playback subset
+
+The [Device Recording playback contract](device-recording-playback.md) is now represented in this OpenAPI file by exactly **five** additional Device-owned routes: Session create/status/stop, track inventory and subtitle selection. The model includes nullable index-backed duration, scoped media cookie handling, Device-only `media.recording.play` ownership and either text/vtt or JSON subtitle-off success. It describes source-merged **post-Phase-69 R2**, not original Phase-69.F acceptance and not proof of installed Hisense/yaVDR picture/sound acceptance. The `/api/v1/media/sessions/...` media-byte gateway, decoder-specific playback outcomes and persistent resume-position APIs are **not** modeled here.
+
 ## What is implemented but not yet in this OpenAPI subset?
 
-The source contains additional public-v1 resources still **outside this partial OpenAPI**, notably Account password reset/rotation (if and when accepted), Device metadata and administration surfaces, Device-owned Recording playback/media-track routes. The Account lifecycle/CREATE, Account and Device grants, Device revocation/rotation, and Account Credential/Session revoke operations listed above **are documented**; no further route is promoted merely because it appears in the implementation code.
+The source contains additional public-v1 resources still **outside this partial OpenAPI**, notably Account password reset/rotation (if and when accepted), Device metadata and administration surfaces, other Device/Account surfaces beyond the five newly reviewed R2 routes. The Account lifecycle/CREATE, Account and Device grants, Device revocation/rotation, and Account Credential/Session revoke operations listed above **are documented**; no further route is promoted merely because it appears in the implementation code.
 
 For extension work, audit the exact route, method, response, authentication/permission rules, error cases, tests, and accepted contract status **before** adding each operation to `openapi.json`. The historical [Phase 69.F client matrix](../docs/development/phase-69f-client-contract-matrix.json) is bounded evidence, **not** a complete present-day route manifest.
 
@@ -90,7 +94,7 @@ Relevant implementation and verification entry points:
 
 The dependency-free [audited Public-v1 checker](../tools/check_public_v1_openapi.py) and its [regression tests](../tools/tests/test_public_v1_openapi.py) are run by the existing `make test-docs` CI job. They fail when an audited method/path disappears from this OpenAPI, a matching actual C++ GET/POST handler anchor disappears, a local schema reference is missing, path parameters/operation IDs become inconsistent, or a documented strong precondition or actor/token boundary is weakened. No runtime credentials or server connection is involved.
 
-The inventory is deliberately **limited to the 36 already source-reviewed methods**, not the entire present-day Public-v1 API. Newly introduced routes still require a deliberate API review and explicit expansion of the audited inventory; this is not full OpenAPI Schema validation or proof of live HTTP behavior. GitHub CI for this branch is only automatically triggered when its workflow event rules match (e.g. a PR), so code inclusion alone does not prove the CI job has run.
+The inventory is deliberately **limited to the 41 already source-reviewed methods**, not the entire present-day Public-v1 API. Newly introduced routes still require a deliberate API review and explicit expansion of the audited inventory; this is not full OpenAPI Schema validation or proof of live HTTP behavior. GitHub CI for this branch is only automatically triggered when its workflow event rules match (e.g. a PR), so code inclusion alone does not prove the CI job has run.
 
 ## Maintenance rule
 

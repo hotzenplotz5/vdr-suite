@@ -58,6 +58,10 @@
     {
       "name": "EPG",
       "description": "Read-only per-channel cached EPG now/next; not a live refresh"
+    },
+    {
+      "name": "Device Recording playback",
+      "description": "Source-merged R2 Device-owned Recording session control/status/tracks/subtitles. Not included in Phase-69.F compatibility acceptance; deployed Hisense/yaVDR acceptance remains separate."
     }
   ],
   "paths": {
@@ -5393,6 +5397,518 @@
           }
         }
       }
+    },
+    "/api/v1/recording-playback-sessions": {
+      "post": {
+        "tags": [
+          "Device Recording playback"
+        ],
+        "operationId": "createDeviceRecordingPlaybackSession",
+        "summary": "Create an owned Device Recording media session",
+        "description": "Post-Phase-69 source-merged R2, not original accepted 69.F; no installed yaVDR/Hisense evidence. Requires verified Device credential and backend media.recording.play grant. Never fall back to browser-private /api/media/sessions. Every session GET checks active Device/owner; no persistent resume-position API. Only accepts an authorized completed public rec_ identity and explicit client codec/container capabilities; 201 issues scoped media cookie and safe mediaPath. Video/sound/seek availability depends on actual device and source.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified VDR-Suite Device credential; active, owned Device session; media.recording.play@backendId for create/mutations (read rechecks current Device credential, session ownership and backend playback grant in the owner registry). Browser session, Basic authentication, or recordings.view alone do not authorize this API.",
+          "securitySchemeDocumentation": "Device header Authorization: VDR-Suite-Device <credentialId>.<credentialSecret>; OpenAPI securitySchemes deliberately remain partial."
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceRecordingSessionCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Device-owned media session created; scoped HttpOnly media cookie, no-store; not playback acceptance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceRecordingSessionCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid route/backend/recording ID or request body (including invalid client capability declaration).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Device authentication missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Device lacks media.recording.play, or credential/session is not the owner.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Recording/session does not exist or is unavailable to this Device.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Requested recording, media session or track operation cannot proceed in its current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Backend/owner/metadata/media preparation unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/recording-playback-sessions/{sessionId}": {
+      "get": {
+        "tags": [
+          "Device Recording playback"
+        ],
+        "operationId": "getDeviceRecordingPlaybackSession",
+        "summary": "Read owned Device Recording playback status",
+        "description": "Post-Phase-69 source-merged R2, not original accepted 69.F; no installed yaVDR/Hisense evidence. Requires verified Device credential and backend media.recording.play grant. Never fall back to browser-private /api/media/sessions. Every session GET checks active Device/owner; no persistent resume-position API. Status reads have no request body and report nullable index-backed duration and preparing; do not return a native Recording ID or saved position.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified VDR-Suite Device credential; active, owned Device session; media.recording.play@backendId for create/mutations (read rechecks current Device credential, session ownership and backend playback grant in the owner registry). Browser session, Basic authentication, or recordings.view alone do not authorize this API.",
+          "securitySchemeDocumentation": "Device header Authorization: VDR-Suite-Device <credentialId>.<credentialSecret>; OpenAPI securitySchemes deliberately remain partial."
+        },
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "description": "Opaque, active Device-owned ms_ plus 32 lowercase hex; never a native VDR recording path.",
+            "schema": {
+              "type": "string",
+              "pattern": "^ms_[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sanitized active Device-owned session; no-store, nosniff.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceRecordingSessionStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid route/backend/recording ID or request body (including invalid client capability declaration).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Device authentication missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Device lacks media.recording.play, or credential/session is not the owner.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Recording/session does not exist or is unavailable to this Device.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Requested recording, media session or track operation cannot proceed in its current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Backend/owner/metadata/media preparation unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/recording-playback-sessions/{sessionId}/tracks": {
+      "get": {
+        "tags": [
+          "Device Recording playback"
+        ],
+        "operationId": "getDeviceRecordingPlaybackTracks",
+        "summary": "List owned Device Recording audio and subtitle tracks",
+        "description": "Post-Phase-69 source-merged R2, not original accepted 69.F; no installed yaVDR/Hisense evidence. Requires verified Device credential and backend media.recording.play grant. Never fall back to browser-private /api/media/sessions. Every session GET checks active Device/owner; no persistent resume-position API. Track payload is projected from internal controller without the native Recording ID. Internal body over 64 KiB or invalid envelope yields 503; returns canonical audio/subtitle track IDs. No automatic format conversion guarantee.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified VDR-Suite Device credential; active, owned Device session; media.recording.play@backendId for create/mutations (read rechecks current Device credential, session ownership and backend playback grant in the owner registry). Browser session, Basic authentication, or recordings.view alone do not authorize this API.",
+          "securitySchemeDocumentation": "Device header Authorization: VDR-Suite-Device <credentialId>.<credentialSecret>; OpenAPI securitySchemes deliberately remain partial."
+        },
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "description": "Opaque, active Device-owned ms_ plus 32 lowercase hex; never a native VDR recording path.",
+            "schema": {
+              "type": "string",
+              "pattern": "^ms_[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sanitized mediaSession track inventory; no-store and nosniff.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceRecordingSessionTracks"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid route/backend/recording ID or request body (including invalid client capability declaration).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Device authentication missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Device lacks media.recording.play, or credential/session is not the owner.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Recording/session does not exist or is unavailable to this Device.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Requested recording, media session or track operation cannot proceed in its current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Backend/owner/metadata/media preparation unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/recording-playback-sessions/{sessionId}/subtitles": {
+      "post": {
+        "tags": [
+          "Device Recording playback"
+        ],
+        "operationId": "selectDeviceRecordingSubtitleTrack",
+        "summary": "Select text subtitles or turn subtitle selection off",
+        "description": "Post-Phase-69 source-merged R2, not original accepted 69.F; no installed yaVDR/Hisense evidence. Requires verified Device credential and backend media.recording.play grant. Never fall back to browser-private /api/media/sessions. Every session GET checks active Device/owner; no persistent resume-position API. Device-only validated subtitle selection. Success is text/vtt; charset=utf-8 for a supported text track, or JSON when subtitleTrackId=off. Unsupported bitmap/Teletext remains unsupported. WebVTT projection is at most 1 MiB; no-store/nosniff.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified VDR-Suite Device credential; active, owned Device session; media.recording.play@backendId for create/mutations (read rechecks current Device credential, session ownership and backend playback grant in the owner registry). Browser session, Basic authentication, or recordings.view alone do not authorize this API.",
+          "securitySchemeDocumentation": "Device header Authorization: VDR-Suite-Device <credentialId>.<credentialSecret>; OpenAPI securitySchemes deliberately remain partial."
+        },
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "description": "Opaque, active Device-owned ms_ plus 32 lowercase hex; never a native VDR recording path.",
+            "schema": {
+              "type": "string",
+              "pattern": "^ms_[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceRecordingSubtitleSelect"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Text WebVTT for supported subtitle tracks, JSON status for off; Content-Type depends on selection.",
+            "content": {
+              "text/vtt": {
+                "schema": {
+                  "type": "string",
+                  "description": "WEBVTT text, bounded to 1 MiB."
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceRecordingSubtitlesOff"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid route/backend/recording ID or request body (including invalid client capability declaration).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Device authentication missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Device lacks media.recording.play, or credential/session is not the owner.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Recording/session does not exist or is unavailable to this Device.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Requested recording, media session or track operation cannot proceed in its current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Backend/owner/metadata/media preparation unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/recording-playback-sessions/{sessionId}/stop": {
+      "post": {
+        "tags": [
+          "Device Recording playback"
+        ],
+        "operationId": "stopDeviceRecordingPlaybackSession",
+        "summary": "Stop and release the Device-owned Recording session",
+        "description": "Post-Phase-69 source-merged R2, not original accepted 69.F; no installed yaVDR/Hisense evidence. Requires verified Device credential and backend media.recording.play grant. Never fall back to browser-private /api/media/sessions. Every session GET checks active Device/owner; no persistent resume-position API. Requires operation=stop, matching sessionId in body and path, backendId, Device session ownership and still-valid permission. Stop releases owner/cookie and media leases, never stops another Device's session.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified VDR-Suite Device credential; active, owned Device session; media.recording.play@backendId for create/mutations (read rechecks current Device credential, session ownership and backend playback grant in the owner registry). Browser session, Basic authentication, or recordings.view alone do not authorize this API.",
+          "securitySchemeDocumentation": "Device header Authorization: VDR-Suite-Device <credentialId>.<credentialSecret>; OpenAPI securitySchemes deliberately remain partial."
+        },
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "description": "Opaque, active Device-owned ms_ plus 32 lowercase hex; never a native VDR recording path.",
+            "schema": {
+              "type": "string",
+              "pattern": "^ms_[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceRecordingSessionStop"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Server-authoritative session teardown; media cookie expires, status depends on underlying controller."
+          },
+          "400": {
+            "description": "Invalid route/backend/recording ID or request body (including invalid client capability declaration).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Device authentication missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Device lacks media.recording.play, or credential/session is not the owner.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Recording/session does not exist or is unavailable to this Device.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Requested recording, media session or track operation cannot proceed in its current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Backend/owner/metadata/media preparation unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -7167,6 +7683,535 @@
           },
           "meta": {
             "$ref": "#/components/schemas/PublicNonpartialMeta"
+          }
+        }
+      },
+      "DevicePlaybackError": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "description": "Handler-produced JSON {error:{code}}. SecurityHttpGate can reject earlier with its different denial envelope; this does not assert every error is Problem Details."
+      },
+      "DeviceRecordingCapabilities": {
+        "type": "object",
+        "required": [
+          "protocols",
+          "containers",
+          "videoCodecs",
+          "audioCodecs",
+          "supportsByteRanges",
+          "maxVideoWidth",
+          "maxVideoHeight",
+          "maxAudioChannels"
+        ],
+        "properties": {
+          "protocols": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "enum": [
+                "hls",
+                "progressive"
+              ]
+            }
+          },
+          "containers": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "enum": [
+                "mpeg-ts",
+                "fmp4",
+                "mp4"
+              ]
+            }
+          },
+          "videoCodecs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "h264",
+                "h265",
+                "hevc",
+                "mpeg2video",
+                "aac",
+                "ac3",
+                "eac3",
+                "mpeg-audio",
+                "mp2",
+                "mp3"
+              ]
+            },
+            "description": "Parser accepts the MediaCodec vocabulary; do not invent client support."
+          },
+          "audioCodecs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "h264",
+                "h265",
+                "hevc",
+                "mpeg2video",
+                "aac",
+                "ac3",
+                "eac3",
+                "mpeg-audio",
+                "mp2",
+                "mp3"
+              ]
+            }
+          },
+          "supportsByteRanges": {
+            "type": "boolean"
+          },
+          "maxVideoWidth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 16384
+          },
+          "maxVideoHeight": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 16384
+          },
+          "maxAudioChannels": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 32
+          }
+        },
+        "description": "Reported client media capabilities are explicit. The suite does not supply native VIDAA codec defaults."
+      },
+      "DeviceRecordingSessionCreate": {
+        "type": "object",
+        "required": [
+          "backendId",
+          "recordingId",
+          "capabilities"
+        ],
+        "properties": {
+          "backendId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9._-]+$"
+          },
+          "recordingId": {
+            "type": "string",
+            "pattern": "^rec_[0-9a-f]{32}$"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/DeviceRecordingCapabilities"
+          }
+        }
+      },
+      "DevicePlaybackResumeStatus": {
+        "type": "object",
+        "required": [
+          "preparing"
+        ],
+        "properties": {
+          "preparing": {
+            "type": "boolean"
+          },
+          "supported": {
+            "type": "boolean",
+            "description": "Present on creation response; status GET projects only preparing."
+          }
+        }
+      },
+      "DevicePlaybackTimelineStatus": {
+        "type": "object",
+        "required": [
+          "durationSeconds",
+          "resume"
+        ],
+        "properties": {
+          "durationSeconds": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "description": "Nullable until duration is established from VDR index, never HLS playlist or EPG length."
+          },
+          "resume": {
+            "$ref": "#/components/schemas/DevicePlaybackResumeStatus"
+          }
+        }
+      },
+      "DeviceRecordingSessionCreated": {
+        "type": "object",
+        "required": [
+          "mediaSession"
+        ],
+        "properties": {
+          "mediaSession": {
+            "type": "object",
+            "required": [
+              "id",
+              "state",
+              "backendId",
+              "recordingId",
+              "presentationProfileId",
+              "mediaPath",
+              "expiresAt",
+              "playback"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^ms_[0-9a-f]{32}$"
+              },
+              "state": {
+                "type": "string",
+                "const": "ready"
+              },
+              "backendId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9._-]+$"
+              },
+              "recordingId": {
+                "type": "string",
+                "pattern": "^rec_[0-9a-f]{32}$"
+              },
+              "presentationProfileId": {
+                "type": "string",
+                "enum": [
+                  "hls-ts",
+                  "hls-fmp4",
+                  "progressive-direct",
+                  "progressive-fmp4"
+                ]
+              },
+              "mediaPath": {
+                "type": "string",
+                "description": "Scoped same-origin media gateway path, not an unrestricted native provider URL."
+              },
+              "expiresAt": {
+                "type": "string",
+                "description": "Trusted server expiry string YYYY-MM-DD HH:MM:SS; not claimed to be RFC3339."
+              },
+              "playback": {
+                "$ref": "#/components/schemas/DevicePlaybackTimelineStatus"
+              }
+            }
+          }
+        }
+      },
+      "DeviceRecordingSessionStatus": {
+        "type": "object",
+        "required": [
+          "mediaSession"
+        ],
+        "properties": {
+          "mediaSession": {
+            "type": "object",
+            "required": [
+              "id",
+              "state",
+              "backendId",
+              "presentationProfileId",
+              "playback"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^ms_[0-9a-f]{32}$"
+              },
+              "state": {
+                "type": "string",
+                "const": "ready"
+              },
+              "backendId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9._-]+$"
+              },
+              "presentationProfileId": {
+                "type": "string",
+                "enum": [
+                  "hls-ts",
+                  "hls-fmp4",
+                  "progressive-direct",
+                  "progressive-fmp4"
+                ]
+              },
+              "playback": {
+                "$ref": "#/components/schemas/DevicePlaybackTimelineStatus"
+              }
+            },
+            "description": "Sanitized owner/status projection: NEVER a native Recording ID, media secret or provider URL."
+          }
+        }
+      },
+      "DeviceRecordingTrackItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "selected"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "codec": {
+            "type": "string"
+          },
+          "channels": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "layout": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "format": {
+            "type": "string"
+          },
+          "selectable": {
+            "type": "boolean"
+          },
+          "deliveryFormat": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "default": {
+            "type": "boolean"
+          },
+          "selected": {
+            "type": "boolean"
+          },
+          "forced": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DeviceRecordingTrackCategory": {
+        "type": "object",
+        "required": [
+          "selectionSupported",
+          "availableTracks",
+          "selectedTrackId",
+          "defaultTrackId"
+        ],
+        "properties": {
+          "selectionSupported": {
+            "type": "boolean"
+          },
+          "selectionReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "offSupported": {
+            "type": "boolean"
+          },
+          "offSelected": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "availableTracks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeviceRecordingTrackItem"
+            }
+          },
+          "selectedTrackId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "defaultTrackId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "DeviceRecordingSessionTracks": {
+        "type": "object",
+        "required": [
+          "mediaSession"
+        ],
+        "properties": {
+          "mediaSession": {
+            "type": "object",
+            "required": [
+              "id",
+              "state",
+              "backendId",
+              "tracks"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^ms_[0-9a-f]{32}$"
+              },
+              "state": {
+                "type": "string",
+                "const": "ready"
+              },
+              "backendId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9._-]+$"
+              },
+              "tracks": {
+                "type": "object",
+                "required": [
+                  "audio",
+                  "subtitles"
+                ],
+                "properties": {
+                  "audio": {
+                    "$ref": "#/components/schemas/DeviceRecordingTrackCategory"
+                  },
+                  "subtitles": {
+                    "$ref": "#/components/schemas/DeviceRecordingTrackCategory"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "DeviceRecordingSessionStop": {
+        "type": "object",
+        "required": [
+          "operation",
+          "backendId",
+          "sessionId"
+        ],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "const": "stop"
+          },
+          "backendId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9._-]+$"
+          },
+          "sessionId": {
+            "type": "string",
+            "pattern": "^ms_[0-9a-f]{32}$"
+          }
+        }
+      },
+      "DeviceRecordingSubtitleSelect": {
+        "type": "object",
+        "required": [
+          "operation",
+          "backendId",
+          "sessionId",
+          "subtitleTrackId",
+          "streamBasePositionSeconds"
+        ],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "const": "select-subtitle-track"
+          },
+          "backendId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9._-]+$"
+          },
+          "sessionId": {
+            "type": "string",
+            "pattern": "^ms_[0-9a-f]{32}$"
+          },
+          "subtitleTrackId": {
+            "type": "string",
+            "description": "Canonical subtitle-N index or off; DVB/Teletext cannot be promised as WebVTT."
+          },
+          "streamBasePositionSeconds": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "DeviceRecordingSubtitlesOff": {
+        "type": "object",
+        "required": [
+          "mediaSession"
+        ],
+        "properties": {
+          "mediaSession": {
+            "type": "object",
+            "required": [
+              "id",
+              "state",
+              "subtitleTrackId"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^ms_[0-9a-f]{32}$"
+              },
+              "state": {
+                "type": "string",
+                "const": "ready"
+              },
+              "subtitleTrackId": {
+                "type": "string",
+                "const": "off"
+              }
+            }
           }
         }
       }
