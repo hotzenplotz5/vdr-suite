@@ -8,15 +8,23 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import stat
+import posixpath
 
+SENSITIVE_PREFIXES = ("etc/vdr-suite/", "var/lib/vdr-suite/", "var/cache/vdr-suite/")
+ALLOWED_PREFIXES = ("usr/", "etc/vdr-suite/", "etc/default/vdr-suite-", "var/lib/vdr-suite/", "var/cache/vdr-suite/", "lib/systemd/system/vdr-suite-", "usr/lib/systemd/system/vdr-suite-")
 PLUGIN_RE = re.compile(r"^libvdr-suitebridge\.so\.[A-Za-z0-9_.+-]+$")
 
 def package_for(path, origin):
+    if not path.as_posix().startswith(ALLOWED_PREFIXES):
+        raise ValueError("unexpected install destination: " + str(path))
     name = path.name
     if origin == "plugin":
         if PLUGIN_RE.fullmatch(name):
             return "vdr-plugin-suitebridge"
         raise ValueError("unexpected SuiteBridge stage payload: " + str(path))
+    if path.as_posix() in ("lib/systemd/system/vdr-suite-backend-agent.service", "usr/lib/systemd/system/vdr-suite-backend-agent.service"):
+        return "vdr-suite-backend-agent"
     if name.startswith("vdr-suite-backend-agent") or path.as_posix().endswith("/backend-agent.conf") or "backend-agent" in path.parts:
         return "vdr-suite-backend-agent"
     if name.startswith("vdr-suite-") or name.startswith("vdr-suite.") or "vdr-suite" in path.parts or name.startswith("vdr-suite"):
@@ -51,14 +59,24 @@ def inspect(root, origin):
             if full.is_dir() and not full.is_symlink():
                 continue
             owner = package_for(relative, origin)
-            record = {"path": "/" + relative.as_posix(), "package": owner, "origin": origin}
+            mode = full.lstat().st_mode
+            record = {"path": "/" + relative.as_posix(), "package": owner,
+                      "origin": origin, "mode": format(stat.S_IMODE(mode), "04o")}
+            relative_name = relative.as_posix()
+            if relative_name.startswith("var/lib/vdr-suite/secrets/") or relative_name.startswith("var/lib/vdr-suite/backend-agent/"):
+                raise ValueError("persistent private data must not be shipped in package: " + relative_name)
+            if stat.S_ISREG(mode) and stat.S_IMODE(mode) & 0o002:
+                raise ValueError("world writable package file: " + relative_name)
+            if relative_name.startswith("etc/vdr-suite/") or relative_name.startswith("etc/default/"):
+                record["config_candidate"] = True
             if full.is_symlink():
                 target = os.readlink(full)
-                if os.path.isabs(target):
-                    # Absolute symlinks are acceptable in Debian packages but must be audited.
-                    record.update(type="symlink", target=target)
-                else:
-                    record.update(type="symlink", target=target)
+                if not target:
+                    raise ValueError("empty link: " + relative_name)
+                resolved = posixpath.normpath(posixpath.join(posixpath.dirname("/" + relative_name), target)) if not target.startswith("/") else posixpath.normpath(target)
+                if not resolved.startswith(("/usr/", "/lib/", "/etc/")):
+                    raise ValueError("symlink points outside allowed package roots: " + relative_name + " -> " + target)
+                record.update(type="symlink", target=target, resolved=resolved)
             elif full.is_file():
                 record.update(type="file", size=full.stat().st_size,
                               sha256=hashlib.sha256(full.read_bytes()).hexdigest())
@@ -88,9 +106,9 @@ def main(argv=None):
             raise ValueError("empty staging inventory")
         if not any(x["package"] == "vdr-plugin-suitebridge" for x in records):
             raise ValueError("SuiteBridge plugin missing from staging inventory")
-        if not any(x["path"] == "/usr/sbin/vdr-suite-daemon" for x in records):
+        if not any(x["path"] == "/usr/sbin/vdr-suite-daemon" and x["type"] == "file" for x in records):
             raise ValueError("daemon missing from staging inventory")
-        result = {"schema": 1, "entries": records, "count": len(records),
+        result = {"schema": 2, "entries": records, "count": len(records),
                   "note": "Inventory only; not a package build or proof of runtime compatibility"}
         document = json.dumps(result, indent=2, sort_keys=True) + "\n"
         if args.output:
