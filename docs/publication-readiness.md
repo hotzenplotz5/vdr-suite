@@ -6,18 +6,18 @@ This is a **release/publication checklist**, not legal clearance or evidence of 
 
 ## 1. License — BLOCKED pending copyright and maintainer clearance
 
-A [source-backed GPLv3 compatibility matrix](gplv3-compatibility-audit.md) now records identified boundaries, upstream evidence and unresolved legal questions. For exclusively owned original source it recommends **`GPL-3.0-only`** as the narrower interpretation of GNU GPL version 3; `GPL-3.0-or-later` requires an explicit additional permission from holders. Neither option is represented as already legally approved.
+A [source-backed GPLv3 compatibility matrix](gplv3-compatibility-audit.md) now records identified boundaries, upstream evidence and unresolved legal questions. The maintainer has explicitly selected **`GPL-3.0-or-later`** as the target for original VDR-Suite source they are authorized to license. The matrix remains conditionally compatible; it does not itself clear upstream rights, other contributors or artwork. No project-wide legal clearance is claimed.
 
 The empty `LICENSE` file does **not** grant a conventional open-source license. Do not call VDR-Suite legally reusable under MIT, GPL or another SPDX license merely because the repository is public.
 
-Before selecting a license:
+Before publishing the selected license:
 
 1. Identify ownership and contributor permissions for all original C++/JavaScript source; review external code, vendored assets, logos, fonts and build files separately.
 2. Audit integration, linking and distribution relationships with VDR and upstream plugins/libraries; do **not** assume the licensing obligation of every source dependency automatically applies to the entire server, or that a permissive license is safe without provenance.
-3. Ask every relevant repository copyright holder to choose and approve the intended license/SPDX identifier and any contribution terms. If multiple licenses apply to independent components, document exact component boundaries.
+3. Confirm that every relevant repository copyright holder authorizes the selected `GPL-3.0-or-later` identifier and any contribution terms. If multiple licenses apply to independent components, document exact component boundaries.
 4. Only **after** approval, commit the complete unmodified approved license text, provenance/third-party notices as needed, and source-level license statements where warranted. Validate GitHub's detected license afterwards.
 
-Common GPL and permissive options have materially different distribution and compatibility consequences. **This PR deliberately does not invent a license selection or fill `LICENSE` with a misleading placeholder.**
+The selected identifier is **`GPL-3.0-or-later`**; its application to all affected original files remains conditional on rights clearance. **This PR deliberately leaves `LICENSE` untouched until legal/provenance gates are cleared.**
 
 ## 2. Authentic product screenshots — BLOCKED pending capture
 
