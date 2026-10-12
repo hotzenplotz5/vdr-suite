@@ -104,6 +104,10 @@ DEVICE_AUDITED = {
         "get": ('target.size() == prefix.size() + 35U &&',
                 'isPublicDeviceRecordingSessionRead'),
     },
+    "/api/v1/recording-playback-sessions/{sessionId}/trickplay": {
+        "get": ('target.find("/trickplay", prefix.size())',
+                'isPublicDeviceRecordingSessionRead'),
+    },
     "/api/v1/recording-playback-sessions/{sessionId}/tracks": {
         "get": ('const std::string tracksSuffix = "/tracks";',
                 'isPublicDeviceRecordingSessionRead'),
