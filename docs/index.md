@@ -4,15 +4,17 @@
 
 You do **not** need to read the implementation history or all ADRs to understand VDR-Suite. Start with the overview, then follow the topic that matters to you.
 
-### A first visit (about five minutes of orientation)
+### Recommended reading path
 
-1. [Project Overview](project-overview.md) — what VDR-Suite is, the role of native VDR and the broad capabilities.
-2. [Project Status Dashboard](project-status-dashboard.md) — a compact, non-operational overview of what has been built and what remains a product goal.
-3. [Documentation Guide](documentation-guide.md) — which documents are authoritative and how to distinguish active information from older evidence.
+1. **Understand the project:** [Project Overview](project-overview.md) — what VDR-Suite is and what it adds to native VDR.
+2. **Explore the functionality:** [Project Status Dashboard](project-status-dashboard.md) — Live TV, Recordings, Home, Timers, security and other capabilities, with accepted scope distinguished from future work.
+3. **Choose your topic:** [Follow the topic guide below](#choose-your-topic) — jump directly to the area that interests you, without reading architecture or old phase reports first.
 
 [Deutsche Einführung](project-overview.de.md) · [English introduction](project-overview.en.md)
 
-### What do you want to know?
+Architecture, ADRs, phase plans and original acceptance evidence are **optional deeper reading** when the chosen topic calls for them. The [Documentation Guide](documentation-guide.md) explains which sources are authoritative.
+
+### Choose your topic
 
 | Your question | Read this first | Go deeper |
 | --- | --- | --- |
