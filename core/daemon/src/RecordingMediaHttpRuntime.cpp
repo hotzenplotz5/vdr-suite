@@ -5,6 +5,7 @@
 #include "BackendAgentLifecycle.h"
 #include "BackendAgentLiveProviderRuntime.h"
 #include "Database.h"
+#include "DeviceRecordingResumeProjection.h"
 #include "IHttpServer.h"
 #include "LiveMediaSessionController.h"
 #include "LiveMediaSessionRequestParser.h"
@@ -294,17 +295,28 @@ int runRecordingMediaHttpRuntime(
                         "\"resume\":{\"supported\":false,\"preparing\":true") !=
                         std::string::npos;
 
-                // The real Recording duration is frames(index) / fps(info).
-                // Never infer it from the rolling HLS playlist or EPG length.
-                int durationSeconds = 0;
+                // Match Web HLS fallback capability gating. The actual index
+                // segment timeline, not merely duration, must be complete.
+                // Run the same read-only native resolver as Session CREATE;
+                // never send its paths, IDs or fingerprint to the Device.
+                DeviceRecordingResumeProjection resume;
                 VdrRecording indexedRecording;
                 if (recordingQueryService.findRecordingById(
                         owned->backendId,
                         owned->resourceId,
                         indexedRecording)) {
-                    durationSeconds =
-                        vdrsuite::recording::durationSecondsFromIndex(
-                            indexedRecording);
+                    const LocalVdrRecordingSourceResolver resolver(
+                        [indexedRecording](const std::string& backendId) {
+                            if (indexedRecording.backendId != backendId &&
+                                !(indexedRecording.backendId.empty() &&
+                                  backendId == "default"))
+                                return std::vector<VdrRecording>{};
+                            return std::vector<VdrRecording>{indexedRecording};
+                        });
+                    const auto source = resolver.resolve(
+                        owned->backendId, owned->resourceId);
+                    resume = projectDeviceRecordingResume(
+                        indexedRecording, source, profile, preparing);
                 }
 
                 ApiResponse response;
@@ -319,11 +331,13 @@ int runRecordingMediaHttpRuntime(
                     "\",\"presentationProfileId\":\"" +
                     profile +
                     "\",\"playback\":{\"durationSeconds\":" +
-                    (durationSeconds > 0
-                        ? std::to_string(durationSeconds)
+                    (resume.durationSeconds > 0
+                        ? std::to_string(resume.durationSeconds)
                         : "null") +
-                    ",\"resume\":{\"preparing\":" +
-                    (preparing ? "true" : "false") +
+                    ",\"resume\":{\"supported\":" +
+                    (resume.supported ? "true" : "false") +
+                    ",\"preparing\":" +
+                    (resume.preparing ? "true" : "false") +
                     "}}}}";
                 return response;
             }
