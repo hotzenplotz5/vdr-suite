@@ -22,7 +22,7 @@ namespace
 constexpr std::size_t MaximumInitBytes = 256U * 1024U;
 constexpr std::size_t MaximumProbeOutputBytes = 8192U;
 constexpr unsigned MaximumProbeCpuSeconds = 2U;
-constexpr std::size_t MaximumProbeAddressSpaceBytes = 256U * 1024U * 1024U;
+constexpr std::size_t MaximumProbeAddressSpaceBytes = 512U * 1024U * 1024U;
 
 MediaEmittedFmp4Result rejected(const char* reason)
 {
