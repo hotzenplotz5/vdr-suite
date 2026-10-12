@@ -223,7 +223,8 @@ def validate(
 
     tag_names = {x.get("name") for x in spec.get("tags", []) if isinstance(x, dict)}
     operation_ids: set[str] = set()
-    if 'apiRouter.setDeviceRecordingPlaybackHandler(' not in device_source:
+    # Registration plus cleanup are expected: cleanup alone is NOT a live route.
+    if device_source.count('apiRouter.setDeviceRecordingPlaybackHandler(') != 2:
         errors.append("Device Recording playback composition handler disappeared")
     for path, methods in {**AUDITED, **DEVICE_AUDITED}.items():
         data = paths.get(path)
