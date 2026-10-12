@@ -3,6 +3,7 @@
 #include "MediaPlannedOutput.h"
 
 #include <cassert>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -91,6 +92,10 @@ int main(int argc, char** argv)
     if (argc == 2) {
         const std::string directory(argv[1]);
         const auto fromRealInit = probe.inspectOwnedWorkspace(directory, plan);
+        if (!fromRealInit.inspected) {
+            std::fprintf(stderr, "EMITTED_INIT_PROBE_FAIL=%s\\n",
+                         fromRealInit.reasonCode.c_str());
+        }
         assert(fromRealInit.inspected);
         assert(fromRealInit.matchesPlannedOutput);
         assert(fromRealInit.videoCodec == MediaCodec::H264);
