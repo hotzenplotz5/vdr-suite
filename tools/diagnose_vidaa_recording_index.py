@@ -52,7 +52,7 @@ def configured_roots():
         try:
             if (entry / "comm").read_text().strip() != "vdr":
                 continue
-            args = (entry / "cmdline").read_bytes().split(b"\\x00")
+            args = (entry / "cmdline").read_bytes().split(b"\x00")
             argv = [item.decode("utf-8", "replace") for item in args if item]
             for i, argument in enumerate(argv):
                 value = ""
@@ -74,7 +74,7 @@ def configured_roots():
         try:
             for line in default_vdr.read_text(errors="replace")[:16384].splitlines():
                 match = re.match(
-                    r"""^\\s*(?:export\\s+)?VIDEO_DIR\\s*=\\s*(?:"([^"]+)"|'([^']+)'|([^#\\s]+))""",
+                    r"""^\s*(?:export\s+)?VIDEO_DIR\s*=\s*(?:"([^"]+)"|'([^']+)'|([^#\s]+))""",
                     line)
                 if match:
                     add_candidate(next(value for value in match.groups() if value))
