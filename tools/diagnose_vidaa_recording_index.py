@@ -22,15 +22,37 @@ def regular(path):
     return value if stat.S_ISREG(value.st_mode) else None
 
 
+def resolved_video_root(path):
+    """Resolve a configured VDR video root, including symlink aliases, safely."""
+    try:
+        path = Path(path)
+        if not path.is_absolute() or path == Path("/"):
+            return None
+        canonical = path.resolve(strict=True)
+        if canonical == Path("/") or not canonical.is_dir():
+            return None
+        return canonical
+    except (OSError, RuntimeError):
+        return None
+
+
 def configured_roots():
     roots = set()
+
+    def add_candidate(value):
+        path = resolved_video_root(value)
+        if path is not None:
+            roots.add(path)
+
+    # VDR -v/-video arguments are authoritative when present. On yaVDR the
+    # video directory is commonly selected by a config variable instead.
     for entry in Path("/proc").iterdir():
         if not entry.name.isdecimal():
             continue
         try:
             if (entry / "comm").read_text().strip() != "vdr":
                 continue
-            args = (entry / "cmdline").read_bytes().split(b"\x00")
+            args = (entry / "cmdline").read_bytes().split(b"\\x00")
             argv = [item.decode("utf-8", "replace") for item in args if item]
             for i, argument in enumerate(argv):
                 value = ""
@@ -41,20 +63,38 @@ def configured_roots():
                     value = argument.split("=", 1)[1]
                 elif argument.startswith("-v") and len(argument) > 2:
                     value = argument[2:]
-                path = Path(value)
-                if path.is_absolute() and path != Path("/") and path.is_dir():
-                    roots.add(path)
+                if value:
+                    add_candidate(value)
         except (OSError, ValueError):
             continue
-    # Only inspect these if they really exist; they are discovery candidates,
-    # not claims about this host's video directory.
-    for value in ("/srv/vdr/video", "/video", "/var/lib/video.00",
-                  "/var/lib/vdr/video", "/var/lib/vdr/recordings"):
-        path = Path(value)
-        if path.is_dir() and not path.is_symlink():
-            roots.add(path)
-    return sorted(roots, key=lambda item: len(str(item)))
 
+    # Read-only parsing, never source/execute shell configuration.
+    default_vdr = Path("/etc/default/vdr")
+    if regular(default_vdr) is not None:
+        try:
+            for line in default_vdr.read_text(errors="replace")[:16384].splitlines():
+                match = re.match(
+                    r"""^\\s*(?:export\\s+)?VIDEO_DIR\\s*=\\s*(?:"([^"]+)"|'([^']+)'|([^#\\s]+))""",
+                    line)
+                if match:
+                    add_candidate(next(value for value in match.groups() if value))
+        except OSError:
+            pass
+
+    # The prior implementation dropped /srv/vdr/video when it was a symlink
+    # and omitted /srv/vdr/video.00 altogether. On yaVDR they may denote the
+    # same real directory. Canonicalize both and deduplicate before traversal.
+    for value in (
+        "/srv/vdr/video",
+        "/srv/vdr/video.00",
+        "/srv/video",
+        "/video",
+        "/var/lib/video.00",
+        "/var/lib/vdr/video",
+        "/var/lib/vdr/recordings",
+    ):
+        add_candidate(value)
+    return sorted(roots, key=lambda item: str(item))
 
 def find_recordings(roots, term):
     matches = set()
