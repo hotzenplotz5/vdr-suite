@@ -44,5 +44,7 @@ jobs:
             test-phase65-local-recording-source \
             test-security-http-gate \
             test-public-recording-device-media-session-response
+      - name: Verify real-recording index diagnostic against isolated temp fixtures
+        run: python3 -m unittest discover -s tools/tests -p test_diagnose_vidaa_recording_index.py
       - name: Compile real VDR-Suite daemon with the Device response projection
         run: make daemon
