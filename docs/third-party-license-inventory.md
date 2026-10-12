@@ -21,3 +21,24 @@ The upstream licenses noted here concern identifiable upstream projects, **not a
 **Required before final release acceptance:** provenance and permission records for in-tree original/contributed code and graphics, specific SuiteBridge interactions with other in-process plugins, and a distribution-specific dependency/SBOM audit. Independently produced code under GPL-3.0-or-later can be published when its rightsholders have authorized it, without pretending these downstream checks are passed.
 
 See [GPLv3 source audit](gplv3-compatibility-audit.md) and [publication checklist](publication-readiness.md).
+
+## File-level media provenance audit (12 October 2026)
+
+This assessment distinguishes *repository introduction* from independent evidence of **the creator and the right to redistribute**; the latter cannot be proven merely by a Git commit.
+
+| Asset / group | Specific repository evidence | Audit finding |
+| --- | --- | --- |
+| `web/frontend/logo-vdr-suite.svg` | Initially added by `hotzenplotz5` in [63623bbb](https://github.com/hotzenplotz5/vdr-suite/commit/63623bbb193683f3c28acdec6f4cc0f0bd8ad06f), revised in [2354d9b1](https://github.com/hotzenplotz5/vdr-suite/commit/2354d9b1e120edad2bf10452f093b4e5e11192e8). SVG source contains paths, text and gradients. | **Introducer identified; original author/license grant not independently proven.** Confirm whether the image was commissioned, AI-generated, drawn in-house or adapted from an existing work; collect source/consent before treating as fully cleared. |
+| Ten `web/frontend/assets/recording-genre-*.svg` files | All added in [410f104a](https://github.com/hotzenplotz5/vdr-suite/commit/410f104a45890dc86f3a83813552ffe3dd141202), message “approved local poster assets”. Actual XML embeds `<image ... href="data:image/jpeg;base64,...">` with JPEG pictures. | **Unresolved high-priority image rights:** “approved” does not identify photographers, generation tools, stock license, original source or redistributable grant. An SVG wrapper is not proof of royalty-free vector artwork. Avoid advertising these embedded posters as GPL-licensed until proof is found; replace with documented original art if needed. |
+| `web/frontend/assets/recording-genre-sprite.svg` | Embedded JPEG data URI confirmed in its XML | **Same origin/license question.** Confirm whether this is a derivative/collage of licensed posters or independently created art. |
+| `web/frontend/assets/vdr-remote-photorealistic.png` | Binary raster asset present in repository | **Unresolved:** origin, image generation or photographer and model/property rights not documented in this review. |
+| `web/frontend/icon-vdr-suite.svg`, `favicon.svg`, `logo-vdr-suite-dark.svg`, `channel-logos/vdr-suite-brand/logo-vdr-suite-dark.svg` | In-tree branded SVGs | **Unresolved:** identify sources and relation to primary logo; confirm consistent rightsholder grant. |
+| VIDAA `app/Code_Generated_Image.png` | Introduced by `hotzenplotz5` in [38901625](https://github.com/hotzenplotz5/vdr-suite-vidaa/commit/38901625f247d9e753504a28657d609fe7d37) with message “Add files via upload” | **Unresolved:** filename is not evidence of a human or AI image creator nor a reuse license. Private VIDAA repository needs an independent disclosure and grant. |
+| VIDAA `app/vdr-suite-icon*.png` | Binary assets in private VIDAA repository | **Unresolved:** check their individual commit history and whether rendered from verified VDR-Suite SVGs. |
+| Logos synchronized at runtime | `tools/vdr_suite_logo_sync.py` defaults to https://github.com/3PO/Senderlogos/archive/refs/heads/master.zip | **External source identified:** upstream repository API currently shows no detected license. Channel logos may include third-party trademarks/artwork. Downloading to a private cache is not a license grant to bundle/relicense them; packaging and redistribution remain gated by upstream and rightsholder permissions. |
+
+### Practical clearance record needed
+
+For each group supply: *original creator or generator*, *source project/artifact*, *date and context of creation*, *underlying reference/input if adapted*, *ownership or express permission for redistribution under the intended terms*, and *whether any trademarks, programme stills or artwork from third parties appear*. Keep evidence in a maintainer-held location if it contains personal or confidential data; put only a non-sensitive conclusion and accurate license/attribution in the repository.
+
+**Current status: no basis to mark all graphics or foreign rights fully cleared.** The outstanding work is not a formatting issue; it is missing external proof. No historical files were removed or relicensed as part of this inventory.
