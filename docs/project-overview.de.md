@@ -129,6 +129,13 @@ VDR-Suite soll ihn für moderne Anforderungen zugänglich machen.
 
 ---
 
+## Weiterlesen
+
+1. [Funktionsübersicht](project-status-dashboard.md) – Live-TV, Aufnahmen, Medienübersicht, Timer und weitere Fähigkeiten im Überblick.
+2. [Passendes Thema auswählen](index.md#choose-your-topic) – direkt zu API, Berechtigungen/Geräte-Pairing, Wiedergabe, Entwicklung oder Installation.
+
+Erst für technische Details sind die [aktuelle Architektur](development/current-architecture-state.md), [Architekturentscheidungen](adr/index.md), [Phasenplanung](planning/phase-map.md) und [historische Nachweise](history/index.md) gedacht. Den verbindlichen aktuellen Stand enthält [CURRENT](CURRENT.md).
+
 ## Back
 
 - [Back to README](../README.md)
