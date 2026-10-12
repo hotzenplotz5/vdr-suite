@@ -52,7 +52,7 @@ The inspected upstream [VDR `vdr.c`](https://github.com/vdr-projects/vdr/blob/ma
 
 ### TVScraper in-process source interface
 
-`vdr-plugin-suite-bridge/suitebridge_tvscraper_adapter.cpp` directly includes `services.h` and translates TVScraper media types (`cTvMedia`, `tvType`, `eCharacterType`, `eOrientation`) into SuiteBridge types. Unlike HTTP-based integrations, this is **an in-process VDR service interface** and must be considered in the native compatibility analysis. The TVScraper upstream README explicitly allows GPL-2.0-or-later, so its **GPLv3 option is available**, but the exact `services.h` provenance and distribution of any copied header remain to be checked. Do not classify this particular integration as mere HTTP communication.
+`vdr-plugin-suite-bridge/suitebridge_tvscraper_adapter.cpp` directly includes `services.h` and translates TVScraper media types (`cTvMedia`, `tvType`, `eCharacterType`, `eOrientation`) into SuiteBridge types. Unlike HTTP-based integrations, this is **an in-process VDR service interface** and must be considered in the native compatibility analysis. The TVScraper upstream README explicitly allows GPL-2.0-or-later, so its **GPLv3 option is available**, but the in-tree `vdr-plugin-suite-bridge/services.h` explicitly identifies upstream `MarkusEh/vdr-plugin-tvscraper` and has been compared to upstream `services.h`. It is treated as an adapted upstream service contract, with a file-scoped `SPDX-License-Identifier: GPL-2.0-or-later` and author/upstream attribution. The available GPLv3 option allows use alongside VDR-Suite GPLv3 code; the original upstream license is preserved. Do not classify this particular integration as mere HTTP communication.
 
 ## Rights and release gates
 
