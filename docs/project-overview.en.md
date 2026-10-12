@@ -131,6 +131,13 @@ VDR-Suite provides the modern services, APIs and client integration around it.
 
 ---
 
+## What to read next
+
+1. [Functionality overview](project-status-dashboard.md) — Live TV, Recordings, Home, Timers and other supported capabilities.
+2. [Choose your topic](index.md#choose-your-topic) — API, Device pairing and permissions, playback, development or installation.
+
+For deeper implementation details use [Current Architecture State](development/current-architecture-state.md), [ADRs](adr/index.md), [phase planning](planning/phase-map.md) and [historical acceptance](history/index.md). Live project and acceptance status belongs in [CURRENT](CURRENT.md).
+
 ## Back
 
 - [Back to README](../README.md)

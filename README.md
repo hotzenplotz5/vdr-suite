@@ -2,19 +2,23 @@
 
 VDR-Suite is a VDR-centred, domain-first platform for modern Web, mobile, desktop and TV clients. VDR remains the native runtime authority; VDR-Suite owns backend scope, policy, orchestration, persistent read models and client-facing contracts.
 
-## Start here
+## Documentation — start here
 
-- [API documentation and partial OpenAPI 3.1 contract](api/README.md) — verified public-v1 discovery, developer boundary and documentation coverage
+**New to VDR-Suite?** Open the [Documentation Home](docs/index.md). It gives you a short reading route, a topic map and direct answers to **where to look for what**.
 
-- [Current State](docs/CURRENT.md) — sole repository authority for volatile operational status
-- [New Chat Handoff](docs/NEW-CHAT-HANDOFF.md) — mandatory entry point for a new VDR-Suite chat
-- [Strict Roadmap](docs/planning/roadmap.md) — binding forward execution order and phase gates
-- [Phase Map](docs/planning/phase-map.md) — compact phase-number map
-- [Current Project Status](docs/development/current-status.md) — stable narrative context
-- [Target Platform Architecture](docs/architecture/target-platform-architecture.md)
-- [Architecture Decision Records](docs/adr/index.md)
-- [Completed History](docs/development/completed-phases.md)
-- [Agent Workflow Rules](AGENTS.md)
+A sensible first reading order:
+
+1. [Project Overview](docs/project-overview.md) — what VDR-Suite does, what remains VDR's responsibility and where the platform is heading.
+2. [Project Status Dashboard](docs/project-status-dashboard.md) — a compact view of capabilities and future product work, not an installed-host report.
+3. [Choose your topic](docs/index.md#choose-your-topic) — go directly to Live TV, Recordings, permissions, TV pairing, API, installation or development.
+
+If you want to go deeper **after choosing your topic**, continue with the [Current Architecture State](docs/development/current-architecture-state.md), [architecture decisions](docs/adr/index.md), [phase roadmap](docs/planning/roadmap.md) or [historical acceptance evidence](docs/history/index.md).
+
+**Deutsch:** [Projektüberblick auf Deutsch](docs/project-overview.de.md).
+
+Already know what you need? Go straight to [Public API and OpenAPI coverage](api/README.md), [Developer Onboarding](docs/development/developer-onboarding.md), [Current State](docs/CURRENT.md) (the sole repository authority for volatile operational status), or the [Strict Roadmap](docs/planning/roadmap.md). For decisions and evidence see the [Architecture Decision Records](docs/adr/index.md) and [completed history](docs/history/index.md).
+
+For repository automation or a new ChatGPT work session, read [Agent Workflow Rules](AGENTS.md) and the [New Chat Handoff](docs/NEW-CHAT-HANDOFF.md) before changing anything.
 
 ## Architecture direction
 

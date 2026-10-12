@@ -12,6 +12,17 @@
 
 This page is a capability dashboard, not a second operational-status authority. Exact current phase/branch/CI state belongs only in [Current State](CURRENT.md).
 
+## Functionality at a glance
+
+- **Live TV and programme guide:** browse Channels and EPG and use Suite-owned authenticated playback where supported.
+- **Recordings:** browse, play, resume and manage Recordings; VDR-native marks and cutting remain under VDR authority.
+- **Home and discovery:** see Now/Next, new Recordings, Movies/Genres and Series with canonical metadata and artwork.
+- **Timers:** plan recordings using backend-aware TimerIntent orchestration; a broad polished Timer administration UI remains separately gated.
+- **TV features:** Teletext, HbbTV and a bounded Legacy OSD bridge are implemented for their accepted domains.
+- **Accounts, devices and integrations:** server-enforced permissions and public client contracts exist, but source-merged Device functionality is not proof of installed TV/yaVDR acceptance.
+
+The table below separates completed foundations from separately gated or future capabilities. It is **not** a report of which features are installed on a particular device.
+
 ## Platform capability view
 
 | Area | Durable assessment | Ownership / boundary |
@@ -63,6 +74,12 @@ See [Golden User Journeys](planning/golden-user-journeys.md).
 - [Current Architecture State](development/current-architecture-state.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Completed Phases](development/completed-phases.md)
+
+## Continue: choose your topic
+
+You have seen the functionality overview. **Next, [choose the topic you want to explore](index.md#choose-your-topic)** — such as Live TV, Recording playback, permissions, TV pairing, API or installation.
+
+For technical depth (optional), open [Current Architecture State](development/current-architecture-state.md), [ADRs](adr/index.md), [Phase Map](planning/phase-map.md) or [historical acceptance evidence](history/index.md). For exact current deployment and acceptance claims use [CURRENT](CURRENT.md).
 
 ## Back
 

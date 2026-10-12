@@ -96,6 +96,13 @@ Binding numbered phase order and completion gates live in the [Strict Roadmap](p
 - [Completed History](development/completed-phases.md)
 - [Architecture Decision Records](adr/index.md)
 
+## Continue reading
+
+1. [Functionality overview](project-status-dashboard.md) — what VDR-Suite can do for TV, Recordings, Home, Timers and clients.
+2. [Choose the topic you care about](index.md#choose-your-topic) — find the relevant API, permissions, playback, development or installation guide.
+
+Only if you need implementation details, continue with [Current Architecture State](development/current-architecture-state.md), [ADRs](adr/index.md), [phase planning](planning/phase-map.md) or [historical acceptance](history/index.md). For live project/acceptance status use [CURRENT](CURRENT.md).
+
 ## Back
 
 - [Back to Documentation Index](index.md)
