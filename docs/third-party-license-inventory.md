@@ -64,3 +64,7 @@ The maintainer confirms that externally downloaded station logos and film/series
 | `vdr-plugin-suite-bridge/suitebridge_teletext_provider_contract.h` | Explicitly mirrors `vdr-plugin-osdteletext@70496310d1fa5200ff808d1552f0f5d252893870`; fork has GPLv2 COPYING; upstream README credits Marcel Wiesweg | **Version permission unresolved.** Check source of service ABI, legal status of copied expressiveness, and any GPLv3 permission; don't stamp GPLv3 without proof. |
 
 These are **in-process plugin service APIs**. The existence of GPLv2 license text is not by itself proof of a GPL-2.0-only prohibition, nor permission to choose GPLv3. The GPL version and source-copying questions must be answered per actual files and contributors before full legal sign-off. External runtime media are not part of this issue.
+
+### Verified ABI source comparison (2026-10-12)
+
+Direct source inspection confirms that the SuiteBridge Teletext ABI mirrors `hotzenplotz5/vdr-plugin-osdteletext@70496310d1fa5200ff808d1552f0f5d252893870:services.h`, including service identifiers, values and struct layout. The HbbTV media service ABI matches the fork's `service/vdrsuite_hbbtv_media_service.h` at `hotzenplotz5/vdr-plugin-web@1b3d2e785a1caf2d9f991fafa9752a433c5a86ae`. The code origin has been located, but ownership of new fork contributions and exact GPL version grants remain unverified. The upstream GPLv2 COPYING is not proof that novel contracts are GPL-2.0-only nor a GPLv3 relicensing grant. File-scoped SPDX changes must await this confirmation.
