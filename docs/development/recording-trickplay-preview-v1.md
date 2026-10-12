@@ -28,17 +28,20 @@ segments, or recordings longer than 12 hours. It quantizes time downward
 to 10-second samples; e.g. 125s requests the 120s picture. Request inputs
 cannot supply file paths, URL, ffmpeg flags, codecs or filters.
 
-The plan runs a bounded **single-frame** FFmpeg JPEG conversion using the
-existing **private MediaSessionWorkspace** `input.ffconcat` convention.
-No stream is published from this plan. A consuming controller must still
-enforce a 3-second process deadline, 256 KiB output limit, 768 MiB address
-space and 2-second CPU ceiling via `MediaProcessRunner`, check JPEG headers,
-and cap/consolidate concurrent workers. The renderer is *not included* yet,
-so none of those operational properties is claimed as implemented.
+The plan runs a **single-frame** FFmpeg JPEG conversion using the existing
+private `MediaSessionWorkspace` `input.ffconcat` convention. The internal
+`RecordingTrickplayPreviewRenderer` adds a 3-second subprocess deadline,
+256 KiB output ceiling, 768 MiB address-space and 2-second CPU limits,
+first/last JPEG marker checks, no-follow private-directory/concat checks,
+and nonblocking in-process worker contention. It refuses modified FFmpeg
+arguments and returns bytes only to its **authorized future caller**. These
+are source- and mocked-runner-tested constraints, not hardware evidence or
+a public endpoint. The JPEG check is framing validation, not pixel decode.
+No stream is published from this plan or renderer.
 
 ## Proposed next slices (separate authorization gates)
 
-1. Implement a bounded renderer and private thumbnail cache tied to
+1. Implement a private thumbnail cache tied to
    recording fingerprint + exact index generation + time bucket. Reject
    symlinks/foreign owners, cap disk bytes, memory, concurrency and failures.
 2. Route authenticated read-only Device `GET` requests via the existing
@@ -56,5 +59,6 @@ so none of those operational properties is claimed as implemented.
 
 **No performance or TV acceptance has been measured for this planner.**
 
-Regression: `make test-phase65-recording-trickplay-preview-plan` plus
+Regression: `make test-phase65-recording-trickplay-preview-plan`,
+`make test-phase65-recording-trickplay-preview-renderer` plus
 the established `test-fast` suite.

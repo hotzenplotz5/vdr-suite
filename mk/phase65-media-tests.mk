@@ -66,6 +66,17 @@ test-phase65-recording-trickplay-preview-plan:
 		-o $(BUILD_DIR)/test_phase65_recording_trickplay_preview_plan
 	$(BUILD_DIR)/test_phase65_recording_trickplay_preview_plan
 
+.PHONY: test-phase65-recording-trickplay-preview-renderer
+test-phase65-recording-trickplay-preview-renderer:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/media/include \
+		core/media/src/RecordingTrickplayPreviewPlan.cpp \
+		core/media/src/RecordingTrickplayPreviewRenderer.cpp \
+		core/media/src/MediaProcessRunner.cpp \
+		core/media/src/MediaSessionWorkspace.cpp \
+		core/media/tests/test_recording_trickplay_preview_renderer.cpp \
+		-o $(BUILD_DIR)/test_phase65_recording_trickplay_preview_renderer
+	$(BUILD_DIR)/test_phase65_recording_trickplay_preview_renderer
+
 test-phase65-ffprobe-recording-source:
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
 		core/media/src/FfprobeRecordingSource.cpp \
@@ -229,7 +240,7 @@ test-phase65-live-media-session-runtime:
 
 # test-ci-fast already owns test-fast in the canonical group file. Extend that
 # existing public group instead of defining a second canonical group target.
-test-fast: test-phase65-recording-trickplay-preview-plan test-phase65-media-capability-evidence test-phase65-media-capability-negotiation test-phase65-media-transcode-policy test-phase65-media-transcode-calibrator-install test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-recording-direct-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime test-phase65-live-provider-authority test-phase65-live-media-adaptation test-phase65-live-media-session-issuance test-phase65-live-media-session-runtime
+test-fast: test-phase65-recording-trickplay-preview-renderer test-phase65-recording-trickplay-preview-plan test-phase65-media-capability-evidence test-phase65-media-capability-negotiation test-phase65-media-transcode-policy test-phase65-media-transcode-calibrator-install test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-recording-direct-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime test-phase65-live-provider-authority test-phase65-live-media-adaptation test-phase65-live-media-session-issuance test-phase65-live-media-session-runtime
 
 .PHONY: install-phase65-live-socket-runtime test-phase65-live-socket-runtime-install
 
