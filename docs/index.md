@@ -1,50 +1,48 @@
 # VDR-Suite Documentation
 
-## Navigation
+## Welcome — choose your route
 
-- [README](../README.md)
-- [Project Principles](project-principles.md)
-- [Current State](CURRENT.md)
-- [New Chat Handoff](NEW-CHAT-HANDOFF.md)
-- [Strict Roadmap](planning/roadmap.md)
-- [Architecture Decision Records](adr/index.md)
+You do **not** need to read the implementation history or all ADRs to understand VDR-Suite. Start with the overview, then follow the topic that matters to you.
 
-## Purpose
+### A first visit (about five minutes of orientation)
 
-This index is a stable navigation page. It deliberately does not duplicate active PR tips or transient CI state. Exact operational truth belongs in [Current State](CURRENT.md).
+1. [Project Overview](project-overview.md) — what VDR-Suite is, the role of native VDR and the broad capabilities.
+2. [Project Status Dashboard](project-status-dashboard.md) — a compact, non-operational overview of what has been built and what remains a product goal.
+3. [Documentation Guide](documentation-guide.md) — which documents are authoritative and how to distinguish active information from older evidence.
 
-## Documentation categories
+[Deutsche Einführung](project-overview.de.md) · [English introduction](project-overview.en.md)
 
-- [Documentation Guide: current, historical and deletion review](documentation-guide.md)
-- [Historical Documentation Hub](history/index.md)
-- [Source-backed Pruning Review](development/documentation-pruning-review.md)
+### What do you want to know?
 
-## Start here
+| Your question | Read this first | Go deeper |
+| --- | --- | --- |
+| What is VDR-Suite meant to do? | [Project Overview](project-overview.md) | [Project Principles](project-principles.md) |
+| What works, and what is *actually* accepted? | [Project Status Dashboard](project-status-dashboard.md) | [CURRENT — verified project status](CURRENT.md) |
+| How do the server, VDR, Agent and clients fit together? | [Current Architecture State](development/current-architecture-state.md) | [Target Architecture](architecture/target-platform-architecture.md), [ADR Index](adr/index.md) |
+| Where is the API and how do I write a client? | [API Developer Guide](../api/README.md) | [Partial OpenAPI contract](../api/openapi.json), [JS reference client](../clients/reference-js/README.md) |
+| How do I contribute, build or test? | [Developer Onboarding](development/developer-onboarding.md) | [CONTRIBUTING](../CONTRIBUTING.md), [Development Index](development/index.md) |
+| How is installation or packaging organized? | [Packaging and staging guide](../packaging/README.md) | [Install-runtime contract](development/install-runtime-deployment-reliability.md), [Build Requirements](build-requirements.md) |
+| What comes next, and what is still missing? | [Phase Map](planning/phase-map.md) | [Strict Roadmap](planning/roadmap.md), [Gap Matrix](planning/architecture-audit-gap-matrix.md) |
+| Why was something designed this way? | [ADR Index](adr/index.md) | [Architecture Index](architecture/index.md) |
+| Where are old phases, PR evidence and closeouts? | [Historical Documentation Hub](history/index.md) | [Completed Phases](development/completed-phases.md) |
+| I am continuing automated repository work or a new chat | [New Chat Handoff](NEW-CHAT-HANDOFF.md) | [Agent Workflow Rules](../AGENTS.md), [CURRENT](CURRENT.md) |
 
-- [Public API developer entry point and OpenAPI 3.1 subset](../api/README.md) — source-reviewed method coverage, explicitly partial scope and drift guard; count and coverage belong to the API guide
+### How the documentation is arranged
 
-- [Project Principles](project-principles.md) — stable product/architecture principles.
-- [Current State](CURRENT.md) — sole volatile operational authority.
-- [Post-Phase-69 Device Recording playback](development/public-v1-device-recording-playback.md) — merged R2 source contract; installed hardware acceptance remains separate.
-- [Device Tracks/Index/SRT Merge History](development/vidaa-device-tracks-index-srt-integration-20261011.md) — 2026-10-11 integration provenance and open runtime gates.
-- [New Chat Handoff](NEW-CHAT-HANDOFF.md) — mandatory new-session entry point.
-- [Current Project Status](development/current-status.md) — stable narrative platform context.
-- [Current Architecture State](development/current-architecture-state.md) — implemented durable ownership/capability boundaries.
-- [Phase 69 Closeout](development/phase-69-closeout.md) — completed public API/client compatibility boundary.
-- [Post-Phase-66 Home Rebuild Closeout](development/post-phase66-home-rebuild-closeout.md) — current consolidated Home truth after the merged rebuild/hardening work.
-- [Post-Phase-66 Recording Detail Closeout](development/post-phase66-recording-detail-closeout.md) — current accepted cinematic Recordings 2 detail, playback-prewarm and poster-selection evidence.
-- [Phase 68 Closeout](development/phase-68-closeout.md)
-- [Phase 67 Closeout](development/phase-67-closeout.md) — completed Broadcast Companion phase, HbbTV runtime acceptance and Golden Journeys 8/9 evidence.
-- [Phase 67 Teletext Closeout](development/phase-67-teletext-closeout.md) — merged domain-first Teletext runtime, real yaVDR acceptance and Golden Journey 8 evidence.
-- [Phase 66 Closeout](development/phase-66-closeout.md) — numbered Media Home/Browse completion and Golden acceptance evidence.
-- [Post-Phase-66 Native Recording Editing Closeout](development/post-phase66-recording-editing-closeout.md) — merged native marks/cutting capability.
-- [Post-Phase-66 Home Performance Hardening](development/post-phase-66-home-performance-hardening.md) — merged PR #265 performance evidence.
-- [Phase 65.D.1 Persistent Browser Playback Shell Closeout](development/phase-65d1-persistent-browser-playback-shell-closeout.md) — persistent Live playback ownership plus accepted later lifecycle stabilization.
-- [Phase 65 Closeout](development/phase-65-closeout.md) — Streaming/MediaSession/playback completion.
-- [Phase 64 Final Closeout](development/phase-64-closeout.md) — Timer orchestration completion.
-- [Strict Roadmap](planning/roadmap.md) — binding numbered order and gates.
-- [Phase Map](planning/phase-map.md) — compact phase state.
-- [Golden User Journeys](planning/golden-user-journeys.md) — vertical product acceptance paths.
+| Area | What belongs there |
+| --- | --- |
+| [Project Overview](project-overview.md), [Project Principles](project-principles.md) | Understand the product without implementation detail |
+| [Architecture](architecture/index.md) and [ADRs](adr/index.md) | Implemented boundaries, target design and accepted technical decisions |
+| [API](../api/README.md) | Public client/developer contracts; OpenAPI coverage is explicitly partial |
+| [Development](development/index.md) | Developer workflow, source-backed implementation contracts, technical closeouts |
+| [Planning](planning/index.md) | Phase ordering, prerequisites, Golden User Journeys and open gaps |
+| [History](history/index.md) | Original acceptance evidence, retired plans and preserved snapshots |
+
+**Important:** A merged source change is not proof that a running server or TV has been updated. For live progress and verified acceptance use [CURRENT](CURRENT.md), for executable sequence use the [Strict Roadmap](planning/roadmap.md), and for installed-device truth check the device itself. Older closeouts are evidence of what was true **at their own checkpoint**, not instructions to restart a phase.
+
+## Further reading — technical reference shelves
+
+The sections below are deliberately for deeper investigation. They are **not** a required reading list for newcomers.
 
 ## Architecture
 
