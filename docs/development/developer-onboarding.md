@@ -6,12 +6,13 @@
 - [Documentation Index](../index.md)
 - [Project Overview](../project-overview.md)
 - [Development Index](index.md)
+- [Quickstart on an isolated checkout](quickstart.md)
 
 ---
 
 ## Purpose
 
-This document gives new contributors a practical entry point into VDR-Suite development.
+This document gives new contributors a practical entry point into VDR-Suite development. **For the shortest source-backed first build and smoke tests**, start with the [clean-checkout quickstart](quickstart.md); this longer page explains architecture and workflow rules.
 
 It explains the current development workflow, the repository structure, the quality gates and the documentation rules that must be respected when changing the project.
 
@@ -72,7 +73,7 @@ For **reserved-only paths** rather than implemented runtime components, see the 
 
 ## Development Workflow
 
-Before making recommendations or code changes, inspect the real repository state.
+Follow the [quickstart](quickstart.md) for CI-derived dependencies and non-deploying first checks. Before making recommendations or code changes, inspect the real repository state.
 
 The expected workflow is:
 

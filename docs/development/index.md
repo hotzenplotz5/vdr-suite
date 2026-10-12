@@ -32,6 +32,8 @@ This is a stable navigation page for development contracts and evidence. It does
 
 ## Current orientation
 
+- [Clean-checkout Developer Quickstart](quickstart.md) — first build/test on a disposable Linux environment, without deployment.
+- [Newcomer Getting Started](../getting-started.md) — user-facing product overview and honest install status.
 - [Current State](../CURRENT.md)
 - [Main Documentation Reconciliation — 2026-10-11](main-docs-audit-2026-10-11.md) — source baseline, verified drift and outstanding archive-wide audit.
 - [Post-Phase-69 Device Recording playback](public-v1-device-recording-playback.md) — merged R2 source and independently gated hardware acceptance.

@@ -6,6 +6,8 @@ You do **not** need to read the implementation history or all ADRs to understand
 
 ### Recommended reading path
 
+**First visit or installation question?** [Start with the beginner guide](getting-started.md) for an honest explanation of what you can try and how installation currently works.
+
 1. **Understand the project:** [Project Overview](project-overview.md) — what VDR-Suite is and what it adds to native VDR.
 2. **Explore the functionality:** [Project Status Dashboard](project-status-dashboard.md) — Live TV, Recordings, Home, Timers, security and other capabilities, with accepted scope distinguished from future work.
 3. **Choose your topic:** [Follow the topic guide below](#choose-your-topic) — jump directly to the area that interests you, without reading architecture or old phase reports first.
@@ -18,18 +20,21 @@ Architecture, ADRs, phase plans and original acceptance evidence are **optional 
 
 | Your question | Read this first | Go deeper |
 | --- | --- | --- |
+| How can I try VDR-Suite, and is there a packaged installer? | [Getting started](getting-started.md) | [Packaging status](../packaging/README.md), [staged deployment contract](development/install-runtime-deployment-reliability.md) |
 | What is VDR-Suite meant to do? | [Project Overview](project-overview.md) | [Project Principles](project-principles.md) |
 | What works, and what is *actually* accepted? | [Project Status Dashboard](project-status-dashboard.md) | [CURRENT — verified project status](CURRENT.md) |
 | How do the server, VDR, Agent and clients fit together? | [Current Architecture State](development/current-architecture-state.md) | [Target Architecture](architecture/target-platform-architecture.md), [ADR Index](adr/index.md) |
 | Where is the API and how do I write a client? | [API Developer Guide](../api/README.md) | [Partial OpenAPI contract](../api/openapi.json), [JS reference client](../clients/reference-js/README.md) |
 | How do Account permissions and TV/device pairing work? | [Multiuser Workstream](development/post-phase69-multiuser-workstream.md) | [Pairing API](../api/device-pairing.md), [Device Lifecycle](../api/device-lifecycle.md) |
 | Where do Recording playback and subtitles fit? | [Device Recording playback contract](development/public-v1-device-recording-playback.md) | [Playback integration](development/frontend-playback-integration-contract.md), [Device tracks integration history](development/vidaa-device-tracks-index-srt-integration-20261011.md) |
-| How do I contribute, build or test? | [Developer Onboarding](development/developer-onboarding.md) | [CONTRIBUTING](../CONTRIBUTING.md), [Development Index](development/index.md) |
+| How do I contribute, build or test? | [Clean-checkout Developer Quickstart](development/quickstart.md) | [CONTRIBUTING](../CONTRIBUTING.md), [Developer Onboarding](development/developer-onboarding.md) |
 | How is installation or packaging organized? | [Packaging and staging guide](../packaging/README.md) | [Install-runtime contract](development/install-runtime-deployment-reliability.md), [Build Requirements](build-requirements.md) |
 | What comes next, and what is still missing? | [Phase Map](planning/phase-map.md) | [Strict Roadmap](planning/roadmap.md), [Gap Matrix](planning/architecture-audit-gap-matrix.md) |
 | Why was something designed this way? | [ADR Index](adr/index.md) | [Architecture Index](architecture/index.md) |
 | Where are old phases, PR evidence and closeouts? | [Historical Documentation Hub](history/index.md) | [Completed Phases](development/completed-phases.md) |
 | I am continuing automated repository work or a new chat | [New Chat Handoff](NEW-CHAT-HANDOFF.md) | [Agent Workflow Rules](../AGENTS.md), [CURRENT](CURRENT.md) |
+
+For authentic product pictures and GitHub publication/licensing status, see the [screenshot checklist](screenshots.md) and [publication readiness](publication-readiness.md).
 
 ### How the documentation is arranged
 
@@ -127,3 +132,8 @@ Historical closeouts may retain exact SHAs, CI runs and wording that was true at
 
 - [Back to README](../README.md)
 - [Back to Current State](CURRENT.md)
+
+## Publication and licensing review
+
+- [GPLv3 compatibility, provenance and copyright clearance (open review)](gplv3-compatibility-audit.md)
+- [Publication readiness and remaining owner actions](publication-readiness.md)

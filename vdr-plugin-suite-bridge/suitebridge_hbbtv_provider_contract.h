@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// VDR-Suite ABI mirror of original HbbTV service contracts introduced by
+// hotzenplotz5 in hotzenplotz5/vdr-plugin-web (commits 25e52132, 220711b5,
+// b8c52779, 1d5af33c). The host plugin retains its separate upstream license.
 #ifndef VDR_SUITE_BRIDGE_HBBTV_PROVIDER_CONTRACT_H
 #define VDR_SUITE_BRIDGE_HBBTV_PROVIDER_CONTRACT_H
 

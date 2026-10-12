@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// VDR-Suite ABI mirror of the Teletext service declarations introduced by
+// hotzenplotz5 in vdr-plugin-osdteletext commit 76c62292.
+// The host plugin and unrelated upstream code retain their own licenses.
 #ifndef VDR_SUITE_BRIDGE_TELETEXT_PROVIDER_CONTRACT_H
 #define VDR_SUITE_BRIDGE_TELETEXT_PROVIDER_CONTRACT_H
 

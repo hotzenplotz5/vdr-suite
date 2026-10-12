@@ -1,3 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// TVScraper service interface; adapted locally for VDR-Suite SuiteBridge.
+// Upstream: https://github.com/MarkusEh/vdr-plugin-tvscraper/blob/master/services.h
+// Upstream project authors: Stefan Braun and Markus Ehrnsperger.
+// This file retains its upstream GPL-2.0-or-later license scope.
+// SPDX does not change the licenses of upstream VDR or other plugins.
 #ifndef __TVSCRAPER_SERVICES_H
 #define __TVSCRAPER_SERVICES_H
 
