@@ -71,3 +71,24 @@ The status always distinguishes the index-derived total duration from whether th
 The last code specifically describes **a displayed duration without complete TS-to-index mapping**. The projection runs from the native server-held recording identity under the existing Device owner boundary; it is not a new Device browser-cookie access route. It performs no index generation or writes. Positive `supported` establishes *eligibility*, not a guaranteed available HLS sync frame at an arbitrary target: actual `startPositionSeconds` CREATE remains independently validated and may return `recording_resume_sync_profile_unavailable`.
 
 This is **source work in an isolated branch, not installed yaVDR functionality**; no production index, backend, permissions or recordings were changed. Tests are `test-device-recording-resume-projection`, existing Device SecurityHttpGate contracts, and a full daemon build in branch-scoped GitHub CI. This is not a real Hisense acceptance.
+
+## Read-only real-recording index inspection (development tool)
+
+For a problem recording whose total duration is displayed while HLS
+`±30 s` fails, the new diagnostic
+[`tools/diagnose_vidaa_recording_index.py`](../tools/diagnose_vidaa_recording_index.py)
+compares VDR `info`, the existing regular `index`/`index.vdr` and every
+`000NN.ts` index-entry number. It reports `INDEX_END_COMPLETE` and
+`INDEX_TS_FULLY_MAPPED` **separately**. A complete duration may coexist with
+an unmapped middle TS segment. `HLS_SYNC_PROFILE=NOT_TESTED` means that even
+a mapped index does not establish an available target-specific HLS sync point.
+
+The helper is bounded to one unambiguous title (`--title Pferd` is an
+example) or an explicitly selected `--directory`; it discovers actual VDR
+recording roots where possible and otherwise fails closed. It is strictly
+read-only with respect to the recording files, does not invoke VDR index
+generation and does not log native recording paths or device credentials.
+Temporary-fixture regressions:
+`python3 -m unittest discover -s tools/tests -p test_diagnose_vidaa_recording_index.py`.
+**No script or fixture result proves the actual yaVDR film's index state
+until it is run against that recording.**
