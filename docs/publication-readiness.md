@@ -25,13 +25,13 @@ The selected identifier is **`GPL-3.0-or-later`**; its application to all affect
 
 ## 3. GitHub About metadata — owner action
 
-The available GitHub repository connector supports code/PR operations, but not repository-About editing. These are **suggested values**, not settings silently claimed as applied:
+Live GitHub repository metadata was checked on 2026-10-12: **description = null, homepage = null, topics = []**. The available connector does not provide a repository-About editing action. The following are proposed settings, **not** changes already made:
 
 - **Description:** `VDR companion platform for Web and TV: EPG, recordings, playback, timers, secure API and backend control.`
 - **Website:** `https://github.com/hotzenplotz5/vdr-suite/blob/main/docs/getting-started.md` (temporary documentation landing page, not a hosted product site).
 - **Topics:** `vdr`, `video-disk-recorder`, `pvr`, `live-tv`, `epg`, `media-server`, `openapi`, `cpp`, `vidaa`.
 
-Repository owner: open the repository's **About** section on GitHub, select the gear/edit icon, enter and save the description, website and topics. Check how they render after saving. Do not treat suggested metadata as proof a website or released VIDAA product exists.
+Repository owner: open the repository's **About** section on GitHub, select the gear/edit icon, enter and save the description, website and topics. This is the only remaining owner-side step in item 3 because the connected GitHub actions do not support changing these repository settings. Check how they render after saving. Do not treat suggested metadata as proof a website or released VIDAA product exists.
 
 ## 4. Source-backed beginner/developer entrypoints — included in this documentation change
 
