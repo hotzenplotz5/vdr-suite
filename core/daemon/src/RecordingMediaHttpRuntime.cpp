@@ -324,14 +324,8 @@ int runRecordingMediaHttpRuntime(
                 response.contentType = "application/json";
                 response.headers["Cache-Control"] = "no-store";
                 response.headers["X-Content-Type-Options"] = "nosniff";
-                response.body =
-                    "{\"mediaSession\":{\"id\":\"" + id +
-                    "\",\"state\":\"ready\",\"backendId\":\"" +
-                    owned->backendId +
-                    "\",\"presentationProfileId\":\"" +
-                    profile +
-                    "\",\"playback\":" +
-                    deviceRecordingResumePlaybackJson(resume) + "}}";
+                response.body = deviceRecordingResumeReadModelJson(
+                    id, owned->backendId, profile, resume);
                 return response;
             }
             // Device-owned WebVTT selection: reuse the existing subtitle
