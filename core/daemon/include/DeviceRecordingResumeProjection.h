@@ -44,13 +44,13 @@ inline DeviceRecordingResumeProjection projectDeviceRecordingResume(
 inline std::string deviceRecordingResumePlaybackJson(
     const DeviceRecordingResumeProjection& projection)
 {
-    return "{\\\"durationSeconds\\\":" +
+    return "{\"durationSeconds\":" +
         (projection.durationSeconds > 0
             ? std::to_string(projection.durationSeconds)
             : "null") +
-        ",\\\"resume\\\":{\\\"supported\\\":" +
+        ",\"resume\":{\"supported\":" +
         (projection.supported ? "true" : "false") +
-        ",\\\"preparing\\\":" +
+        ",\"preparing\":" +
         (projection.preparing ? "true" : "false") +
         "}}";
 }
