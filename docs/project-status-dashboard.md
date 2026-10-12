@@ -75,6 +75,12 @@ See [Golden User Journeys](planning/golden-user-journeys.md).
 - [Strict Roadmap](planning/roadmap.md)
 - [Completed Phases](development/completed-phases.md)
 
+## Continue: choose your topic
+
+You have seen the functionality overview. **Next, [choose the topic you want to explore](index.md#choose-your-topic)** — such as Live TV, Recording playback, permissions, TV pairing, API or installation.
+
+For technical depth (optional), open [Current Architecture State](development/current-architecture-state.md), [ADRs](adr/index.md), [Phase Map](planning/phase-map.md) or [historical acceptance evidence](history/index.md). For exact current deployment and acceptance claims use [CURRENT](CURRENT.md).
+
 ## Back
 
 - [Back to Documentation Index](index.md)
