@@ -1,5 +1,7 @@
 # MU.10D1 — Device Credential Authentication (Public-v1)
 
+> **Historical pre-merge implementation checkpoint.** The original `Status`, branch and base notes below were written before this slice merged. The source is now on `main` via [PR #441](https://github.com/hotzenplotz5/vdr-suite/pull/441); the exact PR-head hosted CI #9850 succeeded. This does **not** establish installed yaVDR/VIDAA acceptance. For the present source/runtime distinction see [CURRENT](../CURRENT.md) and the [Multiuser workstream](post-phase69-multiuser-workstream.md).
+
 Status: **MU.10D1 repository automation PASS on immutable product SHA `c6dbc6d5b7284d9aa0ff006449001ac570d63252`; real yaVDR acceptance not performed**.
 
 Validation: [VDR-Suite CI #9849](https://github.com/hotzenplotz5/vdr-suite/actions/runs/37744498737), Run-ID `37744498737`: six jobs PASS, including `test_device_credential_authentication` in fast regression and successful `make daemon`. No local yaVDR build or deployment of MU.10D1.

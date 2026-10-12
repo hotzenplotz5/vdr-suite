@@ -1,5 +1,7 @@
 # MU.10E3 — Device credential rotation
 
+> **Historical pre-merge implementation checkpoint.** The original `Status`, branch and base notes below were written before this slice merged. The source is now on `main` via [PR #444](https://github.com/hotzenplotz5/vdr-suite/pull/444); the exact PR-head hosted CI #9904 succeeded. This does **not** establish installed yaVDR/VIDAA acceptance. For the present source/runtime distinction see [CURRENT](../CURRENT.md) and the [Multiuser workstream](post-phase69-multiuser-workstream.md).
+
 Status: **Draft candidate; not yet accepted.** Depends on MU.10E2 merged at
 `f2e363797300ab5e1b8bba0aaba8c14579c0c1f9`.
 
