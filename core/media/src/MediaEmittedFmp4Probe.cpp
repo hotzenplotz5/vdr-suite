@@ -302,6 +302,16 @@ MediaEmittedFmp4Result MediaEmittedFmp4Probe::inspectOwnedWorkspace(
         {MaximumProbeAddressSpaceBytes, MaximumProbeCpuSeconds});
     std::error_code ignored;
     std::filesystem::remove_all(snapshotDirectory, ignored);
-    if (!process.success) return rejected("emitted_probe_process_failed");
+    if (!process.success) {
+        MediaEmittedFmp4Result result =
+            rejected("emitted_probe_process_failed");
+        // Safe bounded diagnostic: no private path, URL or secret output.
+        result.reasonCode += ":" + std::to_string(process.exitCode);
+        result.reasonCode += process.timedOut ? ":timeout" : ":no-timeout";
+        result.reasonCode += process.outputLimitExceeded ? ":output-limit" : ":within-output-limit";
+        if (!process.reasonCode.empty() && process.reasonCode.size() <= 64U)
+            result.reasonCode += ":" + process.reasonCode;
+        return result;
+    }
     return parse(process.output, plan);
 }
