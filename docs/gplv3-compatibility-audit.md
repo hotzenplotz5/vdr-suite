@@ -38,6 +38,14 @@ The selected `GPL-3.0-or-later` does **not** introduce a new incompatibility in 
 
 GNU GPL FAQ: https://www.gnu.org/licenses/gpl-faq.html (especially GPLv2-only vs GPLv3 and combined works).
 
+## Additional direct source examination (12 October 2026)
+
+- **SuiteBridge is a native VDR plugin, not merely an independent HTTP service.** Its `vdr-plugin-suite-bridge/Makefile` compiles numerous C++ objects and links `libvdr-suitebridge.so` as a shared library using `vdr.pc` CXXFLAGS, while `suitebridge.h` derives `cPluginSuiteBridge` from `cPlugin` via `<vdr/plugin.h>` and `suitebridge.cpp` includes `<vdr/tools.h>`. Its GPL compatibility depends on VDR API/source notices and whether code or compatible licensed services are incorporated, not on how the external daemon connects. **Native linkage is confirmed; copyright clearance remains open.**
+- **External services:** Streamdev upstream's README explicitly describes HTTP streaming and protocol-based independent clients; our use of that interface is not itself a copy of its code. TVScraper's upstream `README.md` identifies Stefan Braun and Markus Ehrnsperger and expressly permits GPL version 2 **or later**, but its TMDB/TVDB media terms remain separate. The source code of Streamdev should not be assumed `or-later` from its GPLv2 COPYING alone.
+- **Historical authorship:** the first 100 commit records visible through the GitHub repository's commit endpoint identify the author name `hotzenplotz5`, but this does **not** prove exclusive copyright ownership or examine the full history. No per-contributor copyright grant was independently verified; machine/AI-assisted or imported source provenance also requires review.
+- **Media risk concretely identified:** `web/frontend/assets/vdr-remote-photorealistic.png`, the genre SVG icons, the brand SVG and VIDAA `app/Code_Generated_Image.png`/icons require documented origination and redistribution permission. Being stored in the repo is not provenance evidence.
+- **VIDAA publication separate:** `vdr-suite-vidaa` is currently a private repository and its `package.json` declares `private: true`. Neither its code nor assets acquire a GPLv3 grant simply through this backend LICENSE.
+
 ## Rights and release gates
 
 1. Inventory Git history, all contributors, and relevant employment/contribution arrangements for C++, JS, scripts, tests, docs and logos. Obtain grants/consent where required; no automatic assignment is implied by GitHub contributions.
