@@ -1,5 +1,7 @@
 # MU.10E1 — Device Grant Administration (Public-v1)
 
+> **Historical pre-merge implementation checkpoint.** The original `Status`, branch and base notes below were written before this slice merged. The source is now on `main` via [PR #442](https://github.com/hotzenplotz5/vdr-suite/pull/442); the exact PR-head hosted CI #9876 succeeded. This does **not** establish installed yaVDR/VIDAA acceptance. For the present source/runtime distinction see [CURRENT](../CURRENT.md) and the [Multiuser workstream](post-phase69-multiuser-workstream.md).
+
 Status: **implementation candidate; exact-head CI and real yaVDR acceptance not yet complete**.
 
 Base: MU.10D1 merged on `main` as PR #441, commit `a7383e2450a33fe56dc0a360a62fd9e204a29bcb`.
