@@ -46,7 +46,7 @@ You do **not** need to read the implementation history or all ADRs to understand
 
 The sections below are deliberately for deeper investigation. They are **not** a required reading list for newcomers.
 
-## Architecture
+### Architecture
 
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
 - [Current Architecture State](development/current-architecture-state.md)
@@ -59,7 +59,7 @@ The sections below are deliberately for deeper investigation. They are **not** a
 - [ADR-0062 First-Party Living-Room Output Client](adr/ADR-0062-first-party-living-room-output-client.md)
 - [Architecture Decision Records](adr/index.md)
 
-## Repository-area developer entrypoints
+### Repository-area developer entrypoints
 
 - [Core domains and internal runtime owners](../core/README.md)
 - [SQLite schema and sample-data boundaries](../database/README.md)
@@ -69,7 +69,7 @@ The sections below are deliberately for deeper investigation. They are **not** a
 
 These pages distinguish implemented code from historical plans and are not instructions to deploy or modify a running installation.
 
-### Reserved repository namespaces (not runtime implementations)
+#### Reserved repository namespaces (not runtime implementations)
 
 - [Module/add-on placeholders](../modules/README.md) — `image`, `music`, `rectools` and `tvscraper` are reserved directories, not installable modules in this audited tree.
 - [Legacy compatibility namespace](../legacy/README.md) — historical organization placeholder, not an implementation owner.
@@ -77,7 +77,7 @@ These pages distinguish implemented code from historical plans and are not instr
 - [Database migration placeholder](../database/migrations/README.md) and [job-service placeholder](../services/jobs/README.md) — no runner or deployable worker in these paths.
 
 
-## Development and history
+### Development and history
 
 - [Development Documentation](development/index.md)
 - [Completed Phases](development/completed-phases.md)
@@ -98,7 +98,7 @@ These pages distinguish implemented code from historical plans and are not instr
 - [Dependencies](dependencies.md) — preserved early sketch with current source pointers
 - [Development Milestone History](development/milestones.md) and [Planning Milestone History](planning/milestones.md) — archived-status context, not active phase authority
 
-## Planning
+### Planning
 
 - [Planning Documentation](planning/index.md)
 - [Strict Roadmap](planning/roadmap.md)
