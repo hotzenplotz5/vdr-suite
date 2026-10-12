@@ -132,3 +132,8 @@ Historical closeouts may retain exact SHAs, CI runs and wording that was true at
 
 - [Back to README](../README.md)
 - [Back to Current State](CURRENT.md)
+
+## Publication and licensing review
+
+- [GPLv3 compatibility, provenance and copyright clearance (open review)](gplv3-compatibility-audit.md)
+- [Publication readiness and remaining owner actions](publication-readiness.md)
