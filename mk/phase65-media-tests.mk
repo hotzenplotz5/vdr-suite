@@ -274,3 +274,16 @@ test-phase65d1-live-tv-view-dom-stability:
 	node web/frontend/tests/test_live_tv_view_dom_stability.js
 
 test-frontend-i18n: test-phase65d1-live-tv-view-dom-stability
+
+.PHONY: test-device-media-profile-selector
+test-device-media-profile-selector:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
+		core/media/src/MediaCapabilityEvidence.cpp \
+		core/media/src/MediaPresentationSelector.cpp \
+		core/media/src/DeviceMediaCapabilityProfile.cpp \
+		core/media/tests/test_device_media_capability_profile.cpp \
+		-o $(BUILD_DIR)/test_device_media_capability_profile
+	$(BUILD_DIR)/test_device_media_capability_profile
+
+test-fast: test-device-media-profile-selector
+
