@@ -67,3 +67,24 @@ Test assets must be independently licensed and bounded; tests should run only on
 - Resolve existing ffprobe source metadata and output stream proof under the authorized MediaSession, not from user-provided filenames or raw source paths.
 - Keep `MediaTranscodePolicy` and existing Device grants authoritative. No new public endpoint or production selection changes until verified C++ parser schemas, rate/resource limits, OpenAPI, negative auth tests, hardware experiments and rollback exist.
 - The separate backend PR #463 contains bounded ffprobe HDR/bitrate/color metadata work; integrate its tested source facts before claiming profile/bit-depth/HDR compatibility. Do not merge it by implication of this independent slice.
+
+## Planned output vs actual emitted media (next pure C++ slice)
+
+`MediaPlannedOutput.h/.cpp` projects the *already selected* `MediaPresentationProfile` onto the trusted source's selected stream indexes. It distinguishes:
+
+- input H.264 copied to planned H.264 fMP4;
+- input AC-3 5.1 with planned AAC stereo audio transcoding;
+- input HEVC with planned H.264 video transcoding; and
+- an independently chosen pre-existing compatible AAC track that can be copied.
+
+The projection validates the selected source indexes, codec identities, planned sizes/channels and omission rules. Invalid indexes, conflicting copy codecs, impossible sizes or unavailable profiles fail closed. It is **not connected to the running API** and is **not a bitstream probe**. Do not label any planned target as **verified media output** or **verified decoding** until emitted protected artifacts are inspected by a bounded, separately authorized process and the selected client engine plays them successfully.
+
+The actual proof chain for one recording should eventually be:
+
+1. ffprobe trusted native source stream(s) + exact recording source fingerprint;
+2. selected internal `MediaPresentationProfile` showing `Copy`/`Transcode` for each stream;
+3. bounded post-worker output metadata from the authorized, protected MediaSession route, never from arbitrary user-supplied URLs;
+4. decoder outcome reported for that one authenticated device and one engine;
+5. persistence keyed to firmware/runtime, app version, output path and bounded expiry, then narrowly admitted via `narrowToVerifiedPath`.
+
+We currently have steps 1 and 2 in the backend and real-TV playback observations, but do **not** claim step 3 or trusted full codec verification. In particular, successful VIDAA H.264/AAC-requested playback does not imply copied source HEVC or hardware decode of HEVC.
