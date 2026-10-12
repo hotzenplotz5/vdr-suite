@@ -35,3 +35,11 @@ Sources:
 Never assume that a positive `MediaSource.isTypeSupported`, `canPlayType`, or manufacturer specification guarantees real playback. Record `runtime-reported` separately from `verified-playback` with app version, TV firmware, container, protocol, engine, video profile/level, bit depth, resolution, frame rate, audio format/channels and observed seek/AV stability.
 
 The existing Device playback credential/grants, `MediaPresentationSelector`, `MediaTranscodePolicy`, protected MediaSession artifacts and truthful index-based seek semantics remain authoritative. This document changes no running profile and authorizes no transcoding, index generation, install or deployment.
+
+## Real Hisense VIDAA 9 runtime acceptance (2026-10-12)
+
+After the initial product/profile research, the real Hisense 43A6K TV reported in the VIDAA app: Chromium 111, MediaSource available and positive `isTypeSupported` for multiple H.264/AAC, HEVC hvc1/hev1/Main10 AAC and HEVC/AC3 fMP4 MIME combinations. This remains **runtime reported support**, not hardware proof for each codec tuple.
+
+At actual playback on VIDAA b20261011.23, the native HLS-TS route failed `Player-Start NotSupportedError` even though the authorized session and HLS-Master HTTP 200 were valid. The user reported the progressive MP4 technical test did not play; the explicit HLS-fMP4 MSE test did. On VIDAA b20261011.24 the user confirmed ordinary recording playback through the existing MSE transport, audio output, relative seeking and direct time jumping. The default MSE client currently requests **H.264/AAC**, so this is *not* verification of HEVC/MSE decoding or HEVC Direct Play. Teletext subtitles were visible as a track type but not selectable; treat subtitle delivery independently of the video codec.
+
+Any future HEVC/AC3/Main10 direct-copy decision must compare exact trusted source ffprobe fields, selected media profile (copy vs transcode), authorized output stream properties and observed TV playback for that precise engine/path. This PR only exposes additional bounded trusted **source** metadata; it does not certify the **output** stream or enable a new codec.
