@@ -30,11 +30,20 @@ For current truth use:
 - [Phase 60](phase-60.md) — frontend platform, Recordings 2 and metadata preparation
 - [Phase 61](phase-61.md) — persistent metadata and Genre platform
 
-## Latest completed position
+## Highest phase covered by this archive (historical checkpoint)
+
+This archive's original split ends at **Phase 61**; it is **not** the latest
+completed numbered phase in the repository today. Use [CURRENT](../../CURRENT.md)
+and the [Phase Map](../../planning/phase-map.md) for the later authoritative
+progress. Original phase summaries may retain historic “next phase” numbering,
+including statements superseded by later accepted plans.
 
 ```text
 Phase 61 - Suite Metadata and Genre Platform
 ```
+
+See the [historical evidence audit](../../history/audit-2026-10-12.md) for
+archive boundary and navigation findings.
 
 Detailed evidence:
 
