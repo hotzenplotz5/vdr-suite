@@ -1,4 +1,5 @@
 #include "MediaPresentationSelector.h"
+#include "MediaCapabilityEvidence.h"
 
 #include <cassert>
 
@@ -390,6 +391,106 @@ int main()
 
         const auto profile = selector.select(source, client);
         assert(!profile.available);
+    }
+
+    // Future Kodi/Android/VIDAA adapters use the same exact evidence tuple.
+    // Reported MSE support is not observed decoded H.265/AC3 playback.
+    {
+        ClientMediaCapabilities claimed = browserHlsCapabilities();
+        claimed.videoCodecs.push_back(MediaCodec::H265);
+        claimed.audioCodecs.push_back(MediaCodec::Ac3);
+        claimed.containers.push_back(MediaContainer::MpegTs);
+        MediaPlaybackPathEvidence evidence;
+        evidence.engine = MediaPlaybackEngine::MediaSourceExtensions;
+        evidence.protocol = MediaDeliveryProtocol::Hls;
+        evidence.container = MediaContainer::Fmp4;
+        evidence.videoCodec = MediaCodec::H264;
+        evidence.audioCodec = MediaCodec::Aac;
+        evidence.verifiedVideoWidth = 1920;
+        evidence.verifiedVideoHeight = 1080;
+        evidence.verifiedAudioChannels = 2;
+        evidence.pictureObserved = true;
+        evidence.soundObserved = true;
+
+        const auto evaluate = [&](MediaDeliveryProtocol protocol,
+                                  MediaContainer container,
+                                  MediaCodec video, MediaCodec audio) {
+            return narrowToVerifiedPath(
+                claimed, evidence, MediaPlaybackEngine::MediaSourceExtensions,
+                protocol, container, video, audio);
+        };
+
+        evidence.grade = MediaEvidenceGrade::RuntimeReported;
+        assert(!evaluate(MediaDeliveryProtocol::Hls, MediaContainer::Fmp4,
+                         MediaCodec::H264, MediaCodec::Aac).available);
+        evidence.grade = MediaEvidenceGrade::ProfileHint;
+        assert(!evaluate(MediaDeliveryProtocol::Hls, MediaContainer::Fmp4,
+                         MediaCodec::H264, MediaCodec::Aac).available);
+        evidence.grade = MediaEvidenceGrade::ObservedFailure;
+        assert(!evaluate(MediaDeliveryProtocol::Hls, MediaContainer::Fmp4,
+                         MediaCodec::H264, MediaCodec::Aac).available);
+        evidence.grade = MediaEvidenceGrade::VerifiedPlayback;
+        assert(!evaluate(MediaDeliveryProtocol::Hls, MediaContainer::MpegTs,
+                         MediaCodec::H264, MediaCodec::Aac).available);
+        assert(!evaluate(MediaDeliveryProtocol::Hls, MediaContainer::Fmp4,
+                         MediaCodec::H265, MediaCodec::Aac).available);
+        assert(!evaluate(MediaDeliveryProtocol::Hls, MediaContainer::Fmp4,
+                         MediaCodec::H264, MediaCodec::Ac3).available);
+        assert(!evaluate(MediaDeliveryProtocol::Progressive, MediaContainer::Fmp4,
+                         MediaCodec::H264, MediaCodec::Aac).available);
+        assert(!narrowToVerifiedPath(
+            claimed, evidence, MediaPlaybackEngine::Native,
+            MediaDeliveryProtocol::Hls, MediaContainer::Fmp4,
+            MediaCodec::H264, MediaCodec::Aac).available);
+        assert(!narrowToVerifiedPath(
+            claimed, evidence, MediaPlaybackEngine::MediaSourceExtensions,
+            MediaDeliveryProtocol::Hls, MediaContainer::Fmp4,
+            MediaCodec::H264, MediaCodec::Aac, true).available);
+
+        evidence.soundObserved = false;
+        assert(!evaluate(MediaDeliveryProtocol::Hls, MediaContainer::Fmp4,
+                         MediaCodec::H264, MediaCodec::Aac).available);
+        evidence.soundObserved = true;
+        const auto verified = evaluate(MediaDeliveryProtocol::Hls,
+            MediaContainer::Fmp4, MediaCodec::H264, MediaCodec::Aac);
+        assert(verified.available);
+        assert(verified.capabilities.videoCodecs.size() == 1);
+        assert(verified.capabilities.videoCodecs.front() == MediaCodec::H264);
+        assert(verified.capabilities.audioCodecs.size() == 1);
+        assert(verified.capabilities.audioCodecs.front() == MediaCodec::Aac);
+        assert(verified.capabilities.containers.size() == 1);
+        assert(verified.capabilities.containers.front() == MediaContainer::Fmp4);
+        assert(!verified.capabilities.supportsByteRanges);
+
+        // One verified H.264/AAC MSE path cannot silently copy an untested
+        // HEVC video track or AC3 audio track.
+        const auto selected = selector.select(
+            h264Ac3Recording(), verified.capabilities);
+        assert(selected.available);
+        assert(selected.profileId == "hls-fmp4");
+        assert(selected.videoAction == MediaTrackAction::Copy);
+        assert(selected.targetVideoCodec == MediaCodec::H264);
+        assert(selected.audioAction == MediaTrackAction::Transcode);
+        assert(selected.targetAudioCodec == MediaCodec::Aac);
+        MediaSourceDescriptor hevc = h264Ac3Recording();
+        hevc.videoStreams.front().codec = MediaCodec::H265;
+        const auto adapted = selector.select(hevc, verified.capabilities);
+        assert(adapted.available);
+        assert(adapted.videoAction == MediaTrackAction::Transcode);
+        assert(adapted.targetVideoCodec == MediaCodec::H264);
+
+        evidence.verifiedVideoWidth = 1280;
+        evidence.verifiedVideoHeight = 720;
+        evidence.verifiedAudioChannels = 1;
+        const auto bounded = evaluate(MediaDeliveryProtocol::Hls,
+            MediaContainer::Fmp4, MediaCodec::H264, MediaCodec::Aac);
+        assert(bounded.available);
+        assert(bounded.capabilities.maxVideoWidth == 1280);
+        assert(bounded.capabilities.maxVideoHeight == 720);
+        assert(bounded.capabilities.maxAudioChannels == 1);
+        evidence.verifiedVideoWidth = 0;
+        assert(!evaluate(MediaDeliveryProtocol::Hls, MediaContainer::Fmp4,
+                         MediaCodec::H264, MediaCodec::Aac).available);
     }
 
     return 0;
