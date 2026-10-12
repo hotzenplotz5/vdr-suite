@@ -70,18 +70,21 @@ int main()
     assert(ready.supported);
     assert(!ready.preparing);
     assert(deviceRecordingResumePlaybackJson(ready) ==
-           "{\"durationSeconds\":6,\"resume\":{\"supported\":true,\"preparing\":false}}");
+           "{\"durationSeconds\":6,\"resume\":{\"supported\":true,\"preparing\":false,\"reasonCode\":null}}");
 
     auto preparing = projectDeviceRecordingResume(recording, source,
                                                   "hls-fmp4", true);
     assert(preparing.durationSeconds == 6);
     assert(!preparing.supported);
     assert(preparing.preparing);
+    assert(std::string(preparing.reasonCode) == "recording_resume_preparing");
 
     auto progressive = projectDeviceRecordingResume(recording, source,
                                                     "progressive-direct", false);
     assert(progressive.durationSeconds == 6);
     assert(!progressive.supported);
+    assert(std::string(progressive.reasonCode) ==
+           "recording_resume_profile_not_supported");
 
     source.source.growing = true;
     assert(!projectDeviceRecordingResume(recording, source,
@@ -104,8 +107,10 @@ int main()
                                                 "hls-fmp4", false);
     assert(unmapped.durationSeconds == 6);
     assert(!unmapped.supported);
+    assert(std::string(unmapped.reasonCode) ==
+           "recording_resume_segment_timeline_unavailable");
     assert(deviceRecordingResumePlaybackJson(unmapped) ==
-           "{\"durationSeconds\":6,\"resume\":{\"supported\":false,\"preparing\":false}}");
+           "{\"durationSeconds\":6,\"resume\":{\"supported\":false,\"preparing\":false,\"reasonCode\":\"recording_resume_segment_timeline_unavailable\"}}");
     assert(deviceRecordingResumePlaybackJson(unmapped).find(directory.string())
            == std::string::npos);
 
@@ -122,6 +127,8 @@ int main()
                                                   "hls-fmp4", false);
     assert(unindexed.durationSeconds == 0);
     assert(!unindexed.supported);
+    assert(std::string(unindexed.reasonCode) ==
+           "recording_resume_index_unavailable");
 
     std::filesystem::remove_all(directory, ignored);
     return 0;
