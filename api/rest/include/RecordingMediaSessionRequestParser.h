@@ -11,6 +11,13 @@ struct RecordingMediaSessionRequest
     std::string backendId;
     std::string recordingId;
     ClientMediaCapabilities capabilities;
+    // Opt-in device-scoped, already stored server-verified path lookup.
+    // Never contains a Device ID or a claim of VerifiedPlayback.
+    bool deviceMediaProfileRequested = false;
+    std::string mediaAppVersion;
+    std::string mediaFirmwareVersion;
+    std::string mediaPlayerVersion;
+    std::string mediaPlayerEngine;
 };
 
 struct RecordingMediaSessionStopRequest
