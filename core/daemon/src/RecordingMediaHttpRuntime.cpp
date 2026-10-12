@@ -6,6 +6,7 @@
 #include "BackendAgentLiveProviderRuntime.h"
 #include "Database.h"
 #include "DeviceMediaProfileRepository.h"
+#include "DeviceMediaProfileQuery.h"
 #include "IHttpServer.h"
 #include "LiveMediaSessionController.h"
 #include "LiveMediaSessionRequestParser.h"
@@ -168,6 +169,28 @@ int runRecordingMediaHttpRuntime(
             };
             const std::string collection =
                 "/api/v1/recording-playback-sessions";
+            const std::string capabilityCollection = collection + "/capabilities";
+            if (body.empty() && target.rfind(capabilityCollection,0) == 0 &&
+                (target.size() == capabilityCollection.size() ||
+                 target[capabilityCollection.size()] == '?')) {
+                if (!verifiedDevice.device)
+                    return error(403, "device_identity_required");
+                const auto key = parseDeviceMediaProfileQuery(
+                    target, capabilityCollection, verifiedDevice.device->deviceId);
+                if (!key) return error(400, "invalid_device_media_profile_query");
+                const auto stored = deviceMediaProfiles.findVerified(*key);
+                if (!stored) return error(503, "device_media_profile_unavailable");
+                ApiResponse status;
+                status.statusCode = 200;
+                status.contentType = "application/json";
+                status.headers["Cache-Control"] = "no-store";
+                status.headers["X-Content-Type-Options"] = "nosniff";
+                status.body = "{\"version\":1,\"profileState\":\"" +
+                    std::string(stored->verifiedPaths.empty() ? "unverified" : "verified") +
+                    "\",\"verifiedPathCount\":" +
+                    std::to_string(stored->verifiedPaths.size()) + "}";
+                return status;
+            }
             if (target == collection) {
                 const auto request = RecordingMediaSessionRequestParser().parse(body);
                 if (!request.valid) return error(400,

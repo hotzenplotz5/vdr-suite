@@ -301,3 +301,16 @@ test-device-media-profile-persistence:
 	$(BUILD_DIR)/test_device_media_profile_repository
 
 test-fast: test-device-media-profile-persistence
+
+.PHONY: test-device-media-profile-query
+test-device-media-profile-query:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
+		core/media/src/DeviceMediaCapabilityProfile.cpp \
+		core/media/src/DeviceMediaProfileQuery.cpp \
+		core/media/src/MediaCapabilityEvidence.cpp \
+		core/media/src/MediaPresentationSelector.cpp \
+		core/media/tests/test_device_media_profile_query.cpp \
+		-o $(BUILD_DIR)/test_device_media_profile_query
+	$(BUILD_DIR)/test_device_media_profile_query
+
+test-fast: test-device-media-profile-query

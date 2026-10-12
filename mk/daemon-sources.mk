@@ -147,6 +147,7 @@ DAEMON_SRC := \
         core/media/src/MediaCapabilityEvidence.cpp \
         core/media/src/DeviceMediaCapabilityProfile.cpp \
         core/media/src/DeviceMediaProfileRepository.cpp \
+        core/media/src/DeviceMediaProfileQuery.cpp \
         core/media/src/MediaTranscodePolicy.cpp \
         core/media/src/MediaTranscodeBackendSettingsRepository.cpp \
         core/media/src/FfmpegHlsCommandBuilder.cpp \
