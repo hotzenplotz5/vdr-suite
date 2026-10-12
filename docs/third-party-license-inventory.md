@@ -55,3 +55,12 @@ The maintainer confirms: `web/frontend/assets/vdr-remote-photorealistic.png` and
 ## Repository boundary clarification (2026-10-12)
 
 The maintainer confirms that externally downloaded station logos and film/series artwork are **not committed to this repository**. The Git tree contains the synchronization *script* and project-owned UI asset files, not the third-party downloaded logo/archive or TMDB/TVDB artwork collections. These external runtime inputs are **not blockers for selecting a license for the GitHub source repository**. A separately distributed binary/package or bundled media archive must be checked against what it actually includes. Do not confuse the in-repository brand directory `web/frontend/channel-logos/vdr-suite-brand/` with fetched broadcast logos.
+
+## Native HbbTV / Teletext ABI boundaries (2026-10-12)
+
+| Repo file | Source evidence | Rights status |
+| --- | --- | --- |
+| `vdr-plugin-suite-bridge/suitebridge_hbbtv_provider_contract.h` | Explicitly references `hotzenplotz5/vdr-plugin-web` and upstream `Zabrimus/vdr-plugin-web@34ded5090fbad021338c491355566dbdb4d98f9d`; fork has a GPLv2 COPYING | **Version permission unresolved.** Check exact provider-side interface provenance and upstream author notices before assigning SPDX. |
+| `vdr-plugin-suite-bridge/suitebridge_teletext_provider_contract.h` | Explicitly mirrors `vdr-plugin-osdteletext@70496310d1fa5200ff808d1552f0f5d252893870`; fork has GPLv2 COPYING; upstream README credits Marcel Wiesweg | **Version permission unresolved.** Check source of service ABI, legal status of copied expressiveness, and any GPLv3 permission; don't stamp GPLv3 without proof. |
+
+These are **in-process plugin service APIs**. The existence of GPLv2 license text is not by itself proof of a GPL-2.0-only prohibition, nor permission to choose GPLv3. The GPL version and source-copying questions must be answered per actual files and contributors before full legal sign-off. External runtime media are not part of this issue.
