@@ -263,3 +263,13 @@ test-phase65d1-live-tv-view-dom-stability:
 	node web/frontend/tests/test_live_tv_view_dom_stability.js
 
 test-frontend-i18n: test-phase65d1-live-tv-view-dom-stability
+
+# Device GET must not equate index-derived duration with HLS resume support.
+.PHONY: test-device-recording-resume-projection
+test-device-recording-resume-projection:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \\
+		core/daemon/tests/test_device_recording_resume_projection.cpp \\
+		-o $(BUILD_DIR)/test_device_recording_resume_projection
+	$(BUILD_DIR)/test_device_recording_resume_projection
+
+test-fast: test-device-recording-resume-projection
