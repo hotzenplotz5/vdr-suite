@@ -42,3 +42,7 @@ This assessment distinguishes *repository introduction* from independent evidenc
 For each group supply: *original creator or generator*, *source project/artifact*, *date and context of creation*, *underlying reference/input if adapted*, *ownership or express permission for redistribution under the intended terms*, and *whether any trademarks, programme stills or artwork from third parties appear*. Keep evidence in a maintainer-held location if it contains personal or confidential data; put only a non-sensitive conclusion and accurate license/attribution in the repository.
 
 **Current status: no basis to mark all graphics or foreign rights fully cleared.** The outstanding work is not a formatting issue; it is missing external proof. No historical files were removed or relicensed as part of this inventory.
+
+## Creator clarification (2026-10-12)
+
+The maintainer confirms the ten recording genre posters and genre sprite were created using ChatGPT for VDR-Suite. Their SVG-embedded JPEG encoding is not itself evidence of third-party imagery. The earlier unknown-origin designation for these eleven assets is superseded by this declaration. No independent review of potential reference material or substantial similarity was completed; other assets remain separate questions.
