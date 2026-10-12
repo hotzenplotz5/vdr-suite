@@ -78,3 +78,19 @@ inline std::string deviceRecordingResumePlaybackJson(
             "\"" + std::string(projection.reasonCode) + "\"") +
         "}}";
 }
+
+inline std::string deviceRecordingResumeReadModelJson(
+    const std::string& sessionId,
+    const std::string& backendId,
+    const std::string& presentationProfileId,
+    const DeviceRecordingResumeProjection& projection)
+{
+    // Only call after PublicDevicePlaybackRegistry::describeOwned and the
+    // server's checked session-profile allowlist. Never accept client-supplied
+    // untrusted strings here; no native Recording ID leaves this projection.
+    return "{\"mediaSession\":{\"id\":\"" + sessionId +
+        "\",\"state\":\"ready\",\"backendId\":\"" + backendId +
+        "\",\"presentationProfileId\":\"" + presentationProfileId +
+        "\",\"playback\":" + deviceRecordingResumePlaybackJson(projection) +
+        "}}";
+}
