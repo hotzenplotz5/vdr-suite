@@ -287,3 +287,17 @@ test-device-media-profile-selector:
 
 test-fast: test-device-media-profile-selector
 
+
+.PHONY: test-device-media-profile-persistence
+test-device-media-profile-persistence:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include -Icore/sqlite/include \
+		core/sqlite/src/Database.cpp \
+		core/media/src/DeviceMediaCapabilityProfile.cpp \
+		core/media/src/DeviceMediaProfileRepository.cpp \
+		core/media/src/MediaCapabilityEvidence.cpp \
+		core/media/src/MediaPresentationSelector.cpp \
+		core/media/tests/test_device_media_profile_repository.cpp \
+		-lsqlite3 -o $(BUILD_DIR)/test_device_media_profile_repository
+	$(BUILD_DIR)/test_device_media_profile_repository
+
+test-fast: test-device-media-profile-persistence
