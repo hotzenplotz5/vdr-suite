@@ -24,7 +24,7 @@ This is **not a decoded frame probe**, nor a verified HDR output or authenticate
 1. The caller must be the already authorized internal MediaSession owner. No public endpoint or path parameter is exposed. Paths from a client, provider URL or live-TV socket are categorically not accepted.
 2. `inspectOwnedWorkspace` requires an absolute, private (0700), current-UID directory. It uses `openat` with `O_NOFOLLOW|O_NONBLOCK` for `init.mp4`, requires a regular single-link file owned by the current process, checks stable inode/size/mtime, and limits input to 256 KiB.
 3. The header bytes are copied to a new temporary 0700 snapshot; `ffprobe` runs only on its fixed relative `init.mp4`, with `file` as the sole allowed FFmpeg URL protocol. It does not read any VDR `00001.ts`, MediaSession secret, manifest, growing recording, or remote URL.
-4. `MediaProcessRunner` applies a 3-second wall timeout, 2-second CPU limit, 256 MiB address-space limit and 8 KiB output limit; argv is fixed and never shell-composed from client input.
+4. `MediaProcessRunner` applies a 3-second wall timeout, 2-second CPU limit, 512 MiB address-space limit and 8 KiB output limit; argv is fixed and never shell-composed from client input.
 5. The parser rejects unknown codecs, codec/tag disagreement, malformed or duplicate fields/streams, stream-count mismatch, unknown dimensions/channels, oversized output and unexpectedly absent tracks. It only compares positive evidence against a trusted `MediaPlannedOutput`, and cannot enable a new selected codec.
 6. No filesystem changes in the original Session workspace; private snapshots are removed on all normal paths. No playback start, production initialization probe or retry is wired by this slice.
 
