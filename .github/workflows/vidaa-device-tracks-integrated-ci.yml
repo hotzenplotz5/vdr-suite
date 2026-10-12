@@ -5,6 +5,7 @@ on:
     branches:
       - "work/vidaa-device-tracks-index-srt-webvtt-integrated-20261011"
       - "work/device-recording-resume-status-parity-20261012"
+      - "work/vidaa-index-video-root-discovery-20261012"
 
 permissions:
   contents: read
