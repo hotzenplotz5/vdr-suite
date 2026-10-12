@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inspect ONE VDR film's index/TS coverage; no index or recording writes."""
+"""Inspect a bounded number of VDR recording indexes, strictly read-only."""
 import argparse
 import collections
 import os
@@ -212,10 +212,44 @@ def inspect(folder):
            else "INDEX_OR_SEGMENT_MAPPING_INCOMPLETE"))
 
 
+
+MAX_MATCHED_RECORDINGS = 4
+
+
+def diagnose_matches(matches, all_matches=False):
+    """Keep the original unique-mode gate; explicitly inspect bounded peers."""
+    print("MATCHED_RECORDINGS=" + str(len(matches)))
+    if not matches:
+        raise RuntimeError("RECORDING_NOT_FOUND")
+    if len(matches) != 1 and not all_matches:
+        raise RuntimeError("RECORDING_NOT_UNIQUE")
+    if len(matches) > MAX_MATCHED_RECORDINGS:
+        raise RuntimeError("TOO_MANY_RECORDINGS_FOR_BOUNDED_DIAGNOSIS")
+
+    print("MODE=READ_ONLY")
+    incomplete = False
+    for i, path in enumerate(matches, 1):
+        print("=== RECORDING_" + str(i) + "_OF_" + str(len(matches)) + " ===")
+        # Labels are limited to local CLI output; never modify the source.
+        print("RECORDING_DIRECTORY=" + str(path).replace(chr(10), " "))
+        try:
+            inspect(path)
+            print("RECORDING_RESULT=READ_ONLY_COMPLETE")
+        except (OSError, RuntimeError, ValueError) as error:
+            incomplete = True
+            print("RECORDING_STOP=" + str(error))
+            print("RECORDING_RESULT=READ_ONLY_INCOMPLETE")
+    if incomplete:
+        raise RuntimeError("ONE_OR_MORE_RECORDINGS_INCOMPLETE")
+    print("RESULT=READ_ONLY_COMPLETE")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--title", default="Pferd")
     parser.add_argument("--directory")
+    parser.add_argument("--all-matches", action="store_true",
+                        help="read-only checks of up to four matching recordings")
     args = parser.parse_args()
     if args.directory:
         matches = [Path(args.directory)]
@@ -224,13 +258,7 @@ def main():
         if not roots:
             raise RuntimeError("VDR_VIDEO_ROOT_NOT_FOUND")
         matches = find_recordings(roots, args.title)
-    print("MATCHED_RECORDINGS=" + str(len(matches)))
-    if len(matches) != 1:
-        raise RuntimeError("RECORDING_NOT_UNIQUE")
-    print("MODE=READ_ONLY")
-    inspect(matches[0])
-    print("RESULT=READ_ONLY_COMPLETE")
-
+    diagnose_matches(matches, all_matches=args.all_matches)
 
 if __name__ == "__main__":
     try:
