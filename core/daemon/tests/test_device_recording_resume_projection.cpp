@@ -71,6 +71,13 @@ int main()
     assert(!ready.preparing);
     assert(deviceRecordingResumePlaybackJson(ready) ==
            "{\"durationSeconds\":6,\"resume\":{\"supported\":true,\"preparing\":false,\"reasonCode\":null}}");
+    const std::string completeRead = deviceRecordingResumeReadModelJson(
+        "ms_0123456789abcdef0123456789abcdef", "backend-a", "hls-fmp4",
+        ready);
+    assert(completeRead ==
+        R"({"mediaSession":{"id":"ms_0123456789abcdef0123456789abcdef","state":"ready","backendId":"backend-a","presentationProfileId":"hls-fmp4","playback":{"durationSeconds":6,"resume":{"supported":true,"preparing":false,"reasonCode":null}}}})");
+    assert(completeRead.find(directory.string()) == std::string::npos);
+
 
     auto preparing = projectDeviceRecordingResume(recording, source,
                                                   "hls-fmp4", true);
