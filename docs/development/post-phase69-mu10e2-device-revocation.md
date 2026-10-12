@@ -1,5 +1,7 @@
 # MU.10E2 — Canonical Device and Device-Credential Revocation
 
+> **Historical pre-merge implementation checkpoint.** The original `Status`, branch and base notes below were written before this slice merged. The source is now on `main` via [PR #443](https://github.com/hotzenplotz5/vdr-suite/pull/443); the exact PR-head hosted CI #9879 succeeded. This does **not** establish installed yaVDR/VIDAA acceptance. For the present source/runtime distinction see [CURRENT](../CURRENT.md) and the [Multiuser workstream](post-phase69-multiuser-workstream.md).
+
 Status: **implementation candidate**; exact-product-head automated acceptance and
 real yaVDR runtime acceptance are not yet complete.
 
