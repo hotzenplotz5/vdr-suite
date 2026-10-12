@@ -1,0 +1,47 @@
+# GPLv3 compatibility and provenance review (2026-10-12)
+
+> **Not a license grant or legal clearance.** This is a source-informed review of the GitHub repository at PR #464 head `066574ee42e55761c13dca8504f9f63dc1d76584`, compared to `main` `e77245bb93e842be97c66c0bb98abdfdae9b13b2`. Copyright ownership, provenance of copied code and the **actual distributed build** still require confirmation. Never treat the headings below as a blanket rights assignment.
+
+## Desired outcome and the exact decision
+
+The maintainer intends GNU GPL version 3 for original VDR-Suite code. **Recommend `GPL-3.0-only` for newly and exclusively owned VDR-Suite code** as the narrowest unambiguous implementation of “GNU GPL version 3”; `GPL-3.0-or-later` additionally authorizes recipients to use future GPL versions and must be consciously selected by the copyright holders. Neither SPDX identifier can be imposed on inherited/independently licensed material. This recommendation is *not* a signed-off project-wide license decision. Only contributors/rightsholders can grant rights to their code.
+
+Do **not** fill the currently empty root `LICENSE`, bulk-insert SPDX headers, declare compliance, or change GitHub license metadata until provenance and holders are cleared. Once approved, add the **unmodified** official GPLv3 text from https://www.gnu.org/licenses/gpl-3.0.txt, preserve separate third-party notices, add scoped SPDX identifiers only to files for which they are accurate, and verify the resulting GitHub license detector. The full text of GPLv3 is identical for `-only` and `-or-later`: the *licensing notice* must specify which.
+
+## Source-backed compatibility matrix
+
+| Component / concrete location | Relationship visible in this repository | Upstream license / evidence | GPLv3 conclusion; additional proof required |
+| --- | --- | --- | --- |
+| Original `apps/daemon/`, `core/`, `api/rest/`, `web/frontend/` | Locally built C++ daemon and web client; Make/CI build own sources | Root `LICENSE` empty; no project-wide grant currently | **Pending ownership and contributor review**. Original code may be granted GPL-3.0-only by all relevant holders; audit incorporated snippets, assets, and commit provenance first. |
+| `vdr-plugin-suite-bridge/` (SuiteBridge) | In-tree VDR plugin C++ sources, unlike the HTTP-speaking daemon | Own source; separate native VDR plugin build boundary needs audit | **Higher priority / unresolved**: check VDR headers, linking, copied upstream code and every holder's permissions. GPLv2-only portions cannot be combined as a GPLv3 derivative; GPLv2-or-later portions can be used under v3 while retaining notices. No blind relicensing. |
+| Native VDR core | Separate system dependency/runtime; plugin uses VDR API | Inspect the exact installed VDR source and its per-file copyright/license notices | **Conditional**: mere communication between separate processes does not automatically make the daemon a VDR derivative. Native plugin linking and copied code require individual analysis. |
+| RESTfulAPI (`core/vdr/src/RestfulApi*.cpp`, `core/recordings/src/RestfulApi*.cpp`) | Independent HTTP adapter/client implementation inferred from paths and README | Upstream plugin license/version and any copied fragments **not yet verified** | API-protocol use alone normally does not inherit the server program's license. Compare source for literal copied code; retain source notices where relevant. |
+| Streamdev | Documented private streaming provider | Upstream repository https://github.com/vdr-projects/vdr-plugin-streamdev includes GPLv2 `COPYING`; README describes HTTP streaming | **Conditional**: HTTP access across a process boundary differs from embedding its code. GPLv2 COPYING alone does not resolve whether specific files carry “or later” permission. Inspect upstream headers and deployed version. |
+| TVScraper | Metadata/artwork supplied from a VDR plugin | https://github.com/MarkusEh/vdr-plugin-tvscraper README explicitly says GPL version 2 **or later**; `COPYING` is GPLv2 | **Generally compatible on a v3 license option**, if its code is legitimately combined. Upstream copyright and asset/source attribution remain; supplied TMDB/TVDB artwork and metadata have separate terms. |
+| SQLite (`core/sqlite/`, `mk/common.mk`) | `pkg-config --libs sqlite3` (linked library) | SQLite deliverable library dedicated to public domain: https://www.sqlite.org/copyright.html | **Generally compatible**, provided actual dependency and any bundled helper scripts are identified. |
+| libcurl (`core/http/`, CI package `libcurl4-openssl-dev`) | Library for HTTP client operations | Identify installed libcurl version/license and bundled/nonbundled assets | **Likely compatible** under curl permissive terms; preserve applicable notices; do not conflate libcurl with its TLS backend. |
+| OpenSSL (CI `libssl-dev`) | Native TLS dependency in built targets | OpenSSL 3.x Apache-2.0; earlier OpenSSL/SSLeay dual license differs: confirm actual distributed build | **Version dependent**: Apache-2.0 can combine with GPLv3, but version, linking, notices, and transitive dependencies must be verified. |
+| FFmpeg (`core/media/src/Ffmpeg*CommandBuilder.cpp`, CI `ffmpeg`) | Evidence indicates invocation of external executable via constructed commands, not automatically libav linking | https://ffmpeg.org/legal.html and https://ffmpeg.org/doxygen/trunk/md_LICENSE.html : LGPL-2.1-or-later default, optional GPL code, `--enable-nonfree` redistribution blocker | **Conditional**: separately invoked executable is a different question from linking/redistributing FFmpeg. For distributed binaries inspect `ffmpeg -buildconf`, `ffmpeg -L`, linkage and options; do not bundle unredistributable builds. |
+| Web and VIDAA images/logos | Asset files, e.g. `tools/vdr_suite_logo_sync.py`; VIDAA `app/Code_Generated_Image.png` and app icons | Artwork provenance/creator grants **not established**; VIDAA repository is private | **Unresolved**: source/code GPL notice does not certify third-party artwork. Obtain rights or replace assets with documented original freely licensed materials. |
+| Other dependencies / imported snippets | Build tools, JS libraries, metadata sources, downloaded art, fonts | Need a full source-file/SBOM and `package.json` lockfile scan | **Unresolved**: inspect per-file notices and shipped distribution contents, not just dependency names. |
+
+### Legally material distinction
+
+- **Copied/adapted code:** the original notice continues to govern copied material; request a separate license grant or replace incompatible fragments.
+- **Same program / linking:** GPL version conflicts can matter, particularly for native SuiteBridge/VDR interaction and linked dependencies; classify the actual build, not its marketing description.
+- **Separated processes over HTTP/SVDRP:** ordinary protocol communication does not by itself relicense either process. Evaluate unusually intimate coupling/copying separately.
+- **Merely using tools:** a CLI-installed FFmpeg does not automatically pass its license to independent source code; distribution of the FFmpeg executable is assessed independently.
+
+GNU GPL FAQ: https://www.gnu.org/licenses/gpl-faq.html (especially GPLv2-only vs GPLv3 and combined works).
+
+## Rights and release gates
+
+1. Inventory Git history, all contributors, and relevant employment/contribution arrangements for C++, JS, scripts, tests, docs and logos. Obtain grants/consent where required; no automatic assignment is implied by GitHub contributions.
+2. Inspect **exact** SuiteBridge files under `vdr-plugin-suite-bridge/`, the VDR API headers and versions used to build it, and any source copied from upstream plugins. Document file-level obligations and whether any GPL-2.0-only code exists.
+3. Verify upstream RESTfulAPI/Streamdev/TVScraper versions, their SPDX/headers and redistribution boundaries; compare any imported snippets.
+4. Inventory exact runtime/build dependencies and distribution packaging (including linked OpenSSL and FFmpeg configure flags); collect license/NOTICE material and attribution as appropriate.
+5. Resolve origin and publication permission for all SVG/PNG/logo assets and external artwork. Also review the separate **private** VIDAA repository's contributors, `package.json` and `app/Code_Generated_Image.png` independently before public release.
+6. Maintainer records explicit decision **`GPL-3.0-only` vs `GPL-3.0-or-later`** for the code they control and confirms rights from other contributors. Prefer `GPL-3.0-only` unless future-version permission is intended. Prepare separate license scopes/notices as needed; avoid implying all external programs become GPLv3.
+7. In a subsequent reviewed PR: add official GPLv3 text, scoped notices/REUSE or SPDX metadata, copyright/third-party credits, and verify repository license detection plus tests. No legal-compliance PASS until all blockers resolved.
+
+**Current decision required from holder:** “For original VDR-Suite source that I own or am authorized to license, I authorize publication under `GPL-3.0-only` [or consciously select `GPL-3.0-or-later`], subject to documented third-party exceptions.” This statement does *not* clear other contributors or external materials.
