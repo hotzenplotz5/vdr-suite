@@ -1,5 +1,7 @@
 #include "FfprobeRecordingSource.h"
 
+#include <cerrno>
+#include <climits>
 #include <cstdlib>
 #include <map>
 #include <sstream>
@@ -47,6 +49,17 @@ int integerValue(const std::map<std::string, std::string>& fields, const std::st
     const long value = std::strtol(iterator->second.c_str(), &end, 10);
     if (end == iterator->second.c_str() || *end != '\0' || value < 0) return 0;
     return static_cast<int>(value);
+}
+
+long long nonNegativeBitRate(const std::map<std::string, std::string>& fields)
+{
+    const auto iterator = fields.find("bit_rate");
+    if (iterator == fields.end() || iterator->second.empty()) return 0;
+    errno = 0;
+    char* end = nullptr;
+    const long long number = std::strtoll(iterator->second.c_str(), &end, 10);
+    return errno == 0 && end != iterator->second.c_str() &&
+        *end == '\0' && number >= 0 ? number : 0;
 }
 
 double frameRateValue(const std::string& value)
@@ -123,7 +136,7 @@ FfprobeRecordingPlan FfprobeRecordingSource::commandPlan() const
         "-safe", "1",
         "-i", "input.ffconcat",
         "-show_entries",
-        "stream=codec_type,codec_name,width,height,r_frame_rate,field_order,channels,channel_layout:stream_tags=language,title:stream_disposition=default,original,comment,hearing_impaired,visual_impaired,forced",
+        "stream=codec_type,codec_name,width,height,r_frame_rate,field_order,color_primaries,color_transfer,color_space,pix_fmt,time_base,bit_rate,channels,channel_layout:stream_tags=language,title:stream_disposition=default,original,comment,hearing_impaired,visual_impaired,forced",
         "-of", "compact=p=0:nk=0"
     };
     return plan;
@@ -156,6 +169,16 @@ FfprobeRecordingResult FfprobeRecordingSource::parse(
             video.height = integerValue(fields, "height");
             video.framesPerSecond = frameRateValue(fieldValue(fields, "r_frame_rate"));
             video.interlaced = interlacedFieldOrder(fieldValue(fields, "field_order"));
+            video.colorPrimaries = fieldValue(fields, "color_primaries");
+            video.colorTransfer = fieldValue(fields, "color_transfer");
+            video.colorSpace = fieldValue(fields, "color_space");
+            video.pixelFormat = fieldValue(fields, "pix_fmt");
+            video.timeBase = fieldValue(fields, "time_base");
+            video.bitRate = nonNegativeBitRate(fields);
+            // PQ and HLG are explicit HDR transfer characteristics; absent
+            // or unknown values must not be promoted to HDR.
+            video.hdr = video.colorTransfer == "smpte2084" ||
+                video.colorTransfer == "arib-std-b67";
             result.source.videoStreams.push_back(video);
         }
         else if (codecType == "audio") {
