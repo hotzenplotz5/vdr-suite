@@ -62,4 +62,4 @@ Phases 64–69 are completed within their historically accepted scopes. The next
 
 ## License and publication status
 
-The repository's `LICENSE` file is currently empty; **no project-wide open-source license should be inferred** until the maintainer has approved and published one. This is tracked together with GitHub About metadata and verified product screenshots in [publication readiness](docs/publication-readiness.md). Publicly readable source code is not by itself a redistribution permission.
+The repository's `LICENSE` file is currently empty; **no project-wide open-source license should be inferred** until the maintainer has approved and published one. See the [GPLv3 compatibility and copyright review](docs/gplv3-compatibility-audit.md) and [publication readiness](docs/publication-readiness.md), also covering GitHub About metadata and verified product screenshots. Publicly readable source code is not by itself a redistribution permission.
