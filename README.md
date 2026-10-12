@@ -54,6 +54,12 @@ Start with the [clean-checkout quickstart](docs/development/quickstart.md), then
 
 Phases 64–69 are completed within their historically accepted scopes. The next strict numbered phase is Phase 70; [current status](docs/CURRENT.md) and [roadmap](docs/planning/roadmap.md) distinguish later R2 work from original Phase-69.F compatibility acceptance.
 
+## Project status and decision sources
+
+[CURRENT](docs/CURRENT.md) is the **sole repository authority for volatile operational status**; always verify current GitHub refs and the installed runtime separately. [New Chat Handoff](docs/NEW-CHAT-HANDOFF.md) explains how to resume active repository work without mistaking historical checkpoints for current implementation.
+
+**A chat discussion is not a binding VDR-Suite project decision** until represented by the appropriate repository ADR, roadmap, status or accepted implementation contract.
+
 ## License and publication status
 
 The repository's `LICENSE` file is currently empty; **no project-wide open-source license should be inferred** until the maintainer has approved and published one. This is tracked together with GitHub About metadata and verified product screenshots in [publication readiness](docs/publication-readiness.md). Publicly readable source code is not by itself a redistribution permission.
