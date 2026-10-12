@@ -104,6 +104,42 @@ int main()
         assert(!containsValue(plan.argv, "untrusted-profile-name;rm -rf /"));
     }
 
+    // Fast Start is strictly opt-in. The default accepted HLS and -re
+    // behavior stays unchanged; no live input or infinite fast ingest.
+    {
+        const auto ordinary = builder.build(hlsFmp4Profile());
+        assert(!containsValue(ordinary.argv, "-readrate_initial_burst"));
+        assert(!containsValue(ordinary.argv, "-hls_init_time"));
+
+        const auto trial = builder.build(hlsFmp4Profile(), 0, true);
+        assert(trial.valid);
+        assert(containsPair(trial.argv, "-readrate_initial_burst", "4"));
+        assert(containsValue(trial.argv, "-re"));
+        assert(indexOf(trial.argv, "-readrate_initial_burst") <
+               indexOf(trial.argv, "-i"));
+        assert(containsPair(trial.argv, "-hls_init_time", "1"));
+        assert(containsPair(trial.argv, "-hls_time", "4"));
+        assert(containsPair(trial.argv, "-hls_list_size", "8"));
+        assert(containsPair(trial.argv, "-hls_flags",
+                            "delete_segments+split_by_time+temp_file"));
+
+        auto transcoded = hlsFmp4Profile();
+        transcoded.videoAction = MediaTrackAction::Transcode;
+        const auto transcodeTrial = builder.build(transcoded, 0, true);
+        assert(transcodeTrial.valid);
+        assert(containsPair(transcodeTrial.argv, "-readrate_initial_burst", "4"));
+        assert(!containsValue(transcodeTrial.argv, "-hls_init_time"));
+        assert(containsPair(transcodeTrial.argv, "-force_key_frames",
+                            "expr:gte(t,n_forced*4)"));
+
+        const auto live = builder.buildLive(hlsFmp4Profile(),
+                                            "/run/vdr-suite/live.sock");
+        assert(live.valid);
+        assert(!containsValue(live.argv, "-readrate_initial_burst"));
+        assert(!containsValue(live.argv, "-hls_init_time"));
+        assert(!containsValue(live.argv, "-re"));
+    }
+
     {
         MediaPresentationProfile profile = hlsFmp4Profile();
         profile.adaptationClass = MediaAdaptationClass::Remux;

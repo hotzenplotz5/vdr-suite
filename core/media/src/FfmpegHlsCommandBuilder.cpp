@@ -192,7 +192,8 @@ void appendAudioPlan(
 FfmpegHlsCommandPlan buildPlan(
     const MediaPresentationProfile& profile,
     const std::string* liveSocketPath,
-    int startPositionSeconds)
+    int startPositionSeconds,
+    bool experimentalFastStart)
 {
     if (!profile.available || profile.protocol != MediaDeliveryProtocol::Hls)
         return invalid("profile_is_not_hls");
@@ -249,6 +250,14 @@ FfmpegHlsCommandPlan buildPlan(
             plan.argv.push_back("-ss");
             plan.argv.push_back(std::to_string(startPositionSeconds));
         }
+        // Opt-in only: a bounded initial read burst, followed by the unchanged
+        // real-time throttle. Never remove -re for a rolling HLS playlist:
+        // unbounded ingestion would churn/delete segments before a TV reads them.
+        if (experimentalFastStart) {
+            plan.argv.insert(plan.argv.end(), {
+                "-readrate_initial_burst", "4"
+            });
+        }
         plan.argv.insert(plan.argv.end(), {
             "-re", "-f", "concat", "-safe", "1", "-i", "input.ffconcat"
         });
@@ -296,6 +305,13 @@ FfmpegHlsCommandPlan buildPlan(
         "-hls_list_size", "8", "-hls_delete_threshold", "2",
         "-hls_flags", hlsFlags
     });
+    // Experimental first-segment target only for recording stream-copy.
+    // Transcoded video has a proven four-second keyframe/GOP contract;
+    // changing it would require separate decoder and seek validation.
+    if (experimentalFastStart && liveSocketPath == nullptr &&
+        profile.videoAction == MediaTrackAction::Copy) {
+        plan.argv.insert(plan.argv.end(), {"-hls_init_time", "1"});
+    }
 
     if (profile.container == MediaContainer::Fmp4) {
         plan.argv.insert(plan.argv.end(), {
@@ -319,14 +335,16 @@ FfmpegHlsCommandPlan buildPlan(
 
 FfmpegHlsCommandPlan FfmpegHlsCommandBuilder::build(
     const MediaPresentationProfile& profile,
-    int startPositionSeconds) const
+    int startPositionSeconds,
+    bool experimentalFastStart) const
 {
-    return buildPlan(profile, nullptr, startPositionSeconds);
+    return buildPlan(profile, nullptr, startPositionSeconds,
+                     experimentalFastStart);
 }
 
 FfmpegHlsCommandPlan FfmpegHlsCommandBuilder::buildLive(
     const MediaPresentationProfile& profile,
     const std::string& unixSocketPath) const
 {
-    return buildPlan(profile, &unixSocketPath, 0);
+    return buildPlan(profile, &unixSocketPath, 0, false);
 }

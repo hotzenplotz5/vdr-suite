@@ -7,6 +7,7 @@
 
 #include <cerrno>
 #include <chrono>
+#include <cstdlib>
 #include <filesystem>
 #include <string>
 #include <sys/stat.h>
@@ -416,8 +417,17 @@ RecordingMediaSessionProvisionResult RecordingMediaSessionRuntime::provisionHls(
     }
 
     const MediaPresentationProfile resolvedProfile = transcodePolicy_.apply(profile);
+    // Experimental, explicit host opt-in; default remains the accepted
+    // 4-second HLS path. Live-TV and progressive sessions never use this.
+    // Do not enable without verifying the installed FFmpeg option and
+    // running a real Device recording playback/seek acceptance trial.
+    const char* fastStartFlag = std::getenv(
+        "VDR_SUITE_HLS_FAST_START_EXPERIMENT");
+    const bool experimentalFastStart = fastStartFlag != nullptr &&
+        std::string(fastStartFlag) == "1";
     const FfmpegHlsCommandPlan command =
-        FfmpegHlsCommandBuilder().build(resolvedProfile);
+        FfmpegHlsCommandBuilder().build(resolvedProfile, 0,
+                                       experimentalFastStart);
     if (!command.valid) {
         result.reasonCode = command.reasonCode.empty()
             ? "media_worker_plan_invalid"
