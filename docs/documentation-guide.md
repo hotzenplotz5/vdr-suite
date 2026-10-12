@@ -52,7 +52,14 @@ not redundant files.
 
 ## Historical documentation — preserve as evidence
 
-Read the [Historical Documentation Index](history/index.md) to distinguish:
+Read the [Historical Documentation Index](history/index.md) and the
+[2026-10-12 historical evidence audit](history/audit-2026-10-12.md)
+to distinguish original status, deliberately preserved snapshots, and
+their present-day navigation limitations. In particular, relative links
+inside relocated archival snapshots may retain their **original** paths;
+use the current archive indexes to navigate.
+
+The historical hub helps distinguish:
 
 - accepted phase and slice **closeouts** from current implementation instructions;
 - old [roadmap sketches](roadmap/README.md) from the binding roadmap;
