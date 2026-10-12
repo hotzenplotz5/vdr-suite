@@ -567,7 +567,7 @@ Forbidden: content identity depending on Home card position, MediaSession author
 
 # 10B. Broadcast Companion Domain — ADR-0054
 
-This section reflects accepted architecture. Runtime is planned for Phase 67 after Phase 66 Media Home and requires an explicit Phase-67 start.
+This section describes the accepted Broadcast Companion architecture. Phase 66 Media Home and Phase 67 Teletext/HbbTV are both completed for their bounded scopes; see the [Phase-67 closeout](../development/phase-67-closeout.md). This dependency description is not an instruction to restart Phase 67.
 
 ```text
 TeletextServiceRef
@@ -858,22 +858,26 @@ MediaSession, route, grant, provider lease and playback adaptation
         |
         v
 Phase 66
-TeletextService/Page + BroadcastApplication discovery/session [ADR-0054 accepted]
+Media Home and browse projections [ADR-0058; COMPLETED]
         |
         v
 Phase 67
-LegacyOsdSession, viewer, controller lease and input
+TeletextService/Page + BroadcastApplication discovery/session [ADR-0054; COMPLETED]
         |
         v
 Phase 68
-Stable /api/v1 representations for implemented mature domains
+LegacyOsdSession, viewer, controller lease and input [ADR-0047; COMPLETED]
         |
         v
 Phase 69
-Recommendations and knowledge graph over mature identities/provenance
+Stable /api/v1 representations for implemented mature domains [ADR-0048; COMPLETED]
+        |
+        v
+Phase 70
+Recommendations and knowledge graph over mature identities/provenance [NOT STARTED; ADR REQUIRED]
 ```
 
-Later phases may prepare isolated internal code only when they do not publish, activate or bypass prerequisites. The strict roadmap controls runtime start and completion. Accepted ADR-0054 does not authorize Phase-66 runtime before Phase 65 closes and Phase 66 is explicitly started.
+This diagram captures dependency order, **not** authorization to start runtime implementation. Phases 66–69 are completed for their accepted scopes; Phase 70 remains not started and requires its own accepted runtime ADR. The [Strict Roadmap](roadmap.md) owns sequencing and [CURRENT](../CURRENT.md) owns live status.
 
 ---
 
