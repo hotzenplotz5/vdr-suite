@@ -149,6 +149,35 @@ unverified; therefore this review does **not** approve a deletion.
   results can reflect an older indexed revision. No local test run or live
   yaVDR validation is inferred from these edits.
 
+## Phase-0 empty-outline cleanup — 2026-10-12
+
+At the GitHub `main` source checkpoint
+`e616894899e2fb891e5b0e85ddd33cd1b750e67a`, examined the
+[Phase-0 index](../phase-0/index.md) and two historical leaves:
+
+| Historic path | Verified original content | Disposition and safe successor |
+| --- | --- | --- |
+| [Phase-0 Data Model](../phase-0/03-data-model.md) | Title, generic navigation, two separators and back links, **no schema or design body** | **RETAIN original URL**; label as an unfinished original outline, link the current [database schema index](../../database/schema/README.md) and [implemented architecture](current-architecture-state.md); do not fabricate Phase-0 acceptance |
+| [Phase-0 UI Concept](../phase-0/06-ui-concept.md) | Title, generic navigation, two separators and back links, **no UI design body** | **RETAIN original URL**; label historical placeholder and link [ADR-0058](../adr/ADR-0058-media-home-responsive-browse-preview.md), [frontend architecture](frontend-architecture.md) and [project overview](../project-overview.md) |
+
+**Why no deletion:** the [Phase-0 index](../phase-0/index.md)
+links both filenames; external bookmarks cannot be exhaustively inventoried,
+and deleting a path would turn a thin but existing historical archive
+entry into a broken link. Replacing the empty separators with a truthful
+notice and successor links preserves discoverability, supplies useful
+navigation and retains original provenance in Git history. No distinct
+technical facts have been removed; no historical design body is rewritten
+because neither leaf contained one. No archive directory index is
+flattened, no ADR, accepted closeout or original Phase-11–18 roadmap
+content is touched.
+
+This is a **two-page, evidence-based non-destructive cleanup**, not approval
+to delete other small or historically stale pages. The separate
+[deep historical audit](../history/index.md) inventories broader
+archive-link limitations; this narrow change does not claim to repair all
+relocated snapshot hyperlinks. GitHub PR CI on the exact branch head remains
+a necessary independent gate.
+
 ## Acceptance limits
 
 This review provides **two concrete reviewed removals** and an explicit
