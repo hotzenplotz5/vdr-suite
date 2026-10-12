@@ -5398,6 +5398,32 @@
         }
       }
     },
+    "/api/v1/recording-playback-sessions/capabilities": {
+      "get": {
+        "tags": ["Device Recording playback"],
+        "operationId": "getAuthenticatedDeviceMediaProfileStatus",
+        "summary": "Read the authenticated Device's stored player profile status",
+        "description": "Read-only. Resolves the existing authenticated Device ID server-side, using bounded app/firmware/player/engine query keys. Never invokes MediaSession, ffprobe, transcode, recording probe, autoplay or provider URLs. Unverified reports are not treated as decoded playback evidence.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified VDR-Suite Device credential and active Device identity only; media.recording.play is checked separately on Session create, and no grant is assigned by this read.",
+          "securitySchemeDocumentation": "Device Authorization header; never include Device ID or secret in query parameters."
+        },
+        "parameters": [
+          {"name":"appVersion","in":"query","required":true,"schema":{"type":"string","minLength":1,"maxLength":96,"pattern":"^[A-Za-z0-9._:-]+$"}},
+          {"name":"firmwareVersion","in":"query","required":true,"schema":{"type":"string","minLength":1,"maxLength":96,"pattern":"^[A-Za-z0-9._:-]+$"}},
+          {"name":"playerVersion","in":"query","required":true,"schema":{"type":"string","minLength":1,"maxLength":96,"pattern":"^[A-Za-z0-9._:-]+$"}},
+          {"name":"engine","in":"query","required":true,"schema":{"type":"string","enum":["native","mse","external"]}}
+        ],
+        "responses": {
+          "200": {"description":"Versioned, no-store, read-only status of exact registered player profile.","content":{"application/json":{"schema":{"$ref":"#/components/schemas/DeviceMediaProfileStatus"}}}},
+          "400": {"description":"Missing, duplicate or invalid player version key."},
+          "401": {"description":"Missing or invalid Device authentication."},
+          "403": {"description":"Not an authenticated Device credential."},
+          "503": {"description":"Capability persistence unavailable."}
+        }
+      }
+    },
     "/api/v1/recording-playback-sessions": {
       "post": {
         "tags": [
@@ -7800,6 +7826,26 @@
         },
         "description": "Reported client media capabilities are explicit. The suite does not supply native VIDAA codec defaults."
       },
+      "DeviceMediaProfileStatus": {
+        "type": "object",
+        "required": ["version","profileState","verifiedPathCount"],
+        "properties": {
+          "version": {"type":"integer","const":1},
+          "profileState": {"type":"string","enum":["verified","unverified"]},
+          "verifiedPathCount": {"type":"integer","minimum":0,"maximum":32}
+        }
+      },
+      "DevicePlayerProfileKey": {
+        "type": "object",
+        "required": ["appVersion","firmwareVersion","playerVersion","engine"],
+        "properties": {
+          "appVersion": {"type":"string","minLength":1,"maxLength":96,"pattern":"^[A-Za-z0-9._:-]+$"},
+          "firmwareVersion": {"type":"string","minLength":1,"maxLength":96,"pattern":"^[A-Za-z0-9._:-]+$"},
+          "playerVersion": {"type":"string","minLength":1,"maxLength":96,"pattern":"^[A-Za-z0-9._:-]+$"},
+          "engine": {"type":"string","enum":["native","mse","external"]}
+        },
+        "description": "Optional opt-in key; Device ID comes from authenticated credential, never this request. Does not claim any decoder verification."
+      },
       "DeviceRecordingSessionCreate": {
         "type": "object",
         "required": [
@@ -7820,6 +7866,9 @@
           },
           "capabilities": {
             "$ref": "#/components/schemas/DeviceRecordingCapabilities"
+          },
+          "capabilityProfile": {
+            "$ref": "#/components/schemas/DevicePlayerProfileKey"
           }
         }
       },

@@ -13,7 +13,7 @@
 
 The Device Recording controller is implemented in [RecordingMediaHttpRuntime](../core/daemon/src/RecordingMediaHttpRuntime.cpp) using the existing media controller and [Device-owned session registry](../core/daemon/include/PublicDevicePlaybackRegistry.h). This source is present in the merged R2 baseline. It is **not** part of the historically accepted original Phase-69.F reference-client contract, and its presence does **not** establish installed-daemon or Hisense picture/sound/subtitle acceptance.
 
-**The five methods below are now modeled in [the partial OpenAPI 3.1 contract](openapi.json)**, expanding its audited subset to 41 operations / 30 paths. This guide remains a source-linked implementation map, **not** a universal playback compatibility promise, a full gateway/media-byte schema or hardware acceptance evidence.
+**The six methods below are now modeled in [the partial OpenAPI 3.1 contract](openapi.json)**, expanding its audited subset to 42 operations / 31 paths. This guide remains a source-linked implementation map, **not** a universal playback compatibility promise, a full gateway/media-byte schema or hardware acceptance evidence.
 
 ## Authentication and ownership
 
@@ -25,6 +25,7 @@ The implementation guards active sessions, media fragments, track reads and subt
 
 | Method | Relative path | Implemented boundary |
 | --- | --- | --- |
+| GET | `/api/v1/recording-playback-sessions/capabilities?appVersion=…&firmwareVersion=…&playerVersion=…&engine=mse` | Device-authenticated no-store player-profile readiness; strictly read-only, never transcodes or probes a Recording |
 | POST | `/api/v1/recording-playback-sessions` | Device-owned create; validates client capabilities, public `rec_<32 lowercase hex>` Recording ID and backend grant, then issues a scoped MediaSession |
 | GET | `/api/v1/recording-playback-sessions/{sessionId}` | Owner-only `ms_<32 lowercase hex>` Session read; bounded profile and index-derived duration/preparing projection, not native Recording identity or persistent position |
 | POST | `/api/v1/recording-playback-sessions/{sessionId}/stop` | Explicit owner-controlled teardown of session/process/lease/cookie |
@@ -38,7 +39,9 @@ Source error examples from the runtime are `400 invalid_playback_request` / `inv
 ## Client workflow boundaries
 
 1. Pair and receive the Device credential; request explicit backend playback grants separately. Pairing does not grant content access by itself.
-2. Use the public Recording browse/identity contract to select a completed Recording and derive actual decoder capabilities from the client device. Create a Session only upon user action.
+   At connection time the client can GET the exact player profile status. The server gets its Device ID from the authenticated context, not from the query. This only reads stored corroborated paths and does not start playback or test decoders. Unknown app/firmware/player combinations remain unverified and need explicit authorized tests.
+2. For known corroborated profiles, supply optional `capabilityProfile: {appVersion, firmwareVersion, playerVersion, engine}` on the existing Device CREATE. The server binds this key to the authenticated Device and uses the stored exact paths in the existing selector. Missing or mismatched verified evidence returns 409/422 rather than downgrading invisibly. Omitting this opt-in field retains the pre-existing Device playback behavior.
+3. Use the public Recording browse/identity contract to select a completed Recording and derive actual decoder capabilities from the client device. Create a Session only upon user action.
 3. Use only the returned scoped `mediaPath` and media cookie for playback; do not expose credentials in the URL, manifest, logs or client storage.
 4. Poll status when index-backed duration is not yet known. `playback.durationSeconds` may be `null`; `playback.resume.preparing` does **not** implement saved resume position.
 5. Read `/tracks` only while the Device owns that active Session. An audio change is accomplished through verified session replacement using `audioTrackId`, not an unrestricted Device audio-update route.
@@ -55,7 +58,7 @@ The sample bodies, session cookie semantics, indexed-duration safety and media r
 - Internal media/session controller: [RecordingMediaSessionController](rest/include/RecordingMediaSessionController.h).
 - Historical track and VIDAA testing context: [VIDAA Device track document](../docs/development/vidaa-device-recording-tracks-20261011.md).
 
-The OpenAPI subset and its scoped guard now cover these five source-backed Device routes, with method/path and Device-gate anchors and negative drift tests. This is **not** exhaustive HTTP security-denial/runtime conformance, formal OpenAPI Schema verification or live playback acceptance. Remaining work includes real Device integration testing, media-byte gateway documentation and validating all deployed denial envelopes.
+The OpenAPI subset and its scoped guard now cover these six source-backed Device routes, with method/path and Device-gate anchors and negative drift tests. This is **not** exhaustive HTTP security-denial/runtime conformance, formal OpenAPI Schema verification or live playback acceptance. Remaining work includes real Device integration testing, media-byte gateway documentation and validating all deployed denial envelopes.
 
 ## Back
 
