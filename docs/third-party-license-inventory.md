@@ -68,3 +68,19 @@ These are **in-process plugin service APIs**. The existence of GPLv2 license tex
 ### Verified ABI source comparison (2026-10-12)
 
 Direct source inspection confirms that the SuiteBridge Teletext ABI mirrors `hotzenplotz5/vdr-plugin-osdteletext@70496310d1fa5200ff808d1552f0f5d252893870:services.h`, including service identifiers, values and struct layout. The HbbTV media service ABI matches the fork's `service/vdrsuite_hbbtv_media_service.h` at `hotzenplotz5/vdr-plugin-web@1b3d2e785a1caf2d9f991fafa9752a433c5a86ae`. The code origin has been located, but ownership of new fork contributions and exact GPL version grants remain unverified. The upstream GPLv2 COPYING is not proof that novel contracts are GPL-2.0-only nor a GPLv3 relicensing grant. File-scoped SPDX changes must await this confirmation.
+
+## Build and packaging boundary verification (12 October 2026)
+
+- `mk/common.mk` explicitly uses `pkg-config --libs sqlite3` for the daemon/test binaries and provides local C++ include directories; this is a **direct SQLite link** in the build graph.
+- `vdr-plugin-suite-bridge/Makefile` builds a separate VDR loadable shared plugin with `vdr.pc` flags. Such a plugin is not just an independent HTTP client, and its in-process interfaces have been separately inventoried.
+- The installation targets in `mk/install.mk` stage locally built daemon/agent binaries, frontend static resources, service configuration and the project’s own UI resources. The inspected install rules do not establish bundled copies of FFmpeg, OpenSSL, libcurl, VDR, TVScraper, channel-logo packs or broadcast artwork. **No conclusion about all future binary packages is inferred.**
+- The `ffmpeg` CLI used by media command builders is a separate runtime executable as opposed to shown libav linkage; the precise installed FFmpeg configuration remains a **binary-distribution** issue if VDR-Suite ships a bundled FFmpeg binary. Libraries brought in transitively by a linked component must be assessed against the particular built package, not assumed to be redistributed in the source tree.
+- This is a *repository/source-build audit*, not a package-by-package ELF/SBOM signature. It is inappropriate to list system-packaged components or runtime-downloaded media as vendored third-party source without evidence. For release packages, inspect staging manifests, `ldd`/ELF dependencies, `ffmpeg -buildconf`, package scripts and any redistribution notices from the actual artifact.
+
+## Specific remaining rights authorizations
+
+1. `suitebridge_teletext_provider_contract.h` mirrors the OSD Teletext fork service declarations. The source is pinned, but the upstream file-specific permission for redistribution under GPLv3 has not been demonstrated; the version string of COPYING is insufficient.
+2. `suitebridge_hbbtv_provider_contract.h` mirrors service ABI declarations in the maintainer's web-plugin fork, referencing its Zabrimus base. Identify which declarations were newly authored in the fork, whether any expressive upstream source was carried over, and the rightsholder's authority to license the relevant declarations under GPLv3.
+3. Contributions named in Git history must be checked against the actual provenance of included source; names and API-compatible numeric layouts alone cannot serve as a blanket copyright assignment.
+
+These are narrowly scoped outstanding authorizations; **no incompatibility is yet established**, and no blanket SPDX license should be applied to the mirrored interfaces before those source rights are validated.
