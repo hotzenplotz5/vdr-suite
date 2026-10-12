@@ -1,4 +1,4 @@
-# Documentation Guide — Current, Historical, and Deletion Review
+# How to Read the VDR-Suite Documentation
 
 ## Navigation
 
@@ -8,16 +8,29 @@
 - [Historical Documentation](history/index.md)
 - [Pruning Review](development/documentation-pruning-review.md)
 
-## Purpose
+## Start with the question, not a phase number
 
-This guide classifies **where to read**, not an independent catalogue of what code
-is deployed. It is an entrypoint for both developers and readers and introduces
-no parallel live-status register. The repository retains historical source and
-acceptance evidence even when its wording is no longer applicable to today's
-implementation. Machine-generated inventories, exact branch/CI results and
-installed-device truth must be checked separately.
+For a first visit, read [Project Overview](project-overview.md) and the
+[Project Status Dashboard](project-status-dashboard.md). They explain the
+product and its capabilities without sending you straight into CI logs or phase
+closeouts. The [Documentation Home](index.md) then offers paths by topic,
+including playback, pairing, API, development, planning and historical evidence.
+A [German introduction](project-overview.de.md) is available.
 
-## 1. Current reference documentation
+For deeper reading, choose one route:
+
+- **Understanding the implementation:** [Current Architecture State](development/current-architecture-state.md) -> [Architecture Index](architecture/index.md) -> relevant [ADR](adr/index.md).
+- **Building a client or contributing:** [API Guide](../api/README.md) or [Developer Onboarding](development/developer-onboarding.md) -> the matching implementation contract.
+- **Checking project progress or planning:** [CURRENT](CURRENT.md) -> [Phase Map](planning/phase-map.md) -> [Strict Roadmap](planning/roadmap.md).
+- **Tracing the rationale or acceptance:** [Historical Documentation](history/index.md) -> original phase/slice closeout.
+
+This guide explains **which source to trust**, not a second catalogue of
+deployed code. Branch/CI snapshots, exact installed builds and physical
+TV/yaVDR acceptance are separate facts. The repository preserves historical
+acceptance and design evidence even when its wording is no longer applicable
+to a later implementation.
+
+## Current sources: who owns which fact
 
 | Question | Use this authority | What it proves |
 | --- | --- | --- |
@@ -37,7 +50,7 @@ They must not become competing copies of CURRENT, acceptance results, or the
 binding roadmap. The translated introductions are deliberate language variants,
 not redundant files.
 
-## 2. Historical documentation — preserve as evidence
+## Historical documentation — preserve as evidence
 
 Read the [Historical Documentation Index](history/index.md) to distinguish:
 
@@ -53,7 +66,7 @@ Do not rewrite an accepted historical checkpoint merely because later work
 completed the previously pending capability. Add a dated supersession note,
 link to the accepted successor, and preserve original proof.
 
-## 3. Deletion candidates — evidence, not filename guessing
+## Document retirement and deletion — evidence, not filename guessing
 
 See the [Pruning Review](development/documentation-pruning-review.md). The first
 bounded cleanup removes only two low-information, unlinked development leaf
