@@ -5,6 +5,7 @@
 #include "BackendAgentLifecycle.h"
 #include "BackendAgentLiveProviderRuntime.h"
 #include "Database.h"
+#include "DeviceMediaProfileRepository.h"
 #include "IHttpServer.h"
 #include "LiveMediaSessionController.h"
 #include "LiveMediaSessionRequestParser.h"
@@ -118,6 +119,11 @@ int runRecordingMediaHttpRuntime(
         std::cerr << "Device Playback security persistence unavailable" << std::endl;
         return 1;
     }
+    DeviceMediaProfileRepository deviceMediaProfiles(database);
+    if (!deviceMediaProfiles.ensureSchema()) {
+        std::cerr << "Device Media verified-path schema unavailable" << std::endl;
+        return 1;
+    }
     PublicRecordingPlaybackTargetResolver targetResolver(
         recordingIdentities, recordingCache);
     PublicRecordingDevicePlaybackAdmission admission(
@@ -181,10 +187,34 @@ int runRecordingMediaHttpRuntime(
                 if (allowed.status != Status::ready)
                     return error(503, "recording_backend_unavailable");
 
+                std::optional<DeviceMediaCapabilityProfile> storedProfile;
+                DeviceMediaProfileKey authenticatedPlayer;
+                if (request.deviceMediaProfileRequested) {
+                    // Device identity is NEVER parsed from request JSON.
+                    if (!verifiedDevice.device ||
+                        verifiedDevice.device->deviceId.empty())
+                        return error(403, "device_identity_required");
+                    authenticatedPlayer.deviceId = verifiedDevice.device->deviceId;
+                    authenticatedPlayer.appVersion = request.mediaAppVersion;
+                    authenticatedPlayer.firmwareVersion = request.mediaFirmwareVersion;
+                    authenticatedPlayer.playerVersion = request.mediaPlayerVersion;
+                    authenticatedPlayer.engine =
+                        request.mediaPlayerEngine == "mse"
+                        ? MediaPlaybackEngine::MediaSourceExtensions
+                        : request.mediaPlayerEngine == "external"
+                            ? MediaPlaybackEngine::External
+                            : MediaPlaybackEngine::Native;
+                    storedProfile = deviceMediaProfiles.findVerified(authenticatedPlayer);
+                    if (!storedProfile || storedProfile->verifiedPaths.empty())
+                        return error(409, "device_media_profile_unverified");
+                }
+
                 std::string sessionId;
                 ApiResponse created = recordingMediaSessionController.createDeviceSession(
                     body, verifiedDevice.actor.actorId, allowed.recording,
-                    request.recordingId, "/vdr-suite", "", sessionId);
+                    request.recordingId, "/vdr-suite", "", sessionId,
+                    storedProfile ? &*storedProfile : nullptr,
+                    request.deviceMediaProfileRequested ? &authenticatedPlayer : nullptr);
                 if (created.statusCode != 201) return created;
                 if (!deviceSessions.add(sessionId, request.backendId, verifiedDevice)) {
                     const std::string stop =
