@@ -48,7 +48,8 @@ int integerValue(const std::map<std::string, std::string>& fields, const std::st
 
     char* end = nullptr;
     const long value = std::strtol(iterator->second.c_str(), &end, 10);
-    if (end == iterator->second.c_str() || *end != '\0' || value < 0) return 0;
+    if (end == iterator->second.c_str() || *end != '\0' ||
+        value < 0 || value > INT_MAX) return 0;
     return static_cast<int>(value);
 }
 
