@@ -1,0 +1,38 @@
+name: fMP4 emitted codec evidence
+
+on:
+  pull_request:
+    paths:
+      - 'core/media/include/MediaEmittedFmp4Probe.h'
+      - 'core/media/src/MediaEmittedFmp4Probe.cpp'
+      - 'core/media/tests/test_media_emitted_fmp4_probe.cpp'
+      - 'core/media/include/MediaPlannedOutput.h'
+      - 'core/media/src/MediaPlannedOutput.cpp'
+      - 'mk/phase65-media-tests.mk'
+      - '.github/workflows/media-fmp4-evidence.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'core/media/include/MediaEmittedFmp4Probe.h'
+      - 'core/media/src/MediaEmittedFmp4Probe.cpp'
+      - 'core/media/tests/test_media_emitted_fmp4_probe.cpp'
+      - 'core/media/include/MediaPlannedOutput.h'
+      - 'core/media/src/MediaPlannedOutput.cpp'
+      - 'mk/phase65-media-tests.mk'
+      - '.github/workflows/media-fmp4-evidence.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  media-fmp4-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare synthetic HLS/fMP4 test dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg g++ make
+      - name: Validate actual emitted init.mp4 under bounded ffprobe
+        run: make test-phase65-media-capability-negotiation
