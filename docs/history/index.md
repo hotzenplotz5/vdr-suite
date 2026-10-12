@@ -14,6 +14,16 @@ historical files and not another active-status dashboard. It preserves stable
 URLs, old CI/commit proof and the meaning of earlier proposals. Later accepted
 work can supersede a plan without invalidating what that plan recorded.
 
+## Historical audit and navigation safety
+
+- [Historical evidence and navigation audit — 2026-10-12](audit-2026-10-12.md):
+  bounded content review of designated historic directories, Phase-0
+  and completed-archive authority warnings, and measured link drift in
+  relocated snapshots.
+- **Reader caution:** original links *inside* relocated architecture/July
+  snapshots can lead to missing paths. Use their archive indexes and current
+  successor links. The original evidence is not rewritten to modernize it.
+
 ## Numbered phase and implementation evidence
 
 - [Completed Phases](../development/completed-phases.md) and
