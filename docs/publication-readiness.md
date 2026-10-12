@@ -6,7 +6,7 @@ This is a **release/publication checklist**, not legal clearance or evidence of 
 
 ## 1. License — BLOCKED pending copyright and maintainer clearance
 
-A [source-backed GPLv3 compatibility matrix](gplv3-compatibility-audit.md) now records identified boundaries, upstream evidence and unresolved legal questions. The maintainer has explicitly selected **`GPL-3.0-or-later`** as the target for original VDR-Suite source they are authorized to license. The matrix remains conditionally compatible; it does not itself clear upstream rights, other contributors or artwork. No project-wide legal clearance is claimed.
+A [source-backed GPLv3 compatibility matrix](gplv3-compatibility-audit.md) and a [third-party licenses/attribution inventory](third-party-license-inventory.md) record identified boundaries, upstream evidence and unresolved legal questions. Direct upstream VDR source confirms GPLv2-or-later, making the core VDR/SuiteBridge GPLv3 option available, while non-VDR third-party provenance still requires verification. The maintainer has explicitly selected **`GPL-3.0-or-later`** as the target for original VDR-Suite source they are authorized to license. The matrix remains conditionally compatible; it does not itself clear upstream rights, other contributors or artwork. No project-wide legal clearance is claimed.
 
 The PR's full `LICENSE` text and maintainer-selected `GPL-3.0-or-later` cover original code **only to the extent it can legally be licensed by its rights holders**. They do not silently relicense third-party programs or artwork. Provenance and final scope still require review.
 
