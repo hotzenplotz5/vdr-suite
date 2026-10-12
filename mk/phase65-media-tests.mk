@@ -5,6 +5,7 @@ CXXFLAGS += -Icore/media/include
 test-phase65-media-capability-negotiation:
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
 		core/media/src/MediaCapabilityEvidence.cpp \
+		core/media/src/MediaPlannedOutput.cpp \
 		core/media/src/MediaPresentationSelector.cpp \
 		core/media/tests/test_media_presentation_selector.cpp \
 		-o $(BUILD_DIR)/test_phase65_media_capability_negotiation
