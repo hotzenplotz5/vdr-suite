@@ -133,6 +133,21 @@ int main()
         assert(narrow(caps, report).capabilities.supportsByteRanges);
     }
 
+    // Unknown and non-media tokens cannot be promoted even by a mislabeled
+    // success report. Other codec combinations are independent rows.
+    {
+        auto report = verified;
+        report.videoCodec = MediaCodec::Unknown;
+        assert(!narrow(caps, report, MediaPlaybackEngine::MediaSourceExtensions,
+            MediaDeliveryProtocol::Hls, MediaContainer::Fmp4,
+            MediaCodec::Unknown, MediaCodec::Aac).available);
+        report = verified;
+        report.audioCodec = MediaCodec::None;
+        assert(!narrow(caps, report, MediaPlaybackEngine::MediaSourceExtensions,
+            MediaDeliveryProtocol::Hls, MediaContainer::Fmp4,
+            MediaCodec::H264, MediaCodec::None).available);
+    }
+
     // Never permit an outcome to add any capability absent from the declared
     // negotiated client baseline.
     {
