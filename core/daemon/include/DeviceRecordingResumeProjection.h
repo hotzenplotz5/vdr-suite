@@ -40,3 +40,17 @@ inline DeviceRecordingResumeProjection projectDeviceRecordingResume(
         durations.size() == resolved.source.segmentPaths.size();
     return result;
 }
+
+inline std::string deviceRecordingResumePlaybackJson(
+    const DeviceRecordingResumeProjection& projection)
+{
+    return "{\\\"durationSeconds\\\":" +
+        (projection.durationSeconds > 0
+            ? std::to_string(projection.durationSeconds)
+            : "null") +
+        ",\\\"resume\\\":{\\\"supported\\\":" +
+        (projection.supported ? "true" : "false") +
+        ",\\\"preparing\\\":" +
+        (projection.preparing ? "true" : "false") +
+        "}}";
+}
