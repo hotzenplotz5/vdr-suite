@@ -128,7 +128,10 @@ Latest source-merged Multiuser Device scope:
 MU.10C1, MU.10D1 and MU.10E1-E3 [MERGED — PR #440-#444; latest MU.10E3 PR #444]. Repository integration is not real yaVDR/VIDAA acceptance.
 
 Latest separately demonstrated real yaVDR Multiuser acceptance:
-MU.10B Administrator Pairing Approval [ACCEPTED — PR #437 / REAL YAVDR PASS / HOSTED CI #9801 GREEN]
+MU.10B Administrator Pairing Approval [ACCEPTED - PR #437 / REAL YAVDR PASS / HOSTED CI #9801 GREEN]
+
+Historical completed Post-MU.9 acceptance marker (retained for the established static UX guard, not a current successor):
+Post-MU.9 Administration Usability [MERGED - PR #433 / REAL YAVDR PASS / HOSTED CI GREEN]
 
 Historical completed MU.9 UI slice markers:
 MU.9E - Backend Grant Mutation UI [IMPLEMENTATION MERGED - PR #429 / FOCUSED YAVDR PASS / POST-MERGE CI #9763 GREEN]
