@@ -1,5 +1,6 @@
 #include "MediaPresentationSelector.h"
 #include "MediaCapabilityEvidence.h"
+#include "MediaPlannedOutput.h"
 
 #include <cassert>
 
@@ -493,5 +494,76 @@ int main()
                          MediaCodec::H264, MediaCodec::Aac).available);
     }
 
+    // The planned output projection is from selector+source, never a client
+    // report or an output-bitstream inspection.
+    {
+        MediaSourceDescriptor source = h264Ac3Recording();
+        source.videoStreams.front().hdr = true; // HDR *source* only.
+        const auto chosen = selector.select(source, browserHlsCapabilities());
+        const auto planned = projectPlannedOutput(source, chosen);
+        assert(planned.valid);
+        assert(planned.container == MediaContainer::Fmp4);
+        assert(planned.protocol == MediaDeliveryProtocol::Hls);
+        assert(planned.videoAction == MediaTrackAction::Copy);
+        assert(planned.sourceVideoStreamIndex == 0);
+        assert(planned.sourceVideoCodec == MediaCodec::H264);
+        assert(planned.targetVideoCodec == MediaCodec::H264);
+        assert(planned.sourceVideoHdr);
+        assert(planned.audioAction == MediaTrackAction::Transcode);
+        assert(planned.sourceAudioCodec == MediaCodec::Ac3);
+        assert(planned.targetAudioCodec == MediaCodec::Aac);
+        assert(planned.targetAudioChannels == 2);
+        // Input AC-3 is *not* AAC output, and planned AAC does not certify
+        // that FFmpeg actually emitted valid AAC or that the TV decoded it.
+        auto broken = chosen;
+        broken.sourceAudioStreamIndex = 88;
+        assert(!projectPlannedOutput(source, broken).valid);
+        broken = chosen;
+        broken.targetVideoCodec = MediaCodec::H265;
+        assert(!projectPlannedOutput(source, broken).valid);
+        broken = chosen;
+        broken.sourceVideoStreamIndex = -1;
+        assert(!projectPlannedOutput(source, broken).valid);
+        broken = chosen;
+        broken.available = false;
+        assert(!projectPlannedOutput(source, broken).valid);
+        broken = chosen;
+        broken.container = MediaContainer::Unknown;
+        assert(!projectPlannedOutput(source, broken).valid);
+    }
+    {
+        MediaSourceDescriptor source = h264Ac3Recording();
+        source.videoStreams.front().codec = MediaCodec::H265;
+        source.videoStreams.front().width = 3840;
+        source.videoStreams.front().height = 2160;
+        const auto chosen = selector.select(source, browserHlsCapabilities());
+        const auto planned = projectPlannedOutput(source, chosen);
+        assert(planned.valid);
+        assert(planned.videoAction == MediaTrackAction::Transcode);
+        assert(planned.sourceVideoCodec == MediaCodec::H265);
+        assert(planned.targetVideoCodec == MediaCodec::H264);
+        assert(planned.targetVideoWidth == 1920);
+        assert(planned.targetVideoHeight == 1080);
+        assert(planned.audioAction == MediaTrackAction::Transcode);
+        assert(planned.sourceAudioCodec == MediaCodec::Ac3);
+        assert(planned.targetAudioCodec == MediaCodec::Aac);
+    }
+    {
+        MediaSourceDescriptor source = h264Ac3Recording();
+        source.audioStreams.push_back({MediaCodec::Aac, 2, "eng"});
+        const auto chosen = selector.select(source, browserHlsCapabilities());
+        const auto planned = projectPlannedOutput(source, chosen);
+        assert(planned.valid);
+        assert(planned.sourceAudioStreamIndex == 1);
+        assert(planned.sourceAudioCodec == MediaCodec::Aac);
+        assert(planned.audioAction == MediaTrackAction::Copy);
+        assert(planned.targetAudioCodec == MediaCodec::Aac);
+        auto invalidCopy = chosen;
+        invalidCopy.targetAudioCodec = MediaCodec::Ac3;
+        assert(!projectPlannedOutput(source, invalidCopy).valid);
+        invalidCopy = chosen;
+        invalidCopy.targetAudioChannels = 6;
+        assert(!projectPlannedOutput(source, invalidCopy).valid);
+    }
     return 0;
 }
