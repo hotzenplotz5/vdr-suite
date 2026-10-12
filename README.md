@@ -10,7 +10,9 @@ A sensible first reading order:
 
 1. [Project Overview](docs/project-overview.md) — what VDR-Suite does, what remains VDR's responsibility and where the platform is heading.
 2. [Project Status Dashboard](docs/project-status-dashboard.md) — a compact view of capabilities and future product work, not an installed-host report.
-3. [Current Architecture State](docs/development/current-architecture-state.md) — how the major implemented components actually fit together.
+3. [Choose your topic](docs/index.md#choose-your-topic) — go directly to Live TV, Recordings, permissions, TV pairing, API, installation or development.
+
+If you want to go deeper **after choosing your topic**, continue with the [Current Architecture State](docs/development/current-architecture-state.md), [architecture decisions](docs/adr/index.md), [phase roadmap](docs/planning/roadmap.md) or [historical acceptance evidence](docs/history/index.md).
 
 **Deutsch:** [Projektüberblick auf Deutsch](docs/project-overview.de.md).
 
