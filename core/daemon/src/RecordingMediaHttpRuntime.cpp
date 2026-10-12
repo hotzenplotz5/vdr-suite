@@ -42,6 +42,7 @@
 
 #include <chrono>
 #include <iostream>
+#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -52,6 +53,10 @@ namespace
 constexpr const char* MediaSessionWorkspaceRoot =
     "/var/cache/vdr-suite/media-sessions";
 constexpr int MediaAccessIdleTimeoutSeconds = 300;
+// Fail fast: one thumbnail request may resolve a source, stage a workspace
+// and render a frame at a time. Prevent index scans and 1024 symlink trees
+// from piling up even before the renderer's own worker gate.
+std::mutex trickplayRequestMutex;
 constexpr auto MediaSessionReapInterval = std::chrono::seconds(5);
 
 }
@@ -221,6 +226,10 @@ int runRecordingMediaHttpRuntime(
                 const auto owned =
                     deviceSessions.describeOwned(request.sessionId, verifiedDevice);
                 if (!owned) return error(404, "media_session_not_found");
+                std::unique_lock<std::mutex> oneRequest(
+                    trickplayRequestMutex, std::try_to_lock);
+                if (!oneRequest.owns_lock())
+                    return error(503, "trickplay_worker_busy");
 
                 // Session resourceId is server-issued (native); no arbitrary
                 // filesystem path or public recording ID is accepted here.
