@@ -44,7 +44,7 @@ This is a repository-scoped implementation summary, not a production-completion 
 
 ### Current cross-cutting product work
 
-- Multiuser Account/backend access administration remains a separate product workstream; MU.9A-F and post-MU.9 usability are merged, with later MU.10A/MU.10B Device pairing acceptance recorded in [Current State](../CURRENT.md).
+- Multiuser Account/backend access administration is a separate cross-cutting workstream. MU.9 and post-MU.9 usability are completed; MU.10A/B pairing has real-system acceptance evidence, whereas MU.10C1/D1/E1-E3 Device credential lifecycle code is merged without automatically proving real yaVDR/VIDAA acceptance. Exact present gates belong only in [Current State](../CURRENT.md).
 - Subsequent R2 Recording browse and authenticated Device Recording playback source is merged into `main`, including verified index-derived duration/preparing state and audio/SRT/WebVTT track/subtitle routes. Neither this merge nor this document proves the running daemon or TV hardware acceptance.
 - The accepted original Phase-69.F contract baseline is unchanged by additive post-phase candidate routes.
 
