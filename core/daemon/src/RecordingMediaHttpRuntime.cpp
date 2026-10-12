@@ -330,7 +330,7 @@ int runRecordingMediaHttpRuntime(
                     owned->backendId +
                     "\",\"presentationProfileId\":\"" +
                     profile +
-                    ",\"playback\":" +
+                    "\",\"playback\":" +
                     deviceRecordingResumePlaybackJson(resume) + "}}";
                 return response;
             }
