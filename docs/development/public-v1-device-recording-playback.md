@@ -30,6 +30,9 @@ namespace. A revoked or restarted session fails closed. A bounded in-memory
 owner registry allows at most four sessions per actor and 128 total; after
 daemon restart existing sessions are terminated by native recovery.
 
+For the isolated opt-in HLS startup experiment (default **off**), see
+[Playback Fast Start](playback-fast-start-experiment-20261012.md).
+
 ## Start a recording
 
 `POST /api/v1/recording-playback-sessions`
