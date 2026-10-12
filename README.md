@@ -34,7 +34,16 @@ For accepted scope versus ongoing/hardware-gated work, see the [feature dashboar
 
 The browser frontend lives in this repository under `web/frontend/`. The separate [VDR-Suite VIDAA client for Hisense televisions](https://github.com/hotzenplotz5/vdr-suite-vidaa) has its own installation, testing and real-TV acceptance status. It is not implied that an arbitrary TV already supports picture, sound, seeking or subtitles.
 
-This README uses a **real repository logo**, not a fabricated TV screenshot. Authentic Web/Hisense interface screenshots will be added only after real capture and permission/privacy review; see the [screenshot checklist](docs/screenshots.md).
+### Screenshots — Mitmachen erwünscht / capture slots
+
+**The following are text placeholders, not actual screenshots or rendered UI.** They show where real photographs/captures will be included once available.
+
+| Web Home / Now & Next | Web recording browser | Hisense VIDAA television |
+| --- | --- | --- |
+| **📷 Screenshot fehlt** — Home screen | **📷 Screenshot fehlt** — Recording list / details | **📷 Foto fehlt** — App running on a real TV |
+| [Capture instructions](docs/screenshots.md#1-web-home-now--next) | [Capture instructions](docs/screenshots.md#2-web-recordings) | [Capture instructions](docs/screenshots.md#3-hisense-vidaa-tv) |
+
+You can help replace these slots with genuine captures. Please redact private data and confirm any visible programme artwork can be shared. Provide the captures to the project maintainer; they will be reviewed before adding them to the README. **No placeholder represents tested playback, audio or subtitle support.**
 
 ## How the pieces fit
 

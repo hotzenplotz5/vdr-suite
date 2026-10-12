@@ -1,6 +1,6 @@
 # GPLv3 compatibility and provenance review (2026-10-12)
 
-> **Not a license grant or legal clearance.** This is a source-informed review of the GitHub repository at PR #464 head `066574ee42e55761c13dca8504f9f63dc1d76584`, compared to `main` `e77245bb93e842be97c66c0bb98abdfdae9b13b2`. Copyright ownership, provenance of copied code and the **actual distributed build** still require confirmation. Never treat the headings below as a blanket rights assignment.
+> **Not a license grant or legal clearance.** This review began during PR #464 and has since been updated for its merge into `main` as `d11732a17fea8698538526ddcc785e3676fd6771`. Historical commit references below describe investigation checkpoints, not current branch status. Copyright ownership, provenance of copied code and the **actual distributed build** still require confirmation. Never treat the headings below as a blanket rights assignment.
 
 ## Desired outcome and the exact decision
 
@@ -16,7 +16,7 @@ The selected `GPL-3.0-or-later` does **not** introduce a new incompatibility in 
 
 | Component / concrete location | Relationship visible in this repository | Upstream license / evidence | GPLv3 conclusion; additional proof required |
 | --- | --- | --- | --- |
-| Original `apps/daemon/`, `core/`, `api/rest/`, `web/frontend/` | Locally built C++ daemon and web client; Make/CI build own sources | Root `LICENSE` empty; no project-wide grant currently | **Pending ownership and contributor review**. Original code may be granted GPL-3.0-or-later by all relevant holders; audit incorporated snippets, assets, and commit provenance first. |
+| Original `apps/daemon/`, `core/`, `api/rest/`, `web/frontend/` | Locally built C++ daemon and web client; Make/CI build own sources | Complete GPLv3 `LICENSE` merged through PR #464; chosen `GPL-3.0-or-later` applies where rightsholders authorize it | **Distribution and contribution provenance review remains scoped.** Original code may be granted GPL-3.0-or-later by all relevant holders; audit incorporated snippets, assets, and commit provenance first. |
 | `vdr-plugin-suite-bridge/` (SuiteBridge) | In-tree VDR plugin C++ sources, unlike the HTTP-speaking daemon | Own source; separate native VDR plugin build boundary needs audit | **Upstream VDR GPL-2.0-or-later permits the GPLv3 option**, so native linking to VDR is not by itself a GPL-version blocker. Still check exact deployed headers, any copied code, plugin-to-plugin integrations and all holders' permissions. No blind relicensing. |
 | Native VDR core | Separate system dependency/runtime; plugin uses VDR API | Upstream `vdr.c` explicitly licenses VDR under GPL version 2 **or any later version** (Klaus Schmidinger); `plugin.h` points to `vdr.c` for copyright; installed distro sources still require version verification | **Conditional**: mere communication between separate processes does not automatically make the daemon a VDR derivative. Native plugin linking and copied code require individual analysis. |
 | RESTfulAPI (`core/vdr/src/RestfulApi*.cpp`, `core/recordings/src/RestfulApi*.cpp`) | Independent HTTP adapter/client implementation inferred from paths and README | Upstream plugin license/version and any copied fragments **not yet verified** | API-protocol use alone normally does not inherit the server program's license. Compare source for literal copied code; retain source notices where relevant. |
@@ -78,7 +78,7 @@ The HbbTV contract cites our `hotzenplotz5/vdr-plugin-web` fork and the `Zabrimu
 4. Inventory exact runtime/build dependencies and distribution packaging (including linked OpenSSL and FFmpeg configure flags); collect license/NOTICE material and attribution as appropriate.
 5. Resolve origin and publication permission for all SVG/PNG/logo assets and external artwork. Also review the separate **private** VIDAA repository's contributors, `package.json` and `app/Code_Generated_Image.png` independently before public release.
 6. Maintainer has now selected **`GPL-3.0-or-later`** as the target for original code under their control. Verify that other relevant rightsholders have granted the same permission; no third-party license is replaced by this choice. Prepare separate license scopes/notices as needed; avoid implying all external programs become GPLv3.
-7. The official GPLv3 text is now committed on this review branch. Complete scoped notices/REUSE or SPDX metadata, copyright/third-party credits, and verify repository license detection plus tests before full publication acceptance. No legal-compliance PASS until all blockers resolved.
+7. The complete GPLv3 text was merged to `main` in PR #464. Complete scoped notices/REUSE or SPDX metadata, copyright/third-party credits, and verify repository license detection plus tests before full publication acceptance. No legal-compliance PASS until all blockers resolved.
 
 **Current decision required from holder:** “For original VDR-Suite source that I own or am authorized to license, I authorize publication under `GPL-3.0-or-later`, subject to documented third-party exceptions.” This statement does *not* clear other contributors or external materials.
 
