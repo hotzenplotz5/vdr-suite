@@ -69,6 +69,8 @@ int main()
     assert(ready.durationSeconds == 6);
     assert(ready.supported);
     assert(!ready.preparing);
+    assert(deviceRecordingResumePlaybackJson(ready) ==
+           "{\"durationSeconds\":6,\"resume\":{\"supported\":true,\"preparing\":false}}");
 
     auto preparing = projectDeviceRecordingResume(recording, source,
                                                   "hls-fmp4", true);
@@ -102,6 +104,10 @@ int main()
                                                 "hls-fmp4", false);
     assert(unmapped.durationSeconds == 6);
     assert(!unmapped.supported);
+    assert(deviceRecordingResumePlaybackJson(unmapped) ==
+           "{\"durationSeconds\":6,\"resume\":{\"supported\":false,\"preparing\":false}}");
+    assert(deviceRecordingResumePlaybackJson(unmapped).find(directory.string())
+           == std::string::npos);
 
     // Unexpected in-progress marker and missing index must fail closed.
     {
