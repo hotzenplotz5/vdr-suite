@@ -28,6 +28,7 @@ class InventoryTests(unittest.TestCase):
             self.assertEqual(owners["/usr/sbin/vdr-suite-backend-agent"], "vdr-suite-backend-agent")
             self.assertEqual(owners["/usr/lib/vdr/plugins/libvdr-suitebridge.so.2.6.0"], "vdr-plugin-suitebridge")
             self.assertEqual(len(records), 3)
+            self.assertEqual(records[0]["mode"], "0644")
 
     def test_fail_closed_unknown_plugin_file(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -43,7 +44,37 @@ class InventoryTests(unittest.TestCase):
             link.parent.mkdir(parents=True)
             link.symlink_to("/nonexistent")
             records = inventory.inspect(stage, "runtime")
-            self.assertEqual(records[0]["type"], "symlink")
+            with self.assertRaises(ValueError):
+                inventory.inspect(stage, "runtime")
+
+    def test_agent_unit_and_config(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            stage = Path(tmp)
+            files = ["lib/systemd/system/vdr-suite-backend-agent.service",
+                     "etc/vdr-suite/backend-agent.conf"]
+            for name in files:
+                target = stage / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("example", encoding="utf-8")
+            entries = inventory.inspect(stage, "runtime")
+            self.assertTrue(all(x["package"] == "vdr-suite-backend-agent" for x in entries))
+            self.assertTrue(any(x.get("config_candidate") for x in entries))
+
+    def test_reject_secret_payload_and_world_write(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            stage = Path(tmp)
+            secret = stage / "var/lib/vdr-suite/secrets/token"
+            secret.parent.mkdir(parents=True)
+            secret.write_text("secret")
+            with self.assertRaises(ValueError):
+                inventory.inspect(stage, "runtime")
+            secret.unlink()
+            file = stage / "usr/sbin/vdr-suite-daemon"
+            file.parent.mkdir(parents=True)
+            file.write_bytes(b"fake")
+            file.chmod(0o666)
+            with self.assertRaises(ValueError):
+                inventory.inspect(stage, "runtime")
 
 if __name__ == "__main__":
     unittest.main()
