@@ -13,7 +13,7 @@
 
 The Device Recording controller is implemented in [RecordingMediaHttpRuntime](../core/daemon/src/RecordingMediaHttpRuntime.cpp) using the existing media controller and [Device-owned session registry](../core/daemon/include/PublicDevicePlaybackRegistry.h). This source is present in the merged R2 baseline. It is **not** part of the historically accepted original Phase-69.F reference-client contract, and its presence does **not** establish installed-daemon or Hisense picture/sound/subtitle acceptance.
 
-**These methods are not yet modeled in [the partial OpenAPI 3.1 contract](openapi.json).** Its audited inventory therefore remains 36 operations / 25 paths. This guide is a human-readable source map, **not** a complete formal HTTP schema or universal playback compatibility promise.
+**The five methods below are now modeled in [the partial OpenAPI 3.1 contract](openapi.json)**, expanding its audited subset to 41 operations / 30 paths. This guide remains a source-linked implementation map, **not** a universal playback compatibility promise, a full gateway/media-byte schema or hardware acceptance evidence.
 
 ## Authentication and ownership
 
@@ -55,7 +55,7 @@ The sample bodies, session cookie semantics, indexed-duration safety and media r
 - Internal media/session controller: [RecordingMediaSessionController](rest/include/RecordingMediaSessionController.h).
 - Historical track and VIDAA testing context: [VIDAA Device track document](../docs/development/vidaa-device-recording-tracks-20261011.md).
 
-Next machine-readable step: independently confirm request/response schemas, each SecurityHttpGate denial, all method/path routing and negative C++ tests; only then extend `openapi.json` and its scoped guard. Nothing here claims those tests or real-device deployment have passed for this guide.
+The OpenAPI subset and its scoped guard now cover these five source-backed Device routes, with method/path and Device-gate anchors and negative drift tests. This is **not** exhaustive HTTP security-denial/runtime conformance, formal OpenAPI Schema verification or live playback acceptance. Remaining work includes real Device integration testing, media-byte gateway documentation and validating all deployed denial envelopes.
 
 ## Back
 
