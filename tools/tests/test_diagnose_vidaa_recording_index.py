@@ -69,6 +69,20 @@ class RecordingIndexReadOnlyTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "INDEX_MISSING_OR_UNSAFE"):
             self.evaluate()
 
+    def test_yavdr_video_symlink_alias_resolves_to_real_video_directory(self):
+        alias = Path(self.tmp.name) / "video"
+        alias.symlink_to(self.root, target_is_directory=True)
+        self.assertEqual(diagnostic.resolved_video_root(alias),
+                         self.root.resolve())
+        self.assertEqual(diagnostic.resolved_video_root(self.root),
+                         self.root.resolve())
+        self.assertEqual(
+            diagnostic.find_recordings(
+                [diagnostic.resolved_video_root(alias)], "Pferd"),
+            [self.recording])
+        self.assertIsNone(diagnostic.resolved_video_root(Path("/")))
+        self.assertIsNone(diagnostic.resolved_video_root(Path("relative/video")))
+
     def test_matches_only_requested_recording_directory(self):
         self.assertEqual(
             diagnostic.find_recordings([self.root], "Pferd"),
