@@ -95,6 +95,13 @@ struct MediaVideoStreamDescriptor
     double framesPerSecond = 0.0;
     bool hdr = false;
     bool interlaced = false;
+    // Probe evidence only; playback negotiation must not infer HDR support.
+    std::string colorPrimaries;
+    std::string colorTransfer;
+    std::string colorSpace;
+    std::string pixelFormat;
+    std::string timeBase;
+    long long bitRate = 0;
 };
 
 struct MediaAudioStreamDescriptor
