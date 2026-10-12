@@ -93,7 +93,7 @@ int main(int argc, char** argv)
         const std::string directory(argv[1]);
         const auto fromRealInit = probe.inspectOwnedWorkspace(directory, plan);
         if (!fromRealInit.inspected) {
-            std::fprintf(stderr, "EMITTED_INIT_PROBE_FAIL=%s\\n",
+            std::fprintf(stderr, "EMITTED_INIT_PROBE_FAIL=%s\n",
                          fromRealInit.reasonCode.c_str());
         }
         assert(fromRealInit.inspected);
@@ -125,7 +125,8 @@ int main(int argc, char** argv)
         broken.close();
         const auto malformed = probe.inspectOwnedWorkspace(directory, plan);
         assert(!malformed.inspected);
-        assert(malformed.reasonCode == "emitted_probe_process_failed");
+        assert(malformed.reasonCode.rfind(
+            "emitted_probe_process_failed:", 0) == 0);
     }
     return 0;
 }
