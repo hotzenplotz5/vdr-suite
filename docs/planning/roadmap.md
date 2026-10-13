@@ -1292,3 +1292,7 @@ The packaging milestone must add real `debian/` metadata, reproducible package b
 
 No public C++ ABI or `-dev` package is implied.
 
+
+## Post-69 intermediate track PP — Cross-Platform Playback Productization
+
+**Status: planned, not accepted or implemented.** [Proposed ADR-0068](../adr/ADR-0068-cross-platform-playback-planning-and-media-analysis.md) and [PP workstream PP.0–PP.7](../development/post-phase69-playback-platform-workstream.md) bind the shared backend Media Analyzer / Playback Planner and platform-specific player adapters. This cross-cutting intermediate track does **not** renumber completed phases, start Phase 70, or declare the current Medicus II HEVC experiment accepted. One Play action should choose a supported transport and codec path for each client. Source-bound evidence, versioned cache invalidation, explicit fallback and real VIDAA + subsequent second-platform acceptance are mandatory. No duplicate media architecture or uncontrolled rebuilds.
