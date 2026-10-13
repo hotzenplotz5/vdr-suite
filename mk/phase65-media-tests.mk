@@ -290,3 +290,10 @@ test-hevc-hls-keyframe-probe:
 		core/media/tests/test_hevc_hls_keyframe_probe.cpp \
 		-o $(BUILD_DIR)/test_hevc_hls_keyframe_probe
 	$(BUILD_DIR)/test_hevc_hls_keyframe_probe
+
+.PHONY: test-hevc-hls-probe-attestation
+test-hevc-hls-probe-attestation:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
+		core/media/tests/test_hevc_hls_probe_attestation.cpp \
+		-o $(BUILD_DIR)/test_hevc_hls_probe_attestation
+	$(BUILD_DIR)/test_hevc_hls_probe_attestation
