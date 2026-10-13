@@ -385,7 +385,8 @@ RecordingMediaSessionProvisionResult RecordingMediaSessionRuntime::provisionHls(
     const std::string& workspaceId,
     const std::string& grantId,
     const MediaPresentationProfile& profile,
-    const std::vector<std::string>& sourceSegments)
+    const std::vector<std::string>& sourceSegments,
+    const HevcHlsKeyframeEvidence& externallyVerifiedEvidence)
 {
     RecordingMediaSessionProvisionResult result;
     if (sessionId.empty() || workspaceId.empty() || grantId.empty() ||
@@ -417,7 +418,10 @@ RecordingMediaSessionProvisionResult RecordingMediaSessionRuntime::provisionHls(
 
     const MediaPresentationProfile resolvedProfile = transcodePolicy_.apply(profile);
     const FfmpegHlsCommandPlan command =
-        FfmpegHlsCommandBuilder().build(resolvedProfile);
+        FfmpegHlsCommandBuilder().build(
+            resolvedProfile, 0,
+            decideHevcHlsSegmentPolicy(resolvedProfile, externallyVerifiedEvidence) ==
+                HevcHlsSegmentDecision::ExperimentalKeyframe);
     if (!command.valid) {
         result.reasonCode = command.reasonCode.empty()
             ? "media_worker_plan_invalid"
