@@ -50,3 +50,67 @@ Cache data might be regenerated, but human accounts, device credentials, grants 
 Run the isolated, non-destructive regression suite:
 
     python3 tools/test_install_daemon.py -v
+
+## Device-Trickplay-Daemon – geprüfter Kandidat (13.10.2026)
+
+Dieser Branch basiert auf Backend-Trickplay-PR #473 und ergänzt den bestehenden
+Daemon-only-Installer aus PR #451. **Nur Daemon**, keine Plugin-, VIDAA-,
+Nginx-, Frontend-, Paket- oder VDR-Änderungen.
+
+Der Installer prüft, dass das gebaute Binary sowohl die existierenden
+Device-Track-Funktionen als auch die neue Device-JPEG-Trickplay-Route enthält.
+Das ist eine statische Binärprüfung und kein Ersatz für einen authentifizierten
+HTTP-Hardwaretest.
+
+Die Befehle sind absichtlich getrennt; alle Arbeiten im Checkout als
+normaler Benutzer. Niemals den Source-Build mit sudo starten:
+
+```bash
+# Nur im explizit geprüften Checkout dieses Branches:
+PIN="$(git rev-parse HEAD)"
+python3 tools/test_install_daemon.py -v
+python3 tools/install_daemon.py check --sha "$PIN"
+python3 tools/install_daemon.py build --sha "$PIN"
+python3 tools/install_daemon.py check --sha "$PIN"
+```
+
+Erst nach grünem `check`, vollständig versiegeltem Build, überprüftem
+`DB_BACKUP_DECISION` und ausdrücklicher Installationsfreigabe:
+
+```bash
+sudo python3 tools/install_daemon.py apply --sha "$PIN" --confirm-apply
+```
+
+Bei `DB_BACKUP_DECISION=REVIEW_REQUIRED` erfolgt **keine automatische
+Installation**: Die angezeigten `DB_REVIEW_PATH` müssen gegen den exakten
+Altstand bewertet werden. Anschließend ist eine dokumentierte Entscheidung
+mit `--db-review` und `--db-review-reason` erforderlich, gegebenenfalls
+mit einer explizit geprüften Datenbankdatei. Geräte-Credentials, Benutzer
+und Grants dürfen niemals aufgrund einer vermuteten Schema-Verträglichkeit
+gefährdet werden.
+
+Für spätere Probleme gibt es den eigenständigen, ausschließlich manuellen
+Binary-Rollback. Er ist nur bei nachgewiesener Binärherkunft, versiegeltem
+Vorversion-Backup und geprüfter Datenbank-Risikostufe erlaubt:
+
+```bash
+sudo python3 tools/install_daemon.py rollback --sha "$PIN" --confirm-rollback
+```
+
+Bei historisch `REVIEW_REQUIRED` ist zusätzlich die Bewertung und
+explizite `--db-review no-backup --db-review-reason "…"` erforderlich;
+bei einem tatsächlichen SQLite-Schemawechsel reicht ein Binary-Rollback
+nicht aus. Datenbanken werden **niemals** automatisch zurückgeschrieben.
+
+`check` ist ohne Produktionsschreibzugriffe. `build` schreibt nur ins
+persistente private SHA-Artefaktverzeichnis; root-Build ist verboten.
+`apply` stoppt/startet ausschließlich `vdr-suite-daemon.service`,
+kopiert die vorherige Binärdatei samt SHA-Receipt und prüft danach den
+laufenden Prozess. Fehler führen zum automatischen Wiederanlauf der
+Altversion, sofern möglich. Bei fehlerhafter Recovery muss der Operator
+den tatsächlichen Service-/Rollback-Status überprüfen; niemals Erfolg
+behaupten. Der Daemon wird durch GitHub-CI **nicht** auf yaVDR installiert.
+
+**Status:** isolierte CI-Tests bestanden; echter yaVDR-Build, Install,
+Device-JPEG-Antwort, HEVC und TV-Akzeptanz ausstehend.
+
