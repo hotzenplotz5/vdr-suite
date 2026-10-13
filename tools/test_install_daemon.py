@@ -191,5 +191,84 @@ class InstallerTests(unittest.TestCase):
             mod.verify_source(self.root, new)
 
 
+    def test_trickplay_marker_required_in_linked_candidate(self):
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp",
+                     "// safe codec preview\n")
+        binary = self._sealed_binary(new)
+        self.assertEqual(mod.verified_candidate(self.root, new), binary)
+        original = binary.read_bytes()
+        for marker in (b"trickplay_request_invalid", b"trickplay_worker_busy",
+                       b"trickplay_source_not_ready", b"/trickplay"):
+            binary.write_bytes(original.replace(marker, b"omitted", 1))
+            with self.assertRaisesRegex(mod.Rejected,
+                                        "BUILD_DEVICE_FEATURE_MISSING"):
+                mod.verify_binary(binary, new)
+        binary.write_bytes(original)
+
+    def test_manual_rollback_is_explicit_and_restores_running_binary(self):
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp",
+                     "// harmless candidate\n")
+        binary = self._sealed_binary(new)
+        before = self.live.read_bytes()
+        args = argparse.Namespace(confirm_apply=True, confirm_rollback=False,
+                                  live=self.live,
+                                  service="vdr-suite-daemon.service",
+                                  db_review=None, db_review_reason=None,
+                                  database=None)
+        original_run = mod.run
+        def fake_run(*command, **options):
+            return "" if command[0] == "systemctl" else original_run(
+                *command, **options)
+        with (mock.patch.object(mod, "LIVE_PATH", self.live.resolve()),
+              mock.patch.object(mod, "INSTALL_LOCK",
+                                Path(self.tmp.name) / "installer-lock"),
+              mock.patch.object(mod, "free_budget"),
+              mock.patch.object(mod, "service_bin_identity"),
+              mock.patch.object(mod, "run", side_effect=fake_run),
+              mock.patch.object(mod.time, "sleep"),
+              mock.patch.object(mod.os, "geteuid", return_value=0)):
+            mod.apply(self.root, new, args, self.old, "NOT_REQUIRED")
+            self.assertEqual(self.live.read_bytes(), binary.read_bytes())
+            with self.assertRaisesRegex(mod.Rejected,
+                                        "EXPLICIT_ROLLBACK_CONFIRMATION_REQUIRED"):
+                mod.rollback(self.root, new, args, new, "NOT_REQUIRED")
+            args.confirm_rollback = True
+            mod.rollback(self.root, new, args, new, "NOT_REQUIRED")
+        self.assertEqual(self.live.read_bytes(), before)
+        self.assertTrue(binary.is_file())
+        self.assertTrue((binary.parent / "previous-daemon.json").is_file())
+
+    def test_manual_rollback_rejects_changed_receipt(self):
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp",
+                     "// harmless candidate\n")
+        binary = self._sealed_binary(new)
+        args = argparse.Namespace(confirm_apply=True, confirm_rollback=True,
+                                  live=self.live,
+                                  service="vdr-suite-daemon.service",
+                                  db_review=None, db_review_reason=None,
+                                  database=None)
+        original_run = mod.run
+        with (mock.patch.object(mod, "LIVE_PATH", self.live.resolve()),
+              mock.patch.object(mod, "INSTALL_LOCK",
+                                Path(self.tmp.name) / "installer-lock"),
+              mock.patch.object(mod, "free_budget"),
+              mock.patch.object(mod, "service_bin_identity"),
+              mock.patch.object(mod, "run",
+                                side_effect=lambda *cmd, **kw:
+                                "" if cmd[0] == "systemctl" else
+                                original_run(*cmd, **kw)),
+              mock.patch.object(mod.time, "sleep"),
+              mock.patch.object(mod.os, "geteuid", return_value=0)):
+            mod.apply(self.root, new, args, self.old, "NOT_REQUIRED")
+            receipt = binary.parent / "previous-daemon.json"
+            payload = __import__("json").loads(receipt.read_text())
+            payload["previous_sha256"] = "0" * 64
+            receipt.write_text(__import__("json").dumps(payload))
+            with self.assertRaisesRegex(mod.Rejected,
+                                        "ROLLBACK_RECEIPT_MISMATCH"):
+                mod.rollback(self.root, new, args, new, "NOT_REQUIRED")
+            self.assertEqual(self.live.read_bytes(), binary.read_bytes())
+
+
 if __name__ == "__main__":
     unittest.main()
