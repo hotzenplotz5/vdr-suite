@@ -24,7 +24,7 @@ test-phase65-media-capability-negotiation:
 		-f lavfi -i sine=frequency=440:sample_rate=48000 \
 		-t 1 -c:v libx264 -preset ultrafast -pix_fmt yuv420p \
 		-c:a aac -ac 2 -f hls -hls_segment_type fmp4 \
-		-hls_fmp4_init_filename init.mp4 \
+		-hls_fmp4_init_filename "$d/init.mp4" \
 		-hls_segment_filename "$d/segment-%06d.m4s" \
 		-hls_time 1 "$d/master.m3u8"; \
 		$(BUILD_DIR)/test_phase65_media_emitted_fmp4_probe "$d"
