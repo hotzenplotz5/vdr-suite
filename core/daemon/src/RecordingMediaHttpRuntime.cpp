@@ -19,6 +19,11 @@
 #include "MediaRouteLeaseRepository.h"
 #include "MediaSessionIssuanceService.h"
 #include "MediaSessionRepository.h"
+#include "MediaSessionWorkspace.h"
+#include "LocalVdrRecordingSourceResolver.h"
+#include "RecordingTrickplayDeviceRequest.h"
+#include "RecordingTrickplayPreviewPlan.h"
+#include "RecordingTrickplayPreviewRenderer.h"
 #include "PublicDevicePlaybackRegistry.h"
 #include "PublicRecordingDevicePlaybackAdmission.h"
 #include "PublicRecordingIdentityRepository.h"
@@ -39,7 +44,10 @@
 
 #include <chrono>
 #include <iostream>
+#include <mutex>
+#include <string>
 #include <utility>
+#include <vector>
 
 namespace
 {
@@ -47,6 +55,10 @@ namespace
 constexpr const char* MediaSessionWorkspaceRoot =
     "/var/cache/vdr-suite/media-sessions";
 constexpr int MediaAccessIdleTimeoutSeconds = 300;
+// Fail fast: one thumbnail request may resolve a source, stage a workspace
+// and render a frame at a time. Prevent index scans and 1024 symlink trees
+// from piling up even before the renderer's own worker gate.
+std::mutex trickplayRequestMutex;
 constexpr auto MediaSessionReapInterval = std::chrono::seconds(5);
 
 }
@@ -251,6 +263,96 @@ int runRecordingMediaHttpRuntime(
                 return created;
             }
             const std::string prefix = collection + "/";
+            // Separate, read-only, per-Session Device Trickplay resource.
+            // SecurityHttpGate requires a live Device proof for this whole
+            // control namespace; describeOwned RECHECKS persistence-backed
+            // identity, credential, exact Session owner and current play
+            // grant before any native recording or filesystem is touched.
+            if (target.rfind(prefix, 0) == 0 &&
+                target.find("/trickplay", prefix.size()) !=
+                    std::string::npos) {
+                const auto request =
+                    RecordingTrickplayDeviceRequestParser().parse(target);
+                if (!body.empty() || !request.valid)
+                    return error(400, request.reasonCode.empty()
+                        ? "trickplay_request_invalid" : request.reasonCode);
+                const auto owned =
+                    deviceSessions.describeOwned(request.sessionId, verifiedDevice);
+                if (!owned) return error(404, "media_session_not_found");
+                std::unique_lock<std::mutex> oneRequest(
+                    trickplayRequestMutex, std::try_to_lock);
+                if (!oneRequest.owns_lock())
+                    return error(503, "trickplay_worker_busy");
+
+                // Session resourceId is server-issued (native); no arbitrary
+                // filesystem path or public recording ID is accepted here.
+                VdrRecording recording;
+                if (!recordingQueryService.findRecordingById(
+                        owned->backendId, owned->resourceId, recording) ||
+                    recording.id != owned->resourceId ||
+                    (recording.backendId != owned->backendId &&
+                     !(recording.backendId.empty() &&
+                       owned->backendId == "default")))
+                    return error(404, "recording_not_found");
+
+                LocalVdrRecordingSourceResolver resolver(
+                    [recording](const std::string& backendId) {
+                        if (recording.backendId != backendId &&
+                            !(recording.backendId.empty() &&
+                              backendId == "default"))
+                            return std::vector<VdrRecording>{};
+                        return std::vector<VdrRecording>{recording};
+                    });
+                const auto source = resolver.resolve(
+                    owned->backendId, recording.id);
+                if (!source.resolved || source.source.growing)
+                    return error(409, "trickplay_source_not_ready");
+
+                // Read the real completed VDR index, NEVER EPG durations,
+                // client claims or the rolling HLS playlist clock.
+                const int duration =
+                    vdrsuite::recording::durationSecondsFromIndex(recording);
+                const auto durations =
+                    vdrsuite::recording::segmentDurationsSecondsFromIndex(
+                        recording, source.source.segmentPaths);
+                const auto plan = RecordingTrickplayPreviewPlanner().build(
+                    request.positionSeconds, duration,
+                    source.source.segmentPaths.size(), durations);
+                if (!plan.valid) return error(409, plan.reasonCode);
+
+                // One ephemeral workspace per exact owned Session+bucket.
+                // Colliding duplicate requests fail closed; the destructor
+                // removes only workspace files it created. Never reuse an
+                // HLS worker's live workspace or reveal the host paths.
+                MediaSessionWorkspace workspace(MediaSessionWorkspaceRoot);
+                const auto prepared = workspace.prepare(
+                    "trickplay-" + request.sessionId + "-" +
+                        std::to_string(plan.sampleSeconds),
+                    source.source.segmentPaths, durations);
+                if (!prepared.ready)
+                    return error(503, "trickplay_workspace_unavailable");
+
+                const auto frame =
+                    RecordingTrickplayPreviewRenderer().render(plan, workspace);
+                if (!frame.ready)
+                    return error(503, frame.reasonCode.empty()
+                        ? "trickplay_frame_not_ready" : frame.reasonCode);
+
+                // Recheck live revocation/session stop after FFmpeg: a device
+                // losing access during the bounded render gets NO media bytes.
+                if (!deviceSessions.describeOwned(
+                        request.sessionId, verifiedDevice))
+                    return error(403, "device_media_permission_denied");
+                ApiResponse image;
+                image.statusCode = 200;
+                image.contentType = "image/jpeg";
+                image.headers["Cache-Control"] = "no-store";
+                image.headers["X-Content-Type-Options"] = "nosniff";
+                image.headers["X-Trickplay-Sample-Seconds"] =
+                    std::to_string(frame.sampleSeconds);
+                image.body = frame.jpeg;
+                return image;
+            }
             // Device-only track inventory of the currently owned Session.
             // The existing Browser trackStatus computes the source inventory,
             // but its response also contains a native Recording ID: NEVER

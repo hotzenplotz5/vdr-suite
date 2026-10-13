@@ -5620,6 +5620,143 @@
         }
       }
     },
+    "/api/v1/recording-playback-sessions/{sessionId}/trickplay": {
+      "get": {
+        "tags": [
+          "Device Recording playback"
+        ],
+        "operationId": "getDeviceRecordingTrickplayJpeg",
+        "summary": "Read an indexed Trickplay JPEG for an owned Recording session",
+        "description": "Experimental daemon-only Device route; no installed Hisense evidence. Requires live paired Device credential, owned active recording MediaSession and current media.recording.play@backend grant, rechecked after bounded FFmpeg. Only completed source-indexed 10-second JPEG samples; no native paths, no browser fallback, no second decoder. Parallel requests are rejected without queuing.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified VDR-Suite Device credential; active, owned Device session; media.recording.play@backendId for create/mutations (read rechecks current Device credential, session ownership and backend playback grant in the owner registry). Browser session, Basic authentication, or recordings.view alone do not authorize this API.",
+          "securitySchemeDocumentation": "Device header Authorization: VDR-Suite-Device <credentialId>.<credentialSecret>; OpenAPI securitySchemes deliberately remain partial."
+        },
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "description": "Opaque, active Device-owned ms_ plus 32 lowercase hex; never a native VDR recording path.",
+            "schema": {
+              "type": "string",
+              "pattern": "^ms_[0-9a-f]{32}$"
+            }
+          },
+          {
+            "name": "seconds",
+            "in": "query",
+            "required": true,
+            "description": "Canonical unsigned decimal 0..43199, without leading zeros or extra query keys; must be less than the authoritative VDR-index duration, floored to a 10-second sample.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 43199
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One JPEG (no-store, nosniff) for the ten-second bucket; no source paths or credentials.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "X-Content-Type-Options": {
+                "description": "Always nosniff",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "nosniff"
+                  ]
+                }
+              },
+              "X-Trickplay-Sample-Seconds": {
+                "description": "Index-derived sample position",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid route/backend/recording ID or request body (including invalid client capability declaration).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Device authentication missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Device lacks media.recording.play, or credential/session is not the owner.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Recording/session does not exist or is unavailable to this Device.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Requested recording, media session or track operation cannot proceed in its current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Backend/owner/metadata/media preparation unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/recording-playback-sessions/{sessionId}/tracks": {
       "get": {
         "tags": [
