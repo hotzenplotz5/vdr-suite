@@ -26,7 +26,7 @@ int main(int argc, char** argv)
         if (!it->is_regular_file(ec) || ec) break;
         const auto name = it->path().filename().string();
         const auto extension = it->path().extension().string();
-        if (name.size() == 8 &&
+        if (name.size() == 5 + extension.size() &&
             (extension == ".ts" || extension == ".vdr") &&
             std::all_of(name.begin(), name.begin() + 5,
                         [](unsigned char c) { return c >= '0' && c <= '9'; })) {
