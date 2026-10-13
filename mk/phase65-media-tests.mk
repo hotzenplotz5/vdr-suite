@@ -10,7 +10,24 @@ test-phase65-media-capability-negotiation:
 		core/media/tests/test_media_presentation_selector.cpp \
 		-o $(BUILD_DIR)/test_phase65_media_capability_negotiation
 	$(BUILD_DIR)/test_phase65_media_capability_negotiation
-
+	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/media/include \
+		core/media/src/MediaProcessRunner.cpp \
+		core/media/src/MediaPresentationSelector.cpp \
+		core/media/src/MediaPlannedOutput.cpp \
+		core/media/src/MediaEmittedFmp4Probe.cpp \
+		core/media/tests/test_media_emitted_fmp4_probe.cpp \
+		-o $(BUILD_DIR)/test_phase65_media_emitted_fmp4_probe
+	$(BUILD_DIR)/test_phase65_media_emitted_fmp4_probe
+	@set -eu; d="$(mktemp -d)"; trap 'rm -rf "$d"' EXIT; \
+		/usr/bin/ffmpeg -nostdin -hide_banner -loglevel error \
+		-f lavfi -i testsrc2=size=320x180:rate=25 \
+		-f lavfi -i sine=frequency=440:sample_rate=48000 \
+		-t 1 -c:v libx264 -preset ultrafast -pix_fmt yuv420p \
+		-c:a aac -ac 2 -f hls -hls_segment_type fmp4 \
+		-hls_fmp4_init_filename init.mp4 \
+		-hls_segment_filename "$d/segment-%06d.m4s" \
+		-hls_time 1 "$d/master.m3u8"; \
+		$(BUILD_DIR)/test_phase65_media_emitted_fmp4_probe "$d"
 # Pure, device-independent evidence filter; no running MediaSession or API.
 .PHONY: test-phase65-media-capability-evidence
 test-phase65-media-capability-evidence:
