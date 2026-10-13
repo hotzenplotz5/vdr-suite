@@ -288,9 +288,18 @@ FfmpegHlsCommandPlan buildPlan(
         plan.argv.push_back("aac_adtstoasc");
     }
 
-    const char* hlsFlags = profile.videoAction == MediaTrackAction::Copy
-        ? "delete_segments+split_by_time+temp_file"
-        : "delete_segments+independent_segments+temp_file";
+    // Experimental HEVC/fMP4 stream-copy path: prefer FFmpeg's keyframe
+    // boundaries instead of cutting through inter-picture dependencies.
+    // Do not change H264, MPEG-TS, transcoded video, or resume safety.
+    const bool hevcKeyframeSegments =
+        profile.container == MediaContainer::Fmp4 &&
+        profile.videoAction == MediaTrackAction::Copy &&
+        profile.targetVideoCodec == MediaCodec::H265;
+    const char* hlsFlags = hevcKeyframeSegments
+        ? "delete_segments+independent_segments+temp_file"
+        : profile.videoAction == MediaTrackAction::Copy
+            ? "delete_segments+split_by_time+temp_file"
+            : "delete_segments+independent_segments+temp_file";
     plan.argv.insert(plan.argv.end(), {
         "-f", "hls", "-hls_time", "4",
         "-hls_list_size", "8", "-hls_delete_threshold", "2",
