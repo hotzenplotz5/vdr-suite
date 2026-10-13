@@ -86,3 +86,7 @@ Current probe plan uses FFprobe `-read_intervals %+30`, but it is not a bounded 
 ## Evidence attestation handoff — 2026-10-13
 
 Operator verified prior probe/policy head `bab83211e72943154f03537f3813e496367ad038`; the previously run isolated parser and policy tests returned zero. New code introduces `HevcHlsProbeAttestation.h`, its fail-closed tests and `test-hevc-hls-probe-attestation`. It gates acceptance of external keyframe evidence on reported successful process exit, successful deadline completion, complete output, unchanged nonempty source fingerprint, stable recording and independently verified HEVC random-access semantics. Negative tests cover each missing condition. **No actual external probe executor, fingerprint acquisition, HEVC NAL validator or runtime wiring is implemented yet**; the attestation booleans are strictly inputs for a future trusted caller, not proofs created by this helper. New C++ test not yet operator-run. Default playback continues unchanged; no deployment.
+
+## Operator acceptance of three isolated regression tests — 2026-10-13
+
+At exact candidate `6dc4a5e4586a889afc25c8267a64608608a679e8`, operator fetched the branch and compiled/ran all three isolated C++ cases as `yavdr`: `hevc_hls_segment_policy=PASS`, `hevc_hls_keyframe_probe=PASS`, `hevc_hls_probe_attestation=PASS`, overall `TEST_EXIT_CODE=0`. Live daemon unchanged. This is **not** a real FFprobe execution, fingerprint attestation, HEVC NAL random-access check, or device acceptance. Pending runtime executor and true provenance must not be represented as complete.
