@@ -191,6 +191,33 @@ class InstallerTests(unittest.TestCase):
             mod.verify_source(self.root, new)
 
 
+    def test_build_as_root_is_refused_before_creating_artifacts(self):
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp",
+                     "// candidate\\n")
+        with mock.patch.object(mod.os, "geteuid", return_value=0):
+            with self.assertRaisesRegex(mod.Rejected, "BUILD_AS_ROOT_REFUSED"):
+                mod.build(self.root, new)
+        self.assertFalse((self.root / ".build").exists())
+
+    def test_service_binary_identity_requires_vdr_suite_execstart(self):
+        live = self.live
+        def fake_run(*cmd, **_kwargs):
+            if cmd[:2] == ("systemctl", "is-active"):
+                return "active"
+            if "--property=ExecStart" in cmd:
+                return "{ path=/usr/sbin/vdr-suite-daemon ; argv[]=/usr/sbin/vdr-suite-daemon ; }"
+            if "-p" in cmd and "MainPID" in cmd:
+                return "12345"
+            raise AssertionError("unexpected command:" + repr(cmd))
+        with mock.patch.object(mod, "run", side_effect=fake_run), \\
+             mock.patch.object(mod, "digest", return_value="a"*64):
+            mod.service_bin_identity("vdr-suite-daemon.service", live)
+        with mock.patch.object(mod, "run", return_value=
+                               "{ path=/bin/bash ; argv[]=/bin/bash ; }"):
+            with self.assertRaisesRegex(mod.Rejected,
+                                        "SERVICE_EXECSTART_UNEXPECTED"):
+                mod.service_bin_identity("vdr-suite-daemon.service", live)
+
     def test_trickplay_marker_required_in_linked_candidate(self):
         new = commit(self.root, "core/daemon/src/DeviceTrack.cpp",
                      "// safe codec preview\n")

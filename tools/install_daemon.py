@@ -174,6 +174,8 @@ def free_budget(path: Path, needed: int) -> None:
 
 
 def build(root: Path, sha: str) -> None:
+    # Compiling as root in a user-owned checkout is unnecessary and risky.
+    require(os.geteuid() != 0, "BUILD_AS_ROOT_REFUSED")
     directory, binary, seal = candidate(root, sha)
     require(not any(p.is_symlink() for p in (directory, directory.parent, directory.parent.parent)),
             "CANDIDATE_PATH_SYMLINK")
