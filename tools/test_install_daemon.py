@@ -99,7 +99,7 @@ class InstallerTests(unittest.TestCase):
                          "for arg in \"$@\"; do case \"$arg\" in BUILD_DIR=*) out=$(printf '%s' \"$arg\" | cut -c11-);; esac; done\n"
                          "mkdir -p \"$out\"\n"
                          f"echo built >> '{counter}'\n"
-                         f"printf '\\177ELFgit-{new[:12]} device_subtitle_delivery_invalid track-status /tracks /subtitles\\n' > \"$out/vdr-suite-daemon\"\n"
+                         f"printf '\\177ELFgit-{new[:12]} device_subtitle_delivery_invalid track-status /tracks /subtitles trickplay_request_invalid trickplay_worker_busy trickplay_source_not_ready /trickplay\\n' > \"$out/vdr-suite-daemon\"\n"
                          "chmod 755 \"$out/vdr-suite-daemon\"\n")
         faker.chmod(0o755)
         with mock.patch.object(mod, "free_budget"):

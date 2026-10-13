@@ -30,7 +30,13 @@ SCHEMA = re.compile(
     r"CREATE\s+(?:TABLE|INDEX|TRIGGER)|ALTER\s+TABLE|DROP\s+(?:TABLE|INDEX|TRIGGER)|"
     r"PRAGMA\s+user_version|DELETE\s+FROM)\b", re.IGNORECASE
 )
-FEATURES = (b"device_subtitle_delivery_invalid", b"track-status", b"/tracks", b"/subtitles")
+FEATURES = (
+    b"device_subtitle_delivery_invalid", b"track-status", b"/tracks",
+    b"/subtitles",
+    # Device-owned bounded recording JPEG from backend PR #473.
+    b"trickplay_request_invalid", b"trickplay_worker_busy",
+    b"trickplay_source_not_ready", b"/trickplay",
+)
 BUILD_BUDGET = 2 * 1024 ** 3
 MIN_HEADROOM = 4 * 1024 ** 3
 LIVE_PATH = Path("/usr/sbin/vdr-suite-daemon")
@@ -76,8 +82,9 @@ def verify_source(root: Path, expected: str) -> None:
 
 def embedded_source(binary: Path, root: Path) -> str:
     require(binary.is_file() and not binary.is_symlink(), "LIVE_BINARY_MISSING_OR_SYMLINK")
+    require(binary.stat().st_nlink == 1, "LIVE_BINARY_HARDLINK")
     # Keep host memory bounded; do not trust a version merely from a file name.
-    require(binary.stat().st_size <= 256 * 1024 * 1024, "BINARY_UNEXPECTED_SIZE")
+    require(0 < binary.stat().st_size <= 256 * 1024 * 1024, "BINARY_UNEXPECTED_SIZE")
     versions = set(VERSION.findall(binary.read_bytes()))
     require(len(versions) == 1, "INSTALLED_SOURCE_ID_UNKNOWN")
     prefix = next(iter(versions)).decode("ascii")
@@ -135,7 +142,7 @@ def candidate(root: Path, sha: str) -> tuple[Path, Path, Path]:
 def verify_binary(path: Path, sha: str) -> None:
     require(path.is_file() and not path.is_symlink(), "BUILD_BINARY_MISSING")
     require(os.access(path, os.X_OK), "BUILD_BINARY_NOT_EXECUTABLE")
-    require(path.stat().st_size <= 256 * 1024 * 1024, "BUILD_BINARY_UNEXPECTED_SIZE")
+    require(0 < path.stat().st_size <= 256 * 1024 * 1024, "BUILD_BINARY_UNEXPECTED_SIZE")
     data = path.read_bytes()
     require(data.startswith(b"\x7fELF"), "BUILD_BINARY_NOT_ELF")
     require(all(feature in data for feature in FEATURES), "BUILD_DEVICE_FEATURE_MISSING")
@@ -201,6 +208,10 @@ def build(root: Path, sha: str) -> None:
 
 
 def service_bin_identity(service: str, live: Path) -> None:
+    require(service == "vdr-suite-daemon.service", "SERVICE_NAME_UNEXPECTED")
+    entry = run("systemctl", "show", "--property=ExecStart", "--value", service)
+    require(re.search(r"(?:^|[ ;])path=/usr/sbin/vdr-suite-daemon(?:[ ;]|$)",
+                      entry) is not None, "SERVICE_EXECSTART_UNEXPECTED")
     require(run("systemctl", "is-active", service) == "active", "SERVICE_NOT_ACTIVE")
     pid = run("systemctl", "show", "-p", "MainPID", "--value", service)
     require(pid.isdigit() and int(pid) > 0, "SERVICE_NO_PID")
@@ -257,6 +268,7 @@ def apply(root: Path, sha: str, args: argparse.Namespace,
     require(args.live.stat().st_nlink == 1, "LIVE_BINARY_HARDLINK")
     require(args.live.resolve() == LIVE_PATH,
             "LIVE_BINARY_PATH_UNEXPECTED")
+    require(not args.live.parent.is_symlink(), "LIVE_PARENT_SYMLINK")
     require(args.service == "vdr-suite-daemon.service",
             "SERVICE_NAME_UNEXPECTED")
     if risk == "REVIEW_REQUIRED":
