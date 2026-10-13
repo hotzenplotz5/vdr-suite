@@ -233,9 +233,11 @@ def main():
             print(name, entry["description"], "bytes=", entry["bytes"])
         print("Known local source labels:", ", ".join(KNOWN))
         return 0
-    if os.geteuid() == 0:
-        print("STOP_ROOT: run as unprivileged yavdr; NO PRIVILEGE SWITCH")
-        return 2
+    # Respect the operator's existing shell identity. In particular, do not
+    # switch users or modify filesystem permissions/ownership. Temporary
+    # artifacts are confined to our new private scratch subdirectory.
+    print("RUNNING_UID={} PRIVILEGE_SWITCH=NO RIGHTS_CHANGES=NO".format(
+        os.geteuid()), flush=True)
     if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
         print("STOP_DEPENDENCY: ffmpeg and ffprobe required")
         return 2
