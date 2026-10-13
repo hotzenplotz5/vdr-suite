@@ -90,3 +90,9 @@ Operator verified prior probe/policy head `bab83211e72943154f03537f3813e496367ad
 ## Operator acceptance of three isolated regression tests — 2026-10-13
 
 At exact candidate `6dc4a5e4586a889afc25c8267a64608608a679e8`, operator fetched the branch and compiled/ran all three isolated C++ cases as `yavdr`: `hevc_hls_segment_policy=PASS`, `hevc_hls_keyframe_probe=PASS`, `hevc_hls_probe_attestation=PASS`, overall `TEST_EXIT_CODE=0`. Live daemon unchanged. This is **not** a real FFprobe execution, fingerprint attestation, HEVC NAL random-access check, or device acceptance. Pending runtime executor and true provenance must not be represented as complete.
+
+## Bounded process execution slice — 2026-10-13
+
+Operator confirmed only the documentation changed since the previously passing three isolated tests. Now added `HevcHlsKeyframeSampler.h`, `test_hevc_hls_keyframe_sampler.cpp` and `test-hevc-hls-keyframe-sampler`. It reuses the preexisting `MediaProcessRunner::runAndCapture` (process-group timeout/kill, captured output limit, non-shell argv, child limits) to invoke FFprobe read-only in a prepared workspace. Caps: five seconds wall time, 256 KiB captured output, 256 MiB address space and six CPU seconds. All failures, incomplete subprocesses and malformed packet output fail closed.
+
+**Boundary:** This samples untrusted packet-keyframe flags only; no source fingerprint acquisition/verification, HEVC NAL validation, source lifecycle integration or automatic VIDAA session selection is implemented. The new test covers malformed invocation and absence of prepared `input.ffconcat`; no real recording probe or TV test is claimed. Even a completed sampler does not set the attestation trust booleans. No production code path changed.
