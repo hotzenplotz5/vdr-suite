@@ -284,14 +284,28 @@ def apply(root: Path, sha: str, args: argparse.Namespace,
     require(digest(args.live) != digest(built), "CANDIDATE_ALREADY_INSTALLED")
     directory, _, _ = candidate(root, sha)
     backup_binary = directory / "previous-daemon"
+    backup_receipt = directory / "previous-daemon.json"
+    receipt = {"schema": 1, "previous_source": prior, "target_source": sha,
+               "previous_sha256": digest(args.live),
+               "candidate_sha256": digest(built)}
     if backup_binary.exists():
-        require(digest(backup_binary) == digest(args.live), "ROLLBACK_BINARY_COLLISION")
+        require(not backup_binary.is_symlink(), "ROLLBACK_BINARY_SYMLINK")
+        require(digest(backup_binary) == digest(args.live),
+                "ROLLBACK_BINARY_COLLISION")
+        require(backup_receipt.is_file() and not backup_receipt.is_symlink() and
+                json.loads(backup_receipt.read_text()) == receipt,
+                "ROLLBACK_RECEIPT_MISMATCH")
     else:
+        require(not backup_receipt.exists(), "ROLLBACK_RECEIPT_COLLISION")
         free_budget(directory, 2 * args.live.stat().st_size +
                     (2 * args.database.stat().st_size if args.db_review == "backup" else 0) +
                     64 * 1024 * 1024)
         shutil.copy2(args.live, backup_binary)
-        require(digest(backup_binary) == digest(args.live), "ROLLBACK_BINARY_FAILED")
+        require(digest(backup_binary) == digest(args.live),
+                "ROLLBACK_BINARY_FAILED")
+        backup_receipt.write_text(json.dumps(receipt, sort_keys=True) + "\n")
+        require(json.loads(backup_receipt.read_text()) == receipt,
+                "ROLLBACK_RECEIPT_WRITE_FAILED")
     # Cross-candidate serialization. Lock is set before service stop.
     lockfile = INSTALL_LOCK
     with lockfile.open("a+b") as lock:
@@ -331,19 +345,85 @@ def apply(root: Path, sha: str, args: argparse.Namespace,
             raise
 
 
+def rollback(root: Path, sha: str, args: argparse.Namespace,
+             prior: str, risk: str) -> None:
+    """Explicit binary-only rollback; never silently roll back SQLite state."""
+    require(os.geteuid() == 0, "ROOT_REQUIRED_FOR_ROLLBACK")
+    require(args.confirm_rollback, "EXPLICIT_ROLLBACK_CONFIRMATION_REQUIRED")
+    # Schema migrations can be irreversible. Never offer a deceptive
+    # 'safe' binary-only rollback if the target changed DB-sensitive code.
+    require(risk == "REVIEW_REQUIRED" or risk == "NOT_REQUIRED",
+            "ROLLBACK_RISK_UNKNOWN")
+    require(risk == "NOT_REQUIRED", "ROLLBACK_SCHEMA_REVIEW_REQUIRED")
+    require(args.live == LIVE_PATH and not args.live.is_symlink() and
+            args.live.is_file() and args.live.stat().st_nlink == 1,
+            "ROLLBACK_LIVE_PATH_UNSAFE")
+    require(args.service == "vdr-suite-daemon.service",
+            "SERVICE_NAME_UNEXPECTED")
+    require(prior == sha, "ROLLBACK_TARGET_NOT_RUNNING")
+    built = verified_candidate(root, sha)
+    require(digest(args.live) == digest(built),
+            "ROLLBACK_LIVE_BINARY_NOT_CANDIDATE")
+    directory, _, _ = candidate(root, sha)
+    old = directory / "previous-daemon"
+    receipt = directory / "previous-daemon.json"
+    require(old.is_file() and not old.is_symlink() and old.stat().st_nlink == 1
+            and receipt.is_file() and not receipt.is_symlink(),
+            "ROLLBACK_BACKUP_NOT_VERIFIED")
+    record = json.loads(receipt.read_text())
+    require(record == {"schema": 1,
+                       "previous_source": embedded_source(old, root),
+                       "target_source": sha,
+                       "previous_sha256": digest(old),
+                       "candidate_sha256": digest(built)},
+            "ROLLBACK_RECEIPT_MISMATCH")
+    with INSTALL_LOCK.open("a+b") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        service_bin_identity(args.service, args.live)
+        require(digest(args.live) == record["candidate_sha256"],
+                "ROLLBACK_LIVE_CHANGED")
+        before = args.live.stat()
+        changed = False
+        try:
+            changed = True
+            run("systemctl", "stop", args.service)
+            atomic_replace(old, args.live, before)
+            run("systemctl", "start", args.service)
+            service_bin_identity(args.service, args.live)
+            require(digest(args.live) == record["previous_sha256"],
+                    "ROLLBACK_RUNNING_BINARY_MISMATCH")
+            print("DAEMON_MANUAL_ROLLBACK=PASS", flush=True)
+        except BaseException:
+            if changed:
+                print("DAEMON_MANUAL_ROLLBACK_RECOVERY=START", flush=True)
+                try:
+                    run("systemctl", "stop", args.service)
+                    atomic_replace(built, args.live, before)
+                    run("systemctl", "start", args.service)
+                    service_bin_identity(args.service, args.live)
+                    require(digest(args.live) == record["candidate_sha256"],
+                            "ROLLBACK_RECOVERY_BINARY_MISMATCH")
+                    print("DAEMON_MANUAL_ROLLBACK_RECOVERY=PASS", flush=True)
+                except BaseException as exc:
+                    print(f"DAEMON_MANUAL_ROLLBACK_RECOVERY=FAILED:{exc}",
+                          file=sys.stderr, flush=True)
+            raise
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("check", "build", "apply"))
+    parser.add_argument("action", choices=("check", "build", "apply", "rollback"))
     parser.add_argument("--source", type=Path, default=Path(__file__).resolve().parent.parent)
     parser.add_argument("--sha", required=True)
     parser.add_argument("--live", type=Path, default=Path("/usr/sbin/vdr-suite-daemon"))
     parser.add_argument("--service", default="vdr-suite-daemon.service")
     parser.add_argument("--confirm-apply", action="store_true")
+    parser.add_argument("--confirm-rollback", action="store_true")
     parser.add_argument("--db-review", choices=("backup", "no-backup"))
     parser.add_argument("--db-review-reason")
     parser.add_argument("--database", type=Path)
     args = parser.parse_args(argv)
-    if args.action == "apply":
+    if args.action in ("apply", "rollback"):
         # SIGTERM must not bypass the same guarded recovery as Ctrl+C.
         def interrupted(_number: int, _frame: object) -> None:
             raise KeyboardInterrupt("INSTALL_INTERRUPTED")
@@ -373,6 +453,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"BUILD=NOT_SEALED PATH={binary}", flush=True)
         if args.action == "apply":
             apply(root, args.sha, args, current, risk)
+        elif args.action == "rollback":
+            rollback(root, args.sha, args, current, risk)
         else:
             print("CHECK=PASS_NO_CHANGES", flush=True)
         return 0
