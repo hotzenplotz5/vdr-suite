@@ -192,7 +192,8 @@ void appendAudioPlan(
 FfmpegHlsCommandPlan buildPlan(
     const MediaPresentationProfile& profile,
     const std::string* liveSocketPath,
-    int startPositionSeconds)
+    int startPositionSeconds,
+    bool experimentalHevcKeyframeSegments)
 {
     if (!profile.available || profile.protocol != MediaDeliveryProtocol::Hls)
         return invalid("profile_is_not_hls");
@@ -292,6 +293,7 @@ FfmpegHlsCommandPlan buildPlan(
     // boundaries instead of cutting through inter-picture dependencies.
     // Do not change H264, MPEG-TS, transcoded video, or resume safety.
     const bool hevcKeyframeSegments =
+        experimentalHevcKeyframeSegments &&
         profile.container == MediaContainer::Fmp4 &&
         profile.videoAction == MediaTrackAction::Copy &&
         profile.targetVideoCodec == MediaCodec::H265;
@@ -328,14 +330,16 @@ FfmpegHlsCommandPlan buildPlan(
 
 FfmpegHlsCommandPlan FfmpegHlsCommandBuilder::build(
     const MediaPresentationProfile& profile,
-    int startPositionSeconds) const
+    int startPositionSeconds,
+    bool experimentalHevcKeyframeSegments) const
 {
-    return buildPlan(profile, nullptr, startPositionSeconds);
+    return buildPlan(profile, nullptr, startPositionSeconds,
+                     experimentalHevcKeyframeSegments);
 }
 
 FfmpegHlsCommandPlan FfmpegHlsCommandBuilder::buildLive(
     const MediaPresentationProfile& profile,
     const std::string& unixSocketPath) const
 {
-    return buildPlan(profile, &unixSocketPath, 0);
+    return buildPlan(profile, &unixSocketPath, 0, false);
 }
