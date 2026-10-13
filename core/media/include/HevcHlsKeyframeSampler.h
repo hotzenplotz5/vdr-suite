@@ -24,13 +24,16 @@ inline HevcHlsKeyframeSample sampleHevcHlsKeyframes(
         sample.reasonCode = "invalid_probe_workspace";
         return sample;
     }
+    // FFprobe/codec libraries reserve more than 256 MiB of virtual address
+    // space on the tested HEVC TS input. RLIMIT_AS=256 MiB fails even though
+    // the same bounded probe succeeds without it. Keep wall/CPU/output caps.
     constexpr std::size_t MaxOutput = 256 * 1024;
     const auto process = runner.runAndCapture(
         hevcHlsKeyframeProbePlan().argv,
         preparedWorkspace,
         std::chrono::seconds(5),
         MaxOutput,
-        MediaProcessLimits{256 * 1024 * 1024, 6});
+        MediaProcessLimits{0, 6});
     if (!process.started || !process.completed || !process.success ||
         process.timedOut || process.outputLimitExceeded ||
         process.exitCode != 0) {
