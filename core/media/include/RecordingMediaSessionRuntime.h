@@ -1,6 +1,7 @@
 #pragma once
 
 #include "MediaCapabilities.h"
+#include "HevcHlsSegmentPolicy.h"
 #include "MediaTranscodePolicy.h"
 #include "RecordingDirectSourceRegistry.h"
 
@@ -112,7 +113,8 @@ public:
         const std::string& workspaceId,
         const std::string& grantId,
         const MediaPresentationProfile& profile,
-        const std::vector<std::string>& sourceSegments);
+        const std::vector<std::string>& sourceSegments,
+        const HevcHlsKeyframeEvidence& externallyVerifiedEvidence = {});
 
     RecordingMediaSessionProvisionResult provisionHlsAt(
         const std::string& sessionId,
