@@ -97,6 +97,8 @@ def main():
                         help='Only read this recording TS file')
     parser.add_argument('--seconds', type=int, default=24,
                         help='Analysis time (8-60 s, default 24)')
+    parser.add_argument('--scratch-dir', type=Path, default=Path('/home/yavdr'),
+                        help='Private temporary files on this filesystem (default /home/yavdr; never /tmp)')
     args = parser.parse_args()
     if not (8 <= args.seconds <= 60):
         parser.error('--seconds must be between 8 and 60')
@@ -115,8 +117,12 @@ def main():
     except OSError as exc:
         print('STOP_SOURCE:', exc)
         return 2
-    scratch = Path(tempfile.gettempdir())
+    scratch = args.scratch_dir.resolve()
+    if not scratch.is_dir() or not os.access(scratch, os.W_OK | os.X_OK):
+        print('STOP_SCRATCH: Arbeitsverzeichnis nicht schreibbar:', scratch)
+        return 2
     usage = shutil.disk_usage(scratch)
+    print('SCRATCH_FILESYSTEM=', scratch, flush=True)
     reserve = max(4 * 1024**3, (usage.total * 15 + 99) // 100)
     budget = 2 * 1024**3
     print('RESOURCE_PREFLIGHT total={} free={} reserve={} budget={}'.format(
@@ -195,7 +201,7 @@ def main():
     print('\n=== A/B-REMUX: VIDEO-COPY → HLS-fMP4 ===', flush=True)
     # TemporaryDirectory removes only its own, newly created private folder;
     # its symlink to the source is unlinked, never followed.
-    with tempfile.TemporaryDirectory(prefix='vdr-hevc-offline-') as temp_name:
+    with tempfile.TemporaryDirectory(prefix='vdr-hevc-offline-', dir=str(scratch)) as temp_name:
         work = Path(temp_name)
         for tag, flags in (
             ('BASELINE_SPLIT', 'delete_segments+split_by_time+temp_file'),
@@ -277,6 +283,13 @@ def main():
     print('Neue/mehr PTS-Luecken oder MP4-Warnungen: Remux-Zeitbasis untersuchen.')
     print('Gleichmaessige 24 fps in Original UND fMP4: VIDAA-Ausgabe bleibt moeglich.')
     print('Kein Offline-Test kann reale Display-Cadence des TV nachweisen.')
+    post_usage = shutil.disk_usage(scratch)
+    print('RESOURCE_POSTCHECK total={} free={} reserve={}'.format(
+        post_usage.total, post_usage.free, reserve))
+    if post_usage.free < reserve:
+        print('RESOURCE_POSTCHECK=FAIL')
+        return 2
+    print('RESOURCE_POSTCHECK=PASS')
     print('=== HEVC_REPORT_END ===', flush=True)
     return 0
 
