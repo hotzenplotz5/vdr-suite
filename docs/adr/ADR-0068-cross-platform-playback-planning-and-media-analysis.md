@@ -33,6 +33,15 @@ Separate three responsibilities in the existing authorized Media Plane:
 - VDR native recording identity, Agent/provider authority, fencing, grants and existing platform authorization remain binding. No extra direct provider URL or secondary auth system.
 - Dynamic HDR/DRM codec-specific licensing and platform decoder restrictions are not assumed solved by this ADR.
 
+
+## Frame-rate and presentation-timing contract
+
+The analyzer must keep **reported** `r_frame_rate`, `avg_frame_rate`, source time base and **observed** PTS/duration cadence distinct. A nominal codec/framerate declaration is not proof that packets have regular presentation timestamps; VFR, discontinuities and decode-vs-presentation order need independent handling. The planner must preserve the source's timing unless a tested conversion is required, avoid implicit frame-rate rewriting when doing video copy and include audio/video synchronization in compatibility assessment.
+
+The client playback adapter must distinguish decoded, dropped and actually presented frames (where exposed by the platform); report buffer starvation and A/V clock corrections separately from claimed source frame rate. Frame-rate mismatch, GOP fragmentation and MSE append/timestamp behavior are competing hypotheses for stutter, not interchangeable diagnoses. In particular, the Medicus II report of approximately 24 fps source metadata and an observed impression of 14 fps playback does **not** prove that its decoder is displaying 14 fps.
+
+A timing regression gate compares source packet PTS, generated fMP4 sample timing/segment continuity and actual TV playback telemetry under a fixed source clip, while preserving known-good Solo behavior. No global cadence/FFmpeg FPS filter is authorized by this ADR.
+
 ## Migration and delivery boundary
 
 The current HEVC trial branch contains bounded ffprobe/GOP experiments and an operator-scoped opt-in. They are **experimental evidence**, not acceptance of an automatic universal planner or a proven Medicus II playback fix. Solo must remain unmodified by this trial; a real VIDAA test of Medicus II and non-regression is required before enabling any new policy in production.
