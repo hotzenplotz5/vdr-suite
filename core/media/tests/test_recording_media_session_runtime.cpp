@@ -450,6 +450,63 @@ int main()
         directIdle.session.clearSecret();
     }
 
+    // Per-session HEVC opt-in: unverified evidence remains legacy, while
+    // explicitly validated short GOP evidence selects independent segments.
+    {
+        auto hevc = hlsProfile();
+        hevc.videoAction = MediaTrackAction::Copy;
+        hevc.audioAction = MediaTrackAction::Omit;
+        hevc.targetVideoCodec = MediaCodec::H265;
+        HevcHlsKeyframeEvidence trusted;
+        trusted.probeComplete = true;
+        trusted.sourceIdentityVerified = true;
+        trusted.inputIsStableRecording = true;
+        trusted.packetKeyframesVerified = true;
+        trusted.keyframePtsSeconds = {1.4, 2.399, 3.398, 4.397, 5.396, 6.395};
+
+        std::vector<std::vector<std::string>> commands;
+        RecordingMediaSessionRuntime runtime(
+            repository, root.string(),
+            [&commands](const std::vector<std::string>& args,
+                        const std::string&, const std::string&) {
+                commands.push_back(args);
+                return static_cast<pid_t>(4242);
+            },
+            [](pid_t, std::chrono::milliseconds) { return true; },
+            [](const std::string&, MediaContainer) { return true; });
+
+        auto legacySession = issuer.issue(issuanceRequest());
+        assert(legacySession.issued);
+        assert(runtime.provisionHls(
+            legacySession.session.sessionId, legacySession.session.workspaceId,
+            legacySession.session.grantId, hevc, {segment.string()}).ready);
+        assert(containsPair(commands.back(), "-hls_flags",
+                            "delete_segments+split_by_time+temp_file"));
+        assert(runtime.stop(legacySession.session.sessionId, "client_closed"));
+
+        auto trialSession = issuer.issue(issuanceRequest());
+        assert(trialSession.issued);
+        assert(runtime.provisionHls(
+            trialSession.session.sessionId, trialSession.session.workspaceId,
+            trialSession.session.grantId, hevc, {segment.string()}, trusted).ready);
+        assert(containsPair(commands.back(), "-hls_flags",
+                            "delete_segments+independent_segments+temp_file"));
+        assert(runtime.stop(trialSession.session.sessionId, "client_closed"));
+
+        trusted.keyframePtsSeconds = {1, 11.4, 21.8, 32.2, 42.6, 53.0};
+        auto soloSession = issuer.issue(issuanceRequest());
+        assert(soloSession.issued);
+        assert(runtime.provisionHls(
+            soloSession.session.sessionId, soloSession.session.workspaceId,
+            soloSession.session.grantId, hevc, {segment.string()}, trusted).ready);
+        assert(containsPair(commands.back(), "-hls_flags",
+                            "delete_segments+split_by_time+temp_file"));
+        assert(runtime.stop(soloSession.session.sessionId, "client_closed"));
+        legacySession.session.clearSecret();
+        trialSession.session.clearSecret();
+        soloSession.session.clearSecret();
+    }
+
     issued.session.clearSecret();
     std::filesystem::remove_all(root);
     return 0;
