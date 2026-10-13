@@ -408,7 +408,14 @@ int main()
         profile.targetVideoCodec = MediaCodec::H265;
         profile.targetVideoWidth = 3840;
         profile.targetVideoHeight = 2160;
-        const auto plan = builder.build(profile);
+        const auto baseline = builder.build(profile);
+        assert(baseline.valid);
+        assert(containsPair(baseline.argv, "-hls_flags",
+            "delete_segments+split_by_time+temp_file"));
+        assert(!containsPair(baseline.argv, "-hls_flags",
+            "delete_segments+independent_segments+temp_file"));
+
+        const auto plan = builder.build(profile, 0, true);
         assert(plan.valid);
         assert(containsPair(plan.argv, "-c:v", "copy"));
         assert(containsPair(plan.argv, "-c:a", "aac"));
@@ -419,12 +426,12 @@ int main()
             "delete_segments+independent_segments+temp_file"));
         assert(!containsPair(plan.argv, "-hls_flags",
             "delete_segments+split_by_time+temp_file"));
-        const auto denied = builder.build(profile, 120);
+        const auto denied = builder.build(profile, 120, true);
         assert(!denied.valid);
         assert(denied.reasonCode == "hls_resume_stream_copy_not_sync_safe");
 
         profile.container = MediaContainer::MpegTs;
-        const auto ts = builder.build(profile);
+        const auto ts = builder.build(profile, 0, true);
         assert(ts.valid);
         assert(containsPair(ts.argv, "-hls_flags",
             "delete_segments+split_by_time+temp_file"));
