@@ -282,3 +282,11 @@ test-hevc-hls-segment-policy:
 		core/media/tests/test_hevc_hls_segment_policy.cpp \
 		-o $(BUILD_DIR)/test_hevc_hls_segment_policy
 	$(BUILD_DIR)/test_hevc_hls_segment_policy
+
+# Bounded, read-only source packet probe plan and parser; no daemon runtime.
+.PHONY: test-hevc-hls-keyframe-probe
+test-hevc-hls-keyframe-probe:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
+		core/media/tests/test_hevc_hls_keyframe_probe.cpp \
+		-o $(BUILD_DIR)/test_hevc_hls_keyframe_probe
+	$(BUILD_DIR)/test_hevc_hls_keyframe_probe
