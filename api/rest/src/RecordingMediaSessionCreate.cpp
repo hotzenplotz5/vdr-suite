@@ -212,9 +212,9 @@ HevcHlsKeyframeEvidence eligibleTrialEvidence(
     const std::string& workspaceRoot)
 {
     HevcHlsKeyframeEvidence deny;
-    const char* permitted = std::getenv("VDR_SUITE_HEVC_HLS_TRIAL_SOURCE_FP");
+    const char* permitted = std::getenv("VDR_SUITE_HEVC_HLS_TRIAL_RECORDING_DIRECTORY");
     if (permitted == nullptr || *permitted == '\0' ||
-        resolvedFingerprint.empty() || resolvedFingerprint != permitted ||
+        recordingDirectory != permitted || resolvedFingerprint.empty() ||
         growing || profile.protocol != MediaDeliveryProtocol::Hls ||
         profile.container != MediaContainer::Fmp4 ||
         profile.videoAction != MediaTrackAction::Copy ||
@@ -238,9 +238,10 @@ HevcHlsKeyframeEvidence eligibleTrialEvidence(
     if (!after.valid || after.growing || after.value != before.value)
         return deny;
 
-    // The exact immutable source fingerprint is an operator's explicit
-    // attestation of this trial recording, whose HEVC/fMP4 fragments were
-    // independently checked on the actual source before opting in.
+    // The exact directory is a deliberately narrow operator trial scope.
+    // Source identity is checked independently before and after probing.
+    // HEVC random-access flags are not independently checked here; this
+    // manual pilot MUST NOT be generalized to automatic policy selection.
     // The runtime sampler supplies fresh measured keyframe intervals.
     HevcHlsProbeAttestation attestation;
     attestation.subprocessExitedSuccessfully = true;
