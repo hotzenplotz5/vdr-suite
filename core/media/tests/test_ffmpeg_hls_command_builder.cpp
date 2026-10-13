@@ -426,6 +426,14 @@ int main()
             "delete_segments+independent_segments+temp_file"));
         assert(!containsPair(plan.argv, "-hls_flags",
             "delete_segments+split_by_time+temp_file"));
+        // Explicit opt-in does not change H264 video copy or MPEG-TS.
+        auto h264 = profile;
+        h264.targetVideoCodec = MediaCodec::H264;
+        const auto h264Plan = builder.build(h264, 0, true);
+        assert(h264Plan.valid);
+        assert(containsPair(h264Plan.argv, "-hls_flags",
+            "delete_segments+split_by_time+temp_file"));
+
         const auto denied = builder.build(profile, 120, true);
         assert(!denied.valid);
         assert(denied.reasonCode == "hls_resume_stream_copy_not_sync_safe");
