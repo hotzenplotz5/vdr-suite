@@ -287,9 +287,13 @@ def apply(root: Path, sha: str, args: argparse.Namespace,
     backup_receipt = directory / "previous-daemon.json"
     receipt = {"schema": 1, "previous_source": prior, "target_source": sha,
                "previous_sha256": digest(args.live),
-               "candidate_sha256": digest(built)}
+               "candidate_sha256": digest(built),
+               "db_risk": risk,
+               "db_review": args.db_review or "not-required"}
+    require(not backup_binary.is_symlink() and
+            not backup_receipt.is_symlink(), "ROLLBACK_FILE_SYMLINK")
     if backup_binary.exists():
-        require(not backup_binary.is_symlink(), "ROLLBACK_BINARY_SYMLINK")
+        require(backup_binary.stat().st_nlink == 1, "ROLLBACK_BINARY_HARDLINK")
         require(digest(backup_binary) == digest(args.live),
                 "ROLLBACK_BINARY_COLLISION")
         require(backup_receipt.is_file() and not backup_receipt.is_symlink() and
@@ -350,12 +354,12 @@ def rollback(root: Path, sha: str, args: argparse.Namespace,
     """Explicit binary-only rollback; never silently roll back SQLite state."""
     require(os.geteuid() == 0, "ROOT_REQUIRED_FOR_ROLLBACK")
     require(args.confirm_rollback, "EXPLICIT_ROLLBACK_CONFIRMATION_REQUIRED")
-    # Schema migrations can be irreversible. Never offer a deceptive
-    # 'safe' binary-only rollback if the target changed DB-sensitive code.
-    require(risk == "REVIEW_REQUIRED" or risk == "NOT_REQUIRED",
+    # Risk printed by main() compares currently installed -> target and
+    # is always NOT_REQUIRED during rollback. Re-evaluate the actual
+    # *original* source -> target after reading the sealed receipt below.
+    require(risk in ("REVIEW_REQUIRED", "NOT_REQUIRED"),
             "ROLLBACK_RISK_UNKNOWN")
-    require(risk == "NOT_REQUIRED", "ROLLBACK_SCHEMA_REVIEW_REQUIRED")
-    require(args.live == LIVE_PATH and not args.live.is_symlink() and
+    require(args.live.resolve() == LIVE_PATH and not args.live.is_symlink() and
             args.live.is_file() and args.live.stat().st_nlink == 1,
             "ROLLBACK_LIVE_PATH_UNSAFE")
     require(args.service == "vdr-suite-daemon.service",
@@ -375,8 +379,24 @@ def rollback(root: Path, sha: str, args: argparse.Namespace,
                        "previous_source": embedded_source(old, root),
                        "target_source": sha,
                        "previous_sha256": digest(old),
-                       "candidate_sha256": digest(built)},
+                       "candidate_sha256": digest(built),
+                       "db_risk": record.get("db_risk"),
+                       "db_review": record.get("db_review")},
             "ROLLBACK_RECEIPT_MISMATCH")
+    original_risk, original_paths = database_risk(
+        root, record["previous_source"], sha)
+    require(record["db_risk"] == original_risk, "ROLLBACK_DB_RISK_MISMATCH")
+    if original_risk == "REVIEW_REQUIRED":
+        require(record["db_review"] == "no-backup" and
+                args.db_review == "no-backup" and
+                args.db_review_reason and
+                len(args.db_review_reason.strip()) >= 20,
+                "ROLLBACK_DB_REVIEW_REQUIRED")
+        print("ROLLBACK_DB_REVIEW_PATHS=" + ",".join(original_paths),
+              flush=True)
+    else:
+        require(record["db_review"] == "not-required" and
+                args.db_review is None, "ROLLBACK_DB_REVIEW_UNEXPECTED")
     with INSTALL_LOCK.open("a+b") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         service_bin_identity(args.service, args.live)
@@ -442,6 +462,7 @@ def main(argv: list[str] | None = None) -> int:
         risk, flagged = database_risk(root, current, args.sha)
         print(f"INSTALLED_SOURCE_SHA={current}", flush=True)
         print(f"TARGET_SOURCE_SHA={args.sha}", flush=True)
+        print(f"DB_RISK_SCOPE={'current-to-target' if args.action != 'rollback' else 'target-to-target; original risk rechecked from receipt'}", flush=True)
         print(f"DB_BACKUP_DECISION={risk}", flush=True)
         for entry in flagged:
             print(f"DB_REVIEW_PATH={entry}", flush=True)
