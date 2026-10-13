@@ -274,3 +274,11 @@ test-phase65d1-live-tv-view-dom-stability:
 	node web/frontend/tests/test_live_tv_view_dom_stability.js
 
 test-frontend-i18n: test-phase65d1-live-tv-view-dom-stability
+
+# Isolated HEVC HLS GOP eligibility decision (no recording I/O or daemon).
+.PHONY: test-hevc-hls-segment-policy
+test-hevc-hls-segment-policy:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
+		core/media/tests/test_hevc_hls_segment_policy.cpp \
+		-o $(BUILD_DIR)/test_hevc_hls_segment_policy
+	$(BUILD_DIR)/test_hevc_hls_segment_policy
