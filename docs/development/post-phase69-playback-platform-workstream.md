@@ -24,3 +24,7 @@ Backend analyzer, shared playback planner, platform-specific playback adapters. 
 Current Medicus II pilot is separate and may finish before PP implementation starts. No new global HEVC toggle. Existing auth and VDR owner/fencing remain authoritative. Do not claim source merge/CI as real-TV acceptance. No duplicated full daemon builds or uncontrolled leftover candidate directories. PP implementation begins only after ADR review and kickoff.
 
 References: [ADR-0068](../adr/ADR-0068-cross-platform-playback-planning-and-media-analysis.md), [Roadmap](../planning/roadmap.md), [Phase Map](../planning/phase-map.md), [HEVC Pilot](hevc-hls-keyframe-segmentation-trial-2026-10-13.md).
+
+## Framerate / Timing diagnostic gate
+
+During PP.1 measure source r_frame_rate and avg_frame_rate separately from actual packet PTS/duration cadence, DTS/order and discontinuities (constant/variable frame rate). During PP.3 and PP.5 inspect output fMP4 sample timing, HLS segment boundaries, playback clock, buffering and presented/dropped-frame telemetry from the real platform. A successful HEVC GOP analyzer does **not** prove smooth 24-fps presentation. Medicus II metadata approximately 24 fps and anecdotal 14-fps perceived display remain separate facts. No synthetic FPS filter or framerate rewrite until an observed timing fault is demonstrated. Solo non-regression remains binding.
