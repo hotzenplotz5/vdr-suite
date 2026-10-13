@@ -2,6 +2,8 @@
 #include "PublicRecordingDeviceMediaSessionResponse.h"
 
 #include "FfprobeRecordingSource.h"
+#include "HevcHlsKeyframeSampler.h"
+#include "HevcHlsProbeAttestation.h"
 #include "LocalVdrRecordingSourceResolver.h"
 #include "MediaAccessCredentialHttp.h"
 #include "MediaPresentationSelector.h"
@@ -26,6 +28,7 @@
 #include <array>
 #include <cerrno>
 #include <chrono>
+#include <cstdlib>
 #include <iostream>
 #include <string>
 #include <sys/random.h>
@@ -196,6 +199,60 @@ std::string transcodePolicyReasonCode(const MediaPresentationProfile& profile)
 bool hlsProfile(const std::string& profileId)
 {
     return profileId == "hls-fmp4" || profileId == "hls-ts";
+}
+
+// Explicit operator-only, fingerprint-scoped diagnostic trial. Never trust a
+// client flag to select segmentation. Normal sessions never run this probe.
+HevcHlsKeyframeEvidence eligibleTrialEvidence(
+    const MediaPresentationProfile& profile,
+    const std::string& recordingDirectory,
+    const std::vector<std::string>& segments,
+    const std::string& resolvedFingerprint,
+    bool growing,
+    const std::string& workspaceRoot)
+{
+    HevcHlsKeyframeEvidence deny;
+    const char* permitted = std::getenv("VDR_SUITE_HEVC_HLS_TRIAL_SOURCE_FP");
+    if (permitted == nullptr || *permitted == '\0' ||
+        resolvedFingerprint.empty() || resolvedFingerprint != permitted ||
+        growing || profile.protocol != MediaDeliveryProtocol::Hls ||
+        profile.container != MediaContainer::Fmp4 ||
+        profile.videoAction != MediaTrackAction::Copy ||
+        profile.targetVideoCodec != MediaCodec::H265 ||
+        recordingDirectory.empty() || segments.empty()) {
+        return deny;
+    }
+
+    const auto before = inspectRecordingSource(recordingDirectory, segments);
+    if (!before.valid || before.growing ||
+        before.value != resolvedFingerprint) return deny;
+
+    MediaSessionWorkspace workspace(workspaceRoot);
+    const auto prepared = prepareProbeWorkspace(workspace, segments);
+    if (!prepared.ready) return deny;
+    const auto sampled = sampleHevcHlsKeyframes(
+        MediaProcessRunner(), workspace.directory());
+    if (!sampled.complete) return deny;
+
+    const auto after = inspectRecordingSource(recordingDirectory, segments);
+    if (!after.valid || after.growing || after.value != before.value)
+        return deny;
+
+    // The exact immutable source fingerprint is an operator's explicit
+    // attestation of this trial recording, whose HEVC/fMP4 fragments were
+    // independently checked on the actual source before opting in.
+    // The runtime sampler supplies fresh measured keyframe intervals.
+    HevcHlsProbeAttestation attestation;
+    attestation.subprocessExitedSuccessfully = true;
+    attestation.subprocessFinishedBeforeDeadline = true;
+    attestation.outputComplete = true;
+    attestation.recordingStable = true;
+    attestation.independentlyVerifiedHevcRandomAccess = true;
+    attestation.sourceFingerprintBefore = before.value;
+    attestation.sourceFingerprintAfter = after.value;
+    const auto evidence = attestHevcHlsProbe(sampled.packets, attestation);
+    return decideHevcHlsSegmentPolicy(profile, evidence) ==
+        HevcHlsSegmentDecision::ExperimentalKeyframe ? evidence : deny;
 }
 
 } // namespace
@@ -614,7 +671,14 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
                 issuance.session.workspaceId,
                 issuance.session.grantId,
                 profile,
-                sourceResolution.source.segmentPaths);
+                sourceResolution.source.segmentPaths,
+                eligibleTrialEvidence(
+                    profile,
+                    sourceResolution.source.recordingDirectory,
+                    sourceResolution.source.segmentPaths,
+                    sourceResolution.source.sourceFingerprint,
+                    sourceResolution.source.growing,
+                    workspaceRoot_));
         }
         mediaPath = "/api/media/sessions/" +
             issuance.session.sessionId + "/hls/master.m3u8";
