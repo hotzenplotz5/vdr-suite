@@ -48,3 +48,11 @@ Operator ran a second non-root remux A/B from Solo (HEVC Main10 UHD) without tou
 **Decision:** do NOT enable keyframe HLS for all H265/fMP4 streams. The branch now defaults to the existing production behavior even for HEVC; an extra explicit `experimentalHevcKeyframeSegments` argument of `FfmpegHlsCommandBuilder::build` is required to use keyframe segmentation. Existing daemon callers are unchanged; this is a contained command-builder experiment, not an end-to-end selectable playback option. The opt-in is unexposed at the runtime/API/VIDAA layers.
 
 The original command-builder regression at `827684e` passed before this safety gating change; retest the **new HEAD** before referring to regression success. A/B measurements demonstrate marked-keyframe fragment boundaries, not that changing the segment policy cures the Hisense stuttering. Before any device trial, design an evidence-driven GOP policy that cannot regress Solo and add a runtime selection path with explicit tests. No production deployment has occurred.
+
+## Current safe-default regression — 2026-10-13
+
+Operator verified the exact GitHub head `a4144c0eade0ce11fc5695e932e2d1406b29db01`, fetched the relevant header/source/test files into the isolated `/home/yavdr/hevc-hls-test-zxXlA8BT` tree and compiled and executed the C++ command-builder test as non-root `yavdr`. **TEST_EXIT_CODE=0**; installed daemon unchanged. These results validate the default-vs-opt-in command line contract, not TV playback.
+
+A review of `RecordingMediaSessionRuntime.cpp` shows the real HLS daemon currently calls `FfmpegHlsCommandBuilder().build(resolvedProfile)` with no trial opt-in, and the resume implementation calls `build(resolvedProfile, startPositionSeconds)`. Thus no existing playback request selects experimental keyframe boundaries even when built from this branch. Never claim a working end-to-end Medicus fix from current code.
+
+Further work must first establish trustworthy per-recording GOP/keyframe data through existing probe/index facilities and separately validate how device/session playback should opt in. No codec/profile-only rule: Solo Main10 long GOP is not equivalent to Medicus Main short GOP. Keep existing guards and no rollout until both TV cases and CI are proven.
