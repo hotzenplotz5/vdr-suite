@@ -112,14 +112,14 @@ void testHevcSoloIndexDurationEvidence()
 
     {
         std::ofstream info(directory / "info", std::ios::trunc);
-        info << "F 47.95204795 3840 2160 i 16:9\\n";
+        info << "F 47.95204795 3840 2160 i 16:9\n";
     }
     // The current index/info contract yields the reported half duration.
     assert(vdrsuite::recording::durationSecondsFromIndex(recording) == 4042);
 
     {
         std::ofstream info(directory / "info", std::ios::trunc);
-        info << "F 23.97602398 3840 2160 i 16:9\\n";
+        info << "F 23.97602398 3840 2160 i 16:9\n";
     }
     // This fixture models the independently measured 8085.8-second TS.
     assert(vdrsuite::recording::durationSecondsFromIndex(recording) == 8085);
@@ -128,7 +128,7 @@ void testHevcSoloIndexDurationEvidence()
     // 'halve HEVC fps' heuristic; the index itself cannot disambiguate.
     {
         std::ofstream info(directory / "info", std::ios::trunc);
-        info << "F 47.95204795 3840 2160 i 16:9\\n";
+        info << "F 47.95204795 3840 2160 i 16:9\n";
     }
     assert(vdrsuite::recording::durationSecondsFromIndex(recording) == 4042);
     std::filesystem::remove_all(directory, ignored);
