@@ -401,5 +401,34 @@ int main()
         assert(plan.reasonCode == "profile_is_not_hls");
     }
 
+    // HEVC fMP4 trial: keyframe-aligned segments, unchanged video-copy
+    // and stereo AAC adaptation; H264 and MPEG-TS retain old behavior.
+    {
+        MediaPresentationProfile profile = hlsFmp4Profile();
+        profile.targetVideoCodec = MediaCodec::H265;
+        profile.targetVideoWidth = 3840;
+        profile.targetVideoHeight = 2160;
+        const auto plan = builder.build(profile);
+        assert(plan.valid);
+        assert(containsPair(plan.argv, "-c:v", "copy"));
+        assert(containsPair(plan.argv, "-c:a", "aac"));
+        assert(containsPair(plan.argv, "-ac", "2"));
+        assert(containsValue(plan.argv, "-re"));
+        assert(containsPair(plan.argv, "-hls_time", "4"));
+        assert(containsPair(plan.argv, "-hls_flags",
+            "delete_segments+independent_segments+temp_file"));
+        assert(!containsPair(plan.argv, "-hls_flags",
+            "delete_segments+split_by_time+temp_file"));
+        const auto denied = builder.build(profile, 120);
+        assert(!denied.valid);
+        assert(denied.reasonCode == "hls_resume_stream_copy_not_sync_safe");
+
+        profile.container = MediaContainer::MpegTs;
+        const auto ts = builder.build(profile);
+        assert(ts.valid);
+        assert(containsPair(ts.argv, "-hls_flags",
+            "delete_segments+split_by_time+temp_file"));
+    }
+
     return 0;
 }
