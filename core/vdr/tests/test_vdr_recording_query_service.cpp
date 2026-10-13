@@ -89,6 +89,51 @@ void writeCompleteIndex(
     appendTsIndexFrames(index, 2, secondFrames, secondFinalOffset);
 }
 
+
+void testHevcSoloIndexDurationEvidence()
+{
+    // A synthetic 8-byte VDR index reproduces Solo's observed 193864 entries.
+    // No recording from the live server is read or modified here.
+    const std::filesystem::path directory =
+        std::filesystem::temp_directory_path() /
+        "vdr-suite-hevc-solo-duration-evidence-test.rec";
+    std::error_code ignored;
+    std::filesystem::remove_all(directory, ignored);
+    std::filesystem::create_directories(directory);
+    writeSizedFile(directory / "00001.ts", 188);
+    {
+        std::ofstream index(directory / "index", std::ios::binary | std::ios::trunc);
+        assert(index.good());
+        appendTsIndexFrames(index, 1, 193864);
+    }
+    VdrRecording recording;
+    recording.path = directory.string();
+    recording.backendNativeId = directory.string();
+
+    {
+        std::ofstream info(directory / "info", std::ios::trunc);
+        info << "F 47.95204795 3840 2160 i 16:9\\n";
+    }
+    // The current index/info contract yields the reported half duration.
+    assert(vdrsuite::recording::durationSecondsFromIndex(recording) == 4042);
+
+    {
+        std::ofstream info(directory / "info", std::ios::trunc);
+        info << "F 23.97602398 3840 2160 i 16:9\\n";
+    }
+    // This fixture models the independently measured 8085.8-second TS.
+    assert(vdrsuite::recording::durationSecondsFromIndex(recording) == 8085);
+
+    // A genuine 47.952-fps recording is a counterexample to any global
+    // 'halve HEVC fps' heuristic; the index itself cannot disambiguate.
+    {
+        std::ofstream info(directory / "info", std::ios::trunc);
+        info << "F 47.95204795 3840 2160 i 16:9\\n";
+    }
+    assert(vdrsuite::recording::durationSecondsFromIndex(recording) == 4042);
+    std::filesystem::remove_all(directory, ignored);
+}
+
 void testVdrIndexDurationFallback()
 {
     const std::filesystem::path directory =
@@ -257,6 +302,7 @@ void testVdrIndexDurationFallback()
 
 int main()
 {
+    testHevcSoloIndexDurationEvidence();
     testVdrIndexDurationFallback();
 
     MockVdrAdapter adapter;
