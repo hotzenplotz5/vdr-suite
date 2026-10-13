@@ -297,3 +297,11 @@ test-hevc-hls-probe-attestation:
 		core/media/tests/test_hevc_hls_probe_attestation.cpp \
 		-o $(BUILD_DIR)/test_hevc_hls_probe_attestation
 	$(BUILD_DIR)/test_hevc_hls_probe_attestation
+
+.PHONY: test-hevc-hls-keyframe-sampler
+test-hevc-hls-keyframe-sampler:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/media/include \
+		core/media/src/MediaProcessRunner.cpp \
+		core/media/tests/test_hevc_hls_keyframe_sampler.cpp \
+		-o $(BUILD_DIR)/test_hevc_hls_keyframe_sampler
+	$(BUILD_DIR)/test_hevc_hls_keyframe_sampler
