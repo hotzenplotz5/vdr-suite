@@ -17,6 +17,15 @@ Maintainer-supplied terminal evidence confirms a successful isolated SuiteBridge
 
 A new unsigned, no-install source-package roundtrip experiment is now implemented but **not yet run**. Signed Ubuntu series uploads remain gated by license, build-dependency and lifecycle review.
 
+## October 14: Ubuntu PPA preflight additions
+
+- The original local binary-only SuiteBridge and unsigned source-only `3.0 (quilt)` roundtrip are confirmed **PASS**; neither output has been installed, signed or uploaded.
+- Ubuntu `noble` (24.04) officially supplies `vdr-dev` 2.6.0-1.1, which is **not** the yaVDR `vdr-abi-2.8.3-0yavdr` tested on the user's build host. Ubuntu must build its own matching plugin ABI.
+- The source helper supports **offline only** `--ubuntu-preview noble` or `--ubuntu-preview resolute`: the target suite and packaging revision are changed only in an isolated source snapshot, not in Git, the normal checkout or the host installation. No PPA upload is attempted. The preview awaits a host test.
+- Source dependencies now declare required daemon/agent development headers for libcurl, OpenSSL, libcrypt and SQLite under `<!plugin-only>`, so the independent SuiteBridge profile stays lean.
+- Ubuntu 24.04 CI now has a **separate default three-binary-package build job** alongside the independent plugin-only job. Its real outcome remains to be verified before any PPA upload.
+- Release blockers remain: verified full clean distro build, legal source/license inventory and `debian/copyright`, service/user/config ownership, installer and P7 upgrade/restore acceptance, and user-authorized signing/upload.
+
 ## Essential release policy
 
 - No package maintainer script may silently delete `/var/lib/vdr-suite`, secrets, recordings or a user-managed configuration.
