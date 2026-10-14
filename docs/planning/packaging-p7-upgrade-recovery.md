@@ -84,6 +84,24 @@ This improves migration evidence for the listed repository owners only.
 It does **not** execute every daemon initializer, test historical Debian
 package upgrades, start services, or establish production rollback approval.
 
+## Focused real C++ older-column migration rehearsal
+
+The disposable runtime test also creates a **reconstructed**, explicitly
+non-historical fixture `tools/fixtures/packaging/p7-pre-revision-security-operations.sql`.
+It models legacy SQLite `security_human_accounts` without `revision` and
+`mutation_operations` without `expected_resource_fingerprint`, alongside
+one synthetic user/credential/verifier and one synthetic queued operation.
+The test calls the current real C++ repository `ensureSchema()` methods,
+requires both missing columns to be added with expected default values,
+proves each original column and row value survives both C++ reopens, and
+confirms the pre-upgrade backup restores the original missing-column shapes.
+
+The SQL file **was not recovered from an older release**; it is reconstructed
+from the two current C++ schema upgrade guards. A fake, unusable password-hash
+sentinel is used. This is evidence for specific old-column migrations only,
+not a supported old-package upgrade, complete daemon-start migration, or
+production restore procedure.
+
 ## Remaining before P7 acceptance
 
 - Schema migration registry and compatible version boundaries.

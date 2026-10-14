@@ -18,6 +18,17 @@ from test_packaging_p7_historical_schema import (
     require_consistent, source_git_blob_hash,
 )
 
+PRIOR_COLUMN_FIXTURE = (Path(__file__).resolve().parent / "fixtures" /
+                        "packaging" / "p7-pre-revision-security-operations.sql")
+PRIOR_TABLES = (
+    "security_actors", "security_credentials",
+    "security_basic_credential_verifiers",
+    "security_human_accounts", "mutation_operations",
+)
+ALTERED_TABLES = frozenset(
+    ("security_human_accounts", "mutation_operations")
+)
+
 GiB = 1024 ** 3
 MiB = 1024 ** 2
 
@@ -72,6 +83,24 @@ def current_owned_records(connection):
             for table in tables}
 
 
+def prior_columns(connection):
+    return {
+        table: [row[1] for row in connection.execute(
+            "PRAGMA table_info('" + table + "')")]
+        for table in PRIOR_TABLES
+    }
+
+
+def prior_rows(connection, columns):
+    result = {}
+    for table, names in columns.items():
+        selected = ",".join('"' + name + '"' for name in names)
+        result[table] = connection.execute(
+            "SELECT " + selected + " FROM " + table + " ORDER BY rowid"
+        ).fetchall()
+    return result
+
+
 def run(binary):
     if os.geteuid() == 0:
         raise ValueError("P7 runtime fixture must not run as root")
@@ -99,6 +128,12 @@ def run(binary):
         old, backup, restored = (
             folder / n for n in ("old.db", "before.db", "restored.db"))
         create_legacy_database(old)
+        # A deliberately reconstructed shape exercises C++ ALTER guards.
+        # It is NOT part of the tagged historical Git SQL.
+        with closing(sqlite3.connect(old)) as preupgrade:
+            preupgrade.executescript(
+                PRIOR_COLUMN_FIXTURE.read_text(encoding="utf-8"))
+            require_consistent(preupgrade)
         with closing(sqlite3.connect(old)) as source, closing(
                 sqlite3.connect(backup)) as target:
             require_consistent(source)
@@ -107,6 +142,12 @@ def run(binary):
                     "PRAGMA table_info('" + table + "')")] for table in TABLES
             }
             before = original_rows(source, columns)
+            prior_shape = prior_columns(source)
+            assert "revision" not in prior_shape["security_human_accounts"]
+            assert "expected_resource_fingerprint" not in prior_shape[
+                "mutation_operations"]
+            old_prior_rows = prior_rows(source, prior_shape)
+            assert all(len(rows) == 1 for rows in old_prior_rows.values())
             original_objects = dict(source.execute(
                 "SELECT name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
             ).fetchall())
@@ -131,8 +172,24 @@ def run(binary):
                     "SELECT name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
                 ).fetchall())
                 assert all(after_objects.get(k) == v
-                           for k, v in original_objects.items()), (
-                    "historical SQL objects changed unexpectedly")
+                           for k, v in original_objects.items()
+                           if k not in ALTERED_TABLES), (
+                    "unexpected historical SQL object changed")
+                assert prior_rows(connection, prior_shape) == old_prior_rows, (
+                    "pre-migration account, credential or operation data changed")
+                updated_columns = prior_columns(connection)
+                assert "revision" in updated_columns["security_human_accounts"], (
+                    "account revision ALTER did not run")
+                assert "expected_resource_fingerprint" in updated_columns[
+                    "mutation_operations"], (
+                    "mutation fingerprint ALTER did not run")
+                assert connection.execute(
+                    "SELECT revision FROM security_human_accounts "
+                    "WHERE account_id='p7_pre_account'").fetchone()[0] == 1
+                assert connection.execute(
+                    "SELECT expected_resource_fingerprint "
+                    "FROM mutation_operations WHERE operation_id="
+                    "'p7_pre_operation'").fetchone()[0] == ""
                 assert connection.execute(
                     "SELECT count(*) FROM suite_metadata_schema_versions"
                 ).fetchone()[0] >= 1
@@ -162,6 +219,10 @@ def run(binary):
             require_consistent(target)
             assert original_rows(target, columns) == before, (
                 "offline restored rows differ from historical source")
+            assert prior_rows(target, prior_shape) == old_prior_rows, (
+                "offline restored prior account/operation rows differ")
+            assert prior_columns(target) == prior_shape, (
+                "offline backup did not restore old column shapes")
             assert dict(target.execute(
                 "SELECT name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
             ).fetchall()) == original_objects, (
@@ -171,6 +232,7 @@ def run(binary):
         if final.free < reserve:
             raise ValueError("P7 runtime rehearsal broke filesystem reserve")
         print("RESOURCE_POSTCHECK=PASS", flush=True)
+        print("P7_PRECOLUMN_SECURITY_OPERATION_MIGRATION=PASS", flush=True)
         print("P7_HISTORICAL_CPP_SCHEMA_REHEARSAL=PASS", flush=True)
 
 

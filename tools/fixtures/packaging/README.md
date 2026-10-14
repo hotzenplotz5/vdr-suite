@@ -12,3 +12,8 @@ This is a byte-for-byte historical schema fixture, **not** a database dump
 from a user machine and **not** an earlier Debian/Ubuntu binary package.
 `tools/test_packaging_p7_historical_schema.py` validates its Git object hash
 before testing. Do not apply this file to a production SQLite database.
+
+The separate `p7-pre-revision-security-operations.sql` is **synthetic**:
+its two missing columns are modeled from the current C++ ALTER guards.
+It is not part of the tagged historical Git SQL, contains no genuine
+credentials, and is only for isolated CI SQLite migration testing.

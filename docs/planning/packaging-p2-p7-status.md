@@ -9,7 +9,7 @@ Status: **in development**, not released. Source-level implementation is distinc
 | P4 | Ubuntu noble Seahawk `vdr-dev 2.8.3-0yavdr0~noble` and plugin ABI `vdr-abi-2.8.3-0yavdr` verified in actual CI logs | Debian 13/Ubuntu resolute ABI and runtime dependency matrix; lintian |
 | P5 | Working root `debian/rules` (mode 100755), `3.0 (quilt)` source preview, three separate noble `.deb` outputs and ABI-correct plugin-only profile PASS | `debian/copyright` and third-party licensing, final source build reproducibility and upload metadata |
 | P6 | Disposable Ubuntu noble real package install/reinstall/remove/purge and conffile/state sentinel preservation PASS | Systemd startup/user/runtime directory tests, real manual-install transition and actual live yaVDR approval |
-| P7 | Offline preflight, verified tagged historical SQLite fixture, additive SQL rollback and real metadata/search/security/timer/operation C++ schema-initializer replay/backup rehearsal in disposable CI | Full daemon-owner migrations, historical binary-package upgrade and controlled real restore acceptance |
+| P7 | Offline preflight, tagged historical SQLite replay, real C++ metadata/security/operations/timers initializer checks, and reconstructed old-column migration + rollback tests | Older *binary* package upgrade, all runtime schema owners, controlled production restore and version compatibility policy |
 
 ## Confirmed local build milestone (2026-10-14)
 
