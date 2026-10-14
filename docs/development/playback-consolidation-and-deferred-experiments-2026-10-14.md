@@ -54,6 +54,20 @@ The operator ran the existing `tools/install_daemon.py` in the root shell, with 
 - **Next evidence:** Start a supported H.264 recording (e.g. `Action → Jumper`) from installed VIDAA `b20261014.3`; compare after-deploy `recording media startup` for `profile=hls-fmp4`, `probe_cache`, `provision_ms`, `total_server_ms` with the above baseline. Keep session IDs redacted. Record user-observed time to first picture, any audio/video glitch, and five-minute `P0` and `TV-Warte` event counts/durations. **Pending** until supplied by operator; do not invent performance speedup or transcode/HEVC success.
 - No additional daemon rebuild/restart or VIDAA reinstall is required merely to collect these measurements.
 
+## Post-install HLS startup logs: no acceleration demonstrated (14 October 2026)
+
+After the successful daemon-only rollout of code PIN `6bda8084bf9ebb6e639f15dd9454e24cd424bf29`, the operator collected three real `profile=hls-fmp4` startup lines from `vdr-suite-daemon.service` using a read-only, session-ID-redacted journal query:
+
+| Sample | probe_cache | descriptor_ms | selection_ms | session_ms | provision_ms | total_server_ms |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 1 | miss | 144 | 20 | 126 | 4422 | 4714 |
+| 2 | miss | 148 | 30 | 28 | 4843 | 5051 |
+| 3 | miss | 313 | 279 | 16 | 4424 | 5035 |
+
+**Result:** `provision_ms` remains around 4.4–4.8 seconds, consistent with the earlier ~3.9–4.7 second baseline. No real backend speedup can be claimed. Three post-install samples do not isolate the recording, codec or type of video transformation; all were `probe_cache=miss`, unlike several prior cache-hit samples. Do **not** treat `profile=hls-fmp4` as proof of H.264 stream-copy: `MediaPresentationSelector::remuxOrTranscode` can select `videoAction=Transcode` while keeping the same HLS-fMP4 profile ID. The bounded `-readrate_initial_burst 8` applies **only** to `videoAction=Copy`, `targetVideoCodec=H264`, zero-offset Recording HLS-fMP4.
+
+**Next minimal read-only diagnosis:** While the supported test recording is actively playing, inspect the corresponding `/usr/bin/ffmpeg` argv (e.g. `ps -eo pid=,args=` filtered for `/usr/bin/ffmpeg` and `input.ffconcat`); determine whether `-readrate_initial_burst 8` and `-c:v copy` are present, or whether `-c:v libx264` / `h264_vaapi` indicates video transcoding. Do not log source paths/credentials or change media workers. If the burst is absent because of transcoding, measure and design a **separate bounded transcoding-specific** experiment before code changes; do not broaden this gate blindly. If the burst is present, next investigate first-segment readiness/GOP/FFmpeg timeline rather than claiming transcoding. No new checkout, rebuild, service restart, TV reinstall or branch is needed for this test.
+
 ## Follow-on release gates
 
 1. Verify backend #471 and VIDAA #17 exact current HEADs and their current CI together; re-run changed-scope tests if either advanced.
