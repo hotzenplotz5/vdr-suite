@@ -71,7 +71,8 @@ def inspect(loader=fetch):
     matching = [
         record for record in entries
         if isinstance(record, dict)
-        and record.get("dependency_link", "").rstrip("/") ==
+        and isinstance(record.get("dependency_link"), str)
+        and record["dependency_link"].rstrip("/") ==
             source["self_link"].rstrip("/")
     ]
     result = {
