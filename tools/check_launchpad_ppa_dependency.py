@@ -30,20 +30,57 @@ def fetch(url):
         raw = response.read(MAX_BYTES + 1)
     if len(raw) > MAX_BYTES:
         raise ValueError("oversize API response")
-    document = json.loads(raw)
-    if not isinstance(document, dict):
-        raise ValueError("unexpected Launchpad API response")
-    return document
+    # A named operation can return JSON null instead of an archive object.
+    # Validate at the call site so a direct-resource fallback can be tried.
+    return json.loads(raw)
 
 
 def archive(reference, loader=fetch):
-    url = API + "/archives?" + urlencode(
-        {"ws.op": "getByReference", "reference": reference})
-    doc = loader(url)
-    if not isinstance(doc.get("self_link"), str):
-        raise ValueError("PPA lookup has no self_link: " + reference)
-    return doc
+    """Use a public archive's canonical entry, falling back to getByReference.
 
+    Both endpoints are documented Launchpad read-only GET routes. The named
+    method can return JSON null for an unresolved reference; do not treat
+    that result as evidence that a PPA dependency is missing.
+    """
+    locations = {
+        TARGET: API + "/~hotzenplotz5/+archive/ubuntu/vdr-suite",
+        DEPENDENCY: API + "/~seahawk1986-hotmail/+archive/ubuntu/vdr-2.8.3",
+    }
+    if reference not in locations:
+        raise ValueError("unsupported archive reference")
+    named = API + "/archives?" + urlencode(
+        {"ws.op": "getByReference", "reference": reference})
+    problems = []
+    for label, url in (("direct", locations[reference]), ("getByReference", named)):
+        try:
+            document = loader(url)
+        except (HTTPError, URLError, OSError, ValueError) as exc:
+            if isinstance(exc, HTTPError):
+                reason = "HTTP " + str(exc.code)
+            else:
+                reason = type(exc).__name__
+            problems.append(label + "=" + reason)
+            continue
+        if isinstance(document, dict) and isinstance(document.get("self_link"), str):
+            if api_archive_path(document["self_link"]) != api_archive_path(locations[reference]):
+                problems.append(label + "=unexpected archive identity")
+                continue
+            return document
+        actual = "null" if document is None else type(document).__name__
+        problems.append(label + "=JSON " + actual)
+    raise ValueError("archive lookup unresolved for " + reference + ": " +
+                     ", ".join(problems))
+
+
+def api_archive_path(link):
+    """Compare version-independent archive identities, refusing foreign links."""
+    parsed = urlparse(link)
+    if parsed.scheme != "https" or parsed.hostname != "api.launchpad.net":
+        raise ValueError("invalid Launchpad archive identity URL")
+    parts = parsed.path.split("/", 2)
+    if len(parts) != 3 or parts[1] not in ("devel", "1.0"):
+        raise ValueError("unexpected Launchpad API version in archive link")
+    return "/" + parts[2].rstrip("/")
 
 def dependency_records(collection_url, loader=fetch):
     if not collection_url:
@@ -72,8 +109,8 @@ def inspect(loader=fetch):
         record for record in entries
         if isinstance(record, dict)
         and isinstance(record.get("dependency_link"), str)
-        and record["dependency_link"].rstrip("/") ==
-            source["self_link"].rstrip("/")
+        and api_archive_path(record["dependency_link"]) ==
+            api_archive_path(source["self_link"])
     ]
     result = {
         "target": TARGET,
