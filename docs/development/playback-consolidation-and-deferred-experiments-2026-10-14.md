@@ -118,6 +118,30 @@ The prior independent new-worker observer found `init.mp4`, `master.m3u8` and `s
 
 **Next safe isolation, no extra decoder/transcoder or media writes:** During one new HLS worker, sample `/proc/<pid>/io` `rchar` alongside the presence of readiness files in the worker's existing cwd at 100-ms to 1-s intervals for up to 6 seconds. If input bytes advance rapidly in the first second but readiness arrives at 3.7 seconds, investigate FFmpeg output scheduling/muxer; if bytes accumulate gradually, investigate actual readrate/throttle or source I/O. `rchar` is a process-wide byte counter, not a per-stream byte counter; CPU and asynchronous I/O can confound correlation. Do not dump source paths, ffconcat content, log lines, credentials, record filenames or record source bytes. No new branch, binary rebuild, service restart, permissions changes or modifications to VDR recordings.
 
+## Real FFmpeg worker read-byte timeline: first HLS files after 3.775 s (14 October 2026)
+
+New operator read-only monitor, **on the installed backend daemon code PIN `6bda8084bf9ebb6e639f15dd9454e24cd424bf29`**, waited for a **new** Recording FFmpeg worker with `-readrate_initial_burst 8` and `-c:v copy`, then sampled process-wide `/proc/<pid>/io` `rchar`. It reported:
+
+| Elapsed since process discovery | Delta `rchar` |
+| --- | ---: |
+| 0 ms | 0 KiB |
+| 252 ms | 696 KiB |
+| 504 ms | 856 KiB |
+| 1,007 ms | 1,176 KiB |
+| 2,014 ms | 1,880 KiB |
+| 3,020 ms | 2,552 KiB |
+| 4,026 ms | 3,544 KiB |
+| 5,029 ms | 4,664 KiB |
+| 6,032 ms | 5,848 KiB |
+
+The first nonempty `init.mp4`, `segment-000000.m4s`, and `master.m3u8` all appeared by `3,775 ms` after new-worker detection. `RESULT=PASS_READ_ONLY`.
+
+**Evidence and interpretation:** Input-side read activity is gradual, not a multi-megabyte burst in the first 250 ms. `rchar` is **process-wide** and counts all successful read-system-call characters, including format probing and logs; it does not distinguish a demuxer rate sleep, output backpressure, media I/O, audio/video interleaving or buffering. It does not time precisely when the first TS packet entered the muxer. Do **not** label `-re` a proven root cause merely from read rate or suggest disabling it universally.
+
+**FFmpeg 8.0 source audit:** `fftools/ffmpeg_demux.c::readrate_sleep` computes `max_pts = stream_ts_offset + initial_burst + wc_elapsed * readrate` for each non-discarded stream and sleeps only if stream `pts > limit_pts`. With an 8-second burst, normal video timestamps in the first four seconds should not cause a sleep; anomalous audio or other selected stream timestamps **could** still participate. See FFmpeg 8.0 source `https://ffmpeg.org/doxygen/8.0/ffmpeg__demux_8c_source.html` around `readrate_sleep`. The earlier 8-s video-only `ffprobe` does **not** reveal selected audio-stream DTS behavior. This is now the highest-value untested branch.
+
+**Next read-only gate:** From the live FFmpeg worker's actual `-map 0:a:N?` selection, inspect only first 8 media seconds of audio packet PTS/DTS using a bounded `ffprobe` (direct TS and ffconcat side-by-side, 12-s timeout each) and report aggregate packet count, first/min/max DTS, maximum DTS step, backwards jumps, and packet probe duration, without exposing source paths or recording bytes. A normal audio timestamp sequence would rule against an initial-8-second audio DTS anomaly; any remaining blocked path then warrants targeted real FFmpeg demux/mux scheduling analysis rather than a speculative daemon rebuild. No edits or restarts.
+
 ## Follow-on release gates
 
 1. Verify backend #471 and VIDAA #17 exact current HEADs and their current CI together; re-run changed-scope tests if either advanced.
