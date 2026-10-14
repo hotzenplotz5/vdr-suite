@@ -433,8 +433,9 @@ surface and the next action:
   packaging/install staging check;
 - backend, daemon, C++ or runtime-contract changes require the corresponding
   build, fast-regression, architecture and other directly affected checks;
-- documentation-only changes require only relevant text/link/format review
-  and do not invalidate already accepted product/runtime evidence.
+- documentation-only changes require documentation validation and do not
+  invalidate already accepted product/runtime evidence. Validate relevant
+  text/link/format, not a new build or unrelated runtime acceptance.
   **Do not wait for GitHub Actions to finish for docs-only commits.**
 
 Do not block a targeted runtime installation or acceptance test on unrelated CI
@@ -442,6 +443,10 @@ jobs merely because they belong to the same workflow. Such jobs may still be
 queued, running, or failed for a demonstrably unrelated reason. Diagnose enough
 to establish that the failure is unrelated to the candidate being installed,
 then continue with the already-approved targeted acceptance path.
+
+The complete repository-required CI graph is a gate for Ready-for-review, merge,
+phase closeout or another explicit full-stabilization boundary. Use
+surface-scoped checks for draft development and independently gated deployment.
 
 **FULL CI is a mandatory gate immediately before merging the reviewed
 candidate into `main`, not a reason to wait on documentation-only commits,
