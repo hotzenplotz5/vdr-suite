@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Scratch-only, non-root P7 SQLite backup/recovery regression tests."""
 import importlib.util
+from contextlib import closing
 import os
 from pathlib import Path
 import sqlite3
@@ -46,10 +47,15 @@ class RecoveryRehearsalTests(unittest.TestCase):
                 self.assertEqual(result["integrity"], "ok")
                 self.assertEqual(path.read_bytes(), before_db)
                 self.assertEqual(wal.read_bytes(), before_wal)
-                with sqlite3.connect(folder / "restored.db") as checked:
+                # sqlite3.Connection.__exit__ commits but does not close the
+                # handle. Closing prevents Python 3.13+ ResourceWarning.
+                with closing(sqlite3.connect(folder / "restored.db")) as checked:
                     self.assertEqual(
                         checked.execute("SELECT value FROM entries WHERE id=1").fetchone()[0],
                         "committed")
+                # Regression gate: the readback handle must really be closed.
+                with self.assertRaises(sqlite3.ProgrammingError):
+                    checked.execute("SELECT 1")
                 for name in ("backup.db", "restored.db"):
                     self.assertEqual(stat.S_IMODE((folder / name).stat().st_mode), 0o600)
                 self.assertEqual(
