@@ -56,6 +56,25 @@ runtime state is compatible with current binaries. Neither package upgrades nor
 a database restore have been authorized on the productive yaVDR. Regression:
 `python3 -m unittest -v tools.test_packaging_p7_historical_schema`.
 
+## Real C++ repository schema initialization on a historical fixture
+
+The `test-packaging-p7-runtime-schema` Make target compiles the actual
+`GenreIndexRepository::ensureSchema()` and
+`GlobalSearchRepository::ensureSchema()` implementation against SQLite.
+A non-root harness creates the proven tagged historical SQL database and
+sample rows in a **fresh 0700 scratch directory**, runs the C++ initializers
+twice per process and over two process starts, confirms the original columns,
+row values and SQL objects remain intact, verifies SQLite integrity/foreign
+keys and the domain-specific version markers, then restores the pre-upgrade
+backup into another isolated file and validates the original schema and rows.
+The test is now invoked inside the disposable Ubuntu 24.04 full-package CI
+runner. It cannot operate on `/var/lib/vdr-suite` or any installed database
+because the script does not accept a database path.
+
+This improves migration evidence for those two repository owners only.
+It does **not** execute every daemon initializer, test historical Debian
+package upgrades, start services, or establish production rollback approval.
+
 ## Remaining before P7 acceptance
 
 - Schema migration registry and compatible version boundaries.

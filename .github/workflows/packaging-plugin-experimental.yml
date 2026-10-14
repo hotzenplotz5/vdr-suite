@@ -8,6 +8,10 @@ on:
       - "debian/**"
       - "vdr-plugin-suite-bridge/**"
       - "core/agent/include/**"
+      - "core/metadata/tests/test_packaging_p7_runtime_schema.cpp"
+      - "mk/metadata-tests.mk"
+      - "tools/fixtures/packaging/**"
+      - "database/schema/metadata-platform-v1.sql"
       - "tools/*packaging*.py"
       - ".gitignore"
       - "VERSION"
@@ -139,6 +143,11 @@ jobs:
             dpkg-deb --info "${files[0]}"
           done
           echo "FULL_DEFAULT_PACKAGING=PASS"
+      - name: Exercise real C++ schema repositories on historical offline SQLite
+        shell: bash
+        run: |
+          set -euo pipefail
+          make test-packaging-p7-runtime-schema
       - name: Stage unsigned binaries for a disposable installation test
         shell: bash
         run: |

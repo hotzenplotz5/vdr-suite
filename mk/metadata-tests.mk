@@ -1,3 +1,17 @@
+.PHONY: test-packaging-p7-runtime-schema
+test-packaging-p7-runtime-schema: CXXFLAGS += -Icore/metadata/include
+test-packaging-p7-runtime-schema:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(METADATA_GENRE_SRC) \
+		core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
+		core/vdr/src/GlobalSearchRepository.cpp \
+		core/metadata/tests/test_packaging_p7_runtime_schema.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_packaging_p7_runtime_schema
+	python3 tools/packaging_p7_runtime_schema_rehearsal.py \
+		--binary "$(BUILD_DIR)/test_packaging_p7_runtime_schema"
+
 .PHONY: \
 	test-metadata-make-boundary \
 	test-metadata-manual-recording-architecture \
