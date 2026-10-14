@@ -94,6 +94,7 @@ constexpr const char* PublicChannelCollectionPath =
     "/api/v1/channels";
 constexpr const char* PublicEpgNowNextPath =
     "/api/v1/epg/now-next";
+constexpr const char* PublicEpgSearchPath = "/api/v1/epg/search";
 constexpr std::size_t PublicChannelDefaultLimit = 50U;
 constexpr std::size_t PublicChannelMaximumLimit = 100U;
 constexpr std::size_t PublicChannelMaximumSources = 16U;
@@ -5050,6 +5051,32 @@ PublicEpgNowNextResult PublicApiRuntime::lookupEpgNowNext(
     return lookup ? lookup(request) : PublicEpgNowNextResult{};
 }
 
+void PublicApiRuntime::registerEpgSearchLookup(EpgSearchLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(epgSearchLookupMutex_);
+    epgSearchLookup_ = std::move(lookup);
+}
+void PublicApiRuntime::resetEpgSearchLookup()
+{
+    std::lock_guard<std::mutex> lock(epgSearchLookupMutex_);
+    epgSearchLookup_ = {};
+}
+bool PublicApiRuntime::epgSearchLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(epgSearchLookupMutex_);
+    return static_cast<bool>(epgSearchLookup_);
+}
+PublicEpgSearchResult PublicApiRuntime::lookupEpgSearch(
+    const PublicEpgSearchRequest& request) const
+{
+    EpgSearchLookup lookup;
+    {
+        std::lock_guard<std::mutex> lock(epgSearchLookupMutex_);
+        lookup = epgSearchLookup_;
+    }
+    return lookup ? lookup(request) : PublicEpgSearchResult{};
+}
+
 void PublicApiRuntime::registerChannelCollectionLookup(
     ChannelCollectionLookup lookup)
 {
@@ -6673,6 +6700,85 @@ bool PublicApiRuntime::tryHandleGet(
                     path, requestId, correlationId);
                 return true;
         }
+    }
+
+    if (path == PublicEpgSearchPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        // Reuse the exact bounded/strict device search parser. The explicit
+        // view=search flag prevents accidental reinterpretation as a folder
+        // query. SecurityHttpGate separately requires epg.view for this route.
+        PublicRecordingCollectionQuery query;
+        if (!parsePublicRecordingCollectionQuery(requestTarget, query) ||
+            !query.searchRecordings ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != query.backendId)
+        {
+            response = invalidRequestProblem(
+                path, "EPG search scope or query is invalid.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicEpgSearchRequest read;
+        read.backendId = query.backendId;
+        read.query = query.searchText;
+        read.limit = query.limit;
+        read.offset = query.offset;
+        const PublicEpgSearchResult page = lookupEpgSearch(read);
+        if (page.status == PublicEpgNowNextStatus::invalid)
+        {
+            response = invalidRequestProblem(
+                path, "Invalid EPG search request.",
+                requestId, correlationId);
+            return true;
+        }
+        if (page.status != PublicEpgNowNextStatus::ok ||
+            page.events.size() > query.limit ||
+            page.totalEntries < query.offset + page.events.size() ||
+            page.hasMore != (query.offset + page.events.size() < page.totalEntries))
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        std::string body = "{\"backendId\":\"" +
+            jsonEscape(query.backendId) + "\",\"items\":[";
+        for (std::size_t index = 0U; index < page.events.size(); ++index)
+        {
+            const auto& e = page.events[index];
+            if (e.channelId.empty() || e.channelId.size() > 256U ||
+                e.title.empty() || e.startTime.empty() ||
+                e.endTime.empty() ||
+                (e.matchReason != "title" &&
+                 e.matchReason != "person" &&
+                 e.matchReason != "title-and-person"))
+            {
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+            }
+            if (index) body += ",";
+            body += "{\"kind\":\"epg\",\"backendId\":\"" +
+                jsonEscape(query.backendId) + "\",\"channelId\":\"" +
+                jsonEscape(e.channelId) + "\",\"channelName\":\"" +
+                jsonEscape(e.channelName) + "\",\"title\":\"" +
+                jsonEscape(e.title) + "\",\"subtitle\":\"" +
+                jsonEscape(e.subtitle) + "\",\"startTime\":\"" +
+                jsonEscape(e.startTime) + "\",\"endTime\":\"" +
+                jsonEscape(e.endTime) + "\",\"matchReason\":\"" +
+                jsonEscape(e.matchReason) + "\"}";
+        }
+        body += "],\"page\":{\"offset\":" +
+            std::to_string(query.offset) + ",\"limit\":" +
+            std::to_string(query.limit) + ",\"totalCount\":" +
+            std::to_string(page.totalEntries) + ",\"hasMore\":" +
+            std::string(page.hasMore ? "true" : "false") +
+            "},\"meta\":{\"partial\":false}}";
+        response = jsonResponse(body, requestId, correlationId);
+        return true;
     }
 
     if (path == PublicEpgNowNextPath)
@@ -9316,6 +9422,7 @@ bool PublicApiRuntime::tryHandlePost(
         path == "/api/v1/capabilities" ||
         path == PublicBackendCollectionPath ||
         path == PublicRecordingCollectionPath ||
+        path == PublicEpgSearchPath ||
         path == PublicEpgNowNextPath ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
@@ -9471,6 +9578,7 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
         path == "/api/v1/capabilities" ||
         path == PublicBackendCollectionPath ||
         path == PublicRecordingCollectionPath ||
+        path == PublicEpgSearchPath ||
         path == PublicEpgNowNextPath ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||

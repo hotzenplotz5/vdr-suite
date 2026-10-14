@@ -23,6 +23,7 @@
 #include <csignal>
 #include <iostream>
 #include <iterator>
+#include <map>
 #include <utility>
 #include <vector>
 
@@ -1601,6 +1602,64 @@ bool DaemonRuntime::initialize()
                 }
             }
             result.status = PublicGenreCollectionStatus::ok;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerEpgSearchLookup(
+        [this](const PublicEpgSearchRequest& request)
+        {
+            PublicEpgSearchResult result;
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                request.backendId.empty() || request.limit == 0U ||
+                request.limit > 30U)
+            {
+                result.status = PublicEpgNowNextStatus::invalid;
+                return result;
+            }
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled ||
+                !backend->online ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(
+                    request.backendId))
+                return result;
+            const auto channels =
+                vdrSnapshotReadService_->getChannelsForBackend(
+                    request.backendId);
+            std::map<std::string, bool> authorizedChannels;
+            for (const auto& channel : channels)
+                authorizedChannels.emplace(channel.id, true);
+
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            // Exact default time window from Web GlobalSearchController.
+            const auto global =
+                GlobalSearchApiRuntime::instance().searchForPublicProjection(
+                    request.backendId, request.query,
+                    now - 6 * 3600, now + 14 * 24 * 3600,
+                    static_cast<int>(request.limit),
+                    static_cast<int>(request.offset));
+            if (global.status != "ready")
+                return result;
+            for (const auto& event : global.epg)
+            {
+                if (event.backendId != request.backendId ||
+                    event.channelId.empty() ||
+                    authorizedChannels.count(event.channelId) != 1U)
+                    return result;
+                PublicEpgSearchItem safe;
+                safe.channelId = event.channelId;
+                safe.channelName = event.channelName;
+                safe.title = event.title;
+                safe.subtitle = event.subtitle;
+                safe.startTime = event.startTime;
+                safe.endTime = event.endTime;
+                safe.matchReason = event.matchReason;
+                result.events.push_back(std::move(safe));
+            }
+            result.totalEntries = std::max(0, global.epgTotal);
+            result.hasMore = global.epgHasMore;
+            result.status = PublicEpgNowNextStatus::ok;
             return result;
         });
 
