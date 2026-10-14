@@ -2,7 +2,16 @@ Source: vdr-suite
 Section: video
 Priority: optional
 Maintainer: VDR-Suite contributors <noreply@github.com>
-Build-Depends: debhelper-compat (= 13), g++, make, pkg-config, python3, vdr-dev, libsqlite3-dev <!plugin-only>
+Build-Depends: debhelper-compat (= 13),
+ g++,
+ make,
+ pkg-config,
+ python3,
+ vdr-dev,
+ libsqlite3-dev <!plugin-only>,
+ libcurl4-openssl-dev <!plugin-only>,
+ libssl-dev <!plugin-only>,
+ libcrypt-dev <!plugin-only>
 Standards-Version: 4.7.0
 Rules-Requires-Root: no
 Homepage: https://github.com/hotzenplotz5/vdr-suite
