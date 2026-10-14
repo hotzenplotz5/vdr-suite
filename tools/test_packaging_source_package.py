@@ -54,7 +54,7 @@ class SourcePackagingTests(TestCase):
         self.assertLess(source.index("RESOURCE_PREFLIGHT=PASS"),
                         source.index("tempfile.mkdtemp"))
         self.assertLess(source.index("tempfile.mkdtemp"),
-                        source.index('"dpkg-buildpackage"'))
+                        source.index('["dpkg-buildpackage", "-S"'))
 
 
 if __name__ == "__main__":
