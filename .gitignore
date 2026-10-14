@@ -1,3 +1,34 @@
 __pycache__/
 *.pyc
 .build/
+
+# Debian/dpkg source and binary build outputs (never package metadata).
+/debian/.debhelper/
+/debian/tmp/
+/debian/vdr-suite-daemon/
+/debian/vdr-suite-backend-agent/
+/debian/vdr-plugin-suitebridge/
+/debian/files
+/debian/debhelper-build-stamp
+/debian/*.substvars
+/debian/*.debhelper
+/debian/*.debhelper.log
+/debian/*.postinst.debhelper
+/debian/*.postrm.debhelper
+/debian/*.prerm.debhelper
+/debian/*.preinst.debhelper
+/.pc/
+*.deb
+*.udeb
+*.ddeb
+*.dsc
+*.changes
+*.buildinfo
+*.build
+*.upload
+*.orig.tar.*
+*.debian.tar.*
+*.diff.gz
+
+# Keep debian/control, rules, changelog, copyright, *.install,
+# source/format, and packaging documentation under version control.
