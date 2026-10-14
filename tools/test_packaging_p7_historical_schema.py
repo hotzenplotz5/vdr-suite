@@ -2,8 +2,8 @@
 """P7: verified historical Git schema to current additive SQL, offline only.
 
 Historical source is the byte-exact SQL from tag
-v1.60.15m-recording-actions-cache-consistency (commit
-50e699956dbd4407a57680b6359dca54f000ee74).
+v1.60.15m-recording-actions-cache-consistency (annotated tag object
+50e699956dbd4407a57680b6359dca54f000ee74, peeled commit 646020746bc449b220ff4f24b80992e5f38f0162).
 This is not a test of older .deb packages or daemon runtime migrations.
 """
 from contextlib import closing

@@ -3,7 +3,8 @@
 - File: `v1.60.15m-vdr-suite.sql`
 - Original repository: `hotzenplotz5/vdr-suite`
 - Git tag: `v1.60.15m-recording-actions-cache-consistency`
-- Exact commit: `50e699956dbd4407a57680b6359dca54f000ee74`
+- Annotated tag object: `50e699956dbd4407a57680b6359dca54f000ee74`
+- Peeled commit: `646020746bc449b220ff4f24b80992e5f38f0162`
 - Original path: `database/schema/vdr-suite.sql`
 - Original Git blob SHA-1: `af0dd4265ca37ce8ef34f9ff1fbac18e079cf0ac`
 

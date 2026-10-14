@@ -35,8 +35,8 @@ Schema versions are not globally unified: `PRAGMA user_version` alone is insuffi
 ## Historical tagged schema rehearsal — isolated only
 
 A new offline regression uses the **byte-exact** `database/schema/vdr-suite.sql` from Git tag
-`v1.60.15m-recording-actions-cache-consistency`, commit
-`50e699956dbd4407a57680b6359dca54f000ee74` (Git blob
+`v1.60.15m-recording-actions-cache-consistency`, annotated tag object
+`50e699956dbd4407a57680b6359dca54f000ee74`, peeled commit `646020746bc449b220ff4f24b80992e5f38f0162` (Git blob
 `af0dd4265ca37ce8ef34f9ff1fbac18e079cf0ac`), vendored as
 `tools/fixtures/packaging/v1.60.15m-vdr-suite.sql`.
 The test verifies source identity before testing, then creates a **temporary**
