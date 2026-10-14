@@ -75,3 +75,52 @@ jobs:
             ../vdr-suite_*_amd64.changes
           if-no-files-found: warn
           retention-days: 7
+
+  full-default-packages-noble:
+    name: Ubuntu 24.04 default daemon + agent + SuiteBridge experiment
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v4
+      - name: Record SHA and inspect capacity before writes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          git ls-files --stage debian/rules | grep -E '^100755 '
+          read -r total free < <(df -B1 --output=size,avail . | tail -n 1)
+          reserve=$((total * 15 / 100))
+          (( reserve >= 4294967296 )) || reserve=4294967296
+          budget=4294967296
+          printf 'RESOURCE_TOTAL=%s RESOURCE_FREE=%s RESERVE=%s BUDGET=%s\n' "$total" "$free" "$reserve" "$budget"
+          (( free >= reserve + budget )) || { echo "RESOURCE_PREFLIGHT=FAIL"; exit 1; }
+          echo "RESOURCE_PREFLIGHT=PASS"
+      - name: Install build dependencies only on disposable runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends             debhelper dpkg-dev g++ make pkg-config python3 vdr-dev             libsqlite3-dev libcurl4-openssl-dev libssl-dev libcrypt-dev
+          dpkg-checkbuilddeps -B
+      - name: Build all default binary packages (no host installation)
+        shell: bash
+        run: |
+          set -euo pipefail
+          export DEB_BUILD_OPTIONS=parallel=2
+          dpkg-buildpackage -B -us -uc 2>&1 | tee default-package-build.log
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            shopt -s nullglob
+            files=(../"$package"_*.deb)
+            (( ${#files[@]} == 1 )) || { echo "MISSING_BINARY_PACKAGE=$package"; exit 1; }
+            dpkg-deb --info "${files[0]}"
+          done
+          echo "FULL_DEFAULT_PACKAGING=PASS"
+      - name: Collect build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vdr-suite-default-noble-build-log
+          path: default-package-build.log
+          if-no-files-found: warn
+          retention-days: 7
