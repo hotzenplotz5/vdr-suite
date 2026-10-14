@@ -6,6 +6,7 @@ installed service. Supply an already offline database COPY placed into a
 0700, caller-owned scratch workspace. It is not an automatic migration tool.
 """
 import argparse
+from contextlib import closing
 import hashlib
 import json
 import os
@@ -116,7 +117,7 @@ def rehearse(workspace, source_name, backup_name, restored_name,
     try:
         # mode=ro includes committed WAL frames. The caller must already have
         # made the input an offline, quiesced copy: no active service state here.
-        with sqlite3.connect(source.as_uri() + "?mode=ro", uri=True, timeout=2) as original:
+        with closing(sqlite3.connect(source.as_uri() + "?mode=ro", uri=True, timeout=2)) as original:
             expected = sqlite_facts(original)
             create_exclusive(backup)
             created.append(backup)
@@ -126,7 +127,7 @@ def rehearse(workspace, source_name, backup_name, restored_name,
                 if time.monotonic() - start > MAX_BACKUP_SECONDS:
                     raise TimeoutError("SQLite backup exceeded time limit")
 
-            with sqlite3.connect(backup) as snapshot:
+            with closing(sqlite3.connect(backup)) as snapshot:
                 original.backup(snapshot, pages=128, progress=progress, sleep=0.025)
                 if sqlite_facts(snapshot) != expected:
                     raise ValueError("backup changed the SQLite schema or integrity")
@@ -140,7 +141,7 @@ def rehearse(workspace, source_name, backup_name, restored_name,
             shutil.copyfileobj(incoming, outgoing, length=1024 * 1024)
         if file_hash(restored) != digest:
             raise ValueError("restored bytes differ from backup")
-        with sqlite3.connect(restored.as_uri() + "?mode=ro", uri=True) as checked:
+        with closing(sqlite3.connect(restored.as_uri() + "?mode=ro", uri=True)) as checked:
             if sqlite_facts(checked) != expected:
                 raise ValueError("restored database failed SQLite verification")
         free = capacity(folder).free
