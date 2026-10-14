@@ -13,7 +13,7 @@ match = re.search(r'\bVersion\s*=\s*"([^"]+)"', header)
 if not match or match.group(1) != version:
     sys.exit("plugin identity does not match VERSION")
 changelog = (ROOT / "debian/changelog").read_text(encoding="utf-8").splitlines()[0]
-match = re.fullmatch(r"vdr-suite \\(([^)]+)\\) .+", changelog)
+match = re.fullmatch(r"vdr-suite \(([^)]+)\) .+", changelog)
 if not match or not match.group(1).startswith(version + "-"):
     sys.exit("Debian source package version does not match VERSION")
 print("PACKAGING_VERSION_OK=" + version)
