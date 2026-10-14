@@ -32,6 +32,30 @@ A private WAL-mode regression demonstrates the defect: `mode=ro&immutable=1` can
 
 Schema versions are not globally unified: `PRAGMA user_version` alone is insufficient to assess Suite metadata, search, security, timer, and other repository-owned migration state. In particular, `database/migrations/README.md` explicitly reserves that directory; no complete migration runner is present there. Never infer backward compatibility or authorize a package upgrade solely from the read-only preflight.
 
+## Historical tagged schema rehearsal — isolated only
+
+A new offline regression uses the **byte-exact** `database/schema/vdr-suite.sql` from Git tag
+`v1.60.15m-recording-actions-cache-consistency`, commit
+`50e699956dbd4407a57680b6359dca54f000ee74` (Git blob
+`af0dd4265ca37ce8ef34f9ff1fbac18e079cf0ac`), vendored as
+`tools/fixtures/packaging/v1.60.15m-vdr-suite.sql`.
+The test verifies source identity before testing, then creates a **temporary**
+SQLite database containing one row each for recording, metadata, artwork, job,
+EPG, recording cache and associated state. It applies the current
+`database/schema/metadata-platform-v1.sql` **additively in a transaction**,
+checks legacy rows, schema object definitions, foreign keys and integrity,
+repeats the SQL for idempotency, injects a forced failure to prove rollback of
+that test transaction, and verifies restoration from an earlier SQLite backup
+into a fresh offline database.
+
+This is real historical **SQL** provenance, **not** an older released binary
+package or a complete production migration. The current daemon initializes many
+additional tables through repository-owned `ensureSchema()` calls; this
+rehearsal does not execute those calls, start the daemon, or prove that old
+runtime state is compatible with current binaries. Neither package upgrades nor
+a database restore have been authorized on the productive yaVDR. Regression:
+`python3 -m unittest -v tools.test_packaging_p7_historical_schema`.
+
 ## Remaining before P7 acceptance
 
 - Schema migration registry and compatible version boundaries.
