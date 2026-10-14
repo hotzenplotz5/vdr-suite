@@ -74,6 +74,9 @@ int main()
         assert(plan.argv.back() == "master.m3u8");
         assert(!containsValue(plan.argv, "/bin/sh"));
         assert(containsValue(plan.argv, "-re"));
+        assert(containsPair(plan.argv, "-readrate_initial_burst", "8"));
+        assert(indexOf(plan.argv, "-readrate_initial_burst") <
+               indexOf(plan.argv, "-i"));
         assert(containsPair(plan.argv, "-map", "0:v:0?"));
         assert(containsPair(plan.argv, "-map", "0:a:1?"));
         assert(containsPair(plan.argv, "-c:v", "copy"));
@@ -141,9 +144,11 @@ int main()
         assert(!containsValue(plan.argv, "-vf"));
         assert(!containsValue(plan.argv, "-pix_fmt"));
         assert(!containsValue(plan.argv, "-force_key_frames"));
+        assert(!containsValue(plan.argv, "-readrate_initial_burst"));
         assert(!containsPair(plan.argv, "-bsf:v", "h264_metadata=level=auto"));
         assert(!containsPair(plan.argv, "-bsf:a", "aac_adtstoasc"));
         assert(containsPair(plan.argv, "-hls_segment_filename", "segment-%06d.ts"));
+        assert(!containsValue(plan.argv, "-readrate_initial_burst"));
         assert(!containsValue(plan.argv, "-hls_segment_type"));
         assert(containsPair(
             plan.argv,
@@ -178,6 +183,7 @@ int main()
         const auto plan = builder.build(profile);
         assert(plan.valid);
         assert(containsPair(plan.argv, "-c:v", "libx264"));
+        assert(!containsValue(plan.argv, "-readrate_initial_burst"));
         assert(containsPair(plan.argv, "-preset", "veryfast"));
         assert(!containsPair(plan.argv, "-preset", "superfast"));
         assert(containsPair(plan.argv, "-crf", "20"));
@@ -399,6 +405,41 @@ int main()
         const auto plan = builder.build(profile);
         assert(!plan.valid);
         assert(plan.reasonCode == "profile_is_not_hls");
+    }
+
+    // Fast start is deliberately limited to H.264 copied video at the
+    // beginning of a recording. HEVC, seek/resume, and live input must not
+    // accidentally inherit the stronger startup read-rate policy.
+    {
+        MediaPresentationProfile profile = hlsFmp4Profile();
+        profile.adaptationClass = MediaAdaptationClass::Remux;
+        profile.videoAction = MediaTrackAction::Copy;
+        profile.audioAction = MediaTrackAction::Copy;
+        profile.targetVideoCodec = MediaCodec::H265;
+        const auto plan = builder.build(profile);
+        assert(plan.valid);
+        assert(containsPair(plan.argv, "-c:v", "copy"));
+        assert(!containsValue(plan.argv, "-readrate_initial_burst"));
+    }
+
+    {
+        MediaPresentationProfile profile = hlsFmp4Profile();
+        profile.videoAction = MediaTrackAction::Transcode;
+        profile.audioAction = MediaTrackAction::Transcode;
+        const auto plan = builder.build(profile, 60);
+        assert(plan.valid);
+        assert(containsValue(plan.argv, "-re"));
+        assert(containsPair(plan.argv, "-ss", "60"));
+        assert(!containsValue(plan.argv, "-readrate_initial_burst"));
+    }
+
+    {
+        MediaPresentationProfile profile = hlsFmp4Profile();
+        const auto plan = builder.buildLive(profile, "/tmp/vdr-suite-media.sock");
+        assert(plan.valid);
+        assert(!containsValue(plan.argv, "-re"));
+        assert(!containsValue(plan.argv, "-readrate_initial_burst"));
+        assert(containsPair(plan.argv, "-f", "mpegts"));
     }
 
     return 0;
