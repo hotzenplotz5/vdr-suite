@@ -7,6 +7,7 @@
 #include "RecordingArtworkHttpServer.h"
 #include "PublicRecordingCollectionProjection.h"
 #include "GlobalSearchRepository.h"
+#include "GlobalSearchApiRuntime.h"
 #include "GenreBrowserApiRuntime.h"
 #include "RecordingSeriesHierarchyApiRuntime.h"
 #include "RestfulApiRecordingActionBackendExecutorAdapter.h"
@@ -1286,59 +1287,63 @@ bool DaemonRuntime::initialize()
 
             if (request.searchRecordings)
             {
-                // Web's folded-title matching, but only device-authorized
-                // canonical recording identities are ever serialized.
-                const std::string needle =
-                    GlobalSearchRepository::foldText(request.searchText);
-                if (needle.empty())
-                {
-                    result.status = PublicRecordingCollectionStatus::invalid;
+                // This MUST be the same indexed search as the Webfrontend:
+                // original titles, metadata, native short text, people,
+                // accent/case folding, exact/prefix scoring. Never substitute
+                // a scan over the projected display titles.
+                const auto global =
+                    GlobalSearchApiRuntime::instance().searchForPublicProjection(
+                        request.backendId, request.searchText, 0, 0,
+                        static_cast<int>(request.limit),
+                        static_cast<int>(request.offset));
+                if (global.status != "ready")
                     return result;
-                }
+
+                const auto snapshot =
+                    vdrSnapshotReadService_->getRecordingsForBackend(
+                        request.backendId);
                 PublicRecordingCollectionProjection projector(
                     *publicRecordingIdentities_);
                 const auto projected = projector.project(
-                    request.backendId,
-                    vdrSnapshotReadService_->getRecordingsForBackend(
-                        request.backendId));
+                    request.backendId, snapshot);
                 if (!projected.valid)
-                {
-                    result.status = PublicRecordingCollectionStatus::unavailable;
                     return result;
-                }
-                std::vector<PublicRecordingReadItem> matches;
+
+                std::map<std::string, PublicRecordingReadItem> byPublicId;
                 for (const auto& item : projected.items)
+                    byPublicId.emplace(item.recordingId, item);
+                std::map<std::string, std::string> nativeToPublic;
+                for (const auto& source : snapshot)
                 {
-                    if (GlobalSearchRepository::foldText(item.title).find(needle) !=
-                        std::string::npos)
-                        matches.push_back(item);
+                    const auto publicId = publicRecordingIdentities_->find(
+                        request.backendId, source.backendNativeId);
+                    if (!publicId.has_value() ||
+                        byPublicId.find(*publicId) == byPublicId.end())
+                        return result;
+                    nativeToPublic.emplace(source.backendNativeId, *publicId);
                 }
-                std::sort(matches.begin(), matches.end(),
-                    [](const PublicRecordingReadItem& left,
-                       const PublicRecordingReadItem& right) {
-                        const auto l = GlobalSearchRepository::foldText(left.title);
-                        const auto r = GlobalSearchRepository::foldText(right.title);
-                        return l == r ? left.recordingId < right.recordingId : l < r;
-                    });
-                result.totalEntries = matches.size();
-                for (std::size_t i = request.offset;
-                     i < matches.size() &&
-                     i - request.offset < request.limit; ++i)
+                for (const auto& hit : global.recordings)
                 {
-                    const auto& item = matches[i];
+                    if (hit.backendId != request.backendId ||
+                        hit.backendNativeId.empty() ||
+                        nativeToPublic.count(hit.backendNativeId) != 1U)
+                        return result; // stale index/snapshot, fail closed
+                    const auto& safe =
+                        byPublicId.at(nativeToPublic.at(hit.backendNativeId));
                     PublicRecordingCollectionItem entry;
-                    entry.recordingId = item.recordingId;
-                    entry.backendId = item.backendId;
-                    entry.title = item.title;
-                    entry.recordedAt = item.recordedAt;
-                    entry.durationSeconds = item.durationSeconds;
-                    entry.durationKnown = item.durationKnown;
-                    entry.description = item.description;
-                    entry.sizeMb = item.sizeMb;
+                    entry.recordingId = safe.recordingId;
+                    entry.backendId = safe.backendId;
+                    entry.title = safe.title;
+                    entry.recordedAt = safe.recordedAt;
+                    entry.durationSeconds = safe.durationSeconds;
+                    entry.durationKnown = safe.durationKnown;
+                    entry.description = safe.description;
+                    entry.sizeMb = safe.sizeMb;
                     result.recordings.push_back(std::move(entry));
                 }
-                result.hasMore = request.offset + result.recordings.size() <
-                    result.totalEntries;
+                result.totalEntries =
+                    std::max(0, global.recordingTotal);
+                result.hasMore = global.recordingHasMore;
                 result.status = PublicRecordingCollectionStatus::ok;
                 return result;
             }

@@ -166,6 +166,22 @@ bool GlobalSearchApiRuntime::tryHandleGet(
     return true;
 }
 
+GlobalSearchResult GlobalSearchApiRuntime::searchForPublicProjection(
+    const std::string& backendId, const std::string& query,
+    std::int64_t from, std::int64_t until, int limit, int offset) const
+{
+    // Keep the existing read-only Global Search service and its SQL/index
+    // semantics. Never serialize the native identifiers returned here.
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!service_)
+    {
+        GlobalSearchResult unavailable;
+        unavailable.status = "unavailable";
+        return unavailable;
+    }
+    return service_->search(backendId, query, from, until, limit, offset);
+}
+
 bool GlobalSearchApiRuntime::configured() const
 {
     std::lock_guard<std::mutex> lock(mutex_);
