@@ -6078,6 +6078,10 @@
               }
             }
           }
+        },
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Requires authenticated Actor/Device credential and recordings.view@backendId; exactly one authorized backend; verified by SecurityHttpGate and PublicApiRuntime, no browser-private search fallback."
         }
       }
     },
@@ -6260,6 +6264,10 @@
               }
             }
           }
+        },
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Requires authenticated Actor/Device credential and epg.view@backendId; exactly one authorized backend; verified by SecurityHttpGate and PublicApiRuntime, no browser-private search fallback."
         }
       }
     }
