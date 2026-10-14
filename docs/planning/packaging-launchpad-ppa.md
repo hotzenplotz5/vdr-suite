@@ -1,6 +1,6 @@
 # VDR-Suite Ubuntu test PPA
 
-Status: TARGET IDENTIFIED — not verified as live by automated checks; no source packages uploaded by this work.
+Status: PPA target recorded; public PPA package list is not verified by automated checks. Local unsigned Debian source-package roundtrip PASS (2026-10-14), **no upload**.
 
 ## PPA
 
@@ -10,6 +10,16 @@ Status: TARGET IDENTIFIED — not verified as live by automated checks; no sourc
 - Upload target: `ppa:hotzenplotz5/vdr-suite`
 - Role: Ubuntu **experimental/testing** only. Debian support must be validated separately.
 - Candidate Ubuntu test releases: 24.04 LTS (`noble`), then 26.04 LTS (`resolute`). These are TARGETS, not confirmed supported builds.
+
+## Verified progress and current PPA build blockers (2026-10-14)
+
+- The maintainer built a standalone `vdr-plugin-suitebridge_0.14.1-1~exp1_amd64.deb` with dependencies including `vdr-abi-2.8.3-0yavdr`, without daemon or Backend-Agent package dependencies.
+- A separate local `3.0 (quilt)` Debian source archive and unsigned `_source.changes` were successfully generated and extracted again (`SOURCE_ONLY_PACKAGE=PASS`, `SOURCE_ROUNDTRIP=PASS`) at SHA `39995c626c25909a972b6d9f886ebdc0c82b5fd5`. This source has the `unstable` changelog suite and is *not* suitable for immediate upload.
+- The official Ubuntu 24.04 (`noble`) `vdr-dev` package is version **2.6.0-1.1** (source: https://packages.ubuntu.com/noble/vdr-dev); thus `vdr-abi-2.8.3-0yavdr` from local yaVDR must **not** be presumed available in the PPA's noble build environment.
+- **Critical:** by default Launchpad builds every binary package declared by `debian/control` without the experimental `-Pplugin-only` build profile. Our current source declares **daemon, Backend Agent and SuiteBridge**, so a PPA upload must first prove the *complete default build*. The local standalone plugin-only success does not clear that gate.
+- A new offline `--ubuntu-preview noble|resolute` mode can generate unsigned, target-specific source metadata in a disposable copy. Preview generation is **not proof that the default three-package build passes** in Ubuntu.
+- The complete license/provenance assessment and `debian/copyright` review remain open. Never fabricate blanket copyright claims or silently ship third-party media.
+- Launchpad requires an upload signed by an OpenPGP key associated with the Launchpad account. The PPA signs the binaries *after* building them; this does not replace the user's upload signature.
 
 ## Gates before first upload
 
@@ -45,4 +55,4 @@ Do **not** run this on the productive yaVDR installation now. PPA availability a
 
 ## Current status and non-goals
 
-P2–P7 remain **in progress**; no release-grade package or successful clean distro build has been demonstrated yet. No upload to Launchpad, service restart, host permission change, package installation or main-branch merge is performed by this document.
+P2–P7 remain **in progress**; the standalone yaVDR plugin-only binary build and the local unsigned Debian source roundtrip have both passed, but no official Ubuntu clean build has been demonstrated yet. No upload to Launchpad, service restart, host permission change, package installation or main-branch merge is performed by this document.
