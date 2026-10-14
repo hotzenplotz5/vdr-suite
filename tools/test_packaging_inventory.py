@@ -22,6 +22,8 @@ class InventoryTests(unittest.TestCase):
             for file in (daemon, bridge, agent):
                 file.parent.mkdir(parents=True, exist_ok=True)
                 file.write_bytes(b"not-elf")
+                # Fix the fixture mode explicitly: the user's umask is not a test contract.
+                file.chmod(0o644)
             records = inventory.inspect(runtime, "runtime") + inventory.inspect(plugin, "plugin")
             owners = {r["path"]: r["package"] for r in records}
             self.assertEqual(owners["/usr/sbin/vdr-suite-daemon"], "vdr-suite-daemon")
@@ -43,8 +45,8 @@ class InventoryTests(unittest.TestCase):
             link = stage / "usr/sbin/vdr-suite-daemon"
             link.parent.mkdir(parents=True)
             link.symlink_to("/nonexistent")
-            records = inventory.inspect(stage, "runtime")
-            with self.assertRaises(ValueError):
+            # Reject the deliberately invalid target without trying to follow it.
+            with self.assertRaisesRegex(ValueError, "symlink points outside allowed package roots"):
                 inventory.inspect(stage, "runtime")
 
     def test_agent_unit_and_config(self):
