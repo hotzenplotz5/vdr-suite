@@ -37,3 +37,5 @@ This is a rehearsal, not a procedure for copying the active VDR-Suite database. 
 No maintainer script or automated installer currently performs a database migration.
 
 The scratch rehearsal now rejects `/var`, `/etc` and other protected system namespaces as well as the two known VDR-Suite source checkouts. A new regression exercises a race in which a second process creates the restore target just before the exclusive open; the tool must preserve the other process's file rather than treat it as its own cleanup target. No production directory permissions or ownerships are changed.
+
+The disposable Ubuntu noble package lifecycle exercise passed in [GitHub Actions #29](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38588255607). It verifies same-version reinstall, configuration and an unowned data sentinel across remove/purge, **not** upgrade from a previous version or database schema compatibility. Do not confuse a successful no-migration package reinstall with approval to downgrade or restore a live database.
