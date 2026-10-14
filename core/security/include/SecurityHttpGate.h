@@ -342,6 +342,18 @@ public:
         // /api/v1/media/sessions/{sessionId}/... gateway namespace.
         const bool isPublicDeviceRecordingSessionCreate =
             isPost && path == "/api/v1/recording-playback-sessions";
+        const bool isPublicDeviceLiveSessionCreate =
+            isPost && path == "/api/v1/live-playback-sessions";
+        const std::string liveSessionPrefix =
+            "/api/v1/live-playback-sessions/";
+        const bool isPublicDeviceLiveSessionRead =
+            request.method == "GET" &&
+            path.rfind(liveSessionPrefix, 0) == 0;
+        const bool isPublicDeviceLiveSessionStop =
+            isPost && path.rfind(liveSessionPrefix, 0) == 0 &&
+            path.size() > liveSessionPrefix.size() + 5U &&
+            path.compare(path.size()-5U, 5U, "/stop") == 0 &&
+            path.find('/', liveSessionPrefix.size()) == path.size()-5U;
         const std::string playbackStopPrefix =
             "/api/v1/recording-playback-sessions/";
         const bool isPublicDeviceRecordingSessionRead =
@@ -834,6 +846,8 @@ public:
             isPublicAccountSessionMutation ||
             isPublicTimerAssignmentCreate ||
             isPublicDeviceRecordingSessionCreate ||
+            isPublicDeviceLiveSessionCreate ||
+            isPublicDeviceLiveSessionStop ||
             isPublicDeviceRecordingSessionStop ||
             isPublicDeviceRecordingSubtitleSelection || isTimerUpdateAction ||
             isTimerDeleteAction || isChannelMoveAction || isRecordingExecutionAction ||
@@ -1534,7 +1548,8 @@ public:
             return gate;
         }
 
-        if (isPublicDeviceRecordingSessionRead)
+        if (isPublicDeviceRecordingSessionRead ||
+            isPublicDeviceLiveSessionRead)
         {
             // The actual owner and live play grant are rechecked against
             // persistence by PublicDevicePlaybackRegistry before returning
@@ -1547,8 +1562,10 @@ public:
                 gate.context.session.has_value())
             {
                 AuthorizationDecision denial;
-                denial.permission = "media.recording.play";
-                denial.action = "media.recording.status";
+                denial.permission = isPublicDeviceLiveSessionRead ?
+                    "media.live.play" : "media.recording.play";
+                denial.action = isPublicDeviceLiveSessionRead ?
+                    "media.live.status" : "media.recording.status";
                 denial.backendId = "*";
                 denial.reasonCode = "device_credential_required";
                 return rejectWithAudit(
@@ -1627,6 +1644,8 @@ public:
         // This policy does not itself create sessions or expose media bytes.
         if ((isPublicDeviceRecordingSessionCreate ||
              isPublicDeviceRecordingSessionStop ||
+             isPublicDeviceLiveSessionCreate ||
+             isPublicDeviceLiveSessionStop ||
               isPublicDeviceRecordingSubtitleSelection) &&
             (!gate.deviceAuthenticated ||
              gate.context.actor.type != ActorType::Service ||
@@ -1636,8 +1655,10 @@ public:
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);
             AuthorizationDecision denial;
-            denial.permission = "media.recording.play";
-            denial.action = "media.recording.play";
+            const bool live = isPublicDeviceLiveSessionCreate ||
+                isPublicDeviceLiveSessionStop;
+            denial.permission = live ? "media.live.play" : "media.recording.play";
+            denial.action = denial.permission;
             denial.backendId = jsonStringValue(request.body, "backendId");
             denial.reasonCode = "device_credential_required";
             return rejectWithAudit(
@@ -1646,6 +1667,8 @@ public:
         }
         if (isPublicDeviceRecordingSessionCreate ||
             isPublicDeviceRecordingSessionStop ||
+            isPublicDeviceLiveSessionCreate ||
+            isPublicDeviceLiveSessionStop ||
             isPublicDeviceRecordingSubtitleSelection)
         {
             // Match the canonical PublicRecordingPlaybackTargetResolver's
@@ -1666,8 +1689,10 @@ public:
             if (!validBackend)
             {
                 AuthorizationDecision denial;
-                denial.permission = "media.recording.play";
-                denial.action = "media.recording.play";
+                const bool live = isPublicDeviceLiveSessionCreate ||
+                    isPublicDeviceLiveSessionStop;
+                denial.permission = live ? "media.live.play" : "media.recording.play";
+                denial.action = denial.permission;
                 denial.backendId = backendId;
                 denial.reasonCode = "invalid_backend_scope";
                 return rejectWithAudit(
@@ -1819,6 +1844,12 @@ public:
             requestToAuthorize.permission = "backend.settings.media-transcode.modify";
             requestToAuthorize.action = "backend.settings.media-transcode.modify";
             requestToAuthorize.backendId = mediaTranscodeSettingsBackendId;
+        }
+        else if (isPublicDeviceLiveSessionCreate ||
+                 isPublicDeviceLiveSessionStop)
+        {
+            requestToAuthorize.permission = "media.live.play";
+            requestToAuthorize.action = "media.live.play";
         }
         else if (isPublicDeviceRecordingSessionCreate ||
                  isPublicDeviceRecordingSessionStop ||

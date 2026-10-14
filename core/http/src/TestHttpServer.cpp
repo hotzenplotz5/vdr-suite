@@ -1882,6 +1882,12 @@ HttpServerResponse TestHttpServer::handleRequest(
             apiResponse = apiRouter_.handleDeviceRecordingPlayback(
                 request.path, "", gate.context);
         }
+        else if (pathWithoutQuery(request.path).rfind(
+                "/api/v1/live-playback-sessions/", 0) == 0)
+        {
+            apiResponse = apiRouter_.handleDeviceLivePlayback(
+                request.path, "", gate.context);
+        }
         else
         {
         apiResponse =
@@ -1907,6 +1913,12 @@ HttpServerResponse TestHttpServer::handleRequest(
                 "/api/v1/recording-playback-sessions", 0) == 0)
         {
             apiResponse = apiRouter_.handleDeviceRecordingPlayback(
+                request.path, request.body, gate.context);
+        }
+        else if (pathWithoutQuery(request.path).rfind(
+                "/api/v1/live-playback-sessions", 0) == 0)
+        {
+            apiResponse = apiRouter_.handleDeviceLivePlayback(
                 request.path, request.body, gate.context);
         }
         else

@@ -66,6 +66,10 @@
     {
       "name": "UnifiedSearch",
       "description": "Authorized Recording and EPG Public-v1 projections of the existing Suite Web search index"
+    },
+    {
+      "name": "Device Live playback",
+      "description": "Verified Device MediaSession, revocable live tuning/streaming and owner-only status/stop"
     }
   ],
   "paths": {
@@ -6268,6 +6272,327 @@
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "Requires authenticated Actor/Device credential and epg.view@backendId; exactly one authorized backend; verified by SecurityHttpGate and PublicApiRuntime, no browser-private search fallback."
+        }
+      }
+    },
+    "/api/v1/live-playback-sessions": {
+      "post": {
+        "tags": [
+          "Device Live playback"
+        ],
+        "operationId": "createDeviceLivePlaybackSession",
+        "summary": "Create authorized Device Live channel session",
+        "description": "True Device-only Public-v1 Live MediaSession; granted media.live.play scope, no browser-private or Streamdev fallback, no arbitrary native path. Authenticated media GET is rechecked against persistent actor/device/credential/grant before streaming. Only live-progressive-fmp4 is emitted.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified Device credential, current owner and media.live.play@backendId; browser credentials and media.recording.play alone denied."
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "resourceKind",
+                  "backendId",
+                  "channelId",
+                  "capabilities"
+                ],
+                "properties": {
+                  "resourceKind": {
+                    "type": "string",
+                    "const": "live-channel"
+                  },
+                  "backendId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9._-]{1,128}$"
+                  },
+                  "channelId": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "capabilities": {
+                    "type": "object",
+                    "description": "Existing typed MediaSession codec, container and protocol capability object; validated by LiveMediaSessionRequestParser."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Live session ready; strictly scoped Secure/HttpOnly media access cookie",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mediaSession": {
+                      "type": "object",
+                      "description": "id, backendId, channelId, profile and same-origin /vdr-suite/api/v1/media/sessions/{id}/live/stream.mp4 path"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or capability negotiation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing verified Device proof",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Live grant or owner denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Provider, session or tuner unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/live-playback-sessions/{sessionId}": {
+      "get": {
+        "tags": [
+          "Device Live playback"
+        ],
+        "operationId": "getDeviceLivePlaybackSession",
+        "summary": "Read owned Device Live session state",
+        "description": "True Device-only Public-v1 Live MediaSession; granted media.live.play scope, no browser-private or Streamdev fallback, no arbitrary native path. Authenticated media GET is rechecked against persistent actor/device/credential/grant before streaming. Only live-progressive-fmp4 is emitted. Response omits native provider paths and media secret.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified Device credential, current owner and media.live.play@backendId; browser credentials and media.recording.play alone denied."
+        },
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^ms_[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current, Device-owned ready session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mediaSession": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or capability negotiation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing verified Device proof",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Live grant or owner denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Provider, session or tuner unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/live-playback-sessions/{sessionId}/stop": {
+      "post": {
+        "tags": [
+          "Device Live playback"
+        ],
+        "operationId": "stopDeviceLivePlaybackSession",
+        "summary": "Stop owned Device Live tuner/session",
+        "description": "True Device-only Public-v1 Live MediaSession; granted media.live.play scope, no browser-private or Streamdev fallback, no arbitrary native path. Authenticated media GET is rechecked against persistent actor/device/credential/grant before streaming. Only live-progressive-fmp4 is emitted. Cross-device session replacement is prohibited.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified Device credential, current owner and media.live.play@backendId; browser credentials and media.recording.play alone denied."
+        },
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^ms_[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "operation",
+                  "resourceKind",
+                  "backendId",
+                  "sessionId"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "stop"
+                  },
+                  "resourceKind": {
+                    "type": "string",
+                    "const": "live-channel"
+                  },
+                  "backendId": {
+                    "type": "string"
+                  },
+                  "sessionId": {
+                    "type": "string",
+                    "pattern": "^ms_[0-9a-f]{32}$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Live channel session stopped and versioned media cookie expired"
+          },
+          "400": {
+            "description": "Invalid request or capability negotiation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing verified Device proof",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Live grant or owner denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Provider, session or tuner unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          }
         }
       }
     }
