@@ -111,15 +111,15 @@ def build_source(expected, version, epoch, reserve, series=None):
             change = source / "debian/changelog"
             original = change.read_text(encoding="utf-8")
             header = original.splitlines()[0]
-            match = re.fullmatch(r"vdr-suite \\(([^)]+)\\) unstable; urgency=(\\w+)", header)
+            match = re.fullmatch(r"vdr-suite \(([^)]+)\) unstable; urgency=(\w+)", header)
             if not match or not match.group(1).startswith(version + "-"):
                 stop("unrecognized Debian changelog version/distribution")
             revision = match.group(1) + "~ubuntu" + UBUNTU_TEST_SERIES[series] + ".1"
             date = format_datetime(datetime.fromtimestamp(int(epoch), tz=timezone.utc))
-            entry = ("vdr-suite (" + revision + ") " + series + "; urgency=low\\n\\n"
-                     "  * OFFLINE preview: target Ubuntu " + series + "; not approved for PPA.\\n\\n"
+            entry = ("vdr-suite (" + revision + ") " + series + "; urgency=low\n\n"
+                     "  * OFFLINE preview: target Ubuntu " + series + "; not approved for PPA.\n\n"
                      " -- VDR-Suite contributors <noreply@github.com>  " + date
-                     + "\\n\\n")
+                     + "\n\n")
             change.write_text(entry + original, encoding="utf-8")
             print("UBUNTU_SOURCE_PREVIEW=" + series + " " + revision, flush=True)
         log = area / "source-build.log"
