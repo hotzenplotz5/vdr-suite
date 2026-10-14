@@ -74,6 +74,21 @@ During a real ongoing recording session, the operator checked the running `/usr/
 
 **Next diagnosis** (read-only, no new daemon binary): compare one clearly correlated startup session's `provision_ms` and first segment characteristics, including first `#EXTINF` duration / timestamps and any `ffmpeg.log` warnings from the existing worker workspace. Use `/proc/<verified PID>/cwd` solely as a read-only handle; do not publish recording/credential/source paths or dump the unredacted ffconcat list. To isolate the 4-second delay, inspect media input PTS/DTS and muxer first-segment completion rather than changing output segment boundaries or unconditionally removing `-re`. Preserve exact source PIN and prior built artifact; **no speculative second build, restart, permissions operation, or new branch**.
 
+## Readiness isolation: completed first-segment timeline versus FFmpeg probing (14 October 2026)
+
+Independent, **isolated container reproduction** (not yaVDR hardware), using a generated 14-second H.264/AAC MPEG-TS input, an `input.ffconcat` with the same relative source-name layout, and the server's HLS-fMP4 command options (`-hls_time 4`, `delete_segments+split_by_time+temp_file`, stream-copy and video/audio bitstream filters):
+
+| Input pacing | First nonempty `init.mp4`, `segment-000000.m4s`, `master.m3u8` observed | First `#EXTINF` |
+| --- | ---: | --- |
+| `-re` only | 3648 ms | 4.000000 s |
+| `-readrate_initial_burst 8 -re` | 129 ms | 4.000000 s |
+
+Both generated HLS segments were four seconds in *media time*, proving that a four-second target segment does **not** inherently require four seconds of elapsed wall time when FFmpeg can read its input rapidly. These numbers are **not** a measurement of any real VDR recording or its CPU/I/O/GOP/PTS behavior, and may differ with the installed FFmpeg 8.0.1.
+
+**Candidate underlying causes (not yet distinguished):** A real VDR recording's TS probe/concat initialization, packet DTS/PTS irregularities, keyframe cadence or HLS first-segment cutover can all affect first-segment readiness; without more evidence, none may be labeled the confirmed bottleneck. The operator's live worker argv already confirmed initial-burst plus copied video/audio, but did not time the appearance of `segment-000000.m4s.tmp` or its final rename. In particular, the concat workspace uses a list of source symlinks and the HLS path does not supply explicit ffconcat per-TS durations; any expensive probing would occur **inside FFmpeg**, not the server's already measured descriptor-cache phase.
+
+**Next minimal host measurement, purely read-only:** Start a bounded 50-second observer in the existing root shell *before* opening `Action → Jumper`. It must ignore pre-existing workers, select only a newly started Recording worker with `-readrate_initial_burst 8` and `-c:v copy`, use that process's `/proc/<pid>/cwd` to watch only static workspace filenames, and report elapsed time after discovering the worker for `ffmpeg.log`, `init.mp4`, `segment-000000.m4s.tmp`, `segment-000000.m4s`, `master.m3u8`. Print only the first `#EXTINF` duration, not the playlist URLs, source path, ffconcat contents or sensitive log lines. A later post-test `journalctl` query must redact the session ID. If the worker appears too late/does not appear, label the window inconclusive. Do not run synthetic FFmpeg transcodes on real recordings or change file ownership, permissions, daemon, playback or any live service. **A read-only monitor cannot by itself measure exact FFmpeg spawn time; 50–150ms polling error applies.**
+
 ## Follow-on release gates
 
 1. Verify backend #471 and VIDAA #17 exact current HEADs and their current CI together; re-run changed-scope tests if either advanced.
