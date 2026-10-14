@@ -142,6 +142,29 @@ The first nonempty `init.mp4`, `segment-000000.m4s`, and `master.m3u8` all appea
 
 **Next read-only gate:** From the live FFmpeg worker's actual `-map 0:a:N?` selection, inspect only first 8 media seconds of audio packet PTS/DTS using a bounded `ffprobe` (direct TS and ffconcat side-by-side, 12-s timeout each) and report aggregate packet count, first/min/max DTS, maximum DTS step, backwards jumps, and packet probe duration, without exposing source paths or recording bytes. A normal audio timestamp sequence would rule against an initial-8-second audio DTS anomaly; any remaining blocked path then warrants targeted real FFmpeg demux/mux scheduling analysis rather than a speculative daemon rebuild. No edits or restarts.
 
+## Real audio timestamp acceptance and upstream FFmpeg 8.0 input burst bug (14 October 2026)
+
+**Host audio source evidence, matched to new HLS FFmpeg worker:**
+
+| Probe on first 8 media seconds | Direct MPEG-TS | FFconcat |
+| --- | ---: | ---: |
+| Selected audio stream | 0 | 0 |
+| Probe wall time | 140 ms | 151 ms |
+| Packets | 376 | 376 |
+| First PTS/DTS | 1.457 / 1.457 s | 0.000 / 0.000 s |
+| Minimum DTS | 1.457 s | 0.000 s |
+| Maximum DTS | 9.456833 s | 7.999833 s |
+| Backwards DTS | 0 | 0 |
+| Maximum consecutive DTS step | 0.021334 s | 0.021334 s |
+
+Together with the previously normal video PTS/keyframe and `150ms` concat probe, **no timestamp discontinuity in the inspected initial audio/video window** explains the four-second startup. This cannot exclude internal pacing, uninspected later packets or FFmpeg scheduling.
+
+**New high-value upstream causal hypothesis:** FFmpeg 8.0 `fftools/ffmpeg_demux.c::readrate_sleep` used `max_pts = stream_ts_offset + initial_burst + wc_elapsed * readrate`, then treated the initial positive difference as input "lag" and switched to the **catchup** limiter. Without a guard to exempt the startup window, the normal `-readrate_initial_burst 8` may thus read at near-real-time anyway if `-readrate_catchup` defaults near `readrate * 1.05`. FFmpeg release/8.0 upstream commit `96cfa53add31bf5d7a49559b2df44e07afd9ff2c` dated **2026-06-29** explicitly fixes "readrate to respect initial burst" by skipping the loop while `pts <= stream_ts_offset + initial_burst` (issue #21510). Primary source: https://www.mail-archive.com/ffmpeg-cvslog@ffmpeg.org/msg74697.html . Refer to FFmpeg 8.0 `ffmpeg_demux.c` source https://ffmpeg.org/doxygen/8.0/ffmpeg__demux_8c_source.html . **Do not confuse presence of CLI option with correct implementation.**
+
+**Ubuntu provenance:** Operator installed `ffmpeg 8.0.1-3ubuntu2`; Ubuntu's published source package and binary date are 2026-02-17, four months *before* the fix was backported to FFmpeg's 8.0 release branch. Official Ubuntu mirror index: https://ftp.ubuntu.com/ubuntu/pool/universe/f/ffmpeg/ . This strongly suggests the affected default code was shipped, **but Ubuntu/Debian packaging might independently cherry-pick the fix**; neither the binary's exact behavior nor source patches have yet been established on host. Do not assert patched/unpatched based on the release date alone. Likewise do not install FFmpeg 8.1 packages from another Ubuntu series, switch OS release, change global `/usr/bin/ffmpeg`, or rebuild daemon without controlled evidence.
+
+**Minimal isolated decision gate:** On the installed ffmpeg binary, create **only a short, synthetic 10-second low-resolution MPEG-TS test inside an unprivileged temporary directory owned by `yavdr`**, then compare two bounded output-to-null runs (`-readrate_initial_burst 8 -re` versus `-readrate_initial_burst 8 -readrate_catchup 8 -re`), reading 4 media seconds via `-t 4`. No reading/decoding of real recordings, no new service media worker, no stored output outside temp, and no package changes. If first run takes roughly four wall seconds and second under one, the old limiter defect and a potential bounded `-readrate_catchup` compatibility workaround are reproducibly shown *on this host*. If both are fast, do **not** claim the bug on this host; revisit worker timeline/muxer instead. If either fails, diagnose exact error before any source change. Benchmark is a production decision gate, not permission to silently change the playback worker's flags.
+
 ## Follow-on release gates
 
 1. Verify backend #471 and VIDAA #17 exact current HEADs and their current CI together; re-run changed-scope tests if either advanced.
