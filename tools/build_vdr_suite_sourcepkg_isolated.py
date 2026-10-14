@@ -4,6 +4,8 @@
 This never installs packages, signs anything, contacts Launchpad, or touches services.
 """
 import argparse
+from datetime import datetime, timezone
+from email.utils import format_datetime
 import os
 from pathlib import Path
 import pwd
@@ -18,6 +20,7 @@ ALLOWED_ROOT = Path("/home/yavdr/vdr-suite-packaging-test")
 BASE = Path("/home/yavdr")
 BRANCH = "work/packaging-debian-ubuntu-install"
 BUDGET = 2 * 1024**3
+UBUNTU_TEST_SERIES = {"noble": "24.04", "resolute": "26.04"}
 
 
 def stop(message):
@@ -82,7 +85,7 @@ def preflight(expected):
     return version, epoch, reserve
 
 
-def build_source(expected, version, epoch, reserve):
+def build_source(expected, version, epoch, reserve, series=None):
     area = Path(tempfile.mkdtemp(prefix="vdr-suite-sourcepkg-", dir=BASE))
     print("SOURCE_BUILD_AREA=" + str(area), flush=True)
     project = "vdr-suite-" + version
@@ -102,6 +105,23 @@ def build_source(expected, version, epoch, reserve):
         if upstream.stat().st_size == 0:
             stop("upstream tarball is empty")
         print("PRISTINE_UPSTREAM_TARBALL=PASS", flush=True)
+        if series is not None:
+            # Change *only* the disposable debian/changelog: never the source
+            # checkout, upstream tarball, codec branch, or production host.
+            change = source / "debian/changelog"
+            original = change.read_text(encoding="utf-8")
+            header = original.splitlines()[0]
+            match = re.fullmatch(r"vdr-suite \\(([^)]+)\\) unstable; urgency=(\\w+)", header)
+            if not match or not match.group(1).startswith(version + "-"):
+                stop("unrecognized Debian changelog version/distribution")
+            revision = match.group(1) + "~ubuntu" + UBUNTU_TEST_SERIES[series] + ".1"
+            date = format_datetime(datetime.fromtimestamp(int(epoch), tz=timezone.utc))
+            entry = ("vdr-suite (" + revision + ") " + series + "; urgency=low\\n\\n"
+                     "  * OFFLINE preview: target Ubuntu " + series + "; not approved for PPA.\\n\\n"
+                     " -- VDR-Suite contributors <noreply@github.com>  " + date
+                     + "\\n\\n")
+            change.write_text(entry + original, encoding="utf-8")
+            print("UBUNTU_SOURCE_PREVIEW=" + series + " " + revision, flush=True)
         log = area / "source-build.log"
         env = os.environ.copy()
         env["SOURCE_DATE_EPOCH"] = epoch
@@ -120,6 +140,10 @@ def build_source(expected, version, epoch, reserve):
         command(["dpkg-source", "-x", str(dsc[0]), str(extracted)])
         if (extracted / "VERSION").read_bytes() != (ROOT / "VERSION").read_bytes():
             stop("source roundtrip changed project version")
+        extracted_distro = output(["dpkg-parsechangelog", "-l",
+                                   "debian/changelog", "-S", "Distribution"], cwd=extracted)
+        if extracted_distro != (series or "unstable"):
+            stop("source roundtrip changed target distribution")
         print("SOURCE_ROUNDTRIP=PASS", flush=True)
         stat = os.statvfs(BASE)
         if stat.f_bavail * stat.f_frsize < reserve:
@@ -127,7 +151,8 @@ def build_source(expected, version, epoch, reserve):
         print("RESOURCE_POSTCHECK=PASS", flush=True)
         print("SOURCE_CHANGESET=" + str(changes[0]), flush=True)
         print("SOURCE_ONLY_PACKAGE=PASS", flush=True)
-        print("UPLOAD=NOT_PERFORMED (unsigned, unstable; PPA release gates remain)", flush=True)
+        print("PPA_UPLOAD_READY=NO", flush=True)
+        print("UPLOAD=NOT_PERFORMED (unsigned, offline preview; PPA release gates remain)", flush=True)
     except Exception:
         print("SOURCE_BUILD_FAILED_AREA=" + str(area), file=sys.stderr, flush=True)
         raise
@@ -137,13 +162,15 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("expected_sha", help="exact 40-character remote/checkout commit")
     parser.add_argument("--preflight-only", action="store_true")
+    parser.add_argument("--ubuntu-preview", choices=sorted(UBUNTU_TEST_SERIES),
+                        help="set target distro only inside the isolated source archive")
     args = parser.parse_args(argv)
     if not re.fullmatch(r"[0-9a-f]{40}", args.expected_sha):
         parser.error("expected SHA must contain exactly 40 lowercase hex characters")
     try:
         version, epoch, reserve = preflight(args.expected_sha)
         if not args.preflight_only:
-            build_source(args.expected_sha, version, epoch, reserve)
+            build_source(args.expected_sha, version, epoch, reserve, args.ubuntu_preview)
     except (OSError, RuntimeError, subprocess.CalledProcessError) as exc:
         print("SOURCE_PACKAGE_STOP=" + str(exc), file=sys.stderr)
         return 1
