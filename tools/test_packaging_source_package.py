@@ -55,6 +55,27 @@ class SourcePackagingTests(TestCase):
             with self.subTest(forbidden=forbidden):
                 self.assertNotIn(forbidden, source)
 
+    def test_ubuntu_changelog_preview_noble_and_resolute(self):
+        original = ("vdr-suite (0.14.1-1~exp1) unstable; urgency=low\n\n"
+                    "  * Existing experimental Debian packaging.\n\n"
+                    " -- VDR-Suite contributors <noreply@github.com>  Tue, 13 Oct 2026 00:00:00 +0200\n")
+        for suite, suffix in (("noble", "24.04"), ("resolute", "26.04")):
+            with self.subTest(suite=suite):
+                preview, revision = srcpkg.prepare_ubuntu_preview(
+                    original, "0.14.1", 1791940000, suite)
+                self.assertEqual(revision, "0.14.1-1~exp1~ubuntu" + suffix + ".1")
+                self.assertTrue(preview.startswith(
+                    "vdr-suite (" + revision + ") " + suite + "; urgency=low\n"))
+                self.assertIn("not approved for PPA.", preview)
+                self.assertTrue(preview.endswith(original))
+                self.assertIn("\n\n -- VDR-Suite contributors", preview)
+                self.assertNotIn("\\n", preview)
+
+    def test_unknown_series_rejected_without_mutation(self):
+        source = "vdr-suite (0.14.1-1~exp1) unstable; urgency=low\n"
+        with self.assertRaisesRegex(RuntimeError, "unsupported Ubuntu target"):
+            srcpkg.prepare_ubuntu_preview(source, "0.14.1", 1791940000, "jammy")
+
     def test_no_build_before_storage_preflight(self):
         source = SCRIPT.read_text(encoding="utf-8")
         self.assertLess(source.index("RESOURCE_PREFLIGHT=PASS"),
