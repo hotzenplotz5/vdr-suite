@@ -75,7 +75,12 @@ int main()
         assert(!containsValue(plan.argv, "/bin/sh"));
         assert(containsValue(plan.argv, "-re"));
         assert(containsPair(plan.argv, "-readrate_initial_burst", "8"));
+        assert(containsPair(plan.argv, "-readrate_catchup", "8"));
         assert(indexOf(plan.argv, "-readrate_initial_burst") <
+               indexOf(plan.argv, "-readrate_catchup"));
+        assert(indexOf(plan.argv, "-readrate_catchup") <
+               indexOf(plan.argv, "-re"));
+        assert(indexOf(plan.argv, "-readrate_catchup") <
                indexOf(plan.argv, "-i"));
         assert(containsPair(plan.argv, "-map", "0:v:0?"));
         assert(containsPair(plan.argv, "-map", "0:a:1?"));
@@ -117,6 +122,8 @@ int main()
         assert(plan.valid);
         assert(containsPair(plan.argv, "-c:v", "copy"));
         assert(containsPair(plan.argv, "-c:a", "copy"));
+        assert(containsPair(plan.argv, "-readrate_initial_burst", "8"));
+        assert(containsPair(plan.argv, "-readrate_catchup", "8"));
         assert(!containsValue(plan.argv, "-ac"));
         assert(!containsValue(plan.argv, "-vf"));
         assert(!containsValue(plan.argv, "-pix_fmt"));
@@ -149,6 +156,7 @@ int main()
         assert(!containsPair(plan.argv, "-bsf:a", "aac_adtstoasc"));
         assert(containsPair(plan.argv, "-hls_segment_filename", "segment-%06d.ts"));
         assert(!containsValue(plan.argv, "-readrate_initial_burst"));
+        assert(!containsValue(plan.argv, "-readrate_catchup"));
         assert(!containsValue(plan.argv, "-hls_segment_type"));
         assert(containsPair(
             plan.argv,
@@ -184,6 +192,7 @@ int main()
         assert(plan.valid);
         assert(containsPair(plan.argv, "-c:v", "libx264"));
         assert(!containsValue(plan.argv, "-readrate_initial_burst"));
+        assert(!containsValue(plan.argv, "-readrate_catchup"));
         assert(containsPair(plan.argv, "-preset", "veryfast"));
         assert(!containsPair(plan.argv, "-preset", "superfast"));
         assert(containsPair(plan.argv, "-crf", "20"));
@@ -420,6 +429,7 @@ int main()
         assert(plan.valid);
         assert(containsPair(plan.argv, "-c:v", "copy"));
         assert(!containsValue(plan.argv, "-readrate_initial_burst"));
+        assert(!containsValue(plan.argv, "-readrate_catchup"));
     }
 
     {
@@ -431,6 +441,7 @@ int main()
         assert(containsValue(plan.argv, "-re"));
         assert(containsPair(plan.argv, "-ss", "60"));
         assert(!containsValue(plan.argv, "-readrate_initial_burst"));
+        assert(!containsValue(plan.argv, "-readrate_catchup"));
     }
 
     {
@@ -439,6 +450,7 @@ int main()
         assert(plan.valid);
         assert(!containsValue(plan.argv, "-re"));
         assert(!containsValue(plan.argv, "-readrate_initial_burst"));
+        assert(!containsValue(plan.argv, "-readrate_catchup"));
         assert(containsPair(plan.argv, "-f", "mpegts"));
     }
 
