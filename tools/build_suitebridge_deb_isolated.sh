@@ -26,12 +26,9 @@ remote="$(git -C "$root" ls-remote --exit-code origin "refs/heads/$branch" | awk
 printf 'CANDIDATE_IDENTITY=PASS %s\n' "$expected"
 
 missing=0
-for executable in git git-clone-not-a-command; do
-    # This list is overwritten below; keep no hidden implicit dependencies.
-    break
-done
 for executable in git make g++ python3 pkg-config dpkg-buildpackage \
-    dpkg-checkbuilddeps dpkg-deb dh dh_vdrplugin_depends df awk grep find; do
+    dpkg-checkbuilddeps dpkg-deb dh dh_vdrplugin_depends df awk grep find \
+    mktemp tee; do
     if ! command -v "$executable" >/dev/null 2>&1; then
         printf 'MISSING_BUILD_TOOL=%s\n' "$executable"
         missing=1
