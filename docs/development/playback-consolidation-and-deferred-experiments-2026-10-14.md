@@ -1,7 +1,7 @@
 # Playback integration: consolidated history and deferred experiment archive (2026-10-14)
 
-Status: **source-only integration, CI evidence available, no runtime/TV acceptance**.
-This document is a durable review index; it authorizes no VDR, daemon, TV, permission, package or production change.
+Status: **backend fast-start candidate installed on real yaVDR and running; real latency/VIDAA hardware acceptance pending**. Integration PRs remain draft and unmerged.
+This document is a durable review index; it authorizes no further VDR, daemon, TV, permission, package or production change.
 
 ## Integration candidates (still draft, not merged into main)
 
@@ -40,8 +40,19 @@ See [the source-specific runtime findings](hevc-solo-medicus-runtime-findings-20
 **Backend candidate on existing PR #471 integration branch** `work/device-media-profile-binding-v1-20261012`:
 
 - Selectively request `-readrate_initial_burst 8` in the HLS command plan **only** for Recording (not Live) HLS-fMP4 at `startPositionSeconds=0` with **H.264 stream-copy video**. Keep `-re`, `-hls_time 4`, `split_by_time`, source codec, protected session/grant, ffconcat workspace, worker management, media format and existing server readyness checks unchanged. Never extrapolate to MPEG-TS, HEVC, transcoded video, non-zero seek/resume, progressive or Live-TV. Input-burst value is a hardcoded bounded proof candidate; not a user/client-controlled API request.
-- `core/media/tests/test_ffmpeg_hls_command_builder.cpp` must prove the startup option is before input `-i`, remains paired with `-re`, and is absent for disallowed profiles. This is a **source/CI candidate** only: no new host binary, package, database migration or install is authorized. A working command-line parameter plus successful CI does not prove the first segment is emitted quickly or that the Hisense plays smoothly afterward. Seek/Track/Stop/Revoke must remain valid.
-- **Release gate:** Check the installed FFmpeg feature, compare real startup logs before and after for `provision_ms`, `total_server_ms`, `probe_cache`; measure first frame and a 300-second no-pause/no-seek window using the already installed VIDAA `b20261014.3` meter (separate `P0` versus `TV-Warte`). Do not blindly recompile an already verified daemon. In particular this new source HEAD is **not** the deployed binary and cannot be called a runtime speed improvement until an explicitly gated install and real playback test.
+- `core/media/tests/test_ffmpeg_hls_command_builder.cpp` must prove the startup option is before input `-i`, remains paired with `-re`, and is absent for disallowed profiles. Initially a **source/CI candidate**; the bounded daemon-only installation below is now operator-confirmed. No additional rebuild, package change, or installation is authorized without another gate. A working command-line parameter plus successful CI does not prove the first segment is emitted quickly or that the Hisense plays smoothly afterward. Seek/Track/Stop/Revoke must remain valid.
+- **Release gate:** Check the installed FFmpeg feature, compare real startup logs before and after for `provision_ms`, `total_server_ms`, `probe_cache`; measure first frame and a 300-second no-pause/no-seek window using the already installed VIDAA `b20261014.3` meter (separate `P0` versus `TV-Warte`). Do not blindly recompile an already verified daemon. The code PIN below is **now deployed** as a daemon binary; a speed improvement is still **not established** without real post-install playback timing.
+
+## Operator-confirmed bounded backend rollout (14 October 2026; hardware pending)
+
+The operator ran the existing `tools/install_daemon.py` in the root shell, with the source checkout and compile under `yavdr`, without any global ownership or permission changes. **Observed final log:** `DAEMON_INSTALLATION=PASS`; `DAEMON_INSTALL=PASS`; `DAEMON_STOP=START`; service restarted by the installer and confirmed active. This is a real host rollout, **not** a VIDAA playback/speed acceptance.
+
+- **Code PIN / running daemon:** `6bda8084bf9ebb6e639f15dd9454e24cd424bf29` (PR #471 existing integration branch; final reviewed documentation HEAD `7bc1085a5af217daee32da996ba3879c8a317631` is a docs/AGENTS-only descendant). `RUNNING_SHA256=575e6b1fddecfbaf659f8769a9bca9194e2acb9f64192ed14562905c142fb5d5`.
+- **Provenance:** installed previous commit `981086eadd48806f01dcf8058b1160c6b1d70374`; full checked ancestry; read-only check `CHECK=PASS_NO_CHANGES`; `DB_BACKUP_DECISION=NOT_REQUIRED`; old hash `65a91d6c71301c9548f3ed70f35e01389361cdc38284104d62586882c0d5ca93`.
+- **Build:** `BUILD=NOT_SEALED` initially, single unprivileged compiled `BUILD=PASS`, then `BUILD=REUSABLE` on final check and installer apply. **Do not build this code PIN a second time.** Checkout and sealed candidate are preserved at `/home/yavdr/vdr-suite-daemon-install-uyqP3jag/repo/.build/daemon-installer/6bda8084bf9ebb6e639f15dd9454e24cd424bf29/`. Previous daemon binary/rollback receipt are retained by the installer in that candidate directory; do not remove or overwrite.
+- **Dependencies:** Host FFmpeg `8.0.1-3ubuntu2` and `-readrate_initial_burst` CLI availability were verified before deployment.
+- **Next evidence:** Start a supported H.264 recording (e.g. `Action → Jumper`) from installed VIDAA `b20261014.3`; compare after-deploy `recording media startup` for `profile=hls-fmp4`, `probe_cache`, `provision_ms`, `total_server_ms` with the above baseline. Keep session IDs redacted. Record user-observed time to first picture, any audio/video glitch, and five-minute `P0` and `TV-Warte` event counts/durations. **Pending** until supplied by operator; do not invent performance speedup or transcode/HEVC success.
+- No additional daemon rebuild/restart or VIDAA reinstall is required merely to collect these measurements.
 
 ## Follow-on release gates
 
