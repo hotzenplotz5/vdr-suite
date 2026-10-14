@@ -103,6 +103,21 @@ Interpretation: All three readiness resources appeared together ≈ 3.7 s after 
 
 **Next narrow, read-only field observation:** While the specific recording session is alive, use the already verified process's `/proc/<pid>/cwd/input.ffconcat` in a bounded, timeout-protected `ffprobe` reading only the **first eight media seconds of video packets** (no decoding/transcoding/writes). Report first video PTS/DTS, first keyframe offset relative to first packet, number of packets, negative or non-monotonic DTS deltas and probe wall-clock latency. Never reveal VDR source paths or dump the ffconcat manifest. If the worker/session does not exist, stop without touching production. This test separates early packet/keyframe anomalies from a slow initial probe. **No code change or daemon rebuild is justified yet**.
 
+## Real Source Probe: fast TS and ffconcat packet access, slow HLS first segment (14 October 2026)
+
+The operator ran the previously supplied bounded read-only `ffprobe` command **during** `Action/Jumper` (after new FFmpeg worker discovery). Real yaVDR results:
+
+| Probe | Wall clock | Video packets in first 8 input-media seconds | First video PTS | First video DTS | First keyframe after first video packet | Backward DTS | DTS gap > 0.5 s |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| direct `source-000001.ts` | 147 ms | 189 | 1.483 s | 1.400 s | 0 ms | 0 | 0 |
+| `input.ffconcat` | 150 ms | 189 | 0.026 s | -0.057 s | 0 ms | 0 | 0 |
+
+**Interpretation/limit:** Direct input and concat video packet probes differ by only 3 ms; first video keyframe is present in both and no measured video DTS discontinuities were detected. Relative timestamp rebasing through concat is expected; the values do **not** prove an error. `ffprobe` neither creates nor waits for a 4.004-second HLS segment, so a 150-ms source probe completing far before TV first picture is entirely expected. **Do not infer that the production FFmpeg input/output pipeline must therefore take 150 ms.** These probes selected only `v:0`, and did not measure audio/subtitle packet timing, muxer interleaving, per-input readrate sleeps, or FFmpeg CPU and I/O.
+
+The prior independent new-worker observer found `init.mp4`, `master.m3u8` and `segment-000000.m4s` together after ~3738 ms. FFmpeg's official CLI documentation confirms `-re` sets readrate=1 and `-readrate_initial_burst 8` postpones throttling for 8 seconds of **input media time**, but the presence of the option in a process argv alone cannot establish its runtime pacing.
+
+**Next safe isolation, no extra decoder/transcoder or media writes:** During one new HLS worker, sample `/proc/<pid>/io` `rchar` alongside the presence of readiness files in the worker's existing cwd at 100-ms to 1-s intervals for up to 6 seconds. If input bytes advance rapidly in the first second but readiness arrives at 3.7 seconds, investigate FFmpeg output scheduling/muxer; if bytes accumulate gradually, investigate actual readrate/throttle or source I/O. `rchar` is a process-wide byte counter, not a per-stream byte counter; CPU and asynchronous I/O can confound correlation. Do not dump source paths, ffconcat content, log lines, credentials, record filenames or record source bytes. No new branch, binary rebuild, service restart, permissions changes or modifications to VDR recordings.
+
 ## Follow-on release gates
 
 1. Verify backend #471 and VIDAA #17 exact current HEADs and their current CI together; re-run changed-scope tests if either advanced.
