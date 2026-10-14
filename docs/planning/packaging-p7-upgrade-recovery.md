@@ -1,6 +1,6 @@
 # P7 — Upgrade/recovery policy and preflight
 
-Status: policy and **read-only inspection** implemented. No automated database migrations or tested downgrade path.
+Status: policy, **read-only inspection** and a private-workspace **offline backup/restore rehearsal** implemented. No production migration, automated live backup, or supported downgrade path.
 
 ## Safety contract
 
@@ -12,12 +12,26 @@ Status: policy and **read-only inspection** implemented. No automated database m
 6. Recover by stopping application writes and restoring a verified, compatible backup before reverting binaries. A newer DB schema must not be opened by an older unsupported binary.
 7. Do not delete persistent databases during package `remove`; `purge` must never silently destroy recorded content.
 
+## Offline scratch recovery rehearsal (experimental)
+
+The source file `tools/packaging_recovery_rehearsal.py` accepts an **already quiesced database copy** in a private directory owned by the calling non-root user (mode `0700`). It refuses a symlink or real-user state outside that scratch workspace. It creates a fresh backup with SQLite's backup API, verifies integrity/schema/user_version and SHA-256, restores to a second *new* filename in the same workspace, and verifies integrity and byte identity. Existing files are never overwritten. Resource checks reserve at least 4 GiB or 15% of the workspace filesystem, with a budget for concurrent artifacts.
+
+For a pre-existing **private, offline test workspace only**, with `test-copy.db` already located in it:
+
+```sh
+python3 tools/packaging_recovery_rehearsal.py \\
+  --workspace /path/to/private-0700-test-workspace \\
+  --source test-copy.db --backup test-backup.db --restored test-restored.db
+```
+
+This is a rehearsal, not a procedure for copying the active VDR-Suite database. Do **not** point it at `/var/lib/vdr-suite`, live WAL files or existing backups. There is no service shutdown, package installation, migration or live restore. Tests in `tools/test_packaging_recovery_rehearsal.py` cover committed WAL data, integrity, overwrite refusal, private workspace, symlinks, and reserved space.
+
 ## Remaining before P7 acceptance
 
 - Schema migration registry and compatible version boundaries.
-- Snapshot/backup implementation and WAL-safe integration tests.
+- An approved quiesce/snapshot method for the real daemon and all SQLite/WAL writers. The scratch rehearsal is not an integrated production backup.
 - Upgrade tests from at least one supported previous package version.
-- Rollback/recovery dry-run with integrity verification.
+- Full upgrade/rollback matrix, including compatibility and restoration of all state in an isolated Debian/Ubuntu install root.
 - Concurrent service start/stop and admin onboarding acceptance on real yaVDR.
 
 No maintainer script or automated installer currently performs a database migration.
