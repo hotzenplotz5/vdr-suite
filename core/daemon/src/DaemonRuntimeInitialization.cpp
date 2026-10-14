@@ -6,6 +6,8 @@
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "RecordingArtworkHttpServer.h"
 #include "PublicRecordingCollectionProjection.h"
+#include "GlobalSearchRepository.h"
+#include "GlobalSearchApiRuntime.h"
 #include "GenreBrowserApiRuntime.h"
 #include "RecordingSeriesHierarchyApiRuntime.h"
 #include "RestfulApiRecordingActionBackendExecutorAdapter.h"
@@ -21,6 +23,7 @@
 #include <csignal>
 #include <iostream>
 #include <iterator>
+#include <map>
 #include <utility>
 #include <vector>
 
@@ -1283,6 +1286,69 @@ bool DaemonRuntime::initialize()
                 return result;
             }
 
+            if (request.searchRecordings)
+            {
+                // This MUST be the same indexed search as the Webfrontend:
+                // original titles, metadata, native short text, people,
+                // accent/case folding, exact/prefix scoring. Never substitute
+                // a scan over the projected display titles.
+                const auto global =
+                    GlobalSearchApiRuntime::instance().searchForPublicProjection(
+                        request.backendId, request.searchText, 0, 0,
+                        static_cast<int>(request.limit),
+                        static_cast<int>(request.offset));
+                if (global.status != "ready")
+                    return result;
+
+                const auto snapshot =
+                    vdrSnapshotReadService_->getRecordingsForBackend(
+                        request.backendId);
+                PublicRecordingCollectionProjection projector(
+                    *publicRecordingIdentities_);
+                const auto projected = projector.project(
+                    request.backendId, snapshot);
+                if (!projected.valid)
+                    return result;
+
+                std::map<std::string, PublicRecordingReadItem> byPublicId;
+                for (const auto& item : projected.items)
+                    byPublicId.emplace(item.recordingId, item);
+                std::map<std::string, std::string> nativeToPublic;
+                for (const auto& source : snapshot)
+                {
+                    const auto publicId = publicRecordingIdentities_->find(
+                        request.backendId, source.backendNativeId);
+                    if (!publicId.has_value() ||
+                        byPublicId.find(*publicId) == byPublicId.end())
+                        return result;
+                    nativeToPublic.emplace(source.backendNativeId, *publicId);
+                }
+                for (const auto& hit : global.recordings)
+                {
+                    if (hit.backendId != request.backendId ||
+                        hit.backendNativeId.empty() ||
+                        nativeToPublic.count(hit.backendNativeId) != 1U)
+                        return result; // stale index/snapshot, fail closed
+                    const auto& safe =
+                        byPublicId.at(nativeToPublic.at(hit.backendNativeId));
+                    PublicRecordingCollectionItem entry;
+                    entry.recordingId = safe.recordingId;
+                    entry.backendId = safe.backendId;
+                    entry.title = safe.title;
+                    entry.recordedAt = safe.recordedAt;
+                    entry.durationSeconds = safe.durationSeconds;
+                    entry.durationKnown = safe.durationKnown;
+                    entry.description = safe.description;
+                    entry.sizeMb = safe.sizeMb;
+                    result.recordings.push_back(std::move(entry));
+                }
+                result.totalEntries =
+                    std::max(0, global.recordingTotal);
+                result.hasMore = global.recordingHasMore;
+                result.status = PublicRecordingCollectionStatus::ok;
+                return result;
+            }
+
             if (request.browseFolders)
             {
                 // Reuse the Home cache hierarchy; only opaque folder IDs,
@@ -1536,6 +1602,64 @@ bool DaemonRuntime::initialize()
                 }
             }
             result.status = PublicGenreCollectionStatus::ok;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerEpgSearchLookup(
+        [this](const PublicEpgSearchRequest& request)
+        {
+            PublicEpgSearchResult result;
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                request.backendId.empty() || request.limit == 0U ||
+                request.limit > 30U)
+            {
+                result.status = PublicEpgNowNextStatus::invalid;
+                return result;
+            }
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled ||
+                !backend->online ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(
+                    request.backendId))
+                return result;
+            const auto channels =
+                vdrSnapshotReadService_->getChannelsForBackend(
+                    request.backendId);
+            std::map<std::string, bool> authorizedChannels;
+            for (const auto& channel : channels)
+                authorizedChannels.emplace(channel.id, true);
+
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            // Exact default time window from Web GlobalSearchController.
+            const auto global =
+                GlobalSearchApiRuntime::instance().searchForPublicProjection(
+                    request.backendId, request.query,
+                    now - 6 * 3600, now + 14 * 24 * 3600,
+                    static_cast<int>(request.limit),
+                    static_cast<int>(request.offset));
+            if (global.status != "ready")
+                return result;
+            for (const auto& event : global.epg)
+            {
+                if (event.backendId != request.backendId ||
+                    event.channelId.empty() ||
+                    authorizedChannels.count(event.channelId) != 1U)
+                    return result;
+                PublicEpgSearchItem safe;
+                safe.channelId = event.channelId;
+                safe.channelName = event.channelName;
+                safe.title = event.title;
+                safe.subtitle = event.subtitle;
+                safe.startTime = event.startTime;
+                safe.endTime = event.endTime;
+                safe.matchReason = event.matchReason;
+                result.events.push_back(std::move(safe));
+            }
+            result.totalEntries = std::max(0, global.epgTotal);
+            result.hasMore = global.epgHasMore;
+            result.status = PublicEpgNowNextStatus::ok;
             return result;
         });
 

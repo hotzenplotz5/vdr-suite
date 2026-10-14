@@ -710,7 +710,8 @@ public:
         const bool isPublicChannelCollection =
             path == "/api/v1/channels";
         const bool isPublicEpgNowNext =
-            path == "/api/v1/epg/now-next";
+            path == "/api/v1/epg/now-next" ||
+            path == "/api/v1/epg/search";
         const bool isPublicEpgNowNextRead =
             request.method == "GET" && isPublicEpgNowNext;
         std::vector<std::string> publicChannelBackendIds;

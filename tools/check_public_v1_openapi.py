@@ -97,11 +97,19 @@ AUDITED = {
 # SecurityHttpGate Device-only admission marker for every documented method.
 # The GET status and track branches use an empty body to distinguish reads.
 DEVICE_AUDITED = {
+    "/api/v1/recording-playback-sessions/capabilities": {
+        "get": ('const std::string capabilityCollection = collection + "/capabilities";',
+                'isPublicDeviceRecordingSessionRead'),
+    },
     "/api/v1/recording-playback-sessions": {
         "post": ('if (target == collection)', 'isPublicDeviceRecordingSessionCreate'),
     },
     "/api/v1/recording-playback-sessions/{sessionId}": {
         "get": ('target.size() == prefix.size() + 35U &&',
+                'isPublicDeviceRecordingSessionRead'),
+    },
+    "/api/v1/recording-playback-sessions/{sessionId}/trickplay": {
+        "get": ('target.find("/trickplay", prefix.size())',
                 'isPublicDeviceRecordingSessionRead'),
     },
     "/api/v1/recording-playback-sessions/{sessionId}/tracks": {
@@ -286,7 +294,8 @@ def validate(
                 if path in DEVICE_AUDITED and (
                     not isinstance(ext, dict) or
                     "Device" not in ext.get("authorization", "") or
-                    "media.recording.play" not in ext.get("authorization", "")
+                    (path != "/api/v1/recording-playback-sessions/capabilities" and
+                     "media.recording.play" not in ext.get("authorization", ""))
                 ):
                     errors.append(f"{where}: Device playback ownership/play grant boundary missing")
             required_headers = [p.get("name") for p in params if isinstance(p, dict) and p.get("in") == "header" and p.get("required") is True]

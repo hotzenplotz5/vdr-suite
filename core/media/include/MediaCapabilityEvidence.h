@@ -37,6 +37,11 @@ struct MediaPlaybackPathEvidence
     int verifiedVideoWidth = 0;
     int verifiedVideoHeight = 0;
     int verifiedAudioChannels = 0;
+    // Exact output path attributes; absent details never prove HEVC Main10/HDR.
+    std::string videoProfile;
+    int verifiedVideoBitDepth = 0;
+    double verifiedMaxFrameRate = 0.0;
+    std::string hdrTransfer;
 };
 
 struct MediaVerifiedPath

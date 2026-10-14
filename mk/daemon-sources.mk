@@ -144,12 +144,19 @@ DAEMON_SRC := \
         core/media/src/FfprobeRecordingSource.cpp \
         core/media/src/FfprobeLiveSource.cpp \
         core/media/src/MediaPresentationSelector.cpp \
+        core/media/src/MediaCapabilityEvidence.cpp \
+        core/media/src/DeviceMediaCapabilityProfile.cpp \
+        core/media/src/DeviceMediaProfileRepository.cpp \
+        core/media/src/DeviceMediaProfileQuery.cpp \
         core/media/src/MediaTranscodePolicy.cpp \
         core/media/src/MediaTranscodeBackendSettingsRepository.cpp \
         core/media/src/FfmpegHlsCommandBuilder.cpp \
         core/media/src/FfmpegLiveStreamCommandBuilder.cpp \
         core/media/src/MediaProcessRunner.cpp \
         core/media/src/ArtworkPreviewCache.cpp \
+        core/media/src/RecordingTrickplayDeviceRequest.cpp \
+        core/media/src/RecordingTrickplayPreviewPlan.cpp \
+        core/media/src/RecordingTrickplayPreviewRenderer.cpp \
         core/media/src/MediaSessionWorkspace.cpp \
         core/media/src/MediaSessionRepository.cpp \
         core/media/src/MediaSessionRepositoryLive.cpp \

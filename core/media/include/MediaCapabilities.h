@@ -102,6 +102,10 @@ struct MediaVideoStreamDescriptor
     std::string pixelFormat;
     std::string timeBase;
     long long bitRate = 0;
+    // Source-side ffprobe evidence; absence is not a supported codec profile.
+    std::string codecProfile;
+    int bitDepth = 0;
+    int codecLevel = 0;
 };
 
 struct MediaAudioStreamDescriptor

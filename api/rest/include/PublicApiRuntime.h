@@ -119,6 +119,8 @@ struct PublicRecordingCollectionRequest
     std::string afterRecordingId;
     std::size_t limit = 50U;
     bool browseFolders = false;
+    bool searchRecordings = false;
+    std::string searchText;
     std::string folderId;
     std::size_t offset = 0U;
 };
@@ -253,6 +255,32 @@ struct PublicEpgNowNextResult
 {
     PublicEpgNowNextStatus status = PublicEpgNowNextStatus::unavailable;
     std::vector<PublicEpgNowNextItem> events;
+};
+
+// Same SQL Global Search as Web, projected into device-safe EPG values.
+struct PublicEpgSearchRequest
+{
+    std::string backendId;
+    std::string query;
+    std::size_t limit = 30U;
+    std::size_t offset = 0U;
+};
+struct PublicEpgSearchItem
+{
+    std::string channelId;
+    std::string channelName;
+    std::string title;
+    std::string subtitle;
+    std::string startTime;
+    std::string endTime;
+    std::string matchReason;
+};
+struct PublicEpgSearchResult
+{
+    PublicEpgNowNextStatus status = PublicEpgNowNextStatus::unavailable;
+    std::vector<PublicEpgSearchItem> events;
+    std::size_t totalEntries = 0U;
+    bool hasMore = false;
 };
 
 enum class PublicBackendCollectionStatus
@@ -916,6 +944,10 @@ public:
         std::function<PublicEpgNowNextResult(
             const PublicEpgNowNextRequest& request)>;
 
+    using EpgSearchLookup =
+        std::function<PublicEpgSearchResult(
+            const PublicEpgSearchRequest& request)>;
+
     using BackendCollectionLookup =
         std::function<PublicBackendCollectionResult(
             const PublicBackendCollectionRequest& request)>;
@@ -1060,6 +1092,12 @@ public:
     bool epgNowNextLookupConfigured() const;
     PublicEpgNowNextResult lookupEpgNowNext(
         const PublicEpgNowNextRequest& request) const;
+
+    void registerEpgSearchLookup(EpgSearchLookup lookup);
+    void resetEpgSearchLookup();
+    bool epgSearchLookupConfigured() const;
+    PublicEpgSearchResult lookupEpgSearch(
+        const PublicEpgSearchRequest& request) const;
 
     void registerBackendCollectionLookup(
         BackendCollectionLookup lookup);
@@ -1235,6 +1273,9 @@ private:
 
     mutable std::mutex epgNowNextLookupMutex_;
     EpgNowNextLookup epgNowNextLookup_;
+
+    mutable std::mutex epgSearchLookupMutex_;
+    EpgSearchLookup epgSearchLookup_;
 
     mutable std::mutex backendCollectionLookupMutex_;
     BackendCollectionLookup backendCollectionLookup_;

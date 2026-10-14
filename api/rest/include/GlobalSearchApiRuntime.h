@@ -2,6 +2,7 @@
 
 #include "DashboardController.h"
 #include "GlobalSearchController.h"
+#include "GlobalSearchResult.h"
 
 #include <memory>
 #include <mutex>
@@ -28,6 +29,14 @@ public:
     bool tryHandleGet(
         const std::string& requestTarget,
         ApiResponse& response) const;
+
+    // Reuses the exact indexed Web global-search service, not a client-specific
+    // title matcher. Internal structured result must be projected before
+    // serialization to any Public-v1 device.
+    GlobalSearchResult searchForPublicProjection(
+        const std::string& backendId, const std::string& query,
+        std::int64_t from, std::int64_t until,
+        int limit, int offset) const;
 
     bool configured() const;
     void reset();
