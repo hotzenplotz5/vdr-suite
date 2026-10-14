@@ -29,6 +29,20 @@ Experimental branch heads above are archive references and must not be reset, fo
 
 See [the source-specific runtime findings](hevc-solo-medicus-runtime-findings-20261013.md) and [earlier investigation](hevc-recording-framerate-investigation.md), plus the appendix in VIDAA `docs/client-integration-playbook.md`. The five bounded Medicus II 10-second windows included PTS/DTS irregularities and repeated frames in the final sampled window; neither observation alone establishes that remux, decoder, hardware or source is the root cause of subjective judder. The Solo incorrect-duration observation is separate. No recording `info`, `index` or `.ts` data should be altered on that evidence.
 
+## Bounded H.264 HLS first-segment acceleration (14 October 2026)
+
+**Operator evidence, installed yaVDR backend (SHA-256 `65a91d6c71301c9548f3ed70f35e01389361cdc38284104d62586882c0d5ca93`):**
+
+- The VIDAA app previously measured one `CREATE=4238 ms`. The operator subsequently collected 12 redacted server startup logs (10 HLS-fMP4, 2 progressive-fMP4). HLS `provision_ms` was `4716,6991,4111,4375,3948,4143,3880,4668,4640,4717`; numerous runs had `probe_cache=hit`, `descriptor_ms=0`, `selection_ms=0`, `session_ms=15–63` but ~4 seconds in `provision_ms`. For example, total `4152 ms` with `provision_ms=4111 ms`. Progressive fMP4's unrelated `provision_ms=6` only measures FIFO provisioning, **not** TV decodability (progressive playback previously failed `NotSupportedError` on the Hisense).
+- Source-verified causal gate: `core/media/src/FfmpegHlsCommandBuilder.cpp` specifies `-re` and four-second `-hls_time` for Recording input; `RecordingMediaSessionRuntime::defaultReady` requires HLS playlist, init and first complete fMP4 segment before `CREATE` succeeds. Thus the roughly 4-second HLS delay is explained by source-rate input and complete-segment readiness, although the source-specific GOP/worker-start contribution is not separated by the existing logs.
+- **Confirmed host prerequisite:** The operator's `ffmpeg version 8.0.1-3ubuntu2` prints `-readrate_initial_burst <seconds>` in `-h full`. This option is not universal on older Debian/Ubuntu FFmpeg versions; **mandatory compatibility check before any installation**, not an assumption from build success.
+
+**Backend candidate on existing PR #471 integration branch** `work/device-media-profile-binding-v1-20261012`:
+
+- Selectively request `-readrate_initial_burst 8` in the HLS command plan **only** for Recording (not Live) HLS-fMP4 at `startPositionSeconds=0` with **H.264 stream-copy video**. Keep `-re`, `-hls_time 4`, `split_by_time`, source codec, protected session/grant, ffconcat workspace, worker management, media format and existing server readyness checks unchanged. Never extrapolate to MPEG-TS, HEVC, transcoded video, non-zero seek/resume, progressive or Live-TV. Input-burst value is a hardcoded bounded proof candidate; not a user/client-controlled API request.
+- `core/media/tests/test_ffmpeg_hls_command_builder.cpp` must prove the startup option is before input `-i`, remains paired with `-re`, and is absent for disallowed profiles. This is a **source/CI candidate** only: no new host binary, package, database migration or install is authorized. A working command-line parameter plus successful CI does not prove the first segment is emitted quickly or that the Hisense plays smoothly afterward. Seek/Track/Stop/Revoke must remain valid.
+- **Release gate:** Check the installed FFmpeg feature, compare real startup logs before and after for `provision_ms`, `total_server_ms`, `probe_cache`; measure first frame and a 300-second no-pause/no-seek window using the already installed VIDAA `b20261014.3` meter (separate `P0` versus `TV-Warte`). Do not blindly recompile an already verified daemon. In particular this new source HEAD is **not** the deployed binary and cannot be called a runtime speed improvement until an explicitly gated install and real playback test.
+
 ## Follow-on release gates
 
 1. Verify backend #471 and VIDAA #17 exact current HEADs and their current CI together; re-run changed-scope tests if either advanced.
