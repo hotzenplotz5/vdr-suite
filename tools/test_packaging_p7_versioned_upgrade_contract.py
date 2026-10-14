@@ -14,7 +14,7 @@ PRIOR_COMMIT = "bc4623374a4df4c08118c424ea19aaf552a4964c"
 
 class P7VersionedUpgradeContractTests(unittest.TestCase):
     def test_real_debian_version_order_and_app_version(self):
-        releases = re.findall(r"^vdr-suite \\(([^)]+)\\) ", CHANGELOG.read_text(), re.M)
+        releases = re.findall(r"^vdr-suite \(([^)]+)\) ", CHANGELOG.read_text(), re.M)
         self.assertGreaterEqual(len(releases), 2)
         self.assertEqual(releases[:2], ["0.14.1-1~exp2", "0.14.1-1~exp1"])
         if shutil.which("dpkg") is None:
