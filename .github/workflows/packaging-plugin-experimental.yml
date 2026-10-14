@@ -23,7 +23,7 @@ permissions:
 
 jobs:
   plugin-only-noble:
-    name: Ubuntu 24.04 independent plugin package
+    name: Ubuntu 24.04 Seahawk VDR 2.8.3 independent plugin package
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -41,7 +41,17 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
+          sudo apt-get install -y --no-install-recommends software-properties-common
+          sudo add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
+          sudo apt-get update
+          apt-cache policy vdr-dev
           sudo apt-get install -y --no-install-recommends build-essential debhelper dpkg-dev g++ make pkg-config python3 vdr-dev
+          vdr_version="$(dpkg-query -W -f='\u0024{Version}' vdr-dev)"
+          echo "INSTALLED_VDR_DEV=$vdr_version"
+          case "$vdr_version" in
+            2.8.3-*) echo 'SEAHAWK_VDR_DEV=PASS' ;;
+            *) echo 'SEAHAWK_VDR_DEV=FAIL'; exit 1 ;;
+          esac
           pkg-config --exists vdr
           printf 'VDR_LIBDIR=%s\n' "$(pkg-config --variable=libdir vdr)"
           printf 'VDR_APIVERSION=%s\n' "$(pkg-config --variable=apiversion vdr)"
@@ -80,7 +90,7 @@ jobs:
           retention-days: 7
 
   full-default-packages-noble:
-    name: Ubuntu 24.04 default daemon + agent + SuiteBridge experiment
+    name: Ubuntu 24.04 Seahawk VDR 2.8.3 daemon + agent + SuiteBridge
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -104,7 +114,17 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends             build-essential debhelper dpkg-dev g++ make pkg-config python3 vdr-dev             libsqlite3-dev libcurl4-openssl-dev libssl-dev libcrypt-dev
+          sudo apt-get install -y --no-install-recommends software-properties-common
+          sudo add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
+          sudo apt-get update
+          apt-cache policy vdr-dev
+          sudo apt-get install -y --no-install-recommends build-essential debhelper dpkg-dev g++ make pkg-config python3 vdr-dev libsqlite3-dev libcurl4-openssl-dev libssl-dev libcrypt-dev
+          vdr_version="$(dpkg-query -W -f='\u0024{Version}' vdr-dev)"
+          echo "INSTALLED_VDR_DEV=$vdr_version"
+          case "$vdr_version" in
+            2.8.3-*) echo 'SEAHAWK_VDR_DEV=PASS' ;;
+            *) echo 'SEAHAWK_VDR_DEV=FAIL'; exit 1 ;;
+          esac
           dpkg-checkbuilddeps -B
       - name: Build all default binary packages (no host installation)
         shell: bash
