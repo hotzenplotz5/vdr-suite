@@ -4,6 +4,12 @@
 #include "Database.h"
 #include "GenreIndexRepository.h"
 #include "GlobalSearchRepository.h"
+#include "SecurityIdentityRepository.h"
+#include "HumanAccountRepository.h"
+#include "CredentialVerifierRepository.h"
+#include "MutationOperationRepository.h"
+#include "TimerIntentRepository.h"
+#include "TimerAssignmentRepository.h"
 #include <sqlite3.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -77,6 +83,26 @@ int main(int argc, char** argv)
             std::cerr << "P7_GLOBAL_SEARCH_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
             return 6;
         }
+        SecurityIdentityRepository identities(database);
+        HumanAccountRepository accounts(database);
+        CredentialVerifierRepository verifiers(database);
+        vdrsuite::operations::MutationOperationRepository operations(database);
+        vdrsuite::timers::TimerIntentRepository intents(database);
+        vdrsuite::timers::TimerAssignmentRepository assignments(database);
+        if (!identities.ensureSchema() ||
+            !accounts.ensureSchema() ||
+            !verifiers.ensureSchema()) {
+            std::cerr << "P7_SECURITY_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
+            return 8;
+        }
+        if (!operations.ensureSchema()) {
+            std::cerr << "P7_OPERATIONS_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
+            return 9;
+        }
+        if (!intents.ensureSchema() || !assignments.ensureSchema()) {
+            std::cerr << "P7_TIMERS_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
+            return 10;
+        }
         if (!scalarPositive(database.handle(),
             "SELECT count(*) FROM suite_metadata_schema_versions;") ||
             !scalarPositive(database.handle(),
@@ -84,7 +110,13 @@ int main(int argc, char** argv)
             !scalarPositive(database.handle(),
             "SELECT count(*) FROM pragma_integrity_check WHERE integrity_check='ok';") ||
             !scalarPositive(database.handle(),
-            "SELECT CASE WHEN (SELECT count(*) FROM pragma_foreign_key_check)=0 THEN 1 ELSE 0 END;")) {
+            "SELECT CASE WHEN (SELECT count(*) FROM pragma_foreign_key_check)=0 THEN 1 ELSE 0 END;") ||
+            !scalarPositive(database.handle(),
+            "SELECT CASE WHEN (SELECT count(*) FROM sqlite_master WHERE name IN "
+            "('security_actors','security_human_accounts','security_credentials',"
+            "'security_basic_credential_verifiers','mutation_operations',"
+            "'mutation_operation_payloads','timer_intents','timer_assignments'))=8 "
+            "THEN 1 ELSE 0 END;")) {
             std::cerr << "P7_RUNTIME_SQLITE_INTEGRITY=FAIL\n";
             return 7;
         }

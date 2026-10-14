@@ -1,9 +1,19 @@
 .PHONY: test-packaging-p7-runtime-schema
-test-packaging-p7-runtime-schema: CXXFLAGS += -Icore/metadata/include
+test-packaging-p7-runtime-schema: CXXFLAGS += -Icore/metadata/include -Icore/timers/include -Icore/operations/include
 test-packaging-p7-runtime-schema:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
 		$(METADATA_GENRE_SRC) \
+		core/security/src/SecurityIdentityRepository.cpp \
+		core/security/src/HumanAccountRepository.cpp \
+		core/security/src/CredentialVerifierRepository.cpp \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/timers/src/TimerIntent.cpp \
+		core/timers/src/TimerIntentRepository.cpp \
+		core/timers/src/TimerAssignment.cpp \
+		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
+		core/timers/src/TimerAssignmentRepository.cpp \
 		core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
 		core/vdr/src/GlobalSearchRepository.cpp \
 		core/metadata/tests/test_packaging_p7_runtime_schema.cpp \
