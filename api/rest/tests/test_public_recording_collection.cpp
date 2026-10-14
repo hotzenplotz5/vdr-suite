@@ -95,6 +95,67 @@ int main()
     assert(second.body.find("\"recordingId\":\"rec_00000000000000000000000000000003\"") != std::string::npos);
     assert(second.body.find("\"hasMore\":false") != std::string::npos);
 
+    // Search is a bounded Public-v1 view, sharing the existing device
+    // authorization and opaque Recording identity gate.
+    runtime.resetRecordingCollectionLookup();
+    runtime.registerRecordingCollectionLookup(
+        [](const PublicRecordingCollectionRequest& request)
+        {
+            PublicRecordingCollectionResult page;
+            if (!request.searchRecordings ||
+                request.searchText != "Hobbit" ||
+                request.backendId != "backend-a") return page;
+            page.status = PublicRecordingCollectionStatus::ok;
+            page.totalEntries = 2U;
+            if (request.offset == 0U)
+                page.recordings.push_back(recording(
+                    "rec_00000000000000000000000000000001"));
+            else if (request.offset == 1U)
+                page.recordings.push_back(recording(
+                    "rec_00000000000000000000000000000002"));
+            page.hasMore = request.offset == 0U;
+            return page;
+        });
+    ApiResponse searched;
+    assert(runtime.tryHandleGet(
+        "/api/v1/recordings?backendId=backend-a&view=search&query=Hobbit&limit=1&offset=0",
+        "actor:tv", "search-first", "", searched, "", "", {"backend-a"}));
+    assert(searched.statusCode == 200);
+    assert(searched.body.find("\"totalCount\":2") != std::string::npos);
+    assert(searched.body.find("\"kind\":\"recording\"") != std::string::npos);
+    assert(searched.body.find("backendNativeId") == std::string::npos);
+    assert(searched.body.find("recordingPath") == std::string::npos);
+    ApiResponse searchedNext;
+    assert(runtime.tryHandleGet(
+        "/api/v1/recordings?backendId=backend-a&view=search&query=Hobbit&limit=1&offset=1",
+        "actor:tv", "search-second", "", searchedNext, "", "", {"backend-a"}));
+    assert(searchedNext.statusCode == 200);
+    assert(searchedNext.body.find("\"hasMore\":false") != std::string::npos);
+    for (const std::string invalidSearch : {
+             "view=search&query=H", "view=search&query=%GG",
+             "view=search&query=%00Hello",
+             "view=search&query=Hobbit&limit=31",
+             "view=search&query=Hobbit&cursor=rc1_abcd",
+             "view=search&query=Hobbit&folderId=fld1_0123456789abcdef0123456789abcdef",
+             "view=folders&query=Hobbit", "query=Hobbit"})
+    {
+        ApiResponse invalid;
+        assert(runtime.tryHandleGet(
+            "/api/v1/recordings?backendId=backend-a&" + invalidSearch,
+            "actor:tv", "invalid-search", "", invalid, "", "", {"backend-a"}));
+        assert(invalid.statusCode == 400);
+    }
+    ApiResponse wrongSearchScope;
+    assert(runtime.tryHandleGet(
+        "/api/v1/recordings?backendId=backend-b&view=search&query=Hobbit&limit=1",
+        "actor:tv", "wrong-scope", "", wrongSearchScope, "", "", {"backend-a"}));
+    assert(wrongSearchScope.statusCode == 400);
+    ApiResponse anonymousSearch;
+    assert(runtime.tryHandleGet(
+        "/api/v1/recordings?backendId=backend-a&view=search&query=Hobbit&limit=1",
+        "", "anonymous-search", "", anonymousSearch, "", "", {"backend-a"}));
+    assert(anonymousSearch.statusCode == 401);
+
     // Folder traversal is an additive view of the same recordings.view route.
     runtime.resetRecordingCollectionLookup();
     runtime.registerRecordingCollectionLookup(
