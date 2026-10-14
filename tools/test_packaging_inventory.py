@@ -62,6 +62,25 @@ class InventoryTests(unittest.TestCase):
             self.assertTrue(all(x["package"] == "vdr-suite-backend-agent" for x in entries))
             self.assertTrue(any(x.get("config_candidate") for x in entries))
 
+    def test_packaging_owns_nginx_helper_calibrator_and_suitebridge_tmpfiles(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            stage = Path(tmp)
+            expected = {
+                "etc/nginx/snippets/vdr-suite.conf": "vdr-suite-daemon",
+                "usr/bin/vdr-suite-media-calibrate": "vdr-suite-daemon",
+                "usr/lib/tmpfiles.d/vdr-suite-live.conf": "vdr-plugin-suitebridge",
+            }
+            for name in expected:
+                path = stage / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("packaging fixture", encoding="utf-8")
+            records = {r["path"].lstrip("/"): r for r in
+                       inventory.inspect(stage, "runtime")}
+            for name, package in expected.items():
+                with self.subTest(name=name):
+                    self.assertEqual(records[name]["package"], package)
+            self.assertTrue(records["etc/nginx/snippets/vdr-suite.conf"]["config_candidate"])
+
     def test_reject_secret_payload_and_world_write(self):
         with tempfile.TemporaryDirectory() as tmp:
             stage = Path(tmp)

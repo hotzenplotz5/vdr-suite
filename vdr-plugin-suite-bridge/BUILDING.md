@@ -43,3 +43,7 @@ python3 tools/check_packaging_tracked_artifacts.py
 ```
 
 `debian/rules` must be executable (mode 100755). Build artifacts are ignored by Git, but previously tracked artifacts remain tracked: the audit checks this and never removes any files. Do not run a package build, upload, or installation on production yaVDR until clean-root build and upgrade tests have passed.
+
+## Private transport directories in the plugin package
+
+Debian packaging of the independent plugin now additionally contains `/usr/lib/tmpfiles.d/vdr-suite-live.conf`. Its purpose is to provision VDR-owned, mode 0700 transport subdirectories under `/run/vdr` for Live-TV/HbbTV. The plugin-only Debian build profile stages this file from `packaging/systemd/vdr-suite-live.conf` without building the daemon; the plain `make -C vdr-plugin-suite-bridge install DESTDIR=...` path still stages the plugin library only. Do not run `systemd-tmpfiles --create` or change the live VDR service during package acceptance. Fresh-install execution of the tmpfiles lifecycle remains unvalidated pending isolated installation tests.

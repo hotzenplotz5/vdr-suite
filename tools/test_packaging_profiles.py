@@ -32,6 +32,28 @@ class PackagingProfileTests(unittest.TestCase):
         self.assertIn("build-installable", run.stdout)
         self.assertIn("vdr-plugin-suite-bridge", run.stdout)
 
+    @unittest.skipUnless(shutil.which("make"), "GNU make unavailable")
+    def test_plugin_only_stages_transport_tmpfiles_without_daemon(self):
+        run = subprocess.run(
+            ["make", "-n", "-f", "debian/rules", "override_dh_auto_install",
+             "DEB_BUILD_PROFILES=plugin-only", "MAKE=/bin/echo"],
+            cwd=ROOT, text=True, capture_output=True, check=True)
+        self.assertIn("packaging/systemd/vdr-suite-live.conf", run.stdout)
+        self.assertIn("usr/lib/tmpfiles.d/vdr-suite-live.conf", run.stdout)
+        self.assertNotIn("make install DESTDIR=", run.stdout)
+        self.assertNotIn("build-installable", run.stdout)
+
+    def test_packaging_manifests_assign_all_staged_helpers(self):
+        daemon = (ROOT / "debian/vdr-suite-daemon.install").read_text(encoding="utf-8").splitlines()
+        plugin = (ROOT / "debian/vdr-plugin-suitebridge.install").read_text(encoding="utf-8").splitlines()
+        for name in ("etc/nginx/snippets/vdr-suite.conf", "usr/bin/vdr-suite-media-calibrate"):
+            self.assertIn(name, daemon)
+            self.assertNotIn(name, plugin)
+        socket_config = "usr/lib/tmpfiles.d/vdr-suite-live.conf"
+        self.assertIn(socket_config, plugin)
+        self.assertNotIn(socket_config, daemon)
+        self.assertEqual(len(plugin), len(set(plugin)))
+
     def test_control_declares_profile_and_abi_dependency(self):
         data = (ROOT / "debian/control").read_text(encoding="utf-8")
         self.assertEqual(data.count("Build-Profiles: <!plugin-only>"), 2)

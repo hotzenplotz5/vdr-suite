@@ -49,3 +49,9 @@ The standalone SuiteBridge binary package **has now been built successfully** on
 **NOT RELEASE-READY.** A clean root build and the exact Ubuntu CI result still require verification. Full daemon dependency metadata, distribution/ABI compatibility, accurate Debian copyright/third-party notices, package file ownership, conffiles, install/upgrade/remove/purge and database backup/rollback tests remain open. No package upload to Launchpad and no production yaVDR installation are authorized by this document.
 
 In the experimental packages, automatic systemd enable/start is explicitly disabled. No maintainer script performs database migration.
+
+## Verified CI full-build staging ownership (2026-10-14)
+
+The first full Ubuntu 24.04 + Seahawk VDR 2.8.3 compilation reached `dh_missing --fail-missing` but failed because three staged assets had no package owner. The daemon now declares ownership for `/usr/bin/vdr-suite-media-calibrate` (a Python 3 command) and the inactive Nginx snippet `/etc/nginx/snippets/vdr-suite.conf`. The independent SuiteBridge binary package owns `/usr/lib/tmpfiles.d/vdr-suite-live.conf` because VDR runs as user `vdr` and requires private `/run/vdr` transport roots. The plugin-only profile explicitly stages that file without invoking the daemon build. No Nginx site is activated or VDR service started by this change.
+
+The old `dh_missing` failure was recorded in [GitHub Actions run #26](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38584786074). A successful replacement full build is required before P5 can be accepted. Whether manual existing Nginx snippets collide with dpkg conffiles, and install-time tmpfiles execution under target VDR, remain P6 gates. Neither a package install nor an upgrade is authorized on production yaVDR.

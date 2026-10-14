@@ -12,7 +12,7 @@ import stat
 import posixpath
 
 SENSITIVE_PREFIXES = ("etc/vdr-suite/", "var/lib/vdr-suite/", "var/cache/vdr-suite/")
-ALLOWED_PREFIXES = ("usr/", "etc/vdr-suite/", "etc/default/vdr-suite-", "var/lib/vdr-suite/", "var/cache/vdr-suite/", "lib/systemd/system/vdr-suite-", "usr/lib/systemd/system/vdr-suite-")
+ALLOWED_PREFIXES = ("usr/", "etc/vdr-suite/", "etc/nginx/snippets/vdr-suite.conf", "etc/default/vdr-suite-", "var/lib/vdr-suite/", "var/cache/vdr-suite/", "lib/systemd/system/vdr-suite-", "usr/lib/systemd/system/vdr-suite-")
 PLUGIN_RE = re.compile(r"^libvdr-suitebridge\.so\.[A-Za-z0-9_.+-]+$")
 
 def package_for(path, origin):
@@ -23,6 +23,8 @@ def package_for(path, origin):
         if PLUGIN_RE.fullmatch(name):
             return "vdr-plugin-suitebridge"
         raise ValueError("unexpected SuiteBridge stage payload: " + str(path))
+    if path.as_posix() == "usr/lib/tmpfiles.d/vdr-suite-live.conf":
+        return "vdr-plugin-suitebridge"
     if path.as_posix() in ("lib/systemd/system/vdr-suite-backend-agent.service", "usr/lib/systemd/system/vdr-suite-backend-agent.service"):
         return "vdr-suite-backend-agent"
     if name.startswith("vdr-suite-backend-agent") or path.as_posix().endswith("/backend-agent.conf") or "backend-agent" in path.parts:
@@ -67,7 +69,9 @@ def inspect(root, origin):
                 raise ValueError("persistent private data must not be shipped in package: " + relative_name)
             if stat.S_ISREG(mode) and stat.S_IMODE(mode) & 0o002:
                 raise ValueError("world writable package file: " + relative_name)
-            if relative_name.startswith("etc/vdr-suite/") or relative_name.startswith("etc/default/"):
+            if (relative_name.startswith("etc/vdr-suite/") or
+                    relative_name.startswith("etc/default/") or
+                    relative_name == "etc/nginx/snippets/vdr-suite.conf"):
                 record["config_candidate"] = True
             if full.is_symlink():
                 target = os.readlink(full)

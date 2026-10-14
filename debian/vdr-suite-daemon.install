@@ -13,3 +13,5 @@ usr/share/man/man1/vdr-suite-dashboard.1
 var/cache/vdr-suite/channel-logos/vdr-suite-brand/
 lib/systemd/system/vdr-suite-daemon.service
 etc/default/vdr-suite-daemon
+usr/bin/vdr-suite-media-calibrate
+etc/nginx/snippets/vdr-suite.conf

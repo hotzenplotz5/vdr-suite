@@ -21,6 +21,8 @@ ifeq ($(PLUGIN_ONLY),)
 	$(MAKE) install DESTDIR=$(STAGE) PREFIX=/usr
 endif
 	$(MAKE) -C vdr-plugin-suite-bridge install DESTDIR=$(STAGE)
+	# SuiteBridge owns private /run transport roots even in plugin-only packages.
+	install -D -m 0644 packaging/systemd/vdr-suite-live.conf $(STAGE)/usr/lib/tmpfiles.d/vdr-suite-live.conf
 	# Fail closed if runtime-generated private data was staged.
 	test ! -e $(STAGE)/var/lib/vdr-suite/vdr-suite.db
 	test ! -e $(STAGE)/var/lib/vdr-suite/secrets/credentials

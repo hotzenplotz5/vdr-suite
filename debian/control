@@ -19,7 +19,7 @@ Homepage: https://github.com/hotzenplotz5/vdr-suite
 Package: vdr-suite-daemon
 Architecture: any
 Build-Profiles: <!plugin-only>
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, python3
 Description: VDR-Suite control-plane server and web interface
  VDR-Suite backend service including the bundled web application.
 

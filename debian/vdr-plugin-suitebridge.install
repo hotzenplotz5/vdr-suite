@@ -1,1 +1,2 @@
 usr/lib/vdr/plugins/libvdr-suitebridge.so.*
+usr/lib/tmpfiles.d/vdr-suite-live.conf
