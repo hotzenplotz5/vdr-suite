@@ -223,5 +223,65 @@ int main()
     assert(unauthenticated.statusCode == 401);
 
     runtime.resetRecordingCollectionLookup();
+    runtime.resetSearchLookup();
+    runtime.registerSearchLookup([](const PublicSearchRequest& request) {
+        PublicSearchResult result;
+        result.status = PublicSearchStatus::ok;
+        result.totalCount = 1U;
+        if (request.offset == 0U) {
+            PublicSearchItem item;
+            item.backendId = request.backendId;
+            item.title = "Der Hobbit";
+            if (request.epg) {
+                item.channelId = "S19.2E-1-100";
+                item.eventId = "123";
+                item.startTime = "1791565200";
+                item.endTime = "1791572400";
+            } else {
+                item.recordingId = "rec_0123456789abcdef0123456789abcdef";
+            }
+            result.items.push_back(item);
+        }
+        return result;
+    });
+    ApiResponse searchRecording;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search/recordings?backendId=backend-a&query=hobbit",
+        "actor:tv", "search-rec", "", searchRecording, "", "", {"backend-a"}));
+    assert(searchRecording.statusCode == 200);
+    assert(searchRecording.body.find("\\"kind\\":\\"recording\\"") != std::string::npos);
+    assert(searchRecording.body.find("rec_0123456789abcdef0123456789abcdef") != std::string::npos);
+    assert(searchRecording.body.find("backendNativeId") == std::string::npos);
+    assert(searchRecording.headers.at("Cache-Control") == "no-store");
+    ApiResponse searchEpg;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search/epg?backendId=backend-a&query=Hobbit",
+        "actor:tv", "search-epg", "", searchEpg, "", "", {"backend-a"}));
+    assert(searchEpg.statusCode == 200);
+    assert(searchEpg.body.find("\\"kind\\":\\"epg\\"") != std::string::npos);
+    for (const std::string& invalid : {
+        "backendId=backend-a&query=%GG",
+        "backendId=backend-a&query=a",
+        "backendId=backend-a&query=Hobbit&limit=31",
+        "backendId=backend-a&query=Hobbit&query=duplicate",
+        "backendId=backend-a&query=Hobbit&offset=1000001"})
+    {
+        ApiResponse response;
+        assert(runtime.tryHandleGet(
+            "/api/v1/search/recordings?" + invalid,
+            "actor:tv", "invalid-search", "", response, "", "", {"backend-a"}));
+        assert(response.statusCode == 400);
+    }
+    ApiResponse deniedSearch;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search/recordings?backendId=backend-a&query=Hobbit",
+        "actor:tv", "wrong-scope", "", deniedSearch, "", "", {"backend-b"}));
+    assert(deniedSearch.statusCode == 400);
+    ApiResponse anonymousSearch;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search/epg?backendId=backend-a&query=Hobbit",
+        "", "anonymous", "", anonymousSearch, "", "", {"backend-a"}));
+    assert(anonymousSearch.statusCode == 401);
+    runtime.resetSearchLookup();
     return 0;
 }
