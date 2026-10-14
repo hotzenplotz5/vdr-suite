@@ -162,11 +162,21 @@ proven read-only. The distinct VIDAA repository is private; see its own
    `sudo -u yavdr -H python3 tools/install_daemon.py build --sha ...`
    run without root. `install_daemon.py` explicitly refuses a root
    build. `check` is read-only and may also run under `yavdr`.
+   Because the checkout belongs to `yavdr`, perform repository Git
+   inspection using `sudo -u yavdr -H git ...` instead of presuming
+   root trusts a differently owned working tree.
 5. **Only after** a successful sealed build, repeated `check`, reviewed
    `DB_BACKUP_DECISION`, and explicit deployment authorization, execute
    `python3 tools/install_daemon.py apply --sha ... --confirm-apply`
-   **as root** from the same exact checkout. The installer alone owns the
-   daemon binary replacement, scoped service restart and rollback.
+   **as root** from the same exact checkout. **Root's Git subprocesses
+   may refuse a yavdr-owned checkout with `dubious ownership`.** Give
+   `apply` a process-local Git `safe.directory` for the **verified
+   exact checkout path only** using `env GIT_CONFIG_COUNT=1
+   GIT_CONFIG_KEY_0=safe.directory
+   GIT_CONFIG_VALUE_0="$WORK/repo" python3 ...`; never modify global
+   `git config --global safe.directory` or change ownership. The
+   installer alone owns the daemon binary replacement, scoped service
+   restart and rollback.
 6. Database `REVIEW_REQUIRED` is a **hard stop**, not a reason to
    auto-select `--db-review no-backup`, invent a database path or
    continue to VIDAA. Review the displayed `DB_REVIEW_PATH` changes.

@@ -50,15 +50,17 @@ preflight. An unbounded clone/build must not begin.
 
 These commands are a **sequenced operator procedure**, not permission for a
 blind install. Execute the next only after the previous reports success.
-The root prompt does not change and none of these commands runs a root build:
+The root prompt does not change and none of these commands runs a root build.
+All `git` inspection commands use the checkout's owning `yavdr` identity
+so root Git's optional dubious-ownership restriction cannot be triggered:
 
 ```bash
 WORK="$(sudo -u yavdr -H mktemp -d /home/yavdr/vdr-suite-daemon-install-XXXXXXXX)"
 sudo -u yavdr -H git clone --single-branch --branch "$BRANCH" "$REPO" "$WORK/repo"
 cd "$WORK/repo"
-git rev-parse --show-toplevel
-git rev-parse HEAD
-git status --porcelain --untracked-files=no
+sudo -u yavdr -H git rev-parse --show-toplevel
+sudo -u yavdr -H git rev-parse HEAD
+sudo -u yavdr -H git status --porcelain --untracked-files=no
 sudo -u yavdr -H python3 tools/test_install_daemon.py -v
 sudo -u yavdr -H python3 tools/install_daemon.py check --sha "$PIN"
 sudo -u yavdr -H python3 tools/install_daemon.py build --sha "$PIN"
@@ -77,7 +79,10 @@ full Git history; do not delete the prior version or fabricate provenance.
 
 ```bash
 # Root shell, inside the verified checkout of the same exact PIN:
-python3 tools/install_daemon.py apply --sha "$PIN" --confirm-apply
+# Git trust is process-local for this one precisely reviewed yavdr-owned tree.
+env GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory \
+  GIT_CONFIG_VALUE_0="$WORK/repo" \
+  python3 tools/install_daemon.py apply --sha "$PIN" --confirm-apply
 systemctl is-active vdr-suite-daemon.service
 ```
 
