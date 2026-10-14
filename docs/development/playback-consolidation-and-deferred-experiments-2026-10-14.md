@@ -89,6 +89,20 @@ Both generated HLS segments were four seconds in *media time*, proving that a fo
 
 **Next minimal host measurement, purely read-only:** Start a bounded 50-second observer in the existing root shell *before* opening `Action → Jumper`. It must ignore pre-existing workers, select only a newly started Recording worker with `-readrate_initial_burst 8` and `-c:v copy`, use that process's `/proc/<pid>/cwd` to watch only static workspace filenames, and report elapsed time after discovering the worker for `ffmpeg.log`, `init.mp4`, `segment-000000.m4s.tmp`, `segment-000000.m4s`, `master.m3u8`. Print only the first `#EXTINF` duration, not the playlist URLs, source path, ffconcat contents or sensitive log lines. A later post-test `journalctl` query must redact the session ID. If the worker appears too late/does not appear, label the window inconclusive. Do not run synthetic FFmpeg transcodes on real recordings or change file ownership, permissions, daemon, playback or any live service. **A read-only monitor cannot by itself measure exact FFmpeg spawn time; 50–150ms polling error applies.**
 
+## Real recording readiness observation: 3738 ms after new worker detected (14 October 2026)
+
+The operator ran the bounded read-only PID/workspace observer for a **new** ffmpeg `/usr/bin/ffmpeg` process after initiating `Action/Jumper` on the real VIDAA device. Observed results:
+
+- `MONITOR=READY`, `NEW_WORKER=YES`, `RESULT=DIAGNOSIS_COMPLETE`.
+- `INIT_MS=3737`; `SEGMENT_READY_MS=3738`; `PLAYLIST_MS=3738`. Values are measured from first discovery of the new worker, **not** fork time. The files became visible within 1 ms of one another at the observer's ~50-ms sampling resolution; do not infer when FFmpeg first read or wrote packets.
+- `SEGMENT_TMP_MS=NOT_OBSERVED` (can be short-lived between two polls, not evidence of missing intermediate output).
+- First HLS segment `#EXTINF=4.004000 s` in media time. `TIMESTAMP_WARNING_COUNT=0` from a keyword scan of the most recent bounded 16 KiB of worker warnings. **No printed warnings does not prove valid/monotonic packet timestamps.**
+- The subsequent five-minute-window journal query produced **no matching server startup line**, so this exact session's `provision_ms` was not independently correlated with the above PID. Earlier post-rollout samples `4422,4843,4424 ms` remain valid but not tied to this worker.
+
+Interpretation: All three readiness resources appeared together ≈ 3.7 s after new-worker detection, rather than the backend delaying several additional seconds *after* the first HLS segment became available. The four-second media segment length **alone** is insufficient to explain this wall-clock wait: the synthetic ffconcat/TS counterexample completed the same four-second segment in `129 ms` with the same bounded burst. Potential hidden causes include FFmpeg TS/concat probe initialization, packet timebase/PTS/DTS, GOP/keyframe scheduling, and media I/O. No individual cause is yet proven.
+
+**Next narrow, read-only field observation:** While the specific recording session is alive, use the already verified process's `/proc/<pid>/cwd/input.ffconcat` in a bounded, timeout-protected `ffprobe` reading only the **first eight media seconds of video packets** (no decoding/transcoding/writes). Report first video PTS/DTS, first keyframe offset relative to first packet, number of packets, negative or non-monotonic DTS deltas and probe wall-clock latency. Never reveal VDR source paths or dump the ffconcat manifest. If the worker/session does not exist, stop without touching production. This test separates early packet/keyframe anomalies from a slow initial probe. **No code change or daemon rebuild is justified yet**.
+
 ## Follow-on release gates
 
 1. Verify backend #471 and VIDAA #17 exact current HEADs and their current CI together; re-run changed-scope tests if either advanced.
