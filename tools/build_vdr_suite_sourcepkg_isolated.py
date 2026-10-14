@@ -85,6 +85,24 @@ def preflight(expected):
     return version, epoch, reserve
 
 
+def prepare_ubuntu_preview(original, version, epoch, series):
+    """Return distro-specific changelog only; never mutate the original checkout."""
+    if series not in UBUNTU_TEST_SERIES:
+        stop("unsupported Ubuntu target series")
+    header = original.splitlines()[0]
+    match = re.fullmatch(r"vdr-suite \(([^)]+)\) unstable; urgency=(\w+)", header)
+    if not match or not match.group(1).startswith(version + "-"):
+        stop("unrecognized Debian changelog version/distribution")
+    revision = match.group(1) + "~ubuntu" + UBUNTU_TEST_SERIES[series] + ".1"
+    date = format_datetime(datetime.fromtimestamp(int(epoch), tz=timezone.utc))
+    entry = ("vdr-suite (" + revision + ") " + series + "; urgency=low\n\n"
+             "  * OFFLINE preview: target Ubuntu " + series
+             + "; not approved for PPA.\n\n"
+             " -- VDR-Suite contributors <noreply@github.com>  " + date
+             + "\n\n")
+    return entry + original, revision
+
+
 def build_source(expected, version, epoch, reserve, series=None):
     area = Path(tempfile.mkdtemp(prefix="vdr-suite-sourcepkg-", dir=BASE))
     print("SOURCE_BUILD_AREA=" + str(area), flush=True)
@@ -109,18 +127,9 @@ def build_source(expected, version, epoch, reserve, series=None):
             # Change *only* the disposable debian/changelog: never the source
             # checkout, upstream tarball, codec branch, or production host.
             change = source / "debian/changelog"
-            original = change.read_text(encoding="utf-8")
-            header = original.splitlines()[0]
-            match = re.fullmatch(r"vdr-suite \(([^)]+)\) unstable; urgency=(\w+)", header)
-            if not match or not match.group(1).startswith(version + "-"):
-                stop("unrecognized Debian changelog version/distribution")
-            revision = match.group(1) + "~ubuntu" + UBUNTU_TEST_SERIES[series] + ".1"
-            date = format_datetime(datetime.fromtimestamp(int(epoch), tz=timezone.utc))
-            entry = ("vdr-suite (" + revision + ") " + series + "; urgency=low\n\n"
-                     "  * OFFLINE preview: target Ubuntu " + series + "; not approved for PPA.\n\n"
-                     " -- VDR-Suite contributors <noreply@github.com>  " + date
-                     + "\n\n")
-            change.write_text(entry + original, encoding="utf-8")
+            prepared, revision = prepare_ubuntu_preview(
+                change.read_text(encoding="utf-8"), version, epoch, series)
+            change.write_text(prepared, encoding="utf-8")
             print("UBUNTU_SOURCE_PREVIEW=" + series + " " + revision, flush=True)
         log = area / "source-build.log"
         env = os.environ.copy()
