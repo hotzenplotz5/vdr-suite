@@ -11,6 +11,12 @@ Status: **in development**, not released. Source-level implementation is distinc
 | P6 | Existing systemd units identified; ownership-audit guard | Implement/test precise `debhelper` service lifecycle, conffiles, tmpfiles, remove vs purge and migration from manual installs |
 | P7 | Safe upgrade policy documented | Backup/migration and downgrade guard behavior, real upgrade matrix, rollback tests |
 
+## Confirmed local build milestone (2026-10-14)
+
+Maintainer-supplied terminal evidence confirms a successful isolated SuiteBridge-only binary `.deb` build, with an ABI dependency on `vdr-abi-2.8.3-0yavdr`, no daemon or agent binary dependency, and post-build resource reserve PASS. This validates P5's **local plugin-only binary path** on the yaVDR build host only. It does not clear clean Ubuntu builds, daemon packaging, signed source package, installer or P7 upgrade acceptance.
+
+A new unsigned, no-install source-package roundtrip experiment is now implemented but **not yet run**. Signed Ubuntu series uploads remain gated by license, build-dependency and lifecycle review.
+
 ## Essential release policy
 
 - No package maintainer script may silently delete `/var/lib/vdr-suite`, secrets, recordings or a user-managed configuration.
