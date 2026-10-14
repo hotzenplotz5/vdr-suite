@@ -181,7 +181,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(id -u)" -eq 0
-          printf '%s\\n' '#!/bin/sh' 'exit 101' | install -m 0755 /dev/stdin /usr/sbin/policy-rc.d
+          printf '%s\n' '#!/bin/sh' 'exit 101' | install -m 0755 /dev/stdin /usr/sbin/policy-rc.d
           test "$(find packages -maxdepth 1 -name '*.deb' | wc -l)" -eq 3
       - name: Install against Seahawk VDR 2.8.3 and verify package metadata
         shell: bash
@@ -212,8 +212,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /var/lib/vdr-suite
-          printf '%s\\n' 'data not owned by dpkg' > /var/lib/vdr-suite/p6-keep-me
-          printf '%s\\n' '# local operator setting: keep' >> /etc/default/vdr-suite-daemon
+          printf '%s\n' 'data not owned by dpkg' > /var/lib/vdr-suite/p6-keep-me
+          printf '%s\n' '# local operator setting: keep' >> /etc/default/vdr-suite-daemon
           apt-get -y -o Dpkg::Options::=--force-confold --reinstall install ./packages/vdr-suite-daemon_*.deb ./packages/vdr-suite-backend-agent_*.deb ./packages/vdr-plugin-suitebridge_*.deb
           grep -Fx '# local operator setting: keep' /etc/default/vdr-suite-daemon
           apt-get -y remove vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge
