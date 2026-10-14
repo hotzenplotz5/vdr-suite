@@ -133,6 +133,23 @@ struct PublicRecordingCollectionResult
     bool hasMore = false;
 };
 
+enum class PublicSearchStatus { ok, unavailable };
+struct PublicSearchRequest {
+    std::string backendId, query;
+    bool epg = false;
+    std::size_t limit = 30U, offset = 0U;
+};
+struct PublicSearchItem {
+    std::string backendId, recordingId, channelId, eventId;
+    std::string title, subtitle, startTime, endTime;
+};
+struct PublicSearchResult {
+    PublicSearchStatus status = PublicSearchStatus::unavailable;
+    std::vector<PublicSearchItem> items;
+    std::size_t totalCount = 0U;
+    bool hasMore = false;
+};
+
 enum class PublicGenreCollectionStatus
 {
     ok,
@@ -904,6 +921,9 @@ public:
         std::function<PublicRecordingCollectionResult(
             const PublicRecordingCollectionRequest& request)>;
 
+    using SearchLookup =
+        std::function<PublicSearchResult(const PublicSearchRequest&)>;
+
     using GenreCollectionLookup =
         std::function<PublicGenreCollectionResult(
             const PublicGenreCollectionRequest& request)>;
@@ -1041,6 +1061,11 @@ public:
     bool recordingCollectionLookupConfigured() const;
     PublicRecordingCollectionResult lookupRecordingCollection(
         const PublicRecordingCollectionRequest& request) const;
+
+    void registerSearchLookup(SearchLookup lookup);
+    void resetSearchLookup();
+    bool searchLookupConfigured() const;
+    PublicSearchResult lookupSearch(const PublicSearchRequest& request) const;
 
     void registerGenreCollectionLookup(GenreCollectionLookup lookup);
     void resetGenreCollectionLookup();
@@ -1226,6 +1251,9 @@ private:
 
     mutable std::mutex recordingCollectionLookupMutex_;
     RecordingCollectionLookup recordingCollectionLookup_;
+
+    mutable std::mutex searchLookupMutex_;
+    SearchLookup searchLookup_;
 
     mutable std::mutex genreCollectionLookupMutex_;
     GenreCollectionLookup genreCollectionLookup_;
