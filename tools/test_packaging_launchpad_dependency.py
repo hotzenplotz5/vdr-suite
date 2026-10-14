@@ -16,6 +16,8 @@ PAGES = TARGET_URL + "/dependencies"
 
 def fake_responses(source_present=True, next_page=False):
     docs = {
+        TARGET_URL: {"self_link": TARGET_URL, "dependencies_collection_link": PAGES},
+        SOURCE_URL: {"self_link": SOURCE_URL},
         checker.API + "/archives?ws.op=getByReference&reference=ppa%3Ahotzenplotz5%2Fvdr-suite": {
             "self_link": TARGET_URL,
             "dependencies_collection_link": PAGES,
@@ -61,6 +63,47 @@ class LaunchpadDependencyTests(unittest.TestCase):
         data = checker.inspect(fake_responses(next_page=True))
         self.assertEqual(data["dependency_count"], 2)
         self.assertTrue(data["dependency_found"])
+
+    def test_named_lookup_json_null_falls_back_without_false_failure(self):
+        called = []
+
+        def loader(url):
+            called.append(url)
+            if url == TARGET_URL:
+                return None
+            if url.startswith(checker.API + "/archives?"):
+                return {"self_link": TARGET_URL,
+                        "dependencies_collection_link": PAGES}
+            raise AssertionError("unexpected URL " + url)
+
+        archive = checker.archive(checker.TARGET, loader)
+        self.assertEqual(archive["self_link"], TARGET_URL)
+        self.assertEqual(len(called), 2)
+
+    def test_null_direct_and_named_explain_exact_api_shape(self):
+        with self.assertRaisesRegex(ValueError, "direct=JSON null.*getByReference=JSON null"):
+            checker.archive(checker.TARGET, lambda _: None)
+
+    def test_dependency_can_link_alternate_api_version(self):
+        def loader(url):
+            return fake_responses()(url) if url != PAGES else {
+                "entries": [{"dependency_link": SOURCE_URL.replace("/devel/", "/1.0/"),
+                             "pin_priority": 500, "pocket": "Release"}],
+                "next_collection_link": None,
+            }
+        result = checker.inspect(loader)
+        self.assertTrue(result["dependency_found"])
+        self.assertEqual(result["pin_priorities"], [500])
+
+    def test_reject_foreign_archive_identity(self):
+        with self.assertRaisesRegex(ValueError, "invalid Launchpad archive identity"):
+            checker.api_archive_path("https://evil.example/~hotzenplotz5/+archive/ubuntu/vdr-suite")
+
+    def test_reject_wrong_archive_returned_for_reference(self):
+        def loader(url):
+            return {"self_link": SOURCE_URL}
+        with self.assertRaisesRegex(ValueError, "unexpected archive identity"):
+            checker.archive(checker.TARGET, loader)
 
     def test_collection_rejects_missing_records(self):
         with self.assertRaisesRegex(ValueError, "has no entries"):
