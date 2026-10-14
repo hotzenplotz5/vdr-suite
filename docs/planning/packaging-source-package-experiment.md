@@ -1,6 +1,6 @@
 # Debian source-package readiness: isolated smoke-test
 
-Status: **offline 3.0 (quilt) source-package roundtrip PASSED on the maintainer's yaVDR host** at commit `39995c626c25909a972b6d9f886ebdc0c82b5fd5`. A series-specific PPA preview has been implemented but **not yet executed**.
+Status: **offline 3.0 (quilt) source-package roundtrip PASSED** and **Ubuntu 24.04 noble offline source preview PASSED** on the maintainer's separate Packaging checkout at verified commits. Ubuntu 26.04 resolute and actual clean Ubuntu binary package builds remain unverified.
 
 ## Why this is the next gate
 
