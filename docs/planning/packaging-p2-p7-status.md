@@ -26,6 +26,10 @@ A new unsigned, no-install source-package roundtrip experiment is now implemente
 - Ubuntu 24.04 CI now has a **separate default three-binary-package build job** alongside the independent plugin-only job. Its real outcome remains to be verified before any PPA upload.
 - Release blockers remain: verified full clean distro build, legal source/license inventory and `debian/copyright`, service/user/config ownership, installer and P7 upgrade/restore acceptance, and user-authorized signing/upload.
 
+## Seahawk Launchpad dependency configuration (2026-10-14)
+
+The maintainer confirms having added `ppa:seahawk1986-hotmail/vdr-2.8.3` to `ppa:hotzenplotz5/vdr-suite` using Launchpad's **Edit PPA dependencies**. This is a user-reported completion, not yet an independently verified public API result. A new read-only checker, `python3 tools/check_launchpad_ppa_dependency.py`, validates the external archive link and reports pin priorities when Launchpad's public API is accessible. An ABI-compatible `vdr-dev` and all runtime dependency packages for each target Ubuntu series still require an actual resolver/build log check. The local host APT sources have not been changed by this work.
+
 ## Essential release policy
 
 - No package maintainer script may silently delete `/var/lib/vdr-suite`, secrets, recordings or a user-managed configuration.
