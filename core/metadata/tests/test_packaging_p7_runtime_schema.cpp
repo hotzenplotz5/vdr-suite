@@ -50,7 +50,7 @@ int main(int argc, char** argv)
             !scalarPositive(database.handle(),
             "SELECT count(*) FROM pragma_integrity_check WHERE integrity_check='ok';") ||
             !scalarPositive(database.handle(),
-            "SELECT CASE WHEN count(*)=0 THEN 1 ELSE 0 END FROM pragma_foreign_key_check;")) {
+            "SELECT CASE WHEN (SELECT count(*) FROM pragma_foreign_key_check)=0 THEN 1 ELSE 0 END;")) {
             std::cerr << "P7_RUNTIME_SQLITE_INTEGRITY=FAIL\n";
             return 7;
         }
