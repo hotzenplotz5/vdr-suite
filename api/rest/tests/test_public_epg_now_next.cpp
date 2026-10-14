@@ -97,5 +97,48 @@ int main()
     assert(read(Request,"actor",{"home"}).statusCode == 404);
 
     runtime.resetEpgNowNextLookup();
+
+    runtime.resetEpgSearchLookup();
+    const std::string epgSearch =
+        "/api/v1/epg/search?backendId=home&view=search&query=Hobbit&limit=2&offset=0";
+    assert(read(epgSearch,"",{"home"}).statusCode == 401);
+    assert(read(epgSearch,"actor",{"other"}).statusCode == 400);
+    assert(read(epgSearch,"actor",{"home"}).statusCode == 503);
+    for (const std::string bad : {
+             "view=search&query=H",
+             "view=search&query=%GG",
+             "view=search&query=Hobbit&limit=31",
+             "view=folders&query=Hobbit",
+             "view=search&query=Hobbit&cursor=abc"})
+        assert(read("/api/v1/epg/search?backendId=home&" + bad,
+            "actor",{"home"}).statusCode == 400);
+    runtime.registerEpgSearchLookup(
+        [](const PublicEpgSearchRequest& q) {
+            assert(q.backendId == "home");
+            assert(q.query == "Hobbit");
+            assert(q.limit == 2U);
+            PublicEpgSearchResult result;
+            result.status = PublicEpgNowNextStatus::ok;
+            result.totalEntries = 1U;
+            PublicEpgSearchItem item;
+            item.channelId = "S19.2E-1-100";
+            item.channelName = "Example HD";
+            item.title = "Der Hobbit";
+            item.subtitle = "Smaugs Einöde";
+            item.startTime = "1791565200";
+            item.endTime = "1791572400";
+            item.matchReason = "title";
+            result.events.push_back(item);
+            return result;
+        });
+    const auto found = read(epgSearch,"actor",{"home"});
+    assert(found.statusCode == 200);
+    assert(found.body.find("\"title\":\"Der Hobbit\"") != std::string::npos);
+    assert(found.body.find("\"kind\":\"epg\"") != std::string::npos);
+    assert(found.body.find("\"totalCount\":1") != std::string::npos);
+    assert(found.body.find("backendNativeId") == std::string::npos);
+    assert(found.body.find("recordingPath") == std::string::npos);
+    assert(found.headers.at("Cache-Control") == "no-store");
+    runtime.resetEpgSearchLookup();
     return 0;
 }
