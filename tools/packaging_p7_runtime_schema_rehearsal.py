@@ -101,6 +101,14 @@ def prior_rows(connection, columns):
     return result
 
 
+def prior_rows_preserved(before, after):
+    """New test records may be added; every original tuple must survive."""
+    return all(
+        table in after and all(row in after[table] for row in rows)
+        for table, rows in before.items()
+    )
+
+
 def run(binary):
     if os.geteuid() == 0:
         raise ValueError("P7 runtime fixture must not run as root")
@@ -175,7 +183,8 @@ def run(binary):
                            for k, v in original_objects.items()
                            if k not in ALTERED_TABLES), (
                     "unexpected historical SQL object changed")
-                assert prior_rows(connection, prior_shape) == old_prior_rows, (
+                assert prior_rows_preserved(
+                    old_prior_rows, prior_rows(connection, prior_shape)), (
                     "pre-migration account, credential or operation data changed")
                 updated_columns = prior_columns(connection)
                 assert "revision" in updated_columns["security_human_accounts"], (

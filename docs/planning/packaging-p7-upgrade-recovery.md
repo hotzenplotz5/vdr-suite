@@ -94,6 +94,9 @@ one synthetic user/credential/verifier and one synthetic queued operation.
 The test calls the current real C++ repository `ensureSchema()` methods,
 requires both missing columns to be added with expected default values,
 proves each original column and row value survives both C++ reopens, and
+allows newly seeded current-schema rows to coexist on the second open while
+independently checking that every original tuple is still present. Full
+current-schema rows must additionally remain identical on reinitialization.
 confirms the pre-upgrade backup restores the original missing-column shapes.
 
 The SQL file **was not recovered from an older release**; it combines
