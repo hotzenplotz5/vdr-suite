@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """No-root regression tests for the isolated source-only packaging helper."""
 import ast
+import contextlib
+import io
 import importlib.util
 from pathlib import Path
 from unittest import TestCase
@@ -18,9 +20,13 @@ class SourcePackagingTests(TestCase):
         ast.parse(SCRIPT.read_text(encoding="utf-8"))
 
     def test_invalid_commit_argument_is_rejected(self):
-        with self.assertRaises(SystemExit) as ctx:
-            srcpkg.main(["not-a-commit"])
+        # argparse deliberately rejects the input; capture expected diagnostics
+        # so a passing test run does not look like a real packaging error.
+        with contextlib.redirect_stderr(io.StringIO()) as stream:
+            with self.assertRaises(SystemExit) as ctx:
+                srcpkg.main(["not-a-commit"])
         self.assertEqual(ctx.exception.code, 2)
+        self.assertIn("expected SHA must contain exactly 40", stream.getvalue())
 
     def test_root_is_rejected_before_any_operations(self):
         with patch.object(srcpkg.os, "geteuid", return_value=0), self.assertRaisesRegex(
