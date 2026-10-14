@@ -1,6 +1,6 @@
 # Packaging P1 — Package boundaries and platform test matrix
 
-Status: PROPOSED (unverified compatibility). Scope intentionally constrained to daemon + VDR SuiteBridge and required support files.
+Status: P1 package boundaries are provisional. Local SuiteBridge-only `.deb` and unsigned Ubuntu noble source-preview tests PASS (2026-10-14), but **no official Ubuntu VDR ABI compatibility or complete binary build is certified**. Scope remains daemon + VDR SuiteBridge and required support files.
 
 ## Binary packages (working names)
 
@@ -19,18 +19,21 @@ Do not publish `vdr-suite-dev` or pretend internal C++ code is a stable external
 
 | Target | Priority | Build | Install | Plugin ABI | Real VDR | Upgrade |
 |---|---|---|---|---|---|---|
-| Ubuntu 24.04 LTS | first | pending | pending | pending | pending | pending |
-| Ubuntu 26.04 LTS | first | pending | pending | pending | pending | pending |
+| Ubuntu 24.04 LTS (noble) | first | **unsigned source preview PASS; full default binary pending** | pending | stock `vdr-dev` 2.6.0-1.1; compile not proven | pending | pending |
+| Ubuntu 26.04 LTS (resolute) | first | preview implementation only; binary pending | pending | stock `vdr-dev` 2.6.9-3build1; compile not proven | pending | pending |
 | Debian 13 | first | pending | pending | pending | pending | pending |
 | Debian 12 | compatibility | pending | pending | pending | pending | pending |
-| Actual yaVDR Ubuntu host | acceptance | pending | **requires explicit deployment approval** | pending | pending | pending |
+| Actual yaVDR Ubuntu host | acceptance | **SuiteBridge plugin-only `.deb` PASS** | **requires explicit deployment approval** | `vdr-abi-2.8.3-0yavdr` PASS | runtime integration pending | pending |
 
 Use target release codename/architecture and exact `vdr-dev` / `vdr` ABI metadata at build time. Do not infer a working plugin package simply from successful daemon build.
+
+
+Source of the Ubuntu VDR version rows: [Ubuntu 24.04 vdr-dev](https://packages.ubuntu.com/noble/vdr-dev) and [Ubuntu VDR package-version search including 26.04](https://packages.ubuntu.com/vdr), checked 2026-10-14. The local yaVDR ABI is from a maintainer-supplied successful `dpkg-buildpackage -Pplugin-only` output, not the official Ubuntu package repository.
 
 ## Delivery channels
 
 1. Locally built `.deb` plus source artifacts for early verification.
-2. Later: private/experimental **Launchpad PPA** for Ubuntu release-specific builds and `apt` update testing. Needs Launchpad account, GPG signing and actual source package readiness; no PPA has been created.
+2. Experimental **[Launchpad PPA](https://launchpad.net/~hotzenplotz5/+archive/ubuntu/vdr-suite)** identified by the maintainer (`ppa:hotzenplotz5/vdr-suite`). Upload not yet performed; source signing, clean Ubuntu builds, ownership/license and upgrade gates remain open.
 3. Stable APT publication, if desired, is separately gated after build/install/upgrade acceptance. Debian packages tested independently; Ubuntu PPA is not a substitute for Debian support.
 
 ## Dependency and lifecycle requirements
@@ -50,7 +53,7 @@ Use target release codename/architecture and exact `vdr-dev` / `vdr` ABI metadat
 - [x] Initial candidate distro and Launchpad test matrix.
 - [ ] Verify backend-agent splitting with actual runtime behavior.
 - [ ] Finalize package ownership with generated install manifest.
-- [ ] Verify distribution-specific VDR packages and ABI dependencies.
+- [x] Identify official Ubuntu stock `vdr-dev` versions and locally built yaVDR ABI; **compatibility build still pending**.
 - [ ] Confirm support floor and matrix through clean builds.
 
 P1 remains **proposed** until these validation items pass.
