@@ -71,7 +71,16 @@ The test is now invoked inside the disposable Ubuntu 24.04 full-package CI
 runner. It cannot operate on `/var/lib/vdr-suite` or any installed database
 because the script does not accept a database path.
 
-This improves migration evidence for those two repository owners only.
+This now additionally exercises the real SecurityIdentity, HumanAccount,
+CredentialVerifier, MutationOperation, TimerIntent and TimerAssignment
+`ensureSchema()` methods. After the first initialization, the private harness
+commits synthetic account, credential-verifier and operation/payload records;
+a fresh process must preserve their values and all existing SQL definitions.
+No real password or productive user database is accessed. Timer tables are
+initialized and replayed, but preservation of **historical timer data** is
+not yet established.
+
+This improves migration evidence for the listed repository owners only.
 It does **not** execute every daemon initializer, test historical Debian
 package upgrades, start services, or establish production rollback approval.
 

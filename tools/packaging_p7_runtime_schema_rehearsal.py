@@ -34,6 +34,44 @@ def original_rows(connection, columns):
     return snapshot
 
 
+
+def seed_owned_runtime_records(connection):
+    """Synthetic account and operation records; never use real secrets."""
+    connection.execute("PRAGMA foreign_keys=ON")
+    connection.executescript("""
+        INSERT INTO security_actors(actor_id,actor_type,display_name,active)
+          VALUES('p7_actor','user','P7 fixture user',1);
+        INSERT INTO security_human_accounts(account_id,actor_id,display_name,revision)
+          VALUES('p7_account','p7_actor','P7 account',3);
+        INSERT INTO security_credentials(credential_id,actor_id,credential_type)
+          VALUES('p7_credential','p7_actor','basic');
+        INSERT INTO security_basic_credential_verifiers(
+          credential_id,login_name,password_hash)
+          VALUES('p7_credential','p7_login','NOT_A_REAL_PASSWORD_HASH');
+        INSERT INTO mutation_operations(
+          operation_id,operation_revision,idempotency_key,actor_id,
+          backend_id,backend_generation,resource_type,resource_id,
+          expected_revision,expected_resource_fingerprint,action_family,
+          request_fingerprint,requested_at,deadline,verification_policy,
+          state,result_reference,updated_at)
+          VALUES('p7_op',1,'p7_once','p7_actor','test',1,'timer','42',
+                 '0','','create','p7_request',1000,2000,
+                 'readback_required','queued','',1000);
+        INSERT INTO mutation_operation_payloads(
+          operation_id,payload_type,payload_version,payload,payload_fingerprint)
+          VALUES('p7_op','test-only',1,'fixture','p7_payload');
+    """)
+    connection.commit()
+
+
+def current_owned_records(connection):
+    tables = ("security_actors", "security_human_accounts",
+              "security_credentials", "security_basic_credential_verifiers",
+              "mutation_operations", "mutation_operation_payloads")
+    return {table: connection.execute('SELECT * FROM "' + table + '"').fetchall()
+            for table in tables}
+
+
 def run(binary):
     if os.geteuid() == 0:
         raise ValueError("P7 runtime fixture must not run as root")
@@ -76,8 +114,9 @@ def run(binary):
         assert all(len(rows) == 1 for rows in before.values()), (
             "historical records missing in test fixture")
 
-        # Each separate process reopens the database and calls the real C++
-        # ensureSchema methods twice. This exercises restart idempotence.
+        # Reopen through fresh C++ instances; persist synthetic data between runs.
+        runtime_fixture = None
+        runtime_objects = None
         for count in (1, 2):
             p = subprocess.run([str(executable), str(old)],
                                text=True, capture_output=True, timeout=45)
@@ -100,6 +139,21 @@ def run(binary):
                 assert connection.execute(
                     "SELECT count(*) FROM vdr_global_search_schema_versions"
                 ).fetchone()[0] == 1
+                if count == 1:
+                    seed_owned_runtime_records(connection)
+                    runtime_fixture = current_owned_records(connection)
+                    runtime_objects = dict(connection.execute(
+                        "SELECT name,sql FROM sqlite_master "
+                        "WHERE name NOT LIKE 'sqlite_%'").fetchall())
+                    require_consistent(connection)
+                else:
+                    assert runtime_fixture is not None
+                    assert current_owned_records(connection) == runtime_fixture, (
+                        "security/credential/operation records changed on restart")
+                    assert dict(connection.execute(
+                        "SELECT name,sql FROM sqlite_master "
+                        "WHERE name NOT LIKE 'sqlite_%'").fetchall()) == runtime_objects, (
+                        "runtime SQL schema objects changed on second initialization")
 
         # Recovery remains completely separate from the migrated fixture.
         with closing(sqlite3.connect(backup)) as source, closing(
