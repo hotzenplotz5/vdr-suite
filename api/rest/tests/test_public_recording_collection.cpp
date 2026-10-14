@@ -249,7 +249,7 @@ int main()
         "/api/v1/search/recordings?backendId=backend-a&query=hobbit",
         "actor:tv", "search-rec", "", searchRecording, "", "", {"backend-a"}));
     assert(searchRecording.statusCode == 200);
-    assert(searchRecording.body.find("\\"kind\\":\\"recording\\"") != std::string::npos);
+    assert(searchRecording.body.find("\"kind\":\"recording\"") != std::string::npos);
     assert(searchRecording.body.find("rec_0123456789abcdef0123456789abcdef") != std::string::npos);
     assert(searchRecording.body.find("backendNativeId") == std::string::npos);
     assert(searchRecording.headers.at("Cache-Control") == "no-store");
@@ -258,7 +258,7 @@ int main()
         "/api/v1/search/epg?backendId=backend-a&query=Hobbit",
         "actor:tv", "search-epg", "", searchEpg, "", "", {"backend-a"}));
     assert(searchEpg.statusCode == 200);
-    assert(searchEpg.body.find("\\"kind\\":\\"epg\\"") != std::string::npos);
+    assert(searchEpg.body.find("\"kind\":\"epg\"") != std::string::npos);
     for (const std::string& invalid : {
         "backendId=backend-a&query=%GG",
         "backendId=backend-a&query=a",
