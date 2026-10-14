@@ -71,5 +71,35 @@ int main()
         assert(!denied.allowed);
         assert(denied.rejection.statusCode == 401);
     }
+    // EPG-search has its own epg.view permission. A recordings-only
+    // grant must not reveal upcoming broadcasts or their titles.
+    const std::string epgSearch =
+        "/api/v1/epg/search?backendId=home&view=search&query=Hobbit";
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId,"epg.view","home"));
+        const auto allowed=fixture.gate.evaluate(browserRead(fixture,epgSearch));
+        assert(allowed.allowed);
+        assert(allowed.authorizedBackendIds ==
+            std::vector<std::string>{"home"});
+    }
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId,"recordings.view","home"));
+        const auto denied=fixture.gate.evaluate(browserRead(fixture,epgSearch));
+        assert(!denied.allowed);
+        assert(denied.rejection.statusCode==403);
+    }
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        HttpServerRequest anonymous;
+        anonymous.method="GET";
+        anonymous.path=epgSearch;
+        const auto denied=fixture.gate.evaluate(anonymous);
+        assert(!denied.allowed);
+        assert(denied.rejection.statusCode==401);
+    }
     return 0;
 }
