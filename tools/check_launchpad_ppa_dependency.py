@@ -101,6 +101,30 @@ def dependency_records(collection_url, loader=fetch):
     return entries
 
 
+def archive_dependency_lookup(target, source, loader=fetch):
+    """Independent read-only lookup; failure is inconclusive, not absence."""
+    url = target["self_link"] + "?" + urlencode({
+        "ws.op": "getArchiveDependency",
+        "dependency": source["self_link"],
+    })
+    try:
+        item = loader(url)
+    except (HTTPError, URLError, OSError, ValueError):
+        return None
+    if not isinstance(item, dict):
+        return None
+    try:
+        if (api_archive_path(item["archive_link"]) !=
+                api_archive_path(target["self_link"])):
+            return None
+        if (api_archive_path(item["dependency_link"]) !=
+                api_archive_path(source["self_link"])):
+            return None
+    except (TypeError, KeyError, ValueError):
+        return None
+    return item
+
+
 def inspect(loader=fetch):
     target = archive(TARGET, loader)
     source = archive(DEPENDENCY, loader)
@@ -130,11 +154,20 @@ def inspect(loader=fetch):
         and api_archive_path(record["dependency_link"]) ==
             api_archive_path(source["self_link"])
     ]
+    direct_lookup = None
+    if not matching:
+        direct_lookup = archive_dependency_lookup(target, source, loader)
+        if direct_lookup is not None:
+            matching.append(direct_lookup)
+    inconclusive = not matching and not entries
     result = {
         "target": TARGET,
         "expected_dependency": DEPENDENCY,
         "dependency_found": len(matching) > 0,
         "dependency_count": len(entries),
+        "public_api_inconclusive": inconclusive,
+        "verification_method": ("collection" if matching and direct_lookup is None else
+                                "named_lookup" if direct_lookup is not None else "none"),
         "observed_dependencies": observed,
         "pin_priorities": [x.get("pin_priority") for x in matching],
         "pockets": [x.get("pocket") for x in matching],
@@ -170,9 +203,14 @@ def main(argv=None):
                       " pin=" + str(item["pin_priority"]) +
                       " pocket=" + str(item["pocket"]))
         print("LAUNCHPAD_DEPENDENCY_CHECK=" +
-              ("PASS" if result["dependency_found"] else "FAIL"))
+              ("PASS" if result["dependency_found"] else
+               "UNKNOWN (public API returned no dependencies; check authenticated UI)"
+               if result["public_api_inconclusive"] else "FAIL"))
+        if result["dependency_found"]:
+            print("VERIFIED_BY=" + result["verification_method"])
         print("UBUNTU_VDR_ABI_VALIDATION=PENDING")
-    return 0 if result["dependency_found"] else 1
+    return (0 if result["dependency_found"] else
+            2 if result["public_api_inconclusive"] else 1)
 
 
 if __name__ == "__main__":
