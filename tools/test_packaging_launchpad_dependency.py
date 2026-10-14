@@ -54,6 +54,19 @@ class LaunchpadDependencyTests(unittest.TestCase):
         self.assertEqual(data["pin_priorities"], [1001])
         self.assertFalse(data["series_package_builds_verified"])
 
+    def test_observed_archives_are_sanitized_public_identities(self):
+        data = checker.inspect(fake_responses())
+        self.assertEqual(data["observed_dependencies"], [
+            {"archive_path": "/~seahawk1986-hotmail/+archive/ubuntu/vdr-2.8.3",
+             "pin_priority": 1001, "pocket": "Release"}])
+        self.assertEqual(data["dependency_count"], 1)
+
+    def test_no_extra_dev_ppa_is_assumed(self):
+        data = checker.inspect(fake_responses(source_present=False))
+        self.assertFalse(data["dependency_found"])
+        self.assertEqual(data["observed_dependencies"][0]["archive_path"],
+                         "/~someone-else/+archive/ubuntu/other")
+
     def test_missing_dependency_fails_closed(self):
         data = checker.inspect(fake_responses(source_present=False))
         self.assertFalse(data["dependency_found"])
