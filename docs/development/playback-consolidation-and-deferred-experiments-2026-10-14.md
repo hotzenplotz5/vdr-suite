@@ -165,6 +165,23 @@ Together with the previously normal video PTS/keyframe and `150ms` concat probe,
 
 **Minimal isolated decision gate:** On the installed ffmpeg binary, create **only a short, synthetic 10-second low-resolution MPEG-TS test inside an unprivileged temporary directory owned by `yavdr`**, then compare two bounded output-to-null runs (`-readrate_initial_burst 8 -re` versus `-readrate_initial_burst 8 -readrate_catchup 8 -re`), reading 4 media seconds via `-t 4`. No reading/decoding of real recordings, no new service media worker, no stored output outside temp, and no package changes. If first run takes roughly four wall seconds and second under one, the old limiter defect and a potential bounded `-readrate_catchup` compatibility workaround are reproducibly shown *on this host*. If both are fast, do **not** claim the bug on this host; revisit worker timeline/muxer instead. If either fails, diagnose exact error before any source change. Benchmark is a production decision gate, not permission to silently change the playback worker's flags.
 
+## FFmpeg 8.0.1 hosted readrate-catchup reproduction and narrow source fix (14 October 2026)
+
+The operator ran a **non-destructive, unprivileged synthetic MPEG-TS comparison on their installed FFmpeg 8.0.1-3ubuntu2**. A 10-s low-resolution TS fixture was generated in a temporary `yavdr`-owned directory; two bounded four-second output-to-null tests succeeded:
+
+| Identical synthetic TS input and `-re` | elapsed wall clock | Exit |
+| --- | ---: | ---: |
+| `-readrate_initial_burst 8` (previous H.264 recording startup options) | **3992 ms** | 0 |
+| `-readrate_initial_burst 8 -readrate_catchup 8` | **641 ms** | 0 |
+
+Both return codes are 0; `RESULT=CATCHUP_ACCELERATION_CONFIRMED`. This directly demonstrates a *real speed difference caused by the catch-up setting on the installed FFmpeg binary*, in agreement with the 2026-06-29 FFmpeg 8.0 upstream readrate initial-burst correction; it does not require speculative claims about Ubuntu's vendor patch history. The synthetic test was never run on the operator's actual recordings and did **not** measure a full real fMP4 segment, first TV picture, or 300-s no-stall playback. Those acceptance steps remain open.
+
+**Source implementation on the same existing backend PR #471 integration branch:** `core/media/src/FfmpegHlsCommandBuilder.cpp` now places `-readrate_initial_burst 8 -readrate_catchup 8` directly before the existing `-re -f concat -safe 1 -i input.ffconcat` **only** for Recording HLS-fMP4 `startPositionSeconds==0`, video `MediaTrackAction::Copy`, output H.264. Retains `-re`, `-hls_time 4`, fMP4 format, A/V copy/transcode policy, grant/session lifecycle, existing playlist/first-segment readiness gate and existing 8-segment buffer/deletion rules. HEVC, MPEG-TS HLS, video transcode, non-zero seek/resume, Live-TV and progressive playback **must not** inherit this extra rate setting. The paired catch-up limit allows bounded recovery to 8x when the FFmpeg 8.0 bug otherwise throttles the initial burst; it does **not** remove all readrate pacing. `core/media/tests/test_ffmpeg_hls_command_builder.cpp` checks the positive option pair, its input placement and exclusions (including H.264 copy/AAC-transcode and both stream-copy).
+
+**Host version gate:** The exact yaVDR `ffmpeg -h full` output already established support for both options. Other Debian/Ubuntu releases may not have this combination, so package runtime compatibility must be checked before any future deployment; do not globally upgrade or replace FFmpeg to force this candidate. **Installation remains pending**: current running daemon is still SHA `6bda8084bf9ebb6e639f15dd9454e24cd424bf29`, running ELF SHA-256 `575e6b1fddecfbaf659f8769a9bca9194e2acb9f64192ed14562905c142fb5d5`. There is **no evidence this new source code has been built or deployed on yaVDR**. Do not restart, rebuild twice, alter permissions, touch recordings or create another branch. The previously installed protected rollback copy must be retained, and any future new-code build/apply requires the documented exact-code-PIN, DB-risk, resource, unprivileged build/reuse and root-only apply gates.
+
+**Post-install acceptance when separately authorized:** On the same real Jumper recording measure `provision_ms` / `total_server_ms`, fMP4 first segment readiness and first picture; run one 300-s no-seek/no-pause session and record `P0`, `TV-Warte`, dropped frames, buffer and seeking/trickplay regression. Compare with documented pre-change `provision_ms` ~3.9–4.8 s; never extrapolate the synthetic 641ms number to real hardware.
+
 ## Follow-on release gates
 
 1. Verify backend #471 and VIDAA #17 exact current HEADs and their current CI together; re-run changed-scope tests if either advanced.
