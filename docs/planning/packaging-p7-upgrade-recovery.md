@@ -133,9 +133,13 @@ the unconfigured state, resumes with `dpkg --configure -a` and compares the
 original SQLite **bytes, rows and schema**, conffiles and user sentinel.
 Finally it verifies the backup, alters only the disposable test database,
 restores its older snapshot and explicitly downgrades the three binaries to
-`exp1`, verifying recovered state. This is the **first planned real dpkg
-package-version transition**, with a CI result needed before it can be
-considered validated.
+`exp1`, verifying recovered state. This **experimental dpkg package-version
+transition passed** on [CI #46](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38640654487)
+(commit `098a14046d346cda5f03bbd3abaf4b386ae03428`) and again on
+[CI #47](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38645349742)
+(commit `08b0fbfdfb3c9ea959d93d7010801b53d46dbbd1`).
+Both completed all five jobs successfully. Local validation of the latter
+commit passed 68 packaging tests, version checks and the tracked-artifact audit.
 
 **Important limits:** Neither older `exp1` nor `exp2` is a published
 supported Debian package release. The older test data is fabricated from
@@ -149,6 +153,15 @@ The failed-interruption exercise is an unpacked-but-unconfigured dpkg state;
 it does not assert resilience to arbitrary power loss.
 
 ## Remaining before P7 acceptance
+
+The successful `exp1 → exp2` experiment verifies that the package manager
+preserves a synthetic offline database and operator-managed configuration when
+service startup is blocked. It **does not** provide a support matrix for
+previously published packages or for databases used by a running daemon.
+Until an explicit compatibility table covers the actual runtime schema owners
+and release pairs, treat unknown source schema, future markers and unknown
+binary/database combinations as **unsupported**; neither automatic migration
+nor a downgrade of a newer live database is approved.
 
 - Schema migration registry and compatible version boundaries.
 - An approved quiesce/snapshot method for the real daemon and all SQLite/WAL writers. The scratch rehearsal is not an integrated production backup.
