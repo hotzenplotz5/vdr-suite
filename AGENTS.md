@@ -124,6 +124,65 @@ handing over any test or acceptance block. If some fact is only knowable on
 the host, build a harmless read-only check into the block instead of
 pretending it has already been established.
 
+## yaVDR root shell, public GitHub checkout and least-privileged daemon build (2026-10-14)
+
+**Confirmed incident:** The operator works in a persistent
+`root@yavdr:/home/yavdr#` shell. An earlier installer block incorrectly
+ran `sudo -u yavdr -H git clone git@github.com:hotzenplotz5/vdr-suite.git`,
+which failed with `Permission denied (publickey)`: root's and yavdr's SSH
+credentials are separate. An even earlier block contained an interactive
+`exit` and unintentionally left the user's root shell. **Do not repeat
+either failure.** The failed clone did not run the build or installation.
+
+**Repository fact:** `hotzenplotz5/vdr-suite` is **public** on GitHub.
+For a fresh unprivileged checkout, prefer
+`https://github.com/hotzenplotz5/vdr-suite.git`, which does not require
+root's private SSH key or an SSH identity for `yavdr`. Check real network
+access before suggesting execution. Do **not** use an SSH URL under
+`sudo -u yavdr` unless that account's SSH access has separately been
+proven read-only. The distinct VIDAA repository is private; see its own
+`AGENTS.md` for the root-identity SSH procedure.
+
+**Privilege contract, binding for all future installation answers:**
+
+1. Keep the operator in their existing **root shell**; never demand
+   `sudo su`, `su - yavdr`, a change of login, or an interactive `exit`.
+   A failed check must not terminate the calling shell.
+2. Preflight the actual checkout/build filesystem before creating a
+   substantial new clone. Check exact branch and full 40-character pinned
+   SHA against current GitHub/CI, and inspect existing installed service/
+   source/DB risk without touching production state.
+3. Create an **isolated, new, yavdr-owned temporary directory** with
+   `sudo -u yavdr -H mktemp -d /home/yavdr/vdr-suite-daemon-install-XXXXXXXX`
+   and clone the **public HTTPS** repository as `yavdr`. That avoids
+   copying any root-owned tree, SSH private keys, or file ownership into
+   the build checkout. Verify `git rev-parse --show-toplevel`, branch,
+   full SHA, and tracked-clean state after clone.
+4. `sudo -u yavdr -H python3 tools/test_install_daemon.py -v` and
+   `sudo -u yavdr -H python3 tools/install_daemon.py build --sha ...`
+   run without root. `install_daemon.py` explicitly refuses a root
+   build. `check` is read-only and may also run under `yavdr`.
+5. **Only after** a successful sealed build, repeated `check`, reviewed
+   `DB_BACKUP_DECISION`, and explicit deployment authorization, execute
+   `python3 tools/install_daemon.py apply --sha ... --confirm-apply`
+   **as root** from the same exact checkout. The installer alone owns the
+   daemon binary replacement, scoped service restart and rollback.
+6. Database `REVIEW_REQUIRED` is a **hard stop**, not a reason to
+   auto-select `--db-review no-backup`, invent a database path or
+   continue to VIDAA. Review the displayed `DB_REVIEW_PATH` changes.
+7. Do not run recursive `chown`/`chmod`, copy keys, alter global
+   permissions, run a whole build as root, modify VDR/recordings, or
+   overwrite an existing checkout to resolve an authentication failure.
+   Preserve the temporary checkout and print its absolute path for a
+   rerun/review; no speculative deletion.
+8. For handed-off command blocks follow the repository's interactive-shell
+   safety rules below: **no `set -e/-u/-o pipefail`, no naked `exit`**.
+   Treat each step's failure as a STOP and guard subsequent steps. Do not
+   report installation success before checking the running service.
+
+Authoritative operational examples and gates:
+`docs/development/daemon-only-installer.md`.
+
 ## Canonical runtime/frontend deployment
 
 For real yaVDR installation or runtime acceptance of repository-built VDR-Suite

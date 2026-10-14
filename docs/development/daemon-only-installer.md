@@ -2,6 +2,99 @@
 
 Use **tools/install_daemon.py** for a reviewed **daemon-only** installation. This deliberately does not replace the canonical full install-runtime staging procedure for coordinated daemon/frontend changes.
 
+## Real yaVDR root-shell installation: verified GitHub identity split (14 October 2026)
+
+**Observed failure / confirmed cause:** The operator is logged in as root and
+intends to stay root. A past block ran
+`sudo -u yavdr -H git clone git@github.com:hotzenplotz5/vdr-suite.git`,
+and GitHub replied `Permission denied (publickey)`. SSH identities are
+account-specific; root having a configured key does **not** grant it to
+`yavdr`. A previous interactive `exit` also inadvertently closed the
+root shell. Both are prohibited in future acceptance blocks.
+
+**Solution:** This repository is **public** on GitHub. Clone it over public
+HTTPS **as `yavdr`** into an isolated `yavdr`-owned directory, while the
+terminal remains `root@yavdr`. The clone and the daemon compilation need no
+SSH credential. The only privileged step is `apply`, which the installer
+intentionally runs as root. In contrast, `vdr-suite-vidaa` is **private**;
+its clone and the VIDAA static updater need the account whose private-repo
+SSH access has been verified; see that repository's `AGENTS.md`.
+
+### Preflight in the existing root shell — does not install anything
+
+Use a **current, externally verified CI-green, 40-character SHA** for `PIN`;
+do not substitute an unverified moving HEAD. This block does not change the
+calling shell's user or its fail-fast options:
+
+```bash
+PIN="REPLACE_WITH_VERIFIED_40_CHARACTER_SHA"
+BRANCH="work/device-media-profile-binding-v1-20261012"
+REPO="https://github.com/hotzenplotz5/vdr-suite.git"
+OK=1
+[ "$(id -u)" = 0 ] || { echo "STOP=ROOT_SHELL_REQUIRED"; OK=0; }
+[ "${#PIN}" -eq 40 ] || { echo "STOP=REVIEWED_SHA_REQUIRED"; OK=0; }
+command -v sudo >/dev/null || { echo "STOP=SUDO_MISSING"; OK=0; }
+command -v git >/dev/null || { echo "STOP=GIT_MISSING"; OK=0; }
+[ "$OK" -eq 0 ] || sudo -u yavdr -H git ls-remote "$REPO" "refs/heads/$BRANCH"
+```
+
+The last read-only Git result must equal the independently reviewed `PIN`;
+if not, stop, recheck PR head and CI and do not create a checkout. Verify
+storage before cloning: after all planned clone, retained output and candidate
+build bytes, free space on `/home/yavdr` must remain at least
+`max(4 GiB, 15% filesystem total)`. Use an explicit, conservatively bounded
+budget for that filesystem; `install_daemon.py build` repeats its own 2 GiB
+preflight. An unbounded clone/build must not begin.
+
+### Checkout, test, build: commands entered as root, subprocesses as yavdr
+
+These commands are a **sequenced operator procedure**, not permission for a
+blind install. Execute the next only after the previous reports success.
+The root prompt does not change and none of these commands runs a root build:
+
+```bash
+WORK="$(sudo -u yavdr -H mktemp -d /home/yavdr/vdr-suite-daemon-install-XXXXXXXX)"
+sudo -u yavdr -H git clone --single-branch --branch "$BRANCH" "$REPO" "$WORK/repo"
+cd "$WORK/repo"
+git rev-parse --show-toplevel
+git rev-parse HEAD
+git status --porcelain --untracked-files=no
+sudo -u yavdr -H python3 tools/test_install_daemon.py -v
+sudo -u yavdr -H python3 tools/install_daemon.py check --sha "$PIN"
+sudo -u yavdr -H python3 tools/install_daemon.py build --sha "$PIN"
+sudo -u yavdr -H python3 tools/install_daemon.py check --sha "$PIN"
+```
+
+Do **not** proceed automatically if clone, exact SHA/branch, clean source,
+tests or any `check` failed. Read the complete output, especially
+`INSTALLED_SOURCE_SHA`, `DB_BACKUP_DECISION` and `DB_REVIEW_PATH`.
+`DB_BACKUP_DECISION=REVIEW_REQUIRED` requires a separate review of every
+flagged file. Never auto-approve `no-backup` or invent a database path.
+The existing binary's embedded source must resolve within the candidate's
+full Git history; do not delete the prior version or fabricate provenance.
+
+### Separate, explicit root installation (only after checks and consent)
+
+```bash
+# Root shell, inside the verified checkout of the same exact PIN:
+python3 tools/install_daemon.py apply --sha "$PIN" --confirm-apply
+systemctl is-active vdr-suite-daemon.service
+```
+
+`apply` never compiles. It checks the sealed binary, current service
+identity, source ancestry, DB risk and backup reserve, retains a rollback
+binary/receipt, and restarts only `vdr-suite-daemon.service`. If SQLite
+review requires a real offline backup, use **only** the explicitly verified
+`--database` path and reviewed `--db-review backup --db-review-reason`
+option described below. A refusal is not an invitation to bypass gates.
+
+**Security boundary:** No global `chown`/`chmod`, private-key copying,
+root-owned build checkout, VDR/plugin/recording changes, arbitrary service
+restarts, blind repository cleanup or automatic "permissions repair". No
+`exit`/fail-fast toggle in an interactive root prompt. Print and retain
+the exact candidate checkout path if a step fails. GitHub CI green alone
+does not establish real yaVDR deployment or Hisense playback.
+
 ## Three independent commands
 
 From the exact, clean source checkout (normally /home/yavdr/vdr-suite), select an already-reviewed full 40-character source commit:
