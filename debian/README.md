@@ -31,6 +31,19 @@ python3 -m unittest discover -s tools -p 'test_packaging_*.py'
 
 [Standalone plugin instructions](../vdr-plugin-suite-bridge/BUILDING.md) and [experimental Ubuntu 24.04 CI workflow](../.github/workflows/packaging-plugin-experimental.yml).
 
+## Source-package smoke test (unsigned, offline)
+
+A separately gated helper prepares a Debian `3.0 (quilt)` source archive from the exact Git commit, with the upstream tarball containing no `debian/` directory:
+
+```sh
+python3 tools/build_vdr_suite_sourcepkg_isolated.py <VERIFIED_HEAD_SHA> --preflight-only
+python3 tools/build_vdr_suite_sourcepkg_isolated.py <VERIFIED_HEAD_SHA>
+```
+
+This is a local, non-root source-package roundtrip. It **does not** sign packages, change the changelog distribution from `unstable`, upload to Launchpad, or validate the complete daemon/agent binary build. See [source package acceptance](../docs/planning/packaging-source-package-experiment.md).
+
+The standalone SuiteBridge binary package **has now been built successfully** on the maintainer's yaVDR VDR ABI `vdr-abi-2.8.3-0yavdr`, with no daemon dependency, at candidate `ce63332dc72b0a262f1f30b410c18493668c2df1`. This is *not* official Ubuntu compatibility certification.
+
 ## Release block
 
 **NOT RELEASE-READY.** A clean root build and the exact Ubuntu CI result still require verification. Full daemon dependency metadata, distribution/ABI compatibility, accurate Debian copyright/third-party notices, package file ownership, conffiles, install/upgrade/remove/purge and database backup/rollback tests remain open. No package upload to Launchpad and no production yaVDR installation are authorized by this document.
