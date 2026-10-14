@@ -114,11 +114,11 @@ DEVICE_AUDITED = {
         "post": ('const std::string subtitleSuffix = "/subtitles";',
                  'isPublicDeviceRecordingSubtitleSelection'),
     },
-    "/api/v1/recording-playback-sessions/{sessionId/stop": {
+    "/api/v1/recording-playback-sessions/{sessionId}/stop": {
         "post": ('target.compare(target.size() - 5U, 5U, "/stop")',
                  'isPublicDeviceRecordingSessionStop'),
     },
-}    "/api/v1/live-playback-sessions": {
+    "/api/v1/live-playback-sessions": {
         "post": ('if (target == collection)',
                  'isPublicDeviceLiveSessionCreate'),
     },
