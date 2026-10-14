@@ -5,10 +5,40 @@
 #include "GenreIndexRepository.h"
 #include "GlobalSearchRepository.h"
 #include <sqlite3.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <filesystem>
 #include <iostream>
 #include <string>
 
 namespace {
+bool privateScratchPath(const std::filesystem::path& path)
+{
+    namespace fs = std::filesystem;
+    if (geteuid() == 0 || !path.is_absolute() ||
+        path.lexically_normal() != path || path.filename() != "old.db")
+        return false;
+    const fs::path folder = path.parent_path();
+    const std::string name = folder.filename().string();
+    if (name.rfind("p7-cpp-repository-", 0) != 0)
+        return false;
+    std::error_code ec;
+    if (fs::is_symlink(fs::symlink_status(folder, ec)) || ec ||
+        fs::is_symlink(fs::symlink_status(path, ec)) || ec ||
+        fs::canonical(folder, ec) != folder || ec)
+        return false;
+    struct stat directory = {};
+    struct stat database = {};
+    if (::stat(folder.c_str(), &directory) != 0 ||
+        ::stat(path.c_str(), &database) != 0)
+        return false;
+    return S_ISDIR(directory.st_mode) &&
+           S_ISREG(database.st_mode) &&
+           directory.st_uid == geteuid() &&
+           database.st_uid == geteuid() &&
+           (directory.st_mode & 0077) == 0;
+}
+
 bool scalarPositive(sqlite3* db, const char* sql)
 {
     sqlite3_stmt* stmt = nullptr;
@@ -25,6 +55,10 @@ int main(int argc, char** argv)
 {
     if (argc != 2) {
         std::cerr << "expected one isolated SQLite fixture path\n";
+        return 2;
+    }
+    if (!privateScratchPath(argv[1])) {
+        std::cerr << "P7 fixture path rejected: requires private scratch old.db\n";
         return 2;
     }
     Database database;
