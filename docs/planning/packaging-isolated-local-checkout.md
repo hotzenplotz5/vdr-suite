@@ -20,9 +20,13 @@ Der Checkout ist ausschließlich für Build, Tests und `DESTDIR`-Staging. Keine 
 
 ## Abgrenzung
 
-- `git clone --depth 1 --single-branch --branch work/packaging-debian-ubuntu-install git@github.com:hotzenplotz5/vdr-suite.git /home/yavdr/vdr-suite-packaging-test` kopiert nur den Packaging-Branch in einen neuen Bereich. Nicht als root.
+- `git clone --depth 1 --single-branch --branch work/packaging-debian-ubuntu-install https://github.com/hotzenplotz5/vdr-suite.git /home/yavdr/vdr-suite-packaging-test` kopiert nur den Packaging-Branch in einen neuen Bereich. Nicht als root.
 - Der SuiteBridge-Plugin-only-Paketbau steht unter `vdr-plugin-suite-bridge/BUILDING.md`; er braucht keine Daemon-Kompilierung.
 - Eine wirkliche `.deb`-Erstellung benötigt Build-Depends, Verfügbarkeit von `dh_vdrplugin_depends`, ABI-Prüfung und einen isolierten Build. Nicht mit `apt install` auf dem Produktivhost vorbereiten.
 - Für spätere Aktualisierung des Test-Clones zuerst `git status --porcelain`, `git branch --show-current`, `git fetch` und HEAD/Upstream vergleichen; keine pauschalen `reset --hard` oder rekursiven Löschaktionen.
 
 Hinweis: Das ist ein Verfahren. Es **richtet nicht selbst** Verzeichnisse auf dem yaVDR-Rechner ein.
+
+## SSH-key failure on local user accounts
+
+If `git@github.com: Permission denied (publickey)` occurs when cloning a **public** repository, prefer the HTTPS clone address above. Local Linux user `yavdr` is correct; SSH authentication to GitHub is a separate, user-specific credential. A failed `git clone` normally removes its newly created target; still check `test -e` or `test -L` before retrying and never overwrite an existing directory. Do not use `sudo` or adjust `/home` permissions to fix GitHub SSH authentication. Avoid global `set -e` in an interactive SSH login: a failed clone can terminate the session.
