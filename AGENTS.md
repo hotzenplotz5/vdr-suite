@@ -152,15 +152,18 @@ proven read-only. The distinct VIDAA repository is private; see its own
    substantial new clone. Check exact branch and full 40-character pinned
    SHA against current GitHub/CI, and inspect existing installed service/
    source/DB risk without touching production state.
-3. Create an **isolated, new, yavdr-owned temporary directory** with
+3. **Only if no suitable existing verified checkout/candidate is available,**
+   create an **isolated, new, yavdr-owned temporary directory** with
    `sudo -u yavdr -H mktemp -d /home/yavdr/vdr-suite-daemon-install-XXXXXXXX`
    and clone the **public HTTPS** repository as `yavdr`. That avoids
    copying any root-owned tree, SSH private keys, or file ownership into
    the build checkout. Verify `git rev-parse --show-toplevel`, branch,
    full SHA, and tracked-clean state after clone.
-4. `sudo -u yavdr -H python3 tools/test_install_daemon.py -v` and
+4. Reuse previously accepted tests for unchanged product code. When required,
+   `sudo -u yavdr -H python3 tools/test_install_daemon.py -v` and
    `sudo -u yavdr -H python3 tools/install_daemon.py build --sha ...`
-   run without root. `install_daemon.py` explicitly refuses a root
+   run without root, but **only after** the no-duplicate-build gate below
+   proves the latter action is necessary. `install_daemon.py` explicitly refuses a root
    build. `check` is read-only and may also run under `yavdr`.
    Because the checkout belongs to `yavdr`, perform repository Git
    inspection using `sudo -u yavdr -H git ...` instead of presuming
@@ -192,6 +195,78 @@ proven read-only. The distinct VIDAA repository is private; see its own
 
 Authoritative operational examples and gates:
 `docs/development/daemon-only-installer.md`.
+
+## Mandatory: NEVER compile the same daemon twice / reuse before building
+
+**ABSOLUTE PROHIBITION:** Do not compile the same daemon twice. Re-running a
+daemon compilation simply because a chat restarted, a deployment failed, a
+new temporary checkout was created, an agent changed, CI ran, or a
+**documentation-only commit changed HEAD** is forbidden. Reuse a previously
+validated build; build only when absolutely necessary and **provably no
+suitable verified artifact exists**.
+
+**Required read-only gate BEFORE any new checkout, test build or installation
+block is proposed or executed:**
+
+1. Establish the **last product-code candidate SHA** (the daemon binary's
+   exact source/build provenance) separately from the **current repository
+   documentation HEAD**. For a docs-only commit, verify the diff has no
+   daemon source, generated/version-stamp inputs, build options, dependency,
+   toolchain or packaging changes. Do **not** treat a changed docs Git SHA
+   by itself as a reason to rebuild. Reuse the last verified code-SHA and
+   its already accepted build/test evidence.
+2. Inspect the **actually installed and running** daemon and its source
+   marker, the target code-SHA, and all *known* previous, authorized
+   checkout/build locations. Do not blindly discard or replace old
+   checkouts or assume a newly cloned tree has the build cache. Ask for a
+   small read-only host preflight if installed-build evidence is not
+   available to the agent. Record the exact path and source SHA.
+3. Within the correct, clean checkout of that code-SHA, run the installer's
+   read-only `check --sha FULL40`; inspect `INSTALLED_SOURCE_SHA`,
+   `TARGET_SOURCE_SHA`, `DB_BACKUP_DECISION`, `BUILD=REUSABLE` versus
+   `BUILD=NOT_SEALED`, the candidate path, and the running service
+   identity. `check` validates an existing sealed candidate's SHA-256
+   and embedded `git-<source-prefix>` marker. Do not infer valid reuse
+   from an artifact filename, timestamp, or identical-looking bytes alone.
+4. If the intended code is **already installed and running correctly**,
+   report `BUILD=SKIPPED_ALREADY_INSTALLED` and
+   `APPLY=SKIPPED_ALREADY_INSTALLED`. Do not build, restart, or redeploy.
+5. If `BUILD=REUSABLE` and the sealed candidate is verified, report
+   `BUILD=SKIPPED_REUSABLE` and **go directly to the separately gated
+   root `apply`**; **do not invoke `build` at all**.
+6. If the seal is absent, inspect the known artifact directory:
+   `build` may certify an existing, complete, valid binary without a
+   compilation (`BUILD=RECOVERED_NO_COMPILE`). Use that supported
+   recovery rather than recompiling. **Only if there is no valid binary
+   or seal anywhere in the identified trusted candidate checkout(s)**
+   and product-code changes actually require it, authorize **one**
+   unprivileged build, under the installer's existing resource and
+   provenance gates. An invalid/mismatched artifact is a STOP requiring
+   diagnosis; do not overwrite or rebuild over it speculatively.
+7. For an existing build in another checkout, first establish exact
+   source provenance, seal integrity, build options and trust. Do not
+   silently copy, relabel or re-seal a binary as a different commit,
+   weaken `verify_binary`, or declare two commits equivalent without
+   proving the build inputs match. Prefer using its original verified
+   checkout and `apply`. If safe reuse cannot be proven, **STOP for
+   diagnosis** instead of automatic recompilation or new clones.
+8. An actual, reviewed change to daemon build inputs, a missing valid
+   binary after exhaustive bounded inspection, or an explicitly
+   demonstrated corrupt/nonreusable artifact can warrant **one** new
+   compile, never automatically. Report **why** the old build was
+   unsuitable before invoking the build tool. Build still runs only
+   under `yavdr`, the operator's shell stays root, and `apply` is
+   separately authorized as root with DB/rollback safety intact.
+
+**Confirmed installer behavior:** `tools/install_daemon.py check` prints
+`BUILD=REUSABLE` only after validating the seal and binary. Its `build`
+action internally prints `BUILD=REUSED` if sealed or
+`BUILD=RECOVERED_NO_COMPILE` if the already-linked binary can be verified.
+This safety optimization is **per checkout and source SHA**; it does
+**not** discover builds in other checkouts. Therefore the operator/agent
+**must check existing artifacts before creating a new checkout**.
+Do not confuse "build command is idempotent" with authorization to launch it
+repeatedly.
 
 ## Canonical runtime/frontend deployment
 
@@ -358,8 +433,9 @@ surface and the next action:
   packaging/install staging check;
 - backend, daemon, C++ or runtime-contract changes require the corresponding
   build, fast-regression, architecture and other directly affected checks;
-- documentation-only changes require documentation validation and do not
-  invalidate already accepted product/runtime evidence.
+- documentation-only changes require only relevant text/link/format review
+  and do not invalidate already accepted product/runtime evidence.
+  **Do not wait for GitHub Actions to finish for docs-only commits.**
 
 Do not block a targeted runtime installation or acceptance test on unrelated CI
 jobs merely because they belong to the same workflow. Such jobs may still be
@@ -367,9 +443,12 @@ queued, running, or failed for a demonstrably unrelated reason. Diagnose enough
 to establish that the failure is unrelated to the candidate being installed,
 then continue with the already-approved targeted acceptance path.
 
-The complete repository-required CI graph is a gate for Ready-for-review, merge,
-phase closeout, or another explicitly documented full-stabilization boundary. It
-is not a mandatory gate for every iterative real-runtime test.
+**FULL CI is a mandatory gate immediately before merging the reviewed
+candidate into `main`, not a reason to wait on documentation-only commits,
+draft updates, interim work or routine source handoffs.** The full final-head
+CI must pass before merge, plus any genuinely separate safety/hardware gates.
+Relevant targeted tests for code/runtime changes still apply before risky
+actions; do not skip them under this rule.
 
 A failed check that is required for the current changed surface or current gate
 must be diagnosed and fixed before crossing that gate. Do not hide failures by
@@ -377,12 +456,15 @@ adding unrelated commits or by bypassing genuinely relevant checks.
 
 ## Product-code-first CI and post-merge stabilization
 
-**Do not waste time waiting on documentation-only intermediate CI while
-authorized productive implementation remains.** Documentation changes may be
-committed promptly, but they must not create a CI-watching loop or block
-unrelated product-code development. Continue the approved implementation
-immediately. Never treat a documentation-only milestone as the end of an
-authorized product workstream.
+**Documentation-only changes must NEVER cause waiting for a CI run, a CI
+polling loop, a new daemon build or a repeat of already proven runtime
+acceptance.** Commit the documentation, inspect its contents and the
+branch/commit, report the status and proceed immediately. GitHub Actions may
+run automatically; do not await completion or generate another commit to
+"make CI green" merely for docs. Require the full relevant CI graph
+**once, at the actual final-head pre-merge-to-`main` gate**. If code changes
+alter a relevant safety/test surface, validate that surface at the time it
+matters; this rule never permits installing untested changed product code.
 
 **Finish the bounded productive code and focused tests before spending time on
 full CI stabilization.** Batch coherent implementation commits and validate the
@@ -436,8 +518,10 @@ safety gates or large recovery scripts without a concrete risk they uniquely
 cover.
 
 Before a routine documentation commit, the normal local maximum is the minimal
-content edit plus `git diff --check`. Commit and push immediately, then let the
-single final-head GitHub CI run the repository's required test graph.
+content edit plus `git diff --check`. Commit and push immediately, **do not
+wait for or poll the automatically triggered CI**, and reuse accepted product
+evidence. Require complete CI only when the exact candidate is about to be
+merged to `main`.
 
 ## Branch and pull-request safety
 

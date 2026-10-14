@@ -20,10 +20,70 @@ intentionally runs as root. In contrast, `vdr-suite-vidaa` is **private**;
 its clone and the VIDAA static updater need the account whose private-repo
 SSH access has been verified; see that repository's `AGENTS.md`.
 
+### Mandatory no-duplicate-build gate (before new checkout or apply)
+
+A new documentation commit does **not** demand a new daemon compilation.
+Separate `DOC_HEAD` (latest repository/documentation commit) from
+`CODE_PIN` (last CI-/test-verified product-code commit whose daemon
+binary is actually intended). Check the commit range between them:
+only genuine documentation differences permit reusing `CODE_PIN`
+without a new build. Do **not** relabel an old binary with a new
+documentation SHA: the installer validates both the Git source marker
+and the sealed SHA-256. The already verified code commit remains an
+installable candidate even if newer documentation exists.
+
+**Mandatory sequence:**
+
+1. **Before cloning**, inspect all *known* existing, permitted yaVDR
+   checkout paths and previously preserved `.build/daemon-installer/
+   <CODE_PIN>/` artifacts. Confirm their exact Git root/HEAD,
+   immutable code-SHA, complete binary and candidate seal. Do not use
+   file names or timestamps as sufficient evidence, and do not make
+   directory/permission changes to search. An unfamiliar location
+   is not a reason to copy the binary or create another checkout.
+2. On the matching existing code checkout, run `tools/install_daemon.py
+   check --sha "$CODE_PIN"` as its owning `yavdr` account. Examine
+   `INSTALLED_SOURCE_SHA`, `TARGET_SOURCE_SHA`,
+   `DB_BACKUP_DECISION`, `DB_REVIEW_PATH` and `BUILD`.
+   The tool checks the seal's SHA-256 plus the ELF source marker.
+   It does **not** discover saved builds in *other* worktrees for you.
+3. If the required binary is **already installed/running**, **STOP
+   successfully without compile or apply**. If `BUILD=REUSABLE`,
+   **do not run `build`**: proceed to the separately authorized root
+   apply with the already proven candidate. If `BUILD=NOT_SEALED`,
+   inspect whether an intact binary already exists in that same
+   candidate directory. The `build` action can recover such a
+   verified unsealed binary with `BUILD=RECOVERED_NO_COMPILE`.
+4. Only if the candidate is genuinely missing after bounded discovery
+   and code changes warrant compilation, run the tool's **one**
+   unprivileged build. A corrupt or mismatched binary **blocks** until
+   diagnosed; never overwrite, bypass integrity verification or
+   silently compile anew. Never create a fresh clone merely to lose
+   sight of a prior sealed candidate.
+
+**Build path is checkout-local**:
+`.build/daemon-installer/<CODE_PIN>/vdr-suite-daemon` and
+`.build/daemon-installer/<CODE_PIN>/candidate.json`.
+`build` itself is reusable/idempotent within that exact tree, but
+running it indiscriminately from *new* checkouts defeats the purpose.
+Preserve verified existing checkouts, use `check` first, and report
+`BUILD=SKIPPED_ALREADY_INSTALLED`, `BUILD=SKIPPED_REUSABLE`,
+`BUILD=RECOVERED_NO_COMPILE` or `BUILD=NECESSARY` with evidence.
+Do not assume a new GitHub docs HEAD is an updated C++ binary.
+
+**Documentation-only CI:** Do not wait for automatic CI from docs
+commits. Review/push documentation immediately. A complete CI pass
+for the final reviewed candidate is mandatory before **merge into
+`main`**, not before each doc commit. Changes to product code or
+deployment/security behavior still require their directly relevant
+tests at the corresponding pre-install gate.
+
 ### Preflight in the existing root shell — does not install anything
 
-Use a **current, externally verified CI-green, 40-character SHA** for `PIN`;
-do not substitute an unverified moving HEAD. This block does not change the
+Use an **independently reviewed product-code 40-character SHA** for `PIN`.
+For docs-only commits the previously validated daemon code-SHA stays valid;
+a docs-only branch HEAD and its fresh CI result are **not** new build gates.
+Do not substitute an unverified moving HEAD. This block does not change the
 calling shell's user or its fail-fast options:
 
 ```bash
@@ -46,9 +106,12 @@ build bytes, free space on `/home/yavdr` must remain at least
 budget for that filesystem; `install_daemon.py build` repeats its own 2 GiB
 preflight. An unbounded clone/build must not begin.
 
-### Checkout, test, build: commands entered as root, subprocesses as yavdr
+### Conditional checkout and build (only after no-reuse preflight)
 
-These commands are a **sequenced operator procedure**, not permission for a
+**Do not run these commands when an existing matching checkout/build is
+available.** This is the *last-resort new-checkout path* only when the
+mandatory inspection above has proven no reusable candidate exists.
+The commands are a sequenced operator procedure, not permission for a
 blind install. Execute the next only after the previous reports success.
 The root prompt does not change and none of these commands runs a root build.
 All `git` inspection commands use the checkout's owning `yavdr` identity
@@ -63,12 +126,18 @@ sudo -u yavdr -H git rev-parse HEAD
 sudo -u yavdr -H git status --porcelain --untracked-files=no
 sudo -u yavdr -H python3 tools/test_install_daemon.py -v
 sudo -u yavdr -H python3 tools/install_daemon.py check --sha "$PIN"
-sudo -u yavdr -H python3 tools/install_daemon.py build --sha "$PIN"
-sudo -u yavdr -H python3 tools/install_daemon.py check --sha "$PIN"
+# STOP HERE: decide from check output whether any compilation is necessary.
+# ONLY when BUILD=NOT_SEALED and no verified reusable candidate exists:
+# sudo -u yavdr -H python3 tools/install_daemon.py build --sha "$PIN"
+# Then re-run read-only check and verify BUILD=REUSABLE:
+# sudo -u yavdr -H python3 tools/install_daemon.py check --sha "$PIN"
 ```
 
 Do **not** proceed automatically if clone, exact SHA/branch, clean source,
-tests or any `check` failed. Read the complete output, especially
+tests or any `check` failed. A successful `check` must be interpreted
+**before** invoking the optional `build` step. If `BUILD=REUSABLE`,
+skip build; if installed daemon is already the target, skip both build
+and apply. Never permit a new checkout to hide a previously sealed binary. Read the complete output, especially
 `INSTALLED_SOURCE_SHA`, `DB_BACKUP_DECISION` and `DB_REVIEW_PATH`.
 `DB_BACKUP_DECISION=REVIEW_REQUIRED` requires a separate review of every
 flagged file. Never auto-approve `no-backup` or invent a database path.
@@ -107,12 +176,17 @@ From the exact, clean source checkout (normally /home/yavdr/vdr-suite), select a
     cd /home/yavdr/vdr-suite
     SHA="$(git rev-parse HEAD)"
     python3 tools/install_daemon.py check --sha "$SHA"
-    python3 tools/install_daemon.py build --sha "$SHA"
-    python3 tools/install_daemon.py apply --sha "$SHA" --confirm-apply
+    # If already installed: do nothing.
+    # If BUILD=REUSABLE: do NOT invoke build.
+    # Only if BUILD=NOT_SEALED, no valid binary/reusable prior build exists,
+    # and actual product changes demand it: build once as yavdr, never root.
+    # After rechecking the sealed result and DB gate, root applies explicitly.
 
 **check** is read-only. It requires an exact clean source HEAD, determines the old commit from the running binary's embedded git-version marker, checks ancestry and evaluates database migration risk. If source identity or history is unknown, it refuses installation instead of creating an unrequested backup.
 
-**build** invokes only the verified Makefile daemon target. It creates a persistent, commit-keyed binary in .build/daemon-installer/<SHA>/ and an integrity seal. Completed builds are reused. A successful binary left behind by an interrupted sealing step is recovered without recompilation. The build and log are never automatically removed.
+**build** is **not** a mandatory step in every installation. Use it once
+only when the no-duplicate-build gate proves there is no reusable artifact.
+It invokes only the verified Makefile daemon target. It creates a persistent, commit-keyed binary in .build/daemon-installer/<SHA>/ and an integrity seal. Completed builds are reused. A successful binary left behind by an interrupted sealing step is recovered without recompilation. The build and log are never automatically removed.
 
 **apply** never builds. It requires a sealed matching binary, root permissions, explicit confirmation, a running old service and sufficient disk space. It preserves the previous daemon binary as a bounded rollback copy, replaces only /usr/sbin/vdr-suite-daemon, restarts only vdr-suite-daemon.service and verifies that the running executable matches the expected hash. On failure or interruption during service modification, it attempts to restore the previous executable and restart it.
 
@@ -168,7 +242,9 @@ normaler Benutzer. Niemals den Source-Build mit sudo starten:
 PIN="$(git rev-parse HEAD)"
 python3 tools/test_install_daemon.py -v
 python3 tools/install_daemon.py check --sha "$PIN"
-python3 tools/install_daemon.py build --sha "$PIN"
+# Only if the preceding read-only check found no valid existing artifact:
+# python3 tools/install_daemon.py build --sha "$PIN"
+# Re-check if a fresh build/recovery was actually necessary:
 python3 tools/install_daemon.py check --sha "$PIN"
 ```
 
