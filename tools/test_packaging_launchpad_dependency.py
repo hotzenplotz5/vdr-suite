@@ -12,6 +12,10 @@ spec.loader.exec_module(checker)
 TARGET_URL = checker.API + "/~hotzenplotz5/+archive/ubuntu/vdr-suite"
 SOURCE_URL = checker.API + "/~seahawk1986-hotmail/+archive/ubuntu/vdr-2.8.3"
 PAGES = TARGET_URL + "/dependencies"
+LOOKUP = TARGET_URL + "?" + checker.urlencode({
+    "ws.op": "getArchiveDependency",
+    "dependency": SOURCE_URL,
+})
 
 
 def fake_responses(source_present=True, next_page=False):
@@ -25,6 +29,10 @@ def fake_responses(source_present=True, next_page=False):
         checker.API + "/archives?ws.op=getByReference&reference=ppa%3Aseahawk1986-hotmail%2Fvdr-2.8.3": {
             "self_link": SOURCE_URL,
         },
+        LOOKUP: ({"archive_link": TARGET_URL,
+                  "dependency_link": SOURCE_URL,
+                  "pin_priority": 500, "pocket": "Release"}
+                 if source_present else None),
         PAGES: {
             "entries": [{"dependency_link": SOURCE_URL if source_present else
                          checker.API + "/~someone-else/+archive/ubuntu/other",
@@ -117,6 +125,39 @@ class LaunchpadDependencyTests(unittest.TestCase):
             return {"self_link": SOURCE_URL}
         with self.assertRaisesRegex(ValueError, "unexpected archive identity"):
             checker.archive(checker.TARGET, loader)
+
+    def test_empty_public_collection_does_not_disprove_web_ui(self):
+        def loader(url):
+            if url == PAGES:
+                return {"entries": [], "next_collection_link": None}
+            if url == LOOKUP:
+                return None
+            return fake_responses()(url)
+        data = checker.inspect(loader)
+        self.assertFalse(data["dependency_found"])
+        self.assertTrue(data["public_api_inconclusive"])
+        self.assertEqual(data["verification_method"], "none")
+
+    def test_named_archive_dependency_can_confirm_when_collection_empty(self):
+        def loader(url):
+            if url == PAGES:
+                return {"entries": [], "next_collection_link": None}
+            return fake_responses()(url)
+        data = checker.inspect(loader)
+        self.assertTrue(data["dependency_found"])
+        self.assertFalse(data["public_api_inconclusive"])
+        self.assertEqual(data["verification_method"], "named_lookup")
+        self.assertEqual(data["pin_priorities"], [500])
+
+    def test_named_archive_dependency_rejects_mismatched_target(self):
+        def loader(url):
+            if url == PAGES:
+                return {"entries": [], "next_collection_link": None}
+            if url == LOOKUP:
+                return {"archive_link": SOURCE_URL, "dependency_link": SOURCE_URL}
+            return fake_responses()(url)
+        data = checker.inspect(loader)
+        self.assertTrue(data["public_api_inconclusive"])
 
     def test_collection_rejects_missing_records(self):
         with self.assertRaisesRegex(ValueError, "has no entries"):
