@@ -113,6 +113,41 @@ sentinel is used. This is evidence for specific old-column migrations only,
 not a supported old-package upgrade, complete daemon-start migration, or
 production restore procedure.
 
+
+## P7 versioned package upgrade experiment (unreleased)
+
+The verified CI #41 commit `bc4623374a4df4c08118c424ea19aaf552a4964c` contains `0.14.1-1~exp1`
+as an **experimental source-packaging state**, not a distributed package release.
+A fresh disposable Ubuntu 24.04 CI runner now builds its three binary packages
+from that immutable commit. The active packaging branch produces **a distinct**
+`0.14.1-1~exp2` binary revision while keeping the application version
+`0.14.1`. Both builds resolve the Seahawk VDR 2.8.3 ABI.
+
+The new `p7-versioned-upgrade-noble` job first installs `exp1` in a throwaway
+Ubuntu container with service activation blocked, constructs a synthetic
+`vdr-suite.db` from tagged historical SQL and independently source-attested
+older-column test SQL, and adds a test-only operator-managed configuration and
+unowned persistent-data sentinel. It records a read-only hash and an offline
+backup. It then runs `dpkg --unpack` on all three `exp2` binaries, checks
+the unconfigured state, resumes with `dpkg --configure -a` and compares the
+original SQLite **bytes, rows and schema**, conffiles and user sentinel.
+Finally it verifies the backup, alters only the disposable test database,
+restores its older snapshot and explicitly downgrades the three binaries to
+`exp1`, verifying recovered state. This is the **first planned real dpkg
+package-version transition**, with a CI result needed before it can be
+considered validated.
+
+**Important limits:** Neither older `exp1` nor `exp2` is a published
+supported Debian package release. The older test data is fabricated from
+historical SQL and placed on disk *after* installing the prior binaries; the
+old daemon is not started and did not generate those data. The real package
+maintainer scripts deliberately do not perform schema migration. Thus even
+passing CI proves a package manager upgrade plus persistence/recovery behavior,
+not upgrade compatibility of active daemon databases, nontrivial schema
+migration, fail-after-mutation recovery, or a production downtime procedure.
+The failed-interruption exercise is an unpacked-but-unconfigured dpkg state;
+it does not assert resilience to arbitrary power loss.
+
 ## Remaining before P7 acceptance
 
 - Schema migration registry and compatible version boundaries.

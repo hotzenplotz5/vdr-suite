@@ -157,6 +157,8 @@ jobs:
             cp -- ../"${package}"_*.deb packaging-artifacts-full/
           done
           test "$(find packaging-artifacts-full -maxdepth 1 -name '*.deb' | wc -l)" -eq 3
+          cp -- tools/fixtures/packaging/v1.60.15m-vdr-suite.sql packaging-artifacts-full/p7-tagged-historical.sql
+          cp -- tools/fixtures/packaging/p7-pre-revision-security-operations.sql packaging-artifacts-full/p7-pre-revision.sql
       - name: Share unsigned test binaries with isolated container
         uses: actions/upload-artifact@v4
         with:
@@ -233,3 +235,228 @@ jobs:
           test -f /var/lib/vdr-suite/p6-keep-me
           test "$(cat /var/lib/vdr-suite/p6-keep-me)" = 'data not owned by dpkg'
           echo "P6_ISOLATED_REINSTALL_REMOVE_PURGE=PASS"
+
+  p7-prior-exp1-packages-noble:
+    name: P7 pinned prior exp1 three-binary build (disposable)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out immutable previously successful P7 baseline
+        uses: actions/checkout@v4
+        with:
+          ref: bc4623374a4df4c08118c424ea19aaf552a4964c
+          path: prior-source
+          persist-credentials: false
+      - name: Confirm baseline version, provenance, rules mode and resource reserve
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd prior-source
+          test "$(git rev-parse HEAD)" = "bc4623374a4df4c08118c424ea19aaf552a4964c"
+          test -z "$(git status --porcelain)"
+          git ls-files --stage debian/rules | grep -E '^100755 '
+          test "$(dpkg-parsechangelog -l debian/changelog -S Version)" = "0.14.1-1~exp1"
+          python3 tools/check_packaging_tracked_artifacts.py
+          read -r total free < <(df -B1 --output=size,avail . | tail -n 1)
+          reserve=$((total * 15 / 100))
+          (( reserve >= 4294967296 )) || reserve=4294967296
+          budget=4294967296
+          printf 'RESOURCE_TOTAL=%s RESOURCE_FREE=%s RESERVE=%s BUDGET=%s\n' "$total" "$free" "$reserve" "$budget"
+          (( free >= reserve + budget )) || { echo 'RESOURCE_PREFLIGHT=FAIL'; exit 1; }
+          echo 'RESOURCE_PREFLIGHT=PASS'
+      - name: Install Seahawk VDR 2.8.3 build dependencies on disposable runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends software-properties-common
+          sudo add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential debhelper dpkg-dev g++ make pkg-config python3 vdr-dev libsqlite3-dev libcurl4-openssl-dev libssl-dev libcrypt-dev
+          case "$(dpkg-query -W -f='${Version}' vdr-dev)" in 2.8.3-*) : ;; *) exit 1 ;; esac
+      - name: Build pinned prior three binaries without installing on runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd prior-source
+          export DEB_BUILD_OPTIONS=parallel=2
+          dpkg-checkbuilddeps -B
+          dpkg-buildpackage -B -us -uc
+          mkdir -p ../p7-prior-binaries
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            files=(../"${package}"_0.14.1-1~exp1_*.deb)
+            test "${#files[@]}" -eq 1
+            test "$(dpkg-deb --field "${files[0]}" Version)" = "0.14.1-1~exp1"
+            cp -- "${files[0]}" ../p7-prior-binaries/
+          done
+          test "$(find ../p7-prior-binaries -maxdepth 1 -name '*.deb' | wc -l)" -eq 3
+          echo 'P7_PREVIOUS_EXP1_BUILD=PASS'
+      - name: Upload pinned prior unsigned packages for upgrade-only test
+        uses: actions/upload-artifact@v4
+        with:
+          name: p7-prior-exp1-unsigned-binaries
+          path: p7-prior-binaries/
+          if-no-files-found: error
+          retention-days: 7
+
+  p7-versioned-upgrade-noble:
+    name: P7 exp1 to exp2 unpack/configure, state preservation and rollback
+    needs: [p7-prior-exp1-packages-noble, full-default-packages-noble]
+    runs-on: ubuntu-24.04
+    container: ubuntu:24.04
+    timeout-minutes: 35
+    steps:
+      - name: Retrieve pinned prior exp1 binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: p7-prior-exp1-unsigned-binaries
+          path: prior-packages
+      - name: Retrieve current exp2 binaries and checked historical fixtures
+        uses: actions/download-artifact@v4
+        with:
+          name: vdr-suite-three-binaries-noble-experimental
+          path: new-packages
+      - name: Block all service activation and verify isolated artifact sets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(id -u)" -eq 0
+          test -f /.dockerenv || { echo 'P7_DISPOSABLE_CONTAINER_REQUIRED=FAIL'; exit 1; }
+          printf '%s\n' '#!/bin/sh' 'exit 101' | install -m 0755 /dev/stdin /usr/sbin/policy-rc.d
+          test "$(find prior-packages -maxdepth 1 -name '*.deb' | wc -l)" -eq 3
+          test "$(find new-packages -maxdepth 1 -name '*.deb' | wc -l)" -eq 3
+          test -f new-packages/p7-tagged-historical.sql
+          test -f new-packages/p7-pre-revision.sql
+          dpkg --compare-versions '0.14.1-1~exp2' gt '0.14.1-1~exp1'
+      - name: Install exp1 packages against Seahawk VDR 2.8.3
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates gnupg software-properties-common python3
+          add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
+          apt-get update
+          apt-get install -y --no-install-recommends ./prior-packages/vdr-suite-daemon_*.deb ./prior-packages/vdr-suite-backend-agent_*.deb ./prior-packages/vdr-plugin-suitebridge_*.deb
+          case "$(dpkg-query -W -f='${Version}' vdr)" in 2.8.3-*) : ;; *) exit 1 ;; esac
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            test "$(dpkg-query -W -f='${Version}' "$package")" = "0.14.1-1~exp1"
+            test "$(dpkg-query -W -f='${Status}' "$package")" = "install ok installed"
+          done
+          echo 'P7_EXP1_INSTALL=PASS'
+      - name: Seed synthetically populated historical SQLite and managed configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          read -r total free < <(df -B1 --output=size,avail /var/lib | tail -n 1)
+          reserve=$((total * 15 / 100))
+          (( reserve >= 4294967296 )) || reserve=4294967296
+          budget=536870912
+          printf 'RESOURCE_TOTAL=%s RESOURCE_FREE=%s RESERVE=%s BUDGET=%s\n' "$total" "$free" "$reserve" "$budget"
+          (( free >= reserve + budget )) || { echo 'RESOURCE_PREFLIGHT=FAIL'; exit 1; }
+          echo 'RESOURCE_PREFLIGHT=PASS'
+          test -f /etc/default/vdr-suite-daemon
+          test -f /etc/vdr-suite/backend-agent.conf
+          test ! -e /var/lib/vdr-suite/vdr-suite.db
+          mkdir -p /var/lib/vdr-suite /tmp/p7-recovery
+          printf '%s\n' '# P7 operator-managed daemon config sentinel' >> /etc/default/vdr-suite-daemon
+          printf '%s\n' '# P7 operator-managed agent config sentinel' >> /etc/vdr-suite/backend-agent.conf
+          printf '%s\n' 'P7 caller-owned state (synthetic)' > /var/lib/vdr-suite/p7-unowned-state
+          python3 - <<'PY'
+          import sqlite3
+          from pathlib import Path
+          dest = Path('/var/lib/vdr-suite/vdr-suite.db')
+          with sqlite3.connect(dest) as db:
+              db.execute('PRAGMA foreign_keys=ON')
+              db.executescript(Path('new-packages/p7-tagged-historical.sql').read_text())
+              db.executescript(Path('new-packages/p7-pre-revision.sql').read_text())
+              db.execute("INSERT INTO recordings(title, recording_path, recording_format) VALUES (?,?,?)",
+                         ('P7 prior package test', '/offline/fixture.rec', 'TS'))
+              db.commit()
+              assert db.execute('PRAGMA integrity_check').fetchone() == ('ok',)
+              assert db.execute('PRAGMA foreign_key_check').fetchall() == []
+              assert db.execute("SELECT count(*) FROM security_human_accounts").fetchone() == (1,)
+          PY
+          test ! -e /var/lib/vdr-suite/vdr-suite.db-wal
+          test ! -e /var/lib/vdr-suite/vdr-suite.db-shm
+          test ! -e /var/lib/vdr-suite/vdr-suite.db-journal
+          cp -- /var/lib/vdr-suite/vdr-suite.db /tmp/p7-recovery/pre-exp2.db
+          sha256sum /var/lib/vdr-suite/vdr-suite.db > /tmp/p7-recovery/original.sha256
+          sha256sum /tmp/p7-recovery/pre-exp2.db > /tmp/p7-recovery/backup.sha256
+          echo 'P7_PRIOR_STATE_AND_BACKUP=PASS'
+      - name: Simulate interrupted unpack then configure upgraded exp2 packages
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          dpkg --unpack ./new-packages/vdr-suite-daemon_*.deb ./new-packages/vdr-suite-backend-agent_*.deb ./new-packages/vdr-plugin-suitebridge_*.deb
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            test "$(dpkg-query -W -f='${Version}' "$package")" = '0.14.1-1~exp2'
+            test "$(dpkg-query -W -f='${Status}' "$package")" = 'install ok unpacked'
+          done
+          echo 'P7_INTERRUPTED_UNPACK_STATE=PASS'
+          dpkg --configure -a
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            test "$(dpkg-query -W -f='${Status}' "$package")" = 'install ok installed'
+            test "$(dpkg-query -W -f='${Version}' "$package")" = '0.14.1-1~exp2'
+          done
+          echo 'P7_EXP1_TO_EXP2_PACKAGE_UPGRADE=PASS'
+      - name: Verify unchanged old SQLite schema, rows and user-managed configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum -c /tmp/p7-recovery/original.sha256
+          grep -Fx '# P7 operator-managed daemon config sentinel' /etc/default/vdr-suite-daemon
+          grep -Fx '# P7 operator-managed agent config sentinel' /etc/vdr-suite/backend-agent.conf
+          grep -Fx 'P7 caller-owned state (synthetic)' /var/lib/vdr-suite/p7-unowned-state
+          python3 - <<'PY'
+          import sqlite3
+          with sqlite3.connect('file:/var/lib/vdr-suite/vdr-suite.db?mode=ro', uri=True) as db:
+              assert db.execute('PRAGMA integrity_check').fetchone() == ('ok',)
+              assert db.execute('PRAGMA foreign_key_check').fetchall() == []
+              assert db.execute("SELECT title FROM recordings").fetchall() == [('P7 prior package test',)]
+              assert db.execute("SELECT account_id FROM security_human_accounts").fetchall() == [('p7_pre_account',)]
+              assert db.execute("SELECT operation_id FROM mutation_operations").fetchall() == [('p7_pre_operation',)]
+              for table, missing in [('security_human_accounts','revision'),
+                                     ('mutation_operations','expected_resource_fingerprint')]:
+                  columns = {row[1] for row in db.execute('PRAGMA table_info(' + table + ')')}
+                  assert missing not in columns, 'postinst changed pre-migration schema'
+          PY
+          echo 'P7_VERSIONED_UPGRADE_STATE_PRESERVED=PASS'
+      - name: Exercise verified offline restore before old binary downgrade
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          sha256sum -c /tmp/p7-recovery/backup.sha256
+          test ! -e /var/lib/vdr-suite/vdr-suite.db-wal
+          test ! -e /var/lib/vdr-suite/vdr-suite.db-shm
+          test ! -e /var/lib/vdr-suite/vdr-suite.db-journal
+          python3 - <<'PY'
+          import sqlite3
+          from pathlib import Path
+          backup = Path('/tmp/p7-recovery/pre-exp2.db')
+          with sqlite3.connect('file:' + str(backup) + '?mode=ro', uri=True) as db:
+              assert db.execute('PRAGMA integrity_check').fetchone() == ('ok',)
+              assert db.execute('PRAGMA foreign_key_check').fetchall() == []
+          with sqlite3.connect('/var/lib/vdr-suite/vdr-suite.db') as db:
+              db.execute("INSERT INTO recordings(title,recording_path,recording_format) VALUES (?,?,?)",
+                         ('P7 change after upgrade', '/offline/second.rec', 'TS'))
+              db.commit()
+          PY
+          ! sha256sum -c /tmp/p7-recovery/original.sha256
+          cp -- /tmp/p7-recovery/pre-exp2.db /var/lib/vdr-suite/vdr-suite.db
+          sha256sum -c /tmp/p7-recovery/original.sha256
+          apt-get install -y --allow-downgrades -o Dpkg::Options::=--force-confold ./prior-packages/vdr-suite-daemon_*.deb ./prior-packages/vdr-suite-backend-agent_*.deb ./prior-packages/vdr-plugin-suitebridge_*.deb
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            test "$(dpkg-query -W -f='${Version}' "$package")" = '0.14.1-1~exp1'
+            test "$(dpkg-query -W -f='${Status}' "$package")" = 'install ok installed'
+          done
+          sha256sum -c /tmp/p7-recovery/original.sha256
+          grep -Fx '# P7 operator-managed daemon config sentinel' /etc/default/vdr-suite-daemon
+          grep -Fx '# P7 operator-managed agent config sentinel' /etc/vdr-suite/backend-agent.conf
+          grep -Fx 'P7 caller-owned state (synthetic)' /var/lib/vdr-suite/p7-unowned-state
+          echo 'P7_VERIFIED_BACKUP_AND_BINARY_DOWNGRADE=PASS'
