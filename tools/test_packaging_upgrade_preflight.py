@@ -60,6 +60,39 @@ class PreflightTests(unittest.TestCase):
                 module.check(db)
             self.assertTrue(shm.is_symlink())
 
+    def test_reports_known_schema_versions_read_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = Path(directory) / "markers.db"
+            with closing(sqlite3.connect(db)) as con:
+                con.executescript(
+                    "CREATE TABLE suite_metadata_schema_versions("
+                    "version INTEGER PRIMARY KEY,description TEXT);"
+                    "INSERT INTO suite_metadata_schema_versions VALUES(1,'base');"
+                    "INSERT INTO suite_metadata_schema_versions VALUES(7,'manual');"
+                    "CREATE TABLE vdr_global_search_schema_versions("
+                    "version INTEGER PRIMARY KEY,description TEXT);"
+                    "INSERT INTO vdr_global_search_schema_versions VALUES(1,'backfill');")
+            before = db.read_bytes()
+            data = module.check(db)
+            self.assertEqual(data["schema"], 2)
+            self.assertEqual(data["known_schema_versions"], {
+                "suite_metadata_schema_versions": {
+                    "applied_versions": [1, 7], "highest_version": 7},
+                "vdr_global_search_schema_versions": {
+                    "applied_versions": [1], "highest_version": 1},
+            })
+            self.assertEqual(db.read_bytes(), before)
+
+    def test_invalid_schema_marker_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = Path(directory) / "invalid.db"
+            with closing(sqlite3.connect(db)) as con:
+                con.executescript(
+                    "CREATE TABLE suite_metadata_schema_versions(version TEXT);"
+                    "INSERT INTO suite_metadata_schema_versions VALUES('unknown');")
+            with self.assertRaisesRegex(ValueError, "invalid version marker"):
+                module.check(db)
+
     def test_does_not_create_database(self):
         with tempfile.TemporaryDirectory() as directory:
             db = Path(directory) / "missing.db"

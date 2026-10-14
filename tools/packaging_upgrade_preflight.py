@@ -19,6 +19,29 @@ def reject_sidecars(db: Path):
             )
 
 
+# These are explicit, versioned SQLite tables found in the real repositories.
+# This list is NOT a complete registry of all runtime-owned schemas.
+KNOWN_VERSION_TABLES = (
+    "suite_metadata_schema_versions",
+    "vdr_global_search_schema_versions",
+)
+
+
+def inspect_known_versions(con, table_names):
+    observed = {}
+    for name in KNOWN_VERSION_TABLES:
+        if name not in table_names:
+            continue
+        versions = []
+        for (value,) in con.execute("SELECT version FROM " + name + " ORDER BY version"):
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError("invalid version marker in " + name)
+            versions.append(value)
+        observed[name] = {"applied_versions": versions,
+                          "highest_version": versions[-1] if versions else None}
+    return observed
+
+
 def check(db: Path):
     if not db.is_file() or db.is_symlink():
         raise ValueError("database must be an existing regular non-symlink file")
@@ -36,11 +59,14 @@ def check(db: Path):
             "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")]
         if integrity != "ok":
             raise ValueError("database quick_check failed: " + str(integrity))
+        known_versions = inspect_known_versions(con, set(tables))
         # Catch a sidecar introduced while opening/reading a candidate.
         reject_sidecars(original)
-        return {"schema": 1, "database": str(db), "user_version": version,
+        return {"schema": 2, "database": str(db), "user_version": version,
                 "table_count": len(tables), "integrity": integrity,
-                "note": "Read-only snapshot inspection; no migration or backup performed"}
+                "known_schema_versions": known_versions,
+                "note": "Offline-only, partial schema-marker inventory; "
+                        "not a migration, backup, or compatibility approval"}
     finally:
         con.close()
 
