@@ -43,6 +43,9 @@ Important distinctions:
 
 Read-only public API verification from the separate Packaging checkout (no login or system modifications): `python3 tools/check_launchpad_ppa_dependency.py`. `LAUNCHPAD_DEPENDENCY_CHECK=PASS` confirms the archive link only; `UBUNTU_VDR_ABI_VALIDATION=PENDING` remains until successful Ubuntu-series builds. A network/API failure is reported as `UNKNOWN`, not as a false claim that the dependency was removed. Unit tests: `python3 -m unittest discover -s tools -p 'test_packaging_*.py'`.
 
+**API compatibility fix (2026-10-14):** The maintainer's initial live run passed all 29 packaging tests but yielded `LAUNCHPAD_DEPENDENCY_CHECK=UNKNOWN (unexpected Launchpad API response)`. The original checker assumed Launchpad's `getByReference` returned a JSON archive object, without accepting a JSON-null/other response. The checker now requests the PPA's canonical public API entry directly, validates the archive's identity, and uses `getByReference` as a fallback. If neither route succeeds, the error describes each route's JSON response type or HTTP status without logging credentials, and the check still reports `UNKNOWN`, **not** `FAIL` or a claim that the dependency was removed. New mock tests cover null responses, alternate API versions and wrong archive identities. The corrected live query has not yet been re-run.
+
+
 Official procedure: https://ubuntu.com/hardware/docs/image-cookbook/howto/launchpad/create_ppa/ (Edit PPA dependencies); dependency priority background: https://discourse.ubuntu.com/t/introducing-ppa-dependency-pinning/87067.
 
 ## Gates before first upload
