@@ -96,8 +96,16 @@ requires both missing columns to be added with expected default values,
 proves each original column and row value survives both C++ reopens, and
 confirms the pre-upgrade backup restores the original missing-column shapes.
 
-The SQL file **was not recovered from an older release**; it is reconstructed
-from the two current C++ schema upgrade guards. A fake, unusable password-hash
+The SQL file **was not recovered from an older release**; it combines
+table shapes from two different older commits with invented test-only data.
+A new provenance gate verifies that both legacy CREATE TABLE statements
+(including their constraints) match **byte-exact source snapshots** of
+`HumanAccountRepository.cpp` at commit
+`e63623d80be9b9d69f5219edd379a973968cd282` and
+`MutationOperationRepository.cpp` at commit
+`6df73c326f32ae8ddd739caf1452b6ccddc16b1e`, both by Git blob SHA-1.
+Run `python3 -m unittest -v tools.test_packaging_p7_schema_provenance`
+to verify the attestation without modifying a database. A fake, unusable password-hash
 sentinel is used. This is evidence for specific old-column migrations only,
 not a supported old-package upgrade, complete daemon-start migration, or
 production restore procedure.
