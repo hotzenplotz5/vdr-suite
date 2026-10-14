@@ -19,7 +19,20 @@ spec.loader.exec_module(recovery)
 BIG_DISK = lambda _: SimpleNamespace(total=100 * 1024**3, free=80 * 1024**3)
 
 
+def recovery_scratch():
+    """Keep test fixtures outside protected checkouts even when TMPDIR is in .build."""
+    return tempfile.TemporaryDirectory(prefix="vdr-suite-p7-recovery-", dir=Path.home())
+
+
 class RecoveryRehearsalTests(unittest.TestCase):
+    def test_scratch_ignores_protected_tmpdir(self):
+        # Packaging runs may set TMPDIR below the protected checkout.
+        with patch.dict(os.environ, {"TMPDIR": "/home/yavdr/vdr-suite-packaging-test/.build/p7-tests"}):
+            with recovery_scratch() as temporary:
+                folder = Path(temporary)
+                self.assertEqual(folder.parent, Path.home())
+                self.assertEqual(stat.S_IMODE(folder.stat().st_mode), 0o700)
+
     def make_database(self, folder, wal=False):
         path = folder / "original.db"
         con = sqlite3.connect(path)
@@ -32,7 +45,7 @@ class RecoveryRehearsalTests(unittest.TestCase):
         return path, con
 
     def test_restores_committed_wal_and_preserves_source(self):
-        with tempfile.TemporaryDirectory() as temporary:
+        with recovery_scratch() as temporary:
             folder = Path(temporary)
             path, con = self.make_database(folder, wal=True)
             try:
@@ -65,7 +78,7 @@ class RecoveryRehearsalTests(unittest.TestCase):
                 con.close()
 
     def test_refuses_to_overwrite_backup(self):
-        with tempfile.TemporaryDirectory() as temporary:
+        with recovery_scratch() as temporary:
             folder = Path(temporary)
             path, con = self.make_database(folder)
             con.close()
@@ -77,7 +90,7 @@ class RecoveryRehearsalTests(unittest.TestCase):
             self.assertFalse((folder / "restored.db").exists())
 
     def test_refuses_path_escape_or_reused_names(self):
-        with tempfile.TemporaryDirectory() as temporary:
+        with recovery_scratch() as temporary:
             folder = Path(temporary)
             path, con = self.make_database(folder)
             con.close()
@@ -90,7 +103,7 @@ class RecoveryRehearsalTests(unittest.TestCase):
                                   capacity=BIG_DISK)
 
     def test_refuses_symlink_source_and_sidecar(self):
-        with tempfile.TemporaryDirectory() as temporary:
+        with recovery_scratch() as temporary:
             folder = Path(temporary)
             path, con = self.make_database(folder)
             con.close()
@@ -104,7 +117,7 @@ class RecoveryRehearsalTests(unittest.TestCase):
                                   capacity=BIG_DISK)
 
     def test_refuses_nonprivate_workspace(self):
-        with tempfile.TemporaryDirectory() as temporary:
+        with recovery_scratch() as temporary:
             folder = Path(temporary)
             path, con = self.make_database(folder)
             con.close()
@@ -123,7 +136,7 @@ class RecoveryRehearsalTests(unittest.TestCase):
                 recovery.require_workspace(Path(name))
 
     def test_concurrent_restore_creation_is_not_deleted_on_failure(self):
-        with tempfile.TemporaryDirectory() as temporary:
+        with recovery_scratch() as temporary:
             folder = Path(temporary)
             original, con = self.make_database(folder)
             con.close()
@@ -145,7 +158,7 @@ class RecoveryRehearsalTests(unittest.TestCase):
             self.assertFalse((folder / "backup.db").exists())
 
     def test_capacity_stop_occurs_before_first_copy(self):
-        with tempfile.TemporaryDirectory() as temporary:
+        with recovery_scratch() as temporary:
             folder = Path(temporary)
             path, con = self.make_database(folder)
             con.close()
