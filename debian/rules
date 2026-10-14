@@ -2,23 +2,35 @@
 export DH_VERBOSE = 1
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
+# Explicitly supported profile: dpkg-buildpackage -B -Pplugin-only
+# No daemon, agent, CLI or web assets are built or staged in that profile.
+PLUGIN_ONLY := $(filter plugin-only,$(DEB_BUILD_PROFILES))
+STAGE := $(CURDIR)/debian/tmp
+
 %:
 	dh $@ --with vdrplugin
 
 override_dh_auto_build:
+ifeq ($(PLUGIN_ONLY),)
 	$(MAKE) build-installable PREFIX=/usr
+endif
 	$(MAKE) -C vdr-plugin-suite-bridge
 
 override_dh_auto_install:
-	$(MAKE) install DESTDIR=$(CURDIR)/debian/tmp PREFIX=/usr
-	$(MAKE) -C vdr-plugin-suite-bridge install DESTDIR=$(CURDIR)/debian/tmp
-	# Packaging must not ship runtime-generated state or secrets.
-	test ! -e debian/tmp/var/lib/vdr-suite/vdr-suite.db
-	test ! -e debian/tmp/var/lib/vdr-suite/secrets/credentials
+ifeq ($(PLUGIN_ONLY),)
+	$(MAKE) install DESTDIR=$(STAGE) PREFIX=/usr
+endif
+	$(MAKE) -C vdr-plugin-suite-bridge install DESTDIR=$(STAGE)
+	# Fail closed if runtime-generated private data was staged.
+	test ! -e $(STAGE)/var/lib/vdr-suite/vdr-suite.db
+	test ! -e $(STAGE)/var/lib/vdr-suite/secrets/credentials
+
+override_dh_auto_test:
+	python3 tools/check_packaging_version.py
+	python3 -m unittest discover -s tools -p 'test_packaging_*.py'
 
 override_dh_installsystemd:
 	dh_installsystemd --no-enable --no-start
 
-override_dh_auto_test:
-	python3 tools/check_packaging_version.py
-	python3 -m unittest discover -s tools -p test_packaging_inventory.py
+override_dh_missing:
+	dh_missing --fail-missing
