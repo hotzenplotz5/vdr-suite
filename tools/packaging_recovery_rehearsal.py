@@ -24,6 +24,14 @@ MAX_BACKUP_SECONDS = 60
 
 
 def require_workspace(folder):
+    # Block stateful host namespaces and both known live source checkouts.
+    # This is deliberately stricter than a simple caller-ownership check.
+    protected = tuple(Path(p) for p in (
+        "/etc", "/usr", "/var", "/run", "/srv", "/opt", "/lib",
+        "/bin", "/sbin", "/dev", "/proc", "/sys",
+        "/home/yavdr/vdr-suite", "/home/yavdr/vdr-suite-packaging-test"))
+    if any(folder == root or root in folder.parents for root in protected):
+        raise ValueError("protected host path is not a recovery scratch workspace")
     if os.geteuid() == 0:
         raise ValueError("recovery rehearsals must not run as root")
     if not folder.is_absolute() or folder.is_symlink() or folder.resolve() != folder:
@@ -132,11 +140,13 @@ def rehearse(workspace, source_name, backup_name, restored_name,
                 if sqlite_facts(snapshot) != expected:
                     raise ValueError("backup changed the SQLite schema or integrity")
         digest = file_hash(backup)
-        created.append(restored)
         flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
         if hasattr(os, "O_NOFOLLOW"):
             flags |= os.O_NOFOLLOW
         fd = os.open(restored, flags, 0o600)
+        # Track it only after O_EXCL actually created it. A concurrent file
+        # appearing between the preflight and open must never be deleted.
+        created.append(restored)
         with backup.open("rb") as incoming, os.fdopen(fd, "wb") as outgoing:
             shutil.copyfileobj(incoming, outgoing, length=1024 * 1024)
         if file_hash(restored) != digest:

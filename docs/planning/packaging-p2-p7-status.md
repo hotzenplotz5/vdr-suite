@@ -47,3 +47,9 @@ The maintainer confirms having added `ppa:seahawk1986-hotmail/vdr-2.8.3` to `ppa
 3. `lintian`, shared library, and VDR ABI dependencies verified.
 4. Install, reinstall, remove, purge, and upgrade preserve config and database state as specified.
 5. Real yaVDR smoke test only under separate deployment approval.
+
+## CI milestone: Ubuntu noble + Seahawk VDR 2.8.3 (2026-10-14)
+
+At [GitHub Actions run #27](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38586364547), both jobs passed on commit `e158ef2ca170280e1cf9f6278bf36c460b3c0d01`: 48 Packaging tests, independently built SuiteBridge with the `vdr-abi-2.8.3-0yavdr` dependency, and the **complete default** `vdr-suite-daemon`, `vdr-suite-backend-agent`, and `vdr-plugin-suitebridge` amd64 packages. A previous `dh_missing --fail-missing` identified an unowned Nginx snippet, calibrator, and transport tmpfiles configuration; the fix assigns each without suppressing `dh_missing`. These are **runner-local experimental binary builds**, not signed PPA uploads or installed yaVDR packages.
+
+A subsequent CI container lifecycle rehearsal now tests real package install, same-version reinstall, removal, purge, inactive services, and caller-owned sentinel preservation against Seahawk VDR 2.8.3. Its **actual result must be inspected** before claiming P6 acceptance. It is neither a historical-version upgrade/migration test nor live yaVDR acceptance. P7's existing scratch SQLite backup/recovery rehearsal has unit tests, including a no-deletion race test, but no production quiesce/restore integration. Missing legal notices, `debian/copyright`, lintian review, older-version compatibility, and a separately approved runtime smoke test remain explicit release blockers.

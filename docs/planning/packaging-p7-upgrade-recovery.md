@@ -35,3 +35,5 @@ This is a rehearsal, not a procedure for copying the active VDR-Suite database. 
 - Concurrent service start/stop and admin onboarding acceptance on real yaVDR.
 
 No maintainer script or automated installer currently performs a database migration.
+
+The scratch rehearsal now rejects `/var`, `/etc` and other protected system namespaces as well as the two known VDR-Suite source checkouts. A new regression exercises a race in which a second process creates the restore target just before the exclusive open; the tool must preserve the other process's file rather than treat it as its own cleanup target. No production directory permissions or ownerships are changed.

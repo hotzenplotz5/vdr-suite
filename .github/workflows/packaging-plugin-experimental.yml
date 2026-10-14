@@ -139,6 +139,22 @@ jobs:
             dpkg-deb --info "${files[0]}"
           done
           echo "FULL_DEFAULT_PACKAGING=PASS"
+      - name: Stage unsigned binaries for a disposable installation test
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p packaging-artifacts-full
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            cp -- ../"${package}"_*.deb packaging-artifacts-full/
+          done
+          test "$(find packaging-artifacts-full -maxdepth 1 -name '*.deb' | wc -l)" -eq 3
+      - name: Share unsigned test binaries with isolated container
+        uses: actions/upload-artifact@v4
+        with:
+          name: vdr-suite-three-binaries-noble-experimental
+          path: packaging-artifacts-full/
+          if-no-files-found: error
+          retention-days: 7
       - name: Collect build log on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -147,3 +163,64 @@ jobs:
           path: default-package-build.log
           if-no-files-found: warn
           retention-days: 7
+
+  isolated-package-lifecycle-noble:
+    name: Ubuntu 24.04 disposable package install/reinstall/remove/purge
+    needs: full-default-packages-noble
+    runs-on: ubuntu-24.04
+    container: ubuntu:24.04
+    timeout-minutes: 25
+    steps:
+      - name: Retrieve built packages from exact workflow run
+        uses: actions/download-artifact@v4
+        with:
+          name: vdr-suite-three-binaries-noble-experimental
+          path: packages
+      - name: Block all service activation inside the disposable container
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(id -u)" -eq 0
+          printf '%s\\n' '#!/bin/sh' 'exit 101' | install -m 0755 /dev/stdin /usr/sbin/policy-rc.d
+          test "$(find packages -maxdepth 1 -name '*.deb' | wc -l)" -eq 3
+      - name: Install against Seahawk VDR 2.8.3 and verify package metadata
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates gnupg software-properties-common
+          add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
+          apt-get update
+          apt-get install -y --no-install-recommends ./packages/vdr-suite-daemon_*.deb ./packages/vdr-suite-backend-agent_*.deb ./packages/vdr-plugin-suitebridge_*.deb
+          vdr_version="$(dpkg-query -W -f='${Version}' vdr)"
+          case "$vdr_version" in 2.8.3-*) : ;; *) echo "WRONG_RUNTIME_VDR=$vdr_version"; exit 1 ;; esac
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            test "$(dpkg-query -W -f='${Status}' "$package")" = "install ok installed"
+          done
+          test -f /etc/default/vdr-suite-daemon
+          test -f /etc/vdr-suite/backend-agent.conf
+          test -f /etc/nginx/snippets/vdr-suite.conf
+          test -f /usr/lib/tmpfiles.d/vdr-suite-live.conf
+          test ! -f /var/lib/vdr-suite/vdr-suite.db
+          echo "P6_ISOLATED_INSTALL=PASS"
+      - name: Reinstall then remove and purge without losing caller state
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          mkdir -p /var/lib/vdr-suite
+          printf '%s\\n' 'data not owned by dpkg' > /var/lib/vdr-suite/p6-keep-me
+          printf '%s\\n' '# local operator setting: keep' >> /etc/default/vdr-suite-daemon
+          apt-get -y -o Dpkg::Options::=--force-confold --reinstall install ./packages/vdr-suite-daemon_*.deb ./packages/vdr-suite-backend-agent_*.deb ./packages/vdr-plugin-suitebridge_*.deb
+          grep -Fx '# local operator setting: keep' /etc/default/vdr-suite-daemon
+          apt-get -y remove vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge
+          test -f /etc/default/vdr-suite-daemon
+          test -f /etc/vdr-suite/backend-agent.conf
+          test -f /var/lib/vdr-suite/p6-keep-me
+          dpkg --purge vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge
+          test -f /var/lib/vdr-suite/p6-keep-me
+          test "$(cat /var/lib/vdr-suite/p6-keep-me)" = 'data not owned by dpkg'
+          echo "P6_ISOLATED_REINSTALL_REMOVE_PURGE=PASS"

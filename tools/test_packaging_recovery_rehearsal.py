@@ -6,6 +6,7 @@ from pathlib import Path
 import sqlite3
 import stat
 import tempfile
+from unittest.mock import patch
 from types import SimpleNamespace
 import unittest
 
@@ -108,6 +109,34 @@ class RecoveryRehearsalTests(unittest.TestCase):
                                       capacity=BIG_DISK)
             finally:
                 folder.chmod(0o700)
+
+    def test_protected_system_and_codec_checkout_paths_rejected(self):
+        for name in ("/var/lib/vdr-suite", "/etc/vdr-suite",
+                     "/home/yavdr/vdr-suite", "/home/yavdr/vdr-suite-packaging-test"):
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, "protected"):
+                recovery.require_workspace(Path(name))
+
+    def test_concurrent_restore_creation_is_not_deleted_on_failure(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            original, con = self.make_database(folder)
+            con.close()
+            restored = folder / "restored.db"
+            real_open = recovery.os.open
+
+            def raced_open(path, flags, mode=0o777):
+                if Path(path) == restored:
+                    restored.write_text("belongs to another writer", encoding="utf-8")
+                    raise FileExistsError("exclusive create failed")
+                return real_open(path, flags, mode)
+
+            with patch.object(recovery.os, "open", side_effect=raced_open):
+                with self.assertRaises(FileExistsError):
+                    recovery.rehearse(folder, original.name, "backup.db",
+                                      restored.name, capacity=BIG_DISK)
+            self.assertEqual(restored.read_text(encoding="utf-8"),
+                             "belongs to another writer")
+            self.assertFalse((folder / "backup.db").exists())
 
     def test_capacity_stop_occurs_before_first_copy(self):
         with tempfile.TemporaryDirectory() as temporary:
