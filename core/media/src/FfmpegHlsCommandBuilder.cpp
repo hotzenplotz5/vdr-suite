@@ -249,6 +249,19 @@ FfmpegHlsCommandPlan buildPlan(
             plan.argv.push_back("-ss");
             plan.argv.push_back(std::to_string(startPositionSeconds));
         }
+        // Existing completed recordings should produce the first playable
+        // HLS-fMP4 segment promptly, without unbounded FFmpeg read-ahead.
+        // Keep -re for long-running input pacing; FFmpeg 6.1+ supports this
+        // bounded input-time burst (verified on the target's FFmpeg 8.0.1).
+        // Do not apply to transcoded video, MPEG-TS, live or non-zero seeks.
+        if (startPositionSeconds == 0 &&
+            profile.container == MediaContainer::Fmp4 &&
+            profile.videoAction == MediaTrackAction::Copy &&
+            profile.targetVideoCodec == MediaCodec::H264) {
+            plan.argv.insert(plan.argv.end(), {
+                "-readrate_initial_burst", "8"
+            });
+        }
         plan.argv.insert(plan.argv.end(), {
             "-re", "-f", "concat", "-safe", "1", "-i", "input.ffconcat"
         });
