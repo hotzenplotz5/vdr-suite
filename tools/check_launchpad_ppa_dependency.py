@@ -105,6 +105,24 @@ def inspect(loader=fetch):
     target = archive(TARGET, loader)
     source = archive(DEPENDENCY, loader)
     entries = dependency_records(target.get("dependencies_collection_link"), loader)
+    # Publish only canonical *public archive paths* for diagnostics. Do not
+    # log arbitrary API URL values or credentials returned by other services.
+    observed = []
+    for item in entries:
+        if not isinstance(item, dict):
+            continue
+        dependency_link = item.get("dependency_link")
+        if not isinstance(dependency_link, str):
+            continue
+        try:
+            public_path = api_archive_path(dependency_link)
+        except ValueError:
+            public_path = "INVALID_ARCHIVE_IDENTITY"
+        observed.append({
+            "archive_path": public_path,
+            "pin_priority": item.get("pin_priority"),
+            "pocket": item.get("pocket")
+        })
     matching = [
         record for record in entries
         if isinstance(record, dict)
@@ -117,6 +135,7 @@ def inspect(loader=fetch):
         "expected_dependency": DEPENDENCY,
         "dependency_found": len(matching) > 0,
         "dependency_count": len(entries),
+        "observed_dependencies": observed,
         "pin_priorities": [x.get("pin_priority") for x in matching],
         "pockets": [x.get("pocket") for x in matching],
         "series_package_builds_verified": False,
@@ -129,6 +148,8 @@ def inspect(loader=fetch):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true", help="machine-readable output")
+    parser.add_argument("--diagnose", action="store_true",
+                        help="print only public archive identities and priorities on failure")
     args = parser.parse_args(argv)
     try:
         result = inspect()
@@ -142,6 +163,12 @@ def main(argv=None):
         print("TARGET_PPA=" + TARGET)
         print("EXPECTED_BUILD_DEPENDENCY=" + DEPENDENCY)
         print("DEPENDENCY_PIN_PRIORITIES=" + ",".join(map(str, result["pin_priorities"])))
+        if args.diagnose:
+            print("OBSERVED_DEPENDENCY_COUNT=" + str(result["dependency_count"]))
+            for item in result["observed_dependencies"]:
+                print("OBSERVED_DEPENDENCY=" + item["archive_path"] +
+                      " pin=" + str(item["pin_priority"]) +
+                      " pocket=" + str(item["pocket"]))
         print("LAUNCHPAD_DEPENDENCY_CHECK=" +
               ("PASS" if result["dependency_found"] else "FAIL"))
         print("UBUNTU_VDR_ABI_VALIDATION=PENDING")
