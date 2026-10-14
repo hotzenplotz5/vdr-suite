@@ -36,6 +36,9 @@ class PackagingProfileTests(unittest.TestCase):
         data = (ROOT / "debian/control").read_text(encoding="utf-8")
         self.assertEqual(data.count("Build-Profiles: <!plugin-only>"), 2)
         self.assertIn("libsqlite3-dev <!plugin-only>", data)
+        for name in ("libcurl4-openssl-dev", "libssl-dev", "libcrypt-dev"):
+            with self.subTest(dependency=name):
+                self.assertIn(name + " <!plugin-only>", data)
         self.assertIn("${vdr:Depends}", data)
 
     @unittest.skipUnless(shutil.which("git"), "Git unavailable")
