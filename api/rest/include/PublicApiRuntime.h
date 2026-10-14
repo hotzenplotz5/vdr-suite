@@ -119,6 +119,8 @@ struct PublicRecordingCollectionRequest
     std::string afterRecordingId;
     std::size_t limit = 50U;
     bool browseFolders = false;
+    bool searchRecordings = false;
+    std::string searchText;
     std::string folderId;
     std::size_t offset = 0U;
 };

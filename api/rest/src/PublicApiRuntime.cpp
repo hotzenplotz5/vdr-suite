@@ -692,12 +692,71 @@ bool parsePublicAccountCollectionQuery(
     return true;
 }
 
+// URL-decode bounded UTF-8 search text, rejecting malformed or unsafe input.
+bool decodeRecordingSearchText(const std::string& encoded, std::string& out)
+{
+    if (encoded.empty() || encoded.size() > 360U) return false;
+    out.clear();
+    const auto hex = [](char digit) -> int {
+        if (digit >= '0' && digit <= '9') return digit - '0';
+        if (digit >= 'A' && digit <= 'F') return digit - 'A' + 10;
+        if (digit >= 'a' && digit <= 'f') return digit - 'a' + 10;
+        return -1;
+    };
+    for (std::size_t i = 0U; i < encoded.size(); ++i)
+    {
+        unsigned char ch = static_cast<unsigned char>(encoded[i]);
+        if (ch == '%')
+        {
+            if (i + 2U >= encoded.size()) return false;
+            const int hi = hex(encoded[i + 1U]);
+            const int lo = hex(encoded[i + 2U]);
+            if (hi < 0 || lo < 0) return false;
+            ch = static_cast<unsigned char>((hi << 4) | lo);
+            i += 2U;
+        }
+        else if (ch == '+') ch = ' ';
+        if (ch < 0x20U || ch == 0x7fU) return false;
+        out.push_back(static_cast<char>(ch));
+        if (out.size() > 120U) return false;
+    }
+    std::size_t points = 0U;
+    for (std::size_t i = 0U; i < out.size();)
+    {
+        const unsigned char ch = static_cast<unsigned char>(out[i]);
+        std::size_t width = 1U;
+        unsigned int cp = ch;
+        if (ch >= 0xc2U && ch <= 0xdfU) { width = 2U; cp = ch & 0x1fU; }
+        else if (ch >= 0xe0U && ch <= 0xefU) { width = 3U; cp = ch & 0x0fU; }
+        else if (ch >= 0xf0U && ch <= 0xf4U) { width = 4U; cp = ch & 0x07U; }
+        else if (ch >= 0x80U) return false;
+        if (i + width > out.size()) return false;
+        for (std::size_t j = 1U; j < width; ++j)
+        {
+            const unsigned char next = static_cast<unsigned char>(out[i + j]);
+            if ((next & 0xc0U) != 0x80U) return false;
+            cp = (cp << 6U) | (next & 0x3fU);
+        }
+        if ((width == 2U && cp < 0x80U) ||
+            (width == 3U && cp < 0x800U) ||
+            (width == 4U && cp < 0x10000U) ||
+            (cp >= 0xd800U && cp <= 0xdfffU) || cp > 0x10ffffU)
+            return false;
+        i += width;
+        ++points;
+    }
+    return points >= 2U && points <= 80U &&
+        out.find_first_not_of(' ') != std::string::npos;
+}
+
 struct PublicRecordingCollectionQuery
 {
     std::string backendId;
     std::string cursor;
     std::size_t limit = PublicRecordingDefaultLimit;
     bool browseFolders = false;
+    bool searchRecordings = false;
+    std::string searchText;
     std::string folderId;
     std::size_t offset = 0U;
 };
@@ -714,6 +773,7 @@ bool parsePublicRecordingCollectionQuery(
     bool sortSeen = false;
     bool orderSeen = false;
     bool viewSeen = false;
+    bool searchSeen = false;
     bool folderSeen = false;
     bool offsetSeen = false;
     std::size_t position = 0U;
@@ -761,9 +821,16 @@ bool parsePublicRecordingCollectionQuery(
         }
         else if (key == "view")
         {
-            if (viewSeen || value != "folders") return false;
+            if (viewSeen || (value != "folders" && value != "search")) return false;
             viewSeen = true;
-            query.browseFolders = true;
+            query.browseFolders = value == "folders";
+            query.searchRecordings = value == "search";
+        }
+        else if (key == "query")
+        {
+            if (searchSeen || !decodeRecordingSearchText(value, query.searchText))
+                return false;
+            searchSeen = true;
         }
         else if (key == "folderId")
         {
@@ -802,9 +869,13 @@ bool parsePublicRecordingCollectionQuery(
         if (separator == std::string::npos) break;
         position = separator + 1U;
     }
-    return backendSeen &&
-        (query.browseFolders ? (!cursorSeen && !sortSeen && !orderSeen) :
-            (!folderSeen && !offsetSeen));
+    if (!backendSeen) return false;
+    if (query.searchRecordings)
+        return searchSeen && !cursorSeen && !sortSeen && !orderSeen &&
+            !folderSeen && query.limit <= 30U;
+    if (searchSeen) return false;
+    return query.browseFolders ? (!cursorSeen && !sortSeen && !orderSeen) :
+        (!folderSeen && !offsetSeen);
 }
 
 struct PublicGenreCollectionQuery
@@ -6378,6 +6449,8 @@ bool PublicApiRuntime::tryHandleGet(
         read.afterRecordingId = afterRecordingId;
         read.limit = query.limit;
         read.browseFolders = query.browseFolders;
+        read.searchRecordings = query.searchRecordings;
+        read.searchText = query.searchText;
         read.folderId = query.folderId;
         read.offset = query.offset;
         const auto page = lookupRecordingCollection(read);
@@ -6386,8 +6459,14 @@ bool PublicApiRuntime::tryHandleGet(
         {
             case PublicRecordingCollectionStatus::ok:
             {
-                if (query.browseFolders)
+                if (query.browseFolders || query.searchRecordings)
                 {
+                    if (query.searchRecordings && !page.folders.empty())
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
                     const std::size_t count =
                         page.folders.size() + page.recordings.size();
                     if (count > query.limit ||

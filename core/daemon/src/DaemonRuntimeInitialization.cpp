@@ -6,6 +6,7 @@
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "RecordingArtworkHttpServer.h"
 #include "PublicRecordingCollectionProjection.h"
+#include "GlobalSearchRepository.h"
 #include "GenreBrowserApiRuntime.h"
 #include "RecordingSeriesHierarchyApiRuntime.h"
 #include "RestfulApiRecordingActionBackendExecutorAdapter.h"
@@ -1280,6 +1281,65 @@ bool DaemonRuntime::initialize()
                 std::cerr << "Public-v1 Recording browse unavailable: "
                              "backend/snapshot precondition failed" << std::endl;
                 result.status = PublicRecordingCollectionStatus::unavailable;
+                return result;
+            }
+
+            if (request.searchRecordings)
+            {
+                // Web's folded-title matching, but only device-authorized
+                // canonical recording identities are ever serialized.
+                const std::string needle =
+                    GlobalSearchRepository::foldText(request.searchText);
+                if (needle.empty())
+                {
+                    result.status = PublicRecordingCollectionStatus::invalid;
+                    return result;
+                }
+                PublicRecordingCollectionProjection projector(
+                    *publicRecordingIdentities_);
+                const auto projected = projector.project(
+                    request.backendId,
+                    vdrSnapshotReadService_->getRecordingsForBackend(
+                        request.backendId));
+                if (!projected.valid)
+                {
+                    result.status = PublicRecordingCollectionStatus::unavailable;
+                    return result;
+                }
+                std::vector<PublicRecordingReadItem> matches;
+                for (const auto& item : projected.items)
+                {
+                    if (GlobalSearchRepository::foldText(item.title).find(needle) !=
+                        std::string::npos)
+                        matches.push_back(item);
+                }
+                std::sort(matches.begin(), matches.end(),
+                    [](const PublicRecordingReadItem& left,
+                       const PublicRecordingReadItem& right) {
+                        const auto l = GlobalSearchRepository::foldText(left.title);
+                        const auto r = GlobalSearchRepository::foldText(right.title);
+                        return l == r ? left.recordingId < right.recordingId : l < r;
+                    });
+                result.totalEntries = matches.size();
+                for (std::size_t i = request.offset;
+                     i < matches.size() &&
+                     i - request.offset < request.limit; ++i)
+                {
+                    const auto& item = matches[i];
+                    PublicRecordingCollectionItem entry;
+                    entry.recordingId = item.recordingId;
+                    entry.backendId = item.backendId;
+                    entry.title = item.title;
+                    entry.recordedAt = item.recordedAt;
+                    entry.durationSeconds = item.durationSeconds;
+                    entry.durationKnown = item.durationKnown;
+                    entry.description = item.description;
+                    entry.sizeMb = item.sizeMb;
+                    result.recordings.push_back(std::move(entry));
+                }
+                result.hasMore = request.offset + result.recordings.size() <
+                    result.totalEntries;
+                result.status = PublicRecordingCollectionStatus::ok;
                 return result;
             }
 
