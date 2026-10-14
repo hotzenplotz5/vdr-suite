@@ -24,7 +24,7 @@ TABLES = ("recordings", "metadata", "artwork", "jobs", "epg_events",
 
 def source_git_blob_hash(contents):
     return hashlib.sha1(
-        b"blob " + str(len(contents)).encode("ascii") + b"\\0" + contents
+        b"blob " + str(len(contents)).encode("ascii") + b"\0" + contents
     ).hexdigest()
 
 
@@ -94,10 +94,10 @@ def apply_current_additive_metadata_schema(connection, fail_after=False):
     # only this *additive SQL file* on this historical fixture, not the runtime
     # repositories' many independent ensureSchema() paths.
     connection.execute("PRAGMA foreign_keys=ON")
-    script = "BEGIN IMMEDIATE;\\n" + METADATA.read_text(encoding="utf-8")
+    script = "BEGIN IMMEDIATE;\n" + METADATA.read_text(encoding="utf-8")
     if fail_after:
-        script += "\\nINSERT INTO p7_missing_table VALUES(1);\\n"
-    script += "\\nCOMMIT;\\n"
+        script += "\nINSERT INTO p7_missing_table VALUES(1);\n"
+    script += "\nCOMMIT;\n"
     try:
         connection.executescript(script)
     except sqlite3.Error:
