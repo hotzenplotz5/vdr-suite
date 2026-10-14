@@ -87,19 +87,28 @@ Do not substitute an unverified moving HEAD. This block does not change the
 calling shell's user or its fail-fast options:
 
 ```bash
-PIN="REPLACE_WITH_VERIFIED_40_CHARACTER_SHA"
+PIN="REVIEWED_LAST_PRODUCT_CODE_40_CHARACTER_SHA"
+DOC_HEAD="REVIEWED_CURRENT_BRANCH_HEAD_40_CHARACTER_SHA"
 BRANCH="work/device-media-profile-binding-v1-20261012"
 REPO="https://github.com/hotzenplotz5/vdr-suite.git"
 OK=1
 [ "$(id -u)" = 0 ] || { echo "STOP=ROOT_SHELL_REQUIRED"; OK=0; }
-[ "${#PIN}" -eq 40 ] || { echo "STOP=REVIEWED_SHA_REQUIRED"; OK=0; }
+[ "${#PIN}" -eq 40 ] || { echo "STOP=REVIEWED_CODE_SHA_REQUIRED"; OK=0; }
+[ "${#DOC_HEAD}" -eq 40 ] || { echo "STOP=REVIEWED_DOC_SHA_REQUIRED"; OK=0; }
 command -v sudo >/dev/null || { echo "STOP=SUDO_MISSING"; OK=0; }
 command -v git >/dev/null || { echo "STOP=GIT_MISSING"; OK=0; }
 [ "$OK" -eq 0 ] || sudo -u yavdr -H git ls-remote "$REPO" "refs/heads/$BRANCH"
 ```
 
-The last read-only Git result must equal the independently reviewed `PIN`;
-if not, stop, recheck PR head and CI and do not create a checkout. Verify
+The last read-only Git result must equal the independently reviewed
+`DOC_HEAD` (current remote branch HEAD), **not necessarily `PIN`**.
+`PIN` is the last verified actual daemon-code SHA. Verify every change
+from `PIN` to `DOC_HEAD` changes **only** non-build documentation
+(e.g. `AGENTS.md`, Markdown documentation); inspect the complete diff.
+If any executable input, packaging, generated source, version-stamp
+input, build flag, toolchain/dependency or unreviewed file changed, treat
+the code candidate as changed and do not claim reuse.
+If the branch HEAD does not match `DOC_HEAD`, stop. Verify
 storage before cloning: after all planned clone, retained output and candidate
 build bytes, free space on `/home/yavdr` must remain at least
 `max(4 GiB, 15% filesystem total)`. Use an explicit, conservatively bounded
@@ -122,6 +131,13 @@ WORK="$(sudo -u yavdr -H mktemp -d /home/yavdr/vdr-suite-daemon-install-XXXXXXXX
 sudo -u yavdr -H git clone --single-branch --branch "$BRANCH" "$REPO" "$WORK/repo"
 cd "$WORK/repo"
 sudo -u yavdr -H git rev-parse --show-toplevel
+# The checkout initially tracks DOC_HEAD; verify that fact:
+sudo -u yavdr -H git rev-parse HEAD
+# After independently reviewing source inputs changed since PIN:
+sudo -u yavdr -H git diff --name-only "$PIN" "$DOC_HEAD"
+sudo -u yavdr -H git merge-base --is-ancestor "$PIN" "$DOC_HEAD"
+# Then explicitly select the already-verified product-code commit:
+sudo -u yavdr -H git checkout --detach "$PIN"
 sudo -u yavdr -H git rev-parse HEAD
 sudo -u yavdr -H git status --porcelain --untracked-files=no
 sudo -u yavdr -H python3 tools/test_install_daemon.py -v
@@ -133,8 +149,9 @@ sudo -u yavdr -H python3 tools/install_daemon.py check --sha "$PIN"
 # sudo -u yavdr -H python3 tools/install_daemon.py check --sha "$PIN"
 ```
 
-Do **not** proceed automatically if clone, exact SHA/branch, clean source,
-tests or any `check` failed. A successful `check` must be interpreted
+Do **not** proceed automatically if clone, exact `DOC_HEAD`/branch,
+reviewed documentation-only diff, checked-out exact code `PIN`,
+clean source, tests or any `check` failed. A successful `check` must be interpreted
 **before** invoking the optional `build` step. If `BUILD=REUSABLE`,
 skip build; if installed daemon is already the target, skip both build
 and apply. Never permit a new checkout to hide a previously sealed binary. Read the complete output, especially
