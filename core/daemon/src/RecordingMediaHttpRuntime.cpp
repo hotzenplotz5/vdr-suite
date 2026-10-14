@@ -410,7 +410,7 @@ int runRecordingMediaHttpRuntime(
                 response.contentType = "application/json";
                 response.headers["Cache-Control"] = "no-store";
                 response.headers["X-Content-Type-Options"] = "nosniff";
-                response.body = "{\\"error\\":{\\"code\\":\\"" + code + "\\"}}";
+                response.body = "{\"error\":{\"code\":\"" + code + "\"}}";
                 return response;
             };
             const std::string collection = "/api/v1/live-playback-sessions";
@@ -439,9 +439,9 @@ int runRecordingMediaHttpRuntime(
                         verifiedDevice)) {
                     if (safeSessionId(sessionId)) {
                         const std::string stop =
-                            "{\\"operation\\":\\"stop\\",\\"resourceKind\\":\\"live-channel\\","
-                            "\\"backendId\\":\\"" + request.backendId +
-                            "\\",\\"sessionId\\":\\"" + sessionId + "\\"}";
+                            "{\"operation\":\"stop\",\"resourceKind\":\"live-channel\","
+                            "\"backendId\":\"" + request.backendId +
+                            "\",\"sessionId\":\"" + sessionId + "\"}";
                         liveMediaSessionController.handleRequest(
                             stop, verifiedDevice.actor.actorId);
                     }
@@ -490,11 +490,11 @@ int runRecordingMediaHttpRuntime(
             response.contentType = "application/json";
             response.headers["Cache-Control"] = "no-store";
             response.body =
-                "{\\"mediaSession\\":{\\"id\\":\\"" + id +
-                "\\",\\"backendId\\":\\"" + owner->backendId +
-                "\\",\\"channelId\\":\\"" + owner->resourceId +
-                "\\",\\"state\\":\\"ready\\","
-                "\\"presentationProfileId\\":\\"live-progressive-fmp4\\"}}";
+                "{\"mediaSession\":{\"id\":\"" + id +
+                "\",\"backendId\":\"" + owner->backendId +
+                "\",\"channelId\":\"" + owner->resourceId +
+                "\",\"state\":\"ready\","
+                "\"presentationProfileId\":\"live-progressive-fmp4\"}}";
             return response;
         });
 
