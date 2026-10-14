@@ -1,0 +1,73 @@
+name: Experimental SuiteBridge package
+
+on:
+  push:
+    branches:
+      - work/packaging-debian-ubuntu-install
+    paths:
+      - "debian/**"
+      - "vdr-plugin-suite-bridge/**"
+      - "core/agent/include/**"
+      - "tools/*packaging*.py"
+      - ".gitignore"
+      - "VERSION"
+      - ".github/workflows/packaging-plugin-experimental.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  plugin-only-noble:
+    name: Ubuntu 24.04 independent plugin package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v4
+      - name: Record provenance and rules executable mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          git ls-files --stage debian/rules | grep -E '^100755 '
+          python3 tools/check_packaging_tracked_artifacts.py
+      - name: Install isolated build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends debhelper dpkg-dev g++ make pkg-config python3 vdr-dev
+          pkg-config --exists vdr
+          printf 'VDR_LIBDIR=%s\n' "$(pkg-config --variable=libdir vdr)"
+          printf 'VDR_APIVERSION=%s\n' "$(pkg-config --variable=apiversion vdr)"
+      - name: Run package/profile regression checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tools -p 'test_packaging_*.py'
+          python3 tools/check_packaging_version.py
+      - name: Build only VDR plugin binary package
+        shell: bash
+        run: |
+          set -euo pipefail
+          dpkg-buildpackage -B -Pplugin-only -us -uc
+          ls -l ../vdr-plugin-suitebridge_*.deb
+          test "$(find .. -maxdepth 1 -name 'vdr-suite-daemon_*.deb' | wc -l)" -eq 0
+          test "$(find .. -maxdepth 1 -name 'vdr-suite-backend-agent_*.deb' | wc -l)" -eq 0
+          for deb in ../vdr-plugin-suitebridge_*.deb; do
+            dpkg-deb --info "$deb"
+            dpkg-deb --contents "$deb"
+            ! dpkg-deb --field "$deb" Depends | grep -E 'vdr-suite-daemon|vdr-suite-backend-agent'
+          done
+      - name: Save experiment outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: suitebridge-package-noble-experimental
+          path: |
+            ../vdr-plugin-suitebridge_*.deb
+            ../vdr-suite_*_amd64.buildinfo
+            ../vdr-suite_*_amd64.changes
+          if-no-files-found: warn
+          retention-days: 7
