@@ -1,6 +1,6 @@
 # VDR-Suite Ubuntu test PPA
 
-Status: PPA target recorded; public PPA package list is not verified by automated checks. Local unsigned Debian source-package roundtrip PASS (2026-10-14), **no upload**.
+Status: PPA target recorded; public PPA package list is not verified by automated checks. Local unsigned Debian source roundtrip PASS, Ubuntu 24.04 noble unsigned source preview PASS (2026-10-14); **no signing or upload**.
 
 ## PPA
 
