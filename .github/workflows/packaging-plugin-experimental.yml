@@ -41,7 +41,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends debhelper dpkg-dev g++ make pkg-config python3 vdr-dev
+          sudo apt-get install -y --no-install-recommends build-essential debhelper dpkg-dev g++ make pkg-config python3 vdr-dev
           pkg-config --exists vdr
           printf 'VDR_LIBDIR=%s\n' "$(pkg-config --variable=libdir vdr)"
           printf 'VDR_APIVERSION=%s\n' "$(pkg-config --variable=apiversion vdr)"
@@ -64,15 +64,18 @@ jobs:
             dpkg-deb --contents "$deb"
             ! dpkg-deb --field "$deb" Depends | grep -E 'vdr-suite-daemon|vdr-suite-backend-agent'
           done
+      - name: Collect experiment outputs into workspace
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p packaging-artifacts
+          find .. -maxdepth 1 -type f \( -name 'vdr-plugin-suitebridge_*.deb' -o -name 'vdr-suite_*_amd64.buildinfo' -o -name 'vdr-suite_*_amd64.changes' \) -exec cp -- '{}' packaging-artifacts/ \;
       - name: Save experiment outputs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: suitebridge-package-noble-experimental
-          path: |
-            ../vdr-plugin-suitebridge_*.deb
-            ../vdr-suite_*_amd64.buildinfo
-            ../vdr-suite_*_amd64.changes
+          path: packaging-artifacts/
           if-no-files-found: warn
           retention-days: 7
 
@@ -101,7 +104,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends             debhelper dpkg-dev g++ make pkg-config python3 vdr-dev             libsqlite3-dev libcurl4-openssl-dev libssl-dev libcrypt-dev
+          sudo apt-get install -y --no-install-recommends             build-essential debhelper dpkg-dev g++ make pkg-config python3 vdr-dev             libsqlite3-dev libcurl4-openssl-dev libssl-dev libcrypt-dev
           dpkg-checkbuilddeps -B
       - name: Build all default binary packages (no host installation)
         shell: bash
