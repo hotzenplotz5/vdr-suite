@@ -226,6 +226,30 @@ Authoritative operational examples and gates:
   and `test_divergent_schema_change_still_demands_db_review`. They protect
   this invariant. **Do not replace them with stricter old-version checks.**
 
+## Mandatory established-feature parity and competitor comparison
+
+Before extending a working feature to Public-v1, VIDAA, Kodi, another client
+or any replacement interface, compare it against the **existing, proven
+VDR-Suite Webfrontend** behavior and the authoritative service implementation.
+Write down a short acceptance matrix of inputs, output totals, ordering,
+metadata/title behavior, pagination, errors, grants and live integration.
+Use exactly one shared domain service and index. Public-v1 adapters may
+project and authorize results but must not introduce a second search algorithm,
+change the effective title/ranking, or turn one stale record into failure for
+otherwise valid results. Require one automated Web-vs-Public-v1 parity
+regression with realistic production examples before installation acceptance.
+If a required parity behavior cannot be preserved, explicitly document why
+and keep the migration unaccepted until the user approves the deviation.
+
+Additionally, for every user-facing feature or client migration, include a
+concise, evidence-based comparison with the **relevant competing product**
+(e.g. Kodi and Plex for TV/media discovery and playback). Mark unavailable or
+unverified competitor behavior as such. Use this comparison to identify
+usability gaps, not as permission for speculative features, security bypasses,
+duplicated infrastructure or unrelated refactoring. The already working
+Webfrontend remains the minimum functional baseline, independent of what a
+competitor does.
+
 ## Public-v1 VIDAA search permission contract (2026-10-15)
 
 Public-v1 Device `/search/recordings` requires `recordings.view`, and

@@ -31,6 +31,10 @@ identities before returning search results. The same normalization/text-folding
 code as Web is executed in the underlying index; **no regex matching claim**
 is made until the engine explicitly supports it. Unavailable index, identity,
 or backend fails closed rather than falsely returning an empty result.
+Individual stale or unprojectable search hits are omitted without failing
+other valid results. The adapter preserves the effective Web-search title,
+not the native VDR title. See `docs/development/public-v1-search-parity.md`
+for the mandatory Web/Public-v1/VIDAA and competitor acceptance matrix.
 
 EPG scope is the same Web index window (six hours back, fourteen days ahead);
 it is not EPG-history crawling. Search is generic across clients, never TV-only.

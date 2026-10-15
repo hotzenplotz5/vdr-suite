@@ -6,6 +6,7 @@
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "RecordingArtworkHttpServer.h"
 #include "PublicRecordingCollectionProjection.h"
+#include "PublicSearchProjection.h"
 #include "GenreBrowserApiRuntime.h"
 #include "GlobalSearchApiRuntime.h"
 #include "RecordingSeriesHierarchyApiRuntime.h"
@@ -1257,90 +1258,76 @@ bool DaemonRuntime::initialize()
             return result;
         });
 
-    // Share the exact Web global-search matcher/index. The public facade
-    // projects only grants-scoped Public-v1 fields, never native file paths.
+    // Public-v1 is an authorized projection of the exact Web search result,
+    // not another search or a blanket-fail per-result consistency gate.
     PublicApiRuntime::instance().registerSearchLookup(
         [this](const PublicSearchRequest& request)
         {
-            PublicSearchResult result;
+            PublicSearchResult unavailable;
             if (!backendRegistryService_ || !publicRecordingIdentities_ ||
                 !vdrSnapshotReadService_ || request.backendId.empty() ||
                 request.limit == 0U || request.limit > 30U)
-                return result;
+            {
+                std::cerr << "Public-v1 search unavailable: runtime dependency"
+                          << std::endl;
+                return unavailable;
+            }
             const auto backend =
                 backendRegistryService_->getBackend(request.backendId);
-            if (!backend.has_value() || !backend->enabled || !backend->online ||
+            if (!backend.has_value() || !backend->enabled || !backend->online)
+            {
+                std::cerr << "Public-v1 search unavailable: backend offline"
+                          << std::endl;
+                return unavailable;
+            }
+            // Recording identities require a current VDR snapshot to prevent
+            // obsolete index entries from exposing deleted recordings.
+            // EPG search reads the shared search index, not the snapshot.
+            if (!request.epg &&
                 !vdrSnapshotReadService_->hasSnapshotForBackend(request.backendId))
-                return result;
+            {
+                std::cerr << "Public-v1 search unavailable: snapshot missing"
+                          << std::endl;
+                return unavailable;
+            }
+
             const auto now = std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count();
-            const auto found = GlobalSearchApiRuntime::instance().searchPublic(
+            const auto searched = GlobalSearchApiRuntime::instance().searchPublic(
                 request.backendId, request.query,
                 now - 6 * 3600, now + 14 * 24 * 3600,
                 static_cast<int>(request.limit),
                 static_cast<int>(request.offset));
-            if (!found || found->status != "ready") return result;
-            const auto& records = found->recordings;
-            const auto& events = found->epg;
-            if ((request.epg ? events.size() : records.size()) > request.limit)
-                return result;
-            result.totalCount = static_cast<std::size_t>(
-                std::max(0, request.epg ? found->epgTotal : found->recordingTotal));
-            if (request.epg)
+            if (!searched || searched->status != "ready")
             {
-                for (const auto& event : events)
-                {
-                    if (event.backendId != request.backendId ||
-                        event.channelId.empty() || event.eventId.empty() ||
-                        event.title.empty() || event.startTime.empty() ||
-                        event.endTime.empty()) return PublicSearchResult{};
-                    PublicSearchItem item;
-                    item.backendId = request.backendId;
-                    item.channelId = event.channelId;
-                    item.eventId = event.eventId;
-                    item.title = event.title;
-                    item.subtitle = event.subtitle;
-                    item.startTime = event.startTime;
-                    item.endTime = event.endTime;
-                    result.items.push_back(std::move(item));
-                }
+                std::cerr << "Public-v1 search unavailable: shared search"
+                          << std::endl;
+                return unavailable;
             }
-            else
-            {
-                const auto snapshot =
-                    vdrSnapshotReadService_->getRecordingsForBackend(
-                        request.backendId);
-                for (const auto& record : records)
+
+            const std::vector<VdrRecording> snapshot = request.epg
+                ? std::vector<VdrRecording>{}
+                : vdrSnapshotReadService_->getRecordingsForBackend(
+                    request.backendId);
+            PublicSearchResult response = PublicSearchProjection::project(
+                request, *searched, snapshot,
+                [this](const std::string& backendId,
+                       const std::string& nativeId)
                 {
-                    if (record.backendId != request.backendId ||
-                        record.backendNativeId.empty() || record.title.empty())
-                        return PublicSearchResult{};
-                    const auto current = std::find_if(
-                        snapshot.begin(), snapshot.end(),
-                        [&record, &request](const VdrRecording& item) {
-                            return item.backendId == request.backendId &&
-                                item.backendNativeId == record.backendNativeId;
-                        });
-                    // Stale index entries must not disclose deleted recordings.
-                    if (current == snapshot.end()) return PublicSearchResult{};
-                    const auto id = publicRecordingIdentities_->resolveOrCreate(
-                        request.backendId, record.backendNativeId);
-                    if (!id.has_value()) return PublicSearchResult{};
-                    PublicSearchItem item;
-                    item.backendId = request.backendId;
-                    item.recordingId = *id;
-                    item.title = current->title;
-                    item.startTime = current->startTime;
-                    result.items.push_back(std::move(item));
-                }
-            }
-            if (result.totalCount < request.offset ||
-                result.items.size() > result.totalCount - request.offset)
-                return PublicSearchResult{};
-            result.hasMore = request.offset + result.items.size() <
-                result.totalCount;
-            result.status = PublicSearchStatus::ok;
-            return result;
+                    return publicRecordingIdentities_->resolveOrCreate(
+                        backendId, nativeId);
+                });
+
+            const std::size_t original = request.epg
+                ? searched->epg.size() : searched->recordings.size();
+            if (response.status != PublicSearchStatus::ok)
+                std::cerr << "Public-v1 search unavailable: projection contract"
+                          << std::endl;
+            else if (response.items.size() != original)
+                std::cerr << "Public-v1 search: filtered "
+                          << (original - response.items.size())
+                          << " stale or invalid entries" << std::endl;
+            return response;
         });
 
     PublicApiRuntime::instance().registerRecordingCollectionLookup(
