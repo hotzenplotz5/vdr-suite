@@ -76,6 +76,39 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(risk, "REVIEW_REQUIRED")
         self.assertEqual(paths, ["core/sqlite/src/Database.cpp"])
 
+    def test_divergent_daemon_history_is_not_an_install_blocker(self):
+        # Old binary can come from another branch. Only target build identity
+        # and actual source-to-source DB changes matter.
+        git(self.root, "switch", "-c", "previous-running")
+        previous = commit(self.root, "core/daemon/src/Running.cpp",
+                          "// previous deployed implementation\\n")
+        self.live.write_bytes(b"ELF-fixture-git-" + previous[:12].encode() + b"\\n")
+        git(self.root, "switch", "-c", "new-candidate", self.old)
+        target = commit(self.root, "core/daemon/src/Candidate.cpp",
+                        "// new replaceable implementation\\n")
+        risk, changed = mod.database_risk(self.root, previous, target)
+        self.assertEqual(risk, "NOT_REQUIRED")
+        self.assertEqual(changed, [])
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.assertEqual(mod.main(["check", "--source", str(self.root),
+                                       "--sha", target, "--live", str(self.live)]), 0)
+        self.assertIn("DB_BACKUP_DECISION=NOT_REQUIRED", output.getvalue())
+        self.assertIn("CHECK=PASS_NO_CHANGES", output.getvalue())
+        self.assertFalse((self.root / ".build").exists())
+
+    def test_divergent_schema_change_still_demands_db_review(self):
+        git(self.root, "switch", "-c", "previous-running")
+        previous = commit(self.root, "core/sqlite/src/Database.cpp",
+                          "// previous database version\\n")
+        self.live.write_bytes(b"ELF-fixture-git-" + previous[:12].encode() + b"\\n")
+        git(self.root, "switch", "-c", "new-candidate", self.old)
+        target = commit(self.root, "core/daemon/src/Candidate.cpp",
+                        "// plain binary update\\n")
+        risk, paths = mod.database_risk(self.root, previous, target)
+        self.assertEqual(risk, "REVIEW_REQUIRED")
+        self.assertEqual(paths, ["core/sqlite/src/Database.cpp"])
+
     def test_unknown_binary_provenance_fails_closed_without_backup(self):
         new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// no schema\n")
         self.live.write_bytes(b"no embedded git version")
