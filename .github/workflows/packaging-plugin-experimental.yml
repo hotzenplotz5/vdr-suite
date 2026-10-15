@@ -135,6 +135,11 @@ jobs:
         run: |
           set -euo pipefail
           make test-packaging-p7-runtime-schema
+      - name: Rehearse Series artwork legacy-column migration with actual C++
+        shell: bash
+        run: |
+          set -euo pipefail
+          make test-suite-bridge-epg-metadata-resolver
       - name: Build all default binary packages (no host installation)
         shell: bash
         run: |
