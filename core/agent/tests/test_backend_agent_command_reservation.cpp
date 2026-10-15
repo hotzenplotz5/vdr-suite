@@ -156,6 +156,96 @@ int main()
         "WHERE command_id='command:1' AND operation_id='operation:1';") == 1);
     assert(sqlCount(snapshot.handle(),
         "SELECT count(*) FROM pragma_foreign_key_check;") == 0);
+    // P7 additional agent assignment DDL writers. Isolated memory schema
+    // deliberately has dormant capabilities; the real C++ initializers must
+    // retire precisely the fenced command families without modifying probe.
+    Database schemaTests;
+    assert(schemaTests.open(":memory:"));
+    BackendAgentCommandRepository schemaCommands(schemaTests);
+    assert(schemaCommands.ensureSchema());
+    assert(schemaTests.execute(
+        "INSERT INTO backend_agent_command_capabilities "
+        "(backend_id,agent_id,agent_instance_id,backend_generation,"
+        "command_type,published_at) VALUES "
+        "('backend:1','agent:1','instance:1',7,'probe.noop',1),"
+        "('backend:1','agent:1','instance:1',7,'vdr.timer.update',1),"
+        "('backend:1','agent:1','instance:1',7,'vdr.timer.toggle',1),"
+        "('backend:1','agent:1','instance:1',7,'vdr.recording.marks.modify',1);"));
+
+    assert(schemaCommands.ensureNativeTimerModifyAssignmentSchema());
+    assert(schemaCommands.ensureNativeTimerModifyAssignmentSchema());
+    assert(sqlCount(schemaTests.handle(),
+        "SELECT count(*) FROM backend_agent_command_capabilities "
+        "WHERE command_type IN ('vdr.timer.update','vdr.timer.toggle');") == 0);
+    assert(sqlCount(schemaTests.handle(),
+        "SELECT count(*) FROM sqlite_master WHERE type='index' AND "
+        "name='idx_backend_agent_timer_modify_operation';") == 1);
+    assert(sqlCount(schemaTests.handle(),
+        "SELECT count(*) FROM sqlite_master WHERE type='trigger' AND name IN "
+        "('trg_backend_agent_timer_update_dormant_capability',"
+        "'trg_backend_agent_timer_toggle_dormant_capability');") == 2);
+
+    // Cut enables delivery by retiring only its legacy dormant-capability
+    // gate; record the old trigger in the private synthetic schema.
+    assert(schemaTests.execute(
+        "CREATE TRIGGER trg_backend_agent_recording_cut_dormant_capability "
+        "BEFORE INSERT ON backend_agent_command_capabilities "
+        "WHEN NEW.command_type='vdr.recording.cut' "
+        "BEGIN SELECT RAISE(IGNORE); END;"));
+    assert(schemaCommands.ensureRecordingCutAssignmentSchema());
+    assert(schemaCommands.ensureRecordingCutAssignmentSchema());
+    assert(sqlCount(schemaTests.handle(),
+        "SELECT count(*) FROM sqlite_master WHERE type='trigger' AND "
+        "name='trg_backend_agent_recording_cut_dormant_capability';") == 0);
+    assert(sqlCount(schemaTests.handle(),
+        "SELECT count(*) FROM sqlite_master WHERE type='index' AND "
+        "name='idx_backend_agent_recording_cut_operation';") == 1);
+
+    assert(schemaCommands.ensureRecordingMarksModifyAssignmentSchema());
+    assert(schemaCommands.ensureRecordingMarksModifyAssignmentSchema());
+    assert(sqlCount(schemaTests.handle(),
+        "SELECT count(*) FROM backend_agent_command_capabilities WHERE "
+        "command_type='vdr.recording.marks.modify';") == 0);
+    assert(sqlCount(schemaTests.handle(),
+        "SELECT count(*) FROM sqlite_master WHERE type='index' AND "
+        "name='idx_backend_agent_recording_marks_modify_operation';") == 1);
+    assert(sqlCount(schemaTests.handle(),
+        "SELECT count(*) FROM sqlite_master WHERE type='trigger' AND "
+        "name='trg_backend_agent_recording_marks_modify_dormant_capability';")
+        == 1);
+    assert(sqlCount(schemaTests.handle(),
+        "SELECT count(*) FROM backend_agent_command_capabilities "
+        "WHERE command_type='probe.noop';") == 1);
+    assert(sqlCount(schemaTests.handle(),
+        "SELECT count(*) FROM pragma_foreign_key_check;") == 0);
+
+    Database ddlRestore;
+    assert(ddlRestore.open(":memory:"));
+    sqlite3_backup* ddlBackup =
+        sqlite3_backup_init(ddlRestore.handle(), "main",
+                            schemaTests.handle(), "main");
+    assert(ddlBackup != nullptr);
+    assert(sqlite3_backup_step(ddlBackup, -1) == SQLITE_DONE);
+    assert(sqlite3_backup_finish(ddlBackup) == SQLITE_OK);
+    // Do not call generic ensureSchema() here: it deliberately retires
+    // operational dormant triggers. Test the restored exact schema first.
+    assert(sqlCount(ddlRestore.handle(),
+        "SELECT count(*) FROM sqlite_master WHERE type='index' AND name IN "
+        "('idx_backend_agent_timer_modify_operation',"
+        "'idx_backend_agent_recording_cut_operation',"
+        "'idx_backend_agent_recording_marks_modify_operation');") == 3);
+    assert(sqlCount(ddlRestore.handle(),
+        "SELECT count(*) FROM sqlite_master WHERE type='trigger' AND name IN "
+        "('trg_backend_agent_timer_update_dormant_capability',"
+        "'trg_backend_agent_timer_toggle_dormant_capability',"
+        "'trg_backend_agent_recording_marks_modify_dormant_capability');") == 3);
+    assert(sqlCount(ddlRestore.handle(),
+        "SELECT count(*) FROM backend_agent_command_capabilities "
+        "WHERE command_type='probe.noop';") == 1);
+    assert(sqlCount(ddlRestore.handle(),
+        "SELECT count(*) FROM pragma_foreign_key_check;") == 0);
+    std::cout << "P7_AGENT_ASSIGNMENT_DDL_WRITERS=PASS\n";
+
     std::cout << "P7_AGENT_RESERVATION_SCHEMA_PRESERVATION=PASS\n";
     std::cout << "test_backend_agent_command_reservation passed\n";
     return 0;
