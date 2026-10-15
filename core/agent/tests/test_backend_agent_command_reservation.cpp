@@ -4,9 +4,21 @@
 
 #include <cassert>
 #include <iostream>
+#include <sqlite3.h>
 
 namespace
 {
+int sqlCount(sqlite3* connection, const char* sql)
+{
+    sqlite3_stmt* statement = nullptr;
+    assert(sqlite3_prepare_v2(connection, sql, -1, &statement, nullptr)
+        == SQLITE_OK);
+    assert(sqlite3_step(statement) == SQLITE_ROW);
+    const int count = sqlite3_column_int(statement, 0);
+    sqlite3_finalize(statement);
+    return count;
+}
+
 BackendAgentCommandAssignment assignment(
     const std::string& commandId = "command:1",
     const std::string& operationId = "operation:1",
@@ -111,6 +123,40 @@ int main()
     assert(activation.activate("missing").status ==
         BackendAgentCommandReservationStatus::notFound);
 
+    // P7 additional SQL writer: persistent CREATE TABLE/INDEX from the
+    // actual reservation repository, idempotent on the active connection.
+    assert(reservationRepository.ensureSchema());
+    assert(sqlCount(database.handle(),
+        "SELECT count(*) FROM sqlite_master WHERE type='index' AND "
+        "name='idx_backend_agent_command_reservations_operation';") == 1);
+    assert(sqlCount(database.handle(),
+        "SELECT count(*) FROM backend_agent_command_reservations "
+        "WHERE command_id='command:1' AND backend_id='backend:1' "
+        "AND operation_id='operation:1' "
+        "AND command_type='probe.noop' AND selection_present=0;") == 1);
+    assert(sqlCount(database.handle(),
+        "SELECT count(*) FROM pragma_foreign_key_check;") == 0);
+
+    // Backup and restore between two independent isolated :memory: databases.
+    Database snapshot;
+    assert(snapshot.open(":memory:"));
+    sqlite3_backup* copy =
+        sqlite3_backup_init(snapshot.handle(), "main",
+                            database.handle(), "main");
+    assert(copy != nullptr);
+    assert(sqlite3_backup_step(copy, -1) == SQLITE_DONE);
+    assert(sqlite3_backup_finish(copy) == SQLITE_OK);
+    BackendAgentCommandReservationRepository reopened(snapshot);
+    assert(reopened.ensureSchema());
+    assert(reopened.findByCommandId("command:1").ok());
+    assert(reopened.reserve(requested).status ==
+        BackendAgentCommandReservationStatus::alreadyReserved);
+    assert(sqlCount(snapshot.handle(),
+        "SELECT count(*) FROM backend_agent_command_reservations "
+        "WHERE command_id='command:1' AND operation_id='operation:1';") == 1);
+    assert(sqlCount(snapshot.handle(),
+        "SELECT count(*) FROM pragma_foreign_key_check;") == 0);
+    std::cout << "P7_AGENT_RESERVATION_SCHEMA_PRESERVATION=PASS\n";
     std::cout << "test_backend_agent_command_reservation passed\n";
     return 0;
 }
