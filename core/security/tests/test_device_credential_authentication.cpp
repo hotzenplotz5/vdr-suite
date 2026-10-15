@@ -92,6 +92,29 @@ public:
         return gate.evaluate(request);
     }
 
+    SecurityGateDecision evaluateLive(
+        const std::string& backend,
+        const std::string& authorization = "",
+        bool stop = false) const
+    {
+        HttpServerRequest request;
+        request.method = "POST";
+        request.path = stop
+            ? "/api/v1/live-playback-sessions/"
+              "ms_0123456789abcdef0123456789abcdef/stop"
+            : "/api/v1/live-playback-sessions";
+        request.body = stop
+            ? "{\"operation\":\"stop\",\"resourceKind\":\"live-channel\","
+              "\"backendId\":\"" + backend +
+              "\",\"sessionId\":\"ms_0123456789abcdef0123456789abcdef\"}"
+            : "{\"resourceKind\":\"live-channel\",\"backendId\":\"" +
+              backend + "\",\"channelId\":\"S19.2E-1-100\"}";
+        request.headers["X-Request-ID"] = "mu10d-device-live-admission";
+        if (!authorization.empty())
+            request.headers["Authorization"] = authorization;
+        return gate.evaluate(request);
+    }
+
     std::string validAuthorization() const
     {
         return std::string(DeviceCredentialAuthenticator::Scheme) +
@@ -208,6 +231,40 @@ int main()
             "../private", fixture.validAuthorization());
         assert(!playbackInvalidBackend.allowed);
         assert(playbackInvalidBackend.rejection.statusCode == 400);
+
+        // Live control has a separate play grant: recording playback
+        // permission never grants live tuner ownership implicitly.
+        const auto liveDenied = fixture.evaluateLive(
+            "default", fixture.validAuthorization());
+        assert(!liveDenied.allowed);
+        assert(liveDenied.rejection.statusCode == 403);
+        assert(fixture.grants.ensureGrant(
+            ActorId, "media.live.play", "default"));
+        const auto liveAllowed = fixture.evaluateLive(
+            "default", fixture.validAuthorization());
+        assert(liveAllowed.allowed);
+        assert(liveAllowed.deviceAuthenticated);
+        assert(liveAllowed.protectedMutation);
+        assert(liveAllowed.authorizationDecision.permission == "media.live.play");
+        const auto liveStop = fixture.evaluateLive(
+            "default", fixture.validAuthorization(), true);
+        assert(liveStop.allowed);
+        assert(liveStop.protectedMutation);
+        const auto liveScopeDenied = fixture.evaluateLive(
+            "foreign", fixture.validAuthorization());
+        assert(!liveScopeDenied.allowed);
+        assert(liveScopeDenied.rejection.statusCode == 403);
+        const auto liveAnonymous = fixture.evaluateLive("default");
+        assert(!liveAnonymous.allowed);
+        assert(liveAnonymous.rejection.statusCode == 401);
+        const auto liveStatus = fixture.evaluate(
+            "/api/v1/live-playback-sessions/ms_0123456789abcdef0123456789abcdef",
+            fixture.validAuthorization());
+        assert(liveStatus.allowed);
+        const auto liveStatusAnonymous = fixture.evaluate(
+            "/api/v1/live-playback-sessions/ms_0123456789abcdef0123456789abcdef");
+        assert(!liveStatusAnonymous.allowed);
+        assert(liveStatusAnonymous.rejection.statusCode == 401);
 
         // Device credentials must not authenticate legacy, unversioned
         // endpoints (which have a different authorization contract).

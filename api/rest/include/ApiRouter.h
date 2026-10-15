@@ -195,6 +195,26 @@ public:
         return response;
     }
 
+    void setDeviceLivePlaybackHandler(DeviceRecordingPlaybackHandler handler)
+    {
+        deviceLivePlaybackHandler_ = std::move(handler);
+    }
+
+    ApiResponse handleDeviceLivePlayback(
+        const std::string& requestTarget,
+        const std::string& body,
+        const RequestSecurityContext& verifiedDevice)
+    {
+        if (deviceLivePlaybackHandler_)
+            return deviceLivePlaybackHandler_(
+                requestTarget, body, verifiedDevice);
+        ApiResponse response;
+        response.statusCode = 503;
+        response.headers["Cache-Control"] = "no-store";
+        response.body = "{\"error\":{\"code\":\"device_live_unavailable\"}}";
+        return response;
+    }
+
     ApiResponse getEpgArtwork(
         const std::string& backendId,
         const std::string& channelId,
@@ -539,4 +559,5 @@ private:
     VdrRecordingFolderController* vdrRecordingFolderController_;
     RecordingMediaSessionHandler recordingMediaSessionHandler_;
     DeviceRecordingPlaybackHandler deviceRecordingPlaybackHandler_;
+    DeviceRecordingPlaybackHandler deviceLivePlaybackHandler_;
 };

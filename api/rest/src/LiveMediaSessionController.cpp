@@ -112,7 +112,22 @@ ApiResponse LiveMediaSessionController::handleRequest(
     if (stopRequest.reasonCode != "media_session_stop_not_requested")
         return jsonError(400, stopRequest.reasonCode.empty()
             ? "invalid_media_session_operation" : stopRequest.reasonCode);
-    return createSession(body, actorId);
+    return createSession(body, actorId, nullptr);
+}
+
+ApiResponse LiveMediaSessionController::createDeviceSession(
+    const std::string& body, const std::string& actorId,
+    std::string& issuedSessionId) const
+{
+    issuedSessionId.clear();
+    const auto request = LiveMediaSessionRequestParser().parse(body);
+    if (!request.valid)
+        return jsonError(400, request.reasonCode.empty()
+            ? "invalid_live_media_session_request" : request.reasonCode);
+    if (!request.replacesSessionId.empty())
+        return jsonError(400, "device_live_replacement_not_supported");
+    if (actorId.empty()) return jsonError(401, "media_actor_required");
+    return createSession(body, actorId, &issuedSessionId);
 }
 
 ApiResponse LiveMediaSessionController::stopSession(
@@ -140,7 +155,8 @@ ApiResponse LiveMediaSessionController::stopSession(
 
 ApiResponse LiveMediaSessionController::createSession(
     const std::string& body,
-    const std::string& actorId) const
+    const std::string& actorId,
+    std::string* deviceSessionId) const
 {
     const auto request = LiveMediaSessionRequestParser().parse(body);
     if (!request.valid) return jsonError(400, request.reasonCode.empty()
@@ -176,10 +192,13 @@ ApiResponse LiveMediaSessionController::createSession(
     if (!issuance.issued) return jsonError(503, issuance.reasonCode.empty()
         ? "media_session_issue_failed" : issuance.reasonCode);
 
-    const std::string cookie = MediaAccessCredentialHttp::sessionCookie(
-        issuance.session.sessionId,
-        issuance.session.accessCredential,
-        MediaSessionLifetimeSeconds);
+    const std::string cookie = deviceSessionId
+        ? MediaAccessCredentialHttp::publicV1SessionCookie(
+            issuance.session.sessionId, issuance.session.accessCredential,
+            MediaSessionLifetimeSeconds, "/vdr-suite")
+        : MediaAccessCredentialHttp::sessionCookie(
+            issuance.session.sessionId, issuance.session.accessCredential,
+            MediaSessionLifetimeSeconds);
     if (cookie.empty()) {
         mediaSessionRepository_.endBundle(
             issuance.session.sessionId, "credential_transport_failed");
@@ -238,9 +257,12 @@ ApiResponse LiveMediaSessionController::createSession(
         "\"width\":" + std::to_string(video == nullptr ? 0 : video->width) + "," +
         "\"height\":" + std::to_string(video == nullptr ? 0 : video->height) + "," +
         "\"interlaced\":" + std::string(video != nullptr && video->interlaced ? "true" : "false") + "," +
-        "\"mediaPath\":\"/api/media/sessions/" +
+        "\"mediaPath\":\"" + std::string(deviceSessionId
+            ? "/vdr-suite/api/v1/media/sessions/"
+            : "/api/media/sessions/") +
             jsonEscape(issuance.session.sessionId) + "/live/stream.mp4\"," +
         "\"expiresAt\":\"" + jsonEscape(issuance.session.expiresAt) + "\"}}";
+    if (deviceSessionId) *deviceSessionId = issuance.session.sessionId;
     issuance.session.clearSecret();
     return response;
 }

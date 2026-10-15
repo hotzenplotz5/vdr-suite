@@ -29,6 +29,8 @@ AUDITED = {
     "/api/v1/backends": {"get": "if (path == PublicBackendCollectionPath)"},
     "/api/v1/channels": {"get": "if (path == PublicChannelCollectionPath)"},
     "/api/v1/recordings": {"get": "if (path == PublicRecordingCollectionPath)"},
+    "/api/v1/search/recordings": {"get": "if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath)"},
+    "/api/v1/search/epg": {"get": "if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath)"},
     "/api/v1/genres": {"get": "if (path == PublicGenreCollectionPath || path == PublicGenreRecordingPath)"},
     "/api/v1/genres/recordings": {"get": "if (path == PublicGenreCollectionPath || path == PublicGenreRecordingPath)"},
     "/api/v1/epg/now-next": {"get": "if (path == PublicEpgNowNextPath)"},
@@ -123,6 +125,16 @@ DEVICE_AUDITED = {
     "/api/v1/recording-playback-sessions/{sessionId}/stop": {
         "post": ('target.compare(target.size() - 5U, 5U, "/stop")',
                  'isPublicDeviceRecordingSessionStop'),
+    },    "/api/v1/live-playback-sessions": {
+        "post": ('if (target == collection)', 'isPublicDeviceLiveSessionCreate'),
+    },
+    "/api/v1/live-playback-sessions/{sessionId}": {
+        "get": ('const std::string id = target.substr(prefix.size());',
+                'isPublicDeviceLiveSessionRead'),
+    },
+    "/api/v1/live-playback-sessions/{sessionId}/stop": {
+        "post": ('const std::string suffix = "/stop";',
+                 'isPublicDeviceLiveSessionStop'),
     },
 }
 
@@ -295,7 +307,8 @@ def validate(
                     not isinstance(ext, dict) or
                     "Device" not in ext.get("authorization", "") or
                     (path != "/api/v1/recording-playback-sessions/capabilities" and
-                     "media.recording.play" not in ext.get("authorization", ""))
+                     ("media.live.play" if "live-playback" in path else
+                     "media.recording.play") not in ext.get("authorization", ""))
                 ):
                     errors.append(f"{where}: Device playback ownership/play grant boundary missing")
             required_headers = [p.get("name") for p in params if isinstance(p, dict) and p.get("in") == "header" and p.get("required") is True]
