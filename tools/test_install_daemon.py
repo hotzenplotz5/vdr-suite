@@ -97,6 +97,29 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("CHECK=PASS_NO_CHANGES", output.getvalue())
         self.assertFalse((self.root / ".build").exists())
 
+    def test_divergent_previous_commit_reuses_sealed_target_without_compiling(self):
+        # KISS regression: replacement binaries do not need Git ancestry.
+        # A matching sealed target must win over any attempted recompilation.
+        git(self.root, "switch", "-c", "old-deployed-branch")
+        previous = commit(self.root, "core/daemon/src/Old.cpp",
+                          "// older running daemon\\n")
+        self.live.write_bytes(b"ELF-fixture-git-" + previous[:12].encode() + b"\\n")
+        git(self.root, "switch", "-c", "replacement-branch", self.old)
+        target = commit(self.root, "core/daemon/src/New.cpp",
+                        "// new static binary; no database migration\\n")
+        binary = self._sealed_binary(target)
+        log = io.StringIO()
+        with contextlib.redirect_stdout(log):
+            self.assertEqual(mod.main(["check", "--source", str(self.root),
+                                       "--sha", target, "--live", str(self.live)]), 0)
+        self.assertIn("BUILD=REUSABLE", log.getvalue())
+        self.assertIn("DB_BACKUP_DECISION=NOT_REQUIRED", log.getvalue())
+        with (mock.patch.object(mod.os, "geteuid", return_value=1000),
+              mock.patch.object(mod.subprocess, "run",
+                                side_effect=AssertionError("must not compile"))):
+            mod.build(self.root, target)
+        self.assertEqual(mod.verified_candidate(self.root, target), binary)
+
     def test_divergent_schema_change_still_demands_db_review(self):
         git(self.root, "switch", "-c", "previous-running")
         previous = commit(self.root, "core/sqlite/src/Database.cpp",
