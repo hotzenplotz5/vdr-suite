@@ -60,14 +60,12 @@ an in-memory synthetic legacy assignment epoch 7, idempotent backfill, three
 triggers and an epoch 8 insert through real C++. The real
 EmbeddedBackendLifecycleService initializer is now also exercised using a
 synthetic row surviving fresh C++ process reopens and backup/restore. This is
-not historical release evidence. Six runtime DDL writers remain PENDING after verified CI runs #65, #67,
-the agent command result run, and #73 (see ledger below):
+not historical release evidence. Four runtime DDL writers remain PENDING after verified CI runs #65, #67,
+#70, #73 and #76 (see ledger below):
 
 - core/agent/src/BackendAgentNativeTimerModifyAssignment.cpp
 - core/agent/src/BackendAgentRecordingCutAssignment.cpp
 - core/agent/src/BackendAgentRecordingMarksModifyAssignment.cpp
-- core/agent/src/BackendAgentRecordingCutReconciliationRepository.cpp
-- core/agent/src/BackendAgentRecordingMarksModifyReconciliation.cpp
 - core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp
 
 This file-owner guard does not fingerprint newly added statements inside an already
@@ -193,3 +191,38 @@ through in-memory SQLite backup and reinitialization. They remain PENDING
 until the new experimental package CI succeeds on the exact test commit.
 Production WAL quiescing, real manual-install source provenance and allowed
 migration version boundaries remain separate first-release P7 gates.
+
+## CI #76 and final four DDL-writer candidates
+
+[CI #76](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38795894134)
+completed **SUCCESS, 5/5 jobs**, at exact source commit
+`371eb4d503a6a6c23a5c19632a59012d433227e3`.
+The real C++ cut and marks reconciliation tests verified their persistent
+readback tables and operation indexes, previously persisted readback evidence,
+and independent in-memory SQLite backup/reinitialization. Both writers are
+therefore EXERCISED. They do not establish a supported package upgrade from
+an unknown former manual-install database.
+
+Four runtime DDL writer files remain PENDING in the inventory:
+- `BackendAgentNativeTimerModifyAssignment.cpp`: update/toggle partial
+  operation index, two capability-fencing triggers and scoped DELETE.
+- `BackendAgentRecordingCutAssignment.cpp`: unique operation index and
+  retired dormant-capability trigger removal.
+- `BackendAgentRecordingMarksModifyAssignment.cpp`: partial operation
+  index, dormant-capability trigger and scoped DELETE.
+- `ManualRecordingMetadataRepositoryFacade.cpp`: manual person-profile
+  table/index, schema marker 9 and stored profile references.
+
+New C++ candidate coverage invokes the **actual C++ initializers**, checks
+repeated initialization and existing state preservation, and exercises
+SQLite backup into a distinct in-memory database. It is wired into the Noble
+packaging CI. Treat these four writers as PENDING until exact-source CI
+success; the tests are synthetic and are not authority for real-world
+SQLite/WAL upgrades, service quiescence or release-version compatibility.
+
+The writer inventory is a *file-owner classification*, not a complete
+proof of dynamic SQL or all other mutating DML paths. Production
+migration/downgrade approval still requires an explicitly supported manual
+install source version, a daemon-created database sample, safe source/target
+schema fences, an owner-approved quiesced/WAL-consistent snapshot protocol
+and tested rollback. Never run these tests against `/var/lib/vdr-suite`.
