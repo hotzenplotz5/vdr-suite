@@ -213,5 +213,34 @@ class P7RuntimeSqlWriterInventory(unittest.TestCase):
         self.assertIn("P7_AGENT_NATIVE_TIMER_DELETE_DORMANT_GATE=PASS", cpp)
 
 
+    def test_cut_and_marks_readback_sql_migration_are_ci_wired(self):
+        workflow = (ROOT / ".github" / "workflows" /
+                    "packaging-plugin-experimental.yml").read_text(
+                        encoding="utf-8")
+        cases = (
+            ("core/agent/src/BackendAgentRecordingCutReconciliationRepository.cpp",
+             "core/agent/tests/test_backend_agent_recording_cut_reconciliation.cpp",
+             "mk/recording-native-cut-guard.mk",
+             "test-backend-agent-recording-cut-reconciliation",
+             "idx_backend_agent_recording_cut_readback_operation"),
+            ("core/agent/src/BackendAgentRecordingMarksModifyReconciliation.cpp",
+             "core/agent/tests/test_backend_agent_recording_marks_modify_reconciliation.cpp",
+             "mk/recording-native-editing-tests.mk",
+             "test-backend-agent-recording-marks-modify-reconciliation",
+             "idx_backend_agent_recording_marks_modify_readback_operation"),
+        )
+        for source, test, make_path, target, index in cases:
+            with self.subTest(source=source):
+                makefile = (ROOT / make_path).read_text(encoding="utf-8")
+                cpp = (ROOT / test).read_text(encoding="utf-8")
+                self.assertTrue((ROOT / source).is_file())
+                self.assertIn(test, makefile)
+                self.assertIn("make " + target, workflow)
+                self.assertIn(index, cpp)
+                self.assertIn("sqlite3_backup_init(", cpp)
+                self.assertIn("pragma_foreign_key_check;", cpp)
+                self.assertIn("assert(reopened.ensureSchema());", cpp)
+
+
 if __name__ == "__main__":
     unittest.main()
