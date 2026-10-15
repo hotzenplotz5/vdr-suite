@@ -82,7 +82,12 @@ class P7SchemaOwnerInventoryTests(unittest.TestCase):
         for path in sorted(EXERCISED_BY_P7_CPP):
             with self.subTest(owner=path):
                 self.assertIn(path + " \\", build)
-                self.assertIn(Path(path).stem, harness)
+                # Implementation-only *RepositorySchema.cpp files expose
+                # the repository class without the Schema suffix.
+                owner = Path(path).stem
+                if owner.endswith("RepositorySchema"):
+                    owner = owner[:-len("Schema")]
+                self.assertIn(owner, harness)
         # This initializer lives in a C++ .inc and is compiled through an
         # established Make variable, not through a direct source path above.
         self.assertIn("$(METADATA_GENRE_SRC)", build)
