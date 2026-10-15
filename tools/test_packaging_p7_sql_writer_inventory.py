@@ -16,6 +16,10 @@ EXERCISED = EXERCISED_BY_P7_CPP | frozenset({
     "core/metadata/src/GenreIndexRepositorySchema.inc",
     "core/timers/src/TimerAssignmentSetRevisionRepository.cpp",
     "core/daemon/src/EmbeddedBackendLifecycle.cpp",
+    # CI #65: real C++ SeriesArtworkBackendSettingsService::ensureSchema.
+    "core/daemon/src/SeriesArtworkBackendSettingsService.cpp",
+    # CI #67: real C++ TimerAssignmentReassignmentRepository ALTER + triggers.
+    "core/timers/src/TimerAssignmentReassignmentRepository.cpp",
 })
 PENDING = frozenset({
     "core/agent/src/BackendAgentCommandDelivery.cpp",
@@ -26,9 +30,7 @@ PENDING = frozenset({
     "core/agent/src/BackendAgentRecordingMarksModifyAssignment.cpp",
     "core/agent/src/BackendAgentRecordingCutReconciliationRepository.cpp",
     "core/agent/src/BackendAgentRecordingMarksModifyReconciliation.cpp",
-    "core/daemon/src/SeriesArtworkBackendSettingsService.cpp",
     "core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp",
-    "core/timers/src/TimerAssignmentReassignmentRepository.cpp",
 })
 INDIRECTLY_EXERCISED = frozenset({
     "core/agent/src/BackendRuntimeGeneration.cpp",
