@@ -60,13 +60,10 @@ an in-memory synthetic legacy assignment epoch 7, idempotent backfill, three
 triggers and an epoch 8 insert through real C++. The real
 EmbeddedBackendLifecycleService initializer is now also exercised using a
 synthetic row surviving fresh C++ process reopens and backup/restore. This is
-not historical release evidence. Four runtime DDL writers remain PENDING after verified CI runs #65, #67,
-#70, #73 and #76 (see ledger below):
-
-- core/agent/src/BackendAgentNativeTimerModifyAssignment.cpp
-- core/agent/src/BackendAgentRecordingCutAssignment.cpp
-- core/agent/src/BackendAgentRecordingMarksModifyAssignment.cpp
-- core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp
+not historical release evidence. The bounded file-level DDL inventory now has
+**PENDING=0** following successful CI #84. The outstanding
+`BackendRuntimeGeneration.cpp` category remains **indirectly exercised**;
+this inventory is not proof of all dynamic SQL, SQL DML, or upgrade compatibility.
 
 This file-owner guard does not fingerprint newly added statements inside an already
 classified source, exhaust dynamic SQL, or cover data-modifying migrations.
@@ -226,3 +223,37 @@ migration/downgrade approval still requires an explicitly supported manual
 install source version, a daemon-created database sample, safe source/target
 schema fences, an owner-approved quiesced/WAL-consistent snapshot protocol
 and tested rollback. Never run these tests against `/var/lib/vdr-suite`.
+
+## Current final DDL file-owner classification (CI #84)
+
+[CI #84](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38801942051)
+completed **SUCCESS, all five jobs**, on exact source
+`e116824ef0cf30b0effb80285bc3a145f9e8d857`. The last four
+runtime DDL source files were exercised by real C++ tests:
+
+- `BackendAgentNativeTimerModifyAssignment.cpp`: partial operation index,
+  update/toggle dormant-capability triggers and scoped capability retirement
+- `BackendAgentRecordingCutAssignment.cpp`: partial operation index and
+  cleanup of the old dormant-capability trigger
+- `BackendAgentRecordingMarksModifyAssignment.cpp`: partial operation
+  index, scoped capability retirement and dormant trigger
+- `ManualRecordingMetadataRepositoryFacade.cpp`: manual person-profile
+  table/index, schema marker 9, stored profile reference, fresh public
+  repository read path and SQLite backup/restore
+
+All tests use synthetic records in independent SQLite memory databases.
+The final `tools/test_packaging_p7_sql_writer_inventory.py` classification
+moves these four sources to EXERCISED and leaves **no PENDING DDL
+file owners**. The final inventory-only source adjustment is
+independently subject to its own CI verification; the green #84 tests
+precede that adjustment. The numbered intermediate candidate sections
+above are retained as development history and are superseded by this
+current classification.
+
+**P7 remains open for actual deployment**: a statically classified SQL DDL
+file is not evidence for all runtime DML or dynamically constructed SQL.
+A supported manual-install source-version matrix, daemon-produced sample
+SQLite databases, quiesced/WAL-consistent backup and verified restoration,
+unknown/future-schema refusal, real service lifecycle and approved release
+transitions still require separate evidence. Do not treat experimental
+`exp1 → exp2` package upgrades as released-version compatibility.
