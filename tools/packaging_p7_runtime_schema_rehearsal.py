@@ -164,6 +164,28 @@ def seed_owned_runtime_records(connection):
           backend_id,channel_id,event_id,ordinal,name,name_folded)
           VALUES('p7_backend','p7_channel','p7_epg',0,'P7 Person',
                  'p7 person');
+        INSERT INTO security_actor_permission_grants(
+          actor_id,permission,backend_id)
+          VALUES('p7_actor','recordings.read','p7_backend');
+        INSERT INTO security_actors(actor_id,actor_type,display_name)
+          VALUES('p7_service_actor','service','P7 synthetic service');
+        INSERT INTO security_devices(device_id,actor_id,display_name)
+          VALUES('p7_service_device','p7_service_actor','P7 synthetic device');
+        INSERT INTO security_credentials(credential_id,actor_id,credential_type)
+          VALUES('p7_service_credential','p7_service_actor','device-app');
+        INSERT INTO security_device_credential_verifiers(
+          credential_id,device_id,verifier_hash)
+          VALUES('p7_service_credential','p7_service_device',
+                 'P7_SYNTHETIC_NOT_A_REAL_VERIFIER');
+        INSERT INTO accountability_events(
+          event_id,schema_version,classes,event_type,severity,occurred_at,
+          actor_id,actor_type,device_id,session_id,authentication_state,
+          permission,backend_id,operation_id,request_id,correlation_id,
+          action,decision,reason_code,outcome)
+          VALUES('p7_audit',1,'p7-fixture','p7.audit','info',
+                 '2026-01-01T00:00:00Z','p7_actor','user','','','test-only',
+                 'recordings.read','p7_backend','','p7_request','','read',
+                 'allow','p7-synthetic','ok');
     """)
     connection.commit()
 
@@ -182,7 +204,9 @@ def current_owned_records(connection):
               "vdr_recording_cache", "public_recording_identity",
               "recording_series_hierarchy_overrides", "epg_event_artwork",
               "epg_scraper_metadata_cache", "epg_scraper_metadata_images",
-              "epg_scraper_metadata_people")
+              "epg_scraper_metadata_people",
+              "accountability_events", "security_device_credential_verifiers",
+              "security_actor_permission_grants")
     return {table: connection.execute('SELECT * FROM "' + table + '"').fetchall()
             for table in tables}
 
@@ -398,6 +422,7 @@ def run(binary):
         print("P7_BROWSER_SESSION_AND_PLAYBACK_MIGRATION=PASS", flush=True)
         print("P7_MEDIA_SESSION_AND_EPG_SCHEMA_PRESERVATION=PASS", flush=True)
         print("P7_RECORDING_CACHE_AND_EPG_ARTWORK_PRESERVATION=PASS", flush=True)
+        print("P7_SECURITY_GRANTS_AUDIT_PRESERVATION=PASS", flush=True)
         print("P7_HISTORICAL_CPP_SCHEMA_REHEARSAL=PASS", flush=True)
 
 

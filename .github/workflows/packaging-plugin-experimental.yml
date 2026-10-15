@@ -130,6 +130,11 @@ jobs:
             *) echo 'SEAHAWK_VDR_DEV=FAIL'; exit 1 ;;
           esac
           dpkg-checkbuilddeps -B
+      - name: Exercise real C++ schema repositories on historical offline SQLite
+        shell: bash
+        run: |
+          set -euo pipefail
+          make test-packaging-p7-runtime-schema
       - name: Build all default binary packages (no host installation)
         shell: bash
         run: |
@@ -143,11 +148,6 @@ jobs:
             dpkg-deb --info "${files[0]}"
           done
           echo "FULL_DEFAULT_PACKAGING=PASS"
-      - name: Exercise real C++ schema repositories on historical offline SQLite
-        shell: bash
-        run: |
-          set -euo pipefail
-          make test-packaging-p7-runtime-schema
       - name: Stage unsigned binaries for a disposable installation test
         shell: bash
         run: |

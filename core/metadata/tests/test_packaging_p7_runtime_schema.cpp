@@ -23,6 +23,9 @@
 #include "EpgArtworkRepository.h"
 #include "PublicRecordingIdentityRepository.h"
 #include "RecordingSeriesHierarchyOverrideRepository.h"
+#include "AccountabilityEventRepository.h"
+#include "DeviceCredentialVerifierRepository.h"
+#include "SecurityPermissionGrantRepository.h"
 #include <sqlite3.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -115,6 +118,9 @@ int main(int argc, char** argv)
         EpgArtworkRepository epgArtwork(database);
         PublicRecordingIdentityRepository recordingIdentities(database);
         RecordingSeriesHierarchyOverrideRepository seriesOverrides(database);
+        AccountabilityEventRepository accountability(database);
+        DeviceCredentialVerifierRepository deviceVerifiers(database);
+        SecurityPermissionGrantRepository permissions(database);
         if (!identities.ensureSchema() ||
             !accounts.ensureSchema() ||
             !verifiers.ensureSchema()) {
@@ -162,6 +168,11 @@ int main(int argc, char** argv)
             std::cerr << "P7_EPG_ARTWORK_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
             return 18;
         }
+        if (!accountability.ensureSchema() || !deviceVerifiers.ensureSchema() ||
+            !permissions.ensureSchema()) {
+            std::cerr << "P7_SECURITY_GRANTS_AUDIT_SCHEMA=FAIL pass=" << pass << "\n";
+            return 19;
+        }
         if (!scalarPositive(database.handle(),
             "SELECT count(*) FROM suite_metadata_schema_versions;") ||
             !scalarPositive(database.handle(),
@@ -184,7 +195,9 @@ int main(int argc, char** argv)
             "'vdr_recording_cache','public_recording_identity',"
             "'recording_series_hierarchy_overrides','epg_event_artwork',"
             "'epg_scraper_metadata_cache','epg_scraper_metadata_images',"
-            "'epg_scraper_metadata_people'))=27 "
+            "'epg_scraper_metadata_people','accountability_events',"
+            "'security_device_credential_verifiers',"
+            "'security_actor_permission_grants'))=30 "
             "THEN 1 ELSE 0 END;")) {
             std::cerr << "P7_RUNTIME_SQLITE_INTEGRITY=FAIL\n";
             return 7;

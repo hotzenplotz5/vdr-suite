@@ -245,3 +245,21 @@ immutable tagged historical baseline. This is a fixture failure, not evidence
 of a production migration mutating data. The regression now prohibits all
 synthetic runtime seeds from changing historical baseline rows and reports
 the specific changed table and pass, without printing private row contents.
+
+## P7 security grants, device credential bindings and accountability
+
+The offline rehearsal now also invokes the actual schema initializers for
+`SecurityPermissionGrantRepository`,
+`DeviceCredentialVerifierRepository` and
+`AccountabilityEventRepository`. The exercise uses synthetic actor, service
+device, credential-verifier, permission-grant and append-only audit-event rows
+with valid SQLite foreign-key references. It verifies durable rows and SQL
+objects across a separate C++ process and the old snapshot after offline
+restore. None of the synthetic credential data is valid for authentication.
+This is schema/persistence evidence only, not authentication or authorization
+runtime acceptance, nor an approved migration of live account data.
+
+The source-owner audit is tracked separately in
+[the P7 schema-owner inventory](packaging-p7-schema-owner-inventory.md),
+which explicitly distinguishes the exercised initializers from the uncovered
+ones and notes SQL-creation helpers outside the inventory pattern.
