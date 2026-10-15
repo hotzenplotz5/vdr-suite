@@ -60,11 +60,9 @@ an in-memory synthetic legacy assignment epoch 7, idempotent backfill, three
 triggers and an epoch 8 insert through real C++. The real
 EmbeddedBackendLifecycleService initializer is now also exercised using a
 synthetic row surviving fresh C++ process reopens and backup/restore. This is
-not historical release evidence. Eight further writers remain PENDING following verified CI #65, #67 and the agent CI run
-Series artwork and Timer reassignment exercises (see ledger below):
+not historical release evidence. Six runtime DDL writers remain PENDING after verified CI runs #65, #67,
+the agent command result run, and #73 (see ledger below):
 
-- core/agent/src/BackendAgentCommandReservation.cpp
-- core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp
 - core/agent/src/BackendAgentNativeTimerModifyAssignment.cpp
 - core/agent/src/BackendAgentRecordingCutAssignment.cpp
 - core/agent/src/BackendAgentRecordingMarksModifyAssignment.cpp
@@ -171,3 +169,27 @@ upgrade; its `DELETE FROM backend_agent_command_capabilities` is exercised
 by the real C++ tests but still needs compatibility review. Keep both sources
 PENDING until these tests pass on the exact CI commit. In-memory SQLite
 backups do not settle concurrent WAL snapshots or production rollback.
+
+## CI #73 and current reconciliation candidate (2026-10-15)
+
+[CI #73](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38768387869)
+completed **SUCCESS**, source SHA
+`c207f2a6ac55d98fd0da3e18b2d84cf89cfe1a05`. Real C++
+`test-phase64-backend-agent-command-reservation` verified creation of the
+command-reservation table/index, row retention and isolated SQLite backup/reopen.
+The `test-phase64-native-timer-delete-assignment` verified its operation index
+and the temporary *operational* dormant-capability restriction (implemented as
+a persistent SQLite trigger) during authorized command dispatch/polling.
+These two DDL writer files are promoted to **EXERCISED**, but their checks
+do not establish compatibility with arbitrary manual-install databases.
+The original #72 failed due solely to a missing `<iostream>` include in the
+new test and was superseded by corrected successful #73.
+
+A subsequent current-head candidate adds focused C++ tests for
+`BackendAgentRecordingCutReconciliationRepository.cpp` and
+`BackendAgentRecordingMarksModifyReconciliation.cpp`. Both exercise their
+actual table/index initializers and preserve previously verified readbacks
+through in-memory SQLite backup and reinitialization. They remain PENDING
+until the new experimental package CI succeeds on the exact test commit.
+Production WAL quiescing, real manual-install source provenance and allowed
+migration version boundaries remain separate first-release P7 gates.
