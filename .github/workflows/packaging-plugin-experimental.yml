@@ -140,6 +140,11 @@ jobs:
         run: |
           set -euo pipefail
           make test-suite-bridge-epg-metadata-resolver
+      - name: Rehearse timer reassignment legacy column with real C++ and temp triggers
+        shell: bash
+        run: |
+          set -euo pipefail
+          make test-phase64-timer-reassignment-failover
       - name: Build all default binary packages (no host installation)
         shell: bash
         run: |
