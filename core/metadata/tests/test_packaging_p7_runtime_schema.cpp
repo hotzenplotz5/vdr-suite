@@ -10,6 +10,8 @@
 #include "MutationOperationRepository.h"
 #include "TimerIntentRepository.h"
 #include "TimerAssignmentRepository.h"
+#include "DevicePairingRequestRepository.h"
+#include "VdrChannelCacheRepository.h"
 #include <sqlite3.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -89,6 +91,8 @@ int main(int argc, char** argv)
         vdrsuite::operations::MutationOperationRepository operations(database);
         vdrsuite::timers::TimerIntentRepository intents(database);
         vdrsuite::timers::TimerAssignmentRepository assignments(database);
+        DevicePairingRequestRepository pairing(database);
+        VdrChannelCacheRepository channels(database);
         if (!identities.ensureSchema() ||
             !accounts.ensureSchema() ||
             !verifiers.ensureSchema()) {
@@ -103,6 +107,14 @@ int main(int argc, char** argv)
             std::cerr << "P7_TIMERS_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
             return 10;
         }
+        if (!pairing.ensureSchema()) {
+            std::cerr << "P7_PAIRING_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
+            return 11;
+        }
+        if (!channels.ensureSchema()) {
+            std::cerr << "P7_CHANNEL_CACHE_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
+            return 12;
+        }
         if (!scalarPositive(database.handle(),
             "SELECT count(*) FROM suite_metadata_schema_versions;") ||
             !scalarPositive(database.handle(),
@@ -115,7 +127,8 @@ int main(int argc, char** argv)
             "SELECT CASE WHEN (SELECT count(*) FROM sqlite_master WHERE name IN "
             "('security_actors','security_human_accounts','security_credentials',"
             "'security_basic_credential_verifiers','mutation_operations',"
-            "'mutation_operation_payloads','timer_intents','timer_assignments'))=8 "
+            "'mutation_operation_payloads','timer_intents','timer_assignments',"
+            "'security_device_pairing_requests','vdr_channel_cache'))=10 "
             "THEN 1 ELSE 0 END;")) {
             std::cerr << "P7_RUNTIME_SQLITE_INTEGRITY=FAIL\n";
             return 7;

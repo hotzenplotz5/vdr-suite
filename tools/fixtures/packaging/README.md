@@ -43,3 +43,14 @@ alterations. The fixture combines table shapes originating at **two different
 historic commits** with fake records; it is still **not** a byte-exact
 snapshot of a single old database, old package, or previously released
 binary. No actual password hashes or user state are included.
+
+## Additional P7 device-pairing fixture (synthetic)
+
+`p7-pre-revision-device-pairing.sql` exercises the real
+`DevicePairingRequestRepository::ensureSchema()` ALTER guards for the
+`revision`, `decided_by_actor_id` and `decided_at` columns. This is a
+**reconstructed test-only schema**, not provenance-attested historical DDL or
+a database produced by a released binary. All values are fake. The same C++
+rehearsal verifies persisted pairing records and VDR channel-cache records
+across a fresh process and confirms that the offline backup restores the
+original pairing table shape without those columns.

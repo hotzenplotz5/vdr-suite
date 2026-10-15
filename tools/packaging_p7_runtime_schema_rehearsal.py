@@ -20,13 +20,17 @@ from test_packaging_p7_historical_schema import (
 
 PRIOR_COLUMN_FIXTURE = (Path(__file__).resolve().parent / "fixtures" /
                         "packaging" / "p7-pre-revision-security-operations.sql")
+PAIRING_COLUMN_FIXTURE = (Path(__file__).resolve().parent / "fixtures" /
+                          "packaging" / "p7-pre-revision-device-pairing.sql")
 PRIOR_TABLES = (
     "security_actors", "security_credentials",
     "security_basic_credential_verifiers",
     "security_human_accounts", "mutation_operations",
+    "security_device_pairing_requests",
 )
 ALTERED_TABLES = frozenset(
-    ("security_human_accounts", "mutation_operations")
+    ("security_human_accounts", "mutation_operations",
+     "security_device_pairing_requests")
 )
 
 GiB = 1024 ** 3
@@ -71,6 +75,15 @@ def seed_owned_runtime_records(connection):
         INSERT INTO mutation_operation_payloads(
           operation_id,payload_type,payload_version,payload,payload_fingerprint)
           VALUES('p7_op','test-only',1,'fixture','p7_payload');
+        INSERT INTO security_device_pairing_requests(
+          pairing_request_id,user_code_hash,pairing_token_hash,display_name,
+          client_kind,expires_at,revision)
+          VALUES('p7_new_pairing','SYNTHETIC_HASH_2','SYNTHETIC_TOKEN_2',
+                 'P7 new test device','vidaa','2099-01-01 00:00:00',4);
+        INSERT INTO vdr_channel_cache(
+          backend_id,channel_id,channel_number,name,provider,group_name,
+          radio,encrypted,enabled)
+          VALUES('p7_test','p7_channel',17,'P7 demo','test','fixture',0,0,1);
     """)
     connection.commit()
 
@@ -78,7 +91,8 @@ def seed_owned_runtime_records(connection):
 def current_owned_records(connection):
     tables = ("security_actors", "security_human_accounts",
               "security_credentials", "security_basic_credential_verifiers",
-              "mutation_operations", "mutation_operation_payloads")
+              "mutation_operations", "mutation_operation_payloads",
+              "security_device_pairing_requests", "vdr_channel_cache")
     return {table: connection.execute('SELECT * FROM "' + table + '"').fetchall()
             for table in tables}
 
@@ -141,6 +155,8 @@ def run(binary):
         with closing(sqlite3.connect(old)) as preupgrade:
             preupgrade.executescript(
                 PRIOR_COLUMN_FIXTURE.read_text(encoding="utf-8"))
+            preupgrade.executescript(
+                PAIRING_COLUMN_FIXTURE.read_text(encoding="utf-8"))
             require_consistent(preupgrade)
         with closing(sqlite3.connect(old)) as source, closing(
                 sqlite3.connect(backup)) as target:
@@ -154,6 +170,8 @@ def run(binary):
             assert "revision" not in prior_shape["security_human_accounts"]
             assert "expected_resource_fingerprint" not in prior_shape[
                 "mutation_operations"]
+            for absent in ("revision", "decided_by_actor_id", "decided_at"):
+                assert absent not in prior_shape["security_device_pairing_requests"]
             old_prior_rows = prior_rows(source, prior_shape)
             assert all(len(rows) == 1 for rows in old_prior_rows.values())
             original_objects = dict(source.execute(
@@ -185,7 +203,7 @@ def run(binary):
                     "unexpected historical SQL object changed")
                 assert prior_rows_preserved(
                     old_prior_rows, prior_rows(connection, prior_shape)), (
-                    "pre-migration account, credential or operation data changed")
+                    "pre-migration security, operation or pairing data changed")
                 updated_columns = prior_columns(connection)
                 assert "revision" in updated_columns["security_human_accounts"], (
                     "account revision ALTER did not run")
@@ -199,6 +217,14 @@ def run(binary):
                     "SELECT expected_resource_fingerprint "
                     "FROM mutation_operations WHERE operation_id="
                     "'p7_pre_operation'").fetchone()[0] == ""
+                for added in ("revision", "decided_by_actor_id", "decided_at"):
+                    assert added in updated_columns["security_device_pairing_requests"], (
+                        "device pairing migration column missing: " + added)
+                assert connection.execute(
+                    "SELECT revision, decided_by_actor_id, decided_at "
+                    "FROM security_device_pairing_requests "
+                    "WHERE pairing_request_id='p7_pre_pairing'").fetchone() == (
+                        1, "", ""), "pre-existing pairing defaults changed"
                 assert connection.execute(
                     "SELECT count(*) FROM suite_metadata_schema_versions"
                 ).fetchone()[0] >= 1
@@ -215,7 +241,7 @@ def run(binary):
                 else:
                     assert runtime_fixture is not None
                     assert current_owned_records(connection) == runtime_fixture, (
-                        "security/credential/operation records changed on restart")
+                        "security/operation/pairing/channel records changed on restart")
                     assert dict(connection.execute(
                         "SELECT name,sql FROM sqlite_master "
                         "WHERE name NOT LIKE 'sqlite_%'").fetchall()) == runtime_objects, (
@@ -242,6 +268,7 @@ def run(binary):
             raise ValueError("P7 runtime rehearsal broke filesystem reserve")
         print("RESOURCE_POSTCHECK=PASS", flush=True)
         print("P7_PRECOLUMN_SECURITY_OPERATION_MIGRATION=PASS", flush=True)
+        print("P7_PAIRING_PRECOLUMN_AND_CHANNEL_PRESERVATION=PASS", flush=True)
         print("P7_HISTORICAL_CPP_SCHEMA_REHEARSAL=PASS", flush=True)
 
 

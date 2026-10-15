@@ -174,3 +174,16 @@ No maintainer script or automated installer currently performs a database migrat
 The scratch rehearsal now rejects `/var`, `/etc` and other protected system namespaces as well as the two known VDR-Suite source checkouts. A new regression exercises a race in which a second process creates the restore target just before the exclusive open; the tool must preserve the other process's file rather than treat it as its own cleanup target. No production directory permissions or ownerships are changed.
 
 The disposable Ubuntu noble package lifecycle exercise passed in [GitHub Actions #29](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38588255607). It verifies same-version reinstall, configuration and an unowned data sentinel across remove/purge, **not** upgrade from a previous version or database schema compatibility. Do not confuse a successful no-migration package reinstall with approval to downgrade or restore a live database.
+
+## P7 incremental C++ owners: device pairing and channel cache
+
+The isolated C++ schema rehearsal now additionally executes the real
+`DevicePairingRequestRepository::ensureSchema()` and
+`VdrChannelCacheRepository::ensureSchema()` twice per process and on two
+fresh process invocations. The pairing fixture reconstructs an older table
+without `revision`, `decided_by_actor_id` or `decided_at`; the test checks
+that existing fake pairing data survives column addition with correct defaults.
+It also seeds one new pairing record and one channel cache record, checks every
+row and SQL object survives reopening, and verifies the independently restored
+backup retains the pre-alter table shape. The fixture is **not an attested
+historical binary/database**; this does not close the all-owners P7 gate.
