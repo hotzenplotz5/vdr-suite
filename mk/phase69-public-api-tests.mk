@@ -362,7 +362,7 @@ test-phase69d-public-channel-collection:
 .PHONY: test-phase69d-public-channel-neighbor-daemon-syntax
 
 test-phase69d-public-channel-neighbor-daemon-syntax:
-	$(CXX) $(CXXFLAGS) -fsyntax-only core/daemon/src/DaemonRuntimeInitialization.cpp
+	$(CXX) $(CXXFLAGS) -Icore/timers/include -fsyntax-only core/daemon/src/DaemonRuntimeInitialization.cpp
 
 .PHONY: test-phase69d-closeout
 
