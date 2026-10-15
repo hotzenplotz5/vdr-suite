@@ -60,10 +60,9 @@ an in-memory synthetic legacy assignment epoch 7, idempotent backfill, three
 triggers and an epoch 8 insert through real C++. The real
 EmbeddedBackendLifecycleService initializer is now also exercised using a
 synthetic row surviving fresh C++ process reopens and backup/restore. This is
-not historical release evidence. Nine further writers remain PENDING following the verified CI #65 and #67
+not historical release evidence. Eight further writers remain PENDING following verified CI #65, #67 and the agent CI run
 Series artwork and Timer reassignment exercises (see ledger below):
 
-- core/agent/src/BackendAgentCommandDelivery.cpp
 - core/agent/src/BackendAgentCommandReservation.cpp
 - core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp
 - core/agent/src/BackendAgentNativeTimerModifyAssignment.cpp
@@ -145,3 +144,30 @@ second independent connection. It is connected to experimental Noble CI via
 `make test-phase63-command-delivery-runtime`, but remains **PENDING** until
 exact-head CI success. An in-memory SQLite backup does not prove WAL handling
 under concurrent writes or upgrade support for production databases.
+
+## Agent command result verified; reservation and dormant gate candidate
+
+The real C++ `BackendAgentCommandRepository::ensureSchema()` regression
+passed in [CI run 38766064163](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38766064163)
+on source commit `677a952fe0fb1586bbd0a9bb8bf5aedb8fa496c7`:
+all 5/5 disposable Noble jobs succeeded. This exercises an in-memory old
+`backend_agent_command_results` table missing `result_evidence`, an actual
+persisted command result, C++ `ALTER TABLE`, obsolete dormant-trigger removal,
+repeated initializer, FK checks and SQLite backup to a second in-memory database.
+The C++ writer `BackendAgentCommandDelivery.cpp` is therefore moved from
+PENDING to EXERCISED. The source's normal Command UPDATE/DELETE write paths
+and real manual-install database compatibility are not fully audited.
+
+New **CI-pending** follow-on checks exercise:
+- the actual `BackendAgentCommandReservationRepository::ensureSchema()`,
+  its persisted unique index, data preservation and SQLite backup/reopen
+  through `test-phase64-backend-agent-command-reservation`;
+- `ensureNativeTimerDeleteAssignmentSchema()`, creating its partial unique
+  index and persistent dormant-capability trigger, with removal during
+  command polling through `test-phase64-native-timer-delete-assignment`.
+
+The latter is an operational capability/fencing gate, not just a database
+upgrade; its `DELETE FROM backend_agent_command_capabilities` is exercised
+by the real C++ tests but still needs compatibility review. Keep both sources
+PENDING until these tests pass on the exact CI commit. In-memory SQLite
+backups do not settle concurrent WAL snapshots or production rollback.
