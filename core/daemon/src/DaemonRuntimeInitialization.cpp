@@ -1739,7 +1739,15 @@ bool DaemonRuntime::initialize()
                 request.limit == 0U ||
                 request.limit > 100U ||
                 (request.afterBackendId.empty() !=
-                 request.afterChannelId.empty()))
+                 request.afterChannelId.empty()) ||
+                (!request.relativeToChannelId.empty() &&
+                 (request.backendIds.size() != 1U ||
+                  request.limit != 1U ||
+                  !request.afterBackendId.empty() ||
+                  (request.direction != "up" &&
+                   request.direction != "down"))) ||
+                (request.relativeToChannelId.empty() &&
+                 !request.direction.empty()))
             {
                 result.status =
                     PublicChannelCollectionStatus::invalid;
@@ -1821,6 +1829,53 @@ bool DaemonRuntime::initialize()
                     source.code = "backend_unavailable";
                     result.sources.push_back(std::move(source));
                     continue;
+                }
+
+                // Adjacent Live-TV channel: the complete authoritative VDR
+                // snapshot determines the neighbor. Never sort a page of IDs.
+                // The successful old ch1_ listing below is not changed.
+                if (!request.relativeToChannelId.empty())
+                {
+                    std::vector<PublicChannelCollectionItem> selectable;
+                    selectable.reserve(sourceChannels.size());
+                    for (const auto& item : sourceChannels)
+                    {
+                        if (item.enabled && !item.radio &&
+                            item.channelNumber > 0)
+                            selectable.push_back(item);
+                    }
+                    std::sort(selectable.begin(), selectable.end(),
+                        [](const PublicChannelCollectionItem& left,
+                           const PublicChannelCollectionItem& right)
+                        {
+                            if (left.channelNumber != right.channelNumber)
+                                return left.channelNumber < right.channelNumber;
+                            return left.channelId < right.channelId;
+                        });
+                    const auto current = std::find_if(
+                        selectable.begin(), selectable.end(),
+                        [&request](const PublicChannelCollectionItem& item)
+                        {
+                            return item.channelId ==
+                                request.relativeToChannelId;
+                        });
+                    if (current == selectable.end() ||
+                        selectable.size() < 2U)
+                    {
+                        result.status = PublicChannelCollectionStatus::notFound;
+                        return result;
+                    }
+                    const auto index =
+                        static_cast<std::size_t>(current - selectable.begin());
+                    const auto adjacent = request.direction == "up" ?
+                        (index + 1U) % selectable.size() :
+                        (index + selectable.size() - 1U) % selectable.size();
+                    result.channels.push_back(selectable[adjacent]);
+                    source.state = "ok";
+                    result.sources.push_back(std::move(source));
+                    result.status = PublicChannelCollectionStatus::ok;
+                    result.hasMore = false;
+                    return result;
                 }
 
                 ++successfulSources;
