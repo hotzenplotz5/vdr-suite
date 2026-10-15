@@ -128,6 +128,32 @@ int main()
         }
     }
 
+    // A neighbor query is the SAME protected Public-v1 Channel resource,
+    // not a bypass for unknown or other backend scope.
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, Permission, "backend-a"));
+        const std::string neighbor =
+            "?limit=1&relativeTo=S19.2E-1-1019-10301&direction=up";
+        const SecurityGateDecision allowed = fixture.gate.evaluate(
+            browserGet(fixture,
+                std::string(Route) + "?backendId=backend-a&" +
+                neighbor.substr(1U)));
+        assert(allowed.allowed);
+        assert(!allowed.protectedMutation);
+        assert(allowed.authorizedBackendIds ==
+            (std::vector<std::string>{"backend-a"}));
+
+        const SecurityGateDecision denied = fixture.gate.evaluate(
+            browserGet(fixture,
+                std::string(Route) + "?backendId=backend-b&" +
+                neighbor.substr(1U)));
+        assert(!denied.allowed);
+        assert(denied.rejection.statusCode == 403);
+        assert(denied.authorizedBackendIds.empty());
+    }
+
     {
         SecurityHttpGateBrowserTestFixture fixture;
         HttpServerRequest anonymous;
