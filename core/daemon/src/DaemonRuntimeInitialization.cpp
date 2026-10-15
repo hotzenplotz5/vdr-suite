@@ -8,6 +8,7 @@
 #include "PublicRecordingCollectionProjection.h"
 #include "GlobalSearchRepository.h"
 #include "GlobalSearchApiRuntime.h"
+#include "PublicChannelNeighbor.h"
 #include "GenreBrowserApiRuntime.h"
 #include "RecordingSeriesHierarchyApiRuntime.h"
 #include "RestfulApiRecordingActionBackendExecutorAdapter.h"
@@ -1831,46 +1832,21 @@ bool DaemonRuntime::initialize()
                     continue;
                 }
 
-                // Adjacent Live-TV channel: the complete authoritative VDR
-                // snapshot determines the neighbor. Never sort a page of IDs.
-                // The successful old ch1_ listing below is not changed.
+                // Uses the full, authorized VDR snapshot (never the first
+                // 30 ID-sorted Public-v1 rows). The same pure projection is
+                // directly exercised by the C++ regression test.
                 if (!request.relativeToChannelId.empty())
                 {
-                    std::vector<PublicChannelCollectionItem> selectable;
-                    selectable.reserve(sourceChannels.size());
-                    for (const auto& item : sourceChannels)
-                    {
-                        if (item.enabled && !item.radio &&
-                            item.channelNumber > 0)
-                            selectable.push_back(item);
-                    }
-                    std::sort(selectable.begin(), selectable.end(),
-                        [](const PublicChannelCollectionItem& left,
-                           const PublicChannelCollectionItem& right)
-                        {
-                            if (left.channelNumber != right.channelNumber)
-                                return left.channelNumber < right.channelNumber;
-                            return left.channelId < right.channelId;
-                        });
-                    const auto current = std::find_if(
-                        selectable.begin(), selectable.end(),
-                        [&request](const PublicChannelCollectionItem& item)
-                        {
-                            return item.channelId ==
-                                request.relativeToChannelId;
-                        });
-                    if (current == selectable.end() ||
-                        selectable.size() < 2U)
+                    const auto neighbor = findPublicVdrChannelNeighbor(
+                        sourceChannels,
+                        request.relativeToChannelId,
+                        request.direction);
+                    if (!neighbor)
                     {
                         result.status = PublicChannelCollectionStatus::notFound;
                         return result;
                     }
-                    const auto index =
-                        static_cast<std::size_t>(current - selectable.begin());
-                    const auto adjacent = request.direction == "up" ?
-                        (index + 1U) % selectable.size() :
-                        (index + selectable.size() - 1U) % selectable.size();
-                    result.channels.push_back(selectable[adjacent]);
+                    result.channels.push_back(*neighbor);
                     source.state = "ok";
                     result.sources.push_back(std::move(source));
                     result.status = PublicChannelCollectionStatus::ok;
