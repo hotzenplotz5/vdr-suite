@@ -26,6 +26,8 @@
 #include "AccountabilityEventRepository.h"
 #include "DeviceCredentialVerifierRepository.h"
 #include "SecurityPermissionGrantRepository.h"
+#include "EpgSeriesArtworkFallbackRepository.h"
+#include "EpgSeriesArtworkProviderCacheRepository.h"
 #include <sqlite3.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -121,6 +123,8 @@ int main(int argc, char** argv)
         AccountabilityEventRepository accountability(database);
         DeviceCredentialVerifierRepository deviceVerifiers(database);
         SecurityPermissionGrantRepository permissions(database);
+        EpgSeriesArtworkFallbackRepository fallbackArtwork(database);
+        EpgSeriesArtworkProviderCacheRepository artworkProviderCache(database);
         if (!identities.ensureSchema() ||
             !accounts.ensureSchema() ||
             !verifiers.ensureSchema()) {
@@ -173,6 +177,10 @@ int main(int argc, char** argv)
             std::cerr << "P7_SECURITY_GRANTS_AUDIT_SCHEMA=FAIL pass=" << pass << "\n";
             return 19;
         }
+        if (!fallbackArtwork.ensureSchema() || !artworkProviderCache.ensureSchema()) {
+            std::cerr << "P7_SERIES_ARTWORK_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
+            return 20;
+        }
         if (!scalarPositive(database.handle(),
             "SELECT count(*) FROM suite_metadata_schema_versions;") ||
             !scalarPositive(database.handle(),
@@ -197,7 +205,9 @@ int main(int argc, char** argv)
             "'epg_scraper_metadata_cache','epg_scraper_metadata_images',"
             "'epg_scraper_metadata_people','accountability_events',"
             "'security_device_credential_verifiers',"
-            "'security_actor_permission_grants'))=30 "
+            "'security_actor_permission_grants',"
+            "'epg_series_artwork_fallback',"
+            "'epg_series_artwork_provider_cache'))=32 "
             "THEN 1 ELSE 0 END;")) {
             std::cerr << "P7_RUNTIME_SQLITE_INTEGRITY=FAIL\n";
             return 7;

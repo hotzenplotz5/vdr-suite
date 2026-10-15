@@ -24,6 +24,8 @@ PAIRING_COLUMN_FIXTURE = (Path(__file__).resolve().parent / "fixtures" /
                           "packaging" / "p7-pre-revision-device-pairing.sql")
 SESSION_PLAYBACK_FIXTURE = (Path(__file__).resolve().parent / "fixtures" /
                             "packaging" / "p7-pre-revision-sessions-playback.sql")
+SERIES_ARTWORK_FIXTURE = (Path(__file__).resolve().parent / "fixtures" /
+                          "packaging" / "p7-pre-origin-series-artwork.sql")
 PRIOR_TABLES = (
     "security_actors", "security_credentials",
     "security_basic_credential_verifiers",
@@ -33,13 +35,14 @@ PRIOR_TABLES = (
     "security_devices", "security_sessions",
     "security_browser_session_credentials",
     "continue_watching_state", "recently_watched_state",
+    "epg_series_artwork_fallback",
 )
 ALTERED_TABLES = frozenset(
     ("security_human_accounts", "mutation_operations",
      "security_device_pairing_requests",
      "security_browser_session_credentials",
      "continue_watching_state", "recently_watched_state",
-     "vdr_recording_cache")
+     "vdr_recording_cache", "epg_series_artwork_fallback")
 )
 
 GiB = 1024 ** 3
@@ -186,6 +189,14 @@ def seed_owned_runtime_records(connection):
                  '2026-01-01T00:00:00Z','p7_actor','user','','','test-only',
                  'recordings.read','p7_backend','','p7_request','','read',
                  'allow','p7-synthetic','ok');
+        INSERT INTO epg_series_artwork_fallback(
+          backend_id,channel_id,event_id,provider,origin,path,
+          width,height,resolved_at)
+          VALUES('p7_backend','p7_channel','p7_artwork_event','tvmaze',
+                 'external-fallback','/p7/fallback.jpg',300,450,42);
+        INSERT INTO epg_series_artwork_provider_cache(
+          provider,identity_provider,identity_value,outcome,expires_at)
+          VALUES('tvmaze','tvdb','p7_series','not-found',2000000000);
     """)
     connection.commit()
 
@@ -206,7 +217,9 @@ def current_owned_records(connection):
               "epg_scraper_metadata_cache", "epg_scraper_metadata_images",
               "epg_scraper_metadata_people",
               "accountability_events", "security_device_credential_verifiers",
-              "security_actor_permission_grants")
+              "security_actor_permission_grants",
+              "epg_series_artwork_fallback",
+              "epg_series_artwork_provider_cache")
     return {table: connection.execute('SELECT * FROM "' + table + '"').fetchall()
             for table in tables}
 
@@ -273,6 +286,8 @@ def run(binary):
                 PAIRING_COLUMN_FIXTURE.read_text(encoding="utf-8"))
             preupgrade.executescript(
                 SESSION_PLAYBACK_FIXTURE.read_text(encoding="utf-8"))
+            preupgrade.executescript(
+                SERIES_ARTWORK_FIXTURE.read_text(encoding="utf-8"))
             require_consistent(preupgrade)
         with closing(sqlite3.connect(old)) as source, closing(
                 sqlite3.connect(backup)) as target:
@@ -294,6 +309,7 @@ def run(binary):
                 assert "backend_native_id" not in prior_shape[table]
             for absent in ("metadata_payload", "recording_duration_known"):
                 assert absent not in prior_shape["vdr_recording_cache"]
+            assert "origin" not in prior_shape["epg_series_artwork_fallback"]
             old_prior_rows = prior_rows(source, prior_shape)
             assert all(len(rows) == 1 for rows in old_prior_rows.values())
             original_objects = dict(source.execute(
@@ -373,6 +389,15 @@ def run(binary):
                         'SELECT "' + added + '" FROM vdr_recording_cache '
                         "WHERE backend_id='test' AND cache_key='key' LIMIT 1").fetchone() == (
                             expected,), "old recording cache default changed"
+                assert "origin" in updated_columns["epg_series_artwork_fallback"], (
+                    "series artwork origin ALTER did not run")
+                assert connection.execute(
+                    "SELECT origin FROM epg_series_artwork_fallback "
+                    "WHERE backend_id='p7_pre_backend' AND "
+                    "channel_id='p7_pre_channel' AND "
+                    "event_id='p7_pre_event'").fetchone() == (
+                        "external-fallback",), (
+                            "old fallback artwork origin default changed")
                 assert connection.execute(
                     "SELECT count(*) FROM suite_metadata_schema_versions"
                 ).fetchone()[0] >= 1
@@ -423,6 +448,7 @@ def run(binary):
         print("P7_MEDIA_SESSION_AND_EPG_SCHEMA_PRESERVATION=PASS", flush=True)
         print("P7_RECORDING_CACHE_AND_EPG_ARTWORK_PRESERVATION=PASS", flush=True)
         print("P7_SECURITY_GRANTS_AUDIT_PRESERVATION=PASS", flush=True)
+        print("P7_SERIES_ARTWORK_PREORIGIN_AND_PROVIDER_CACHE=PASS", flush=True)
         print("P7_HISTORICAL_CPP_SCHEMA_REHEARSAL=PASS", flush=True)
 
 

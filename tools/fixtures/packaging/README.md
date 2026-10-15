@@ -64,3 +64,10 @@ device and credential so SQLite foreign keys remain valid during the real
 C++ schema migration. A read-only snapshot comparison checks original records,
 plus column defaults/backfills, second-process idempotence and offline restore.
 The fixture is **not from a released package or an actual user database**.
+
+## Series artwork fallback pre-origin fixture
+
+`p7-pre-origin-series-artwork.sql` reconstructs a synthetic older table
+without `origin` and one fake artwork row. Tests verify the real C++ ALTER,
+default `external-fallback`, durability and offline restore. It is not a
+source-attested database from a released package.

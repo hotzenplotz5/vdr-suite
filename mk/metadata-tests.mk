@@ -20,6 +20,8 @@ test-packaging-p7-runtime-schema:
 		core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp \
 		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/src/EpgArtworkRepository.cpp \
+		core/vdr/src/EpgSeriesArtworkFallbackRepository.cpp \
+		core/vdr/src/EpgSeriesArtworkProviderCacheRepository.cpp \
 		core/recordings/src/PublicRecordingIdentityRepository.cpp \
 		core/metadata/src/RecordingSeriesHierarchyOverrideRepository.cpp \
 		core/vdr/src/VdrChannelCacheRepository.cpp \

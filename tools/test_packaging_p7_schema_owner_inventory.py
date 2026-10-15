@@ -35,6 +35,8 @@ EXERCISED_BY_P7_CPP = frozenset((
     "core/vdr/src/EpgArtworkRepository.cpp",
     "core/vdr/src/EpgEventRepository.cpp",
     "core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp",
+    "core/vdr/src/EpgSeriesArtworkFallbackRepository.cpp",
+    "core/vdr/src/EpgSeriesArtworkProviderCacheRepository.cpp",
     "core/vdr/src/GlobalSearchRepository.cpp",
     "core/vdr/src/VdrChannelCacheRepository.cpp",
     "core/vdr/src/VdrRecordingCacheRepository.cpp",
@@ -47,8 +49,6 @@ NOT_YET_EXERCISED_BY_P7_CPP = frozenset((
     "core/security/src/FirstAdminBootstrapRepository.cpp",
     "core/security/src/HumanAccountCreationRepository.cpp",
     "core/timers/src/NativeTimerBindingRepository.cpp",
-    "core/vdr/src/EpgSeriesArtworkFallbackRepository.cpp",
-    "core/vdr/src/EpgSeriesArtworkProviderCacheRepository.cpp",
     "core/vdr/src/VdrRecordingNativeMetadataRepositorySchema.cpp",
 ))
 ALL_CLASSIFIED = EXERCISED_BY_P7_CPP | NOT_YET_EXERCISED_BY_P7_CPP
@@ -94,7 +94,7 @@ class P7SchemaOwnerInventoryTests(unittest.TestCase):
     def test_uncovered_owners_remain_explicit_and_nonzero(self):
         # P7 is intentionally not a complete compatibility gate yet.
         self.assertTrue(NOT_YET_EXERCISED_BY_P7_CPP)
-        self.assertEqual(len(EXERCISED_BY_P7_CPP), 23)
+        self.assertEqual(len(EXERCISED_BY_P7_CPP), 25)
 
 
 if __name__ == "__main__":

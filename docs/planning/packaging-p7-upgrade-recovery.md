@@ -263,3 +263,13 @@ The source-owner audit is tracked separately in
 [the P7 schema-owner inventory](packaging-p7-schema-owner-inventory.md),
 which explicitly distinguishes the exercised initializers from the uncovered
 ones and notes SQL-creation helpers outside the inventory pattern.
+
+## P7 series artwork fallback and provider cache migration
+
+The offline C++ rehearsal now invokes `EpgSeriesArtworkFallbackRepository`
+and `EpgSeriesArtworkProviderCacheRepository`. A synthetic (not historically
+source-attested) older fallback table lacks `origin`. The existing artwork
+row must survive the real C++ ALTER with `external-fallback` as default.
+New artwork and provider-cache rows must survive independent process reopens.
+Offline restore must recover the pre-origin column shape and its old rows.
+This is not a live migration or compatibility approval.
