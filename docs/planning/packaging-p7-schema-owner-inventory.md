@@ -60,7 +60,8 @@ an in-memory synthetic legacy assignment epoch 7, idempotent backfill, three
 triggers and an epoch 8 insert through real C++. The real
 EmbeddedBackendLifecycleService initializer is now also exercised using a
 synthetic row surviving fresh C++ process reopens and backup/restore. This is
-not historical release evidence. Eleven further writers remain PENDING:
+not historical release evidence. Nine further writers remain PENDING following the verified CI #65 and #67
+Series artwork and Timer reassignment exercises (see ledger below):
 
 - core/agent/src/BackendAgentCommandDelivery.cpp
 - core/agent/src/BackendAgentCommandReservation.cpp
@@ -70,9 +71,7 @@ not historical release evidence. Eleven further writers remain PENDING:
 - core/agent/src/BackendAgentRecordingMarksModifyAssignment.cpp
 - core/agent/src/BackendAgentRecordingCutReconciliationRepository.cpp
 - core/agent/src/BackendAgentRecordingMarksModifyReconciliation.cpp
-- core/daemon/src/SeriesArtworkBackendSettingsService.cpp
 - core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp
-- core/timers/src/TimerAssignmentReassignmentRepository.cpp
 
 This file-owner guard does not fingerprint newly added statements inside an already
 classified source, exhaust dynamic SQL, or cover data-modifying migrations.
@@ -122,3 +121,27 @@ in-memory SQLite evidence rather than a former production daemon-created
 database. The TEMP triggers enforce atomic per-request fencing but are not
 persistent schema migration objects; do not equate their execution with a
 supported manual-install upgrade or production-release approval.
+
+## Verified regression status and next agent candidate
+
+- **CI #65**, exact source SHA `c1338fd1841afae7c2de4e1ff8089054a296f0cc`,
+  5/5 jobs SUCCESS: real Series-artwork legacy columns C++ regression.
+- **CI #67**, exact source SHA `21bf12350ec751cf022d717a105009aa9b50399a`,
+  5/5 jobs SUCCESS: real Timer reassignment synthetic legacy-column test,
+  native fencing/replay cases and transient-trigger cleanup. These two DDL
+  source files are now classified as **exercised**, not production-migration
+  approved. Synthetic in-memory migration remains distinct from manual-install
+  database provenance and persistent WAL/restore testing.
+
+The next **candidate** validates the actual
+`BackendAgentCommandRepository::ensureSchema()` path in
+`BackendAgentCommandDelivery.cpp` through the existing phase-63 C++ test:
+a synthetic prior `backend_agent_command_results` table without
+`result_evidence`, a preserved real command-result record, and an obsolete
+dormant-capability trigger are restored through real C++ `ALTER TABLE` and
+`DROP TRIGGER`. The test also verifies the restored row/default, foreign-key
+consistency, idempotent initialization and an in-memory SQLite backup into a
+second independent connection. It is connected to experimental Noble CI via
+`make test-phase63-command-delivery-runtime`, but remains **PENDING** until
+exact-head CI success. An in-memory SQLite backup does not prove WAL handling
+under concurrent writes or upgrade support for production databases.
