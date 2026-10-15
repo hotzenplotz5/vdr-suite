@@ -14,7 +14,7 @@ import subprocess
 import tempfile
 
 from test_packaging_p7_historical_schema import (
-    LEGACY, LEGACY_GIT_BLOB_SHA1, TABLES, create_legacy_database,
+    LEGACY, LEGACY_GIT_BLOB_SHA1, METADATA, TABLES, create_legacy_database,
     require_consistent, source_git_blob_hash,
 )
 
@@ -26,6 +26,8 @@ SESSION_PLAYBACK_FIXTURE = (Path(__file__).resolve().parent / "fixtures" /
                             "packaging" / "p7-pre-revision-sessions-playback.sql")
 SERIES_ARTWORK_FIXTURE = (Path(__file__).resolve().parent / "fixtures" /
                           "packaging" / "p7-pre-origin-series-artwork.sql")
+MANUAL_METADATA_FIXTURE = (Path(__file__).resolve().parent / "fixtures" /
+                           "packaging" / "p7-pre-cast-complete-manual-metadata.sql")
 PRIOR_TABLES = (
     "security_actors", "security_credentials",
     "security_basic_credential_verifiers",
@@ -36,13 +38,15 @@ PRIOR_TABLES = (
     "security_browser_session_credentials",
     "continue_watching_state", "recently_watched_state",
     "epg_series_artwork_fallback",
+    "suite_metadata_manual_assignment_values",
 )
 ALTERED_TABLES = frozenset(
     ("security_human_accounts", "mutation_operations",
      "security_device_pairing_requests",
      "security_browser_session_credentials",
      "continue_watching_state", "recently_watched_state",
-     "vdr_recording_cache", "epg_series_artwork_fallback")
+     "vdr_recording_cache", "epg_series_artwork_fallback",
+     "suite_metadata_manual_assignment_values")
 )
 
 GiB = 1024 ** 3
@@ -205,6 +209,26 @@ def seed_owned_runtime_records(connection):
         INSERT INTO epg_series_artwork_provider_cache(
           provider,identity_provider,identity_value,outcome,expires_at)
           VALUES('tvmaze','tvdb','p7_series','not-found',2000000000);
+        -- Real typed IDs and valid metadata-entity/target/assignment parents.
+        INSERT INTO suite_metadata_entities(metadata_entity_id,media_type)
+          VALUES('mdent_22222222222222222222222222222222','series');
+        INSERT INTO suite_metadata_targets(metadata_target_id,target_type)
+          VALUES('mdtgt_22222222222222222222222222222222','recording');
+        INSERT INTO suite_metadata_assignments(
+          metadata_assignment_id,metadata_target_id,metadata_entity_id,
+          manual_assignment)
+          VALUES('mdasg_22222222222222222222222222222222',
+                 'mdtgt_22222222222222222222222222222222',
+                 'mdent_22222222222222222222222222222222',1);
+        INSERT INTO suite_metadata_manual_assignment_values(
+          metadata_assignment_id,metadata_target_id,backend_id,resource_key,
+          provider_id,external_namespace,external_id,media_type,title,
+          actor_ref,revision,cast_complete)
+          VALUES('mdasg_22222222222222222222222222222222',
+                 'mdtgt_22222222222222222222222222222222',
+                 'p7_backend','p7_new_recording','p7fixture','imdb',
+                 'tt9999999','series','P7 new manually assigned title',
+                 'p7_actor',2,1);
     """)
     connection.commit()
 
@@ -229,7 +253,13 @@ def current_owned_records(connection):
               "epg_series_artwork_fallback",
               "epg_series_artwork_provider_cache",
               "security_first_admin_bootstrap_issuances",
-              "security_human_account_create_idempotency")
+              "security_human_account_create_idempotency",
+              "suite_metadata_entities", "suite_metadata_targets",
+              "suite_metadata_providers", "suite_metadata_assignments",
+              "suite_metadata_manual_assignment_values",
+              "suite_metadata_manual_assignment_withdrawals",
+              "suite_metadata_person_values",
+              "suite_metadata_recording_person_relations")
     return {table: connection.execute('SELECT * FROM "' + table + '"').fetchall()
             for table in tables}
 
@@ -290,6 +320,9 @@ def run(binary):
         # A deliberately reconstructed shape exercises C++ ALTER guards.
         # It is NOT part of the tagged historical Git SQL.
         with closing(sqlite3.connect(old)) as preupgrade:
+            # Real checked-in current foundational SQL supplies the FK parent
+            # schema; only the pre-cast manual assignment shape is synthetic.
+            preupgrade.executescript(METADATA.read_text(encoding="utf-8"))
             preupgrade.executescript(
                 PRIOR_COLUMN_FIXTURE.read_text(encoding="utf-8"))
             preupgrade.executescript(
@@ -298,6 +331,8 @@ def run(binary):
                 SESSION_PLAYBACK_FIXTURE.read_text(encoding="utf-8"))
             preupgrade.executescript(
                 SERIES_ARTWORK_FIXTURE.read_text(encoding="utf-8"))
+            preupgrade.executescript(
+                MANUAL_METADATA_FIXTURE.read_text(encoding="utf-8"))
             require_consistent(preupgrade)
         with closing(sqlite3.connect(old)) as source, closing(
                 sqlite3.connect(backup)) as target:
@@ -320,6 +355,8 @@ def run(binary):
             for absent in ("metadata_payload", "recording_duration_known"):
                 assert absent not in prior_shape["vdr_recording_cache"]
             assert "origin" not in prior_shape["epg_series_artwork_fallback"]
+            assert "cast_complete" not in prior_shape[
+                "suite_metadata_manual_assignment_values"]
             old_prior_rows = prior_rows(source, prior_shape)
             assert all(len(rows) == 1 for rows in old_prior_rows.values())
             original_objects = dict(source.execute(
@@ -399,6 +436,16 @@ def run(binary):
                         'SELECT "' + added + '" FROM vdr_recording_cache '
                         "WHERE backend_id='test' AND cache_key='key' LIMIT 1").fetchone() == (
                             expected,), "old recording cache default changed"
+                assert "cast_complete" in updated_columns[
+                    "suite_metadata_manual_assignment_values"], (
+                        "manual recording cast_complete ALTER did not run")
+                assert connection.execute(
+                    "SELECT title,season_number,episode_number,cast_complete "
+                    "FROM suite_metadata_manual_assignment_values "
+                    "WHERE metadata_assignment_id="
+                    "'mdasg_11111111111111111111111111111111'").fetchone() == (
+                        "P7 old manual metadata", 2, 4, 0), (
+                            "old manual recording assignment changed after ALTER")
                 assert "origin" in updated_columns["epg_series_artwork_fallback"], (
                     "series artwork origin ALTER did not run")
                 assert connection.execute(
@@ -460,6 +507,7 @@ def run(binary):
         print("P7_SECURITY_GRANTS_AUDIT_PRESERVATION=PASS", flush=True)
         print("P7_SERIES_ARTWORK_PREORIGIN_AND_PROVIDER_CACHE=PASS", flush=True)
         print("P7_ADMIN_BOOTSTRAP_AND_ACCOUNT_CREATE_PRESERVATION=PASS", flush=True)
+        print("P7_MANUAL_METADATA_PRE_CAST_MIGRATION=PASS", flush=True)
         print("P7_HISTORICAL_CPP_SCHEMA_REHEARSAL=PASS", flush=True)
 
 

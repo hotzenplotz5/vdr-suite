@@ -71,3 +71,12 @@ The fixture is **not from a released package or an actual user database**.
 without `origin` and one fake artwork row. Tests verify the real C++ ALTER,
 default `external-fallback`, durability and offline restore. It is not a
 source-attested database from a released package.
+
+## Manual recording metadata without cast_complete
+
+`p7-pre-cast-complete-manual-metadata.sql` is a synthetic older table
+containing one artificial title, season and episode. It requires the
+current checked-in metadata-platform SQL foundation for foreign-key parent
+tables. The real C++ repository must preserve the old assignment and add
+`cast_complete=0`, while a separate new assignment exercises
+`cast_complete=1`. It is not an actual prior daemon-created database.

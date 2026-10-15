@@ -19,6 +19,7 @@ EXERCISED_BY_P7_CPP = frozenset((
     "core/media/src/MediaSessionRepository.cpp",
     "core/media/src/MediaTranscodeBackendSettingsRepository.cpp",
     "core/media/src/RecentlyWatchedRepository.cpp",
+    "core/metadata/src/ManualRecordingMetadataAssignmentRepository.cpp",
     "core/metadata/src/RecordingSeriesHierarchyOverrideRepository.cpp",
     "core/operations/src/MutationOperationRepository.cpp",
     "core/recordings/src/PublicRecordingIdentityRepository.cpp",
@@ -47,7 +48,6 @@ NOT_YET_EXERCISED_BY_P7_CPP = frozenset((
     "core/agent/src/BackendAgentRepository.cpp",
     "core/agent/src/EmbeddedRecordingCutRepository.cpp",
     "core/agent/src/EmbeddedRecordingMarksRepository.cpp",
-    "core/metadata/src/ManualRecordingMetadataAssignmentRepository.cpp",
     "core/timers/src/NativeTimerBindingRepository.cpp",
     "core/vdr/src/VdrRecordingNativeMetadataRepositorySchema.cpp",
 ))
@@ -94,7 +94,7 @@ class P7SchemaOwnerInventoryTests(unittest.TestCase):
     def test_uncovered_owners_remain_explicit_and_nonzero(self):
         # P7 is intentionally not a complete compatibility gate yet.
         self.assertTrue(NOT_YET_EXERCISED_BY_P7_CPP)
-        self.assertEqual(len(EXERCISED_BY_P7_CPP), 27)
+        self.assertEqual(len(EXERCISED_BY_P7_CPP), 28)
 
 
 if __name__ == "__main__":

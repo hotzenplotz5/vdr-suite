@@ -26,6 +26,8 @@ test-packaging-p7-runtime-schema:
 		core/vdr/src/EpgSeriesArtworkProviderCacheRepository.cpp \
 		core/recordings/src/PublicRecordingIdentityRepository.cpp \
 		core/metadata/src/RecordingSeriesHierarchyOverrideRepository.cpp \
+		core/metadata/src/ManualRecordingMetadataAssignmentRepository.cpp \
+		core/metadata/src/MetadataIdentity.cpp \
 		core/vdr/src/VdrChannelCacheRepository.cpp \
 		core/operations/src/MutationOperation.cpp \
 		core/operations/src/MutationOperationRepository.cpp \

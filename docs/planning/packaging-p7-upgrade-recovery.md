@@ -285,3 +285,21 @@ records and their schema objects must survive two fresh C++ process opens.
 The independent offline backup restores the initial no-table state.
 This validates table initialization and persistence, **not** productive
 first-admin onboarding or actual credentials.
+
+## P7 manual recording metadata before cast_complete
+
+The isolated C++ rehearsal invokes
+`ManualRecordingMetadataAssignmentRepository::ensureSchema()` twice per
+process and across two separate C++ invocations. A synthetic pre-column
+manual assignment has a title, season/episode, valid entity/target/provider
+and assignment FK parents but no `cast_complete`. The real initializer must
+add `cast_complete INTEGER NOT NULL DEFAULT 0` without changing the old
+values. A separate new assignment with `cast_complete=1` must survive a
+fresh-process reopen. The newly created withdrawal, people and cast relation
+tables are included in the schema and persistence snapshots. The offline
+backup/restore must recover the pre-column table unchanged.
+
+The FK foundation here is from the **current checked-in**
+`database/schema/metadata-platform-v1.sql` while the manual assignment
+table is synthetically reconstructed; therefore this is not evidence for an
+actual previous released package or a real manual-install database.
