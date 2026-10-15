@@ -273,3 +273,15 @@ row must survive the real C++ ALTER with `external-fallback` as default.
 New artwork and provider-cache rows must survive independent process reopens.
 Offline restore must recover the pre-origin column shape and its old rows.
 This is not a live migration or compatibility approval.
+
+## P7 first-admin bootstrap and account-create idempotency
+
+The isolated C++ rehearsal now invokes
+`FirstAdminBootstrapRepository::ensureSchema()` and
+`HumanAccountCreationRepository::ensureSchema()`. It seeds deliberately
+unusable, expired synthetic bootstrap verifier data and a synthetic
+account-create idempotency record with valid actor/account FKs. Both data
+records and their schema objects must survive two fresh C++ process opens.
+The independent offline backup restores the initial no-table state.
+This validates table initialization and persistence, **not** productive
+first-admin onboarding or actual credentials.

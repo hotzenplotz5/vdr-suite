@@ -12,6 +12,8 @@ test-packaging-p7-runtime-schema:
 		core/security/src/AccountabilityEventRepository.cpp \
 		core/security/src/DeviceCredentialVerifierRepository.cpp \
 		core/security/src/SecurityPermissionGrantRepository.cpp \
+		core/security/src/FirstAdminBootstrapRepository.cpp \
+		core/security/src/HumanAccountCreationRepository.cpp \
 		core/media/src/ContinueWatchingRepository.cpp \
 		core/media/src/RecentlyWatchedRepository.cpp \
 		core/media/src/MediaSessionRepository.cpp \

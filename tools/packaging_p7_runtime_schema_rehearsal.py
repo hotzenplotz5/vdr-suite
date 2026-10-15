@@ -194,6 +194,14 @@ def seed_owned_runtime_records(connection):
           width,height,resolved_at)
           VALUES('p7_backend','p7_channel','p7_artwork_event','tvmaze',
                  'external-fallback','/p7/fallback.jpg',300,450,42);
+        INSERT INTO security_first_admin_bootstrap_issuances(
+          bootstrap_id,verifier_hash,expires_at)
+          VALUES('p7_bootstrap','P7_FAKE_UNUSABLE_VERIFIER',
+                 '2000-01-01 00:00:00');
+        INSERT INTO security_human_account_create_idempotency(
+          actor_id,idempotency_key,login_name,display_name,account_id)
+          VALUES('p7_actor','p7_once_account','p7_login',
+                 'P7 example account','p7_account');
         INSERT INTO epg_series_artwork_provider_cache(
           provider,identity_provider,identity_value,outcome,expires_at)
           VALUES('tvmaze','tvdb','p7_series','not-found',2000000000);
@@ -219,7 +227,9 @@ def current_owned_records(connection):
               "accountability_events", "security_device_credential_verifiers",
               "security_actor_permission_grants",
               "epg_series_artwork_fallback",
-              "epg_series_artwork_provider_cache")
+              "epg_series_artwork_provider_cache",
+              "security_first_admin_bootstrap_issuances",
+              "security_human_account_create_idempotency")
     return {table: connection.execute('SELECT * FROM "' + table + '"').fetchall()
             for table in tables}
 
@@ -449,6 +459,7 @@ def run(binary):
         print("P7_RECORDING_CACHE_AND_EPG_ARTWORK_PRESERVATION=PASS", flush=True)
         print("P7_SECURITY_GRANTS_AUDIT_PRESERVATION=PASS", flush=True)
         print("P7_SERIES_ARTWORK_PREORIGIN_AND_PROVIDER_CACHE=PASS", flush=True)
+        print("P7_ADMIN_BOOTSTRAP_AND_ACCOUNT_CREATE_PRESERVATION=PASS", flush=True)
         print("P7_HISTORICAL_CPP_SCHEMA_REHEARSAL=PASS", flush=True)
 
 

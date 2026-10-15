@@ -28,6 +28,8 @@
 #include "SecurityPermissionGrantRepository.h"
 #include "EpgSeriesArtworkFallbackRepository.h"
 #include "EpgSeriesArtworkProviderCacheRepository.h"
+#include "FirstAdminBootstrapRepository.h"
+#include "HumanAccountCreationRepository.h"
 #include <sqlite3.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -125,6 +127,8 @@ int main(int argc, char** argv)
         SecurityPermissionGrantRepository permissions(database);
         EpgSeriesArtworkFallbackRepository fallbackArtwork(database);
         EpgSeriesArtworkProviderCacheRepository artworkProviderCache(database);
+        FirstAdminBootstrapRepository firstAdmin(database);
+        HumanAccountCreationRepository accountCreation(database);
         if (!identities.ensureSchema() ||
             !accounts.ensureSchema() ||
             !verifiers.ensureSchema()) {
@@ -181,6 +185,10 @@ int main(int argc, char** argv)
             std::cerr << "P7_SERIES_ARTWORK_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
             return 20;
         }
+        if (!firstAdmin.ensureSchema() || !accountCreation.ensureSchema()) {
+            std::cerr << "P7_ADMIN_ACCOUNT_CREATE_SCHEMA=FAIL pass=" << pass << "\n";
+            return 21;
+        }
         if (!scalarPositive(database.handle(),
             "SELECT count(*) FROM suite_metadata_schema_versions;") ||
             !scalarPositive(database.handle(),
@@ -207,7 +215,9 @@ int main(int argc, char** argv)
             "'security_device_credential_verifiers',"
             "'security_actor_permission_grants',"
             "'epg_series_artwork_fallback',"
-            "'epg_series_artwork_provider_cache'))=32 "
+            "'epg_series_artwork_provider_cache',"
+            "'security_first_admin_bootstrap_issuances',"
+            "'security_human_account_create_idempotency'))=34 "
             "THEN 1 ELSE 0 END;")) {
             std::cerr << "P7_RUNTIME_SQLITE_INTEGRITY=FAIL\n";
             return 7;
