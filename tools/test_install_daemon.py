@@ -106,7 +106,7 @@ class InstallerTests(unittest.TestCase):
         self.live.write_bytes(b"ELF-fixture-git-" + previous[:12].encode() + b"\\n")
         git(self.root, "switch", "-c", "replacement-branch", self.old)
         target = commit(self.root, "core/daemon/src/New.cpp",
-                        "// new static binary; no database migration\\n")
+                        "// new static binary; ordinary code replacement\\n")
         binary = self._sealed_binary(target)
         log = io.StringIO()
         with contextlib.redirect_stdout(log):
