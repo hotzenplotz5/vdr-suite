@@ -150,7 +150,8 @@ proven read-only. The distinct VIDAA repository is private; see its own
    A failed check must not terminate the calling shell.
 2. Preflight the actual checkout/build filesystem before creating a
    substantial new clone. Check exact branch and full 40-character pinned
-   SHA against current GitHub/CI, and inspect existing installed service/
+   SHA against the authoritative GitHub ref (never gate install on CI),
+   and inspect existing installed service/
    source/DB risk without touching production state.
 3. **Only if no suitable existing verified checkout/candidate is available,**
    create an **isolated, new, yavdr-owned temporary directory** with
@@ -195,6 +196,35 @@ proven read-only. The distinct VIDAA repository is private; see its own
 
 Authoritative operational examples and gates:
 `docs/development/daemon-only-installer.md`.
+
+## KISS: daemon-only replacement is independent of the running Git branch
+
+**Binding rule for `tools/install_daemon.py` and EVERY future install block:**
+
+- The installed daemon is a **replaceable executable**, not the parent of the
+  next build. The old and new source commits may be siblings, diverged,
+  ancestors, or on unrelated branches. **Never add an ancestor/merge-base,
+  branch-equality, “installed source must be X”, or CI-completion gate** as a
+  prerequisite for replacing the daemon. Do not merge/cherry-pick feature
+  branches solely to satisfy an invented installer ancestry rule.
+- `check` determines the requested target SHA, existing verified binary/seal
+  and **actual database risk**. Source-to-source `git diff OLD NEW` works
+  without ancestor relationships. Existing historical source information is
+  needed for assessing schema changes, **not** to dictate upgrade direction.
+  Keep explicit DB backup/review for actual risks and rollback of the static
+  executable; preserve database, pairing, configuration and recordings.
+- **KISS sequence: `check` → reuse sealed target if present, otherwise build
+  exactly once as `yavdr` → separately approved `apply` as root.** No
+  needless rebuild after interrupted installation. No root compilation.
+- **Never put GitHub Actions queries, CI polling, `sleep` loops, CI waits or
+  external CI status checks in any installation command block or installer.**
+  CI is a separate development/merge concern, not an execution step in the
+  user's installation. Deliver an accurate existing-installer block promptly.
+- Preserve the regression tests
+  `test_divergent_daemon_history_is_not_an_install_blocker`,
+  `test_divergent_previous_commit_reuses_sealed_target_without_compiling`
+  and `test_divergent_schema_change_still_demands_db_review`. They protect
+  this invariant. **Do not replace them with stricter old-version checks.**
 
 ## Mandatory: NEVER compile the same daemon twice / reuse before building
 
