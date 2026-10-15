@@ -129,3 +129,13 @@ The 33/33 counted named C++ initializers do not cover SQL writers outside
 that naming pattern, and the synthetic fixtures are not daemon-created
 databases from a previously published binary. No installed yaVDR service,
 real runtime database or Launchpad archive has been changed.
+
+
+## P7 post-33 runtime SQL-writer survey (incremental)
+
+A separate C++ runtime DDL file-owner inventory classifies named, included,
+indirectly exercised and pending writers. The first additional real C++ test
+covers TimerAssignmentSetRevisionRepository.cpp with a synthetic epoch-7
+backfill, three triggers and an epoch-8 insertion. Eight writer source files
+remain pending; dynamic SQL, in-file statement changes, migration DML and real
+manual-install database transitions are not yet covered. This does not close P7.

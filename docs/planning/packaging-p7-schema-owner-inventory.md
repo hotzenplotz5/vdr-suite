@@ -43,3 +43,32 @@ and WAL snapshot/restore; reject unknown/future markers and incompatible
 binary/database pairs; and separately test systemd start/stop and admin
 onboarding. There is no supported released earlier Debian/Ubuntu package
 predecessor in the experimental `exp1 → exp2` sequence.
+
+
+## Additional P7 runtime SQL-writer inventory (incremental)
+
+A separate test (tools/test_packaging_p7_sql_writer_inventory.py) surveys core runtime
+C++ source and include files and api/rest/src for CREATE/ALTER/DROP TABLE, INDEX,
+TRIGGER and VIEW, REINDEX and schema-version PRAGMAs. Adjacent C++ SQL string
+literals are joined. Unknown source-file owners fail the inventory regression.
+SQL in tests, tools and historical SQL fixtures is outside this runtime scope.
+
+The 33 named owners and GenreIndex .inc remain covered in the original harness.
+BackendRuntimeGeneration.cpp is indirectly exercised through BackendAgentRepository.
+The additional TimerAssignmentSetRevisionRepository.cpp path is exercised with
+an in-memory synthetic legacy assignment epoch 7, idempotent backfill, three
+triggers and an epoch 8 insert through real C++. It is not historical release
+evidence. Eight additional classified writers remain PENDING, not covered:
+
+- core/agent/src/BackendAgentCommandDelivery.cpp
+- core/agent/src/BackendAgentCommandReservation.cpp
+- core/agent/src/BackendAgentRecordingCutReconciliationRepository.cpp
+- core/agent/src/BackendAgentRecordingMarksModifyReconciliation.cpp
+- core/daemon/src/EmbeddedBackendLifecycle.cpp
+- core/daemon/src/SeriesArtworkBackendSettingsService.cpp
+- core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp
+- core/timers/src/TimerAssignmentReassignmentRepository.cpp
+
+This file-owner guard does not fingerprint newly added statements inside an already
+classified source, exhaust dynamic SQL, or cover data-modifying migrations.
+Those are separate open P7 gates. Do not infer production upgrade support.

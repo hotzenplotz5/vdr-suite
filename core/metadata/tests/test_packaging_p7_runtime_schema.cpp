@@ -269,6 +269,81 @@ int main(int argc, char** argv)
             return 7;
         }
     }
+
+    // Separate synthetic pre-set-revision database: real C++ migration and
+    // trigger DDL without touching the historical source fixture or any host DB.
+    {
+        Database legacy;
+        if (!legacy.open(":memory:") ||
+            !legacy.execute("PRAGMA foreign_keys=ON;") ||
+            !legacy.execute(
+                "CREATE TABLE timer_intents ("
+                "timer_intent_id TEXT PRIMARY KEY NOT NULL,"
+                "intent_revision INTEGER NOT NULL);"
+                "INSERT INTO timer_intents VALUES ('p7_legacy_intent',1);"))
+        {
+            std::cerr << "P7_TIMER_SET_REVISION_FIXTURE=FAIL\n";
+            return 30;
+        }
+        vdrsuite::timers::TimerAssignmentRepository oldAssignments(legacy);
+        if (!oldAssignments.ensureSchema() ||
+            !legacy.execute(
+                "INSERT INTO timer_assignments ("
+                "timer_assignment_id,assignment_revision,timer_intent_id,"
+                "intent_revision,assignment_epoch,state,role,"
+                "decision_policy_version,decision_reasons,created_at,updated_at)"
+                " VALUES ('p7_legacy_assignment',1,'p7_legacy_intent',"
+                "'1',7,'proposed','replica','p7-fixture','fixture',12,12);"))
+        {
+            std::cerr << "P7_TIMER_SET_REVISION_PRIOR_ROW=FAIL\n";
+            return 31;
+        }
+        const auto first = oldAssignments.assignmentSetRevisionForIntent(
+            "p7_legacy_intent");
+        const auto repeated = oldAssignments.assignmentSetRevisionForIntent(
+            "p7_legacy_intent");
+        if (!first.ok() || first.assignmentSetRevision != "7" ||
+            !repeated.ok() || repeated.assignmentSetRevision != "7" ||
+            !scalarPositive(legacy.handle(),
+                "SELECT CASE WHEN count(*)=3 THEN 1 ELSE 0 END "
+                "FROM sqlite_master WHERE type='trigger' "
+                "AND name LIKE 'trg_timer_assignment_set_revision_%';") ||
+            !scalarPositive(legacy.handle(),
+                "SELECT CASE WHEN count(*)=1 THEN 1 ELSE 0 END "
+                "FROM timer_assignments WHERE "
+                "timer_assignment_id='p7_legacy_assignment' "
+                "AND assignment_epoch=7;"))
+        {
+            std::cerr << "P7_TIMER_SET_REVISION_BACKFILL=FAIL\n";
+            return 32;
+        }
+        if (!legacy.execute(
+                "INSERT INTO timer_assignments ("
+                "timer_assignment_id,assignment_revision,timer_intent_id,"
+                "intent_revision,assignment_epoch,state,role,"
+                "decision_policy_version,decision_reasons,created_at,updated_at)"
+                " VALUES ('p7_new_assignment',1,'p7_legacy_intent',"
+                "'1',8,'proposed','replica','p7-fixture','fixture',13,13);"))
+        {
+            std::cerr << "P7_TIMER_SET_REVISION_TRIGGER=FAIL\n";
+            return 33;
+        }
+        const auto afterInsert = oldAssignments.assignmentSetRevisionForIntent(
+            "p7_legacy_intent");
+        if (!afterInsert.ok() || afterInsert.assignmentSetRevision != "8" ||
+            !scalarPositive(legacy.handle(),
+                "SELECT CASE WHEN count(*)=0 THEN 1 ELSE 0 END "
+                "FROM pragma_foreign_key_check;") ||
+            !scalarPositive(legacy.handle(),
+                "SELECT CASE WHEN count(*)=2 THEN 1 ELSE 0 END "
+                "FROM timer_assignments WHERE timer_intent_id='p7_legacy_intent';"))
+        {
+            std::cerr << "P7_TIMER_SET_REVISION_PRESERVATION=FAIL\n";
+            return 34;
+        }
+    }
+    std::cout << "P7_TIMER_ASSIGNMENT_SET_REVISION_SCHEMA=PASS\n";
+
     database.close();
     std::cout << "P7_RUNTIME_SCHEMA_REPOSITORIES=PASS\n";
     return 0;
