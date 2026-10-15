@@ -5,9 +5,11 @@ Only creates databases in a fresh, auto-deleted private scratch directory.
 No live service, apt, package installation, or production database access.
 """
 import argparse
+import ast
 from contextlib import closing
 import os
 from pathlib import Path
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -64,6 +66,55 @@ def original_rows(connection, columns):
         ).fetchall()
     return snapshot
 
+
+
+
+def seed_pre_native_metadata_migration(connection):
+    """Reconstruct a synthetic pre-marker native cache from current C++ DDL.
+
+    This is NOT historical release evidence. Parse only adjacent C++ SQL
+    literals in the known initializer and deliberately omit its data-update
+    and migration-marker statements; fail on changed/ambiguous layout.
+    """
+    source = (Path(__file__).resolve().parent.parent /
+              "core" / "vdr" / "src" /
+              "VdrRecordingNativeMetadataRepositorySchema.cpp").read_text(
+                  encoding="utf-8")
+    start = source.index("const bool ready = database_.execute(")
+    finish = source.index("    if (ready) schemaReady_ = true;", start)
+    fragment = source[start:finish]
+    literals = re.findall(r'"(?:\\.|[^"\\])*"', fragment)
+    if not literals:
+        raise ValueError("native metadata C++ SQL initializer missing")
+    sql = "".join(ast.literal_eval(piece) for piece in literals)
+    if sql.count("UPDATE vdr_recording_native_metadata") != 1:
+        raise ValueError("native metadata migration DML is ambiguous")
+    ddl, dml = sql.split("UPDATE vdr_recording_native_metadata", 1)
+    if (ddl.count("CREATE TABLE IF NOT EXISTS") != 5 or
+            "tvscraper-signed-series-provider-id-v1" not in dml or
+            "INSERT OR IGNORE INTO vdr_recording_native_metadata_migration" not in dml):
+        raise ValueError("native metadata current C++ schema contract changed")
+    connection.executescript(ddl)
+    connection.execute(
+        "INSERT INTO vdr_recording_native_metadata("
+        "backend_id,recording_key,backend_native_id,content_state,reason,"
+        "negative_expires_at,title) VALUES(?,?,?,?,?,?,?)",
+        ("p7_pre_backend", "p7_pre_native_recording",
+         "p7_pre_native_id", "not_found", "provider-no-match",
+         2468, "P7 prior native title"))
+    connection.commit()
+
+
+def native_prior_state(connection):
+    row = connection.execute(
+        "SELECT backend_id,recording_key,backend_native_id,"
+        "content_state,reason,negative_expires_at,title "
+        "FROM vdr_recording_native_metadata "
+        "WHERE recording_key='p7_pre_native_recording'").fetchone()
+    marker = connection.execute(
+        "SELECT count(*) FROM vdr_recording_native_metadata_migration "
+        "WHERE name='tvscraper-signed-series-provider-id-v1'").fetchone()[0]
+    return row, marker
 
 
 def seed_owned_runtime_records(connection):
@@ -284,6 +335,37 @@ def seed_owned_runtime_records(connection):
           VALUES('p7_agent_backend','p7_agent_channel',17,
                  'P7 fake channel','P7','fixture',0,0,1,
                  'p7_agent','p7_agent_instance',1,1,1,1000,'r1');
+        INSERT INTO embedded_recording_cut_commands(
+          backend_id,operation_id,request_identity,command_id,
+          fingerprint,payload,instance_id,state,edited_recording_key)
+          VALUES('p7_backend','p7_cut_operation','p7_cut_request',
+                 'p7_cut_command','p7_cut_fingerprint',
+                 '{"synthetic":true}','p7_agent_instance','starting',
+                 'p7_test_recording');
+        INSERT INTO embedded_recording_marks_commands(
+          backend_id,operation_id,request_identity,command_id,
+          fingerprint,payload,instance_id,state,canonical_revision)
+          VALUES('p7_backend','p7_marks_operation','p7_marks_request',
+                 'p7_marks_command','p7_marks_fingerprint',
+                 '{"synthetic":true}','p7_agent_instance','starting',
+                 'p7_fake_revision');
+        INSERT INTO vdr_recording_native_metadata(
+          backend_id,recording_key,backend_native_id,content_state,title)
+          VALUES('p7_backend','p7_new_native_recording','p7_native_id',
+                 'found','P7 new native title');
+        INSERT INTO vdr_recording_native_text_list(
+          backend_id,recording_key,kind,ordinal,value)
+          VALUES('p7_backend','p7_new_native_recording',
+                 'genre',0,'P7 mock genre');
+        INSERT INTO vdr_recording_native_person(
+          backend_id,recording_key,ordinal,role,name,
+          name_folded,normalized_name)
+          VALUES('p7_backend','p7_new_native_recording',
+                 0,'actor','P7 Person','p7 person','p7 person');
+        INSERT INTO vdr_recording_native_artwork(
+          backend_id,recording_key,ordinal,orientation,provider,path)
+          VALUES('p7_backend','p7_new_native_recording',
+                 0,'poster','p7_provider','/p7/new-native-artwork.jpg');
     """)
     connection.commit()
 
@@ -322,7 +404,14 @@ def current_owned_records(connection):
               "backend_agent_observation_receipts",
               "backend_runtime_generations",
               "backend_agent_observation_cursors",
-              "backend_agent_channel_facts")
+              "backend_agent_channel_facts",
+              "embedded_recording_cut_commands",
+              "embedded_recording_marks_commands",
+              "vdr_recording_native_metadata",
+              "vdr_recording_native_text_list",
+              "vdr_recording_native_person",
+              "vdr_recording_native_artwork",
+              "vdr_recording_native_metadata_migration")
     return {table: connection.execute('SELECT * FROM "' + table + '"').fetchall()
             for table in tables}
 
@@ -396,6 +485,7 @@ def run(binary):
                 SERIES_ARTWORK_FIXTURE.read_text(encoding="utf-8"))
             preupgrade.executescript(
                 MANUAL_METADATA_FIXTURE.read_text(encoding="utf-8"))
+            seed_pre_native_metadata_migration(preupgrade)
             require_consistent(preupgrade)
         with closing(sqlite3.connect(old)) as source, closing(
                 sqlite3.connect(backup)) as target:
@@ -420,6 +510,13 @@ def run(binary):
             assert "origin" not in prior_shape["epg_series_artwork_fallback"]
             assert "cast_complete" not in prior_shape[
                 "suite_metadata_manual_assignment_values"]
+            old_native_row, old_native_marker = native_prior_state(source)
+            assert old_native_row == (
+                "p7_pre_backend", "p7_pre_native_recording",
+                "p7_pre_native_id", "not_found", "provider-no-match",
+                2468, "P7 prior native title"), (
+                    "synthetic native metadata pre-marker row missing")
+            assert old_native_marker == 0
             old_prior_rows = prior_rows(source, prior_shape)
             assert all(len(rows) == 1 for rows in old_prior_rows.values())
             original_objects = dict(source.execute(
@@ -456,6 +553,13 @@ def run(binary):
                 assert prior_rows_preserved(
                     old_prior_rows, prior_rows(connection, prior_shape)), (
                     "pre-migration security, operation or pairing data changed")
+                expected_native = list(old_native_row)
+                expected_native[5] = 0  # one-time cache TTL invalidation
+                native_row, native_marker = native_prior_state(connection)
+                assert native_row == tuple(expected_native), (
+                    "native metadata migration modified unexpected fields")
+                assert native_marker == 1, (
+                    "native metadata one-time migration marker missing")
                 updated_columns = prior_columns(connection)
                 assert "revision" in updated_columns["security_human_accounts"], (
                     "account revision ALTER did not run")
@@ -547,6 +651,9 @@ def run(binary):
                 sqlite3.connect(restored)) as target:
             source.backup(target)
             require_consistent(target)
+            assert native_prior_state(target) == (
+                old_native_row, old_native_marker), (
+                    "native metadata recovery did not restore original TTL/marker")
             assert original_rows(target, columns) == before, (
                 "offline restored rows differ from historical source")
             assert prior_rows(target, prior_shape) == old_prior_rows, (
@@ -573,6 +680,8 @@ def run(binary):
         print("P7_MANUAL_METADATA_PRE_CAST_MIGRATION=PASS", flush=True)
         print("P7_NATIVE_TIMER_BINDINGS_PRESERVATION=PASS", flush=True)
         print("P7_BACKEND_AGENT_STATE_PRESERVATION=PASS", flush=True)
+        print("P7_EMBEDDED_RECORDING_EDITS_PRESERVATION=PASS", flush=True)
+        print("P7_NATIVE_METADATA_ONETIME_DML_PRESERVATION=PASS", flush=True)
         print("P7_HISTORICAL_CPP_SCHEMA_REHEARSAL=PASS", flush=True)
 
 

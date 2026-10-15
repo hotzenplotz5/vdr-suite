@@ -16,6 +16,8 @@ ROOT = Path(__file__).resolve().parent.parent
 # be classified. Adding a new owner without review breaks this focused gate.
 EXERCISED_BY_P7_CPP = frozenset((
     "core/agent/src/BackendAgentRepository.cpp",
+    "core/agent/src/EmbeddedRecordingCutRepository.cpp",
+    "core/agent/src/EmbeddedRecordingMarksRepository.cpp",
     "core/media/src/ContinueWatchingRepository.cpp",
     "core/media/src/MediaSessionRepository.cpp",
     "core/media/src/MediaTranscodeBackendSettingsRepository.cpp",
@@ -45,12 +47,9 @@ EXERCISED_BY_P7_CPP = frozenset((
     "core/vdr/src/GlobalSearchRepository.cpp",
     "core/vdr/src/VdrChannelCacheRepository.cpp",
     "core/vdr/src/VdrRecordingCacheRepository.cpp",
-))
-NOT_YET_EXERCISED_BY_P7_CPP = frozenset((
-    "core/agent/src/EmbeddedRecordingCutRepository.cpp",
-    "core/agent/src/EmbeddedRecordingMarksRepository.cpp",
     "core/vdr/src/VdrRecordingNativeMetadataRepositorySchema.cpp",
 ))
+NOT_YET_EXERCISED_BY_P7_CPP = frozenset()
 ALL_CLASSIFIED = EXERCISED_BY_P7_CPP | NOT_YET_EXERCISED_BY_P7_CPP
 
 
@@ -91,10 +90,10 @@ class P7SchemaOwnerInventoryTests(unittest.TestCase):
         self.assertTrue((ROOT / "core" / "metadata" / "src" /
                          "GenreIndexRepositorySchema.inc").is_file())
 
-    def test_uncovered_owners_remain_explicit_and_nonzero(self):
-        # P7 is intentionally not a complete compatibility gate yet.
-        self.assertTrue(NOT_YET_EXERCISED_BY_P7_CPP)
-        self.assertEqual(len(EXERCISED_BY_P7_CPP), 30)
+    def test_named_repository_initializers_all_exercised(self):
+        # Named ensureSchema coverage is not full SQL-writer/upgrade coverage.
+        self.assertFalse(NOT_YET_EXERCISED_BY_P7_CPP)
+        self.assertEqual(len(EXERCISED_BY_P7_CPP), 33)
 
 
 if __name__ == "__main__":

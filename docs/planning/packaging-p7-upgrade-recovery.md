@@ -327,3 +327,31 @@ Existing SQL constraints, rows and indexes must survive fresh-process
 reinitialization; the original offline backup must restore pre-agent state.
 No real agent, credential or VDR backend is contacted. This is **not** runtime
 agent acceptance or live manual-install migration evidence.
+
+## P7 embedded recording cut and marks command ledgers
+
+The actual C++ `EmbeddedRecordingCutRepository` and
+`EmbeddedRecordingMarksRepository` initializers are now exercised with
+synthetic cut/marks commands in a disposable SQLite database. Each fake
+command's identity, fingerprint, state and editing evidence are checked
+for preservation across two fresh C++ process starts; unique command-ID
+constraints and table definitions are retained. The independent offline
+backup restores the pre-command-table state. No actual VDR recording,
+cut command, marks file or host video data is changed.
+
+## P7 native recording metadata one-time migration
+
+The isolated C++ rehearsal invokes
+`VdrRecordingNativeMetadataRepository::ensureSchema()`. Its synthetic
+pre-migration state is created from the **current checked-in initializer
+DDL**, deliberately omitting the subsequent one-time migration DML/marker,
+rather than claiming historical released-package provenance. A synthetic
+`not_found` series recording with `reason=provider-no-match` and nonzero
+negative cache TTL must have that TTL reset to zero exactly once, with the
+`tvscraper-signed-series-provider-id-v1` migration marker added and all
+recording identity/title fields preserved. A new metadata record and child
+text/person/artwork records must survive another independent process open.
+The offline backup must reproduce the original pre-migration TTL and absence
+of the marker. This is not approval for migration of a real pre-package
+daemon database, and SQL writers outside the named Repository pattern still
+require a separate inventory.

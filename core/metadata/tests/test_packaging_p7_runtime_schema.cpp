@@ -33,6 +33,9 @@
 #include "ManualRecordingMetadataAssignmentRepository.h"
 #include "NativeTimerBindingRepository.h"
 #include "BackendAgentLifecycle.h"
+#include "EmbeddedRecordingCutRepository.h"
+#include "EmbeddedRecordingMarksRepository.h"
+#include "VdrRecordingNativeMetadataRepository.h"
 #include <sqlite3.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -135,6 +138,9 @@ int main(int argc, char** argv)
         ManualRecordingMetadataAssignmentRepository manualMetadata(database);
         vdrsuite::timers::NativeTimerBindingRepository nativeBindings(database);
         BackendAgentRepository backendAgents(database);
+        EmbeddedRecordingCutRepository embeddedCut(database);
+        EmbeddedRecordingMarksRepository embeddedMarks(database);
+        VdrRecordingNativeMetadataRepository nativeMetadata(database);
         if (!identities.ensureSchema() ||
             !accounts.ensureSchema() ||
             !verifiers.ensureSchema()) {
@@ -207,6 +213,14 @@ int main(int argc, char** argv)
             std::cerr << "P7_BACKEND_AGENT_SCHEMA=FAIL pass=" << pass << "\n";
             return 24;
         }
+        if (!embeddedCut.ensureSchema() || !embeddedMarks.ensureSchema()) {
+            std::cerr << "P7_EMBEDDED_RECORDING_EDIT_SCHEMA=FAIL pass=" << pass << "\n";
+            return 25;
+        }
+        if (!nativeMetadata.ensureSchema()) {
+            std::cerr << "P7_NATIVE_RECORDING_METADATA_SCHEMA=FAIL pass=" << pass << "\n";
+            return 26;
+        }
         if (!scalarPositive(database.handle(),
             "SELECT count(*) FROM suite_metadata_schema_versions;") ||
             !scalarPositive(database.handle(),
@@ -244,7 +258,12 @@ int main(int argc, char** argv)
             "'backend_agents','backend_agent_credential_rotations',"
             "'backend_agent_capabilities','backend_agent_observation_receipts',"
             "'backend_runtime_generations',"
-            "'backend_agent_observation_cursors','backend_agent_channel_facts'))=47 "
+            "'backend_agent_observation_cursors','backend_agent_channel_facts',"
+            "'embedded_recording_cut_commands',"
+            "'embedded_recording_marks_commands',"
+            "'vdr_recording_native_metadata','vdr_recording_native_text_list',"
+            "'vdr_recording_native_person','vdr_recording_native_artwork',"
+            "'vdr_recording_native_metadata_migration'))=54 "
             "THEN 1 ELSE 0 END;")) {
             std::cerr << "P7_RUNTIME_SQLITE_INTEGRITY=FAIL\n";
             return 7;

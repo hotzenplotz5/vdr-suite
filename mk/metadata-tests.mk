@@ -42,6 +42,9 @@ test-packaging-p7-runtime-schema:
 		core/timers/src/NativeTimerBindingWriteRepository.cpp \
 		core/agent/src/BackendRuntimeGeneration.cpp \
 		core/agent/src/BackendAgentRepository.cpp \
+		core/agent/src/EmbeddedRecordingCutRepository.cpp \
+		core/agent/src/EmbeddedRecordingMarksRepository.cpp \
+		core/vdr/src/VdrRecordingNativeMetadataRepositorySchema.cpp \
 		core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
 		core/vdr/src/GlobalSearchRepository.cpp \
 		core/metadata/tests/test_packaging_p7_runtime_schema.cpp \
