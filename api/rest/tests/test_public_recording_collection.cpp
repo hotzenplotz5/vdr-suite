@@ -1,4 +1,5 @@
 #include "PublicApiRuntime.h"
+#include "PublicSearchProjection.h"
 
 #include <cassert>
 #include <string>
@@ -282,6 +283,56 @@ int main()
         "/api/v1/search/epg?backendId=backend-a&query=Hobbit",
         "", "anonymous", "", anonymousSearch, "", "", {"backend-a"}));
     assert(anonymousSearch.statusCode == 401);
+    // HTTP-level parity: transport the same three canonical Web search
+    // records through the actual Public-v1 serializer, without file paths.
+    runtime.registerSearchLookup([](const PublicSearchRequest& request) {
+        GlobalSearchResult web;
+        web.query = request.query;
+        web.backendId = request.backendId;
+        web.recordingTotal = 3;
+        std::vector<VdrRecording> live;
+        for (int i = 0; i != 3; ++i)
+        {
+            GlobalSearchRecording result;
+            result.backendId = request.backendId;
+            result.backendNativeId = "hobbit-" + std::to_string(i);
+            result.title = "Der Hobbit " + std::to_string(i);
+            result.path = "/private/recordings/hobbit";
+            web.recordings.push_back(result);
+            VdrRecording current;
+            current.backendId = request.backendId;
+            current.backendNativeId = result.backendNativeId;
+            current.title = "VDR-native-title";
+            live.push_back(current);
+        }
+        return PublicSearchProjection::project(
+            request, web, live,
+            [](const std::string&, const std::string& native)
+                -> std::optional<std::string>
+            {
+                if (native == "hobbit-0")
+                    return "rec_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+                if (native == "hobbit-1")
+                    return "rec_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+                if (native == "hobbit-2")
+                    return "rec_cccccccccccccccccccccccccccccccc";
+                return std::nullopt;
+            });
+    });
+    ApiResponse parity;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search/recordings?backendId=backend-a&query=Hobbit&limit=30&offset=0",
+        "actor:tv", "web-parity", "", parity, "", "", {"backend-a"}));
+    assert(parity.statusCode == 200);
+    assert(parity.body.find("\"totalCount\":3") != std::string::npos);
+    assert(parity.body.find("\"title\":\"Der Hobbit 0\"") != std::string::npos);
+    assert(parity.body.find("\"title\":\"Der Hobbit 1\"") != std::string::npos);
+    assert(parity.body.find("\"title\":\"Der Hobbit 2\"") != std::string::npos);
+    assert(parity.body.find("VDR-native-title") == std::string::npos);
+    assert(parity.body.find("/private") == std::string::npos);
+    assert(parity.body.find("backendNativeId") == std::string::npos);
+    assert(parity.body.find("\"hasMore\":false") != std::string::npos);
+
     runtime.resetSearchLookup();
     return 0;
 }
