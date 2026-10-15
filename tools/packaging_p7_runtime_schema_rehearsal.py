@@ -138,14 +138,8 @@ def seed_owned_runtime_records(connection):
         INSERT INTO backend_media_transcode_settings(
           backend_id,video_encoder_mode)
           VALUES('p7_backend','vaapi');
-        INSERT INTO epg_events(
-          backend_id,channel_id,event_id,title,start_time,end_time)
-          VALUES('p7_backend','p7_channel','p7_epg','P7 example EPG event',
-                 '1790000000','1790003600');
-        INSERT INTO epgsearch_native_fuzzy_capability_probes(
-          backend_id,create_accepted,readback_available,mode_preserved,
-          tolerance_preserved,cleanup_succeeded)
-          VALUES('p7_backend',1,1,1,1,1);
+        -- The tagged historical EPG and fuzzy-capability rows are part of
+        -- the immutable source baseline, not runtime seed targets.
         -- The historical vdr_recording_cache row belongs to the immutable
         -- baseline. Do not add a synthetic row here: original_rows() must
         -- remain byte-for-byte equal on both C++ reopen passes.
@@ -296,8 +290,12 @@ def run(binary):
                     count, p.stdout[-2000:], p.stderr[-2000:]))
             with closing(sqlite3.connect(old)) as connection:
                 require_consistent(connection)
-                assert original_rows(connection, columns) == before, (
-                    "historical records changed after runtime schema initializer")
+                historical_after = original_rows(connection, columns)
+                assert historical_after == before, (
+                    "historical records changed after runtime schema initializer "
+                    "pass {} in tables {}".format(
+                        count, sorted(table for table in TABLES
+                                      if historical_after[table] != before[table])))
                 after_objects = dict(connection.execute(
                     "SELECT name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
                 ).fetchall())
@@ -359,6 +357,8 @@ def run(binary):
                 ).fetchone()[0] == 1
                 if count == 1:
                     seed_owned_runtime_records(connection)
+                    assert original_rows(connection, columns) == before, (
+                        "test-only runtime seed changed historical source rows")
                     runtime_fixture = current_owned_records(connection)
                     runtime_objects = dict(connection.execute(
                         "SELECT name,sql FROM sqlite_master "

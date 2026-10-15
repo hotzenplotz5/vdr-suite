@@ -220,8 +220,9 @@ The offline C++ rehearsal now also calls the real initializers for
 grants), `MediaTranscodeBackendSettingsRepository`, `EpgEventRepository`
 and `EpgSearchNativeFuzzyCapabilityRepository`. The tagged historical EPG
 rows remain intact; after the first initializer run the test seeds synthetic
-media/session records, a managed encoder mode, an EPG event and a fuzzy-probe
-record. A fresh C++ process must retain all rows and schema objects unchanged;
+media/session records and a managed encoder mode. The EPG-event and
+fuzzy-capability rows from the tagged historical fixture remain untouched.
+A fresh C++ process must retain all rows and schema objects unchanged;
 the separate offline restore must still reproduce the pre-upgrade snapshot.
 This covers idempotent initialization and persistence only, **not** actual
 streaming/session runtime acceptance or migration from a published package.
@@ -237,3 +238,10 @@ synthetic current-version data. All new records and SQL objects must survive
 a second independent C++ invocation, while restoring the offline snapshot
 must reproduce the old column shape and original records. This remains a
 test-only fixture and not a real manual-install upgrade approval.
+
+The CI #51/#52 historical-row assertion exposed an invalid **test seed**:
+additional EPG/fuzzy rows were inserted into tables that are part of the
+immutable tagged historical baseline. This is a fixture failure, not evidence
+of a production migration mutating data. The regression now prohibits all
+synthetic runtime seeds from changing historical baseline rows and reports
+the specific changed table and pass, without printing private row contents.
