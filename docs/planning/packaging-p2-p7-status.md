@@ -147,3 +147,24 @@ exercised on a private SQLite fixture, including an artificial persisted
 backend lifecycle row, idempotent reopens and backup/restore preservation.
 The narrow C++ DDL file survey now has 11 explicitly pending writers.
 This does not prove compatibility of real manual-install databases.
+
+## P7 static runtime DDL survey milestone (CI #84, 2026-10-15)
+
+The bounded `tools/test_packaging_p7_sql_writer_inventory.py` source-file
+survey now classifies **every discovered runtime DDL writer file** in scope:
+the final four source owners have passed actual C++ initializer/trigger
+regressions in [CI #84](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38801942051)
+on `e116824ef0cf30b0effb80285bc3a145f9e8d857`, all five jobs green.
+`PENDING=0` is a **source-file DDL inventory milestone**, not a release
+acceptance label. `BackendRuntimeGeneration.cpp` remains indirectly
+exercised rather than independently tested; SQL DML and constructed SQL
+still need separate migration-risk review. See
+[the current schema-owner ledger](packaging-p7-schema-owner-inventory.md).
+
+**Do not close P7** without a real (quiesced, safely obtained) supported
+manual-install daemon-created database sample, a named old-source SHA or
+version and source/target compatibility policy, tested WAL-consistent
+snapshot/restore with writer quiescence, fail-closed unknown/future schema
+behavior, approved service startup/rollback gates and additional release
+checks. No production yaVDR modifications, package upload/signing or
+migration are authorized by this CI evidence.
