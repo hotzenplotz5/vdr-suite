@@ -10,6 +10,7 @@
 #include "PublicSearchProjection.h"
 #include "GenreBrowserApiRuntime.h"
 #include "GlobalSearchApiRuntime.h"
+#include "PublicChannelNeighbor.h"
 #include "RecordingSeriesHierarchyApiRuntime.h"
 #include "RestfulApiRecordingActionBackendExecutorAdapter.h"
 #include "RestfulApiSearchTimerDiscoveryProvider.h"
@@ -1790,7 +1791,15 @@ bool DaemonRuntime::initialize()
                 request.limit == 0U ||
                 request.limit > 100U ||
                 (request.afterBackendId.empty() !=
-                 request.afterChannelId.empty()))
+                 request.afterChannelId.empty()) ||
+                (!request.relativeToChannelId.empty() &&
+                 (request.backendIds.size() != 1U ||
+                  request.limit != 1U ||
+                  !request.afterBackendId.empty() ||
+                  (request.direction != "up" &&
+                   request.direction != "down"))) ||
+                (request.relativeToChannelId.empty() &&
+                 !request.direction.empty()))
             {
                 result.status =
                     PublicChannelCollectionStatus::invalid;
@@ -1872,6 +1881,28 @@ bool DaemonRuntime::initialize()
                     source.code = "backend_unavailable";
                     result.sources.push_back(std::move(source));
                     continue;
+                }
+
+                // Uses the full, authorized VDR snapshot (never the first
+                // 30 ID-sorted Public-v1 rows). The same pure projection is
+                // directly exercised by the C++ regression test.
+                if (!request.relativeToChannelId.empty())
+                {
+                    const auto neighbor = findPublicVdrChannelNeighbor(
+                        sourceChannels,
+                        request.relativeToChannelId,
+                        request.direction);
+                    if (!neighbor)
+                    {
+                        result.status = PublicChannelCollectionStatus::notFound;
+                        return result;
+                    }
+                    result.channels.push_back(*neighbor);
+                    source.state = "ok";
+                    result.sources.push_back(std::move(source));
+                    result.status = PublicChannelCollectionStatus::ok;
+                    result.hasMore = false;
+                    return result;
                 }
 
                 ++successfulSources;
