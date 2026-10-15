@@ -9,7 +9,7 @@ Status: **in development**, not released. Source-level implementation is distinc
 | P4 | Ubuntu noble Seahawk `vdr-dev 2.8.3-0yavdr0~noble` and plugin ABI `vdr-abi-2.8.3-0yavdr` verified in actual CI logs | Debian 13/Ubuntu resolute ABI and runtime dependency matrix; lintian |
 | P5 | Working root `debian/rules` (mode 100755), `3.0 (quilt)` source preview, three separate noble `.deb` outputs and ABI-correct plugin-only profile PASS | `debian/copyright` and third-party licensing, final source build reproducibility and upload metadata |
 | P6 | Disposable Ubuntu noble real package install/reinstall/remove/purge and conffile/state sentinel preservation PASS | Systemd startup/user/runtime directory tests, real manual-install transition and actual live yaVDR approval |
-| P7 | Offline preflight, tagged historical SQLite replay, real C++ metadata/security/operations/timers/device-pairing/channel-cache initializer checks, historically attested security/operations old-column migrations and synthetic pairing-column migration, and successful *unreleased* `exp1 → exp2` three-package dpkg upgrade/restore/downgrade in disposable Ubuntu Noble CI | For first publication: evidence-based migration of **existing manual installations** with daemon-created data; for later releases: supported older published package versions; all runtime schema owners, controlled restore and enforced version compatibility |
+| P7 | Tagged historical SQLite replay, additive SQL / synthetic old-column fixtures, 33/33 **named Repository C++ `ensureSchema()`** sources plus GenreIndex .inc exercised offline; synthetic pairing/browser/playback/artwork/manual-metadata and native-recording one-time DML migration rehearsals, and *unreleased* `exp1 → exp2` package upgrade/restore in disposable Noble CI | For first publication: actual **manual-install daemon-created database** compatibility evidence, SQL writers outside the named repository pattern, writer quiescence/WAL backup and restore, enforced source/target version policy and approved service transitions |
 
 ## Confirmed local build milestone (2026-10-14)
 
@@ -85,3 +85,47 @@ unknown or newer schemas. The disposable `exp1 → exp2` test proves the dpkg
 mechanics only; it does **not** establish support for any manual-install
 transition or any real service migration. For subsequent published packages,
 version-to-version upgrade tests become mandatory for supported predecessors.
+
+## P7 named schema-initializer coverage (2026-10-15)
+
+The source-audited test ledger is
+[packaging-p7-schema-owner-inventory.md](packaging-p7-schema-owner-inventory.md).
+The current real C++ offline harness invokes **33 of 33** named
+`Repository::ensureSchema()` owners that create tables in the narrowly scoped
+`core/*/src/*Repository[Schema].cpp` pattern. GenreIndex is additionally
+exercised through its `.inc` source. One-time native-recording-cache TTL
+invalidation is exercised against a synthetic pre-marker database, with
+restoration of the prior value/marker; manual recording cast completeness and
+other additive columns also have synthetic old-column tests. No real VDR
+recording, timer, device credential or account is modified by these tests.
+
+**The 33/33 count does not close P7.** Table creation, schema writes and
+database operations in other source files still need a separate inventory.
+The provided historical tagged SQL is real source provenance, but the
+additional old-column and pre-marker fixtures are reconstructed, not actual
+databases from released package binaries. The first-release migration gate
+remains unfulfilled until we can validate specifically supported prior
+**manual** installs using offline copies of databases actually created by
+their daemons, backed up consistently with WAL writers quiesced. The dpkg
+`exp1 → exp2` rehearsal proves experimental package mechanics only.
+
+## CI #60 — named schema-owner rehearsal complete (2026-10-15)
+
+[GitHub Actions #60](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38715053824)
+finished **SUCCESS** for immutable code commit
+`412d83706adb0c8becbf8c2b81ce81b88fbdc232`: all five Ubuntu
+Noble Seahawk VDR 2.8.3 packaging jobs PASS (independent SuiteBridge,
+prior exp1 build, full three-binary build, disposable package lifecycle,
+and isolated exp1-to-exp2 upgrade/state/rollback). The real C++ offline
+schema test explicitly emitted:
+`P7_MANUAL_METADATA_PRE_CAST_MIGRATION=PASS`,
+`P7_NATIVE_TIMER_BINDINGS_PRESERVATION=PASS`,
+`P7_BACKEND_AGENT_STATE_PRESERVATION=PASS`,
+`P7_EMBEDDED_RECORDING_EDITS_PRESERVATION=PASS`,
+`P7_NATIVE_METADATA_ONETIME_DML_PRESERVATION=PASS`, and
+`P7_HISTORICAL_CPP_SCHEMA_REHEARSAL=PASS`.
+
+The 33/33 counted named C++ initializers do not cover SQL writers outside
+that naming pattern, and the synthetic fixtures are not daemon-created
+databases from a previously published binary. No installed yaVDR service,
+real runtime database or Launchpad archive has been changed.
