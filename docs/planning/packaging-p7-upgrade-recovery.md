@@ -187,3 +187,12 @@ It also seeds one new pairing record and one channel cache record, checks every
 row and SQL object survives reopening, and verifies the independently restored
 backup retains the pre-alter table shape. The fixture is **not an attested
 historical binary/database**; this does not close the all-owners P7 gate.
+
+CI confirmation: [GitHub Actions #48](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38676138135)
+passed all five jobs for commit `db10fba7164b43ecea8832f5353da9ad1cd0a10c`.
+The completed C++ test log contains
+`P7_PAIRING_PRECOLUMN_AND_CHANNEL_PRESERVATION=PASS` and
+`P7_HISTORICAL_CPP_SCHEMA_REHEARSAL=PASS`. This confirms the two new
+repository owners' isolated, synthetic fixture behavior, **not** the
+compatibility of an active database, a released older package, or an automatic
+production migration. No real SQLite/WAL writer was stopped or accessed.
