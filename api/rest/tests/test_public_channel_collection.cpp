@@ -1,4 +1,5 @@
 #include "PublicApiRuntime.h"
+#include "PublicChannelNeighbor.h"
 
 #include <cassert>
 #include <cstddef>
@@ -38,6 +39,29 @@ PublicChannelCollectionItem channel(
 
 int main()
 {
+    // Real pure resolver used by DaemonRuntimeInitialization: test VDR
+    // numeric order, wrap, disabled/radio skipping and no invented neighbor.
+    std::vector<PublicChannelCollectionItem> vdr = {
+        channel("backend-a", "id-z", 30),
+        channel("backend-a", "id-a", 10),
+        channel("backend-a", "id-m", 20),
+        channel("backend-a", "disabled", 40),
+        channel("backend-a", "radio", 50)};
+    vdr[3].enabled = false;
+    vdr[4].radio = true;
+    const auto next = findPublicVdrChannelNeighbor(vdr, "id-a", "up");
+    const auto previous = findPublicVdrChannelNeighbor(vdr, "id-a", "down");
+    assert(next && next->channelId == "id-m");
+    assert(previous && previous->channelId == "id-z");
+    assert(findPublicVdrChannelNeighbor(vdr, "id-z", "up")->channelId == "id-a");
+    assert(findPublicVdrChannelNeighbor(vdr, "id-m", "down")->channelId == "id-a");
+    assert(!findPublicVdrChannelNeighbor(vdr, "missing", "up"));
+    assert(!findPublicVdrChannelNeighbor(vdr, "disabled", "up"));
+    assert(!findPublicVdrChannelNeighbor(vdr, "radio", "down"));
+    assert(!findPublicVdrChannelNeighbor(vdr, "id-a", "sideways"));
+    vdr.resize(1U);
+    assert(!findPublicVdrChannelNeighbor(vdr, "id-z", "up"));
+
     PublicApiRuntime& runtime = PublicApiRuntime::instance();
     runtime.resetChannelCollectionLookup();
 
