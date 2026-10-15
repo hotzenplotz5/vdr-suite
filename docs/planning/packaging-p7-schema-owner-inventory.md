@@ -77,3 +77,22 @@ not historical release evidence. Eleven further writers remain PENDING:
 This file-owner guard does not fingerprint newly added statements inside an already
 classified source, exhaust dynamic SQL, or cover data-modifying migrations.
 Those are separate open P7 gates. Do not infer production upgrade support.
+
+## Series artwork legacy-column validation candidate (P7)
+
+The existing `core/daemon/tests/test_series_artwork_backend_settings_service.cpp`
+invokes `SeriesArtworkBackendSettingsService::ensureSchema()` against a
+synthetic pre-TMDB `backend_series_artwork_overrides` table. The P7 extension
+seeds a prior override (`revision=7`), re-invokes the real C++ initializer,
+and checks that the original identity, URL, revision, and default values in
+all five added columns remain unchanged. The same test exercises targeted
+EPG scraper cache invalidation, including backend and media-type isolation.
+The packaging Noble runner now executes the existing
+`test-suite-bridge-epg-metadata-resolver` Make target, which includes this
+actual C++ service test. This is a *candidate CI gate*, not verified CI
+success or a historical daemon-produced database. Keep the source PENDING
+until the new exact-head CI completes and the migration evidence is reviewed.
+
+The service also modifies cache rows during explicit provider-setting updates;
+its delete statements are not startup-schema migration. The service does
+not establish forward-schema rejection or real manual-install compatibility.
