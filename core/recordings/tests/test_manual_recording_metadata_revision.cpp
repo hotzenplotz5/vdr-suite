@@ -266,7 +266,8 @@ int main()
     // P7: actual MetadataRepository facade creates the manual person-profile
     // table, index and schema marker; keep a prior reference byte-identical
     // through independent SQLite backup and fresh C++ initialization.
-    assert(repository.ensureManualPersonProfileSchema());
+    // Public read facade invokes the private profile-schema initializer.
+    assert(!repository.getManualRecordingMetadataForBackend("default").empty());
     assert(database.execute(
         "INSERT INTO suite_metadata_person_profiles "
         "(provider_id,external_namespace,external_id,profile_reference,"
@@ -296,8 +297,8 @@ int main()
     assert(sqlite3_backup_step(recovery, -1) == SQLITE_DONE);
     assert(sqlite3_backup_finish(recovery) == SQLITE_OK);
     MetadataRepository reopened(recovered);
-    assert(reopened.ensureManualPersonProfileSchema());
-    assert(reopened.ensureManualPersonProfileSchema());
+    assert(!reopened.getManualRecordingMetadataForBackend("default").empty());
+    assert(!reopened.getManualRecordingMetadataForBackend("default").empty());
     assert(scalar(recovered.handle(),
         "SELECT count(*) FROM suite_metadata_person_profiles "
         "WHERE provider_id='tmdb' AND external_namespace='person' "
