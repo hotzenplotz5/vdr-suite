@@ -19,6 +19,10 @@ EXERCISED = EXERCISED_BY_P7_CPP | frozenset({
 PENDING = frozenset({
     "core/agent/src/BackendAgentCommandDelivery.cpp",
     "core/agent/src/BackendAgentCommandReservation.cpp",
+    "core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp",
+    "core/agent/src/BackendAgentNativeTimerModifyAssignment.cpp",
+    "core/agent/src/BackendAgentRecordingCutAssignment.cpp",
+    "core/agent/src/BackendAgentRecordingMarksModifyAssignment.cpp",
     "core/agent/src/BackendAgentRecordingCutReconciliationRepository.cpp",
     "core/agent/src/BackendAgentRecordingMarksModifyReconciliation.cpp",
     "core/daemon/src/EmbeddedBackendLifecycle.cpp",
@@ -66,6 +70,8 @@ class P7RuntimeSqlWriterInventory(unittest.TestCase):
         self.assertEqual(found, ALL_CLASSIFIED,
                          "Unknown/removed C++ runtime DDL writer: review "
                          "and classify; do not mark untested as covered")
+        print('P7_RUNTIME_DDL_FILE_OWNERS_CLASSIFIED=' + str(len(found)) +
+              ' PENDING=' + str(len(PENDING)))
         self.assertFalse((EXERCISED & PENDING) |
                          (EXERCISED & INDIRECTLY_EXERCISED) |
                          (PENDING & INDIRECTLY_EXERCISED))

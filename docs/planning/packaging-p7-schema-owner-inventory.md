@@ -58,10 +58,14 @@ BackendRuntimeGeneration.cpp is indirectly exercised through BackendAgentReposit
 The additional TimerAssignmentSetRevisionRepository.cpp path is exercised with
 an in-memory synthetic legacy assignment epoch 7, idempotent backfill, three
 triggers and an epoch 8 insert through real C++. It is not historical release
-evidence. Eight additional classified writers remain PENDING, not covered:
+evidence. Twelve additional classified writers remain PENDING, not covered:
 
 - core/agent/src/BackendAgentCommandDelivery.cpp
 - core/agent/src/BackendAgentCommandReservation.cpp
+- core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp
+- core/agent/src/BackendAgentNativeTimerModifyAssignment.cpp
+- core/agent/src/BackendAgentRecordingCutAssignment.cpp
+- core/agent/src/BackendAgentRecordingMarksModifyAssignment.cpp
 - core/agent/src/BackendAgentRecordingCutReconciliationRepository.cpp
 - core/agent/src/BackendAgentRecordingMarksModifyReconciliation.cpp
 - core/daemon/src/EmbeddedBackendLifecycle.cpp
