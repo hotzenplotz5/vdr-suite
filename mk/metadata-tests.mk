@@ -11,6 +11,10 @@ test-packaging-p7-runtime-schema:
 		core/security/src/BrowserSessionCredentialRepository.cpp \
 		core/media/src/ContinueWatchingRepository.cpp \
 		core/media/src/RecentlyWatchedRepository.cpp \
+		core/media/src/MediaSessionRepository.cpp \
+		core/media/src/MediaTranscodeBackendSettingsRepository.cpp \
+		core/vdr/src/EpgEventRepository.cpp \
+		core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp \
 		core/vdr/src/VdrChannelCacheRepository.cpp \
 		core/operations/src/MutationOperation.cpp \
 		core/operations/src/MutationOperationRepository.cpp \

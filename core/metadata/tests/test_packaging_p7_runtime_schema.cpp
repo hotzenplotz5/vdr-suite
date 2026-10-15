@@ -15,6 +15,10 @@
 #include "BrowserSessionCredentialRepository.h"
 #include "ContinueWatching.h"
 #include "RecentlyWatched.h"
+#include "MediaSessionRepository.h"
+#include "MediaTranscodeBackendSettingsRepository.h"
+#include "EpgEventRepository.h"
+#include "EpgSearchNativeFuzzyCapabilityRepository.h"
 #include <sqlite3.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -99,6 +103,10 @@ int main(int argc, char** argv)
         BrowserSessionCredentialRepository browserSessions(database);
         ContinueWatchingRepository continueWatching(database);
         RecentlyWatchedRepository recentlyWatched(database);
+        MediaSessionRepository mediaSessions(database);
+        MediaTranscodeBackendSettingsRepository transcodeSettings(database);
+        EpgEventRepository epgEvents(database);
+        EpgSearchNativeFuzzyCapabilityRepository fuzzyCapability(database);
         if (!identities.ensureSchema() ||
             !accounts.ensureSchema() ||
             !verifiers.ensureSchema()) {
@@ -129,6 +137,14 @@ int main(int argc, char** argv)
             std::cerr << "P7_PLAYBACK_STATE_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
             return 14;
         }
+        if (!mediaSessions.ensureSchema() || !transcodeSettings.ensureSchema()) {
+            std::cerr << "P7_MEDIA_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
+            return 15;
+        }
+        if (!epgEvents.ensureSchema() || !fuzzyCapability.ensureSchema()) {
+            std::cerr << "P7_EPG_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
+            return 16;
+        }
         if (!scalarPositive(database.handle(),
             "SELECT count(*) FROM suite_metadata_schema_versions;") ||
             !scalarPositive(database.handle(),
@@ -144,7 +160,10 @@ int main(int argc, char** argv)
             "'mutation_operation_payloads','timer_intents','timer_assignments',"
             "'security_device_pairing_requests','vdr_channel_cache',"
             "'security_browser_session_credentials','continue_watching_state',"
-            "'recently_watched_state'))=13 "
+            "'recently_watched_state','media_sessions','media_routes',"
+            "'media_provider_stream_leases','media_access_grants',"
+            "'backend_media_transcode_settings','epg_events',"
+            "'epgsearch_native_fuzzy_capability_probes'))=20 "
             "THEN 1 ELSE 0 END;")) {
             std::cerr << "P7_RUNTIME_SQLITE_INTEGRITY=FAIL\n";
             return 7;

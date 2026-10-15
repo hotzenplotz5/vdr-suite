@@ -212,3 +212,16 @@ records survive both a fresh-process reinitialization and offline restoration.
 The synthetic browser identity has valid SQLite foreign-key relationships but
 no usable secrets. These tests are not a published-package migration, a live
 session upgrade or complete runtime schema-owner coverage.
+
+## P7 additive owners: media sessions, transcode settings and EPG
+
+The offline C++ rehearsal now also calls the real initializers for
+`MediaSessionRepository` (sessions, routes, provider leases and access
+grants), `MediaTranscodeBackendSettingsRepository`, `EpgEventRepository`
+and `EpgSearchNativeFuzzyCapabilityRepository`. The tagged historical EPG
+rows remain intact; after the first initializer run the test seeds synthetic
+media/session records, a managed encoder mode, an EPG event and a fuzzy-probe
+record. A fresh C++ process must retain all rows and schema objects unchanged;
+the separate offline restore must still reproduce the pre-upgrade snapshot.
+This covers idempotent initialization and persistence only, **not** actual
+streaming/session runtime acceptance or migration from a published package.

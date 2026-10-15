@@ -115,6 +115,35 @@ def seed_owned_runtime_records(connection):
           last_activity_at,last_operation_id)
           VALUES('p7_actor','p7_backend','p7_recording','p7_native',120,1,
                  1,0,1,1,'synthetic','2026-01-01T00:00:00Z','p7_op');
+        INSERT INTO media_sessions(
+          session_id,actor_id,backend_id,resource_kind,resource_id,state,
+          presentation_profile_id)
+          VALUES('p7_media_session','p7_actor','p7_backend','recording',
+                 'p7_recording','active','hls-fmp4');
+        INSERT INTO media_routes(
+          route_id,session_id,route_epoch,provider_id,backend_id,state)
+          VALUES('p7_route','p7_media_session',1,'p7_provider','p7_backend',
+                 'active');
+        INSERT INTO media_provider_stream_leases(
+          lease_id,route_id,provider_id,workspace_id,state)
+          VALUES('p7_lease','p7_route','p7_provider','fixture-workspace',
+                 'active');
+        INSERT INTO media_access_grants(
+          grant_id,session_id,route_id,route_epoch,actor_id,secret_hash,
+          expires_at,active)
+          VALUES('p7_grant','p7_media_session','p7_route',1,'p7_actor',
+                 'SYNTHETIC_NOT_A_REAL_SECRET','2099-01-01 00:00:00',1);
+        INSERT INTO backend_media_transcode_settings(
+          backend_id,video_encoder_mode)
+          VALUES('p7_backend','vaapi');
+        INSERT INTO epg_events(
+          backend_id,channel_id,event_id,title,start_time,end_time)
+          VALUES('p7_backend','p7_channel','p7_epg','P7 example EPG event',
+                 '1790000000','1790003600');
+        INSERT INTO epgsearch_native_fuzzy_capability_probes(
+          backend_id,create_accepted,readback_available,mode_preserved,
+          tolerance_preserved,cleanup_succeeded)
+          VALUES('p7_backend',1,1,1,1,1);
     """)
     connection.commit()
 
@@ -126,7 +155,10 @@ def current_owned_records(connection):
               "security_device_pairing_requests", "vdr_channel_cache",
               "security_devices", "security_sessions",
               "security_browser_session_credentials",
-              "continue_watching_state", "recently_watched_state")
+              "continue_watching_state", "recently_watched_state",
+              "media_sessions", "media_routes", "media_provider_stream_leases",
+              "media_access_grants", "backend_media_transcode_settings",
+              "epg_events", "epgsearch_native_fuzzy_capability_probes")
     return {table: connection.execute('SELECT * FROM "' + table + '"').fetchall()
             for table in tables}
 
@@ -324,6 +356,7 @@ def run(binary):
         print("P7_PRECOLUMN_SECURITY_OPERATION_MIGRATION=PASS", flush=True)
         print("P7_PAIRING_PRECOLUMN_AND_CHANNEL_PRESERVATION=PASS", flush=True)
         print("P7_BROWSER_SESSION_AND_PLAYBACK_MIGRATION=PASS", flush=True)
+        print("P7_MEDIA_SESSION_AND_EPG_SCHEMA_PRESERVATION=PASS", flush=True)
         print("P7_HISTORICAL_CPP_SCHEMA_REHEARSAL=PASS", flush=True)
 
 
