@@ -14,6 +14,8 @@ on:
       - "core/agent/tests/test_backend_agent_command_delivery.cpp"
       - "core/agent/tests/test_backend_agent_command_reservation.cpp"
       - "core/agent/tests/test_backend_agent_native_timer_delete_assignment.cpp"
+      - "core/agent/tests/test_backend_agent_recording_cut_reconciliation.cpp"
+      - "core/agent/tests/test_backend_agent_recording_marks_modify_reconciliation.cpp"
       - "mk/metadata-tests.mk"
       - "tools/fixtures/packaging/**"
       - "database/schema/metadata-platform-v1.sql"
@@ -165,6 +167,16 @@ jobs:
         run: |
           set -euo pipefail
           make test-phase64-native-timer-delete-assignment
+      - name: Rehearse recording-cut readback SQL schema and snapshot recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          make test-backend-agent-recording-cut-reconciliation
+      - name: Rehearse recording-marks readback SQL schema and snapshot recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          make test-backend-agent-recording-marks-modify-reconciliation
       - name: Build all default binary packages (no host installation)
         shell: bash
         run: |
