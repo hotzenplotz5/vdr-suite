@@ -1,8 +1,10 @@
 #include "PublicApiRuntime.h"
+#include "PublicChannelNeighbor.h"
 
 #include <cassert>
 #include <cstddef>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -37,6 +39,29 @@ PublicChannelCollectionItem channel(
 
 int main()
 {
+    // Real pure resolver used by DaemonRuntimeInitialization: test VDR
+    // numeric order, wrap, disabled/radio skipping and no invented neighbor.
+    std::vector<PublicChannelCollectionItem> vdr = {
+        channel("backend-a", "id-z", 30),
+        channel("backend-a", "id-a", 10),
+        channel("backend-a", "id-m", 20),
+        channel("backend-a", "disabled", 40),
+        channel("backend-a", "radio", 50)};
+    vdr[3].enabled = false;
+    vdr[4].radio = true;
+    const auto next = findPublicVdrChannelNeighbor(vdr, "id-a", "up");
+    const auto previous = findPublicVdrChannelNeighbor(vdr, "id-a", "down");
+    assert(next && next->channelId == "id-m");
+    assert(previous && previous->channelId == "id-z");
+    assert(findPublicVdrChannelNeighbor(vdr, "id-z", "up")->channelId == "id-a");
+    assert(findPublicVdrChannelNeighbor(vdr, "id-m", "down")->channelId == "id-a");
+    assert(!findPublicVdrChannelNeighbor(vdr, "missing", "up"));
+    assert(!findPublicVdrChannelNeighbor(vdr, "disabled", "up"));
+    assert(!findPublicVdrChannelNeighbor(vdr, "radio", "down"));
+    assert(!findPublicVdrChannelNeighbor(vdr, "id-a", "sideways"));
+    vdr.resize(1U);
+    assert(!findPublicVdrChannelNeighbor(vdr, "id-z", "up"));
+
     PublicApiRuntime& runtime = PublicApiRuntime::instance();
     runtime.resetChannelCollectionLookup();
 
@@ -68,6 +93,31 @@ int main()
                     source.state = "ok";
                 }
                 result.sources.push_back(source);
+            }
+
+            if (!request.relativeToChannelId.empty())
+            {
+                // Intentionally NOT ID order: VDR numbers are the authority.
+                const std::vector<PublicChannelCollectionItem> vdr = {
+                    channel("backend-a", "S19.2E-1-1019-10303", 7),
+                    channel("backend-a", "S19.2E-1-1019-10301", 2),
+                    channel("backend-a", "S19.2E-1-1019-10302", 5)};
+                std::size_t index = vdr.size();
+                for (std::size_t i = 0U; i < vdr.size(); ++i)
+                    if (vdr[i].channelId == request.relativeToChannelId)
+                        index = i;
+                if (index == vdr.size() || request.backendIds.size() != 1U ||
+                    request.backendIds.front() != "backend-a")
+                {
+                    result.status = PublicChannelCollectionStatus::notFound;
+                    return result;
+                }
+                const std::size_t adjacent = request.direction == "up" ?
+                    (index + 1U) % vdr.size() :
+                    (index + vdr.size() - 1U) % vdr.size();
+                result.channels = {vdr[adjacent]};
+                result.hasMore = false;
+                return result;
             }
 
             const std::vector<PublicChannelCollectionItem> available = {
@@ -142,6 +192,59 @@ int main()
         std::string::npos);
     assert(second.body.find("\"hasMore\":false") !=
         std::string::npos);
+
+    // The old ch1_ pagination above is kept byte-compatible. A separate
+    // single-row operation navigates real VDR number ordering with wrap.
+    for (const auto& sample : std::vector<std::pair<std::string, std::string>>{
+             {"10301&direction=up", "10302"},
+             {"10303&direction=up", "10301"},
+             {"10301&direction=down", "10303"}})
+    {
+        ApiResponse adjacent;
+        const std::string from =
+            "S19.2E-1-1019-" + sample.first;
+        assert(runtime.tryHandleGet(
+            "/api/v1/channels?backendId=backend-a&limit=1&relativeTo=" +
+                from,
+            "actor:test", "channel-neighbor", "", adjacent, "", "",
+            std::vector<std::string>{"backend-a"}));
+        assert(adjacent.statusCode == 200);
+        assert(adjacent.body.find(
+            "\"channelId\":\"S19.2E-1-1019-" + sample.second + "\"") !=
+            std::string::npos);
+        assert(adjacent.body.find("\"hasMore\":false") !=
+            std::string::npos);
+        assert(adjacent.body.find("\"nextCursor\":null") !=
+            std::string::npos);
+        assert(adjacent.body.find("&direction=") != std::string::npos);
+        // A neighbor self-link must not carry the legacy sort/order fields,
+        // because those fields are deliberately forbidden for neighbor reads.
+        assert(adjacent.body.find("sort=backendId,channelId") ==
+            std::string::npos);
+    }
+    for (const std::string& invalid : {
+             "relativeTo=S19.2E-1-1019-10301",
+             "direction=up&limit=1",
+             "relativeTo=S19.2E-1-1019-10301&direction=up&limit=30",
+             "relativeTo=S19.2E-1-1019-10301&direction=up&limit=1&cursor=ch1_bad",
+             "relativeTo=S19.2E-1-1019-10301&direction=other&limit=1",
+             "relativeTo=../../etc&direction=up&limit=1"})
+    {
+        ApiResponse invalidNeighbor;
+        assert(runtime.tryHandleGet(
+            "/api/v1/channels?backendId=backend-a&" + invalid,
+            "actor:test", "channel-neighbor-invalid", "",
+            invalidNeighbor, "", "",
+            std::vector<std::string>{"backend-a"}));
+        assert(invalidNeighbor.statusCode == 400);
+    }
+    ApiResponse missingNeighbor;
+    assert(runtime.tryHandleGet(
+        "/api/v1/channels?backendId=backend-a&limit=1&relativeTo=missing&direction=up",
+        "actor:test", "channel-neighbor-missing", "",
+        missingNeighbor, "", "",
+        std::vector<std::string>{"backend-a"}));
+    assert(missingNeighbor.statusCode == 404);
 
     ApiResponse changedScope;
     assert(runtime.tryHandleGet(
