@@ -57,8 +57,10 @@ The 33 named owners and GenreIndex .inc remain covered in the original harness.
 BackendRuntimeGeneration.cpp is indirectly exercised through BackendAgentRepository.
 The additional TimerAssignmentSetRevisionRepository.cpp path is exercised with
 an in-memory synthetic legacy assignment epoch 7, idempotent backfill, three
-triggers and an epoch 8 insert through real C++. It is not historical release
-evidence. Twelve additional classified writers remain PENDING, not covered:
+triggers and an epoch 8 insert through real C++. The real
+EmbeddedBackendLifecycleService initializer is now also exercised using a
+synthetic row surviving fresh C++ process reopens and backup/restore. This is
+not historical release evidence. Eleven further writers remain PENDING:
 
 - core/agent/src/BackendAgentCommandDelivery.cpp
 - core/agent/src/BackendAgentCommandReservation.cpp
@@ -68,7 +70,6 @@ evidence. Twelve additional classified writers remain PENDING, not covered:
 - core/agent/src/BackendAgentRecordingMarksModifyAssignment.cpp
 - core/agent/src/BackendAgentRecordingCutReconciliationRepository.cpp
 - core/agent/src/BackendAgentRecordingMarksModifyReconciliation.cpp
-- core/daemon/src/EmbeddedBackendLifecycle.cpp
 - core/daemon/src/SeriesArtworkBackendSettingsService.cpp
 - core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp
 - core/timers/src/TimerAssignmentReassignmentRepository.cpp

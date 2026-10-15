@@ -36,6 +36,7 @@
 #include "EmbeddedRecordingCutRepository.h"
 #include "EmbeddedRecordingMarksRepository.h"
 #include "VdrRecordingNativeMetadataRepository.h"
+#include "EmbeddedBackendLifecycle.h"
 #include <sqlite3.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -141,6 +142,7 @@ int main(int argc, char** argv)
         EmbeddedRecordingCutRepository embeddedCut(database);
         EmbeddedRecordingMarksRepository embeddedMarks(database);
         VdrRecordingNativeMetadataRepository nativeMetadata(database);
+        EmbeddedBackendLifecycleService embeddedBackend(database);
         if (!identities.ensureSchema() ||
             !accounts.ensureSchema() ||
             !verifiers.ensureSchema()) {
@@ -221,6 +223,11 @@ int main(int argc, char** argv)
             std::cerr << "P7_NATIVE_RECORDING_METADATA_SCHEMA=FAIL pass=" << pass << "\n";
             return 26;
         }
+        if (!embeddedBackend.ensureSchema()) {
+            std::cerr << "P7_EMBEDDED_BACKEND_LIFECYCLE_SCHEMA=FAIL pass="
+                      << pass << "\n";
+            return 27;
+        }
         if (!scalarPositive(database.handle(),
             "SELECT count(*) FROM suite_metadata_schema_versions;") ||
             !scalarPositive(database.handle(),
@@ -263,7 +270,8 @@ int main(int argc, char** argv)
             "'embedded_recording_marks_commands',"
             "'vdr_recording_native_metadata','vdr_recording_native_text_list',"
             "'vdr_recording_native_person','vdr_recording_native_artwork',"
-            "'vdr_recording_native_metadata_migration'))=54 "
+            "'vdr_recording_native_metadata_migration',"
+            "'embedded_backend_lifecycle'))=55 "
             "THEN 1 ELSE 0 END;")) {
             std::cerr << "P7_RUNTIME_SQLITE_INTEGRITY=FAIL\n";
             return 7;

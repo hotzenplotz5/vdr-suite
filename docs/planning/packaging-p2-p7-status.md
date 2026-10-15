@@ -136,6 +136,14 @@ real runtime database or Launchpad archive has been changed.
 A separate C++ runtime DDL file-owner inventory classifies named, included,
 indirectly exercised and pending writers. The first additional real C++ test
 covers TimerAssignmentSetRevisionRepository.cpp with a synthetic epoch-7
-backfill, three triggers and an epoch-8 insertion. Twelve writer source files
+backfill, three triggers and an epoch-8 insertion. Eleven writer source files
 remain pending; dynamic SQL, in-file statement changes, migration DML and real
 manual-install database transitions are not yet covered. This does not close P7.
+
+## P7 non-repository writer increment — embedded lifecycle
+
+The real C++ `EmbeddedBackendLifecycleService::ensureSchema()` is now
+exercised on a private SQLite fixture, including an artificial persisted
+backend lifecycle row, idempotent reopens and backup/restore preservation.
+The narrow C++ DDL file survey now has 11 explicitly pending writers.
+This does not prove compatibility of real manual-install databases.

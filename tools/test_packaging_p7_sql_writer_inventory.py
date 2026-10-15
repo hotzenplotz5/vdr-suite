@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 EXERCISED = EXERCISED_BY_P7_CPP | frozenset({
     "core/metadata/src/GenreIndexRepositorySchema.inc",
     "core/timers/src/TimerAssignmentSetRevisionRepository.cpp",
+    "core/daemon/src/EmbeddedBackendLifecycle.cpp",
 })
 PENDING = frozenset({
     "core/agent/src/BackendAgentCommandDelivery.cpp",
@@ -25,7 +26,6 @@ PENDING = frozenset({
     "core/agent/src/BackendAgentRecordingMarksModifyAssignment.cpp",
     "core/agent/src/BackendAgentRecordingCutReconciliationRepository.cpp",
     "core/agent/src/BackendAgentRecordingMarksModifyReconciliation.cpp",
-    "core/daemon/src/EmbeddedBackendLifecycle.cpp",
     "core/daemon/src/SeriesArtworkBackendSettingsService.cpp",
     "core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp",
     "core/timers/src/TimerAssignmentReassignmentRepository.cpp",
@@ -88,6 +88,21 @@ class P7RuntimeSqlWriterInventory(unittest.TestCase):
         self.assertIn("P7_TIMER_ASSIGNMENT_SET_REVISION_SCHEMA=PASS", harness)
         self.assertIn("p7_legacy_assignment", harness)
         self.assertIn('assignmentSetRevision != "7"', harness)
+
+    def test_embedded_backend_lifecycle_schema_is_rehearsed(self):
+        build = (ROOT / "mk" / "metadata-tests.mk").read_text(
+            encoding="utf-8")
+        harness = (ROOT / "core" / "metadata" / "tests" /
+                   "test_packaging_p7_runtime_schema.cpp").read_text(
+                       encoding="utf-8")
+        rehearsal = (ROOT / "tools" /
+                     "packaging_p7_runtime_schema_rehearsal.py").read_text(
+                         encoding="utf-8")
+        self.assertIn("core/daemon/src/EmbeddedBackendLifecycle.cpp \\", build)
+        self.assertIn("embeddedBackend.ensureSchema()", harness)
+        self.assertIn("INSERT INTO embedded_backend_lifecycle(", rehearsal)
+        self.assertIn("P7_EMBEDDED_BACKEND_LIFECYCLE_PRESERVATION=PASS",
+                      rehearsal)
 
 
 if __name__ == "__main__":

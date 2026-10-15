@@ -1,5 +1,5 @@
 .PHONY: test-packaging-p7-runtime-schema
-test-packaging-p7-runtime-schema: CXXFLAGS += -Icore/metadata/include -Icore/timers/include -Icore/operations/include -Icore/vdr/include -Icore/media/include -Icore/recordings/include
+test-packaging-p7-runtime-schema: CXXFLAGS += -Icore/metadata/include -Icore/timers/include -Icore/operations/include -Icore/vdr/include -Icore/media/include -Icore/recordings/include -Icore/daemon/include
 test-packaging-p7-runtime-schema:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
@@ -43,6 +43,7 @@ test-packaging-p7-runtime-schema:
 		core/timers/src/NativeTimerBindingWriteRepository.cpp \
 		core/agent/src/BackendRuntimeGeneration.cpp \
 		core/agent/src/BackendAgentRepository.cpp \
+		core/daemon/src/EmbeddedBackendLifecycle.cpp \
 		core/agent/src/EmbeddedRecordingCutRepository.cpp \
 		core/agent/src/EmbeddedRecordingMarksRepository.cpp \
 		core/vdr/src/VdrRecordingNativeMetadataRepositorySchema.cpp \

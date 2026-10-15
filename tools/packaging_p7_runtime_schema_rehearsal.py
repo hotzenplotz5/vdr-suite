@@ -335,6 +335,12 @@ def seed_owned_runtime_records(connection):
           VALUES('p7_agent_backend','p7_agent_channel',17,
                  'P7 fake channel','P7','fixture',0,0,1,
                  'p7_agent','p7_agent_instance',1,1,1,1000,'r1');
+        INSERT INTO embedded_backend_lifecycle(
+          backend_id,runtime_instance_id,backend_generation,
+          heartbeat_sequence,started_at,last_heartbeat_at,
+          lease_expires_at,stopped_at,updated_at)
+          VALUES('p7_embedded_backend','p7_embedded_instance',
+                 2,7,1000,1100,1200,0,1100);
         INSERT INTO embedded_recording_cut_commands(
           backend_id,operation_id,request_identity,command_id,
           fingerprint,payload,instance_id,state,edited_recording_key)
@@ -405,6 +411,7 @@ def current_owned_records(connection):
               "backend_runtime_generations",
               "backend_agent_observation_cursors",
               "backend_agent_channel_facts",
+              "embedded_backend_lifecycle",
               "embedded_recording_cut_commands",
               "embedded_recording_marks_commands",
               "vdr_recording_native_metadata",
@@ -680,6 +687,7 @@ def run(binary):
         print("P7_MANUAL_METADATA_PRE_CAST_MIGRATION=PASS", flush=True)
         print("P7_NATIVE_TIMER_BINDINGS_PRESERVATION=PASS", flush=True)
         print("P7_BACKEND_AGENT_STATE_PRESERVATION=PASS", flush=True)
+        print("P7_EMBEDDED_BACKEND_LIFECYCLE_PRESERVATION=PASS", flush=True)
         print("P7_EMBEDDED_RECORDING_EDITS_PRESERVATION=PASS", flush=True)
         print("P7_NATIVE_METADATA_ONETIME_DML_PRESERVATION=PASS", flush=True)
         print("P7_HISTORICAL_CPP_SCHEMA_REHEARSAL=PASS", flush=True)
