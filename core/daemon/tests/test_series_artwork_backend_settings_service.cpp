@@ -1,6 +1,7 @@
 #include "SeriesArtworkBackendSettingsService.h"
 
 #include <cassert>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -96,11 +97,15 @@ ExternalArtworkHttpResponse imageResponse(const std::string& body)
 
 std::filesystem::path tempRoot()
 {
-    const std::filesystem::path root =
-        std::filesystem::temp_directory_path() /
-        "vdr-suite-series-artwork-backend-settings-test";
-    std::error_code error;
-    std::filesystem::remove_all(root, error);
+    // Never remove a predetermined /tmp path: only own a fresh mkdtemp dir.
+    const std::string pattern =
+        (std::filesystem::temp_directory_path() /
+         "vdr-suite-series-artwork-backend-settings-test-XXXXXX").string();
+    std::vector<char> writable(pattern.begin(), pattern.end());
+    writable.push_back('\\0');
+    char* created = ::mkdtemp(writable.data());
+    assert(created != nullptr);
+    const std::filesystem::path root(created);
     std::filesystem::create_directories(root / "secrets");
     std::filesystem::create_directories(root / "incoming");
     std::filesystem::permissions(
