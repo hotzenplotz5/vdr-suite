@@ -196,3 +196,16 @@ The completed C++ test log contains
 repository owners' isolated, synthetic fixture behavior, **not** the
 compatibility of an active database, a released older package, or an automatic
 production migration. No real SQLite/WAL writer was stopped or accessed.
+
+## P7 incremental C++ owners: browser sessions and playback progress
+
+The C++ offline rehearsal now additionally runs the real schema initializers
+for `BrowserSessionCredentialRepository`, `ContinueWatchingRepository`, and
+`RecentlyWatchedRepository`. Pre-column fixtures contain synthetic historical-
+shape browser-session and playback-state rows. Checks assert that browser
+`last_seen_at` is backfilled from `created_at`, the two playback tables
+receive an empty `backend_native_id` default, and pre-existing columns and
+records survive both a fresh-process reinitialization and offline restoration.
+The synthetic browser identity has valid SQLite foreign-key relationships but
+no usable secrets. These tests are not a published-package migration, a live
+session upgrade or complete runtime schema-owner coverage.

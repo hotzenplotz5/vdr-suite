@@ -12,6 +12,9 @@
 #include "TimerAssignmentRepository.h"
 #include "DevicePairingRequestRepository.h"
 #include "VdrChannelCacheRepository.h"
+#include "BrowserSessionCredentialRepository.h"
+#include "ContinueWatching.h"
+#include "RecentlyWatched.h"
 #include <sqlite3.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -93,6 +96,9 @@ int main(int argc, char** argv)
         vdrsuite::timers::TimerAssignmentRepository assignments(database);
         DevicePairingRequestRepository pairing(database);
         VdrChannelCacheRepository channels(database);
+        BrowserSessionCredentialRepository browserSessions(database);
+        ContinueWatchingRepository continueWatching(database);
+        RecentlyWatchedRepository recentlyWatched(database);
         if (!identities.ensureSchema() ||
             !accounts.ensureSchema() ||
             !verifiers.ensureSchema()) {
@@ -115,6 +121,14 @@ int main(int argc, char** argv)
             std::cerr << "P7_CHANNEL_CACHE_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
             return 12;
         }
+        if (!browserSessions.ensureSchema()) {
+            std::cerr << "P7_BROWSER_SESSION_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
+            return 13;
+        }
+        if (!continueWatching.ensureSchema() || !recentlyWatched.ensureSchema()) {
+            std::cerr << "P7_PLAYBACK_STATE_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
+            return 14;
+        }
         if (!scalarPositive(database.handle(),
             "SELECT count(*) FROM suite_metadata_schema_versions;") ||
             !scalarPositive(database.handle(),
@@ -128,7 +142,9 @@ int main(int argc, char** argv)
             "('security_actors','security_human_accounts','security_credentials',"
             "'security_basic_credential_verifiers','mutation_operations',"
             "'mutation_operation_payloads','timer_intents','timer_assignments',"
-            "'security_device_pairing_requests','vdr_channel_cache'))=10 "
+            "'security_device_pairing_requests','vdr_channel_cache',"
+            "'security_browser_session_credentials','continue_watching_state',"
+            "'recently_watched_state'))=13 "
             "THEN 1 ELSE 0 END;")) {
             std::cerr << "P7_RUNTIME_SQLITE_INTEGRITY=FAIL\n";
             return 7;

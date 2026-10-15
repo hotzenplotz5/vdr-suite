@@ -22,15 +22,22 @@ PRIOR_COLUMN_FIXTURE = (Path(__file__).resolve().parent / "fixtures" /
                         "packaging" / "p7-pre-revision-security-operations.sql")
 PAIRING_COLUMN_FIXTURE = (Path(__file__).resolve().parent / "fixtures" /
                           "packaging" / "p7-pre-revision-device-pairing.sql")
+SESSION_PLAYBACK_FIXTURE = (Path(__file__).resolve().parent / "fixtures" /
+                            "packaging" / "p7-pre-revision-sessions-playback.sql")
 PRIOR_TABLES = (
     "security_actors", "security_credentials",
     "security_basic_credential_verifiers",
     "security_human_accounts", "mutation_operations",
     "security_device_pairing_requests",
+    "security_devices", "security_sessions",
+    "security_browser_session_credentials",
+    "continue_watching_state", "recently_watched_state",
 )
 ALTERED_TABLES = frozenset(
     ("security_human_accounts", "mutation_operations",
-     "security_device_pairing_requests")
+     "security_device_pairing_requests",
+     "security_browser_session_credentials",
+     "continue_watching_state", "recently_watched_state")
 )
 
 GiB = 1024 ** 3
@@ -84,6 +91,30 @@ def seed_owned_runtime_records(connection):
           backend_id,channel_id,channel_number,name,provider,group_name,
           radio,encrypted,enabled)
           VALUES('p7_test','p7_channel',17,'P7 demo','test','fixture',0,0,1);
+        INSERT INTO security_devices(device_id,actor_id,display_name)
+          VALUES('p7_new_device','p7_actor','P7 test-only device');
+        INSERT INTO security_sessions(session_id,actor_id,device_id)
+          VALUES('p7_new_session','p7_actor','p7_new_device');
+        INSERT INTO security_browser_session_credentials(
+          token_id,session_id,actor_id,device_id,credential_id,
+          issued_from_credential_id,session_secret_hash,csrf_secret_hash,
+          expires_at,last_seen_at)
+          VALUES('p7_new_token','p7_new_session','p7_actor','p7_new_device',
+                 'p7_credential','p7_credential','SYNTHETIC_SESSION_HASH',
+                 'SYNTHETIC_CSRF_HASH','2099-01-01 00:00:00',
+                 '2026-01-01 00:00:00');
+        INSERT INTO continue_watching_state(
+          actor_id,backend_id,recording_id,backend_native_id,
+          position_seconds,last_activity_at,last_operation_id)
+          VALUES('p7_actor','p7_backend','p7_recording','p7_native',120,
+                 '2026-01-01T00:00:00Z','p7_op');
+        INSERT INTO recently_watched_state(
+          actor_id,backend_id,recording_id,backend_native_id,
+          position_seconds,position_known,completion_known,completed,
+          resume_relevance_known,resume_relevant,source_evidence,
+          last_activity_at,last_operation_id)
+          VALUES('p7_actor','p7_backend','p7_recording','p7_native',120,1,
+                 1,0,1,1,'synthetic','2026-01-01T00:00:00Z','p7_op');
     """)
     connection.commit()
 
@@ -92,7 +123,10 @@ def current_owned_records(connection):
     tables = ("security_actors", "security_human_accounts",
               "security_credentials", "security_basic_credential_verifiers",
               "mutation_operations", "mutation_operation_payloads",
-              "security_device_pairing_requests", "vdr_channel_cache")
+              "security_device_pairing_requests", "vdr_channel_cache",
+              "security_devices", "security_sessions",
+              "security_browser_session_credentials",
+              "continue_watching_state", "recently_watched_state")
     return {table: connection.execute('SELECT * FROM "' + table + '"').fetchall()
             for table in tables}
 
@@ -157,6 +191,8 @@ def run(binary):
                 PRIOR_COLUMN_FIXTURE.read_text(encoding="utf-8"))
             preupgrade.executescript(
                 PAIRING_COLUMN_FIXTURE.read_text(encoding="utf-8"))
+            preupgrade.executescript(
+                SESSION_PLAYBACK_FIXTURE.read_text(encoding="utf-8"))
             require_consistent(preupgrade)
         with closing(sqlite3.connect(old)) as source, closing(
                 sqlite3.connect(backup)) as target:
@@ -172,6 +208,10 @@ def run(binary):
                 "mutation_operations"]
             for absent in ("revision", "decided_by_actor_id", "decided_at"):
                 assert absent not in prior_shape["security_device_pairing_requests"]
+            assert "last_seen_at" not in prior_shape[
+                "security_browser_session_credentials"]
+            for table in ("continue_watching_state", "recently_watched_state"):
+                assert "backend_native_id" not in prior_shape[table]
             old_prior_rows = prior_rows(source, prior_shape)
             assert all(len(rows) == 1 for rows in old_prior_rows.values())
             original_objects = dict(source.execute(
@@ -225,6 +265,20 @@ def run(binary):
                     "FROM security_device_pairing_requests "
                     "WHERE pairing_request_id='p7_pre_pairing'").fetchone() == (
                         1, "", ""), "pre-existing pairing defaults changed"
+                assert "last_seen_at" in updated_columns[
+                    "security_browser_session_credentials"]
+                for table in ("continue_watching_state", "recently_watched_state"):
+                    assert "backend_native_id" in updated_columns[table], (
+                        "playback native recording ID column missing: " + table)
+                    assert connection.execute(
+                        "SELECT backend_native_id FROM " + table +
+                        " WHERE recording_id='p7_pre_recording'").fetchone() == (
+                            "",), "older playback row default changed: " + table
+                assert connection.execute(
+                    "SELECT last_seen_at=created_at "
+                    "FROM security_browser_session_credentials "
+                    "WHERE token_id='p7_pre_token'").fetchone() == (1,), (
+                        "old browser session last_seen_at was not backfilled")
                 assert connection.execute(
                     "SELECT count(*) FROM suite_metadata_schema_versions"
                 ).fetchone()[0] >= 1
@@ -241,7 +295,7 @@ def run(binary):
                 else:
                     assert runtime_fixture is not None
                     assert current_owned_records(connection) == runtime_fixture, (
-                        "security/operation/pairing/channel records changed on restart")
+                        "security/session/playback/channel records changed on restart")
                     assert dict(connection.execute(
                         "SELECT name,sql FROM sqlite_master "
                         "WHERE name NOT LIKE 'sqlite_%'").fetchall()) == runtime_objects, (
@@ -269,6 +323,7 @@ def run(binary):
         print("RESOURCE_POSTCHECK=PASS", flush=True)
         print("P7_PRECOLUMN_SECURITY_OPERATION_MIGRATION=PASS", flush=True)
         print("P7_PAIRING_PRECOLUMN_AND_CHANNEL_PRESERVATION=PASS", flush=True)
+        print("P7_BROWSER_SESSION_AND_PLAYBACK_MIGRATION=PASS", flush=True)
         print("P7_HISTORICAL_CPP_SCHEMA_REHEARSAL=PASS", flush=True)
 
 

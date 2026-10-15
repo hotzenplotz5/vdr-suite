@@ -54,3 +54,13 @@ a database produced by a released binary. All values are fake. The same C++
 rehearsal verifies persisted pairing records and VDR channel-cache records
 across a fresh process and confirms that the offline backup restores the
 original pairing table shape without those columns.
+
+## Browser-session and playback-state P7 fixtures
+
+`p7-pre-revision-sessions-playback.sql` reconstructs test-only old-column
+shapes for browser-session `last_seen_at` and playback
+`backend_native_id`. The synthetic session has a matching test actor,
+device and credential so SQLite foreign keys remain valid during the real
+C++ schema migration. A read-only snapshot comparison checks original records,
+plus column defaults/backfills, second-process idempotence and offline restore.
+The fixture is **not from a released package or an actual user database**.
