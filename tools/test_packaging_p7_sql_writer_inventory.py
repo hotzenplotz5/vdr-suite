@@ -244,5 +244,57 @@ class P7RuntimeSqlWriterInventory(unittest.TestCase):
                 self.assertIn("assert(reopened.ensureSchema());", cpp)
 
 
+    def test_remaining_agent_assignment_sql_writers_are_ci_wired(self):
+        cpp = (ROOT / "core" / "agent" / "tests" /
+               "test_backend_agent_command_reservation.cpp").read_text(
+                   encoding="utf-8")
+        makefile = (ROOT / "mk" /
+                    "phase64-backend-agent-command-reservation-tests.mk").read_text(
+                        encoding="utf-8")
+        workflow = (ROOT / ".github" / "workflows" /
+                    "packaging-plugin-experimental.yml").read_text(
+                        encoding="utf-8")
+        for source, schema, index in (
+            ("core/agent/src/BackendAgentNativeTimerModifyAssignment.cpp",
+             "ensureNativeTimerModifyAssignmentSchema",
+             "idx_backend_agent_timer_modify_operation"),
+            ("core/agent/src/BackendAgentRecordingCutAssignment.cpp",
+             "ensureRecordingCutAssignmentSchema",
+             "idx_backend_agent_recording_cut_operation"),
+            ("core/agent/src/BackendAgentRecordingMarksModifyAssignment.cpp",
+             "ensureRecordingMarksModifyAssignmentSchema",
+             "idx_backend_agent_recording_marks_modify_operation"),
+        ):
+            with self.subTest(source=source):
+                self.assertTrue((ROOT / source).is_file())
+                self.assertIn(schema, cpp)
+                self.assertIn(index, cpp)
+        self.assertIn("core/agent/tests/test_backend_agent_command_reservation.cpp",
+                      makefile)
+        self.assertIn("make test-phase64-backend-agent-command-reservation",
+                      workflow)
+        self.assertIn("sqlite3_backup_init(", cpp)
+        self.assertIn("P7_AGENT_ASSIGNMENT_DDL_WRITERS=PASS", cpp)
+
+    def test_manual_person_profile_schema_and_recovery_are_ci_wired(self):
+        cpp = (ROOT / "core" / "recordings" / "tests" /
+               "test_manual_recording_metadata_revision.cpp").read_text(
+                   encoding="utf-8")
+        makefile = (ROOT / "mk" /
+                    "manual-recording-metadata-tests.mk").read_text(
+                        encoding="utf-8")
+        workflow = (ROOT / ".github" / "workflows" /
+                    "packaging-plugin-experimental.yml").read_text(
+                        encoding="utf-8")
+        self.assertIn(
+            "core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp",
+            makefile)
+        self.assertIn("make test-manual-recording-metadata-revision", workflow)
+        self.assertIn("ensureManualPersonProfileSchema()", cpp)
+        self.assertIn("idx_suite_metadata_person_profiles_path", cpp)
+        self.assertIn("sqlite3_backup_init(", cpp)
+        self.assertIn("p7_profile_prior", cpp)
+
+
 if __name__ == "__main__":
     unittest.main()
