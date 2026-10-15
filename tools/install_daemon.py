@@ -109,8 +109,10 @@ def database_risk(root: Path, previous: str, target: str) -> tuple[str, list[str
     requires review, even if the touched lines are unrelated (false-positive
     is safer than silently skipping an actually necessary backup).
     """
-    require(run("git", "merge-base", "--is-ancestor", previous, target, cwd=root) == "",
-            "PREVIOUS_SOURCE_NOT_ANCESTOR")
+    # The daemon binary is replaceable. A previous source commit need not be
+    # an ancestor: git diff A B works for diverged branches as well. Inspect
+    # the *actual* old-to-new change for schema risk, not commit topology.
+    # Reusable builds remain keyed only by the requested target SHA.
     changed = subprocess.run(["git", "diff", "--name-only", "-z", previous, target],
                              cwd=root, capture_output=True, check=False)
     require(changed.returncode == 0, "SOURCE_DIFF_FAILED")
