@@ -22,10 +22,11 @@ EXERCISED = EXERCISED_BY_P7_CPP | frozenset({
     "core/timers/src/TimerAssignmentReassignmentRepository.cpp",
     # CI run 38766064163: real Agent Command Delivery C++ result-evidence ALTER.
     "core/agent/src/BackendAgentCommandDelivery.cpp",
-})
-PENDING = frozenset({
+    # CI #73: real C++ reservation persisted schema, and timer-delete gate.
     "core/agent/src/BackendAgentCommandReservation.cpp",
     "core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp",
+})
+PENDING = frozenset({
     "core/agent/src/BackendAgentNativeTimerModifyAssignment.cpp",
     "core/agent/src/BackendAgentRecordingCutAssignment.cpp",
     "core/agent/src/BackendAgentRecordingMarksModifyAssignment.cpp",
