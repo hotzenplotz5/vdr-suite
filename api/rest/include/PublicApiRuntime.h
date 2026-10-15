@@ -183,6 +183,7 @@ enum class PublicChannelCollectionStatus
 {
     ok,
     invalid,
+    notFound,
     allSourcesUnavailable,
     unavailable,
 };
