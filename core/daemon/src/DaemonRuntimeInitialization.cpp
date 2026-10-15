@@ -8,6 +8,7 @@
 #include "PublicRecordingCollectionProjection.h"
 #include "PublicRecordingDisplayName.h"
 #include "PublicSearchProjection.h"
+#include "PublicSearchRecordingInventory.h"
 #include "GenreBrowserApiRuntime.h"
 #include "GlobalSearchApiRuntime.h"
 #include "RecordingSeriesHierarchyApiRuntime.h"
@@ -1266,7 +1267,9 @@ bool DaemonRuntime::initialize()
         {
             PublicSearchResult unavailable;
             if (!backendRegistryService_ || !publicRecordingIdentities_ ||
-                !vdrSnapshotReadService_ || request.backendId.empty() ||
+                !vdrSnapshotReadService_ ||
+                (!request.epg && !vdrRecordingCacheRepository_) ||
+                request.backendId.empty() ||
                 request.limit == 0U || request.limit > 30U)
             {
                 std::cerr << "Public-v1 search unavailable: runtime dependency"
@@ -1281,9 +1284,10 @@ bool DaemonRuntime::initialize()
                           << std::endl;
                 return unavailable;
             }
-            // Recording identities require a current VDR snapshot to prevent
-            // obsolete index entries from exposing deleted recordings.
-            // EPG search reads the shared search index, not the snapshot.
+            // Require the backend startup snapshot, but not its Recording list:
+            // fast startup intentionally omits Recordings. Liveness is checked
+            // against the same scoped, persistent inventory used by Web/Genre.
+            // EPG search continues to use the shared search index alone.
             if (!request.epg &&
                 !vdrSnapshotReadService_->hasSnapshotForBackend(request.backendId))
             {
@@ -1306,12 +1310,21 @@ bool DaemonRuntime::initialize()
                 return unavailable;
             }
 
-            const std::vector<VdrRecording> snapshot = request.epg
-                ? std::vector<VdrRecording>{}
-                : vdrSnapshotReadService_->getRecordingsForBackend(
-                    request.backendId);
+            std::vector<VdrRecording> recordingInventory;
+            if (!request.epg)
+            {
+                auto current = PublicSearchRecordingInventory::readReady(
+                    *vdrRecordingCacheRepository_, request.backendId);
+                if (!current)
+                {
+                    std::cerr << "Public-v1 search unavailable: Recording cache "
+                                 "not ready" << std::endl;
+                    return unavailable;
+                }
+                recordingInventory = std::move(*current);
+            }
             PublicSearchResult response = PublicSearchProjection::project(
-                request, *searched, snapshot,
+                request, *searched, recordingInventory,
                 [this](const std::string& backendId,
                        const std::string& nativeId)
                 {
