@@ -162,10 +162,13 @@ Until an explicit compatibility table covers the actual runtime schema owners
 and release pairs, treat unknown source schema, future markers and unknown
 binary/database combinations as **unsupported**; neither automatic migration
 nor a downgrade of a newer live database is approved.
+The first packaging release does not need a fictitious published predecessor;
+its upgrade gate concerns only explicitly supported earlier **manual-install**
+databases. Do not assume that every development checkout can be migrated.
 
 - Schema migration registry and compatible version boundaries.
 - An approved quiesce/snapshot method for the real daemon and all SQLite/WAL writers. The scratch rehearsal is not an integrated production backup.
-- Upgrade tests from at least one supported previous package version.
+- For the first package release, isolated migration tests for explicitly supported existing manual-install versions and daemon-created databases; after a previous supported package release exists, versioned binary-package upgrade tests for those supported predecessors.
 - Full upgrade/rollback matrix, including compatibility and restoration of all state in an isolated Debian/Ubuntu install root.
 - Concurrent service start/stop and admin onboarding acceptance on real yaVDR.
 

@@ -9,7 +9,7 @@ Status: **in development**, not released. Source-level implementation is distinc
 | P4 | Ubuntu noble Seahawk `vdr-dev 2.8.3-0yavdr0~noble` and plugin ABI `vdr-abi-2.8.3-0yavdr` verified in actual CI logs | Debian 13/Ubuntu resolute ABI and runtime dependency matrix; lintian |
 | P5 | Working root `debian/rules` (mode 100755), `3.0 (quilt)` source preview, three separate noble `.deb` outputs and ABI-correct plugin-only profile PASS | `debian/copyright` and third-party licensing, final source build reproducibility and upload metadata |
 | P6 | Disposable Ubuntu noble real package install/reinstall/remove/purge and conffile/state sentinel preservation PASS | Systemd startup/user/runtime directory tests, real manual-install transition and actual live yaVDR approval |
-| P7 | Offline preflight, tagged historical SQLite replay, real C++ metadata/security/operations/timers/device-pairing/channel-cache initializer checks, historically attested security/operations old-column migrations and synthetic pairing-column migration, and successful *unreleased* `exp1 → exp2` three-package dpkg upgrade/restore/downgrade in disposable Ubuntu Noble CI | Upgrade from a **published** older binary package and active daemon-created state; all runtime schema owners; controlled production restore; enforced version compatibility policy |
+| P7 | Offline preflight, tagged historical SQLite replay, real C++ metadata/security/operations/timers/device-pairing/channel-cache initializer checks, historically attested security/operations old-column migrations and synthetic pairing-column migration, and successful *unreleased* `exp1 → exp2` three-package dpkg upgrade/restore/downgrade in disposable Ubuntu Noble CI | For first publication: evidence-based migration of **existing manual installations** with daemon-created data; for later releases: supported older published package versions; all runtime schema owners, controlled restore and enforced version compatibility |
 
 ## Confirmed local build milestone (2026-10-14)
 
@@ -71,3 +71,17 @@ The C++ runner explicitly emitted
 Pairing migration uses a **synthetic, not historical-source-attested** older
 column shape. No released-binary compatibility, complete schema-owner coverage,
 production restore or live yaVDR deployment is established.
+
+## First-release migration acceptance — no fictional older package
+
+VDR-Suite currently has no published supported earlier Debian/Ubuntu package
+release in this experimental packaging sequence. Therefore **a previously
+published binary-package upgrade is not a prerequisite for the first package
+release when no such predecessor exists**. Instead the initial release must
+name which pre-package/manual VDR-Suite versions are eligible for migration,
+exercise representative real-daemon-created databases from those versions in
+isolated installations, preserve operator-owned state, and explicitly reject
+unknown or newer schemas. The disposable `exp1 → exp2` test proves the dpkg
+mechanics only; it does **not** establish support for any manual-install
+transition or any real service migration. For subsequent published packages,
+version-to-version upgrade tests become mandatory for supported predecessors.
