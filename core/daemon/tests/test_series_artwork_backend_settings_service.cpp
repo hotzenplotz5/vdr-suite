@@ -185,6 +185,12 @@ int main()
         "PRIMARY KEY(backend_id,series_key)"
         ");"));
 
+    // Existing manually configured covers must survive all five ALTERs.
+    assert(database.execute(
+        "INSERT INTO backend_series_artwork_overrides "
+        "(backend_id,series_key,poster_url,revision) VALUES "
+        "('legacy-backend','legacy-series','/legacy-cover.jpg',7);"));
+
     assert(database.execute(
         "CREATE TABLE epg_scraper_metadata_cache ("
         "backend_id TEXT NOT NULL,channel_id TEXT NOT NULL,event_id TEXT NOT NULL,"
@@ -249,6 +255,19 @@ int main()
         database,
         "backend_series_artwork_overrides",
         "poster_reference"));
+
+    // Idempotent actual C++ initialization must not erase or reset old rows.
+    assert(service.ensureSchema());
+    assert(scalar(database,
+        "SELECT COUNT(*) FROM backend_series_artwork_overrides "
+        "WHERE backend_id='legacy-backend' AND series_key='legacy-series' "
+        "AND poster_url='/legacy-cover.jpg' AND revision=7 "
+        "AND poster_path='' AND provider_id='' "
+        "AND external_namespace='' AND external_id='' "
+        "AND poster_reference='';") == 1);
+    assert(scalar(database,
+        "SELECT COUNT(*) FROM backend_series_artwork_overrides "
+        "WHERE backend_id='legacy-backend' AND series_key='legacy-series';") == 1);
 
     const SeriesArtworkBackendSettingsSnapshot initial =
         service.get("default");
