@@ -151,5 +151,29 @@ class P7RuntimeSqlWriterInventory(unittest.TestCase):
         self.assertIn("P7_TIMER_REASSIGNMENT_LEGACY_COLUMN=PASS", cpp)
 
 
+    def test_agent_result_evidence_legacy_cpp_rehearsal_is_wired(self):
+        """Guard the actual C++ ALTER, trigger cleanup, and restored-row check."""
+        makefile = (ROOT / "mk" / "agent-tests.mk").read_text(
+            encoding="utf-8")
+        cpp = (ROOT / "core" / "agent" / "tests" /
+               "test_backend_agent_command_delivery.cpp").read_text(
+                   encoding="utf-8")
+        workflow = (ROOT / ".github" / "workflows" /
+                    "packaging-plugin-experimental.yml").read_text(
+                        encoding="utf-8")
+        runtime = (ROOT / "core" / "agent" / "src" /
+                   "BackendAgentCommandDelivery.cpp").read_text(
+                       encoding="utf-8")
+        self.assertIn("core/agent/tests/test_backend_agent_command_delivery.cpp",
+                      makefile)
+        self.assertIn("make test-phase63-command-delivery-runtime", workflow)
+        self.assertIn("ADD COLUMN result_evidence TEXT NOT NULL DEFAULT ''", runtime)
+        self.assertIn("DROP COLUMN result_evidence;", cpp)
+        self.assertIn("assert(commands.ensureSchema());", cpp)
+        self.assertIn("sqlite3_backup_init(", cpp)
+        self.assertIn("sqlite_master WHERE name IN (", cpp)
+        self.assertIn("P7_AGENT_RESULT_EVIDENCE_MIGRATION=PASS", cpp)
+
+
 if __name__ == "__main__":
     unittest.main()
