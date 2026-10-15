@@ -28,12 +28,13 @@ EXERCISED = EXERCISED_BY_P7_CPP | frozenset({
     # CI #76: verified recorded cut/marks readbacks with real C++ and backup.
     "core/agent/src/BackendAgentRecordingCutReconciliationRepository.cpp",
     "core/agent/src/BackendAgentRecordingMarksModifyReconciliation.cpp",
-})
-PENDING = frozenset({
+    # CI #84: actual C++ assignment-gate schema and profile-facade tests.
     "core/agent/src/BackendAgentNativeTimerModifyAssignment.cpp",
     "core/agent/src/BackendAgentRecordingCutAssignment.cpp",
     "core/agent/src/BackendAgentRecordingMarksModifyAssignment.cpp",
     "core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp",
+})
+PENDING = frozenset({
 })
 INDIRECTLY_EXERCISED = frozenset({
     "core/agent/src/BackendRuntimeGeneration.cpp",
