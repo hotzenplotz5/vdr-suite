@@ -289,7 +289,9 @@ class P7RuntimeSqlWriterInventory(unittest.TestCase):
         self.assertIn(
             "core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp",
             makefile)
-        self.assertIn("make test-manual-recording-metadata-revision", workflow)
+        self.assertIn(
+            "make -f Makefile -f mk/manual-recording-metadata-tests.mk "
+            "test-manual-recording-metadata-revision", workflow)
         self.assertIn("ensureManualPersonProfileSchema()", cpp)
         self.assertIn("idx_suite_metadata_person_profiles_path", cpp)
         self.assertIn("sqlite3_backup_init(", cpp)
