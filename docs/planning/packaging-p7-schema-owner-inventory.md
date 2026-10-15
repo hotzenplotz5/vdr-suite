@@ -96,3 +96,29 @@ until the new exact-head CI completes and the migration evidence is reviewed.
 The service also modifies cache rows during explicit provider-setting updates;
 its delete statements are not startup-schema migration. The service does
 not establish forward-schema rejection or real manual-install compatibility.
+
+## Timer reassignment legacy-column candidate (P7)
+
+The existing end-to-end C++ regression
+`core/timers/tests/test_timer_assignment_reassignment_service.cpp` exercises
+the actual `TimerAssignmentReassignmentRepository.cpp` through
+`TimerAssignmentReassignmentService::reassign()` and
+`TimerAssignmentRepository::findControlledReplacement()`. The added
+test creates a real controlled-replacement row, removes only the later
+`old_operation_revision` column in its **in-memory synthetic fixture**, then
+replays the request so the real C++ `ensureReassignmentSchema()` executes the
+legacy `ALTER TABLE ADD COLUMN ... DEFAULT ''`. It verifies durable evidence,
+old assignment/epoch/backend/reason identity, the empty default, SQLite foreign
+keys, no duplicate handover record, repeated read idempotence, and removal of
+TEMP expectation-table/trigger objects. Existing cases cover valid
+`before_dispatch` and `verified_absent` transitions as well as denial of
+stale/unknown results.
+
+The disposable Ubuntu 24.04 P7 package CI now invokes
+`make test-phase64-timer-reassignment-failover` on the actual C++ sources.
+Until the new exact-head CI passes, this is **implemented candidate coverage**,
+not a passed migration proof. Even after success, this remains synthetic,
+in-memory SQLite evidence rather than a former production daemon-created
+database. The TEMP triggers enforce atomic per-request fencing but are not
+persistent schema migration objects; do not equate their execution with a
+supported manual-install upgrade or production-release approval.
