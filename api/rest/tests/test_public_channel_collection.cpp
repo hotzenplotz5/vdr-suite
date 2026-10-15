@@ -222,7 +222,7 @@ int main()
         assert(adjacent.body.find("sort=backendId,channelId") ==
             std::string::npos);
     }
-    for (const std::string& invalid : {
+    for (const std::string invalid : {
              "relativeTo=S19.2E-1-1019-10301",
              "direction=up&limit=1",
              "relativeTo=S19.2E-1-1019-10301&direction=up&limit=30",
@@ -290,7 +290,7 @@ int main()
         "\"code\":\"backend_unavailable\"") !=
         std::string::npos);
 
-    for (const std::string& badQuery : {
+    for (const std::string badQuery : {
              "limit=0",
              "limit=101",
              "sort=channelId",
