@@ -150,6 +150,27 @@ struct PublicSearchResult {
     bool hasMore = false;
 };
 
+enum class PublicEpgGenreStatus { ok, unavailable, invalid };
+struct PublicEpgGenreRequest {
+    std::string backendId, contentClass, genreId, locale = "de";
+    std::size_t limit = 30U, offset = 0U;
+    bool events = false;
+};
+struct PublicEpgGenreItem {
+    std::string genreId, contentClass, label, labelDe, labelEn;
+    std::size_t count = 0U;
+};
+struct PublicEpgGenreEvent {
+    std::string backendId, channelId, eventId, title, subtitle;
+    std::string startTime, endTime;
+};
+struct PublicEpgGenreResult {
+    PublicEpgGenreStatus status = PublicEpgGenreStatus::unavailable;
+    std::vector<PublicEpgGenreItem> genres;
+    std::vector<PublicEpgGenreEvent> events;
+    std::size_t totalCount = 0U;
+};
+
 enum class PublicGenreCollectionStatus
 {
     ok,
@@ -924,6 +945,9 @@ public:
     using SearchLookup =
         std::function<PublicSearchResult(const PublicSearchRequest&)>;
 
+    using EpgGenreLookup =
+        std::function<PublicEpgGenreResult(const PublicEpgGenreRequest&)>;
+
     using GenreCollectionLookup =
         std::function<PublicGenreCollectionResult(
             const PublicGenreCollectionRequest& request)>;
@@ -1066,6 +1090,11 @@ public:
     void resetSearchLookup();
     bool searchLookupConfigured() const;
     PublicSearchResult lookupSearch(const PublicSearchRequest& request) const;
+
+    void registerEpgGenreLookup(EpgGenreLookup lookup);
+    void resetEpgGenreLookup();
+    bool epgGenreLookupConfigured() const;
+    PublicEpgGenreResult lookupEpgGenre(const PublicEpgGenreRequest&) const;
 
     void registerGenreCollectionLookup(GenreCollectionLookup lookup);
     void resetGenreCollectionLookup();
@@ -1254,6 +1283,9 @@ private:
 
     mutable std::mutex searchLookupMutex_;
     SearchLookup searchLookup_;
+
+    mutable std::mutex epgGenreLookupMutex_;
+    EpgGenreLookup epgGenreLookup_;
 
     mutable std::mutex genreCollectionLookupMutex_;
     GenreCollectionLookup genreCollectionLookup_;

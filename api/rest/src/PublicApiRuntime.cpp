@@ -91,6 +91,8 @@ constexpr const char* PublicSearchRecordingPath = "/api/v1/search/recordings";
 constexpr const char* PublicSearchEpgPath = "/api/v1/search/epg";
 constexpr const char* PublicGenreCollectionPath = "/api/v1/genres";
 constexpr const char* PublicGenreRecordingPath = "/api/v1/genres/recordings";
+constexpr const char* PublicEpgGenrePath = "/api/v1/genres/epg";
+constexpr const char* PublicEpgGenreEventsPath = "/api/v1/genres/epg/events";
 constexpr std::size_t PublicGenreMaximumLimit = 30U;
 constexpr const char* PublicChannelCollectionPath =
     "/api/v1/channels";
@@ -956,6 +958,77 @@ bool parsePublicGenreCollectionQuery(
     };
     return backendSeen && validId(query.backendId) &&
         (recordings ? genreSeen && validId(query.genreId) : !genreSeen);
+}
+
+struct PublicEpgGenreQuery {
+    std::string backendId, contentClass, genreId, locale = "de";
+    std::size_t limit = 30U, offset = 0U;
+    bool events = false;
+};
+bool parsePublicEpgGenreQuery(
+    const std::string& target, bool events, PublicEpgGenreQuery& query)
+{
+    query.events = events;
+    const std::string raw = requestQueryString(target);
+    if (raw.empty() || raw.size() > 600U) return false;
+    bool backend = false, contentClass = false, genre = false;
+    bool locale = false, limit = false, offset = false;
+    const auto valid = [](const std::string& value) {
+        return !value.empty() && value.size() <= 128U &&
+            std::all_of(value.begin(), value.end(), [](unsigned char c) {
+                return std::isalnum(c) || c == '.' || c == '_' || c == '-';
+            });
+    };
+    std::size_t pos = 0U;
+    while (pos <= raw.size())
+    {
+        const auto end = raw.find('&', pos);
+        const std::string part = raw.substr(pos, end == std::string::npos ?
+            std::string::npos : end - pos);
+        const auto eq = part.find('=');
+        if (eq == std::string::npos) return false;
+        const std::string key = part.substr(0, eq);
+        const std::string value = part.substr(eq + 1);
+        if (key == "backendId")
+        {
+            if (backend || !valid(value)) return false;
+            backend = true; query.backendId = value;
+        }
+        else if (key == "contentClass")
+        {
+            if (!events || contentClass ||
+                (value != "movie" && value != "series" &&
+                 value != "documentary" && value != "sports")) return false;
+            contentClass = true; query.contentClass = value;
+        }
+        else if (key == "genreId")
+        {
+            if (!events || genre || !valid(value)) return false;
+            genre = true; query.genreId = value;
+        }
+        else if (key == "locale")
+        {
+            if (locale || (value != "de" && value != "en")) return false;
+            locale = true; query.locale = value;
+        }
+        else if (key == "limit")
+        {
+            if (limit || !decimalSize(value, query.limit) ||
+                query.limit == 0U || query.limit > 30U) return false;
+            limit = true;
+        }
+        else if (key == "offset")
+        {
+            if (offset || !decimalSize(value, query.offset) ||
+                query.offset > 1000000U) return false;
+            offset = true;
+        }
+        else return false;
+        if (end == std::string::npos) break;
+        pos = end + 1U;
+    }
+    return backend && (!events || contentClass) &&
+        (query.genreId.empty() || query.contentClass == "movie");
 }
 
 struct PublicEpgNowNextQuery
@@ -3091,6 +3164,7 @@ ApiResponse platformCapabilities(
     const bool backendCollectionAvailable,
     const bool recordingCollectionAvailable,
     const bool genreCollectionAvailable,
+    const bool epgGenreAvailable,
     const bool epgNowNextAvailable,
     const bool searchAvailable,
     const bool accountCollectionAvailable,
@@ -3133,6 +3207,9 @@ ApiResponse platformCapabilities(
         "{\"id\":\"public-api.recording-genres-read\",\"version\":1,\"availability\":\"" +
         std::string(genreCollectionAvailable ? "available" : "unavailable") +
         "\"},"
+        "{\"id\":\"public-api.epg-genres-read\",\"version\":1,\"availability\":\"" +
+        std::string(epgGenreAvailable ? "available" : "unavailable") +
+        "\"}," 
         "{\"id\":\"public-api.recording-search\",\"version\":1,\"availability\":\"" +
         std::string(searchAvailable ? "available" : "unavailable") +
         "\"},"
@@ -3516,6 +3593,50 @@ ApiResponse publicRecordingBrowseResponse(
         ",\"offset\":" + std::to_string(query.offset) +
         ",\"totalCount\":" + std::to_string(page.totalEntries) +
         ",\"hasMore\":" + (page.hasMore ? "true" : "false") +
+        "},\"meta\":{\"partial\":false}}";
+    return jsonResponse(body, requestId, correlationId);
+}
+
+ApiResponse publicEpgGenreResponse(
+    const PublicEpgGenreResult& page,
+    const PublicEpgGenreQuery& query,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    std::string body = "{\"items\":[";
+    std::size_t count = 0U;
+    if (query.events)
+    {
+        for (const auto& item : page.events)
+        {
+            if (count++) body += ",";
+            body += "{\"kind\":\"epg\",\"backendId\":\"" + jsonEscape(item.backendId) +
+                "\",\"channelId\":\"" + jsonEscape(item.channelId) +
+                "\",\"eventId\":\"" + jsonEscape(item.eventId) +
+                "\",\"title\":\"" + jsonEscape(item.title) +
+                "\",\"subtitle\":\"" + jsonEscape(item.subtitle) +
+                "\",\"startTime\":\"" + jsonEscape(item.startTime) +
+                "\",\"endTime\":\"" + jsonEscape(item.endTime) + "\"}";
+        }
+    }
+    else
+    {
+        for (const auto& item : page.genres)
+        {
+            if (count++) body += ",";
+            body += "{\"genreId\":\"" + jsonEscape(item.genreId) +
+                "\",\"contentClass\":\"" + jsonEscape(item.contentClass) +
+                "\",\"label\":\"" + jsonEscape(item.label) +
+                "\",\"labelDe\":\"" + jsonEscape(item.labelDe) +
+                "\",\"labelEn\":\"" + jsonEscape(item.labelEn) +
+                "\",\"count\":" + std::to_string(item.count) + "}";
+        }
+    }
+    body += "],\"page\":{\"limit\":" + std::to_string(query.limit) +
+        ",\"offset\":" + std::to_string(query.offset) +
+        ",\"totalCount\":" + std::to_string(page.totalCount) +
+        ",\"hasMore\":" +
+        std::string(query.offset + count < page.totalCount ? "true" : "false") +
         "},\"meta\":{\"partial\":false}}";
     return jsonResponse(body, requestId, correlationId);
 }
@@ -5022,6 +5143,32 @@ PublicSearchResult PublicApiRuntime::lookupSearch(
     return lookup ? lookup(request) : PublicSearchResult{};
 }
 
+void PublicApiRuntime::registerEpgGenreLookup(EpgGenreLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(epgGenreLookupMutex_);
+    epgGenreLookup_ = std::move(lookup);
+}
+void PublicApiRuntime::resetEpgGenreLookup()
+{
+    std::lock_guard<std::mutex> lock(epgGenreLookupMutex_);
+    epgGenreLookup_ = {};
+}
+bool PublicApiRuntime::epgGenreLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(epgGenreLookupMutex_);
+    return static_cast<bool>(epgGenreLookup_);
+}
+PublicEpgGenreResult PublicApiRuntime::lookupEpgGenre(
+    const PublicEpgGenreRequest& request) const
+{
+    EpgGenreLookup lookup;
+    {
+        std::lock_guard<std::mutex> lock(epgGenreLookupMutex_);
+        lookup = epgGenreLookup_;
+    }
+    return lookup ? lookup(request) : PublicEpgGenreResult{};
+}
+
 void PublicApiRuntime::registerGenreCollectionLookup(
     GenreCollectionLookup lookup)
 {
@@ -5190,6 +5337,7 @@ bool PublicApiRuntime::tryHandleGet(
             backendCollectionLookupConfigured(),
             recordingCollectionLookupConfigured(),
             genreCollectionLookupConfigured(),
+            epgGenreLookupConfigured(),
             epgNowNextLookupConfigured(),
             searchLookupConfigured(),
             accountCollectionLookupConfigured(),
@@ -6695,6 +6843,80 @@ bool PublicApiRuntime::tryHandleGet(
                     path, requestId, correlationId);
                 return true;
         }
+    }
+
+    if (path == PublicEpgGenrePath ||
+        path == PublicEpgGenreEventsPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        const bool events = path == PublicEpgGenreEventsPath;
+        PublicEpgGenreQuery query;
+        if (!parsePublicEpgGenreQuery(requestTarget, events, query) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != query.backendId)
+        {
+            response = invalidRequestProblem(
+                path, "EPG Genre collection backend scope is invalid.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicEpgGenreRequest request;
+        request.backendId = query.backendId;
+        request.contentClass = query.contentClass;
+        request.genreId = query.genreId;
+        request.locale = query.locale;
+        request.limit = query.limit;
+        request.offset = query.offset;
+        request.events = events;
+        const auto result = lookupEpgGenre(request);
+        if (result.status != PublicEpgGenreStatus::ok)
+        {
+            response = result.status == PublicEpgGenreStatus::invalid ?
+                invalidRequestProblem(
+                    path, "EPG Genre request is invalid.", requestId, correlationId) :
+                serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        const std::size_t count = events ?
+            result.events.size() : result.genres.size();
+        if (count > query.limit || result.totalCount < query.offset ||
+            count > result.totalCount - query.offset ||
+            (events && !result.genres.empty()) ||
+            (!events && !result.events.empty()))
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        for (const auto& item : result.genres)
+        {
+            if (item.genreId.empty() || item.label.empty() ||
+                (item.contentClass != "movie" &&
+                 item.contentClass != "series" &&
+                 item.contentClass != "documentary" &&
+                 item.contentClass != "sports"))
+            {
+                response = serviceUnavailableProblem(path, requestId, correlationId);
+                return true;
+            }
+        }
+        for (const auto& item : result.events)
+        {
+            if (item.backendId != query.backendId ||
+                item.channelId.empty() || item.eventId.empty() ||
+                item.title.empty() || item.startTime.empty() ||
+                item.endTime.empty())
+            {
+                response = serviceUnavailableProblem(path, requestId, correlationId);
+                return true;
+            }
+        }
+        response = publicEpgGenreResponse(
+            result, query, requestId, correlationId);
+        return true;
     }
 
     if (path == PublicGenreCollectionPath ||
@@ -9424,6 +9646,8 @@ bool PublicApiRuntime::tryHandlePost(
         path == "/api/v1/capabilities" ||
         path == PublicBackendCollectionPath ||
         path == PublicRecordingCollectionPath ||
+         path == PublicEpgGenrePath ||
+         path == PublicEpgGenreEventsPath ||
          path == PublicSearchRecordingPath ||
          path == PublicSearchEpgPath ||
         path == PublicEpgNowNextPath ||

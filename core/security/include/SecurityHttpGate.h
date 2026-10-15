@@ -723,6 +723,8 @@ public:
         const bool isPublicChannelCollection =
             path == "/api/v1/channels";
         const bool isPublicEpgNowNext =
+            path == "/api/v1/genres/epg" ||
+            path == "/api/v1/genres/epg/events" ||
             path == "/api/v1/epg/now-next" ||
             path == "/api/v1/search/epg";
         const bool isPublicEpgNowNextRead =

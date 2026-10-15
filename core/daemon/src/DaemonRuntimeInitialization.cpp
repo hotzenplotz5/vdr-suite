@@ -1613,6 +1613,101 @@ bool DaemonRuntime::initialize()
             return result;
         });
 
+    // Project exactly the established Web EPG Browse genre taxonomy.
+    // Default window matches the Web GenreBrowserController (48 hours).
+    PublicApiRuntime::instance().registerEpgGenreLookup(
+        [this](const PublicEpgGenreRequest& request)
+        {
+            PublicEpgGenreResult result;
+            if (!backendRegistryService_ || request.backendId.empty() ||
+                request.limit == 0U || request.limit > 30U ||
+                request.offset > 1000000U)
+            {
+                result.status = PublicEpgGenreStatus::invalid;
+                return result;
+            }
+            const auto backend = backendRegistryService_->getBackend(
+                request.backendId);
+            if (!backend.has_value() || !backend->enabled || !backend->online)
+                return result;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            const std::int64_t from = now;
+            const std::int64_t until = now + 48 * 60 * 60;
+            auto& genres = GenreBrowserApiRuntime::instance();
+            if (request.events)
+            {
+                GenreEpgPage page;
+                if (!genres.epgPage(request.backendId, request.contentClass,
+                    request.genreId, from, until,
+                    static_cast<int>(request.limit),
+                    static_cast<int>(request.offset), page) ||
+                    page.totalCount < 0 ||
+                    page.events.size() > request.limit)
+                    return result;
+                result.totalCount = static_cast<std::size_t>(page.totalCount);
+                for (const auto& event : page.events)
+                {
+                    if (event.backendId != request.backendId ||
+                        event.channelId.empty() || event.eventId.empty() ||
+                        event.title.empty() || event.endTime <= event.startTime)
+                        return PublicEpgGenreResult{};
+                    PublicEpgGenreEvent item;
+                    item.backendId = request.backendId;
+                    item.channelId = event.channelId;
+                    item.eventId = event.eventId;
+                    item.title = event.title;
+                    item.subtitle = event.subtitle;
+                    item.startTime = std::to_string(event.startTime);
+                    item.endTime = std::to_string(event.endTime);
+                    result.events.push_back(std::move(item));
+                }
+            }
+            else
+            {
+                GenreEpgBrowseOverview overview;
+                if (!genres.epgOverview(
+                    request.backendId, request.locale, from, until, overview))
+                    return result;
+                std::vector<PublicEpgGenreItem> flat;
+                for (const auto& category : overview.categories)
+                {
+                    if (category.id.empty() || category.label.empty() ||
+                        category.itemCount < 0)
+                        return PublicEpgGenreResult{};
+                    PublicEpgGenreItem parent;
+                    parent.genreId = category.id;
+                    parent.contentClass = category.id;
+                    parent.label = category.label;
+                    parent.labelDe = category.labelDe;
+                    parent.labelEn = category.labelEn;
+                    parent.count = static_cast<std::size_t>(category.itemCount);
+                    flat.push_back(std::move(parent));
+                    for (const auto& child : category.children)
+                    {
+                        if (child.id.empty() || child.label.empty() ||
+                            child.itemCount < 0)
+                            return PublicEpgGenreResult{};
+                        PublicEpgGenreItem item;
+                        item.genreId = child.id;
+                        item.contentClass = category.id;
+                        item.label = category.label + " › " + child.label;
+                        item.labelDe = category.labelDe + " › " + child.labelDe;
+                        item.labelEn = category.labelEn + " › " + child.labelEn;
+                        item.count = static_cast<std::size_t>(child.itemCount);
+                        flat.push_back(std::move(item));
+                    }
+                }
+                result.totalCount = flat.size();
+                const std::size_t end = std::min(
+                    result.totalCount, request.offset + request.limit);
+                for (std::size_t index = request.offset; index < end; ++index)
+                    result.genres.push_back(std::move(flat[index]));
+            }
+            result.status = PublicEpgGenreStatus::ok;
+            return result;
+        });
+
     PublicApiRuntime::instance().registerEpgNowNextLookup(
         [this](const PublicEpgNowNextRequest& request)
         {

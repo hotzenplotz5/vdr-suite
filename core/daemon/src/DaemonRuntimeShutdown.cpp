@@ -61,6 +61,7 @@ void DaemonRuntime::shutdown()
     PublicApiRuntime::instance().resetBackendCollectionLookup();
     PublicApiRuntime::instance().resetChannelCollectionLookup();
     PublicApiRuntime::instance().resetRecordingCollectionLookup();
+    PublicApiRuntime::instance().resetEpgGenreLookup();
     PublicApiRuntime::instance().resetTimerAssignmentCollectionLookup();
     PublicApiRuntime::instance().resetTimerAssignmentLookup();
     PublicApiRuntime::instance().resetOperationLookup();
