@@ -145,6 +145,11 @@ jobs:
         run: |
           set -euo pipefail
           make test-phase64-timer-reassignment-failover
+      - name: Rehearse agent command result legacy column and retired triggers
+        shell: bash
+        run: |
+          set -euo pipefail
+          make test-phase63-command-delivery-runtime
       - name: Build all default binary packages (no host installation)
         shell: bash
         run: |
