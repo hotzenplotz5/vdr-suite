@@ -216,6 +216,11 @@ int main()
             std::string::npos);
         assert(adjacent.body.find("\"nextCursor\":null") !=
             std::string::npos);
+        assert(adjacent.body.find("&direction=") != std::string::npos);
+        // A neighbor self-link must not carry the legacy sort/order fields,
+        // because those fields are deliberately forbidden for neighbor reads.
+        assert(adjacent.body.find("sort=backendId,channelId") ==
+            std::string::npos);
     }
     for (const std::string& invalid : {
              "relativeTo=S19.2E-1-1019-10301",
