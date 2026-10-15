@@ -36,6 +36,12 @@ test-packaging-p7-runtime-schema:
 		core/timers/src/TimerAssignment.cpp \
 		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
 		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/NativeTimerBinding.cpp \
+		core/timers/src/NativeTimerBindingRepository.cpp \
+		core/timers/src/NativeTimerBindingReadRepository.cpp \
+		core/timers/src/NativeTimerBindingWriteRepository.cpp \
+		core/agent/src/BackendRuntimeGeneration.cpp \
+		core/agent/src/BackendAgentRepository.cpp \
 		core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
 		core/vdr/src/GlobalSearchRepository.cpp \
 		core/metadata/tests/test_packaging_p7_runtime_schema.cpp \

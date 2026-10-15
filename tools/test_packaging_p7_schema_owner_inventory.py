@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 # Every discovered named Repository::ensureSchema + CREATE TABLE owner must
 # be classified. Adding a new owner without review breaks this focused gate.
 EXERCISED_BY_P7_CPP = frozenset((
+    "core/agent/src/BackendAgentRepository.cpp",
     "core/media/src/ContinueWatchingRepository.cpp",
     "core/media/src/MediaSessionRepository.cpp",
     "core/media/src/MediaTranscodeBackendSettingsRepository.cpp",
@@ -33,6 +34,7 @@ EXERCISED_BY_P7_CPP = frozenset((
     "core/security/src/HumanAccountRepository.cpp",
     "core/security/src/SecurityIdentityRepository.cpp",
     "core/security/src/SecurityPermissionGrantRepository.cpp",
+    "core/timers/src/NativeTimerBindingRepository.cpp",
     "core/timers/src/TimerAssignmentRepository.cpp",
     "core/timers/src/TimerIntentRepository.cpp",
     "core/vdr/src/EpgArtworkRepository.cpp",
@@ -45,10 +47,8 @@ EXERCISED_BY_P7_CPP = frozenset((
     "core/vdr/src/VdrRecordingCacheRepository.cpp",
 ))
 NOT_YET_EXERCISED_BY_P7_CPP = frozenset((
-    "core/agent/src/BackendAgentRepository.cpp",
     "core/agent/src/EmbeddedRecordingCutRepository.cpp",
     "core/agent/src/EmbeddedRecordingMarksRepository.cpp",
-    "core/timers/src/NativeTimerBindingRepository.cpp",
     "core/vdr/src/VdrRecordingNativeMetadataRepositorySchema.cpp",
 ))
 ALL_CLASSIFIED = EXERCISED_BY_P7_CPP | NOT_YET_EXERCISED_BY_P7_CPP
@@ -94,7 +94,7 @@ class P7SchemaOwnerInventoryTests(unittest.TestCase):
     def test_uncovered_owners_remain_explicit_and_nonzero(self):
         # P7 is intentionally not a complete compatibility gate yet.
         self.assertTrue(NOT_YET_EXERCISED_BY_P7_CPP)
-        self.assertEqual(len(EXERCISED_BY_P7_CPP), 28)
+        self.assertEqual(len(EXERCISED_BY_P7_CPP), 30)
 
 
 if __name__ == "__main__":

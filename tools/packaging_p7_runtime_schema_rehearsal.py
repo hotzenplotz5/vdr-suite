@@ -229,6 +229,61 @@ def seed_owned_runtime_records(connection):
                  'p7_backend','p7_new_recording','p7fixture','imdb',
                  'tt9999999','series','P7 new manually assigned title',
                  'p7_actor',2,1);
+        INSERT INTO native_timer_bindings(
+          native_timer_binding_id,binding_revision,backend_id,backend_generation,backend_native_timer_id,
+          timer_assignment_id,ownership,observed_fingerprint,observed_channel_id,observed_event_id,observed_title,
+          observed_directory,observed_day,observed_weekdays,observed_start_time,observed_end_time,observed_flags,
+          observed_priority,observed_lifetime,observed_enabled,observed_vps,observed_recording,observed_pending,
+          last_observed_at,last_verified_operation_id,missing_since,drift_state)
+          VALUES(
+          'p7_native_binding',1,'p7_backend',1,'p7_vdr_timer_17','','external',
+          'p7_timer_fingerprint','p7_channel','p7_event','P7 test timer','P7~Fixture','2026-10-15','',
+          '20:15','21:45',0,50,99,1,0,
+          0,0,12345,'',0,'in-sync');
+        -- Synthetic enrollment and agent rows; no real usable token or key.
+        INSERT INTO backend_agent_enrollments(
+          enrollment_id,backend_id,token_hash,expires_at,created_at)
+          VALUES('p7_agent_enrollment','p7_agent_backend',
+                 'SYNTHETIC_UNUSABLE_ENROLLMENT_HASH',2000,1000);
+        INSERT INTO backend_agents(
+          agent_id,backend_id,actor_id,device_id,credential_id,
+          agent_instance_id,created_at,updated_at)
+          VALUES('p7_agent','p7_agent_backend','p7_service_actor',
+                 'p7_service_device','p7_service_credential',
+                 'p7_agent_instance',1000,1000);
+        INSERT INTO backend_agent_credential_rotations(
+          rotation_id,agent_id,from_generation,to_generation,rotated_at)
+          VALUES('p7_agent_rotation','p7_agent',1,2,1100);
+        INSERT INTO backend_agent_capabilities(
+          agent_id,capability_revision,capability_kind,
+          capability_name,capability_value)
+          VALUES('p7_agent',1,'observation','channels','enabled');
+        INSERT INTO backend_runtime_generations(
+          backend_id,generation,updated_at)
+          VALUES('p7_agent_backend',1,1000);
+        INSERT INTO backend_agent_observation_receipts(
+          backend_id,observation_domain,agent_id,agent_instance_id,
+          backend_generation,snapshot_generation,producer_sequence,
+          kind,captured_at,resource_revision,payload_identity,
+          canonical_payload,outcome,reason_code,accepted_at)
+          VALUES('p7_agent_backend','channels','p7_agent',
+                 'p7_agent_instance',1,1,1,'completeSnapshot',
+                 1000,'r1','p7_payload_1','{}','accepted','p7_test',1000);
+        INSERT INTO backend_agent_observation_cursors(
+          backend_id,observation_domain,agent_id,agent_instance_id,
+          backend_generation,snapshot_generation,producer_sequence,
+          resource_revision,payload_identity,captured_at,accepted_at)
+          VALUES('p7_agent_backend','channels','p7_agent',
+                 'p7_agent_instance',1,1,1,'r1','p7_payload_1',
+                 1000,1000);
+        INSERT INTO backend_agent_channel_facts(
+          backend_id,channel_id,channel_number,name,provider,group_name,
+          radio,encrypted,enabled,agent_id,agent_instance_id,
+          backend_generation,snapshot_generation,producer_sequence,
+          captured_at,resource_revision)
+          VALUES('p7_agent_backend','p7_agent_channel',17,
+                 'P7 fake channel','P7','fixture',0,0,1,
+                 'p7_agent','p7_agent_instance',1,1,1,1000,'r1');
     """)
     connection.commit()
 
@@ -259,7 +314,15 @@ def current_owned_records(connection):
               "suite_metadata_manual_assignment_values",
               "suite_metadata_manual_assignment_withdrawals",
               "suite_metadata_person_values",
-              "suite_metadata_recording_person_relations")
+              "suite_metadata_recording_person_relations",
+              "native_timer_bindings",
+              "backend_agent_enrollments", "backend_agents",
+              "backend_agent_credential_rotations",
+              "backend_agent_capabilities",
+              "backend_agent_observation_receipts",
+              "backend_runtime_generations",
+              "backend_agent_observation_cursors",
+              "backend_agent_channel_facts")
     return {table: connection.execute('SELECT * FROM "' + table + '"').fetchall()
             for table in tables}
 
@@ -508,6 +571,8 @@ def run(binary):
         print("P7_SERIES_ARTWORK_PREORIGIN_AND_PROVIDER_CACHE=PASS", flush=True)
         print("P7_ADMIN_BOOTSTRAP_AND_ACCOUNT_CREATE_PRESERVATION=PASS", flush=True)
         print("P7_MANUAL_METADATA_PRE_CAST_MIGRATION=PASS", flush=True)
+        print("P7_NATIVE_TIMER_BINDINGS_PRESERVATION=PASS", flush=True)
+        print("P7_BACKEND_AGENT_STATE_PRESERVATION=PASS", flush=True)
         print("P7_HISTORICAL_CPP_SCHEMA_REHEARSAL=PASS", flush=True)
 
 

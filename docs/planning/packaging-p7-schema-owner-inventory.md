@@ -11,7 +11,7 @@ It does **not** mean a published package/database upgrade is supported.
 
 ## Inventory boundary
 
-- **28** named repository C++ sources are exercised by the P7 rehearsal,
+- **30** named repository C++ sources are exercised by the P7 rehearsal,
   including security identity/accounts, browser sessions, device pairing,
   credentials/grants/audit, media playback/session state, basic EPG, public
   recording identity/cache, series hierarchy, operations, and timers.
@@ -20,7 +20,7 @@ It does **not** mean a published package/database upgrade is supported.
 - The `GenreIndexRepository` initializer is additionally exercised through
   `core/metadata/src/GenreIndexRepositorySchema.inc` and the
   `$(METADATA_GENRE_SRC)` make variable; it is not counted in the 23.
-- **5** named `ensureSchema` sources remain explicitly unexercised below.
+- **3** named `ensureSchema` sources remain explicitly unexercised below.
 - There are also table-creating helpers **outside** the named
   `ensureSchema` pattern (e.g. recording-cut reconciliation and timer
   reassignment). They need a separate full SQL-write-path survey before
@@ -30,10 +30,8 @@ It does **not** mean a published package/database upgrade is supported.
 
 | Source | Follow-up |
 | --- | --- |
-| `core/agent/src/BackendAgentRepository.cpp` | agent enrollment/observation state |
 | `core/agent/src/EmbeddedRecordingCutRepository.cpp` | embedded recording cut state |
 | `core/agent/src/EmbeddedRecordingMarksRepository.cpp` | embedded marks state |
-| `core/timers/src/NativeTimerBindingRepository.cpp` | native timer bindings |
 | `core/vdr/src/VdrRecordingNativeMetadataRepositorySchema.cpp` | native recording metadata |
 
 ## Separate acceptance gates

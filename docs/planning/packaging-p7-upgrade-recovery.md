@@ -303,3 +303,27 @@ The FK foundation here is from the **current checked-in**
 `database/schema/metadata-platform-v1.sql` while the manual assignment
 table is synthetically reconstructed; therefore this is not evidence for an
 actual previous released package or a real manual-install database.
+
+## P7 native VDR timer binding schema ownership
+
+The real `NativeTimerBindingRepository::ensureSchema()` is now part of the
+offline rehearsal, linked with its real read/write storage functions and the
+native timer model. An artificial external timer binding with backend, VDR
+native timer ID, observed state and ownership must survive two independent
+fresh-process reopens. The table and unique identity indexes are initialized
+without touching VDR's actual timers; the offline snapshot restores the
+pre-table database. This validates database schema durability only, **not**
+timer dispatch, timers.conf migration, timer ownership reconciliation or
+production VDR lifecycle.
+
+## P7 backend-agent enrollment, observation and generations
+
+The offline C++ rehearsal now also calls
+`BackendAgentRepository::ensureSchema()`, including its delegated
+`BackendRuntimeGenerationRepository` initializer. The isolated database
+contains fake enrollment, agent identity, credential rotation, capabilities,
+an observation receipt/cursor, channel fact and runtime generation.
+Existing SQL constraints, rows and indexes must survive fresh-process
+reinitialization; the original offline backup must restore pre-agent state.
+No real agent, credential or VDR backend is contacted. This is **not** runtime
+agent acceptance or live manual-install migration evidence.

@@ -31,6 +31,8 @@
 #include "FirstAdminBootstrapRepository.h"
 #include "HumanAccountCreationRepository.h"
 #include "ManualRecordingMetadataAssignmentRepository.h"
+#include "NativeTimerBindingRepository.h"
+#include "BackendAgentLifecycle.h"
 #include <sqlite3.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -131,6 +133,8 @@ int main(int argc, char** argv)
         FirstAdminBootstrapRepository firstAdmin(database);
         HumanAccountCreationRepository accountCreation(database);
         ManualRecordingMetadataAssignmentRepository manualMetadata(database);
+        vdrsuite::timers::NativeTimerBindingRepository nativeBindings(database);
+        BackendAgentRepository backendAgents(database);
         if (!identities.ensureSchema() ||
             !accounts.ensureSchema() ||
             !verifiers.ensureSchema()) {
@@ -195,6 +199,14 @@ int main(int argc, char** argv)
             std::cerr << "P7_MANUAL_RECORDING_METADATA_SCHEMA=FAIL pass=" << pass << "\n";
             return 22;
         }
+        if (!nativeBindings.ensureSchema()) {
+            std::cerr << "P7_NATIVE_TIMER_BINDING_SCHEMA=FAIL pass=" << pass << "\n";
+            return 23;
+        }
+        if (!backendAgents.ensureSchema()) {
+            std::cerr << "P7_BACKEND_AGENT_SCHEMA=FAIL pass=" << pass << "\n";
+            return 24;
+        }
         if (!scalarPositive(database.handle(),
             "SELECT count(*) FROM suite_metadata_schema_versions;") ||
             !scalarPositive(database.handle(),
@@ -227,7 +239,12 @@ int main(int argc, char** argv)
             "'suite_metadata_manual_assignment_values',"
             "'suite_metadata_manual_assignment_withdrawals',"
             "'suite_metadata_person_values',"
-            "'suite_metadata_recording_person_relations'))=38 "
+            "'suite_metadata_recording_person_relations',"
+            "'native_timer_bindings','backend_agent_enrollments',"
+            "'backend_agents','backend_agent_credential_rotations',"
+            "'backend_agent_capabilities','backend_agent_observation_receipts',"
+            "'backend_runtime_generations',"
+            "'backend_agent_observation_cursors','backend_agent_channel_facts'))=47 "
             "THEN 1 ELSE 0 END;")) {
             std::cerr << "P7_RUNTIME_SQLITE_INTEGRITY=FAIL\n";
             return 7;
