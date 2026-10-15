@@ -146,11 +146,9 @@ def seed_owned_runtime_records(connection):
           backend_id,create_accepted,readback_available,mode_preserved,
           tolerance_preserved,cleanup_succeeded)
           VALUES('p7_backend',1,1,1,1,1);
-        INSERT INTO vdr_recording_cache(
-          backend_id,cache_key,recording_id,backend_native_id,title,
-          metadata_payload,recording_duration_known)
-          VALUES('p7_backend','p7_cache_key','p7_recording','p7_native',
-                 'P7 recording','{"title":"P7 fixture"}',1);
+        -- The historical vdr_recording_cache row belongs to the immutable
+        -- baseline. Do not add a synthetic row here: original_rows() must
+        -- remain byte-for-byte equal on both C++ reopen passes.
         INSERT INTO public_recording_identity(public_id,backend_id,native_id)
           VALUES('rec_p7synthetic','p7_backend','p7_native');
         INSERT INTO recording_series_hierarchy_overrides(
