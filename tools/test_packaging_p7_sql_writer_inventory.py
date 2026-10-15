@@ -20,9 +20,10 @@ EXERCISED = EXERCISED_BY_P7_CPP | frozenset({
     "core/daemon/src/SeriesArtworkBackendSettingsService.cpp",
     # CI #67: real C++ TimerAssignmentReassignmentRepository ALTER + triggers.
     "core/timers/src/TimerAssignmentReassignmentRepository.cpp",
+    # CI run 38766064163: real Agent Command Delivery C++ result-evidence ALTER.
+    "core/agent/src/BackendAgentCommandDelivery.cpp",
 })
 PENDING = frozenset({
-    "core/agent/src/BackendAgentCommandDelivery.cpp",
     "core/agent/src/BackendAgentCommandReservation.cpp",
     "core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp",
     "core/agent/src/BackendAgentNativeTimerModifyAssignment.cpp",
@@ -173,6 +174,43 @@ class P7RuntimeSqlWriterInventory(unittest.TestCase):
         self.assertIn("sqlite3_backup_init(", cpp)
         self.assertIn("sqlite_master WHERE name IN (", cpp)
         self.assertIn("P7_AGENT_RESULT_EVIDENCE_MIGRATION=PASS", cpp)
+
+
+    def test_agent_reservation_schema_and_backup_are_ci_wired(self):
+        makefile = (ROOT / "mk" /
+                    "phase64-backend-agent-command-reservation-tests.mk").read_text(
+                        encoding="utf-8")
+        cpp = (ROOT / "core" / "agent" / "tests" /
+               "test_backend_agent_command_reservation.cpp").read_text(
+                   encoding="utf-8")
+        workflow = (ROOT / ".github" / "workflows" /
+                    "packaging-plugin-experimental.yml").read_text(
+                        encoding="utf-8")
+        self.assertIn("core/agent/src/BackendAgentCommandReservation.cpp",
+                      makefile)
+        self.assertIn("make test-phase64-backend-agent-command-reservation",
+                      workflow)
+        self.assertIn("assert(reservationRepository.ensureSchema());", cpp)
+        self.assertIn("idx_backend_agent_command_reservations_operation", cpp)
+        self.assertIn("sqlite3_backup_init(", cpp)
+        self.assertIn("P7_AGENT_RESERVATION_SCHEMA_PRESERVATION=PASS", cpp)
+
+    def test_agent_timer_delete_dormant_gate_is_ci_wired(self):
+        makefile = (ROOT / "mk" /
+                    "phase64-native-timer-delete-assignment-tests.mk").read_text(
+                        encoding="utf-8")
+        cpp = (ROOT / "core" / "agent" / "tests" /
+               "test_backend_agent_native_timer_delete_assignment.cpp").read_text(
+                   encoding="utf-8")
+        workflow = (ROOT / ".github" / "workflows" /
+                    "packaging-plugin-experimental.yml").read_text(
+                        encoding="utf-8")
+        self.assertIn("core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp",
+                      makefile)
+        self.assertIn("make test-phase64-native-timer-delete-assignment", workflow)
+        self.assertIn("idx_backend_agent_timer_delete_operation", cpp)
+        self.assertIn("trg_backend_agent_timer_delete_dormant_capability", cpp)
+        self.assertIn("P7_AGENT_NATIVE_TIMER_DELETE_DORMANT_GATE=PASS", cpp)
 
 
 if __name__ == "__main__":
