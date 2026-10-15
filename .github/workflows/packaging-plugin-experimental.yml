@@ -150,6 +150,16 @@ jobs:
         run: |
           set -euo pipefail
           make test-phase63-command-delivery-runtime
+      - name: Rehearse command reservation schema and SQLite restore
+        shell: bash
+        run: |
+          set -euo pipefail
+          make test-phase64-backend-agent-command-reservation
+      - name: Rehearse timer-delete unique index and dormant capability trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          make test-phase64-native-timer-delete-assignment
       - name: Build all default binary packages (no host installation)
         shell: bash
         run: |
