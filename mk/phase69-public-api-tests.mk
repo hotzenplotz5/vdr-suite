@@ -357,6 +357,13 @@ test-phase69d-public-channel-collection:
 	python3 tools/check_phase69d_public_channel_collection.py
 
 
+# Compile ONLY the changed daemon composition TU without linking or
+# rebuilding the daemon. Keep deployment and DB state untouched.
+.PHONY: test-phase69d-public-channel-neighbor-daemon-syntax
+
+test-phase69d-public-channel-neighbor-daemon-syntax:
+	$(CXX) $(CXXFLAGS) -fsyntax-only core/daemon/src/DaemonRuntimeInitialization.cpp
+
 .PHONY: test-phase69d-closeout
 
 test-phase69d-closeout:
