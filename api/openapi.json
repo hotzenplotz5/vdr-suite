@@ -276,7 +276,7 @@
         ],
         "operationId": "listPublicChannels",
         "summary": "List Channels from explicitly selected and authorized VDR backends",
-        "description": "An authenticated actor must provide 1–16 distinct backendId query members. Each requested source is independently authorized with channels.view@backend; one denial rejects the entire request, before collection evaluation. The order is (backendId ASC, channelId ASC). The opaque ch1_-prefixed cursor binds the normalized backend source set and last item; source-set mismatch returns 409 cursor_expired. A 200 response may be partial: meta.sources gives all requested sources, and unavailable sources are not silently hidden. At least one source must succeed for a 200; all unavailable yields 503 backend_unavailable. The response has Cache-Control: no-store and no collection ETag. No legacy /api/vdr/channels fallback is permitted by this contract.",
+        "description": "An authenticated actor must provide 1–16 distinct backendId query members. Each requested source is independently authorized with channels.view@backend; one denial rejects the entire request, before collection evaluation. The order is (backendId ASC, channelId ASC). The opaque ch1_-prefixed cursor binds the normalized backend source set and last item; source-set mismatch returns 409 cursor_expired. A 200 response may be partial: meta.sources gives all requested sources, and unavailable sources are not silently hidden. At least one source must succeed for a 200; all unavailable yields 503 backend_unavailable. The response has Cache-Control: no-store and no collection ETag. No legacy /api/vdr/channels fallback is permitted by this contract. An optional, single-backend adjacent-channel query (relativeTo + direction + limit=1, with no cursor/sort/order) selects the next enabled nonradio VDR channel by canonical VDR channelNumber, wrapping at list boundaries. This leaves the pre-existing ch1_ ID-ordered list unchanged. Current channel missing or no second eligible channel returns 404.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "channels.view for every explicitly requested backendId",
@@ -346,6 +346,31 @@
               "type": "string",
               "const": "asc",
               "default": "asc"
+            }
+          },
+          {
+            "name": "relativeTo",
+            "in": "query",
+            "required": false,
+            "description": "Native public channelId of currently tuned channel. Must be combined with direction and limit=1; exactly one authorized backendId; no cursor/sort/order.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "description": "VDR adjacent channel direction when relativeTo is supplied. up increments native channel number, down decrements, with wrap.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "up",
+                "down"
+              ]
             }
           }
         ],
@@ -434,6 +459,16 @@
           },
           "403": {
             "description": "One or more requested backends lack channels.view permission; no source results are disclosed.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Adjacent query: unknown, disabled, radio-only current channel or no other enabled TV channel.",
             "content": {
               "application/problem+json": {
                 "schema": {
