@@ -102,7 +102,7 @@ std::filesystem::path tempRoot()
         (std::filesystem::temp_directory_path() /
          "vdr-suite-series-artwork-backend-settings-test-XXXXXX").string();
     std::vector<char> writable(pattern.begin(), pattern.end());
-    writable.push_back('\\0');
+    writable.push_back('\0');
     char* created = ::mkdtemp(writable.data());
     assert(created != nullptr);
     const std::filesystem::path root(created);
