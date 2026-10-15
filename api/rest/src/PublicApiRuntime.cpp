@@ -3564,6 +3564,7 @@ ApiResponse publicRecordingBrowseResponse(
                 std::to_string(item.durationSeconds) +
                 ",\"durationKnown\":" +
                 (item.durationKnown ? "true" : "false") +
+                ",\"edited\":" + (item.edited ? "true" : "false") +
                 ",\"description\":\"" + jsonEscape(item.description) +
                 "\",\"sizeMb\":" + std::to_string(item.sizeMb) + "}";
         }
@@ -3586,6 +3587,7 @@ ApiResponse publicRecordingBrowseResponse(
             std::to_string(item.durationSeconds) +
             ",\"durationKnown\":" +
             (item.durationKnown ? "true" : "false") +
+            ",\"edited\":" + (item.edited ? "true" : "false") +
             ",\"description\":\"" + jsonEscape(item.description) +
             "\",\"sizeMb\":" + std::to_string(item.sizeMb) + "}";
     }
@@ -3660,7 +3662,8 @@ ApiResponse publicGenreCollectionResponse(
                 "\",\"recordedAt\":\"" + jsonEscape(item.recordedAt) +
                 "\",\"durationSeconds\":" + std::to_string(item.durationSeconds) +
                 ",\"durationKnown\":" +
-                std::string(item.durationKnown ? "true" : "false") + "}";
+                std::string(item.durationKnown ? "true" : "false") +
+                ",\"edited\":" + (item.edited ? "true" : "false") + "}";
         }
     }
     else
@@ -3717,6 +3720,7 @@ ApiResponse publicRecordingCollectionResponse(
             "\",\"durationSeconds\":" +
             std::to_string(item.durationSeconds) +
             ",\"durationKnown\":" + (item.durationKnown ? "true" : "false") +
+            ",\"edited\":" + (item.edited ? "true" : "false") +
             ",\"description\":\"" + jsonEscape(item.description) +
             "\",\"sizeMb\":" + std::to_string(item.sizeMb) + "}";
     }
@@ -6656,7 +6660,8 @@ bool PublicApiRuntime::tryHandleGet(
                     "\",\"endTime\":\"" + jsonEscape(item.endTime) +
                     "\",\"subtitle\":\"" + jsonEscape(item.subtitle) + "\"";
             else
-                body += ",\"recordingId\":\"" + jsonEscape(item.recordingId) + "\"";
+                body += ",\"recordingId\":\"" + jsonEscape(item.recordingId) +
+                    "\",\"edited\":" + (item.edited ? "true" : "false");
             body += "}";
         }
         body += "],\"page\":{\"offset\":" +

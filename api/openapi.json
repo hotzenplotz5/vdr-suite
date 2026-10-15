@@ -8302,6 +8302,10 @@
           "durationKnown": {
             "type": "boolean"
           },
+          "edited": {
+            "type": "boolean",
+            "description": "True when the VDR title leaf marks an edited cut with leading percent; hidden from the normalized display title."
+          },
           "description": {
             "type": "string"
           },
@@ -8469,6 +8473,10 @@
           },
           "durationKnown": {
             "type": "boolean"
+          },
+          "edited": {
+            "type": "boolean",
+            "description": "True when the VDR title leaf marks an edited cut with leading percent; hidden from the normalized display title."
           }
         }
       },

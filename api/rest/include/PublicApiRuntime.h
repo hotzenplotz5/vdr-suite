@@ -97,6 +97,7 @@ struct PublicRecordingCollectionItem
     std::string recordedAt;
     int durationSeconds = 0;
     bool durationKnown = false;
+    bool edited = false;
     // Read-only descriptive facts; no artwork/provider URL or native path.
     std::string description;
     long long sizeMb = 0;
@@ -142,6 +143,7 @@ struct PublicSearchRequest {
 struct PublicSearchItem {
     std::string backendId, recordingId, channelId, eventId;
     std::string title, subtitle, startTime, endTime;
+    bool edited = false;
 };
 struct PublicSearchResult {
     PublicSearchStatus status = PublicSearchStatus::unavailable;
@@ -205,6 +207,7 @@ struct PublicGenreRecordingItem
     std::string recordedAt;
     int durationSeconds = 0;
     bool durationKnown = false;
+    bool edited = false;
 };
 
 struct PublicGenreCollectionResult

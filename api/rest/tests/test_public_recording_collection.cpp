@@ -121,6 +121,7 @@ int main()
                 leaf.singleRecording =
                     recording("rec_00000000000000000000000000000001");
                 leaf.singleRecording.title = "48 Hrs";
+                leaf.singleRecording.edited = true;
                 page.folders.push_back(leaf);
             }
             else if (request.offset == 2U)
@@ -146,6 +147,7 @@ int main()
     assert(children.body.find("\"kind\":\"recording\"") != std::string::npos);
     assert(children.body.find("\"title\":\"48 Hrs\"") != std::string::npos);
     assert(children.body.find("\"folderId\"") == std::string::npos);
+    assert(children.body.find("\"edited\":true") != std::string::npos);
     assert(children.body.find("\"hasMore\":true") != std::string::npos);
     ApiResponse direct;
     assert(runtime.tryHandleGet(
@@ -332,6 +334,53 @@ int main()
     assert(parity.body.find("/private") == std::string::npos);
     assert(parity.body.find("backendNativeId") == std::string::npos);
     assert(parity.body.find("\"hasMore\":false") != std::string::npos);
+
+    runtime.registerSearchLookup([](const PublicSearchRequest& request) {
+        GlobalSearchResult web;
+        web.backendId = request.backendId;
+        web.recordingTotal = 2;
+        std::vector<VdrRecording> live;
+        for (int i = 0; i < 2; ++i)
+        {
+            GlobalSearchRecording found;
+            found.backendId = request.backendId;
+            found.backendNativeId = i == 0 ? "cut-1" : "manual-2";
+            found.title = i == 0 ? "Filme~%Der_Hobbit" :
+                "Manueller Hobbit-Titel";
+            found.startTime = "2026-10-15";
+            web.recordings.push_back(found);
+            VdrRecording original;
+            original.backendId = request.backendId;
+            original.backendNativeId = found.backendNativeId;
+            original.title = i == 0 ? found.title : "Filme~Der_Hobbit";
+            original.path = i == 0 ?
+                "/srv/vdr/video/Filme/%Der_Hobbit/2026-10-15.rec" :
+                "/srv/vdr/video/Filme/Der_Hobbit/2026-10-15.rec";
+            live.push_back(original);
+        }
+        return PublicSearchProjection::project(
+            request, web, live,
+            [](const std::string&, const std::string& native)
+                -> std::optional<std::string>
+            {
+                if (native == "cut-1")
+                    return "rec_dddddddddddddddddddddddddddddddd";
+                if (native == "manual-2")
+                    return "rec_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+                return std::nullopt;
+            });
+    });
+    ApiResponse cutSearch;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search/recordings?backendId=backend-a&query=Hobbit",
+        "actor:tv", "cut-search", "", cutSearch, "", "", {"backend-a"}));
+    assert(cutSearch.statusCode == 200);
+    assert(cutSearch.body.find("\"title\":\"Der Hobbit\",\"recordingId\":"
+        "\"rec_dddddddddddddddddddddddddddddddd\",\"edited\":true") !=
+        std::string::npos);
+    assert(cutSearch.body.find("\"title\":\"Manueller Hobbit-Titel\"") !=
+        std::string::npos);
+    assert(cutSearch.body.find("/srv/vdr/video") == std::string::npos);
 
     runtime.resetSearchLookup();
     return 0;

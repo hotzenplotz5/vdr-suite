@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GlobalSearchResult.h"
+#include "PublicRecordingDisplayName.h"
 #include "PublicApiRuntime.h"
 #include "VdrRecording.h"
 
@@ -94,7 +95,9 @@ inline PublicSearchResult project(
             item.recordingId = *publicId;
             // Search matches manual metadata titles too. The native VDR title
             // is not the canonical search title and must not replace it.
-            item.title = recording.title;
+            const auto display = PublicRecordingDisplayName::project(*live);
+            item.title = recording.title == live->title ? display.title : recording.title;
+            item.edited = display.edited;
             item.startTime = recording.startTime;
             result.items.push_back(std::move(item));
         }

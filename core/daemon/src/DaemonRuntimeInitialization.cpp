@@ -6,6 +6,7 @@
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "RecordingArtworkHttpServer.h"
 #include "PublicRecordingCollectionProjection.h"
+#include "PublicRecordingDisplayName.h"
 #include "PublicSearchProjection.h"
 #include "GenreBrowserApiRuntime.h"
 #include "GlobalSearchApiRuntime.h"
@@ -1412,6 +1413,7 @@ bool DaemonRuntime::initialize()
                             item.durationSeconds;
                         entry.singleRecording.durationKnown =
                             item.durationKnown;
+                        entry.singleRecording.edited = item.edited;
                         entry.singleRecording.description = item.description;
                         entry.singleRecording.sizeMb = item.sizeMb;
                     }
@@ -1454,6 +1456,7 @@ bool DaemonRuntime::initialize()
                         entry.recordedAt = item.recordedAt;
                         entry.durationSeconds = item.durationSeconds;
                         entry.durationKnown = item.durationKnown;
+                        entry.edited = item.edited;
                         entry.description = item.description;
                         entry.sizeMb = item.sizeMb;
                         result.recordings.push_back(std::move(entry));
@@ -1503,6 +1506,7 @@ bool DaemonRuntime::initialize()
                 view.recordedAt = item.recordedAt;
                 view.durationSeconds = item.durationSeconds;
                 view.durationKnown = item.durationKnown;
+                view.edited = item.edited;
                 view.description = item.description;
                 view.sizeMb = item.sizeMb;
                 result.recordings.push_back(std::move(view));
@@ -1572,7 +1576,9 @@ bool DaemonRuntime::initialize()
                     PublicGenreRecordingItem view;
                     view.recordingId = *publicId;
                     view.backendId = request.backendId;
-                    view.title = found.title;
+                    const auto display = PublicRecordingDisplayName::project(found);
+                    view.title = display.title;
+                    view.edited = display.edited;
                     view.recordedAt = found.startTime;
                     view.durationSeconds = found.durationSeconds;
                     view.durationKnown = found.recordingDurationKnown;

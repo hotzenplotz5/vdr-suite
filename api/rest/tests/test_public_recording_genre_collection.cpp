@@ -26,6 +26,7 @@ int main()
                 item.backendId = "home";
                 item.recordingId = "rec_0123456789abcdef0123456789abcdef";
                 item.title = "Aufnahme";
+                item.edited = true;
                 item.recordedAt = "2026-10-09";
                 result.recordings.push_back(std::move(item));
             }
@@ -68,6 +69,7 @@ int main()
     assert(recordings.body.find("recordingId") != std::string::npos);
     assert(recordings.body.find("backendNativeId") == std::string::npos);
     assert(recordings.body.find("recordingPath") == std::string::npos);
+    assert(recordings.body.find("\\"edited\\":true") != std::string::npos);
     for (const auto& invalid : {
         "/api/v1/genres?backendId=home&limit=31",
         "/api/v1/genres?backendId=home&genreId=crime",
