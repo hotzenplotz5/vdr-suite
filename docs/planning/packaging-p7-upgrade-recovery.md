@@ -225,3 +225,15 @@ record. A fresh C++ process must retain all rows and schema objects unchanged;
 the separate offline restore must still reproduce the pre-upgrade snapshot.
 This covers idempotent initialization and persistence only, **not** actual
 streaming/session runtime acceptance or migration from a published package.
+
+## P7 recording cache, identities, series overrides and EPG artwork
+
+The isolated C++ rehearsal now executes the real initializers for the VDR
+recording cache, public recording identities, per-recording series hierarchy,
+and EPG artwork/scraper metadata. The tagged historical recording cache lacks
+`metadata_payload` and `recording_duration_known`; the rehearsal checks
+that their additive columns retain original rows with defaults before adding
+synthetic current-version data. All new records and SQL objects must survive
+a second independent C++ invocation, while restoring the offline snapshot
+must reproduce the old column shape and original records. This remains a
+test-only fixture and not a real manual-install upgrade approval.

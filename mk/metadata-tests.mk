@@ -1,5 +1,5 @@
 .PHONY: test-packaging-p7-runtime-schema
-test-packaging-p7-runtime-schema: CXXFLAGS += -Icore/metadata/include -Icore/timers/include -Icore/operations/include -Icore/vdr/include -Icore/media/include
+test-packaging-p7-runtime-schema: CXXFLAGS += -Icore/metadata/include -Icore/timers/include -Icore/operations/include -Icore/vdr/include -Icore/media/include -Icore/recordings/include
 test-packaging-p7-runtime-schema:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
@@ -15,6 +15,10 @@ test-packaging-p7-runtime-schema:
 		core/media/src/MediaTranscodeBackendSettingsRepository.cpp \
 		core/vdr/src/EpgEventRepository.cpp \
 		core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
+		core/vdr/src/EpgArtworkRepository.cpp \
+		core/recordings/src/PublicRecordingIdentityRepository.cpp \
+		core/metadata/src/RecordingSeriesHierarchyOverrideRepository.cpp \
 		core/vdr/src/VdrChannelCacheRepository.cpp \
 		core/operations/src/MutationOperation.cpp \
 		core/operations/src/MutationOperationRepository.cpp \

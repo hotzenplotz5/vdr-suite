@@ -19,6 +19,10 @@
 #include "MediaTranscodeBackendSettingsRepository.h"
 #include "EpgEventRepository.h"
 #include "EpgSearchNativeFuzzyCapabilityRepository.h"
+#include "VdrRecordingCacheRepository.h"
+#include "EpgArtworkRepository.h"
+#include "PublicRecordingIdentityRepository.h"
+#include "RecordingSeriesHierarchyOverrideRepository.h"
 #include <sqlite3.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -107,6 +111,10 @@ int main(int argc, char** argv)
         MediaTranscodeBackendSettingsRepository transcodeSettings(database);
         EpgEventRepository epgEvents(database);
         EpgSearchNativeFuzzyCapabilityRepository fuzzyCapability(database);
+        VdrRecordingCacheRepository recordingCache(database);
+        EpgArtworkRepository epgArtwork(database);
+        PublicRecordingIdentityRepository recordingIdentities(database);
+        RecordingSeriesHierarchyOverrideRepository seriesOverrides(database);
         if (!identities.ensureSchema() ||
             !accounts.ensureSchema() ||
             !verifiers.ensureSchema()) {
@@ -145,6 +153,15 @@ int main(int argc, char** argv)
             std::cerr << "P7_EPG_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
             return 16;
         }
+        if (!recordingCache.ensureSchema() || !recordingIdentities.ensureSchema() ||
+            !seriesOverrides.ensureSchema()) {
+            std::cerr << "P7_RECORDING_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
+            return 17;
+        }
+        if (!epgArtwork.ensureSchema()) {
+            std::cerr << "P7_EPG_ARTWORK_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
+            return 18;
+        }
         if (!scalarPositive(database.handle(),
             "SELECT count(*) FROM suite_metadata_schema_versions;") ||
             !scalarPositive(database.handle(),
@@ -163,7 +180,11 @@ int main(int argc, char** argv)
             "'recently_watched_state','media_sessions','media_routes',"
             "'media_provider_stream_leases','media_access_grants',"
             "'backend_media_transcode_settings','epg_events',"
-            "'epgsearch_native_fuzzy_capability_probes'))=20 "
+            "'epgsearch_native_fuzzy_capability_probes',"
+            "'vdr_recording_cache','public_recording_identity',"
+            "'recording_series_hierarchy_overrides','epg_event_artwork',"
+            "'epg_scraper_metadata_cache','epg_scraper_metadata_images',"
+            "'epg_scraper_metadata_people'))=27 "
             "THEN 1 ELSE 0 END;")) {
             std::cerr << "P7_RUNTIME_SQLITE_INTEGRITY=FAIL\n";
             return 7;

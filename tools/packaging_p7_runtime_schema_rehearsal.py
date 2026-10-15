@@ -29,6 +29,7 @@ PRIOR_TABLES = (
     "security_basic_credential_verifiers",
     "security_human_accounts", "mutation_operations",
     "security_device_pairing_requests",
+    "vdr_recording_cache",
     "security_devices", "security_sessions",
     "security_browser_session_credentials",
     "continue_watching_state", "recently_watched_state",
@@ -37,7 +38,8 @@ ALTERED_TABLES = frozenset(
     ("security_human_accounts", "mutation_operations",
      "security_device_pairing_requests",
      "security_browser_session_credentials",
-     "continue_watching_state", "recently_watched_state")
+     "continue_watching_state", "recently_watched_state",
+     "vdr_recording_cache")
 )
 
 GiB = 1024 ** 3
@@ -144,6 +146,32 @@ def seed_owned_runtime_records(connection):
           backend_id,create_accepted,readback_available,mode_preserved,
           tolerance_preserved,cleanup_succeeded)
           VALUES('p7_backend',1,1,1,1,1);
+        INSERT INTO vdr_recording_cache(
+          backend_id,cache_key,recording_id,backend_native_id,title,
+          metadata_payload,recording_duration_known)
+          VALUES('p7_backend','p7_cache_key','p7_recording','p7_native',
+                 'P7 recording','{"title":"P7 fixture"}',1);
+        INSERT INTO public_recording_identity(public_id,backend_id,native_id)
+          VALUES('rec_p7synthetic','p7_backend','p7_native');
+        INSERT INTO recording_series_hierarchy_overrides(
+          backend_id,recording_key,group_type,season_number,group_label)
+          VALUES('p7_backend','p7_native','season',2,'P7 season');
+        INSERT INTO epg_event_artwork(
+          backend_id,channel_id,event_id,provider,path,width,height)
+          VALUES('p7_backend','p7_channel','p7_epg','p7_test',
+                 '/p7/fixture.jpg',300,400);
+        INSERT INTO epg_scraper_metadata_cache(
+          backend_id,channel_id,event_id,public_json)
+          VALUES('p7_backend','p7_channel','p7_epg',
+                 '{"title":"P7 EPG"}');
+        INSERT INTO epg_scraper_metadata_images(
+          backend_id,channel_id,event_id,kind,provider,path)
+          VALUES('p7_backend','p7_channel','p7_epg','preferred',
+                 'p7_test','/p7/image.jpg');
+        INSERT INTO epg_scraper_metadata_people(
+          backend_id,channel_id,event_id,ordinal,name,name_folded)
+          VALUES('p7_backend','p7_channel','p7_epg',0,'P7 Person',
+                 'p7 person');
     """)
     connection.commit()
 
@@ -158,7 +186,11 @@ def current_owned_records(connection):
               "continue_watching_state", "recently_watched_state",
               "media_sessions", "media_routes", "media_provider_stream_leases",
               "media_access_grants", "backend_media_transcode_settings",
-              "epg_events", "epgsearch_native_fuzzy_capability_probes")
+              "epg_events", "epgsearch_native_fuzzy_capability_probes",
+              "vdr_recording_cache", "public_recording_identity",
+              "recording_series_hierarchy_overrides", "epg_event_artwork",
+              "epg_scraper_metadata_cache", "epg_scraper_metadata_images",
+              "epg_scraper_metadata_people")
     return {table: connection.execute('SELECT * FROM "' + table + '"').fetchall()
             for table in tables}
 
@@ -244,6 +276,8 @@ def run(binary):
                 "security_browser_session_credentials"]
             for table in ("continue_watching_state", "recently_watched_state"):
                 assert "backend_native_id" not in prior_shape[table]
+            for absent in ("metadata_payload", "recording_duration_known"):
+                assert absent not in prior_shape["vdr_recording_cache"]
             old_prior_rows = prior_rows(source, prior_shape)
             assert all(len(rows) == 1 for rows in old_prior_rows.values())
             original_objects = dict(source.execute(
@@ -311,6 +345,14 @@ def run(binary):
                     "FROM security_browser_session_credentials "
                     "WHERE token_id='p7_pre_token'").fetchone() == (1,), (
                         "old browser session last_seen_at was not backfilled")
+                for added, expected in (
+                    ("metadata_payload", ""), ("recording_duration_known", 0)):
+                    assert added in updated_columns["vdr_recording_cache"], (
+                        "recording cache migration column missing: " + added)
+                    assert connection.execute(
+                        'SELECT "' + added + '" FROM vdr_recording_cache '
+                        "WHERE backend_id='test' AND cache_key='key' LIMIT 1").fetchone() == (
+                            expected,), "old recording cache default changed"
                 assert connection.execute(
                     "SELECT count(*) FROM suite_metadata_schema_versions"
                 ).fetchone()[0] >= 1
@@ -357,6 +399,7 @@ def run(binary):
         print("P7_PAIRING_PRECOLUMN_AND_CHANNEL_PRESERVATION=PASS", flush=True)
         print("P7_BROWSER_SESSION_AND_PLAYBACK_MIGRATION=PASS", flush=True)
         print("P7_MEDIA_SESSION_AND_EPG_SCHEMA_PRESERVATION=PASS", flush=True)
+        print("P7_RECORDING_CACHE_AND_EPG_ARTWORK_PRESERVATION=PASS", flush=True)
         print("P7_HISTORICAL_CPP_SCHEMA_REHEARSAL=PASS", flush=True)
 
 
