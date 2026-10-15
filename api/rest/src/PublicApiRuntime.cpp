@@ -4257,13 +4257,13 @@ ApiResponse publicChannelCollectionResponse(
             correlationId);
 
     const std::string self =
-        publicChannelCollectionTarget(
-            backendIds,
-            query.limit,
-            query.cursor) +
-        (query.relativeToChannelId.empty() ? std::string() :
-            "&relativeTo=" + query.relativeToChannelId +
-            "&direction=" + query.direction);
+        query.relativeToChannelId.empty() ?
+            publicChannelCollectionTarget(
+                backendIds, query.limit, query.cursor) :
+            std::string(PublicChannelCollectionPath) +
+                "?backendId=" + backendIds.front() +
+                "&limit=1&relativeTo=" + query.relativeToChannelId +
+                "&direction=" + query.direction;
     const std::string next =
         nextCursor.empty()
             ? std::string()
