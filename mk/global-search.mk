@@ -51,6 +51,15 @@ test-public-v1-search-web-parity:
 		core/daemon/tests/test_public_search_web_parity.cpp \
 		-o $(BUILD_DIR)/test_public_search_web_parity
 	$(BUILD_DIR)/test_public_search_web_parity
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
+		core/recordings/src/PublicRecordingIdentityRepository.cpp \
+		core/daemon/tests/test_public_search_cached_inventory.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_search_cached_inventory
+	$(BUILD_DIR)/test_public_search_cached_inventory
 
 test-global-search: test-global-search-repository test-global-search-controller test-global-search-frontend test-global-search-architecture test-public-v1-search-web-parity
 
