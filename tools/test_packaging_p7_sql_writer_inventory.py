@@ -25,13 +25,14 @@ EXERCISED = EXERCISED_BY_P7_CPP | frozenset({
     # CI #73: real C++ reservation persisted schema, and timer-delete gate.
     "core/agent/src/BackendAgentCommandReservation.cpp",
     "core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp",
+    # CI #76: verified recorded cut/marks readbacks with real C++ and backup.
+    "core/agent/src/BackendAgentRecordingCutReconciliationRepository.cpp",
+    "core/agent/src/BackendAgentRecordingMarksModifyReconciliation.cpp",
 })
 PENDING = frozenset({
     "core/agent/src/BackendAgentNativeTimerModifyAssignment.cpp",
     "core/agent/src/BackendAgentRecordingCutAssignment.cpp",
     "core/agent/src/BackendAgentRecordingMarksModifyAssignment.cpp",
-    "core/agent/src/BackendAgentRecordingCutReconciliationRepository.cpp",
-    "core/agent/src/BackendAgentRecordingMarksModifyReconciliation.cpp",
     "core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp",
 })
 INDIRECTLY_EXERCISED = frozenset({
