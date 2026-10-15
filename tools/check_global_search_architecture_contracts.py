@@ -69,6 +69,27 @@ require("replaceMetadataPeople" in epg_repository and "replaceMetadataPeople" in
 require("GlobalSearchApiRuntime::instance().configure" in backend_context, "daemon search runtime configuration is missing")
 require("GlobalSearchApiRuntime::instance().reset()" in shutdown, "daemon search runtime reset is missing")
 
+# Public-v1 search must project the canonical Web search against the same
+# ready, scoped persistent Recording inventory. The fast VDR startup snapshot
+# intentionally has an empty Recording list.
+daemon_runtime = read("core/daemon/src/DaemonRuntimeInitialization.cpp")
+startup_snapshot = read("core/vdr/include/VdrSnapshotBuilder.h")
+public_inventory = read("core/daemon/include/PublicSearchRecordingInventory.h")
+search_registration = daemon_runtime.split("registerSearchLookup(", 1)[1].split(
+    "registerRecordingCollectionLookup(", 1
+)[0]
+require("buildStartupSnapshot" in startup_snapshot and
+        "snapshot.recordings" not in startup_snapshot.split("buildStartupSnapshot", 1)[1].split("return snapshot", 1)[0],
+        "fast startup Recording snapshot assumptions have changed")
+require("GlobalSearchApiRuntime::instance().searchPublic(" in search_registration,
+        "Public-v1 Recording search no longer uses the canonical Web search")
+require("PublicSearchRecordingInventory::readReady(" in search_registration and
+        "getRecordingsForBackend(" not in search_registration,
+        "Public-v1 Recording search must not filter against the empty startup snapshot")
+require('status.state != "ready"' in public_inventory and
+        "cache.findAllForBackend(backendId)" in public_inventory,
+        "Public-v1 Recording projection bypasses the ready scoped persistent cache")
+
 require("fetchClientGlobalSearch" in client_api and "requestJson('/api/search'" in client_api, "client API search method is missing")
 require("fetchClientGlobalSearch" in frontend, "frontend does not use VdrSuiteClientApi")
 require("fetch(" not in frontend, "frontend search contains a direct fetch")
