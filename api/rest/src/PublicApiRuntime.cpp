@@ -1117,6 +1117,8 @@ struct PublicChannelCollectionQuery
     std::size_t limit = PublicChannelDefaultLimit;
     std::size_t backendCount = 0U;
     std::string cursor;
+    std::string relativeToChannelId;
+    std::string direction;
 };
 
 bool parsePublicChannelCollectionQuery(
@@ -1130,6 +1132,8 @@ bool parsePublicChannelCollectionQuery(
     bool cursorSeen = false;
     bool sortSeen = false;
     bool orderSeen = false;
+    bool relativeSeen = false;
+    bool directionSeen = false;
     std::size_t position = 0U;
 
     while (position <= encoded.size())
@@ -1171,6 +1175,26 @@ bool parsePublicChannelCollectionQuery(
             cursorSeen = true;
             query.cursor = value;
         }
+        else if (key == "relativeTo")
+        {
+            if (relativeSeen || value.empty() || value.size() > 256U ||
+                !std::all_of(value.begin(), value.end(),
+                    [](unsigned char ch) {
+                        return (ch >= 'A' && ch <= 'Z') ||
+                            (ch >= 'a' && ch <= 'z') ||
+                            (ch >= '0' && ch <= '9') ||
+                            ch == '.' || ch == '_' || ch == '-';
+                    })) return false;
+            relativeSeen = true;
+            query.relativeToChannelId = value;
+        }
+        else if (key == "direction")
+        {
+            if (directionSeen || (value != "up" && value != "down"))
+                return false;
+            directionSeen = true;
+            query.direction = value;
+        }
         else if (key == "sort")
         {
             if (sortSeen || value != PublicChannelCollectionSort)
@@ -1192,6 +1216,11 @@ bool parsePublicChannelCollectionQuery(
         position = separator + 1U;
     }
 
+    // Old ch1_ listing stays intact. Neighbor reads never use that cursor.
+    if (relativeSeen != directionSeen) return false;
+    if (relativeSeen && (query.backendCount != 1U ||
+        query.limit != 1U || !query.cursor.empty() ||
+        sortSeen || orderSeen)) return false;
     return query.backendCount > 0U;
 }
 
@@ -4357,10 +4386,13 @@ ApiResponse publicChannelCollectionResponse(
             correlationId);
 
     const std::string self =
-        publicChannelCollectionTarget(
-            backendIds,
-            query.limit,
-            query.cursor);
+        query.relativeToChannelId.empty() ?
+            publicChannelCollectionTarget(
+                backendIds, query.limit, query.cursor) :
+            std::string(PublicChannelCollectionPath) +
+                "?backendId=" + backendIds.front() +
+                "&limit=1&relativeTo=" + query.relativeToChannelId +
+                "&direction=" + query.direction;
     const std::string next =
         nextCursor.empty()
             ? std::string()
@@ -7166,6 +7198,8 @@ bool PublicApiRuntime::tryHandleGet(
         request.backendIds = normalizedBackends;
         request.afterBackendId = afterBackendId;
         request.afterChannelId = afterChannelId;
+        request.relativeToChannelId = query.relativeToChannelId;
+        request.direction = query.direction;
         request.limit = query.limit;
 
         const PublicChannelCollectionResult page =
@@ -7185,6 +7219,16 @@ bool PublicApiRuntime::tryHandleGet(
                     return true;
                 }
 
+                if (!query.relativeToChannelId.empty() &&
+                    (page.channels.size() != 1U || page.hasMore ||
+                     page.channels.front().channelId ==
+                         query.relativeToChannelId ||
+                     page.channels.front().channelNumber <= 0))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
                 bool usefulSource = false;
                 for (std::size_t index = 0U;
                      index < page.sources.size();
@@ -7257,6 +7301,11 @@ bool PublicApiRuntime::tryHandleGet(
                     "The Channel collection request is invalid.",
                     requestId,
                     correlationId);
+                return true;
+
+            case PublicChannelCollectionStatus::notFound:
+                response = notFoundProblem(
+                    path, requestId, correlationId);
                 return true;
 
             case PublicChannelCollectionStatus::allSourcesUnavailable:
