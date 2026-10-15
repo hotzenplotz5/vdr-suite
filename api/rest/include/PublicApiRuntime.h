@@ -212,6 +212,10 @@ struct PublicChannelCollectionRequest
     std::vector<std::string> backendIds;
     std::string afterBackendId;
     std::string afterChannelId;
+    // Optional single-backend VDR channel-number neighbor, with no cursor.
+    // The old ch1_ keyset API remains unchanged for ordinary listings.
+    std::string relativeToChannelId;
+    std::string direction;
     std::size_t limit = 50U;
 };
 
