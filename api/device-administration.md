@@ -57,6 +57,8 @@ Requires global `devices.grants.view@*`. The returned representation contains `d
 The supported grant permissions currently are exactly:
 
 - `channels.view`
+- `recordings.view` (read-only Public-v1 recording search)
+- `epg.view` (read-only Public-v1 EPG search and Now/Next)
 - `timers.view`
 - `media.live.play`
 - `media.recording.play`

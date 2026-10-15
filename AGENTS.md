@@ -226,6 +226,18 @@ Authoritative operational examples and gates:
   and `test_divergent_schema_change_still_demands_db_review`. They protect
   this invariant. **Do not replace them with stricter old-version checks.**
 
+## Public-v1 VIDAA search permission contract (2026-10-15)
+
+Public-v1 Device `/search/recordings` requires `recordings.view`, and
+`/search/epg` plus `/epg/now-next` requires `epg.view`, independently
+of `channels.view` or `media.live.play`. The product grant vocabulary,
+Device supported-grant allowlist and Device-grant HTTP `supportedPermissions`
+**must include both read-only permissions**, and tests must prove assignment
+through the normal administration service and Device authentication. Never
+work around missing grants with a weaker HTTP gate, inherited browser grants,
+implicit pairing rights, or unauthenticated Client fallback. Existing devices
+are granted rights only by an explicit authorized administrator mutation.
+
 ## Mandatory: NEVER compile the same daemon twice / reuse before building
 
 **ABSOLUTE PROHIBITION:** Do not compile the same daemon twice. Re-running a

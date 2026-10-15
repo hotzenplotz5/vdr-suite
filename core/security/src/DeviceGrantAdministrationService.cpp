@@ -118,6 +118,8 @@ bool DeviceGrantAdministrationService::supportedGrant(
     // administrative rights, or mutation permissions through this surface.
     const bool devicePermission =
         permission == "channels.view" ||
+        permission == "recordings.view" ||
+        permission == "epg.view" ||
         permission == "timers.view" ||
         permission == "media.live.play" ||
         permission == "media.recording.play";

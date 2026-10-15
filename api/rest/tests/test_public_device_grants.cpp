@@ -69,6 +69,8 @@ int main()
         std::string::npos);
     assert(read.body.find("\"actorId\":\"actor_device_10001\"") !=
         std::string::npos);
+    assert(read.body.find("recordings.view") != std::string::npos);
+    assert(read.body.find("epg.view") != std::string::npos);
     assert(read.body.find("role.admin") == std::string::npos);
     assert(read.body.find("credentialSecret") == std::string::npos);
 

@@ -93,6 +93,8 @@ const std::set<std::string>& supportedPermissionSet()
         "role.read-only",
         "channels.view",
         "channels.move",
+        "recordings.view",
+        "epg.view",
         "timers.view",
         "timers.create",
         "timers.modify",

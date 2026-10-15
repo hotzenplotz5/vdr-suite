@@ -20,7 +20,10 @@ No native paths, native recording identifiers, local HTML URLs, media grants,
 or unversioned browser route responses are exposed.
 
 The routes are gated through `SecurityHttpGate`: Recording search requires
-`recordings.view`, EPG search requires `epg.view`; exactly one authorized
+`recordings.view`, EPG search requires `epg.view`. Both are individually
+assignable to the paired Device through the administrator's Device-grant API;
+pairing, `channels.view` and playback rights never imply search rights.
+Exactly one authorized
 backend and a valid actor are required. The server performs strict query
 parsing, bounded `limit<=30`, `offset<=1000000`, rejects unknown/duplicate
 fields, only projects matching backend data and checks actual live Recording
