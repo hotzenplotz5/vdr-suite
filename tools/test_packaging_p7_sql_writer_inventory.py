@@ -125,5 +125,29 @@ class P7RuntimeSqlWriterInventory(unittest.TestCase):
         self.assertIn("mkdtemp(writable.data())", cpp)
 
 
+    def test_timer_reassignment_legacy_cpp_rehearsal_is_wired(self):
+        """Guard exact tested C++ migration, including the temp-trigger path."""
+        makefile = (ROOT / "mk" /
+                    "phase64-timer-reassignment-failover-tests.mk").read_text(
+                        encoding="utf-8")
+        cpp = (ROOT / "core" / "timers" / "tests" /
+               "test_timer_assignment_reassignment_service.cpp").read_text(
+                   encoding="utf-8")
+        workflow = (ROOT / ".github" / "workflows" /
+                    "packaging-plugin-experimental.yml").read_text(
+                        encoding="utf-8")
+        self.assertIn("core/timers/src/TimerAssignmentReassignmentRepository.cpp",
+                      makefile)
+        self.assertIn("core/timers/tests/test_timer_assignment_reassignment_service.cpp",
+                      makefile)
+        self.assertIn("make test-phase64-timer-reassignment-failover", workflow)
+        self.assertIn("DROP COLUMN old_operation_revision;", cpp)
+        self.assertIn("service.reassign(request)", cpp)
+        self.assertIn("assignments.findControlledReplacement(", cpp)
+        self.assertIn("FROM pragma_foreign_key_check;", cpp)
+        self.assertIn("sqlite_temp_master", cpp)
+        self.assertIn("P7_TIMER_REASSIGNMENT_LEGACY_COLUMN=PASS", cpp)
+
+
 if __name__ == "__main__":
     unittest.main()
