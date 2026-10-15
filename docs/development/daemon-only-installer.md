@@ -2,6 +2,24 @@
 
 Use **tools/install_daemon.py** for a reviewed **daemon-only** installation. This deliberately does not replace the canonical full install-runtime staging procedure for coordinated daemon/frontend changes.
 
+## KISS invariant: a daemon binary may replace a different Git history
+
+The running daemon's source SHA and branch **do not have to be ancestors**
+of the chosen target. Static binary replacement is valid across diverged
+branches. `tools/install_daemon.py` has no `merge-base --is-ancestor`
+gate; `git diff OLD NEW` is used only to assess **actual SQLite/schema
+risk**. Protect the database and other mutable state separately.
+
+Reuse an existing verified target build and seal instead of compiling again.
+Only build once when there is no reusable target; `apply` never builds.
+Keep the installation block short and use the **existing installer**.
+**Never add a GitHub CI query, poll, `sleep` or completion prerequisite to
+the install block.** CI happens independently during development/review.
+
+Regression contract: `tools/test_install_daemon.py` covers diverged
+old/new commits, read-only `check`, sealed build reuse without invoking
+`make`, and schema changes still requiring review.
+
 ## Real yaVDR root-shell installation: verified GitHub identity split (14 October 2026)
 
 **Observed failure / confirmed cause:** The operator is logged in as root and
