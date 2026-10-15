@@ -552,6 +552,106 @@ int runRecordingMediaHttpRuntime(
             return error(404, "device_playback_route_not_found");
         });
 
+    // Live playback uses a separate Public-v1 Device-only control plane.
+    // SecurityHttpGate already verified media.live.play for this backend.
+    // The registry rechecks revocation for each media gateway GET.
+    apiRouter.setDeviceLivePlaybackHandler(
+        [&](const std::string& target, const std::string& body,
+            const RequestSecurityContext& verifiedDevice) {
+            auto fail = [](int status, const std::string& code) {
+                ApiResponse response;
+                response.statusCode = status;
+                response.contentType = "application/json";
+                response.headers["Cache-Control"] = "no-store";
+                response.headers["X-Content-Type-Options"] = "nosniff";
+                response.body = "{\"error\":{\"code\":\"" + code + "\"}}";
+                return response;
+            };
+            const std::string collection = "/api/v1/live-playback-sessions";
+            const std::string prefix = collection + "/";
+            auto safeSessionId = [](const std::string& id) {
+                return id.size() == 35U && id.rfind("ms_", 0U) == 0U &&
+                    std::all_of(id.begin() + 3, id.end(),
+                        [](unsigned char ch) {
+                            return (ch >= '0' && ch <= '9') ||
+                                (ch >= 'a' && ch <= 'f');
+                        });
+            };
+            if (target == collection) {
+                if (body.size() > 4096U)
+                    return fail(400, "device_live_request_too_large");
+                const auto request = LiveMediaSessionRequestParser().parse(body);
+                if (!request.valid) return fail(400, "invalid_device_live_request");
+                if (!request.replacesSessionId.empty())
+                    return fail(400, "device_live_replacement_not_supported");
+                std::string sessionId;
+                ApiResponse created = liveMediaSessionController.createDeviceSession(
+                    body, verifiedDevice.actor.actorId, sessionId);
+                if (created.statusCode != 201) return created;
+                if (!safeSessionId(sessionId) ||
+                    !deviceSessions.addLive(sessionId, request.backendId,
+                        verifiedDevice)) {
+                    if (safeSessionId(sessionId)) {
+                        const std::string stop =
+                            "{\"operation\":\"stop\",\"resourceKind\":\"live-channel\","
+                            "\"backendId\":\"" + request.backendId +
+                            "\",\"sessionId\":\"" + sessionId + "\"}";
+                        liveMediaSessionController.handleRequest(
+                            stop, verifiedDevice.actor.actorId);
+                    }
+                    return fail(503, "device_live_owner_unavailable");
+                }
+                return MediaPlaybackContractResponse::augment(
+                    std::move(created), true);
+            }
+            if (target.rfind(prefix, 0) != 0)
+                return fail(404, "device_live_route_not_found");
+            const std::string suffix = "/stop";
+            if (target.size() > prefix.size() + suffix.size() &&
+                target.compare(target.size() - suffix.size(),
+                               suffix.size(), suffix) == 0) {
+                const std::string id = target.substr(
+                    prefix.size(),
+                    target.size() - prefix.size() - suffix.size());
+                if (!safeSessionId(id)) return fail(404, "media_session_not_found");
+                const auto stop = RecordingMediaSessionRequestParser().parseStop(body);
+                if (!stop.valid || stop.sessionId != id ||
+                    !LiveMediaSessionRequestParser::requestsLiveChannel(body))
+                    return fail(400, "invalid_device_live_stop");
+                const auto owner = deviceSessions.describeOwnedLive(id, verifiedDevice);
+                if (!owner || owner->backendId != stop.backendId)
+                    return fail(403, "device_live_session_not_owned");
+                ApiResponse ended = liveMediaSessionController.handleRequest(
+                    body, verifiedDevice.actor.actorId);
+                if (ended.statusCode == 200) {
+                    deviceSessions.erase(id);
+                    ended.headers.erase("Set-Cookie");
+                    ended.headers["Set-Cookie"] =
+                        MediaAccessCredentialHttp::expiredPublicV1SessionCookie(
+                            id, "/vdr-suite");
+                }
+                return ended;
+            }
+            const std::string id = target.substr(prefix.size());
+            if (!body.empty() || !safeSessionId(id))
+                return fail(404, "device_live_route_not_found");
+            const auto owner = deviceSessions.describeOwnedLive(id, verifiedDevice);
+            if (!owner) return fail(404, "media_session_not_found");
+            if (owner->presentationProfileId != "live-progressive-fmp4")
+                return fail(503, "device_live_profile_unavailable");
+            ApiResponse response;
+            response.statusCode = 200;
+            response.contentType = "application/json";
+            response.headers["Cache-Control"] = "no-store";
+            response.body =
+                "{\"mediaSession\":{\"id\":\"" + id +
+                "\",\"backendId\":\"" + owner->backendId +
+                "\",\"channelId\":\"" + owner->resourceId +
+                "\",\"state\":\"ready\","
+                "\"presentationProfileId\":\"live-progressive-fmp4\"}}";
+            return response;
+        });
+
     auto nextMediaSessionReap = std::chrono::steady_clock::now();
     auto mediaRuntimeTick =
         [&recordingMediaSessionController,
@@ -614,6 +714,7 @@ int runRecordingMediaHttpRuntime(
     httpServer.reset();
     apiRouter.setRecordingMediaSessionHandler({});
     apiRouter.setDeviceRecordingPlaybackHandler({});
+    apiRouter.setDeviceLivePlaybackHandler({});
     MediaTranscodeSettingsApiRuntime::instance().reset();
     return result;
 }

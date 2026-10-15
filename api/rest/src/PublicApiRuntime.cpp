@@ -87,6 +87,8 @@ constexpr const char* PublicRecordingCollectionSort = "recordingId";
 constexpr const char* PublicRecordingCollectionOrder = "asc";
 constexpr const char* PublicRecordingCursorPrefix = "rc1_";
 constexpr const char* PublicRecordingCursorPayloadVersion = "recordings/1|";
+constexpr const char* PublicSearchRecordingPath = "/api/v1/search/recordings";
+constexpr const char* PublicSearchEpgPath = "/api/v1/search/epg";
 constexpr const char* PublicGenreCollectionPath = "/api/v1/genres";
 constexpr const char* PublicGenreRecordingPath = "/api/v1/genres/recordings";
 constexpr std::size_t PublicGenreMaximumLimit = 30U;
@@ -805,6 +807,73 @@ bool parsePublicRecordingCollectionQuery(
     return backendSeen &&
         (query.browseFolders ? (!cursorSeen && !sortSeen && !orderSeen) :
             (!folderSeen && !offsetSeen));
+}
+
+
+struct PublicSearchQuery {
+    std::string backendId, query;
+    std::size_t limit = 30U, offset = 0U;
+};
+bool decodePublicSearchText(const std::string& raw, std::string& text)
+{
+    if (raw.size() > 360U) return false;
+    text.clear();
+    const auto hex = [](char c) -> int {
+        if (c >= '0' && c <= '9') return c - '0';
+        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+        return -1;
+    };
+    for (std::size_t i = 0U; i < raw.size(); ++i) {
+        unsigned char ch = static_cast<unsigned char>(raw[i]);
+        if (ch == '%') {
+            if (i + 2U >= raw.size()) return false;
+            int high = hex(raw[i+1U]), low = hex(raw[i+2U]);
+            if (high < 0 || low < 0) return false;
+            ch = static_cast<unsigned char>((high << 4) | low);
+            i += 2U;
+        } else if (ch == '+') ch = ' ';
+        if (ch < 0x20U || ch == 0x7fU) return false;
+        text.push_back(static_cast<char>(ch));
+    }
+    return text.size() >= 2U && text.size() <= 240U;
+}
+bool parsePublicSearchQuery(const std::string& target, PublicSearchQuery& out)
+{
+    const std::string raw = requestQueryString(target);
+    if (raw.empty() || raw.size() > 600U) return false;
+    bool backend = false, query = false, limit = false, offset = false;
+    std::size_t pos = 0U;
+    while (pos <= raw.size()) {
+        const auto end = raw.find('&', pos);
+        const auto part = raw.substr(pos, end == std::string::npos
+            ? std::string::npos : end - pos);
+        const auto equal = part.find('=');
+        if (equal == std::string::npos) return false;
+        const auto key = part.substr(0U, equal);
+        const auto value = part.substr(equal + 1U);
+        if (key == "backendId") {
+            if (backend || value.empty() || value.size() > 128U ||
+                !std::all_of(value.begin(), value.end(), [](unsigned char c) {
+                    return std::isalnum(c) || c == '.' || c == '-' || c == '_';
+                })) return false;
+            backend = true; out.backendId = value;
+        } else if (key == "query") {
+            if (query || !decodePublicSearchText(value, out.query)) return false;
+            query = true;
+        } else if (key == "limit") {
+            if (limit || !decimalSize(value, out.limit) ||
+                out.limit == 0U || out.limit > 30U) return false;
+            limit = true;
+        } else if (key == "offset") {
+            if (offset || !decimalSize(value, out.offset) ||
+                out.offset > 1000000U) return false;
+            offset = true;
+        } else return false;
+        if (end == std::string::npos) break;
+        pos = end + 1U;
+    }
+    return backend && query;
 }
 
 struct PublicGenreCollectionQuery
@@ -3023,6 +3092,7 @@ ApiResponse platformCapabilities(
     const bool recordingCollectionAvailable,
     const bool genreCollectionAvailable,
     const bool epgNowNextAvailable,
+    const bool searchAvailable,
     const bool accountCollectionAvailable,
     const bool accountMutationAvailable,
     const bool accountCreateAvailable,
@@ -3062,6 +3132,12 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.recording-genres-read\",\"version\":1,\"availability\":\"" +
         std::string(genreCollectionAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.recording-search\",\"version\":1,\"availability\":\"" +
+        std::string(searchAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.epg-search\",\"version\":1,\"availability\":\"" +
+        std::string(searchAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.epg-now-next-read\",\"version\":1,\"availability\":\"" +
         std::string(epgNowNextAvailable ? "available" : "unavailable") +
@@ -4919,6 +4995,33 @@ PublicRecordingCollectionResult PublicApiRuntime::lookupRecordingCollection(
     return lookup(request);
 }
 
+
+void PublicApiRuntime::registerSearchLookup(SearchLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(searchLookupMutex_);
+    searchLookup_ = std::move(lookup);
+}
+void PublicApiRuntime::resetSearchLookup()
+{
+    std::lock_guard<std::mutex> lock(searchLookupMutex_);
+    searchLookup_ = {};
+}
+bool PublicApiRuntime::searchLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(searchLookupMutex_);
+    return static_cast<bool>(searchLookup_);
+}
+PublicSearchResult PublicApiRuntime::lookupSearch(
+    const PublicSearchRequest& request) const
+{
+    SearchLookup lookup;
+    {
+        std::lock_guard<std::mutex> lock(searchLookupMutex_);
+        lookup = searchLookup_;
+    }
+    return lookup ? lookup(request) : PublicSearchResult{};
+}
+
 void PublicApiRuntime::registerGenreCollectionLookup(
     GenreCollectionLookup lookup)
 {
@@ -5088,6 +5191,7 @@ bool PublicApiRuntime::tryHandleGet(
             recordingCollectionLookupConfigured(),
             genreCollectionLookupConfigured(),
             epgNowNextLookupConfigured(),
+            searchLookupConfigured(),
             accountCollectionLookupConfigured(),
             accountMutationConfigured(),
             accountCreateConfigured(),
@@ -6332,6 +6436,89 @@ bool PublicApiRuntime::tryHandleGet(
                     path, requestId, correlationId);
                 return true;
         }
+    }
+
+
+    if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicSearchQuery query;
+        if (!parsePublicSearchQuery(requestTarget, query) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != query.backendId)
+        {
+            response = invalidRequestProblem(path,
+                "Search request or authorized backend scope is invalid.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicSearchRequest request;
+        request.backendId = query.backendId;
+        request.query = query.query;
+        request.epg = path == PublicSearchEpgPath;
+        request.limit = query.limit;
+        request.offset = query.offset;
+        const auto result = lookupSearch(request);
+        if (result.status != PublicSearchStatus::ok ||
+            result.items.size() > request.limit ||
+            result.totalCount < request.offset ||
+            result.items.size() > result.totalCount - request.offset ||
+            result.hasMore !=
+                (request.offset + result.items.size() < result.totalCount))
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        std::string body = "{\"items\":[";
+        for (std::size_t i = 0U; i < result.items.size(); ++i)
+        {
+            const auto& item = result.items[i];
+            const bool valid = item.backendId == request.backendId &&
+                !item.title.empty() &&
+                (request.epg ?
+                    (!item.channelId.empty() && !item.eventId.empty() &&
+                     !item.startTime.empty() && !item.endTime.empty() &&
+                     item.recordingId.empty()) :
+                    (item.channelId.empty() &&
+                     item.recordingId.size() == 36U &&
+                     item.recordingId.rfind("rec_", 0U) == 0U &&
+                     std::all_of(item.recordingId.begin() + 4,
+                         item.recordingId.end(), [](char ch) {
+                             return (ch >= '0' && ch <= '9') ||
+                                    (ch >= 'a' && ch <= 'f');
+                         })));
+            if (!valid)
+            {
+                response = serviceUnavailableProblem(path, requestId, correlationId);
+                return true;
+            }
+            if (i != 0U) body += ",";
+            body += "{\"kind\":\"";
+            body += request.epg ? "epg" : "recording";
+            body += "\",\"backendId\":\"" + jsonEscape(item.backendId) +
+                "\",\"title\":\"" + jsonEscape(item.title) + "\"";
+            if (request.epg)
+                body += ",\"channelId\":\"" + jsonEscape(item.channelId) +
+                    "\",\"eventId\":\"" + jsonEscape(item.eventId) +
+                    "\",\"startTime\":\"" + jsonEscape(item.startTime) +
+                    "\",\"endTime\":\"" + jsonEscape(item.endTime) +
+                    "\",\"subtitle\":\"" + jsonEscape(item.subtitle) + "\"";
+            else
+                body += ",\"recordingId\":\"" + jsonEscape(item.recordingId) + "\"";
+            body += "}";
+        }
+        body += "],\"page\":{\"offset\":" +
+            std::to_string(request.offset) + ",\"limit\":" +
+            std::to_string(request.limit) + ",\"totalCount\":" +
+            std::to_string(result.totalCount) + ",\"hasMore\":" +
+            std::string(result.hasMore ? "true" : "false") + "}}";
+        response = jsonResponse(body, requestId, correlationId);
+        response.headers["Cache-Control"] = "no-store";
+        return true;
     }
 
     if (path == PublicRecordingCollectionPath)
@@ -9237,6 +9424,8 @@ bool PublicApiRuntime::tryHandlePost(
         path == "/api/v1/capabilities" ||
         path == PublicBackendCollectionPath ||
         path == PublicRecordingCollectionPath ||
+         path == PublicSearchRecordingPath ||
+         path == PublicSearchEpgPath ||
         path == PublicEpgNowNextPath ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
@@ -9392,6 +9581,8 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
         path == "/api/v1/capabilities" ||
         path == PublicBackendCollectionPath ||
         path == PublicRecordingCollectionPath ||
+         path == PublicSearchRecordingPath ||
+         path == PublicSearchEpgPath ||
         path == PublicEpgNowNextPath ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
