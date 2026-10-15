@@ -105,5 +105,25 @@ class P7RuntimeSqlWriterInventory(unittest.TestCase):
                       rehearsal)
 
 
+    def test_series_artwork_legacy_cpp_rehearsal_is_wired(self):
+        """Require real C++ coverage in P7 CI; do not claim CI has passed."""
+        target = (ROOT / "mk" / "epg-metadata-tests.mk").read_text(
+            encoding="utf-8")
+        cpp = (ROOT / "core" / "daemon" / "tests" /
+               "test_series_artwork_backend_settings_service.cpp").read_text(
+                   encoding="utf-8")
+        workflow = (ROOT / ".github" / "workflows" /
+                    "packaging-plugin-experimental.yml").read_text(
+                        encoding="utf-8")
+        self.assertIn("core/daemon/src/SeriesArtworkBackendSettingsService.cpp", target)
+        self.assertIn("core/daemon/tests/test_series_artwork_backend_settings_service.cpp", target)
+        self.assertIn("make test-suite-bridge-epg-metadata-resolver", workflow)
+        self.assertIn("INSERT INTO backend_series_artwork_overrides", cpp)
+        self.assertIn("legacy-backend", cpp)
+        self.assertIn("assert(service.ensureSchema());", cpp)
+        self.assertIn("AND poster_reference='';", cpp)
+        self.assertIn("mkdtemp(writable.data())", cpp)
+
+
 if __name__ == "__main__":
     unittest.main()
