@@ -222,6 +222,7 @@ enum class PublicChannelCollectionStatus
 {
     ok,
     invalid,
+    notFound,
     allSourcesUnavailable,
     unavailable,
 };
@@ -251,6 +252,9 @@ struct PublicChannelCollectionRequest
     std::vector<std::string> backendIds;
     std::string afterBackendId;
     std::string afterChannelId;
+    // Optional single-backend numeric VDR neighbor read; no ch1_ cursor.
+    std::string relativeToChannelId;
+    std::string direction;
     std::size_t limit = 50U;
 };
 
