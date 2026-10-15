@@ -16,6 +16,7 @@ on:
       - "core/agent/tests/test_backend_agent_native_timer_delete_assignment.cpp"
       - "core/agent/tests/test_backend_agent_recording_cut_reconciliation.cpp"
       - "core/agent/tests/test_backend_agent_recording_marks_modify_reconciliation.cpp"
+      - "core/recordings/tests/test_manual_recording_metadata_revision.cpp"
       - "mk/metadata-tests.mk"
       - "tools/fixtures/packaging/**"
       - "database/schema/metadata-platform-v1.sql"
@@ -177,6 +178,11 @@ jobs:
         run: |
           set -euo pipefail
           make test-backend-agent-recording-marks-modify-reconciliation
+      - name: Rehearse manual person-profile DDL and SQLite restore
+        shell: bash
+        run: |
+          set -euo pipefail
+          make test-manual-recording-metadata-revision
       - name: Build all default binary packages (no host installation)
         shell: bash
         run: |
