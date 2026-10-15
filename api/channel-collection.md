@@ -76,6 +76,32 @@ Items use `backendId ASC, channelId ASC`; the source order in the query is norma
 
 A `409 cursor_expired` means the requested backend scope changed: throw away the old cursor and start again with the first page. Pagination is not a frozen snapshot, and no retry should silently switch to legacy routes.
 
+## Canonical VDR-adjacent channel (development branch; not yet deployed)
+
+The existing `ch1_` cursor contract **remains** `backendId,channelId` ordered and unchanged.
+For remote CH+/CH− only, an **additive** query reads the complete current
+authorized VDR snapshot **on the server**, ordered by numeric
+`channelNumber ASC` (stable `channelId` tie-break). It returns exactly one
+enabled nonradio TV neighbor, wrapping at the first/last eligible channel.
+The client MUST NOT locally sort one 30-item ID page.
+
+```http
+GET /api/v1/channels?backendId=default&limit=1&relativeTo=S19.2E-1-1019-10301&direction=up
+```
+
+`relativeTo` is the existing public `channelId` of the currently playing
+channel, not the VDR-native transport URL. `direction` is `up` or `down`.
+Both are required together; exactly one backendId and explicit `limit=1`
+are required; `sort`, `order` and `cursor` are forbidden on neighbor
+queries. Authorization remains `channels.view@backend` through the
+pre-existing gate; Device pairing is not bypassed. The usual `items`
+array and `page.hasMore=false`, `page.nextCursor=null` are returned.
+Missing current channel, disabled/radio current, or no alternative eligible
+channel => 404. Unavailable VDR snapshot => 503; missing permission => 403.
+No new state table, fallback path, cursor version migration or second API
+identity is introduced. This is a **source candidate**, not a claim that the
+installed host implements this query.
+
 ## Errors
 
 | HTTP | Meaning | Recommended client action |
