@@ -182,7 +182,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          make test-manual-recording-metadata-revision
+          # The historical test fragment is intentionally not included by
+          # the root Makefile. Load only this verified fragment for the P7 gate.
+          make -f Makefile -f mk/manual-recording-metadata-tests.mk test-manual-recording-metadata-revision
       - name: Build all default binary packages (no host installation)
         shell: bash
         run: |
