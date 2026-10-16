@@ -21,8 +21,8 @@ recorded database schema, VDR plugin ABI, or service recovery procedure.
 | `/etc/systemd/system/vdr-suite-daemon.service.d/recording-artwork.conf` | Active systemd drop-in (`DropInPaths`) | **First package install blocked:** preserve semantics and directory; no automatic disable or migration |
 | `/var/lib/vdr-suite` | Existing application state; scanner reports REVIEW | **First package install blocked:** no backup, schema migration, purge or rollback without separate approval and writer-quiesce protocol |
 | Other daemon, agent, doc and manpage targets | P6 observed multiple existing files without a dpkg owner | **BLOCKED:** reconcile each canonical `debian/*.install` destination before any unpack |
-| VDR 2.8.3 package provenance | `vdr` and `vdr-dev` both report `2.8.3-0yavdr0~resolute`, package-managed | **Uncertified target:** CI #111 uses Ubuntu 24.04 / Seahawk VDR 2.8.3, not the observed package build; obtain `/etc/os-release` and VDR `pkg-config` values without altering the installation |
-| SuiteBridge VDR plugin | Five reported unowned-or-unverified candidate files with suffixes `.so.11`, `.so.14`, and `.so.11.*` backup/pre-version names, at `/usr/lib/vdr/plugins`; exact loaded plugin and matching ABI **unknown** | REVIEW: retain all versions and backup candidates; all match `libvdr-suitebridge.so.*` and block unowned package takeover; verify VDR API/pkg-config separately, no VDR restart |
+| VDR 2.8.3 package provenance | OS is Ubuntu `26.04` `resolute` amd64; `vdr` and `vdr-dev` both report `2.8.3-0yavdr0~resolute` | **Uncertified target build:** CI #112 uses Ubuntu 24.04 / Seahawk VDR 2.8.3; separate exact-version Resolute plugin build is pending |
+| SuiteBridge VDR plugin | Five candidate files with suffixes `.so.11`, `.so.14`, and `.so.11.*` backup/pre-version names, at `/usr/lib/vdr/plugins`; `pkg-config vdr` reports `2.8.3`, `apiversion=14`, `libdir=/usr/lib/vdr/plugins` | REVIEW: `.so.14` name matches API 14 but no proof that VDR actually loaded it; preserve all variants and review ownership before any package takeover |
 | SQLite database and WAL | `vdr-suite.db`: 3,357,405,184 bytes; `-wal`: 198,295,632 bytes; `-shm`: 393,216 bytes | **P7 BLOCKED:** live WAL sidecars present at inspection; no direct copy of `.db`, checkpoint, `immutable=1` schema check, migration, or restore on live state |
 | Daemon binary fingerprints | `/usr/sbin/vdr-suite-daemon`: 17,939,328 bytes, SHA-256 `0bfa78635215bd46363ec86bbe356d4426aef9fc3a6430f329ae69658f0ffc57`; `/usr/local/sbin/vdr-suite-daemon`: 6,503,208 bytes, SHA-256 `a5e08254ed8e4956fe31651981070098a7c5cc57de59e58a1da1d2f4bef227f2` | Fingerprints identify observed file bytes only, not a known source SHA or supported predecessor |
 | Network/runtime | Daemon active; prior `ss` showed TCP 18080 listening on 0.0.0.0 | REVIEW: binding and proxy path need security/runtime acceptance; no listener edits |
@@ -62,9 +62,10 @@ infer that a process ID, binary hash or active route is unchanged later.
   binary and its recording-artwork drop-in, with a maintenance window and
   restart/recovery acceptance. Existing `/usr/local` binaries must not be
   silently removed.
-- Verify actual OS codename/architecture and VDR's `apiversion`/`libdir`
-  from the target's `pkg-config vdr`; the Debian package suffix alone
-  cannot certify the operating-system release or installed plugin ABI.
+- Ubuntu 26.04 / amd64, VDR 2.8.3, API 14 and the provided VDR ABI are
+  now observed on this host. Establish the **actually loaded** plugin
+  module and exact Resolute CI package provenance; do not infer it from
+  the `.so.14` file name or same upstream VDR number.
 - Name a supported older manual-install source and obtain a safely quiesced
   offline SQLite/WAL sample in a **private** workspace. Validate old-to-new
   schema, all writers, backup/restore and failure recovery there first.

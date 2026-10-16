@@ -1,6 +1,9 @@
 # Packaging P1 — Package boundaries and platform test matrix
 
-Status: P1 package boundaries are provisional. Local SuiteBridge-only `.deb` and unsigned Ubuntu noble source-preview tests PASS (2026-10-14), but **no official Ubuntu VDR ABI compatibility or complete binary build is certified**. Scope remains daemon + VDR SuiteBridge and required support files.
+Status: P1 package boundaries remain provisional. Full default Ubuntu 24.04
+(Seahawk VDR 2.8.3) builds, independent plugin, disposable install and
+experimental upgrade have passed [CI #112](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38932136305).
+This does **not** establish Ubuntu 26.04 or a production upgrade.
 
 ## Binary packages (working names)
 
@@ -19,21 +22,25 @@ Do not publish `vdr-suite-dev` or pretend internal C++ code is a stable external
 
 | Target | Priority | Build | Install | Plugin ABI | Real VDR | Upgrade |
 |---|---|---|---|---|---|---|
-| Ubuntu 24.04 LTS (noble) | first | **unsigned source preview PASS; full default binary pending** | pending | stock `vdr-dev` 2.6.0-1.1; compile not proven | pending | pending |
-| Ubuntu 26.04 LTS (resolute) | first | preview implementation only; binary pending | pending | stock `vdr-dev` 2.6.9-3build1; compile not proven | pending | pending |
+| Ubuntu 24.04 LTS (noble), Seahawk VDR 2.8.3 | first | three binaries + plugin-only PASS CI #112 | disposable install/remove/purge PASS | `vdr-abi-2.8.3-0yavdr` generated and verified | real running VDR acceptance pending | synthetic `exp1→exp2` PASS, manual upgrade pending |
+| Ubuntu 26.04 LTS (resolute), Seahawk VDR 2.8.3 | first | isolated exact-version plugin-only CI added; result pending | **not authorized** | must verify 2.8.3, API 14, `vdr-abi-2.8.3-0yavdr` | running VDR acceptance pending | real manual upgrade blocked |
 | Debian 13 | first | pending | pending | pending | pending | pending |
 | Debian 12 | compatibility | pending | pending | pending | pending | pending |
-| Actual yaVDR Ubuntu host | acceptance | **Earlier independent SuiteBridge plugin-only `.deb` PASS for an earlier verified candidate** | **requires explicit deployment approval** | Current observed `vdr`/`vdr-dev`: `2.8.3-0yavdr0~resolute`; exact `pkg-config apiversion` and installed plugin ABI still unverified | daemon active from unowned `/usr/sbin/vdr-suite-daemon` | manual upgrade/rollback BLOCKED; 3.36 GB DB with WAL present |
+| Actual yaVDR Ubuntu 26.04 amd64 host | acceptance | earlier plugin-only experimental build, new exact-host CI pending | **no host installation authorized** | `vdr`/`vdr-dev` `2.8.3-0yavdr0~resolute`, API `14`, `/usr/lib/vdr/plugins`, `vdr-abi-2.8.3-0yavdr` all confirmed from host | `vdr.service` active; actual loaded SuiteBridge plugin unverified | manual upgrade/rollback BLOCKED; 3.36 GB DB with WAL present |
 
 Use target release codename/architecture and exact `vdr-dev` / `vdr` ABI metadata at build time. Do not infer a working plugin package simply from successful daemon build.
-The 2026-10-16 yaVDR host observation is a package-version string,
-**not** confirmation of the operating-system release. The Ubuntu 24.04 Seahawk
+The 2026-10-16 yaVDR host observation confirms Ubuntu 26.04
+(`ID=ubuntu`, `VERSION_CODENAME=resolute`), amd64 and package-provided
+VDR API 14. The Ubuntu 24.04 Seahawk
 VDR 2.8.3 CI package build and lifecycle evidence in
 [CI #111](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38929697400)
 does not certify this installed `~resolute` VDR build, even if the upstream
 VDR version is identical. Installed SuiteBridge filenames `.so.11`,
 `.so.14` and older backup-suffixed variants are conflicts needing
-separate review; their suffixes alone cannot establish the active VDR API.
+separate review; only `.so.14` matches the observed VDR API suffix, but
+a filename does not prove that VDR loaded the library. The separate
+Resolute build job must fail closed if the exact VDR 2.8.3 package
+cannot be resolved: Ubuntu's stock `vdr-dev` 2.6.9 must not be substituted.
 
 
 Source of the Ubuntu VDR version rows: [Ubuntu 24.04 vdr-dev](https://packages.ubuntu.com/noble/vdr-dev) and [Ubuntu VDR package-version search including 26.04](https://packages.ubuntu.com/vdr), checked 2026-10-14. The local yaVDR ABI is from a maintainer-supplied successful `dpkg-buildpackage -Pplugin-only` output, not the official Ubuntu package repository.

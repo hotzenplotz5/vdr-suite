@@ -103,6 +103,75 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  plugin-only-resolute-yavdr:
+    name: Ubuntu 26.04 Resolute VDR 2.8.3 API 14 plugin-only build
+    runs-on: ubuntu-24.04
+    container: ubuntu:26.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v4
+      - name: Record exact source and apt provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(dpkg --print-architecture)" = amd64
+          test "$( . /etc/os-release; printf '%s' "$VERSION_CODENAME" )" = resolute
+          git rev-parse HEAD
+          git ls-files --stage debian/rules | grep -E '^100755 '
+          python3 tools/check_packaging_tracked_artifacts.py
+      - name: Resolve target VDR 2.8.3 and guard service activation
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          printf '%s\n' '#!/bin/sh' 'exit 101' > /usr/sbin/policy-rc.d
+          chmod 0755 /usr/sbin/policy-rc.d
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates gnupg software-properties-common
+          add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
+          apt-get update
+          apt-cache policy vdr vdr-dev
+          apt-get install -y --no-install-recommends build-essential debhelper dpkg-dev g++ make pkg-config python3 vdr vdr-dev
+          vdr_version="$(dpkg-query -W -f='${Version}' vdr)"
+          dev_version="$(dpkg-query -W -f='${Version}' vdr-dev)"
+          test "$vdr_version" = '2.8.3-0yavdr0~resolute'
+          test "$dev_version" = "$vdr_version"
+          test "$(pkg-config --modversion vdr)" = '2.8.3'
+          test "$(pkg-config --variable=apiversion vdr)" = '14'
+          test "$(pkg-config --variable=libdir vdr)" = '/usr/lib/vdr/plugins'
+          dpkg-query -W -f='${Provides}\n' vdr | grep -Fw 'vdr-abi-2.8.3-0yavdr'
+          echo "RESOLUTE_TARGET_VDR_ABI=PASS"
+      - name: Build independent plugin package for exact ABI
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tools -p 'test_packaging_profiles.py'
+          dpkg-buildpackage -B -Pplugin-only -us -uc
+          shopt -s nullglob
+          debs=(../vdr-plugin-suitebridge_*.deb)
+          (( ${#debs[@]} == 1 )) || exit 1
+          package="${debs[0]}"
+          test "$(dpkg-deb --field "$package" Package)" = 'vdr-plugin-suitebridge'
+          dpkg-deb --field "$package" Depends | grep -Fw 'vdr-abi-2.8.3-0yavdr'
+          dpkg-deb --contents "$package" | grep -F '/usr/lib/vdr/plugins/libvdr-suitebridge.so.14'
+          dpkg-deb --ctrl-tarfile "$package" | tar -xOf - ./preinst | sh -n
+          test "$(find .. -maxdepth 1 -name 'vdr-suite-daemon_*.deb' | wc -l)" -eq 0
+          test "$(find .. -maxdepth 1 -name 'vdr-suite-backend-agent_*.deb' | wc -l)" -eq 0
+          echo "RESOLUTE_SUITEBRIDGE_PLUGIN_ONLY=PASS"
+      - name: Preserve exact-build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: suitebridge-package-resolute-experimental
+          path: |
+            ../vdr-plugin-suitebridge_*.deb
+            ../vdr-suite_*_amd64.buildinfo
+            ../vdr-suite_*_amd64.changes
+          if-no-files-found: warn
+          retention-days: 7
+
   full-default-packages-noble:
     name: Ubuntu 24.04 Seahawk VDR 2.8.3 daemon + agent + SuiteBridge
     runs-on: ubuntu-24.04
