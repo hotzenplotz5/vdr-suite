@@ -54,9 +54,15 @@ The browser frontend lives in this repository under `web/frontend/`. The separat
 
 *Real capture of the EPG timeline with scheduled programme information.*
 
-**Hisense VIDAA television:** **📷 Foto fehlt** — App running on a real TV. [Capture instructions](docs/screenshots.md#4-hisense-vidaa-tv).
+#### HbbTV
 
-These three Web captures show the interface, not independently verified installed build identity or audio, seeking, subtitle or playback acceptance. Please redact private data and confirm that any visible programme artwork can be published before contributing further captures.
+![VDR-Suite — HbbTV view](docs/media/web-hbbtv.png)
+
+*Operator-supplied screenshot of the HbbTV view in VDR-Suite.*
+
+**Hisense VIDAA television:** **📷 Foto fehlt** — App running on a real TV. [Capture instructions](docs/screenshots.md#5-hisense-vidaa-tv).
+
+These four Web captures illustrate the interfaces, not independently verified installed build identity, HbbTV interoperability or audio, seeking, subtitle or playback acceptance. Please redact private data and confirm that any visible programme artwork can be published before contributing further captures.
 
 ## How the pieces fit
 
