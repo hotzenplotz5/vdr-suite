@@ -113,3 +113,9 @@ Browser legacy operation remains unchanged. The Device administrative grant
 allowlist still rejects `searchtimers.create` until a complete Public-v1
 contract is audited and installed. Regression:
 `core/security/tests/test_device_credential_authentication.cpp`.
+
+Additional identity invariant: the full post-CREATE native inventory must
+contain **exactly one row** with the returned backend-native identifier.
+Even one matching row plus a second conflicting row with the same ID yields
+`outcome_unknown` and never triggers a second POST. Duplicate native IDs in
+the preflight inventory stop dispatch before any provider write.

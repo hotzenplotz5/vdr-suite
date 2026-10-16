@@ -214,6 +214,33 @@ void assertReadbackAndPreexistingIdentity()
     assert(old.storage.findById(old.id).operation.state ==
         MutationOperationState::outcomeUnknown);
 
+    Rig duplicateNativeId;
+    auto duplicate = duplicateNativeId.source.finalItems.front();
+    duplicate.comparisonOptions().setCompareSummary(false);
+    duplicateNativeId.source.finalItems.push_back(duplicate);
+    const auto ambiguousIdentity = duplicateNativeId.dispatch.dispatchOnce(
+        duplicateNativeId.request(),duplicateNativeId.executor,
+        duplicateNativeId.source);
+    assert(ambiguousIdentity.status ==
+        SearchTimerCreateDispatchStatus::outcomeUnknown);
+    assert(duplicateNativeId.executor.creates == 1);
+    assert(duplicateNativeId.dispatch.dispatchOnce(
+        duplicateNativeId.request(),duplicateNativeId.executor,
+        duplicateNativeId.source).status ==
+            SearchTimerCreateDispatchStatus::conflict);
+    assert(duplicateNativeId.executor.creates == 1);
+
+    Rig duplicateBaseline;
+    duplicateBaseline.source.initial.push_back(
+        duplicateBaseline.source.finalItems.front());
+    duplicateBaseline.source.initial.push_back(
+        duplicateBaseline.source.finalItems.front());
+    const auto noBaseline = duplicateBaseline.dispatch.dispatchOnce(
+        duplicateBaseline.request(),duplicateBaseline.executor,
+        duplicateBaseline.source);
+    assert(noBaseline.status == SearchTimerCreateDispatchStatus::notReady);
+    assert(duplicateBaseline.executor.creates == 0);
+
     Rig mismatch;
     mismatch.source.finalItems.front().comparisonOptions()
         .setCompareSummary(false);

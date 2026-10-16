@@ -209,13 +209,20 @@ SearchTimerCreateDispatchResult SearchTimerCreateDispatchService::dispatchOnce(
             readback.list(SearchTimerQuery::byBackend(operation.backendId));
         if (completeInventory(after))
         {
-            int matches = 0;
+            int nativeIdentityCount = 0;
+            int exactMatches = 0;
             for (const auto& timer : after.items())
-                if (timer.backendNativeId() ==
-                        created.searchTimer.backendNativeId() &&
-                    matchesRequested(timer, command))
-                    ++matches;
-            verified = matches == 1;
+            {
+                if (timer.backendNativeId() !=
+                    created.searchTimer.backendNativeId())
+                    continue;
+                ++nativeIdentityCount;
+                if (matchesRequested(timer, command))
+                    ++exactMatches;
+            }
+            // A repeated native ID cannot be authoritative even if just
+            // one of the duplicate rows matches the requested options.
+            verified = nativeIdentityCount == 1 && exactMatches == 1;
         }
     }
     catch (...)
