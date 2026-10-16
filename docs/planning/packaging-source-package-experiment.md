@@ -1,6 +1,6 @@
 # Debian source-package readiness: isolated smoke-test
 
-Status: **offline 3.0 (quilt) source-package roundtrip PASSED** and **Ubuntu 24.04 noble offline source preview PASSED** on the maintainer's separate Packaging checkout at verified commits. Ubuntu 26.04 resolute and actual clean Ubuntu binary package builds remain unverified.
+Status: **offline 3.0 (quilt) source-package roundtrip PASSED** and **Ubuntu 24.04 noble offline source preview PASSED** on the maintainer's separate Packaging checkout at verified commits. A later exact-ABI Ubuntu 26.04 Resolute **three-binary build passed CI #123** at code SHA `a2bd136074cfcc84b981af5abf010c9e4ccd1426`. An independent **two-build deterministic source package roundtrip passed CI #128** at workflow/code SHA `de5cab976e883bc7dcce6cca92bbab45c88c89a6`. Neither verifies a clean binary rebuild from the unpacked source archive, complete copyright clearance, a signed source upload or an installed Resolute package lifecycle; the later ABI-dependent CI retries are blocked by Seahawk PPA `vdr-dev` HTTP 503.
 
 ## Why this is the next gate
 
@@ -51,6 +51,10 @@ python3 tools/build_vdr_suite_sourcepkg_isolated.py <VERIFIED_SHA> --ubuntu-prev
 ```
 
 A **PPA upload must not** use these unsigned preview outputs. Signing the source with the Launchpad-registered OpenPGP key and verifying complete distro-specific binary-build readiness are separate release gates.
+
+## Hosted independent source reproducibility (2026-10-16)
+
+The dedicated PPA-independent source job in [CI #128](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38957762174) used only files recorded at exact Git commit `de5cab976e883bc7dcce6cca92bbab45c88c89a6`, produced two separately staged Debian `3.0 (quilt)` source packages with a canonical upstream `.orig.tar.xz`, validated each `.dsc` with `dpkg-source -x`, and compared the SHA-256 of `.orig.tar.xz`, `.debian.tar.xz` and `.dsc` between builds. `SOURCEPKG_SOURCE_TAR_DSC_REPRODUCIBILITY=PASS` was emitted; this confirms **source archive byte reproducibility** for the two controlled offline builds, not reproducible binaries, license permissions, signed PPA packaging or new installed behavior. No production system, database or Launchpad archive was changed.
 
 ## Important non-acceptance
 
