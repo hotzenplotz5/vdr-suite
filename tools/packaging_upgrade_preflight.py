@@ -44,7 +44,6 @@ def inspect_known_versions(con, table_names):
     return observed
 
 
-
 def _file_identity(info):
     """Identity + mutation timestamps; do not use atime (reading may change it)."""
     return (info.st_dev, info.st_ino, info.st_mode, info.st_nlink,
@@ -129,7 +128,7 @@ def check(db: Path):
                 "known_schema_versions": known_versions,
                 "compatibility": "REVIEW_REQUIRED",
                 "note": "Offline-only, partial schema-marker inventory and "
-                        full DDL and file fingerprints; not proof of daemon provenance, "
+                        "full DDL and file fingerprints; not proof of daemon provenance, "
                         "WAL quiescence, migration or compatibility approval"}
     finally:
         con.close()
