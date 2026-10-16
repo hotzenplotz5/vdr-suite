@@ -27,7 +27,9 @@ SearchTimerResult RestfulApiSearchTimerAdapter::list(
     HttpResponse response = httpClient_.execute(request);
 
     if (response.statusCode != 200) {
-        return SearchTimerResult::empty(
+        // Do not turn a provider rejection or outage into a genuine
+        // empty SearchTimer list. A Public-v1 client must fail closed.
+        return SearchTimerResult::unavailable(
             query.limit(),
             query.offset());
     }

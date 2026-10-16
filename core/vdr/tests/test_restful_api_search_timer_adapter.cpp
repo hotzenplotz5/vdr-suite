@@ -29,6 +29,7 @@ int main()
     assert(httpClient.lastRequest().method == "GET");
     assert(httpClient.lastRequest().url == "/searchtimers.json");
     assert(httpClient.lastRequest().headers.at("Accept") == "application/json");
+    assert(all.available());
     assert(all.returnedCount() == 3);
     assert(all.totalCount() == 3);
     assert(all.items().at(0).backendId() == "livingroom");
@@ -66,11 +67,29 @@ int main()
     SearchTimerResult failed = adapter.list(
         SearchTimerQuery::limited(10, 5));
 
+    assert(!failed.available());
     assert(failed.empty());
     assert(failed.returnedCount() == 0);
     assert(failed.totalCount() == 0);
     assert(failed.limit() == 10);
     assert(failed.offset() == 5);
+
+    HttpResponse emptyResponse;
+    emptyResponse.statusCode = 200;
+    emptyResponse.body = "{\"searchtimers\":[],\"count\":0,\"total\":0}";
+    httpClient.setResponse(emptyResponse);
+    SearchTimerResult genuineEmpty = adapter.list(
+        SearchTimerQuery::limited(10, 0));
+    assert(genuineEmpty.available());
+    assert(genuineEmpty.empty());
+    assert(genuineEmpty.totalCount() == 0);
+
+    HttpResponse unavailableResponse;
+    unavailableResponse.statusCode = 503;
+    httpClient.setResponse(unavailableResponse);
+    SearchTimerResult unavailable = adapter.list(SearchTimerQuery::all());
+    assert(!unavailable.available());
+    assert(unavailable.empty());
 
     std::cout << "test_restful_api_search_timer_adapter passed" << std::endl;
     return 0;

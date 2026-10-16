@@ -183,6 +183,12 @@ int main()
         25,
         0);
 
+    ApiResponse providerFailure = controller.getSearchTimers(
+        SearchTimerResult::unavailable(25, 0));
+    assert(providerFailure.statusCode == 503);
+    assert(providerFailure.body.find("unavailable") != std::string::npos);
+    assert(providerFailure.body.find("searchtimers") == std::string::npos);
+
     ApiResponse response = controller.getSearchTimers(result);
 
     assert(response.statusCode == 200);
