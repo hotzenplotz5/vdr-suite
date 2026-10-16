@@ -481,6 +481,7 @@ test-phase69f-public-v1-channel-reference-client:
 
 test-phase69f-public-v1-timer-assignment-collection-reference-client:
 	node clients/reference-js/tests/test_public_v1_timer_assignment_collection_client.js
+	node clients/reference-js/tests/test_public_v1_search_timer_client.js
 	python3 tools/check_phase69f_public_v1_timer_assignment_collection_reference_client.py
 
 

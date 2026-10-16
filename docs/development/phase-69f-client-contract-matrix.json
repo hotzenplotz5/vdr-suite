@@ -234,7 +234,7 @@
         "fetchClientSearchTimerUpdateAction",
         "fetchClientSearchTimerDeleteAction"
       ],
-      "note": "There is no /api/v1/search-timers resource; retained aliases remain pre-v1."
+      "note": "New Public-v1 read-only Device SearchTimer collection does not implement the Web's legacy preview or write operations; retained aliases remain pre-v1."
     },
     {
       "domain": "search-timer-cache",
@@ -360,6 +360,15 @@
         "GET /api/v1/recordings?backendId={backendId}"
       ],
       "note": "Device-capable independent Recording Collection consumer; no private provider/browser fallback; pending compilation and CI acceptance."
+    },
+    {
+      "id": "reference-js-search-timer-collection",
+      "path": "clients/reference-js/public-v1-client.js",
+      "status": "candidate",
+      "resources": [
+        "GET /api/v1/search-timers?backend={backendId}"
+      ],
+      "note": "Post-Phase69 independently grantable read-only VDR SearchTimer Device collection, backend-scoped and limited to 30 public st_ identities; no native IDs, Browser fallback, editor or mutation"
     }
   ]
 }

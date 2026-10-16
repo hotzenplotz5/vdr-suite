@@ -20,6 +20,10 @@
       "description": "Authorized public-v1 federated Channel collection with explicit backend source selection and partial-source metadata"
     },
     {
+      "name": "SearchTimers",
+      "description": "Backend-scoped read-only VDR SearchTimer collection for paired Devices; not Suite TimerAssignments"
+    },
+    {
       "name": "TimerAssignments",
       "description": "Suite-owned Backend-scoped TimerAssignment collection, item revision and protected native CREATE admission"
     },
