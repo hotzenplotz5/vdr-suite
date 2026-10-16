@@ -43,7 +43,9 @@ def main(argv=None):
 
     if args.check:
         print(json.dumps(observation, indent=2, sort_keys=True))
-        return 2 if observation["verdict"] == "BLOCKED" else 0
+        # Diagnostic success is not approval. Fail closed even for a clean
+        # host, so a shell chain cannot mistake this for permission to install.
+        return 2 if observation["verdict"] == "BLOCKED" else 3
 
     # The P6 result always has install_approved=False. Even an empty scan
     # is not a release or migration approval. There is deliberately no
