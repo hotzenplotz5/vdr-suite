@@ -88,8 +88,10 @@ int main()
         "epg.view", "default"));
     assert(DeviceGrantAdministrationService::supportedGrant(
         "searchtimers.view", "default"));
-    assert(!DeviceGrantAdministrationService::supportedGrant(
+    assert(DeviceGrantAdministrationService::supportedGrant(
         "searchtimers.create", "default"));
+    assert(!DeviceGrantAdministrationService::supportedGrant(
+        "searchtimers.create", "*"));
     assert(!DeviceGrantAdministrationService::supportedGrant(
         "role.admin", "*"));
     assert(!DeviceGrantAdministrationService::supportedGrant(

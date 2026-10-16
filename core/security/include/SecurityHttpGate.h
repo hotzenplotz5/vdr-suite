@@ -785,6 +785,8 @@ public:
         const bool isPublicSearchTimerPreviewRead =
             request.method == "GET" &&
             (isPublicSearchTimerPreviewResource || isPublicSearchTimerDraftPreview);
+        const bool isPublicSearchTimerCreate =
+            isPost && path == publicSearchTimerCollection;
         const bool isPublicSearchTimerRead =
             request.method == "GET" &&
             (path == publicSearchTimerCollection ||
@@ -844,7 +846,8 @@ public:
              isPublicChannelCollection ||
              isPublicEpgNowNext ||
              isPublicTimerAssignmentCollection ||
-             path == publicSearchTimerCollection ||
+             (path == publicSearchTimerCollection &&
+              !isPublicSearchTimerCreate) ||
              isPublicSearchTimerPreviewResource ||
              isPublicSearchTimerDraftPreview ||
              isPublicOperationResource ||
@@ -871,6 +874,7 @@ public:
             isPublicAccountCredentialMutation ||
             isPublicAccountSessionMutation ||
             isPublicTimerAssignmentCreate ||
+            isPublicSearchTimerCreate ||
             isPublicDeviceRecordingSessionCreate ||
             isPublicDeviceLiveSessionCreate ||
             isPublicDeviceLiveSessionStop ||
@@ -1764,6 +1768,62 @@ public:
         // Versioned Recording session creation is Device-only. Browser
         // credentials and even user/admin grants are not Device proof.
         // This policy does not itself create sessions or expose media bytes.
+        if (isPublicSearchTimerCreate)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            if (!gate.deviceAuthenticated ||
+                gate.context.actor.type != ActorType::Service ||
+                !gate.context.device || !gate.context.credential ||
+                gate.context.session.has_value())
+            {
+                AuthorizationDecision denial;
+                denial.permission = "searchtimers.create";
+                denial.backendId = publicSearchTimerBackendId;
+                denial.action = "searchtimers.create";
+                denial.reasonCode = "device_credential_required";
+                return rejectWithAudit(gate, denial, 403,
+                    "Verified Device credential required", "");
+            }
+            const bool validBackend =
+                !publicSearchTimerBackendId.empty() &&
+                publicSearchTimerBackendId.size() <= 128U &&
+                publicSearchTimerBackendId != "." &&
+                publicSearchTimerBackendId != ".." &&
+                publicSearchTimerBackendId != "*" &&
+                std::all_of(publicSearchTimerBackendId.begin(),
+                    publicSearchTimerBackendId.end(),
+                    [](unsigned char c) {
+                        return std::isalnum(c) ||
+                            c == '.' || c == '_' || c == '-';
+                    });
+            if (!validBackend)
+            {
+                AuthorizationDecision denial;
+                denial.permission = "searchtimers.create";
+                denial.backendId = publicSearchTimerBackendId;
+                denial.action = "searchtimers.create";
+                denial.reasonCode = "invalid_backend_scope";
+                return rejectWithAudit(gate, denial, 400,
+                    "Invalid CREATE backend", "");
+            }
+            const bool exactGrant = std::any_of(
+                gate.context.grants.begin(), gate.context.grants.end(),
+                [&publicSearchTimerBackendId](const PermissionGrant& grant) {
+                    return grant.permission == "searchtimers.create" &&
+                        grant.backendId == publicSearchTimerBackendId;
+                });
+            if (!exactGrant)
+            {
+                AuthorizationDecision denial;
+                denial.permission = "searchtimers.create";
+                denial.backendId = publicSearchTimerBackendId;
+                denial.action = "searchtimers.create";
+                denial.reasonCode = "permission_denied";
+                return rejectWithAudit(gate, denial, 403,
+                    "Exact backend SearchTimer CREATE grant required", "");
+            }
+        }
         if ((isPublicDeviceRecordingSessionCreate ||
              isPublicDeviceRecordingSessionStop ||
              isPublicDeviceLiveSessionCreate ||
@@ -1998,6 +2058,12 @@ public:
         {
             requestToAuthorize.permission = "remote.control";
             requestToAuthorize.action = "remote.control";
+        }
+        else if (isPublicSearchTimerCreate)
+        {
+            requestToAuthorize.permission = "searchtimers.create";
+            requestToAuthorize.action = "searchtimers.create";
+            requestToAuthorize.backendId = publicSearchTimerBackendId;
         }
         else if (isTimerCreateAction ||
                  isPublicTimerAssignmentCreate)
