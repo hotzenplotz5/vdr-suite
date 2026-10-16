@@ -80,6 +80,10 @@ host deployment route until a documented mandatory authorization/transition
 gate covers source version, runtime state, nginx, database and service policy.
 No productive yaVDR package install is authorized by adding this script.
 
+See the [observed existing-yaVDR adoption boundary](packaging-p8-yavdr-adoption-boundary.md)
+for the read-only host evidence and mandatory per-path review. It is a
+migration decision ledger, not a deployment command.
+
 ## Required next P8 work
 
 1. Establish an explicit per-path takeover policy, package-specific
