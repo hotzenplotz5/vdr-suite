@@ -1,5 +1,4 @@
 import importlib.util
-import hashlib
 from contextlib import closing
 from pathlib import Path
 import sqlite3
@@ -10,6 +9,12 @@ module_path = Path(__file__).with_name("packaging_upgrade_preflight.py")
 spec = importlib.util.spec_from_file_location("preflight", module_path)
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
+
+recovery_path = Path(__file__).with_name("packaging_recovery_rehearsal.py")
+recovery_spec = importlib.util.spec_from_file_location(
+    "packaging_recovery_rehearsal", recovery_path)
+recovery = importlib.util.module_from_spec(recovery_spec)
+recovery_spec.loader.exec_module(recovery)
 
 class PreflightTests(unittest.TestCase):
     def test_valid(self):
@@ -109,14 +114,10 @@ class PreflightTests(unittest.TestCase):
             before = db.read_bytes()
             initial = module.check(db)
             self.assertEqual(db.read_bytes(), before)
-            # The recovery helper deliberately hashes the same ordered
-            # sqlite_master tuple rows; the two inventories must be comparable.
+            # Compare with the actual offline recovery implementation,
+            # not a duplicate formula that could drift independently.
             with closing(sqlite3.connect(db)) as conn:
-                objects = conn.execute(
-                    "SELECT type, name, COALESCE(sql, '') FROM sqlite_master "
-                    "WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name"
-                ).fetchall()
-            expected = hashlib.sha256(repr(objects).encode("utf-8")).hexdigest()
+                expected = recovery.sqlite_facts(conn)["schema_sha256"]
             self.assertEqual(initial["schema_sha256"], expected)
             self.assertNotIn("private-p7-row", str(initial))
             with closing(sqlite3.connect(db)) as conn:
