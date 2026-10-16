@@ -383,6 +383,10 @@ int main()
         std::string("{\"name\":\"Terra X\",\"query\":\"Terra X\","
             "\"confirmed\":false,\"mode\":1,\"compareTitle\":true,"
             "\"compareSubtitle\":false,\"compareSummary\":true}"),
+        std::string("{\"name\":\"Fremder Anzeigename\","
+            "\"query\":\"Terra X\",\"confirmed\":true,"
+            "\"mode\":1,\"compareTitle\":true,\"compareSubtitle\":false,"
+            "\"compareSummary\":true}"),
         std::string("{\"name\":\"Terra X\",\"name\":\"Duplicate\","
             "\"query\":\"Terra X\",\"confirmed\":true,"
             "\"mode\":1,\"compareTitle\":true,\"compareSubtitle\":false,"

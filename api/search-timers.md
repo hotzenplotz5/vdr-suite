@@ -171,3 +171,13 @@ connected yet. An operator must inspect authoritative backend evidence before
 resolving it; the client must not make a new POST with a different idempotency
 key. A crash during dispatch likewise does not establish success or authorize
 retry.
+
+### Backend SearchTimer name versus search string
+
+The existing RESTfulAPI `/searchtimers` CREATE body carries the epgsearch
+`search` field, but **no separately round-trippable display-name field**.
+`RestfulApiSearchTimerMapper` reconstructs `name = query` from readback.
+Public-v1 therefore requires `name == query` at admission (otherwise HTTP
+422), so an exact native result can be verified. VIDAA presents one combined
+search/name field. It does not claim independent rule labels supported by the
+native epgsearch backend or invent a second mapping authority.

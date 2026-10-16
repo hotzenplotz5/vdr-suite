@@ -670,7 +670,7 @@
         ],
         "operationId": "createSearchTimer",
         "summary": "Create one backend SearchTimer from a paired Device",
-        "description": "A verified Device with independent searchtimers.create@backend grant may submit one confirmed, durable and idempotent SearchTimer CREATE. Backend must be online and writable with live Agent generation. One-shot provider dispatch and exact native-ID readback; HTTP 202 is an Operation, never a promise of recording. An ambiguous result must not be automatically retried.",
+        "description": "A verified Device with independent searchtimers.create@backend grant may submit one confirmed, durable and idempotent SearchTimer CREATE. Backend must be online and writable with live Agent generation. One-shot provider dispatch and exact native-ID readback; HTTP 202 is an Operation, never a promise of recording. An ambiguous result must not be automatically retried. The native RESTfulAPI mapping uses the search text as the rule name; name must equal query or HTTP 422.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "verified Device and exact searchtimers.create@backend; no Browser/legacy fallback"
@@ -755,7 +755,8 @@
                   "compareSummary": {
                     "type": "boolean"
                   }
-                }
+                },
+                "description": "name must exactly equal query; independent labels do not round-trip through epgsearch RESTfulAPI."
               }
             }
           }
