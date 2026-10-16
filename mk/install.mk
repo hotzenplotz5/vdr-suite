@@ -157,6 +157,8 @@ install-manpages:
 	$(INSTALL) -m 0644 docs/man/man5/vdr-suite.conf.5 $(DESTDIR)$(MANDIR)/man5/vdr-suite.conf.5
 	$(INSTALL) -d $(DESTDIR)$(MANDIR)/man1
 	$(INSTALL) -m 0644 docs/man/man1/vdr-suite-dashboard.1 $(DESTDIR)$(MANDIR)/man1/vdr-suite-dashboard.1
+	$(INSTALL) -m 0644 docs/man/man1/vdr-suite-logo-sync.1 $(DESTDIR)$(MANDIR)/man1/vdr-suite-logo-sync.1
+	$(INSTALL) -m 0644 docs/man/man1/vdr-suite-media-calibrate.1 $(DESTDIR)$(MANDIR)/man1/vdr-suite-media-calibrate.1
 
 install-systemd:
 	$(INSTALL) -d $(DESTDIR)$(SYSTEMDUNITDIR)
@@ -284,6 +286,8 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man8/vdr-suite-human-account-recover.8
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man5/vdr-suite.conf.5
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man1/vdr-suite-dashboard.1
+	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man1/vdr-suite-logo-sync.1
+	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man1/vdr-suite-media-calibrate.1
 	test -f /tmp/vdr-suite-pkgroot/lib/systemd/system/vdr-suite-daemon.service
 	test -f /tmp/vdr-suite-pkgroot/lib/systemd/system/vdr-suite-backend-agent.service
 	printf '%s\n' 'VDR_SUITE_SECURITY_MODE=legacy-basic' 'VDR_SUITE_UPGRADE_SENTINEL=preserve' > /tmp/vdr-suite-pkgroot/etc/default/vdr-suite-daemon

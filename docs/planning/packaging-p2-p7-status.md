@@ -51,6 +51,14 @@ At [CI #129](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38958032827)
 
 The **new** disposable Resolute install/reinstall/remove/purge job on that same code SHA did **not** pass. It failed before apt/dpkg installation because its minimal Ubuntu container could not create `policy-rc.d` through `install -m 0755 /dev/stdin ...`. Its failure provides no installed-package or lifecycle acceptance. The narrowly scoped follow-up [commit `aca3f2d`](https://github.com/hotzenplotz5/vdr-suite/commit/aca3f2d161fee75cb0c4be8abadf5f2783e29bd1) changes this CI preparation to shell redirection plus chmod, and packages a source-backed manual for the Agent command-administration utility. Both are **untested candidates** until the exact new workflow jobs complete.
 
+## 2026-10-16 — confirmed Noble and Resolute package lifecycle acceptance
+
+[CI #132](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38959664545), exact candidate SHA `aca3f2d161fee75cb0c4be8abadf5f2783e29bd1`, provides **successful default three-binary builds** for Ubuntu 24.04 Noble and Ubuntu 26.04 Resolute. In disposable target containers, **both** the `isolated-package-lifecycle-noble` and `isolated-package-lifecycle-resolute` jobs completed successfully: package metadata and VDR ABI checks, service no-autostart boundary, install, reinstall, remove, purge and preservation of operator-owned config/state sentinels. Nine real P8 dpkg refusal fixture jobs passed. The independent Resolute plugin-only job and pinned historical Noble P7 build in the same workflow failed on Seahawk PPA `vdr-dev` download issues (HTTP 503); those distinct jobs do not invalidate the successful three-binary jobs. The full-run status is therefore not a blanket green release gate.
+
+**Post-CI source follow-up:** The daemon package previously lacked manual pages for its `vdr-suite-logo-sync` and `vdr-suite-media-calibrate` helper binaries. A scoped packaging follow-up adds those pages to the canonical installation staging and daemon manifest with regression assertions; this follow-up is **not** covered by the exact SHA above and requires a new independent CI acceptance.
+
+**Still outside this acceptance:** actual installed service runtime, real manual-host collision takeover, existing live VDR-Suite SQLite/WAL upgrade and rollback, complete `debian/copyright` and third-party rights, the artwork cache-file layout, signed source upload and PPA publication. No installed yaVDR files or live database were touched.
+
 ## Confirmed local build milestone (2026-10-14)
 
 Maintainer-supplied terminal evidence confirms a successful isolated SuiteBridge-only binary `.deb` build, with an ABI dependency on `vdr-abi-2.8.3-0yavdr`, no daemon or agent binary dependency, and post-build resource reserve PASS. This validates P5's **local plugin-only binary path** on the yaVDR build host only. It does not clear clean Ubuntu builds, daemon packaging, signed source package, installer or P7 upgrade acceptance.

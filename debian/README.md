@@ -30,6 +30,13 @@ The default build produces `vdr-suite-daemon`, `vdr-suite-backend-agent` and `vd
 | Additional VDR backend (same network) | Install/configure an agent *on the backend host* when that backend is managed through the authenticated Agent Protocol; the central daemon stays at the Control Plane. |
 | Remote site | Agent initiates outbound HTTPS to the central server. Do not expose local VDR plugin ports or a database to the Internet. |
 
+The daemon package also includes the `/usr/bin/vdr-suite-logo-sync` and
+`/usr/bin/vdr-suite-media-calibrate` utilities, with dedicated section-1
+manual pages. Logo synchronization may download third-party artwork, which
+remains subject to its own provenance and usage rights. Media calibration
+benchmarks FFmpeg workloads and writes a persistent performance profile, so
+it is an explicit operator action, not part of package installation.
+
 **Exact payload from `debian/vdr-suite-backend-agent.install`:**
 
 | Installed path | Responsibility |

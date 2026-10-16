@@ -54,6 +54,20 @@ class PackagingProfileTests(unittest.TestCase):
         self.assertNotIn(socket_config, daemon)
         self.assertEqual(len(plugin), len(set(plugin)))
 
+    def test_daemon_helper_manpages_staged_and_assigned(self):
+        stage = (ROOT / "mk/install.mk").read_text(encoding="utf-8")
+        manifest = (ROOT / "debian/vdr-suite-daemon.install").read_text(
+            encoding="utf-8").splitlines()
+        plugin = (ROOT / "debian/vdr-plugin-suitebridge.install").read_text(
+            encoding="utf-8").splitlines()
+        for name in ("vdr-suite-logo-sync", "vdr-suite-media-calibrate"):
+            with self.subTest(name=name):
+                self.assertTrue((ROOT / "docs/man/man1" / (name + ".1")).is_file())
+                self.assertIn("docs/man/man1/" + name + ".1", stage)
+                target = "usr/share/man/man1/" + name + ".1"
+                self.assertEqual(manifest.count(target), 1)
+                self.assertNotIn(target, plugin)
+
     def test_backend_agent_command_admin_manual_is_in_stage_and_package(self):
         name = "vdr-suite-backend-agent-command-admin.8"
         self.assertTrue((ROOT / "docs/man/man8" / name).is_file())
