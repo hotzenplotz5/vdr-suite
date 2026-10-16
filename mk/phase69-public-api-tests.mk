@@ -590,6 +590,7 @@ test-searchtimer-create-device-admission:
 		core/operations/src/MutationOperation.cpp \
 		core/operations/src/MutationOperationIdentity.cpp \
 		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
 		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/SearchTimerCreateOperationPayload.cpp \
