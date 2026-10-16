@@ -168,3 +168,27 @@ snapshot/restore with writer quiescence, fail-closed unknown/future schema
 behavior, approved service startup/rollback gates and additional release
 checks. No production yaVDR modifications, package upload/signing or
 migration are authorized by this CI evidence.
+
+## P7 offline source-schema evidence (2026-10-16)
+
+The read-only `tools/packaging_upgrade_preflight.py` now emits an output
+schema revision **3** and a stable `schema_sha256` of ordered
+`sqlite_master` DDL object tuples; its algorithm matches the independent
+offline recovery rehearsal. It also reports the DDL object count and rejects
+SQLite foreign-key violations in addition to quick-check failures. Python
+regressions assert that changing only stored row contents preserves the DDL
+fingerprint, DDL changes invalidate it, the result contains no test row secrets,
+and invalid foreign keys fail without changing the source file.
+
+This is a **source-evidence preparation tool only**, not an upgrade eligibility
+decision: `compatibility=REVIEW_REQUIRED` is always emitted. CI of the
+exact code candidate must pass before this incremental tool change is treated
+as validated. It never reads a production database automatically, performs no
+DDL/DML, and neither snapshots writers nor modifies installed services.
+
+P7 remains blocked on an identified and explicitly supported old manual-install
+source SHA/version and its authentic daemon-created SQLite snapshot, approved
+consistent backup (including WAL and writer quiescence), fail-closed
+source/target compatibility registry, isolated real-version migrations and
+rollback, and authorized live lifecycle acceptance. Fingerprints alone are
+insufficient to approve any of these operations.
