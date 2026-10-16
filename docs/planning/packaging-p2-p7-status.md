@@ -181,10 +181,15 @@ fingerprint, DDL changes invalidate it, the result contains no test row secrets,
 and invalid foreign keys fail without changing the source file.
 
 This is a **source-evidence preparation tool only**, not an upgrade eligibility
-decision: `compatibility=REVIEW_REQUIRED` is always emitted. CI of the
-exact code candidate must pass before this incremental tool change is treated
-as validated. It never reads a production database automatically, performs no
-DDL/DML, and neither snapshots writers nor modifies installed services.
+decision: `compatibility=REVIEW_REQUIRED` is always emitted. Exact-source
+[GitHub Actions #88](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38850863155)
+**PASS, all five jobs**, on
+`6ab051f8e8dd2bafaf03a26da38117024e202cec`, including **84 Packaging
+Python regressions**, independent SuiteBridge, daemon/agent build, disposable
+package lifecycle and experimental exp1-to-exp2 recovery. The subsequent
+status-ledger-only change does not alter the tested tool or tests. The tool
+never reads a production database automatically, performs no DDL/DML, and
+neither snapshots writers nor modifies installed services.
 
 P7 remains blocked on an identified and explicitly supported old manual-install
 source SHA/version and its authentic daemon-created SQLite snapshot, approved
