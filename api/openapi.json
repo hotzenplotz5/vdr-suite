@@ -7359,6 +7359,43 @@
           "backendId": {
             "type": "string"
           },
+          "planned": {
+            "type": "object",
+            "description": "Optional desired scheduling specification, not a native timer observation or recording status. Omitted if no valid Suite-owned desired specification exists.",
+            "required": [
+              "title",
+              "day",
+              "weekdays",
+              "startTime",
+              "endTime"
+            ],
+            "properties": {
+              "title": {
+                "type": "string",
+                "maxLength": 1024
+              },
+              "day": {
+                "type": "string",
+                "maxLength": 160,
+                "description": "Desired native day selector; not an ISO or UTC guarantee."
+              },
+              "weekdays": {
+                "type": "string",
+                "minLength": 7,
+                "maxLength": 7
+              },
+              "startTime": {
+                "type": "string",
+                "pattern": "^[0-9]{1,4}$",
+                "description": "Desired HHMM, not Unix seconds."
+              },
+              "endTime": {
+                "type": "string",
+                "pattern": "^[0-9]{1,4}$",
+                "description": "Desired HHMM, not Unix seconds."
+              }
+            }
+          },
           "links": {
             "type": "object",
             "required": [
