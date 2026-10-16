@@ -121,7 +121,7 @@ public:
         HttpServerRequest request;
         request.method = "POST";
         request.path = target;
-        request.body = "{\\"name\\":\\"test\\",\\"query\\":\\"test\\"}";
+        request.body = R"({"name":"test","query":"test"})";
         request.headers["Authorization"] = validAuthorization();
         request.headers["Content-Type"] = "application/json";
         request.headers["X-Request-ID"] = "mu10d-device-legacy-searchtimer";
