@@ -79,6 +79,7 @@ def render(package, repo=ROOT, test_root=""):
         "  *) exit 0 ;; # recovery/abort operations must remain possible",
         "esac",
         "package=" + shlex.quote(package),
+        "package_owned_target=0",
         "deny() {",
         "  printf 'P8_PREUNPACK=BLOCKED package=%s reason=%s path=%s\\n' \"$package\" \"$1\" \"$2\" >&2",
         "  exit 1",
@@ -96,6 +97,7 @@ def render(package, repo=ROOT, test_root=""):
         "  fi",
         "  owner=$(dpkg-query -S -- \"$target\" 2>/dev/null) || deny OWNERSHIP_UNKNOWN \"$target\"",
         "  [ \"$owner\" = \"$package: $target\" ] || deny FOREIGN_OR_AMBIGUOUS_OWNER \"$target\"",
+        "  package_owned_target=1",
         "}",
         "check_manual() {",
         "  target=$1",
@@ -128,8 +130,10 @@ def render(package, repo=ROOT, test_root=""):
             out.append("check_manual " + shlex.quote(target))
     if package != "vdr-plugin-suitebridge":
         out += [
-            "installed=$(dpkg-query -W -f='${Status}' \"$package\" 2>/dev/null) || installed=unknown",
-            "if [ \"$installed\" != 'install ok installed' ]; then",
+            # During dpkg preinst the package's Status can be half-installed,
+            # including for a valid reinstall or upgrade. Only an actually
+            # dpkg-owned package target is evidence of prior package ownership.
+            "if [ \"$package_owned_target\" != 1 ]; then",
             "  check_manual " + shlex.quote(path(STATE_ROOT)),
             "fi",
         ]
