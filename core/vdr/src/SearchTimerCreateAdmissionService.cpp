@@ -103,8 +103,8 @@ SearchTimerCreateAdmissionService::replayIfPresent(
         operation.operationId);
     if (!payload.ok() || payload.payload.payloadType != kPayloadType ||
         payload.payload.payloadVersion != kPayloadVersion ||
-        payload.payloadFingerprint != fingerprint ||
-        payload.payload !=
+        payload.payload.payloadFingerprint != fingerprint ||
+        payload.payload.payload !=
             serializeSearchTimerCreateOperationPayload(request.payload))
         return result(SearchTimerCreateAdmissionStatus::operationConflict,
             operation);

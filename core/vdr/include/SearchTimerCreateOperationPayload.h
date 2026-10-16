@@ -3,7 +3,7 @@
 #include <string>
 
 // Versioned, immutable request evidence for a future SearchTimer CREATE worker.
-// This is NOT a VDR timer or a TimerAssignment and must never be dispatched
+// This is NOT a native recording timer and must never be dispatched
 // without an independently verified backend write policy and readback.
 struct SearchTimerCreateOperationPayload
 {
