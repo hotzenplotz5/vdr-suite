@@ -1,6 +1,7 @@
 #include "PublicRecordingCollectionProjection.h"
 
 #include "PublicRecordingIdentityRepository.h"
+#include "PublicRecordingDisplayName.h"
 
 #include <algorithm>
 #include <iostream>
@@ -65,7 +66,9 @@ PublicRecordingReadResult PublicRecordingCollectionProjection::project(
         PublicRecordingReadItem item;
         item.recordingId = *publicId;
         item.backendId = source.backendId;
-        item.title = source.title;
+        const auto display = PublicRecordingDisplayName::project(source);
+        item.title = display.title;
+        item.edited = display.edited;
         item.recordedAt = source.startTime;
         item.durationSeconds = source.durationSeconds;
         item.durationKnown = source.recordingDurationKnown;

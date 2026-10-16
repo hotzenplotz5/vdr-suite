@@ -342,6 +342,18 @@ public:
         // /api/v1/media/sessions/{sessionId}/... gateway namespace.
         const bool isPublicDeviceRecordingSessionCreate =
             isPost && path == "/api/v1/recording-playback-sessions";
+        const bool isPublicDeviceLiveSessionCreate =
+            isPost && path == "/api/v1/live-playback-sessions";
+        const std::string liveSessionPrefix =
+            "/api/v1/live-playback-sessions/";
+        const bool isPublicDeviceLiveSessionRead =
+            request.method == "GET" &&
+            path.rfind(liveSessionPrefix, 0) == 0;
+        const bool isPublicDeviceLiveSessionStop =
+            isPost && path.rfind(liveSessionPrefix, 0) == 0 &&
+            path.size() > liveSessionPrefix.size() + 5U &&
+            path.compare(path.size()-5U, 5U, "/stop") == 0 &&
+            path.find('/', liveSessionPrefix.size()) == path.size()-5U;
         const std::string playbackStopPrefix =
             "/api/v1/recording-playback-sessions/";
         const bool isPublicDeviceRecordingSessionRead =
@@ -706,11 +718,15 @@ public:
             request.method == "GET" &&
             (path == "/api/v1/recordings" ||
              path == "/api/v1/genres" ||
-             path == "/api/v1/genres/recordings");
+             path == "/api/v1/genres/recordings" ||
+             path == "/api/v1/search/recordings");
         const bool isPublicChannelCollection =
             path == "/api/v1/channels";
         const bool isPublicEpgNowNext =
-            path == "/api/v1/epg/now-next";
+            path == "/api/v1/genres/epg" ||
+            path == "/api/v1/genres/epg/events" ||
+            path == "/api/v1/epg/now-next" ||
+            path == "/api/v1/search/epg";
         const bool isPublicEpgNowNextRead =
             request.method == "GET" && isPublicEpgNowNext;
         std::vector<std::string> publicChannelBackendIds;
@@ -755,6 +771,29 @@ public:
         const bool isPublicChannelRead =
             request.method == "GET" &&
             isPublicChannelCollection;
+        const std::string publicSearchTimerCollection =
+            "/api/v1/search-timers";
+        const std::string publicSearchTimerPreviewPrefix =
+            "/api/v1/search-timers/";
+        const bool isPublicSearchTimerPreviewResource =
+            path.size() > publicSearchTimerPreviewPrefix.size() + 8U &&
+            path.compare(0U, publicSearchTimerPreviewPrefix.size(),
+                publicSearchTimerPreviewPrefix) == 0 &&
+            path.compare(path.size() - 8U, 8U, "/preview") == 0;
+        const bool isPublicSearchTimerDraftPreview =
+            path == "/api/v1/search-timers/draft-preview";
+        const bool isPublicSearchTimerPreviewRead =
+            request.method == "GET" &&
+            (isPublicSearchTimerPreviewResource || isPublicSearchTimerDraftPreview);
+        const bool isPublicSearchTimerCreate =
+            isPost && path == publicSearchTimerCollection;
+        const bool isPublicSearchTimerRead =
+            request.method == "GET" &&
+            (path == publicSearchTimerCollection ||
+                isPublicSearchTimerPreviewResource ||
+                isPublicSearchTimerDraftPreview);
+        const std::string publicSearchTimerBackendId =
+            queryStringValue(request.path, "backend");
         const std::string publicTimerAssignmentCollection =
             "/api/v1/timer-assignments";
         const std::string publicTimerAssignmentPrefix =
@@ -807,6 +846,10 @@ public:
              isPublicChannelCollection ||
              isPublicEpgNowNext ||
              isPublicTimerAssignmentCollection ||
+             (path == publicSearchTimerCollection &&
+              !isPublicSearchTimerCreate) ||
+             isPublicSearchTimerPreviewResource ||
+             isPublicSearchTimerDraftPreview ||
              isPublicOperationResource ||
              isPublicAccountCredentialResource ||
              isPublicAccountSessionResource);
@@ -831,7 +874,10 @@ public:
             isPublicAccountCredentialMutation ||
             isPublicAccountSessionMutation ||
             isPublicTimerAssignmentCreate ||
+            isPublicSearchTimerCreate ||
             isPublicDeviceRecordingSessionCreate ||
+            isPublicDeviceLiveSessionCreate ||
+            isPublicDeviceLiveSessionStop ||
             isPublicDeviceRecordingSessionStop ||
             isPublicDeviceRecordingSubtitleSelection || isTimerUpdateAction ||
             isTimerDeleteAction || isChannelMoveAction || isRecordingExecutionAction ||
@@ -1485,6 +1531,102 @@ public:
             return gate;
         }
 
+        if (isPublicSearchTimerRead)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            if (!gate.deviceAuthenticated ||
+                gate.context.actor.type != ActorType::Service ||
+                !gate.context.device || !gate.context.credential ||
+                gate.context.session.has_value())
+            {
+                AuthorizationDecision denial;
+                denial.permission = "searchtimers.view";
+                denial.backendId = publicSearchTimerBackendId;
+                denial.action = "searchtimers.view";
+                denial.reasonCode = "device_credential_required";
+                return rejectWithAudit(gate, denial, 403,
+                    "A verified Device credential is required", "");
+            }
+            const bool validScope =
+                !publicSearchTimerBackendId.empty() &&
+                publicSearchTimerBackendId.size() <= 128U &&
+                std::all_of(publicSearchTimerBackendId.begin(),
+                    publicSearchTimerBackendId.end(),
+                    [](unsigned char c) {
+                        return std::isalnum(c) ||
+                            c == '.' || c == '_' || c == '-';
+                    });
+            if (!validScope)
+            {
+                AuthorizationDecision denial;
+                denial.permission = "searchtimers.view";
+                denial.backendId = publicSearchTimerBackendId;
+                denial.action = "searchtimers.view";
+                denial.reasonCode = "invalid_backend_scope";
+                return rejectWithAudit(gate, denial, 400,
+                    "Invalid backend scope", "");
+            }
+            AuthorizationRequest read;
+            read.permission = "searchtimers.view";
+            read.backendId = publicSearchTimerBackendId;
+            read.action = "searchtimers.view";
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(gate.context, read);
+            if (!appendDecisionEvent(gate.context, decision, ""))
+            {
+                gate.rejection = errorResponse(
+                    503, "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+            if (!decision.allowed)
+            {
+                gate.rejection = errorResponse(
+                    authenticationFailure(decision) ? 401 : 403,
+                    decision.reasonCode,
+                    messageForReason(decision.reasonCode),
+                    gate.context,
+                    authenticationFailure(decision),
+                    gate.publicApiV1);
+                return gate;
+            }
+            if (isPublicSearchTimerPreviewRead)
+            {
+                // The preview exposes EPG matches in addition to the saved
+                // rule; independent EPG scope is mandatory.
+                AuthorizationRequest epgRead;
+                epgRead.permission = "epg.view";
+                epgRead.backendId = publicSearchTimerBackendId;
+                epgRead.action = "searchtimers.preview";
+                const AuthorizationDecision epgDecision =
+                    authorizationService_.authorize(gate.context, epgRead);
+                if (!appendDecisionEvent(gate.context, epgDecision, ""))
+                {
+                    gate.rejection = errorResponse(
+                        503, "accountability_unavailable",
+                        "Security accountability persistence is unavailable",
+                        gate.context);
+                    return gate;
+                }
+                if (!epgDecision.allowed)
+                {
+                    gate.rejection = errorResponse(
+                        authenticationFailure(epgDecision) ? 401 : 403,
+                        epgDecision.reasonCode,
+                        messageForReason(epgDecision.reasonCode),
+                        gate.context,
+                        authenticationFailure(epgDecision),
+                        gate.publicApiV1);
+                    return gate;
+                }
+            }
+            gate.authorizationDecision = decision;
+            gate.allowed = true;
+            return gate;
+        }
+
         if (isPublicTimerAssignmentRead)
         {
             if (!gate.context.authenticated())
@@ -1532,7 +1674,8 @@ public:
             return gate;
         }
 
-        if (isPublicDeviceRecordingSessionRead)
+        if (isPublicDeviceRecordingSessionRead ||
+            isPublicDeviceLiveSessionRead)
         {
             // The actual owner and live play grant are rechecked against
             // persistence by PublicDevicePlaybackRegistry before returning
@@ -1545,8 +1688,10 @@ public:
                 gate.context.session.has_value())
             {
                 AuthorizationDecision denial;
-                denial.permission = "media.recording.play";
-                denial.action = "media.recording.status";
+                denial.permission = isPublicDeviceLiveSessionRead ?
+                    "media.live.play" : "media.recording.play";
+                denial.action = isPublicDeviceLiveSessionRead ?
+                    "media.live.status" : "media.recording.status";
                 denial.backendId = "*";
                 denial.reasonCode = "device_credential_required";
                 return rejectWithAudit(
@@ -1623,8 +1768,66 @@ public:
         // Versioned Recording session creation is Device-only. Browser
         // credentials and even user/admin grants are not Device proof.
         // This policy does not itself create sessions or expose media bytes.
+        if (isPublicSearchTimerCreate)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            if (!gate.deviceAuthenticated ||
+                gate.context.actor.type != ActorType::Service ||
+                !gate.context.device || !gate.context.credential ||
+                gate.context.session.has_value())
+            {
+                AuthorizationDecision denial;
+                denial.permission = "searchtimers.create";
+                denial.backendId = publicSearchTimerBackendId;
+                denial.action = "searchtimers.create";
+                denial.reasonCode = "device_credential_required";
+                return rejectWithAudit(gate, denial, 403,
+                    "Verified Device credential required", "");
+            }
+            const bool validBackend =
+                !publicSearchTimerBackendId.empty() &&
+                publicSearchTimerBackendId.size() <= 128U &&
+                publicSearchTimerBackendId != "." &&
+                publicSearchTimerBackendId != ".." &&
+                publicSearchTimerBackendId != "*" &&
+                std::all_of(publicSearchTimerBackendId.begin(),
+                    publicSearchTimerBackendId.end(),
+                    [](unsigned char c) {
+                        return std::isalnum(c) ||
+                            c == '.' || c == '_' || c == '-';
+                    });
+            if (!validBackend)
+            {
+                AuthorizationDecision denial;
+                denial.permission = "searchtimers.create";
+                denial.backendId = publicSearchTimerBackendId;
+                denial.action = "searchtimers.create";
+                denial.reasonCode = "invalid_backend_scope";
+                return rejectWithAudit(gate, denial, 400,
+                    "Invalid CREATE backend", "");
+            }
+            const bool exactGrant = std::any_of(
+                gate.context.grants.begin(), gate.context.grants.end(),
+                [&publicSearchTimerBackendId](const PermissionGrant& grant) {
+                    return grant.permission == "searchtimers.create" &&
+                        grant.backendId == publicSearchTimerBackendId;
+                });
+            if (!exactGrant)
+            {
+                AuthorizationDecision denial;
+                denial.permission = "searchtimers.create";
+                denial.backendId = publicSearchTimerBackendId;
+                denial.action = "searchtimers.create";
+                denial.reasonCode = "permission_denied";
+                return rejectWithAudit(gate, denial, 403,
+                    "Exact backend SearchTimer CREATE grant required", "");
+            }
+        }
         if ((isPublicDeviceRecordingSessionCreate ||
              isPublicDeviceRecordingSessionStop ||
+             isPublicDeviceLiveSessionCreate ||
+             isPublicDeviceLiveSessionStop ||
               isPublicDeviceRecordingSubtitleSelection) &&
             (!gate.deviceAuthenticated ||
              gate.context.actor.type != ActorType::Service ||
@@ -1634,8 +1837,10 @@ public:
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);
             AuthorizationDecision denial;
-            denial.permission = "media.recording.play";
-            denial.action = "media.recording.play";
+            const bool live = isPublicDeviceLiveSessionCreate ||
+                isPublicDeviceLiveSessionStop;
+            denial.permission = live ? "media.live.play" : "media.recording.play";
+            denial.action = denial.permission;
             denial.backendId = jsonStringValue(request.body, "backendId");
             denial.reasonCode = "device_credential_required";
             return rejectWithAudit(
@@ -1644,6 +1849,8 @@ public:
         }
         if (isPublicDeviceRecordingSessionCreate ||
             isPublicDeviceRecordingSessionStop ||
+            isPublicDeviceLiveSessionCreate ||
+            isPublicDeviceLiveSessionStop ||
             isPublicDeviceRecordingSubtitleSelection)
         {
             // Match the canonical PublicRecordingPlaybackTargetResolver's
@@ -1664,8 +1871,10 @@ public:
             if (!validBackend)
             {
                 AuthorizationDecision denial;
-                denial.permission = "media.recording.play";
-                denial.action = "media.recording.play";
+                const bool live = isPublicDeviceLiveSessionCreate ||
+                    isPublicDeviceLiveSessionStop;
+                denial.permission = live ? "media.live.play" : "media.recording.play";
+                denial.action = denial.permission;
                 denial.backendId = backendId;
                 denial.reasonCode = "invalid_backend_scope";
                 return rejectWithAudit(
@@ -1818,6 +2027,12 @@ public:
             requestToAuthorize.action = "backend.settings.media-transcode.modify";
             requestToAuthorize.backendId = mediaTranscodeSettingsBackendId;
         }
+        else if (isPublicDeviceLiveSessionCreate ||
+                 isPublicDeviceLiveSessionStop)
+        {
+            requestToAuthorize.permission = "media.live.play";
+            requestToAuthorize.action = "media.live.play";
+        }
         else if (isPublicDeviceRecordingSessionCreate ||
                  isPublicDeviceRecordingSessionStop ||
                   isPublicDeviceRecordingSubtitleSelection)
@@ -1843,6 +2058,12 @@ public:
         {
             requestToAuthorize.permission = "remote.control";
             requestToAuthorize.action = "remote.control";
+        }
+        else if (isPublicSearchTimerCreate)
+        {
+            requestToAuthorize.permission = "searchtimers.create";
+            requestToAuthorize.action = "searchtimers.create";
+            requestToAuthorize.backendId = publicSearchTimerBackendId;
         }
         else if (isTimerCreateAction ||
                  isPublicTimerAssignmentCreate)

@@ -215,5 +215,35 @@ int main()
     missingOrEmptyCapabilitiesFailClosed();
     stopRequestMapsOwnedSessionIdentity();
     seekRequestMapsAbsoluteRecordingPosition();
+
+    // Device profiles are only a version-scoped key, never a client-provided
+    // device ID, verified-playback grade or privileged codec authority.
+    {
+        const std::string basic =
+            "{\"backendId\":\"local\",\"recordingId\":\"rec_123\","
+            "\"capabilities\":{\"protocols\":[\"hls\"],"
+            "\"containers\":[\"fmp4\"],\"videoCodecs\":[\"h264\"],"
+            "\"audioCodecs\":[\"aac\"],\"supportsByteRanges\":false,"
+            "\"maxVideoWidth\":1920,\"maxVideoHeight\":1080,"
+            "\"maxAudioChannels\":2}";
+        const std::string key =
+            ",\"capabilityProfile\":{\"appVersion\":\"b20261011.24\","
+            "\"firmwareVersion\":\"vidaa9\","
+            "\"playerVersion\":\"mse_v1\",\"engine\":\"mse\"}}";
+        const auto selected = RecordingMediaSessionRequestParser().parse(basic+key);
+        assert(selected.valid);
+        assert(selected.deviceMediaProfileRequested);
+        assert(selected.mediaPlayerEngine == "mse");
+        assert(selected.mediaFirmwareVersion == "vidaa9");
+        assert(!RecordingMediaSessionRequestParser().parse(
+            basic+",\"capabilityProfile\":{\"engine\":\"mse\"}}").valid);
+        assert(!RecordingMediaSessionRequestParser().parse(
+            basic+",\"capabilityProfile\":{\"appVersion\":\"../../x\","
+            "\"firmwareVersion\":\"vidaa9\","
+            "\"playerVersion\":\"mse\",\"engine\":\"mse\"}}").valid);
+        const auto legacy = RecordingMediaSessionRequestParser().parse(basic+"}");
+        assert(legacy.valid && !legacy.deviceMediaProfileRequested);
+    }
+
     return 0;
 }

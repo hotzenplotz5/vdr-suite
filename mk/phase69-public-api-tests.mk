@@ -357,6 +357,13 @@ test-phase69d-public-channel-collection:
 	python3 tools/check_phase69d_public_channel_collection.py
 
 
+# Compile ONLY the changed daemon composition TU without linking or
+# rebuilding the daemon. Keep deployment and DB state untouched.
+.PHONY: test-phase69d-public-channel-neighbor-daemon-syntax
+
+test-phase69d-public-channel-neighbor-daemon-syntax:
+	$(CXX) $(CXXFLAGS) -Icore/timers/include -fsyntax-only core/daemon/src/DaemonRuntimeInitialization.cpp
+
 .PHONY: test-phase69d-closeout
 
 test-phase69d-closeout:
@@ -474,6 +481,7 @@ test-phase69f-public-v1-channel-reference-client:
 
 test-phase69f-public-v1-timer-assignment-collection-reference-client:
 	node clients/reference-js/tests/test_public_v1_timer_assignment_collection_client.js
+	node clients/reference-js/tests/test_public_v1_search_timer_client.js
 	python3 tools/check_phase69f_public_v1_timer_assignment_collection_reference_client.py
 
 
@@ -518,3 +526,79 @@ test-public-epg-now-next-api:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_public_epg_now_next_security
 	$(BUILD_DIR)/test_public_epg_now_next_security
+
+# Persistence-only SearchTimer CREATE admission. No RESTfulAPI calls, no
+# mutation registration and no native TimerAssignment execution.
+.PHONY: test-searchtimer-create-durable-admission
+test-searchtimer-create-durable-admission:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/SearchTimerCreateOperationPayload.cpp \
+		core/vdr/src/SearchTimerCreateAdmissionService.cpp \
+		core/vdr/tests/test_search_timer_create_admission_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_search_timer_create_admission_service
+	$(BUILD_DIR)/test_search_timer_create_admission_service
+
+# Add this bounded in-memory regression to the phase test graph.
+test-phase: test-searchtimer-create-durable-admission
+
+# Standalone one-shot dispatch safety proof with fake provider (never yaVDR).
+.PHONY: test-searchtimer-create-one-shot-dispatch
+test-searchtimer-create-one-shot-dispatch:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/SearchTimerCreateOperationPayload.cpp \
+		core/vdr/src/SearchTimerCreateAdmissionService.cpp \
+		core/vdr/src/SearchTimerCreateDispatchService.cpp \
+		core/vdr/tests/test_search_timer_create_dispatch_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_search_timer_create_dispatch_service
+	$(BUILD_DIR)/test_search_timer_create_dispatch_service
+
+test-phase: test-searchtimer-create-one-shot-dispatch
+
+# Orphan recovery is purely a durable operation CAS; no provider/executor linked.
+.PHONY: test-searchtimer-create-orphan-recovery
+test-searchtimer-create-orphan-recovery:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/SearchTimerCreateOperationPayload.cpp \
+		core/vdr/src/SearchTimerCreateAdmissionService.cpp \
+		core/vdr/src/SearchTimerCreateRecoveryService.cpp \
+		core/vdr/tests/test_search_timer_create_recovery_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_search_timer_create_recovery_service
+	$(BUILD_DIR)/test_search_timer_create_recovery_service
+
+test-phase: test-searchtimer-create-orphan-recovery
+
+# Persistence-only Device-scoped CREATE admission (no public handler, no POST).
+.PHONY: test-searchtimer-create-device-admission
+test-searchtimer-create-device-admission:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		core/vdr/src/SearchTimerCreateOperationPayload.cpp \
+		core/vdr/src/SearchTimerCreateAdmissionService.cpp \
+		core/vdr/src/SearchTimerCreateDeviceAdmissionService.cpp \
+		core/vdr/tests/test_search_timer_create_device_admission_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_search_timer_create_device_admission_service
+	$(BUILD_DIR)/test_search_timer_create_device_admission_service
+
+test-phase: test-searchtimer-create-device-admission

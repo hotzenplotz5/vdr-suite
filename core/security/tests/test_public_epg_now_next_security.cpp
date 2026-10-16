@@ -31,6 +31,15 @@ int main()
         assert(allowed.authorizedBackendIds ==
             std::vector<std::string>{"home"});
         assert(!allowed.protectedMutation);
+        for (const std::string& path : {
+            "/api/v1/genres/epg?backendId=home&limit=30",
+            "/api/v1/genres/epg/events?backendId=home&contentClass=movie"})
+        {
+            const auto genre = fixture.gate.evaluate(browserRead(fixture,path));
+            assert(genre.allowed);
+            assert(genre.authorizedBackendIds == std::vector<std::string>{"home"});
+            assert(!genre.protectedMutation);
+        }
     }
     {
         SecurityHttpGateBrowserTestFixture fixture;
@@ -40,6 +49,14 @@ int main()
         assert(!denied.allowed);
         assert(denied.rejection.statusCode == 403);
         assert(denied.authorizedBackendIds.empty());
+        for (const std::string& path : {
+            "/api/v1/genres/epg?backendId=home",
+            "/api/v1/genres/epg/events?backendId=home&contentClass=movie"})
+        {
+            const auto noEpgGrant = fixture.gate.evaluate(browserRead(fixture,path));
+            assert(!noEpgGrant.allowed);
+            assert(noEpgGrant.rejection.statusCode == 403);
+        }
     }
     {
         SecurityHttpGateBrowserTestFixture fixture;

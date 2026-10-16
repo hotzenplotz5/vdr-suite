@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -141,6 +142,26 @@ int main()
             browserGet(fixture, "/api/v1/genres?backendId=backend-b"));
         assert(!decision.allowed);
         assert(decision.rejection.statusCode == 403);
+    }
+    for (const auto& scenario : {
+        std::pair<std::string, std::string>{
+            "/api/v1/search/recordings?backendId=backend-a&query=Hobbit",
+            "recordings.view"},
+        {"/api/v1/search/epg?backendId=backend-a&query=Hobbit",
+            "epg.view"}})
+    {
+        SecurityHttpGateBrowserTestFixture granted;
+        assert(granted.grantRepository.ensureGrant(
+            granted.actorId, scenario.second, "backend-a"));
+        assert(granted.gate.evaluate(browserGet(granted, scenario.first)).allowed);
+
+        SecurityHttpGateBrowserTestFixture denied;
+        assert(denied.grantRepository.ensureGrant(
+            denied.actorId, scenario.second, "backend-b"));
+        const auto blocked =
+            denied.gate.evaluate(browserGet(denied, scenario.first));
+        assert(!blocked.allowed);
+        assert(blocked.rejection.statusCode == 403);
     }
     return 0;
 }

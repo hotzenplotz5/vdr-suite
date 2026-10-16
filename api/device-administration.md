@@ -57,11 +57,15 @@ Requires global `devices.grants.view@*`. The returned representation contains `d
 The supported grant permissions currently are exactly:
 
 - `channels.view`
+- `recordings.view` (read-only Public-v1 recording search)
+- `epg.view` (read-only Public-v1 EPG search and Now/Next)
 - `timers.view`
+- `searchtimers.view` (SearchTimer list and preview, independently of EPG read)
+- `searchtimers.create` (CREATE only on an explicit backend, never `*`)
 - `media.live.play`
 - `media.recording.play`
 
-No `role.admin`, `role.read-only`, `accounts.*`, `remote.control` or arbitrary strings are allowed here. Grant `backendId` is an explicit product Backend identity or the configured wildcard `*`.
+No `role.admin`, `role.read-only`, `accounts.*`, `remote.control` or arbitrary strings are allowed here. Grant `backendId` is an explicit product Backend identity or the configured wildcard `*`, **except** `searchtimers.create` which requires an exact concrete backend.
 
 ## 4. Ensure or revoke one grant
 
@@ -94,3 +98,13 @@ This documentation does **not** add the Device revoke/rotation, pairing administ
 
 - [API entry](README.md)
 - [Documentation index](../docs/index.md)
+
+### SearchTimer grant and mutation
+
+An administrator may explicitly grant `searchtimers.view` and
+`searchtimers.create` **independently per backend**. The latter permits
+one confirmed `POST /api/v1/search-timers?backend=<id>` through the
+durable, idempotent SearchTimer one-shot operation. This is distinct
+from Suite TimerAssignments and native VDR Timer CREATE. Browser
+sessions and legacy paths never inherit paired Device CREATE rights.
+A 202 response is an Operation, not guaranteed backend recording.

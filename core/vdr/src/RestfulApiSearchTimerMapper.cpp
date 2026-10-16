@@ -236,6 +236,8 @@ bool getBoolField(
 
 SearchTimerState mapState(const std::string& objectText)
 {
+    if (objectText.find("\"use_as_searchtimer\"") == std::string::npos)
+        return SearchTimerState::Unknown;
     const int useAsSearchTimer = getIntField(objectText, "use_as_searchtimer", 1);
     return useAsSearchTimer == 0
         ? SearchTimerState::Inactive

@@ -62,8 +62,15 @@ require(not (accepted_coverage & successor_coverage), "candidate may not silentl
 require(accepted_coverage | successor_coverage == resources, "every resource must have explicit accepted or candidate coverage")
 require(all(r.get("status") in {"accepted", "candidate"} for r in references), "unexpected public client reference status")
 require(
-    successor_coverage in (set(), {"GET /api/v1/recordings?backendId={backendId}"}),
-    "only the explicit Recording R2 successor is permitted beyond Phase 69",
+    successor_coverage in (
+        set(),
+        {"GET /api/v1/recordings?backendId={backendId}"},
+        {
+            "GET /api/v1/recordings?backendId={backendId}",
+            "GET /api/v1/search-timers?backend={backendId}",
+        },
+    ),
+    "only explicitly reviewed Recording R2 and SearchTimer read-only successor resources are permitted beyond Phase 69",
 )
 require(matrix.get("explicitDeferredFallbacks") == [], "explicit browser fallback debt must be empty")
 candidate = matrix.get("derivedNextRuntimeCandidate", {})

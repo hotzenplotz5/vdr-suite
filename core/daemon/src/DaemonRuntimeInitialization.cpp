@@ -6,10 +6,17 @@
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "RecordingArtworkHttpServer.h"
 #include "PublicRecordingCollectionProjection.h"
+#include "PublicRecordingDisplayName.h"
+#include "PublicSearchProjection.h"
 #include "GenreBrowserApiRuntime.h"
+#include "GlobalSearchApiRuntime.h"
+#include "PublicChannelNeighbor.h"
 #include "RecordingSeriesHierarchyApiRuntime.h"
 #include "RestfulApiRecordingActionBackendExecutorAdapter.h"
 #include "RestfulApiSearchTimerDiscoveryProvider.h"
+#include "SearchTimerPreviewService.h"
+#include "SearchTimerCreateAdmissionService.h"
+#include "SearchTimerCreateDispatchService.h"
 #include "SearchTimerDiscoveryStaticProvider.h"
 #include "SimpleHttpListener.h"
 #include "TestHttpServer.h"
@@ -147,6 +154,14 @@ bool DaemonRuntime::initialize()
     if (!publicRecordingIdentities_->ensureSchema())
     {
         std::cerr << "failed to initialize public Recording identities"
+                  << std::endl;
+        return false;
+    }
+    publicSearchTimerIdentities_ =
+        std::make_unique<PublicSearchTimerIdentityRepository>(database_);
+    if (!publicSearchTimerIdentities_->ensureSchema())
+    {
+        std::cerr << "failed to initialize public SearchTimer identities"
                   << std::endl;
         return false;
     }
@@ -1074,6 +1089,22 @@ bool DaemonRuntime::initialize()
                         item.timerAssignmentId =
                             assignment.timerAssignmentId;
                         item.backendId = assignment.backendId;
+                        // Only project the persisted, valid Suite-owned
+                        // desired specification; no native timer observation,
+                        // provider channel ID, recording path, or binding ID.
+                        if (assignment.desiredNativeTimerSpecificationPresent &&
+                            vdrsuite::timers::nativeTimerSpecificationValid(
+                                assignment.desiredNativeTimerSpecification))
+                        {
+                            const auto& desired =
+                                assignment.desiredNativeTimerSpecification;
+                            item.plannedPresent = true;
+                            item.plannedTitle = desired.title;
+                            item.plannedDay = desired.day;
+                            item.plannedWeekdays = desired.weekdays;
+                            item.plannedStartTime = desired.startTime;
+                            item.plannedEndTime = desired.endTime;
+                        }
                         result.assignments.push_back(
                             std::move(item));
                     }
@@ -1089,6 +1120,319 @@ bool DaemonRuntime::initialize()
                         PublicTimerAssignmentCollectionStatus::unavailable;
                     return result;
             }
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerSearchTimerCreate(
+        [this](const PublicSearchTimerCreateRequest& request)
+        {
+            PublicSearchTimerCreateResult result;
+            if (!mutationOperationRepository_ || !backendRegistryService_ ||
+                !backendAccessPolicy_ || !backendAgentRepository_)
+                return result;
+            const BackendAccessDecision access =
+                backendAccessPolicy_->canWriteToBackend(
+                    *backendRegistryService_, request.backendId);
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!access.allowed || !backend || !backend->online)
+            {
+                result.status =
+                    PublicSearchTimerCreateStatus::backendUnavailable;
+                return result;
+            }
+            const std::int64_t now =
+                std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::system_clock::now().time_since_epoch())
+                    .count();
+            const auto agent = backendAgentRepository_->findAgentForBackend(
+                request.backendId);
+            if (!agent || agent->revoked || agent->incompatible ||
+                agent->backendGeneration == 0U ||
+                agent->leaseExpiresAt <= now)
+            {
+                result.status =
+                    PublicSearchTimerCreateStatus::backendUnavailable;
+                return result;
+            }
+            BackendRuntimeContext* runtime = nullptr;
+            for (const auto& candidate : backendRuntimeContexts_)
+            {
+                if (candidate && candidate->backendId == request.backendId &&
+                    candidate->searchTimerAdapter && candidate->httpClient)
+                {
+                    runtime = candidate.get();
+                    break;
+                }
+            }
+            if (!runtime)
+            {
+                result.status =
+                    PublicSearchTimerCreateStatus::backendUnavailable;
+                return result;
+            }
+
+            SearchTimerCreateAdmissionService admission(
+                *mutationOperationRepository_);
+            SearchTimerCreateAdmissionRequest input;
+            input.actorId = request.actorRef;
+            input.backendId = request.backendId;
+            input.backendGeneration = agent->backendGeneration;
+            input.idempotencyKey = request.idempotencyKey;
+            input.requestedAt = now;
+            input.payload.name = request.name;
+            input.payload.query = request.query;
+            input.payload.active = request.active;
+            input.payload.matchMode = request.mode;
+            input.payload.matchTolerance = request.tolerance;
+            input.payload.compareTitle = request.compareTitle;
+            input.payload.compareSubtitle = request.compareSubtitle;
+            input.payload.compareSummary = request.compareSummary;
+            const auto admitted = admission.admit(input);
+            if (admitted.status == SearchTimerCreateAdmissionStatus::invalid)
+            {
+                result.status = PublicSearchTimerCreateStatus::invalid;
+                return result;
+            }
+            if (admitted.status ==
+                    SearchTimerCreateAdmissionStatus::idempotencyConflict ||
+                admitted.status ==
+                    SearchTimerCreateAdmissionStatus::operationConflict)
+            {
+                result.status = PublicSearchTimerCreateStatus::conflict;
+                return result;
+            }
+            if (admitted.status != SearchTimerCreateAdmissionStatus::prepared &&
+                admitted.status != SearchTimerCreateAdmissionStatus::replayed)
+                return result;
+
+            auto operation = admitted.operation;
+            // CAS protects the only provider write. A retry of a dispatched
+            // or unknown result never calls the executor again.
+            if (operation.state ==
+                    vdrsuite::operations::MutationOperationState::accepted &&
+                operation.backendGeneration == agent->backendGeneration)
+            {
+                SearchTimerCreateDispatchService dispatch(
+                    *mutationOperationRepository_);
+                SearchTimerCreateDispatchRequest command;
+                command.operationId = operation.operationId;
+                command.actorId = request.actorRef;
+                command.backendId = request.backendId;
+                command.backendGeneration = operation.backendGeneration;
+                command.now = now;
+                command.operatorConfirmed = true;
+                command.backendWriteAllowed = access.allowed;
+                command.executorOptIn = true;
+                RestfulApiSearchTimerCommandExecutor executor(
+                    *runtime->httpClient);
+                const auto outcome = dispatch.dispatchOnce(
+                    command, executor, *runtime->searchTimerAdapter);
+                if (!outcome.operation.operationId.empty())
+                    operation = outcome.operation;
+            }
+            result.status = admitted.status ==
+                SearchTimerCreateAdmissionStatus::prepared
+                ? PublicSearchTimerCreateStatus::accepted
+                : PublicSearchTimerCreateStatus::replayed;
+            result.operation.operationId = operation.operationId;
+            result.operation.state =
+                vdrsuite::operations::mutationOperationStateName(
+                    operation.state);
+            result.operation.backendId = operation.backendId;
+            result.operation.resourceRevision = operation.operationRevision;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerSearchTimerCollectionLookup(
+        [this](const PublicSearchTimerCollectionRequest& request)
+        {
+            PublicSearchTimerCollectionResult result;
+            if (!backendRegistryService_ || !publicSearchTimerIdentities_ ||
+                request.backendId.empty() ||
+                request.limit == 0U || request.limit > 30U)
+            {
+                result.status = PublicSearchTimerCollectionStatus::invalid;
+                return result;
+            }
+            const auto backend = backendRegistryService_->getBackend(
+                request.backendId);
+            if (!backend.has_value() || !backend->enabled || !backend->online)
+                return result;
+
+            // Select exactly one authorized backend. Legacy Web's default
+            // backend cannot be used to satisfy an arbitrary Device scope.
+            const RestfulApiSearchTimerAdapter* adapter = nullptr;
+            for (const auto& context : backendRuntimeContexts_)
+            {
+                if (context && context->backendId == request.backendId &&
+                    context->searchTimerAdapter)
+                {
+                    adapter = context->searchTimerAdapter.get();
+                    break;
+                }
+            }
+            if (!adapter) return result;
+
+            // RESTfulAPI returns the catalogue in one read; no retry or
+            // cross-backend fanout. Only bounded safe projections leave v1.
+            const SearchTimerResult source = adapter->list(
+                SearchTimerQuery::byBackend(request.backendId));
+            if (!source.available()) return result;
+
+            std::vector<PublicSearchTimerCollectionItem> candidates;
+            for (const SearchTimer& timer : source.items())
+            {
+                if (timer.backendId() != request.backendId ||
+                    timer.backendNativeId().empty() ||
+                    timer.name().empty() || timer.query().empty() ||
+                    timer.name().size() > 1024U ||
+                    timer.query().size() > 1024U)
+                    return result;
+                const auto publicId =
+                    publicSearchTimerIdentities_->resolveOrCreate(
+                        request.backendId, timer.backendNativeId());
+                if (!publicId) return result;
+                PublicSearchTimerCollectionItem item;
+                item.searchTimerId = *publicId;
+                item.backendId = request.backendId;
+                item.name = timer.name();
+                item.query = timer.query();
+                item.state = timer.state() == SearchTimerState::Active
+                    ? "active"
+                    : (timer.state() == SearchTimerState::Inactive
+                        ? "inactive" : "unknown");
+                candidates.push_back(std::move(item));
+            }
+            std::sort(candidates.begin(), candidates.end(),
+                [](const PublicSearchTimerCollectionItem& left,
+                   const PublicSearchTimerCollectionItem& right)
+                {
+                    return left.searchTimerId < right.searchTimerId;
+                });
+            for (std::size_t i = 1U; i < candidates.size(); ++i)
+                if (candidates[i - 1U].searchTimerId ==
+                    candidates[i].searchTimerId)
+                    return result;
+            const auto begin = std::upper_bound(
+                candidates.begin(), candidates.end(),
+                request.afterSearchTimerId,
+                [](const std::string& id,
+                   const PublicSearchTimerCollectionItem& item)
+                {
+                    return id < item.searchTimerId;
+                });
+            const std::size_t remaining =
+                static_cast<std::size_t>(candidates.end() - begin);
+            result.hasMore = remaining > request.limit;
+            const std::size_t count = std::min(remaining, request.limit);
+            for (std::size_t index = 0; index < count; ++index)
+                result.items.push_back(*(begin + index));
+            result.status = PublicSearchTimerCollectionStatus::ok;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerSearchTimerPreviewLookup(
+        [this](const PublicSearchTimerPreviewRequest& request)
+        {
+            PublicSearchTimerPreviewResult result;
+            if (!backendRegistryService_ || !publicSearchTimerIdentities_ ||
+                !searchTimerPreviewEpgCache_ || request.limit == 0U ||
+                request.limit > 30U)
+                return result;
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled || !backend->online)
+                return result;
+
+            // Same engine and ready backend-scoped EPG cache as the Web
+            // preview; do not substitute raw EPG text search.
+            const auto* events =
+                searchTimerPreviewEpgCache_->eventsForBackend(request.backendId);
+            if (!events) return result;
+
+            if (request.draft)
+            {
+                // A non-persisted SearchTimer goes through the exact same
+                // domain preview engine as Web/saved rules. The dummy native
+                // identity is internal only, never included in public output.
+                SearchTimer timer = SearchTimer::create(
+                    SearchTimerId::fromBackendNativeId(
+                        request.backendId, "draft-preview"),
+                    request.query, request.query, SearchTimerState::Active);
+                timer.comparisonOptions().setCompareTitle(request.compareTitle);
+                timer.comparisonOptions().setCompareSubtitle(request.compareSubtitle);
+                timer.comparisonOptions().setCompareSummary(request.compareSummary);
+                timer.matchOptions().setMode(request.mode);
+                timer.matchOptions().setTolerance(request.tolerance);
+                SearchTimerPreviewService service;
+                const auto preview = service.preview(
+                    timer, *events, static_cast<int>(request.limit), 0);
+                result.backendId = request.backendId;
+                result.totalCount = preview.totalCount();
+                for (const auto& match : preview.searchResult().matches())
+                {
+                    const auto& event = match.event();
+                    PublicSearchTimerPreviewEvent item;
+                    item.title = event.title;
+                    item.subtitle = event.subtitle;
+                    item.channelId = event.channelId;
+                    item.startTime = event.startTime;
+                    item.endTime = event.endTime;
+                    result.items.push_back(std::move(item));
+                }
+                result.status = PublicSearchTimerPreviewStatus::ok;
+                return result;
+            }
+
+            const RestfulApiSearchTimerAdapter* adapter = nullptr;
+            for (const auto& context : backendRuntimeContexts_)
+                if (context && context->backendId == request.backendId &&
+                    context->searchTimerAdapter)
+                {
+                    adapter = context->searchTimerAdapter.get();
+                    break;
+                }
+            if (!adapter) return result;
+            const auto catalogue = adapter->list(
+                SearchTimerQuery::byBackend(request.backendId));
+            if (!catalogue.available()) return result;
+
+            for (const auto& timer : catalogue.items())
+            {
+                if (timer.backendId() != request.backendId ||
+                    timer.backendNativeId().empty() ||
+                    timer.name().empty() || timer.query().empty() ||
+                    timer.name().size() > 1024U ||
+                    timer.query().size() > 1024U)
+                    return result;
+                const auto publicId =
+                    publicSearchTimerIdentities_->resolveOrCreate(
+                        request.backendId, timer.backendNativeId());
+                if (!publicId) return result;
+                if (*publicId != request.searchTimerId) continue;
+
+                SearchTimerPreviewService service;
+                const auto preview = service.preview(
+                    timer, *events, static_cast<int>(request.limit), 0);
+                result.searchTimerId = *publicId;
+                result.backendId = request.backendId;
+                result.totalCount = preview.totalCount();
+                for (const auto& match : preview.searchResult().matches())
+                {
+                    const auto& event = match.event();
+                    PublicSearchTimerPreviewEvent item;
+                    item.title = event.title;
+                    item.subtitle = event.subtitle;
+                    item.channelId = event.channelId;
+                    item.startTime = event.startTime;
+                    item.endTime = event.endTime;
+                    result.items.push_back(std::move(item));
+                }
+                result.status = PublicSearchTimerPreviewStatus::ok;
+                return result;
+            }
+            result.status = PublicSearchTimerPreviewStatus::notFound;
             return result;
         });
 
@@ -1256,6 +1600,78 @@ bool DaemonRuntime::initialize()
             return result;
         });
 
+    // Public-v1 is an authorized projection of the exact Web search result,
+    // not another search or a blanket-fail per-result consistency gate.
+    PublicApiRuntime::instance().registerSearchLookup(
+        [this](const PublicSearchRequest& request)
+        {
+            PublicSearchResult unavailable;
+            if (!backendRegistryService_ || !publicRecordingIdentities_ ||
+                !vdrSnapshotReadService_ || request.backendId.empty() ||
+                request.limit == 0U || request.limit > 30U)
+            {
+                std::cerr << "Public-v1 search unavailable: runtime dependency"
+                          << std::endl;
+                return unavailable;
+            }
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled || !backend->online)
+            {
+                std::cerr << "Public-v1 search unavailable: backend offline"
+                          << std::endl;
+                return unavailable;
+            }
+            // Recording identities require a current VDR snapshot to prevent
+            // obsolete index entries from exposing deleted recordings.
+            // EPG search reads the shared search index, not the snapshot.
+            if (!request.epg &&
+                !vdrSnapshotReadService_->hasSnapshotForBackend(request.backendId))
+            {
+                std::cerr << "Public-v1 search unavailable: snapshot missing"
+                          << std::endl;
+                return unavailable;
+            }
+
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            const auto searched = GlobalSearchApiRuntime::instance().searchPublic(
+                request.backendId, request.query,
+                now - 6 * 3600, now + 14 * 24 * 3600,
+                static_cast<int>(request.limit),
+                static_cast<int>(request.offset));
+            if (!searched || searched->status != "ready")
+            {
+                std::cerr << "Public-v1 search unavailable: shared search"
+                          << std::endl;
+                return unavailable;
+            }
+
+            const std::vector<VdrRecording> snapshot = request.epg
+                ? std::vector<VdrRecording>{}
+                : vdrSnapshotReadService_->getRecordingsForBackend(
+                    request.backendId);
+            PublicSearchResult response = PublicSearchProjection::project(
+                request, *searched, snapshot,
+                [this](const std::string& backendId,
+                       const std::string& nativeId)
+                {
+                    return publicRecordingIdentities_->resolveOrCreate(
+                        backendId, nativeId);
+                });
+
+            const std::size_t original = request.epg
+                ? searched->epg.size() : searched->recordings.size();
+            if (response.status != PublicSearchStatus::ok)
+                std::cerr << "Public-v1 search unavailable: projection contract"
+                          << std::endl;
+            else if (response.items.size() != original)
+                std::cerr << "Public-v1 search: filtered "
+                          << (original - response.items.size())
+                          << " stale or invalid entries" << std::endl;
+            return response;
+        });
+
     PublicApiRuntime::instance().registerRecordingCollectionLookup(
         [this](const PublicRecordingCollectionRequest& request)
         {
@@ -1338,6 +1754,7 @@ bool DaemonRuntime::initialize()
                             item.durationSeconds;
                         entry.singleRecording.durationKnown =
                             item.durationKnown;
+                        entry.singleRecording.edited = item.edited;
                         entry.singleRecording.description = item.description;
                         entry.singleRecording.sizeMb = item.sizeMb;
                     }
@@ -1380,6 +1797,7 @@ bool DaemonRuntime::initialize()
                         entry.recordedAt = item.recordedAt;
                         entry.durationSeconds = item.durationSeconds;
                         entry.durationKnown = item.durationKnown;
+                        entry.edited = item.edited;
                         entry.description = item.description;
                         entry.sizeMb = item.sizeMb;
                         result.recordings.push_back(std::move(entry));
@@ -1429,6 +1847,7 @@ bool DaemonRuntime::initialize()
                 view.recordedAt = item.recordedAt;
                 view.durationSeconds = item.durationSeconds;
                 view.durationKnown = item.durationKnown;
+                view.edited = item.edited;
                 view.description = item.description;
                 view.sizeMb = item.sizeMb;
                 result.recordings.push_back(std::move(view));
@@ -1498,7 +1917,9 @@ bool DaemonRuntime::initialize()
                     PublicGenreRecordingItem view;
                     view.recordingId = *publicId;
                     view.backendId = request.backendId;
-                    view.title = found.title;
+                    const auto display = PublicRecordingDisplayName::project(found);
+                    view.title = display.title;
+                    view.edited = display.edited;
                     view.recordedAt = found.startTime;
                     view.durationSeconds = found.durationSeconds;
                     view.durationKnown = found.recordingDurationKnown;
@@ -1536,6 +1957,101 @@ bool DaemonRuntime::initialize()
                 }
             }
             result.status = PublicGenreCollectionStatus::ok;
+            return result;
+        });
+
+    // Project exactly the established Web EPG Browse genre taxonomy.
+    // Default window matches the Web GenreBrowserController (48 hours).
+    PublicApiRuntime::instance().registerEpgGenreLookup(
+        [this](const PublicEpgGenreRequest& request)
+        {
+            PublicEpgGenreResult result;
+            if (!backendRegistryService_ || request.backendId.empty() ||
+                request.limit == 0U || request.limit > 30U ||
+                request.offset > 1000000U)
+            {
+                result.status = PublicEpgGenreStatus::invalid;
+                return result;
+            }
+            const auto backend = backendRegistryService_->getBackend(
+                request.backendId);
+            if (!backend.has_value() || !backend->enabled || !backend->online)
+                return result;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            const std::int64_t from = now;
+            const std::int64_t until = now + 48 * 60 * 60;
+            auto& genres = GenreBrowserApiRuntime::instance();
+            if (request.events)
+            {
+                GenreEpgPage page;
+                if (!genres.epgPage(request.backendId, request.contentClass,
+                    request.genreId, from, until,
+                    static_cast<int>(request.limit),
+                    static_cast<int>(request.offset), page) ||
+                    page.totalCount < 0 ||
+                    page.events.size() > request.limit)
+                    return result;
+                result.totalCount = static_cast<std::size_t>(page.totalCount);
+                for (const auto& event : page.events)
+                {
+                    if (event.backendId != request.backendId ||
+                        event.channelId.empty() || event.eventId.empty() ||
+                        event.title.empty() || event.endTime <= event.startTime)
+                        return PublicEpgGenreResult{};
+                    PublicEpgGenreEvent item;
+                    item.backendId = request.backendId;
+                    item.channelId = event.channelId;
+                    item.eventId = event.eventId;
+                    item.title = event.title;
+                    item.subtitle = event.subtitle;
+                    item.startTime = std::to_string(event.startTime);
+                    item.endTime = std::to_string(event.endTime);
+                    result.events.push_back(std::move(item));
+                }
+            }
+            else
+            {
+                GenreEpgBrowseOverview overview;
+                if (!genres.epgOverview(
+                    request.backendId, request.locale, from, until, overview))
+                    return result;
+                std::vector<PublicEpgGenreItem> flat;
+                for (const auto& category : overview.categories)
+                {
+                    if (category.id.empty() || category.label.empty() ||
+                        category.itemCount < 0)
+                        return PublicEpgGenreResult{};
+                    PublicEpgGenreItem parent;
+                    parent.genreId = category.id;
+                    parent.contentClass = category.id;
+                    parent.label = category.label;
+                    parent.labelDe = category.labelDe;
+                    parent.labelEn = category.labelEn;
+                    parent.count = static_cast<std::size_t>(category.itemCount);
+                    flat.push_back(std::move(parent));
+                    for (const auto& child : category.children)
+                    {
+                        if (child.id.empty() || child.label.empty() ||
+                            child.itemCount < 0)
+                            return PublicEpgGenreResult{};
+                        PublicEpgGenreItem item;
+                        item.genreId = child.id;
+                        item.contentClass = category.id;
+                        item.label = category.label + " › " + child.label;
+                        item.labelDe = category.labelDe + " › " + child.labelDe;
+                        item.labelEn = category.labelEn + " › " + child.labelEn;
+                        item.count = static_cast<std::size_t>(child.itemCount);
+                        flat.push_back(std::move(item));
+                    }
+                }
+                result.totalCount = flat.size();
+                const std::size_t end = std::min(
+                    result.totalCount, request.offset + request.limit);
+                for (std::size_t index = request.offset; index < end; ++index)
+                    result.genres.push_back(std::move(flat[index]));
+            }
+            result.status = PublicEpgGenreStatus::ok;
             return result;
         });
 
@@ -1615,7 +2131,15 @@ bool DaemonRuntime::initialize()
                 request.limit == 0U ||
                 request.limit > 100U ||
                 (request.afterBackendId.empty() !=
-                 request.afterChannelId.empty()))
+                 request.afterChannelId.empty()) ||
+                (!request.relativeToChannelId.empty() &&
+                 (request.backendIds.size() != 1U ||
+                  request.limit != 1U ||
+                  !request.afterBackendId.empty() ||
+                  (request.direction != "up" &&
+                   request.direction != "down"))) ||
+                (request.relativeToChannelId.empty() &&
+                 !request.direction.empty()))
             {
                 result.status =
                     PublicChannelCollectionStatus::invalid;
@@ -1697,6 +2221,28 @@ bool DaemonRuntime::initialize()
                     source.code = "backend_unavailable";
                     result.sources.push_back(std::move(source));
                     continue;
+                }
+
+                // Uses the full, authorized VDR snapshot (never the first
+                // 30 ID-sorted Public-v1 rows). The same pure projection is
+                // directly exercised by the C++ regression test.
+                if (!request.relativeToChannelId.empty())
+                {
+                    const auto neighbor = findPublicVdrChannelNeighbor(
+                        sourceChannels,
+                        request.relativeToChannelId,
+                        request.direction);
+                    if (!neighbor)
+                    {
+                        result.status = PublicChannelCollectionStatus::notFound;
+                        return result;
+                    }
+                    result.channels.push_back(*neighbor);
+                    source.state = "ok";
+                    result.sources.push_back(std::move(source));
+                    result.status = PublicChannelCollectionStatus::ok;
+                    result.hasMore = false;
+                    return result;
                 }
 
                 ++successfulSources;

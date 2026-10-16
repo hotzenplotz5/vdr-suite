@@ -65,6 +65,15 @@ struct PublicTimerAssignmentCollectionItem
 {
     std::string timerAssignmentId;
     std::string backendId;
+
+    // Optional desired schedule presentation: not an actual native timer
+    // observation or guarantee that recording/provisioning succeeded.
+    bool plannedPresent = false;
+    std::string plannedTitle;
+    std::string plannedDay;
+    std::string plannedWeekdays;
+    std::string plannedStartTime;
+    std::string plannedEndTime;
 };
 
 struct PublicTimerAssignmentCollectionRequest
@@ -82,6 +91,100 @@ struct PublicTimerAssignmentCollectionResult
     bool hasMore = false;
 };
 
+enum class PublicSearchTimerCollectionStatus
+{
+    ok,
+    invalid,
+    unavailable
+};
+
+struct PublicSearchTimerCollectionItem
+{
+    std::string searchTimerId;
+    std::string backendId;
+    std::string name;
+    std::string query;
+    std::string state;
+};
+
+struct PublicSearchTimerCollectionRequest
+{
+    std::string backendId;
+    std::string afterSearchTimerId;
+    std::size_t limit = 30U;
+};
+
+struct PublicSearchTimerCollectionResult
+{
+    PublicSearchTimerCollectionStatus status =
+        PublicSearchTimerCollectionStatus::unavailable;
+    std::vector<PublicSearchTimerCollectionItem> items;
+    bool hasMore = false;
+};
+
+enum class PublicSearchTimerCreateStatus
+{
+    accepted, replayed, invalid, conflict, backendUnavailable, unavailable
+};
+struct PublicSearchTimerCreateRequest
+{
+    std::string actorRef;
+    std::string backendId;
+    std::string idempotencyKey;
+    std::string name;
+    std::string query;
+    bool active = true;
+    int mode = 0;
+    int tolerance = 0;
+    bool compareTitle = true;
+    bool compareSubtitle = false;
+    bool compareSummary = false;
+};
+struct PublicSearchTimerCreateResult
+{
+    PublicSearchTimerCreateStatus status =
+        PublicSearchTimerCreateStatus::unavailable;
+    PublicOperationResource operation;
+};
+
+// Read-only, bounded projection from Suite's existing SearchTimer preview.
+enum class PublicSearchTimerPreviewStatus { ok, notFound, unavailable };
+
+struct PublicSearchTimerPreviewEvent
+{
+    std::string title;
+    std::string subtitle;
+    std::string channelId;
+    std::string startTime;
+    std::string endTime;
+};
+
+struct PublicSearchTimerPreviewRequest
+{
+    std::string backendId;
+    std::string searchTimerId;
+    std::size_t limit = 30U;
+    // Only SearchTimerPreviewService-supported EPG match fields. Never a
+    // simulated backend CREATE, duplicate/blacklist or recording planner.
+    bool draft = false;
+    std::string query;
+    int mode = 0;
+    int tolerance = 0;
+    bool compareTitle = true;
+    bool compareSubtitle = false;
+    bool compareSummary = false;
+};
+
+struct PublicSearchTimerPreviewResult
+{
+    PublicSearchTimerPreviewStatus status =
+        PublicSearchTimerPreviewStatus::unavailable;
+    std::string backendId;
+    std::string searchTimerId;
+    int totalCount = 0;
+    std::vector<PublicSearchTimerPreviewEvent> items;
+};
+
 enum class PublicRecordingCollectionStatus
 {
     ok,
@@ -97,6 +200,7 @@ struct PublicRecordingCollectionItem
     std::string recordedAt;
     int durationSeconds = 0;
     bool durationKnown = false;
+    bool edited = false;
     // Read-only descriptive facts; no artwork/provider URL or native path.
     std::string description;
     long long sizeMb = 0;
@@ -133,6 +237,45 @@ struct PublicRecordingCollectionResult
     bool hasMore = false;
 };
 
+enum class PublicSearchStatus { ok, unavailable };
+struct PublicSearchRequest {
+    std::string backendId, query;
+    bool epg = false;
+    std::size_t limit = 30U, offset = 0U;
+};
+struct PublicSearchItem {
+    std::string backendId, recordingId, channelId, eventId;
+    std::string title, subtitle, startTime, endTime;
+    bool edited = false;
+};
+struct PublicSearchResult {
+    PublicSearchStatus status = PublicSearchStatus::unavailable;
+    std::vector<PublicSearchItem> items;
+    std::size_t totalCount = 0U;
+    bool hasMore = false;
+};
+
+enum class PublicEpgGenreStatus { ok, unavailable, invalid };
+struct PublicEpgGenreRequest {
+    std::string backendId, contentClass, genreId, locale = "de";
+    std::size_t limit = 30U, offset = 0U;
+    bool events = false;
+};
+struct PublicEpgGenreItem {
+    std::string genreId, contentClass, label, labelDe, labelEn;
+    std::size_t count = 0U;
+};
+struct PublicEpgGenreEvent {
+    std::string backendId, channelId, eventId, title, subtitle;
+    std::string startTime, endTime;
+};
+struct PublicEpgGenreResult {
+    PublicEpgGenreStatus status = PublicEpgGenreStatus::unavailable;
+    std::vector<PublicEpgGenreItem> genres;
+    std::vector<PublicEpgGenreEvent> events;
+    std::size_t totalCount = 0U;
+};
+
 enum class PublicGenreCollectionStatus
 {
     ok,
@@ -167,6 +310,7 @@ struct PublicGenreRecordingItem
     std::string recordedAt;
     int durationSeconds = 0;
     bool durationKnown = false;
+    bool edited = false;
 };
 
 struct PublicGenreCollectionResult
@@ -181,6 +325,7 @@ enum class PublicChannelCollectionStatus
 {
     ok,
     invalid,
+    notFound,
     allSourcesUnavailable,
     unavailable,
 };
@@ -210,6 +355,9 @@ struct PublicChannelCollectionRequest
     std::vector<std::string> backendIds;
     std::string afterBackendId;
     std::string afterChannelId;
+    // Optional single-backend numeric VDR neighbor read; no ch1_ cursor.
+    std::string relativeToChannelId;
+    std::string direction;
     std::size_t limit = 50U;
 };
 
@@ -900,9 +1048,27 @@ public:
         std::function<PublicTimerAssignmentCollectionResult(
             const PublicTimerAssignmentCollectionRequest& request)>;
 
+    using SearchTimerCollectionLookup =
+        std::function<PublicSearchTimerCollectionResult(
+            const PublicSearchTimerCollectionRequest& request)>;
+
+    using SearchTimerCreate =
+        std::function<PublicSearchTimerCreateResult(
+            const PublicSearchTimerCreateRequest& request)>;
+
+    using SearchTimerPreviewLookup =
+        std::function<PublicSearchTimerPreviewResult(
+            const PublicSearchTimerPreviewRequest& request)>;
+
     using RecordingCollectionLookup =
         std::function<PublicRecordingCollectionResult(
             const PublicRecordingCollectionRequest& request)>;
+
+    using SearchLookup =
+        std::function<PublicSearchResult(const PublicSearchRequest&)>;
+
+    using EpgGenreLookup =
+        std::function<PublicEpgGenreResult(const PublicEpgGenreRequest&)>;
 
     using GenreCollectionLookup =
         std::function<PublicGenreCollectionResult(
@@ -1036,11 +1202,36 @@ public:
     PublicTimerAssignmentCollectionResult lookupTimerAssignmentCollection(
         const PublicTimerAssignmentCollectionRequest& request) const;
 
+    void registerSearchTimerCollectionLookup(
+        SearchTimerCollectionLookup lookup);
+    void resetSearchTimerCollectionLookup();
+    bool searchTimerCollectionLookupConfigured() const;
+    PublicSearchTimerCollectionResult lookupSearchTimerCollection(
+        const PublicSearchTimerCollectionRequest& request) const;
+
+    void registerSearchTimerCreate(SearchTimerCreate handler);
+    void resetSearchTimerCreate();
+
+    void registerSearchTimerPreviewLookup(SearchTimerPreviewLookup lookup);
+    void resetSearchTimerPreviewLookup();
+    PublicSearchTimerPreviewResult lookupSearchTimerPreview(
+        const PublicSearchTimerPreviewRequest& request) const;
+
     void registerRecordingCollectionLookup(RecordingCollectionLookup lookup);
     void resetRecordingCollectionLookup();
     bool recordingCollectionLookupConfigured() const;
     PublicRecordingCollectionResult lookupRecordingCollection(
         const PublicRecordingCollectionRequest& request) const;
+
+    void registerSearchLookup(SearchLookup lookup);
+    void resetSearchLookup();
+    bool searchLookupConfigured() const;
+    PublicSearchResult lookupSearch(const PublicSearchRequest& request) const;
+
+    void registerEpgGenreLookup(EpgGenreLookup lookup);
+    void resetEpgGenreLookup();
+    bool epgGenreLookupConfigured() const;
+    PublicEpgGenreResult lookupEpgGenre(const PublicEpgGenreRequest&) const;
 
     void registerGenreCollectionLookup(GenreCollectionLookup lookup);
     void resetGenreCollectionLookup();
@@ -1224,8 +1415,23 @@ private:
     mutable std::mutex timerAssignmentCollectionLookupMutex_;
     TimerAssignmentCollectionLookup timerAssignmentCollectionLookup_;
 
+    mutable std::mutex searchTimerCollectionLookupMutex_;
+    SearchTimerCollectionLookup searchTimerCollectionLookup_;
+
+    mutable std::mutex searchTimerCreateMutex_;
+    SearchTimerCreate searchTimerCreate_;
+
+    mutable std::mutex searchTimerPreviewLookupMutex_;
+    SearchTimerPreviewLookup searchTimerPreviewLookup_;
+
     mutable std::mutex recordingCollectionLookupMutex_;
     RecordingCollectionLookup recordingCollectionLookup_;
+
+    mutable std::mutex searchLookupMutex_;
+    SearchLookup searchLookup_;
+
+    mutable std::mutex epgGenreLookupMutex_;
+    EpgGenreLookup epgGenreLookup_;
 
     mutable std::mutex genreCollectionLookupMutex_;
     GenreCollectionLookup genreCollectionLookup_;

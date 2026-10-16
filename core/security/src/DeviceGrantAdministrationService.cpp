@@ -118,9 +118,20 @@ bool DeviceGrantAdministrationService::supportedGrant(
     // administrative rights, or mutation permissions through this surface.
     const bool devicePermission =
         permission == "channels.view" ||
+        permission == "recordings.view" ||
+        permission == "epg.view" ||
         permission == "timers.view" ||
+        permission == "searchtimers.view" ||
+        permission == "searchtimers.create" ||
         permission == "media.live.play" ||
         permission == "media.recording.play";
+    // SearchTimer mutation must be explicitly bound to one concrete backend.
+    // Human grant vocabulary also supports global '*', but never widen a
+    // paired Device CREATE grant to every backend.
+    if (permission == "searchtimers.create" &&
+        (backendId.empty() || backendId == "*" ||
+         backendId == "." || backendId == ".."))
+        return false;
     return devicePermission &&
         HumanAccountGrantAdministrationService::supportedGrant(
             permission, backendId);
