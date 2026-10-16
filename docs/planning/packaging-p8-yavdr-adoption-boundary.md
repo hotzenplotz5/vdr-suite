@@ -87,6 +87,11 @@ retained-conffile safeguards passed in
 [CI #111](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38929697400), all 11 jobs SUCCESS at code SHA
 `288dedef378570625e6b30e2a346146b2392abf8` (128 packaging regression tests). This confirms only disposable
 package behavior, not real yaVDR transition safety.
+The observed old SuiteBridge filename variants were also refused before
+unpack in the isolated package matrix: [CI #112](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38932136305),
+**14/14 jobs SUCCESS**, **130 packaging regressions**, code SHA
+`178b00e7252747de22b1c7d90113a3aac9dee15c`.
+This proves collision refusal, not the ABI of the plugin loaded by VDR.
 
 No productive files, service states, permissions, nginx includes or databases
 were changed during the reported read-only host inspections.

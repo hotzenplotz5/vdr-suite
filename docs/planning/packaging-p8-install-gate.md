@@ -11,6 +11,13 @@ the experimental package lifecycle/upgrade jobs passed in
 [CI #111](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38929697400), all **11 jobs SUCCESS**, exact code SHA
 `288dedef378570625e6b30e2a346146b2392abf8`. Every blocked scenario verified unchanged operator-sentinel
 bytes and no unpacked payload. This does not approve installation on yaVDR.
+The observed SuiteBridge suffixes `.so.11`, `.so.14`, and
+`.so.11.bak-20260814-225540` were also blocked in real disposable
+`dpkg --unpack` checks. [CI #112](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38932136305)
+passed all **14 jobs** and **130 packaging regressions** for exact code
+SHA `178b00e7252747de22b1c7d90113a3aac9dee15c`. This is
+not release approval or verification of compatibility with the observed
+`~resolute` VDR package.
 
 ## Source of truth
 
@@ -95,9 +102,10 @@ migration decision ledger, not a deployment command.
 
 1. Establish an explicit per-path takeover policy, package-specific
    ownership/upgrade policy and VDR ABI/service compatibility matrix.
-2. Extend beyond the six now-confirmed disposable `dpkg --unpack`
-   collision scenarios (CI #111): daemon nginx, systemd drop-in and state;
-   Backend Agent config and drop-in; SuiteBridge ABI file. Continue to gate
+2. Extend beyond the nine now-confirmed disposable `dpkg --unpack`
+   collision scenarios (CI #112): daemon nginx, systemd drop-in and state;
+   Backend Agent config and drop-in; SuiteBridge ABI and old plugin files.
+   Continue to gate
    unexplored protected paths and package upgrade compatibility before host
    authorization. The installed-binary provenance rule is tested for retained
    conffiles and valid reinstalls, but not a full P7 compatibility decision.
