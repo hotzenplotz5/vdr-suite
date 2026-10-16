@@ -251,5 +251,99 @@ int main()
     assert(remove.headers.at("Allow") == "GET");
 
     runtime.resetTimerAssignmentCollectionLookup();
+
+    // Read-only Device SearchTimers do not disclose backend-native IDs.
+    runtime.resetSearchTimerCollectionLookup();
+    runtime.registerSearchTimerCollectionLookup(
+        [](const PublicSearchTimerCollectionRequest& request)
+        {
+            PublicSearchTimerCollectionResult page;
+            if (request.backendId == "offline") return page;
+            page.status = PublicSearchTimerCollectionStatus::ok;
+            if (request.backendId == "empty") return page;
+            const std::vector<std::string> ids = {
+                "st_00000000000000000000000000000001",
+                "st_00000000000000000000000000000002",
+                "st_00000000000000000000000000000003"};
+            for (const auto& id : ids)
+            {
+                if (!request.afterSearchTimerId.empty() &&
+                    id <= request.afterSearchTimerId) continue;
+                if (page.items.size() >= request.limit)
+                {
+                    page.hasMore = true;
+                    break;
+                }
+                PublicSearchTimerCollectionItem item;
+                item.searchTimerId = id;
+                item.backendId = request.backendId;
+                item.name = "Terra X";
+                item.query = "Terra X";
+                item.state = "active";
+                page.items.push_back(std::move(item));
+            }
+            return page;
+        });
+    ApiResponse searchFirst;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search-timers?backend=one&limit=2",
+        "actor:test", "st-read", "", searchFirst, "", "one"));
+    assert(searchFirst.statusCode == 200);
+    assert(searchFirst.body.find("\"searchTimerId\":\"st_") != std::string::npos);
+    assert(searchFirst.body.find("backendNativeId") == std::string::npos);
+    assert(searchFirst.body.find("\"state\":\"active\"") != std::string::npos);
+    assert(searchFirst.body.find("\"hasMore\":true") != std::string::npos);
+    const std::string searchCursor = nextCursor(searchFirst.body);
+    assert(searchCursor.rfind("st1_", 0U) == 0U);
+    ApiResponse searchSecond;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search-timers?backend=one&limit=2&cursor=" + searchCursor,
+        "actor:test", "st-next", "", searchSecond, "", "one"));
+    assert(searchSecond.statusCode == 200);
+    assert(searchSecond.body.find("st_00000000000000000000000000000003") !=
+        std::string::npos);
+    assert(searchSecond.body.find("\"hasMore\":false") != std::string::npos);
+    ApiResponse searchCrossBackend;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search-timers?backend=two&cursor=" + searchCursor,
+        "actor:test", "st-scope", "", searchCrossBackend, "", "two"));
+    assert(searchCrossBackend.statusCode == 400);
+    for (const std::string& bad : {
+             std::string("limit=31"), std::string("limit=0"),
+             std::string("cursor=invalid"), std::string("offset=20"),
+             std::string("backend=two")})
+    {
+        ApiResponse rejected;
+        assert(runtime.tryHandleGet(
+            "/api/v1/search-timers?backend=one&" + bad,
+            "actor:test", "st-invalid", "", rejected, "", "one"));
+        assert(rejected.statusCode == 400);
+    }
+    ApiResponse emptySearch;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search-timers?backend=empty",
+        "actor:test", "st-empty", "", emptySearch, "", "empty"));
+    assert(emptySearch.statusCode == 200);
+    assert(emptySearch.body.find("\"items\":[]") != std::string::npos);
+    ApiResponse offlineSearch;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search-timers?backend=offline",
+        "actor:test", "st-offline", "", offlineSearch, "", "offline"));
+    assert(offlineSearch.statusCode == 503);
+    ApiResponse anonymousSearch;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search-timers?backend=one",
+        "", "st-anon", "", anonymousSearch, "", "one"));
+    assert(anonymousSearch.statusCode == 401);
+    ApiResponse searchPost;
+    assert(runtime.tryHandlePost(
+        "/api/v1/search-timers?backend=one", "st-post", "", searchPost));
+    assert(searchPost.statusCode == 405);
+    ApiResponse searchDelete;
+    assert(runtime.tryHandleUnsupportedMethod(
+        "DELETE", "/api/v1/search-timers?backend=one",
+        "st-delete", "", searchDelete));
+    assert(searchDelete.statusCode == 405);
+    runtime.resetSearchTimerCollectionLookup();
     return 0;
 }

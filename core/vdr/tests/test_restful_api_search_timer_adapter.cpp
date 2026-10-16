@@ -84,6 +84,12 @@ int main()
     assert(genuineEmpty.empty());
     assert(genuineEmpty.totalCount() == 0);
 
+    HttpResponse malformedResponse;
+    malformedResponse.statusCode = 200;
+    malformedResponse.body = "{\"count\":0}";
+    httpClient.setResponse(malformedResponse);
+    assert(!adapter.list(SearchTimerQuery::all()).available());
+
     HttpResponse unavailableResponse;
     unavailableResponse.statusCode = 503;
     httpClient.setResponse(unavailableResponse);

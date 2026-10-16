@@ -771,6 +771,12 @@ public:
         const bool isPublicChannelRead =
             request.method == "GET" &&
             isPublicChannelCollection;
+        const std::string publicSearchTimerCollection =
+            "/api/v1/search-timers";
+        const bool isPublicSearchTimerRead =
+            request.method == "GET" && path == publicSearchTimerCollection;
+        const std::string publicSearchTimerBackendId =
+            queryStringValue(request.path, "backend");
         const std::string publicTimerAssignmentCollection =
             "/api/v1/timer-assignments";
         const std::string publicTimerAssignmentPrefix =
@@ -823,6 +829,7 @@ public:
              isPublicChannelCollection ||
              isPublicEpgNowNext ||
              isPublicTimerAssignmentCollection ||
+             path == publicSearchTimerCollection ||
              isPublicOperationResource ||
              isPublicAccountCredentialResource ||
              isPublicAccountSessionResource);
@@ -1499,6 +1506,72 @@ public:
             gate.authorizationDecision = lastDecision;
             gate.authorizedBackendIds =
                 std::move(publicChannelBackendIds);
+            gate.allowed = true;
+            return gate;
+        }
+
+        if (isPublicSearchTimerRead)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            if (!gate.deviceAuthenticated ||
+                gate.context.actor.type != ActorType::Service ||
+                !gate.context.device || !gate.context.credential ||
+                gate.context.session.has_value())
+            {
+                AuthorizationDecision denial;
+                denial.permission = "searchtimers.view";
+                denial.backendId = publicSearchTimerBackendId;
+                denial.action = "searchtimers.view";
+                denial.reasonCode = "device_credential_required";
+                return rejectWithAudit(gate, denial, 403,
+                    "A verified Device credential is required", "");
+            }
+            const bool validScope =
+                !publicSearchTimerBackendId.empty() &&
+                publicSearchTimerBackendId.size() <= 128U &&
+                std::all_of(publicSearchTimerBackendId.begin(),
+                    publicSearchTimerBackendId.end(),
+                    [](unsigned char c) {
+                        return std::isalnum(c) ||
+                            c == '.' || c == '_' || c == '-';
+                    });
+            if (!validScope)
+            {
+                AuthorizationDecision denial;
+                denial.permission = "searchtimers.view";
+                denial.backendId = publicSearchTimerBackendId;
+                denial.action = "searchtimers.view";
+                denial.reasonCode = "invalid_backend_scope";
+                return rejectWithAudit(gate, denial, 400,
+                    "Invalid backend scope", "");
+            }
+            AuthorizationRequest read;
+            read.permission = "searchtimers.view";
+            read.backendId = publicSearchTimerBackendId;
+            read.action = "searchtimers.view";
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(gate.context, read);
+            if (!appendDecisionEvent(gate.context, decision, ""))
+            {
+                gate.rejection = errorResponse(
+                    503, "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+            if (!decision.allowed)
+            {
+                gate.rejection = errorResponse(
+                    authenticationFailure(decision) ? 401 : 403,
+                    decision.reasonCode,
+                    messageForReason(decision.reasonCode),
+                    gate.context,
+                    authenticationFailure(decision),
+                    gate.publicApiV1);
+                return gate;
+            }
+            gate.authorizationDecision = decision;
             gate.allowed = true;
             return gate;
         }

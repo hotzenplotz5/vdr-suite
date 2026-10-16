@@ -519,6 +519,192 @@
         }
       }
     },
+    "/api/v1/search-timers": {
+      "get": {
+        "tags": [
+          "SearchTimers"
+        ],
+        "operationId": "listSearchTimers",
+        "summary": "Read one backend's SearchTimers through an authorized Device",
+        "description": "Read-only; requires verified paired Device and independent searchtimers.view@backend. Server-owned persisted st_ IDs, no native IDs. At most 30 returned SearchTimers per page. Opaque st1_ cursor is bound to backend. Provider not available yields 503, never an empty successful list. Not Suite TimerAssignments or VDR native Timers. Does not provide lossless editing readback.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "verified Device and searchtimers.view@backend"
+        },
+        "parameters": [
+          {
+            "name": "backend",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,128}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30,
+              "default": 30
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One bounded complete page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items",
+                    "page",
+                    "meta",
+                    "links"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "maxItems": 30,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "searchTimerId",
+                          "backendId",
+                          "name",
+                          "query",
+                          "state"
+                        ],
+                        "properties": {
+                          "searchTimerId": {
+                            "type": "string",
+                            "pattern": "^st_[0-9a-f]{32}$"
+                          },
+                          "backendId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string",
+                            "maxLength": 1024
+                          },
+                          "query": {
+                            "type": "string",
+                            "maxLength": 1024
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "inactive",
+                              "unknown"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "page": {
+                      "type": "object",
+                      "properties": {
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "nextCursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "hasMore": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "partial": {
+                          "type": "boolean",
+                          "enum": [
+                            false
+                          ]
+                        }
+                      }
+                    },
+                    "links": {
+                      "type": "object",
+                      "properties": {
+                        "self": {
+                          "type": "string"
+                        },
+                        "next": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query, backend or scoped cursor",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Device or grant denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Provider or service unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/timer-assignments": {
       "get": {
         "tags": [
@@ -2961,7 +3147,7 @@
         ],
         "operationId": "setDeviceGrant",
         "summary": "Ensure or revoke one allowlisted Device grant using a fenced desired-state mutation",
-        "description": "Requires devices.grants.modify@* and protected browser-session CSRF where applicable. Closed JSON object {permission,backendId,active}, at most 4096 bytes, no query or Idempotency-Key. Strong If-Match from Device Grant-set GET. Only channels.view, timers.view, media.live.play, media.recording.play are allowlisted; neither admin roles nor generic Account permissions can be granted. Successful 200 returns current full grant-set and ETag. A stale ETag may still succeed if the desired state was already reached, otherwise 412.",
+        "description": "Requires devices.grants.modify@* and protected browser-session CSRF where applicable. Closed JSON object {permission,backendId,active}, at most 4096 bytes, no query or Idempotency-Key. Strong If-Match from Device Grant-set GET. Only channels.view, recordings.view, epg.view, timers.view, searchtimers.view, media.live.play and media.recording.play are allowlisted; neither admin roles nor generic Account permissions can be granted. Successful 200 returns current full grant-set and ETag. A stale ETag may still succeed if the desired state was already reached, otherwise 412.",
         "x-vdr-suite-max-body-bytes": 4096,
         "x-vdr-suite-authentication": {
           "actorRequired": true,

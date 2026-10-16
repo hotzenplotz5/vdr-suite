@@ -86,6 +86,10 @@ int main()
         "recordings.view", "default"));
     assert(DeviceGrantAdministrationService::supportedGrant(
         "epg.view", "default"));
+    assert(DeviceGrantAdministrationService::supportedGrant(
+        "searchtimers.view", "default"));
+    assert(!DeviceGrantAdministrationService::supportedGrant(
+        "searchtimers.create", "default"));
     assert(!DeviceGrantAdministrationService::supportedGrant(
         "role.admin", "*"));
     assert(!DeviceGrantAdministrationService::supportedGrant(

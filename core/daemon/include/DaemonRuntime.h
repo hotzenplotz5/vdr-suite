@@ -82,6 +82,7 @@
 #include "RecordingDashboardService.h"
 #include "RecordingRepository.h"
 #include "PublicRecordingIdentityRepository.h"
+#include "PublicSearchTimerIdentityRepository.h"
 #include "RecordingActionBackendExecutorAdapterRegistry.h"
 #include "RecordingActionExecutionController.h"
 #include "RecordingActionExecutionResultJsonSerializer.h"
@@ -235,6 +236,7 @@ private:
     std::unique_ptr<JobRepository> jobRepository_;
     std::unique_ptr<RecordingRepository> recordingRepository_;
     std::unique_ptr<PublicRecordingIdentityRepository> publicRecordingIdentities_;
+    std::unique_ptr<PublicSearchTimerIdentityRepository> publicSearchTimerIdentities_;
     std::unique_ptr<MetadataRepository> metadataRepository_;
     std::unique_ptr<HumanAccountRepository> humanAccountRepository_;
     std::unique_ptr<FirstAdminBootstrapRepository> firstAdminBootstrapRepository_;

@@ -59,6 +59,13 @@ constexpr const char* PublicTimerAssignmentCollectionOrder = "asc";
 constexpr const char* PublicTimerAssignmentCursorPrefix = "ta1_";
 constexpr const char* PublicTimerAssignmentCursorPayloadVersion =
     "timer-assignments/1|";
+constexpr const char* PublicSearchTimerCollectionPath =
+    "/api/v1/search-timers";
+constexpr std::size_t PublicSearchTimerDefaultLimit = 30U;
+constexpr std::size_t PublicSearchTimerMaximumLimit = 30U;
+constexpr const char* PublicSearchTimerCursorPrefix = "st1_";
+constexpr const char* PublicSearchTimerCursorPayloadVersion =
+    "search-timers/1|";
 constexpr const char* PublicBackendCollectionPath =
     "/api/v1/backends";
 constexpr std::size_t PublicBackendDefaultLimit = 50U;
@@ -449,6 +456,62 @@ bool parsePublicTimerAssignmentCollectionQuery(
             return false;
         }
 
+        if (separator == std::string::npos) break;
+        position = separator + 1U;
+    }
+    return backendSeen;
+}
+
+struct PublicSearchTimerCollectionQuery
+{
+    std::size_t limit = PublicSearchTimerDefaultLimit;
+    std::string cursor;
+};
+
+bool parsePublicSearchTimerCollectionQuery(
+    const std::string& target,
+    const std::string& authorizedBackendId,
+    PublicSearchTimerCollectionQuery& query)
+{
+    const std::string encoded = requestQueryString(target);
+    if (encoded.empty()) return false;
+    bool backendSeen = false;
+    bool limitSeen = false;
+    bool cursorSeen = false;
+    std::size_t position = 0U;
+    while (position <= encoded.size())
+    {
+        const std::size_t separator = encoded.find('&', position);
+        const std::string field = encoded.substr(position,
+            separator == std::string::npos ? std::string::npos
+                : separator - position);
+        const std::size_t equals = field.find('=');
+        if (equals == std::string::npos || equals == 0U) return false;
+        const std::string key = field.substr(0U, equals);
+        const std::string value = field.substr(equals + 1U);
+        if (key == "backend")
+        {
+            if (backendSeen || value != authorizedBackendId ||
+                value.empty()) return false;
+            backendSeen = true;
+        }
+        else if (key == "limit")
+        {
+            if (limitSeen) return false;
+            limitSeen = true;
+            std::size_t parsed = 0U;
+            if (!decimalSize(value, parsed) || parsed == 0U ||
+                parsed > PublicSearchTimerMaximumLimit) return false;
+            query.limit = parsed;
+        }
+        else if (key == "cursor")
+        {
+            if (cursorSeen || value.empty() || value.size() > 512U)
+                return false;
+            cursorSeen = true;
+            query.cursor = value;
+        }
+        else return false;
         if (separator == std::string::npos) break;
         position = separator + 1U;
     }
@@ -1357,6 +1420,49 @@ bool decodePublicTimerAssignmentCursor(
     return true;
 }
 
+bool validPublicSearchTimerId(const std::string& id)
+{
+    return id.size() == 35U && id.compare(0U, 3U, "st_") == 0 &&
+        std::all_of(id.begin() + 3, id.end(),
+            [](unsigned char c) {
+                return (c >= '0' && c <= '9') ||
+                    (c >= 'a' && c <= 'f');
+            });
+}
+
+std::string publicSearchTimerCursor(
+    const std::string& backend, const std::string& lastId)
+{
+    if (backend.empty() || !validPublicSearchTimerId(lastId)) return "";
+    std::string payload(PublicSearchTimerCursorPayloadVersion);
+    appendCursorField(payload, backend);
+    appendCursorField(payload, lastId);
+    return std::string(PublicSearchTimerCursorPrefix) + hexEncode(payload);
+}
+
+bool decodePublicSearchTimerCursor(
+    const std::string& cursor,
+    const std::string& backend,
+    std::string& lastId)
+{
+    const std::string prefix(PublicSearchTimerCursorPrefix);
+    if (cursor.size() <= prefix.size() ||
+        cursor.compare(0U, prefix.size(), prefix) != 0)
+        return false;
+    std::string payload;
+    if (!hexDecode(cursor.substr(prefix.size()), payload)) return false;
+    const std::string version(PublicSearchTimerCursorPayloadVersion);
+    if (payload.compare(0U, version.size(), version) != 0) return false;
+    std::size_t position = version.size();
+    std::string cursorBackend;
+    if (!readCursorField(payload, position, cursorBackend) ||
+        !readCursorField(payload, position, lastId) ||
+        position != payload.size() ||
+        cursorBackend != backend ||
+        !validPublicSearchTimerId(lastId)) return false;
+    return true;
+}
+
 std::string normalizedPublicBackendAuthorizationScope(
     std::vector<std::string> backendIds)
 {
@@ -1713,6 +1819,16 @@ std::string publicTimerAssignmentCollectionTarget(
         "&order=" + PublicTimerAssignmentCollectionOrder;
     if (!cursor.empty())
         target += "&cursor=" + cursor;
+    return target;
+}
+
+std::string publicSearchTimerCollectionTarget(
+    const std::string& backend, std::size_t limit,
+    const std::string& cursor)
+{
+    std::string target = std::string(PublicSearchTimerCollectionPath) +
+        "?backend=" + backend + "&limit=" + std::to_string(limit);
+    if (!cursor.empty()) target += "&cursor=" + cursor;
     return target;
 }
 
@@ -3190,6 +3306,7 @@ ApiResponse platformCapabilities(
     const bool operationReadAvailable,
     const bool timerAssignmentReadAvailable,
     const bool timerCreateAdmissionAvailable,
+    const bool searchTimerCollectionAvailable,
     const bool backendCollectionAvailable,
     const bool recordingCollectionAvailable,
     const bool genreCollectionAvailable,
@@ -3220,6 +3337,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.timer-assignments-read\",\"version\":1,\"availability\":\"" +
         std::string(timerAssignmentReadAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.search-timers-read\",\"version\":1,\"availability\":\"" +
+        std::string(searchTimerCollectionAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.timer-create-admission\",\"version\":1,\"availability\":\"" +
         std::string(timerCreateAdmissionAvailable ? "available" : "unavailable") +
@@ -3517,6 +3637,49 @@ ApiResponse publicTimerAssignmentCollectionResponse(
         body,
         requestId,
         correlationId);
+}
+
+ApiResponse publicSearchTimerCollectionResponse(
+    const PublicSearchTimerCollectionResult& page,
+    const PublicSearchTimerCollectionQuery& query,
+    const std::string& backend,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    const std::string nextCursor =
+        page.hasMore && !page.items.empty()
+            ? publicSearchTimerCursor(backend,
+                page.items.back().searchTimerId) : "";
+    if (page.hasMore && nextCursor.empty())
+        return serviceUnavailableProblem(PublicSearchTimerCollectionPath,
+            requestId, correlationId);
+    const std::string self =
+        publicSearchTimerCollectionTarget(backend, query.limit, query.cursor);
+    const std::string next =
+        nextCursor.empty() ? "" : publicSearchTimerCollectionTarget(
+            backend, query.limit, nextCursor);
+    std::string body = "{\"items\":[";
+    for (std::size_t i = 0; i < page.items.size(); ++i)
+    {
+        const auto& item = page.items[i];
+        if (i) body += ",";
+        body += "{\"searchTimerId\":\"" + jsonEscape(item.searchTimerId) +
+            "\",\"backendId\":\"" + jsonEscape(item.backendId) +
+            "\",\"name\":\"" + jsonEscape(item.name) +
+            "\",\"query\":\"" + jsonEscape(item.query) +
+            "\",\"state\":\"" + jsonEscape(item.state) + "\"}";
+    }
+    body += "],\"page\":{\"limit\":" + std::to_string(query.limit) +
+        ",\"nextCursor\":";
+    body += nextCursor.empty() ? "null" :
+        "\"" + jsonEscape(nextCursor) + "\"";
+    body += ",\"hasMore\":" +
+        std::string(page.hasMore ? "true" : "false") +
+        "},\"meta\":{\"partial\":false},\"links\":{\"self\":\"" +
+        jsonEscape(self) + "\",\"next\":";
+    body += next.empty() ? "null" : "\"" + jsonEscape(next) + "\"";
+    body += "}}";
+    return jsonResponse(body, requestId, correlationId);
 }
 
 ApiResponse publicBackendCollectionResponse(
@@ -3927,6 +4090,7 @@ ApiResponse publicDeviceGrantSetResponse(
     }
     body += "],\"supportedPermissions\":["
         "\"channels.view\",\"recordings.view\",\"epg.view\",\"timers.view\","
+        "\"searchtimers.view\","
         "\"media.live.play\",\"media.recording.play\"]}";
     ApiResponse result = jsonResponse(body, requestId, correlationId);
     result.headers["ETag"] = etag;
@@ -4722,6 +4886,36 @@ PublicApiRuntime::lookupTimerAssignmentCollection(
     return lookup(request);
 }
 
+void PublicApiRuntime::registerSearchTimerCollectionLookup(
+    SearchTimerCollectionLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(searchTimerCollectionLookupMutex_);
+    searchTimerCollectionLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetSearchTimerCollectionLookup()
+{
+    std::lock_guard<std::mutex> lock(searchTimerCollectionLookupMutex_);
+    searchTimerCollectionLookup_ = {};
+}
+
+bool PublicApiRuntime::searchTimerCollectionLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(searchTimerCollectionLookupMutex_);
+    return static_cast<bool>(searchTimerCollectionLookup_);
+}
+
+PublicSearchTimerCollectionResult PublicApiRuntime::lookupSearchTimerCollection(
+    const PublicSearchTimerCollectionRequest& request) const
+{
+    SearchTimerCollectionLookup callback;
+    {
+        std::lock_guard<std::mutex> lock(searchTimerCollectionLookupMutex_);
+        callback = searchTimerCollectionLookup_;
+    }
+    return callback ? callback(request) : PublicSearchTimerCollectionResult{};
+}
+
 void PublicApiRuntime::registerBackendCollectionLookup(
     BackendCollectionLookup lookup)
 {
@@ -5386,6 +5580,7 @@ bool PublicApiRuntime::tryHandleGet(
             operationLookupConfigured(),
             timerAssignmentLookupConfigured(),
             timerCreateAdmissionConfigured(),
+            searchTimerCollectionLookupConfigured(),
             backendCollectionLookupConfigured(),
             recordingCollectionLookupConfigured(),
             genreCollectionLookupConfigured(),
@@ -7330,6 +7525,89 @@ bool PublicApiRuntime::tryHandleGet(
                 return true;
 
             case PublicChannelCollectionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    if (path == PublicSearchTimerCollectionPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (authorizedBackendId.empty())
+        {
+            response = invalidRequestProblem(path,
+                "An authorized backend scope is required.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicSearchTimerCollectionQuery query;
+        if (!parsePublicSearchTimerCollectionQuery(
+                requestTarget, authorizedBackendId, query))
+        {
+            response = invalidRequestProblem(path,
+                "The SearchTimer collection query is invalid.",
+                requestId, correlationId);
+            return true;
+        }
+        std::string afterId;
+        if (!query.cursor.empty() &&
+            !decodePublicSearchTimerCursor(
+                query.cursor, authorizedBackendId, afterId))
+        {
+            response = invalidRequestProblem(path,
+                "The SearchTimer cursor is invalid for this backend.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicSearchTimerCollectionRequest request;
+        request.backendId = authorizedBackendId;
+        request.afterSearchTimerId = afterId;
+        request.limit = query.limit;
+        const PublicSearchTimerCollectionResult page =
+            lookupSearchTimerCollection(request);
+        switch (page.status)
+        {
+            case PublicSearchTimerCollectionStatus::ok:
+            {
+                if (page.items.size() > query.limit ||
+                    (page.hasMore && page.items.size() != query.limit))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                std::string previous = afterId;
+                for (const auto& item : page.items)
+                {
+                    if (!validPublicSearchTimerId(item.searchTimerId) ||
+                        item.backendId != authorizedBackendId ||
+                        (!previous.empty() && item.searchTimerId <= previous) ||
+                        item.name.empty() || item.query.empty() ||
+                        item.name.size() > 1024U || item.query.size() > 1024U ||
+                        (item.state != "active" && item.state != "inactive" &&
+                            item.state != "unknown"))
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    previous = item.searchTimerId;
+                }
+                response = publicSearchTimerCollectionResponse(
+                    page, query, authorizedBackendId, requestId, correlationId);
+                return true;
+            }
+            case PublicSearchTimerCollectionStatus::invalid:
+                response = invalidRequestProblem(path,
+                    "The SearchTimer request is invalid.",
+                    requestId, correlationId);
+                return true;
+            case PublicSearchTimerCollectionStatus::unavailable:
                 response = serviceUnavailableProblem(
                     path, requestId, correlationId);
                 return true;
@@ -9736,6 +10014,7 @@ bool PublicApiRuntime::tryHandlePost(
         path == PublicEpgNowNextPath ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
+        path == PublicSearchTimerCollectionPath ||
         publicOperationPath(path, operationId))
     {
         response = methodNotAllowedProblem(
@@ -9893,6 +10172,7 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
         path == PublicEpgNowNextPath ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
+        path == PublicSearchTimerCollectionPath ||
         publicOperationPath(path, operationId))
     {
         response = methodNotAllowedProblem(

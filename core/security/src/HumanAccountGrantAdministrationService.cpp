@@ -111,6 +111,7 @@ const std::set<std::string>& supportedPermissionSet()
         "recordings.marks.modify",
         "recordings.execute",
         "metadata.recording.assign",
+        "searchtimers.view",
         "searchtimers.create",
         "searchtimers.modify",
         "searchtimers.delete",

@@ -91,6 +91,37 @@ struct PublicTimerAssignmentCollectionResult
     bool hasMore = false;
 };
 
+enum class PublicSearchTimerCollectionStatus
+{
+    ok,
+    invalid,
+    unavailable
+};
+
+struct PublicSearchTimerCollectionItem
+{
+    std::string searchTimerId;
+    std::string backendId;
+    std::string name;
+    std::string query;
+    std::string state;
+};
+
+struct PublicSearchTimerCollectionRequest
+{
+    std::string backendId;
+    std::string afterSearchTimerId;
+    std::size_t limit = 30U;
+};
+
+struct PublicSearchTimerCollectionResult
+{
+    PublicSearchTimerCollectionStatus status =
+        PublicSearchTimerCollectionStatus::unavailable;
+    std::vector<PublicSearchTimerCollectionItem> items;
+    bool hasMore = false;
+};
+
 enum class PublicRecordingCollectionStatus
 {
     ok,
@@ -954,6 +985,10 @@ public:
         std::function<PublicTimerAssignmentCollectionResult(
             const PublicTimerAssignmentCollectionRequest& request)>;
 
+    using SearchTimerCollectionLookup =
+        std::function<PublicSearchTimerCollectionResult(
+            const PublicSearchTimerCollectionRequest& request)>;
+
     using RecordingCollectionLookup =
         std::function<PublicRecordingCollectionResult(
             const PublicRecordingCollectionRequest& request)>;
@@ -1095,6 +1130,13 @@ public:
     bool timerAssignmentCollectionLookupConfigured() const;
     PublicTimerAssignmentCollectionResult lookupTimerAssignmentCollection(
         const PublicTimerAssignmentCollectionRequest& request) const;
+
+    void registerSearchTimerCollectionLookup(
+        SearchTimerCollectionLookup lookup);
+    void resetSearchTimerCollectionLookup();
+    bool searchTimerCollectionLookupConfigured() const;
+    PublicSearchTimerCollectionResult lookupSearchTimerCollection(
+        const PublicSearchTimerCollectionRequest& request) const;
 
     void registerRecordingCollectionLookup(RecordingCollectionLookup lookup);
     void resetRecordingCollectionLookup();
@@ -1293,6 +1335,9 @@ private:
 
     mutable std::mutex timerAssignmentCollectionLookupMutex_;
     TimerAssignmentCollectionLookup timerAssignmentCollectionLookup_;
+
+    mutable std::mutex searchTimerCollectionLookupMutex_;
+    SearchTimerCollectionLookup searchTimerCollectionLookup_;
 
     mutable std::mutex recordingCollectionLookupMutex_;
     RecordingCollectionLookup recordingCollectionLookup_;

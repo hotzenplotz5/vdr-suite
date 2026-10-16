@@ -154,6 +154,14 @@ bool DaemonRuntime::initialize()
                   << std::endl;
         return false;
     }
+    publicSearchTimerIdentities_ =
+        std::make_unique<PublicSearchTimerIdentityRepository>(database_);
+    if (!publicSearchTimerIdentities_->ensureSchema())
+    {
+        std::cerr << "failed to initialize public SearchTimer identities"
+                  << std::endl;
+        return false;
+    }
     metadataRepository_ = std::make_unique<MetadataRepository>(database_);
     jobDashboardService_ = std::make_unique<JobDashboardService>(*jobRepository_);
     recordingDashboardService_ = std::make_unique<RecordingDashboardService>(*recordingRepository_, *metadataRepository_);
@@ -1109,6 +1117,94 @@ bool DaemonRuntime::initialize()
                         PublicTimerAssignmentCollectionStatus::unavailable;
                     return result;
             }
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerSearchTimerCollectionLookup(
+        [this](const PublicSearchTimerCollectionRequest& request)
+        {
+            PublicSearchTimerCollectionResult result;
+            if (!backendRegistryService_ || !publicSearchTimerIdentities_ ||
+                request.backendId.empty() ||
+                request.limit == 0U || request.limit > 30U)
+            {
+                result.status = PublicSearchTimerCollectionStatus::invalid;
+                return result;
+            }
+            const auto backend = backendRegistryService_->getBackend(
+                request.backendId);
+            if (!backend.has_value() || !backend->enabled || !backend->online)
+                return result;
+
+            // Select exactly one authorized backend. Legacy Web's default
+            // backend cannot be used to satisfy an arbitrary Device scope.
+            const RestfulApiSearchTimerAdapter* adapter = nullptr;
+            for (const auto& context : backendRuntimeContexts_)
+            {
+                if (context && context->backendId == request.backendId &&
+                    context->searchTimerAdapter)
+                {
+                    adapter = context->searchTimerAdapter.get();
+                    break;
+                }
+            }
+            if (!adapter) return result;
+
+            // RESTfulAPI returns the catalogue in one read; no retry or
+            // cross-backend fanout. Only bounded safe projections leave v1.
+            const SearchTimerResult source = adapter->list(
+                SearchTimerQuery::byBackend(request.backendId));
+            if (!source.available()) return result;
+
+            std::vector<PublicSearchTimerCollectionItem> candidates;
+            for (const SearchTimer& timer : source.items())
+            {
+                if (timer.backendId() != request.backendId ||
+                    timer.backendNativeId().empty() ||
+                    timer.name().empty() || timer.query().empty() ||
+                    timer.name().size() > 1024U ||
+                    timer.query().size() > 1024U)
+                    return result;
+                const auto publicId =
+                    publicSearchTimerIdentities_->resolveOrCreate(
+                        request.backendId, timer.backendNativeId());
+                if (!publicId) return result;
+                PublicSearchTimerCollectionItem item;
+                item.searchTimerId = *publicId;
+                item.backendId = request.backendId;
+                item.name = timer.name();
+                item.query = timer.query();
+                item.state = timer.state() == SearchTimerState::Active
+                    ? "active"
+                    : (timer.state() == SearchTimerState::Inactive
+                        ? "inactive" : "unknown");
+                candidates.push_back(std::move(item));
+            }
+            std::sort(candidates.begin(), candidates.end(),
+                [](const PublicSearchTimerCollectionItem& left,
+                   const PublicSearchTimerCollectionItem& right)
+                {
+                    return left.searchTimerId < right.searchTimerId;
+                });
+            for (std::size_t i = 1U; i < candidates.size(); ++i)
+                if (candidates[i - 1U].searchTimerId ==
+                    candidates[i].searchTimerId)
+                    return result;
+            const auto begin = std::upper_bound(
+                candidates.begin(), candidates.end(),
+                request.afterSearchTimerId,
+                [](const std::string& id,
+                   const PublicSearchTimerCollectionItem& item)
+                {
+                    return id < item.searchTimerId;
+                });
+            const std::size_t remaining =
+                static_cast<std::size_t>(candidates.end() - begin);
+            result.hasMore = remaining > request.limit;
+            const std::size_t count = std::min(remaining, request.limit);
+            for (std::size_t index = 0; index < count; ++index)
+                result.items.push_back(*(begin + index));
+            result.status = PublicSearchTimerCollectionStatus::ok;
             return result;
         });
 

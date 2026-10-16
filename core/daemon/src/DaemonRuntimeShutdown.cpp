@@ -63,6 +63,7 @@ void DaemonRuntime::shutdown()
     PublicApiRuntime::instance().resetRecordingCollectionLookup();
     PublicApiRuntime::instance().resetEpgGenreLookup();
     PublicApiRuntime::instance().resetTimerAssignmentCollectionLookup();
+    PublicApiRuntime::instance().resetSearchTimerCollectionLookup();
     PublicApiRuntime::instance().resetTimerAssignmentLookup();
     PublicApiRuntime::instance().resetOperationLookup();
     resetDaemonLegacyOsdRuntime();

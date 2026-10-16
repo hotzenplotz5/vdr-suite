@@ -121,6 +121,7 @@ bool DeviceGrantAdministrationService::supportedGrant(
         permission == "recordings.view" ||
         permission == "epg.view" ||
         permission == "timers.view" ||
+        permission == "searchtimers.view" ||
         permission == "media.live.play" ||
         permission == "media.recording.play";
     return devicePermission &&

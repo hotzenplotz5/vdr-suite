@@ -34,6 +34,15 @@ SearchTimerResult RestfulApiSearchTimerAdapter::list(
             query.offset());
     }
 
+    const auto field = response.body.find("\"searchtimers\"");
+    const auto colon = field == std::string::npos
+        ? std::string::npos : response.body.find(':', field + 14U);
+    const auto array = colon == std::string::npos
+        ? std::string::npos : response.body.find_first_not_of(
+            " \t\r\n", colon + 1U);
+    if (array == std::string::npos || response.body[array] != '[')
+        return SearchTimerResult::unavailable(query.limit(), query.offset());
+
     std::vector<SearchTimer> timers =
         RestfulApiSearchTimerMapper::parseSearchTimers(
             backendId_,

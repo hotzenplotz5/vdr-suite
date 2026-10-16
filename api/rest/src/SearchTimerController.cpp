@@ -265,6 +265,8 @@ ApiResponse SearchTimerController::searchSearchTimers(
     int limit,
     int offset)
 {
+    if (!source.available())
+        return getSearchTimers(source);
     SearchTimerResult result = searchTimerService_.list(
         source.items(),
         buildSearchTimerQuery(
