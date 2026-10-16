@@ -40,8 +40,10 @@ MANUAL_PATHS = (
 )
 SITE_ROOTS = ("etc/nginx/nginx.conf", "etc/nginx/sites-enabled",
               "etc/nginx/conf.d")
-LOCATION = re.compile(r"(?m)^\s*location\s+(?:=\s*|\^~\s*|~\*?\s*)?/vdr-suite(?:[/{\s]|$)")
-REFERENCE = re.compile(r"(?m)^\s*include\s+[^;]*vdr-suite[^;]*;")
+# nginx directives can appear immediately after a brace or semicolon,
+# not only at the start of a physical line.
+LOCATION = re.compile(r"(?m)(?:^|[;{}])\s*location\s+(?:=\s*|\^~\s*|~\*?\s*)?/vdr-suite(?:[/{\s]|$)")
+REFERENCE = re.compile(r"(?m)(?:^|[;{}])\s*include\s+[^;]*vdr-suite[^;]*;")
 MAX_CONFIGS = 256
 MAX_CONFIG_SIZE = 1024 * 1024
 

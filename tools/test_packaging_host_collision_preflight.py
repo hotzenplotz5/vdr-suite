@@ -91,6 +91,17 @@ class HostCollisionTests(unittest.TestCase):
                              json.dumps(result))
             self.assertEqual(file.read_text(), content)
 
+    def test_nginx_multiline_route_and_other_prefix(self):
+        with self.fixture() as tmp:
+            root = Path(tmp)
+            file = self.put(root, "etc/nginx/sites-enabled/routes.conf",
+                            "server {\\n  location = /vdr-suite { return 308 /vdr-suite/; }\\n"
+                            "  location /different-app/ { return 200; }\\n}\\n")
+            result = host.inspect(root)
+            self.assertTrue(any(x["code"] == "NGINX_EXISTING_VDR_SUITE_ROUTE"
+                                for x in result["checks"]))
+            self.assertIn("location /different-app", file.read_text())
+
     def test_nginx_relative_symlink_is_reviewed_within_fixture(self):
         with self.fixture() as tmp:
             root = Path(tmp)
