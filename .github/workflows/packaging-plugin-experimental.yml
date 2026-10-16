@@ -62,6 +62,78 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  reproducible-debian-source-offline:
+    name: Offline deterministic Debian source package roundtrip (no PPA)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact source commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Create and compare two independent unsigned source packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git ls-files --stage debian/rules | grep -E '^100755 '
+          python3 tools/check_packaging_tracked_artifacts.py
+          python3 tools/check_packaging_version.py
+          version="$(cat VERSION)"
+          package_version="$(dpkg-parsechangelog -l debian/changelog -S Version)"
+          test "$(dpkg-parsechangelog -l debian/changelog -S Distribution)" = unstable
+          source_date_epoch="$(git show -s --format=%ct "$GITHUB_SHA")"
+          test -n "$source_date_epoch"
+          read -r total free < <(df -B1 --output=size,avail "$RUNNER_TEMP" | tail -n 1)
+          reserve=$((total * 15 / 100))
+          (( reserve >= 4294967296 )) || reserve=4294967296
+          budget=2147483648
+          printf 'SOURCEPKG_TOTAL=%s FREE=%s RESERVE=%s BUDGET=%s\n' "$total" "$free" "$reserve" "$budget"
+          (( free >= reserve + budget )) || { echo 'SOURCEPKG_RESOURCE_PREFLIGHT=FAIL'; exit 1; }
+          echo 'SOURCEPKG_RESOURCE_PREFLIGHT=PASS'
+          test -x "$(command -v dpkg-source)"
+          test -x "$(command -v tar)"
+          test -x "$(command -v xz)"
+          report="$GITHUB_WORKSPACE/source-reproducibility.txt"
+          : > "$report"
+          for n in 1 2; do
+            root="$RUNNER_TEMP/sourcepkg-roundtrip-$n"
+            source="$root/vdr-suite-$version"
+            mkdir -p "$source"
+            git archive --format=tar "$GITHUB_SHA" | tar -xf - -C "$source"
+            test -x "$source/debian/rules"
+            tar --sort=name --mtime="@$source_date_epoch" --owner=0 --group=0 \
+              --numeric-owner --exclude="vdr-suite-$version/debian" \
+              -C "$root" -cJf "$root/vdr-suite_$version.orig.tar.xz" "vdr-suite-$version"
+            (cd "$source" && SOURCE_DATE_EPOCH="$source_date_epoch" dpkg-source -b .)
+            test -f "$root/vdr-suite_$package_version.dsc"
+            test -f "$root/vdr-suite_$package_version.debian.tar.xz"
+            dpkg-source -x "$root/vdr-suite_$package_version.dsc" "$root/unpacked"
+            cmp -s "$source/VERSION" "$root/unpacked/VERSION"
+            test "$(dpkg-parsechangelog -l "$root/unpacked/debian/changelog" -S Distribution)" = unstable
+            (cd "$root" && sha256sum "vdr-suite_$version.orig.tar.xz" \
+              "vdr-suite_$package_version.debian.tar.xz" \
+              "vdr-suite_$package_version.dsc") > "$root/checksums.txt"
+            printf 'SOURCE_ROUNDTRIP_%s=PASS\n' "$n" | tee -a "$report"
+          done
+          diff -u "$RUNNER_TEMP/sourcepkg-roundtrip-1/checksums.txt" \
+            "$RUNNER_TEMP/sourcepkg-roundtrip-2/checksums.txt"
+          cat "$RUNNER_TEMP/sourcepkg-roundtrip-1/checksums.txt" | tee -a "$report"
+          stat -c 'SOURCEPKG_BYTES=%s %n' "$RUNNER_TEMP/sourcepkg-roundtrip-1"/vdr-suite_*.tar.xz | tee -a "$report"
+          read -r total free < <(df -B1 --output=size,avail "$RUNNER_TEMP" | tail -n 1)
+          (( free >= reserve )) || { echo 'SOURCEPKG_RESOURCE_POSTCHECK=FAIL'; exit 1; }
+          echo 'SOURCEPKG_SOURCE_TAR_DSC_REPRODUCIBILITY=PASS' | tee -a "$report"
+          echo 'SOURCEPKG_PPA_UPLOAD_READY=NO' | tee -a "$report"
+      - name: Save source-package evidence only (not release artifacts)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-source-reproducibility-evidence
+          path: source-reproducibility.txt
+          if-no-files-found: warn
+          retention-days: 7
+
   plugin-only-noble:
     name: Ubuntu 24.04 Seahawk VDR 2.8.3 independent plugin package
     runs-on: ubuntu-24.04
