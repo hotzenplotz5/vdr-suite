@@ -10286,6 +10286,7 @@ bool PublicApiRuntime::tryHandlePost(
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         path == PublicSearchTimerCollectionPath ||
+        path == PublicSearchTimerDraftPreviewPath ||
         publicSearchTimerPreviewPath(path, timerAssignmentId) ||
         publicOperationPath(path, operationId))
     {
@@ -10445,6 +10446,7 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         path == PublicSearchTimerCollectionPath ||
+        path == PublicSearchTimerDraftPreviewPath ||
         publicSearchTimerPreviewPath(path, timerAssignmentId) ||
         publicOperationPath(path, operationId))
     {
