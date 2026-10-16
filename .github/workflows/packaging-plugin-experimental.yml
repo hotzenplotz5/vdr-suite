@@ -34,6 +34,34 @@ permissions:
   contents: read
 
 jobs:
+  packaging-offline-regressions:
+    name: Offline Debian manifest and P8 unit regression checks (no PPA)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify exact SHA and execute source-only package tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git ls-files --stage debian/rules | grep -E '^100755 '
+          python3 -m unittest -v tools.test_packaging_profiles tools.test_packaging_p8_preinst 2>&1 | tee packaging-offline-regressions.log
+          python3 tools/check_packaging_tracked_artifacts.py
+          python3 tools/check_packaging_version.py
+          echo 'PACKAGING_OFFLINE_P8_AND_MANIFEST=PASS'
+      - name: Upload offline test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: packaging-offline-regression-log
+          path: packaging-offline-regressions.log
+          if-no-files-found: warn
+          retention-days: 7
+
   plugin-only-noble:
     name: Ubuntu 24.04 Seahawk VDR 2.8.3 independent plugin package
     runs-on: ubuntu-24.04
