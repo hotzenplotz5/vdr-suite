@@ -95,8 +95,8 @@ class HostCollisionTests(unittest.TestCase):
         with self.fixture() as tmp:
             root = Path(tmp)
             file = self.put(root, "etc/nginx/sites-enabled/routes.conf",
-                            "server {\\n  location = /vdr-suite { return 308 /vdr-suite/; }\\n"
-                            "  location /different-app/ { return 200; }\\n}\\n")
+                            "server {\n  location = /vdr-suite { return 308 /vdr-suite/; }\n"
+                            "  location /different-app/ { return 200; }\n}\n")
             result = host.inspect(root)
             self.assertTrue(any(x["code"] == "NGINX_EXISTING_VDR_SUITE_ROUTE"
                                 for x in result["checks"]))
