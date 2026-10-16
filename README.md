@@ -48,9 +48,15 @@ The browser frontend lives in this repository under `web/frontend/`. The separat
 
 *Real capture of the recordings detail view. This detail screen was chosen over the recording list to illustrate the UI.*
 
-**Hisense VIDAA television:** **📷 Foto fehlt** — App running on a real TV. [Capture instructions](docs/screenshots.md#3-hisense-vidaa-tv).
+#### EPG — Zeitleiste / Timeline
 
-Both Web captures show the interface, not independently verified installed build identity or audio, seeking, subtitle or playback acceptance. Please redact private data and confirm that any visible programme artwork can be published before contributing further captures.
+![VDR-Suite EPG — programme timeline](docs/media/web-epg-timeline.png)
+
+*Real capture of the EPG timeline with scheduled programme information.*
+
+**Hisense VIDAA television:** **📷 Foto fehlt** — App running on a real TV. [Capture instructions](docs/screenshots.md#4-hisense-vidaa-tv).
+
+These three Web captures show the interface, not independently verified installed build identity or audio, seeking, subtitle or playback acceptance. Please redact private data and confirm that any visible programme artwork can be published before contributing further captures.
 
 ## How the pieces fit
 
