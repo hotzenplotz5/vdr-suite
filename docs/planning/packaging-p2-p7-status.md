@@ -17,6 +17,19 @@ Status: **in development**, not released. Source-level implementation is distinc
 
 **Limit:** This is binary-build/manifest/preinst acceptance only. The new Resolute packages have not been installed, started, upgraded, removed or purged in an isolated Resolute target yet. It proves no compatibility with the existing manual yaVDR installation or its large SQLite/WAL state. This documentation was added **after** the tested code SHA; do not treat the documentation commit as another code-CI acceptance. PPA signing, source-package reproducibility, `debian/copyright`, lintian and production takeover remain separately gated.
 
+## 2026-10-16 — Backend Agent packaging documentation and P5/P6 follow-up
+
+The repository [README](../../README.md#debian-packages-and-the-backend-agent), [Debian README](../../debian/README.md#backend-agent-package-roles-and-deployment) and [Packaging README](../../packaging/README.md) now describe the three independent binary package roles, installed Agent tools and service, its intentionally invalid default HTTPS origin, controlled enrollment, local state and the distinction between a single-host topology and a remotely enrolled Agent. This is documentation of the existing implementation; it does not establish that a separate Agent service is mandatory on a single-VDR host.
+
+[CI #124](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38955128884), exact code SHA `91ff94b352e1d54c527f31f741c8a59d2be1137a`, confirmed a successful **Resolute full three-package build** and captured a Lintian baseline (`LINTIAN_EXIT_STATUS=2`, **release gate not passed**). Its Noble plugin/full-build jobs failed **before compilation**, at the remote Seahawk PPA download of `vdr-dev_2.8.3-0yavdr0~noble_amd64.deb` (HTTP 503); the dependent Noble lifecycle jobs did not run in that attempt. The Lintian findings included aliased `/lib/systemd` paths, a generic Agent synopsis, missing `debian/copyright`, shipped artwork under `/var/cache` and three binaries without manual pages.
+
+The following follow-up code changes are **candidates, not verified successes** until their exact CI jobs pass:
+
+- [P5 systemd/Lintian candidate `5f3bd3b`](https://github.com/hotzenplotz5/vdr-suite/commit/5f3bd3b6fa3466d6b7119667ee853e68567ac10c) uses Debian-only `SYSTEMDUNITDIR=/usr/lib/systemd/system`, updates package manifests, improves the Agent description and extends P8 first-install regression coverage for old unmanaged `/lib/systemd` unit files. The general source runtime install default was **not** changed.
+- [P6 Resolute lifecycle candidate `5637b64`](https://github.com/hotzenplotz5/vdr-suite/commit/5637b64d1174a79d25484f1c81300aebc04f7e30) adds disposable Ubuntu 26.04 install/reinstall/remove/purge, exact Seahawk VDR/ABI, vdr user, service no-start and state/config preservation checks. This job runs only after the matching three-package Resolute build; it is not a real-host deployment.
+
+**Open P5 release gates:** a truthful, rights-reviewed `debian/copyright` and third-party media/interface notices, review or correction of remaining Lintian warnings, source-package reproducibility, series-specific signing/upload policy. **Open P6/P7/P8:** installed Resolute lifecycle acceptance, manual-install collision/takeover, authentic daemon-created SQLite migration and rollback. No Launchpad upload, real yaVDR install or live database operation is authorized.
+
 ## Confirmed local build milestone (2026-10-14)
 
 Maintainer-supplied terminal evidence confirms a successful isolated SuiteBridge-only binary `.deb` build, with an ABI dependency on `vdr-abi-2.8.3-0yavdr`, no daemon or agent binary dependency, and post-build resource reserve PASS. This validates P5's **local plugin-only binary path** on the yaVDR build host only. It does not clear clean Ubuntu builds, daemon packaging, signed source package, installer or P7 upgrade acceptance.
