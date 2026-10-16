@@ -88,6 +88,8 @@ python3 tools/build_vdr_suite_sourcepkg_isolated.py <VERIFIED_HEAD_SHA>
 
 This is a local, non-root source-package roundtrip. It **does not** sign packages, change the changelog distribution from `unstable`, upload to Launchpad, or validate the complete daemon/agent binary build. See [source package acceptance](../docs/planning/packaging-source-package-experiment.md).
 
+**Hosted deterministic-source evidence:** [CI #128](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38957762174), tested workflow/code SHA `de5cab976e883bc7dcce6cca92bbab45c88c89a6`, built two separate Git-tracked `3.0 (quilt)` source packages without the Seahawk PPA. Both `.dsc` roundtrips passed; the original upstream tarball, Debian tarball and `.dsc` have identical SHA-256 checksums across the two builds (`SOURCEPKG_SOURCE_TAR_DSC_REPRODUCIBILITY=PASS`). This is **unsigned source reproducibility**, not licensing clearance, a signed PPA source upload, or an installed binary-package acceptance. The separate host-specific source helper above retains its safety gates.
+
 The standalone SuiteBridge binary package **has now been built successfully** on the maintainer's yaVDR VDR ABI `vdr-abi-2.8.3-0yavdr`, with no daemon dependency, at candidate `ce63332dc72b0a262f1f30b410c18493668c2df1`. This is *not* official Ubuntu compatibility certification.
 
 ## Release block
