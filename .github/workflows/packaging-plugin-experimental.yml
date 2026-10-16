@@ -125,6 +125,9 @@ jobs:
           set -euo pipefail
           test "$(dpkg --print-architecture)" = amd64
           test "$( . /etc/os-release; printf '%s' "$VERSION_CODENAME" )" = resolute
+          # GitHub mounts the workspace with a host UID, distinct from root
+          # inside this disposable container. Only trust this exact checkout.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           git ls-files --stage debian/rules | grep -E '^100755 '
       - name: Resolve target VDR 2.8.3 and guard service activation
