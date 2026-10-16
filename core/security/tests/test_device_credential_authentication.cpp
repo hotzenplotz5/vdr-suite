@@ -115,6 +115,22 @@ public:
         return gate.evaluate(request);
     }
 
+    SecurityGateDecision evaluateSearchTimerCreate(
+        const std::string& backend,
+        const std::string& authorization = "") const
+    {
+        HttpServerRequest request;
+        request.method = "POST";
+        request.path = "/api/v1/search-timers?backend=" + backend;
+        request.body =
+            R"({"name":"Terra X","query":"Terra X","confirmed":true})";
+        request.headers["Content-Type"] = "application/json";
+        request.headers["X-Request-ID"] = "mu10d-public-create";
+        if (!authorization.empty())
+            request.headers["Authorization"] = authorization;
+        return gate.evaluate(request);
+    }
+
     SecurityGateDecision evaluateLegacySearchTimerPost(
         const std::string& target) const
     {
@@ -203,6 +219,44 @@ int main()
         }
         assert(fixture.grants.revokeGrant(
             ActorId, "searchtimers.create", "default"));
+
+        // Public CREATE is a separate Device-only and exact-backend grant.
+        const auto anonymousCreate =
+            fixture.evaluateSearchTimerCreate("default");
+        assert(!anonymousCreate.allowed);
+        assert(anonymousCreate.rejection.statusCode == 401);
+        const auto missingCreate = fixture.evaluateSearchTimerCreate(
+            "default",fixture.validAuthorization());
+        assert(!missingCreate.allowed);
+        assert(missingCreate.rejection.statusCode == 403);
+        assert(fixture.grants.ensureGrant(
+            ActorId,"searchtimers.view","default"));
+        const auto viewNotCreate = fixture.evaluateSearchTimerCreate(
+            "default",fixture.validAuthorization());
+        assert(!viewNotCreate.allowed);
+        assert(viewNotCreate.rejection.statusCode == 403);
+        assert(fixture.grants.ensureGrant(
+            ActorId,"searchtimers.create","default"));
+        const auto grantedCreate = fixture.evaluateSearchTimerCreate(
+            "default",fixture.validAuthorization());
+        assert(grantedCreate.allowed);
+        assert(grantedCreate.deviceAuthenticated);
+        assert(grantedCreate.protectedMutation);
+        assert(grantedCreate.authorizationDecision.permission ==
+            "searchtimers.create");
+        assert(grantedCreate.authorizationDecision.backendId == "default");
+        const auto wrongCreate = fixture.evaluateSearchTimerCreate(
+            "foreign",fixture.validAuthorization());
+        assert(!wrongCreate.allowed);
+        assert(wrongCreate.rejection.statusCode == 403);
+        const auto badCreate = fixture.evaluateSearchTimerCreate(
+            "../other",fixture.validAuthorization());
+        assert(!badCreate.allowed);
+        assert(badCreate.rejection.statusCode == 400);
+        assert(fixture.grants.revokeGrant(
+            ActorId,"searchtimers.create","default"));
+        assert(fixture.grants.revokeGrant(
+            ActorId,"searchtimers.view","default"));
 
         // SearchTimer list is a different, independently granted read-only
         // resource. Neither EPG, recordings nor TimerAssignment grants
