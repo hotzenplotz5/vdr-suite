@@ -31,6 +31,14 @@ MANUAL_PATHS = {
         "usr/local/lib/vdr/plugins/libvdr-suitebridge.so.*",
     ),
 }
+# On a first package installation, operator-managed systemd drop-ins can
+# silently change the new packaged service's behavior. Preserve them on
+# legitimate package-managed upgrades, but refuse unmanaged first installs.
+FIRST_INSTALL_DROPINS = {
+    "vdr-suite-daemon": ("etc/systemd/system/vdr-suite-daemon.service.d",),
+    "vdr-suite-backend-agent": ("etc/systemd/system/vdr-suite-backend-agent.service.d",),
+}
+
 # System state from an earlier manual installation must never be treated as
 # new empty package state. This check is only for a previously uninstalled
 # binary package; upgrade compatibility remains an independent P7 gate.
@@ -135,8 +143,10 @@ def render(package, repo=ROOT, test_root=""):
             # dpkg-owned package target is evidence of prior package ownership.
             "if [ \"$package_owned_target\" != 1 ]; then",
             "  check_manual " + shlex.quote(path(STATE_ROOT)),
-            "fi",
         ]
+        for entry in FIRST_INSTALL_DROPINS[package]:
+            out.append("  check_manual " + shlex.quote(path(entry)))
+        out.append("fi")
     out += ["exit 0", ""]
     return "\n".join(out)
 

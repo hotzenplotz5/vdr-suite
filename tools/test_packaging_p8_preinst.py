@@ -147,7 +147,8 @@ esac
 
     def test_legacy_manual_and_state_block(self):
         for path in ("usr/local/sbin/vdr-suite-daemon", "var/lib/vdr-suite/user.db",
-                     "etc/systemd/system/vdr-suite-daemon.service"):
+                     "etc/systemd/system/vdr-suite-daemon.service",
+                     "etc/systemd/system/vdr-suite-daemon.service.d/recording-artwork.conf"):
             with self.subTest(path=path):
                 host, bindir, script = self.fixture()
                 file = self.put(host, path)
@@ -159,11 +160,14 @@ esac
         host, bindir, script = self.fixture()
         file = self.put(host, "var/lib/vdr-suite/user.db")
         managed = self.put(host, "usr/sbin/vdr-suite-daemon")
+        dropin = self.put(
+            host, "etc/systemd/system/vdr-suite-daemon.service.d/operator.conf")
         # The status need not be 'install ok installed' during preinst.
         result = self.run_gate(bindir, script, owner="vdr-suite-daemon", installed=False)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(file.read_text(), "operator sentinel")
         self.assertEqual(managed.read_text(), "operator sentinel")
+        self.assertEqual(dropin.read_text(), "operator sentinel")
 
     def test_preexisting_state_without_package_owned_target_is_still_blocked(self):
         host, bindir, script = self.fixture()
@@ -172,6 +176,19 @@ esac
         self.assertEqual(result.returncode, 1)
         self.assertIn("MANUAL_INSTALL_PRESENT", result.stderr)
         self.assertEqual(file.read_text(), "operator sentinel")
+
+    def test_backend_agent_dropin_blocks_first_install_only(self):
+        host, bindir, script = self.fixture("vdr-suite-backend-agent")
+        dropin = self.put(
+            host, "etc/systemd/system/vdr-suite-backend-agent.service.d/operator.conf")
+        blocked = self.run_gate(bindir, script)
+        self.assertEqual(blocked.returncode, 1)
+        self.assertIn("MANUAL_INSTALL_PRESENT", blocked.stderr)
+        self.assertEqual(dropin.read_text(), "operator sentinel")
+        self.put(host, "usr/sbin/vdr-suite-backend-agent")
+        upgraded = self.run_gate(bindir, script, owner="vdr-suite-backend-agent")
+        self.assertEqual(upgraded.returncode, 0, upgraded.stderr)
+        self.assertEqual(dropin.read_text(), "operator sentinel")
 
     def test_symlink_target_blocks_even_when_owned(self):
         host, bindir, script = self.fixture()

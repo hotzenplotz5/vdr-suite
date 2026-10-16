@@ -230,6 +230,40 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  p8-preunpack-collision-noble:
+    name: P8 disposable dpkg pre-unpack collision refusal
+    needs: full-default-packages-noble
+    runs-on: ubuntu-24.04
+    container: ubuntu:24.04
+    timeout-minutes: 10
+    steps:
+      - name: Retrieve exact candidate Debian packages
+        uses: actions/download-artifact@v4
+        with:
+          name: vdr-suite-three-binaries-noble-experimental
+          path: packages
+      - name: Assert existing nginx snippet is preserved before dpkg unpack
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(id -u)" -eq 0
+          shopt -s nullglob
+          packages=(packages/vdr-suite-daemon_*.deb)
+          (( ${#packages[@]} == 1 )) || exit 1
+          mkdir -p /etc/nginx/snippets
+          printf 'operator nginx sentinel\n' > /etc/nginx/snippets/vdr-suite.conf
+          before="$(sha256sum /etc/nginx/snippets/vdr-suite.conf | cut -d' ' -f1)"
+          if dpkg --unpack "${packages[0]}" > /tmp/p8-preunpack-refusal.log 2>&1; then
+            echo "P8_DPKG_COLLISION_REFUSAL=FAIL unexpectedly unpacked"
+            exit 1
+          fi
+          grep -F 'P8_PREUNPACK=BLOCKED' /tmp/p8-preunpack-refusal.log
+          grep -F 'path=/etc/nginx/snippets/vdr-suite.conf' /tmp/p8-preunpack-refusal.log
+          after="$(sha256sum /etc/nginx/snippets/vdr-suite.conf | cut -d' ' -f1)"
+          test "$before" = "$after"
+          test ! -e /usr/sbin/vdr-suite-daemon
+          echo "P8_DPKG_COLLISION_REFUSAL=PASS"
+
   isolated-package-lifecycle-noble:
     name: Ubuntu 24.04 disposable package install/reinstall/remove/purge
     needs: full-default-packages-noble

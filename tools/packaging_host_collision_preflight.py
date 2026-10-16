@@ -36,6 +36,8 @@ MANUAL_PATHS = (
     "usr/share/vdr-suite/web/frontend",
     "etc/systemd/system/vdr-suite-daemon.service",
     "etc/systemd/system/vdr-suite-backend-agent.service",
+    "etc/systemd/system/vdr-suite-daemon.service.d",
+    "etc/systemd/system/vdr-suite-backend-agent.service.d",
     "var/lib/vdr-suite",
 )
 SITE_ROOTS = ("etc/nginx/nginx.conf", "etc/nginx/sites-enabled",

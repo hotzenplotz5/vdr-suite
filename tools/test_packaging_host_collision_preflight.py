@@ -77,6 +77,20 @@ class HostCollisionTests(unittest.TestCase):
             self.assertTrue(any(x["path"] == "/var/lib/vdr-suite" for x in
                                 result["checks"]))
 
+    def test_systemd_dropin_directories_require_review(self):
+        with self.fixture() as tmp:
+            root = Path(tmp)
+            for unit in ("vdr-suite-daemon", "vdr-suite-backend-agent"):
+                self.put(root, "etc/systemd/system/" + unit +
+                         ".service.d/operator.conf", "# operator override")
+            result = host.inspect(root)
+            self.assertEqual(result["verdict"], "REVIEW_REQUIRED")
+            for unit in ("vdr-suite-daemon", "vdr-suite-backend-agent"):
+                self.assertIn(
+                    {"code": "EXISTING_MANUAL_OR_STATE_PATH",
+                     "path": "/etc/systemd/system/" + unit + ".service.d",
+                     "severity": "REVIEW"}, result["checks"])
+
     def test_active_nginx_route_is_detected_without_disclosing_config(self):
         with self.fixture() as tmp:
             root = Path(tmp)

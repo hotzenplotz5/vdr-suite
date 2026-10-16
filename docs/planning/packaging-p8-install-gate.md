@@ -51,7 +51,9 @@ install/upgrade time (before package contents are unpacked), the guards refuse
 unowned/foreign-owned manifest targets, target symlinks/special files,
 manifest directory roots such as `/usr/share/vdr-suite`, compressed manual-page
 candidates, and SuiteBridge ABI wildcard paths. They also refuse known
-unmanaged `/usr/local` binaries and systemd overrides. Existing
+unmanaged `/usr/local` binaries and systemd overrides. Existing operator-managed systemd drop-in directories also block a first
+daemon/agent package installation, but do not automatically block upgrades of
+packages that already own their own target files. Existing
 `/var/lib/vdr-suite` blocks a *first* daemon/agent package installation;
 an already package-managed upgrade does not automatically fail merely because
 the package-managed service maintains state there.
@@ -76,9 +78,9 @@ No productive yaVDR package install is authorized by adding this script.
 
 1. Establish an explicit per-path takeover policy, package-specific
    ownership/upgrade policy and VDR ABI/service compatibility matrix.
-2. Verify the generated `preinst` control payload in each actual Debian
-   package and exercise an unowned-path refusal with dpkg in a disposable
-   container. Expand the direct-package gate to any remaining protected
+2. Validate the new disposable dpkg pre-unpack collision-refusal CI job
+   against the exact built package, including preservation of the unowned
+   nginx snippet. Expand the direct-package gate to any remaining protected
    installation/upgrade conditions before host authorization. A `postinst`
    cannot protect files already replaced during unpack.
 3. Determine the actual active systemd daemon binary, nginx route/include

@@ -15,7 +15,8 @@ hard blockers for unowned package destination files, destinations owned by a
 different package, unreadable dpkg ownership and special/symlink targets. A
 same-package target is *review required*, not an authorization to upgrade.
 It separately notes older `/usr/local` daemon binaries, the older frontend
-tree, VDR-Suite persistent state, systemd overrides and the current ABI-specific
+tree, VDR-Suite persistent state, systemd unit overrides and drop-in directories under
+`/etc/systemd/system/vdr-suite-*.service.d`, and the current ABI-specific
 SuiteBridge .so candidate files.
 
 Nginx deserves special treatment: the daemon package currently owns
