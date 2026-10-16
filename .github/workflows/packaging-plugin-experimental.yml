@@ -143,8 +143,26 @@ jobs:
           add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
           apt-get update
           apt-cache policy vdr vdr-dev
-          apt-get install -y --no-install-recommends build-essential debhelper dpkg-dev g++ make pkg-config python3 vdr vdr-dev
+          apt-get install -y --no-install-recommends build-essential debhelper dpkg-dev g++ make pkg-config python3 passwd util-linux vdr vdr-dev
           python3 tools/check_packaging_tracked_artifacts.py
+          # GitHub's mounted checkout belongs to its host-side build UID.
+          # Map that exact UID/GID inside the disposable container rather than
+          # weakening the non-root P7 recovery tests or rewriting workspace ownership.
+          build_uid="$(stat -c %u "$GITHUB_WORKSPACE")"
+          build_gid="$(stat -c %g "$GITHUB_WORKSPACE")"
+          test "$build_uid" -gt 0
+          if ! getent group "$build_gid" >/dev/null; then
+            groupadd --gid "$build_gid" ci-build-group
+          fi
+          if getent passwd "$build_uid" >/dev/null; then
+            build_user="$(getent passwd "$build_uid" | cut -d: -f1)"
+          else
+            useradd --no-create-home --uid "$build_uid" --gid "$build_gid" --home-dir "$GITHUB_WORKSPACE" --shell /bin/bash ci-build
+            build_user=ci-build
+          fi
+          test -n "$build_user"
+          test "$(stat -c %u "$GITHUB_WORKSPACE")" = "$build_uid"
+          printf 'RESOLUTE_BUILD_USER=%s\n' "$build_user" >> "$GITHUB_ENV"
           vdr_version="$(dpkg-query -W -f='${Version}' vdr)"
           dev_version="$(dpkg-query -W -f='${Version}' vdr-dev)"
           test "$vdr_version" = '2.8.3-0yavdr0~resolute'
@@ -159,7 +177,9 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s tools -p 'test_packaging_profiles.py'
-          dpkg-buildpackage -B -Pplugin-only -us -uc
+          test -n "$RESOLUTE_BUILD_USER"
+          test "$(id -u "$RESOLUTE_BUILD_USER")" -gt 0
+          runuser -u "$RESOLUTE_BUILD_USER" -- dpkg-buildpackage -B -Pplugin-only -us -uc
           shopt -s nullglob
           debs=(../vdr-plugin-suitebridge_*.deb)
           (( ${#debs[@]} == 1 )) || exit 1
