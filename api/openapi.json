@@ -527,6 +527,7 @@
       "get": {
         "tags": ["SearchTimers"],
         "operationId": "previewSavedSearchTimer",
+        "x-vdr-suite-authentication": {"actorRequired": true, "authorization": "verified Device and searchtimers.view@backend plus epg.view@backend"},
         "summary": "Preview EPG matches for one saved SearchTimer without mutation",
         "description": "Paired Device with both searchtimers.view and epg.view for the exact backend. Uses Suite SearchTimerPreviewService and ready backend EPG cache. This is not an ad-hoc create preview and exposes no native rule IDs.",
         "parameters": [
