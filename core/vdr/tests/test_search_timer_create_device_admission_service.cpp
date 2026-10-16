@@ -75,7 +75,7 @@ struct Rig
         registry.addBackend(backend);
     }
 
-    void noOperations() const
+    void noOperations()
     {
         // Probe exact scope instead of relying on auto-allocated operation IDs.
         const auto r = store.findByIdempotencyScope(
