@@ -21,8 +21,8 @@ recorded database schema, VDR plugin ABI, or service recovery procedure.
 | `/etc/systemd/system/vdr-suite-daemon.service.d/recording-artwork.conf` | Active systemd drop-in (`DropInPaths`) | **First package install blocked:** preserve semantics and directory; no automatic disable or migration |
 | `/var/lib/vdr-suite` | Existing application state; scanner reports REVIEW | **First package install blocked:** no backup, schema migration, purge or rollback without separate approval and writer-quiesce protocol |
 | Other daemon, agent, doc and manpage targets | P6 observed multiple existing files without a dpkg owner | **BLOCKED:** reconcile each canonical `debian/*.install` destination before any unpack |
-| VDR 2.8.3 package provenance | OS is Ubuntu `26.04` `resolute` amd64; `vdr` and `vdr-dev` both report `2.8.3-0yavdr0~resolute` | **Isolated SuiteBridge build PASS:** CI #118 built exact API-14 plugin with generated ABI dependency; full Resolute daemon/agent and live runtime acceptance remain unverified |
-| SuiteBridge VDR plugin | Five candidate files with suffixes `.so.11`, `.so.14`, and `.so.11.*` backup/pre-version names, at `/usr/lib/vdr/plugins`; `pkg-config vdr` reports `2.8.3`, `apiversion=14`, `libdir=/usr/lib/vdr/plugins` | REVIEW: `.so.14` name matches API 14 but no proof that VDR actually loaded it; preserve all variants and review ownership before any package takeover |
+| VDR 2.8.3 package provenance | Ubuntu `26.04` `resolute` amd64; `vdr` and `vdr-dev` report `2.8.3-0yavdr0~resolute`; `apt-cache policy` identifies `ppa:seahawk1986-hotmail/vdr-2.8.3` at `https://ppa.launchpadcontent.net/seahawk1986-hotmail/vdr-2.8.3/ubuntu`, `resolute/main`, priority 500 | **Exact-source P4 build PASS:** CI #118 produced API-14 plugin `.deb` with the correct generated ABI dependency; full Resolute daemon/agent and functional runtime tests still open |
+| SuiteBridge VDR plugin | Five files include `.so.11`, `.so.14` and `.so.11.*` historical variants; `pkg-config vdr` is `2.8.3`, API `14`, libdir `/usr/lib/vdr/plugins`; running `vdr.service` MainPID `1757` mapped `/usr/lib/vdr/plugins/libvdr-suitebridge.so.14` per read-only `/proc/1757/maps` inspection | **Loaded module identity confirmed for inspected process; functional lifecycle not tested.** Both `.so.14` and `.so.11` files had no dpkg owner reported. Preserve all versions; **package collision remains BLOCKED** |
 | SQLite database and WAL | `vdr-suite.db`: 3,357,405,184 bytes; `-wal`: 198,295,632 bytes; `-shm`: 393,216 bytes | **P7 BLOCKED:** live WAL sidecars present at inspection; no direct copy of `.db`, checkpoint, `immutable=1` schema check, migration, or restore on live state |
 | Daemon binary fingerprints | `/usr/sbin/vdr-suite-daemon`: 17,939,328 bytes, SHA-256 `0bfa78635215bd46363ec86bbe356d4426aef9fc3a6430f329ae69658f0ffc57`; `/usr/local/sbin/vdr-suite-daemon`: 6,503,208 bytes, SHA-256 `a5e08254ed8e4956fe31651981070098a7c5cc57de59e58a1da1d2f4bef227f2` | Fingerprints identify observed file bytes only, not a known source SHA or supported predecessor |
 | Network/runtime | Daemon active; prior `ss` showed TCP 18080 listening on 0.0.0.0 | REVIEW: binding and proxy path need security/runtime acceptance; no listener edits |
@@ -67,9 +67,12 @@ infer that a process ID, binary hash or active route is unchanged later.
   passed all 15 jobs at code SHA
   `c957f0c0a6c6b21e152315da31152f572c1e59b8`, including an isolated
   SuiteBridge `.deb` built for that exact Resolute VDR package, but it
-  was **not installed** on this host. Establish the **actually loaded**
-  plugin module and the host's package source; do not infer those from
-  `.so.14` or the successful disposable build.
+  was **not installed** on this host. The subsequent read-only host
+  examination confirmed the running VDR process mapped `.so.14` and
+  that the installed `vdr`/`vdr-dev` packages came from Seahawk's
+  `resolute/main` PPA. Next establish mapped-file-versus-on-disk
+  identity and functional SuiteBridge handshake, neither of which follows
+  from matching filenames or the successful disposable package build.
 - Name a supported older manual-install source and obtain a safely quiesced
   offline SQLite/WAL sample in a **private** workspace. Validate old-to-new
   schema, all writers, backup/restore and failure recovery there first.
@@ -97,6 +100,14 @@ unpack in the isolated package matrix: [CI #112](https://github.com/hotzenplotz5
 **14/14 jobs SUCCESS**, **130 packaging regressions**, code SHA
 `178b00e7252747de22b1c7d90113a3aac9dee15c`.
 This proves collision refusal, not the ABI of the plugin loaded by VDR.
+
+The 2026-10-16 operator audit of the active VDR (`MainPID=1757`) read
+`/proc/1757/maps` and found the mapped file
+`/usr/lib/vdr/plugins/libvdr-suitebridge.so.14`. This establishes the
+loaded library path only at that instant. An existing, unowned `.so.11`
+and the unowned `.so.14` still trigger the package-native pre-unpack
+collision guard. No source SHA of either installed library or VDR-Suite
+service-protocol compatibility was established by that inspection.
 
 No productive files, service states, permissions, nginx includes or databases
 were changed during the reported read-only host inspections.

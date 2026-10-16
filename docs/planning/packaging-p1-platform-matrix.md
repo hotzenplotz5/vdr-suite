@@ -32,7 +32,7 @@ Do not publish `vdr-suite-dev` or pretend internal C++ code is a stable external
 | Ubuntu 26.04 LTS (resolute), Seahawk VDR 2.8.3 | first | **plugin-only build PASS, exact VDR package/API 14, CI #118**; full daemon/agent packaging pending | **not authorized** | generated `vdr-abi-2.8.3-0yavdr`, packaged `.so.14` verified in CI | running VDR acceptance pending | real manual upgrade blocked |
 | Debian 13 | first | pending | pending | pending | pending | pending |
 | Debian 12 | compatibility | pending | pending | pending | pending | pending |
-| Actual yaVDR Ubuntu 26.04 amd64 host | acceptance | exact-version plugin-only CI #118 PASS; host install/build not performed | **no host installation authorized** | `vdr`/`vdr-dev` `2.8.3-0yavdr0~resolute`, API `14`, `/usr/lib/vdr/plugins`, `vdr-abi-2.8.3-0yavdr` all confirmed from host | `vdr.service` active; actual loaded SuiteBridge plugin unverified | manual upgrade/rollback BLOCKED; 3.36 GB DB with WAL present |
+| Actual yaVDR Ubuntu 26.04 amd64 host | acceptance | exact-version plugin-only CI #118 PASS; host install/build not performed | **no host installation authorized** | `vdr`/`vdr-dev` `2.8.3-0yavdr0~resolute`, API `14`, `/usr/lib/vdr/plugins`, `vdr-abi-2.8.3-0yavdr` confirmed | `vdr.service` active; **`/proc/<VDR MainPID>/maps` confirms mapped `libvdr-suitebridge.so.14`**; functional handshake unverified | manual upgrade/rollback BLOCKED; 3.36 GB DB with WAL present |
 
 Use target release codename/architecture and exact `vdr-dev` / `vdr` ABI metadata at build time. Do not infer a working plugin package simply from successful daemon build.
 The 2026-10-16 yaVDR host observation confirms Ubuntu 26.04
@@ -41,10 +41,13 @@ VDR API 14. The Ubuntu 24.04 Seahawk
 VDR 2.8.3 CI package build and lifecycle evidence in
 [CI #111](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38929697400)
 does not certify this installed `~resolute` VDR build, even if the upstream
-VDR version is identical. Installed SuiteBridge filenames `.so.11`,
-`.so.14` and older backup-suffixed variants are conflicts needing
-separate review; only `.so.14` matches the observed VDR API suffix, but
-a filename does not prove that VDR loaded the library. The [separate Resolute plugin-only CI #118](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38936881893)
+VDR version is identical. Installed SuiteBridge filenames `.so.11`, `.so.14` and older
+backup-suffixed variants are conflicts needing separate review.
+A 2026-10-16 read-only `/proc/<VDR MainPID>/maps` inspection confirmed
+that the active VDR mapped `/usr/lib/vdr/plugins/libvdr-suitebridge.so.14`
+at the observed instant (PID 1757). This closes **loaded plugin identity**
+for that inspection, not protocol operation, binary provenance, startup
+after replacement or version-migration acceptance. The [separate Resolute plugin-only CI #118](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38936881893)
 successfully resolved exact `2.8.3-0yavdr0~resolute`, compiled API 14,
 verified the Debian `.so.14` and automatically generated dependency
 `vdr-abi-2.8.3-0yavdr`, and passed 130 packaging regressions.
@@ -80,7 +83,7 @@ Source of the Ubuntu VDR version rows: [Ubuntu 24.04 vdr-dev](https://packages.u
 - [x] Initial candidate distro and Launchpad test matrix.
 - [ ] Verify backend-agent splitting with actual runtime behavior.
 - [ ] Finalize package ownership with generated install manifest.
-- [x] Identify official Ubuntu stock `vdr-dev` versions and locally built yaVDR ABI; **compatibility build still pending**.
+- [x] Identify official Ubuntu stock `vdr-dev` versions, host yaVDR ABI, and exact Resolute API-14 SuiteBridge-only compatibility build (CI #118). Full Resolute daemon/agent and end-to-end plugin functionality are pending.
 - [ ] Confirm support floor and matrix through clean builds.
 
 P1 remains **proposed** until these validation items pass.
