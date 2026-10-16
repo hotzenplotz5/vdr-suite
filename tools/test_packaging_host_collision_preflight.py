@@ -129,6 +129,31 @@ class HostCollisionTests(unittest.TestCase):
                                 for x in result["checks"]))
             self.assertTrue(target.exists())
 
+    def test_observed_legacy_suitebridge_suffixes_require_review(self):
+        # The real yaVDR host has .so.11/.so.14 and backup-named files.
+        # No file is loaded, executed, deleted, or treated as ABI proof.
+        suffixes = (
+            "11", "14", "11.bak-20260814-225540",
+            "11.pre-hbbmedia-20260920-084631",
+            "11.pre-phase67-hbbmedia-20260920-083703",
+        )
+        with self.fixture() as tmp:
+            root = Path(tmp)
+            originals = {
+                suffix: self.put(
+                    root, "usr/lib/vdr/plugins/libvdr-suitebridge.so." + suffix)
+                for suffix in suffixes
+            }
+            result = host.inspect(root)
+            self.assertEqual(result["verdict"], "REVIEW_REQUIRED")
+            self.assertFalse(result["install_approved"])
+            for suffix, filename in originals.items():
+                self.assertIn({
+                    "code": "INSTALLED_VDR_PLUGIN_ABI_REVIEW",
+                    "path": "/usr/lib/vdr/plugins/libvdr-suitebridge.so." + suffix,
+                    "severity": "REVIEW"}, result["checks"])
+                self.assertEqual(filename.read_text(), "fixture")
+
     def test_symlinked_package_target_blocks(self):
         with self.fixture() as tmp:
             root = Path(tmp)

@@ -12,6 +12,19 @@ Status: policy, **read-only inspection** and a private-workspace **offline backu
 6. Recover by stopping application writes and restoring a verified, compatible backup before reverting binaries. A newer DB schema must not be opened by an older unsupported binary.
 7. Do not delete persistent databases during package `remove`; `purge` must never silently destroy recorded content.
 
+## Observed yaVDR source-state size and WAL boundary (2026-10-16)
+
+The live host reported `/var/lib/vdr-suite/vdr-suite.db` at
+3,357,405,184 bytes, `vdr-suite.db-wal` at 198,295,632 bytes, and
+`vdr-suite.db-shm` at 393,216 bytes. Existence of these files does not
+prove current writer activity, but **does** prohibit certifying a raw
+`.db` copy as a consistent snapshot. The approved P7 offline tools refuse
+sidecars and protected live state; they cannot be pointed at these host paths.
+A consistent offline sample requires an independently approved writer-quiesce
+and WAL-aware snapshot procedure, verification and sufficient private scratch
+capacity **before** any copying. No such host operation is authorized.
+This observed database has no established source-version/schema provenance.
+
 ## Offline scratch recovery rehearsal (experimental)
 
 The source file `tools/packaging_recovery_rehearsal.py` accepts an **already quiesced database copy** in a private directory owned by the calling non-root user (mode `0700`). It refuses a symlink, a hardlinked source database, suspicious/hardlinked WAL/SHM sidecars, rollback journals, or real-user state outside that scratch workspace. It creates a fresh backup with SQLite's backup API, verifies integrity/schema/user_version and SHA-256, restores to a second *new* filename in the same workspace, and verifies integrity and byte identity. Existing files are never overwritten. Resource checks reserve at least 4 GiB or 15% of the workspace filesystem, with a budget for concurrent artifacts.

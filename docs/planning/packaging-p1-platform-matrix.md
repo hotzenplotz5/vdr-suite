@@ -23,9 +23,17 @@ Do not publish `vdr-suite-dev` or pretend internal C++ code is a stable external
 | Ubuntu 26.04 LTS (resolute) | first | preview implementation only; binary pending | pending | stock `vdr-dev` 2.6.9-3build1; compile not proven | pending | pending |
 | Debian 13 | first | pending | pending | pending | pending | pending |
 | Debian 12 | compatibility | pending | pending | pending | pending | pending |
-| Actual yaVDR Ubuntu host | acceptance | **SuiteBridge plugin-only `.deb` PASS** | **requires explicit deployment approval** | `vdr-abi-2.8.3-0yavdr` PASS | runtime integration pending | pending |
+| Actual yaVDR Ubuntu host | acceptance | **Earlier independent SuiteBridge plugin-only `.deb` PASS for an earlier verified candidate** | **requires explicit deployment approval** | Current observed `vdr`/`vdr-dev`: `2.8.3-0yavdr0~resolute`; exact `pkg-config apiversion` and installed plugin ABI still unverified | daemon active from unowned `/usr/sbin/vdr-suite-daemon` | manual upgrade/rollback BLOCKED; 3.36 GB DB with WAL present |
 
 Use target release codename/architecture and exact `vdr-dev` / `vdr` ABI metadata at build time. Do not infer a working plugin package simply from successful daemon build.
+The 2026-10-16 yaVDR host observation is a package-version string,
+**not** confirmation of the operating-system release. The Ubuntu 24.04 Seahawk
+VDR 2.8.3 CI package build and lifecycle evidence in
+[CI #111](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38929697400)
+does not certify this installed `~resolute` VDR build, even if the upstream
+VDR version is identical. Installed SuiteBridge filenames `.so.11`,
+`.so.14` and older backup-suffixed variants are conflicts needing
+separate review; their suffixes alone cannot establish the active VDR API.
 
 
 Source of the Ubuntu VDR version rows: [Ubuntu 24.04 vdr-dev](https://packages.ubuntu.com/noble/vdr-dev) and [Ubuntu VDR package-version search including 26.04](https://packages.ubuntu.com/vdr), checked 2026-10-14. The local yaVDR ABI is from a maintainer-supplied successful `dpkg-buildpackage -Pplugin-only` output, not the official Ubuntu package repository.

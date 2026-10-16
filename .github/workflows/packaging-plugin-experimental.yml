@@ -276,6 +276,24 @@ jobs:
             blocked_path: /usr/lib/vdr/plugins/libvdr-suitebridge.so.2.8.3
             reason: OWNERSHIP_UNKNOWN
             unpacked_path: /usr/lib/tmpfiles.d/vdr-suite-live.conf
+          - case: suitebridge-legacy-so11
+            package: vdr-plugin-suitebridge
+            target: /usr/lib/vdr/plugins/libvdr-suitebridge.so.11
+            blocked_path: /usr/lib/vdr/plugins/libvdr-suitebridge.so.11
+            reason: OWNERSHIP_UNKNOWN
+            unpacked_path: /usr/lib/tmpfiles.d/vdr-suite-live.conf
+          - case: suitebridge-legacy-so14
+            package: vdr-plugin-suitebridge
+            target: /usr/lib/vdr/plugins/libvdr-suitebridge.so.14
+            blocked_path: /usr/lib/vdr/plugins/libvdr-suitebridge.so.14
+            reason: OWNERSHIP_UNKNOWN
+            unpacked_path: /usr/lib/tmpfiles.d/vdr-suite-live.conf
+          - case: suitebridge-legacy-backup
+            package: vdr-plugin-suitebridge
+            target: /usr/lib/vdr/plugins/libvdr-suitebridge.so.11.bak-20260814-225540
+            blocked_path: /usr/lib/vdr/plugins/libvdr-suitebridge.so.11.bak-20260814-225540
+            reason: OWNERSHIP_UNKNOWN
+            unpacked_path: /usr/lib/tmpfiles.d/vdr-suite-live.conf
     steps:
       - name: Retrieve exact candidate Debian packages
         uses: actions/download-artifact@v4

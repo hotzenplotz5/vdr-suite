@@ -232,6 +232,22 @@ esac
         self.assertIn("OWNERSHIP_UNKNOWN", result.stderr)
         self.assertEqual(file.read_text(), "operator sentinel")
 
+    def test_suitebridge_observed_legacy_plugin_suffixes_block(self):
+        # The package manifest's wildcard must cover installed and backup
+        # filenames, even when none matches the fresh build's VDR API.
+        for suffix in ("11", "14", "11.bak-20260814-225540",
+                       "11.pre-hbbmedia-20260920-084631"):
+            with self.subTest(suffix=suffix):
+                host, bindir, script = self.fixture("vdr-plugin-suitebridge")
+                plugin = self.put(
+                    host, "usr/lib/vdr/plugins/libvdr-suitebridge.so." + suffix)
+                result = self.run_gate(bindir, script, package="vdr-plugin-suitebridge")
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn("P8_PREUNPACK=BLOCKED", result.stderr)
+                self.assertIn("OWNERSHIP_UNKNOWN", result.stderr)
+                self.assertIn(plugin.as_posix(), result.stderr)
+                self.assertEqual(plugin.read_text(), "operator sentinel")
+
     def test_backend_agent_config_collision(self):
         host, bindir, script = self.fixture("vdr-suite-backend-agent")
         file = self.put(host, "etc/vdr-suite/backend-agent.conf")
