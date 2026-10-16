@@ -545,3 +545,21 @@ test-searchtimer-create-durable-admission:
 
 # Add this bounded in-memory regression to the phase test graph.
 test-phase: test-searchtimer-create-durable-admission
+
+# Standalone one-shot dispatch safety proof with fake provider (never yaVDR).
+.PHONY: test-searchtimer-create-one-shot-dispatch
+test-searchtimer-create-one-shot-dispatch:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/SearchTimerCreateOperationPayload.cpp \
+		core/vdr/src/SearchTimerCreateAdmissionService.cpp \
+		core/vdr/src/SearchTimerCreateDispatchService.cpp \
+		core/vdr/tests/test_search_timer_create_dispatch_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_search_timer_create_dispatch_service
+	$(BUILD_DIR)/test_search_timer_create_dispatch_service
+
+test-phase: test-searchtimer-create-one-shot-dispatch

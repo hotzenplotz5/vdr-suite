@@ -75,3 +75,26 @@ create a VDR SearchTimer, or enable client Save.
   backend CREATE.
 - Focused regression:
   `make test-searchtimer-create-durable-admission` (in-memory database).
+
+### One-shot dispatch domain groundwork (not a public endpoint)
+
+`SearchTimerCreateDispatchService` now owns a **dormant, separately injected**
+one-shot adapter. Its preflight requires exact actor/backend/generation,
+explicit operator confirmation, backend write approval, executor opt-in, a
+verifiable stored versioned payload and **fresh complete backend readback**.
+An atomic `accepted -> dispatching` compare-and-swap is mandatory before a
+single `ISearchTimerCommandExecutor.create` invocation; a CAS replay is
+never an excuse for a second backend call. The generated operation never
+re-enters `accepted` after dispatch. A returned native ID must not already
+exist in the baseline; after execution a fresh unpaged provider inventory
+must uniquely verify backend ID, query, name, active state, match mode,
+tolerance and comparison flags before `succeeded`. Missing/ambiguous
+reply, exception, stale ID or mismatched/unavailable readback leaves the
+operation `outcome_unknown`; **no automatic retry**.
+
+This mock-proven service is not yet registered with the daemon and no
+Public-v1 CREATE endpoint or Device mutation grant has been opened.
+`make test-searchtimer-create-one-shot-dispatch` uses an in-memory
+SQLite database and mock provider only. Productive activation still needs
+an authoritative backend-generation source, the Device permission/grant
+boundary and an operation reconciliation/identity-projection path.

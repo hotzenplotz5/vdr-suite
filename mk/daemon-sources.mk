@@ -6,6 +6,7 @@ DAEMON_SRC := \
         core/operations/src/MutationOperationReadService.cpp \
         core/vdr/src/SearchTimerCreateOperationPayload.cpp \
         core/vdr/src/SearchTimerCreateAdmissionService.cpp \
+        core/vdr/src/SearchTimerCreateDispatchService.cpp \
         core/timers/src/TimerIntent.cpp \
         core/timers/src/TimerIntentRepository.cpp \
         core/timers/src/TimerAssignment.cpp \
