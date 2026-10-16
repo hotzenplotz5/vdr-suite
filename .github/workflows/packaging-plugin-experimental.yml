@@ -109,6 +109,14 @@ jobs:
     container: ubuntu:26.04
     timeout-minutes: 30
     steps:
+      - name: Bootstrap git before source checkout
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git
       - name: Check out exact candidate
         uses: actions/checkout@v4
       - name: Record exact source and apt provenance
@@ -117,9 +125,8 @@ jobs:
           set -euo pipefail
           test "$(dpkg --print-architecture)" = amd64
           test "$( . /etc/os-release; printf '%s' "$VERSION_CODENAME" )" = resolute
-          git rev-parse HEAD
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           git ls-files --stage debian/rules | grep -E '^100755 '
-          python3 tools/check_packaging_tracked_artifacts.py
       - name: Resolve target VDR 2.8.3 and guard service activation
         shell: bash
         env:
@@ -134,6 +141,7 @@ jobs:
           apt-get update
           apt-cache policy vdr vdr-dev
           apt-get install -y --no-install-recommends build-essential debhelper dpkg-dev g++ make pkg-config python3 vdr vdr-dev
+          python3 tools/check_packaging_tracked_artifacts.py
           vdr_version="$(dpkg-query -W -f='${Version}' vdr)"
           dev_version="$(dpkg-query -W -f='${Version}' vdr-dev)"
           test "$vdr_version" = '2.8.3-0yavdr0~resolute'
@@ -160,15 +168,18 @@ jobs:
           test "$(find .. -maxdepth 1 -name 'vdr-suite-daemon_*.deb' | wc -l)" -eq 0
           test "$(find .. -maxdepth 1 -name 'vdr-suite-backend-agent_*.deb' | wc -l)" -eq 0
           echo "RESOLUTE_SUITEBRIDGE_PLUGIN_ONLY=PASS"
+      - name: Stage exact-build diagnostics under workspace
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p package-artifacts-resolute
+          find .. -maxdepth 1 -type f \( -name 'vdr-plugin-suitebridge_*.deb' -o -name 'vdr-suite_*_amd64.buildinfo' -o -name 'vdr-suite_*_amd64.changes' \) -exec cp -- '{}' package-artifacts-resolute/ \;
       - name: Preserve exact-build diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: suitebridge-package-resolute-experimental
-          path: |
-            ../vdr-plugin-suitebridge_*.deb
-            ../vdr-suite_*_amd64.buildinfo
-            ../vdr-suite_*_amd64.changes
+          path: package-artifacts-resolute/
           if-no-files-found: warn
           retention-days: 7
 
