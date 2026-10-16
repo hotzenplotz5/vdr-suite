@@ -2,9 +2,9 @@
 
 ## Current evidence
 
-The README includes operator-supplied captures of VDR-Suite Web Home / “Was läuft jetzt” (`docs/media/web-home.png`) and the recording detail view (`docs/media/web-recording-details.png`), both added on 2026-10-16. The precise installed build has not been independently verified. The [separate VIDAA repository](https://github.com/hotzenplotz5/vdr-suite-vidaa) still has no verified real-television capture in this gallery. A logo, generated mockup, fixture view or static illustration is **not** a real-device screenshot.
+The README includes operator-supplied captures of VDR-Suite Web Home / “Was läuft jetzt” (`docs/media/web-home.png`), the recording detail view (`docs/media/web-recording-details.png`), and the EPG timeline (`docs/media/web-epg-timeline.png`), all added on 2026-10-16. The precise installed build has not been independently verified. The [separate VIDAA repository](https://github.com/hotzenplotz5/vdr-suite-vidaa) still has no verified real-television capture in this gallery. A logo, generated mockup, fixture view or static illustration is **not** a real-device screenshot.
 
-**No fabricated screenshots belong in the README.** This page tracks the two submitted real Web captures and the still-missing views without implying more acceptance than the device demonstrates.
+**No fabricated screenshots belong in the README.** This page tracks the three submitted real Web captures and the still-missing views without implying more acceptance than the device demonstrates.
 
 ## Gallery status and proposed captures
 
@@ -12,6 +12,7 @@ The README includes operator-supplied captures of VDR-Suite Web Home / “Was l�
 | --- | --- | --- |
 | Home / Now & Next | **Image provided**; exact installed build not independently established | `docs/media/web-home.png` |
 | Recording detail view | **Image provided**; detail view preferred to the recording browser | `docs/media/web-recording-details.png` |
+| EPG timeline / Zeitleiste | **Image provided**; operator-supplied programme timeline view | `docs/media/web-epg-timeline.png` |
 | Playback view | Real playback controls and displayed recording, with explicit client/source context | `docs/media/web-playback.png` |
 | Hisense VIDAA app (optional) | Actual television showing the first-party app; verify the installed candidate and acceptance scope | `docs/media/vidaa-on-tv.jpg` |
 
@@ -19,7 +20,7 @@ Take images only with the actual installation and its operator's permission. Ver
 
 ## Help replace the README screenshot slots
 
-The README now includes **two real Web screenshots** (Home and recording details). The VIDAA slot remains a text-only placeholder, not a visual mockup.
+The README now includes **three real Web screenshots** (Home, recording details and EPG timeline). The VIDAA slot remains a text-only placeholder, not a visual mockup.
 
 ### 1. Web Home / Now & Next
 
@@ -33,7 +34,13 @@ The README now includes **two real Web screenshots** (Home and recording details
 2. Capture browser UI with private titles, filenames, backend paths and personal account data hidden or redacted.
 3. The submitted recording detail image is stored at `docs/media/web-recording-details.png`. This screenshot does not establish recording playback acceptance.
 
-### 3. Hisense VIDAA TV
+### 3. EPG Timeline
+
+1. Open the actual installed EPG timeline / Zeitleiste in the VDR-Suite Web frontend.
+2. Crop away browser chrome and redact private server or account data.
+3. The submitted EPG timeline image is stored at `docs/media/web-epg-timeline.png`. It illustrates the timeline, not EPG correctness across channels or any specific installed release.
+
+### 4. Hisense VIDAA TV
 
 1. Open the installed app on the physical Hisense/VIDAA television and capture its real screen (a photo is acceptable).
 2. Include only visible UI that can lawfully be shared; remove pairing codes, private server URLs and channel/movie art without publication permission.
@@ -53,7 +60,7 @@ Once a capture has been privacy-reviewed, commit only that real file and replace
 
 ## Where to publish
 
-The Home and recording detail captures are included in the README. Add each further reviewed capture in its matching slot, especially a real TV photo when available. Keep this checklist available for later updates.
+The Home, recording detail and EPG timeline captures are included in the README. Add each further reviewed capture in its matching slot, especially a real TV photo when available. Keep this checklist available for later updates.
 
 ## Back
 
