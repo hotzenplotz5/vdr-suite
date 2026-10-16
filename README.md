@@ -60,9 +60,15 @@ The browser frontend lives in this repository under `web/frontend/`. The separat
 
 *Operator-supplied screenshot of the HbbTV view in VDR-Suite.*
 
-**Hisense VIDAA television:** **📷 Foto fehlt** — App running on a real TV. [Capture instructions](docs/screenshots.md#5-hisense-vidaa-tv).
+#### OSDTeletext — Videotext
 
-These four Web captures illustrate the interfaces, not independently verified installed build identity, HbbTV interoperability or audio, seeking, subtitle or playback acceptance. Please redact private data and confirm that any visible programme artwork can be published before contributing further captures.
+![VDR-Suite — OSDTeletext view](docs/media/web-osdteletext.png)
+
+*Operator-supplied screenshot of the OSDTeletext interface.*
+
+**Hisense VIDAA television:** **📷 Foto fehlt** — App running on a real TV. [Capture instructions](docs/screenshots.md#6-hisense-vidaa-tv).
+
+These five Web captures illustrate the interfaces, not independently verified installed build identity, HbbTV interoperability or audio, seeking, subtitle or playback acceptance. Please redact private data and confirm that any visible programme artwork can be published before contributing further captures.
 
 ## How the pieces fit
 
