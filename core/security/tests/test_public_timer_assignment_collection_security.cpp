@@ -139,5 +139,19 @@ int main()
         assert(decision.rejection.statusCode == 401);
     }
 
+    {
+        // A valid Browser session and even an explicit SearchTimer grant
+        // cannot bypass the independent paired-Device credential boundary.
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "searchtimers.view", "backend-one"));
+        const auto cookieDenied = fixture.gate.evaluate(
+            browserGet(fixture,
+                "/api/v1/search-timers?backend=backend-one"));
+        assert(!cookieDenied.allowed);
+        assert(cookieDenied.rejection.statusCode == 403);
+        assert(cookieDenied.rejection.body.find(
+            "device_credential_required") != std::string::npos);
+    }
     return 0;
 }

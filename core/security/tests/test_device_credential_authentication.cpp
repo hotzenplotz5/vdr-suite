@@ -170,6 +170,52 @@ int main()
         assert(recordingsAllowed.authorizedBackendIds ==
             (std::vector<std::string>{"default"}));
 
+        // SearchTimer list is a different, independently granted read-only
+        // resource. Neither EPG, recordings nor TimerAssignment grants
+        // permit SearchTimer enumeration on the device.
+        const std::string searchPath =
+            "/api/v1/search-timers?backend=default&limit=30";
+        const auto searchDenied = fixture.evaluate(
+            searchPath, fixture.validAuthorization());
+        assert(!searchDenied.allowed);
+        assert(searchDenied.rejection.statusCode == 403);
+        assert(fixture.grants.ensureGrant(
+            ActorId, "searchtimers.view", "default"));
+        const auto searchGranted = fixture.evaluate(
+            searchPath, fixture.validAuthorization());
+        assert(searchGranted.allowed);
+        assert(searchGranted.deviceAuthenticated);
+        assert(searchGranted.context.actor.type == ActorType::Service);
+        assert(searchGranted.authorizationDecision.permission ==
+            "searchtimers.view");
+        assert(searchGranted.authorizationDecision.backendId == "default");
+        assert(searchGranted.authorizationDecision.action ==
+            "searchtimers.view");
+
+        const auto searchWrongBackend = fixture.evaluate(
+            "/api/v1/search-timers?backend=foreign",
+            fixture.validAuthorization());
+        assert(!searchWrongBackend.allowed);
+        assert(searchWrongBackend.rejection.statusCode == 403);
+        const auto searchInvalidBackend = fixture.evaluate(
+            "/api/v1/search-timers?backend=../private",
+            fixture.validAuthorization());
+        assert(!searchInvalidBackend.allowed);
+        assert(searchInvalidBackend.rejection.statusCode == 400);
+        const auto searchMissingBackend = fixture.evaluate(
+            "/api/v1/search-timers", fixture.validAuthorization());
+        assert(!searchMissingBackend.allowed);
+        assert(searchMissingBackend.rejection.statusCode == 400);
+        const auto searchAnonymous = fixture.evaluate(searchPath);
+        assert(!searchAnonymous.allowed);
+        assert(searchAnonymous.rejection.statusCode == 401);
+        assert(fixture.grants.revokeGrant(
+            ActorId, "searchtimers.view", "default"));
+        const auto searchRevoked = fixture.evaluate(
+            searchPath, fixture.validAuthorization());
+        assert(!searchRevoked.allowed);
+        assert(searchRevoked.rejection.statusCode == 403);
+
         // Device recording session control requires its own play grant.
         // recordings.view alone is not sufficient and wrong backends fail.
         const auto playbackDenied = fixture.evaluatePlayback(
