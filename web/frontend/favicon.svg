@@ -14,8 +14,8 @@
   <g fill="none" stroke-linecap="round" stroke-linejoin="round">
     <path d="M22 19 H43 A4 4 0 0 1 47 23 V40 A4 4 0 0 1 43 44 H19 A8 8 0 0 1 11 36 V27 A8 8 0 0 1 19 19 H22" stroke="#f8fafc" stroke-width="4"/>
     <path d="M23 51 H40" stroke="#f8fafc" stroke-width="4"/>
-    <path d="M27 15 L33 10" stroke="#f8fafc" stroke-width="4"/>
-    <path d="M40 15 L34 10" stroke="#f8fafc" stroke-width="4"/>
+    <path d="M29 19 L24 11" stroke="#f8fafc" stroke-width="4"/>
+    <path d="M36 19 L41 11" stroke="#f8fafc" stroke-width="4"/>
     <path d="M9 27 H5" stroke="#64748b" stroke-width="2"/>
     <path d="M9 36 H5" stroke="#64748b" stroke-width="2"/>
   </g>

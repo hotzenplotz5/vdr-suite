@@ -21,8 +21,8 @@
     <g fill="none" stroke-linecap="round" stroke-linejoin="round">
       <path d="M143 51 H264 A19 19 0 0 1 283 70 V130 A19 19 0 0 1 264 149 H91 A32 32 0 0 1 59 117 V83 A32 32 0 0 1 91 51 H143" stroke="#07152d" stroke-width="12"/>
       <path d="M137 171 H224" stroke="#07152d" stroke-width="10"/>
-      <path d="M175 35 L207 6" stroke="#07152d" stroke-width="11"/>
-      <path d="M231 35 L199 6" stroke="#07152d" stroke-width="11"/>
+      <path d="M188 51 L158 15" stroke="#07152d" stroke-width="11"/>
+      <path d="M218 51 L248 15" stroke="#07152d" stroke-width="11"/>
       <path d="M55 76 H31" stroke="#64748b" stroke-width="4"/>
       <path d="M55 101 H31" stroke="#64748b" stroke-width="4"/>
       <path d="M55 126 H43 L33 137 H17" stroke="#64748b" stroke-width="4"/>
