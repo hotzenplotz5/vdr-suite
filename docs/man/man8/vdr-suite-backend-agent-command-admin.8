@@ -1,0 +1,90 @@
+.TH VDR-SUITE-BACKEND-AGENT-COMMAND-ADMIN 8 "October 2026" "VDR-Suite" "System Administration"
+.SH NAME
+vdr-suite-backend-agent-command-admin \- inspect and administer backend command delivery and provider ownership
+.SH SYNOPSIS
+.B vdr-suite-backend-agent-command-admin
+.RI [ --database " PATH" ]
+.RI [ --backend " ID" ]
+.RB ( --status " | " --provider-ownership-status " | "
+.B --live-provider-ownership-status
+.RB " | " --timer-provider-ownership-status
+.RB " | " --recording-marks-provider-ownership-status
+.RB " | " --recording-cut-provider-ownership-status " | "
+.B --set-native-probe-owner
+.RB " | " --clear-native-probe-owner " | "
+.B --set-live-owner
+.RB " | " --clear-live-owner " | "
+.B --set-timer-create-owner
+.RB " | " --clear-timer-owner " | "
+.B --set-recording-marks-owner
+.RB " | " --clear-recording-marks-owner " | "
+.B --set-recording-cut-owner
+.RB " | " --clear-recording-cut-owner " | "
+.B --enqueue-probe
+.RB " | " --enqueue-native-probe
+.RI [ --deadline-seconds " 30..3600" ]
+.RB " | " --replay " COMMAND_ID | "
+.B --arm-lost-receipt-response
+.RB " | " --arm-lost-result-response )
+.SH DESCRIPTION
+This is a trusted local administrator utility that inspects or changes the
+Backend Agent command-delivery and local provider-ownership records associated
+with a selected backend in the VDR-Suite Control Plane database.
+Its status and provider-ownership-status actions output bounded JSON.
+Owner-setting, owner-clearing, enqueue, replay and fault-injection actions
+are not read-only.  They can change durable state and downstream behavior.
+.PP
+The utility is not a public client API or a normal Agent enrollment command.
+It is not a substitute for backend authorization or for capability, generation,
+provider-ownership and result-verification checks in the runtime.
+.SH OPTIONS
+.TP
+.BI --database " PATH"
+Control Plane SQLite database, default
+.IR /var/lib/vdr-suite/vdr-suite.db .
+.TP
+.BI --backend " ID"
+Existing backend identity, default
+.BR default .
+.TP
+.B --status
+Read the latest command-delivery summary for this backend.
+.TP
+.BR --provider-ownership-status ", " --live-provider-ownership-status ", " --timer-provider-ownership-status ", " --recording-marks-provider-ownership-status ", " --recording-cut-provider-ownership-status
+Read the corresponding scoped provider ownership and activation state.
+.TP
+.BR --set-native-probe-owner ", " --set-live-owner ", " --set-timer-create-owner ", " --set-recording-marks-owner ", " --set-recording-cut-owner
+Persist a corresponding local provider ownership binding; not a harmless probe.
+.TP
+.BR --clear-native-probe-owner ", " --clear-live-owner ", " --clear-timer-owner ", " --clear-recording-marks-owner ", " --clear-recording-cut-owner
+Clear the corresponding persisted ownership binding.
+.TP
+.BR --enqueue-probe ", " --enqueue-native-probe
+Create a command-delivery probe assignment.
+.TP
+.BI --deadline-seconds " N"
+Probe assignment deadline interval in seconds; allowed 30 to 3600.
+Default 300.
+.TP
+.BI --replay " COMMAND_ID"
+Request a replay of an existing backend command.
+.TP
+.BR --arm-lost-receipt-response ", " --arm-lost-result-response
+Arm fault-injection behavior for acceptance tests; never run casually on a
+production backend.
+.SH SECURITY
+Use only within a reviewed, trusted administrator context.  Database writes
+can create schema or change authoritative command and provider records;
+they require an explicitly approved and recoverable maintenance procedure.
+Do not run write or fault-injection actions against a productive installation
+solely to confirm that the package is installed.  Enrollment identity,
+runtime credentials and technical authorization are separate trust boundaries.
+.SH FILES
+.TP
+.I /var/lib/vdr-suite/vdr-suite.db
+Default Control Plane SQLite database.
+.SH SEE ALSO
+.BR vdr-suite-backend-agent (8),
+.BR vdr-suite-backend-agent-admin (8),
+.BR vdr-suite-backend-agent-enroll (8),
+.BR vdr-suite-daemon (8)
