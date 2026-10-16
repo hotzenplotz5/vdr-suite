@@ -122,6 +122,31 @@ struct PublicSearchTimerCollectionResult
     bool hasMore = false;
 };
 
+enum class PublicSearchTimerCreateStatus
+{
+    accepted, replayed, invalid, conflict, backendUnavailable, unavailable
+};
+struct PublicSearchTimerCreateRequest
+{
+    std::string actorRef;
+    std::string backendId;
+    std::string idempotencyKey;
+    std::string name;
+    std::string query;
+    bool active = true;
+    int mode = 0;
+    int tolerance = 0;
+    bool compareTitle = true;
+    bool compareSubtitle = false;
+    bool compareSummary = false;
+};
+struct PublicSearchTimerCreateResult
+{
+    PublicSearchTimerCreateStatus status =
+        PublicSearchTimerCreateStatus::unavailable;
+    PublicOperationResource operation;
+};
+
 // Read-only, bounded projection from Suite's existing SearchTimer preview.
 enum class PublicSearchTimerPreviewStatus { ok, notFound, unavailable };
 
@@ -1027,6 +1052,10 @@ public:
         std::function<PublicSearchTimerCollectionResult(
             const PublicSearchTimerCollectionRequest& request)>;
 
+    using SearchTimerCreate =
+        std::function<PublicSearchTimerCreateResult(
+            const PublicSearchTimerCreateRequest& request)>;
+
     using SearchTimerPreviewLookup =
         std::function<PublicSearchTimerPreviewResult(
             const PublicSearchTimerPreviewRequest& request)>;
@@ -1179,6 +1208,9 @@ public:
     bool searchTimerCollectionLookupConfigured() const;
     PublicSearchTimerCollectionResult lookupSearchTimerCollection(
         const PublicSearchTimerCollectionRequest& request) const;
+
+    void registerSearchTimerCreate(SearchTimerCreate handler);
+    void resetSearchTimerCreate();
 
     void registerSearchTimerPreviewLookup(SearchTimerPreviewLookup lookup);
     void resetSearchTimerPreviewLookup();
@@ -1385,6 +1417,9 @@ private:
 
     mutable std::mutex searchTimerCollectionLookupMutex_;
     SearchTimerCollectionLookup searchTimerCollectionLookup_;
+
+    mutable std::mutex searchTimerCreateMutex_;
+    SearchTimerCreate searchTimerCreate_;
 
     mutable std::mutex searchTimerPreviewLookupMutex_;
     SearchTimerPreviewLookup searchTimerPreviewLookup_;

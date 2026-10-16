@@ -2418,6 +2418,79 @@ bool parsePublicAccountMutationBody(
     return position == input.size();
 }
 
+
+bool parsePublicSearchTimerCreateBody(
+    const std::string& input, PublicSearchTimerCreateRequest& out)
+{
+    std::size_t pos = 0U;
+    std::vector<std::string> seen;
+    skipAccountMutationWhitespace(input,pos);
+    if (pos >= input.size() || input[pos++] != '{') return false;
+    while (true)
+    {
+        skipAccountMutationWhitespace(input,pos);
+        if (pos < input.size() && input[pos] == '}') { ++pos; break; }
+        std::string key;
+        if (!parseAccountMutationJsonString(input,pos,key) ||
+            std::find(seen.begin(),seen.end(),key) != seen.end())
+            return false;
+        seen.push_back(key);
+        skipAccountMutationWhitespace(input,pos);
+        if (pos >= input.size() || input[pos++] != ':') return false;
+        skipAccountMutationWhitespace(input,pos);
+        if (key == "name" || key == "query")
+        {
+            std::string val;
+            if (!parseAccountMutationJsonString(input,pos,val)) return false;
+            if (key == "name") out.name = std::move(val);
+            else out.query = std::move(val);
+        }
+        else if (key == "mode" || key == "tolerance")
+        {
+            if (pos >= input.size() || input[pos] < '0' ||
+                input[pos] > '9') return false;
+            const int val = input[pos++] - '0';
+            if (key == "mode") out.mode = val;
+            else out.tolerance = val;
+        }
+        else if (key == "active" || key == "compareTitle" ||
+                 key == "compareSubtitle" || key == "compareSummary" ||
+                 key == "confirmed")
+        {
+            bool val;
+            if (consumeAccountMutationLiteral(input,pos,"true"))
+                val = true;
+            else if (consumeAccountMutationLiteral(input,pos,"false"))
+                val = false;
+            else return false;
+            if (key == "active") out.active = val;
+            if (key == "compareTitle") out.compareTitle = val;
+            if (key == "compareSubtitle") out.compareSubtitle = val;
+            if (key == "compareSummary") out.compareSummary = val;
+            if (key == "confirmed" && !val) return false;
+        }
+        else return false;
+        skipAccountMutationWhitespace(input,pos);
+        if (pos >= input.size()) return false;
+        if (input[pos] == ',') { ++pos; continue; }
+        if (input[pos] == '}') { ++pos; break; }
+        return false;
+    }
+    skipAccountMutationWhitespace(input,pos);
+    if (pos != input.size()) return false;
+    for (const char* required : {"name","query","mode","compareTitle",
+         "compareSubtitle","compareSummary","confirmed"})
+        if (std::find(seen.begin(),seen.end(),required) == seen.end())
+            return false;
+    return !out.name.empty() && out.name.size() <= 240U &&
+        out.query.size() >= 2U && out.query.size() <= 240U &&
+        (out.mode == 0 || out.mode == 1 || out.mode == 2 ||
+         out.mode == 3 || out.mode == 5) &&
+        out.tolerance >= 0 && out.tolerance <= 3 &&
+        (out.mode == 5 || out.tolerance == 0) &&
+        (out.compareTitle || out.compareSubtitle || out.compareSummary);
+}
+
 bool parsePublicAccountCreateBody(
     const std::string& input,
     std::string& loginName,
@@ -5023,6 +5096,17 @@ PublicSearchTimerCollectionResult PublicApiRuntime::lookupSearchTimerCollection(
         callback = searchTimerCollectionLookup_;
     }
     return callback ? callback(request) : PublicSearchTimerCollectionResult{};
+}
+
+void PublicApiRuntime::registerSearchTimerCreate(SearchTimerCreate handler)
+{
+    std::lock_guard<std::mutex> lock(searchTimerCreateMutex_);
+    searchTimerCreate_ = std::move(handler);
+}
+void PublicApiRuntime::resetSearchTimerCreate()
+{
+    std::lock_guard<std::mutex> lock(searchTimerCreateMutex_);
+    searchTimerCreate_ = {};
 }
 
 void PublicApiRuntime::registerSearchTimerPreviewLookup(
@@ -8007,6 +8091,122 @@ bool PublicApiRuntime::tryHandleGet(
     }
 
     std::string timerAssignmentId;
+
+    if (path == PublicSearchTimerCollectionPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path,requestId,correlationId);
+            return true;
+        }
+        if (authorizedBackendId.empty() ||
+            requestTarget != std::string(PublicSearchTimerCollectionPath) +
+                "?backend=" + authorizedBackendId)
+        {
+            response = invalidRequestProblem(path,
+                "Exactly one authorized backend query is required.",
+                requestId,correlationId);
+            return true;
+        }
+        if (!applicationJsonContentType(contentType))
+        {
+            response = problemResponse(415,"unsupported_media_type",
+                "Unsupported media type","SearchTimer CREATE requires JSON.",
+                path,requestId,correlationId);
+            return true;
+        }
+        if (body.empty() || body.size() > 1200U)
+        {
+            response = invalidRequestProblem(path,
+                "SearchTimer CREATE body size is invalid.",
+                requestId,correlationId);
+            return true;
+        }
+        JsonSyntaxValidator syntax(body);
+        if (!syntax.valid())
+        {
+            response = invalidRequestProblem(path,"Invalid CREATE JSON.",
+                requestId,correlationId);
+            return true;
+        }
+        PublicSearchTimerCreateRequest request;
+        if (!parsePublicSearchTimerCreateBody(body,request))
+        {
+            response = problemResponse(422,"validation_error",
+                "Validation failed","Unsupported SearchTimer CREATE fields.",
+                path,requestId,correlationId);
+            return true;
+        }
+        if (!publicIdempotencyKeyValid(idempotencyKey))
+        {
+            response = invalidRequestProblem(path,
+                "Valid Idempotency-Key required.",
+                requestId,correlationId);
+            return true;
+        }
+        if (!ifMatch.empty())
+        {
+            response = invalidRequestProblem(path,
+                "A new SearchTimer has no If-Match revision.",
+                requestId,correlationId);
+            return true;
+        }
+        request.actorRef = actorRef;
+        request.backendId = authorizedBackendId;
+        request.idempotencyKey = idempotencyKey;
+        SearchTimerCreate handler;
+        {
+            std::lock_guard<std::mutex> lock(searchTimerCreateMutex_);
+            handler = searchTimerCreate_;
+        }
+        if (!handler)
+        {
+            response = serviceUnavailableProblem(path,requestId,correlationId);
+            return true;
+        }
+        const auto created = handler(request);
+        switch (created.status)
+        {
+            case PublicSearchTimerCreateStatus::accepted:
+            case PublicSearchTimerCreateStatus::replayed:
+            {
+                if (created.operation.operationId.empty() ||
+                    created.operation.state.empty() ||
+                    created.operation.backendId != authorizedBackendId ||
+                    created.operation.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path,requestId,correlationId);
+                    return true;
+                }
+                const std::string operationPath =
+                    std::string(PublicOperationPrefix) +
+                    created.operation.operationId;
+                response = publicOperationResponse(created.operation,
+                    operationPath,requestId,correlationId,"");
+                response.statusCode = 202;
+                response.headers["Location"] = operationPath;
+                response.headers["Cache-Control"] = "no-store";
+                return true;
+            }
+            case PublicSearchTimerCreateStatus::invalid:
+                response = problemResponse(422,"validation_error",
+                    "Validation failed","Invalid SearchTimer CREATE.",
+                    path,requestId,correlationId);
+                return true;
+            case PublicSearchTimerCreateStatus::conflict:
+                response = problemResponse(409,"idempotency_conflict",
+                    "Conflict","Idempotency key or operation conflicts.",
+                    path,requestId,correlationId);
+                return true;
+            case PublicSearchTimerCreateStatus::backendUnavailable:
+            case PublicSearchTimerCreateStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path,requestId,correlationId);
+                return true;
+        }
+    }
+
     if (publicTimerAssignmentPath(
             path,
             timerAssignmentId))
