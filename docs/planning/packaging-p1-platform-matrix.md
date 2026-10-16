@@ -32,7 +32,7 @@ Do not publish `vdr-suite-dev` or pretend internal C++ code is a stable external
 | Ubuntu 26.04 LTS (resolute), Seahawk VDR 2.8.3 | first | **plugin-only build PASS, exact VDR package/API 14, CI #118**; full daemon/agent packaging pending | **not authorized** | generated `vdr-abi-2.8.3-0yavdr`, packaged `.so.14` verified in CI | running VDR acceptance pending | real manual upgrade blocked |
 | Debian 13 | first | pending | pending | pending | pending | pending |
 | Debian 12 | compatibility | pending | pending | pending | pending | pending |
-| Actual yaVDR Ubuntu 26.04 amd64 host | acceptance | exact-version plugin-only CI #118 PASS; host install/build not performed | **no host installation authorized** | `vdr`/`vdr-dev` `2.8.3-0yavdr0~resolute`, API `14`, `/usr/lib/vdr/plugins`, `vdr-abi-2.8.3-0yavdr` confirmed | `vdr.service` active; **`/proc/<VDR MainPID>/maps` confirms mapped `libvdr-suitebridge.so.14`**; functional handshake unverified | manual upgrade/rollback BLOCKED; 3.36 GB DB with WAL present |
+| Actual yaVDR Ubuntu 26.04 amd64 host | acceptance | exact-version plugin-only CI #118 PASS; host install/build not performed | **no host installation authorized** | `vdr`/`vdr-dev` `2.8.3-0yavdr0~resolute`, API `14`, `/usr/lib/vdr/plugins`, `vdr-abi-2.8.3-0yavdr` confirmed | `vdr.service` active, mapped `libvdr-suitebridge.so.14`; **SVDRP CAPS/SNAP and private CAPS read-path PASS**; negative peer auth and agent-mediated integration pending | manual upgrade/rollback BLOCKED; 3.36 GB DB with WAL present |
 
 Use target release codename/architecture and exact `vdr-dev` / `vdr` ABI metadata at build time. Do not infer a working plugin package simply from successful daemon build.
 The 2026-10-16 yaVDR host observation confirms Ubuntu 26.04
@@ -70,10 +70,27 @@ Another passive `journalctl` query for the same PID showed exactly one
 `suitebridge: capability schema=1` declaration each for
 `snapshots=available`, `local-contract=available`,
 `status-events=available`, and `mutations=disabled`
-(`CAPABILITY_START_EVIDENCE=PASS`). This confirms published startup
-capability declarations, **not** runtime handshake, peer admission, a
-CAPS/SNAP roundtrip, actual mutation authorization, future restarts,
-upgrade/rollback or service recovery. The [separate Resolute plugin-only CI #118](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38936881893)
+(`CAPABILITY_START_EVIDENCE=PASS`). This confirms published startup capability declarations.
+The following **live, read-only protocol calls** were then performed
+against the running VDR PID 1757:
+
+- Local SVDRP (`127.0.0.1:6419`): `PLUG suitebridge CAPS 1` and
+  `PLUG suitebridge SNAP` returned expected reply code 900 and validated
+  schema/capabilities/snapshot counters (`SVDRP_CAPS=PASS`,
+  `SVDRP_SNAP=PASS`, `SUITEBRIDGE_READ_PROTOCOL=PASS`).
+- Private Unix `SOCK_SEQPACKET`: kernel `SO_PEERCRED` confirmed the
+  server peer PID/UID matched the active VDR and its account
+  (`CONTROL_PEER_IDENTITY=PASS`). Binary protocol v1 operation 8
+  (`CapabilityDiscovery`, InteractiveControlRead class, no payload)
+  returned a valid success response, discovery schemas and the four
+  expected capabilities (`PRIVATE_CAPS_PROTOCOL=PASS`,
+  `PRIVATE_CAPS_SCHEMA=PASS`,
+  `PRIVATE_CONTROL_PLANE_READ=PASS`).
+
+These confirmations close the **tested SVDRP CAPS/SNAP and private CAPS
+read paths** at inspection time, but not private peer-rejection negative
+cases, agent-mediated integration, full plugin coverage, mutation
+authorization, future restarts, upgrade/rollback or service recovery. The [separate Resolute plugin-only CI #118](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38936881893)
 successfully resolved exact `2.8.3-0yavdr0~resolute`, compiled API 14,
 verified the Debian `.so.14` and automatically generated dependency
 `vdr-abi-2.8.3-0yavdr`, and passed 130 packaging regressions.

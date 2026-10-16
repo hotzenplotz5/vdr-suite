@@ -22,7 +22,7 @@ recorded database schema, VDR plugin ABI, or service recovery procedure.
 | `/var/lib/vdr-suite` | Existing application state; scanner reports REVIEW | **First package install blocked:** no backup, schema migration, purge or rollback without separate approval and writer-quiesce protocol |
 | Other daemon, agent, doc and manpage targets | P6 observed multiple existing files without a dpkg owner | **BLOCKED:** reconcile each canonical `debian/*.install` destination before any unpack |
 | VDR 2.8.3 package provenance | Ubuntu `26.04` `resolute` amd64; `vdr` and `vdr-dev` report `2.8.3-0yavdr0~resolute`; `apt-cache policy` identifies `ppa:seahawk1986-hotmail/vdr-2.8.3` at `https://ppa.launchpadcontent.net/seahawk1986-hotmail/vdr-2.8.3/ubuntu`, `resolute/main`, priority 500 | **Exact-source P4 build PASS:** CI #118 produced API-14 plugin `.deb` with the correct generated ABI dependency; full Resolute daemon/agent and functional runtime tests still open |
-| SuiteBridge VDR plugin | Five files include `.so.11`, `.so.14` and `.so.11.*` historical variants; `pkg-config vdr` is `2.8.3`, API `14`, libdir `/usr/lib/vdr/plugins`; running VDR MainPID `1757` maps the `.so.14` file; device/inode equality with disk confirmed (`MAPPED_FILE_IDENTITY=PASS`) | **Loaded-module/disk-file identity verified for inspected process; control socket listener separately confirmed; protocol not exercised.** Both `.so.14` and `.so.11` lack reported dpkg ownership. Preserve all versions; **package collision remains BLOCKED** |
+| SuiteBridge VDR plugin | Five files include `.so.11`, `.so.14` and `.so.11.*` historical variants; `pkg-config vdr` is `2.8.3`, API `14`, libdir `/usr/lib/vdr/plugins`; running VDR MainPID `1757` maps `.so.14`; mapped file identity PASS | **SVDRP CAPS/SNAP and private CAPS read-path PASS**, including positive client-side server `SO_PEERCRED` identity check. Other operations/denial paths not exercised. Existing unowned `.so.14` and `.so.11` preserved; **package collision remains BLOCKED** |
 | SQLite database and WAL | `vdr-suite.db`: 3,357,405,184 bytes; `-wal`: 198,295,632 bytes; `-shm`: 393,216 bytes | **P7 BLOCKED:** live WAL sidecars present at inspection; no direct copy of `.db`, checkpoint, `immutable=1` schema check, migration, or restore on live state |
 | Daemon binary fingerprints | `/usr/sbin/vdr-suite-daemon`: 17,939,328 bytes, SHA-256 `0bfa78635215bd46363ec86bbe356d4426aef9fc3a6430f329ae69658f0ffc57`; `/usr/local/sbin/vdr-suite-daemon`: 6,503,208 bytes, SHA-256 `a5e08254ed8e4956fe31651981070098a7c5cc57de59e58a1da1d2f4bef227f2` | Fingerprints identify observed file bytes only, not a known source SHA or supported predecessor |
 | Network/runtime | Daemon active; prior `ss` showed TCP 18080 listening on 0.0.0.0. SuiteBridge private `/run/vdr/vdr-suite-control/control.sock` is a `SOCK_SEQPACKET` Unix listener owned by VDR PID `1757`, fd `28`; directory `0700 vdr:vdr`, socket `0660 vdr:vdr`. Passive journal: `CONTROL_PLANE_START_ACCEPTED=1`, `CONTROL_PLANE_START_REJECTED=0`, `PLUGIN_LIFECYCLE_START_ACCEPTED=1`; capability schema 1 declarations observed once each: `snapshots=available`, `local-contract=available`, `status-events=available`, `mutations=disabled` | **Control-plane/lifecycle initialization PASS at observed boot; listener and ownership confirmed.** No peer-authentication handshake or functional command executed. Preserve socket, service and nginx configurations; no listener edits |
@@ -73,8 +73,9 @@ infer that a process ID, binary hash or active route is unchanged later.
   time, and that the installed `vdr`/`vdr-dev` packages came from
   Seahawk's `resolute/main` PPA. The next boundary is functional
   SuiteBridge health/handshake and source-version provenance. A matching
-  device/inode and a disk hash do **not** prove this binary is identical
-  to the CI artifact or that its protocol works correctly.
+  device/inode and disk hash do **not** prove this binary is identical
+  to the CI artifact; the live SVDRP CAPS/SNAP and private CAPS calls
+  subsequently passed, but full protocol/function coverage remains open.
 - Name a supported older manual-install source and obtain a safely quiesced
   offline SQLite/WAL sample in a **private** workspace. Validate old-to-new
   schema, all writers, backup/restore and failure recovery there first.
@@ -135,6 +136,25 @@ journal audit for the same PID yielded `SNAPSHOTS=PASS`,
 capability schema-1 announcements matched the expected declarations
 exactly once. The `mutations=disabled` startup declaration is **not**
 proof that every independent write pathway is disabled or authorized.
+
+Subsequent local read-only VDR protocol checks against PID `1757`
+returned `SVDRP_CAPS=PASS`, `SVDRP_SNAP=PASS` and
+`SUITEBRIDGE_READ_PROTOCOL=PASS`: discovery/schema compatibility
+and snapshot counter consistency were verified without printing the
+payload. A second check used the private Unix `SOCK_SEQPACKET` with
+binary protocol v1, operation `CapabilityDiscovery=8`, class
+`InteractiveControlRead=2`, no payload. Client-side
+`SO_PEERCRED` matched the expected VDR PID and `vdr` UID;
+the server returned response result `Success`, reply code 900,
+correct correlation ID, schema and capability states:
+`CONTROL_PEER_IDENTITY=PASS`,
+`PRIVATE_CAPS_PROTOCOL=PASS`,
+`PRIVATE_CAPS_SCHEMA=PASS`,
+`PRIVATE_CONTROL_PLANE_READ=PASS`. These positive read exchanges
+do **not** prove a negative peer-admission test, all other protocol
+operations or mutation authorization. They may increment volatile
+request counters but do not modify recordings, timers, installed
+binaries or the SQLite database.
 
 No productive files, service states, permissions, nginx includes or databases
 were changed during the reported read-only host inspections.
