@@ -338,7 +338,70 @@ int main()
     ApiResponse searchPost;
     assert(runtime.tryHandlePost(
         "/api/v1/search-timers?backend=one", "st-post", "", searchPost));
-    assert(searchPost.statusCode == 405);
+    assert(searchPost.statusCode == 401);
+    runtime.resetSearchTimerCreate();
+    int createCalls = 0;
+    runtime.registerSearchTimerCreate(
+        [&](const PublicSearchTimerCreateRequest& request)
+        {
+            ++createCalls;
+            assert(request.actorRef == "actor:test");
+            assert(request.backendId == "one");
+            assert(request.idempotencyKey == "test-create-unique-1");
+            assert(request.name == "Terra X");
+            assert(request.query == "Terra X");
+            assert(request.active);
+            assert(request.mode == 1);
+            assert(request.compareTitle);
+            assert(!request.compareSubtitle);
+            assert(request.compareSummary);
+            PublicSearchTimerCreateResult result;
+            result.status = PublicSearchTimerCreateStatus::accepted;
+            result.operation.operationId =
+                "op_00000000000000000000000000000001";
+            result.operation.backendId = "one";
+            result.operation.state = "succeeded";
+            result.operation.resourceRevision = "4";
+            return result;
+        });
+    const std::string draftBody =
+        "{\"name\":\"Terra X\",\"query\":\"Terra X\","
+        "\"confirmed\":true,\"mode\":1,\"compareTitle\":true,"
+        "\"compareSubtitle\":false,\"compareSummary\":true}";
+    ApiResponse acceptedSearch;
+    assert(runtime.tryHandlePost(
+        "/api/v1/search-timers?backend=one",
+        "st-admit", "", acceptedSearch, draftBody, "actor:test",
+        "", "test-create-unique-1", "application/json", "one"));
+    assert(acceptedSearch.statusCode == 202);
+    assert(acceptedSearch.headers.at("Location") ==
+        "/api/v1/operations/op_00000000000000000000000000000001");
+    assert(acceptedSearch.body.find("\"state\":\"succeeded\"") !=
+        std::string::npos);
+    assert(createCalls == 1);
+    for (const std::string& malformed : {
+        std::string("{\"name\":\"Terra X\",\"query\":\"Terra X\","
+            "\"confirmed\":false,\"mode\":1,\"compareTitle\":true,"
+            "\"compareSubtitle\":false,\"compareSummary\":true}"),
+        std::string("{\"name\":\"Terra X\",\"name\":\"Duplicate\","
+            "\"query\":\"Terra X\",\"confirmed\":true,"
+            "\"mode\":1,\"compareTitle\":true,\"compareSubtitle\":false,"
+            "\"compareSummary\":true}"),
+        std::string("{\"name\":\"Terra X\",\"query\":\"Terra X\","
+            "\"confirmed\":true,\"mode\":1,\"compareTitle\":true,"
+            "\"compareSubtitle\":false,\"compareSummary\":true,"
+            "\"privateProviderUrl\":\"bad\"}")
+    })
+    {
+        ApiResponse denied;
+        assert(runtime.tryHandlePost(
+            "/api/v1/search-timers?backend=one",
+            "st-invalid-create", "", denied, malformed, "actor:test",
+            "", "test-create-unique-1", "application/json", "one"));
+        assert(denied.statusCode == 422);
+    }
+    assert(createCalls == 1);
+    runtime.resetSearchTimerCreate();
     ApiResponse searchDelete;
     assert(runtime.tryHandleUnsupportedMethod(
         "DELETE", "/api/v1/search-timers?backend=one",
