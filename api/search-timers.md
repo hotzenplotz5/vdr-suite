@@ -187,3 +187,24 @@ contract, HTTP identity and accountability audit, backend-generation
 authority adapter, dispatch/reconciliation wiring and API tests exist.
 
 Focused CI-fast regression: `make test-searchtimer-create-device-admission`.
+
+## Public-v1 SearchTimer CREATE (Device)
+
+`POST /api/v1/search-timers?backend=<id>` accepts JSON
+`{"name":"Terra X","query":"Terra X","confirmed":true,"mode":1,"compareTitle":true,"compareSubtitle":false,"compareSummary":false}`
+with mandatory `Idempotency-Key` and application/json. Only
+`active` (default true) and `tolerance` (default zero)
+are optional; unknown/duplicate fields are rejected. Exact backend-scoped
+`searchtimers.create` Device grant, verified credential,
+server-owned online writable backend and fresh Backend Agent generation
+are mandatory. The existing immutable SQLite admission and one-shot
+native-ID readback dispatcher are used, without legacy mutation fallback.
+HTTP 202 references an Operation; it is **not** itself proof of success.
+Timeouts and unverifiable effects are never automatically resent:
+inspect Operation state, including `outcome_unknown`.
+
+The daemon performs the first attempt inline after reservation and never
+transitions a dispatched operation back to accepted. Further asynchronous
+readback/reconciliation is required for operations whose effect is unknown;
+the client must not make a new POST with a different idempotency key to
+resolve those cases.

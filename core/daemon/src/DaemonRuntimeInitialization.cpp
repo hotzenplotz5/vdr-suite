@@ -15,6 +15,8 @@
 #include "RestfulApiRecordingActionBackendExecutorAdapter.h"
 #include "RestfulApiSearchTimerDiscoveryProvider.h"
 #include "SearchTimerPreviewService.h"
+#include "SearchTimerCreateAdmissionService.h"
+#include "SearchTimerCreateDispatchService.h"
 #include "SearchTimerDiscoveryStaticProvider.h"
 #include "SimpleHttpListener.h"
 #include "TestHttpServer.h"
@@ -1118,6 +1120,127 @@ bool DaemonRuntime::initialize()
                         PublicTimerAssignmentCollectionStatus::unavailable;
                     return result;
             }
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerSearchTimerCreate(
+        [this](const PublicSearchTimerCreateRequest& request)
+        {
+            PublicSearchTimerCreateResult result;
+            if (!mutationOperationRepository_ || !backendRegistryService_ ||
+                !backendAccessPolicy_ || !backendAgentRepository_)
+                return result;
+            const BackendAccessDecision access =
+                backendAccessPolicy_->canWriteToBackend(
+                    *backendRegistryService_, request.backendId);
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!access.allowed || !backend || !backend->online)
+            {
+                result.status =
+                    PublicSearchTimerCreateStatus::backendUnavailable;
+                return result;
+            }
+            const std::int64_t now =
+                std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::system_clock::now().time_since_epoch())
+                    .count();
+            const auto agent = backendAgentRepository_->findAgentForBackend(
+                request.backendId);
+            if (!agent || agent->revoked || agent->incompatible ||
+                agent->backendGeneration == 0U ||
+                agent->leaseExpiresAt <= now)
+            {
+                result.status =
+                    PublicSearchTimerCreateStatus::backendUnavailable;
+                return result;
+            }
+            BackendRuntimeContext* runtime = nullptr;
+            for (const auto& candidate : backendRuntimeContexts_)
+            {
+                if (candidate && candidate->backendId == request.backendId &&
+                    candidate->searchTimerAdapter && candidate->httpClient)
+                {
+                    runtime = candidate.get();
+                    break;
+                }
+            }
+            if (!runtime)
+            {
+                result.status =
+                    PublicSearchTimerCreateStatus::backendUnavailable;
+                return result;
+            }
+
+            SearchTimerCreateAdmissionService admission(
+                *mutationOperationRepository_);
+            SearchTimerCreateAdmissionRequest input;
+            input.actorId = request.actorRef;
+            input.backendId = request.backendId;
+            input.backendGeneration = agent->backendGeneration;
+            input.idempotencyKey = request.idempotencyKey;
+            input.requestedAt = now;
+            input.payload.name = request.name;
+            input.payload.query = request.query;
+            input.payload.active = request.active;
+            input.payload.matchMode = request.mode;
+            input.payload.matchTolerance = request.tolerance;
+            input.payload.compareTitle = request.compareTitle;
+            input.payload.compareSubtitle = request.compareSubtitle;
+            input.payload.compareSummary = request.compareSummary;
+            const auto admitted = admission.admit(input);
+            if (admitted.status == SearchTimerCreateAdmissionStatus::invalid)
+            {
+                result.status = PublicSearchTimerCreateStatus::invalid;
+                return result;
+            }
+            if (admitted.status ==
+                    SearchTimerCreateAdmissionStatus::idempotencyConflict ||
+                admitted.status ==
+                    SearchTimerCreateAdmissionStatus::operationConflict)
+            {
+                result.status = PublicSearchTimerCreateStatus::conflict;
+                return result;
+            }
+            if (admitted.status != SearchTimerCreateAdmissionStatus::prepared &&
+                admitted.status != SearchTimerCreateAdmissionStatus::replayed)
+                return result;
+
+            auto operation = admitted.operation;
+            // CAS protects the only provider write. A retry of a dispatched
+            // or unknown result never calls the executor again.
+            if (operation.state ==
+                    vdrsuite::operations::MutationOperationState::accepted &&
+                operation.backendGeneration == agent->backendGeneration)
+            {
+                SearchTimerCreateDispatchService dispatch(
+                    *mutationOperationRepository_);
+                SearchTimerCreateDispatchRequest command;
+                command.operationId = operation.operationId;
+                command.actorId = request.actorRef;
+                command.backendId = request.backendId;
+                command.backendGeneration = operation.backendGeneration;
+                command.now = now;
+                command.operatorConfirmed = true;
+                command.backendWriteAllowed = access.allowed;
+                command.executorOptIn = true;
+                RestfulApiSearchTimerCommandExecutor executor(
+                    *runtime->httpClient);
+                const auto outcome = dispatch.dispatchOnce(
+                    command, executor, *runtime->searchTimerAdapter);
+                if (!outcome.operation.operationId.empty())
+                    operation = outcome.operation;
+            }
+            result.status = admitted.status ==
+                SearchTimerCreateAdmissionStatus::prepared
+                ? PublicSearchTimerCreateStatus::accepted
+                : PublicSearchTimerCreateStatus::replayed;
+            result.operation.operationId = operation.operationId;
+            result.operation.state =
+                vdrsuite::operations::mutationOperationStateName(
+                    operation.state);
+            result.operation.backendId = operation.backendId;
+            result.operation.resourceRevision = operation.operationRevision;
             return result;
         });
 
