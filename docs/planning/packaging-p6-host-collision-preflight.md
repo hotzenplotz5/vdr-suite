@@ -55,6 +55,8 @@ Release boundary: CI validates the read-only scan and disposable package
 build/upgrade tests, **not** a real yaVDR installation. The current Debian
 daemon package still supplies `/etc/nginx/snippets/vdr-suite.conf`; a
 pre-existing unowned file at that path is a deliberate `BLOCKED` result.
-The scan is **not yet executed by a P8 installer**, and no package deployment
-must bypass that separate gate. Existing active nginx includes and older
+The new P8 entry point runs this scan before its `--install` operation,
+but **always refuses** installation until approved transition policy exists.
+Direct `apt`/`dpkg` installation remains unguarded; do not bypass the P8
+entry-point gate. See [the P8 installation gate](packaging-p8-install-gate.md). Existing active nginx includes and older
 manual binaries remain operator-managed until an approved transition exists.
