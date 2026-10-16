@@ -273,7 +273,7 @@ jobs:
           apt-get update
           apt-cache policy vdr vdr-dev
           apt-get install -y --no-install-recommends \
-            build-essential debhelper dpkg-dev g++ make pkg-config python3 \
+            build-essential debhelper dpkg-dev g++ make pkg-config python3 nodejs \
             passwd util-linux vdr vdr-dev libsqlite3-dev libcurl4-openssl-dev \
             libssl-dev libcrypt-dev
           vdr_version="$(dpkg-query -W -f='${Version}' vdr)"
