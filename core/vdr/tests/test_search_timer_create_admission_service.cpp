@@ -5,6 +5,8 @@
 #include <cassert>
 #include <iostream>
 #include <string>
+#include <cstdio>
+#include <unistd.h>
 
 using vdrsuite::operations::MutationOperationRepository;
 using vdrsuite::operations::MutationOperationRepositoryStatus;
@@ -138,6 +140,37 @@ void assertDurableAdmissionAndReplay()
         SearchTimerCreateAdmissionStatus::prepared);
 }
 
+void assertFileBackedRestartReplay()
+{
+    char filename[] = "/tmp/vdr-suite-searchtimer-admission-XXXXXX";
+    const int fd = mkstemp(filename);
+    assert(fd >= 0);
+    assert(close(fd) == 0);
+    std::string originalId;
+    {
+        Database db;
+        assert(db.open(filename));
+        MutationOperationRepository store(db);
+        assert(store.ensureSchema());
+        SearchTimerCreateAdmissionService service(store);
+        const auto first = service.admit(request());
+        assert(first.status == SearchTimerCreateAdmissionStatus::prepared);
+        originalId = first.operation.operationId;
+    }
+    {
+        Database db;
+        assert(db.open(filename));
+        MutationOperationRepository store(db);
+        assert(store.ensureSchema());
+        SearchTimerCreateAdmissionService service(store);
+        const auto resumed = service.admit(request());
+        assert(resumed.status == SearchTimerCreateAdmissionStatus::replayed);
+        assert(resumed.operation.operationId == originalId);
+        assert(store.findPayloadByOperationId(originalId).ok());
+    }
+    assert(std::remove(filename) == 0);
+}
+
 void assertFailClosedRequests()
 {
     Database db;
@@ -181,6 +214,7 @@ int main()
 {
     assertPayloadCodec();
     assertDurableAdmissionAndReplay();
+    assertFileBackedRestartReplay();
     assertFailClosedRequests();
     std::cout << "SearchTimer durable CREATE admission: PASS (no backend mutation)\n";
     return 0;

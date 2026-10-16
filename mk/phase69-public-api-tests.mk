@@ -542,3 +542,6 @@ test-searchtimer-create-durable-admission:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_search_timer_create_admission_service
 	$(BUILD_DIR)/test_search_timer_create_admission_service
+
+# Add this bounded in-memory regression to the phase test graph.
+test-phase: test-searchtimer-create-durable-admission

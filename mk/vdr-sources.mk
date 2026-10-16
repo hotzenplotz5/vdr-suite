@@ -66,8 +66,6 @@ VDR_SRC := \
         core/vdr/src/RestfulApiStatusMapper.cpp \
         core/vdr/src/RestfulApiVdrAdapter.cpp \
         core/vdr/src/SearchTimerCreateService.cpp \
-        core/vdr/src/SearchTimerCreateOperationPayload.cpp \
-        core/vdr/src/SearchTimerCreateAdmissionService.cpp \
         core/vdr/src/SearchTimerCreateResultJsonSerializer.cpp \
         core/vdr/src/SearchTimerUpdateService.cpp \
         core/vdr/src/SearchTimerUpdateResultJsonSerializer.cpp \
