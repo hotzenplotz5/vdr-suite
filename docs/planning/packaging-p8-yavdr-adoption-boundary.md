@@ -22,10 +22,10 @@ recorded database schema, VDR plugin ABI, or service recovery procedure.
 | `/var/lib/vdr-suite` | Existing application state; scanner reports REVIEW | **First package install blocked:** no backup, schema migration, purge or rollback without separate approval and writer-quiesce protocol |
 | Other daemon, agent, doc and manpage targets | P6 observed multiple existing files without a dpkg owner | **BLOCKED:** reconcile each canonical `debian/*.install` destination before any unpack |
 | VDR 2.8.3 package provenance | Ubuntu `26.04` `resolute` amd64; `vdr` and `vdr-dev` report `2.8.3-0yavdr0~resolute`; `apt-cache policy` identifies `ppa:seahawk1986-hotmail/vdr-2.8.3` at `https://ppa.launchpadcontent.net/seahawk1986-hotmail/vdr-2.8.3/ubuntu`, `resolute/main`, priority 500 | **Exact-source P4 build PASS:** CI #118 produced API-14 plugin `.deb` with the correct generated ABI dependency; full Resolute daemon/agent and functional runtime tests still open |
-| SuiteBridge VDR plugin | Five files include `.so.11`, `.so.14` and `.so.11.*` historical variants; `pkg-config vdr` is `2.8.3`, API `14`, libdir `/usr/lib/vdr/plugins`; running VDR MainPID `1757` maps the `.so.14` file; device/inode equality with disk confirmed (`MAPPED_FILE_IDENTITY=PASS`) | **Loaded-module/disk-file identity verified for the inspected process; functional lifecycle not tested.** Both `.so.14` and `.so.11` lack reported dpkg ownership. Preserve all versions; **package collision remains BLOCKED** |
+| SuiteBridge VDR plugin | Five files include `.so.11`, `.so.14` and `.so.11.*` historical variants; `pkg-config vdr` is `2.8.3`, API `14`, libdir `/usr/lib/vdr/plugins`; running VDR MainPID `1757` maps the `.so.14` file; device/inode equality with disk confirmed (`MAPPED_FILE_IDENTITY=PASS`) | **Loaded-module/disk-file identity verified for inspected process; control socket listener separately confirmed; protocol not exercised.** Both `.so.14` and `.so.11` lack reported dpkg ownership. Preserve all versions; **package collision remains BLOCKED** |
 | SQLite database and WAL | `vdr-suite.db`: 3,357,405,184 bytes; `-wal`: 198,295,632 bytes; `-shm`: 393,216 bytes | **P7 BLOCKED:** live WAL sidecars present at inspection; no direct copy of `.db`, checkpoint, `immutable=1` schema check, migration, or restore on live state |
 | Daemon binary fingerprints | `/usr/sbin/vdr-suite-daemon`: 17,939,328 bytes, SHA-256 `0bfa78635215bd46363ec86bbe356d4426aef9fc3a6430f329ae69658f0ffc57`; `/usr/local/sbin/vdr-suite-daemon`: 6,503,208 bytes, SHA-256 `a5e08254ed8e4956fe31651981070098a7c5cc57de59e58a1da1d2f4bef227f2` | Fingerprints identify observed file bytes only, not a known source SHA or supported predecessor |
-| Network/runtime | Daemon active; prior `ss` showed TCP 18080 listening on 0.0.0.0 | REVIEW: binding and proxy path need security/runtime acceptance; no listener edits |
+| Network/runtime | Daemon active; prior `ss` showed TCP 18080 listening on 0.0.0.0. SuiteBridge private `/run/vdr/vdr-suite-control/control.sock` is a `SOCK_SEQPACKET` Unix listener owned by VDR PID `1757`, fd `28` (`ss -xlnpH`); directory `0700 vdr:vdr`, socket `0660 vdr:vdr` | **Listener and local permission topology confirmed at inspection time.** No peer-authentication handshake or functional command executed. Preserve socket, service and nginx configurations; no listener edits |
 
 These are observations at inspection time, not immutable facts. Do not
 infer that a process ID, binary hash or active route is unchanged later.
@@ -115,6 +115,15 @@ collision guard. A later read-only `/proc/1757/maps` device/inode check returned
 This establishes file identity at the inspection time only, not that
 the in-memory bytes have been independently hashed, nor any source
 commit, package artifact or functional protocol compatibility.
+
+A further read-only inspection observed the native control-plane directory
+`/run/vdr/vdr-suite-control` as `0700 vdr:vdr` and its `control.sock`
+as `0660 vdr:vdr`, a regular Unix socket (not a symlink).
+`ss -xlnpH` reported a listening `u_seq`/SOCK_SEQPACKET endpoint
+at that path owned by `vdr` PID `1757`, fd `28`, kernel socket
+identifier `21642`. These facts attest socket creation and listener
+ownership only; SO_PEERCRED admission, protocol replies, agent health and
+authorization have not been exercised.
 
 No productive files, service states, permissions, nginx includes or databases
 were changed during the reported read-only host inspections.

@@ -54,8 +54,14 @@ against `stat` for the disk file returned
 The result establishes the mapped file's identity with the current disk
 file at inspection time; the SHA-256 was measured on disk, not from
 the mapped memory, and does **not** attest source commit or CI binary
-provenance. Protocol operation, upgrade/rollback and service recovery
-remain unverified. The [separate Resolute plugin-only CI #118](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38936881893)
+provenance. A subsequent read-only `ss -xlnpH` inspection confirmed that
+`/run/vdr/vdr-suite-control/control.sock` is a listening
+`SOCK_SEQPACKET` endpoint owned by the same VDR process (PID 1757,
+fd 28); parent directory `0700 vdr:vdr` and socket `0660 vdr:vdr`.
+That confirms the native control-plane listener and permission topology
+at inspection time, not an authenticated CAPS/SNAP exchange.
+Protocol operation, upgrade/rollback and service recovery remain
+unverified. The [separate Resolute plugin-only CI #118](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38936881893)
 successfully resolved exact `2.8.3-0yavdr0~resolute`, compiled API 14,
 verified the Debian `.so.14` and automatically generated dependency
 `vdr-abi-2.8.3-0yavdr`, and passed 130 packaging regressions.
