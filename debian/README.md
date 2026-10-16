@@ -37,6 +37,17 @@ remains subject to its own provenance and usage rights. Media calibration
 benchmarks FFmpeg workloads and writes a persistent performance profile, so
 it is an explicit operator action, not part of package installation.
 
+**Packaged artwork versus runtime cache:** The Debian build stages VDR-Suite's
+bundled branding, genre artwork and live-remote illustration at
+`/usr/share/vdr-suite/channel-logos/vdr-suite-brand/`, with the corresponding
+`/channel-logos/vdr-suite-brand/...` URLs resolved by an HTTP-server read-only
+fallback after explicitly configured logo roots and
+`/var/cache/vdr-suite/channel-logos`. No package-owned branding file belongs in
+`/var/cache`: the cache remains for operator/runtime-synchronized broadcaster
+logos and any pre-existing local overrides. This is a **Debian-only CACHEDIR
+staging override**; the canonical manual `mk/install.mk` default remains
+unchanged. Do not copy or delete operator cache data during package installation.
+
 **Exact payload from `debian/vdr-suite-backend-agent.install`:**
 
 | Installed path | Responsibility |
@@ -69,7 +80,7 @@ The privileged `vdr-suite-backend-agent-enroll` tool creates a mode-`0600` one-t
 
 ### Packaging acceptance versus release
 
-The full Ubuntu 26.04 Resolute build demonstrates that the Agent `.deb` can be **built and inspected**; it is **not** proof of an installed Agent lifecycle, enrollment handshake, remote connection, runtime permissions or single-host deployment topology. A separate Resolute install/reinstall/remove/purge lifecycle and Agent-enabled runtime integration remain required before release.
+On exact code SHA `d144a9cb69e82f5cc60d93962e512a21595a1616`, [CI #135](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38968900186) **passed overall**: full binary builds and disposable install/reinstall/remove/purge on Noble and Resolute, nine real P8 overwrite-refusal fixtures, and a genuine pinned historical `exp1`→`exp2` `dpkg` upgrade including interrupted unpack, configuration, unchanged SQLite/configuration, and offline rollback rehearsal. This is strong **package lifecycle evidence**, but it does **not** verify an enrolled/connected Agent, a live VDR backend, runtime command permissions, a production manual-install takeover or an unassisted live SQLite migration. The subsequent artwork-path relocation remains separately subject to its exact CI checks.
 
 The P8 native `preinst` collision guards protect already-manually-installed paths. In particular, do not run package installation, overwrite existing `/etc/vdr-suite/backend-agent.conf`, change `/var/lib/vdr-suite/backend-agent`, re-enroll or restart the Agent on the productive yaVDR without an explicitly approved migration and rollback plan.
 

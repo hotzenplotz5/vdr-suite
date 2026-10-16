@@ -452,6 +452,10 @@ jobs:
             cp -- "$deb" package-artifacts-full-resolute/
           done
           grep -Fx './usr/sbin/vdr-suite-daemon' package-artifacts-full-resolute/vdr-suite-daemon.manifest
+          grep -Fx './usr/share/vdr-suite/channel-logos/vdr-suite-brand/logo-vdr-suite.svg' package-artifacts-full-resolute/vdr-suite-daemon.manifest
+          grep -Fx './usr/share/vdr-suite/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.png' package-artifacts-full-resolute/vdr-suite-daemon.manifest
+          ! grep -F './var/cache/vdr-suite/channel-logos/vdr-suite-brand/' package-artifacts-full-resolute/vdr-suite-daemon.manifest
+          echo 'RESOLUTE_BRAND_ASSETS_PACKAGE_DATA=PASS'
           grep -Fx './usr/sbin/vdr-suite-backend-agent' package-artifacts-full-resolute/vdr-suite-backend-agent.manifest
           grep -Fx './usr/lib/vdr/plugins/libvdr-suitebridge.so.14' package-artifacts-full-resolute/vdr-plugin-suitebridge.manifest
           grep -Fx './usr/lib/tmpfiles.d/vdr-suite-live.conf' package-artifacts-full-resolute/vdr-plugin-suitebridge.manifest
@@ -772,6 +776,9 @@ jobs:
           test -f /etc/vdr-suite/backend-agent.conf
           test -f /etc/nginx/snippets/vdr-suite.conf
           test -f /usr/lib/tmpfiles.d/vdr-suite-live.conf
+          test -f /usr/share/vdr-suite/channel-logos/vdr-suite-brand/logo-vdr-suite.svg
+          test -f /usr/share/vdr-suite/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.png
+          test ! -e /var/cache/vdr-suite/channel-logos/vdr-suite-brand/logo-vdr-suite.svg
           test ! -f /var/lib/vdr-suite/vdr-suite.db
           echo "P6_ISOLATED_INSTALL=PASS"
       - name: Reinstall then remove and purge without losing caller state
@@ -866,6 +873,9 @@ jobs:
           test -f /etc/vdr-suite/backend-agent.conf
           test -f /etc/nginx/snippets/vdr-suite.conf
           test -f /usr/lib/tmpfiles.d/vdr-suite-live.conf
+          test -f /usr/share/vdr-suite/channel-logos/vdr-suite-brand/logo-vdr-suite.svg
+          test -f /usr/share/vdr-suite/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.png
+          test ! -e /var/cache/vdr-suite/channel-logos/vdr-suite-brand/logo-vdr-suite.svg
           test ! -e /var/lib/vdr-suite/vdr-suite.db
           echo 'RESOLUTE_LIFECYCLE_INSTALL_NO_START=PASS'
       - name: Reinstall then remove and purge preserving operator state

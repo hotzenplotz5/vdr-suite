@@ -68,6 +68,26 @@ class PackagingProfileTests(unittest.TestCase):
                 self.assertEqual(manifest.count(target), 1)
                 self.assertNotIn(target, plugin)
 
+    def test_packaged_brand_assets_are_immutable_data_not_runtime_cache(self):
+        rules = (ROOT / "debian/rules").read_text(encoding="utf-8")
+        manifest = (ROOT / "debian/vdr-suite-daemon.install").read_text(
+            encoding="utf-8").splitlines()
+        installer = (ROOT / "mk/install.mk").read_text(encoding="utf-8")
+        assets = (ROOT / "core/http/src/TestHttpServerAssets.inc").read_text(
+            encoding="utf-8")
+        self.assertIn("CACHEDIR=/usr/share/vdr-suite", rules)
+        self.assertIn("usr/share/vdr-suite/", manifest)
+        self.assertFalse(any(p.startswith("var/cache/") for p in manifest))
+        self.assertIn("CACHEDIR ?= $(LOCALSTATEDIR)/cache/vdr-suite", installer)
+        cache = 'roots.emplace_back("/var/cache/vdr-suite/channel-logos");'
+        packaged = 'roots.emplace_back("/usr/share/vdr-suite/channel-logos");'
+        self.assertIn(cache, assets)
+        self.assertIn(packaged, assets)
+        self.assertLess(assets.index(cache), assets.index(packaged))
+        self.assertIn("channel-logos/vdr-suite-brand/logo-vdr-suite.svg", installer)
+        self.assertIn("channel-logos/vdr-suite-brand/vdr-remote-photorealistic.png",
+                      (ROOT / "mk/live-remote.mk").read_text(encoding="utf-8"))
+
     def test_backend_agent_command_admin_manual_is_in_stage_and_package(self):
         name = "vdr-suite-backend-agent-command-admin.8"
         self.assertTrue((ROOT / "docs/man/man8" / name).is_file())
