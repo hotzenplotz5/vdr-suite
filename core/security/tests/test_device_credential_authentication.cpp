@@ -115,6 +115,19 @@ public:
         return gate.evaluate(request);
     }
 
+    SecurityGateDecision evaluateLegacySearchTimerPost(
+        const std::string& target) const
+    {
+        HttpServerRequest request;
+        request.method = "POST";
+        request.path = target;
+        request.body = "{\\"name\\":\\"test\\",\\"query\\":\\"test\\"}";
+        request.headers["Authorization"] = validAuthorization();
+        request.headers["Content-Type"] = "application/json";
+        request.headers["X-Request-ID"] = "mu10d-device-legacy-searchtimer";
+        return gate.evaluate(request);
+    }
+
     std::string validAuthorization() const
     {
         return std::string(DeviceCredentialAuthenticator::Scheme) +
@@ -169,6 +182,27 @@ int main()
         assert(recordingsAllowed.deviceAuthenticated);
         assert(recordingsAllowed.authorizedBackendIds ==
             (std::vector<std::string>{"default"}));
+
+        // Even a hand-inserted permission must not grant access to
+        // pre-v1 non-idempotent SearchTimer mutations.
+        assert(fixture.grants.ensureGrant(
+            ActorId, "searchtimers.create", "default"));
+        for (const std::string& target : {
+                 std::string("/api/searchtimers"),
+                 std::string("/api/vdr/searchtimers"),
+                 std::string("/api/searchtimers/update"),
+                 std::string("/api/vdr/searchtimers/delete"),
+                 std::string("/api/searchtimers/execute")})
+        {
+            const auto legacy = fixture.evaluateLegacySearchTimerPost(target);
+            assert(!legacy.allowed);
+            assert(legacy.rejection.statusCode == 403);
+            assert(legacy.rejection.body.find(
+                "Device credentials cannot mutate legacy SearchTimer routes") !=
+                std::string::npos);
+        }
+        assert(fixture.grants.revokeGrant(
+            ActorId, "searchtimers.create", "default"));
 
         // SearchTimer list is a different, independently granted read-only
         // resource. Neither EPG, recordings nor TimerAssignment grants

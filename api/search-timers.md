@@ -98,3 +98,18 @@ Public-v1 CREATE endpoint or Device mutation grant has been opened.
 SQLite database and mock provider only. Productive activation still needs
 an authoritative backend-generation source, the Device permission/grant
 boundary and an operation reconciliation/identity-projection path.
+
+### Device mutation permission must never unlock the legacy path
+
+The old `POST /api/searchtimers`, `/api/vdr/searchtimers` and associated
+update/delete/execute/real-test/preview-refresh mutations share the internal
+`searchtimers.create` family of grants. Expanding
+`DeviceGrantAdministrationService.supportedGrant` in isolation would have
+created an authorization bypass around the new durable Public-v1 CREATE
+workflow. `SecurityHttpGate` now explicitly rejects **all** paired-Device
+credentials on those legacy SearchTimer mutation actions (HTTP 403),
+including when a matching grant was inserted directly into persistence.
+Browser legacy operation remains unchanged. The Device administrative grant
+allowlist still rejects `searchtimers.create` until a complete Public-v1
+contract is audited and installed. Regression:
+`core/security/tests/test_device_credential_authentication.cpp`.

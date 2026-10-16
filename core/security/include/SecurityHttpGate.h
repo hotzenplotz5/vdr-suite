@@ -1761,6 +1761,26 @@ public:
         }
 
         gate.protectedMutation = isProtectedMutation;
+        // A Device cannot use the legacy SearchTimer mutation endpoints,
+        // even if a grant is inserted directly in persistence. Future
+        // Public-v1 CREATE rights must never silently expose these non-
+        // idempotent pre-v1 handlers. Browser policy is unchanged.
+        if (gate.deviceAuthenticated &&
+            (isSearchTimerCreateAction || isSearchTimerUpdateAction ||
+             isSearchTimerDeleteAction || isSearchTimerExecuteAction ||
+             isSearchTimerRealTestAction ||
+             isSearchTimerPreviewCacheRefreshAction))
+        {
+            AuthorizationDecision denial;
+            denial.permission = "searchtimers.create";
+            denial.backendId = "default";
+            denial.action = "searchtimers.legacy.mutation";
+            denial.reasonCode = "device_legacy_searchtimer_mutation_forbidden";
+            return rejectWithAudit(
+                gate, denial, 403,
+                "Device credentials cannot mutate legacy SearchTimer routes",
+                "");
+        }
         // Versioned Recording session creation is Device-only. Browser
         // credentials and even user/admin grants are not Device proof.
         // This policy does not itself create sessions or expose media bytes.
