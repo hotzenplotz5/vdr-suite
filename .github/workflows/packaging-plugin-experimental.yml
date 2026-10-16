@@ -166,7 +166,10 @@ jobs:
           # Copy only inside this disposable container and extract as the
           # unprivileged builder; do not change the checkout's ownership.
           build_root="/tmp/vdr-suite-resolute-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          # The parent also receives .deb files from dpkg-buildpackage.
+          install -d -o "$build_uid" -g "$build_gid" -m 0700 "$build_root"
           install -d -o "$build_uid" -g "$build_gid" -m 0700 "$build_root/source"
+          test "$(stat -c %u "$build_root")" = "$build_uid"
           tar -C "$GITHUB_WORKSPACE" -cf - . |
             runuser -u "$build_user" -- tar -C "$build_root/source" -xf -
           test "$(stat -c %u "$build_root/source/debian")" = "$build_uid"
