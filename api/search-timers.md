@@ -1,4 +1,4 @@
-# Public-v1 SearchTimer collection (Device read-only)
+# Public-v1 VDR SearchTimers: Device read, preview and confirmed CREATE
 
 The current implemented version is **Public API v1**, not v2.
 
@@ -6,13 +6,13 @@ The current implemented version is **Public API v1**, not v2.
 
 - This is **VDR SearchTimer**, distinct from native VDR Timer and Suite TimerAssignment.
 - Requires an authenticated, verified **Device credential** and an **independently granted** `searchtimers.view` permission for exactly one backend. `timers.view`, `epg.view`, and `channels.view` do not grant access. Browser sessions are not a substitute.
-- Administrators may grant/revoke `searchtimers.view` through the real Device Grant administration contract. No SearchTimer mutation grant or mutation route is offered.
+- Administrators may independently grant/revoke `searchtimers.view` and backend-scoped `searchtimers.create` through Device grant administration. Read permission never implies create permission.
 - `backend` is mandatory, length 1–128, characters A-Z, a-z, 0-9, dot, underscore, hyphen. Unknown/duplicate query fields and invalid/mismatched cursors yield 400.
 - Pages are limited to 1–30 items (default 30), ordered by the **server-owned stable opaque** `searchTimerId`. `st1_` cursors bind the backend. Only a bounded page is returned to the TV. The provider itself currently exposes `/searchtimers.json` as a catalogue: each page request performs one read on only that backend; **no backend fanout or retries**.
 - `items` contain only `searchTimerId`, `backendId`, `name`, `query` and `state` (`active`, `inactive`, or `unknown`). No native IDs, provider payload, recording directory, or settings used for editing are exposed.
 - IDs are persisted under the new `public_search_timer_identity` table; the native mapping is internal and does not make these TimerAssignments.
 - A genuinely empty provider list is HTTP 200 with `items: []`. An unavailable provider, unavailable runtime, or identity failure is HTTP 503, not an empty successful response. Missing/invalid Device credentials yield 401 or 403, unauthorized backend 403; all use the Public-v1 Problem model.
-- No lossless readback is guaranteed for full epgsearch option sets. **No edit, activation/deactivation, CREATE, DELETE or preview is enabled by this contract.**
+- No lossless readback is guaranteed for full epgsearch option sets. This GET is read-only; saved-rule and draft-preview GETs and a separate confirmed CREATE POST are described below. Edit, activation/deactivation and DELETE are not exposed.
 - Public response is `no-store`. On permission revocation a client must clear stale SearchTimer cards, not keep displaying a successful prior list.
 
 See `api/openapi.json`, `docs/planning/timer-searchtimer-parity.md` (VIDAA repository), and `docs/client-integration-playbook.md` (VIDAA repository).
@@ -36,9 +36,7 @@ This is an API/CI slice. Real Hisense hardware and production yaVDR deployment a
 - The `backend` parameter must match the Device backend authorization;
   `limit` is 1..30. Unknown, repeated, cursor and offset parameters fail.
   Response is no-store.
-- This previews **existing** rules only, not a new-rule form. Neither
-  SearchTimer CREATE/DELETE, full blacklist/duplicate evaluation, lossless edit,
-  nor native VDR Timer mutation is claimed as available on Public-v1.
+- This previews **existing** rules only, not a new-rule form. CREATE is a separately authorized POST; DELETE, full blacklist/duplicate evaluation, lossless edit and native VDR Timer mutation are not provided by this preview.
 
 ## Draft preview of a new rule (Device, read-only)
 
@@ -50,54 +48,39 @@ This is an API/CI slice. Real Hisense hardware and production yaVDR deployment a
 - Response: `{backendId,totalCount,items:[{title,subtitle,channelId,startTime,endTime}],meta:{partial:false,epgInput:"ready",evaluation:"epg-match-only"}}`. `limit` default/max 30. Empty valid match is 200/`[]`; cache/backend unavailable 503. 400 for unsupported options, duplicate/oversized/mismatched query; 401/403 for authentication/grants. `Cache-Control: no-store`.
 - **Does not authorize CREATE**. A real SearchTimer CREATE requires separate permission, backend write policy, idempotency, and authoritative post-creation readback. Do not reinterpret this GET as permission to save a rule.
 
-## Durable SearchTimer CREATE admission – internal groundwork (not exposed)
+## CREATE: durable admission and one-shot dispatch (wired to Public-v1)
 
-The domain now has a **persistence-only** `SearchTimerCreateAdmissionService`,
-using the shared `MutationOperationRepository.reserveWithPayload` and
-versioned `SearchTimerCreateOperationPayload`. It does **not** expose
-`POST /api/v1/search-timers`, register a runtime dispatcher, contact RESTfulAPI,
-create a VDR SearchTimer, or enable client Save.
+`SearchTimerCreateAdmissionService` persists one immutable, versioned
+`SearchTimerCreateOperationPayload` in the shared
+`MutationOperationRepository.reserveWithPayload`. Idempotency binds actor,
+backend, `SearchTimer/new`, `searchtimer.create`, and the request key;
+a SHA-256 payload fingerprint enforces byte-stable replays. A changed payload
+with the same key fails as a conflict.
 
-- Operation family `searchtimer.create`, resource `SearchTimer/new`, mandatory
-  `readbackRequired`, backend-generation fence and immutable payload.
-- The durable idempotency scope is actor + backend + resource type/id + action
-  family + idempotency key. A strict SHA-256 fingerprint identifies the exact
-  payload. Exact retries (including after process restart) return the original
-  operation; changed payload with the same key produces a conflict.
-- The payload codec is versioned, length-prefixed and canonical, with bounded
-  UTF-8 for rule name/query, explicit modes 0/1/2/3/5, fuzzy tolerance and
-  title/subtitle/description match fields. Unsupported fields fail closed.
-- **Before exposing POST:** add verified Device-only `searchtimers.create`
-  grant and BackendAccessPolicy write checks, durable dispatch arbitration,
-  no automatic resend on ambiguous backend outcomes, full backend readback
-  using the native ID and all contract fields, reconciliation, and operation
-  state transitions. A prepared operation by itself is **not** successful
-  backend CREATE.
-- Focused regression:
-  `make test-searchtimer-create-durable-admission` (in-memory database).
+After exact Device HTTP authorization and backend write/online/Agent-generation
+checks, `DaemonRuntime` invokes this existing admission service and, only
+for an eligible `accepted` operation, the existing
+`SearchTimerCreateDispatchService.dispatchOnce`. The dispatcher acquires
+an atomic `accepted -> dispatching` CAS **before** a single RESTfulAPI
+CREATE attempt. It requires a complete preflight backend rule inventory and
+authoritatively verifies the returned new native ID against a fresh complete
+post-write inventory, including name, query, active state, match mode,
+tolerance and comparison flags. Ambiguous provider results become
+`outcome_unknown`, **never an automatic second POST**. The operation read
+endpoint is `GET /api/v1/operations/{operationId}`.
 
-### One-shot dispatch domain groundwork (not a public endpoint)
+This path uses the existing backend-specific RESTfulAPI adapter; it does not
+enable device legacy API methods, full searchtimer edit/delete, arbitrary
+native VDR Timer creation, or exact future recording prediction. A confirmed
+CREATE requests an epgsearch rule; any automated recording effects depend on
+the backend epgsearch configuration and are **not** proven by HTTP 202.
 
-`SearchTimerCreateDispatchService` now owns a **dormant, separately injected**
-one-shot adapter. Its preflight requires exact actor/backend/generation,
-explicit operator confirmation, backend write approval, executor opt-in, a
-verifiable stored versioned payload and **fresh complete backend readback**.
-An atomic `accepted -> dispatching` compare-and-swap is mandatory before a
-single `ISearchTimerCommandExecutor.create` invocation; a CAS replay is
-never an excuse for a second backend call. The generated operation never
-re-enters `accepted` after dispatch. A returned native ID must not already
-exist in the baseline; after execution a fresh unpaged provider inventory
-must uniquely verify backend ID, query, name, active state, match mode,
-tolerance and comparison flags before `succeeded`. Missing/ambiguous
-reply, exception, stale ID or mismatched/unavailable readback leaves the
-operation `outcome_unknown`; **no automatic retry**.
-
-This mock-proven service is not yet registered with the daemon and no
-Public-v1 CREATE endpoint or Device mutation grant has been opened.
-`make test-searchtimer-create-one-shot-dispatch` uses an in-memory
-SQLite database and mock provider only. Productive activation still needs
-an authoritative backend-generation source, the Device permission/grant
-boundary and an operation reconciliation/identity-projection path.
+The CI-fast targets `test-searchtimer-create-durable-admission`,
+`test-searchtimer-create-one-shot-dispatch`, and
+`test-searchtimer-create-orphan-recovery` use isolated SQLite/mock providers.
+The compiled daemon wiring and HTTP tests are also checked in GitHub CI.
+Real yaVDR backend creation, readback behavior and VIDAA hardware acceptance
+remain separate gates.
 
 ### Device mutation permission must never unlock the legacy path
 
@@ -110,10 +93,10 @@ permission was inserted directly into grant persistence. A second,
 later route-specific Device block is unnecessary because Device authentication
 has already failed. The CI regression verifies the existing fail-closed
 boundary, not a new HTTP 403 policy. Browser legacy behavior is unchanged.
-`DeviceGrantAdministrationService.supportedGrant` still rejects
-`searchtimers.create`; before enabling it in the future, the new
-Public-v1 CREATE permission, backend scope, capability and no-legacy-fallback
-contracts require explicit tests. Regression:
+`DeviceGrantAdministrationService::supportedGrant` now accepts
+`searchtimers.create` for a **concrete** backend, never `*`. The new
+Public-v1 POST independently checks Device identity and exact scope; legacy
+Device requests continue to fail authentication. Regression:
 `core/security/tests/test_device_credential_authentication.cpp`.
 
 Additional identity invariant: the full post-CREATE native inventory must
@@ -158,35 +141,14 @@ contract regressions are explicitly attached to `CI_FAST_TESTS`:
 the mock-only admission, one-shot and orphan recovery tests actually ran;
 it does not attest to a live VDR/VIDAA mutation or device hardware.
 
-### Dormant Device-only CREATE admission composition
+### Earlier Device-admission test fixture
 
-`SearchTimerCreateDeviceAdmissionService` composes the existing
-`AuthorizationService`, `BackendAccessPolicy`, `BackendRegistryService`
-and durable `SearchTimerCreateAdmissionService`; it has **no HTTP handler,
-daemon registration or backend CREATE effect**. Its request contains no
-caller-provided backend generation: a separately injected *server-owned*
-`ISearchTimerBackendGenerationAuthority` must provide the current
-generation before one immutable operation can be reserved.
-
-Required prerequisites are a verified active Service/Device actor and active
-Device credential, **no Browser session**, fully resolved grants, an exact
-`searchtimers.create@backend` tuple (no wildcard, role inheritance,
-`searchtimers.view`, `epg.view` or `timers.create` substitution),
-the normal `AuthorizationService` mutation check, an enabled, online,
-writable known backend and a positive bounded backend generation. Failure
-creates **no operation**. Replay with the same idempotency key may only
-return the prior durable operation; it never mutates VDR or makes a new POST.
-
-The ordinary Device admin supported-grant allowlist still **rejects**
-`searchtimers.create` and the Public-v1 API still has no POST route.
-The isolated regression injects an explicitly scoped future grant into
-a mock authenticated Device context; this does *not* simulate an
-administratively assignable permission or live authentication boundary.
-An actual endpoint remains blocked until the normal Device grant/admin
-contract, HTTP identity and accountability audit, backend-generation
-authority adapter, dispatch/reconciliation wiring and API tests exist.
-
-Focused CI-fast regression: `make test-searchtimer-create-device-admission`.
+The earlier `SearchTimerCreateDeviceAdmissionService` remains an isolated
+domain test adapter, not a second production authority. Production authorization
+is performed by `SecurityHttpGate` with persistent Device grants and audit;
+daemon admission uses the shared durable service. Its standalone
+`test-searchtimer-create-device-admission` protects the same identity,
+write-policy and generation invariants against regression.
 
 ## Public-v1 SearchTimer CREATE (Device)
 
@@ -204,7 +166,8 @@ Timeouts and unverifiable effects are never automatically resent:
 inspect Operation state, including `outcome_unknown`.
 
 The daemon performs the first attempt inline after reservation and never
-transitions a dispatched operation back to accepted. Further asynchronous
-readback/reconciliation is required for operations whose effect is unknown;
-the client must not make a new POST with a different idempotency key to
-resolve those cases.
+transitions a dispatched operation back to accepted. An `outcome_unknown` operation has **no automatic reconciliation worker**
+connected yet. An operator must inspect authoritative backend evidence before
+resolving it; the client must not make a new POST with a different idempotency
+key. A crash during dispatch likewise does not establish success or authorize
+retry.
