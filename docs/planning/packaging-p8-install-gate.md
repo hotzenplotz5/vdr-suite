@@ -1,6 +1,11 @@
 # P8 — fail-closed installation entry point (unreleased)
 
 Status: **pre-install gate implemented; no host installation authorized**.
+The P6/P8 drop-in regressions and an actual daemon `dpkg --unpack`
+unowned-nginx collision refusal were verified in
+[CI #109](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38926400765), all six jobs SUCCESS, exact code
+SHA `643166983f961bcf450d9c785cf1e628dc31d684`. The disposable test confirmed unchanged snippet SHA-256
+and no unpacked daemon executable; this is not a live-host acceptance.
 
 ## Source of truth
 
@@ -51,8 +56,9 @@ install/upgrade time (before package contents are unpacked), the guards refuse
 unowned/foreign-owned manifest targets, target symlinks/special files,
 manifest directory roots such as `/usr/share/vdr-suite`, compressed manual-page
 candidates, and SuiteBridge ABI wildcard paths. They also refuse known
-unmanaged `/usr/local` binaries and systemd overrides. Existing operator-managed systemd drop-in directories also block a first
-daemon/agent package installation, but do not automatically block upgrades of
+unmanaged `/usr/local` binaries and systemd overrides. Existing
+operator-managed systemd drop-in directories also block a first daemon/agent
+package installation, but do not automatically block upgrades of
 packages that already own their own target files. Existing
 `/var/lib/vdr-suite` blocks a *first* daemon/agent package installation;
 an already package-managed upgrade does not automatically fail merely because
@@ -78,9 +84,10 @@ No productive yaVDR package install is authorized by adding this script.
 
 1. Establish an explicit per-path takeover policy, package-specific
    ownership/upgrade policy and VDR ABI/service compatibility matrix.
-2. Validate the new disposable dpkg pre-unpack collision-refusal CI job
-   against the exact built package, including preservation of the unowned
-   nginx snippet. Expand the direct-package gate to any remaining protected
+2. Expand the now-verified disposable dpkg pre-unpack nginx collision test
+   to additional protected path classes and package variants; the exact
+   daemon nginx-sentinel refusal passed in CI #109. Keep unknown cases blocked
+   and expand the direct-package gate to any remaining protected
    installation/upgrade conditions before host authorization. A `postinst`
    cannot protect files already replaced during unpack.
 3. Determine the actual active systemd daemon binary, nginx route/include

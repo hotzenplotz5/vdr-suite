@@ -1,6 +1,6 @@
 # P6/P8 — existing installation collision preflight
 
-Status: read-only preflight and isolated tests **VERIFIED** in [CI #94](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38874068291), all five jobs SUCCESS, exact code SHA `baad4705f9a7db37b4c207ae0d0a5319d80d2d41`; **not an authorized host installer**.
+Status: read-only preflight and isolated tests **VERIFIED** in [CI #94](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38874068291), all five jobs SUCCESS, exact code SHA `baad4705f9a7db37b4c207ae0d0a5319d80d2d41`. The expanded systemd drop-in checks and a real disposable pre-unpack nginx collision refusal are **VERIFIED** in [CI #109](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38926400765), all six jobs SUCCESS, exact code SHA `643166983f961bcf450d9c785cf1e628dc31d684`; **not an authorized host installer**.
 
 The canonical three Debian binary packages provide a VDR-Suite daemon with
 web assets, an independently buildable SuiteBridge plugin and a backend agent.
@@ -48,10 +48,10 @@ the verified separate packaging checkout and needs no administrator rights.
 Focused regression: `python3 -m unittest discover -s tools -p
 'test_packaging_host_collision_preflight.py'`.
 
-Next: add approved migration policies for each observed collision, verify
-pre-unpack script inclusion and refusal in actual disposable dpkg package
-transactions, and check the actual `nginx -t` / VDR services only under
-separate live acceptance authorization.
+Next: add approved migration policies for each observed collision, extend
+the verified disposable dpkg collision-refusal test beyond the nginx snippet
+to other protected paths and package types, and check the actual
+`nginx -t` / VDR services only under separate live acceptance authorization.
 
 Release boundary: CI validates the read-only scan and disposable package
 build/upgrade tests, **not** a real yaVDR installation. The current Debian
