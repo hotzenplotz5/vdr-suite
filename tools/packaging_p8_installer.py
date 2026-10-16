@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 import sys
 
+# Reading the live host must not create __pycache__ files in the checkout.
+sys.dont_write_bytecode = True
 from packaging_host_collision_preflight import inspect as inspect_host
 
 
