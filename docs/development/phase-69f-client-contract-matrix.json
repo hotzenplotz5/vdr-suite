@@ -48,6 +48,12 @@
       "semantics": "backend-scoped keyset TimerAssignment collection"
     },
     {
+      "id": "vdr-search-timer-collection",
+      "method": "GET",
+      "template": "/api/v1/search-timers?backend={backendId}",
+      "semantics": "Read-only verified-Device searchtimers.view@backend; bounded 30 keyset page with durable opaque st_ identity; no native ID, browser/session fallback or mutation/readback claim"
+    },
+    {
       "id": "timer-assignment-read",
       "method": "GET",
       "template": "/api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}",

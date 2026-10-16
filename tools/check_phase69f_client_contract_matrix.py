@@ -83,6 +83,7 @@ expected_resource_pairs = {
     ("GET", "/api/v1/accounts"),
     ("GET", "/api/v1/operations/{operationId}"),
     ("GET", "/api/v1/timer-assignments?backend={backendId}"),
+    ("GET", "/api/v1/search-timers?backend={backendId}"),
     ("GET", "/api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}"),
     ("POST", "/api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}"),
     ("GET", "/api/v1/channels?backendId={backendId}"),
@@ -95,6 +96,7 @@ for token in (
     'constexpr const char* PublicApiV1Root = "/api/v1";',
     'constexpr const char* PublicOperationPrefix = "/api/v1/operations/";',
     '"/api/v1/timer-assignments"',
+    '"/api/v1/search-timers"',
     '"/api/v1/backends"',
     '"/api/v1/accounts"',
     '"/api/v1/channels"',
@@ -105,7 +107,6 @@ for token in (
 
 for absent in (
     "/api/v1/program-events",
-    "/api/v1/search-timers",
 ):
     require(absent not in public_runtime, f"new public resource requires an intentional matrix successor slice: {absent}")
 
