@@ -35,10 +35,11 @@ case "$1" in
         esac
         ;;
       */lib/systemd/system/vdr-suite-*.service)
-        if [ -n "$MOCK_LEGACY_OWNER" ]; then
-          printf '%s: %s\\n' "$MOCK_LEGACY_OWNER" "$3"
-          exit 0
-        fi
+        # Do not let a missing historical owner fall through to generic
+        # MOCK_OWNER; that would falsely authorize a nonexistent alias.
+        if [ -z "$MOCK_LEGACY_OWNER" ]; then exit 1; fi
+        printf '%s: %s\\n' "$MOCK_LEGACY_OWNER" "$3"
+        exit 0
         ;;
     esac
     if [ "$MOCK_OWNER" = '' ]; then exit 1; fi
