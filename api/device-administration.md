@@ -96,3 +96,13 @@ This documentation does **not** add the Device revoke/rotation, pairing administ
 
 - [API entry](README.md)
 - [Documentation index](../docs/index.md)
+
+### SearchTimer grant and mutation
+
+An administrator may explicitly grant `searchtimers.view` and
+`searchtimers.create` **independently per backend**. The latter permits
+one confirmed `POST /api/v1/search-timers?backend=<id>` through the
+durable, idempotent SearchTimer one-shot operation. This is distinct
+from Suite TimerAssignments and native VDR Timer CREATE. Browser
+sessions and legacy paths never inherit paired Device CREATE rights.
+A 202 response is an Operation, not guaranteed backend recording.

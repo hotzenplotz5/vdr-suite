@@ -664,6 +664,160 @@
       }
     },
     "/api/v1/search-timers": {
+      "post": {
+        "tags": [
+          "SearchTimers"
+        ],
+        "operationId": "createSearchTimer",
+        "summary": "Create one backend SearchTimer from a paired Device",
+        "description": "A verified Device with independent searchtimers.create@backend grant may submit one confirmed, durable and idempotent SearchTimer CREATE. Backend must be online and writable with live Agent generation. One-shot provider dispatch and exact native-ID readback; HTTP 202 is an Operation, never a promise of recording. An ambiguous result must not be automatically retried.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "verified Device and exact searchtimers.create@backend; no Browser/legacy fallback"
+        },
+        "parameters": [
+          {
+            "name": "backend",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,128}$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "query",
+                  "confirmed",
+                  "mode",
+                  "compareTitle",
+                  "compareSubtitle",
+                  "compareSummary"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  },
+                  "query": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 240
+                  },
+                  "confirmed": {
+                    "const": true
+                  },
+                  "active": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "mode": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2,
+                      3,
+                      5
+                    ]
+                  },
+                  "tolerance": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 3,
+                    "default": 0
+                  },
+                  "compareTitle": {
+                    "type": "boolean"
+                  },
+                  "compareSubtitle": {
+                    "type": "boolean"
+                  },
+                  "compareSummary": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Durable operation; read Location to inspect succeeded or outcome_unknown. Cache-Control: no-store",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "operationId",
+                    "state",
+                    "backendId"
+                  ],
+                  "properties": {
+                    "operationId": {
+                      "type": "string",
+                      "pattern": "^op_[0-9a-f]{32}$"
+                    },
+                    "state": {
+                      "type": "string"
+                    },
+                    "backendId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query or idempotency key"
+          },
+          "401": {
+            "description": "Missing Device authentication"
+          },
+          "403": {
+            "description": "Device backend CREATE permission denied"
+          },
+          "409": {
+            "description": "Idempotency conflict"
+          },
+          "415": {
+            "description": "Unsupported media type"
+          },
+          "422": {
+            "description": "Invalid or unsupported SearchTimer field"
+          },
+          "503": {
+            "description": "No online writable backend or durable admission service"
+          }
+        }
+      },
       "get": {
         "tags": [
           "SearchTimers"
