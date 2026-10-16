@@ -39,6 +39,12 @@ The following follow-up code changes are **candidates, not verified successes** 
 
 These checks do not establish a full clean binary build for the new systemd staging change. The externally hosted Seahawk PPA `vdr-dev` downloads returned repeated HTTP 503 in recent Noble/Resolute runs; the full builds and new disposable Resolute lifecycle must still be verified on an exact code SHA after that external dependency is accessible. P5 copyright/provenance, Lintian artwork placement and CLI manual-page warnings, source signing, and first-release migration remain blocked separately.
 
+## 2026-10-16 — P8 host preflight reconciled with usrmerged Debian unit paths
+
+At [CI #129](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38958032827), the Resolute independent-plugin build reached the packaging tests and correctly **failed closed** when the read-only P8 host collision preflight still expected the old `lib/systemd/system/*.service` manifest paths after the Debian payload had moved to `usr/lib/systemd/system/*.service`. The JSON/installer regression failures in the same run were secondary to that manifest allowlist mismatch; this was a real source-test failure, not evidence of a safe package build.
+
+[Fix commit `83b00db9422ea8554176b4386c46a641ca5db048`](https://github.com/hotzenplotz5/vdr-suite/commit/83b00db9422ea8554176b4386c46a641ca5db048) updates the P8 host preflight to the **new exact usrmerged package targets** and independently retains old `lib/systemd/system` files as manual-install review findings. It does not relax the requirement to refuse or review foreign/unowned files. The PPA-independent [CI #130](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38958512351) offline job passed **49/49** manifest, native P8 preinst, host collision and installer regressions at this exact code SHA (`PACKAGING_OFFLINE_P8_AND_MANIFEST=PASS`). The independent deterministic two-source-package job also passed at this SHA. These checks do not replace the separate exact-VDR Resolute binary-build or isolated installation lifecycle acceptance.
+
 ## Confirmed local build milestone (2026-10-14)
 
 Maintainer-supplied terminal evidence confirms a successful isolated SuiteBridge-only binary `.deb` build, with an ABI dependency on `vdr-abi-2.8.3-0yavdr`, no daemon or agent binary dependency, and post-build resource reserve PASS. This validates P5's **local plugin-only binary path** on the yaVDR build host only. It does not clear clean Ubuntu builds, daemon packaging, signed source package, installer or P7 upgrade acceptance.
