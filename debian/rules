@@ -18,7 +18,7 @@ endif
 
 override_dh_auto_install:
 ifeq ($(PLUGIN_ONLY),)
-	$(MAKE) install DESTDIR=$(STAGE) PREFIX=/usr
+	$(MAKE) install DESTDIR=$(STAGE) PREFIX=/usr SYSTEMDUNITDIR=/usr/lib/systemd/system
 endif
 	$(MAKE) -C vdr-plugin-suite-bridge install DESTDIR=$(STAGE)
 	# SuiteBridge owns private /run transport roots even in plugin-only packages.

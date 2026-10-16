@@ -54,6 +54,16 @@ class PackagingProfileTests(unittest.TestCase):
         self.assertNotIn(socket_config, daemon)
         self.assertEqual(len(plugin), len(set(plugin)))
 
+    def test_binary_package_systemd_unit_paths_are_usr_merged(self):
+        rules = (ROOT / "debian/rules").read_text(encoding="utf-8")
+        self.assertIn("SYSTEMDUNITDIR=/usr/lib/systemd/system", rules)
+        for name in ("vdr-suite-daemon", "vdr-suite-backend-agent"):
+            with self.subTest(package=name):
+                entries = (ROOT / ("debian/" + name + ".install")).read_text(
+                    encoding="utf-8").splitlines()
+                self.assertIn("usr/lib/systemd/system/" + name + ".service", entries)
+                self.assertNotIn("lib/systemd/system/" + name + ".service", entries)
+
     def test_control_declares_profile_and_abi_dependency(self):
         data = (ROOT / "debian/control").read_text(encoding="utf-8")
         self.assertEqual(data.count("Build-Profiles: <!plugin-only>"), 2)

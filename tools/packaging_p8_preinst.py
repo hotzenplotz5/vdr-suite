@@ -35,8 +35,14 @@ MANUAL_PATHS = {
 # silently change the new packaged service's behavior. Preserve them on
 # legitimate package-managed upgrades, but refuse unmanaged first installs.
 FIRST_INSTALL_DROPINS = {
-    "vdr-suite-daemon": ("etc/systemd/system/vdr-suite-daemon.service.d",),
-    "vdr-suite-backend-agent": ("etc/systemd/system/vdr-suite-backend-agent.service.d",),
+    "vdr-suite-daemon": (
+        "etc/systemd/system/vdr-suite-daemon.service.d",
+        "lib/systemd/system/vdr-suite-daemon.service",
+    ),
+    "vdr-suite-backend-agent": (
+        "etc/systemd/system/vdr-suite-backend-agent.service.d",
+        "lib/systemd/system/vdr-suite-backend-agent.service",
+    ),
 }
 
 # System state from an earlier manual installation must never be treated as

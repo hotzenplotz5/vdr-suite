@@ -156,6 +156,19 @@ esac
                 self.assertEqual(result.returncode, 1, result.stderr)
                 self.assertEqual(file.read_text(), "operator sentinel")
 
+    def test_old_lib_systemd_units_block_new_first_install_but_not_owned_upgrade(self):
+        for package in ("vdr-suite-daemon", "vdr-suite-backend-agent"):
+            with self.subTest(package=package):
+                host, bindir, script = self.fixture(package)
+                old = self.put(host, "lib/systemd/system/" + package + ".service")
+                blocked = self.run_gate(bindir, script, package=package)
+                self.assertEqual(blocked.returncode, 1, blocked.stderr)
+                self.assertIn("MANUAL_INSTALL_PRESENT", blocked.stderr)
+                self.assertEqual(old.read_text(), "operator sentinel")
+                self.put(host, "usr/sbin/" + package)
+                upgraded = self.run_gate(bindir, script, package=package, owner=package)
+                self.assertEqual(upgraded.returncode, 0, upgraded.stderr)
+
     def test_existing_package_owned_files_allow_persistent_state_on_reinstall(self):
         host, bindir, script = self.fixture()
         file = self.put(host, "var/lib/vdr-suite/user.db")

@@ -28,8 +28,9 @@ Package: vdr-suite-backend-agent
 Architecture: any
 Build-Profiles: <!plugin-only>
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: VDR-Suite backend agent
- Native backend agent for securely managed VDR sources.
+Description: Outbound connector for authenticated VDR backends
+ VDR-Suite agent for enrollment, secure outbound HTTPS communication,
+ backend health reporting and capability-gated native operations.
 
 Package: vdr-plugin-suitebridge
 Architecture: any
