@@ -169,6 +169,29 @@ esac
         self.assertEqual(managed.read_text(), "operator sentinel")
         self.assertEqual(dropin.read_text(), "operator sentinel")
 
+    def test_owned_conffile_alone_cannot_bypass_existing_state(self):
+        host, bindir, script = self.fixture()
+        conf = self.put(host, "etc/default/vdr-suite-daemon")
+        state = self.put(host, "var/lib/vdr-suite/user.db")
+        result = self.run_gate(bindir, script, owner="vdr-suite-daemon")
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("MANUAL_INSTALL_PRESENT", result.stderr)
+        self.assertIn("/var/lib/vdr-suite", result.stderr)
+        self.assertEqual(conf.read_text(), "operator sentinel")
+        self.assertEqual(state.read_text(), "operator sentinel")
+
+    def test_owned_agent_conffile_alone_cannot_bypass_dropin(self):
+        host, bindir, script = self.fixture("vdr-suite-backend-agent")
+        conf = self.put(host, "etc/vdr-suite/backend-agent.conf")
+        dropin = self.put(
+            host, "etc/systemd/system/vdr-suite-backend-agent.service.d/operator.conf")
+        result = self.run_gate(bindir, script, owner="vdr-suite-backend-agent")
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("MANUAL_INSTALL_PRESENT", result.stderr)
+        self.assertIn("vdr-suite-backend-agent.service.d", result.stderr)
+        self.assertEqual(conf.read_text(), "operator sentinel")
+        self.assertEqual(dropin.read_text(), "operator sentinel")
+
     def test_preexisting_state_without_package_owned_target_is_still_blocked(self):
         host, bindir, script = self.fixture()
         file = self.put(host, "var/lib/vdr-suite/user.db")

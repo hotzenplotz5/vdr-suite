@@ -58,11 +58,13 @@ manifest directory roots such as `/usr/share/vdr-suite`, compressed manual-page
 candidates, and SuiteBridge ABI wildcard paths. They also refuse known
 unmanaged `/usr/local` binaries and systemd overrides. Existing
 operator-managed systemd drop-in directories also block a first daemon/agent
-package installation, but do not automatically block upgrades of
-packages that already own their own target files. Existing
+package installation, but do not automatically block upgrades that retain
+an exactly dpkg-owned canonical daemon/agent executable. Ownership of a
+conffile alone is **not** prior installed-binary evidence after `dpkg remove`;
+the state and drop-in checks must still apply. Existing
 `/var/lib/vdr-suite` blocks a *first* daemon/agent package installation;
-an already package-managed upgrade does not automatically fail merely because
-the package-managed service maintains state there.
+an already package-managed upgrade with executable provenance does not
+automatically fail merely because the service maintains state there.
 
 The generated script uses only `/bin/sh` and `dpkg-query` on the target; it
 does not require the P6 Python program to have been installed first. Abort

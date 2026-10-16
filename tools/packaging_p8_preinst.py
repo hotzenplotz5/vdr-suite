@@ -87,7 +87,11 @@ def render(package, repo=ROOT, test_root=""):
         "  *) exit 0 ;; # recovery/abort operations must remain possible",
         "esac",
         "package=" + shlex.quote(package),
-        "package_owned_target=0",
+        "package_owned_executable=0",
+        # A retained package conffile (config-files state after remove) is
+        # NOT proof that the old package executable still exists.
+        "package_executable=" + shlex.quote(path("usr/sbin/" + package))
+        if package != "vdr-plugin-suitebridge" else "package_executable=''",
         "deny() {",
         "  printf 'P8_PREUNPACK=BLOCKED package=%s reason=%s path=%s\\n' \"$package\" \"$1\" \"$2\" >&2",
         "  exit 1",
@@ -105,7 +109,9 @@ def render(package, repo=ROOT, test_root=""):
         "  fi",
         "  owner=$(dpkg-query -S -- \"$target\" 2>/dev/null) || deny OWNERSHIP_UNKNOWN \"$target\"",
         "  [ \"$owner\" = \"$package: $target\" ] || deny FOREIGN_OR_AMBIGUOUS_OWNER \"$target\"",
-        "  package_owned_target=1",
+        "  if [ \"$target\" = \"$package_executable\" ]; then",
+        "    package_owned_executable=1",
+        "  fi",
         "}",
         "check_manual() {",
         "  target=$1",
@@ -115,6 +121,9 @@ def render(package, repo=ROOT, test_root=""):
         "}",
     ]
     package_entries = manifest_entries(repo, package)
+    if (package != "vdr-plugin-suitebridge" and
+            "usr/sbin/" + package not in package_entries):
+        raise ValueError("missing package executable provenance: " + package)
     # debhelper may compress manpages after dh_install but before dh_installdeb.
     # Check both names; never miss a pre-existing compressed manual page.
     package_entries += [e + ".gz" for e in package_entries
@@ -140,8 +149,9 @@ def render(package, repo=ROOT, test_root=""):
         out += [
             # During dpkg preinst the package's Status can be half-installed,
             # including for a valid reinstall or upgrade. Only an actually
-            # dpkg-owned package target is evidence of prior package ownership.
-            "if [ \"$package_owned_target\" != 1 ]; then",
+            # dpkg-owned executable, not a retained conffile, is evidence
+            # that permits state and drop-in paths during package upgrades.
+            "if [ \"$package_owned_executable\" != 1 ]; then",
             "  check_manual " + shlex.quote(path(STATE_ROOT)),
         ]
         for entry in FIRST_INSTALL_DROPINS[package]:
