@@ -526,3 +526,19 @@ test-public-epg-now-next-api:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_public_epg_now_next_security
 	$(BUILD_DIR)/test_public_epg_now_next_security
+
+# Persistence-only SearchTimer CREATE admission. No RESTfulAPI calls, no
+# mutation registration and no native TimerAssignment execution.
+.PHONY: test-searchtimer-create-durable-admission
+test-searchtimer-create-durable-admission:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/SearchTimerCreateOperationPayload.cpp \
+		core/vdr/src/SearchTimerCreateAdmissionService.cpp \
+		core/vdr/tests/test_search_timer_create_admission_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_search_timer_create_admission_service
+	$(BUILD_DIR)/test_search_timer_create_admission_service

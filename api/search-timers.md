@@ -49,3 +49,29 @@ This is an API/CI slice. Real Hisense hardware and production yaVDR deployment a
 - Uses the **same** `SearchTimerPreviewService` and ready backend EPG cache as the existing rule preview and Web. Only its implemented EPG text comparison/match semantics are covered; channel/duration filters, blacklists, repeat avoidance, recording settings and full epgsearch planning are **not evaluated** and are therefore rejected if supplied. Clients must label the result **EPG match-only, not an exact recording forecast**.
 - Response: `{backendId,totalCount,items:[{title,subtitle,channelId,startTime,endTime}],meta:{partial:false,epgInput:"ready",evaluation:"epg-match-only"}}`. `limit` default/max 30. Empty valid match is 200/`[]`; cache/backend unavailable 503. 400 for unsupported options, duplicate/oversized/mismatched query; 401/403 for authentication/grants. `Cache-Control: no-store`.
 - **Does not authorize CREATE**. A real SearchTimer CREATE requires separate permission, backend write policy, idempotency, and authoritative post-creation readback. Do not reinterpret this GET as permission to save a rule.
+
+## Durable SearchTimer CREATE admission – internal groundwork (not exposed)
+
+The domain now has a **persistence-only** `SearchTimerCreateAdmissionService`,
+using the shared `MutationOperationRepository.reserveWithPayload` and
+versioned `SearchTimerCreateOperationPayload`. It does **not** expose
+`POST /api/v1/search-timers`, register a runtime dispatcher, contact RESTfulAPI,
+create a VDR SearchTimer, or enable client Save.
+
+- Operation family `searchtimer.create`, resource `SearchTimer/new`, mandatory
+  `readbackRequired`, backend-generation fence and immutable payload.
+- The durable idempotency scope is actor + backend + resource type/id + action
+  family + idempotency key. A strict SHA-256 fingerprint identifies the exact
+  payload. Exact retries (including after process restart) return the original
+  operation; changed payload with the same key produces a conflict.
+- The payload codec is versioned, length-prefixed and canonical, with bounded
+  UTF-8 for rule name/query, explicit modes 0/1/2/3/5, fuzzy tolerance and
+  title/subtitle/description match fields. Unsupported fields fail closed.
+- **Before exposing POST:** add verified Device-only `searchtimers.create`
+  grant and BackendAccessPolicy write checks, durable dispatch arbitration,
+  no automatic resend on ambiguous backend outcomes, full backend readback
+  using the native ID and all contract fields, reconciliation, and operation
+  state transitions. A prepared operation by itself is **not** successful
+  backend CREATE.
+- Focused regression:
+  `make test-searchtimer-create-durable-admission` (in-memory database).
