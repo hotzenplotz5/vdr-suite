@@ -1,4 +1,5 @@
 import importlib.util
+import hashlib
 from contextlib import closing
 from pathlib import Path
 import sqlite3
@@ -22,6 +23,11 @@ class PreflightTests(unittest.TestCase):
             result = module.check(db)
             self.assertEqual(result["user_version"], 7)
             self.assertEqual(result["integrity"], "ok")
+            self.assertEqual(result["schema"], 3)
+            self.assertEqual(result["compatibility"], "REVIEW_REQUIRED")
+            self.assertEqual(result["foreign_key_check"], "ok")
+            self.assertEqual(result["schema_object_count"], 1)
+            self.assertRegex(result["schema_sha256"], r"^[0-9a-f]{64}$")
 
     def test_rejects_committed_wal_without_ignoring_its_data(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -74,7 +80,7 @@ class PreflightTests(unittest.TestCase):
                     "INSERT INTO vdr_global_search_schema_versions VALUES(1,'backfill');")
             before = db.read_bytes()
             data = module.check(db)
-            self.assertEqual(data["schema"], 2)
+            self.assertEqual(data["schema"], 3)
             self.assertEqual(data["known_schema_versions"], {
                 "suite_metadata_schema_versions": {
                     "applied_versions": [1, 7], "highest_version": 7},
@@ -92,6 +98,57 @@ class PreflightTests(unittest.TestCase):
                     "INSERT INTO suite_metadata_schema_versions VALUES('unknown');")
             with self.assertRaisesRegex(ValueError, "invalid version marker"):
                 module.check(db)
+
+    def test_schema_fingerprint_is_stable_and_matches_recovery_rehearsal(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = Path(directory) / "evidence.db"
+            with closing(sqlite3.connect(db)) as conn:
+                conn.executescript(
+                    "CREATE TABLE sample (id INTEGER PRIMARY KEY, secret TEXT);"
+                    "INSERT INTO sample VALUES (1, 'private-p7-row');")
+            before = db.read_bytes()
+            initial = module.check(db)
+            self.assertEqual(db.read_bytes(), before)
+            # The recovery helper deliberately hashes the same ordered
+            # sqlite_master tuple rows; the two inventories must be comparable.
+            with closing(sqlite3.connect(db)) as conn:
+                objects = conn.execute(
+                    "SELECT type, name, COALESCE(sql, '') FROM sqlite_master "
+                    "WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name"
+                ).fetchall()
+            expected = hashlib.sha256(repr(objects).encode("utf-8")).hexdigest()
+            self.assertEqual(initial["schema_sha256"], expected)
+            self.assertNotIn("private-p7-row", str(initial))
+            with closing(sqlite3.connect(db)) as conn:
+                conn.execute(
+                    "INSERT INTO sample VALUES(2, 'another-confidential-value')")
+                conn.commit()
+            changed_rows = module.check(db)
+            self.assertEqual(initial["schema_sha256"],
+                             changed_rows["schema_sha256"])
+            with closing(sqlite3.connect(db)) as conn:
+                conn.execute("ALTER TABLE sample ADD COLUMN note TEXT")
+                conn.commit()
+            changed_schema = module.check(db)
+            self.assertNotEqual(initial["schema_sha256"],
+                                changed_schema["schema_sha256"])
+            self.assertEqual(changed_schema["compatibility"],
+                             "REVIEW_REQUIRED")
+
+    def test_foreign_key_violation_is_rejected_without_mutation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = Path(directory) / "orphan.db"
+            with closing(sqlite3.connect(db)) as conn:
+                conn.executescript(
+                    "PRAGMA foreign_keys=OFF;"
+                    "CREATE TABLE parent (id INTEGER PRIMARY KEY);"
+                    "CREATE TABLE child (id INTEGER PRIMARY KEY,"
+                    "parent_id INTEGER REFERENCES parent(id));"
+                    "INSERT INTO child VALUES(1, 404);")
+            before = db.read_bytes()
+            with self.assertRaisesRegex(ValueError, "foreign_key_check failed"):
+                module.check(db)
+            self.assertEqual(db.read_bytes(), before)
 
     def test_does_not_create_database(self):
         with tempfile.TemporaryDirectory() as directory:
