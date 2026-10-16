@@ -54,6 +54,16 @@ class PackagingProfileTests(unittest.TestCase):
         self.assertNotIn(socket_config, daemon)
         self.assertEqual(len(plugin), len(set(plugin)))
 
+    def test_backend_agent_command_admin_manual_is_in_stage_and_package(self):
+        name = "vdr-suite-backend-agent-command-admin.8"
+        self.assertTrue((ROOT / "docs/man/man8" / name).is_file())
+        stage = (ROOT / "mk/install.mk").read_text(encoding="utf-8")
+        manifest = (ROOT / "debian/vdr-suite-backend-agent.install").read_text(
+            encoding="utf-8").splitlines()
+        self.assertIn("docs/man/man8/" + name, stage)
+        self.assertIn("usr/share/man/man8/" + name, manifest)
+        self.assertEqual(manifest.count("usr/share/man/man8/" + name), 1)
+
     def test_binary_package_systemd_unit_paths_are_usr_merged(self):
         rules = (ROOT / "debian/rules").read_text(encoding="utf-8")
         self.assertIn("SYSTEMDUNITDIR=/usr/lib/systemd/system", rules)

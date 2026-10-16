@@ -40,7 +40,7 @@ The default build produces `vdr-suite-daemon`, `vdr-suite-backend-agent` and `vd
 | `/usr/sbin/vdr-suite-backend-agent-command-admin` | Administrative command tool; not a client-facing API |
 | `/etc/vdr-suite/backend-agent.conf` | Non-secret service configuration |
 | `/usr/lib/systemd/system/vdr-suite-backend-agent.service` | Restricted systemd service (usrmerged package path) |
-| `/usr/share/man/man8/vdr-suite-backend-agent.8`, `vdr-suite-backend-agent-enroll.8`, `vdr-suite-backend-agent-admin.8` | Manual pages |
+| `/usr/share/man/man8/vdr-suite-backend-agent.8`, `vdr-suite-backend-agent-enroll.8`, `vdr-suite-backend-agent-admin.8`, `vdr-suite-backend-agent-command-admin.8` | Manual pages, including protected command administration |
 
 The Debian package stages systemd units under `/usr/lib/systemd/system` rather than the aliased `/lib/systemd/system`; the P8 first-install guard also refuses unmanaged legacy `/lib/systemd/system` unit files. This is a Debian-only staging override, not a change to the already deployed runtime tree.
 

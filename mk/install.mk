@@ -150,6 +150,7 @@ install-manpages:
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-backend-agent.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-backend-agent.8
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-backend-agent-enroll.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-backend-agent-enroll.8
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-backend-agent-admin.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-backend-agent-admin.8
+	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-backend-agent-command-admin.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-backend-agent-command-admin.8
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-first-admin-bootstrap.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-first-admin-bootstrap.8
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-human-account-recover.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-human-account-recover.8
 	$(INSTALL) -d $(DESTDIR)$(MANDIR)/man5
@@ -278,6 +279,7 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man8/vdr-suite-backend-agent.8
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man8/vdr-suite-backend-agent-enroll.8
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man8/vdr-suite-backend-agent-admin.8
+	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man8/vdr-suite-backend-agent-command-admin.8
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man8/vdr-suite-first-admin-bootstrap.8
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man8/vdr-suite-human-account-recover.8
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man5/vdr-suite.conf.5

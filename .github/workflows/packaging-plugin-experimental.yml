@@ -814,7 +814,12 @@ jobs:
           test -f /.dockerenv
           test "$(dpkg --print-architecture)" = amd64
           test "$( . /etc/os-release; printf '%s' "$VERSION_CODENAME" )" = resolute
-          printf '%s\n' '#!/bin/sh' 'exit 101' | install -m 0755 /dev/stdin /usr/sbin/policy-rc.d
+          # The plain ubuntu:26.04 container has no guaranteed /dev/stdin
+          # source path for install(1). Write the activation block directly.
+          test -d /usr/sbin
+          printf '%s\n' '#!/bin/sh' 'exit 101' > /usr/sbin/policy-rc.d
+          chmod 0755 /usr/sbin/policy-rc.d
+          test -x /usr/sbin/policy-rc.d
           shopt -s nullglob
           all=(packages/*.deb)
           (( ${#all[@]} == 3 )) || { echo 'RESOLUTE_LIFECYCLE_PACKAGE_SET=FAIL'; exit 1; }
