@@ -14,6 +14,7 @@
 #include "RecordingSeriesHierarchyApiRuntime.h"
 #include "RestfulApiRecordingActionBackendExecutorAdapter.h"
 #include "RestfulApiSearchTimerDiscoveryProvider.h"
+#include "SearchTimerPreviewService.h"
 #include "SearchTimerDiscoveryStaticProvider.h"
 #include "SimpleHttpListener.h"
 #include "TestHttpServer.h"
@@ -1205,6 +1206,76 @@ bool DaemonRuntime::initialize()
             for (std::size_t index = 0; index < count; ++index)
                 result.items.push_back(*(begin + index));
             result.status = PublicSearchTimerCollectionStatus::ok;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerSearchTimerPreviewLookup(
+        [this](const PublicSearchTimerPreviewRequest& request)
+        {
+            PublicSearchTimerPreviewResult result;
+            if (!backendRegistryService_ || !publicSearchTimerIdentities_ ||
+                !searchTimerPreviewEpgCache_ || request.limit == 0U ||
+                request.limit > 30U)
+                return result;
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled || !backend->online)
+                return result;
+
+            // Same engine and ready backend-scoped EPG cache as the Web
+            // preview; do not substitute raw EPG text search.
+            const auto* events =
+                searchTimerPreviewEpgCache_->eventsForBackend(request.backendId);
+            if (!events) return result;
+
+            const RestfulApiSearchTimerAdapter* adapter = nullptr;
+            for (const auto& context : backendRuntimeContexts_)
+                if (context && context->backendId == request.backendId &&
+                    context->searchTimerAdapter)
+                {
+                    adapter = context->searchTimerAdapter.get();
+                    break;
+                }
+            if (!adapter) return result;
+            const auto catalogue = adapter->list(
+                SearchTimerQuery::byBackend(request.backendId));
+            if (!catalogue.available()) return result;
+
+            for (const auto& timer : catalogue.items())
+            {
+                if (timer.backendId() != request.backendId ||
+                    timer.backendNativeId().empty() ||
+                    timer.name().empty() || timer.query().empty() ||
+                    timer.name().size() > 1024U ||
+                    timer.query().size() > 1024U)
+                    return result;
+                const auto publicId =
+                    publicSearchTimerIdentities_->resolveOrCreate(
+                        request.backendId, timer.backendNativeId());
+                if (!publicId) return result;
+                if (*publicId != request.searchTimerId) continue;
+
+                SearchTimerPreviewService service;
+                const auto preview = service.preview(
+                    timer, *events, static_cast<int>(request.limit), 0);
+                result.searchTimerId = *publicId;
+                result.backendId = request.backendId;
+                result.totalCount = preview.totalCount();
+                for (const auto& match : preview.searchResult().matches())
+                {
+                    const auto& event = match.event();
+                    PublicSearchTimerPreviewEvent item;
+                    item.title = event.title;
+                    item.subtitle = event.subtitle;
+                    item.channelId = event.channelId;
+                    item.startTime = event.startTime;
+                    item.endTime = event.endTime;
+                    result.items.push_back(std::move(item));
+                }
+                result.status = PublicSearchTimerPreviewStatus::ok;
+                return result;
+            }
+            result.status = PublicSearchTimerPreviewStatus::notFound;
             return result;
         });
 

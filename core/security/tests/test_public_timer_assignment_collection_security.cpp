@@ -160,5 +160,19 @@ int main()
             "A verified Device credential is required") !=
             std::string::npos);
     }
+    {
+        // A Browser session with both view grants cannot impersonate a
+        // paired Device for a saved SearchTimer EPG preview.
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "searchtimers.view", "backend-one"));
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "epg.view", "backend-one"));
+        const auto denied = fixture.gate.evaluate(browserGet(fixture,
+            "/api/v1/search-timers/st_00000000000000000000000000000001/"
+            "preview?backend=backend-one"));
+        assert(!denied.allowed);
+        assert(denied.rejection.statusCode == 403);
+    }
     return 0;
 }

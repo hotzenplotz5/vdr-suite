@@ -18,3 +18,24 @@ The current implemented version is **Public API v1**, not v2.
 See `api/openapi.json`, `docs/planning/timer-searchtimer-parity.md` (VIDAA repository), and `docs/client-integration-playbook.md` (VIDAA repository).
 
 This is an API/CI slice. Real Hisense hardware and production yaVDR deployment are separate gates.
+
+## Preview for an existing saved rule (read-only)
+
+`GET /api/v1/search-timers/{searchTimerId}/preview?backend=<backendId>[&limit=30]`
+
+- Paired verified Device only. Requires **both** `searchtimers.view` and
+  `epg.view` for precisely the requested backend; no browser cookie fallback.
+- Uses the Webfrontend's existing `SearchTimerPreviewService` and *ready*
+  backend-scoped SearchTimer EPG cache. No second search algorithm.
+- Returns `searchTimerId`, `backendId`, `totalCount`, up to 30 EPG
+  `items` (title, subtitle, channelId, startTime, endTime) and
+  `meta: {partial:false, epgInput:"ready"}`. Zero matches is 200 with [].
+  Internal native SearchTimer IDs and provider payloads remain private.
+- Missing/stale opaque rule yields 404; unavailable provider, offline backend
+  or not-yet-ready EPG cache yields 503, never a fake empty preview.
+- The `backend` parameter must match the Device backend authorization;
+  `limit` is 1..30. Unknown, repeated, cursor and offset parameters fail.
+  Response is no-store.
+- This previews **existing** rules only, not a new-rule form. Neither
+  SearchTimer CREATE/DELETE, full blacklist/duplicate evaluation, lossless edit,
+  nor native VDR Timer mutation is claimed as available on Public-v1.

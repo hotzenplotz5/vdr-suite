@@ -122,6 +122,35 @@ struct PublicSearchTimerCollectionResult
     bool hasMore = false;
 };
 
+// Read-only, bounded projection from Suite's existing SearchTimer preview.
+enum class PublicSearchTimerPreviewStatus { ok, notFound, unavailable };
+
+struct PublicSearchTimerPreviewEvent
+{
+    std::string title;
+    std::string subtitle;
+    std::string channelId;
+    std::string startTime;
+    std::string endTime;
+};
+
+struct PublicSearchTimerPreviewRequest
+{
+    std::string backendId;
+    std::string searchTimerId;
+    std::size_t limit = 30U;
+};
+
+struct PublicSearchTimerPreviewResult
+{
+    PublicSearchTimerPreviewStatus status =
+        PublicSearchTimerPreviewStatus::unavailable;
+    std::string backendId;
+    std::string searchTimerId;
+    int totalCount = 0;
+    std::vector<PublicSearchTimerPreviewEvent> items;
+};
+
 enum class PublicRecordingCollectionStatus
 {
     ok,
@@ -989,6 +1018,10 @@ public:
         std::function<PublicSearchTimerCollectionResult(
             const PublicSearchTimerCollectionRequest& request)>;
 
+    using SearchTimerPreviewLookup =
+        std::function<PublicSearchTimerPreviewResult(
+            const PublicSearchTimerPreviewRequest& request)>;
+
     using RecordingCollectionLookup =
         std::function<PublicRecordingCollectionResult(
             const PublicRecordingCollectionRequest& request)>;
@@ -1137,6 +1170,11 @@ public:
     bool searchTimerCollectionLookupConfigured() const;
     PublicSearchTimerCollectionResult lookupSearchTimerCollection(
         const PublicSearchTimerCollectionRequest& request) const;
+
+    void registerSearchTimerPreviewLookup(SearchTimerPreviewLookup lookup);
+    void resetSearchTimerPreviewLookup();
+    PublicSearchTimerPreviewResult lookupSearchTimerPreview(
+        const PublicSearchTimerPreviewRequest& request) const;
 
     void registerRecordingCollectionLookup(RecordingCollectionLookup lookup);
     void resetRecordingCollectionLookup();
@@ -1338,6 +1376,9 @@ private:
 
     mutable std::mutex searchTimerCollectionLookupMutex_;
     SearchTimerCollectionLookup searchTimerCollectionLookup_;
+
+    mutable std::mutex searchTimerPreviewLookupMutex_;
+    SearchTimerPreviewLookup searchTimerPreviewLookup_;
 
     mutable std::mutex recordingCollectionLookupMutex_;
     RecordingCollectionLookup recordingCollectionLookup_;

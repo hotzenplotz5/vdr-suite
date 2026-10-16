@@ -345,5 +345,71 @@ int main()
         "st-delete", "", searchDelete));
     assert(searchDelete.statusCode == 405);
     runtime.resetSearchTimerCollectionLookup();
+
+    // Saved SearchTimer preview is a distinct, bounded Public-v1 resource.
+    runtime.resetSearchTimerPreviewLookup();
+    runtime.registerSearchTimerPreviewLookup(
+        [](const PublicSearchTimerPreviewRequest& request)
+        {
+            PublicSearchTimerPreviewResult result;
+            if (request.backendId == "offline") return result;
+            if (request.searchTimerId ==
+                "st_00000000000000000000000000000002")
+            {
+                result.status = PublicSearchTimerPreviewStatus::notFound;
+                return result;
+            }
+            result.status = PublicSearchTimerPreviewStatus::ok;
+            result.backendId = request.backendId;
+            result.searchTimerId = request.searchTimerId;
+            result.totalCount = 42;
+            PublicSearchTimerPreviewEvent event;
+            event.title = "Terra X";
+            event.subtitle = "Planet Erde";
+            event.channelId = "C-42";
+            event.startTime = "1760724000";
+            event.endTime = "1760727600";
+            result.items.push_back(event);
+            return result;
+        });
+    const std::string previewRoute =
+        "/api/v1/search-timers/st_00000000000000000000000000000001/preview";
+    ApiResponse preview;
+    assert(runtime.tryHandleGet(previewRoute + "?backend=one",
+        "actor:test", "preview-ok", "", preview, "", "one"));
+    assert(preview.statusCode == 200);
+    assert(preview.body.find("\"totalCount\":42") != std::string::npos);
+    assert(preview.body.find("\"title\":\"Terra X\"") != std::string::npos);
+    assert(preview.body.find("backendNativeId") == std::string::npos);
+    assert(preview.headers.at("Cache-Control") == "no-store");
+    for (const std::string& invalid : {
+             std::string("backend=two"),
+             std::string("backend=one&cursor=bad"),
+             std::string("backend=one&offset=1"),
+             std::string("backend=one&limit=31")})
+    {
+        ApiResponse bad;
+        assert(runtime.tryHandleGet(previewRoute + "?" + invalid,
+            "actor:test", "preview-invalid", "", bad, "", "one"));
+        assert(bad.statusCode == 400);
+    }
+    ApiResponse previewNoMatch;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search-timers/st_00000000000000000000000000000002/preview?backend=one",
+        "actor:test", "preview-missing", "", previewNoMatch, "", "one"));
+    assert(previewNoMatch.statusCode == 404);
+    ApiResponse previewUnavailable;
+    assert(runtime.tryHandleGet(previewRoute + "?backend=offline",
+        "actor:test", "preview-offline", "", previewUnavailable, "", "offline"));
+    assert(previewUnavailable.statusCode == 503);
+    ApiResponse previewAnon;
+    assert(runtime.tryHandleGet(previewRoute + "?backend=one",
+        "", "preview-anon", "", previewAnon, "", "one"));
+    assert(previewAnon.statusCode == 401);
+    ApiResponse previewPost;
+    assert(runtime.tryHandlePost(previewRoute + "?backend=one",
+        "preview-post", "", previewPost));
+    assert(previewPost.statusCode == 405);
+    runtime.resetSearchTimerPreviewLookup();
     return 0;
 }

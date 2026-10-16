@@ -523,6 +523,40 @@
         }
       }
     },
+    "/api/v1/search-timers/{searchTimerId}/preview": {
+      "get": {
+        "tags": ["SearchTimers"],
+        "operationId": "previewSavedSearchTimer",
+        "summary": "Preview EPG matches for one saved SearchTimer without mutation",
+        "description": "Paired Device with both searchtimers.view and epg.view for the exact backend. Uses Suite SearchTimerPreviewService and ready backend EPG cache. This is not an ad-hoc create preview and exposes no native rule IDs.",
+        "parameters": [
+          {"name":"searchTimerId","in":"path","required":true,"schema":{"type":"string","pattern":"^st_[0-9a-f]{32}$"}},
+          {"name":"backend","in":"query","required":true,"schema":{"type":"string","pattern":"^[A-Za-z0-9._-]{1,128}$"}},
+          {"name":"limit","in":"query","required":false,"schema":{"type":"integer","minimum":1,"maximum":30,"default":30}}
+        ],
+        "responses": {
+          "200": {"description":"Bounded EPG preview; no mutation",
+            "content":{"application/json":{"schema":{"type":"object",
+              "required":["backendId","searchTimerId","totalCount","items","meta"],
+              "properties":{
+                "backendId":{"type":"string"},
+                "searchTimerId":{"type":"string","pattern":"^st_[0-9a-f]{32}$"},
+                "totalCount":{"type":"integer","minimum":0},
+                "items":{"type":"array","maxItems":30,"items":{"type":"object",
+                  "required":["title","subtitle","channelId","startTime","endTime"],
+                  "properties":{"title":{"type":"string"},"subtitle":{"type":"string"},
+                    "channelId":{"type":"string"},"startTime":{"type":"string"},
+                    "endTime":{"type":"string"}}}},
+                "meta":{"type":"object","properties":{"partial":{"type":"boolean","enum":[false]},"epgInput":{"type":"string","enum":["ready"]}}}
+              }}}}},
+          "400":{"description":"Invalid backend, ID or query"},
+          "401":{"description":"Device authentication absent"},
+          "403":{"description":"Missing SearchTimer or EPG grant"},
+          "404":{"description":"Opaque SearchTimer ID absent"},
+          "503":{"description":"Provider or ready EPG cache unavailable"}
+        }
+      }
+    },
     "/api/v1/search-timers": {
       "get": {
         "tags": [

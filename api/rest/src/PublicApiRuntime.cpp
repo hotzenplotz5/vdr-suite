@@ -61,6 +61,9 @@ constexpr const char* PublicTimerAssignmentCursorPayloadVersion =
     "timer-assignments/1|";
 constexpr const char* PublicSearchTimerCollectionPath =
     "/api/v1/search-timers";
+constexpr const char* PublicSearchTimerResourcePrefix =
+    "/api/v1/search-timers/";
+constexpr const char* PublicSearchTimerPreviewSuffix = "/preview";
 constexpr std::size_t PublicSearchTimerDefaultLimit = 30U;
 constexpr std::size_t PublicSearchTimerMaximumLimit = 30U;
 constexpr const char* PublicSearchTimerCursorPrefix = "st1_";
@@ -1428,6 +1431,20 @@ bool validPublicSearchTimerId(const std::string& id)
                 return (c >= '0' && c <= '9') ||
                     (c >= 'a' && c <= 'f');
             });
+}
+
+bool publicSearchTimerPreviewPath(
+    const std::string& path, std::string& searchTimerId)
+{
+    const std::string prefix(PublicSearchTimerResourcePrefix);
+    const std::string suffix(PublicSearchTimerPreviewSuffix);
+    if (path.size() <= prefix.size() + suffix.size() ||
+        path.compare(0U, prefix.size(), prefix) != 0 ||
+        path.compare(path.size() - suffix.size(), suffix.size(), suffix) != 0)
+        return false;
+    searchTimerId = path.substr(prefix.size(),
+        path.size() - prefix.size() - suffix.size());
+    return true;
 }
 
 std::string publicSearchTimerCursor(
@@ -4916,6 +4933,30 @@ PublicSearchTimerCollectionResult PublicApiRuntime::lookupSearchTimerCollection(
     return callback ? callback(request) : PublicSearchTimerCollectionResult{};
 }
 
+void PublicApiRuntime::registerSearchTimerPreviewLookup(
+    SearchTimerPreviewLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(searchTimerPreviewLookupMutex_);
+    searchTimerPreviewLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetSearchTimerPreviewLookup()
+{
+    std::lock_guard<std::mutex> lock(searchTimerPreviewLookupMutex_);
+    searchTimerPreviewLookup_ = {};
+}
+
+PublicSearchTimerPreviewResult PublicApiRuntime::lookupSearchTimerPreview(
+    const PublicSearchTimerPreviewRequest& request) const
+{
+    SearchTimerPreviewLookup callback;
+    {
+        std::lock_guard<std::mutex> lock(searchTimerPreviewLookupMutex_);
+        callback = searchTimerPreviewLookup_;
+    }
+    return callback ? callback(request) : PublicSearchTimerPreviewResult{};
+}
+
 void PublicApiRuntime::registerBackendCollectionLookup(
     BackendCollectionLookup lookup)
 {
@@ -7531,6 +7572,85 @@ bool PublicApiRuntime::tryHandleGet(
         }
     }
 
+    std::string previewSearchTimerId;
+    if (publicSearchTimerPreviewPath(path, previewSearchTimerId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (!validPublicSearchTimerId(previewSearchTimerId) ||
+            authorizedBackendId.empty())
+        {
+            response = invalidRequestProblem(path,
+                "A valid SearchTimer and authorized backend are required.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicSearchTimerCollectionQuery query;
+        if (!parsePublicSearchTimerCollectionQuery(
+                requestTarget, authorizedBackendId, query) ||
+            !query.cursor.empty())
+        {
+            response = invalidRequestProblem(path,
+                "Invalid SearchTimer preview query.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicSearchTimerPreviewRequest request;
+        request.backendId = authorizedBackendId;
+        request.searchTimerId = previewSearchTimerId;
+        request.limit = query.limit;
+        const auto preview = lookupSearchTimerPreview(request);
+        if (preview.status == PublicSearchTimerPreviewStatus::notFound)
+        {
+            response = notFoundProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (preview.status != PublicSearchTimerPreviewStatus::ok ||
+            preview.backendId != authorizedBackendId ||
+            preview.searchTimerId != previewSearchTimerId ||
+            preview.totalCount < 0 ||
+            preview.items.size() > query.limit ||
+            static_cast<std::size_t>(preview.totalCount) <
+                preview.items.size())
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        std::string body = "{\"backendId\":\"" +
+            jsonEscape(preview.backendId) +
+            "\",\"searchTimerId\":\"" +
+            jsonEscape(preview.searchTimerId) +
+            "\",\"totalCount\":" + std::to_string(preview.totalCount) +
+            ",\"items\":[";
+        for (std::size_t i = 0U; i < preview.items.size(); ++i)
+        {
+            const auto& event = preview.items[i];
+            if (event.title.empty() || event.title.size() > 1024U ||
+                event.subtitle.size() > 2048U ||
+                event.channelId.size() > 256U ||
+                event.startTime.size() > 64U ||
+                event.endTime.size() > 64U)
+            {
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+            }
+            if (i) body += ",";
+            body += "{\"title\":\"" + jsonEscape(event.title) +
+                "\",\"subtitle\":\"" + jsonEscape(event.subtitle) +
+                "\",\"channelId\":\"" + jsonEscape(event.channelId) +
+                "\",\"startTime\":\"" + jsonEscape(event.startTime) +
+                "\",\"endTime\":\"" + jsonEscape(event.endTime) + "\"}";
+        }
+        body += "],\"meta\":{\"partial\":false,\"epgInput\":\"ready\"}}";
+        response = jsonResponse(body, requestId, correlationId);
+        return true;
+    }
+
     if (path == PublicSearchTimerCollectionPath)
     {
         if (actorRef.empty())
@@ -10015,6 +10135,7 @@ bool PublicApiRuntime::tryHandlePost(
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         path == PublicSearchTimerCollectionPath ||
+        publicSearchTimerPreviewPath(path, timerAssignmentId) ||
         publicOperationPath(path, operationId))
     {
         response = methodNotAllowedProblem(
@@ -10173,6 +10294,7 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         path == PublicSearchTimerCollectionPath ||
+        publicSearchTimerPreviewPath(path, timerAssignmentId) ||
         publicOperationPath(path, operationId))
     {
         response = methodNotAllowedProblem(

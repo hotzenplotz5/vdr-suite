@@ -773,8 +773,19 @@ public:
             isPublicChannelCollection;
         const std::string publicSearchTimerCollection =
             "/api/v1/search-timers";
+        const std::string publicSearchTimerPreviewPrefix =
+            "/api/v1/search-timers/";
+        const bool isPublicSearchTimerPreviewResource =
+            path.size() > publicSearchTimerPreviewPrefix.size() + 8U &&
+            path.compare(0U, publicSearchTimerPreviewPrefix.size(),
+                publicSearchTimerPreviewPrefix) == 0 &&
+            path.compare(path.size() - 8U, 8U, "/preview") == 0;
+        const bool isPublicSearchTimerPreviewRead =
+            request.method == "GET" && isPublicSearchTimerPreviewResource;
         const bool isPublicSearchTimerRead =
-            request.method == "GET" && path == publicSearchTimerCollection;
+            request.method == "GET" &&
+            (path == publicSearchTimerCollection ||
+                isPublicSearchTimerPreviewResource);
         const std::string publicSearchTimerBackendId =
             queryStringValue(request.path, "backend");
         const std::string publicTimerAssignmentCollection =
@@ -830,6 +841,7 @@ public:
              isPublicEpgNowNext ||
              isPublicTimerAssignmentCollection ||
              path == publicSearchTimerCollection ||
+             isPublicSearchTimerPreviewResource ||
              isPublicOperationResource ||
              isPublicAccountCredentialResource ||
              isPublicAccountSessionResource);
@@ -1570,6 +1582,36 @@ public:
                     authenticationFailure(decision),
                     gate.publicApiV1);
                 return gate;
+            }
+            if (isPublicSearchTimerPreviewRead)
+            {
+                // The preview exposes EPG matches in addition to the saved
+                // rule; independent EPG scope is mandatory.
+                AuthorizationRequest epgRead;
+                epgRead.permission = "epg.view";
+                epgRead.backendId = publicSearchTimerBackendId;
+                epgRead.action = "searchtimers.preview";
+                const AuthorizationDecision epgDecision =
+                    authorizationService_.authorize(gate.context, epgRead);
+                if (!appendDecisionEvent(gate.context, epgDecision, ""))
+                {
+                    gate.rejection = errorResponse(
+                        503, "accountability_unavailable",
+                        "Security accountability persistence is unavailable",
+                        gate.context);
+                    return gate;
+                }
+                if (!epgDecision.allowed)
+                {
+                    gate.rejection = errorResponse(
+                        authenticationFailure(epgDecision) ? 401 : 403,
+                        epgDecision.reasonCode,
+                        messageForReason(epgDecision.reasonCode),
+                        gate.context,
+                        authenticationFailure(epgDecision),
+                        gate.publicApiV1);
+                    return gate;
+                }
             }
             gate.authorizationDecision = decision;
             gate.allowed = true;
