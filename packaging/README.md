@@ -8,6 +8,7 @@
 - [Install-Layout-Vertrag](../docs/development/phase-56.51-install-layout-contract.md)
 - [Packaging-Entscheidung ADR-0037](../docs/adr/ADR-0037-packaging-install-api-boundary.md)
 - [Debian-Verzeichnisstatus](debian/README.md)
+- [Backend-Agent: Paketinhalt, Single-Host/Multi-Backend, Enrollment und Sicherheit](../debian/README.md#backend-agent-package-roles-and-deployment)
 
 ## Was im Quellbaum vorhanden ist
 
