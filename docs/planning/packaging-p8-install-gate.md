@@ -6,6 +6,11 @@ unowned-nginx collision refusal were verified in
 [CI #109](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38926400765), all six jobs SUCCESS, exact code
 SHA `643166983f961bcf450d9c785cf1e628dc31d684`. The disposable test confirmed unchanged snippet SHA-256
 and no unpacked daemon executable; this is not a live-host acceptance.
+The expanded six-scenario pre-unpack matrix, 128 packaging regressions and
+the experimental package lifecycle/upgrade jobs passed in
+[CI #111](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38929697400), all **11 jobs SUCCESS**, exact code SHA
+`288dedef378570625e6b30e2a346146b2392abf8`. Every blocked scenario verified unchanged operator-sentinel
+bytes and no unpacked payload. This does not approve installation on yaVDR.
 
 ## Source of truth
 
@@ -90,14 +95,12 @@ migration decision ledger, not a deployment command.
 
 1. Establish an explicit per-path takeover policy, package-specific
    ownership/upgrade policy and VDR ABI/service compatibility matrix.
-2. Verify the expanded six-scenario disposable `dpkg --unpack`
-   collision matrix: daemon nginx snippet, systemd drop-in and existing state;
-   Backend Agent configuration and systemd drop-in; SuiteBridge ABI file.
-   Each isolated case must prove the expected preinst refusal, unchanged
-   sentinel bytes and absence of unpacked payload. The original nginx-only
-   scenario was verified in CI #109; additional scenarios remain pending
-   the exact new-head CI result. Expand the direct-package gate to remaining
-   protected installation/upgrade conditions before host authorization.
+2. Extend beyond the six now-confirmed disposable `dpkg --unpack`
+   collision scenarios (CI #111): daemon nginx, systemd drop-in and state;
+   Backend Agent config and drop-in; SuiteBridge ABI file. Continue to gate
+   unexplored protected paths and package upgrade compatibility before host
+   authorization. The installed-binary provenance rule is tested for retained
+   conffiles and valid reinstalls, but not a full P7 compatibility decision.
    A `postinst` cannot protect files already replaced during unpack.
 3. Determine the actual active systemd daemon binary, nginx route/include
    topology and older source/database provenance. Do not replace operator

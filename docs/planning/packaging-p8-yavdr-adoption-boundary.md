@@ -76,9 +76,11 @@ lifecycle experiments passed in
 [CI #109](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38926400765)
 on code SHA `643166983f961bcf450d9c785cf1e628dc31d684`.
 That verification is isolated and does not assert that the live host has
-changed. The expanded P8 package-native collision matrix is introduced at
-code SHA `c66369c6c62381ffb805a29d73dab6fc600c6682`; its CI outcome
-must be checked separately.
+changed. The expanded P8 six-case package-native collision matrix and
+retained-conffile safeguards passed in
+[CI #111](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38929697400), all 11 jobs SUCCESS at code SHA
+`288dedef378570625e6b30e2a346146b2392abf8` (128 packaging regression tests). This confirms only disposable
+package behavior, not real yaVDR transition safety.
 
 No productive files, service states, permissions, nginx includes or databases
 were changed during the reported read-only host inspections.
