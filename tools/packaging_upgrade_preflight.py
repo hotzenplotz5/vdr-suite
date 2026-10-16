@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import stat
 from pathlib import Path
 import sqlite3
 import sys
@@ -43,6 +44,45 @@ def inspect_known_versions(con, table_names):
     return observed
 
 
+
+def _file_identity(info):
+    """Identity + mutation timestamps; do not use atime (reading may change it)."""
+    return (info.st_dev, info.st_ino, info.st_mode, info.st_nlink,
+            info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+
+def digest_offline_file(db: Path):
+    """Stream an offline copy and detect path replacement or in-place writes.
+
+    This detects common inspection races but never certifies writer quiescence.
+    No database bytes or private row values are returned.
+    """
+    before = os.lstat(db)
+    if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+        raise ValueError("offline database must be a non-symlink, single-link regular file")
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    fd = os.open(db, flags)
+    with os.fdopen(fd, "rb") as stream:
+        opened = os.fstat(stream.fileno())
+        if _file_identity(opened) != _file_identity(before):
+            raise ValueError("database changed during inspection")
+        hasher = hashlib.sha256()
+        byte_count = 0
+        for part in iter(lambda: stream.read(1024 * 1024), b""):
+            hasher.update(part)
+            byte_count += len(part)
+        finished = os.fstat(stream.fileno())
+    after = os.lstat(db)
+    if (_file_identity(before) != _file_identity(finished) or
+            _file_identity(before) != _file_identity(after) or
+            byte_count != before.st_size):
+        raise ValueError("database changed during inspection")
+    return {"sha256": hasher.hexdigest(), "size_bytes": byte_count,
+            "identity": _file_identity(before)}
+
+
 def check(db: Path):
     if not db.is_file() or db.is_symlink():
         raise ValueError("database must be an existing regular non-symlink file")
@@ -51,6 +91,7 @@ def check(db: Path):
     # This is ONLY an offline-copy inspection, never a proof of live quiescence.
     original = db.resolve(strict=True)
     reject_sidecars(original)
+    before = digest_offline_file(original)
     uri = original.as_uri() + "?mode=ro&immutable=1"
     con = sqlite3.connect(uri, uri=True)
     try:
@@ -75,15 +116,20 @@ def check(db: Path):
             raise ValueError("database foreign_key_check failed")
         # Catch a sidecar introduced while opening/reading a candidate.
         reject_sidecars(original)
-        return {"schema": 3, "database": str(db), "user_version": version,
+        after = digest_offline_file(original)
+        if before != after or db.is_symlink() or db.resolve(strict=True) != original:
+            raise ValueError("database changed during inspection")
+        return {"schema": 4, "database": str(db), "user_version": version,
                 "table_count": len(tables), "integrity": integrity,
                 "foreign_key_check": "ok",
                 "schema_object_count": len(schema_objects),
                 "schema_sha256": schema_sha256,
+                "file_sha256": after["sha256"],
+                "file_size_bytes": after["size_bytes"],
                 "known_schema_versions": known_versions,
                 "compatibility": "REVIEW_REQUIRED",
                 "note": "Offline-only, partial schema-marker inventory and "
-                        "full DDL fingerprint; not proof of daemon provenance, "
+                        full DDL and file fingerprints; not proof of daemon provenance, "
                         "WAL quiescence, migration or compatibility approval"}
     finally:
         con.close()

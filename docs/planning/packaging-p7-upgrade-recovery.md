@@ -30,13 +30,25 @@ This is a rehearsal, not a procedure for copying the active VDR-Suite database. 
 
 A private WAL-mode regression demonstrates the defect: `mode=ro&immutable=1` can fail to see a table and rows committed in an accompanying WAL file, even though a normal `mode=ro` reader sees them. The preflight now refuses sidecars rather than claiming an upgrade-ready schema. Tests cover committed WAL data, orphaned rollback journals and dangling shared-memory symlinks without altering any original bytes. This validation checks only a **pre-existing offline copy**, not a live source or a production quiesce protocol.
 
-Schema versions are not globally unified: `PRAGMA user_version` alone is insufficient to assess Suite metadata, search, security, timer, and other repository-owned migration state. The offline inspector now emits the **observed positive integer markers** in `suite_metadata_schema_versions` and `vdr_global_search_schema_versions` (when those tables exist), keeping absent tables absent. Unexpected non-integer or nonpositive markers fail closed. The read-only preflight output schema revision is now `3`. In addition to these
+Schema versions are not globally unified: `PRAGMA user_version` alone is insufficient to assess Suite metadata, search, security, timer, and other repository-owned migration state. The offline inspector now emits the **observed positive integer markers** in `suite_metadata_schema_versions` and `vdr_global_search_schema_versions` (when those tables exist), keeping absent tables absent. Unexpected non-integer or nonpositive markers fail closed. The read-only preflight output schema revision is now `4`. In addition to these
 partial version markers, it computes `schema_sha256` from the ordered
 `(type, name, SQL)` rows of `sqlite_master` (the same fingerprint algorithm
 as the offline recovery rehearsal), reports `schema_object_count`, and
-rejects any `PRAGMA foreign_key_check` violation. No row values, tokens,
+rejects any `PRAGMA foreign_key_check` violation. It now also emits
+`file_sha256` and `file_size_bytes` from the exact offline SQLite bytes.
+The full-file hash changes when row data changes while the DDL fingerprint
+remains the same, allowing a future evidence record to identify a specific
+examined copy. The inspector hashes the file both before and after the SQLite
+read and rejects detected file/path replacement, inode/size/timestamp changes,
+and hardlinks to avoid silently examining another database. Streaming is
+bounded in memory but reads the entire file twice: this is **offline-only**. No row values, tokens,
 passwords or recordings enter the fingerprint; changing rows alone does not
 change the DDL fingerprint. A change to the SQL schema does change it.
+
+These checks cannot prove that writers were quiesced before copying,
+prevent adversarial in-place A→B→A edits, or certify original-file provenance.
+Hashes of potentially confidential data should themselves be handled as
+protected operational metadata. Never run against the live database.
 
 The result explicitly sets `compatibility=REVIEW_REQUIRED`. A matching
 fingerprint or green foreign-key check **does not identify a source daemon

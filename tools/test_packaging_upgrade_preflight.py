@@ -1,4 +1,7 @@
 import importlib.util
+import hashlib
+import os
+from unittest import mock
 from contextlib import closing
 from pathlib import Path
 import sqlite3
@@ -28,11 +31,14 @@ class PreflightTests(unittest.TestCase):
             result = module.check(db)
             self.assertEqual(result["user_version"], 7)
             self.assertEqual(result["integrity"], "ok")
-            self.assertEqual(result["schema"], 3)
+            self.assertEqual(result["schema"], 4)
             self.assertEqual(result["compatibility"], "REVIEW_REQUIRED")
             self.assertEqual(result["foreign_key_check"], "ok")
             self.assertEqual(result["schema_object_count"], 1)
             self.assertRegex(result["schema_sha256"], r"^[0-9a-f]{64}$")
+            self.assertEqual(result["file_sha256"],
+                             hashlib.sha256(db.read_bytes()).hexdigest())
+            self.assertEqual(result["file_size_bytes"], db.stat().st_size)
 
     def test_rejects_committed_wal_without_ignoring_its_data(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -85,7 +91,7 @@ class PreflightTests(unittest.TestCase):
                     "INSERT INTO vdr_global_search_schema_versions VALUES(1,'backfill');")
             before = db.read_bytes()
             data = module.check(db)
-            self.assertEqual(data["schema"], 3)
+            self.assertEqual(data["schema"], 4)
             self.assertEqual(data["known_schema_versions"], {
                 "suite_metadata_schema_versions": {
                     "applied_versions": [1, 7], "highest_version": 7},
@@ -120,6 +126,9 @@ class PreflightTests(unittest.TestCase):
                 expected = recovery.sqlite_facts(conn)["schema_sha256"]
             self.assertEqual(initial["schema_sha256"], expected)
             self.assertNotIn("private-p7-row", str(initial))
+            self.assertEqual(initial["file_sha256"],
+                             hashlib.sha256(before).hexdigest())
+            self.assertEqual(initial["file_size_bytes"], len(before))
             with closing(sqlite3.connect(db)) as conn:
                 conn.execute(
                     "INSERT INTO sample VALUES(2, 'another-confidential-value')")
@@ -127,6 +136,8 @@ class PreflightTests(unittest.TestCase):
             changed_rows = module.check(db)
             self.assertEqual(initial["schema_sha256"],
                              changed_rows["schema_sha256"])
+            self.assertNotEqual(initial["file_sha256"],
+                                changed_rows["file_sha256"])
             with closing(sqlite3.connect(db)) as conn:
                 conn.execute("ALTER TABLE sample ADD COLUMN note TEXT")
                 conn.commit()
@@ -150,6 +161,46 @@ class PreflightTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "foreign_key_check failed"):
                 module.check(db)
             self.assertEqual(db.read_bytes(), before)
+
+    def test_file_replacement_during_inspection_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = Path(directory) / "source.db"
+            replacement = Path(directory) / "replacement.db"
+            for path, value in ((db, "old"), (replacement, "replacement")):
+                with closing(sqlite3.connect(path)) as conn:
+                    conn.execute("CREATE TABLE same_schema (value TEXT)")
+                    conn.execute("INSERT INTO same_schema VALUES (?)", (value,))
+                    conn.commit()
+            original_inspector = module.inspect_known_versions
+
+            def replace_after_database_open(con, table_names):
+                # Only a private test fixture. The SQLite reader still holds
+                # its original inode; the pathname now points at another DB.
+                os.replace(replacement, db)
+                return original_inspector(con, table_names)
+
+            with mock.patch.object(module, "inspect_known_versions",
+                                   side_effect=replace_after_database_open):
+                with self.assertRaisesRegex(ValueError, "changed during inspection"):
+                    module.check(db)
+            with closing(sqlite3.connect(db)) as conn:
+                self.assertEqual(conn.execute(
+                    "SELECT value FROM same_schema").fetchone()[0],
+                                 "replacement")
+
+    def test_hardlink_to_database_is_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = Path(directory) / "source.db"
+            alias = Path(directory) / "other-name.db"
+            with closing(sqlite3.connect(db)) as conn:
+                conn.execute("CREATE TABLE records(id INTEGER)")
+                conn.commit()
+            os.link(db, alias)
+            before = db.read_bytes()
+            with self.assertRaisesRegex(ValueError, "single-link regular file"):
+                module.check(db)
+            self.assertEqual(db.read_bytes(), before)
+            self.assertEqual(alias.read_bytes(), before)
 
     def test_does_not_create_database(self):
         with tempfile.TemporaryDirectory() as directory:
