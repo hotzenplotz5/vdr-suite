@@ -146,3 +146,14 @@ recovery. No production caller is wired yet. The self-contained mock/SQLite
 and file-backed restart regression is:
 `make test-searchtimer-create-orphan-recovery`. Neither the daemon's
 installed binary nor native VDR SearchTimers change as a result of this slice.
+
+### CI execution gate for dormant CREATE services
+
+The top-level GitHub fast regression uses `make test-ci-fast` (not
+`make test-phase`). Accordingly, **all three** SearchTimer CREATE internal
+contract regressions are explicitly attached to `CI_FAST_TESTS`:
+`test-searchtimer-create-durable-admission`,
+`test-searchtimer-create-one-shot-dispatch`, and
+`test-searchtimer-create-orphan-recovery`. A green workflow now proves that
+the mock-only admission, one-shot and orphan recovery tests actually ran;
+it does not attest to a live VDR/VIDAA mutation or device hardware.
