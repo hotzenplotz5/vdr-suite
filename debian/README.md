@@ -46,9 +46,13 @@ The standalone SuiteBridge binary package **has now been built successfully** on
 
 ## Release block
 
-**NOT RELEASE-READY.** Ubuntu noble against Seahawk VDR 2.8.3 now has a verified full three-binary build plus disposable package install/reinstall/remove/purge (GitHub Actions #29). Still open: source-release copyright/third-party review, other distribution ABI coverage, manual source-install migration, real service startup, historic-version DB upgrade/rollback, lintian and release signing. No package upload to Launchpad and no production yaVDR installation are authorized by this document.
+**NOT RELEASE-READY.** Ubuntu noble against Seahawk VDR 2.8.3 has a verified full three-binary build plus disposable package install/reinstall/remove/purge (GitHub Actions #29). Ubuntu 26.04 Resolute now also has an exact-ABI unprivileged full three-binary build (CI [#123](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38949619320), exact code SHA `a2bd136074cfcc84b981af5abf010c9e4ccd1426`), with package manifests, the generated `vdr-abi-2.8.3-0yavdr` dependency and native P8 preinst guards checked. Resolute install/lifecycle acceptance remains pending. Still open: source-release copyright/third-party review, other distribution ABI coverage, manual source-install migration, real service startup, historic-version DB upgrade/rollback, lintian and release signing. No package upload to Launchpad and no production yaVDR installation are authorized by this document.
 
 In the experimental packages, automatic systemd enable/start is explicitly disabled. No maintainer script performs database migration.
+
+## Full default-profile build on Ubuntu 26.04 Resolute (2026-10-16)
+
+On exact code SHA `a2bd136074cfcc84b981af5abf010c9e4ccd1426`, the [CI #123](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38949619320) `full-default-packages-resolute` job built all three `0.14.1-1~exp2` amd64 binary packages as a non-root user with exact Seahawk `vdr`/`vdr-dev` `2.8.3-0yavdr0~resolute`, VDR API 14 and ABI `vdr-abi-2.8.3-0yavdr`. CI verified package names, versions, Depends, manifests, SuiteBridge `.so.14` and the generated native P8 `preinst` refusal guards. `nodejs <!plugin-only>` is a build-time dependency for generating a browser diagnostics page in the full daemon installation stage; the independent SuiteBridge-only profile does not need it. The CI artifacts are **unsigned experimental binaries, not a PPA publication**. No live or isolated Resolute package installation is implied by this binary-build milestone.
 
 ## Verified CI full-build staging ownership (2026-10-14)
 
