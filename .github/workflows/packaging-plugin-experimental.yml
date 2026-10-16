@@ -694,6 +694,98 @@ jobs:
           test "$(cat /var/lib/vdr-suite/p6-keep-me)" = 'data not owned by dpkg'
           echo "P6_ISOLATED_REINSTALL_REMOVE_PURGE=PASS"
 
+  isolated-package-lifecycle-resolute:
+    name: Ubuntu 26.04 disposable install/reinstall/remove/purge for exact API 14 packages
+    needs: full-default-packages-resolute
+    runs-on: ubuntu-24.04
+    container: ubuntu:26.04
+    timeout-minutes: 35
+    steps:
+      - name: Retrieve exact-run Resolute three-package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: vdr-suite-three-binaries-resolute-experimental
+          path: packages
+      - name: Require disposable Resolute, block activation and audit package identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(id -u)" -eq 0
+          test -f /.dockerenv
+          test "$(dpkg --print-architecture)" = amd64
+          test "$( . /etc/os-release; printf '%s' "$VERSION_CODENAME" )" = resolute
+          printf '%s\n' '#!/bin/sh' 'exit 101' | install -m 0755 /dev/stdin /usr/sbin/policy-rc.d
+          shopt -s nullglob
+          all=(packages/*.deb)
+          (( ${#all[@]} == 3 )) || { echo 'RESOLUTE_LIFECYCLE_PACKAGE_SET=FAIL'; exit 1; }
+          expected_version=''
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            files=(packages/"$package"_*_amd64.deb)
+            (( ${#files[@]} == 1 )) || exit 1
+            deb="${files[0]}"
+            test "$(dpkg-deb --field "$deb" Package)" = "$package"
+            test "$(dpkg-deb --field "$deb" Architecture)" = amd64
+            version="$(dpkg-deb --field "$deb" Version)"
+            if test -z "$expected_version"; then expected_version="$version"; fi
+            test "$version" = "$expected_version"
+            dpkg-deb --ctrl-tarfile "$deb" | tar -xOf - ./preinst | grep -F 'P8_PREUNPACK=BLOCKED'
+          done
+          test "$expected_version" = '0.14.1-1~exp2'
+          dpkg-deb --field packages/vdr-plugin-suitebridge_*_amd64.deb Depends |
+            grep -Fw 'vdr-abi-2.8.3-0yavdr'
+          echo 'RESOLUTE_LIFECYCLE_ARTIFACT_IDENTITY=PASS'
+      - name: Install against pinned Seahawk Resolute VDR without starting units
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates gnupg software-properties-common
+          add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
+          apt-get update
+          apt-get install -y --no-install-recommends ./packages/vdr-suite-daemon_*.deb ./packages/vdr-suite-backend-agent_*.deb ./packages/vdr-plugin-suitebridge_*.deb
+          test "$(dpkg-query -W -f='${Version}' vdr)" = '2.8.3-0yavdr0~resolute'
+          dpkg-query -W -f='${Provides}\n' vdr | grep -Fw 'vdr-abi-2.8.3-0yavdr'
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            test "$(dpkg-query -W -f='${Status}' "$package")" = 'install ok installed'
+          done
+          getent passwd vdr
+          getent group vdr
+          test -f /usr/lib/systemd/system/vdr-suite-daemon.service
+          test -f /usr/lib/systemd/system/vdr-suite-backend-agent.service
+          grep -Fx 'User=vdr' /usr/lib/systemd/system/vdr-suite-backend-agent.service
+          test ! -L /etc/systemd/system/multi-user.target.wants/vdr-suite-daemon.service
+          test ! -L /etc/systemd/system/multi-user.target.wants/vdr-suite-backend-agent.service
+          test -f /etc/default/vdr-suite-daemon
+          test -f /etc/vdr-suite/backend-agent.conf
+          test -f /etc/nginx/snippets/vdr-suite.conf
+          test -f /usr/lib/tmpfiles.d/vdr-suite-live.conf
+          test ! -e /var/lib/vdr-suite/vdr-suite.db
+          echo 'RESOLUTE_LIFECYCLE_INSTALL_NO_START=PASS'
+      - name: Reinstall then remove and purge preserving operator state
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          install -d -m 0755 /var/lib/vdr-suite
+          printf '%s\n' 'caller-owned Resolute fixture' > /var/lib/vdr-suite/resolute-state-preserve
+          printf '%s\n' '# Resolute operator daemon sentinel' >> /etc/default/vdr-suite-daemon
+          printf '%s\n' '# Resolute operator agent sentinel' >> /etc/vdr-suite/backend-agent.conf
+          apt-get -y -o Dpkg::Options::=--force-confold --reinstall install ./packages/vdr-suite-daemon_*.deb ./packages/vdr-suite-backend-agent_*.deb ./packages/vdr-plugin-suitebridge_*.deb
+          grep -Fx '# Resolute operator daemon sentinel' /etc/default/vdr-suite-daemon
+          grep -Fx '# Resolute operator agent sentinel' /etc/vdr-suite/backend-agent.conf
+          test ! -e /var/lib/vdr-suite/vdr-suite.db
+          apt-get -y remove vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge
+          test -f /etc/default/vdr-suite-daemon
+          test -f /etc/vdr-suite/backend-agent.conf
+          test -f /var/lib/vdr-suite/resolute-state-preserve
+          dpkg --purge vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge
+          test "$(cat /var/lib/vdr-suite/resolute-state-preserve)" = 'caller-owned Resolute fixture'
+          test ! -e /var/lib/vdr-suite/vdr-suite.db
+          echo 'RESOLUTE_LIFECYCLE_REINSTALL_REMOVE_PURGE=PASS'
+
   p7-prior-exp1-packages-noble:
     name: P7 pinned prior exp1 three-binary build (disposable)
     runs-on: ubuntu-24.04
