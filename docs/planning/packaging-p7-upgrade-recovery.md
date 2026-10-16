@@ -30,7 +30,23 @@ This is a rehearsal, not a procedure for copying the active VDR-Suite database. 
 
 A private WAL-mode regression demonstrates the defect: `mode=ro&immutable=1` can fail to see a table and rows committed in an accompanying WAL file, even though a normal `mode=ro` reader sees them. The preflight now refuses sidecars rather than claiming an upgrade-ready schema. Tests cover committed WAL data, orphaned rollback journals and dangling shared-memory symlinks without altering any original bytes. This validation checks only a **pre-existing offline copy**, not a live source or a production quiesce protocol.
 
-Schema versions are not globally unified: `PRAGMA user_version` alone is insufficient to assess Suite metadata, search, security, timer, and other repository-owned migration state. The offline inspector now emits the **observed positive integer markers** in `suite_metadata_schema_versions` and `vdr_global_search_schema_versions` (when those tables exist), keeping absent tables absent. Unexpected non-integer or nonpositive markers fail closed. The output schema revision is now `2`; these are **partial observations, not upgrade compatibility decisions**. In particular, `database/migrations/README.md` explicitly reserves that directory; no complete migration runner is present there. Never infer backward compatibility or authorize a package upgrade solely from the read-only preflight.
+Schema versions are not globally unified: `PRAGMA user_version` alone is insufficient to assess Suite metadata, search, security, timer, and other repository-owned migration state. The offline inspector now emits the **observed positive integer markers** in `suite_metadata_schema_versions` and `vdr_global_search_schema_versions` (when those tables exist), keeping absent tables absent. Unexpected non-integer or nonpositive markers fail closed. The read-only preflight output schema revision is now `3`. In addition to these
+partial version markers, it computes `schema_sha256` from the ordered
+`(type, name, SQL)` rows of `sqlite_master` (the same fingerprint algorithm
+as the offline recovery rehearsal), reports `schema_object_count`, and
+rejects any `PRAGMA foreign_key_check` violation. No row values, tokens,
+passwords or recordings enter the fingerprint; changing rows alone does not
+change the DDL fingerprint. A change to the SQL schema does change it.
+
+The result explicitly sets `compatibility=REVIEW_REQUIRED`. A matching
+fingerprint or green foreign-key check **does not identify a source daemon
+version, prove a quiesced/WAL-consistent copy, authenticate provenance, check
+every application-level invariant, or authorize upgrade/rollback**. The output
+contains the offline database path; handle it accordingly. This is evidence
+to compare already approved, offline daemon-created samples against the
+documented source SHA and future compatibility matrix, not an automatic
+compatibility registry. These remain **partial observations, not upgrade
+compatibility decisions**. In particular, `database/migrations/README.md` explicitly reserves that directory; no complete migration runner is present there. Never infer backward compatibility or authorize a package upgrade solely from the read-only preflight.
 
 ## Historical tagged schema rehearsal — isolated only
 
