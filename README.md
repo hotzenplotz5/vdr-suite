@@ -57,6 +57,24 @@ Web / TV / external clients
 
 VDR remains authoritative for native devices, schedules, timers, recordings and OSD. Plugin access (RESTfulAPI, SVDRP, Streamdev, SuiteBridge, TVScraper) stays behind adapter boundaries; it does not automatically become a public contract.
 
+## Debian packages and the Backend Agent
+
+The experimental Debian/Ubuntu source package currently produces **three separate binary packages**. They serve different roles; building all three does **not** mean that every installation must run three services.
+
+| Package | Role |
+| --- | --- |
+| `vdr-suite-daemon` | Central Control Plane, API, authentication and Web UI |
+| `vdr-plugin-suitebridge` | ABI-specific native plugin loaded by VDR; its package must match the installed VDR ABI |
+| `vdr-suite-backend-agent` | Separate outbound connector for a VDR backend/site: enrollment, backend identity, health/observations and capability-gated native commands |
+
+**Single VDR host:** The daemon and native VDR integration can share one machine. A *separately running* Backend Agent is **not a blanket installation requirement** for a single-host setup; whether the selected deployment mode uses an embedded/local backend or a separate agent must be verified for that release. Do not enable the Agent just because its `.deb` was built.
+
+**Multiple VDR machines or sites:** A configured Backend Agent on a backend host initiates an authenticated **outbound HTTPS** connection to the central Control Plane. Clients connect to the Control Plane, not to public SVDRP/RESTfulAPI/SuiteBridge endpoints at each site. The Agent is not a second central database or a Web UI.
+
+The agent package includes `/usr/sbin/vdr-suite-backend-agent`, enrollment and administration tools, `/etc/vdr-suite/backend-agent.conf` and `vdr-suite-backend-agent.service`. The example configuration points to `https://control-plane.example.invalid` and **cannot connect as shipped**; controlled enrollment, a real HTTPS origin and protected local identity storage are required. Package builds do not enroll an Agent, enable its service, migrate the live SQLite database or authorize a production installation.
+
+**Details:** [Agent package contents, configuration, enrollment and deployment boundaries](debian/README.md#backend-agent-package-roles-and-deployment) · [Multi-site trust boundary](docs/adr/ADR-0039-backend-agent-control-plane-boundary.md) · [Packaging/release status](packaging/README.md).
+
 ## For developers
 
 Start with the [clean-checkout quickstart](docs/development/quickstart.md), then [Developer Onboarding](docs/development/developer-onboarding.md), the [current architecture](docs/development/current-architecture-state.md), [ADRs](docs/adr/index.md) and [source-tested API](api/README.md). The repository's detailed rules for automated changes are in [AGENTS](AGENTS.md), not prerequisites to *reading* or *trying* the project.
