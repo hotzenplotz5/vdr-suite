@@ -31,6 +31,12 @@ override_dh_auto_test:
 	python3 tools/check_packaging_version.py
 	python3 -m unittest discover -s tools -p 'test_packaging_*.py'
 
+# dh_installdeb assembles package control directories before dh_builddeb.
+# Generate package-specific, manifest-derived preinst collision guards there.
+override_dh_installdeb:
+	dh_installdeb
+	python3 tools/packaging_p8_preinst.py --stage
+
 override_dh_installsystemd:
 	dh_installsystemd --no-enable --no-start
 
