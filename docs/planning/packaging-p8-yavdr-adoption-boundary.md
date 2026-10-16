@@ -25,7 +25,7 @@ recorded database schema, VDR plugin ABI, or service recovery procedure.
 | SuiteBridge VDR plugin | Five files include `.so.11`, `.so.14` and `.so.11.*` historical variants; `pkg-config vdr` is `2.8.3`, API `14`, libdir `/usr/lib/vdr/plugins`; running VDR MainPID `1757` maps the `.so.14` file; device/inode equality with disk confirmed (`MAPPED_FILE_IDENTITY=PASS`) | **Loaded-module/disk-file identity verified for inspected process; control socket listener separately confirmed; protocol not exercised.** Both `.so.14` and `.so.11` lack reported dpkg ownership. Preserve all versions; **package collision remains BLOCKED** |
 | SQLite database and WAL | `vdr-suite.db`: 3,357,405,184 bytes; `-wal`: 198,295,632 bytes; `-shm`: 393,216 bytes | **P7 BLOCKED:** live WAL sidecars present at inspection; no direct copy of `.db`, checkpoint, `immutable=1` schema check, migration, or restore on live state |
 | Daemon binary fingerprints | `/usr/sbin/vdr-suite-daemon`: 17,939,328 bytes, SHA-256 `0bfa78635215bd46363ec86bbe356d4426aef9fc3a6430f329ae69658f0ffc57`; `/usr/local/sbin/vdr-suite-daemon`: 6,503,208 bytes, SHA-256 `a5e08254ed8e4956fe31651981070098a7c5cc57de59e58a1da1d2f4bef227f2` | Fingerprints identify observed file bytes only, not a known source SHA or supported predecessor |
-| Network/runtime | Daemon active; prior `ss` showed TCP 18080 listening on 0.0.0.0. SuiteBridge private `/run/vdr/vdr-suite-control/control.sock` is a `SOCK_SEQPACKET` Unix listener owned by VDR PID `1757`, fd `28` (`ss -xlnpH`); directory `0700 vdr:vdr`, socket `0660 vdr:vdr` | **Listener and local permission topology confirmed at inspection time.** No peer-authentication handshake or functional command executed. Preserve socket, service and nginx configurations; no listener edits |
+| Network/runtime | Daemon active; prior `ss` showed TCP 18080 listening on 0.0.0.0. SuiteBridge private `/run/vdr/vdr-suite-control/control.sock` is a `SOCK_SEQPACKET` Unix listener owned by VDR PID `1757`, fd `28`; directory `0700 vdr:vdr`, socket `0660 vdr:vdr`. Passive journal: `CONTROL_PLANE_START_ACCEPTED=1`, `CONTROL_PLANE_START_REJECTED=0`, `PLUGIN_LIFECYCLE_START_ACCEPTED=1` | **Control-plane/lifecycle initialization PASS at observed boot; listener and ownership confirmed.** No peer-authentication handshake or functional command executed. Preserve socket, service and nginx configurations; no listener edits |
 
 These are observations at inspection time, not immutable facts. Do not
 infer that a process ID, binary hash or active route is unchanged later.
@@ -121,9 +121,14 @@ A further read-only inspection observed the native control-plane directory
 as `0660 vdr:vdr`, a regular Unix socket (not a symlink).
 `ss -xlnpH` reported a listening `u_seq`/SOCK_SEQPACKET endpoint
 at that path owned by `vdr` PID `1757`, fd `28`, kernel socket
-identifier `21642`. These facts attest socket creation and listener
-ownership only; SO_PEERCRED admission, protocol replies, agent health and
-authorization have not been exercised.
+identifier `21642`. A separate read-only `journalctl` query scoped to
+the current VDR PID `1757` found exactly one
+`suitebridge: control-plane event=start result=accepted` and one
+`suitebridge: lifecycle event=start result=accepted`, with no control-plane
+start rejection (`START_LOG_EVIDENCE=PASS`). Taken together these
+observations attest successful startup and socket-listener initialization,
+not SO_PEERCRED admission, protocol replies, agent health, authenticated
+authorization, or continued operation after a restart.
 
 No productive files, service states, permissions, nginx includes or databases
 were changed during the reported read-only host inspections.

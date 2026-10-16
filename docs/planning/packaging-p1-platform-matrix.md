@@ -59,9 +59,15 @@ provenance. A subsequent read-only `ss -xlnpH` inspection confirmed that
 `SOCK_SEQPACKET` endpoint owned by the same VDR process (PID 1757,
 fd 28); parent directory `0700 vdr:vdr` and socket `0660 vdr:vdr`.
 That confirms the native control-plane listener and permission topology
-at inspection time, not an authenticated CAPS/SNAP exchange.
-Protocol operation, upgrade/rollback and service recovery remain
-unverified. The [separate Resolute plugin-only CI #118](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38936881893)
+at inspection time. The maintainer's subsequent **passive journald query**
+for the same active VDR MainPID `1757` reported
+`CONTROL_PLANE_START_ACCEPTED=1`,
+`CONTROL_PLANE_START_REJECTED=0` and
+`PLUGIN_LIFECYCLE_START_ACCEPTED=1`
+(`START_LOG_EVIDENCE=PASS`). This verifies that SuiteBridge reported
+successful listener and lifecycle initialization in this boot. It does
+**not** verify peer admission, a CAPS/SNAP roundtrip, future restarts,
+upgrade/rollback or service recovery. The [separate Resolute plugin-only CI #118](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38936881893)
 successfully resolved exact `2.8.3-0yavdr0~resolute`, compiled API 14,
 verified the Debian `.so.14` and automatically generated dependency
 `vdr-abi-2.8.3-0yavdr`, and passed 130 packaging regressions.
