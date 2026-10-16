@@ -45,9 +45,17 @@ VDR version is identical. Installed SuiteBridge filenames `.so.11`, `.so.14` and
 backup-suffixed variants are conflicts needing separate review.
 A 2026-10-16 read-only `/proc/<VDR MainPID>/maps` inspection confirmed
 that the active VDR mapped `/usr/lib/vdr/plugins/libvdr-suitebridge.so.14`
-at the observed instant (PID 1757). This closes **loaded plugin identity**
-for that inspection, not protocol operation, binary provenance, startup
-after replacement or version-migration acceptance. The [separate Resolute plugin-only CI #118](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38936881893)
+at the observed instant (PID 1757). This closes **loaded plugin identity** for that inspection.
+A subsequent non-mutating `/proc/1757/maps` device/inode cross-check
+against `stat` for the disk file returned
+`MAPPED_FILE_IDENTITY=PASS` (disk inode `1704446`, disk size
+`13523792` bytes, SHA-256
+`8158311f874f0e1b10620192eb3e35f6f62d10e7723571d33635e7ecc1858580`).
+The result establishes the mapped file's identity with the current disk
+file at inspection time; the SHA-256 was measured on disk, not from
+the mapped memory, and does **not** attest source commit or CI binary
+provenance. Protocol operation, upgrade/rollback and service recovery
+remain unverified. The [separate Resolute plugin-only CI #118](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38936881893)
 successfully resolved exact `2.8.3-0yavdr0~resolute`, compiled API 14,
 verified the Debian `.so.14` and automatically generated dependency
 `vdr-abi-2.8.3-0yavdr`, and passed 130 packaging regressions.
