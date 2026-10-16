@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Read-only inspection of a candidate VDR-Suite SQLite database before upgrade."""
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -60,13 +61,30 @@ def check(db: Path):
         if integrity != "ok":
             raise ValueError("database quick_check failed: " + str(integrity))
         known_versions = inspect_known_versions(con, set(tables))
+        # Match the repository's offline recovery rehearsal fingerprint.
+        # sqlite_master definitions are metadata: no row values or credentials
+        # enter this hash. It identifies DDL, not an approved migration path.
+        schema_objects = con.execute(
+            "SELECT type, name, COALESCE(sql, '') FROM sqlite_master "
+            "WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name").fetchall()
+        schema_sha256 = hashlib.sha256(
+            repr(schema_objects).encode("utf-8")).hexdigest()
+        # quick_check does not validate foreign keys. Never accept an offline
+        # snapshot as structurally consistent when referential integrity fails.
+        if con.execute("PRAGMA foreign_key_check").fetchone() is not None:
+            raise ValueError("database foreign_key_check failed")
         # Catch a sidecar introduced while opening/reading a candidate.
         reject_sidecars(original)
-        return {"schema": 2, "database": str(db), "user_version": version,
+        return {"schema": 3, "database": str(db), "user_version": version,
                 "table_count": len(tables), "integrity": integrity,
+                "foreign_key_check": "ok",
+                "schema_object_count": len(schema_objects),
+                "schema_sha256": schema_sha256,
                 "known_schema_versions": known_versions,
-                "note": "Offline-only, partial schema-marker inventory; "
-                        "not a migration, backup, or compatibility approval"}
+                "compatibility": "REVIEW_REQUIRED",
+                "note": "Offline-only, partial schema-marker inventory and "
+                        "full DDL fingerprint; not proof of daemon provenance, "
+                        "WAL quiescence, migration or compatibility approval"}
     finally:
         con.close()
 
