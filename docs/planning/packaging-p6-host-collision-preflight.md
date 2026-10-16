@@ -47,9 +47,10 @@ the verified separate packaging checkout and needs no administrator rights.
 Focused regression: `python3 -m unittest discover -s tools -p
 'test_packaging_host_collision_preflight.py'`.
 
-Next: add approved migration policies for each observed collision, enforce
-the read-only gate before any P8 installer writes, and check the actual
-`nginx -t` / VDR services only under separate live acceptance authorization.
+Next: add approved migration policies for each observed collision, verify
+pre-unpack script inclusion and refusal in actual disposable dpkg package
+transactions, and check the actual `nginx -t` / VDR services only under
+separate live acceptance authorization.
 
 Release boundary: CI validates the read-only scan and disposable package
 build/upgrade tests, **not** a real yaVDR installation. The current Debian
@@ -57,6 +58,9 @@ daemon package still supplies `/etc/nginx/snippets/vdr-suite.conf`; a
 pre-existing unowned file at that path is a deliberate `BLOCKED` result.
 The new P8 entry point runs this scan before its `--install` operation,
 but **always refuses** installation until approved transition policy exists.
-Direct `apt`/`dpkg` installation remains unguarded; do not bypass the P8
-entry-point gate. See [the P8 installation gate](packaging-p8-install-gate.md). Existing active nginx includes and older
+Direct `apt`/`dpkg` package transactions have a new narrowly scoped
+pre-unpack collision guard generated from the same Debian install manifests.
+The guard is not the full P6 scan and does not authorize installation: nginx
+topology, daemon/database version, service state and P7 migration safety remain
+separate hard release gates. Never bypass the P8 entry-point policy. See [the P8 installation gate](packaging-p8-install-gate.md). Existing active nginx includes and older
 manual binaries remain operator-managed until an approved transition exists.
