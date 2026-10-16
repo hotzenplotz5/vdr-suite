@@ -24,8 +24,8 @@ KNOWN_TARGETS = {
     "etc/vdr-suite/backend-agent.conf",
     "usr/sbin/vdr-suite-daemon",
     "usr/sbin/vdr-suite-backend-agent",
-    "lib/systemd/system/vdr-suite-daemon.service",
-    "lib/systemd/system/vdr-suite-backend-agent.service",
+    "usr/lib/systemd/system/vdr-suite-daemon.service",
+    "usr/lib/systemd/system/vdr-suite-backend-agent.service",
     "usr/lib/tmpfiles.d/vdr-suite-live.conf",
 }
 MANUAL_PATHS = (
@@ -38,6 +38,11 @@ MANUAL_PATHS = (
     "etc/systemd/system/vdr-suite-backend-agent.service",
     "etc/systemd/system/vdr-suite-daemon.service.d",
     "etc/systemd/system/vdr-suite-backend-agent.service.d",
+    # "lib/systemd/system" is the previously deployed unmanaged location.
+    # Continue reporting it for operator review after debian/.install moves
+    # to usrmerged /usr/lib/systemd/system; no silent P8 adoption.
+    "lib/systemd/system/vdr-suite-daemon.service",
+    "lib/systemd/system/vdr-suite-backend-agent.service",
     "var/lib/vdr-suite",
 )
 SITE_ROOTS = ("etc/nginx/nginx.conf", "etc/nginx/sites-enabled",

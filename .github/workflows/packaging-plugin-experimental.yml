@@ -49,7 +49,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           git ls-files --stage debian/rules | grep -E '^100755 '
-          python3 -m unittest -v tools.test_packaging_profiles tools.test_packaging_p8_preinst 2>&1 | tee packaging-offline-regressions.log
+          python3 -m unittest -v tools.test_packaging_profiles tools.test_packaging_p8_preinst tools.test_packaging_host_collision_preflight tools.test_packaging_p8_installer 2>&1 | tee packaging-offline-regressions.log
           python3 tools/check_packaging_tracked_artifacts.py
           python3 tools/check_packaging_version.py
           echo 'PACKAGING_OFFLINE_P8_AND_MANIFEST=PASS'

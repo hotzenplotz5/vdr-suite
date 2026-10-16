@@ -31,6 +31,9 @@ class HostCollisionTests(unittest.TestCase):
         self.assertEqual(targets["etc/vdr-suite/backend-agent.conf"],
                          "vdr-suite-backend-agent")
         self.assertIn("usr/sbin/vdr-suite-daemon", targets)
+        self.assertIn("usr/lib/systemd/system/vdr-suite-daemon.service", targets)
+        self.assertIn("usr/lib/systemd/system/vdr-suite-backend-agent.service", targets)
+        self.assertNotIn("lib/systemd/system/vdr-suite-daemon.service", targets)
         self.assertNotIn("usr/share/vdr-suite/", targets)
 
     def test_empty_private_host_is_never_approved(self):
@@ -76,6 +79,25 @@ class HostCollisionTests(unittest.TestCase):
             self.assertEqual(result["verdict"], "REVIEW_REQUIRED")
             self.assertTrue(any(x["path"] == "/var/lib/vdr-suite" for x in
                                 result["checks"]))
+
+    def test_unmanaged_legacy_lib_systemd_units_require_review(self):
+        with self.fixture() as tmp:
+            root = Path(tmp)
+            old_daemon = self.put(
+                root, "lib/systemd/system/vdr-suite-daemon.service")
+            old_agent = self.put(
+                root, "lib/systemd/system/vdr-suite-backend-agent.service")
+            result = host.inspect(root)
+            self.assertEqual(result["verdict"], "REVIEW_REQUIRED")
+            self.assertFalse(result["install_approved"])
+            for package in ("vdr-suite-daemon", "vdr-suite-backend-agent"):
+                self.assertIn({
+                    "code": "EXISTING_MANUAL_OR_STATE_PATH",
+                    "path": "/lib/systemd/system/" + package + ".service",
+                    "severity": "REVIEW",
+                }, result["checks"])
+            self.assertEqual(old_daemon.read_text(), "fixture")
+            self.assertEqual(old_agent.read_text(), "fixture")
 
     def test_systemd_dropin_directories_require_review(self):
         with self.fixture() as tmp:
