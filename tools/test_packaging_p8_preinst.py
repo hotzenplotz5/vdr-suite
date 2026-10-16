@@ -67,17 +67,35 @@ esac
             stage = Path(tmp)
             pkg = stage / "vdr-plugin-suitebridge" / "DEBIAN"
             pkg.mkdir(parents=True)
+            preinst = pkg / "preinst"
+            preinst.write_text("#!/bin/sh\nset -e\n# existing debhelper hook\n", encoding="utf-8")
             result = mod.stage_preinst(stage)
             self.assertEqual(result, ["vdr-plugin-suitebridge"])
-            preinst = pkg / "preinst"
-            self.assertEqual(preinst.read_text(encoding="utf-8"),
-                             mod.render("vdr-plugin-suitebridge"))
+            body = preinst.read_text(encoding="utf-8")
+            self.assertIn("# BEGIN P8 PREUNPACK", body)
+            self.assertIn("p8_preunpack_guard", body)
+            self.assertIn("# existing debhelper hook", body)
+            self.assertEqual(body.count("# existing debhelper hook"), 1)
             self.assertEqual(preinst.stat().st_mode & 0o777, 0o755)
             self.assertEqual(subprocess.run(
                 ["/bin/sh", "-n", str(preinst)],
                 capture_output=True).returncode, 0)
-            with self.assertRaisesRegex(ValueError, "already present"):
+            with self.assertRaisesRegex(ValueError, "already guarded"):
                 mod.stage_preinst(stage)
+
+    def test_unmodified_debhelper_hook_still_runs_on_abort(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            stage = Path(tmp)
+            pkg = stage / "vdr-suite-daemon" / "DEBIAN"
+            pkg.mkdir(parents=True)
+            marker = stage / "debhelper-ran"
+            script = pkg / "preinst"
+            script.write_text("#!/bin/sh\nset -e\nprintf hook > '" + str(marker) + "'\n")
+            mod.stage_preinst(stage)
+            result = subprocess.run(["/bin/sh", str(script), "abort-upgrade"],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(marker.read_text(), "hook")
 
     def test_nonexistent_or_symlink_stage_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
