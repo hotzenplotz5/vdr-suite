@@ -59,6 +59,12 @@ The **new** disposable Resolute install/reinstall/remove/purge job on that same 
 
 **Still outside this acceptance:** actual installed service runtime, real manual-host collision takeover, existing live VDR-Suite SQLite/WAL upgrade and rollback, complete `debian/copyright` and third-party rights, the artwork cache-file layout, signed source upload and PPA publication. No installed yaVDR files or live database were touched.
 
+## 2026-10-16 — P7 historical exp1-to-exp2 transition finding
+
+Exact [CI #133](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38961485327), code SHA `2c4b212f4a04e5109f953dfba747c12e32f341dd`, succeeded in all six default/plugin-only Noble/Resolute and offline-build checks, plus the Resolute disposable install/reinstall/remove/purge and all nine P8 refusal fixtures. The overall workflow **FAILED**: the Noble lifecycle test was blocked by an intermittent Seahawk Launchpad `vdr-abi-2.8.3-0yavdr` download/index 503; independently the real `exp1`→`exp2` P7 package upgrade reached `dpkg --unpack` and was refused by the P8 preinst for the daemon and Agent systemd units (`OWNERSHIP_UNKNOWN`). On usrmerged filesystems the exp1 units are package-registered under `/lib/systemd/system`, whereas exp2 queries the newer `/usr/lib/systemd/system` spelling.
+
+A narrowly scoped P8 candidate therefore checks the **exact same-package old /lib unit ownership** only if /lib is symlinked, the old and new paths denote the same regular inode, direct new-path ownership was absent (not foreign or an API error), and the older package's executable is owned. The generated guard remains strict for all other manifest targets and first installs; focused regression fixtures exercise authorized upgrade as well as unrelated owner, ambiguous owner, unmerged paths, query failure, first-install and foreign direct-owner refusal. **The P7 transition has not passed until its exact new CI job proves it**; this description records cause and intent, not acceptance. Production migration and release authorization remain separate.
+
 ## Confirmed local build milestone (2026-10-14)
 
 Maintainer-supplied terminal evidence confirms a successful isolated SuiteBridge-only binary `.deb` build, with an ABI dependency on `vdr-abi-2.8.3-0yavdr`, no daemon or agent binary dependency, and post-build resource reserve PASS. This validates P5's **local plugin-only binary path** on the yaVDR build host only. It does not clear clean Ubuntu builds, daemon packaging, signed source package, installer or P7 upgrade acceptance.

@@ -26,8 +26,23 @@ class PreinstTests(unittest.TestCase):
         mock.write_text("""#!/bin/sh
 case "$1" in
   -S)
-    if [ "${MOCK_OWNER:-}" = '' ]; then exit 1; fi
-    printf '%s: %s\\n' "${MOCK_OWNER}" "$3"
+    case "$3" in
+      */usr/lib/systemd/system/vdr-suite-*.service)
+        case "$MOCK_USR_UNIT_QUERY_RC" in
+          0) ;;
+          1) exit 1 ;;
+          *) exit 2 ;;
+        esac
+        ;;
+      */lib/systemd/system/vdr-suite-*.service)
+        if [ -n "$MOCK_LEGACY_OWNER" ]; then
+          printf '%s: %s\\n' "$MOCK_LEGACY_OWNER" "$3"
+          exit 0
+        fi
+        ;;
+    esac
+    if [ "$MOCK_OWNER" = '' ]; then exit 1; fi
+    printf '%s: %s\\n' "$MOCK_OWNER" "$3"
     ;;
   -W)
     if [ "${MOCK_INSTALLED:-0}" = 1 ]; then
@@ -54,9 +69,11 @@ esac
 
     @staticmethod
     def run_gate(bindir, script, package="vdr-suite-daemon", owner="", installed=False,
-                 action="install"):
+                 action="install", legacy_owner="", usr_unit_query_rc=0):
         env = dict(os.environ, PATH=str(bindir) + os.pathsep + os.environ["PATH"],
-                   MOCK_OWNER=owner, MOCK_INSTALLED="1" if installed else "0")
+                   MOCK_OWNER=owner, MOCK_INSTALLED="1" if installed else "0",
+                   MOCK_LEGACY_OWNER=legacy_owner,
+                   MOCK_USR_UNIT_QUERY_RC=str(usr_unit_query_rc))
         return subprocess.run(["/bin/sh", "-s", "--", action], input=script,
                               text=True, capture_output=True, timeout=8, env=env)
 
@@ -168,6 +185,68 @@ esac
                 self.put(host, "usr/sbin/" + package)
                 upgraded = self.run_gate(bindir, script, package=package, owner=package)
                 self.assertEqual(upgraded.returncode, 0, upgraded.stderr)
+
+    def test_usrmerge_prior_package_owned_unit_alias_allows_real_upgrade(self):
+        for package in ("vdr-suite-daemon", "vdr-suite-backend-agent"):
+            with self.subTest(package=package):
+                host, bindir, script = self.fixture(package)
+                self.put(host, "usr/sbin/" + package)
+                unit = self.put(host, "usr/lib/systemd/system/" + package + ".service")
+                (host / "lib").symlink_to("usr/lib", target_is_directory=True)
+                result = self.run_gate(
+                    bindir, script, package=package, owner=package,
+                    legacy_owner=package, usr_unit_query_rc=1, action="upgrade")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(unit.read_text(), "operator sentinel")
+
+    def test_usrmerge_alias_rejects_foreign_unowned_and_broken_queries(self):
+        for package in ("vdr-suite-daemon", "vdr-suite-backend-agent"):
+            for legacy_owner, query_rc, expected in (
+                ("unrelated", 1, "FOREIGN_OR_AMBIGUOUS_OWNER"),
+                (package + ", unrelated", 1, "FOREIGN_OR_AMBIGUOUS_OWNER"),
+                ("", 1, "OWNERSHIP_UNKNOWN"),
+                (package, 2, "OWNERSHIP_UNKNOWN"),
+            ):
+                with self.subTest(package=package, owner=legacy_owner,
+                                  query_rc=query_rc):
+                    host, bindir, script = self.fixture(package)
+                    self.put(host, "usr/sbin/" + package)
+                    self.put(host, "usr/lib/systemd/system/" + package + ".service")
+                    (host / "lib").symlink_to("usr/lib", target_is_directory=True)
+                    outcome = self.run_gate(
+                        bindir, script, package=package, owner=package,
+                        legacy_owner=legacy_owner, usr_unit_query_rc=query_rc)
+                    self.assertEqual(outcome.returncode, 1)
+                    self.assertIn(expected, outcome.stderr)
+            with self.subTest(package=package, case="unmerged-separate-files"):
+                host, bindir, script = self.fixture(package)
+                self.put(host, "usr/sbin/" + package)
+                self.put(host, "usr/lib/systemd/system/" + package + ".service")
+                self.put(host, "lib/systemd/system/" + package + ".service")
+                outcome = self.run_gate(
+                    bindir, script, package=package, owner=package,
+                    legacy_owner=package, usr_unit_query_rc=1)
+                self.assertEqual(outcome.returncode, 1)
+                self.assertIn("OWNERSHIP_UNKNOWN", outcome.stderr)
+            with self.subTest(package=package, case="no-executable-first-install"):
+                host, bindir, script = self.fixture(package)
+                self.put(host, "usr/lib/systemd/system/" + package + ".service")
+                (host / "lib").symlink_to("usr/lib", target_is_directory=True)
+                outcome = self.run_gate(
+                    bindir, script, package=package, owner=package,
+                    legacy_owner=package, usr_unit_query_rc=1)
+                self.assertEqual(outcome.returncode, 1)
+                self.assertIn("MANUAL_INSTALL_PRESENT", outcome.stderr)
+            with self.subTest(package=package, case="foreign-direct-owner"):
+                host, bindir, script = self.fixture(package)
+                self.put(host, "usr/sbin/" + package)
+                self.put(host, "usr/lib/systemd/system/" + package + ".service")
+                (host / "lib").symlink_to("usr/lib", target_is_directory=True)
+                outcome = self.run_gate(
+                    bindir, script, package=package, owner="other-package",
+                    legacy_owner=package, usr_unit_query_rc=0)
+                self.assertEqual(outcome.returncode, 1)
+                self.assertIn("FOREIGN_OR_AMBIGUOUS_OWNER", outcome.stderr)
 
     def test_existing_package_owned_files_allow_persistent_state_on_reinstall(self):
         host, bindir, script = self.fixture()

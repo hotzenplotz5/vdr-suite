@@ -113,8 +113,20 @@ def render(package, repo=ROOT, test_root=""):
         "  if [ ! -f \"$target\" ] && [ ! -d \"$target\" ]; then",
         "    deny SPECIAL_TARGET \"$target\"",
         "  fi",
-        "  owner=$(dpkg-query -S -- \"$target\" 2>/dev/null) || deny OWNERSHIP_UNKNOWN \"$target\"",
-        "  [ \"$owner\" = \"$package: $target\" ] || deny FOREIGN_OR_AMBIGUOUS_OWNER \"$target\"",
+        "  if owner=$(dpkg-query -S -- \"$target\" 2>/dev/null); then",
+        "    [ \"$owner\" = \"$package: $target\" ] || deny FOREIGN_OR_AMBIGUOUS_OWNER \"$target\"",
+        "  else",
+        "    owner_rc=$?",
+        "    [ \"$owner_rc\" = 1 ] || deny OWNERSHIP_UNKNOWN \"$target\"",
+        "    # Exception only for exact previously packaged /lib systemd unit.",
+        "    # dpkg knows its old name although /lib resolves into /usr/lib.",
+        "    [ \"$#\" -ge 2 ] || deny OWNERSHIP_UNKNOWN \"$target\"",
+        "    legacy_alias=$2",
+        "    [ -L " + shlex.quote(path("lib")) + " ] || deny OWNERSHIP_UNKNOWN \"$target\"",
+        "    [ \"$target\" -ef \"$legacy_alias\" ] || deny OWNERSHIP_UNKNOWN \"$target\"",
+        "    alias_owner=$(dpkg-query -S -- \"$legacy_alias\" 2>/dev/null) || deny OWNERSHIP_UNKNOWN \"$target\"",
+        "    [ \"$alias_owner\" = \"$package: $legacy_alias\" ] || deny FOREIGN_OR_AMBIGUOUS_OWNER \"$target\"",
+        "  fi",
         "  if [ \"$target\" = \"$package_executable\" ]; then",
         "    package_owned_executable=1",
         "  fi",
@@ -143,7 +155,16 @@ def render(package, repo=ROOT, test_root=""):
                     "    check_target \"$found\"",
                     "  fi", "done"]
         else:
-            out.append("check_target " + shlex.quote(target))
+            # exp1 registered the unit at /lib; exp2 stages it at /usr/lib.
+            # They are the same file only on a verified usrmerged host.
+            # All other package payloads keep strict exact-path ownership.
+            if (package != "vdr-plugin-suitebridge" and
+                    entry == "usr/lib/systemd/system/" + package + ".service"):
+                legacy = "lib/systemd/system/" + package + ".service"
+                out.append("check_target " + shlex.quote(target) + " " +
+                           shlex.quote(path(legacy)))
+            else:
+                out.append("check_target " + shlex.quote(target))
     for entry in MANUAL_PATHS[package]:
         target = path(entry)
         if "*" in entry:
