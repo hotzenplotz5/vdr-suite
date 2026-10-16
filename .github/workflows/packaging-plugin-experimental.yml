@@ -409,7 +409,7 @@ jobs:
           sudo add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
           sudo apt-get update
           apt-cache policy vdr-dev
-          sudo apt-get install -y --no-install-recommends build-essential debhelper dpkg-dev g++ make pkg-config python3 vdr-dev libsqlite3-dev libcurl4-openssl-dev libssl-dev libcrypt-dev
+          sudo apt-get install -y --no-install-recommends build-essential debhelper dpkg-dev g++ make pkg-config python3 vdr-dev libsqlite3-dev libcurl4-openssl-dev libssl-dev libcrypt-dev nodejs
           vdr_version="$(dpkg-query -W -f='${Version}' vdr-dev)"
           echo "INSTALLED_VDR_DEV=$vdr_version"
           case "$vdr_version" in
