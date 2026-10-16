@@ -84,12 +84,15 @@ No productive yaVDR package install is authorized by adding this script.
 
 1. Establish an explicit per-path takeover policy, package-specific
    ownership/upgrade policy and VDR ABI/service compatibility matrix.
-2. Expand the now-verified disposable dpkg pre-unpack nginx collision test
-   to additional protected path classes and package variants; the exact
-   daemon nginx-sentinel refusal passed in CI #109. Keep unknown cases blocked
-   and expand the direct-package gate to any remaining protected
-   installation/upgrade conditions before host authorization. A `postinst`
-   cannot protect files already replaced during unpack.
+2. Verify the expanded six-scenario disposable `dpkg --unpack`
+   collision matrix: daemon nginx snippet, systemd drop-in and existing state;
+   Backend Agent configuration and systemd drop-in; SuiteBridge ABI file.
+   Each isolated case must prove the expected preinst refusal, unchanged
+   sentinel bytes and absence of unpacked payload. The original nginx-only
+   scenario was verified in CI #109; additional scenarios remain pending
+   the exact new-head CI result. Expand the direct-package gate to remaining
+   protected installation/upgrade conditions before host authorization.
+   A `postinst` cannot protect files already replaced during unpack.
 3. Determine the actual active systemd daemon binary, nginx route/include
    topology and older source/database provenance. Do not replace operator
    managed `/etc/nginx`, `/etc/default`, `/etc/vdr-suite` or `/usr/local`
