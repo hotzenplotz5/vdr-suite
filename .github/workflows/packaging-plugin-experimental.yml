@@ -84,6 +84,8 @@ jobs:
           for deb in ../vdr-plugin-suitebridge_*.deb; do
             dpkg-deb --info "$deb"
             dpkg-deb --contents "$deb"
+            dpkg-deb --ctrl-tarfile "$deb" | tar -xOf - ./preinst | sh -n
+            dpkg-deb --ctrl-tarfile "$deb" | tar -xOf - ./preinst | grep -F 'P8_PREUNPACK=BLOCKED'
             ! dpkg-deb --field "$deb" Depends | grep -E 'vdr-suite-daemon|vdr-suite-backend-agent'
           done
       - name: Collect experiment outputs into workspace
@@ -196,7 +198,10 @@ jobs:
             files=(../"$package"_*.deb)
             (( ${#files[@]} == 1 )) || { echo "MISSING_BINARY_PACKAGE=$package"; exit 1; }
             dpkg-deb --info "${files[0]}"
+            dpkg-deb --ctrl-tarfile "${files[0]}" | tar -xOf - ./preinst | sh -n
+            dpkg-deb --ctrl-tarfile "${files[0]}" | tar -xOf - ./preinst | grep -F 'P8_PREUNPACK=BLOCKED'
           done
+          echo "P8_PACKAGE_PREINST_CONTROL=PASS"
           echo "FULL_DEFAULT_PACKAGING=PASS"
       - name: Stage unsigned binaries for a disposable installation test
         shell: bash
