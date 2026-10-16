@@ -27,7 +27,7 @@ class P8InstallerGateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             checked = self.run_gate(root, "--check")
-            self.assertEqual(checked.returncode, 0, checked.stderr)
+            self.assertEqual(checked.returncode, 3, checked.stderr)
             observation = json.loads(checked.stdout)
             self.assertEqual(observation["verdict"], "NO_KNOWN_CONFLICT")
             self.assertFalse(observation["install_approved"])
@@ -66,7 +66,7 @@ class P8InstallerGateTests(unittest.TestCase):
             root = Path(tmp)
             old = self.put(root, "usr/local/sbin/vdr-suite-daemon")
             checked = self.run_gate(root, "--check")
-            self.assertEqual(checked.returncode, 0, checked.stderr)
+            self.assertEqual(checked.returncode, 3, checked.stderr)
             self.assertEqual(json.loads(checked.stdout)["verdict"],
                              "REVIEW_REQUIRED")
             install = self.run_gate(root, "--install")
@@ -74,6 +74,41 @@ class P8InstallerGateTests(unittest.TestCase):
             self.assertEqual(json.loads(install.stdout)["host_preflight_verdict"],
                              "REVIEW_REQUIRED")
             self.assertEqual(old.read_text(), "operator sentinel")
+
+    def test_observed_yavdr_collision_shape_blocks_without_replacing_files(self):
+        # Reconstruct public paths only, never inspect the user's host.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            collisions = [
+                "etc/nginx/snippets/vdr-suite.conf",
+                "usr/sbin/vdr-suite-daemon",
+                "etc/default/vdr-suite-daemon",
+                "etc/vdr-suite/backend-agent.conf",
+            ]
+            originals = {rel: self.put(root, rel, "private sentinel")
+                         for rel in collisions}
+            legacy = self.put(root, "usr/local/sbin/vdr-suite-daemon")
+            active = self.put(root, "etc/nginx/conf.d/vidaa-https.conf",
+                              "include /etc/nginx/snippets/vdr-suite-browser-sessions.conf;")
+            self.put(root, "etc/nginx/snippets/vdr-suite-browser-sessions.conf",
+                     "session placeholder")
+            check = self.run_gate(root, "--check")
+            self.assertEqual(check.returncode, 2, check.stderr)
+            install = self.run_gate(root, "--install")
+            self.assertEqual(install.returncode, 3, install.stderr)
+            decision = json.loads(install.stdout)
+            actual = {(record["path"], record["code"])
+                      for record in decision["host_preflight_checks"]}
+            for rel in collisions:
+                self.assertIn(("/" + rel, "UNOWNED_PACKAGE_TARGET"), actual)
+                self.assertEqual(originals[rel].read_text(), "private sentinel")
+            self.assertIn(("/usr/local/sbin/vdr-suite-daemon",
+                           "EXISTING_MANUAL_OR_STATE_PATH"), actual)
+            self.assertIn(("/etc/nginx/conf.d/vidaa-https.conf",
+                           "NGINX_EXISTING_VDR_SUITE_ROUTE"), actual)
+            self.assertEqual(legacy.read_text(), "operator sentinel")
+            self.assertTrue(active.is_file())
+            self.assertNotIn("private sentinel", install.stdout)
 
     def test_unknown_root_fails_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
