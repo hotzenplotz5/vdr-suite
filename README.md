@@ -34,16 +34,20 @@ For accepted scope versus ongoing/hardware-gated work, see the [feature dashboar
 
 The browser frontend lives in this repository under `web/frontend/`. The separate [VDR-Suite VIDAA client for Hisense televisions](https://github.com/hotzenplotz5/vdr-suite-vidaa) has its own installation, testing and real-TV acceptance status. It is not implied that an arbitrary TV already supports picture, sound, seeking or subtitles.
 
-### Screenshots — Mitmachen erwünscht / capture slots
+### Screenshots — Web Home / Now & Next
 
-**The following are text placeholders, not actual screenshots or rendered UI.** They show where real photographs/captures will be included once available.
+![VDR-Suite Web Home — Live TV, Now & Next and Was läuft jetzt](docs/media/web-home.png)
 
-| Web Home / Now & Next | Web recording browser | Hisense VIDAA television |
-| --- | --- | --- |
-| **📷 Screenshot fehlt** — Home screen | **📷 Screenshot fehlt** — Recording list / details | **📷 Foto fehlt** — App running on a real TV |
-| [Capture instructions](docs/screenshots.md#1-web-home-now--next) | [Capture instructions](docs/screenshots.md#2-web-recordings) | [Capture instructions](docs/screenshots.md#3-hisense-vidaa-tv) |
+*Real capture of the VDR-Suite Web Home showing the current channel, programme information and “Was läuft jetzt”. The installed build has not been independently verified; a still image does not prove audio, seeking, subtitle or playback acceptance.*
 
-You can help replace these slots with genuine captures. Please redact private data and confirm any visible programme artwork can be shared. Provide the captures to the project maintainer; they will be reviewed before adding them to the README. **No placeholder represents tested playback, audio or subtitle support.**
+**Further screenshots welcome:**
+
+| Web recording browser | Hisense VIDAA television |
+| --- | --- |
+| **📷 Screenshot fehlt** — Recording list / details | **📷 Foto fehlt** — App running on a real TV |
+| [Capture instructions](docs/screenshots.md#2-web-recordings) | [Capture instructions](docs/screenshots.md#3-hisense-vidaa-tv) |
+
+Please redact private data and confirm that any visible programme artwork can be published before contributing further captures.
 
 ## How the pieces fit
 
