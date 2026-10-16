@@ -2,30 +2,30 @@
 
 ## Current evidence
 
-At the audited `main` checkpoint (2026-10-12), the backend repository has brand/icon images but **no verified screenshots** of its running Web UI. The [separate VIDAA repository](https://github.com/hotzenplotz5/vdr-suite-vidaa) likewise currently contains app icons, not a verified television screen capture. A logo, generated mockup, fixture view or static illustration is **not** a real-device screenshot.
+The README now includes an operator-supplied capture of the running VDR-Suite Web Home / “Was läuft jetzt” interface (`docs/media/web-home.png`, added 2026-10-16). The precise installed build has not been independently verified. The [separate VIDAA repository](https://github.com/hotzenplotz5/vdr-suite-vidaa) still has no verified real-television capture in this gallery. A logo, generated mockup, fixture view or static illustration is **not** a real-device screenshot.
 
-**No fabricated screenshots belong in the README.** This page defines the steps for obtaining two to four genuine, publishable images without implying more acceptance than the device demonstrates.
+**No fabricated screenshots belong in the README.** This page tracks the first submitted real capture and the still-missing views without implying more acceptance than the device demonstrates.
 
-## Proposed gallery (only after real capture)
+## Gallery status and proposed captures
 
-| Image to provide | Required evidence | Suggested descriptive filename |
+| Image | Required evidence / current status | Filename |
 | --- | --- | --- |
-| Home / Now & Next | The loaded, real VDR-Suite Web interface on a known installed build | `docs/media/web-home.png` |
+| Home / Now & Next | **Image provided**; exact installed build not independently established | `docs/media/web-home.png` |
 | Recording browser / details | Current Web Recording UI (avoid private paths or titles) | `docs/media/web-recordings.png` |
 | Playback view | Real playback controls and displayed recording, with explicit client/source context | `docs/media/web-playback.png` |
 | Hisense VIDAA app (optional) | Actual television showing the first-party app; verify the installed candidate and acceptance scope | `docs/media/vidaa-on-tv.jpg` |
 
-Take images only with the actual installation and its operator's permission. Verify source build/installed assets if describing them as a specific release. The README should then embed **2–4** of the real images using relative paths and short captions; create `docs/media/` only once evidence files exist.
+Take images only with the actual installation and its operator's permission. Verify source build/installed assets if describing them as a specific release. The README embeds only genuine submitted captures using relative paths and short captions. Other views remain explicit placeholders until evidence files are provided.
 
 ## Help replace the README screenshot slots
 
-The README currently shows **text-only placeholders**, not visual mockups. The maintainer can replace them one at a time with genuine screenshots; there is no need to provide all three at once.
+The README now includes **one real Home screenshot**. The Recording and VIDAA slots remain text-only placeholders, not visual mockups. They can be replaced one at a time.
 
 ### 1. Web Home / Now & Next
 
 1. Open the **installed** VDR-Suite Web frontend and switch to Home / Now & Next.
 2. Capture the actual browser content, crop away browser chrome and redact server URLs, names, identifiers and account information.
-3. Suggested eventual path: `docs/media/web-home.png`. Confirm which server build was installed; do not infer it from `main`.
+3. The submitted Home image is stored at `docs/media/web-home.png`. Confirm the installed server build separately; do not infer it from `main`.
 
 ### 2. Web Recordings
 
@@ -53,7 +53,7 @@ Once a capture has been privacy-reviewed, commit only that real file and replace
 
 ## Where to publish
 
-Once genuine redacted files are committed in a separate reviewed PR, replace the README's explicit screenshot-pending note with a small gallery (prefer two Web screenshots and one real TV photo if available). Keep this checklist available for later updates.
+The Home capture is included in the README. Add each further reviewed capture in its matching slot, preferably with another Web screenshot and a real TV photo when available. Keep this checklist available for later updates.
 
 ## Back
 
