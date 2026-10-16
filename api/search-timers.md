@@ -121,3 +121,28 @@ contain **exactly one row** with the returned backend-native identifier.
 Even one matching row plus a second conflicting row with the same ID yields
 `outcome_unknown` and never triggers a second POST. Duplicate native IDs in
 the preflight inventory stop dispatch before any provider write.
+
+### Dormant crash/orphan recovery (no public mutation)
+
+`SearchTimerCreateRecoveryService::markOrphanedUnknown` is a separate,
+repository-only recovery primitive for a future supervising runtime. It does
+**not** call the provider, read EPG, dispatch work, mint an operation, register
+a daemon callback or expose an API. An explicit assertion that the prior
+dispatcher has stopped, exact operation/actor/backend/generation identity, an
+elapsed stale interval of 60..86400 seconds and a revision-fenced durable
+operation transition are all required.
+
+Only an already-`dispatching` or `executed_unverified` operation can become
+`outcome_unknown`; an `accepted` CREATE stays accepted and can only be
+dispatched by the separately guarded first-attempt authority. Already-unknown
+operations are read without modification. Durable `resultReference` evidence
+is preserved verbatim (never replaced with a guessed provider identity).
+The service does **not** assert that a SearchTimer was created or absent.
+An orphan remains a reconciliation problem, **never an automatic resubmit**.
+
+A supervisor must independently prove the previous dispatcher stopped before
+using this service; elapsed wall-clock time alone is insufficient to authorize
+recovery. No production caller is wired yet. The self-contained mock/SQLite
+and file-backed restart regression is:
+`make test-searchtimer-create-orphan-recovery`. Neither the daemon's
+installed binary nor native VDR SearchTimers change as a result of this slice.

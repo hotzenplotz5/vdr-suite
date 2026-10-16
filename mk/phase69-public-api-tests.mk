@@ -563,3 +563,21 @@ test-searchtimer-create-one-shot-dispatch:
 	$(BUILD_DIR)/test_search_timer_create_dispatch_service
 
 test-phase: test-searchtimer-create-one-shot-dispatch
+
+# Orphan recovery is purely a durable operation CAS; no provider/executor linked.
+.PHONY: test-searchtimer-create-orphan-recovery
+test-searchtimer-create-orphan-recovery:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/SearchTimerCreateOperationPayload.cpp \
+		core/vdr/src/SearchTimerCreateAdmissionService.cpp \
+		core/vdr/src/SearchTimerCreateRecoveryService.cpp \
+		core/vdr/tests/test_search_timer_create_recovery_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_search_timer_create_recovery_service
+	$(BUILD_DIR)/test_search_timer_create_recovery_service
+
+test-phase: test-searchtimer-create-orphan-recovery
