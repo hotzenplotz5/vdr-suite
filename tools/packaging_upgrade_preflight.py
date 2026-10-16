@@ -9,6 +9,20 @@ from pathlib import Path
 import sqlite3
 import sys
 
+# Known state roots are not acceptable inputs, even if no WAL currently
+# exists. This is an additional guard, not proof that other paths are offline.
+PROTECTED_RUNTIME_ROOTS = tuple(Path(p) for p in (
+    "/var/lib/vdr-suite", "/etc/vdr-suite", "/srv/vdr",
+    "/home/yavdr/vdr-suite", "/home/yavdr/vdr-suite-packaging-test",
+))
+
+
+def reject_known_runtime_state(path: Path):
+    if any(path == root or root in path.parents
+           for root in PROTECTED_RUNTIME_ROOTS):
+        raise ValueError("offline preflight refuses known live/system state path")
+
+
 def reject_sidecars(db: Path):
     """Immutable SQLite ignores WAL content; reject any nearby journal state."""
     for suffix in ("-wal", "-shm", "-journal"):
@@ -89,6 +103,7 @@ def check(db: Path):
     # with a WAL could otherwise pass an integrity check on stale content.
     # This is ONLY an offline-copy inspection, never a proof of live quiescence.
     original = db.resolve(strict=True)
+    reject_known_runtime_state(original)
     reject_sidecars(original)
     before = digest_offline_file(original)
     uri = original.as_uri() + "?mode=ro&immutable=1"

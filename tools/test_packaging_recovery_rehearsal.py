@@ -116,6 +116,53 @@ class RecoveryRehearsalTests(unittest.TestCase):
                 recovery.rehearse(folder, path.name, "backup.db", "restored.db",
                                   capacity=BIG_DISK)
 
+    def test_refuses_hardlinked_source_outside_private_copy_contract(self):
+        with recovery_scratch() as temporary:
+            folder = Path(temporary)
+            source, con = self.make_database(folder)
+            con.close()
+            alias = folder / "linked-source.db"
+            os.link(source, alias)
+            before = source.read_bytes()
+            with self.assertRaisesRegex(ValueError, "single-link offline copy"):
+                recovery.rehearse(folder, alias.name, "backup.db",
+                                  "restored.db", capacity=BIG_DISK)
+            self.assertEqual(source.read_bytes(), before)
+            self.assertEqual(alias.read_bytes(), before)
+            self.assertFalse((folder / "backup.db").exists())
+
+    def test_refuses_existing_rollback_journal_without_mutation(self):
+        with recovery_scratch() as temporary:
+            folder = Path(temporary)
+            source, con = self.make_database(folder)
+            con.close()
+            journal = Path(str(source) + "-journal")
+            journal.write_bytes(b"offline-fixture-rollback-journal")
+            before = source.read_bytes()
+            with self.assertRaisesRegex(ValueError, "rollback journal present"):
+                recovery.rehearse(folder, source.name, "backup.db",
+                                  "restored.db", capacity=BIG_DISK)
+            self.assertEqual(journal.read_bytes(), b"offline-fixture-rollback-journal")
+            self.assertEqual(source.read_bytes(), before)
+            self.assertFalse((folder / "backup.db").exists())
+
+    def test_refuses_hardlinked_wal_sidecar(self):
+        with recovery_scratch() as temporary:
+            folder = Path(temporary)
+            source, con = self.make_database(folder, wal=True)
+            try:
+                wal = Path(str(source) + "-wal")
+                alias = folder / "wal-alias"
+                os.link(wal, alias)
+                before = wal.read_bytes()
+                with self.assertRaisesRegex(ValueError, "sidecar must be"):
+                    recovery.rehearse(folder, source.name, "backup.db",
+                                      "restored.db", capacity=BIG_DISK)
+                self.assertEqual(wal.read_bytes(), before)
+                self.assertFalse((folder / "backup.db").exists())
+            finally:
+                con.close()
+
     def test_refuses_nonprivate_workspace(self):
         with recovery_scratch() as temporary:
             folder = Path(temporary)

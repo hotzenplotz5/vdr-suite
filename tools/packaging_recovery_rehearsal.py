@@ -51,12 +51,26 @@ def member(folder, name):
 
 
 def regular_private_source(path):
-    if path.is_symlink() or not path.is_file() or path.stat().st_uid != os.geteuid():
+    if path.is_symlink() or not path.is_file():
         raise ValueError("source must be a regular caller-owned non-symlink file")
-    for suffix in ("-wal", "-shm"):
+    source_info = path.stat()
+    if source_info.st_uid != os.geteuid() or source_info.st_nlink != 1:
+        raise ValueError("source must be a caller-owned single-link offline copy")
+    # A hardlink could alias live state outside the private scratch directory.
+    # Allow WAL/SHM only as ordinary private files for the offline SQLite
+    # backup API; never follow a symlink, hardlink, or rollback journal.
+    for suffix in ("-wal", "-shm", "-journal"):
         sidecar = Path(str(path) + suffix)
+        if not os.path.lexists(sidecar):
+            continue
         if sidecar.is_symlink():
             raise ValueError("database sidecar cannot be a symlink")
+        info = sidecar.stat()
+        if (not stat.S_ISREG(info.st_mode) or
+                info.st_uid != os.geteuid() or info.st_nlink != 1):
+            raise ValueError("database sidecar must be caller-owned single-link regular file")
+        if suffix == "-journal":
+            raise ValueError("rollback journal present; requires a settled offline copy")
 
 
 def ensure_new_file(path):

@@ -20,6 +20,18 @@ recovery = importlib.util.module_from_spec(recovery_spec)
 recovery_spec.loader.exec_module(recovery)
 
 class PreflightTests(unittest.TestCase):
+    def test_known_live_runtime_paths_are_never_offline_evidence(self):
+        for name in ("/var/lib/vdr-suite/backend.db",
+                     "/etc/vdr-suite/state.sqlite",
+                     "/srv/vdr/recordings.sqlite",
+                     "/home/yavdr/vdr-suite-packaging-test/private.db"):
+            with self.subTest(path=name), self.assertRaisesRegex(
+                    ValueError, "offline preflight refuses"):
+                module.reject_known_runtime_state(Path(name))
+        # This is a targeted known-location guard, not a generic claim
+        # that arbitrary filesystem paths are provably quiesced.
+        module.reject_known_runtime_state(Path("/tmp/offline-copy.db"))
+
     def test_valid(self):
         with tempfile.TemporaryDirectory() as directory:
             db = Path(directory) / "test.db"
