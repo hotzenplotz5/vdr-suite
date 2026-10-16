@@ -30,9 +30,12 @@ The JSON outcome contains `decision: BLOCKED`,
 but no config contents or secrets. The command returns status 3. A scanner
 error returns status 2 and performs no writes. It never invokes `apt`,
 `dpkg`, `make install`, a service manager, nginx or a runtime deploy.
-`--check` preserves the existing P6 diagnostic exit semantics: 2 for
-`BLOCKED`, 0 for `REVIEW_REQUIRED` or `NO_KNOWN_CONFLICT`.
-Exit status 0 from **inspection** is never installation approval.
+`--check` also fails closed on process status: 2 for `BLOCKED`,
+3 for `REVIEW_REQUIRED` or `NO_KNOWN_CONFLICT`, because no P8
+installation policy has been approved. This intentionally differs from
+the standalone P6 diagnostic command (which returns 0 for non-blocking
+review results). Do not use a successful diagnostic run as an installation
+authorization.
 
 The planned `--build` and `--uninstall` options are reserved and also
 refuse execution (status 3); the existing independent package build/staging
