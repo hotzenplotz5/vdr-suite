@@ -162,7 +162,17 @@ jobs:
           fi
           test -n "$build_user"
           test "$(stat -c %u "$GITHUB_WORKSPACE")" = "$build_uid"
+          # actions/checkout writes inner source files as root in containers.
+          # Copy only inside this disposable container and extract as the
+          # unprivileged builder; do not change the checkout's ownership.
+          build_root="/tmp/vdr-suite-resolute-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          install -d -o "$build_uid" -g "$build_gid" -m 0700 "$build_root/source"
+          tar -C "$GITHUB_WORKSPACE" -cf - . |
+            runuser -u "$build_user" -- tar -C "$build_root/source" -xf -
+          test "$(stat -c %u "$build_root/source/debian")" = "$build_uid"
+          test "$(runuser -u "$build_user" -- git -C "$build_root/source" rev-parse HEAD)" = "$GITHUB_SHA"
           printf 'RESOLUTE_BUILD_USER=%s\n' "$build_user" >> "$GITHUB_ENV"
+          printf 'RESOLUTE_BUILD_ROOT=%s\n' "$build_root" >> "$GITHUB_ENV"
           vdr_version="$(dpkg-query -W -f='${Version}' vdr)"
           dev_version="$(dpkg-query -W -f='${Version}' vdr-dev)"
           test "$vdr_version" = '2.8.3-0yavdr0~resolute'
@@ -179,24 +189,27 @@ jobs:
           python3 -m unittest discover -s tools -p 'test_packaging_profiles.py'
           test -n "$RESOLUTE_BUILD_USER"
           test "$(id -u "$RESOLUTE_BUILD_USER")" -gt 0
-          runuser -u "$RESOLUTE_BUILD_USER" -- dpkg-buildpackage -B -Pplugin-only -us -uc
+          test -d "$RESOLUTE_BUILD_ROOT/source"
+          runuser -u "$RESOLUTE_BUILD_USER" -- bash -c 'cd "$1/source" && dpkg-buildpackage -B -Pplugin-only -us -uc' _ "$RESOLUTE_BUILD_ROOT"
           shopt -s nullglob
-          debs=(../vdr-plugin-suitebridge_*.deb)
+          debs=("$RESOLUTE_BUILD_ROOT"/vdr-plugin-suitebridge_*.deb)
           (( ${#debs[@]} == 1 )) || exit 1
           package="${debs[0]}"
           test "$(dpkg-deb --field "$package" Package)" = 'vdr-plugin-suitebridge'
           dpkg-deb --field "$package" Depends | grep -Fw 'vdr-abi-2.8.3-0yavdr'
           dpkg-deb --contents "$package" | grep -F '/usr/lib/vdr/plugins/libvdr-suitebridge.so.14'
           dpkg-deb --ctrl-tarfile "$package" | tar -xOf - ./preinst | sh -n
-          test "$(find .. -maxdepth 1 -name 'vdr-suite-daemon_*.deb' | wc -l)" -eq 0
-          test "$(find .. -maxdepth 1 -name 'vdr-suite-backend-agent_*.deb' | wc -l)" -eq 0
+          test "$(find "$RESOLUTE_BUILD_ROOT" -maxdepth 1 -name 'vdr-suite-daemon_*.deb' | wc -l)" -eq 0
+          test "$(find "$RESOLUTE_BUILD_ROOT" -maxdepth 1 -name 'vdr-suite-backend-agent_*.deb' | wc -l)" -eq 0
           echo "RESOLUTE_SUITEBRIDGE_PLUGIN_ONLY=PASS"
       - name: Stage exact-build diagnostics under workspace
         if: always()
         shell: bash
         run: |
           mkdir -p package-artifacts-resolute
-          find .. -maxdepth 1 -type f \( -name 'vdr-plugin-suitebridge_*.deb' -o -name 'vdr-suite_*_amd64.buildinfo' -o -name 'vdr-suite_*_amd64.changes' \) -exec cp -- '{}' package-artifacts-resolute/ \;
+          if test -n "${RESOLUTE_BUILD_ROOT:-}" && test -d "$RESOLUTE_BUILD_ROOT"; then
+            find "$RESOLUTE_BUILD_ROOT" -maxdepth 1 -type f \( -name 'vdr-plugin-suitebridge_*.deb' -o -name 'vdr-suite_*_amd64.buildinfo' -o -name 'vdr-suite_*_amd64.changes' \) -exec cp -- '{}' package-artifacts-resolute/ \;
+          fi
       - name: Preserve exact-build diagnostics
         if: always()
         uses: actions/upload-artifact@v4
