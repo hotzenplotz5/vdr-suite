@@ -160,12 +160,31 @@ def stage_preinst(stage_dir, repo=ROOT):
         if control.is_symlink() or not control.is_dir():
             raise ValueError("unsafe Debian package control directory: " + package)
         script = control / "preinst"
-        if script.exists() or script.is_symlink():
-            raise ValueError("preinst already present: " + package)
-        body = render(package, repo)
-        fd = os.open(script, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o755)
-        with os.fdopen(fd, "w", encoding="utf-8") as out:
-            out.write(body)
+        if script.is_symlink():
+            raise ValueError("unsafe preinst symlink: " + package)
+        guard = render(package, repo)
+        if script.exists():
+            # dh_installdeb can already create preinst via dh_* autosnippets.
+            # Prepend the guard, but KEEP every existing maintainer hook and
+            # its abort/recovery flow. The guard runs only before unpack.
+            existing = script.read_text(encoding="utf-8")
+            header = "#!/bin/sh\nset -e\n"
+            if not existing.startswith(header) or "# BEGIN P8 PREUNPACK" in existing:
+                raise ValueError("unknown or already guarded preinst: " + package)
+            guard_body = guard.split("\n", 1)[1]
+            embedded = (
+                "# BEGIN P8 PREUNPACK - generated from canonical .install manifests\n"
+                "p8_preunpack_guard() (\n" + guard_body +
+                ")\ncase \"${1:-}\" in\n"
+                "  install|upgrade) p8_preunpack_guard \"$@\" ;;\n"
+                "esac\n# END P8 PREUNPACK\n"
+            )
+            script.write_text(header + embedded + existing[len(header):], encoding="utf-8")
+        else:
+            fd = os.open(script, os.O_WRONLY | os.O_CREAT | os.O_EXCL |
+                         getattr(os, "O_NOFOLLOW", 0), 0o755)
+            with os.fdopen(fd, "w", encoding="utf-8") as out:
+                out.write(guard)
         os.chmod(script, 0o755)
         generated.append(package)
     if not generated:
