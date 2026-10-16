@@ -150,8 +150,15 @@ int main()
                 "/api/v1/search-timers?backend=backend-one"));
         assert(!cookieDenied.allowed);
         assert(cookieDenied.rejection.statusCode == 403);
+        // Public-v1 maps internal security reasons to stable Problem Details.
+        // The browser must still be rejected by the paired-Device boundary.
+        assert(cookieDenied.rejection.headers.at("Content-Type") ==
+            "application/problem+json");
         assert(cookieDenied.rejection.body.find(
-            "device_credential_required") != std::string::npos);
+            "\"code\":\"forbidden\"") != std::string::npos);
+        assert(cookieDenied.rejection.body.find(
+            "A verified Device credential is required") !=
+            std::string::npos);
     }
     return 0;
 }
