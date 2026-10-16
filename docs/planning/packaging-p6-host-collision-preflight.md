@@ -1,6 +1,6 @@
 # P6/P8 — existing installation collision preflight
 
-Status: read-only candidate, isolated tests; **not an authorized host installer**.
+Status: read-only preflight and isolated tests **VERIFIED** in [CI #94](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38874068291), all five jobs SUCCESS, exact code SHA `baad4705f9a7db37b4c207ae0d0a5319d80d2d41`; **not an authorized host installer**.
 
 The canonical three Debian binary packages provide a VDR-Suite daemon with
 web assets, an independently buildable SuiteBridge plugin and a backend agent.
@@ -50,3 +50,11 @@ Focused regression: `python3 -m unittest discover -s tools -p
 Next: add approved migration policies for each observed collision, enforce
 the read-only gate before any P8 installer writes, and check the actual
 `nginx -t` / VDR services only under separate live acceptance authorization.
+
+Release boundary: CI validates the read-only scan and disposable package
+build/upgrade tests, **not** a real yaVDR installation. The current Debian
+daemon package still supplies `/etc/nginx/snippets/vdr-suite.conf`; a
+pre-existing unowned file at that path is a deliberate `BLOCKED` result.
+The scan is **not yet executed by a P8 installer**, and no package deployment
+must bypass that separate gate. Existing active nginx includes and older
+manual binaries remain operator-managed until an approved transition exists.
