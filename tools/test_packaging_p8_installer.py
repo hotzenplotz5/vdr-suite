@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """P8 gate regression: fixture-only; do not run against live host."""
 import json
+import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -120,6 +122,35 @@ class P8InstallerGateTests(unittest.TestCase):
                     self.assertIn("P8_HOST_PREFLIGHT=BLOCKED", result.stderr)
                     self.assertEqual(result.stdout, "")
                     self.assertFalse(missing.exists())
+
+    def test_check_does_not_create_bytecode_in_source_checkout(self):
+        # Run from a small copied source checkout, without -B or env overrides.
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            tools = repo / "tools"
+            tools.mkdir(parents=True)
+            for filename in ("packaging_p8_installer.py",
+                             "packaging_host_collision_preflight.py"):
+                shutil.copy2(SCRIPT.with_name(filename), tools / filename)
+            source_debian = SCRIPT.parent.parent / "debian"
+            debian = repo / "debian"
+            debian.mkdir()
+            for filename in ("vdr-suite-daemon.install",
+                             "vdr-suite-backend-agent.install",
+                             "vdr-plugin-suitebridge.install"):
+                shutil.copy2(source_debian / filename, debian / filename)
+            target = base / "host"
+            target.mkdir()
+            env = dict(os.environ)
+            env.pop("PYTHONDONTWRITEBYTECODE", None)
+            run = subprocess.run(
+                [sys.executable, str(tools / "packaging_p8_installer.py"),
+                 "--check", "--root", str(target)],
+                env=env, text=True, capture_output=True, timeout=15)
+            self.assertEqual(run.returncode, 3, run.stderr)
+            self.assertFalse((tools / "__pycache__").exists())
+            self.assertEqual(list(target.rglob("*")), [])
 
     def test_build_and_uninstall_are_not_parallel_implementations(self):
         with tempfile.TemporaryDirectory() as tmp:
