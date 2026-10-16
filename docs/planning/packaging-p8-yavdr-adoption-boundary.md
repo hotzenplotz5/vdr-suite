@@ -25,7 +25,7 @@ recorded database schema, VDR plugin ABI, or service recovery procedure.
 | SuiteBridge VDR plugin | Five files include `.so.11`, `.so.14` and `.so.11.*` historical variants; `pkg-config vdr` is `2.8.3`, API `14`, libdir `/usr/lib/vdr/plugins`; running VDR MainPID `1757` maps the `.so.14` file; device/inode equality with disk confirmed (`MAPPED_FILE_IDENTITY=PASS`) | **Loaded-module/disk-file identity verified for inspected process; control socket listener separately confirmed; protocol not exercised.** Both `.so.14` and `.so.11` lack reported dpkg ownership. Preserve all versions; **package collision remains BLOCKED** |
 | SQLite database and WAL | `vdr-suite.db`: 3,357,405,184 bytes; `-wal`: 198,295,632 bytes; `-shm`: 393,216 bytes | **P7 BLOCKED:** live WAL sidecars present at inspection; no direct copy of `.db`, checkpoint, `immutable=1` schema check, migration, or restore on live state |
 | Daemon binary fingerprints | `/usr/sbin/vdr-suite-daemon`: 17,939,328 bytes, SHA-256 `0bfa78635215bd46363ec86bbe356d4426aef9fc3a6430f329ae69658f0ffc57`; `/usr/local/sbin/vdr-suite-daemon`: 6,503,208 bytes, SHA-256 `a5e08254ed8e4956fe31651981070098a7c5cc57de59e58a1da1d2f4bef227f2` | Fingerprints identify observed file bytes only, not a known source SHA or supported predecessor |
-| Network/runtime | Daemon active; prior `ss` showed TCP 18080 listening on 0.0.0.0. SuiteBridge private `/run/vdr/vdr-suite-control/control.sock` is a `SOCK_SEQPACKET` Unix listener owned by VDR PID `1757`, fd `28`; directory `0700 vdr:vdr`, socket `0660 vdr:vdr`. Passive journal: `CONTROL_PLANE_START_ACCEPTED=1`, `CONTROL_PLANE_START_REJECTED=0`, `PLUGIN_LIFECYCLE_START_ACCEPTED=1` | **Control-plane/lifecycle initialization PASS at observed boot; listener and ownership confirmed.** No peer-authentication handshake or functional command executed. Preserve socket, service and nginx configurations; no listener edits |
+| Network/runtime | Daemon active; prior `ss` showed TCP 18080 listening on 0.0.0.0. SuiteBridge private `/run/vdr/vdr-suite-control/control.sock` is a `SOCK_SEQPACKET` Unix listener owned by VDR PID `1757`, fd `28`; directory `0700 vdr:vdr`, socket `0660 vdr:vdr`. Passive journal: `CONTROL_PLANE_START_ACCEPTED=1`, `CONTROL_PLANE_START_REJECTED=0`, `PLUGIN_LIFECYCLE_START_ACCEPTED=1`; capability schema 1 declarations observed once each: `snapshots=available`, `local-contract=available`, `status-events=available`, `mutations=disabled` | **Control-plane/lifecycle initialization PASS at observed boot; listener and ownership confirmed.** No peer-authentication handshake or functional command executed. Preserve socket, service and nginx configurations; no listener edits |
 
 These are observations at inspection time, not immutable facts. Do not
 infer that a process ID, binary hash or active route is unchanged later.
@@ -128,7 +128,13 @@ the current VDR PID `1757` found exactly one
 start rejection (`START_LOG_EVIDENCE=PASS`). Taken together these
 observations attest successful startup and socket-listener initialization,
 not SO_PEERCRED admission, protocol replies, agent health, authenticated
-authorization, or continued operation after a restart.
+authorization, or continued operation after a restart. A further passive
+journal audit for the same PID yielded `SNAPSHOTS=PASS`,
+`LOCAL_CONTRACT=PASS`, `STATUS_EVENTS=PASS`,
+`MUTATIONS=PASS` and `CAPABILITY_START_EVIDENCE=PASS`: all four
+capability schema-1 announcements matched the expected declarations
+exactly once. The `mutations=disabled` startup declaration is **not**
+proof that every independent write pathway is disabled or authorized.
 
 No productive files, service states, permissions, nginx includes or databases
 were changed during the reported read-only host inspections.

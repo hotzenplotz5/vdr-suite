@@ -65,8 +65,14 @@ for the same active VDR MainPID `1757` reported
 `CONTROL_PLANE_START_REJECTED=0` and
 `PLUGIN_LIFECYCLE_START_ACCEPTED=1`
 (`START_LOG_EVIDENCE=PASS`). This verifies that SuiteBridge reported
-successful listener and lifecycle initialization in this boot. It does
-**not** verify peer admission, a CAPS/SNAP roundtrip, future restarts,
+successful listener and lifecycle initialization in this boot.
+Another passive `journalctl` query for the same PID showed exactly one
+`suitebridge: capability schema=1` declaration each for
+`snapshots=available`, `local-contract=available`,
+`status-events=available`, and `mutations=disabled`
+(`CAPABILITY_START_EVIDENCE=PASS`). This confirms published startup
+capability declarations, **not** runtime handshake, peer admission, a
+CAPS/SNAP roundtrip, actual mutation authorization, future restarts,
 upgrade/rollback or service recovery. The [separate Resolute plugin-only CI #118](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38936881893)
 successfully resolved exact `2.8.3-0yavdr0~resolute`, compiled API 14,
 verified the Debian `.so.14` and automatically generated dependency
