@@ -4272,7 +4272,7 @@ ApiResponse publicDeviceGrantSetResponse(
     }
     body += "],\"supportedPermissions\":["
         "\"channels.view\",\"recordings.view\",\"epg.view\",\"timers.view\","
-        "\"searchtimers.view\","
+        "\"searchtimers.view\",\"searchtimers.create\","
         "\"media.live.play\",\"media.recording.play\"]}";
     ApiResponse result = jsonResponse(body, requestId, correlationId);
     result.headers["ETag"] = etag;
@@ -8092,121 +8092,6 @@ bool PublicApiRuntime::tryHandleGet(
 
     std::string timerAssignmentId;
 
-    if (path == PublicSearchTimerCollectionPath)
-    {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(path,requestId,correlationId);
-            return true;
-        }
-        if (authorizedBackendId.empty() ||
-            requestTarget != std::string(PublicSearchTimerCollectionPath) +
-                "?backend=" + authorizedBackendId)
-        {
-            response = invalidRequestProblem(path,
-                "Exactly one authorized backend query is required.",
-                requestId,correlationId);
-            return true;
-        }
-        if (!applicationJsonContentType(contentType))
-        {
-            response = problemResponse(415,"unsupported_media_type",
-                "Unsupported media type","SearchTimer CREATE requires JSON.",
-                path,requestId,correlationId);
-            return true;
-        }
-        if (body.empty() || body.size() > 1200U)
-        {
-            response = invalidRequestProblem(path,
-                "SearchTimer CREATE body size is invalid.",
-                requestId,correlationId);
-            return true;
-        }
-        JsonSyntaxValidator syntax(body);
-        if (!syntax.valid())
-        {
-            response = invalidRequestProblem(path,"Invalid CREATE JSON.",
-                requestId,correlationId);
-            return true;
-        }
-        PublicSearchTimerCreateRequest request;
-        if (!parsePublicSearchTimerCreateBody(body,request))
-        {
-            response = problemResponse(422,"validation_error",
-                "Validation failed","Unsupported SearchTimer CREATE fields.",
-                path,requestId,correlationId);
-            return true;
-        }
-        if (!publicIdempotencyKeyValid(idempotencyKey))
-        {
-            response = invalidRequestProblem(path,
-                "Valid Idempotency-Key required.",
-                requestId,correlationId);
-            return true;
-        }
-        if (!ifMatch.empty())
-        {
-            response = invalidRequestProblem(path,
-                "A new SearchTimer has no If-Match revision.",
-                requestId,correlationId);
-            return true;
-        }
-        request.actorRef = actorRef;
-        request.backendId = authorizedBackendId;
-        request.idempotencyKey = idempotencyKey;
-        SearchTimerCreate handler;
-        {
-            std::lock_guard<std::mutex> lock(searchTimerCreateMutex_);
-            handler = searchTimerCreate_;
-        }
-        if (!handler)
-        {
-            response = serviceUnavailableProblem(path,requestId,correlationId);
-            return true;
-        }
-        const auto created = handler(request);
-        switch (created.status)
-        {
-            case PublicSearchTimerCreateStatus::accepted:
-            case PublicSearchTimerCreateStatus::replayed:
-            {
-                if (created.operation.operationId.empty() ||
-                    created.operation.state.empty() ||
-                    created.operation.backendId != authorizedBackendId ||
-                    created.operation.resourceRevision.empty())
-                {
-                    response = serviceUnavailableProblem(
-                        path,requestId,correlationId);
-                    return true;
-                }
-                const std::string operationPath =
-                    std::string(PublicOperationPrefix) +
-                    created.operation.operationId;
-                response = publicOperationResponse(created.operation,
-                    operationPath,requestId,correlationId,"");
-                response.statusCode = 202;
-                response.headers["Location"] = operationPath;
-                response.headers["Cache-Control"] = "no-store";
-                return true;
-            }
-            case PublicSearchTimerCreateStatus::invalid:
-                response = problemResponse(422,"validation_error",
-                    "Validation failed","Invalid SearchTimer CREATE.",
-                    path,requestId,correlationId);
-                return true;
-            case PublicSearchTimerCreateStatus::conflict:
-                response = problemResponse(409,"idempotency_conflict",
-                    "Conflict","Idempotency key or operation conflicts.",
-                    path,requestId,correlationId);
-                return true;
-            case PublicSearchTimerCreateStatus::backendUnavailable:
-            case PublicSearchTimerCreateStatus::unavailable:
-                response = serviceUnavailableProblem(
-                    path,requestId,correlationId);
-                return true;
-        }
-    }
-
     if (publicTimerAssignmentPath(
             path,
             timerAssignmentId))
@@ -10186,6 +10071,121 @@ bool PublicApiRuntime::tryHandlePost(
                     path,
                     requestId,
                     correlationId);
+                return true;
+        }
+    }
+
+    if (path == PublicSearchTimerCollectionPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path,requestId,correlationId);
+            return true;
+        }
+        if (authorizedBackendId.empty() ||
+            requestTarget != std::string(PublicSearchTimerCollectionPath) +
+                "?backend=" + authorizedBackendId)
+        {
+            response = invalidRequestProblem(path,
+                "Exactly one authorized backend query is required.",
+                requestId,correlationId);
+            return true;
+        }
+        if (!applicationJsonContentType(contentType))
+        {
+            response = problemResponse(415,"unsupported_media_type",
+                "Unsupported media type","SearchTimer CREATE requires JSON.",
+                path,requestId,correlationId);
+            return true;
+        }
+        if (body.empty() || body.size() > 1200U)
+        {
+            response = invalidRequestProblem(path,
+                "SearchTimer CREATE body size is invalid.",
+                requestId,correlationId);
+            return true;
+        }
+        JsonSyntaxValidator syntax(body);
+        if (!syntax.valid())
+        {
+            response = invalidRequestProblem(path,"Invalid CREATE JSON.",
+                requestId,correlationId);
+            return true;
+        }
+        PublicSearchTimerCreateRequest request;
+        if (!parsePublicSearchTimerCreateBody(body,request))
+        {
+            response = problemResponse(422,"validation_error",
+                "Validation failed","Unsupported SearchTimer CREATE fields.",
+                path,requestId,correlationId);
+            return true;
+        }
+        if (!publicIdempotencyKeyValid(idempotencyKey))
+        {
+            response = invalidRequestProblem(path,
+                "Valid Idempotency-Key required.",
+                requestId,correlationId);
+            return true;
+        }
+        if (!ifMatch.empty())
+        {
+            response = invalidRequestProblem(path,
+                "A new SearchTimer has no If-Match revision.",
+                requestId,correlationId);
+            return true;
+        }
+        request.actorRef = actorRef;
+        request.backendId = authorizedBackendId;
+        request.idempotencyKey = idempotencyKey;
+        SearchTimerCreate handler;
+        {
+            std::lock_guard<std::mutex> lock(searchTimerCreateMutex_);
+            handler = searchTimerCreate_;
+        }
+        if (!handler)
+        {
+            response = serviceUnavailableProblem(path,requestId,correlationId);
+            return true;
+        }
+        const auto created = handler(request);
+        switch (created.status)
+        {
+            case PublicSearchTimerCreateStatus::accepted:
+            case PublicSearchTimerCreateStatus::replayed:
+            {
+                if (created.operation.operationId.empty() ||
+                    created.operation.state.empty() ||
+                    created.operation.backendId != authorizedBackendId ||
+                    created.operation.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path,requestId,correlationId);
+                    return true;
+                }
+                const std::string operationPath =
+                    std::string(PublicOperationPrefix) +
+                    created.operation.operationId;
+                response = publicOperationResponse(created.operation,
+                    operationPath,requestId,correlationId,"");
+                response.statusCode = 202;
+                response.headers["Location"] = operationPath;
+                response.headers["Cache-Control"] = "no-store";
+                return true;
+            }
+            case PublicSearchTimerCreateStatus::invalid:
+                response = problemResponse(422,"validation_error",
+                    "Validation failed","Invalid SearchTimer CREATE.",
+                    path,requestId,correlationId);
+                return true;
+            case PublicSearchTimerCreateStatus::conflict:
+                response = problemResponse(409,"idempotency_conflict",
+                    "Conflict","Idempotency key or operation conflicts.",
+                    path,requestId,correlationId);
+                return true;
+            case PublicSearchTimerCreateStatus::backendUnavailable:
+            case PublicSearchTimerCreateStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path,requestId,correlationId);
                 return true;
         }
     }
