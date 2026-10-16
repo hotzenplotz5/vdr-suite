@@ -157,3 +157,33 @@ contract regressions are explicitly attached to `CI_FAST_TESTS`:
 `test-searchtimer-create-orphan-recovery`. A green workflow now proves that
 the mock-only admission, one-shot and orphan recovery tests actually ran;
 it does not attest to a live VDR/VIDAA mutation or device hardware.
+
+### Dormant Device-only CREATE admission composition
+
+`SearchTimerCreateDeviceAdmissionService` composes the existing
+`AuthorizationService`, `BackendAccessPolicy`, `BackendRegistryService`
+and durable `SearchTimerCreateAdmissionService`; it has **no HTTP handler,
+daemon registration or backend CREATE effect**. Its request contains no
+caller-provided backend generation: a separately injected *server-owned*
+`ISearchTimerBackendGenerationAuthority` must provide the current
+generation before one immutable operation can be reserved.
+
+Required prerequisites are a verified active Service/Device actor and active
+Device credential, **no Browser session**, fully resolved grants, an exact
+`searchtimers.create@backend` tuple (no wildcard, role inheritance,
+`searchtimers.view`, `epg.view` or `timers.create` substitution),
+the normal `AuthorizationService` mutation check, an enabled, online,
+writable known backend and a positive bounded backend generation. Failure
+creates **no operation**. Replay with the same idempotency key may only
+return the prior durable operation; it never mutates VDR or makes a new POST.
+
+The ordinary Device admin supported-grant allowlist still **rejects**
+`searchtimers.create` and the Public-v1 API still has no POST route.
+The isolated regression injects an explicitly scoped future grant into
+a mock authenticated Device context; this does *not* simulate an
+administratively assignable permission or live authentication boundary.
+An actual endpoint remains blocked until the normal Device grant/admin
+contract, HTTP identity and accountability audit, backend-generation
+authority adapter, dispatch/reconciliation wiring and API tests exist.
+
+Focused CI-fast regression: `make test-searchtimer-create-device-admission`.

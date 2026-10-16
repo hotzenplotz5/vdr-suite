@@ -1,6 +1,7 @@
 .PHONY: test-ci-fast test-ci-frontend test-ci-packaging test-all test-vdr test-manual-real test-make-inventory
 
 CI_FAST_TESTS := \
+	test-searchtimer-create-device-admission \
 	test-searchtimer-create-durable-admission \
 	test-searchtimer-create-one-shot-dispatch \
 	test-searchtimer-create-orphan-recovery \

@@ -581,3 +581,23 @@ test-searchtimer-create-orphan-recovery:
 	$(BUILD_DIR)/test_search_timer_create_recovery_service
 
 test-phase: test-searchtimer-create-orphan-recovery
+
+# Persistence-only Device-scoped CREATE admission (no public handler, no POST).
+.PHONY: test-searchtimer-create-device-admission
+test-searchtimer-create-device-admission:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		core/vdr/src/SearchTimerCreateOperationPayload.cpp \
+		core/vdr/src/SearchTimerCreateAdmissionService.cpp \
+		core/vdr/src/SearchTimerCreateDeviceAdmissionService.cpp \
+		core/vdr/tests/test_search_timer_create_device_admission_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_search_timer_create_device_admission_service
+	$(BUILD_DIR)/test_search_timer_create_device_admission_service
+
+test-phase: test-searchtimer-create-device-admission
