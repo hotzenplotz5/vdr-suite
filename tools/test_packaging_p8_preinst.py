@@ -155,11 +155,22 @@ esac
                 self.assertEqual(result.returncode, 1, result.stderr)
                 self.assertEqual(file.read_text(), "operator sentinel")
 
-    def test_pkg_upgrade_ignores_state_but_not_manual_binary(self):
+    def test_existing_package_owned_files_allow_persistent_state_on_reinstall(self):
+        host, bindir, script = self.fixture()
+        file = self.put(host, "var/lib/vdr-suite/user.db")
+        managed = self.put(host, "usr/sbin/vdr-suite-daemon")
+        # The status need not be 'install ok installed' during preinst.
+        result = self.run_gate(bindir, script, owner="vdr-suite-daemon", installed=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(file.read_text(), "operator sentinel")
+        self.assertEqual(managed.read_text(), "operator sentinel")
+
+    def test_preexisting_state_without_package_owned_target_is_still_blocked(self):
         host, bindir, script = self.fixture()
         file = self.put(host, "var/lib/vdr-suite/user.db")
         result = self.run_gate(bindir, script, installed=True)
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("MANUAL_INSTALL_PRESENT", result.stderr)
         self.assertEqual(file.read_text(), "operator sentinel")
 
     def test_symlink_target_blocks_even_when_owned(self):
