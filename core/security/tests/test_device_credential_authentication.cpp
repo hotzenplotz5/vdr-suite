@@ -192,6 +192,38 @@ int main()
         assert(searchGranted.authorizationDecision.action ==
             "searchtimers.view");
 
+        // Saved SearchTimer EPG preview also needs the independent EPG
+        // permission. A SearchTimer list grant alone is insufficient.
+        const std::string savedPreview =
+            "/api/v1/search-timers/"
+            "st_00000000000000000000000000000001/preview?backend=default";
+        const auto previewMissingEpg = fixture.evaluate(
+            savedPreview, fixture.validAuthorization());
+        assert(!previewMissingEpg.allowed);
+        assert(previewMissingEpg.rejection.statusCode == 403);
+        assert(fixture.grants.ensureGrant(
+            ActorId, "epg.view", "default"));
+        const auto previewAllowed = fixture.evaluate(
+            savedPreview, fixture.validAuthorization());
+        assert(previewAllowed.allowed);
+        assert(previewAllowed.deviceAuthenticated);
+        assert(previewAllowed.authorizationDecision.permission ==
+            "searchtimers.view");
+        const auto previewWrongBackend = fixture.evaluate(
+            "/api/v1/search-timers/"
+            "st_00000000000000000000000000000001/preview?backend=foreign",
+            fixture.validAuthorization());
+        assert(!previewWrongBackend.allowed);
+        assert(previewWrongBackend.rejection.statusCode == 403);
+        assert(fixture.grants.revokeGrant(
+            ActorId, "epg.view", "default"));
+        const auto previewRevokedEpg = fixture.evaluate(
+            savedPreview, fixture.validAuthorization());
+        assert(!previewRevokedEpg.allowed);
+        assert(previewRevokedEpg.rejection.statusCode == 403);
+        assert(fixture.grants.ensureGrant(
+            ActorId, "epg.view", "default"));
+
         const auto searchWrongBackend = fixture.evaluate(
             "/api/v1/search-timers?backend=foreign",
             fixture.validAuthorization());
