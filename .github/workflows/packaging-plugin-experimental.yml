@@ -360,6 +360,30 @@ jobs:
             grep -Fw 'vdr-abi-2.8.3-0yavdr'
           test "$(find package-artifacts-full-resolute -maxdepth 1 -name '*.deb' | wc -l)" -eq 3
           echo 'RESOLUTE_FULL_THREE_BINARIES_MANIFEST_ABI_P8=PASS'
+      - name: Record advisory Lintian baseline for all three Resolute packages
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          test -n "${RESOLUTE_FULL_BUILD_ROOT:-}"
+          mkdir -p package-artifacts-full-resolute
+          apt-get update
+          apt-get install -y --no-install-recommends lintian
+          shopt -s nullglob
+          debs=("$RESOLUTE_FULL_BUILD_ROOT"/vdr-suite-daemon_*_amd64.deb
+                "$RESOLUTE_FULL_BUILD_ROOT"/vdr-suite-backend-agent_*_amd64.deb
+                "$RESOLUTE_FULL_BUILD_ROOT"/vdr-plugin-suitebridge_*_amd64.deb)
+          (( ${#debs[@]} == 3 )) || { echo 'LINTIAN_PACKAGE_SET=FAIL'; exit 1; }
+          set +e
+          lintian --no-tag-display-limit "${debs[@]}" > package-artifacts-full-resolute/lintian-resolute.txt 2>&1
+          lintian_rc=$?
+          set -e
+          cat package-artifacts-full-resolute/lintian-resolute.txt
+          printf 'LINTIAN_EXIT_STATUS=%s\nLINTIAN_RELEASE_GATE=NOT_YET_PASSED\n' "$lintian_rc" |
+            tee package-artifacts-full-resolute/lintian-status.txt
+          # Lintian findings are captured as an actionable P5 baseline, not silently waived.
+          # Release eligibility remains blocked until warnings and errors are reviewed.
       - name: Collect build results and diagnostics
         if: always()
         shell: bash
