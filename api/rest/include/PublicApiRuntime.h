@@ -139,6 +139,15 @@ struct PublicSearchTimerPreviewRequest
     std::string backendId;
     std::string searchTimerId;
     std::size_t limit = 30U;
+    // Only SearchTimerPreviewService-supported EPG match fields. Never a
+    // simulated backend CREATE, duplicate/blacklist or recording planner.
+    bool draft = false;
+    std::string query;
+    int mode = 0;
+    int tolerance = 0;
+    bool compareTitle = true;
+    bool compareSubtitle = false;
+    bool compareSummary = false;
 };
 
 struct PublicSearchTimerPreviewResult

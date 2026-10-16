@@ -353,6 +353,21 @@ int main()
         {
             PublicSearchTimerPreviewResult result;
             if (request.backendId == "offline") return result;
+            if (request.draft)
+            {
+                assert(request.searchTimerId.empty());
+                assert(request.query == "Terra X" || request.query == "zero");
+                assert(request.mode == 1);
+                assert(request.compareTitle);
+                assert(!request.compareSubtitle);
+                assert(request.compareSummary);
+                if (request.query == "zero")
+                {
+                    result.status = PublicSearchTimerPreviewStatus::ok;
+                    result.backendId = request.backendId;
+                    return result;
+                }
+            }
             if (request.searchTimerId ==
                 "st_00000000000000000000000000000002")
             {
@@ -410,6 +425,54 @@ int main()
     assert(runtime.tryHandlePost(previewRoute + "?backend=one",
         "preview-post", "", previewPost));
     assert(previewPost.statusCode == 405);
+    // Distinct draft preview: exact match fields only; never mutate.
+    const std::string draftRoute =
+        "/api/v1/search-timers/draft-preview?backend=one&query=Terra%20X"
+        "&mode=1&compareTitle=1&compareSubtitle=0&compareSummary=1";
+    ApiResponse draft;
+    assert(runtime.tryHandleGet(draftRoute, "actor:test", "draft-ok",
+        "", draft, "", "one"));
+    assert(draft.statusCode == 200);
+    assert(draft.body.find("\"evaluation\":\"epg-match-only\"") !=
+        std::string::npos);
+    assert(draft.body.find("searchTimerId") == std::string::npos);
+    assert(draft.body.find("backendNativeId") == std::string::npos);
+    assert(draft.headers.at("Cache-Control") == "no-store");
+    for (const std::string& suffix : {
+            std::string("&cursor=bad"),
+            std::string("&compareTitle=1"),
+            std::string("&useChannel=1"),
+            std::string("&avoidRepeats=1"),
+            std::string("&mode=4"),
+            std::string("&limit=31"),
+            std::string("&query=other"),
+            std::string("&blacklistIds=x")})
+    {
+        ApiResponse invalid;
+        assert(runtime.tryHandleGet(draftRoute + suffix, "actor:test",
+            "draft-bad", "", invalid, "", "one"));
+        assert(invalid.statusCode == 400);
+    }
+    ApiResponse zeroDraft;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search-timers/draft-preview?backend=one&query=zero"
+        "&mode=1&compareTitle=1&compareSubtitle=0&compareSummary=1",
+        "actor:test", "draft-zero", "", zeroDraft, "", "one"));
+    assert(zeroDraft.statusCode == 200);
+    assert(zeroDraft.body.find("\"items\":[]") != std::string::npos);
+    ApiResponse offlineDraft;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search-timers/draft-preview?backend=offline&query=Terra"
+        "%20X&mode=1&compareTitle=1&compareSubtitle=0&compareSummary=1",
+        "actor:test", "draft-offline", "", offlineDraft, "", "offline"));
+    assert(offlineDraft.statusCode == 503);
+    ApiResponse anonymousDraft;
+    assert(runtime.tryHandleGet(draftRoute, "", "draft-anon", "",
+        anonymousDraft, "", "one"));
+    assert(anonymousDraft.statusCode == 401);
+    ApiResponse postDraft;
+    assert(runtime.tryHandlePost(draftRoute, "draft-post", "", postDraft));
+    assert(postDraft.statusCode == 405);
     runtime.resetSearchTimerPreviewLookup();
     return 0;
 }

@@ -174,5 +174,18 @@ int main()
         assert(!denied.allowed);
         assert(denied.rejection.statusCode == 403);
     }
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "searchtimers.view", "backend-one"));
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "epg.view", "backend-one"));
+        const auto denied = fixture.gate.evaluate(browserGet(fixture,
+            "/api/v1/search-timers/draft-preview?backend=backend-one"
+            "&query=Terra&mode=1&compareTitle=1&compareSubtitle=0"
+            "&compareSummary=0"));
+        assert(!denied.allowed);
+        assert(denied.rejection.statusCode == 403);
+    }
     return 0;
 }

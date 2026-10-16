@@ -780,12 +780,16 @@ public:
             path.compare(0U, publicSearchTimerPreviewPrefix.size(),
                 publicSearchTimerPreviewPrefix) == 0 &&
             path.compare(path.size() - 8U, 8U, "/preview") == 0;
+        const bool isPublicSearchTimerDraftPreview =
+            path == "/api/v1/search-timers/draft-preview";
         const bool isPublicSearchTimerPreviewRead =
-            request.method == "GET" && isPublicSearchTimerPreviewResource;
+            request.method == "GET" &&
+            (isPublicSearchTimerPreviewResource || isPublicSearchTimerDraftPreview);
         const bool isPublicSearchTimerRead =
             request.method == "GET" &&
             (path == publicSearchTimerCollection ||
-                isPublicSearchTimerPreviewResource);
+                isPublicSearchTimerPreviewResource ||
+                isPublicSearchTimerDraftPreview);
         const std::string publicSearchTimerBackendId =
             queryStringValue(request.path, "backend");
         const std::string publicTimerAssignmentCollection =
@@ -842,6 +846,7 @@ public:
              isPublicTimerAssignmentCollection ||
              path == publicSearchTimerCollection ||
              isPublicSearchTimerPreviewResource ||
+             isPublicSearchTimerDraftPreview ||
              isPublicOperationResource ||
              isPublicAccountCredentialResource ||
              isPublicAccountSessionResource);

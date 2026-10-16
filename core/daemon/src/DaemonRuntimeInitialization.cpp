@@ -1228,6 +1228,40 @@ bool DaemonRuntime::initialize()
                 searchTimerPreviewEpgCache_->eventsForBackend(request.backendId);
             if (!events) return result;
 
+            if (request.draft)
+            {
+                // A non-persisted SearchTimer goes through the exact same
+                // domain preview engine as Web/saved rules. The dummy native
+                // identity is internal only, never included in public output.
+                SearchTimer timer = SearchTimer::create(
+                    SearchTimerId::fromBackendNativeId(
+                        request.backendId, "draft-preview"),
+                    request.query, request.query, SearchTimerState::Active);
+                timer.comparisonOptions().setCompareTitle(request.compareTitle);
+                timer.comparisonOptions().setCompareSubtitle(request.compareSubtitle);
+                timer.comparisonOptions().setCompareSummary(request.compareSummary);
+                timer.matchOptions().setMode(request.mode);
+                timer.matchOptions().setTolerance(request.tolerance);
+                SearchTimerPreviewService service;
+                const auto preview = service.preview(
+                    timer, *events, static_cast<int>(request.limit), 0);
+                result.backendId = request.backendId;
+                result.totalCount = preview.totalCount();
+                for (const auto& match : preview.searchResult().matches())
+                {
+                    const auto& event = match.event();
+                    PublicSearchTimerPreviewEvent item;
+                    item.title = event.title;
+                    item.subtitle = event.subtitle;
+                    item.channelId = event.channelId;
+                    item.startTime = event.startTime;
+                    item.endTime = event.endTime;
+                    result.items.push_back(std::move(item));
+                }
+                result.status = PublicSearchTimerPreviewStatus::ok;
+                return result;
+            }
+
             const RestfulApiSearchTimerAdapter* adapter = nullptr;
             for (const auto& context : backendRuntimeContexts_)
                 if (context && context->backendId == request.backendId &&

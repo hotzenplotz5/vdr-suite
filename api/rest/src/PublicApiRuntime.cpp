@@ -61,6 +61,8 @@ constexpr const char* PublicTimerAssignmentCursorPayloadVersion =
     "timer-assignments/1|";
 constexpr const char* PublicSearchTimerCollectionPath =
     "/api/v1/search-timers";
+constexpr const char* PublicSearchTimerDraftPreviewPath =
+    "/api/v1/search-timers/draft-preview";
 constexpr const char* PublicSearchTimerResourcePrefix =
     "/api/v1/search-timers/";
 constexpr const char* PublicSearchTimerPreviewSuffix = "/preview";
@@ -906,6 +908,96 @@ bool decodePublicSearchText(const std::string& raw, std::string& text)
     }
     return text.size() >= 2U && text.size() <= 240U;
 }
+// Strict, bounded, read-only preview of a *new* rule. No provider IDs.
+bool parsePublicSearchTimerDraftPreviewQuery(
+    const std::string& target,
+    const std::string& authorizedBackendId,
+    PublicSearchTimerPreviewRequest& out)
+{
+    const std::string raw = requestQueryString(target);
+    if (raw.empty() || raw.size() > 900U) return false;
+    bool backend = false, query = false, mode = false;
+    bool title = false, subtitle = false, summary = false;
+    bool limit = false, tolerance = false;
+    std::size_t pos = 0U;
+    out.draft = true;
+    out.backendId = authorizedBackendId;
+    while (pos <= raw.size())
+    {
+        const auto end = raw.find('&', pos);
+        const auto part = raw.substr(pos, end == std::string::npos
+            ? std::string::npos : end - pos);
+        const auto equal = part.find('=');
+        if (equal == std::string::npos || equal == 0U) return false;
+        const auto key = part.substr(0U, equal);
+        const auto value = part.substr(equal + 1U);
+        if (key == "backend")
+        {
+            if (backend || value.empty() || value != authorizedBackendId)
+                return false;
+            backend = true;
+        }
+        else if (key == "query")
+        {
+            if (query || !decodePublicSearchText(value, out.query))
+                return false;
+            query = true;
+        }
+        else if (key == "mode")
+        {
+            std::size_t parsed = 0U;
+            if (mode || !decimalSize(value, parsed) ||
+                (parsed > 3U && parsed != 5U)) return false;
+            out.mode = static_cast<int>(parsed);
+            mode = true;
+        }
+        else if (key == "tolerance")
+        {
+            std::size_t parsed = 0U;
+            if (tolerance || !decimalSize(value, parsed) || parsed > 3U)
+                return false;
+            out.tolerance = static_cast<int>(parsed);
+            tolerance = true;
+        }
+        else if (key == "compareTitle" || key == "compareSubtitle" ||
+                 key == "compareSummary")
+        {
+            if (value != "0" && value != "1") return false;
+            const bool enabled = value == "1";
+            if (key == "compareTitle")
+            {
+                if (title) return false;
+                title = true; out.compareTitle = enabled;
+            }
+            else if (key == "compareSubtitle")
+            {
+                if (subtitle) return false;
+                subtitle = true; out.compareSubtitle = enabled;
+            }
+            else
+            {
+                if (summary) return false;
+                summary = true; out.compareSummary = enabled;
+            }
+        }
+        else if (key == "limit")
+        {
+            std::size_t parsed = 0U;
+            if (limit || !decimalSize(value, parsed) || parsed == 0U ||
+                parsed > PublicSearchTimerMaximumLimit) return false;
+            out.limit = parsed;
+            limit = true;
+        }
+        else return false; // No silently ignored recording/filter options.
+        if (end == std::string::npos) break;
+        pos = end + 1U;
+    }
+    return backend && query && mode && title && subtitle && summary &&
+        (out.compareTitle || out.compareSubtitle || out.compareSummary) &&
+        (out.mode == 5 || !tolerance) &&
+        !authorizedBackendId.empty();
+}
+
 bool parsePublicSearchQuery(const std::string& target, PublicSearchQuery& out)
 {
     const std::string raw = requestQueryString(target);
@@ -7570,6 +7662,65 @@ bool PublicApiRuntime::tryHandleGet(
                     path, requestId, correlationId);
                 return true;
         }
+    }
+
+    if (path == PublicSearchTimerDraftPreviewPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicSearchTimerPreviewRequest draft;
+        if (!parsePublicSearchTimerDraftPreviewQuery(
+                requestTarget, authorizedBackendId, draft))
+        {
+            response = invalidRequestProblem(path,
+                "Unsupported or invalid SearchTimer draft preview options.",
+                requestId, correlationId);
+            return true;
+        }
+        const auto preview = lookupSearchTimerPreview(draft);
+        if (preview.status != PublicSearchTimerPreviewStatus::ok ||
+            preview.backendId != authorizedBackendId ||
+            !preview.searchTimerId.empty() ||
+            preview.totalCount < 0 ||
+            preview.items.size() > draft.limit ||
+            static_cast<std::size_t>(preview.totalCount) <
+                preview.items.size())
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        std::string body = "{\"backendId\":\"" +
+            jsonEscape(preview.backendId) +
+            "\",\"totalCount\":" + std::to_string(preview.totalCount) +
+            ",\"items\":[";
+        for (std::size_t i = 0U; i < preview.items.size(); ++i)
+        {
+            const auto& event = preview.items[i];
+            if (event.title.empty() || event.title.size() > 1024U ||
+                event.subtitle.size() > 2048U ||
+                event.channelId.size() > 256U ||
+                event.startTime.size() > 64U ||
+                event.endTime.size() > 64U)
+            {
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+            }
+            if (i) body += ",";
+            body += "{\"title\":\"" + jsonEscape(event.title) +
+                "\",\"subtitle\":\"" + jsonEscape(event.subtitle) +
+                "\",\"channelId\":\"" + jsonEscape(event.channelId) +
+                "\",\"startTime\":\"" + jsonEscape(event.startTime) +
+                "\",\"endTime\":\"" + jsonEscape(event.endTime) + "\"}";
+        }
+        body += "],\"meta\":{\"partial\":false,\"epgInput\":\"ready\","
+            "\"evaluation\":\"epg-match-only\"}}";
+        response = jsonResponse(body, requestId, correlationId);
+        return true;
     }
 
     std::string previewSearchTimerId;

@@ -525,36 +525,141 @@
     },
     "/api/v1/search-timers/{searchTimerId}/preview": {
       "get": {
-        "tags": ["SearchTimers"],
+        "tags": [
+          "SearchTimers"
+        ],
         "operationId": "previewSavedSearchTimer",
-        "x-vdr-suite-authentication": {"actorRequired": true, "authorization": "verified Device and searchtimers.view@backend plus epg.view@backend"},
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "verified Device and searchtimers.view@backend plus epg.view@backend"
+        },
         "summary": "Preview EPG matches for one saved SearchTimer without mutation",
         "description": "Paired Device with both searchtimers.view and epg.view for the exact backend. Uses Suite SearchTimerPreviewService and ready backend EPG cache. This is not an ad-hoc create preview and exposes no native rule IDs.",
         "parameters": [
-          {"name":"searchTimerId","in":"path","required":true,"schema":{"type":"string","pattern":"^st_[0-9a-f]{32}$"}},
-          {"name":"backend","in":"query","required":true,"schema":{"type":"string","pattern":"^[A-Za-z0-9._-]{1,128}$"}},
-          {"name":"limit","in":"query","required":false,"schema":{"type":"integer","minimum":1,"maximum":30,"default":30}}
+          {
+            "name": "searchTimerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^st_[0-9a-f]{32}$"
+            }
+          },
+          {
+            "name": "backend",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,128}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30,
+              "default": 30
+            }
+          }
         ],
         "responses": {
-          "200": {"description":"Bounded EPG preview; no mutation",
-            "content":{"application/json":{"schema":{"type":"object",
-              "required":["backendId","searchTimerId","totalCount","items","meta"],
-              "properties":{
-                "backendId":{"type":"string"},
-                "searchTimerId":{"type":"string","pattern":"^st_[0-9a-f]{32}$"},
-                "totalCount":{"type":"integer","minimum":0},
-                "items":{"type":"array","maxItems":30,"items":{"type":"object",
-                  "required":["title","subtitle","channelId","startTime","endTime"],
-                  "properties":{"title":{"type":"string"},"subtitle":{"type":"string"},
-                    "channelId":{"type":"string"},"startTime":{"type":"string"},
-                    "endTime":{"type":"string"}}}},
-                "meta":{"type":"object","properties":{"partial":{"type":"boolean","enum":[false]},"epgInput":{"type":"string","enum":["ready"]}}}
-              }}}}},
-          "400":{"description":"Invalid backend, ID or query"},
-          "401":{"description":"Device authentication absent"},
-          "403":{"description":"Missing SearchTimer or EPG grant"},
-          "404":{"description":"Opaque SearchTimer ID absent"},
-          "503":{"description":"Provider or ready EPG cache unavailable"}
+          "200": {
+            "description": "Bounded EPG preview; no mutation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "backendId",
+                    "searchTimerId",
+                    "totalCount",
+                    "items",
+                    "meta"
+                  ],
+                  "properties": {
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "searchTimerId": {
+                      "type": "string",
+                      "pattern": "^st_[0-9a-f]{32}$"
+                    },
+                    "totalCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "items": {
+                      "type": "array",
+                      "maxItems": 30,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "title",
+                          "subtitle",
+                          "channelId",
+                          "startTime",
+                          "endTime"
+                        ],
+                        "properties": {
+                          "title": {
+                            "type": "string"
+                          },
+                          "subtitle": {
+                            "type": "string"
+                          },
+                          "channelId": {
+                            "type": "string"
+                          },
+                          "startTime": {
+                            "type": "string"
+                          },
+                          "endTime": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "partial": {
+                          "type": "boolean",
+                          "enum": [
+                            false
+                          ]
+                        },
+                        "epgInput": {
+                          "type": "string",
+                          "enum": [
+                            "ready"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid backend, ID or query"
+          },
+          "401": {
+            "description": "Device authentication absent"
+          },
+          "403": {
+            "description": "Missing SearchTimer or EPG grant"
+          },
+          "404": {
+            "description": "Opaque SearchTimer ID absent"
+          },
+          "503": {
+            "description": "Provider or ready EPG cache unavailable"
+          }
         }
       }
     },
@@ -7076,6 +7181,206 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/search-timers/draft-preview": {
+      "get": {
+        "tags": [
+          "SearchTimers"
+        ],
+        "operationId": "previewDraftSearchTimer",
+        "summary": "Preview new SearchTimer EPG matches without creating a rule",
+        "description": "Read-only Device preview using SearchTimerPreviewService and ready backend EPG cache; EPG text match only, NOT an exact recording/blacklist/duplicate forecast. Unmodeled filter and recording fields fail as 400.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "verified Device, searchtimers.view@backend and epg.view@backend"
+        },
+        "parameters": [
+          {
+            "name": "backend",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,128}$"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 240
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                5
+              ]
+            }
+          },
+          {
+            "name": "compareTitle",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            }
+          },
+          {
+            "name": "compareSubtitle",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            }
+          },
+          {
+            "name": "compareSummary",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            }
+          },
+          {
+            "name": "tolerance",
+            "in": "query",
+            "required": false,
+            "description": "Only with fuzzy mode 5",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30,
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bounded EPG-only match preview (not timer-plan parity)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "backendId",
+                    "totalCount",
+                    "items",
+                    "meta"
+                  ],
+                  "properties": {
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "totalCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "items": {
+                      "type": "array",
+                      "maxItems": 30,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "title",
+                          "subtitle",
+                          "channelId",
+                          "startTime",
+                          "endTime"
+                        ],
+                        "properties": {
+                          "title": {
+                            "type": "string"
+                          },
+                          "subtitle": {
+                            "type": "string"
+                          },
+                          "channelId": {
+                            "type": "string"
+                          },
+                          "startTime": {
+                            "type": "string"
+                          },
+                          "endTime": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "partial",
+                        "epgInput",
+                        "evaluation"
+                      ],
+                      "properties": {
+                        "partial": {
+                          "type": "boolean",
+                          "const": false
+                        },
+                        "epgInput": {
+                          "type": "string",
+                          "const": "ready"
+                        },
+                        "evaluation": {
+                          "type": "string",
+                          "const": "epg-match-only"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or unsupported preview field"
+          },
+          "401": {
+            "description": "Missing Device authentication"
+          },
+          "403": {
+            "description": "Missing independent SearchTimer/EPG grant"
+          },
+          "503": {
+            "description": "Backend or EPG cache unavailable"
           }
         }
       }
