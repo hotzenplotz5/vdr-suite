@@ -20,6 +20,50 @@ The `plugin-only` profile removes both server binary packages from `debian/contr
 
 Without the profile, the source package attempts to build daemon, Backend Agent and SuiteBridge as separate **installable binary packages**. The plugin must carry the ABI-specific `${vdr:Depends}`, populated by the VDR debhelper sequence. The exact VDR `vdr.pc`, `libdir` and ABI must match each target Debian/Ubuntu series.
 
+## Backend Agent package: roles and deployment
+
+The default build produces `vdr-suite-daemon`, `vdr-suite-backend-agent` and `vdr-plugin-suitebridge` as **separate** `.deb` files. The Agent is a backend-side machine component, **not** another Web UI, not a replacement for the main daemon, and not a separate database server. The current `debian/control` does not declare the Backend Agent as an explicit hard dependency of `vdr-suite-daemon`. Building all three packages is not a requirement to *enable* all three services.
+
+| Deployment mode | Agent choice |
+| --- | --- |
+| One VDR with the central daemon on the same host | Do not assume that a separately running agent service is mandatory. An embedded/local backend path and an explicitly enrolled Agent are different configurations; validate the selected topology before release or installation. |
+| Additional VDR backend (same network) | Install/configure an agent *on the backend host* when that backend is managed through the authenticated Agent Protocol; the central daemon stays at the Control Plane. |
+| Remote site | Agent initiates outbound HTTPS to the central server. Do not expose local VDR plugin ports or a database to the Internet. |
+
+**Exact payload from `debian/vdr-suite-backend-agent.install`:**
+
+| Installed path | Responsibility |
+| --- | --- |
+| `/usr/sbin/vdr-suite-backend-agent` | Agent process and outbound Control Plane connection |
+| `/usr/sbin/vdr-suite-backend-agent-enroll` | Administrator-controlled, one-time enrollment-package creation for an existing backend |
+| `/usr/sbin/vdr-suite-backend-agent-admin` | Local Agent status and explicit revocation |
+| `/usr/sbin/vdr-suite-backend-agent-command-admin` | Administrative command tool; not a client-facing API |
+| `/etc/vdr-suite/backend-agent.conf` | Non-secret service configuration |
+| `/lib/systemd/system/vdr-suite-backend-agent.service` | Restricted systemd service |
+| `/usr/share/man/man8/vdr-suite-backend-agent.8`, `vdr-suite-backend-agent-enroll.8`, `vdr-suite-backend-agent-admin.8` | Manual pages |
+
+The packaged systemd unit runs under `vdr:vdr` with `NoNewPrivileges`, `UMask=0077`, system protection and a private `StateDirectory=vdr-suite/backend-agent` (mode `0700`), located under `/var/lib/vdr-suite/backend-agent`. The experimental `debian/rules` deliberately calls `dh_installsystemd --no-enable --no-start`: **package installation must neither auto-enable nor start the Agent**. Runtime state and credentials are **not** included in the `.deb`.
+
+### Configuration and enrollment boundary
+
+The shipped `/etc/vdr-suite/backend-agent.conf` is a **template**, not an immediately functional connection:
+
+- `CONTROL_PLANE_URL=https://control-plane.example.invalid` is intentionally invalid. Set the real trusted HTTPS Control Plane origin (including any necessary proxy base path) during an approved configuration process; TLS hostname and peer verification are mandatory.
+- `BACKEND_ID=default` names the target backend; it must match a backend that has actually been registered/authorized in the central Control Plane.
+- `IDENTITY_PATH` and `ENROLLMENT_PATH` refer to protected Agent state under `/var/lib/vdr-suite/backend-agent/`. One-time enrollment secrets and runtime credentials must not be copied into the non-secret config file, logs or README.
+- `OBSERVATION_DOMAINS=backend-health` with empty `ADAPTERS` is the shipping default. Channel observations require **both** the explicit `channels-conf` adapter and `channels` observation domain, with `CHANNELS_CONF_PATH` pointing to a permitted local snapshot source. There is no implicit fallback to VDR provider endpoints.
+- The config declares the known native timer `COMMAND_TYPES`; this is an allowlist input, **not blanket permission to change VDR**. Commands require the actual enrolled Agent, current generation, Control Plane authorization and runtime capability/provider gates. Other native actions remain gated separately.
+
+The privileged `vdr-suite-backend-agent-enroll` tool creates a mode-`0600` one-time enrollment file for an existing central backend (defaults include a 900-second TTL); this is **a central database operation** and must not be run casually against a live installation. The local `vdr-suite-backend-agent-admin --status` is a read-oriented administrative interface; `--revoke` changes persisted Agent trust and is not a routine diagnostic. Refer to the supplied manual pages and the [Phase-63 runtime acceptance contract](../docs/development/phase-63-backend-agent-runtime-acceptance-runbook.md) before any operator procedure.
+
+**Separation:** Client apps authenticate against the central daemon, which owns user authorization, backend registry and the database. Backend Agents authenticate with their own technical identities, report bounded state and perform explicitly gated backend-local operations. The Agent does not require exposing VDR SVDRP, RESTfulAPI or SuiteBridge to remote clients. See [ADR-0039](../docs/adr/ADR-0039-backend-agent-control-plane-boundary.md).
+
+### Packaging acceptance versus release
+
+The full Ubuntu 26.04 Resolute build demonstrates that the Agent `.deb` can be **built and inspected**; it is **not** proof of an installed Agent lifecycle, enrollment handshake, remote connection, runtime permissions or single-host deployment topology. A separate Resolute install/reinstall/remove/purge lifecycle and Agent-enabled runtime integration remain required before release.
+
+The P8 native `preinst` collision guards protect already-manually-installed paths. In particular, do not run package installation, overwrite existing `/etc/vdr-suite/backend-agent.conf`, change `/var/lib/vdr-suite/backend-agent`, re-enroll or restart the Agent on the productive yaVDR without an explicitly approved migration and rollback plan.
+
 ## Git and safe staging
 
 `debian/rules` is executable (Git mode `100755` required by dpkg). Source metadata (`debian/control`, `rules`, `changelog`, `*.install`) remains tracked. Generated `.deb`, `.dsc`, `.changes`, buildinfo, `debian/tmp`, debhelper output and `libvdr-suitebridge.so.*` are ignored. Already tracked outputs are **not** automatically removed; check read-only with:
