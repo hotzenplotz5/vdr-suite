@@ -63,8 +63,10 @@ infer that a process ID, binary hash or active route is unchanged later.
   restart/recovery acceptance. Existing `/usr/local` binaries must not be
   silently removed.
 - Ubuntu 26.04 / amd64, VDR 2.8.3, API 14 and the provided VDR ABI are
-  observed on this host. CI #118 has built an independently installable
-  SuiteBridge `.deb` with the exact corresponding VDR package, but it
+  observed on this host. [CI #118](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38936881893)
+  passed all 15 jobs at code SHA
+  `c957f0c0a6c6b21e152315da31152f572c1e59b8`, including an isolated
+  SuiteBridge `.deb` built for that exact Resolute VDR package, but it
   was **not installed** on this host. Establish the **actually loaded**
   plugin module and the host's package source; do not infer those from
   `.so.14` or the successful disposable build.

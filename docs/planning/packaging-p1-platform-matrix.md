@@ -3,7 +3,13 @@
 Status: P1 package boundaries remain provisional. Full default Ubuntu 24.04
 (Seahawk VDR 2.8.3) builds, independent plugin, disposable install and
 experimental upgrade have passed [CI #112](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38932136305).
-This does **not** establish Ubuntu 26.04 or a production upgrade.
+The independent Resolute VDR 2.8.3/API 14 plugin-only package was
+subsequently verified on [CI #118](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38936881893):
+**15/15 jobs SUCCESS**, including prior Noble builds, disposable P8 collision
+cases and P7 package lifecycle; code SHA
+`c957f0c0a6c6b21e152315da31152f572c1e59b8`.
+This still does **not** certify a full Resolute daemon/agent build,
+live VDR operation or productive manual-install upgrade.
 
 ## Binary packages (working names)
 
