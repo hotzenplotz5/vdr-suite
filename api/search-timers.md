@@ -101,17 +101,19 @@ boundary and an operation reconciliation/identity-projection path.
 
 ### Device mutation permission must never unlock the legacy path
 
-The old `POST /api/searchtimers`, `/api/vdr/searchtimers` and associated
-update/delete/execute/real-test/preview-refresh mutations share the internal
-`searchtimers.create` family of grants. Expanding
-`DeviceGrantAdministrationService.supportedGrant` in isolation would have
-created an authorization bypass around the new durable Public-v1 CREATE
-workflow. `SecurityHttpGate` now explicitly rejects **all** paired-Device
-credentials on those legacy SearchTimer mutation actions (HTTP 403),
-including when a matching grant was inserted directly into persistence.
-Browser legacy operation remains unchanged. The Device administrative grant
-allowlist still rejects `searchtimers.create` until a complete Public-v1
-contract is audited and installed. Regression:
+The existing `SecurityHttpGate::authenticate` has an **earlier,
+independent boundary**: presenting a Device credential to *any* unversioned
+`/api/...` path is invalid authentication (HTTP 401). This already protects
+legacy SearchTimer mutation actions, including `POST /api/searchtimers`,
+`/api/vdr/searchtimers`, update, delete and execute, even if a matching
+permission was inserted directly into grant persistence. A second,
+later route-specific Device block is unnecessary because Device authentication
+has already failed. The CI regression verifies the existing fail-closed
+boundary, not a new HTTP 403 policy. Browser legacy behavior is unchanged.
+`DeviceGrantAdministrationService.supportedGrant` still rejects
+`searchtimers.create`; before enabling it in the future, the new
+Public-v1 CREATE permission, backend scope, capability and no-legacy-fallback
+contracts require explicit tests. Regression:
 `core/security/tests/test_device_credential_authentication.cpp`.
 
 Additional identity invariant: the full post-CREATE native inventory must

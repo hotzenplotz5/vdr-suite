@@ -196,10 +196,10 @@ int main()
         {
             const auto legacy = fixture.evaluateLegacySearchTimerPost(target);
             assert(!legacy.allowed);
-            assert(legacy.rejection.statusCode == 403);
-            assert(legacy.rejection.body.find(
-                "Device credentials cannot mutate legacy SearchTimer routes") !=
-                std::string::npos);
+            // DeviceCredentialAuthenticator rejects pre-v1 paths at
+            // authentication, before route-specific authorization.
+            assert(legacy.rejection.statusCode == 401);
+            assert(!legacy.deviceAuthenticated);
         }
         assert(fixture.grants.revokeGrant(
             ActorId, "searchtimers.create", "default"));
