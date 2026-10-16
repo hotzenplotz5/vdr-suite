@@ -65,6 +65,15 @@ struct PublicTimerAssignmentCollectionItem
 {
     std::string timerAssignmentId;
     std::string backendId;
+
+    // Optional desired schedule presentation: not an actual native timer
+    // observation or guarantee that recording/provisioning succeeded.
+    bool plannedPresent = false;
+    std::string plannedTitle;
+    std::string plannedDay;
+    std::string plannedWeekdays;
+    std::string plannedStartTime;
+    std::string plannedEndTime;
 };
 
 struct PublicTimerAssignmentCollectionRequest

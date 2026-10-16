@@ -1078,6 +1078,22 @@ bool DaemonRuntime::initialize()
                         item.timerAssignmentId =
                             assignment.timerAssignmentId;
                         item.backendId = assignment.backendId;
+                        // Only project the persisted, valid Suite-owned
+                        // desired specification; no native timer observation,
+                        // provider channel ID, recording path, or binding ID.
+                        if (assignment.desiredNativeTimerSpecificationPresent &&
+                            vdrsuite::timers::nativeTimerSpecificationValid(
+                                assignment.desiredNativeTimerSpecification))
+                        {
+                            const auto& desired =
+                                assignment.desiredNativeTimerSpecification;
+                            item.plannedPresent = true;
+                            item.plannedTitle = desired.title;
+                            item.plannedDay = desired.day;
+                            item.plannedWeekdays = desired.weekdays;
+                            item.plannedStartTime = desired.startTime;
+                            item.plannedEndTime = desired.endTime;
+                        }
                         result.assignments.push_back(
                             std::move(item));
                     }

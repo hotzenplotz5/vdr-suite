@@ -60,10 +60,19 @@ int main()
                 result.hasMore ? request.limit : eligible.size();
             for (std::size_t index = 0U; index < count; ++index)
             {
-                result.assignments.push_back(
-                    PublicTimerAssignmentCollectionItem{
-                        eligible[index],
-                        request.backendId});
+                PublicTimerAssignmentCollectionItem item;
+                item.timerAssignmentId = eligible[index];
+                item.backendId = request.backendId;
+                if (eligible[index] == "assignment:a")
+                {
+                    item.plannedPresent = true;
+                    item.plannedTitle = "Die Nachrichten";
+                    item.plannedDay = "20261017";
+                    item.plannedWeekdays = "-------";
+                    item.plannedStartTime = "2015";
+                    item.plannedEndTime = "2100";
+                }
+                result.assignments.push_back(std::move(item));
             }
             return result;
         });
@@ -83,6 +92,16 @@ int main()
         std::string::npos);
     assert(first.body.find(
         "\"timerAssignmentId\":\"assignment:b\"") !=
+        std::string::npos);
+    assert(first.body.find(
+        "\"planned\":{\"title\":\"Die Nachrichten\","
+        "\"day\":\"20261017\",\"weekdays\":\"-------\","
+        "\"startTime\":\"2015\",\"endTime\":\"2100\"}") !=
+        std::string::npos);
+    const std::size_t secondAssignment =
+        first.body.find("\"timerAssignmentId\":\"assignment:b\"");
+    assert(secondAssignment != std::string::npos);
+    assert(first.body.find("\"planned\"", secondAssignment) ==
         std::string::npos);
     assert(first.body.find(
         "\"timerAssignmentId\":\"assignment:c\"") ==

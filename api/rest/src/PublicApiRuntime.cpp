@@ -3474,8 +3474,24 @@ ApiResponse publicTimerAssignmentCollectionResponse(
             "{\"timerAssignmentId\":\"" +
             jsonEscape(assignment.timerAssignmentId) +
             "\",\"backendId\":\"" +
-            jsonEscape(assignment.backendId) +
-            "\",\"links\":{\"self\":\"" +
+            jsonEscape(assignment.backendId) + "\"";
+        if (assignment.plannedPresent)
+        {
+            // Requested HHMM values: not UTC timestamps or live status.
+            body +=
+                ",\"planned\":{\"title\":\"" +
+                jsonEscape(assignment.plannedTitle) +
+                "\",\"day\":\"" +
+                jsonEscape(assignment.plannedDay) +
+                "\",\"weekdays\":\"" +
+                jsonEscape(assignment.plannedWeekdays) +
+                "\",\"startTime\":\"" +
+                jsonEscape(assignment.plannedStartTime) +
+                "\",\"endTime\":\"" +
+                jsonEscape(assignment.plannedEndTime) +
+                "\"}";
+        }
+        body += ",\"links\":{\"self\":\"" +
             jsonEscape(itemSelf) + "\"}}";
     }
 
@@ -7395,6 +7411,19 @@ bool PublicApiRuntime::tryHandleGet(
                         assignment.backendId != authorizedBackendId ||
                         (!previous.empty() &&
                          assignment.timerAssignmentId <= previous))
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    if (assignment.plannedPresent &&
+                        (assignment.plannedTitle.size() > 1024U ||
+                         assignment.plannedDay.size() > 160U ||
+                         assignment.plannedWeekdays.size() != 7U ||
+                         assignment.plannedStartTime.empty() ||
+                         assignment.plannedStartTime.size() > 4U ||
+                         assignment.plannedEndTime.empty() ||
+                         assignment.plannedEndTime.size() > 4U))
                     {
                         response = serviceUnavailableProblem(
                             path, requestId, correlationId);
