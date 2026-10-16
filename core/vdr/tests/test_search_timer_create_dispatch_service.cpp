@@ -241,6 +241,18 @@ void assertReadbackAndPreexistingIdentity()
     assert(noBaseline.status == SearchTimerCreateDispatchStatus::notReady);
     assert(duplicateBaseline.executor.creates == 0);
 
+    // An inactive rule must read back as explicitly Inactive, not
+    // Unknown (isActive() alone would wrongly classify both as false).
+    Rig unknownState;
+    unknownState.source.finalItems.front() = SearchTimer::create(
+        SearchTimerId::fromBackendNativeId(
+            "default", unknownState.executor.nativeId),
+        "Terra X", "Terra X", SearchTimerState::Unknown);
+    const auto unknownStateResult = unknownState.dispatch.dispatchOnce(
+        unknownState.request(),unknownState.executor,unknownState.source);
+    assert(unknownStateResult.status ==
+        SearchTimerCreateDispatchStatus::outcomeUnknown);
+
     Rig mismatch;
     mismatch.source.finalItems.front().comparisonOptions()
         .setCompareSummary(false);

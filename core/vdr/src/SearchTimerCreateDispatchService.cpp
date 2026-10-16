@@ -45,7 +45,8 @@ bool matchesRequested(
         !timer.backendNativeId().empty() &&
         timer.name() == request.name &&
         timer.query() == request.query &&
-        timer.isActive() == request.active &&
+        timer.state() == (request.active
+            ? SearchTimerState::Active : SearchTimerState::Inactive) &&
         timer.matchOptions().mode() == request.matchMode &&
         timer.matchOptions().tolerance() == request.matchTolerance &&
         timer.comparisonOptions().compareTitle() == request.compareTitle &&
