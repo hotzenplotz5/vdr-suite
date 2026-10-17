@@ -43,6 +43,8 @@ int main()
     }
     // A Live-TV permission includes the public TV guide on the SAME
     // backend. EPG-only actors remain legal; channel list alone is not.
+    const std::string Detail =
+        "/api/v1/epg/event?backendId=home&channelId=S19.2E-1-100&eventId=81234";
     const std::string Window =
         "/api/v1/epg/window?backendId=home&channelId=S19.2E-1-100"
         "&fromTime=1791565200&untilTime=1791586800";
@@ -59,7 +61,7 @@ int main()
         SecurityHttpGateBrowserTestFixture fixture;
         assert(fixture.grantRepository.ensureGrant(
             fixture.actorId, "media.live.play", "home"));
-        for (const std::string& path: {std::string(Route), Window})
+        for (const std::string& path: {std::string(Route), Window, Detail})
         {
             const auto allowed = fixture.gate.evaluate(browserRead(fixture,path));
             assert(allowed.allowed);
@@ -71,7 +73,7 @@ int main()
         SecurityHttpGateBrowserTestFixture fixture;
         assert(fixture.grantRepository.ensureGrant(
             fixture.actorId, "media.live.play", "other"));
-        for (const std::string& path: {std::string(Route), Window})
+        for (const std::string& path: {std::string(Route), Window, Detail})
         {
             const auto denied = fixture.gate.evaluate(browserRead(fixture,path));
             assert(!denied.allowed);
@@ -124,6 +126,17 @@ int main()
         const auto denied = fixture.gate.evaluate(anonymous);
         assert(!denied.allowed);
         assert(denied.rejection.statusCode == 401);
+    }
+    // Exact native event detail shares the EPG grant; channel-only access
+    // must never expose the source ID or strong resource revision.
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "epg.view", "home"));
+        const auto allowed = fixture.gate.evaluate(browserRead(fixture, Detail));
+        assert(allowed.allowed && !allowed.protectedMutation);
+        assert(allowed.authorizedBackendIds ==
+            std::vector<std::string>{"home"});
     }
     // Native timer listings are separate from TimerAssignments, but require
     // the same exact backend-scoped timers.view grant.
