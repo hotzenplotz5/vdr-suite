@@ -273,6 +273,36 @@ struct PublicEpgWindowResult
     bool hasMore = false;
 };
 
+// Snapshot-backed, read-only public list of real VDR timers. These are
+// native timers, never Suite TimerAssignments or search timer definitions.
+enum class PublicNativeTimersStatus { ok, invalid, unavailable };
+struct PublicNativeTimersRequest
+{
+    std::string backendId;
+    std::size_t offset = 0U;
+    std::size_t limit = 30U;
+};
+struct PublicNativeTimerItem
+{
+    std::string id;
+    std::string channelId;
+    std::string channelName;
+    std::string title;
+    std::string day;
+    std::string weekdays;
+    std::string startTime;
+    std::string endTime;
+    bool enabled = false;
+    bool recording = false;
+    bool pending = false;
+};
+struct PublicNativeTimersResult
+{
+    PublicNativeTimersStatus status = PublicNativeTimersStatus::unavailable;
+    std::vector<PublicNativeTimerItem> timers;
+    bool hasMore = false;
+};
+
 enum class PublicBackendCollectionStatus
 {
     ok,
@@ -938,6 +968,10 @@ public:
         std::function<PublicEpgWindowResult(
             const PublicEpgWindowRequest& request)>;
 
+    using NativeTimersLookup =
+        std::function<PublicNativeTimersResult(
+            const PublicNativeTimersRequest& request)>;
+
     using BackendCollectionLookup =
         std::function<PublicBackendCollectionResult(
             const PublicBackendCollectionRequest& request)>;
@@ -1088,6 +1122,12 @@ public:
     bool epgWindowLookupConfigured() const;
     PublicEpgWindowResult lookupEpgWindow(
         const PublicEpgWindowRequest& request) const;
+
+    void registerNativeTimersLookup(NativeTimersLookup lookup);
+    void resetNativeTimersLookup();
+    bool nativeTimersLookupConfigured() const;
+    PublicNativeTimersResult lookupNativeTimers(
+        const PublicNativeTimersRequest& request) const;
 
     void registerBackendCollectionLookup(
         BackendCollectionLookup lookup);
@@ -1266,6 +1306,9 @@ private:
 
     mutable std::mutex epgWindowLookupMutex_;
     EpgWindowLookup epgWindowLookup_;
+
+    mutable std::mutex nativeTimersLookupMutex_;
+    NativeTimersLookup nativeTimersLookup_;
 
     mutable std::mutex backendCollectionLookupMutex_;
     BackendCollectionLookup backendCollectionLookup_;
