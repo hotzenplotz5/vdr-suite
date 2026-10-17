@@ -122,7 +122,8 @@ int main()
                 event.channelId = request.channelId;
                 event.title = "Programm " + std::to_string(i);
                 if (i == 0) event.eventId = "native-event:1234";
-                if (i == 1) event.eventId = std::string(257U, 'x');
+                if (i == 1) event.eventId = std::string(161U, 'x');
+                if (i == 2) event.eventId = std::string(160U, 'n');
                 event.startTime = std::to_string(1791565200LL + i*3600LL);
                 event.endTime = std::to_string(1791568800LL + i*3600LL);
                 event.durationSeconds = 3600;
@@ -136,10 +137,18 @@ int main()
     assert(windowOk.body.find("Programm 2") != std::string::npos);
     assert(windowOk.body.find("\"eventId\":\"native-event:1234\"")
         != std::string::npos);
-    assert(windowOk.body.find(std::string(257U, 'x')) ==
+    assert(windowOk.body.find(std::string(161U, 'x')) ==
         std::string::npos);
-    assert(windowOk.body.find("eventId") ==
-        windowOk.body.rfind("eventId"));
+    assert(windowOk.body.find(
+        "\"eventId\":\"" + std::string(160U, 'n') + "\"") !=
+        std::string::npos);
+    const auto firstEventId = windowOk.body.find("\"eventId\"");
+    assert(firstEventId != std::string::npos);
+    const auto secondEventId =
+        windowOk.body.find("\"eventId\"", firstEventId + 1U);
+    assert(secondEventId != std::string::npos);
+    assert(windowOk.body.find("\"eventId\"", secondEventId + 1U) ==
+        std::string::npos);
     assert(windowOk.body.find("\"hasMore\":false") != std::string::npos);
     assert(windowOk.body.find("\"partial\":false") != std::string::npos);
     runtime.registerEpgWindowLookup(

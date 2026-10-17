@@ -172,3 +172,17 @@ original fallback behavior still exists, persistent source-id evidence,
 the read-repository delegation, scoped public-window emission, and
 the native-ID check at the domain boundary. Its PASS is **not** a
 substitute for compiling/running the repository and live runtime tests.
+
+## Public-v1 wire boundary: 160-byte EPG Event ID (2026-10-17)
+
+The server-owned `TimerIntentBackendEventRef.eventId` and the authoritative
+EPG cache projection accept source-provenanced event IDs of at most **160
+bytes**. Public-v1 `/api/v1/epg/window` must not emit longer values, even if
+a separately registered read callback supplies one: exposing a 161–256-byte
+`eventId` would imply a selectable occurrence that the TimerIntent guard
+cannot represent. `PublicApiRuntime.cpp` now caps that optional field at 160,
+with boundary regressions for 160 (included) and 161 (omitted) in
+`test_public_epg_now_next.cpp`. This is a serialization consistency fix,
+**not** a claim of a complete EPG-detail/CREATE/Device-write route. Provenance,
+backend generation, grant, revision, admission and native readback remain
+mandatory before enabling a VIDAA one-off recording button.

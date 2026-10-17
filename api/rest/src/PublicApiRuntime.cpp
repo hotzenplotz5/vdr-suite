@@ -7811,7 +7811,7 @@ bool PublicApiRuntime::tryHandleGet(
                         jsonEscape(event.endTime) + "\",\"durationSeconds\":" +
                         std::to_string(event.durationSeconds);
                     if (!event.eventId.empty() &&
-                        event.eventId.size() <= 256U)
+                        event.eventId.size() <= 160U)
                         body += ",\"eventId\":\"" +
                             jsonEscape(event.eventId) + "\"";
                     body += "}";
