@@ -8,6 +8,7 @@
 #include "SecurityPermissionGrantRepository.h"
 
 #include <crypt.h>
+#include <algorithm>
 #include <cassert>
 #include <string>
 
@@ -81,6 +82,16 @@ int main()
         "channels.view", "default"));
     assert(DeviceGrantAdministrationService::supportedGrant(
         "media.live.play", "default"));
+    assert(DeviceGrantAdministrationService::supportedGrant(
+        "recordings.view", "default"));
+    assert(DeviceGrantAdministrationService::supportedGrant(
+        "epg.view", "default"));
+    assert(DeviceGrantAdministrationService::supportedGrant(
+        "searchtimers.view", "default"));
+    assert(DeviceGrantAdministrationService::supportedGrant(
+        "searchtimers.create", "default"));
+    assert(!DeviceGrantAdministrationService::supportedGrant(
+        "searchtimers.create", "*"));
     assert(!DeviceGrantAdministrationService::supportedGrant(
         "role.admin", "*"));
     assert(!DeviceGrantAdministrationService::supportedGrant(
@@ -161,6 +172,38 @@ int main()
     assert(actorGrants.available);
     assert(actorGrants.grants.size() == 1U);
     assert(actorGrants.grants.front().permission == "media.live.play");
+
+    // Public-v1 search permissions are independently assignable to a Device.
+    {
+        Fixture searchGrants;
+        const auto empty = searchGrants.service.read(DeviceId);
+        assert(empty.status == DeviceGrantAdministrationStatus::ok);
+        const auto recording = searchGrants.service.setGrant(
+            admin(), DeviceId, empty.grantSet.revision,
+            "recordings.view", "default", true);
+        assert(recording.status == DeviceGrantAdministrationStatus::ok);
+        const auto epg = searchGrants.service.setGrant(
+            admin(), DeviceId, recording.grantSet.revision,
+            "epg.view", "default", true);
+        assert(epg.status == DeviceGrantAdministrationStatus::ok);
+        assert(epg.grantSet.grants.size() == 2U);
+        DeviceCredentialAuthenticator searchAuth(
+            searchGrants.verifiers, searchGrants.identities, searchGrants.grants);
+        const auto authenticated = searchAuth.authenticate(
+            authHeaders, "mu10e-search-grants", "");
+        assert(authenticated.authenticated());
+        assert(authenticated.grants.size() == 2U);
+        assert(std::any_of(authenticated.grants.begin(),
+            authenticated.grants.end(), [](const PermissionGrant& grant) {
+                return grant.permission == "recordings.view" &&
+                    grant.backendId == "default";
+            }));
+        assert(std::any_of(authenticated.grants.begin(),
+            authenticated.grants.end(), [](const PermissionGrant& grant) {
+                return grant.permission == "epg.view" &&
+                    grant.backendId == "default";
+            }));
+    }
 
     // A failed accountability insert must roll back a successful grant
     // SQL statement in the same write transaction.

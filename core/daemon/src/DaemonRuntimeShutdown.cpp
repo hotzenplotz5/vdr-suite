@@ -58,10 +58,15 @@ void DaemonRuntime::shutdown()
     apiRouter_.reset();
     ManualRecordingMetadataApiRuntime::instance().reset();
     PublicApiRuntime::instance().resetTimerCreateAdmission();
+    PublicApiRuntime::instance().resetNativeTimersLookup();
+    PublicApiRuntime::instance().resetEpgWindowLookup();
     PublicApiRuntime::instance().resetBackendCollectionLookup();
     PublicApiRuntime::instance().resetChannelCollectionLookup();
     PublicApiRuntime::instance().resetRecordingCollectionLookup();
+    PublicApiRuntime::instance().resetEpgGenreLookup();
     PublicApiRuntime::instance().resetTimerAssignmentCollectionLookup();
+    PublicApiRuntime::instance().resetSearchTimerCreate();
+    PublicApiRuntime::instance().resetSearchTimerCollectionLookup();
     PublicApiRuntime::instance().resetTimerAssignmentLookup();
     PublicApiRuntime::instance().resetOperationLookup();
     resetDaemonLegacyOsdRuntime();

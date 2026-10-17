@@ -20,6 +20,10 @@
       "description": "Authorized public-v1 federated Channel collection with explicit backend source selection and partial-source metadata"
     },
     {
+      "name": "SearchTimers",
+      "description": "Backend-scoped read-only VDR SearchTimer collection for paired Devices; not Suite TimerAssignments"
+    },
+    {
       "name": "TimerAssignments",
       "description": "Suite-owned Backend-scoped TimerAssignment collection, item revision and protected native CREATE admission"
     },
@@ -62,9 +66,185 @@
     {
       "name": "Device Recording playback",
       "description": "Source-merged R2 Device-owned Recording session control/status/tracks/subtitles. Not included in Phase-69.F compatibility acceptance; deployed Hisense/yaVDR acceptance remains separate."
+    },
+    {
+      "name": "UnifiedSearch",
+      "description": "Authorized Recording and EPG Public-v1 projections of the existing Suite Web search index"
+    },
+    {
+      "name": "Device Live playback",
+      "description": "Verified Device MediaSession, revocable live tuning/streaming and owner-only status/stop"
     }
   ],
   "paths": {
+    "/api/v1/epg/window": {
+      "get": {
+        "tags": [
+          "EPG"
+        ],
+        "operationId": "getPublicEpgWindow",
+        "summary": "Read bounded cached EPG events for a backend and channel",
+        "x-vdr-suite-authentication": {"actorRequired": true, "authorization": "epg.view@backendId OR media.live.play@backendId; exact backend scope"},
+        "description": "12-hour maximum per request, up to 192 real events. Device/backend auth: epg.view OR media.live.play on the same backend. No live provider fallback or fabricated programmes. A successful response may have hasMore=true; clients must not represent truncated pages as complete.",
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "description": "Exact authorized backend",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          },
+          {
+            "name": "channelId",
+            "in": "query",
+            "required": true,
+            "description": "Exact channel identity",
+            "schema": {
+              "type": "string",
+              "maxLength": 256,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          },
+          {
+            "name": "fromTime",
+            "in": "query",
+            "required": true,
+            "description": "Inclusive Unix seconds",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{9,11}$"
+            }
+          },
+          {
+            "name": "untilTime",
+            "in": "query",
+            "required": true,
+            "description": "Exclusive Unix seconds; strictly later than fromTime, at most 43200 seconds",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{9,11}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum returned events",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 192,
+              "default": 192
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Backend-scoped events, page {limit,hasMore}, meta {partial:false}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or duplicate arguments or wrong backend scope"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "No backend-scoped EPG or Live-TV grant"
+          },
+          "404": {
+            "description": "Unknown channel"
+          },
+          "503": {
+            "description": "EPG snapshot/backend unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/native-timers": {
+      "get": {
+        "tags": [
+          "TimerAssignments"
+        ],
+        "operationId": "getPublicNativeVdrTimers",
+        "summary": "Read real VDR native timer snapshot, not Suite timer assignments",
+        "x-vdr-suite-authentication": {"actorRequired": true, "authorization": "timers.view@backendId; exact backend scope"},
+        "description": "Backend-scoped, read-only, stable ID-sorted snapshot page. Requires timers.view@backend. No timer mutation and no live native completeness guarantee beyond current snapshot.",
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "description": "Exact authorized backend",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "description": "Snapshot offset",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100000,
+              "default": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum timers per page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30,
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Items include actual VDR timerId/title/channelName/day/weekdays/startTime/endTime/enabled/recording/pending; page {limit,offset,hasMore,nextOffset}; meta.partial=false",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad query or backend scope"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "timers.view not allowed"
+          },
+          "503": {
+            "description": "Native timer snapshot unavailable"
+          }
+        }
+      }
+    },
     "/api/v1": {
       "get": {
         "tags": [
@@ -268,7 +448,7 @@
         ],
         "operationId": "listPublicChannels",
         "summary": "List Channels from explicitly selected and authorized VDR backends",
-        "description": "An authenticated actor must provide 1–16 distinct backendId query members. Each requested source is independently authorized with channels.view@backend; one denial rejects the entire request, before collection evaluation. The order is (backendId ASC, channelId ASC). The opaque ch1_-prefixed cursor binds the normalized backend source set and last item; source-set mismatch returns 409 cursor_expired. A 200 response may be partial: meta.sources gives all requested sources, and unavailable sources are not silently hidden. At least one source must succeed for a 200; all unavailable yields 503 backend_unavailable. The response has Cache-Control: no-store and no collection ETag. No legacy /api/vdr/channels fallback is permitted by this contract.",
+        "description": "An authenticated actor must provide 1–16 distinct backendId query members. Each requested source is independently authorized with channels.view@backend; one denial rejects the entire request, before collection evaluation. The order is (backendId ASC, channelId ASC). The opaque ch1_-prefixed cursor binds the normalized backend source set and last item; source-set mismatch returns 409 cursor_expired. A 200 response may be partial: meta.sources gives all requested sources, and unavailable sources are not silently hidden. At least one source must succeed for a 200; all unavailable yields 503 backend_unavailable. The response has Cache-Control: no-store and no collection ETag. No legacy /api/vdr/channels fallback is permitted by this contract. An optional bounded adjacent-channel query (relativeTo+direction+limit=1 with exactly one backendId and no cursor/sort/order) uses enabled nonradio VDR channelNumber ordering with cyclic wrap. Existing ch1_ ID-ordered pages remain unchanged. Unknown current channel or no other eligible TV channel returns 404.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "channels.view for every explicitly requested backendId",
@@ -338,6 +518,31 @@
               "type": "string",
               "const": "asc",
               "default": "asc"
+            }
+          },
+          {
+            "name": "relativeTo",
+            "in": "query",
+            "required": false,
+            "description": "Current public channelId, combined with direction and limit=1. One authenticated backend. No ch1_ cursor, sort, or order.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "description": "Adjacent VDR channel-number direction; up increments, down decrements, with wrap.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "up",
+                "down"
+              ]
             }
           }
         ],
@@ -434,6 +639,16 @@
               }
             }
           },
+          "404": {
+            "description": "Current Channel absent/unselectable or no eligible neighbor.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
           "405": {
             "description": "Unsupported HTTP method; Allow: GET.",
             "content": {
@@ -465,6 +680,487 @@
           },
           "503": {
             "description": "All requested sources unavailable (backend_unavailable), or a required runtime/service/accountability layer is unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/search-timers/{searchTimerId}/preview": {
+      "get": {
+        "tags": [
+          "SearchTimers"
+        ],
+        "operationId": "previewSavedSearchTimer",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "verified Device and searchtimers.view@backend plus epg.view@backend"
+        },
+        "summary": "Preview EPG matches for one saved SearchTimer without mutation",
+        "description": "Paired Device with both searchtimers.view and epg.view for the exact backend. Uses Suite SearchTimerPreviewService and ready backend EPG cache. This is not an ad-hoc create preview and exposes no native rule IDs.",
+        "parameters": [
+          {
+            "name": "searchTimerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^st_[0-9a-f]{32}$"
+            }
+          },
+          {
+            "name": "backend",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,128}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30,
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bounded EPG preview; no mutation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "backendId",
+                    "searchTimerId",
+                    "totalCount",
+                    "items",
+                    "meta"
+                  ],
+                  "properties": {
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "searchTimerId": {
+                      "type": "string",
+                      "pattern": "^st_[0-9a-f]{32}$"
+                    },
+                    "totalCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "items": {
+                      "type": "array",
+                      "maxItems": 30,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "title",
+                          "subtitle",
+                          "channelId",
+                          "startTime",
+                          "endTime"
+                        ],
+                        "properties": {
+                          "title": {
+                            "type": "string"
+                          },
+                          "subtitle": {
+                            "type": "string"
+                          },
+                          "channelId": {
+                            "type": "string"
+                          },
+                          "startTime": {
+                            "type": "string"
+                          },
+                          "endTime": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "partial": {
+                          "type": "boolean",
+                          "enum": [
+                            false
+                          ]
+                        },
+                        "epgInput": {
+                          "type": "string",
+                          "enum": [
+                            "ready"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid backend, ID or query"
+          },
+          "401": {
+            "description": "Device authentication absent"
+          },
+          "403": {
+            "description": "Missing SearchTimer or EPG grant"
+          },
+          "404": {
+            "description": "Opaque SearchTimer ID absent"
+          },
+          "503": {
+            "description": "Provider or ready EPG cache unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/search-timers": {
+      "post": {
+        "tags": [
+          "SearchTimers"
+        ],
+        "operationId": "createSearchTimer",
+        "summary": "Create one backend SearchTimer from a paired Device",
+        "description": "A verified Device with independent searchtimers.create@backend grant may submit one confirmed, durable and idempotent SearchTimer CREATE. Backend must be online and writable with live Agent generation. One-shot provider dispatch and exact native-ID readback; HTTP 202 is an Operation, never a promise of recording. An ambiguous result must not be automatically retried. The native RESTfulAPI mapping uses the search text as the rule name; name must equal query or HTTP 422.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "verified Device and exact searchtimers.create@backend; no Browser/legacy fallback"
+        },
+        "parameters": [
+          {
+            "name": "backend",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,128}$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "query",
+                  "confirmed",
+                  "mode",
+                  "compareTitle",
+                  "compareSubtitle",
+                  "compareSummary"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  },
+                  "query": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 240
+                  },
+                  "confirmed": {
+                    "const": true
+                  },
+                  "active": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "mode": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2,
+                      3,
+                      5
+                    ]
+                  },
+                  "tolerance": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 3,
+                    "default": 0
+                  },
+                  "compareTitle": {
+                    "type": "boolean"
+                  },
+                  "compareSubtitle": {
+                    "type": "boolean"
+                  },
+                  "compareSummary": {
+                    "type": "boolean"
+                  }
+                },
+                "description": "name must exactly equal query; independent labels do not round-trip through epgsearch RESTfulAPI."
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Durable operation; read Location to inspect succeeded or outcome_unknown. Cache-Control: no-store",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "operationId",
+                    "state",
+                    "backendId"
+                  ],
+                  "properties": {
+                    "operationId": {
+                      "type": "string",
+                      "pattern": "^op_[0-9a-f]{32}$"
+                    },
+                    "state": {
+                      "type": "string"
+                    },
+                    "backendId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query or idempotency key"
+          },
+          "401": {
+            "description": "Missing Device authentication"
+          },
+          "403": {
+            "description": "Device backend CREATE permission denied"
+          },
+          "409": {
+            "description": "Idempotency conflict"
+          },
+          "415": {
+            "description": "Unsupported media type"
+          },
+          "422": {
+            "description": "Invalid or unsupported SearchTimer field"
+          },
+          "503": {
+            "description": "No online writable backend or durable admission service"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "SearchTimers"
+        ],
+        "operationId": "listSearchTimers",
+        "summary": "Read one backend's SearchTimers through an authorized Device",
+        "description": "Read-only; requires verified paired Device and independent searchtimers.view@backend. Server-owned persisted st_ IDs, no native IDs. At most 30 returned SearchTimers per page. Opaque st1_ cursor is bound to backend. Provider not available yields 503, never an empty successful list. Not Suite TimerAssignments or VDR native Timers. Does not provide lossless editing readback.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "verified Device and searchtimers.view@backend"
+        },
+        "parameters": [
+          {
+            "name": "backend",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,128}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30,
+              "default": 30
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One bounded complete page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items",
+                    "page",
+                    "meta",
+                    "links"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "maxItems": 30,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "searchTimerId",
+                          "backendId",
+                          "name",
+                          "query",
+                          "state"
+                        ],
+                        "properties": {
+                          "searchTimerId": {
+                            "type": "string",
+                            "pattern": "^st_[0-9a-f]{32}$"
+                          },
+                          "backendId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string",
+                            "maxLength": 1024
+                          },
+                          "query": {
+                            "type": "string",
+                            "maxLength": 1024
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "inactive",
+                              "unknown"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "page": {
+                      "type": "object",
+                      "properties": {
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "nextCursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "hasMore": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "partial": {
+                          "type": "boolean",
+                          "enum": [
+                            false
+                          ]
+                        }
+                      }
+                    },
+                    "links": {
+                      "type": "object",
+                      "properties": {
+                        "self": {
+                          "type": "string"
+                        },
+                        "next": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query, backend or scoped cursor",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Device or grant denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Provider or service unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2918,7 +3614,7 @@
         ],
         "operationId": "setDeviceGrant",
         "summary": "Ensure or revoke one allowlisted Device grant using a fenced desired-state mutation",
-        "description": "Requires devices.grants.modify@* and protected browser-session CSRF where applicable. Closed JSON object {permission,backendId,active}, at most 4096 bytes, no query or Idempotency-Key. Strong If-Match from Device Grant-set GET. Only channels.view, timers.view, media.live.play, media.recording.play are allowlisted; neither admin roles nor generic Account permissions can be granted. Successful 200 returns current full grant-set and ETag. A stale ETag may still succeed if the desired state was already reached, otherwise 412.",
+        "description": "Requires devices.grants.modify@* and protected browser-session CSRF where applicable. Closed JSON object {permission,backendId,active}, at most 4096 bytes, no query or Idempotency-Key. Strong If-Match from Device Grant-set GET. Only channels.view, recordings.view, epg.view, timers.view, searchtimers.view, media.live.play and media.recording.play are allowlisted; neither admin roles nor generic Account permissions can be granted. Successful 200 returns current full grant-set and ETag. A stale ETag may still succeed if the desired state was already reached, otherwise 412.",
         "x-vdr-suite-max-body-bytes": 4096,
         "x-vdr-suite-authentication": {
           "actorRequired": true,
@@ -5398,6 +6094,93 @@
         }
       }
     },
+    "/api/v1/recording-playback-sessions/capabilities": {
+      "get": {
+        "tags": [
+          "Device Recording playback"
+        ],
+        "operationId": "getAuthenticatedDeviceMediaProfileStatus",
+        "summary": "Read the authenticated Device's stored player profile status",
+        "description": "Read-only. Resolves the existing authenticated Device ID server-side, using bounded app/firmware/player/engine query keys. Never invokes MediaSession, ffprobe, transcode, recording probe, autoplay or provider URLs. Unverified reports are not treated as decoded playback evidence.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified VDR-Suite Device credential and active Device identity only; media.recording.play is checked separately on Session create, and no grant is assigned by this read.",
+          "securitySchemeDocumentation": "Device Authorization header; never include Device ID or secret in query parameters."
+        },
+        "parameters": [
+          {
+            "name": "appVersion",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 96,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          {
+            "name": "firmwareVersion",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 96,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          {
+            "name": "playerVersion",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 96,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          {
+            "name": "engine",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "native",
+                "mse",
+                "external"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Versioned, no-store, read-only status of exact registered player profile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceMediaProfileStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing, duplicate or invalid player version key."
+          },
+          "401": {
+            "description": "Missing or invalid Device authentication."
+          },
+          "403": {
+            "description": "Not an authenticated Device credential."
+          },
+          "503": {
+            "description": "Capability persistence unavailable."
+          }
+        }
+      }
+    },
     "/api/v1/recording-playback-sessions": {
       "post": {
         "tags": [
@@ -5527,6 +6310,143 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DeviceRecordingSessionStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid route/backend/recording ID or request body (including invalid client capability declaration).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Device authentication missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Device lacks media.recording.play, or credential/session is not the owner.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Recording/session does not exist or is unavailable to this Device.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Requested recording, media session or track operation cannot proceed in its current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Backend/owner/metadata/media preparation unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/recording-playback-sessions/{sessionId}/trickplay": {
+      "get": {
+        "tags": [
+          "Device Recording playback"
+        ],
+        "operationId": "getDeviceRecordingTrickplayJpeg",
+        "summary": "Read an indexed Trickplay JPEG for an owned Recording session",
+        "description": "Experimental daemon-only Device route; no installed Hisense evidence. Requires live paired Device credential, owned active recording MediaSession and current media.recording.play@backend grant, rechecked after bounded FFmpeg. Only completed source-indexed 10-second JPEG samples; no native paths, no browser fallback, no second decoder. Parallel requests are rejected without queuing.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified VDR-Suite Device credential; active, owned Device session; media.recording.play@backendId for create/mutations (read rechecks current Device credential, session ownership and backend playback grant in the owner registry). Browser session, Basic authentication, or recordings.view alone do not authorize this API.",
+          "securitySchemeDocumentation": "Device header Authorization: VDR-Suite-Device <credentialId>.<credentialSecret>; OpenAPI securitySchemes deliberately remain partial."
+        },
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "description": "Opaque, active Device-owned ms_ plus 32 lowercase hex; never a native VDR recording path.",
+            "schema": {
+              "type": "string",
+              "pattern": "^ms_[0-9a-f]{32}$"
+            }
+          },
+          {
+            "name": "seconds",
+            "in": "query",
+            "required": true,
+            "description": "Canonical unsigned decimal 0..43199, without leading zeros or extra query keys; must be less than the authoritative VDR-index duration, floored to a 10-second sample.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 43199
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One JPEG (no-store, nosniff) for the ten-second bucket; no source paths or credentials.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "X-Content-Type-Options": {
+                "description": "Always nosniff",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "nosniff"
+                  ]
+                }
+              },
+              "X-Trickplay-Sample-Seconds": {
+                "description": "Index-derived sample position",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
                 }
               }
             }
@@ -5906,6 +6826,884 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/search/recordings": {
+      "get": {
+        "tags": [
+          "UnifiedSearch"
+        ],
+        "operationId": "searchPublicRecordings",
+        "summary": "Search authorized recordings through the shared Web search index",
+        "description": "Requires recordings.view@backendId; single authorized backend; strict bounded pagination and no native recording paths. EPG index defaults to last 6 h and next 14 days. Unavailable backend/index returns HTTP 503, not an empty result.",
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "description": "Exactly one authorized backend.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,128}$"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "description": "Percent-encoded input using the existing Web matcher, including Unicode text folding.",
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 240
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30,
+              "default": 30
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized bounded search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items",
+                    "page"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "maxItems": 30,
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "recording"
+                          },
+                          "backendId": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "recordingId": {
+                            "type": "string",
+                            "pattern": "^rec_[0-9a-f]{32}$"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "backendId",
+                          "title",
+                          "recordingId"
+                        ]
+                      }
+                    },
+                    "page": {
+                      "type": "object",
+                      "required": [
+                        "offset",
+                        "limit",
+                        "totalCount",
+                        "hasMore"
+                      ],
+                      "properties": {
+                        "offset": {
+                          "type": "integer"
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "maximum": 30
+                        },
+                        "totalCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "hasMore": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Backend grant denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Index, backend or identity unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Requires authenticated Actor/Device credential and recordings.view@backendId; exactly one authorized backend; verified by SecurityHttpGate and PublicApiRuntime, no browser-private search fallback."
+        }
+      }
+    },
+    "/api/v1/search/epg": {
+      "get": {
+        "tags": [
+          "UnifiedSearch"
+        ],
+        "operationId": "searchPublicEpg",
+        "summary": "Search authorized EPG events through the shared Web search index",
+        "description": "Requires epg.view@backendId; single authorized backend; strict bounded pagination and no native recording paths. EPG index defaults to last 6 h and next 14 days. Unavailable backend/index returns HTTP 503, not an empty result.",
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "description": "Exactly one authorized backend.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,128}$"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "description": "Percent-encoded input using the existing Web matcher, including Unicode text folding.",
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 240
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30,
+              "default": 30
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized bounded search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items",
+                    "page"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "maxItems": 30,
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "epg"
+                          },
+                          "backendId": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "channelId": {
+                            "type": "string"
+                          },
+                          "eventId": {
+                            "type": "string"
+                          },
+                          "startTime": {
+                            "type": "string"
+                          },
+                          "endTime": {
+                            "type": "string"
+                          },
+                          "subtitle": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "backendId",
+                          "title",
+                          "channelId",
+                          "eventId",
+                          "startTime",
+                          "endTime",
+                          "subtitle"
+                        ]
+                      }
+                    },
+                    "page": {
+                      "type": "object",
+                      "required": [
+                        "offset",
+                        "limit",
+                        "totalCount",
+                        "hasMore"
+                      ],
+                      "properties": {
+                        "offset": {
+                          "type": "integer"
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "maximum": 30
+                        },
+                        "totalCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "hasMore": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Backend grant denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Index, backend or identity unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Requires authenticated Actor/Device credential and epg.view@backendId; exactly one authorized backend; verified by SecurityHttpGate and PublicApiRuntime, no browser-private search fallback."
+        }
+      }
+    },
+    "/api/v1/live-playback-sessions": {
+      "post": {
+        "tags": [
+          "Device Live playback"
+        ],
+        "operationId": "createDeviceLivePlaybackSession",
+        "summary": "Create authorized Device Live channel session",
+        "description": "True Device-only Public-v1 Live MediaSession; granted media.live.play scope, no browser-private or Streamdev fallback, no arbitrary native path. Authenticated media GET is rechecked against persistent actor/device/credential/grant before streaming. Only live-progressive-fmp4 is emitted.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified Device credential, current owner and media.live.play@backendId; browser credentials and media.recording.play alone denied."
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "resourceKind",
+                  "backendId",
+                  "channelId",
+                  "capabilities"
+                ],
+                "properties": {
+                  "resourceKind": {
+                    "type": "string",
+                    "const": "live-channel"
+                  },
+                  "backendId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9._-]{1,128}$"
+                  },
+                  "channelId": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "capabilities": {
+                    "type": "object",
+                    "description": "Existing typed MediaSession codec, container and protocol capability object; validated by LiveMediaSessionRequestParser."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Live session ready; strictly scoped Secure/HttpOnly media access cookie",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mediaSession": {
+                      "type": "object",
+                      "description": "id, backendId, channelId, profile and same-origin /vdr-suite/api/v1/media/sessions/{id}/live/stream.mp4 path"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or capability negotiation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing verified Device proof",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Live grant or owner denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Provider, session or tuner unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/live-playback-sessions/{sessionId}": {
+      "get": {
+        "tags": [
+          "Device Live playback"
+        ],
+        "operationId": "getDeviceLivePlaybackSession",
+        "summary": "Read owned Device Live session state",
+        "description": "True Device-only Public-v1 Live MediaSession; granted media.live.play scope, no browser-private or Streamdev fallback, no arbitrary native path. Authenticated media GET is rechecked against persistent actor/device/credential/grant before streaming. Only live-progressive-fmp4 is emitted. Response omits native provider paths and media secret.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified Device credential, current owner and media.live.play@backendId; browser credentials and media.recording.play alone denied."
+        },
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^ms_[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current, Device-owned ready session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mediaSession": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or capability negotiation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing verified Device proof",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Live grant or owner denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Provider, session or tuner unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/live-playback-sessions/{sessionId}/stop": {
+      "post": {
+        "tags": [
+          "Device Live playback"
+        ],
+        "operationId": "stopDeviceLivePlaybackSession",
+        "summary": "Stop owned Device Live tuner/session",
+        "description": "True Device-only Public-v1 Live MediaSession; granted media.live.play scope, no browser-private or Streamdev fallback, no arbitrary native path. Authenticated media GET is rechecked against persistent actor/device/credential/grant before streaming. Only live-progressive-fmp4 is emitted. Cross-device session replacement is prohibited.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified Device credential, current owner and media.live.play@backendId; browser credentials and media.recording.play alone denied."
+        },
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^ms_[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "operation",
+                  "resourceKind",
+                  "backendId",
+                  "sessionId"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "stop"
+                  },
+                  "resourceKind": {
+                    "type": "string",
+                    "const": "live-channel"
+                  },
+                  "backendId": {
+                    "type": "string"
+                  },
+                  "sessionId": {
+                    "type": "string",
+                    "pattern": "^ms_[0-9a-f]{32}$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Live channel session stopped and versioned media cookie expired"
+          },
+          "400": {
+            "description": "Invalid request or capability negotiation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing verified Device proof",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Live grant or owner denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Provider, session or tuner unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePlaybackError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/search-timers/draft-preview": {
+      "get": {
+        "tags": [
+          "SearchTimers"
+        ],
+        "operationId": "previewDraftSearchTimer",
+        "summary": "Preview new SearchTimer EPG matches without creating a rule",
+        "description": "Read-only Device preview using SearchTimerPreviewService and ready backend EPG cache; EPG text match only, NOT an exact recording/blacklist/duplicate forecast. Unmodeled filter and recording fields fail as 400.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "verified Device, searchtimers.view@backend and epg.view@backend"
+        },
+        "parameters": [
+          {
+            "name": "backend",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,128}$"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 240
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                5
+              ]
+            }
+          },
+          {
+            "name": "compareTitle",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            }
+          },
+          {
+            "name": "compareSubtitle",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            }
+          },
+          {
+            "name": "compareSummary",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            }
+          },
+          {
+            "name": "tolerance",
+            "in": "query",
+            "required": false,
+            "description": "Only with fuzzy mode 5",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30,
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bounded EPG-only match preview (not timer-plan parity)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "backendId",
+                    "totalCount",
+                    "items",
+                    "meta"
+                  ],
+                  "properties": {
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "totalCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "items": {
+                      "type": "array",
+                      "maxItems": 30,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "title",
+                          "subtitle",
+                          "channelId",
+                          "startTime",
+                          "endTime"
+                        ],
+                        "properties": {
+                          "title": {
+                            "type": "string"
+                          },
+                          "subtitle": {
+                            "type": "string"
+                          },
+                          "channelId": {
+                            "type": "string"
+                          },
+                          "startTime": {
+                            "type": "string"
+                          },
+                          "endTime": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "partial",
+                        "epgInput",
+                        "evaluation"
+                      ],
+                      "properties": {
+                        "partial": {
+                          "type": "boolean",
+                          "const": false
+                        },
+                        "epgInput": {
+                          "type": "string",
+                          "const": "ready"
+                        },
+                        "evaluation": {
+                          "type": "string",
+                          "const": "epg-match-only"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or unsupported preview field"
+          },
+          "401": {
+            "description": "Missing Device authentication"
+          },
+          "403": {
+            "description": "Missing independent SearchTimer/EPG grant"
+          },
+          "503": {
+            "description": "Backend or EPG cache unavailable"
           }
         }
       }
@@ -6413,6 +8211,43 @@
           },
           "backendId": {
             "type": "string"
+          },
+          "planned": {
+            "type": "object",
+            "description": "Optional desired scheduling specification, not a native timer observation or recording status. Omitted if no valid Suite-owned desired specification exists.",
+            "required": [
+              "title",
+              "day",
+              "weekdays",
+              "startTime",
+              "endTime"
+            ],
+            "properties": {
+              "title": {
+                "type": "string",
+                "maxLength": 1024
+              },
+              "day": {
+                "type": "string",
+                "maxLength": 160,
+                "description": "Desired native day selector; not an ISO or UTC guarantee."
+              },
+              "weekdays": {
+                "type": "string",
+                "minLength": 7,
+                "maxLength": 7
+              },
+              "startTime": {
+                "type": "string",
+                "pattern": "^[0-9]{1,4}$",
+                "description": "Desired HHMM, not Unix seconds."
+              },
+              "endTime": {
+                "type": "string",
+                "pattern": "^[0-9]{1,4}$",
+                "description": "Desired HHMM, not Unix seconds."
+              }
+            }
           },
           "links": {
             "type": "object",
@@ -7392,6 +9227,10 @@
           "durationKnown": {
             "type": "boolean"
           },
+          "edited": {
+            "type": "boolean",
+            "description": "True when the VDR title leaf marks an edited cut with leading percent; hidden from the normalized display title."
+          },
           "description": {
             "type": "string"
           },
@@ -7559,6 +9398,10 @@
           },
           "durationKnown": {
             "type": "boolean"
+          },
+          "edited": {
+            "type": "boolean",
+            "description": "True when the VDR title leaf marks an edited cut with leading percent; hidden from the normalized display title."
           }
         }
       },
@@ -7800,6 +9643,70 @@
         },
         "description": "Reported client media capabilities are explicit. The suite does not supply native VIDAA codec defaults."
       },
+      "DeviceMediaProfileStatus": {
+        "type": "object",
+        "required": [
+          "version",
+          "profileState",
+          "verifiedPathCount"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "const": 1
+          },
+          "profileState": {
+            "type": "string",
+            "enum": [
+              "verified",
+              "unverified"
+            ]
+          },
+          "verifiedPathCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 32
+          }
+        }
+      },
+      "DevicePlayerProfileKey": {
+        "type": "object",
+        "required": [
+          "appVersion",
+          "firmwareVersion",
+          "playerVersion",
+          "engine"
+        ],
+        "properties": {
+          "appVersion": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "firmwareVersion": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "playerVersion": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "engine": {
+            "type": "string",
+            "enum": [
+              "native",
+              "mse",
+              "external"
+            ]
+          }
+        },
+        "description": "Optional opt-in key; Device ID comes from authenticated credential, never this request. Does not claim any decoder verification."
+      },
       "DeviceRecordingSessionCreate": {
         "type": "object",
         "required": [
@@ -7820,6 +9727,9 @@
           },
           "capabilities": {
             "$ref": "#/components/schemas/DeviceRecordingCapabilities"
+          },
+          "capabilityProfile": {
+            "$ref": "#/components/schemas/DevicePlayerProfileKey"
           }
         }
       },

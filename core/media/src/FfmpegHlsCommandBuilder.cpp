@@ -249,6 +249,23 @@ FfmpegHlsCommandPlan buildPlan(
             plan.argv.push_back("-ss");
             plan.argv.push_back(std::to_string(startPositionSeconds));
         }
+        // A bounded initial source-media burst shortens the first-segment
+        // wait while -re still paces subsequent recording output at 1x.
+        // Certain FFmpeg 8.0 builds incorrectly throttle the initial burst
+        // through the catch-up limiter. On the installed FFmpeg 8.0.1, a
+        // synthetic TS read took 3992 ms with the burst alone versus 641 ms
+        // with the catch-up rate set to 8. Keep the two input options paired,
+        // and confine them to starting H.264 stream-copy recording fMP4 HLS.
+        // Never apply this to live input, video transcode, HEVC or seeks.
+        if (startPositionSeconds == 0 &&
+            profile.container == MediaContainer::Fmp4 &&
+            profile.videoAction == MediaTrackAction::Copy &&
+            profile.targetVideoCodec == MediaCodec::H264) {
+            plan.argv.insert(plan.argv.end(), {
+                "-readrate_initial_burst", "8",
+                "-readrate_catchup", "8"
+            });
+        }
         plan.argv.insert(plan.argv.end(), {
             "-re", "-f", "concat", "-safe", "1", "-i", "input.ffconcat"
         });

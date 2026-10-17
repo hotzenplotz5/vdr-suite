@@ -2,6 +2,9 @@
 
 #include "DashboardController.h"
 #include "GlobalSearchController.h"
+#include "GlobalSearchResult.h"
+#include <cstdint>
+#include <optional>
 
 #include <memory>
 #include <mutex>
@@ -29,6 +32,10 @@ public:
         const std::string& requestTarget,
         ApiResponse& response) const;
 
+    std::optional<GlobalSearchResult> searchPublic(
+        const std::string& backendId, const std::string& query,
+        std::int64_t from, std::int64_t until,
+        int limit, int offset) const;
     bool configured() const;
     void reset();
 

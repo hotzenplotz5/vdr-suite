@@ -25,12 +25,17 @@ public:
         const std::string& body,
         const std::string& actorId) const;
 
+    ApiResponse createDeviceSession(
+        const std::string& body, const std::string& actorId,
+        std::string& issuedSessionId) const;
+
     std::size_t reapInactiveSessions(int idleTimeoutSeconds) const;
 
 private:
     ApiResponse createSession(
         const std::string& body,
-        const std::string& actorId) const;
+        const std::string& actorId,
+        std::string* deviceSessionId) const;
     ApiResponse stopSession(
         const std::string& body,
         const std::string& actorId) const;

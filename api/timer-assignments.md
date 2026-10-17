@@ -34,6 +34,34 @@ Only `backend`, `limit` (1–100, default 50), `cursor` (opaque, at most 2048 ch
 
 The collection is read from the durable Suite-owned repository: no live native Timer completeness guarantee, no collection ETag, no offset/total-count guarantee, and `meta.partial=false` for successful reads.
 
+### 1a. Optional read-only planned schedule (candidate extension)
+
+A collection item may additionally have `planned`, derived **only** from
+the persisted, valid desired NativeTimerSpecification for that exact
+Suite-owned assignment. The existing `timerAssignmentId`, `backendId`,
+`links`, cursor/order and `timers.view@backend` contract do not change.
+An assignment without a valid desired specification omits `planned`.
+
+```json
+{"timerAssignmentId":"assignment:one","backendId":"backend-one","planned":{"title":"Nachrichten","day":"20261017","weekdays":"-------","startTime":"2015","endTime":"2100"},"links":{"self":"/api/v1/timer-assignments/assignment:one?backend=backend-one"}}
+```
+
+`startTime` and `endTime` are desired native **HHMM strings**, **not**
+Unix seconds, ISO timestamps or evidence that a recording started. `day`
+and `weekdays` are the persisted VDR scheduling selectors, not converted
+UTC dates or a promise of scheduling completeness. Clients must label these
+values as *geplant*, never as live native timer state. Missing `planned`
+means "Planungsdetails nicht verfügbar", not that a VDR recording has no
+programme. No raw provider channel IDs, recording directories, native
+timer IDs, binding IDs, assignment revisions, or decision evidence is
+exposed. This collection still **does not enumerate all native VDR timers**.
+
+The change is read-only and additive to Public **v1**; it does not add
+Timer mutations, grant elevation, account discovery, native execution, or
+a new /v2 route. Device/VIDAA clients must first verify actual deployed
+backend compatibility and use only `/api/v1/timer-assignments?backend=...`.
+This candidate is not a statement that the daemon is installed.
+
 ### 2. Read a specific TimerAssignment
 
 ```http

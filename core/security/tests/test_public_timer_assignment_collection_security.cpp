@@ -139,5 +139,53 @@ int main()
         assert(decision.rejection.statusCode == 401);
     }
 
+    {
+        // A valid Browser session and even an explicit SearchTimer grant
+        // cannot bypass the independent paired-Device credential boundary.
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "searchtimers.view", "backend-one"));
+        const auto cookieDenied = fixture.gate.evaluate(
+            browserGet(fixture,
+                "/api/v1/search-timers?backend=backend-one"));
+        assert(!cookieDenied.allowed);
+        assert(cookieDenied.rejection.statusCode == 403);
+        // Public-v1 maps internal security reasons to stable Problem Details.
+        // The browser must still be rejected by the paired-Device boundary.
+        assert(cookieDenied.rejection.headers.at("Content-Type") ==
+            "application/problem+json");
+        assert(cookieDenied.rejection.body.find(
+            "\"code\":\"forbidden\"") != std::string::npos);
+        assert(cookieDenied.rejection.body.find(
+            "A verified Device credential is required") !=
+            std::string::npos);
+    }
+    {
+        // A Browser session with both view grants cannot impersonate a
+        // paired Device for a saved SearchTimer EPG preview.
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "searchtimers.view", "backend-one"));
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "epg.view", "backend-one"));
+        const auto denied = fixture.gate.evaluate(browserGet(fixture,
+            "/api/v1/search-timers/st_00000000000000000000000000000001/"
+            "preview?backend=backend-one"));
+        assert(!denied.allowed);
+        assert(denied.rejection.statusCode == 403);
+    }
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "searchtimers.view", "backend-one"));
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "epg.view", "backend-one"));
+        const auto denied = fixture.gate.evaluate(browserGet(fixture,
+            "/api/v1/search-timers/draft-preview?backend=backend-one"
+            "&query=Terra&mode=1&compareTitle=1&compareSubtitle=0"
+            "&compareSummary=0"));
+        assert(!denied.allowed);
+        assert(denied.rejection.statusCode == 403);
+    }
     return 0;
 }
