@@ -132,8 +132,30 @@ static void test_clear_backend_returns_to_unknown()
     assert(cache.backendIds().empty());
 }
 
+static void test_immutable_runtime_snapshot_survives_invalidation_and_update()
+{
+    SearchTimerPreviewEpgCache cache;
+    cache.updateReady("default", {make_event("1", "Amerika")});
+    auto first = cache.sharedEventsForBackend("default");
+    assert(first && first->size() == 1);
+
+    cache.markStale("default");
+    assert(!cache.sharedEventsForBackend("default"));
+    assert(first->at(0).title == "Amerika");
+
+    cache.updateReady("default", {make_event("2", "Tatort")});
+    auto second = cache.sharedEventsForBackend("default");
+    assert(second && second->at(0).title == "Tatort");
+    cache.clearBackend("default");
+    assert(!cache.sharedEventsForBackend("default"));
+    assert(first->at(0).title == "Amerika");
+    assert(second->at(0).title == "Tatort");
+}
+
 int main()
 {
+    test_immutable_runtime_snapshot_survives_invalidation_and_update();
+
     test_missing_backend_is_unknown_not_empty_ready_cache();
     test_ready_empty_cache_is_distinct_from_unknown();
     test_backend_scoped_ready_events();
