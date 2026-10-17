@@ -41,7 +41,10 @@ selbstgebauten `.deb` werden als Installationsersatz verwendet.
   erfolgreich bei SHA `72282dd5877dfc36f8a5f52fedcddaff0829f471`.
 - [Noble-Paket- und HTTP-Runtime-Abnahme, Run 39038464174](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39038464174):
   erfolgreich bei SHA `6d1aa3b7c99f9dbcb171c5a45ecea6cbe3bbb02d`.
-  Dauerhafte Prüflogik: [Workflow](../.github/workflows/ppa-noble-install-smoke.yml).
+- [Noble-Paketinstallation, Daemon/HTTP und VDR-Plugin-Versionserkennung, Run 39038795095](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39038795095):
+  erfolgreich bei SHA `653b46ce3810876945e597cb58a7b5af559cb337`.
+  VDR meldet die installierten Plugins `suitebridge (0.14.1)` und `web (0.0.1)`.
+  Die wiederholbare Prüflogik liegt im [Noble-Workflow](../.github/workflows/ppa-noble-install-smoke.yml).
 
 Der Abnahmelauf installiert und verifiziert `vdr` mit Version
 `2.8.3-0yavdr0~noble`, die drei VDR-Suite-Binärpakete mit Version
@@ -65,20 +68,28 @@ enrollter/verbundener Backend Agent noch eine produktive SuiteBridge-
 Session, ein laufender HbbTV-CEF-Browser, `remotetranscode` oder eine
 HbbTV-Media-Presentation mit TV-Hardware sind damit abgenommen.
 Die Bibliotheken `libvdr-suitebridge.so.14` und `libvdr-web.so.14`
-wurden installiert und auf fehlende dynamische Bibliotheken geprüft;
-diese statische/linkerbezogene Prüfung ersetzt keinen Plugin-Start.
+wurden installiert, auf fehlende dynamische Bibliotheken geprüft und
+von VDRs Plugin-Versionserkennung erkannt. Das ist ein Loader-Nachweis,
+aber **kein** produktiver Plugin-Start und keine HbbTV-Wiedergabe.
 Upgrade/Purge und Konfigurationsschutz waren bereits Gegenstand
 separater Offline-Paketlebenszyklus-Tests; ein Upgrade direkt aus dem
 **veröffentlichten** PPA ist nicht durch diesen Workflow bewiesen.
 
-Resolute publication availability is checked by the [disposable 26.04 readiness workflow](../.github/workflows/ppa-resolute-install-smoke.yml). A green *readiness* job with `RESOLUTE_RELEASE_GATE=NOT_READY` is **not** an installation or runtime PASS: downstream install and daemon steps are explicitly skipped until the archive publishes every package.\n\nDie [korrigierte Resolute-PPA-Vorprüfung, Run 39039206371](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39039206371) (Commit `3d84b29ab6c5526683beb6266cc20dacacc79a13`) bestätigte auf einem Ubuntu-26.04-Container: Seahawk-VDR `2.8.3-0yavdr0~resolute` und das gepatchte `vdr-plugin-web` sind im Archiv vorhanden. `vdr-suite-daemon`, `vdr-suite-backend-agent` und `vdr-plugin-suitebridge` sind **nicht** als veröffentlichte Resolute-Kandidaten verfügbar. Das Gate meldet `RESOLUTE_RELEASE_GATE=NOT_READY`; die nachfolgenden APT-Installations- und Daemon-Laufzeitschritte wurden ausdrücklich übersprungen. Der erfolgreiche *Check-Workflow* ist daher **kein erfolgreicher Resolute-Laufzeittest**.
+**Ubuntu 26.04 Resolute – noch nicht vollständig verfügbar:** Die
+[separate PPA-Vorprüfung, Run 39039206371](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39039206371)
+(Commit `3d84b29ab6c5526683beb6266cc20dacacc79a13`)
+hat auf einem isolierten Ubuntu-26.04-Container Seahawk-VDR
+`2.8.3-0yavdr0~resolute` und das gepatchte `vdr-plugin-web`
+im Archiv gefunden. Dagegen fehlen noch die veröffentlichten Kandidaten
+`vdr-suite-daemon`, `vdr-suite-backend-agent` und
+`vdr-plugin-suitebridge`. Das Gate meldet
+`RESOLUTE_RELEASE_GATE=NOT_READY`. APT-Installation und Daemon-Laufzeittest
+wurden deshalb bewusst übersprungen. Ein grüner
+[Verfügbarkeits-Workflow](../.github/workflows/ppa-resolute-install-smoke.yml)
+ist **kein** erfolgreicher Resolute-Installationstest.
 
-**Ubuntu 26.04 Resolute:** Für die drei VDR-Suite-Binärpakete liegt in
-diesem Noble-Testlauf noch **kein** veröffentlichter APT-Installations-
-oder HTTP-Laufzeitnachweis vor. Die Launchpad-Builds und der anschließende
-analoge Resolute-Installationslauf sind getrennte offene Freigabegates.
-Ein erfolgreicher PPA-Build oder diese Noble-Abnahme ist keine
-Freigabe für produktive Installation oder Migration.
+Weder die Noble-Abnahme noch ein PPA-Build autorisieren eine produktive
+Installation oder ungeprüfte Migration einer bestehenden yaVDR-Installation.
 
 ## Back
 
