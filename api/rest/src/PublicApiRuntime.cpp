@@ -3109,6 +3109,7 @@ ApiResponse platformCapabilities(
     const bool recordingCollectionAvailable,
     const bool genreCollectionAvailable,
     const bool epgNowNextAvailable,
+    const bool epgWindowAvailable,
     const bool accountCollectionAvailable,
     const bool accountMutationAvailable,
     const bool accountCreateAvailable,
@@ -3151,6 +3152,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.epg-now-next-read\",\"version\":1,\"availability\":\"" +
         std::string(epgNowNextAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.epg-window-read\",\"version\":1,\"availability\":\"" +
+        std::string(epgWindowAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.accounts-read\",\"version\":1,\"availability\":\"" +
         std::string(accountCollectionAvailable ? "available" : "unavailable") +
@@ -5204,6 +5208,7 @@ bool PublicApiRuntime::tryHandleGet(
             recordingCollectionLookupConfigured(),
             genreCollectionLookupConfigured(),
             epgNowNextLookupConfigured(),
+            epgWindowLookupConfigured(),
             accountCollectionLookupConfigured(),
             accountMutationConfigured(),
             accountCreateConfigured(),
