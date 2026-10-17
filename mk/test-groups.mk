@@ -2,6 +2,7 @@
 
 CI_FAST_TESTS := \
 	test-device-live-event-hub \
+	test-device-live-http-stream \
 	test-phase69-atomic-timer-create-admission \
 	test-public-epg-event-detail \
 	test-searchtimer-create-device-admission \
