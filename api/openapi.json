@@ -84,6 +84,7 @@
         ],
         "operationId": "getPublicEpgWindow",
         "summary": "Read bounded cached EPG events for a backend and channel",
+        "x-vdr-suite-authentication": {"actorRequired": true, "authorization": "epg.view@backendId OR media.live.play@backendId; exact backend scope"},
         "description": "12-hour maximum per request, up to 192 real events. Device/backend auth: epg.view OR media.live.play on the same backend. No live provider fallback or fabricated programmes. A successful response may have hasMore=true; clients must not represent truncated pages as complete.",
         "parameters": [
           {
@@ -178,6 +179,7 @@
         ],
         "operationId": "getPublicNativeVdrTimers",
         "summary": "Read real VDR native timer snapshot, not Suite timer assignments",
+        "x-vdr-suite-authentication": {"actorRequired": true, "authorization": "timers.view@backendId; exact backend scope"},
         "description": "Backend-scoped, read-only, stable ID-sorted snapshot page. Requires timers.view@backend. No timer mutation and no live native completeness guarantee beyond current snapshot.",
         "parameters": [
           {
