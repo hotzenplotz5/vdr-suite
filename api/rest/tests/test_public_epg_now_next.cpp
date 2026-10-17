@@ -134,7 +134,7 @@ int main()
     const auto windowOk = read(epgWindow,"actor",{"home"});
     assert(windowOk.statusCode == 200);
     assert(windowOk.body.find("Programm 2") != std::string::npos);
-    assert(windowOk.body.find("\\"eventId\\":\\"native-event:1234\\"")
+    assert(windowOk.body.find("\"eventId\":\"native-event:1234\"")
         != std::string::npos);
     assert(windowOk.body.find(std::string(257U, 'x')) ==
         std::string::npos);
