@@ -176,11 +176,10 @@ jobs:
             -D "$workdir/api.headers" -o "$workdir/api.response" \
             -w '%{http_code}' "$base/api/v1/backends")"
           echo "API_HTTP_STATUS=$api_status"
-          grep -iq '^Content-Type: application/json' "$workdir/api.headers"
-          case "$api_status" in
-            200|401|403) echo 'API_HTTP_REACHABLE=PASS (not backend functional acceptance)' ;;
-            *) echo "API_HTTP_REACHABLE=FAIL $api_status"; exit 1 ;;
-          esac
+          # Public-v1 security failures use RFC 7807 Problem Details.
+          test "$api_status" = 401
+          grep -Eiq '^Content-Type: application/problem[+]json' "$workdir/api.headers"
+          echo 'API_UNAUTHENTICATED_CONTRACT=PASS (401 Problem Details)'
           stop_daemon
           start_daemon
           cmp -s "$root/index.html" "$workdir/index.response"
