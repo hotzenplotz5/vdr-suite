@@ -27,7 +27,8 @@ Comment: Adapted TVScraper service contract. Upstream:
  https://github.com/MarkusEh/vdr-plugin-tvscraper/blob/master/services.h
  The source file explicitly retains GPL-2.0-or-later and attribution.
  These credits reflect the existing upstream-project attribution, not a
- verified per-line allocation of copyright.
+ verified per-line allocation of copyright. The VDR-Suite integration is an
+ in-process service interface, not an independent HTTP protocol client.
  .
  On Debian systems the GPL version 2 text is available at
  /usr/share/common-licenses/GPL-2.
@@ -38,7 +39,8 @@ Copyright: VDR-Suite contributors
 License: GPL-3.0-or-later
 Comment: File-scoped SPDX notices identify the maintainer-introduced service
  ABI contracts mirrored from the vdr-plugin-web and vdr-plugin-osdteletext
- forks. See the original-commit provenance findings in
+ forks. Their original introduction is attributed to maintainer commits
+ 25e52132, 220711b5, b8c52779, 1d5af33c and 76c62292 respectively. See the original-commit provenance findings in
  docs/third-party-license-inventory.md. This does not relicense the host
  plugins or demonstrate exclusive copyright ownership.
 
@@ -66,6 +68,13 @@ Comment: The branding and its derivatives are bundled in the daemon package
  under /usr/share/vdr-suite/channel-logos/vdr-suite-brand.
  Git commit introduction does not independently prove origin or rights.
  Obtain and record affirmative redistribution/licensing evidence.
+
+Comment: Distribution scope: this source package does not embed
+ externally synchronized TV broadcaster logos or movie/series posters.
+ VDR, FFmpeg, SQLite, libcurl and OpenSSL are separate installed build or
+ runtime dependencies, not bundled copies of their source or executables.
+ The packaging inventory must be revisited if that delivery model changes.
+ See docs/third-party-license-inventory.md for source-backed boundaries.
 
 License: GPL-3.0-or-later
  This program is free software: you can redistribute it and/or modify it
