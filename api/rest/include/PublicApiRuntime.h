@@ -255,6 +255,24 @@ struct PublicEpgNowNextResult
     std::vector<PublicEpgNowNextItem> events;
 };
 
+// A bounded read from the existing EPG cache for one Device-authorized
+// channel. Explicit time range, no private Browser route or source URL.
+struct PublicEpgWindowRequest
+{
+    std::string backendId;
+    std::string channelId;
+    std::string fromTime;
+    std::string untilTime;
+    std::size_t limit = 192U;
+};
+
+struct PublicEpgWindowResult
+{
+    PublicEpgNowNextStatus status = PublicEpgNowNextStatus::unavailable;
+    std::vector<PublicEpgNowNextItem> events;
+    bool hasMore = false;
+};
+
 enum class PublicBackendCollectionStatus
 {
     ok,
@@ -916,6 +934,10 @@ public:
         std::function<PublicEpgNowNextResult(
             const PublicEpgNowNextRequest& request)>;
 
+    using EpgWindowLookup =
+        std::function<PublicEpgWindowResult(
+            const PublicEpgWindowRequest& request)>;
+
     using BackendCollectionLookup =
         std::function<PublicBackendCollectionResult(
             const PublicBackendCollectionRequest& request)>;
@@ -1060,6 +1082,12 @@ public:
     bool epgNowNextLookupConfigured() const;
     PublicEpgNowNextResult lookupEpgNowNext(
         const PublicEpgNowNextRequest& request) const;
+
+    void registerEpgWindowLookup(EpgWindowLookup lookup);
+    void resetEpgWindowLookup();
+    bool epgWindowLookupConfigured() const;
+    PublicEpgWindowResult lookupEpgWindow(
+        const PublicEpgWindowRequest& request) const;
 
     void registerBackendCollectionLookup(
         BackendCollectionLookup lookup);
@@ -1235,6 +1263,9 @@ private:
 
     mutable std::mutex epgNowNextLookupMutex_;
     EpgNowNextLookup epgNowNextLookup_;
+
+    mutable std::mutex epgWindowLookupMutex_;
+    EpgWindowLookup epgWindowLookup_;
 
     mutable std::mutex backendCollectionLookupMutex_;
     BackendCollectionLookup backendCollectionLookup_;
