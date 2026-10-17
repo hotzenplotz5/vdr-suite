@@ -709,6 +709,9 @@ public:
              path == "/api/v1/genres/recordings");
         const bool isPublicChannelCollection =
             path == "/api/v1/channels";
+        const bool isPublicNativeTimerRead =
+            request.method == "GET" &&
+            path == "/api/v1/native-timers";
         const bool isPublicEpgNowNext =
             path == "/api/v1/epg/now-next" ||
             path == "/api/v1/epg/window";
@@ -807,6 +810,7 @@ public:
              isPublicBackendCollection ||
              isPublicChannelCollection ||
              isPublicEpgNowNext ||
+             path == "/api/v1/native-timers" ||
              isPublicTimerAssignmentCollection ||
              isPublicOperationResource ||
              isPublicAccountCredentialResource ||
@@ -1519,6 +1523,62 @@ public:
             gate.authorizationDecision = lastDecision;
             gate.authorizedBackendIds =
                 std::move(publicChannelBackendIds);
+            gate.allowed = true;
+            return gate;
+        }
+
+        if (isPublicNativeTimerRead)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            const auto scopes = queryStringValues(request.path, "backendId");
+            const bool validScope = scopes.size() == 1U &&
+                !scopes.front().empty() &&
+                scopes.front().size() <= 128U &&
+                std::all_of(scopes.front().begin(),scopes.front().end(),
+                    [](unsigned char c) {
+                        return std::isalnum(c) || c == '.' ||
+                            c == '_' || c == '-';
+                    });
+            if (!validScope)
+            {
+                AuthorizationDecision invalid;
+                invalid.permission = "timers.view";
+                invalid.backendId = "*";
+                invalid.reasonCode = "invalid_backend_scope";
+                invalid.action = "native_timers.view";
+                return rejectWithAudit(gate, invalid, 400,
+                    "One backendId is required.", "");
+            }
+            AuthorizationRequest timerRequest;
+            timerRequest.permission = "timers.view";
+            timerRequest.backendId = scopes.front();
+            timerRequest.action = "native_timers.view";
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(gate.context,timerRequest);
+            if (!appendDecisionEvent(gate.context,decision,""))
+            {
+                gate.rejection = errorResponse(
+                    503, "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+            if (!decision.allowed)
+            {
+                const int code =
+                    decision.reasonCode == "invalid_backend_scope"
+                        ? 400
+                        : (authenticationFailure(decision) ? 401 : 403);
+                gate.rejection = errorResponse(
+                    code,decision.reasonCode,
+                    messageForReason(decision.reasonCode),
+                    gate.context,authenticationFailure(decision),
+                    gate.publicApiV1);
+                return gate;
+            }
+            gate.authorizationDecision = decision;
+            gate.authorizedBackendIds = scopes;
             gate.allowed = true;
             return gate;
         }
