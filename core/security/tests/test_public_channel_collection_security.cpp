@@ -89,6 +89,46 @@ int main()
         assert(decision.authorizedBackendIds.empty());
     }
 
+    // Live TV on one backend includes its channel listing without a
+    // separately stored channels.view grant.
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "media.live.play", "backend-a"));
+        const auto allowed = fixture.gate.evaluate(browserGet(
+            fixture, std::string(Route) + "?backendId=backend-a"));
+        assert(allowed.allowed);
+        assert(allowed.authorizedBackendIds ==
+            (std::vector<std::string>{"backend-a"}));
+    }
+    // A Live grant must never reveal a second, unauthorized backend.
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "media.live.play", "backend-a"));
+        const auto denied = fixture.gate.evaluate(browserGet(
+            fixture, std::string(Route) +
+                "?backendId=backend-a&backendId=backend-b"));
+        assert(!denied.allowed);
+        assert(denied.rejection.statusCode == 403);
+        assert(denied.authorizedBackendIds.empty());
+    }
+    // Different grants may authorize different backends in one request;
+    // neither implies playback permission on the other backend.
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "media.live.play", "backend-a"));
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, Permission, "backend-b"));
+        const auto allowed = fixture.gate.evaluate(browserGet(
+            fixture, std::string(Route) +
+                "?backendId=backend-b&backendId=backend-a"));
+        assert(allowed.allowed);
+        assert(allowed.authorizedBackendIds ==
+            (std::vector<std::string>{"backend-a", "backend-b"}));
+    }
+
     {
         SecurityHttpGateBrowserTestFixture fixture;
         assert(fixture.grantRepository.ensureGrant(
