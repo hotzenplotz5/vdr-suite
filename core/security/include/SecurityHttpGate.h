@@ -706,11 +706,13 @@ public:
             request.method == "GET" &&
             (path == "/api/v1/recordings" ||
              path == "/api/v1/genres" ||
-             path == "/api/v1/genres/recordings");
+             path == "/api/v1/genres/recordings" ||
+             path == "/api/v1/search/recordings");
         const bool isPublicChannelCollection =
             path == "/api/v1/channels";
         const bool isPublicEpgNowNext =
-            path == "/api/v1/epg/now-next";
+            path == "/api/v1/epg/now-next" ||
+            path == "/api/v1/search/epg";
         const bool isPublicEpgNowNextRead =
             request.method == "GET" && isPublicEpgNowNext;
         std::vector<std::string> publicChannelBackendIds;

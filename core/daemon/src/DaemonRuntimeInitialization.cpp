@@ -7,6 +7,7 @@
 #include "RecordingArtworkHttpServer.h"
 #include "PublicRecordingCollectionProjection.h"
 #include "GenreBrowserApiRuntime.h"
+#include "GlobalSearchApiRuntime.h"
 #include "RecordingSeriesHierarchyApiRuntime.h"
 #include "RestfulApiRecordingActionBackendExecutorAdapter.h"
 #include "RestfulApiSearchTimerDiscoveryProvider.h"
@@ -1253,6 +1254,92 @@ bool DaemonRuntime::initialize()
             result.backends = std::move(eligible);
             result.status =
                 PublicBackendCollectionStatus::ok;
+            return result;
+        });
+
+    // Share the exact Web global-search matcher/index. The public facade
+    // projects only grants-scoped Public-v1 fields, never native file paths.
+    PublicApiRuntime::instance().registerSearchLookup(
+        [this](const PublicSearchRequest& request)
+        {
+            PublicSearchResult result;
+            if (!backendRegistryService_ || !publicRecordingIdentities_ ||
+                !vdrSnapshotReadService_ || request.backendId.empty() ||
+                request.limit == 0U || request.limit > 30U)
+                return result;
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled || !backend->online ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(request.backendId))
+                return result;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            const auto found = GlobalSearchApiRuntime::instance().searchPublic(
+                request.backendId, request.query,
+                now - 6 * 3600, now + 14 * 24 * 3600,
+                static_cast<int>(request.limit),
+                static_cast<int>(request.offset));
+            if (!found || found->status != "ready") return result;
+            const auto& records = found->recordings;
+            const auto& events = found->epg;
+            if ((request.epg ? events.size() : records.size()) > request.limit)
+                return result;
+            result.totalCount = static_cast<std::size_t>(
+                std::max(0, request.epg ? found->epgTotal : found->recordingTotal));
+            if (request.epg)
+            {
+                for (const auto& event : events)
+                {
+                    if (event.backendId != request.backendId ||
+                        event.channelId.empty() || event.eventId.empty() ||
+                        event.title.empty() || event.startTime.empty() ||
+                        event.endTime.empty()) return PublicSearchResult{};
+                    PublicSearchItem item;
+                    item.backendId = request.backendId;
+                    item.channelId = event.channelId;
+                    item.eventId = event.eventId;
+                    item.title = event.title;
+                    item.subtitle = event.subtitle;
+                    item.startTime = event.startTime;
+                    item.endTime = event.endTime;
+                    result.items.push_back(std::move(item));
+                }
+            }
+            else
+            {
+                const auto snapshot =
+                    vdrSnapshotReadService_->getRecordingsForBackend(
+                        request.backendId);
+                for (const auto& record : records)
+                {
+                    if (record.backendId != request.backendId ||
+                        record.backendNativeId.empty() || record.title.empty())
+                        return PublicSearchResult{};
+                    const auto current = std::find_if(
+                        snapshot.begin(), snapshot.end(),
+                        [&record, &request](const VdrRecording& item) {
+                            return item.backendId == request.backendId &&
+                                item.backendNativeId == record.backendNativeId;
+                        });
+                    // Stale index entries must not disclose deleted recordings.
+                    if (current == snapshot.end()) return PublicSearchResult{};
+                    const auto id = publicRecordingIdentities_->resolveOrCreate(
+                        request.backendId, record.backendNativeId);
+                    if (!id.has_value()) return PublicSearchResult{};
+                    PublicSearchItem item;
+                    item.backendId = request.backendId;
+                    item.recordingId = *id;
+                    item.title = current->title;
+                    item.startTime = current->startTime;
+                    result.items.push_back(std::move(item));
+                }
+            }
+            if (result.totalCount < request.offset ||
+                result.items.size() > result.totalCount - request.offset)
+                return PublicSearchResult{};
+            result.hasMore = request.offset + result.items.size() <
+                result.totalCount;
+            result.status = PublicSearchStatus::ok;
             return result;
         });
 

@@ -166,6 +166,17 @@ bool GlobalSearchApiRuntime::tryHandleGet(
     return true;
 }
 
+std::optional<GlobalSearchResult> GlobalSearchApiRuntime::searchPublic(
+    const std::string& backendId, const std::string& query,
+    std::int64_t from, std::int64_t until,
+    int limit, int offset) const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!service_ || limit < 1 || limit > 30 ||
+        offset < 0 || offset > 1000000) return std::nullopt;
+    return service_->search(backendId, query, from, until, limit, offset);
+}
+
 bool GlobalSearchApiRuntime::configured() const
 {
     std::lock_guard<std::mutex> lock(mutex_);
