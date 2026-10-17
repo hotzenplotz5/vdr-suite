@@ -5,6 +5,7 @@ import contextlib
 import io
 import importlib.util
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -70,6 +71,51 @@ class SourcePackagingTests(TestCase):
                 self.assertTrue(preview.endswith(original))
                 self.assertIn("\n\n -- VDR-Suite contributors", preview)
                 self.assertNotIn("\\n", preview)
+
+    def test_signing_rejects_missing_ubuntu_series(self):
+        with contextlib.redirect_stderr(io.StringIO()) as stream:
+            with self.assertRaises(SystemExit) as ctx:
+                srcpkg.main(["0" * 40, "--sign-with", "A" * 40])
+        self.assertEqual(ctx.exception.code, 2)
+        self.assertIn("--sign-with requires --ubuntu-preview", stream.getvalue())
+
+    def test_signing_preflight_rejects_invalid_fingerprint_without_gpg(self):
+        with self.assertRaisesRegex(RuntimeError, "40 uppercase hex"):
+            srcpkg.signing_preflight("not-a-key")
+
+    def test_signing_preflight_requires_matching_secret_and_identity(self):
+        fingerprint = "A" * 40
+        metadata = ("sec:u:4096:1:123:1792200000:1855272000:::::\n"
+                    "fpr:::::::::" + fingerprint + ":\n"
+                    "uid:u::::::::Holger Schvestka <hotzenplotz5@gmx.de>:\n")
+        with patch.object(srcpkg.shutil, "which", return_value="/usr/bin/test"), \
+             patch.object(srcpkg.subprocess, "run", return_value=SimpleNamespace(stdout=metadata)):
+            srcpkg.signing_preflight(fingerprint)
+        mismatch = metadata.replace("hotzenplotz5@gmx.de", "another@example.org")
+        with patch.object(srcpkg.shutil, "which", return_value="/usr/bin/test"), \
+             patch.object(srcpkg.subprocess, "run", return_value=SimpleNamespace(stdout=mismatch)):
+            with self.assertRaisesRegex(RuntimeError, "does not match"):
+                srcpkg.signing_preflight(fingerprint)
+
+    def test_signatures_must_match_explicit_fingerprint(self):
+        fingerprint = "A" * 40
+        verified = SimpleNamespace(returncode=0,
+                                   stdout="[GNUPG:] VALIDSIG " + fingerprint + " 2026-10-17\n")
+        with patch.object(srcpkg.subprocess, "run", return_value=verified):
+            srcpkg.verify_signature(Path("source.changes"), fingerprint)
+        with patch.object(srcpkg.subprocess, "run", return_value=SimpleNamespace(
+                returncode=0, stdout="[GNUPG:] VALIDSIG " + "B" * 40 + "\n")):
+            with self.assertRaisesRegex(RuntimeError, "does not match"):
+                srcpkg.verify_signature(Path("source.changes"), fingerprint)
+
+    def test_signable_preview_has_real_changed_by_only_inside_preview(self):
+        original = "vdr-suite (0.14.1-1~exp2) unstable; urgency=low\n"
+        preview, version = srcpkg.prepare_ubuntu_preview(
+            original, "0.14.1", 1791940000, "noble", srcpkg.SIGNING_IDENTITY)
+        self.assertIn(" -- Holger Schvestka <hotzenplotz5@gmx.de>  ", preview)
+        self.assertIn("not approved for PPA", preview)
+        self.assertEqual(version, "0.14.1-1~exp2~ubuntu24.04.1")
+        self.assertTrue(preview.endswith(original))
 
     def test_unknown_series_rejected_without_mutation(self):
         source = "vdr-suite (0.14.1-1~exp1) unstable; urgency=low\n"
