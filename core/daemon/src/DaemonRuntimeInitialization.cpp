@@ -963,7 +963,9 @@ bool DaemonRuntime::initialize()
     runtimeDiagnosticsController_ = std::make_unique<RuntimeDiagnosticsController>(runtimeDiagnosticsService_, *runtimeDiagnosticsJsonSerializer_);
     snapshotChangeFeedController_ = std::make_unique<SnapshotChangeFeedController>(*snapshotChangeFeed_, *snapshotChangeFeedJsonSerializer_);
 
+    deviceLiveEventHub_ = std::make_shared<DeviceLiveEventHub>();
     liveTransport_ = std::make_unique<SseLiveTransport>();
+    liveTransport_->setDeviceLiveEventHub(deviceLiveEventHub_);
     liveTransportService_ = std::make_unique<LiveTransportService>(*liveTransport_);
     liveTransportController_ = std::make_unique<LiveTransportController>(*liveTransport_);
 
@@ -2664,7 +2666,7 @@ bool DaemonRuntime::initialize()
     std::cout << "SearchTimer preview EPG cache runtime initialized" << std::endl;
 
     auto clientHttpServer = std::make_unique<RecordingArtworkHttpServer>(
-        std::make_unique<TestHttpServer>(*apiRouter_),
+        std::make_unique<TestHttpServer>(*apiRouter_, deviceLiveEventHub_),
         *vdrRecordingCacheRepository_,
         config_.recordingArtworkRoots());
     httpServer_ = std::make_unique<BackendAgentHttpServer>(
