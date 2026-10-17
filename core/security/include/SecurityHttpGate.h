@@ -1650,13 +1650,14 @@ public:
             }
             if (isPublicSearchTimerPreviewRead)
             {
-                // The preview exposes EPG matches in addition to the saved
-                // rule; independent EPG scope is mandatory.
+                // SearchTimer viewing is independent. Its EPG preview
+                // additionally needs either an explicit EPG grant or the
+                // already-authorized Live-TV grant on this same backend.
                 AuthorizationRequest epgRead;
                 epgRead.permission = "epg.view";
                 epgRead.backendId = publicSearchTimerBackendId;
                 epgRead.action = "searchtimers.preview";
-                const AuthorizationDecision epgDecision =
+                AuthorizationDecision epgDecision =
                     authorizationService_.authorize(gate.context, epgRead);
                 if (!appendDecisionEvent(gate.context, epgDecision, ""))
                 {
@@ -1665,6 +1666,25 @@ public:
                         "Security accountability persistence is unavailable",
                         gate.context);
                     return gate;
+                }
+                if (!epgDecision.allowed)
+                {
+                    AuthorizationRequest liveRead;
+                    liveRead.permission = "media.live.play";
+                    liveRead.backendId = publicSearchTimerBackendId;
+                    liveRead.action = "searchtimers.preview.via_live";
+                    const AuthorizationDecision liveDecision =
+                        authorizationService_.authorize(gate.context, liveRead);
+                    if (!appendDecisionEvent(gate.context, liveDecision, ""))
+                    {
+                        gate.rejection = errorResponse(
+                            503, "accountability_unavailable",
+                            "Security accountability persistence is unavailable",
+                            gate.context);
+                        return gate;
+                    }
+                    if (liveDecision.allowed)
+                        epgDecision = liveDecision;
                 }
                 if (!epgDecision.allowed)
                 {
