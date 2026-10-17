@@ -90,5 +90,25 @@ int main()
         assert(!denied.allowed);
         assert(denied.rejection.statusCode == 401);
     }
+    // Native timer listings are separate from TimerAssignments, but require
+    // the same exact backend-scoped timers.view grant.
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        const std::string route =
+            "/api/v1/native-timers?backendId=home&limit=30&offset=0";
+        const auto denied = fixture.gate.evaluate(browserRead(fixture,route));
+        assert(!denied.allowed);
+        assert(denied.rejection.statusCode == 403);
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId,"timers.view","home"));
+        const auto allowed = fixture.gate.evaluate(browserRead(fixture,route));
+        assert(allowed.allowed);
+        assert(allowed.authorizedBackendIds ==
+            std::vector<std::string>{"home"});
+        const auto invalid = fixture.gate.evaluate(browserRead(
+            fixture,"/api/v1/native-timers?backendId=home&backendId=home"));
+        assert(!invalid.allowed);
+        assert(invalid.rejection.statusCode == 400);
+    }
     return 0;
 }
