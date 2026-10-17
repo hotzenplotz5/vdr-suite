@@ -91,6 +91,102 @@ jobs:
             fi
           done
           echo 'VDR_ABI_AND_ELF_DEPENDENCIES=PASS'
+      - name: Run installed daemon and serve packaged frontend
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(id -u)" -ne 0
+          workdir="$(mktemp -d "${RUNNER_TEMP}/vdr-suite-ppa-runtime.XXXXXXXX")"
+          daemon_pid=''
+          cleanup() {
+            if [ -n "$daemon_pid" ] && kill -0 "$daemon_pid" 2>/dev/null; then
+              kill -TERM "$daemon_pid" || true
+              for attempt in $(seq 1 20); do
+                if ! kill -0 "$daemon_pid" 2>/dev/null; then break; fi
+                sleep 1
+              done
+              if kill -0 "$daemon_pid" 2>/dev/null; then
+                kill -KILL "$daemon_pid" || true
+              fi
+              wait "$daemon_pid" || true
+            fi
+            if [ -f "$workdir/daemon.log" ]; then
+              echo '=== Test daemon log (last 100 lines) ==='
+              tail -n 100 "$workdir/daemon.log"
+            fi
+          }
+          trap cleanup EXIT
+          export VDR_SUITE_DATABASE_PATH="$workdir/runtime.sqlite"
+          export VDR_SUITE_SECURITY_DATABASE_PATH="$workdir/runtime.sqlite"
+          export VDR_SUITE_FRONTEND_ROOT=/usr/share/vdr-suite/web/frontend
+          export VDR_SUITE_SUITE_BRIDGE_ENABLED=false
+          export VDR_SUITE_SERIES_ARTWORK_FALLBACK_ENABLED=false
+          base=http://127.0.0.1:18080
+          start_daemon() {
+            /usr/sbin/vdr-suite-daemon >"$workdir/daemon.log" 2>&1 &
+            daemon_pid=$!
+            ready=0
+            for attempt in $(seq 1 45); do
+              if curl --noproxy '*' --fail --silent --max-time 2 \
+                 "$base/frontend/index.html" -o "$workdir/index.response"; then
+                ready=1
+                break
+              fi
+              if ! kill -0 "$daemon_pid" 2>/dev/null; then break; fi
+              sleep 1
+            done
+            if [ "$ready" -ne 1 ]; then
+              echo 'DAEMON_HTTP_START=FAIL'
+              tail -n 120 "$workdir/daemon.log"
+              exit 1
+            fi
+            kill -0 "$daemon_pid"
+            echo "DAEMON_HTTP_START=PASS pid=$daemon_pid"
+          }
+          stop_daemon() {
+            kill -TERM "$daemon_pid"
+            stopped=0
+            for attempt in $(seq 1 30); do
+              if ! kill -0 "$daemon_pid" 2>/dev/null; then stopped=1; break; fi
+              sleep 1
+            done
+            if [ "$stopped" -ne 1 ]; then
+              echo 'DAEMON_GRACEFUL_STOP=FAIL'
+              exit 1
+            fi
+            wait "$daemon_pid"
+            daemon_pid=''
+            echo 'DAEMON_GRACEFUL_STOP=PASS'
+          }
+          start_daemon
+          root=/usr/share/vdr-suite/web/frontend
+          cmp -s "$root/index.html" "$workdir/index.response"
+          for asset in style.css hbbtv-qoi.js api/public-v1-client.js; do
+            curl --noproxy '*' --fail --silent --show-error --max-time 5 \
+              "$base/frontend/$asset" -o "$workdir/asset.response"
+            cmp -s "$root/$asset" "$workdir/asset.response"
+            echo "PACKAGED_HTTP_ASSET=PASS $asset"
+          done
+          curl --noproxy '*' --fail --silent --show-error --max-time 5 \
+            "$base/frontend/app.js" -o "$workdir/app.response"
+          test -s "$workdir/app.response"
+          test "$(wc -c < "$workdir/app.response")" -ge "$(wc -c < "$root/app.js")"
+          echo 'PACKAGED_HTTP_JS_BUNDLE=PASS'
+          api_status="$(curl --noproxy '*' --silent --show-error --max-time 5 \
+            -D "$workdir/api.headers" -o "$workdir/api.response" \
+            -w '%{http_code}' "$base/api/v1/backends")"
+          echo "API_HTTP_STATUS=$api_status"
+          grep -iq '^Content-Type: application/json' "$workdir/api.headers"
+          case "$api_status" in
+            200|401|403) echo 'API_HTTP_REACHABLE=PASS (not backend functional acceptance)' ;;
+            *) echo "API_HTTP_REACHABLE=FAIL $api_status"; exit 1 ;;
+          esac
+          stop_daemon
+          start_daemon
+          cmp -s "$root/index.html" "$workdir/index.response"
+          stop_daemon
+          echo 'PACKAGED_DAEMON_HTTP_RESTART=PASS'
+
       - name: Record installed versions and service enablement
         if: always()
         shell: bash
