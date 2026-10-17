@@ -1801,47 +1801,49 @@ public:
                     "One valid backendId is required.", "");
             }
 
-            // The server admits only specifically granted domains. No
-            // pairing, channels.view or media playback implicit permission.
-            const char* permissions[] = {"timers.view", "recordings.view"};
-            const char* domains[] = {"timers", "recordings"};
-            AuthorizationDecision lastDenial;
-            for (int i = 0; i != 2; ++i)
+            // One requested domain, one exact backend grant, one stream.
+            // This prevents subscribing to a domain the TV is not viewing.
+            const auto requested = queryStringValues(request.path, "domain");
+            if (requested.size() != 1U ||
+                (requested.front() != "timers" &&
+                 requested.front() != "recordings"))
             {
-                AuthorizationRequest read;
-                read.permission = permissions[i];
-                read.backendId = scopes.front();
-                read.action = "device_events.subscribe";
-                const AuthorizationDecision decision =
-                    authorizationService_.authorize(gate.context, read);
-                if (!appendDecisionEvent(gate.context, decision, ""))
-                {
-                    gate.rejection = errorResponse(
-                        503, "accountability_unavailable",
-                        "Security accountability persistence is unavailable",
-                        gate.context);
-                    return gate;
-                }
-                if (decision.allowed)
-                {
-                    gate.deviceEventDomains.push_back(domains[i]);
-                    gate.authorizationDecision = decision;
-                }
-                else
-                    lastDenial = decision;
+                AuthorizationDecision invalid;
+                invalid.permission = "timers.view";
+                invalid.backendId = scopes.front();
+                invalid.action = "device_events.subscribe";
+                invalid.reasonCode = "invalid_event_domain";
+                return rejectWithAudit(gate, invalid, 400,
+                    "One native timers or recordings domain is required.", "");
             }
-            if (gate.deviceEventDomains.empty())
+            AuthorizationRequest read;
+            read.permission = requested.front() == "timers"
+                ? "timers.view" : "recordings.view";
+            read.backendId = scopes.front();
+            read.action = "device_events.subscribe";
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(gate.context, read);
+            if (!appendDecisionEvent(gate.context, decision, ""))
             {
                 gate.rejection = errorResponse(
-                    authenticationFailure(lastDenial) ? 401 : 403,
-                    lastDenial.reasonCode.empty()
-                        ? "permission_denied" : lastDenial.reasonCode,
-                    "No Device event read permission on this backend.",
-                    gate.context,
-                    authenticationFailure(lastDenial), gate.publicApiV1);
+                    503, "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
                 return gate;
             }
-
+            if (!decision.allowed)
+            {
+                gate.rejection = errorResponse(
+                    authenticationFailure(decision) ? 401 : 403,
+                    decision.reasonCode.empty()
+                        ? "permission_denied" : decision.reasonCode,
+                    "Device has no event read permission on this backend.",
+                    gate.context,
+                    authenticationFailure(decision), gate.publicApiV1);
+                return gate;
+            }
+            gate.deviceEventDomains.push_back(requested.front());
+            gate.authorizationDecision = decision;
             gate.authorizedBackendIds = scopes;
             gate.allowed = true;
             return gate;
