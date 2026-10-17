@@ -91,6 +91,18 @@ jobs:
             fi
           done
           echo 'VDR_ABI_AND_ELF_DEPENDENCIES=PASS'
+      - name: Verify VDR plugin loader and packaged HbbTV entry points
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # Version mode performs the VDR plugin loader's compatibility/entry-point
+          # checks but does not start a VDR service, frontend or TV receiver.
+          vdr -L /usr/lib/vdr/plugins --version > "$RUNNER_TEMP/vdr-plugin-versions.txt" 2>&1
+          cat "$RUNNER_TEMP/vdr-plugin-versions.txt"
+          grep -Eiq '(^|[[:space:]])suitebridge([[:space:]:-]|$)' "$RUNNER_TEMP/vdr-plugin-versions.txt"
+          grep -Eiq '(^|[[:space:]])web([[:space:]:-]|$)' "$RUNNER_TEMP/vdr-plugin-versions.txt"
+          echo 'VDR_PLUGIN_VERSION_DISCOVERY=PASS (not HbbTV video playback)'
+
       - name: Run installed daemon and serve packaged frontend
         shell: bash
         run: |
