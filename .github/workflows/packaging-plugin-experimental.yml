@@ -125,6 +125,83 @@ jobs:
           (( free >= reserve )) || { echo 'SOURCEPKG_RESOURCE_POSTCHECK=FAIL'; exit 1; }
           echo 'SOURCEPKG_SOURCE_TAR_DSC_REPRODUCIBILITY=PASS' | tee -a "$report"
           echo 'SOURCEPKG_PPA_UPLOAD_READY=NO' | tee -a "$report"
+      - name: Verify unsigned Ubuntu noble and resolute source changes and DSC (no upload)
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(dpkg-parsechangelog -l debian/changelog -S Distribution)" = unstable
+          version="$(cat VERSION)"
+          upstream_version="$(dpkg-parsechangelog -l debian/changelog -S Version)"
+          epoch="$(git show -s --format=%ct "$GITHUB_SHA")"
+          read -r total free < <(df -B1 --output=size,avail "$RUNNER_TEMP" | tail -n 1)
+          reserve=$((total * 15 / 100))
+          (( reserve >= 4294967296 )) || reserve=4294967296
+          budget=2147483648
+          printf 'UBUNTU_SOURCE_TOTAL=%s FREE=%s RESERVE=%s BUDGET=%s\n' "$total" "$free" "$reserve" "$budget"
+          (( free >= reserve + budget )) || { echo 'UBUNTU_SOURCE_RESOURCE_PREFLIGHT=FAIL'; exit 1; }
+          echo 'UBUNTU_SOURCE_RESOURCE_PREFLIGHT=PASS'
+          report="$GITHUB_WORKSPACE/ubuntu-source-preview-evidence.txt"
+          printf 'EXACT_HEAD=%s\nPPA_UPLOAD_READY=NO\n' "$GITHUB_SHA" > "$report"
+          for series in noble resolute; do
+            root="$RUNNER_TEMP/source-preview-$series"
+            source="$root/vdr-suite-$version"
+            mkdir -p "$source"
+            git archive --format=tar "$GITHUB_SHA" | tar -xf - -C "$source"
+            test -x "$source/debian/rules"
+            tar --sort=name --mtime="@$epoch" --owner=0 --group=0 \
+              --numeric-owner --exclude="vdr-suite-$version/debian" \
+              -C "$root" -cJf "$root/vdr-suite_$version.orig.tar.xz" "vdr-suite-$version"
+            python3 - "$source/debian/changelog" "$version" "$epoch" "$series" <<'PY'
+          from pathlib import Path
+          import sys
+          from tools.build_vdr_suite_sourcepkg_isolated import prepare_ubuntu_preview
+          changelog = Path(sys.argv[1])
+          content, revision = prepare_ubuntu_preview(
+              changelog.read_text(encoding="utf-8"), sys.argv[2], sys.argv[3], sys.argv[4])
+          changelog.write_text(content, encoding="utf-8")
+          print("UBUNTU_SOURCE_VERSION=" + sys.argv[4] + " " + revision)
+          PY
+            candidate="$(dpkg-parsechangelog -l "$source/debian/changelog" -S Version)"
+            test "$candidate" = "$upstream_version~ubuntu$([ "$series" = noble ] && echo 24.04 || echo 26.04).1"
+            test "$(dpkg-parsechangelog -l "$source/debian/changelog" -S Distribution)" = "$series"
+            (cd "$source" && SOURCE_DATE_EPOCH="$epoch" dpkg-buildpackage -S -sa -us -uc -d) \
+              > "$root/source-build.log" 2>&1 || { cat "$root/source-build.log"; exit 1; }
+            changes="$root/vdr-suite_${candidate}_source.changes"
+            dsc="$root/vdr-suite_${candidate}.dsc"
+            test -s "$changes" && test -s "$dsc"
+            test -s "$root/vdr-suite_${candidate}.debian.tar.xz"
+            grep -Fx "Distribution: $series" "$changes"
+            grep -Fx "Version: $candidate" "$changes"
+            grep -Fx 'Architecture: source' "$changes"
+            grep -Fx "Version: $candidate" "$dsc"
+            grep -F "vdr-suite_${candidate}.dsc" "$changes"
+            ! grep -q -- '-----BEGIN PGP SIGNATURE-----' "$changes"
+            ! grep -q -- '-----BEGIN PGP SIGNATURE-----' "$dsc"
+            dpkg-source -x "$dsc" "$root/unpacked" > /dev/null
+            cmp -s "$source/debian/changelog" "$root/unpacked/debian/changelog"
+            cmp -s "$source/VERSION" "$root/unpacked/VERSION"
+            printf 'UBUNTU_SOURCE_%s=PASS version=%s\n' "$series" "$candidate" | tee -a "$report"
+            sha256sum "$changes" "$dsc" "$root/vdr-suite_$version.orig.tar.xz" \
+              "$root/vdr-suite_${candidate}.debian.tar.xz" >> "$report"
+          done
+          cmp -s "$RUNNER_TEMP/source-preview-noble/vdr-suite_$version.orig.tar.xz" \
+                 "$RUNNER_TEMP/source-preview-resolute/vdr-suite_$version.orig.tar.xz"
+          echo 'UBUNTU_SOURCE_SHARED_ORIG_TARBALL=PASS' | tee -a "$report"
+          read -r total free < <(df -B1 --output=size,avail "$RUNNER_TEMP" | tail -n 1)
+          (( free >= reserve )) || { echo 'UBUNTU_SOURCE_RESOURCE_POSTCHECK=FAIL'; exit 1; }
+          echo 'UBUNTU_SOURCE_RESOURCE_POSTCHECK=PASS' | tee -a "$report"
+          echo 'PPA_UPLOAD=NOT_PERFORMED' | tee -a "$report"
+      - name: Save Ubuntu unsigned source-preview evidence (not source archives)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu-source-preview-evidence
+          path: ubuntu-source-preview-evidence.txt
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Save source-package evidence only (not release artifacts)
         if: always()
         uses: actions/upload-artifact@v4
