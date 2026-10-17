@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Build and round-trip an unsigned source-only Debian package in an isolated tree.
+"""Build an isolated source package, optionally signing an Ubuntu preview.
 
-This never installs packages, signs anything, contacts Launchpad, or touches services.
+Never installs packages, uploads to Launchpad, or touches running services.
+Signing requires an explicit fingerprint and a local matching secret key.
 """
 import argparse
 from datetime import datetime, timezone
@@ -21,6 +22,7 @@ BASE = Path("/home/yavdr")
 BRANCH = "work/packaging-debian-ubuntu-install"
 BUDGET = 2 * 1024**3
 UBUNTU_TEST_SERIES = {"noble": "24.04", "resolute": "26.04"}
+SIGNING_IDENTITY = "Holger Schvestka <hotzenplotz5@gmx.de>"
 
 
 def stop(message):
@@ -85,7 +87,39 @@ def preflight(expected):
     return version, epoch, reserve
 
 
-def prepare_ubuntu_preview(original, version, epoch, series):
+def signing_preflight(fingerprint):
+    """Check local signing authority without exporting or reading secret material."""
+    if not re.fullmatch(r"[0-9A-F]{40}", fingerprint):
+        stop("signing fingerprint must be exactly 40 uppercase hex characters")
+    for executable in ("gpg", "debsign"):
+        if shutil.which(executable) is None:
+            stop("signing command missing: " + executable)
+    result = subprocess.run(
+        ["gpg", "--batch", "--with-colons", "--fingerprint",
+         "--list-secret-keys", fingerprint],
+        text=True, capture_output=True, check=True)
+    records = [line.split(":") for line in result.stdout.splitlines()]
+    secrets = [fields for fields in records if fields[0] == "sec"]
+    primary = next((fields[9] for fields in records if fields[0] == "fpr"), None)
+    uids = [fields[9] for fields in records if fields[0] == "uid"]
+    if len(secrets) != 1 or secrets[0][1] in ("r", "e", "d", "i"):
+        stop("missing, revoked or expired primary signing secret key")
+    if primary != fingerprint or SIGNING_IDENTITY not in uids:
+        stop("GPG secret key fingerprint or Launchpad-validated UID does not match")
+    print("SIGNING_KEY_LOCAL_MATCH=PASS " + fingerprint, flush=True)
+
+
+def verify_signature(filename, fingerprint):
+    result = subprocess.run(
+        ["gpg", "--batch", "--status-fd=1", "--verify", str(filename)],
+        text=True, capture_output=True)
+    valid = [line.split()[2] for line in result.stdout.splitlines()
+             if line.startswith("[GNUPG:] VALIDSIG ")]
+    if result.returncode != 0 or fingerprint not in valid:
+        stop("source metadata signature missing or does not match: " + str(filename))
+
+
+def prepare_ubuntu_preview(original, version, epoch, series, changed_by=None):
     """Return distro-specific changelog only; never mutate the original checkout."""
     if series not in UBUNTU_TEST_SERIES:
         stop("unsupported Ubuntu target series")
@@ -95,15 +129,16 @@ def prepare_ubuntu_preview(original, version, epoch, series):
         stop("unrecognized Debian changelog version/distribution")
     revision = match.group(1) + "~ubuntu" + UBUNTU_TEST_SERIES[series] + ".1"
     date = format_datetime(datetime.fromtimestamp(int(epoch), tz=timezone.utc))
+    identity = changed_by or "VDR-Suite contributors <noreply@github.com>"
     entry = ("vdr-suite (" + revision + ") " + series + "; urgency=low\n\n"
              "  * OFFLINE preview: target Ubuntu " + series
              + "; not approved for PPA.\n\n"
-             " -- VDR-Suite contributors <noreply@github.com>  " + date
+             " -- " + identity + "  " + date
              + "\n\n")
     return entry + original, revision
 
 
-def build_source(expected, version, epoch, reserve, series=None):
+def build_source(expected, version, epoch, reserve, series=None, signing_fingerprint=None):
     area = Path(tempfile.mkdtemp(prefix="vdr-suite-sourcepkg-", dir=BASE))
     print("SOURCE_BUILD_AREA=" + str(area), flush=True)
     project = "vdr-suite-" + version
@@ -128,7 +163,8 @@ def build_source(expected, version, epoch, reserve, series=None):
             # checkout, upstream tarball, codec branch, or production host.
             change = source / "debian/changelog"
             prepared, revision = prepare_ubuntu_preview(
-                change.read_text(encoding="utf-8"), version, epoch, series)
+                change.read_text(encoding="utf-8"), version, epoch, series,
+                SIGNING_IDENTITY if signing_fingerprint else None)
             change.write_text(prepared, encoding="utf-8")
             print("UBUNTU_SOURCE_PREVIEW=" + series + " " + revision, flush=True)
         log = area / "source-build.log"
@@ -145,6 +181,15 @@ def build_source(expected, version, epoch, reserve, series=None):
         dsc = sorted(area.glob("vdr-suite_*.dsc"))
         if len(changes) != 1 or len(dsc) != 1:
             stop("expected exactly one source changes and DSC")
+        if signing_fingerprint:
+            if series is None:
+                stop("signing requires an explicit Ubuntu preview series")
+            # debsign updates .changes checksums after signing the referenced .dsc.
+            command(["debsign", "-k" + signing_fingerprint, str(changes[0])],
+                    cwd=area)
+            verify_signature(dsc[0], signing_fingerprint)
+            verify_signature(changes[0], signing_fingerprint)
+            print("SOURCE_SIGNATURES=PASS " + signing_fingerprint, flush=True)
         extracted = area / "unpacked"
         command(["dpkg-source", "-x", str(dsc[0]), str(extracted)])
         if (extracted / "VERSION").read_bytes() != (ROOT / "VERSION").read_bytes():
@@ -161,7 +206,10 @@ def build_source(expected, version, epoch, reserve, series=None):
         print("SOURCE_CHANGESET=" + str(changes[0]), flush=True)
         print("SOURCE_ONLY_PACKAGE=PASS", flush=True)
         print("PPA_UPLOAD_READY=NO", flush=True)
-        print("UPLOAD=NOT_PERFORMED (unsigned, offline preview; PPA release gates remain)", flush=True)
+        if signing_fingerprint:
+            print("UPLOAD=NOT_PERFORMED (signed preview, no release authorization)", flush=True)
+        else:
+            print("UPLOAD=NOT_PERFORMED (unsigned, offline preview; PPA release gates remain)", flush=True)
     except Exception:
         print("SOURCE_BUILD_FAILED_AREA=" + str(area), file=sys.stderr, flush=True)
         raise
@@ -173,13 +221,20 @@ def main(argv=None):
     parser.add_argument("--preflight-only", action="store_true")
     parser.add_argument("--ubuntu-preview", choices=sorted(UBUNTU_TEST_SERIES),
                         help="set target distro only inside the isolated source archive")
+    parser.add_argument("--sign-with", metavar="40_HEX_FINGERPRINT",
+                        help="explicitly sign an isolated Ubuntu source preview; NEVER upload")
     args = parser.parse_args(argv)
     if not re.fullmatch(r"[0-9a-f]{40}", args.expected_sha):
         parser.error("expected SHA must contain exactly 40 lowercase hex characters")
+    if args.sign_with and not args.ubuntu_preview:
+        parser.error("--sign-with requires --ubuntu-preview noble|resolute")
     try:
         version, epoch, reserve = preflight(args.expected_sha)
+        if args.sign_with:
+            signing_preflight(args.sign_with)
         if not args.preflight_only:
-            build_source(args.expected_sha, version, epoch, reserve, args.ubuntu_preview)
+            build_source(args.expected_sha, version, epoch, reserve,
+                         args.ubuntu_preview, args.sign_with)
     except (OSError, RuntimeError, subprocess.CalledProcessError) as exc:
         print("SOURCE_PACKAGE_STOP=" + str(exc), file=sys.stderr)
         return 1
