@@ -98,6 +98,19 @@ int main()
         "{\"id\":\"public-api.recordings-read\",\"version\":1,\"availability\":\"unavailable\"}") !=
         std::string::npos);
 
+    assert(capabilities.body.find(
+        "{\"id\":\"public-api.epg-event-detail-read\",\"version\":1,\"availability\":\"unavailable\"}") !=
+        std::string::npos);
+    runtime.registerEpgEventDetailLookup(
+        [](const PublicEpgEventDetailRequest&) { return PublicEpgEventDetailResult{}; });
+    ApiResponse availableEpgEvent;
+    assert(runtime.tryHandleGet("/api/v1/capabilities", "actor-test",
+        "epg-detail-capability", "", availableEpgEvent));
+    assert(availableEpgEvent.body.find(
+        "{\"id\":\"public-api.epg-event-detail-read\",\"version\":1,\"availability\":\"available\"}") !=
+        std::string::npos);
+    runtime.resetEpgEventDetailLookup();
+
     runtime.registerRecordingCollectionLookup(
         [](const PublicRecordingCollectionRequest&)
         {

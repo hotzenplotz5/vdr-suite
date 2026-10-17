@@ -212,3 +212,12 @@ The read-detail API regression is included in `CI_FAST_TESTS` and the
 existing security EPG gate regression now proves same-backend `epg.view`,
 `media.live.play`, wrong-backend rejection and no mutation flag for the
 new exact-event route. This is not an authorization proof for a future POST.
+
+The capability discovery `GET /api/v1/capabilities` advertises
+`public-api.epg-event-detail-read` at version 1, dynamically
+`available` only while the read callback is registered and
+`unavailable` otherwise. The runtime contract test asserts both states.
+The capability is deliberately separate from `public-api.timer-create-admission`;
+it grants no `timers.create` action and does not certify native timer
+execution. This additive read capability is included without changing
+or weakening the existing Phase-69 route inventory gate.

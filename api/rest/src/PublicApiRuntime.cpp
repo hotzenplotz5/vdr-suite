@@ -3686,6 +3686,7 @@ ApiResponse platformCapabilities(
     const bool epgGenreAvailable,
     const bool epgNowNextAvailable,
     const bool epgWindowAvailable,
+    const bool epgEventDetailAvailable,
     const bool nativeTimersAvailable,
     const bool searchAvailable,
     const bool accountCollectionAvailable,
@@ -3745,6 +3746,9 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.epg-window-read\",\"version\":1,\"availability\":\"" +
         std::string(epgWindowAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.epg-event-detail-read\",\"version\":1,\"availability\":\"" +
+        std::string(epgEventDetailAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.native-timers-read\",\"version\":1,\"availability\":\"" +
         std::string(nativeTimersAvailable ? "available" : "unavailable") +
@@ -6089,6 +6093,7 @@ bool PublicApiRuntime::tryHandleGet(
             epgGenreLookupConfigured(),
             epgNowNextLookupConfigured(),
             epgWindowLookupConfigured(),
+            epgEventDetailLookupConfigured(),
             nativeTimersLookupConfigured(),
             searchLookupConfigured(),
             accountCollectionLookupConfigured(),
