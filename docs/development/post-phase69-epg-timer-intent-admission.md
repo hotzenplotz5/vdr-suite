@@ -115,3 +115,35 @@ not in the public REST implementation. The later HTTP controller only
 validates the wire representation and invokes this domain-owned gateway;
 no timer policy or NativeTimerSpecification will be assembled in the
 PublicApiRuntime serializer. This migration changes no runtime link graph.
+
+## Critical cache-provenance prerequisite (source verified 2026-10-17)
+
+`core/vdr/src/EpgEventRepository.cpp:stableEventId` synthesizes a transient
+cache key from `channelId:startTime:title` when the provider supplied **no**
+native event ID. A read from `/api/v1/epg/window` exposes the stored key as
+`eventId`, so even a nonempty EPG response ID does **not** prove a native
+VDR event reference! Synthetic keys must never enter an ADR-0044 TimerIntent as
+an exact source EventID.
+
+The new **additive** `epg_event_id_source_evidence` table stores whether
+`VdrEvent.id` was nonempty on input to the EPG repository; a scoped
+after-delete trigger retires evidence with its cache row. No
+`epg_events` table columns were changed (older explicit/positional SQL
+inserts must remain valid). An upsert records source-ID presence in the same
+database transaction as the EPG event; repeated unchanged inputs avoid
+touching either record. Existing cache rows have **no evidence** and the new
+`hasSourceEventIdForBackend` accessor refuses them until a fresh source
+observation. SQL errors, wrong backends, deleted events and generated fallback
+identities refuse the match.
+
+This is **necessary but not sufficient** for `exactNativeIdentity` in the
+admission guard: an upstream adapter may already have synthesized its own
+ID; source/adaptor provenance and backend generation also require
+authoritative verification before `ready`. No HTTP or native Timer
+mutation is exposed. Regression: `test-epg-event-repository`, covering
+migration/old rows, true IDs, fallbacks, different backends, no-op upsert,
+removal evidence and cleanup.
+
+This changes the compiled repository only on this unpublished source branch.
+Do not run schema migration or install a new daemon on yaVDR before an exact
+candidate, CI, resource preflight and separately authorized deployment.

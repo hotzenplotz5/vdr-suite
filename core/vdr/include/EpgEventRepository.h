@@ -44,6 +44,14 @@ public:
         const std::string& channelId,
         const std::string& eventId) const;
 
+    // True only when this exact backend/channel/EPG key was ingested with
+    // a nonempty source EventID. Old cache rows remain unproven. This is
+    // evidence of a supplied ID, NOT proof of canonical ProgramEvent identity.
+    bool hasSourceEventIdForBackend(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& eventId) const;
+
     std::vector<VdrEvent> findNowNextForBackend(
         const std::string& backendId,
         const std::string& channelId,

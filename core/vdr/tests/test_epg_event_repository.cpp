@@ -620,8 +620,76 @@ static void test_window_and_cleanup_are_backend_scoped()
     assert(remainingHome.at(0).id == "next");
 }
 
+
+static void test_event_id_source_evidence_is_durable_and_fail_closed()
+{
+    const std::string filename =
+        "/tmp/vdr-suite-epg-event-id-source-evidence-test.db";
+    std::remove(filename.c_str());
+    Database database;
+    assert(database.open(filename));
+    EpgEventRepository repository(database);
+    assert(repository.ensureSchema());
+    assert(database.tableExists("epg_event_id_source_evidence"));
+    const auto native = make_event("real-81234", "channel-1",
+        "Native ID", "1000", "2000");
+    const auto fallback = make_event("", "channel-1",
+        "No native ID", "1000", "2000");
+    // Legacy pre-upgrade rows must not be reclassified as native.
+    assert(database.execute(
+        "INSERT INTO epg_events "
+        "(backend_id,channel_id,event_id,title,start_time,end_time) "
+        "VALUES ('default','channel-1','legacy','Old','1000','2000');"));
+    assert(!repository.hasSourceEventIdForBackend(
+        "default", "channel-1", "legacy"));
+    assert(repository.upsertEventsForBackend(
+        "default", {native, fallback}));
+    const std::string synthetic = fallback.channelId + ":" +
+        fallback.startTime + ":" + fallback.title;
+    assert(repository.containsEventForBackend(
+        "default", "channel-1", synthetic));
+    assert(repository.hasSourceEventIdForBackend(
+        "default", "channel-1", "real-81234"));
+    assert(!repository.hasSourceEventIdForBackend(
+        "default", "channel-1", synthetic));
+    assert(!repository.hasSourceEventIdForBackend(
+        "other", "channel-1", "real-81234"));
+    assert(!repository.hasSourceEventIdForBackend(
+        "default", "other", "real-81234"));
+
+    // Upserts of unchanged values must not touch the existing EPG row
+    // nor evidence (important to cache freshness and mutation hooks).
+    const int unchanged = sqlite3_total_changes(database.handle());
+    assert(repository.upsertEventsForBackend(
+        "default", {native, fallback}));
+    assert(sqlite3_total_changes(database.handle()) == unchanged);
+
+    // A later observation cannot accidentally keep a positive signal
+    // when the source ID becomes absent.
+    const auto missingId = make_event("", "channel-1",
+        "Native ID", "1000", "2000");
+    assert(repository.upsertEventsForBackend(
+        "default", {missingId}));
+    assert(!repository.hasSourceEventIdForBackend(
+        "default", "channel-1", missingId.channelId + ":" +
+        missingId.startTime + ":" + missingId.title));
+    assert(repository.hasSourceEventIdForBackend(
+        "default", "channel-1", "real-81234"));
+
+    // Native row deletion retires its evidence through a scoped trigger.
+    assert(database.execute(
+        "DELETE FROM epg_events WHERE backend_id='default' "
+        "AND channel_id='channel-1' AND event_id='real-81234';"));
+    assert(!repository.hasSourceEventIdForBackend(
+        "default", "channel-1", "real-81234"));
+    assert(scalar_int(database,
+        "SELECT COUNT(*) FROM epg_event_id_source_evidence "
+        "WHERE event_id='real-81234';") == 0);
+}
+
 int main()
 {
+    test_event_id_source_evidence_is_durable_and_fail_closed();
     test_integer_window_uses_end_epoch_index();
     test_unchanged_upsert_does_not_rewrite_row();
     test_repository_is_backend_scoped();
