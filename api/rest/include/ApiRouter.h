@@ -94,21 +94,16 @@ public:
             return snapshotReadService_.getEventsForBackend(backendId);
         }
 
-        const SearchTimerPreviewEpgCacheStatus status =
-            searchTimerPreviewEpgCache_->statusForBackend(backendId);
-
+        // Do not sample cache readiness and its event generation in
+        // separate locks: an EPG change can invalidate between the two.
+        const auto read =
+            searchTimerPreviewEpgCache_->readForBackend(backendId);
         SearchTimerPreviewEpgInputContext::setCacheStatus(
-            status,
-            backendId);
+            read.status, backendId);
 
-        // Hold the immutable event set while copying it for the Web
-        // controller. A concurrent cache refresh may replace its generation.
-        const auto cachedEvents =
-            searchTimerPreviewEpgCache_->sharedEventsForBackend(backendId);
-
-        if (cachedEvents)
+        if (read.events)
         {
-            return *cachedEvents;
+            return *read.events;
         }
 
         return snapshotReadService_.getEventsForBackend(backendId);
