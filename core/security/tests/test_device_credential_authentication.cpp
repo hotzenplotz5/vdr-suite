@@ -309,6 +309,22 @@ int main()
             savedPreview, fixture.validAuthorization());
         assert(!previewRevokedEpg.allowed);
         assert(previewRevokedEpg.rejection.statusCode == 403);
+        // Live-TV on the same backend already includes EPG, including
+        // the SearchTimer match preview. SearchTimer view stays separate.
+        assert(fixture.grants.ensureGrant(
+            ActorId, "media.live.play", "default"));
+        const auto previewWithLive = fixture.evaluate(
+            savedPreview, fixture.validAuthorization());
+        assert(previewWithLive.allowed);
+        assert(previewWithLive.deviceAuthenticated);
+        assert(previewWithLive.authorizationDecision.permission ==
+            "searchtimers.view");
+        assert(fixture.grants.revokeGrant(
+            ActorId, "media.live.play", "default"));
+        const auto previewNoLive = fixture.evaluate(
+            savedPreview, fixture.validAuthorization());
+        assert(!previewNoLive.allowed);
+        assert(previewNoLive.rejection.statusCode == 403);
         assert(fixture.grants.ensureGrant(
             ActorId, "epg.view", "default"));
 
