@@ -1,6 +1,7 @@
 #include "EpgCacheService.h"
 
 #include "EpgArtworkEnrichmentService.h"
+#include "SearchTimerPreviewEpgCache.h"
 
 #include <chrono>
 #include <map>
@@ -79,17 +80,20 @@ EpgCacheService::EpgCacheService(
     EpgEventRepository& repository,
     VdrService& vdrService,
     EpgArtworkEnrichmentService* artworkEnrichmentService,
-    EpgEventRepository* readRepository)
+    EpgEventRepository* readRepository,
+    SearchTimerPreviewEpgCache* searchTimerPreviewEpgCache)
     : repository_(repository),
       readRepository_(readRepository != nullptr ? readRepository : &repository),
       vdrService_(vdrService),
-      artworkEnrichmentService_(artworkEnrichmentService)
+      artworkEnrichmentService_(artworkEnrichmentService),
+      searchTimerPreviewEpgCache_(searchTimerPreviewEpgCache)
 {
 }
 
 EpgCacheRefreshResult EpgCacheService::refreshBackendWindow(
     const std::string& backendId,
-    const VdrEventQuery& query)
+    const VdrEventQuery& query,
+    bool publishSearchTimerPreview)
 {
     const std::string normalizedBackendId = normalizeBackendId(backendId);
     const long long startedAt = currentEpochSeconds();
@@ -148,6 +152,16 @@ EpgCacheRefreshResult EpgCacheService::refreshBackendWindow(
         result.stored = repository_.upsertEventsForBackend(
             normalizedBackendId,
             events);
+    }
+
+    // The EPG warmup already fetched this bounded native event window.
+    // Reuse its successful authoritative payload for SearchTimer matching.
+    // Selective reads must never replace the full preview catalogue.
+    if (publishSearchTimerPreview && searchTimerPreviewEpgCache_ &&
+        result.stored && query.channelId.empty() &&
+        isAuthoritativeRefreshQuery(query))
+    {
+        searchTimerPreviewEpgCache_->updateReady(normalizedBackendId, events);
     }
 
     if (result.stored && artworkEnrichmentService_ != nullptr)
