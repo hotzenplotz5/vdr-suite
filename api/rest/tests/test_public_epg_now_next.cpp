@@ -96,6 +96,44 @@ int main()
     });
     assert(read(Request,"actor",{"home"}).statusCode == 404);
 
+    // Real VDR timer snapshot resources must expose native data only.
+    const std::string nativeTimers =
+        "/api/v1/native-timers?backendId=home&offset=0&limit=30";
+    assert(read(nativeTimers,"actor",{"home"}).statusCode == 503);
+    assert(read(nativeTimers,"",{"home"}).statusCode == 401);
+    assert(read(nativeTimers,"actor",{"other"}).statusCode == 400);
+    assert(read(nativeTimers + "&limit=30","actor",{"home"})
+        .statusCode == 400);
+    assert(read("/api/v1/native-timers?backendId=home&offset=100001",
+        "actor",{"home"}).statusCode == 400);
+    runtime.registerNativeTimersLookup(
+        [](const PublicNativeTimersRequest& request) {
+            assert(request.backendId == "home");
+            assert(request.offset == 0U);
+            assert(request.limit == 30U);
+            PublicNativeTimersResult result;
+            result.status = PublicNativeTimersStatus::ok;
+            PublicNativeTimerItem timer;
+            timer.id = "42";
+            timer.channelId = "S19.2E-1-100";
+            timer.channelName = "Das Erste";
+            timer.title = "Nachrichten";
+            timer.day = "20261017";
+            timer.weekdays = "-------";
+            timer.startTime = "2000";
+            timer.endTime = "2015";
+            timer.enabled = true;
+            result.timers.push_back(timer);
+            return result;
+        });
+    const auto timers = read(nativeTimers,"actor",{"home"});
+    assert(timers.statusCode == 200);
+    assert(timers.body.find("\"timerId\":\"42\"") != std::string::npos);
+    assert(timers.body.find("\"recording\":false") != std::string::npos);
+    assert(timers.body.find("\"partial\":false") != std::string::npos);
+    assert(timers.body.find("assignmentRevision") == std::string::npos);
+    runtime.resetNativeTimersLookup();
+
     runtime.resetEpgNowNextLookup();
     return 0;
 }
