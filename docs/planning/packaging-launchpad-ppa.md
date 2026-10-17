@@ -93,7 +93,9 @@ Do **not** run this on the productive yaVDR installation now. PPA availability a
 
 ## Current status and non-goals
 
-P2–P7 remain **in progress**. GitHub Actions #29 demonstrates a reproducible-in-CI noble/Seahawk three-binary build and disposable package lifecycle, not a signed clean Launchpad build, supported historical upgrade, or real service acceptance. No upload to Launchpad, service restart, host permission change, package installation or main-branch merge is performed by this document.
+The exact packaging HEAD `8cf632f10dc42e704f5941f94645102c43686b1b` is **19/19 green** in [GitHub Actions 38995685538](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38995685538) on 2026-10-17. The run covers independent plugin-only builds, full noble/resolute three-binary builds, source roundtrip, disposable install/reinstall/remove/purge, nine P8 overwrite refusals, and a pinned exp1-to-exp2 state-preservation/rollback check. Debian copyright metadata is present in each binary package; Lintian has a zero-error enforced gate. This verifies isolated CI packaging and historical test-fixture upgrade behavior, **not** a Launchpad chroot build, a real already-installed yaVDR migration, or production service acceptance.
+
+The maintainer has now licensed project-specific ChatGPT-generated art under `GPL-3.0-or-later`; third-party TVScraper interface terms and external broadcaster artwork remain separately scoped. Source code/contributor rights and any future bundled contents still require precise review. **No signed upload, archive publication, service restart, host permission modification, package installation on productive yaVDR or main-branch merge has been performed.**
 
 ## 2026-10-17 copyright metadata checkpoint (not an upload clearance)
 
@@ -102,3 +104,13 @@ At branch commit `45521e27d4fc7158075d4c255d83939876f3c2d7`, the packaging work 
 The completed [baseline run 38970428064](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38970428064) at `94562a77c61a017f3b3a13d36ea0d0f69947c7bf` passed all 19 CI jobs. Its Resolute Lintian output had three `no-copyright-file` errors, one per .deb, and `LINTIAN_EXIT_STATUS=2`; Lintian was captured but not enforced as a release pass. The new metadata has not been verified in a completed corresponding package build at the time of this checkpoint. For P5 closure, inspect each **rebuilt** binary for `/usr/share/doc/<package>/copyright`, rerun Lintian, and separately resolve the actual remaining art/code rights and publication approval. A lintian-clean package can still be legally blocked.
 
 The Seahawk Launchpad archive dependency is recorded as present in the maintainer's authenticated PPA UI but still requires validation in actual Launchpad series chroots. Uploader OpenPGP identity, source `debian/changelog` target suite, source signing, monotonic PPA version and manual-install migration acceptance remain separate gates. Do not upload or run apt/dpkg against the productive yaVDR.
+
+## Next controlled Launchpad source-upload preparation (after exact-head CI green, 2026-10-17)
+
+The following tasks are **not** authorizations to upload or to modify the production host:
+
+1. Keep `debian/changelog` at the experimental `unstable` baseline in the checked-in branch. Generate series-specific `noble` and `resolute` entries only in isolated disposable source trees using the existing source package preview tool. Reconfirm version monotonicity against any versions already published in the target PPA; no archive comparison has yet been certified.
+2. Confirm that the existing registered Launchpad dependency `seahawk1986-hotmail/vdr-2.8.3` is usable by the actual target-series Launchpad build chroots. The maintainer's authenticated UI showed the dependency with pin priority 500, but no Launchpad source build has been performed.
+3. Verify the uploader's Launchpad account has an associated OpenPGP public signing key and a matching selected signing identity; never commit private key material. Check the source-only package, its `*_source.changes`, `.dsc`, `.orig.tar.*` and `.debian.tar.*` in a disposable checkout before asking for a signed release candidate.
+4. Resolve any remaining third-party source or contributor-rights questions at the level of files actually distributed. The maintainer's `GPL-3.0-or-later` approval for ChatGPT-generated project artwork is recorded and must **not** be reverted to `License-grant-pending`.
+5. A first experimental upload is a separately authorized, manual action only after these checks. Passing isolated CI does not automatically authorize distribution or productive installation.
