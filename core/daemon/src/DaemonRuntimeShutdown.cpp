@@ -58,6 +58,8 @@ void DaemonRuntime::shutdown()
     apiRouter_.reset();
     ManualRecordingMetadataApiRuntime::instance().reset();
     PublicApiRuntime::instance().resetTimerCreateAdmission();
+    PublicApiRuntime::instance().resetNativeTimersLookup();
+    PublicApiRuntime::instance().resetEpgWindowLookup();
     PublicApiRuntime::instance().resetBackendCollectionLookup();
     PublicApiRuntime::instance().resetChannelCollectionLookup();
     PublicApiRuntime::instance().resetRecordingCollectionLookup();
