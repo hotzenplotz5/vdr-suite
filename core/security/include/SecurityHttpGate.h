@@ -32,6 +32,7 @@ struct SecurityGateDecision
     bool publicApiV1 = false;
     AuthorizationDecision authorizationDecision;
     std::vector<std::string> authorizedBackendIds;
+    std::vector<std::string> deviceEventDomains;
     std::string operationId;
     RequestSecurityContext context;
     HttpServerResponse rejection;
@@ -732,6 +733,8 @@ public:
         const bool isPublicNativeTimerRead =
             request.method == "GET" &&
             path == "/api/v1/native-timers";
+        const bool isPublicDeviceEventRead =
+            request.method == "GET" && path == "/api/v1/events";
         const bool isPublicEpgNowNextRead =
             request.method == "GET" && isPublicEpgNowNext;
         std::vector<std::string> publicChannelBackendIds;
@@ -851,6 +854,7 @@ public:
              isPublicChannelCollection ||
              isPublicEpgNowNext ||
              path == "/api/v1/native-timers" ||
+             path == "/api/v1/events" ||
              isPublicTimerAssignmentCollection ||
              (path == publicSearchTimerCollection &&
               !isPublicSearchTimerCreate) ||
@@ -1755,6 +1759,89 @@ public:
                 return gate;
             }
             gate.authorizationDecision = decision;
+            gate.authorizedBackendIds = scopes;
+            gate.allowed = true;
+            return gate;
+        }
+
+        if (isPublicDeviceEventRead)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            if (!gate.deviceAuthenticated ||
+                gate.context.actor.type != ActorType::Service ||
+                !gate.context.device || !gate.context.credential ||
+                gate.context.session.has_value())
+            {
+                AuthorizationDecision denial;
+                denial.permission = "timers.view";
+                denial.backendId = "*";
+                denial.action = "device_events.subscribe";
+                denial.reasonCode = "device_credential_required";
+                return rejectWithAudit(gate, denial, 403,
+                    "A verified Device credential is required.", "");
+            }
+
+            const auto scopes = queryStringValues(request.path, "backendId");
+            const bool validScope = scopes.size() == 1U &&
+                !scopes.front().empty() && scopes.front().size() <= 128U &&
+                std::all_of(scopes.front().begin(), scopes.front().end(),
+                    [](unsigned char ch) {
+                        return std::isalnum(ch) || ch == '.' ||
+                            ch == '-' || ch == '_';
+                    });
+            if (!validScope)
+            {
+                AuthorizationDecision invalid;
+                invalid.reasonCode = "invalid_backend_scope";
+                invalid.permission = "timers.view";
+                invalid.backendId = "*";
+                invalid.action = "device_events.subscribe";
+                return rejectWithAudit(gate, invalid, 400,
+                    "One valid backendId is required.", "");
+            }
+
+            // The server admits only specifically granted domains. No
+            // pairing, channels.view or media playback implicit permission.
+            const char* permissions[] = {"timers.view", "recordings.view"};
+            const char* domains[] = {"timers", "recordings"};
+            AuthorizationDecision lastDenial;
+            for (int i = 0; i != 2; ++i)
+            {
+                AuthorizationRequest read;
+                read.permission = permissions[i];
+                read.backendId = scopes.front();
+                read.action = "device_events.subscribe";
+                const AuthorizationDecision decision =
+                    authorizationService_.authorize(gate.context, read);
+                if (!appendDecisionEvent(gate.context, decision, ""))
+                {
+                    gate.rejection = errorResponse(
+                        503, "accountability_unavailable",
+                        "Security accountability persistence is unavailable",
+                        gate.context);
+                    return gate;
+                }
+                if (decision.allowed)
+                {
+                    gate.deviceEventDomains.push_back(domains[i]);
+                    gate.authorizationDecision = decision;
+                }
+                else
+                    lastDenial = decision;
+            }
+            if (gate.deviceEventDomains.empty())
+            {
+                gate.rejection = errorResponse(
+                    authenticationFailure(lastDenial) ? 401 : 403,
+                    lastDenial.reasonCode.empty()
+                        ? "permission_denied" : lastDenial.reasonCode,
+                    "No Device event read permission on this backend.",
+                    gate.context,
+                    authenticationFailure(lastDenial), gate.publicApiV1);
+                return gate;
+            }
+
             gate.authorizedBackendIds = scopes;
             gate.allowed = true;
             return gate;
