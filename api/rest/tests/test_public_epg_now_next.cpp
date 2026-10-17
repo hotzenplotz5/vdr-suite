@@ -96,7 +96,7 @@ int main()
     });
     assert(read(Request,"actor",{"home"}).statusCode == 404);
 
-    // Real VDR Timer snapshot resources are not Suite TimerAssignments.
+    // Real VDR timer snapshot resources must expose native data only.
     const std::string nativeTimers =
         "/api/v1/native-timers?backendId=home&offset=0&limit=30";
     assert(read(nativeTimers,"actor",{"home"}).statusCode == 503);
@@ -131,7 +131,7 @@ int main()
     assert(timers.body.find("\"timerId\":\"42\"") != std::string::npos);
     assert(timers.body.find("\"recording\":false") != std::string::npos);
     assert(timers.body.find("\"partial\":false") != std::string::npos);
-    assert(timers.body.find("timerAssignmentId") == std::string::npos);
+    assert(timers.body.find("assignmentRevision") == std::string::npos);
     runtime.resetNativeTimersLookup();
 
     runtime.resetEpgNowNextLookup();
