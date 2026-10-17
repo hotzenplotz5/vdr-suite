@@ -262,6 +262,46 @@ The current refresh endpoint is an explicit runtime trigger. It is not yet a sch
 
 ---
 
+## Runtime integration: October 17, 2026 (Public API v1)
+
+The device-facing endpoint `GET /api/v1/search-timers/draft-preview` uses
+the established `SearchTimerPreviewService` matcher and requires a
+backend-scoped, **ready** `SearchTimerPreviewEpgCache`. The 503 reported
+during Hisense/VIDAA hardware acceptance was traced in source to an
+initialization/warmup disconnect: `DaemonRuntimeEpgCache` refreshed the
+persistent `EpgCacheService` and genre data, but did not publish that bounded
+native event payload to the dedicated SearchTimer preview cache.
+
+The startup/event-dirty EPG warmup now passes `publishSearchTimerPreview=true`
+to `EpgCacheService::refreshBackendWindow`. **Only** successful persisted,
+backend-wide, authoritative refreshes publish the same already-fetched events
+to the preview cache. Selective channel refreshes do not replace the preview
+catalogue. This keeps VDR EPG reads out of interactive preview requests and
+avoids a second automatic full-EPG fetch. The Web and Public-v1 preview paths
+continue to use their existing domain matcher.
+
+A shared immutable cache generation is retained for the duration of the
+matching/copying operation in both Public-v1 and legacy Web consumers. The
+cache status and invalidation semantics remain in force; a stale, unavailable
+or not-yet-warmed cache is **not** a fabricated zero-match result. The
+snapshot change feed already invalidates the preview on native EPG changes;
+the existing EPG worker eventually republishes ready data after its
+event-dirty refresh. There is no frontend timer polling.
+
+**Scope and remaining verification:** the normal daemon EPG worker fetches a
+bounded approximately 51-hour window (48 hours plus 3 hours overlap), not a
+guaranteed fourteen-day schedule. Its coverage and limit must not be presented
+as a complete long-horizon SearchTimer forecast. The physical Hisense 503 fix
+remains unconfirmed until the new daemon commit is installed under the
+documented rollback procedure and its real draft preview returns valid data
+after warmup. No installation has been performed by this code change.
+
+Regression tests cover a missing vs ready cache, snapshot lifetime, backend
+scoping, same-payload warmup publication, partial refresh isolation and stale
+cache recovery.
+
+---
+
 ## Back
 
 - [Back to Development Index](index.md)
