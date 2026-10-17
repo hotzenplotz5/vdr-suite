@@ -1,0 +1,186 @@
+name: Published PPA Resolute 26.04 readiness and runtime acceptance
+
+on:
+  push:
+    branches: [work/ppa-noble-install-smoke-20261017]
+    paths: [.github/workflows/ppa-resolute-install-smoke.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  resolute-ppa:
+    name: Check published Resolute PPA; install and start only when complete
+    runs-on: ubuntu-24.04
+    container:
+      image: ubuntu:26.04
+    timeout-minutes: 30
+    steps:
+      - name: Prepare disposable Resolute and disable package-initiated services
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          . /etc/os-release
+          test "$VERSION_CODENAME" = resolute
+          test "$(dpkg --print-architecture)" = amd64
+          printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d
+          chmod 0755 /usr/sbin/policy-rc.d
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            ca-certificates software-properties-common curl
+          add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
+          add-apt-repository -y ppa:hotzenplotz5/vdr-suite
+          apt-get update
+          echo 'RESOLUTE_DISPOSABLE_PPA_SETUP=PASS'
+      - name: Check actual Resolute PPA candidates before installation
+        id: availability
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          packages=(vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge vdr-plugin-web)
+          missing=()
+          for package in "${packages[@]}"; do
+            apt-cache policy "$package"
+            # Do not substitute an Ubuntu archive package with the same name.
+            if ! apt-cache policy "$package" | grep -Fq \
+                 'ppa.launchpadcontent.net/hotzenplotz5/vdr-suite/ubuntu resolute'; then
+              missing+=("$package")
+            fi
+          done
+          apt-cache policy vdr
+          if ! apt-cache policy vdr | grep -Fq \
+               'ppa.launchpadcontent.net/seahawk1986-hotmail/vdr-2.8.3/ubuntu resolute'; then
+            missing+=(seahawk-vdr-2.8.3)
+          fi
+          if (( ${#missing[@]} > 0 )); then
+            printf 'RESOLUTE_RELEASE_GATE=NOT_READY (missing published PPA candidates): %s\n' "${missing[*]}"
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            {
+              echo '## Resolute PPA: NOT READY'
+              echo
+              echo 'This run verifies publication only; **no runtime acceptance was performed**.'
+              printf 'Missing published candidates: %s\n' "${missing[*]}"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+            echo 'RESOLUTE_PPA_CANDIDATES=READY'
+          fi
+      - name: Install actually published Resolute binaries and verify VDR plugin ABI
+        if: steps.availability.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          packages=(vdr vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge vdr-plugin-web)
+          apt-get -s install --no-install-recommends "${packages[@]}"
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${packages[@]}"
+          dpkg --audit
+          dpkg-query -W -f='${binary:Package} ${Version} ${Status}\n' "${packages[@]}"
+          for pkg in "${packages[@]}"; do
+            test "$(dpkg-query -W -f='${Status}' "$pkg")" = 'install ok installed'
+          done
+          vdr -L /usr/lib/vdr/plugins --version > /tmp/vdr-resolute-plugins.txt 2>&1
+          cat /tmp/vdr-resolute-plugins.txt
+          grep -Fq 'suitebridge (' /tmp/vdr-resolute-plugins.txt
+          grep -Fq 'web (' /tmp/vdr-resolute-plugins.txt
+          test -s /usr/share/vdr-suite/web/frontend/index.html
+          test -s /usr/share/vdr-suite/web/frontend/hbbtv-qoi.js
+          test -s /usr/lib/vdr/plugins/libvdr-suitebridge.so.14
+          test -s /usr/lib/vdr/plugins/libvdr-web.so.14
+          dpkg-query -W -f='${Provides}\n' vdr | grep -F 'vdr-abi-2.8.3'
+          for pkg in vdr-plugin-suitebridge vdr-plugin-web; do
+            dpkg-query -W -f='${Depends}\n' "$pkg" | grep -F 'vdr-abi-2.8.3'
+          done
+          for elf in /usr/sbin/vdr-suite-daemon /usr/sbin/vdr-suite-backend-agent \
+            /usr/lib/vdr/plugins/libvdr-suitebridge.so.14 /usr/lib/vdr/plugins/libvdr-web.so.14; do
+            ldd "$elf" > /tmp/vdr-resolute-ldd.txt
+            if grep -Fq 'not found' /tmp/vdr-resolute-ldd.txt; then
+              cat /tmp/vdr-resolute-ldd.txt
+              echo "RESOLUTE_LIBRARY_MISSING=$elf"
+              exit 1
+            fi
+          done
+          echo 'RESOLUTE_PPA_APT_VDR_PLUGIN_ABI=PASS'
+      - name: Start installed Resolute daemon as vdr; exercise HTTP and restart
+        if: steps.availability.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(id -u)" = 0
+          test -n "$(id -u vdr)"
+          command -v setpriv
+          root=/usr/share/vdr-suite/web/frontend
+          install -d -o vdr -g vdr -m 0700 /tmp/vdr-suite-ppa-resolute-smoke
+          log=/tmp/vdr-suite-ppa-resolute-smoke/daemon.log
+          base=http://127.0.0.1:18080
+          pid=''
+          cleanup() {
+            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+              kill -TERM "$pid" || true
+              for attempt in $(seq 1 20); do
+                if ! kill -0 "$pid" 2>/dev/null; then break; fi
+                sleep 1
+              done
+              if kill -0 "$pid" 2>/dev/null; then kill -KILL "$pid" || true; fi
+              wait "$pid" || true
+            fi
+            if [ -f "$log" ]; then tail -n 100 "$log"; fi
+          }
+          trap cleanup EXIT
+          start_daemon() {
+            setpriv --reuid="$(id -u vdr)" --regid="$(id -g vdr)" --init-groups \
+              env VDR_SUITE_DATABASE_PATH=/tmp/vdr-suite-ppa-resolute-smoke/runtime.sqlite \
+                VDR_SUITE_SECURITY_DATABASE_PATH=/tmp/vdr-suite-ppa-resolute-smoke/runtime.sqlite \
+                VDR_SUITE_FRONTEND_ROOT="$root" \
+                VDR_SUITE_SUITE_BRIDGE_ENABLED=false \
+                VDR_SUITE_SERIES_ARTWORK_FALLBACK_ENABLED=false \
+                /usr/sbin/vdr-suite-daemon >"$log" 2>&1 &
+            pid=$!
+            ready=false
+            for attempt in $(seq 1 45); do
+              if curl --noproxy '*' --fail --silent --max-time 2 \
+                  "$base/frontend/index.html" -o /tmp/vdr-resolute-index.html; then
+                ready=true
+                break
+              fi
+              if ! kill -0 "$pid" 2>/dev/null; then break; fi
+              sleep 1
+            done
+            if [ "$ready" != true ]; then
+              echo 'RESOLUTE_DAEMON_START=FAIL'
+              exit 1
+            fi
+            kill -0 "$pid"
+            cmp "$root/index.html" /tmp/vdr-resolute-index.html
+            echo 'RESOLUTE_DAEMON_HTTP_START=PASS'
+          }
+          stop_daemon() {
+            kill -TERM "$pid"
+            stopped=false
+            for attempt in $(seq 1 30); do
+              if ! kill -0 "$pid" 2>/dev/null; then stopped=true; break; fi
+              sleep 1
+            done
+            if [ "$stopped" != true ]; then echo 'RESOLUTE_GRACEFUL_STOP=FAIL'; exit 1; fi
+            wait "$pid"
+            pid=''
+            echo 'RESOLUTE_GRACEFUL_STOP=PASS'
+          }
+          start_daemon
+          for asset in style.css hbbtv-qoi.js api/public-v1-client.js; do
+            curl --noproxy '*' --fail --silent --show-error --max-time 5 \
+              "$base/frontend/$asset" -o /tmp/vdr-resolute-asset
+            cmp "$root/$asset" /tmp/vdr-resolute-asset
+          done
+          curl --noproxy '*' --fail --silent --show-error --max-time 5 \
+            "$base/frontend/app.js" -o /tmp/vdr-resolute-app
+          test "$(wc -c </tmp/vdr-resolute-app)" -ge "$(wc -c <"$root/app.js")"
+          status="$(curl --noproxy '*' --silent --show-error --max-time 5 \
+            -D /tmp/vdr-resolute-headers -o /tmp/vdr-resolute-api \
+            -w '%{http_code}' "$base/api/v1/backends")"
+          test "$status" = 401
+          grep -Eiq '^Content-Type: application/problem[+]json' /tmp/vdr-resolute-headers
+          stop_daemon
+          start_daemon
+          stop_daemon
+          echo 'RESOLUTE_PPA_DAEMON_HTTP_RESTART=PASS'
