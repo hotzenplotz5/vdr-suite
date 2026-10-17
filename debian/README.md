@@ -1,5 +1,18 @@
 # Experimental Debian source packaging
 
+**PPA-Status (17 October 2026):** The historical build/release gates below
+were written before the first Launchpad publications. Noble has real published
+three-binary VDR-Suite packages, a separately packaged `vdr-plugin-web`, and
+verified isolated APT, daemon/HTTP and VDR plugin-loader acceptance
+([CI #39038795095](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39038795095)).
+Resolute has `vdr-plugin-web` and Seahawk VDR but does not yet publish the
+three VDR-Suite binaries ([readiness run #39039206371](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39039206371)).
+Older statements such as “no Launchpad upload” below are **historical**, not
+current publication assertions. Neither this publication nor the in-progress
+[main integration PR #494](https://github.com/hotzenplotz5/vdr-suite/pull/494)
+authorizes production migration, automatic Daily publishing, or a live yaVDR
+install. [Current PPA acceptance](../packaging/README.md).
+
 This root `debian/` directory is the canonical source-package location for `dpkg-buildpackage`. The historical `packaging/debian/` directory is documentation, not an alternative `debian/` source tree.
 
 ## Independent VDR plugin build

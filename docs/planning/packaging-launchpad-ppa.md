@@ -1,5 +1,22 @@
 # VDR-Suite Ubuntu test PPA
 
+> **Aktueller PPA-Stand (17.10.2026):** Die folgenden frühen Build-/Upload-Notizen
+> dokumentieren historische Prüfphasen und sind **keine aktuelle Aussage, dass
+> das PPA leer ist**. Für Ubuntu 24.04 Noble sind `vdr-suite-daemon`,
+> `vdr-suite-backend-agent`, `vdr-plugin-suitebridge` und das separat
+> gepatchte `vdr-plugin-web` veröffentlicht. Die echte Installation,
+> Daemon-/HTTP-Laufzeit und VDR-Plugin-Erkennung wurden in
+> [CI #39038795095](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39038795095)
+> geprüft. Für Ubuntu 26.04 Resolute sind Seahawks VDR und `vdr-plugin-web`
+> verfügbar, die drei VDR-Suite-Pakete dagegen noch nicht; siehe
+> [CI #39039206371](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39039206371).
+> Keine dieser Prüfungen autorisiert einen produktiven yaVDR-Umstieg.
+> **`main`-Migration:** [PR #494](https://github.com/hotzenplotz5/vdr-suite/pull/494)
+> integriert die Quell-Paketierung; das Launchpad-Rezept wird **nicht durch
+> den GitHub-Merge automatisch umgestellt**. Daily-Builds bleiben getrennt
+> freizugeben, sobald Versionierung, Resolute-Veröffentlichung und die
+> tatsächlichen Installations-/Laufzeitprüfungen geprüft sind.
+
 Status (2026-10-17): **19/19 CI jobs PASS** on exact packaging commit `cd0bc82ca1ff183c3d7cc69a553a51cd479b9eca`, [GitHub Actions run 38990016336](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38990016336). Noble and Resolute full three-binary builds, plugin-only builds, isolated package lifecycle, P8 refusal, historical exp1-to-exp2 upgrade/rollback, deterministic source package and zero-error Lintian gate all pass. Three Lintian `copyright-without-copyright-notice` warnings remain: the source-level inventory intentionally avoids asserting a specific personal copyright holder without sufficient evidence. **No signed source upload, Launchpad chroot build, full rights clearance or production migration approval**.
 
 ## PPA
