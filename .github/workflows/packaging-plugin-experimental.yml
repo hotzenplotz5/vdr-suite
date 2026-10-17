@@ -166,7 +166,9 @@ jobs:
             candidate="$(dpkg-parsechangelog -l "$source/debian/changelog" -S Version)"
             test "$candidate" = "$upstream_version~ubuntu$([ "$series" = noble ] && echo 24.04 || echo 26.04).1"
             test "$(dpkg-parsechangelog -l "$source/debian/changelog" -S Distribution)" = "$series"
-            (cd "$source" && SOURCE_DATE_EPOCH="$epoch" dpkg-buildpackage -S -sa -us -uc -d) \
+            # git archive is a pristine source tree; -nc avoids requiring dh/vdr-dev
+            # merely for debian/rules clean in this source-only runner.
+            (cd "$source" && SOURCE_DATE_EPOCH="$epoch" dpkg-buildpackage -S -sa -us -uc -d -nc) \
               > "$root/source-build.log" 2>&1 || { cat "$root/source-build.log"; exit 1; }
             changes="$root/vdr-suite_${candidate}_source.changes"
             dsc="$root/vdr-suite_${candidate}.dsc"
