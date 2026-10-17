@@ -1472,7 +1472,7 @@ public:
                 channelReadRequest.permission = "channels.view";
                 channelReadRequest.backendId = backendId;
                 channelReadRequest.action = "channels.view";
-                const AuthorizationDecision decision =
+                AuthorizationDecision decision =
                     authorizationService_.authorize(
                         gate.context,
                         channelReadRequest);
@@ -1485,6 +1485,32 @@ public:
                         "Security accountability persistence is unavailable",
                         gate.context);
                     return gate;
+                }
+
+                // A backend-scoped Live-TV playback grant necessarily
+                // permits discovery of channels on that same backend.
+                // Independent channels.view-only access stays possible;
+                // neither grant is written or inherited persistently.
+                if (!decision.allowed)
+                {
+                    AuthorizationRequest liveReadRequest;
+                    liveReadRequest.permission = "media.live.play";
+                    liveReadRequest.backendId = backendId;
+                    liveReadRequest.action = "channels.view.via_live";
+                    const AuthorizationDecision liveDecision =
+                        authorizationService_.authorize(
+                            gate.context, liveReadRequest);
+                    if (!appendDecisionEvent(
+                            gate.context, liveDecision, ""))
+                    {
+                        gate.rejection = errorResponse(
+                            503, "accountability_unavailable",
+                            "Security accountability persistence is unavailable",
+                            gate.context);
+                        return gate;
+                    }
+                    if (liveDecision.allowed)
+                        decision = liveDecision;
                 }
 
                 if (!decision.allowed)
