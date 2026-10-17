@@ -281,8 +281,14 @@ avoids a second automatic full-EPG fetch. The Web and Public-v1 preview paths
 continue to use their existing domain matcher.
 
 A shared immutable cache generation is retained for the duration of the
-matching/copying operation in both Public-v1 and legacy Web consumers. The
-cache status and invalidation semantics remain in force; a stale, unavailable
+matching/copying operation in both Public-v1 and legacy Web consumers.
+Additionally, `SearchTimerPreviewEpgCache::readForBackend` now observes the
+cache status **and** the retained ready generation under one lock for the
+legacy Web preview facade. An intervening native EPG invalidation cannot
+mix one generation's status with another generation's events. A dedicated
+C++ regression verifies Unknown/Ready/Stale/Warming/Unavailable status and
+stable snapshot lifetime across cache replacement and backend isolation.
+The cache status and invalidation semantics remain in force; a stale, unavailable
 or not-yet-warmed cache is **not** a fabricated zero-match result. The
 snapshot change feed already invalidates the preview on native EPG changes;
 the existing EPG worker eventually republishes ready data after its
