@@ -94,3 +94,11 @@ Do **not** run this on the productive yaVDR installation now. PPA availability a
 ## Current status and non-goals
 
 P2–P7 remain **in progress**. GitHub Actions #29 demonstrates a reproducible-in-CI noble/Seahawk three-binary build and disposable package lifecycle, not a signed clean Launchpad build, supported historical upgrade, or real service acceptance. No upload to Launchpad, service restart, host permission change, package installation or main-branch merge is performed by this document.
+
+## 2026-10-17 copyright metadata checkpoint (not an upload clearance)
+
+At branch commit `45521e27d4fc7158075d4c255d83939876f3c2d7`, the packaging work added provisional [DEP-5 `debian/copyright`](../../debian/copyright), a [scope explanation](../../debian/README.md#provisional-debian-copyright-inventory-2026-10-17), and focused source regression coverage. The record preserves the TVScraper GPL-2.0-or-later exception, distinguishes independently introduced service ABI declarations, and **explicitly withholds** copyright/licensing clearance for bundled art with incomplete rights evidence. It is not a release authorization.
+
+The completed [baseline run 38970428064](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38970428064) at `94562a77c61a017f3b3a13d36ea0d0f69947c7bf` passed all 19 CI jobs. Its Resolute Lintian output had three `no-copyright-file` errors, one per .deb, and `LINTIAN_EXIT_STATUS=2`; Lintian was captured but not enforced as a release pass. The new metadata has not been verified in a completed corresponding package build at the time of this checkpoint. For P5 closure, inspect each **rebuilt** binary for `/usr/share/doc/<package>/copyright`, rerun Lintian, and separately resolve the actual remaining art/code rights and publication approval. A lintian-clean package can still be legally blocked.
+
+The Seahawk Launchpad archive dependency is recorded as present in the maintainer's authenticated PPA UI but still requires validation in actual Launchpad series chroots. Uploader OpenPGP identity, source `debian/changelog` target suite, source signing, monotonic PPA version and manual-install migration acceptance remain separate gates. Do not upload or run apt/dpkg against the productive yaVDR.
