@@ -709,8 +709,12 @@ public:
              path == "/api/v1/genres/recordings");
         const bool isPublicChannelCollection =
             path == "/api/v1/channels";
+        const bool isPublicNativeTimerRead =
+            request.method == "GET" &&
+            path == "/api/v1/native-timers";
         const bool isPublicEpgNowNext =
-            path == "/api/v1/epg/now-next";
+            path == "/api/v1/epg/now-next" ||
+            path == "/api/v1/epg/window";
         const bool isPublicEpgNowNextRead =
             request.method == "GET" && isPublicEpgNowNext;
         std::vector<std::string> publicChannelBackendIds;
@@ -806,6 +810,7 @@ public:
              isPublicBackendCollection ||
              isPublicChannelCollection ||
              isPublicEpgNowNext ||
+             path == "/api/v1/native-timers" ||
              isPublicTimerAssignmentCollection ||
              isPublicOperationResource ||
              isPublicAccountCredentialResource ||
@@ -1382,13 +1387,15 @@ public:
                     "A single valid backendId is required.", "");
             }
 
-            AuthorizationRequest epgReadRequest;
-            epgReadRequest.permission = "epg.view";
-            epgReadRequest.backendId = scopes.front();
-            epgReadRequest.action = "epg.view";
-            const AuthorizationDecision decision =
-                authorizationService_.authorize(
-                    gate.context, epgReadRequest);
+            // EPG-only access is permitted, and a backend-scoped Live-TV
+            // playback grant includes the guide for that same backend.
+            // channels.view alone does not imply Live-TV or EPG rights.
+            AuthorizationRequest epgRequest;
+            epgRequest.permission = "epg.view";
+            epgRequest.backendId = scopes.front();
+            epgRequest.action = "epg.view";
+            AuthorizationDecision decision =
+                authorizationService_.authorize(gate.context, epgRequest);
             if (!appendDecisionEvent(gate.context, decision, ""))
             {
                 gate.rejection = errorResponse(
@@ -1396,6 +1403,27 @@ public:
                     "Security accountability persistence is unavailable",
                     gate.context);
                 return gate;
+            }
+
+            if (!decision.allowed)
+            {
+                AuthorizationRequest liveRequest;
+                liveRequest.permission = "media.live.play";
+                liveRequest.backendId = scopes.front();
+                liveRequest.action = "epg.view.via_live";
+                const AuthorizationDecision liveDecision =
+                    authorizationService_.authorize(
+                        gate.context, liveRequest);
+                if (!appendDecisionEvent(gate.context, liveDecision, ""))
+                {
+                    gate.rejection = errorResponse(
+                        503, "accountability_unavailable",
+                        "Security accountability persistence is unavailable",
+                        gate.context);
+                    return gate;
+                }
+                if (liveDecision.allowed)
+                    decision = liveDecision;
             }
             if (!decision.allowed)
             {
@@ -1444,7 +1472,7 @@ public:
                 channelReadRequest.permission = "channels.view";
                 channelReadRequest.backendId = backendId;
                 channelReadRequest.action = "channels.view";
-                const AuthorizationDecision decision =
+                AuthorizationDecision decision =
                     authorizationService_.authorize(
                         gate.context,
                         channelReadRequest);
@@ -1457,6 +1485,32 @@ public:
                         "Security accountability persistence is unavailable",
                         gate.context);
                     return gate;
+                }
+
+                // A backend-scoped Live-TV playback grant necessarily
+                // permits discovery of channels on that same backend.
+                // Independent channels.view-only access stays possible;
+                // neither grant is written or inherited persistently.
+                if (!decision.allowed)
+                {
+                    AuthorizationRequest liveReadRequest;
+                    liveReadRequest.permission = "media.live.play";
+                    liveReadRequest.backendId = backendId;
+                    liveReadRequest.action = "channels.view.via_live";
+                    const AuthorizationDecision liveDecision =
+                        authorizationService_.authorize(
+                            gate.context, liveReadRequest);
+                    if (!appendDecisionEvent(
+                            gate.context, liveDecision, ""))
+                    {
+                        gate.rejection = errorResponse(
+                            503, "accountability_unavailable",
+                            "Security accountability persistence is unavailable",
+                            gate.context);
+                        return gate;
+                    }
+                    if (liveDecision.allowed)
+                        decision = liveDecision;
                 }
 
                 if (!decision.allowed)
@@ -1481,6 +1535,62 @@ public:
             gate.authorizationDecision = lastDecision;
             gate.authorizedBackendIds =
                 std::move(publicChannelBackendIds);
+            gate.allowed = true;
+            return gate;
+        }
+
+        if (isPublicNativeTimerRead)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            const auto scopes = queryStringValues(request.path, "backendId");
+            const bool validScope = scopes.size() == 1U &&
+                !scopes.front().empty() &&
+                scopes.front().size() <= 128U &&
+                std::all_of(scopes.front().begin(),scopes.front().end(),
+                    [](unsigned char c) {
+                        return std::isalnum(c) || c == '.' ||
+                            c == '_' || c == '-';
+                    });
+            if (!validScope)
+            {
+                AuthorizationDecision invalid;
+                invalid.permission = "timers.view";
+                invalid.backendId = "*";
+                invalid.reasonCode = "invalid_backend_scope";
+                invalid.action = "native_timers.view";
+                return rejectWithAudit(gate, invalid, 400,
+                    "One backendId is required.", "");
+            }
+            AuthorizationRequest timerRequest;
+            timerRequest.permission = "timers.view";
+            timerRequest.backendId = scopes.front();
+            timerRequest.action = "native_timers.view";
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(gate.context,timerRequest);
+            if (!appendDecisionEvent(gate.context,decision,""))
+            {
+                gate.rejection = errorResponse(
+                    503, "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+            if (!decision.allowed)
+            {
+                const int code =
+                    decision.reasonCode == "invalid_backend_scope"
+                        ? 400
+                        : (authenticationFailure(decision) ? 401 : 403);
+                gate.rejection = errorResponse(
+                    code,decision.reasonCode,
+                    messageForReason(decision.reasonCode),
+                    gate.context,authenticationFailure(decision),
+                    gate.publicApiV1);
+                return gate;
+            }
+            gate.authorizationDecision = decision;
+            gate.authorizedBackendIds = scopes;
             gate.allowed = true;
             return gate;
         }

@@ -13,7 +13,7 @@
 
 Source baseline: `main=8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0`, 2026-10-11. Public-v1 routes, bounded parsers, serializers, security permissions and REST tests have been inspected. These are *read-only metadata* APIs and must not be confused with device-owned playback, media-track, native VDR directory or Web-private endpoints. Source presence is not proof that a given yaVDR daemon or Hisense VIDAA build has deployed these routes.
 
-All four GET operations require an authenticated Actor and **exactly one** `backendId` query value. The security gate enforces the grant and authorized backend scope; runtime checks that the supplied backend matches the scoped set. The Recording and Genre reads require `recordings.view@backend`; EPG now/next requires `epg.view@backend`, **not just `channels.view`**. Invalid/duplicate/unknown query fields and mismatched scopes yield HTTP 400 (the security gate can return 401/403 first).
+All four GET operations require an authenticated Actor and **exactly one** `backendId` query value. The security gate enforces the grant and authorized backend scope; runtime checks that the supplied backend matches the scoped set. The Recording and Genre reads require `recordings.view@backend`; EPG now/next requires **either `epg.view@backend` or `media.live.play@backend`**, never `channels.view` alone. Live-TV playback permission includes access to the EPG on that same backend. Invalid/duplicate/unknown query fields and mismatched scopes yield HTTP 400 (the security gate can return 401/403 first).
 
 ## 1. Recording collection (keyset mode)
 
@@ -61,7 +61,7 @@ Both require `recordings.view@home`; `genreId` is **required** only on the membe
 GET /api/v1/epg/now-next?backendId=home&channelId=S19.2E-1-100&fromTime=1791565200&limit=2
 ```
 
-Requires **`epg.view@home`** for the requested `backendId`. Both `backendId`, `channelId` and `fromTime` are mandatory. `channelId` is limited to 1–256 alphanumeric/dot/underscore/hyphen characters; `fromTime` is **decimal Unix epoch seconds**, 10–12 digits without a leading zero. Limit is 1–2 (default 2); `cursor`/`offset` and all unknown fields are invalid. One `GET` uses cached service data only; it does **not** refresh EPG.
+Requires **`epg.view@home` or `media.live.play@home`** for the requested `backendId`. Both `backendId`, `channelId` and `fromTime` are mandatory. `channelId` is limited to 1–256 alphanumeric/dot/underscore/hyphen characters; `fromTime` is **decimal Unix epoch seconds**, 10–12 digits without a leading zero. Limit is 1–2 (default 2); `cursor`/`offset` and all unknown fields are invalid. One `GET` uses cached service data only; it does **not** refresh EPG.
 
 ```json
 {"backendId":"home","channelId":"S19.2E-1-100","items":[{"channelId":"S19.2E-1-100","title":"Nachrichten","subtitle":"Jetzt","startTime":"1791565200","endTime":"1791568800","durationSeconds":3600}],"page":{"limit":2,"hasMore":false},"meta":{"partial":false}}

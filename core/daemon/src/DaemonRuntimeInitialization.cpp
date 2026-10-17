@@ -1604,6 +1604,121 @@ bool DaemonRuntime::initialize()
             return result;
         });
 
+    // Native VDR timers, not Suite TimerAssignments. Never use the
+    // browser-only timer endpoint or infer schedule execution status.
+    PublicApiRuntime::instance().registerNativeTimersLookup(
+        [this](const PublicNativeTimersRequest& request)
+        {
+            PublicNativeTimersResult result;
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                request.backendId.empty() || request.limit == 0U ||
+                request.limit > 30U || request.offset > 100000U)
+            {
+                result.status = PublicNativeTimersStatus::invalid;
+                return result;
+            }
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled ||
+                !backend->online ||
+                !vdrSnapshotReadService_
+                    ->hasSnapshotForBackend(request.backendId))
+                return result;
+
+            auto timers = vdrSnapshotReadService_->getTimersForBackend(
+                request.backendId);
+            std::sort(timers.begin(), timers.end(),
+                [](const VdrTimer& first, const VdrTimer& second) {
+                    return first.id < second.id;
+                });
+            const std::size_t count = timers.size();
+            const std::size_t begin = std::min(count, request.offset);
+            const std::size_t end =
+                std::min(count, begin + request.limit);
+            result.hasMore = end < count;
+            for (std::size_t index = begin; index < end; ++index)
+            {
+                const auto& timer = timers[index];
+                if (timer.id.empty() || timer.id.size() > 512U)
+                    return PublicNativeTimersResult{};
+                PublicNativeTimerItem item;
+                item.id = timer.id;
+                item.channelId = timer.channelId;
+                item.channelName = timer.channelName;
+                item.title = timer.title;
+                item.day = timer.day;
+                item.weekdays = timer.weekdays;
+                item.startTime = timer.startTime;
+                item.endTime = timer.endTime;
+                item.enabled = timer.enabled;
+                item.recording = timer.recording;
+                item.pending = timer.pending;
+                result.timers.push_back(std::move(item));
+            }
+            result.status = PublicNativeTimersStatus::ok;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerEpgWindowLookup(
+        [this](const PublicEpgWindowRequest& request)
+        {
+            PublicEpgWindowResult result;
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                !epgCacheServiceRegistry_ ||
+                request.backendId.empty() || request.channelId.empty() ||
+                request.limit == 0U || request.limit > 192U)
+            {
+                result.status = PublicEpgNowNextStatus::invalid;
+                return result;
+            }
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled ||
+                !backend->online ||
+                !vdrSnapshotReadService_
+                    ->hasSnapshotForBackend(request.backendId))
+                return result;
+            const auto channels =
+                vdrSnapshotReadService_
+                    ->getChannelsForBackend(request.backendId);
+            const auto channel = std::find_if(
+                channels.begin(), channels.end(),
+                [&request](const VdrChannel& item) {
+                    return item.id == request.channelId;
+                });
+            if (channel == channels.end())
+            {
+                result.status = PublicEpgNowNextStatus::notFound;
+                return result;
+            }
+            EpgCacheService* service =
+                epgCacheServiceRegistry_->findService(request.backendId);
+            if (service == nullptr) return result;
+            const auto events = service->findWindowForBackend(
+                request.backendId, request.channelId, request.fromTime,
+                request.untilTime, static_cast<int>(request.limit + 1U));
+            result.hasMore = events.size() > request.limit;
+            for (std::size_t i = 0U;
+                 i < events.size() && i < request.limit; ++i)
+            {
+                const VdrEvent& event = events[i];
+                if (event.channelId != request.channelId ||
+                    event.title.empty() || event.startTime.empty() ||
+                    event.endTime.empty() || event.durationSeconds < 0)
+                    return PublicEpgWindowResult{};
+                PublicEpgNowNextItem item;
+                item.channelId = event.channelId;
+                item.title = event.title;
+                item.subtitle = event.subtitle;
+                item.startTime = event.startTime;
+                item.endTime = event.endTime;
+                item.durationSeconds = event.durationSeconds;
+                result.events.push_back(std::move(item));
+            }
+            result.status = PublicEpgNowNextStatus::ok;
+            return result;
+        });
+
     PublicApiRuntime::instance().registerChannelCollectionLookup(
         [this](const PublicChannelCollectionRequest& request)
         {
