@@ -221,3 +221,24 @@ The capability is deliberately separate from `public-api.timer-create-admission`
 it grants no `timers.create` action and does not certify native timer
 execution. This additive read capability is included without changing
 or weakening the existing Phase-69 route inventory gate.
+
+## Reuse existing Intent/Assignment without consuming native CREATE admission
+
+`TimerIntentApplicationService::submitAndSelectPrimary` is added to the
+*existing* TimerIntent application workflow. It uses the same durable
+`TimerIntentRepository`, `TimerAssignmentSchedulingService`, candidate
+planner and duplicate-ownership checks as `submitAndProvisionPrimary`, but
+returns a revisioned primary Assignment in `selected` state. The caller
+must then use the already-existing atomic
+`NativeTimerCreateAdmissionService::admit`, which alone transitions that
+Assignment to `provisioning` and durably prepares the native Operation.
+The original immediate-provision method is unchanged for existing callers.
+Regression `test-timer-intent-application-service` covers persisted
+selection, restart/idempotent replay, no premature mutation, subsequent
+legacy provisioning and conflicting semantic replay.
+
+**Limit:** This is domain-service composition, not a public Device POST.
+No synthetic conflict-clear evidence, guessed backend timezone or grant
+is introduced. Selection cannot be exposed as a verified VDR recording;
+public write admission, capability/health/channel/conflict evidence and
+native readback still gate the VIDAA action.

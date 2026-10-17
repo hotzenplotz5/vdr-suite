@@ -17,6 +17,7 @@ class TimerIntentRepository;
 enum class TimerIntentApplicationStatus
 {
     provisioningStarted,
+    assignmentSelected,
     alreadyProvisioning,
     alreadyBound,
     noEligibleBackend,
@@ -47,7 +48,8 @@ struct TimerIntentApplicationResult
 
     bool ok() const
     {
-        return status == TimerIntentApplicationStatus::provisioningStarted
+        return status == TimerIntentApplicationStatus::assignmentSelected
+            || status == TimerIntentApplicationStatus::provisioningStarted
             || status == TimerIntentApplicationStatus::alreadyProvisioning
             || status == TimerIntentApplicationStatus::alreadyBound;
     }
@@ -61,10 +63,20 @@ public:
         TimerAssignmentRepository& assignmentRepository,
         NativeTimerBindingRepository& bindingRepository);
 
+    // Persists/reuses the same Intent and primary Assignment without
+    // beginning provisioning. The existing atomic NativeTimerCreateAdmission
+    // service exclusively owns that transition for public-v1 CREATE.
+    TimerIntentApplicationResult submitAndSelectPrimary(
+        const TimerIntentApplicationRequest& request);
+
+    // Retained for existing owners with deliberate immediate provisioning.
     TimerIntentApplicationResult submitAndProvisionPrimary(
         const TimerIntentApplicationRequest& request);
 
 private:
+    TimerIntentApplicationResult submitPrimary(
+        const TimerIntentApplicationRequest& request,
+        bool provisionImmediately);
     TimerIntentRepository& intentRepository_;
     TimerAssignmentRepository& assignmentRepository_;
     TimerAssignmentSchedulingService scheduling_;

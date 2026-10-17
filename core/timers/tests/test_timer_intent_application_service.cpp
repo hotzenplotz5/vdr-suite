@@ -132,6 +132,55 @@ int main()
     assert(noBackend.status == TimerIntentApplicationStatus::noEligibleBackend);
     assert(noBackend.assignment.state == TimerAssignmentState::unassigned);
 
+
+    // Public-v1 preparation must not consume the selected Assignment:
+    // NativeTimerCreateAdmissionService performs that change atomically
+    // together with persistent Operation preparation.
+    auto selectedRequest = request();
+    selectedRequest.intent.timerIntentId = "intent:application:selection";
+    selectedRequest.timerAssignmentId = "assignment:application:selection";
+    const auto selected = service.submitAndSelectPrimary(selectedRequest);
+    assert(selected.ok());
+    assert(selected.status == TimerIntentApplicationStatus::assignmentSelected);
+    assert(selected.intent.state == TimerIntentState::active);
+    assert(selected.assignment.state == TimerAssignmentState::selected);
+    assert(selected.assignment.assignmentRevision == "1");
+    assert(selected.assignment.desiredNativeTimerSpecificationPresent);
+    const auto durable = assignments.findById(selectedRequest.timerAssignmentId);
+    assert(durable.ok());
+    assert(durable.assignment.state == TimerAssignmentState::selected);
+    assert(durable.assignment.assignmentRevision ==
+        selected.assignment.assignmentRevision);
+
+    TimerIntentApplicationService selectAfterRestart(
+        intents, assignments, bindings);
+    const auto selectedReplay =
+        selectAfterRestart.submitAndSelectPrimary(selectedRequest);
+    assert(selectedReplay.status ==
+        TimerIntentApplicationStatus::assignmentSelected);
+    assert(selectedReplay.assignment.timerAssignmentId ==
+        selected.assignment.timerAssignmentId);
+    assert(selectedReplay.assignment.assignmentRevision ==
+        selected.assignment.assignmentRevision);
+
+    const auto provisioning =
+        selectAfterRestart.submitAndProvisionPrimary(selectedRequest);
+    assert(provisioning.status ==
+        TimerIntentApplicationStatus::provisioningStarted);
+    assert(provisioning.assignment.state ==
+        TimerAssignmentState::provisioning);
+    const auto afterAdmission =
+        selectAfterRestart.submitAndSelectPrimary(selectedRequest);
+    assert(afterAdmission.status ==
+        TimerIntentApplicationStatus::alreadyProvisioning);
+    assert(afterAdmission.assignment.state ==
+        TimerAssignmentState::provisioning);
+
+    auto wrongRequest = selectedRequest;
+    wrongRequest.intent.spec.schedule.stopAt = 2150;
+    assert(selectAfterRestart.submitAndSelectPrimary(wrongRequest).status ==
+        TimerIntentApplicationStatus::intentConflict);
+
     std::cout << "test_timer_intent_application_service passed\n";
     return 0;
 }
