@@ -2222,6 +2222,10 @@ bool DaemonRuntime::initialize()
                     return PublicEpgWindowResult{};
                 PublicEpgNowNextItem item;
                 item.channelId = event.channelId;
+                // Preserve only a bounded, source-verified event identifier.
+                // Missing IDs remain missing; no title/time proxy identity.
+                if (event.id.size() <= 256U)
+                    item.eventId = event.id;
                 item.title = event.title;
                 item.subtitle = event.subtitle;
                 item.startTime = event.startTime;
