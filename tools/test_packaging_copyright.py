@@ -20,6 +20,8 @@ class CopyrightMetadataTests(unittest.TestCase):
         ):
             with self.subTest(required=required):
                 self.assertIn(required, value)
+        self.assertNotIn("License-grant-pending", value)
+        self.assertIn("Files: web/frontend/logo-vdr-suite.svg", value)
 
     def test_three_binary_packages_and_debhelper_copyright_sequence(self):
         control = (ROOT / "debian/control").read_text(encoding="utf-8")
