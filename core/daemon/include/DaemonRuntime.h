@@ -133,6 +133,7 @@
 #include "SnapshotChangeFeedJsonSerializer.h"
 #include "SnapshotChangeFeedService.h"
 #include "SseLiveTransport.h"
+#include "DeviceLiveEventHub.h"
 #include "VdrSnapshotReadJsonSerializer.h"
 #include "VdrSnapshotReadService.h"
 #include "SnapshotCache.h"
@@ -293,6 +294,7 @@ private:
     std::unique_ptr<SnapshotChangeFeedService> snapshotChangeFeedService_;
     std::unique_ptr<SnapshotChangeFeedJsonSerializer> snapshotChangeFeedJsonSerializer_;
     std::unique_ptr<SnapshotChangeFeedController> snapshotChangeFeedController_;
+    std::shared_ptr<DeviceLiveEventHub> deviceLiveEventHub_;
     std::unique_ptr<SseLiveTransport> liveTransport_;
     std::unique_ptr<LiveTransportService> liveTransportService_;
     std::unique_ptr<LiveTransportController> liveTransportController_;

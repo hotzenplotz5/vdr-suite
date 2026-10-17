@@ -2,6 +2,7 @@
 
 #include "DaemonRuntimeRecordingCut.h"
 
+#include "BackendAgentNativeTimerDeleteFingerprint.h"
 #include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "RecordingArtworkHttpServer.h"
@@ -962,7 +963,9 @@ bool DaemonRuntime::initialize()
     runtimeDiagnosticsController_ = std::make_unique<RuntimeDiagnosticsController>(runtimeDiagnosticsService_, *runtimeDiagnosticsJsonSerializer_);
     snapshotChangeFeedController_ = std::make_unique<SnapshotChangeFeedController>(*snapshotChangeFeed_, *snapshotChangeFeedJsonSerializer_);
 
+    deviceLiveEventHub_ = std::make_shared<DeviceLiveEventHub>();
     liveTransport_ = std::make_unique<SseLiveTransport>();
+    liveTransport_->setDeviceLiveEventHub(deviceLiveEventHub_);
     liveTransportService_ = std::make_unique<LiveTransportService>(*liveTransport_);
     liveTransportController_ = std::make_unique<LiveTransportController>(*liveTransport_);
 
@@ -1347,8 +1350,8 @@ bool DaemonRuntime::initialize()
 
             // Same engine and ready backend-scoped EPG cache as the Web
             // preview; do not substitute raw EPG text search.
-            const auto* events =
-                searchTimerPreviewEpgCache_->eventsForBackend(request.backendId);
+            const auto events =
+                searchTimerPreviewEpgCache_->sharedEventsForBackend(request.backendId);
             if (!events) return result;
 
             if (request.draft)
@@ -2173,6 +2176,89 @@ bool DaemonRuntime::initialize()
             return result;
         });
 
+    PublicApiRuntime::instance().registerEpgEventDetailLookup(
+        [this](const PublicEpgEventDetailRequest& request)
+        {
+            PublicEpgEventDetailResult result;
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                !backendAgentRepository_ || !epgCacheServiceRegistry_)
+                return result;
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend || !backend->enabled || !backend->online ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(request.backendId))
+                return result;
+            const auto agent =
+                backendAgentRepository_->findAgentForBackend(request.backendId);
+            if (!agent || agent->revoked || agent->incompatible ||
+                agent->backendGeneration == 0U)
+                return result;
+            const auto channels =
+                vdrSnapshotReadService_->getChannelsForBackend(request.backendId);
+            const auto channel = std::find_if(channels.begin(), channels.end(),
+                [&request](const VdrChannel& item) {
+                    return item.id == request.channelId;
+                });
+            if (channel == channels.end())
+            {
+                result.status = PublicEpgNowNextStatus::notFound;
+                return result;
+            }
+            const EpgCacheService* cache =
+                epgCacheServiceRegistry_->findService(request.backendId);
+            if (!cache || !cache->getStatusForBackend(request.backendId).ready)
+                return result;
+            const auto event = cache->findSourceEventForBackend(
+                request.backendId, request.channelId, request.eventId);
+            if (!event)
+            {
+                result.status = PublicEpgNowNextStatus::notFound;
+                return result;
+            }
+            if (event->id != request.eventId ||
+                event->channelId != request.channelId ||
+                event->title.empty() || event->title.size() > 512U ||
+                event->subtitle.size() > 512U ||
+                event->description.size() > 1536U ||
+                event->startTime.empty() || event->endTime.empty() ||
+                event->startTime.size() > 20U || event->endTime.size() > 20U ||
+                event->durationSeconds < 0)
+                return result;
+            // SHA-256 digest is opaque. Every changing event field and the
+            // backend generation are bound as length-delimited inputs.
+            std::string fingerprint;
+            const auto append = [&fingerprint](const std::string& item) {
+                fingerprint += std::to_string(item.size()) + ":" + item;
+            };
+            append("public-epg-event/1");
+            append(request.backendId);
+            append(request.channelId);
+            append(request.eventId);
+            append(std::to_string(agent->backendGeneration));
+            append(event->title);
+            append(event->subtitle);
+            append(event->description);
+            append(event->startTime);
+            append(event->endTime);
+            append(std::to_string(event->durationSeconds));
+            const std::string digest =
+                vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
+                    fingerprint);
+            if (digest.empty()) return result;
+            result.resourceRevision = "epg1:" + digest;
+            result.backendId = request.backendId;
+            result.channelId = request.channelId;
+            result.eventId = request.eventId;
+            result.title = event->title;
+            result.subtitle = event->subtitle;
+            result.description = event->description;
+            result.startTime = event->startTime;
+            result.endTime = event->endTime;
+            result.durationSeconds = event->durationSeconds;
+            result.status = PublicEpgNowNextStatus::ok;
+            return result;
+        });
+
     PublicApiRuntime::instance().registerEpgWindowLookup(
         [this](const PublicEpgWindowRequest& request)
         {
@@ -2222,9 +2308,12 @@ bool DaemonRuntime::initialize()
                     return PublicEpgWindowResult{};
                 PublicEpgNowNextItem item;
                 item.channelId = event.channelId;
-                // Preserve only a bounded, source-verified event identifier.
-                // Missing IDs remain missing; no title/time proxy identity.
-                if (event.id.size() <= 256U)
+                // Source-ID evidence must survive the EPG cache boundary.
+                // Legacy rows and generated title/time cache keys stay
+                // usable for the grid but cannot be recorded as native IDs.
+                if (!event.id.empty() && event.id.size() <= 160U &&
+                    service->hasSourceEventIdForBackend(
+                        request.backendId, request.channelId, event.id))
                     item.eventId = event.id;
                 item.title = event.title;
                 item.subtitle = event.subtitle;
@@ -2577,7 +2666,7 @@ bool DaemonRuntime::initialize()
     std::cout << "SearchTimer preview EPG cache runtime initialized" << std::endl;
 
     auto clientHttpServer = std::make_unique<RecordingArtworkHttpServer>(
-        std::make_unique<TestHttpServer>(*apiRouter_),
+        std::make_unique<TestHttpServer>(*apiRouter_, deviceLiveEventHub_),
         *vdrRecordingCacheRepository_,
         config_.recordingArtworkRoots());
     httpServer_ = std::make_unique<BackendAgentHttpServer>(

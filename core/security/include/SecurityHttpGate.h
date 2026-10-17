@@ -32,6 +32,7 @@ struct SecurityGateDecision
     bool publicApiV1 = false;
     AuthorizationDecision authorizationDecision;
     std::vector<std::string> authorizedBackendIds;
+    std::vector<std::string> deviceEventDomains;
     std::string operationId;
     RequestSecurityContext context;
     HttpServerResponse rejection;
@@ -727,10 +728,13 @@ public:
             path == "/api/v1/genres/epg/events" ||
             path == "/api/v1/epg/now-next" ||
             path == "/api/v1/epg/window" ||
+            path == "/api/v1/epg/event" ||
             path == "/api/v1/search/epg";
         const bool isPublicNativeTimerRead =
             request.method == "GET" &&
             path == "/api/v1/native-timers";
+        const bool isPublicDeviceEventRead =
+            request.method == "GET" && path == "/api/v1/events";
         const bool isPublicEpgNowNextRead =
             request.method == "GET" && isPublicEpgNowNext;
         std::vector<std::string> publicChannelBackendIds;
@@ -850,6 +854,7 @@ public:
              isPublicChannelCollection ||
              isPublicEpgNowNext ||
              path == "/api/v1/native-timers" ||
+             path == "/api/v1/events" ||
              isPublicTimerAssignmentCollection ||
              (path == publicSearchTimerCollection &&
               !isPublicSearchTimerCreate) ||
@@ -1753,6 +1758,91 @@ public:
                     gate.publicApiV1);
                 return gate;
             }
+            gate.authorizationDecision = decision;
+            gate.authorizedBackendIds = scopes;
+            gate.allowed = true;
+            return gate;
+        }
+
+        if (isPublicDeviceEventRead)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            if (!gate.deviceAuthenticated ||
+                gate.context.actor.type != ActorType::Service ||
+                !gate.context.device || !gate.context.credential ||
+                gate.context.session.has_value())
+            {
+                AuthorizationDecision denial;
+                denial.permission = "timers.view";
+                denial.backendId = "*";
+                denial.action = "device_events.subscribe";
+                denial.reasonCode = "device_credential_required";
+                return rejectWithAudit(gate, denial, 403,
+                    "A verified Device credential is required.", "");
+            }
+
+            const auto scopes = queryStringValues(request.path, "backendId");
+            const bool validScope = scopes.size() == 1U &&
+                !scopes.front().empty() && scopes.front().size() <= 128U &&
+                std::all_of(scopes.front().begin(), scopes.front().end(),
+                    [](unsigned char ch) {
+                        return std::isalnum(ch) || ch == '.' ||
+                            ch == '-' || ch == '_';
+                    });
+            if (!validScope)
+            {
+                AuthorizationDecision invalid;
+                invalid.reasonCode = "invalid_backend_scope";
+                invalid.permission = "timers.view";
+                invalid.backendId = "*";
+                invalid.action = "device_events.subscribe";
+                return rejectWithAudit(gate, invalid, 400,
+                    "One valid backendId is required.", "");
+            }
+
+            // One requested domain, one exact backend grant, one stream.
+            // This prevents subscribing to a domain the TV is not viewing.
+            const auto requested = queryStringValues(request.path, "domain");
+            if (requested.size() != 1U ||
+                (requested.front() != "timers" &&
+                 requested.front() != "recordings"))
+            {
+                AuthorizationDecision invalid;
+                invalid.permission = "timers.view";
+                invalid.backendId = scopes.front();
+                invalid.action = "device_events.subscribe";
+                invalid.reasonCode = "invalid_event_domain";
+                return rejectWithAudit(gate, invalid, 400,
+                    "One native timers or recordings domain is required.", "");
+            }
+            AuthorizationRequest read;
+            read.permission = requested.front() == "timers"
+                ? "timers.view" : "recordings.view";
+            read.backendId = scopes.front();
+            read.action = "device_events.subscribe";
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(gate.context, read);
+            if (!appendDecisionEvent(gate.context, decision, ""))
+            {
+                gate.rejection = errorResponse(
+                    503, "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+            if (!decision.allowed)
+            {
+                gate.rejection = errorResponse(
+                    authenticationFailure(decision) ? 401 : 403,
+                    decision.reasonCode.empty()
+                        ? "permission_denied" : decision.reasonCode,
+                    "Device has no event read permission on this backend.",
+                    gate.context,
+                    authenticationFailure(decision), gate.publicApiV1);
+                return gate;
+            }
+            gate.deviceEventDomains.push_back(requested.front());
             gate.authorizationDecision = decision;
             gate.authorizedBackendIds = scopes;
             gate.allowed = true;

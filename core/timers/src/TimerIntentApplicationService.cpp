@@ -60,8 +60,23 @@ TimerIntentApplicationService::TimerIntentApplicationService(
 }
 
 TimerIntentApplicationResult
+TimerIntentApplicationService::submitAndSelectPrimary(
+    const TimerIntentApplicationRequest& request)
+{
+    return submitPrimary(request, false);
+}
+
+TimerIntentApplicationResult
 TimerIntentApplicationService::submitAndProvisionPrimary(
     const TimerIntentApplicationRequest& request)
+{
+    return submitPrimary(request, true);
+}
+
+TimerIntentApplicationResult
+TimerIntentApplicationService::submitPrimary(
+    const TimerIntentApplicationRequest& request,
+    bool provisionImmediately)
 {
     if (!requestValid(request))
         return result(TimerIntentApplicationStatus::invalid);
@@ -169,6 +184,21 @@ TimerIntentApplicationService::submitAndProvisionPrimary(
             TimerIntentApplicationStatus::alreadyBound,
             intent,
             assignment);
+
+    if (!provisionImmediately)
+    {
+        // Public write admission requires an unconsumed, selected and
+        // revisioned Assignment. Never advance to provisioning before the
+        // atomic NativeTimerCreateAdmissionService takes ownership.
+        if (assignment.state == TimerAssignmentState::selected)
+            return result(TimerIntentApplicationStatus::assignmentSelected,
+                intent, assignment);
+        if (assignment.state == TimerAssignmentState::provisioning)
+            return result(TimerIntentApplicationStatus::alreadyProvisioning,
+                intent, assignment);
+        return result(TimerIntentApplicationStatus::assignmentConflict,
+            intent, assignment);
+    }
 
     const auto provisioned = fulfillment_.beginProvisioning(
         assignment.timerAssignmentId,

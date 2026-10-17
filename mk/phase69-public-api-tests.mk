@@ -1,3 +1,21 @@
+.PHONY: test-phase69-public-epg-timer-intent-draft
+
+test-phase69-public-epg-timer-intent-draft:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
+		core/timers/src/TimerIntent.cpp \
+		core/timers/tests/test_epg_timer_intent_draft.cpp \
+		-o $(BUILD_DIR)/test_public_epg_timer_intent_draft
+	$(BUILD_DIR)/test_public_epg_timer_intent_draft
+
+.PHONY: test-phase69-public-epg-timer-selection
+
+test-phase69-public-epg-timer-selection:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
+		core/timers/tests/test_epg_timer_selection_guard.cpp \
+		-o $(BUILD_DIR)/test_public_epg_timer_selection_guard
+	$(BUILD_DIR)/test_public_epg_timer_selection_guard
+	python3 tools/check_public_epg_event_id_provenance.py
+
 .PHONY: test-phase69-public-api-contract-root
 
 test-phase69-public-api-contract-root:
@@ -131,6 +149,10 @@ test-phase69-atomic-timer-create-admission:
 		core/timers/src/TimerAssignment.cpp \
 		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
 		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/TimerAssignmentSetRevisionRepository.cpp \
+		core/timers/src/TimerAssignmentPlanner.cpp \
+		core/timers/src/TimerAssignmentSchedulingService.cpp \
+		core/timers/src/TimerIntentApplicationService.cpp \
 		core/timers/src/NativeTimerBinding.cpp \
 		core/timers/src/NativeTimerBindingIdentity.cpp \
 		core/timers/src/NativeTimerBindingRepository.cpp \
@@ -602,3 +624,12 @@ test-searchtimer-create-device-admission:
 	$(BUILD_DIR)/test_search_timer_create_device_admission_service
 
 test-phase: test-searchtimer-create-device-admission
+
+.PHONY: test-public-epg-event-detail
+# Authenticated Public-v1 read only, no Timer CREATE mutation.
+test-public-epg-event-detail:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		api/rest/src/PublicApiRuntime.cpp \
+		api/rest/tests/test_public_epg_event_detail.cpp \
+		-o $(BUILD_DIR)/test_public_epg_event_detail
+	$(BUILD_DIR)/test_public_epg_event_detail

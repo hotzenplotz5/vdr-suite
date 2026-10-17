@@ -94,19 +94,16 @@ public:
             return snapshotReadService_.getEventsForBackend(backendId);
         }
 
-        const SearchTimerPreviewEpgCacheStatus status =
-            searchTimerPreviewEpgCache_->statusForBackend(backendId);
-
+        // Do not sample cache readiness and its event generation in
+        // separate locks: an EPG change can invalidate between the two.
+        const auto read =
+            searchTimerPreviewEpgCache_->readForBackend(backendId);
         SearchTimerPreviewEpgInputContext::setCacheStatus(
-            status,
-            backendId);
+            read.status, backendId);
 
-        const std::vector<VdrEvent>* cachedEvents =
-            searchTimerPreviewEpgCache_->eventsForBackend(backendId);
-
-        if (cachedEvents != nullptr)
+        if (read.events)
         {
-            return *cachedEvents;
+            return *read.events;
         }
 
         return snapshotReadService_.getEventsForBackend(backendId);

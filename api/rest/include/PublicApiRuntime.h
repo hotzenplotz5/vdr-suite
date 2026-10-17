@@ -424,6 +424,19 @@ struct PublicEpgWindowResult
     bool hasMore = false;
 };
 
+// Read-only, exact source-provenanced EPG airing; no Timer CREATE authority.
+struct PublicEpgEventDetailRequest
+{
+    std::string backendId, channelId, eventId;
+};
+struct PublicEpgEventDetailResult
+{
+    PublicEpgNowNextStatus status = PublicEpgNowNextStatus::unavailable;
+    std::string backendId, channelId, eventId, title, subtitle;
+    std::string description, startTime, endTime, resourceRevision;
+    int durationSeconds = 0;
+};
+
 // Snapshot-backed, read-only public list of real VDR timers. These are
 // native timers, never Suite TimerAssignments or search timer definitions.
 enum class PublicNativeTimersStatus { ok, invalid, unavailable };
@@ -1136,6 +1149,8 @@ public:
     using EpgWindowLookup =
         std::function<PublicEpgWindowResult(
             const PublicEpgWindowRequest& request)>;
+    using EpgEventDetailLookup = std::function<PublicEpgEventDetailResult(
+        const PublicEpgEventDetailRequest&)>;
     using NativeTimersLookup =
         std::function<PublicNativeTimersResult(
             const PublicNativeTimersRequest& request)>;
@@ -1315,6 +1330,11 @@ public:
     bool epgWindowLookupConfigured() const;
     PublicEpgWindowResult lookupEpgWindow(
         const PublicEpgWindowRequest& request) const;
+    void registerEpgEventDetailLookup(EpgEventDetailLookup lookup);
+    void resetEpgEventDetailLookup();
+    bool epgEventDetailLookupConfigured() const;
+    PublicEpgEventDetailResult lookupEpgEventDetail(
+        const PublicEpgEventDetailRequest& request) const;
     void registerNativeTimersLookup(NativeTimersLookup lookup);
     void resetNativeTimersLookup();
     bool nativeTimersLookupConfigured() const;
@@ -1513,6 +1533,8 @@ private:
 
     mutable std::mutex epgWindowLookupMutex_;
     EpgWindowLookup epgWindowLookup_;
+    mutable std::mutex epgEventDetailMutex_;
+    EpgEventDetailLookup epgEventDetailLookup_;
     mutable std::mutex nativeTimersLookupMutex_;
     NativeTimersLookup nativeTimersLookup_;
 
