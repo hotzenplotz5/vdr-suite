@@ -70,7 +70,9 @@ Upgrade/Purge und Konfigurationsschutz waren bereits Gegenstand
 separater Offline-Paketlebenszyklus-Tests; ein Upgrade direkt aus dem
 **veröffentlichten** PPA ist nicht durch diesen Workflow bewiesen.
 
-Resolute publication availability is checked by the [disposable 26.04 readiness workflow](../.github/workflows/ppa-resolute-install-smoke.yml). A green *readiness* job with `RESOLUTE_RELEASE_GATE=NOT_READY` is **not** an installation or runtime PASS: downstream install and daemon steps are explicitly skipped until the archive publishes every package.\n\n**Ubuntu 26.04 Resolute:** Für die drei VDR-Suite-Binärpakete liegt in
+Resolute publication availability is checked by the [disposable 26.04 readiness workflow](../.github/workflows/ppa-resolute-install-smoke.yml). A green *readiness* job with `RESOLUTE_RELEASE_GATE=NOT_READY` is **not** an installation or runtime PASS: downstream install and daemon steps are explicitly skipped until the archive publishes every package.\n\nDie [korrigierte Resolute-PPA-Vorprüfung, Run 39039206371](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39039206371) (Commit `3d84b29ab6c5526683beb6266cc20dacacc79a13`) bestätigte auf einem Ubuntu-26.04-Container: Seahawk-VDR `2.8.3-0yavdr0~resolute` und das gepatchte `vdr-plugin-web` sind im Archiv vorhanden. `vdr-suite-daemon`, `vdr-suite-backend-agent` und `vdr-plugin-suitebridge` sind **nicht** als veröffentlichte Resolute-Kandidaten verfügbar. Das Gate meldet `RESOLUTE_RELEASE_GATE=NOT_READY`; die nachfolgenden APT-Installations- und Daemon-Laufzeitschritte wurden ausdrücklich übersprungen. Der erfolgreiche *Check-Workflow* ist daher **kein erfolgreicher Resolute-Laufzeittest**.
+
+**Ubuntu 26.04 Resolute:** Für die drei VDR-Suite-Binärpakete liegt in
 diesem Noble-Testlauf noch **kein** veröffentlichter APT-Installations-
 oder HTTP-Laufzeitnachweis vor. Die Launchpad-Builds und der anschließende
 analoge Resolute-Installationslauf sind getrennte offene Freigabegates.
