@@ -493,10 +493,18 @@ jobs:
           lintian_rc=$?
           set -e
           cat package-artifacts-full-resolute/lintian-resolute.txt
-          printf 'LINTIAN_EXIT_STATUS=%s\nLINTIAN_RELEASE_GATE=NOT_YET_PASSED\n' "$lintian_rc" |
+          if grep -Eq '^E: ' package-artifacts-full-resolute/lintian-resolute.txt; then
+            echo 'LINTIAN_ERROR_GATE=FAIL'
+            exit 1
+          fi
+          test "$lintian_rc" -eq 0 || {
+            echo "LINTIAN_EXIT_STATUS=$lintian_rc"
+            exit 1
+          }
+          printf 'LINTIAN_EXIT_STATUS=%s\nLINTIAN_ERROR_GATE=PASS\nLINTIAN_RIGHTS_RELEASE_GATE=NOT_YET_PASSED\n' "$lintian_rc" |
             tee package-artifacts-full-resolute/lintian-status.txt
-          # Lintian findings are captured as an actionable P5 baseline, not silently waived.
-          # Release eligibility remains blocked until warnings and errors are reviewed.
+          # Warnings remain visible in the uploaded log; legal provenance is
+          # an independent gate and is never approved by a lintian exit code.
       - name: Collect build results and diagnostics
         if: always()
         shell: bash
