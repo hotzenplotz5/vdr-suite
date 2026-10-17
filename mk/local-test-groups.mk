@@ -187,3 +187,15 @@ test-frontend-i18n:
 	node web/frontend/tests/test_epg_detail_poster_priority.js
 	python3 web/frontend/tests/test_epg_runtime_bundle_builder.py
 	python3 web/frontend/tests/test_epg_metadata_runtime_bundle.py
+
+
+.PHONY: test-device-live-event-hub
+test-device-live-event-hub:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
+		core/vdr/src/SnapshotChangeFeedEntry.cpp \
+		core/vdr/src/LiveUpdateEvent.cpp \
+		core/vdr/tests/test_device_live_event_hub.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_device_live_event_hub
+	$(BUILD_DIR)/test_device_live_event_hub
+
