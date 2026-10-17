@@ -2,6 +2,7 @@
 
 #include "DaemonRuntimeRecordingCut.h"
 
+#include "BackendAgentNativeTimerDeleteFingerprint.h"
 #include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "RecordingArtworkHttpServer.h"
@@ -2170,6 +2171,89 @@ bool DaemonRuntime::initialize()
                 result.timers.push_back(std::move(item));
             }
             result.status = PublicNativeTimersStatus::ok;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerEpgEventDetailLookup(
+        [this](const PublicEpgEventDetailRequest& request)
+        {
+            PublicEpgEventDetailResult result;
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                !backendAgentRepository_ || !epgCacheServiceRegistry_)
+                return result;
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend || !backend->enabled || !backend->online ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(request.backendId))
+                return result;
+            const auto agent =
+                backendAgentRepository_->findAgentForBackend(request.backendId);
+            if (!agent || agent->revoked || agent->incompatible ||
+                agent->backendGeneration == 0U)
+                return result;
+            const auto channels =
+                vdrSnapshotReadService_->getChannelsForBackend(request.backendId);
+            const auto channel = std::find_if(channels.begin(), channels.end(),
+                [&request](const VdrChannel& item) {
+                    return item.id == request.channelId;
+                });
+            if (channel == channels.end())
+            {
+                result.status = PublicEpgNowNextStatus::notFound;
+                return result;
+            }
+            const EpgCacheService* cache =
+                epgCacheServiceRegistry_->findService(request.backendId);
+            if (!cache || !cache->getStatusForBackend(request.backendId).ready)
+                return result;
+            const auto event = cache->findSourceEventForBackend(
+                request.backendId, request.channelId, request.eventId);
+            if (!event)
+            {
+                result.status = PublicEpgNowNextStatus::notFound;
+                return result;
+            }
+            if (event->id != request.eventId ||
+                event->channelId != request.channelId ||
+                event->title.empty() || event->title.size() > 512U ||
+                event->subtitle.size() > 512U ||
+                event->description.size() > 1536U ||
+                event->startTime.empty() || event->endTime.empty() ||
+                event->startTime.size() > 20U || event->endTime.size() > 20U ||
+                event->durationSeconds < 0)
+                return result;
+            // SHA-256 digest is opaque. Every changing event field and the
+            // backend generation are bound as length-delimited inputs.
+            std::string fingerprint;
+            const auto append = [&fingerprint](const std::string& item) {
+                fingerprint += std::to_string(item.size()) + ":" + item;
+            };
+            append("public-epg-event/1");
+            append(request.backendId);
+            append(request.channelId);
+            append(request.eventId);
+            append(std::to_string(agent->backendGeneration));
+            append(event->title);
+            append(event->subtitle);
+            append(event->description);
+            append(event->startTime);
+            append(event->endTime);
+            append(std::to_string(event->durationSeconds));
+            const std::string digest =
+                vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
+                    fingerprint);
+            if (digest.empty()) return result;
+            result.resourceRevision = "epg1:" + digest;
+            result.backendId = request.backendId;
+            result.channelId = request.channelId;
+            result.eventId = request.eventId;
+            result.title = event->title;
+            result.subtitle = event->subtitle;
+            result.description = event->description;
+            result.startTime = event->startTime;
+            result.endTime = event->endTime;
+            result.durationSeconds = event->durationSeconds;
+            result.status = PublicEpgNowNextStatus::ok;
             return result;
         });
 

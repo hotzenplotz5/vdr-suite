@@ -727,6 +727,7 @@ public:
             path == "/api/v1/genres/epg/events" ||
             path == "/api/v1/epg/now-next" ||
             path == "/api/v1/epg/window" ||
+            path == "/api/v1/epg/event" ||
             path == "/api/v1/search/epg";
         const bool isPublicNativeTimerRead =
             request.method == "GET" &&

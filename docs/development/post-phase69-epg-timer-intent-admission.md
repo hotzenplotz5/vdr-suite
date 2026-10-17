@@ -203,3 +203,7 @@ public event-detail resource and admission resolver. It does **not** assert
 backend generation/currentness, allow a Device write or generate a timer.
 Hardware/native effect and the unimplemented HTTP/Assignment pipeline remain
 pending; CI results for this exact product commit must be evaluated separately.
+
+## Protected Public-v1 native EPG event detail GET (2026-10-17)
+
+`GET /api/v1/epg/event?backendId=<backend>&channelId=<channel>&eventId=<native>` is now a scoped read-only resource after the existing `epg.view@backend` or exact-backend `media.live.play` authorization. A matched backend agent generation, live backend/channel snapshot and durable native-ID evidence are prerequisites. The response contains bounded title, subtitle, description, source time/duration and an opaque strong ETag built from SHA-256 over length-delimited event fields and generation. The response never reveals raw generation or NativeTimerSpecification. `If-None-Match` yields a no-body 304; absent native identity is 404, backend unavailable 503, invalid selection 400. Test target: `make test-public-epg-event-detail`. A read ETag does NOT grant writes; no Device TimerIntent admission or one-off VDR CREATE route is added in this slice. No TV installation/approval is authorized.

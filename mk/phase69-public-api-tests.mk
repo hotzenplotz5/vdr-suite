@@ -620,3 +620,12 @@ test-searchtimer-create-device-admission:
 	$(BUILD_DIR)/test_search_timer_create_device_admission_service
 
 test-phase: test-searchtimer-create-device-admission
+
+.PHONY: test-public-epg-event-detail
+# Authenticated Public-v1 read only, no Timer CREATE mutation.
+test-public-epg-event-detail:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		api/rest/src/PublicApiRuntime.cpp \
+		api/rest/tests/test_public_epg_event_detail.cpp \
+		-o $(BUILD_DIR)/test_public_epg_event_detail
+	$(BUILD_DIR)/test_public_epg_event_detail
