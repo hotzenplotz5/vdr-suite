@@ -77,6 +77,172 @@
     }
   ],
   "paths": {
+    "/api/v1/epg/window": {
+      "get": {
+        "tags": [
+          "EPG"
+        ],
+        "operationId": "getPublicEpgWindow",
+        "summary": "Read bounded cached EPG events for a backend and channel",
+        "description": "12-hour maximum per request, up to 192 real events. Device/backend auth: epg.view OR media.live.play on the same backend. No live provider fallback or fabricated programmes. A successful response may have hasMore=true; clients must not represent truncated pages as complete.",
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "description": "Exact authorized backend",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          },
+          {
+            "name": "channelId",
+            "in": "query",
+            "required": true,
+            "description": "Exact channel identity",
+            "schema": {
+              "type": "string",
+              "maxLength": 256,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          },
+          {
+            "name": "fromTime",
+            "in": "query",
+            "required": true,
+            "description": "Inclusive Unix seconds",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{9,11}$"
+            }
+          },
+          {
+            "name": "untilTime",
+            "in": "query",
+            "required": true,
+            "description": "Exclusive Unix seconds; strictly later than fromTime, at most 43200 seconds",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{9,11}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum returned events",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 192,
+              "default": 192
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Backend-scoped events, page {limit,hasMore}, meta {partial:false}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or duplicate arguments or wrong backend scope"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "No backend-scoped EPG or Live-TV grant"
+          },
+          "404": {
+            "description": "Unknown channel"
+          },
+          "503": {
+            "description": "EPG snapshot/backend unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/native-timers": {
+      "get": {
+        "tags": [
+          "TimerAssignments"
+        ],
+        "operationId": "getPublicNativeVdrTimers",
+        "summary": "Read real VDR native timer snapshot, not Suite timer assignments",
+        "description": "Backend-scoped, read-only, stable ID-sorted snapshot page. Requires timers.view@backend. No timer mutation and no live native completeness guarantee beyond current snapshot.",
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "description": "Exact authorized backend",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "description": "Snapshot offset",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100000,
+              "default": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum timers per page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30,
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Items include actual VDR timerId/title/channelName/day/weekdays/startTime/endTime/enabled/recording/pending; page {limit,offset,hasMore,nextOffset}; meta.partial=false",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad query or backend scope"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "timers.view not allowed"
+          },
+          "503": {
+            "description": "Native timer snapshot unavailable"
+          }
+        }
+      }
+    },
     "/api/v1": {
       "get": {
         "tags": [
