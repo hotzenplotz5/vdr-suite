@@ -1,6 +1,6 @@
 #pragma once
 
-// Contract-only EPG -> TimerIntent admission preflight.
+// Domain-side EPG -> TimerIntent admission preflight.
 // This has NO public HTTP route and performs NO native timer mutation.
 // Inputs named observed* must be supplied by an authoritative Suite-side
 // EPG observation resolver, never copied from a Device request.

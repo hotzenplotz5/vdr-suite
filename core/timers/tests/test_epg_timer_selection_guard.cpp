@@ -1,4 +1,4 @@
-#include "PublicEpgTimerSelectionGuard.h"
+#include "EpgTimerSelectionGuard.h"
 #include <cassert>
 #include <iostream>
 #include <string>

@@ -2,7 +2,7 @@
 
 // Server-side typed projection from a verified EPG observation to the
 // accepted ADR-0044 TimerIntentSpec. No database, HTTP or native mutation.
-#include "PublicEpgTimerSelectionGuard.h"
+#include "EpgTimerSelectionGuard.h"
 #include "TimerIntent.h"
 
 #include <cstdint>

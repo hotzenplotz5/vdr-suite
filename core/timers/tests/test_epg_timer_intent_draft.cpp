@@ -1,4 +1,4 @@
-#include "PublicEpgTimerIntentDraft.h"
+#include "EpgTimerIntentDraft.h"
 #include <cassert>
 #include <iostream>
 

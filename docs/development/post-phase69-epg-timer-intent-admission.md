@@ -57,7 +57,7 @@ This contract intentionally refrains from guessing those details.
 
 ## Implemented first boundary
 
-`api/rest/include/PublicEpgTimerSelectionGuard.h` defines a pure,
+`core/timers/include/EpgTimerSelectionGuard.h` defines a pure,
 side-effect-free internal validator. It fails closed on missing/oversized
 identity, missing or weak ETag, invalid idempotency key, independently missing
 grant, read-only backend, missing true native/source identity, stale
@@ -66,7 +66,7 @@ revision mismatch or expired broadcast. It receives *trusted server
 observation facts* only. Its `ready` result **does not authorize any side
 effect** by itself.
 
-`api/rest/tests/test_public_epg_timer_selection_guard.cpp` runs isolated
+`core/timers/tests/test_epg_timer_selection_guard.cpp` runs isolated
 C++ assertions without SQLite, server, VDR or filesystem mutation.
 The Make target is `test-phase69-public-epg-timer-selection`.
 
@@ -88,7 +88,7 @@ Do not label this foundation a usable timer fix.
 
 ## Second server-side implementation boundary: typed TimerIntent projection
 
-`api/rest/include/PublicEpgTimerIntentDraft.h` now takes an already verified
+`core/timers/include/EpgTimerIntentDraft.h` now takes an already verified
 `AuthoritativeObservation`, a separately authenticated actor identity, and
 **server-owned** recording defaults and timezone. It constructs an ADR-0044
 `programmeEvent` `TimerIntentSpec` with a complete backend-native fallback
@@ -109,3 +109,9 @@ Public EPG detail GET, followed by durable actor-owned TimerIntent persistence,
 planner-selected native specification, 202 Operation submission, and verified
 readback. Neither pure guard nor typed draft creates a TimerIntent row or a
 native VDR timer. Never deploy or announce Timer CREATE from this branch alone.
+
+**Ownership correction:** Both pure value checks live in `core/timers`,
+not in the public REST implementation. The later HTTP controller only
+validates the wire representation and invokes this domain-owned gateway;
+no timer policy or NativeTimerSpecification will be assembled in the
+PublicApiRuntime serializer. This migration changes no runtime link graph.
