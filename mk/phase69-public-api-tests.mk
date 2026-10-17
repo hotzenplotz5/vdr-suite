@@ -1,3 +1,11 @@
+.PHONY: test-phase69-public-epg-timer-selection
+
+test-phase69-public-epg-timer-selection:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		api/rest/tests/test_public_epg_timer_selection_guard.cpp \
+		-o $(BUILD_DIR)/test_public_epg_timer_selection_guard
+	$(BUILD_DIR)/test_public_epg_timer_selection_guard
+
 .PHONY: test-phase69-public-api-contract-root
 
 test-phase69-public-api-contract-root:
