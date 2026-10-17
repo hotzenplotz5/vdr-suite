@@ -1,9 +1,6 @@
 name: Published PPA Resolute 26.04 readiness and runtime acceptance
 
 on:
-  push:
-    branches: [work/ppa-noble-install-smoke-20261017]
-    paths: [.github/workflows/ppa-resolute-install-smoke.yml]
   workflow_dispatch:
 
 permissions:
