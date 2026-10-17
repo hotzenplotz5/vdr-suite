@@ -15,8 +15,9 @@ class CopyrightMetadataTests(unittest.TestCase):
             "License: GPL-2.0-or-later",
             "License: GPL-3.0-or-later",
             "Files: web/frontend/assets/recording-genre-*.svg",
-            "License: License-grant-pending",
-            "not a permission to distribute",
+            "The maintainer explicitly selected GPL-3.0-or-later",
+            "Files: web/frontend/logo-vdr-suite.svg",
+            "The maintainer selected the same GPL-3.0-or-later terms",
         ):
             with self.subTest(required=required):
                 self.assertIn(required, value)
