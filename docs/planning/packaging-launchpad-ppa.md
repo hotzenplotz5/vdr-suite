@@ -1,23 +1,23 @@
 # VDR-Suite Ubuntu test PPA
 
-> **Aktueller PPA-Stand (17.10.2026):** Die folgenden frühen Build-/Upload-Notizen
-> dokumentieren historische Prüfphasen und sind **keine aktuelle Aussage, dass
-> das PPA leer ist**. Für Ubuntu 24.04 Noble sind `vdr-suite-daemon`,
-> `vdr-suite-backend-agent`, `vdr-plugin-suitebridge` und das separat
-> gepatchte `vdr-plugin-web` veröffentlicht. Die echte Installation,
-> Daemon-/HTTP-Laufzeit und VDR-Plugin-Erkennung wurden in
-> [CI #39038795095](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39038795095)
-> geprüft. Für Ubuntu 26.04 Resolute sind Seahawks VDR und `vdr-plugin-web`
-> verfügbar, die drei VDR-Suite-Pakete dagegen noch nicht; siehe
-> [CI #39039206371](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39039206371).
-> Keine dieser Prüfungen autorisiert einen produktiven yaVDR-Umstieg.
-> **`main`-Migration:** [PR #494](https://github.com/hotzenplotz5/vdr-suite/pull/494)
-> integriert die Quell-Paketierung; das Launchpad-Rezept wird **nicht durch
-> den GitHub-Merge automatisch umgestellt**. Daily-Builds bleiben getrennt
-> freizugeben, sobald Versionierung, Resolute-Veröffentlichung und die
-> tatsächlichen Installations-/Laufzeitprüfungen geprüft sind.
+> **Aktueller PPA-Stand (17.10.2026):** Die folgenden längeren
+> Prüf- und Fehlerberichte dokumentieren historische Zwischenstände;
+> Aussagen über ein leeres PPA oder eine noch ausstehende Resolute-
+> Veröffentlichung sind **überholt**. Das experimentelle PPA enthält für
+> Ubuntu 24.04 Noble und 26.04 Resolute die drei Binärpakete
+> `vdr-suite-daemon`, `vdr-suite-backend-agent` und
+> `vdr-plugin-suitebridge` sowie das separat gepatchte `vdr-plugin-web`.
+> Die isolierten PPA-Installations- und Daemon-/HTTP-Abnahmen sind
+> [Noble #39038795095](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39038795095)
+> und [Resolute #39070097283](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39070097283).
+> [PR #494](https://github.com/hotzenplotz5/vdr-suite/pull/494) ist nach
+> `main` gemergt; das Launchpad-Rezept wurde danach tatsächlich auf
+> `lp:vdr-suite main` umgestellt. Daily Builds sind weiterhin
+> **nicht eingeschaltet**, weil Launchpad eine Veröffentlichung nicht
+> von grüner GitHub-CI abhängig macht. Keine dieser Prüfungen gibt eine
+> produktive yaVDR-Migration oder TV-Hardwarewiedergabe frei.
 
-Status (2026-10-17): **19/19 CI jobs PASS** on exact packaging commit `cd0bc82ca1ff183c3d7cc69a553a51cd479b9eca`, [GitHub Actions run 38990016336](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38990016336). Noble and Resolute full three-binary builds, plugin-only builds, isolated package lifecycle, P8 refusal, historical exp1-to-exp2 upgrade/rollback, deterministic source package and zero-error Lintian gate all pass. Three Lintian `copyright-without-copyright-notice` warnings remain: the source-level inventory intentionally avoids asserting a specific personal copyright holder without sufficient evidence. **No signed source upload, Launchpad chroot build, full rights clearance or production migration approval**.
+Historischer CI-Zwischenstand vor dem PPA-Abschluss: **19/19 CI jobs PASS** on exact packaging commit `cd0bc82ca1ff183c3d7cc69a553a51cd479b9eca`, [GitHub Actions run 38990016336](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38990016336). Noble and Resolute full three-binary builds, plugin-only builds, isolated package lifecycle, P8 refusal, historical exp1-to-exp2 upgrade/rollback, deterministic source package and zero-error Lintian gate all pass. Three Lintian `copyright-without-copyright-notice` warnings remain: the source-level inventory intentionally avoids asserting a specific personal copyright holder without sufficient evidence. **No signed source upload, Launchpad chroot build, full rights clearance or production migration approval**.
 
 ## PPA
 
@@ -26,9 +26,20 @@ Status (2026-10-17): **19/19 CI jobs PASS** on exact packaging commit `cd0bc82ca
 - Public URL (provided by project maintainer): https://launchpad.net/~hotzenplotz5/+archive/ubuntu/vdr-suite
 - Upload target: `ppa:hotzenplotz5/vdr-suite`
 - Role: Ubuntu **experimental/testing** only. Debian support must be validated separately.
-- Candidate Ubuntu test releases: 24.04 LTS (`noble`), then 26.04 LTS (`resolute`). Both pass isolated GitHub CI with Seahawk VDR 2.8.3; Launchpad and production support remain unconfirmed.
+- Aktuelle experimentelle Ubuntu-Testserien: 24.04 LTS (`noble`) und 26.04 LTS (`resolute`). Beide besitzen veröffentlichte amd64-Pakete und eine erfolgreiche isolierte PPA-APT-/Daemon-/HTTP-Abnahme; Produktiv-, Hardware- und vollständige Agentenfunktionen sind dadurch nicht freigegeben.
 
-## Verified progress and current PPA build blockers (2026-10-14)
+## Stand nach dem Launchpad-Recipe-Merge (17.10.2026)
+
+- GitHub `main`: `2a81dea07455ad2801ac959d9a8fcf759dbc4994` ([Merge-PR #494](https://github.com/hotzenplotz5/vdr-suite/pull/494)); reguläre CI [6/6](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39046261885) und Packaging-CI [19/19](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39046261946) erfolgreich.
+- Bestehendes Recipe `vdr-suite-packaging-experimental`: `lp:vdr-suite main`, Serien Noble und Resolute, Ziel-PPA `ppa:hotzenplotz5/vdr-suite`, Schedule **Built on request**.
+- Noble: `0.14.1-1~exp2~ppa2+202610170549~ubuntu24.04.1`; [echter PPA-Installationstest #39038795095](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39038795095).
+- Resolute: `0.14.1-1~exp2~ppa2+202610171542~ubuntu26.04.1`; [echter PPA-Installationstest #39070097283](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39070097283). Kein übersprungener Installationstest; `RESOLUTE_PPA_APT_VDR_PLUGIN_ABI=PASS` und `RESOLUTE_PPA_DAEMON_HTTP_RESTART=PASS`.
+- Das bestehende `{revtime}` in `deb-version 0.14.1-1~exp2~ppa2+{revtime}` knüpft die Version an den Revisionszeitstempel. Paketversionen müssen bei künftigen Builds je Ubuntu-Serie monoton bleiben. Bei Änderungen des `debian/changelog`-Baselineschemas sind Version und Upgradepfad erneut zu prüfen.
+- Launchpad erstellt bei `Built daily` höchstens täglich einen automatischen Build **wenn sich einer der Recipe-Quellbranches seit dem letzten Build geändert hat**. Diese Automatik wartet **nicht** auf `main`-CI, separate Packaging-CI oder Runtime-Smoke-Tests; diese können außerdem später fertig werden. Der derzeitige GitHub-Packaging-Push-Workflow besitzt Pfadfilter und prüft daher nicht jede beliebige Änderung auf `main`.
+- **Freigabeentscheidung:** Automatische Daily-Veröffentlichung im einzigen bestehenden PPA vorerst nicht aktivieren. Erst eine bewusste Entscheidung für ein dediziertes experimentelles Daily-PPA oder eine andere mit GitHub-Gates gekoppelte Veröffentlichung verhindert, dass ungetestete `main`-Zwischenstände normale APT-Updates erhalten. Keinesfalls allein wegen grüner Builds eine Produktionsfreigabe behaupten.
+- **Historischer Formatvorbehalt:** Frühere Launchpad-Recipe-Logs zeigen einen `git-build-recipe --allow-fallback-to-native`-Pfad (`3.0 (native)`) trotz getracktem `debian/source/format = 3.0 (quilt)`. Die erfolgreichen PPA-Laufzeittests beseitigen diesen Quellformat-Unterschied nicht. Für eine reguläre Release-Quelle separat beheben/pruefen, ohne bereits publizierte experimentelle Pakete umzudeklarieren.
+
+## Verified progress and historical PPA build blockers (2026-10-14)
 
 - The maintainer built a standalone `vdr-plugin-suitebridge_0.14.1-1~exp1_amd64.deb` with dependencies including `vdr-abi-2.8.3-0yavdr`, without daemon or Backend-Agent package dependencies.
 - A separate local `3.0 (quilt)` Debian source archive and unsigned `_source.changes` were successfully generated and extracted again (`SOURCE_ONLY_PACKAGE=PASS`, `SOURCE_ROUNDTRIP=PASS`) at SHA `39995c626c25909a972b6d9f886ebdc0c82b5fd5`. This source has the `unstable` changelog suite and is *not* suitable for immediate upload.

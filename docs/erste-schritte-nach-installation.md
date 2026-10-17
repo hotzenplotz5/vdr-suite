@@ -2,16 +2,34 @@
 
 Diese Anleitung richtet sich an Betreiber, die **VDR-Suite erstmals einrichten** möchten: vom Ubuntu-Paket über das erste Administratorkonto bis zum Webfrontend, den Aufnahmen und weiteren Benutzern. Sie beschreibt den auf den GitHub-Quellständen überprüften Ablauf, **keine bereits freigegebene universelle Produktivinstallation**.
 
-> **Wichtig (Stand 17.10.2026):** Die Ubuntu-Paketierung wird im Branch [`work/packaging-debian-ubuntu-install`](https://github.com/hotzenplotz5/vdr-suite/tree/work/packaging-debian-ubuntu-install) entwickelt. Das [VDR-Suite-Test-PPA](https://launchpad.net/~hotzenplotz5/+archive/ubuntu/vdr-suite) ist **experimentell**. Paketverfügbarkeit, tatsächliche Version und Architektur müssen am Installationstag auf Launchpad beziehungsweise mit APT geprüft werden. Paketbau, PPA-Veröffentlichung und ein laufender VDR sind **keine** Abnahme der eigenen Installation. Die produktive Übernahme einer vorhandenen manuellen/yaVDR-Installation ist nicht allgemein freigegeben; siehe [P8-Installationsgrenze](https://github.com/hotzenplotz5/vdr-suite/blob/work/packaging-debian-ubuntu-install/docs/planning/packaging-p8-install-gate.md).
+> **Wichtig (Stand 17.10.2026):** Die experimentelle Ubuntu-/Debian-
+> Paketierung liegt nach [PR #494](https://github.com/hotzenplotz5/vdr-suite/pull/494)
+> auf [`main`](https://github.com/hotzenplotz5/vdr-suite/tree/main).
+> Das bestehende [VDR-Suite-Test-PPA](https://launchpad.net/~hotzenplotz5/+archive/ubuntu/vdr-suite)
+> bietet für Noble 24.04 und Resolute 26.04 die drei VDR-Suite-Pakete und
+> `vdr-plugin-web` (amd64). Alle diese Pakete bleiben **experimentell**;
+> die PPA-Installation auf einem bestehenden yaVDR ist nicht allgemein
+> freigegeben. Vor jeder Installation Version, Architektur, VDR-ABI und
+> vorhandene Dateien/Services prüfen. Der
+> [P8-Installationsschutz](https://github.com/hotzenplotz5/vdr-suite/blob/main/docs/planning/packaging-p8-install-gate.md)
+> darf nicht umgangen werden.
 
-**Nachgewiesene Pakettests:** Für Ubuntu 24.04 (Noble) sind die echte PPA-Installation, Webfrontend-Auslieferung und der grundlegende Daemon-Start in einem isolierten GitHub-Actions-Lauf geprüft. Für Ubuntu 26.04 (Resolute) fehlen weiterhin drei veröffentlichte VDR-Suite-Pakete. Die konkreten CI-Nachweise und Grenzen stehen im [Packaging-Status](../packaging/README.md). Dies ist keine Freigabe zur Migration eines vorhandenen yaVDR-Systems.
+**Nachgewiesene Pakettests:** Der echte PPA-Bezug, die Installation,
+Daemon-/HTTP-Laufzeit und VDR-Plugin-ABI wurden isoliert für
+[Noble (Run #39038795095)](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39038795095)
+und
+[Resolute (Run #39070097283)](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39070097283)
+geprüft. Das sind keine Hardware- oder Produktivmigrationstests.
+Die Launchpad-Daily-Veröffentlichung ist nicht eingeschaltet, weil diese
+ohne verpflichtendes GitHub-CI-Gate ablaufen würde; siehe
+[Packaging-Status](../packaging/README.md).
 
 ## 1. Welchen Installationsfall habe ich?
 
 | Situation | Vorgehen |
 | --- | --- |
 | **Neues, entbehrliches Ubuntu-24.04-Testsystem mit bestehendem, funktionierendem VDR** | PPA prüfen, Abhängigkeiten/Dateikonflikte prüfen und die *experimentellen* Pakete erst nach ausdrücklicher Entscheidung installieren. |
-| **Bestehender yaVDR mit manuell installierter VDR-Suite** | **Nicht** per `apt install` darüberinstallieren! Zuerst Besitz/Kollisionen von Binärdateien, nginx, systemd, Konfiguration und SQLite mit dem [P6/P8-Migrationskonzept](https://github.com/hotzenplotz5/vdr-suite/blob/work/packaging-debian-ubuntu-install/docs/planning/packaging-p8-yavdr-adoption-boundary.md) klären. |
+| **Bestehender yaVDR mit manuell installierter VDR-Suite** | **Nicht** per `apt install` darüberinstallieren! Zuerst Besitz/Kollisionen von Binärdateien, nginx, systemd, Konfiguration und SQLite mit dem [P6/P8-Migrationskonzept](https://github.com/hotzenplotz5/vdr-suite/blob/main/docs/planning/packaging-p8-yavdr-adoption-boundary.md) klären. |
 | **Ubuntu 26.04 / andere Architektur / anderer VDR** | Verfügbarkeit und passende **VDR-ABI** separat prüfen; kein pauschales Funktionsversprechen. |
 | **VDR-Suite läuft bereits** | Bei [Schritt 4](#4-dienste-webadresse-und-erster-aufruf) einsteigen; nichts neu installieren oder die Datenbank zurücksetzen. |
 
@@ -44,7 +62,7 @@ sudo apt update
 apt-cache policy vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge
 ```
 
-**Hier noch nicht blind installieren.** Für `vdr-plugin-suitebridge` müssen VDR-ABI und Paket-Abhängigkeiten passen; dafür kann zusätzlich die passende [Seahawk-VDR-PPA-Quelle](https://launchpad.net/~seahawk1986-hotmail/+archive/ubuntu/vdr-2.8.3) nötig sein. Ein PPA, das Launchpad **zum Bauen** verwendet, wird nicht automatisch zum APT-Repository des Nutzers. Vor der ersten Installation müssen außerdem vorhandene Dateien, systemd-Overrides, nginx-Snippets und `/var/lib/vdr-suite` auf Konflikte geprüft sein. Die derzeitige [P8-Installationsfreigabe](https://github.com/hotzenplotz5/vdr-suite/blob/work/packaging-debian-ubuntu-install/docs/planning/packaging-p8-install-gate.md) ist für reale Übernahmen ausdrücklich noch blockiert.
+**Hier noch nicht blind installieren.** Für `vdr-plugin-suitebridge` müssen VDR-ABI und Paket-Abhängigkeiten passen; dafür kann zusätzlich die passende [Seahawk-VDR-PPA-Quelle](https://launchpad.net/~seahawk1986-hotmail/+archive/ubuntu/vdr-2.8.3) nötig sein. Ein PPA, das Launchpad **zum Bauen** verwendet, wird nicht automatisch zum APT-Repository des Nutzers. Vor der ersten Installation müssen außerdem vorhandene Dateien, systemd-Overrides, nginx-Snippets und `/var/lib/vdr-suite` auf Konflikte geprüft sein. Die derzeitige [P8-Installationsfreigabe](https://github.com/hotzenplotz5/vdr-suite/blob/main/docs/planning/packaging-p8-install-gate.md) ist für reale Übernahmen ausdrücklich noch blockiert.
 
 Nach einer **separat geprüften und erlaubten** Installation lässt sich der tatsächliche Paketstand ausschließlich lesend prüfen:
 
@@ -242,8 +260,8 @@ Vertiefung: [Benutzer und Grants](../api/accounts-and-grants.md), [TV-/Geräteko
 
 - [README und echte Web-Screenshots](../README.md)
 - [Einführung / vorhandene Installation](getting-started.md)
-- [Packaging-/PPA-Arbeitsstand](https://github.com/hotzenplotz5/vdr-suite/blob/work/packaging-debian-ubuntu-install/docs/planning/packaging-launchpad-ppa.md)
-- [Installations- und Migrationsgrenzen](https://github.com/hotzenplotz5/vdr-suite/blob/work/packaging-debian-ubuntu-install/docs/planning/packaging-p8-install-gate.md)
+- [Packaging-/PPA-Arbeitsstand](https://github.com/hotzenplotz5/vdr-suite/blob/main/docs/planning/packaging-launchpad-ppa.md)
+- [Installations- und Migrationsgrenzen](https://github.com/hotzenplotz5/vdr-suite/blob/main/docs/planning/packaging-p8-install-gate.md)
 - [Erste Admin- und Recovery-Architektur](adr/ADR-0066-unclaimed-server-first-admin-bootstrap-recovery.md)
 - [Multiuser-Kontoverwaltung](development/post-phase69-multiuser-administration-usability.md)
 - [Dokumentationsstartseite](index.md)

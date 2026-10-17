@@ -1,17 +1,29 @@
 # Experimental Debian source packaging
 
-**PPA-Status (17 October 2026):** The historical build/release gates below
-were written before the first Launchpad publications. Noble has real published
-three-binary VDR-Suite packages, a separately packaged `vdr-plugin-web`, and
-verified isolated APT, daemon/HTTP and VDR plugin-loader acceptance
-([CI #39038795095](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39038795095)).
-Resolute has `vdr-plugin-web` and Seahawk VDR but does not yet publish the
-three VDR-Suite binaries ([readiness run #39039206371](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39039206371)).
-Older statements such as “no Launchpad upload” below are **historical**, not
-current publication assertions. Neither this publication nor the in-progress
-[main integration PR #494](https://github.com/hotzenplotz5/vdr-suite/pull/494)
-authorizes production migration, automatic Daily publishing, or a live yaVDR
-install. [Current PPA acceptance](../packaging/README.md).
+**PPA status (17 October 2026):** The Debian/Ubuntu packaging is in
+[merged PR #494](https://github.com/hotzenplotz5/vdr-suite/pull/494) on `main`
+(SHA `2a81dea07455ad2801ac959d9a8fcf759dbc4994`). The existing
+Launchpad recipe `vdr-suite-packaging-experimental` now tracks `main`
+and targets Noble and Resolute.
+
+For **Noble 24.04**, the three VDR-Suite binaries were published as
+`0.14.1-1~exp2~ppa2+202610170549~ubuntu24.04.1`, with real isolated
+APT/daemon/HTTP/plugin-loader acceptance in
+[run #39038795095](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39038795095).
+For **Resolute 26.04**, all three binaries were published as
+`0.14.1-1~exp2~ppa2+202610171542~ubuntu26.04.1`, and the actual
+APT installation, VDR ABI, daemon/HTTP and restart passed in
+[run #39070097283](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39070097283)
+on `main`. Both series also have the separately packaged patched
+`vdr-plugin-web`.
+
+Old statements below such as “no Launchpad upload”, “Resolute pending” or
+“main integration in progress” describe **historical checkpoints only**.
+The PPA remains **experimental**; neither CI nor successful isolated
+runtime checks authorize existing yaVDR migration, hardware playback or
+automatic Daily publication. Launchpad's *Built daily* option has no
+built-in dependency on GitHub CI success; retain manual builds pending an
+explicit publishing policy. [Current PPA acceptance](../packaging/README.md).
 
 This root `debian/` directory is the canonical source-package location for `dpkg-buildpackage`. The historical `packaging/debian/` directory is documentation, not an alternative `debian/` source tree.
 
