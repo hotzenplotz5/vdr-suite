@@ -73,6 +73,8 @@ The experimental Debian/Ubuntu source package currently produces **three separat
 
 The agent package includes `/usr/sbin/vdr-suite-backend-agent`, enrollment and administration tools, `/etc/vdr-suite/backend-agent.conf` and `vdr-suite-backend-agent.service`. The example configuration points to `https://control-plane.example.invalid` and **cannot connect as shipped**; controlled enrollment, a real HTTPS origin and protected local identity storage are required. Package builds do not enroll an Agent, enable its service, migrate the live SQLite database or authorize a production installation.
 
+**Packaging release gate (17 October 2026):** Noble and Resolute three-package builds and isolated lifecycle/upgrade checks succeeded in [CI run 38970428064](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38970428064). A provisional [Debian copyright inventory](debian/copyright) now documents the TVScraper exception and unresolved artwork licensing; it does **not** constitute rights clearance. The three prior Lintian `no-copyright-file` errors require verification on freshly rebuilt packages. **No PPA upload or takeover of a manually installed yaVDR is authorized.** [Full PPA gates](docs/planning/packaging-launchpad-ppa.md).
+
 **Details:** [Agent package contents, configuration, enrollment and deployment boundaries](debian/README.md#backend-agent-package-roles-and-deployment) · [Multi-site trust boundary](docs/adr/ADR-0039-backend-agent-control-plane-boundary.md) · [Packaging/release status](packaging/README.md).
 
 ## For developers
