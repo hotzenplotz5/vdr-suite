@@ -199,3 +199,14 @@ test-device-live-event-hub:
 		-o $(BUILD_DIR)/test_device_live_event_hub
 	$(BUILD_DIR)/test_device_live_event_hub
 
+
+.PHONY: test-device-live-http-stream
+test-device-live-http-stream:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
+		core/vdr/src/SnapshotChangeFeedEntry.cpp \
+		core/vdr/src/LiveUpdateEvent.cpp \
+		core/http/src/SimpleHttpListener.cpp \
+		core/http/tests/test_simple_http_listener_device_events.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_device_live_http_stream
+	$(BUILD_DIR)/test_device_live_http_stream
