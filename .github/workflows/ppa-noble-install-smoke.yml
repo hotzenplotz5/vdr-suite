@@ -1,9 +1,6 @@
 name: Published PPA Noble 24.04 clean-install acceptance
 
 on:
-  push:
-    branches: [work/ppa-noble-install-smoke-20261017]
-    paths: [.github/workflows/ppa-noble-install-smoke.yml]
   workflow_dispatch:
 
 permissions:
