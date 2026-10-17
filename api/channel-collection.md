@@ -26,7 +26,7 @@ GET /api/v1/channels?backendId=backend-a&backendId=backend-b&limit=50&sort=backe
 
 ## Authentication and authorization
 
-A valid authenticated actor is required, with the `channels.view` permission **for every selected backend**. The security gate checks each source separately. One unauthorized backend rejects the **entire request**, normally with 403; unauthorized source names are not leaked through `meta.sources`. Missing or invalid backend scopes return 400, absent authentication returns 401.
+A valid authenticated actor is required, holding **either `channels.view@backend` or `media.live.play@backend` for every selected backend**. Live-TV playback permission includes listing channels for that same backend; an independent channel-list grant does not authorize playback. The security gate checks each source separately. One unauthorized backend rejects the **entire request**, normally with 403; unauthorized source names are not leaked through `meta.sources`. Missing or invalid backend scopes return 400, absent authentication returns 401.
 
 The concrete credential transport is owned by the deployment's identity/security contracts and is not invented by this OpenAPI subset. Clients should supply supported caller-owned authorization, using `getChannels({query:{backendIds:[...]}})` in the [reference JavaScript client](../clients/reference-js/public-v1-client.js).
 
@@ -82,7 +82,7 @@ A `409 cursor_expired` means the requested backend scope changed: throw away the
 | --- | --- | --- |
 | `400` | `invalid_request` or `invalid_backend_scope`; unsupported query, missing/duplicate source or malformed cursor | Fix the caller input |
 | `401` | Authentication required | Supply valid actor credentials |
-| `403` | Any `channels.view@backend` denial | Remove unauthorized requests through explicit user/server policy; do not probe privately |
+| `403` | Neither `channels.view@backend` nor `media.live.play@backend` is granted for at least one requested backend | Request only authorized backends; do not probe privately |
 | `405` | `method_not_allowed`, `Allow: GET` | Use GET |
 | `409` | `cursor_expired` | Restart the complete traversal |
 | `503` | `backend_unavailable` when all sources fail, `service_unavailable` or security-gate failure | Show error or partial state; do not present as complete empty list |
