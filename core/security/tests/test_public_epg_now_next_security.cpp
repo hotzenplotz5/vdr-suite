@@ -32,6 +32,25 @@ int main()
             std::vector<std::string>{"home"});
         assert(!allowed.protectedMutation);
     }
+    // Public-v1 EPG windows additionally expose channel contents.
+    // An epg.view grant alone must not expose the programme timeline.
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "epg.view", "home"));
+        const std::string window =
+            "/api/v1/epg/window?backendId=home&channelId=S19.2E-1-100"
+            "&fromTime=1791565200&untilTime=1791586800";
+        const auto denied = fixture.gate.evaluate(browserRead(fixture,window));
+        assert(!denied.allowed);
+        assert(denied.rejection.statusCode == 403);
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "channels.view", "home"));
+        const auto allowed = fixture.gate.evaluate(browserRead(fixture,window));
+        assert(allowed.allowed);
+        assert(allowed.authorizedBackendIds ==
+            std::vector<std::string>{"home"});
+    }
     {
         SecurityHttpGateBrowserTestFixture fixture;
         assert(fixture.grantRepository.ensureGrant(
