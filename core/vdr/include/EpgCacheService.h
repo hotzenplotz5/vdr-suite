@@ -13,6 +13,7 @@
 #include <vector>
 
 class EpgArtworkEnrichmentService;
+class SearchTimerPreviewEpgCache;
 
 struct EpgCacheRefreshResult
 {
@@ -54,11 +55,13 @@ public:
         EpgEventRepository& repository,
         VdrService& vdrService,
         EpgArtworkEnrichmentService* artworkEnrichmentService = nullptr,
-        EpgEventRepository* readRepository = nullptr);
+        EpgEventRepository* readRepository = nullptr,
+        SearchTimerPreviewEpgCache* searchTimerPreviewEpgCache = nullptr);
 
     EpgCacheRefreshResult refreshBackendWindow(
         const std::string& backendId,
-        const VdrEventQuery& query);
+        const VdrEventQuery& query,
+        bool publishSearchTimerPreview = false);
 
     EpgCacheStatus getStatusForBackend(
         const std::string& backendId) const;
@@ -132,6 +135,7 @@ private:
     EpgEventRepository* readRepository_;
     VdrService& vdrService_;
     EpgArtworkEnrichmentService* artworkEnrichmentService_;
+    SearchTimerPreviewEpgCache* searchTimerPreviewEpgCache_;
     mutable std::mutex statusMutex_;
     std::unordered_map<std::string, RefreshMetadata> refreshMetadataByBackend_;
 
