@@ -121,6 +121,8 @@ int main()
                 PublicEpgNowNextItem event;
                 event.channelId = request.channelId;
                 event.title = "Programm " + std::to_string(i);
+                if (i == 0) event.eventId = "native-event:1234";
+                if (i == 1) event.eventId = std::string(257U, 'x');
                 event.startTime = std::to_string(1791565200LL + i*3600LL);
                 event.endTime = std::to_string(1791568800LL + i*3600LL);
                 event.durationSeconds = 3600;
@@ -132,6 +134,12 @@ int main()
     const auto windowOk = read(epgWindow,"actor",{"home"});
     assert(windowOk.statusCode == 200);
     assert(windowOk.body.find("Programm 2") != std::string::npos);
+    assert(windowOk.body.find("\"eventId\":\"native-event:1234\"")
+        != std::string::npos);
+    assert(windowOk.body.find(std::string(257U, 'x')) ==
+        std::string::npos);
+    assert(windowOk.body.find("eventId") ==
+        windowOk.body.rfind("eventId"));
     assert(windowOk.body.find("\"hasMore\":false") != std::string::npos);
     assert(windowOk.body.find("\"partial\":false") != std::string::npos);
     runtime.registerEpgWindowLookup(

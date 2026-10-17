@@ -7809,7 +7809,12 @@ bool PublicApiRuntime::tryHandleGet(
                         jsonEscape(event.subtitle) + "\",\"startTime\":\"" +
                         jsonEscape(event.startTime) + "\",\"endTime\":\"" +
                         jsonEscape(event.endTime) + "\",\"durationSeconds\":" +
-                        std::to_string(event.durationSeconds) + "}";
+                        std::to_string(event.durationSeconds);
+                    if (!event.eventId.empty() &&
+                        event.eventId.size() <= 256U)
+                        body += ",\"eventId\":\"" +
+                            jsonEscape(event.eventId) + "\"";
+                    body += "}";
                 }
                 body += "],\"page\":{\"limit\":" +
                     std::to_string(query.limit) +

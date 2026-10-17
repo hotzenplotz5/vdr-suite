@@ -395,6 +395,9 @@ struct PublicEpgNowNextItem
     std::string startTime;
     std::string endTime;
     int durationSeconds = 0;
+    // Appended to preserve earlier aggregate field positions.
+    // Never fabricate an ID from programme title or timestamps.
+    std::string eventId;
 };
 
 struct PublicEpgNowNextResult
