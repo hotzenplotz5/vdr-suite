@@ -1348,8 +1348,8 @@ bool DaemonRuntime::initialize()
 
             // Same engine and ready backend-scoped EPG cache as the Web
             // preview; do not substitute raw EPG text search.
-            const auto* events =
-                searchTimerPreviewEpgCache_->eventsForBackend(request.backendId);
+            const auto events =
+                searchTimerPreviewEpgCache_->sharedEventsForBackend(request.backendId);
             if (!events) return result;
 
             if (request.draft)
