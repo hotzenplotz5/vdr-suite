@@ -81,6 +81,13 @@ public:
         const std::string& untilTime,
         int eventLimit) const;
 
+    // A nonempty returned EPG cache key does not prove a real source ID.
+    // Expose only the read-repository's durable, exact provenance evidence.
+    bool hasSourceEventIdForBackend(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& eventId) const;
+
     bool deleteExpiredForBackend(
         const std::string& backendId,
         const std::string& beforeEndTime);

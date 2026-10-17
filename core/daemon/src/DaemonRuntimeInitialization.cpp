@@ -2222,9 +2222,12 @@ bool DaemonRuntime::initialize()
                     return PublicEpgWindowResult{};
                 PublicEpgNowNextItem item;
                 item.channelId = event.channelId;
-                // Preserve only a bounded, source-verified event identifier.
-                // Missing IDs remain missing; no title/time proxy identity.
-                if (event.id.size() <= 256U)
+                // Source-ID evidence must survive the EPG cache boundary.
+                // Legacy rows and generated title/time cache keys stay
+                // usable for the grid but cannot be recorded as native IDs.
+                if (!event.id.empty() && event.id.size() <= 160U &&
+                    service->hasSourceEventIdForBackend(
+                        request.backendId, request.channelId, event.id))
                     item.eventId = event.id;
                 item.title = event.title;
                 item.subtitle = event.subtitle;

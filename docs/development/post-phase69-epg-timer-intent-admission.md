@@ -147,3 +147,20 @@ removal evidence and cleanup.
 This changes the compiled repository only on this unpublished source branch.
 Do not run schema migration or install a new daemon on yaVDR before an exact
 candidate, CI, resource preflight and separately authorized deployment.
+
+## Read-only Public EPG projection now consumes provenance evidence
+
+`EpgCacheService::hasSourceEventIdForBackend` delegates through the existing
+read-repository, not an independent cache. The draft PR #491's productive
+`DaemonRuntimeInitialization.cpp` `/api/v1/epg/window` mapping emits the
+optional `eventId` only when exact backend/channel/key evidence exists and
+the ID is representable by the 160-byte `TimerIntentBackendEventRef`.
+Fallback identifiers and old cache rows remain valid for **displaying** an EPG
+programme but have no recordable ID. No new API route, write permission or
+TimerAssignment is inferred. Existing VIDAA clients already support absent
+`eventId` as a read-only event, though the timer CREATE UI remains gated.
+
+The EPG read-model difference must still be integration-tested with a real
+cache refresh before relying on the source ID. Event-ID presence alone is
+necessary but not sufficient to prove actor, backend, generation, source type
+and final authorization.
