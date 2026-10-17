@@ -1412,6 +1412,43 @@ public:
                 return gate;
             }
 
+            // A TV EPG time window exposes channel-specific programme data.
+            // Require the same backend-scoped channel read grant as the
+            // channel browser; epg.view alone must not bypass it.
+            if (path == "/api/v1/epg/window")
+            {
+                AuthorizationRequest channelRequest;
+                channelRequest.permission = "channels.view";
+                channelRequest.backendId = scopes.front();
+                channelRequest.action = "epg.channel.view";
+                const AuthorizationDecision channelDecision =
+                    authorizationService_.authorize(
+                        gate.context, channelRequest);
+                if (!appendDecisionEvent(
+                        gate.context, channelDecision, ""))
+                {
+                    gate.rejection = errorResponse(
+                        503, "accountability_unavailable",
+                        "Security accountability persistence is unavailable",
+                        gate.context);
+                    return gate;
+                }
+                if (!channelDecision.allowed)
+                {
+                    const int statusCode =
+                        channelDecision.reasonCode == "invalid_backend_scope"
+                            ? 400
+                            : (authenticationFailure(channelDecision)
+                                ? 401 : 403);
+                    gate.rejection = errorResponse(
+                        statusCode, channelDecision.reasonCode,
+                        messageForReason(channelDecision.reasonCode),
+                        gate.context, authenticationFailure(channelDecision),
+                        gate.publicApiV1);
+                    return gate;
+                }
+            }
+
             gate.authorizationDecision = decision;
             gate.authorizedBackendIds = scopes;
             gate.allowed = true;
