@@ -36,3 +36,18 @@ A paired TV must learn of native VDR Timer and Recording changes through the exi
 - Verify the actual Hisense Device engine can retain its authenticated streaming connection and update native Timer/Recording UI. GitHub CI alone is insufficient.
 
 **Current result:** No Public-v1 device event channel, incremental server writer or automatic VIDAA Timer/Recording updates are implemented by this note. The 15-second Timer poll was removed. DEVICE_SSE=UNIMPLEMENTED; DEPLOY=NOT_STARTED; TV_ACCEPTANCE=PENDING.
+
+## Consumer-ready per-Subscription handshake (not implemented)
+
+The prepared VIDAA client helper at hotzenplotz5/vdr-suite-vidaa:
+app/src/device-live-refresh-coordinator.js is **not loaded or connected**.
+It requires the following new *authorized* transport handshake:
+
+- backendId: the single validated backend selected by the Device actor.
+- daemonEpoch: one opaque, nonsecret identifier for this daemon process generation (8–128 safe token characters). A changed epoch invalidates the old subscription and requires reauthentication.
+- subscriptionSequence: a nonnegative, monotonic **per-subscriber** cursor, assigned after backend and grant-domain filtering. Existing global SnapshotChangeFeedEntry.sequenceNumber cannot be substituted, because filtering another backend would create false gaps.
+- authorizedDomains: a nonempty unique subset of timers and recordings, checked from the Device's persisted exact backend grants. recordingMarks is covered by recordings.view. Do not authorize the stream merely because a device is paired.
+
+Every incremental update carries backendId, daemonEpoch, strictly increasing per-subscription subscriptionSequence and the grant-filtered changedDomains. Native recording and timer snapshots are always read afterwards from existing Public-v1 resources. The client initial handshake invokes a canonical read of granted domains, and sequence gaps invoke one coalesced resync. Cross-backend, ungranted-domain or epoch-changing frames close the client feed; a new authenticated handshake is required. The incremental HTTP writer, revocation checks, fanout, backpressure, new route and actual VIDAA streaming support are still **UNIMPLEMENTED**, so no client live-refresh claim is valid yet.
+
+Focused tests of the prepared client helper cover eight cases, including a 400-frame irrelevant EPG burst and a 180-frame Timer burst; they do not validate the missing server-side authorization or real streaming transport.
