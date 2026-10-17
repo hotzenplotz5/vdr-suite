@@ -149,6 +149,10 @@ test-phase69-atomic-timer-create-admission:
 		core/timers/src/TimerAssignment.cpp \
 		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
 		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/TimerAssignmentSetRevisionRepository.cpp \
+		core/timers/src/TimerAssignmentPlanner.cpp \
+		core/timers/src/TimerAssignmentSchedulingService.cpp \
+		core/timers/src/TimerIntentApplicationService.cpp \
 		core/timers/src/NativeTimerBinding.cpp \
 		core/timers/src/NativeTimerBindingIdentity.cpp \
 		core/timers/src/NativeTimerBindingRepository.cpp \

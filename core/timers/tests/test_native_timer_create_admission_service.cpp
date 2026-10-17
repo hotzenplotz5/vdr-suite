@@ -1,4 +1,6 @@
 #include "Database.h"
+#include "EpgTimerIntentDraft.h"
+#include "TimerIntentApplicationService.h"
 #include "MutationOperationIdentity.h"
 #include "MutationOperationRepository.h"
 #include "NativeTimerBindingIdentity.h"
@@ -147,10 +149,123 @@ struct Fixture
         assert(assignment.state == TimerAssignmentState::selected);
     }
 };
+
+void test_source_epg_draft_to_atomic_native_create_admission()
+{
+    using namespace vdrsuite::public_epg_timer;
+    Fixture fixture;
+    const Selection chosen{"backend-one", "S19.2E-1-1019-10301", "81234",
+        "\"opaque-epg-revision\"", "vidaa-epg-once"};
+    AuthoritativeObservation source{chosen.backendId, chosen.channelId,
+        chosen.eventId, "backend-one", chosen.ifMatch,
+        1792222800, 1792226400, 7, true, true};
+    ServerOwnedRecordingDefaults policy;
+    policy.timezone = "Europe/Berlin";
+    policy.channelSourceType = "vdr";
+    const auto draft = makeProgrammeEventDraft(
+        chosen, source, "actor:owner", policy, true, true, 1792223000);
+    assert(draft.valid);
+    assert(draft.specification.intentType == TimerIntentType::programmeEvent);
+    assert(draft.specification.backendEventRef.eventId == chosen.eventId);
+
+    TimerIntentApplicationRequest applicationRequest;
+    applicationRequest.intent.timerIntentId = "intent:epg-native";
+    applicationRequest.intent.state = TimerIntentState::draft;
+    applicationRequest.intent.createdByActorId = "actor:owner";
+    applicationRequest.intent.spec = draft.specification;
+    applicationRequest.intent.createdAt = 1792223000;
+    applicationRequest.intent.updatedAt = 1792223000;
+    applicationRequest.intent.expiresAt = 1792320000;
+    applicationRequest.timerAssignmentId = "assignment:epg-native";
+    applicationRequest.activatedAt = 1792223001;
+    applicationRequest.scheduledAt = 1792223002;
+    applicationRequest.provisioningAt = 1792223003;
+
+    TimerAssignmentPlanningBackendCandidate candidate;
+    candidate.backendId = chosen.backendId;
+    candidate.siteId = "site:home";
+    candidate.currentBackendGeneration = 7;
+    candidate.state = TimerAssignmentPlanningBackendState::online;
+    candidate.writeAllowed = true;
+    candidate.executionAuthorityCurrent = true;
+    candidate.executionAuthorityFence = "local:7";
+    candidate.capability.backendGeneration = 7;
+    candidate.capability.revision = "cap:7";
+    candidate.capability.current = true;
+    candidate.capability.timerCreate = true;
+    candidate.capability.timerReadback = true;
+    candidate.health.backendGeneration = 7;
+    candidate.health.revision = "health:7";
+    candidate.health.current = true;
+    candidate.health.state = TimerAssignmentPlanningHealthState::healthy;
+    candidate.health.timerWritesAvailable = true;
+    candidate.channel.backendGeneration = 7;
+    candidate.channel.mappingRevision = "mapping:7";
+    candidate.channel.mappingSource = "native-source";
+    candidate.channel.sourceType = "vdr";
+    candidate.channel.sourceId = source.sourceId;
+    candidate.channel.sourceChannelId = chosen.channelId;
+    candidate.channel.backendChannelId = chosen.channelId;
+    candidate.channel.current = true;
+    candidate.desiredNativeTimerSpecificationPresent = true;
+    candidate.desiredNativeTimerSpecification = specification();
+    candidate.desiredNativeTimerSpecification.day = "2026-10-17";
+    candidate.desiredNativeTimerSpecification.startTime = "0940";
+    candidate.desiredNativeTimerSpecification.endTime = "1040";
+    candidate.conflict = TimerAssignmentPlanningConflictState::confirmedClear;
+    applicationRequest.candidates = {candidate};
+
+    TimerIntentApplicationService application(
+        fixture.intents, fixture.assignments, fixture.bindings);
+    const auto selected =
+        application.submitAndSelectPrimary(applicationRequest);
+    assert(selected.status == TimerIntentApplicationStatus::assignmentSelected);
+    assert(selected.assignment.state == TimerAssignmentState::selected);
+    assert(selected.assignment.assignmentRevision == "1");
+    assert(selected.assignment.backendGeneration == source.backendGeneration);
+    assert(selected.assignment.desiredNativeTimerSpecificationPresent);
+    const auto again = application.submitAndSelectPrimary(applicationRequest);
+    assert(again.status == TimerIntentApplicationStatus::assignmentSelected);
+    assert(again.assignment.assignmentRevision == "1");
+
+    const auto absent = fixture.operations.findByIdempotencyScope(
+        "actor:owner", chosen.backendId, "TimerAssignment",
+        applicationRequest.timerAssignmentId, "timer.create",
+        chosen.idempotencyKey);
+    assert(absent.status == MutationOperationRepositoryStatus::notFound);
+
+    NativeTimerCreateAdmissionRequest native;
+    native.actorId = "actor:owner";
+    native.idempotencyKey = chosen.idempotencyKey;
+    native.timerAssignmentId = applicationRequest.timerAssignmentId;
+    native.expectedAssignmentRevision = selected.assignment.assignmentRevision;
+    native.expectedBackendId = chosen.backendId;
+    native.requestedAt = 1792223003;
+    native.deadline = 1792223300;
+    const auto admitted = fixture.admission.admit(native);
+    assert(admitted.status == NativeTimerCreateAdmissionStatus::prepared);
+    assert(admitted.operation.state == MutationOperationState::accepted);
+    assert(admitted.operation.resourceId == applicationRequest.timerAssignmentId);
+    assert(!admitted.payload.nativeTimerBindingId.empty());
+    const auto stored = fixture.assignments.findById(
+        applicationRequest.timerAssignmentId);
+    assert(stored.ok());
+    assert(stored.assignment.state == TimerAssignmentState::provisioning);
+    assert(stored.assignment.assignmentRevision == "2");
+
+    const auto replay = fixture.admission.admit(native);
+    assert(replay.status == NativeTimerCreateAdmissionStatus::replayed);
+    assert(replay.operation.operationId == admitted.operation.operationId);
+    source.exactNativeIdentity = false;
+    assert(!makeProgrammeEventDraft(
+        chosen, source, "actor:owner", policy, true, true, 1792223000).valid);
+}
+
 } // namespace
 
 int main()
 {
+    test_source_epg_draft_to_atomic_native_create_admission();
     {
         Fixture fixture;
 

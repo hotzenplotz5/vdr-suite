@@ -242,3 +242,16 @@ No synthetic conflict-clear evidence, guessed backend timezone or grant
 is introduced. Selection cannot be exposed as a verified VDR recording;
 public write admission, capability/health/channel/conflict evidence and
 native readback still gate the VIDAA action.
+
+## EPG draft-to-atomic native admission composition test (2026-10-17)
+
+The existing `test-phase69-atomic-timer-create-admission` now also verifies
+an actual domain chain in one isolated SQLite database: trusted EPG
+selection guard and programme-event Intent draft, source-qualified
+`TimerAssignmentPlanningBackendCandidate`, durable selected Assignment,
+and existing atomic `NativeTimerCreateAdmissionService::admit` with
+revision, operation persistence and durable idempotent replay. The test
+uses explicit fixture capability, channel, timezone and conflict evidence;
+**production cannot fabricate confirmedClear or assume the fixture's
+backend timezone**. It does not exercise the real VDR agent/readback or
+a public device write route. Its target is included in CI fast tests.
