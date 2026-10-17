@@ -164,3 +164,11 @@ The EPG read-model difference must still be integration-tested with a real
 cache refresh before relying on the source ID. Event-ID presence alone is
 necessary but not sufficient to prove actor, backend, generation, source type
 and final authorization.
+
+The additional static source-ownership regression
+`tools/check_public_epg_event_id_provenance.py` is bound to
+`make test-phase69-public-epg-timer-selection`. It verifies the
+original fallback behavior still exists, persistent source-id evidence,
+the read-repository delegation, scoped public-window emission, and
+the native-ID check at the domain boundary. Its PASS is **not** a
+substitute for compiling/running the repository and live runtime tests.

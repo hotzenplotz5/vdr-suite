@@ -14,6 +14,7 @@ test-phase69-public-epg-timer-selection:
 		core/timers/tests/test_epg_timer_selection_guard.cpp \
 		-o $(BUILD_DIR)/test_public_epg_timer_selection_guard
 	$(BUILD_DIR)/test_public_epg_timer_selection_guard
+	python3 tools/check_public_epg_event_id_provenance.py
 
 .PHONY: test-phase69-public-api-contract-root
 
