@@ -32,21 +32,16 @@ int main()
             std::vector<std::string>{"home"});
         assert(!allowed.protectedMutation);
     }
-    // Public-v1 EPG windows additionally expose channel contents.
-    // An epg.view grant alone must not expose the programme timeline.
+    // A Live-TV permission includes the public TV guide on the SAME
+    // backend. EPG-only actors remain legal; channel list alone is not.
+    const std::string Window =
+        "/api/v1/epg/window?backendId=home&channelId=S19.2E-1-100"
+        "&fromTime=1791565200&untilTime=1791586800";
     {
         SecurityHttpGateBrowserTestFixture fixture;
         assert(fixture.grantRepository.ensureGrant(
             fixture.actorId, "epg.view", "home"));
-        const std::string window =
-            "/api/v1/epg/window?backendId=home&channelId=S19.2E-1-100"
-            "&fromTime=1791565200&untilTime=1791586800";
-        const auto denied = fixture.gate.evaluate(browserRead(fixture,window));
-        assert(!denied.allowed);
-        assert(denied.rejection.statusCode == 403);
-        assert(fixture.grantRepository.ensureGrant(
-            fixture.actorId, "channels.view", "home"));
-        const auto allowed = fixture.gate.evaluate(browserRead(fixture,window));
+        const auto allowed = fixture.gate.evaluate(browserRead(fixture,Window));
         assert(allowed.allowed);
         assert(allowed.authorizedBackendIds ==
             std::vector<std::string>{"home"});
@@ -54,11 +49,37 @@ int main()
     {
         SecurityHttpGateBrowserTestFixture fixture;
         assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "media.live.play", "home"));
+        for (const std::string& path: {std::string(Route), Window})
+        {
+            const auto allowed = fixture.gate.evaluate(browserRead(fixture,path));
+            assert(allowed.allowed);
+            assert(allowed.authorizedBackendIds ==
+                std::vector<std::string>{"home"});
+        }
+    }
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "media.live.play", "other"));
+        for (const std::string& path: {std::string(Route), Window})
+        {
+            const auto denied = fixture.gate.evaluate(browserRead(fixture,path));
+            assert(!denied.allowed);
+            assert(denied.rejection.statusCode == 403);
+        }
+    }
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
             fixture.actorId, "channels.view", "home"));
-        const auto denied = fixture.gate.evaluate(browserRead(fixture,Route));
-        assert(!denied.allowed);
-        assert(denied.rejection.statusCode == 403);
-        assert(denied.authorizedBackendIds.empty());
+        for(const std::string& path:{std::string(Route),Window})
+        {
+            const auto denied=fixture.gate.evaluate(browserRead(fixture,path));
+            assert(!denied.allowed);
+            assert(denied.rejection.statusCode == 403);
+            assert(denied.authorizedBackendIds.empty());
+        }
     }
     {
         SecurityHttpGateBrowserTestFixture fixture;
