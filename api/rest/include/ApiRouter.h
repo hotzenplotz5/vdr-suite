@@ -101,10 +101,12 @@ public:
             status,
             backendId);
 
-        const std::vector<VdrEvent>* cachedEvents =
-            searchTimerPreviewEpgCache_->eventsForBackend(backendId);
+        // Hold the immutable event set while copying it for the Web
+        // controller. A concurrent cache refresh may replace its generation.
+        const auto cachedEvents =
+            searchTimerPreviewEpgCache_->sharedEventsForBackend(backendId);
 
-        if (cachedEvents != nullptr)
+        if (cachedEvents)
         {
             return *cachedEvents;
         }
