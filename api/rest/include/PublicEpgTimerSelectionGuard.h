@@ -95,8 +95,8 @@ inline Decision preflight(
     std::int64_t now)
 {
     if (!boundedId(requested.backendId, 128) ||
-        !boundedId(requested.channelId, 256) ||
-        !boundedId(requested.eventId, 256))
+        !boundedId(requested.channelId, 160) ||
+        !boundedId(requested.eventId, 160))
         return Decision::invalidSelection;
     if (!strongEtag(requested.ifMatch))
         return Decision::missingPrecondition;
@@ -110,7 +110,7 @@ inline Decision preflight(
         observed.sourceId.empty() || observed.sourceId.size() > 160 ||
         observed.backendGeneration == 0 ||
         observed.startTime <= 0 || observed.endTime <= observed.startTime ||
-        !boundedId(observed.nativeEventId, 256) ||
+        !boundedId(observed.nativeEventId, 160) ||
         !strongEtag(observed.resourceEtag))
         return Decision::noAuthoritativeObservation;
     if (observed.backendId != requested.backendId ||

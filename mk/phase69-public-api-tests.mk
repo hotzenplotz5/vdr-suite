@@ -1,3 +1,12 @@
+.PHONY: test-phase69-public-epg-timer-intent-draft
+
+test-phase69-public-epg-timer-intent-draft:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
+		core/timers/src/TimerIntent.cpp \
+		api/rest/tests/test_public_epg_timer_intent_draft.cpp \
+		-o $(BUILD_DIR)/test_public_epg_timer_intent_draft
+	$(BUILD_DIR)/test_public_epg_timer_intent_draft
+
 .PHONY: test-phase69-public-epg-timer-selection
 
 test-phase69-public-epg-timer-selection:
