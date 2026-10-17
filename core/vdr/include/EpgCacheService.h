@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -80,6 +81,13 @@ public:
         const std::string& fromTime,
         const std::string& untilTime,
         int eventLimit) const;
+
+    // Exact source-provenanced event from the same read-repository as
+    // window display; no independent source of EPG truth.
+    std::optional<VdrEvent> findSourceEventForBackend(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& nativeEventId) const;
 
     // A nonempty returned EPG cache key does not prove a real source ID.
     // Expose only the read-repository's durable, exact provenance evidence.

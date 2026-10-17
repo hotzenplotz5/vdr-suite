@@ -232,6 +232,17 @@ EpgCacheService::findNowNextPerChannelForBackend(
         perChannelLimit);
 }
 
+std::optional<VdrEvent> EpgCacheService::findSourceEventForBackend(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& nativeEventId) const
+{
+    return readRepository_ != nullptr
+        ? readRepository_->findSourceEventForBackend(
+            backendId, channelId, nativeEventId)
+        : std::nullopt;
+}
+
 bool EpgCacheService::hasSourceEventIdForBackend(
     const std::string& backendId,
     const std::string& channelId,

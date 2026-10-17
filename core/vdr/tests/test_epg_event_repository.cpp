@@ -687,8 +687,84 @@ static void test_event_id_source_evidence_is_durable_and_fail_closed()
         "WHERE event_id='real-81234';") == 0);
 }
 
+
+static void test_exact_native_epg_event_read_respects_source_provenance()
+{
+    const std::string filename =
+        "/tmp/vdr-suite-epg-exact-source-event-test.db";
+    std::remove(filename.c_str());
+    Database database;
+    assert(database.open(filename));
+    EpgEventRepository repository(database);
+    assert(repository.ensureSchema());
+
+    const auto original = make_event("real-81234", "ch-A",
+        "Native Source", "1792222800", "1792226400");
+    const auto synthetic = make_event("", "ch-A",
+        "No Source ID", "1792222800", "1792226400");
+    const auto otherChannel = make_event("real-81234", "ch-B",
+        "Different Channel", "1792222800", "1792226400");
+    assert(repository.upsertEventsForBackend("home",
+        {original, synthetic, otherChannel}));
+    assert(repository.upsertEventsForBackend("remote", {
+        make_event("real-81234", "ch-A", "Remote VDR",
+            "1792222800", "1792226400")}));
+
+    auto exact = repository.findSourceEventForBackend(
+        "home", "ch-A", "real-81234");
+    assert(exact.has_value());
+    assert(exact->title == "Native Source");
+    assert(exact->description == "description-Native Source");
+    assert(exact->startTime == original.startTime);
+    assert(exact->endTime == original.endTime);
+
+    const auto remote = repository.findSourceEventForBackend(
+        "remote", "ch-A", "real-81234");
+    assert(remote.has_value() && remote->title == "Remote VDR");
+    const auto scoped = repository.findSourceEventForBackend(
+        "home", "ch-B", "real-81234");
+    assert(scoped.has_value() && scoped->title == "Different Channel");
+    assert(!repository.findSourceEventForBackend(
+        "other", "ch-A", "real-81234").has_value());
+    assert(!repository.findSourceEventForBackend(
+        "home", "ch-A", "unknown-id").has_value());
+    assert(!repository.findSourceEventForBackend(
+        "home", "ch-A", std::string(161, 'x')).has_value());
+    assert(!repository.findSourceEventForBackend(
+        "home", "ch-A", "").has_value());
+
+    const std::string fallback = synthetic.channelId + ":" +
+        synthetic.startTime + ":" + synthetic.title;
+    assert(repository.containsEventForBackend("home", "ch-A", fallback));
+    assert(!repository.findSourceEventForBackend(
+        "home", "ch-A", fallback).has_value());
+
+    assert(database.execute(
+        "INSERT INTO epg_events "
+        "(backend_id,channel_id,event_id,title,start_time,end_time) "
+        "VALUES ('home','ch-A','legacy-no-proof','Old','100','200');"));
+    assert(!repository.findSourceEventForBackend(
+        "home", "ch-A", "legacy-no-proof").has_value());
+
+    auto updated = original;
+    updated.title = "Corrected Broadcast";
+    assert(repository.upsertEventsForBackend("home", {updated}));
+    exact = repository.findSourceEventForBackend(
+        "home", "ch-A", "real-81234");
+    assert(exact.has_value() && exact->title == updated.title);
+
+    assert(database.execute(
+        "DELETE FROM epg_events WHERE backend_id='home' "
+        "AND channel_id='ch-A' AND event_id='real-81234';"));
+    assert(!repository.findSourceEventForBackend(
+        "home", "ch-A", "real-81234").has_value());
+    assert(repository.findSourceEventForBackend(
+        "remote", "ch-A", "real-81234").has_value());
+}
+
 int main()
 {
+    test_exact_native_epg_event_read_respects_source_provenance();
     test_event_id_source_evidence_is_durable_and_fail_closed();
     test_integer_window_uses_end_epoch_index();
     test_unchanged_upsert_does_not_rewrite_row();

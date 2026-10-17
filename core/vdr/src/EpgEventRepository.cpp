@@ -663,6 +663,57 @@ bool EpgEventRepository::hasSourceEventIdForBackend(
     return present;
 }
 
+
+std::optional<VdrEvent> EpgEventRepository::findSourceEventForBackend(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& nativeEventId) const
+{
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    if (backendId.empty() || backendId.size() > 128U ||
+        channelId.empty() || channelId.size() > 160U ||
+        nativeEventId.empty() || nativeEventId.size() > 160U)
+        return std::nullopt;
+
+    // One scoped query binds both the actual cached EPG row and durable
+    // evidence that the source supplied its ID. Never resolve an event
+    // through its title, starting time, or a generated fallback cache key.
+    static constexpr const char* Sql =
+        "SELECT v.event_id,v.channel_id,v.title,v.subtitle,v.description,"
+        "v.start_time,v.end_time,v.duration_seconds,v.parental_rating,"
+        "v.content_descriptors "
+        "FROM epg_events v "
+        "INNER JOIN epg_event_id_source_evidence e "
+        "ON e.backend_id=v.backend_id AND e.channel_id=v.channel_id "
+        "AND e.event_id=v.event_id "
+        "WHERE v.backend_id=? AND v.channel_id=? AND v.event_id=? "
+        "AND e.source_id_present=1 LIMIT 2;";
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(database_.handle(), Sql, -1,
+            &statement, nullptr) != SQLITE_OK)
+        return std::nullopt;
+
+    bindText(statement, 1, normalizeBackendId(backendId));
+    bindText(statement, 2, channelId);
+    bindText(statement, 3, nativeEventId);
+    std::optional<VdrEvent> event;
+    if (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        VdrEvent observed = readEvent(statement);
+        // One row must terminate successfully. An unexpected duplicate,
+        // database error or malformed source observation fails closed.
+        if (sqlite3_step(statement) == SQLITE_DONE &&
+            observed.id == nativeEventId &&
+            observed.channelId == channelId &&
+            !observed.title.empty() &&
+            !observed.startTime.empty() &&
+            !observed.endTime.empty())
+            event = std::move(observed);
+    }
+    sqlite3_finalize(statement);
+    return event;
+}
+
 std::vector<VdrEvent> EpgEventRepository::findNowNextForBackend(
     const std::string& backendId,
     const std::string& channelId,

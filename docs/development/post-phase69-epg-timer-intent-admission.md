@@ -186,3 +186,20 @@ with boundary regressions for 160 (included) and 161 (omitted) in
 **not** a claim of a complete EPG-detail/CREATE/Device-write route. Provenance,
 backend generation, grant, revision, admission and native readback remain
 mandatory before enabling a VIDAA one-off recording button.
+
+## Exact source-event lookup prerequisite (2026-10-17)
+
+`EpgEventRepository::findSourceEventForBackend` now resolves a single
+backend/channel/native event ID in **one SQLite query** joined to the existing
+`epg_event_id_source_evidence` table. It returns the original bounded
+`VdrEvent` (including description and source schedule), or no observation for
+legacy rows, synthetic cache keys, wrong scope, deleted rows or SQL failures.
+`EpgCacheService` delegates to the same read repository as the public EPG
+window, without a competing index or independent provider. The existing
+`test-epg-event-repository` target covers positive read, description,
+backend/channel isolation, source-ID absence, historical rows, updates,
+deletes and oversized IDs. This is the prerequisite for a future revisioned
+public event-detail resource and admission resolver. It does **not** assert
+backend generation/currentness, allow a Device write or generate a timer.
+Hardware/native effect and the unimplemented HTTP/Assignment pipeline remain
+pending; CI results for this exact product commit must be evaluated separately.
