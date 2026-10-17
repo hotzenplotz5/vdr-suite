@@ -390,14 +390,14 @@ struct PublicEpgNowNextRequest
 struct PublicEpgNowNextItem
 {
     std::string channelId;
-    // Optional exact native event identity. Never fabricate an ID from
-    // programme title/time when provider identity is absent.
-    std::string eventId;
     std::string title;
     std::string subtitle;
     std::string startTime;
     std::string endTime;
     int durationSeconds = 0;
+    // Appended to preserve earlier aggregate field positions.
+    // Never fabricate an ID from programme title or timestamps.
+    std::string eventId;
 };
 
 struct PublicEpgNowNextResult
