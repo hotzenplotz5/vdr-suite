@@ -123,7 +123,7 @@ int main() {
     assert(hello.find("Content-Length") == std::string::npos);
 
     hub.publish(LiveUpdateEvent(17, 19, {"timers", "events"}, "home"));
-    const auto update = readUntil(stream, "event: update",
+    const auto update = readUntil(stream, "\"changedDomains\":[\"timers\"]",
         std::chrono::milliseconds(1500));
     assert(update.find("\"changedDomains\":[\"timers\"]") !=
            std::string::npos);
