@@ -9,15 +9,16 @@
 | I want to… | Open |
 | --- | --- |
 | See what VDR-Suite can do | [Feature overview](docs/project-status-dashboard.md) |
+| **Install on Ubuntu / set up the first admin / configure VDR-Suite** | **[Erste Schritte nach der Installation (Deutsch)](docs/erste-schritte-nach-installation.md)** |
 | Explore an existing server or find the installation status | [Getting started](docs/getting-started.md) |
 | Compile and test from a clean checkout | [Developer quickstart](docs/development/quickstart.md) |
 | Contribute a change | [Contributing](CONTRIBUTING.md) |
 | Build a client | [Public API guide](api/README.md) and [partial OpenAPI](api/openapi.json) |
 | Understand architecture and roadmap | [Documentation home](docs/index.md) |
 
-**Deutsch:** [Projektüberblick](docs/project-overview.de.md) · [Dokumentationsübersicht](docs/index.md)
+**Deutsch:** [Erste Schritte nach der Ubuntu-Paketinstallation](docs/erste-schritte-nach-installation.md) · [Projektüberblick](docs/project-overview.de.md) · [Dokumentationsübersicht](docs/index.md)
 
-**Installation status:** source builds, test targets and a controlled staging/deployment procedure exist. There is **not yet a generally published one-command Ubuntu/Debian installer or a verified `.deb` release** in this repository. Do not run development deployment commands on an existing VDR without a reviewed installation and rollback plan. See [packaging status](packaging/README.md) and [staged deployment contract](docs/development/install-runtime-deployment-reliability.md).
+**Ubuntu installation (experimental):** a maintainer-operated [VDR-Suite test PPA](https://launchpad.net/~hotzenplotz5/+archive/ubuntu/vdr-suite) and an active [Ubuntu/Debian packaging workstream](https://github.com/hotzenplotz5/vdr-suite/tree/work/packaging-debian-ubuntu-install) exist. These are **not a generally supported production installer or a verified in-place migration for existing yaVDR/manual installations**. Check the actual PPA package versions and platform/ABI compatibility before installing. Start with **[Erste Schritte nach der Installation](docs/erste-schritte-nach-installation.md)**; see also [packaging status](packaging/README.md) and the [deployment contract](docs/development/install-runtime-deployment-reliability.md).
 
 ## What you get
 

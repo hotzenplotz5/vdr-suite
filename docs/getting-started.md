@@ -6,7 +6,7 @@ This page is for someone who has just found VDR-Suite and wants to understand wh
 
 - **I already have VDR-Suite deployed:** follow the read-only checks below, then open the Web frontend.
 - **I want to compile or contribute:** follow the [isolated developer quickstart](development/quickstart.md).
-- **I want to install VDR-Suite onto my VDR machine:** first read the [packaging status](../packaging/README.md) and [deployment contract](development/install-runtime-deployment-reliability.md). This repository does **not** currently provide a published, generally supported one-command Ubuntu/Debian installer or a verified `.deb` release. Do not copy individual frontend files into a running system.
+- **I want to install VDR-Suite via an Ubuntu test PPA or have just installed it:** start with [Erste Schritte nach der Installation (Deutsch)](erste-schritte-nach-installation.md), then check the [packaging status](../packaging/README.md) and [deployment contract](development/install-runtime-deployment-reliability.md). The PPA is experimental and not a generally supported in-place migration for an existing VDR/yaVDR. Do not copy individual frontend files into a running system.
 
 ## What VDR-Suite adds
 
@@ -40,6 +40,7 @@ At present there are two different paths:
 | --- | --- |
 | Understand what the software does | [Product overview](project-overview.md), [feature dashboard](project-status-dashboard.md) |
 | Build and run non-invasive tests on a disposable machine | [Developer quickstart](development/quickstart.md) |
+| Follow the Ubuntu test-PPA and first-admin setup path | **[Erste Schritte nach der Installation (Deutsch)](erste-schritte-nach-installation.md)** and [experimental PPA](https://launchpad.net/~hotzenplotz5/+archive/ubuntu/vdr-suite) |
 | Plan a controlled installation on a real VDR/yaVDR system | [Packaging status](../packaging/README.md), [staged deployment and verification](development/install-runtime-deployment-reliability.md) |
 | Connect an external application | [Public-v1 API introduction](../api/README.md), [partial OpenAPI 3.1](../api/openapi.json) |
 | Develop on Hisense VIDAA | [Dedicated VIDAA repository](https://github.com/hotzenplotz5/vdr-suite-vidaa) |
