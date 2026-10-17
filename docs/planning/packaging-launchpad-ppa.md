@@ -1,6 +1,6 @@
 # VDR-Suite Ubuntu test PPA
 
-Status: Ubuntu 24.04 noble + Seahawk VDR 2.8.3 three-binary package build and disposable install/reinstall/remove/purge **PASS** in GitHub Actions #29 (2026-10-14). Earlier unsigned Debian and noble source previews PASS; **no signed source upload, Launchpad build or public PPA publication**.
+Status (2026-10-17): **19/19 CI jobs PASS** on exact packaging commit `cd0bc82ca1ff183c3d7cc69a553a51cd479b9eca`, [GitHub Actions run 38990016336](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38990016336). Noble and Resolute full three-binary builds, plugin-only builds, isolated package lifecycle, P8 refusal, historical exp1-to-exp2 upgrade/rollback, deterministic source package and zero-error Lintian gate all pass. Three Lintian `copyright-without-copyright-notice` warnings remain: the source-level inventory intentionally avoids asserting a specific personal copyright holder without sufficient evidence. **No signed source upload, Launchpad chroot build, full rights clearance or production migration approval**.
 
 ## PPA
 
@@ -9,7 +9,7 @@ Status: Ubuntu 24.04 noble + Seahawk VDR 2.8.3 three-binary package build and di
 - Public URL (provided by project maintainer): https://launchpad.net/~hotzenplotz5/+archive/ubuntu/vdr-suite
 - Upload target: `ppa:hotzenplotz5/vdr-suite`
 - Role: Ubuntu **experimental/testing** only. Debian support must be validated separately.
-- Candidate Ubuntu test releases: 24.04 LTS (`noble`), then 26.04 LTS (`resolute`). These are TARGETS, not confirmed supported builds.
+- Candidate Ubuntu test releases: 24.04 LTS (`noble`), then 26.04 LTS (`resolute`). Both pass isolated GitHub CI with Seahawk VDR 2.8.3; Launchpad and production support remain unconfirmed.
 
 ## Verified progress and current PPA build blockers (2026-10-14)
 
@@ -17,8 +17,8 @@ Status: Ubuntu 24.04 noble + Seahawk VDR 2.8.3 three-binary package build and di
 - A separate local `3.0 (quilt)` Debian source archive and unsigned `_source.changes` were successfully generated and extracted again (`SOURCE_ONLY_PACKAGE=PASS`, `SOURCE_ROUNDTRIP=PASS`) at SHA `39995c626c25909a972b6d9f886ebdc0c82b5fd5`. This source has the `unstable` changelog suite and is *not* suitable for immediate upload.
 - The official Ubuntu 24.04 (`noble`) `vdr-dev` package is version **2.6.0-1.1** (source: https://packages.ubuntu.com/noble/vdr-dev); thus `vdr-abi-2.8.3-0yavdr` from local yaVDR must **not** be presumed available in the PPA's noble build environment.
 - **Critical:** Launchpad's default profile builds all three packages. A complete Ubuntu noble + Seahawk VDR 2.8.3 default build has now PASSED in GitHub Actions #29, separate from a plugin-only build. This is **not** yet a proof of identical Launchpad chroot resolution from a clean, signed source upload.
-- Offline `--ubuntu-preview noble|resolute` still generates unsigned series-specific source metadata only; the complete noble binary build has separately passed in GitHub Actions, while resolute remains untested.
-- The complete license/provenance assessment and `debian/copyright` review remain open. Never fabricate blanket copyright claims or silently ship third-party media.
+- Offline `--ubuntu-preview noble|resolute` generates unsigned series-specific source metadata only. Both noble and resolute full three-binary builds now pass in GitHub Actions on the exact CI commit identified above; neither is a Launchpad chroot acceptance.
+- The detailed license/provenance inventories and `debian/copyright` exist and explicitly distinguish original code, adapted TVScraper interface, maintainer-introduced native ABI mirrors and AI-assisted project art. Remaining uncertainty concerns affirmative rights/redistribution authorization for particular materials and definitive personal copyright attributions; do not fabricate them. The three remaining Lintian warnings are not missing-file errors.
 - Launchpad requires an upload signed by an OpenPGP key associated with the Launchpad account. The PPA signs the binaries *after* building them; this does not replace the user's upload signature.
 
 ## Requested Launchpad build dependencies: Seahawk VDR 2.8.3
