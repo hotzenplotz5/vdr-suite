@@ -70,7 +70,7 @@ Upgrade/Purge und Konfigurationsschutz waren bereits Gegenstand
 separater Offline-Paketlebenszyklus-Tests; ein Upgrade direkt aus dem
 **veröffentlichten** PPA ist nicht durch diesen Workflow bewiesen.
 
-**Ubuntu 26.04 Resolute:** Für die drei VDR-Suite-Binärpakete liegt in
+Resolute publication availability is checked by the [disposable 26.04 readiness workflow](../.github/workflows/ppa-resolute-install-smoke.yml). A green *readiness* job with `RESOLUTE_RELEASE_GATE=NOT_READY` is **not** an installation or runtime PASS: downstream install and daemon steps are explicitly skipped until the archive publishes every package.\n\n**Ubuntu 26.04 Resolute:** Für die drei VDR-Suite-Binärpakete liegt in
 diesem Noble-Testlauf noch **kein** veröffentlichter APT-Installations-
 oder HTTP-Laufzeitnachweis vor. Die Launchpad-Builds und der anschließende
 analoge Resolute-Installationslauf sind getrennte offene Freigabegates.
