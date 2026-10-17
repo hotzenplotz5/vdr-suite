@@ -41,16 +41,18 @@ jobs:
           packages=(vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge vdr-plugin-web)
           missing=()
           for package in "${packages[@]}"; do
-            apt-cache policy "$package"
-            # Do not substitute an Ubuntu archive package with the same name.
-            if ! apt-cache policy "$package" | grep -Fq \
-                 'ppa.launchpadcontent.net/hotzenplotz5/vdr-suite/ubuntu resolute'; then
+            policy="$(apt-cache policy "$package")"
+            printf '%s\n' "$policy"
+            # Require a candidate and source provenance from the VDR-Suite PPA.
+            if [[ "$policy" != *'ppa.launchpadcontent.net/hotzenplotz5/vdr-suite/ubuntu resolute'* ]] || \
+               [[ "$policy" == *'Candidate: (none)'* ]]; then
               missing+=("$package")
             fi
           done
-          apt-cache policy vdr
-          if ! apt-cache policy vdr | grep -Fq \
-               'ppa.launchpadcontent.net/seahawk1986-hotmail/vdr-2.8.3/ubuntu resolute'; then
+          vdr_policy="$(apt-cache policy vdr)"
+          printf '%s\n' "$vdr_policy"
+          if [[ "$vdr_policy" != *'ppa.launchpadcontent.net/seahawk1986-hotmail/vdr-2.8.3/ubuntu resolute'* ]] || \
+             [[ "$vdr_policy" == *'Candidate: (none)'* ]]; then
             missing+=(seahawk-vdr-2.8.3)
           fi
           if (( ${#missing[@]} > 0 )); then
