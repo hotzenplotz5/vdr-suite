@@ -43,12 +43,16 @@
 #include "SecurityPermissionGrantRepository.h"
 
 #include <map>
+#include <vector>
 #include <memory>
+
+class DeviceLiveEventHub;
 
 class TestHttpServer : public IHttpServer, public IEpgArtworkHttpProvider
 {
 public:
-    explicit TestHttpServer(ApiRouter& apiRouter);
+    explicit TestHttpServer(ApiRouter& apiRouter,
+        std::shared_ptr<DeviceLiveEventHub> eventHub = nullptr);
     ~TestHttpServer() override;
 
     HttpServerResponse handleRequest(
@@ -78,6 +82,7 @@ public:
 
 private:
     ApiRouter& apiRouter_;
+    std::shared_ptr<DeviceLiveEventHub> deviceEventHub_;
     std::unique_ptr<Database> securityDatabase_;
     std::unique_ptr<AccountabilityEventRepository>
         accountabilityEventRepository_;
