@@ -114,3 +114,16 @@ The following tasks are **not** authorizations to upload or to modify the produc
 3. Verify the uploader's Launchpad account has an associated OpenPGP public signing key and a matching selected signing identity; never commit private key material. Check the source-only package, its `*_source.changes`, `.dsc`, `.orig.tar.*` and `.debian.tar.*` in a disposable checkout before asking for a signed release candidate.
 4. Resolve any remaining third-party source or contributor-rights questions at the level of files actually distributed. The maintainer's `GPL-3.0-or-later` approval for ChatGPT-generated project artwork is recorded and must **not** be reverted to `License-grant-pending`.
 5. A first experimental upload is a separately authorized, manual action only after these checks. Passing isolated CI does not automatically authorize distribution or productive installation.
+
+## Noble / Resolute source-change acceptance in disposable CI (17 October 2026)
+
+At exact code commit `beda36dbb6579144b5f4fa491a444e7a22131fac`, [GitHub Actions run 38996844523](https://github.com/hotzenplotz5/vdr-suite/actions/runs/38996844523) verified that both Ubuntu-specific **unsigned** source packages can be built, that the `_source.changes` metadata has the target distribution and version, that matching `.dsc` and Debian delta files exist, and that `dpkg-source -x` roundtrips the source without changing `VERSION` or the changelog:
+
+| Ubuntu | Verified source version | CI proof |
+| --- | --- | --- |
+| 24.04 noble | `0.14.1-1~exp2~ubuntu24.04.1` | `UBUNTU_SOURCE_noble=PASS` |
+| 26.04 resolute | `0.14.1-1~exp2~ubuntu26.04.1` | `UBUNTU_SOURCE_resolute=PASS` |
+
+The same `.orig.tar.xz` bytes are produced for both distributions (`UBUNTU_SOURCE_SHARED_ORIG_TARBALL=PASS`); the source-preview artifact stores **checksums and evidence only**, not a signed changeset or upload payload. This CI step uses a pristine `git archive` source and `dpkg-buildpackage -S -sa -us -uc -d -nc`; the `-nc` bypasses `debian/rules clean` when `dh` is absent in the source-only runner. Separate full binary build jobs still run with their actual build dependencies and cleaning.
+
+This proves source-package *technical structure*, not Launchpad uploader eligibility, an OpenPGP signature, PPA version monotonicity against archive records, authenticated Seahawk PPA build-dependency resolution, a genuine Launchpad chroot build or external code ownership. No PPA upload and no productive yaVDR changes were performed.
