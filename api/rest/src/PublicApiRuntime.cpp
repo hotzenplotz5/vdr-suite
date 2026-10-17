@@ -110,6 +110,10 @@ constexpr const char* PublicChannelCollectionPath =
     "/api/v1/channels";
 constexpr const char* PublicEpgNowNextPath =
     "/api/v1/epg/now-next";
+constexpr const char* PublicEpgWindowPath =
+    "/api/v1/epg/window";
+constexpr const char* PublicNativeTimersPath =
+    "/api/v1/native-timers";
 constexpr std::size_t PublicChannelDefaultLimit = 50U;
 constexpr std::size_t PublicChannelMaximumLimit = 100U;
 constexpr std::size_t PublicChannelMaximumSources = 16U;
@@ -1187,6 +1191,145 @@ bool parsePublicEpgGenreQuery(
     }
     return backend && (!events || contentClass) &&
         (query.genreId.empty() || query.contentClass == "movie");
+}
+
+struct PublicNativeTimersQuery
+{
+    std::string backendId;
+    std::size_t offset = 0U;
+    std::size_t limit = 30U;
+};
+
+bool parsePublicNativeTimersQuery(
+    const std::string& target, PublicNativeTimersQuery& query)
+{
+    const std::string raw = requestQueryString(target);
+    if (raw.empty() || raw.size() > 256U) return false;
+    bool backendSeen = false, offsetSeen = false, limitSeen = false;
+    std::size_t position = 0U;
+    while (position < raw.size())
+    {
+        const std::size_t end = raw.find('&', position);
+        const std::string item = raw.substr(
+            position, end == std::string::npos ?
+                std::string::npos : end - position);
+        const std::size_t eq = item.find('=');
+        if (item.empty() || eq == std::string::npos ||
+            item.find('=', eq + 1U) != std::string::npos) return false;
+        const auto key = item.substr(0U, eq);
+        const auto value = item.substr(eq + 1U);
+        if (key == "backendId" && !backendSeen)
+        {
+            query.backendId = value;
+            backendSeen = true;
+        }
+        else if (key == "offset" && !offsetSeen)
+        {
+            if (!decimalSize(value, query.offset) ||
+                query.offset > 100000U) return false;
+            offsetSeen = true;
+        }
+        else if (key == "limit" && !limitSeen)
+        {
+            if (!decimalSize(value, query.limit) ||
+                query.limit == 0U || query.limit > 30U) return false;
+            limitSeen = true;
+        }
+        else return false;
+        if (end == std::string::npos) break;
+        position = end + 1U;
+        if (position == raw.size()) return false;
+    }
+    return backendSeen && !query.backendId.empty() &&
+        query.backendId.size() <= 128U &&
+        std::all_of(query.backendId.begin(), query.backendId.end(),
+            [](unsigned char c) {
+                return std::isalnum(c) || c == '.' || c == '_' || c == '-';
+            });
+}
+
+struct PublicEpgWindowQuery
+{
+    std::string backendId;
+    std::string channelId;
+    std::string fromTime;
+    std::string untilTime;
+    std::size_t limit = 192U;
+};
+
+bool parsePublicEpgWindowQuery(
+    const std::string& target, PublicEpgWindowQuery& query)
+{
+    const std::string raw = requestQueryString(target);
+    if (raw.empty() || raw.size() > 720U) return false;
+    bool backendSeen = false, channelSeen = false;
+    bool fromSeen = false, untilSeen = false, limitSeen = false;
+    std::size_t position = 0U;
+    while (position < raw.size())
+    {
+        const std::size_t end = raw.find('&', position);
+        const std::string item = raw.substr(
+            position, end == std::string::npos ?
+                std::string::npos : end - position);
+        const auto eq = item.find('=');
+        if (item.empty() || eq == std::string::npos ||
+            item.find('=', eq + 1U) != std::string::npos) return false;
+        const auto key = item.substr(0U, eq);
+        const auto value = item.substr(eq + 1U);
+        if (key == "backendId" && !backendSeen)
+        {
+            backendSeen = true; query.backendId = value;
+        }
+        else if (key == "channelId" && !channelSeen)
+        {
+            channelSeen = true; query.channelId = value;
+        }
+        else if (key == "fromTime" && !fromSeen)
+        {
+            fromSeen = true; query.fromTime = value;
+        }
+        else if (key == "untilTime" && !untilSeen)
+        {
+            untilSeen = true; query.untilTime = value;
+        }
+        else if (key == "limit" && !limitSeen)
+        {
+            limitSeen = true;
+            if (!decimalSize(value, query.limit) ||
+                query.limit == 0U || query.limit > 192U) return false;
+        }
+        else return false;
+        if (end == std::string::npos) break;
+        position = end + 1U;
+        if (position == raw.size()) return false;
+    }
+    const auto validId = [](const std::string& id,
+                            std::size_t maximum) {
+        return !id.empty() && id.size() <= maximum &&
+            std::all_of(id.begin(), id.end(),
+                [](unsigned char ch) {
+                    return std::isalnum(ch) || ch == '.' ||
+                        ch == '_' || ch == '-';
+                });
+    };
+    const auto validTime = [](const std::string& value) {
+        return value.size() >= 10U && value.size() <= 12U &&
+            value[0] != '0' &&
+            std::all_of(value.begin(), value.end(),
+                [](unsigned char ch) { return ch >= '0' && ch <= '9'; });
+    };
+    if (!backendSeen || !channelSeen || !fromSeen || !untilSeen ||
+        !validId(query.backendId, 128U) ||
+        !validId(query.channelId, 256U) ||
+        !validTime(query.fromTime) || !validTime(query.untilTime))
+        return false;
+    try
+    {
+        const auto from = std::stoll(query.fromTime);
+        const auto until = std::stoll(query.untilTime);
+        return until > from && until - from <= 43200LL;
+    }
+    catch (...) { return false; }
 }
 
 struct PublicEpgNowNextQuery
@@ -3498,6 +3641,8 @@ ApiResponse platformCapabilities(
     const bool genreCollectionAvailable,
     const bool epgGenreAvailable,
     const bool epgNowNextAvailable,
+    const bool epgWindowAvailable,
+    const bool nativeTimersAvailable,
     const bool searchAvailable,
     const bool accountCollectionAvailable,
     const bool accountMutationAvailable,
@@ -3553,6 +3698,12 @@ ApiResponse platformCapabilities(
         "\"},"
         "{\"id\":\"public-api.epg-now-next-read\",\"version\":1,\"availability\":\"" +
         std::string(epgNowNextAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.epg-window-read\",\"version\":1,\"availability\":\"" +
+        std::string(epgWindowAvailable ? "available" : "unavailable") +
+        "\"},"
+        "{\"id\":\"public-api.native-timers-read\",\"version\":1,\"availability\":\"" +
+        std::string(nativeTimersAvailable ? "available" : "unavailable") +
         "\"},"
         "{\"id\":\"public-api.accounts-read\",\"version\":1,\"availability\":\"" +
         std::string(accountCollectionAvailable ? "available" : "unavailable") +
@@ -5696,6 +5847,66 @@ PublicEpgNowNextResult PublicApiRuntime::lookupEpgNowNext(
     return lookup ? lookup(request) : PublicEpgNowNextResult{};
 }
 
+void PublicApiRuntime::registerEpgWindowLookup(
+    EpgWindowLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(epgWindowLookupMutex_);
+    epgWindowLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetEpgWindowLookup()
+{
+    std::lock_guard<std::mutex> lock(epgWindowLookupMutex_);
+    epgWindowLookup_ = {};
+}
+
+bool PublicApiRuntime::epgWindowLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(epgWindowLookupMutex_);
+    return static_cast<bool>(epgWindowLookup_);
+}
+
+PublicEpgWindowResult PublicApiRuntime::lookupEpgWindow(
+    const PublicEpgWindowRequest& request) const
+{
+    EpgWindowLookup lookup;
+    {
+        std::lock_guard<std::mutex> lock(epgWindowLookupMutex_);
+        lookup = epgWindowLookup_;
+    }
+    return lookup ? lookup(request) : PublicEpgWindowResult{};
+}
+
+void PublicApiRuntime::registerNativeTimersLookup(
+    NativeTimersLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(nativeTimersLookupMutex_);
+    nativeTimersLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetNativeTimersLookup()
+{
+    std::lock_guard<std::mutex> lock(nativeTimersLookupMutex_);
+    nativeTimersLookup_ = {};
+}
+
+bool PublicApiRuntime::nativeTimersLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(nativeTimersLookupMutex_);
+    return static_cast<bool>(nativeTimersLookup_);
+}
+
+PublicNativeTimersResult PublicApiRuntime::lookupNativeTimers(
+    const PublicNativeTimersRequest& request) const
+{
+    NativeTimersLookup lookup;
+    {
+        std::lock_guard<std::mutex> lock(nativeTimersLookupMutex_);
+        lookup = nativeTimersLookup_;
+    }
+    return lookup ? lookup(request) : PublicNativeTimersResult{};
+}
+
 void PublicApiRuntime::registerChannelCollectionLookup(
     ChannelCollectionLookup lookup)
 {
@@ -5807,6 +6018,8 @@ bool PublicApiRuntime::tryHandleGet(
             genreCollectionLookupConfigured(),
             epgGenreLookupConfigured(),
             epgNowNextLookupConfigured(),
+            epgWindowLookupConfigured(),
+            nativeTimersLookupConfigured(),
             searchLookupConfigured(),
             accountCollectionLookupConfigured(),
             accountMutationConfigured(),
@@ -7468,6 +7681,152 @@ bool PublicApiRuntime::tryHandleGet(
                     requestId, correlationId);
                 return true;
             case PublicGenreCollectionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    if (path == PublicNativeTimersPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicNativeTimersQuery query;
+        if (!parsePublicNativeTimersQuery(requestTarget, query) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != query.backendId)
+        {
+            response = invalidRequestProblem(path,
+                "One authorized backendId and bounded page are required.",
+                requestId, correlationId);
+            return true;
+        }
+        const PublicNativeTimersResult result = lookupNativeTimers(
+            {query.backendId, query.offset, query.limit});
+        if (result.status == PublicNativeTimersStatus::invalid)
+        {
+            response = invalidRequestProblem(path,
+                "Invalid native timer snapshot query.",
+                requestId, correlationId);
+            return true;
+        }
+        if (result.status != PublicNativeTimersStatus::ok ||
+            result.timers.size() > query.limit)
+        {
+            response = serviceUnavailableProblem(path,requestId,correlationId);
+            return true;
+        }
+        std::string body = "{\"backendId\":\"" +
+            jsonEscape(query.backendId) + "\",\"items\":[";
+        for (std::size_t i = 0U; i < result.timers.size(); ++i)
+        {
+            const auto& t = result.timers[i];
+            if (t.id.empty() || t.id.size() > 512U ||
+                t.title.size() > 2048U || t.channelId.size() > 512U)
+            {
+                response = serviceUnavailableProblem(
+                    path,requestId,correlationId);
+                return true;
+            }
+            if (i != 0U) body += ",";
+            body += "{\"timerId\":\"" + jsonEscape(t.id) +
+                "\",\"channelId\":\"" + jsonEscape(t.channelId) +
+                "\",\"channelName\":\"" + jsonEscape(t.channelName) +
+                "\",\"title\":\"" + jsonEscape(t.title) +
+                "\",\"day\":\"" + jsonEscape(t.day) +
+                "\",\"weekdays\":\"" + jsonEscape(t.weekdays) +
+                "\",\"startTime\":\"" + jsonEscape(t.startTime) +
+                "\",\"endTime\":\"" + jsonEscape(t.endTime) +
+                "\",\"enabled\":" + (t.enabled ? "true" : "false") +
+                ",\"recording\":" + (t.recording ? "true" : "false") +
+                ",\"pending\":" + (t.pending ? "true" : "false") + "}";
+        }
+        body += "],\"page\":{\"limit\":" +
+            std::to_string(query.limit) + ",\"offset\":" +
+            std::to_string(query.offset) + ",\"hasMore\":" +
+            (result.hasMore ? "true" : "false") +
+            ",\"nextOffset\":" +
+            (result.hasMore ?
+                std::to_string(query.offset + result.timers.size()) :
+                "null") + "},\"meta\":{\"partial\":false}}";
+        response = jsonResponse(body,requestId,correlationId);
+        return true;
+    }
+
+    if (path == PublicEpgWindowPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicEpgWindowQuery query;
+        if (!parsePublicEpgWindowQuery(requestTarget, query) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != query.backendId)
+        {
+            response = invalidRequestProblem(path,
+                "One authorized backendId, channelId and bounded 12-hour time window are required.",
+                requestId, correlationId);
+            return true;
+        }
+        const PublicEpgWindowRequest request{
+            query.backendId, query.channelId, query.fromTime,
+            query.untilTime, query.limit
+        };
+        const PublicEpgWindowResult found = lookupEpgWindow(request);
+        switch (found.status)
+        {
+            case PublicEpgNowNextStatus::ok:
+            {
+                if (found.events.size() > query.limit)
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                std::string body = "{\"backendId\":\"" +
+                    jsonEscape(query.backendId) + "\",\"channelId\":\"" +
+                    jsonEscape(query.channelId) + "\",\"items\":[";
+                for (std::size_t i = 0U; i < found.events.size(); ++i)
+                {
+                    const auto& event = found.events[i];
+                    if (event.channelId != query.channelId ||
+                        event.title.empty() || event.startTime.empty() ||
+                        event.endTime.empty() || event.durationSeconds < 0)
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    if (i > 0U) body += ",";
+                    body += "{\"channelId\":\"" +
+                        jsonEscape(event.channelId) + "\",\"title\":\"" +
+                        jsonEscape(event.title) + "\",\"subtitle\":\"" +
+                        jsonEscape(event.subtitle) + "\",\"startTime\":\"" +
+                        jsonEscape(event.startTime) + "\",\"endTime\":\"" +
+                        jsonEscape(event.endTime) + "\",\"durationSeconds\":" +
+                        std::to_string(event.durationSeconds) + "}";
+                }
+                body += "],\"page\":{\"limit\":" +
+                    std::to_string(query.limit) +
+                    ",\"hasMore\":" + (found.hasMore ? "true" : "false") +
+                    "},\"meta\":{\"partial\":false}}";
+                response = jsonResponse(body, requestId, correlationId);
+                return true;
+            }
+            case PublicEpgNowNextStatus::invalid:
+                response = invalidRequestProblem(path,
+                    "Invalid EPG window request.",
+                    requestId, correlationId);
+                return true;
+            case PublicEpgNowNextStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicEpgNowNextStatus::unavailable:
                 response = serviceUnavailableProblem(
                     path, requestId, correlationId);
                 return true;
@@ -10487,6 +10846,8 @@ bool PublicApiRuntime::tryHandlePost(
          path == PublicSearchRecordingPath ||
          path == PublicSearchEpgPath ||
         path == PublicEpgNowNextPath ||
+        path == PublicEpgWindowPath ||
+        path == PublicNativeTimersPath ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         path == PublicSearchTimerCollectionPath ||
@@ -10647,6 +11008,8 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
          path == PublicSearchRecordingPath ||
          path == PublicSearchEpgPath ||
         path == PublicEpgNowNextPath ||
+        path == PublicEpgWindowPath ||
+        path == PublicNativeTimersPath ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         path == PublicSearchTimerCollectionPath ||
