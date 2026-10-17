@@ -16,10 +16,14 @@ class P7VersionedUpgradeContractTests(unittest.TestCase):
     def test_real_debian_version_order_and_app_version(self):
         releases = re.findall(r"^vdr-suite \(([^)]+)\) ", CHANGELOG.read_text(), re.M)
         self.assertGreaterEqual(len(releases), 2)
-        self.assertEqual(releases[:2], ["0.14.1-1~exp2", "0.14.1-1~exp1"])
+        # Launchpad Git recipes prepend a generated PPA entry.  The historical
+        # P7 exp1 -> exp2 upgrade contract must remain valid regardless of
+        # that additional, newer-in-changelog recipe entry.
+        baseline = ["0.14.1-1~exp2", "0.14.1-1~exp1"]
+        self.assertEqual([v for v in releases if v in baseline], baseline)
         if shutil.which("dpkg") is None:
             self.skipTest("dpkg unavailable")
-        subprocess.run(["dpkg", "--compare-versions", releases[0], "gt", releases[1]],
+        subprocess.run(["dpkg", "--compare-versions", baseline[0], "gt", baseline[1]],
                        check=True)
 
     def test_pinned_prior_commit_and_nonproduction_gate(self):
