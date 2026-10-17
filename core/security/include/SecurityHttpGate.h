@@ -1387,13 +1387,15 @@ public:
                     "A single valid backendId is required.", "");
             }
 
-            AuthorizationRequest epgReadRequest;
-            epgReadRequest.permission = "epg.view";
-            epgReadRequest.backendId = scopes.front();
-            epgReadRequest.action = "epg.view";
-            const AuthorizationDecision decision =
-                authorizationService_.authorize(
-                    gate.context, epgReadRequest);
+            // EPG-only access is permitted, and a backend-scoped Live-TV
+            // playback grant includes the guide for that same backend.
+            // channels.view alone does not imply Live-TV or EPG rights.
+            AuthorizationRequest epgRequest;
+            epgRequest.permission = "epg.view";
+            epgRequest.backendId = scopes.front();
+            epgRequest.action = "epg.view";
+            AuthorizationDecision decision =
+                authorizationService_.authorize(gate.context, epgRequest);
             if (!appendDecisionEvent(gate.context, decision, ""))
             {
                 gate.rejection = errorResponse(
@@ -1401,6 +1403,27 @@ public:
                     "Security accountability persistence is unavailable",
                     gate.context);
                 return gate;
+            }
+
+            if (!decision.allowed)
+            {
+                AuthorizationRequest liveRequest;
+                liveRequest.permission = "media.live.play";
+                liveRequest.backendId = scopes.front();
+                liveRequest.action = "epg.view.via_live";
+                const AuthorizationDecision liveDecision =
+                    authorizationService_.authorize(
+                        gate.context, liveRequest);
+                if (!appendDecisionEvent(gate.context, liveDecision, ""))
+                {
+                    gate.rejection = errorResponse(
+                        503, "accountability_unavailable",
+                        "Security accountability persistence is unavailable",
+                        gate.context);
+                    return gate;
+                }
+                if (liveDecision.allowed)
+                    decision = liveDecision;
             }
             if (!decision.allowed)
             {
@@ -1414,43 +1437,6 @@ public:
                     gate.context, authenticationFailure(decision),
                     gate.publicApiV1);
                 return gate;
-            }
-
-            // A TV EPG time window exposes channel-specific programme data.
-            // Require the same backend-scoped channel read grant as the
-            // channel browser; epg.view alone must not bypass it.
-            if (path == "/api/v1/epg/window")
-            {
-                AuthorizationRequest channelRequest;
-                channelRequest.permission = "channels.view";
-                channelRequest.backendId = scopes.front();
-                channelRequest.action = "epg.channel.view";
-                const AuthorizationDecision channelDecision =
-                    authorizationService_.authorize(
-                        gate.context, channelRequest);
-                if (!appendDecisionEvent(
-                        gate.context, channelDecision, ""))
-                {
-                    gate.rejection = errorResponse(
-                        503, "accountability_unavailable",
-                        "Security accountability persistence is unavailable",
-                        gate.context);
-                    return gate;
-                }
-                if (!channelDecision.allowed)
-                {
-                    const int statusCode =
-                        channelDecision.reasonCode == "invalid_backend_scope"
-                            ? 400
-                            : (authenticationFailure(channelDecision)
-                                ? 401 : 403);
-                    gate.rejection = errorResponse(
-                        statusCode, channelDecision.reasonCode,
-                        messageForReason(channelDecision.reasonCode),
-                        gate.context, authenticationFailure(channelDecision),
-                        gate.publicApiV1);
-                    return gate;
-                }
             }
 
             gate.authorizationDecision = decision;
