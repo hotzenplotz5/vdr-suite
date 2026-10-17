@@ -3,11 +3,13 @@
 ## Navigation
 
 - [Projekt-README](../README.md)
+- [Erste Schritte nach der Installation (Ubuntu/PPA)](../docs/erste-schritte-nach-installation.md)
 - [Dokumentationsindex](../docs/index.md)
 - [Installations-/Deployment-Zuverlässigkeit](../docs/development/install-runtime-deployment-reliability.md)
 - [Install-Layout-Vertrag](../docs/development/phase-56.51-install-layout-contract.md)
 - [Packaging-Entscheidung ADR-0037](../docs/adr/ADR-0037-packaging-install-api-boundary.md)
 - [Debian-Verzeichnisstatus](debian/README.md)
+- [Backend-Agent: Paketinhalt, Single-Host/Multi-Backend, Enrollment und Sicherheit](../debian/README.md#backend-agent-package-roles-and-deployment)
 
 ## Was im Quellbaum vorhanden ist
 
@@ -23,6 +25,71 @@ Der ausführbare Installationsgraph und die tatsächlich installierten Dateien g
 Für repositorybasierte Runtime-Deployments ist der **versiegelte Staging-Baum** maßgeblich: [verbindlicher Deployment-Vertrag](../docs/development/install-runtime-deployment-reliability.md). Direktes Kopieren einzelner Dateien aus `web/frontend` oder `packaging` in ein laufendes System kann einen Versionsmix erzeugen. Ein Quellcode- oder CI-Erfolg beweist außerdem **nicht**, dass genau diese Version bereits auf yaVDR installiert ist.
 
 Dieses README ist nur Navigation. Es führt **keine Installation, Migration, Rechtekorrektur oder Service-Neustarts** aus. Eine Änderung am laufenden System braucht eine getrennte Deployment-Freigabe mit Provenienz und Vorprüfung.
+
+
+## Öffentliches PPA: verifizierte Noble-Abnahme vom 17. Oktober 2026
+
+Quellstand des separaten, nicht gemergten Testbranches:
+`work/ppa-noble-install-smoke-20261017`.
+Die tatsächlich **veröffentlichten** Binärpakete werden auf einem frischen
+GitHub-Actions-Runner `ubuntu-24.04` mit den PPAs
+`ppa:seahawk1986-hotmail/vdr-2.8.3` und
+`ppa:hotzenplotz5/vdr-suite` über APT installiert; keine lokalen
+selbstgebauten `.deb` werden als Installationsersatz verwendet.
+
+- [Noble-Paketinstallation, Run 39037557381](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39037557381):
+  erfolgreich bei SHA `72282dd5877dfc36f8a5f52fedcddaff0829f471`.
+- [Noble-Paket- und HTTP-Runtime-Abnahme, Run 39038464174](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39038464174):
+  erfolgreich bei SHA `6d1aa3b7c99f9dbcb171c5a45ecea6cbe3bbb02d`.
+- [Noble-Paketinstallation, Daemon/HTTP und VDR-Plugin-Versionserkennung, Run 39038795095](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39038795095):
+  erfolgreich bei SHA `653b46ce3810876945e597cb58a7b5af559cb337`.
+  VDR meldet die installierten Plugins `suitebridge (0.14.1)` und `web (0.0.1)`.
+  Die wiederholbare Prüflogik liegt im [Noble-Workflow](../.github/workflows/ppa-noble-install-smoke.yml).
+
+Der Abnahmelauf installiert und verifiziert `vdr` mit Version
+`2.8.3-0yavdr0~noble`, die drei VDR-Suite-Binärpakete mit Version
+`0.14.1-1~exp2~ppa2+202610170549~ubuntu24.04.1` und
+`vdr-plugin-web` mit Version
+`0.0.1+git20260827-111-34ded50-1yavdr1+vdrsuite1+ppa1+202610171021~ubuntu24.04.1`.
+APT-Simulation, echte Installation, `dpkg --audit`, Paketinhalt,
+VDR-ABI-Abhängigkeiten, ELF-Linker-Abhängigkeiten und Unit-Dateien wurden
+geprüft. Der installierte Daemon startet unprivilegiert mit einer
+testlokalen SQLite-Datenbank, liefert `index.html`, CSS, HbbTV-QOI,
+Public-v1-Client und `app.js` über HTTP aus und lässt sich zweimal
+sauber starten und per SIGTERM beenden. Ein anonymer Public-v1-API-Aufruf
+liefert erwartungsgemäß HTTP 401 mit
+`Content-Type: application/problem+json`. Das Frontend verwendet
+hierbei **Dateien aus dem veröffentlichten Debian-Paket**.
+
+**Abgrenzung:** Die Runtime-Prüfung verwendet keinen echten VDR-Tuner
+und kein produktives yaVDR-System. Der fehlende `restfulapi`-Backend-Port
+8002 im isolierten Runner ist kein Daemon-Startfehler. Weder ein
+enrollter/verbundener Backend Agent noch eine produktive SuiteBridge-
+Session, ein laufender HbbTV-CEF-Browser, `remotetranscode` oder eine
+HbbTV-Media-Presentation mit TV-Hardware sind damit abgenommen.
+Die Bibliotheken `libvdr-suitebridge.so.14` und `libvdr-web.so.14`
+wurden installiert, auf fehlende dynamische Bibliotheken geprüft und
+von VDRs Plugin-Versionserkennung erkannt. Das ist ein Loader-Nachweis,
+aber **kein** produktiver Plugin-Start und keine HbbTV-Wiedergabe.
+Upgrade/Purge und Konfigurationsschutz waren bereits Gegenstand
+separater Offline-Paketlebenszyklus-Tests; ein Upgrade direkt aus dem
+**veröffentlichten** PPA ist nicht durch diesen Workflow bewiesen.
+
+**Ubuntu 26.04 Resolute – noch nicht vollständig verfügbar:** Die
+[separate PPA-Vorprüfung, Run 39039206371](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39039206371)
+(Commit `3d84b29ab6c5526683beb6266cc20dacacc79a13`)
+hat auf einem isolierten Ubuntu-26.04-Container Seahawk-VDR
+`2.8.3-0yavdr0~resolute` und das gepatchte `vdr-plugin-web`
+im Archiv gefunden. Dagegen fehlen noch die veröffentlichten Kandidaten
+`vdr-suite-daemon`, `vdr-suite-backend-agent` und
+`vdr-plugin-suitebridge`. Das Gate meldet
+`RESOLUTE_RELEASE_GATE=NOT_READY`. APT-Installation und Daemon-Laufzeittest
+wurden deshalb bewusst übersprungen. Ein grüner
+[Verfügbarkeits-Workflow](../.github/workflows/ppa-resolute-install-smoke.yml)
+ist **kein** erfolgreicher Resolute-Installationstest.
+
+Weder die Noble-Abnahme noch ein PPA-Build autorisieren eine produktive
+Installation oder ungeprüfte Migration einer bestehenden yaVDR-Installation.
 
 ## Back
 

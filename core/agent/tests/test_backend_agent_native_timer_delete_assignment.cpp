@@ -7,6 +7,8 @@
 #include "Database.h"
 
 #include <cassert>
+#include <sqlite3.h>
+#include <iostream>
 #include <string>
 
 namespace
@@ -113,6 +115,17 @@ vdrsuite::agent::BackendAgentNativeTimerDeleteCommand commandFrom(
 }
 }
 
+int sqlCount(sqlite3* database, const char* sql)
+{
+    sqlite3_stmt* statement = nullptr;
+    assert(sqlite3_prepare_v2(database, sql, -1, &statement, nullptr)
+        == SQLITE_OK);
+    assert(sqlite3_step(statement) == SQLITE_ROW);
+    const int count = sqlite3_column_int(statement, 0);
+    sqlite3_finalize(statement);
+    return count;
+}
+
 int main()
 {
     using namespace vdrsuite::agent;
@@ -170,6 +183,15 @@ int main()
         "default", "agt_timer_delete", "inst_timer_delete", 7,
         "vdr.timer.delete"));
 
+    // P7: permanent UNIQUE index and dormant gate exist while dispatch is
+    // fenced; no production tables/services are involved in this test.
+    assert(sqlCount(database.handle(),
+        "SELECT count(*) FROM sqlite_master WHERE type='index' "
+        "AND name='idx_backend_agent_timer_delete_operation';") == 1);
+    assert(sqlCount(database.handle(),
+        "SELECT count(*) FROM sqlite_master WHERE type='trigger' "
+        "AND name='trg_backend_agent_timer_delete_dormant_capability';") == 1);
+
     // Slice 25's assignment helper created the temporary dormant capability
     // gate. Slice 26 deliberately retires that gate when the exact bounded
     // Timer-delete command/provider advertisement reaches command polling.
@@ -187,6 +209,12 @@ int main()
     assert(commands.hasCapability(
         "default", "agt_timer_delete", "inst_timer_delete", 7,
         "vdr.timer.delete"));
+    assert(sqlCount(database.handle(),
+        "SELECT count(*) FROM sqlite_master WHERE type='trigger' "
+        "AND name='trg_backend_agent_timer_delete_dormant_capability';") == 0);
+    assert(sqlCount(database.handle(),
+        "SELECT count(*) FROM pragma_foreign_key_check;") == 0);
+    std::cout << "P7_AGENT_NATIVE_TIMER_DELETE_DORMANT_GATE=PASS\n";
 
     const std::string rawExpectedFingerprint =
         request().expectedNativeTimerFingerprint;

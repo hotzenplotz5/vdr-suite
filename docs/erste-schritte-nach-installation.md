@@ -4,6 +4,8 @@ Diese Anleitung richtet sich an Betreiber, die **VDR-Suite erstmals einrichten**
 
 > **Wichtig (Stand 17.10.2026):** Die Ubuntu-Paketierung wird im Branch [`work/packaging-debian-ubuntu-install`](https://github.com/hotzenplotz5/vdr-suite/tree/work/packaging-debian-ubuntu-install) entwickelt. Das [VDR-Suite-Test-PPA](https://launchpad.net/~hotzenplotz5/+archive/ubuntu/vdr-suite) ist **experimentell**. Paketverfügbarkeit, tatsächliche Version und Architektur müssen am Installationstag auf Launchpad beziehungsweise mit APT geprüft werden. Paketbau, PPA-Veröffentlichung und ein laufender VDR sind **keine** Abnahme der eigenen Installation. Die produktive Übernahme einer vorhandenen manuellen/yaVDR-Installation ist nicht allgemein freigegeben; siehe [P8-Installationsgrenze](https://github.com/hotzenplotz5/vdr-suite/blob/work/packaging-debian-ubuntu-install/docs/planning/packaging-p8-install-gate.md).
 
+**Nachgewiesene Pakettests:** Für Ubuntu 24.04 (Noble) sind die echte PPA-Installation, Webfrontend-Auslieferung und der grundlegende Daemon-Start in einem isolierten GitHub-Actions-Lauf geprüft. Für Ubuntu 26.04 (Resolute) fehlen weiterhin drei veröffentlichte VDR-Suite-Pakete. Die konkreten CI-Nachweise und Grenzen stehen im [Packaging-Status](../packaging/README.md). Dies ist keine Freigabe zur Migration eines vorhandenen yaVDR-Systems.
+
 ## 1. Welchen Installationsfall habe ich?
 
 | Situation | Vorgehen |

@@ -1,0 +1,12 @@
+vdr-suite (0.14.1-1~exp2) unstable; urgency=low
+
+  * Experimental P7 CI package upgrade from pinned exp1, with offline recovery.
+  * No live service migration or public package release is authorized.
+
+ -- VDR-Suite contributors <noreply@github.com>  Wed, 14 Oct 2026 00:00:00 +0200
+
+vdr-suite (0.14.1-1~exp1) unstable; urgency=low
+
+  * Experimental packaging, not yet approved for public installation.
+
+ -- VDR-Suite contributors <noreply@github.com>  Tue, 13 Oct 2026 00:00:00 +0200

@@ -66,6 +66,9 @@ std::vector<std::string> channelLogoRoots()
     }
 
     roots.emplace_back("/var/cache/vdr-suite/channel-logos");
+    // Distribution packages place read-only bundled brand assets under /usr/share.
+    // Keep runtime logo caches and explicit operator roots ahead of that fallback.
+    roots.emplace_back("/usr/share/vdr-suite/channel-logos");
     roots.emplace_back(
         "/usr/share/vdr/plugins/skindesigner/skins/estuary4vdr/logos");
     roots.emplace_back(
