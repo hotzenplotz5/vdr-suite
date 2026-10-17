@@ -3,6 +3,7 @@
 ## Navigation
 
 - [Projekt-README](../README.md)
+- [Erste Schritte nach der Installation (Ubuntu/PPA)](../docs/erste-schritte-nach-installation.md)
 - [Dokumentationsindex](../docs/index.md)
 - [Installations-/Deployment-Zuverlässigkeit](../docs/development/install-runtime-deployment-reliability.md)
 - [Install-Layout-Vertrag](../docs/development/phase-56.51-install-layout-contract.md)
