@@ -3,7 +3,31 @@ name: Experimental SuiteBridge package
 on:
   push:
     branches:
+      - main
       - work/packaging-debian-ubuntu-install
+    paths:
+      - "debian/**"
+      - "vdr-plugin-suite-bridge/**"
+      - "core/agent/include/**"
+      - "core/metadata/tests/test_packaging_p7_runtime_schema.cpp"
+      - "core/daemon/tests/test_series_artwork_backend_settings_service.cpp"
+      - "core/timers/tests/test_timer_assignment_reassignment_service.cpp"
+      - "core/agent/tests/test_backend_agent_command_delivery.cpp"
+      - "core/agent/tests/test_backend_agent_command_reservation.cpp"
+      - "core/agent/tests/test_backend_agent_native_timer_delete_assignment.cpp"
+      - "core/agent/tests/test_backend_agent_recording_cut_reconciliation.cpp"
+      - "core/agent/tests/test_backend_agent_recording_marks_modify_reconciliation.cpp"
+      - "core/recordings/tests/test_manual_recording_metadata_revision.cpp"
+      - "mk/metadata-tests.mk"
+      - "tools/fixtures/packaging/**"
+      - "database/schema/metadata-platform-v1.sql"
+      - "tools/*packaging*.py"
+      - ".gitignore"
+      - "VERSION"
+      - ".github/workflows/packaging-plugin-experimental.yml"
+  pull_request:
+    branches:
+      - main
     paths:
       - "debian/**"
       - "vdr-plugin-suite-bridge/**"
