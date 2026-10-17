@@ -17,6 +17,10 @@ Comment: This stanza describes the intended licensing of independently
  Specific inherited source and artwork exceptions are documented below.
  The root LICENSE contains the full GNU GPL version 3 license text.
  Outstanding authorship and licensing evidence is a release blocker.
+ Distribution scope: this source package does not embed externally
+ synchronized TV broadcaster logos or movie/series posters. VDR, FFmpeg,
+ SQLite, libcurl and OpenSSL remain separate system dependencies; they are
+ not bundled source or executable payloads. Revisit this if delivery changes.
 
 Files: vdr-plugin-suite-bridge/services.h
 Copyright: Stefan Braun
@@ -68,13 +72,6 @@ Comment: The branding and its derivatives are bundled in the daemon package
  under /usr/share/vdr-suite/channel-logos/vdr-suite-brand.
  Git commit introduction does not independently prove origin or rights.
  Obtain and record affirmative redistribution/licensing evidence.
-
-Comment: Distribution scope: this source package does not embed
- externally synchronized TV broadcaster logos or movie/series posters.
- VDR, FFmpeg, SQLite, libcurl and OpenSSL are separate installed build or
- runtime dependencies, not bundled copies of their source or executables.
- The packaging inventory must be revisited if that delivery model changes.
- See docs/third-party-license-inventory.md for source-backed boundaries.
 
 License: GPL-3.0-or-later
  This program is free software: you can redistribute it and/or modify it
