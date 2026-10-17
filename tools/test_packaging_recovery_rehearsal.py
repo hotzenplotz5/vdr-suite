@@ -20,8 +20,13 @@ BIG_DISK = lambda _: SimpleNamespace(total=100 * 1024**3, free=80 * 1024**3)
 
 
 def recovery_scratch():
-    """Keep test fixtures outside protected checkouts even when TMPDIR is in .build."""
-    return tempfile.TemporaryDirectory(prefix="vdr-suite-p7-recovery-", dir=Path.home())
+    """Use a private /tmp fixture independent of HOME and inherited TMPDIR.
+
+    Launchpad sbuild deliberately sets HOME=/sbuild-nonexistent.  The test
+    must not require that directory or redirect fixtures into a live checkout.
+    TemporaryDirectory creates mode 0700 and removes only its own fixture.
+    """
+    return tempfile.TemporaryDirectory(prefix="vdr-suite-p7-recovery-", dir="/tmp")
 
 
 class RecoveryRehearsalTests(unittest.TestCase):
@@ -30,8 +35,20 @@ class RecoveryRehearsalTests(unittest.TestCase):
         with patch.dict(os.environ, {"TMPDIR": "/home/yavdr/vdr-suite-packaging-test/.build/p7-tests"}):
             with recovery_scratch() as temporary:
                 folder = Path(temporary)
-                self.assertEqual(folder.parent, Path.home())
+                self.assertEqual(folder.parent, Path("/tmp"))
                 self.assertEqual(stat.S_IMODE(folder.stat().st_mode), 0o700)
+                self.assertEqual(recovery.require_workspace(folder), folder)
+
+    def test_scratch_works_with_nonexistent_sbuild_home(self):
+        # The real Noble build uses an intentionally nonexistent HOME.
+        with patch.dict(os.environ, {"HOME": "/sbuild-nonexistent",
+                                     "TMPDIR": "/home/yavdr/vdr-suite-packaging-test/.build"}):
+            with recovery_scratch() as temporary:
+                folder = Path(temporary)
+                self.assertEqual(folder.parent, Path("/tmp"))
+                self.assertEqual(stat.S_IMODE(folder.stat().st_mode), 0o700)
+                self.assertEqual(recovery.require_workspace(folder), folder)
+            self.assertFalse(folder.exists())
 
     def make_database(self, folder, wal=False):
         path = folder / "original.db"
