@@ -479,6 +479,15 @@ jobs:
                 "$RESOLUTE_FULL_BUILD_ROOT"/vdr-suite-backend-agent_*_amd64.deb
                 "$RESOLUTE_FULL_BUILD_ROOT"/vdr-plugin-suitebridge_*_amd64.deb)
           (( ${#debs[@]} == 3 )) || { echo 'LINTIAN_PACKAGE_SET=FAIL'; exit 1; }
+          for deb in "${debs[@]}"; do
+            pkg="$(dpkg-deb --field "$deb" Package)"
+            dpkg-deb --contents "$deb" |
+              grep -F "./usr/share/doc/$pkg/copyright" >/dev/null || {
+                echo "DEBIAN_COPYRIGHT_PACKAGE_MISSING=$pkg"
+                exit 1
+              }
+          done
+          echo 'DEBIAN_COPYRIGHT_THREE_BINARIES=PASS'
           set +e
           lintian --no-tag-display-limit "${debs[@]}" > package-artifacts-full-resolute/lintian-resolute.txt 2>&1
           lintian_rc=$?
