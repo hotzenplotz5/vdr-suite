@@ -403,6 +403,54 @@ struct PublicEpgNowNextResult
     std::vector<PublicEpgNowNextItem> events;
 };
 
+// A bounded read from the existing EPG cache for one Device-authorized
+// channel. Explicit time range, no private Browser route or source URL.
+struct PublicEpgWindowRequest
+{
+    std::string backendId;
+    std::string channelId;
+    std::string fromTime;
+    std::string untilTime;
+    std::size_t limit = 192U;
+};
+
+struct PublicEpgWindowResult
+{
+    PublicEpgNowNextStatus status = PublicEpgNowNextStatus::unavailable;
+    std::vector<PublicEpgNowNextItem> events;
+    bool hasMore = false;
+};
+
+// Snapshot-backed, read-only public list of real VDR timers. These are
+// native timers, never Suite TimerAssignments or search timer definitions.
+enum class PublicNativeTimersStatus { ok, invalid, unavailable };
+struct PublicNativeTimersRequest
+{
+    std::string backendId;
+    std::size_t offset = 0U;
+    std::size_t limit = 30U;
+};
+struct PublicNativeTimerItem
+{
+    std::string id;
+    std::string channelId;
+    std::string channelName;
+    std::string title;
+    std::string day;
+    std::string weekdays;
+    std::string startTime;
+    std::string endTime;
+    bool enabled = false;
+    bool recording = false;
+    bool pending = false;
+};
+struct PublicNativeTimersResult
+{
+    PublicNativeTimersStatus status = PublicNativeTimersStatus::unavailable;
+    std::vector<PublicNativeTimerItem> timers;
+    bool hasMore = false;
+};
+
 enum class PublicBackendCollectionStatus
 {
     ok,
@@ -1082,6 +1130,13 @@ public:
         std::function<PublicEpgNowNextResult(
             const PublicEpgNowNextRequest& request)>;
 
+    using EpgWindowLookup =
+        std::function<PublicEpgWindowResult(
+            const PublicEpgWindowRequest& request)>;
+    using NativeTimersLookup =
+        std::function<PublicNativeTimersResult(
+            const PublicNativeTimersRequest& request)>;
+
     using BackendCollectionLookup =
         std::function<PublicBackendCollectionResult(
             const PublicBackendCollectionRequest& request)>;
@@ -1251,6 +1306,17 @@ public:
     bool epgNowNextLookupConfigured() const;
     PublicEpgNowNextResult lookupEpgNowNext(
         const PublicEpgNowNextRequest& request) const;
+
+    void registerEpgWindowLookup(EpgWindowLookup lookup);
+    void resetEpgWindowLookup();
+    bool epgWindowLookupConfigured() const;
+    PublicEpgWindowResult lookupEpgWindow(
+        const PublicEpgWindowRequest& request) const;
+    void registerNativeTimersLookup(NativeTimersLookup lookup);
+    void resetNativeTimersLookup();
+    bool nativeTimersLookupConfigured() const;
+    PublicNativeTimersResult lookupNativeTimers(
+        const PublicNativeTimersRequest& request) const;
 
     void registerBackendCollectionLookup(
         BackendCollectionLookup lookup);
@@ -1441,6 +1507,11 @@ private:
 
     mutable std::mutex epgNowNextLookupMutex_;
     EpgNowNextLookup epgNowNextLookup_;
+
+    mutable std::mutex epgWindowLookupMutex_;
+    EpgWindowLookup epgWindowLookup_;
+    mutable std::mutex nativeTimersLookupMutex_;
+    NativeTimersLookup nativeTimersLookup_;
 
     mutable std::mutex backendCollectionLookupMutex_;
     BackendCollectionLookup backendCollectionLookup_;
