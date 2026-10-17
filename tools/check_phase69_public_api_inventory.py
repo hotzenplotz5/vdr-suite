@@ -43,6 +43,8 @@ EXPECTED_RUNTIME_OWNERS = {
 EXPECTED_ROUTE_LITERALS = {
     "/api/v1/recordings",
     "/api/v1/epg/now-next",
+    "/api/v1/epg/window",
+    "/api/v1/native-timers",
     "/api/v1/genres",
     "/api/v1/genres/recordings",
     "/api/v1",
@@ -180,6 +182,8 @@ EXPECTED_ROUTE_LITERALS = {
 EXPECTED_PUBLIC_V1_ROUTE_LITERALS = {
     "/api/v1/recordings",
     "/api/v1/epg/now-next",
+    "/api/v1/epg/window",
+    "/api/v1/native-timers",
     "/api/v1/genres",
     "/api/v1/genres/recordings",
     "/api/v1",
