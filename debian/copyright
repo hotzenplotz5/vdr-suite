@@ -50,9 +50,10 @@ Comment: According to the maintainer's 2026-10-12 declaration these artworks
  were generated with ChatGPT for VDR-Suite. Their generation history is not
  proof of an exclusive copyright, third-party input clearance, or an
  independently verified GPL grant. Eleven SVG assets include the ten genre
- posters and sprite. These are bundled in the daemon package.
- Review source inputs, any third-party reference rights and proposed reuse
- terms before distribution.
+ posters and sprite. The genre SVGs are staged by mk/install.mk into the daemon package;
+ the separate remote PNG is tracked source but is not among the explicit
+ daemon install rules examined here. Review source inputs, any third-party
+ reference rights and proposed reuse terms before distribution.
 
 Files: web/frontend/logo-vdr-suite.svg
  web/frontend/logo-vdr-suite-dark.svg
