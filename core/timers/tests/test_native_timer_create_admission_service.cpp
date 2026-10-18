@@ -3,6 +3,7 @@
 #include "EpgTimerIntentAtomicAdmissionService.h"
 #include "EpgNativeTimerClockAttestation.h"
 #include "EpgNativeTimerPreviewAttestation.h"
+#include "EpgNativeTimerSpecification.h"
 #include "TimerIntentApplicationService.h"
 #include "MutationOperationIdentity.h"
 #include "MutationOperationRepository.h"
@@ -307,6 +308,49 @@ void test_epg_native_time_contract()
     native.endTime = "1040";
     const ServerOwnedNativeClockEvidence cest{true, 7200, 7200};
     assert(nativeOneShotMatchesEpg(event, defaults, cest, native));
+    // Only a backend-/generation-/provider-fenced native CLOCK proof may
+    // produce the exact server-owned one-shot CREATE specification.
+    event.backendId = "backend-one";
+    event.backendGeneration = 7;
+    auto attestedClock = cest;
+    attestedClock.backendId = event.backendId;
+    attestedClock.backendGeneration = event.backendGeneration;
+    attestedClock.providerInstanceEpoch = "pie_provider_original";
+    attestedClock.executionAuthorityFence = "sha256:provider-fence";
+    attestedClock.observedAt = 1792222799;
+    NativeTimerSpecification constructed;
+    assert(makeServerOwnedEpgNativeOneShot(
+        event, defaults, attestedClock,
+        "Server-owned EPG title", "VDR-Suite", constructed));
+    assert(constructed.day == "2026-10-17");
+    assert(constructed.startTime == "0940");
+    assert(constructed.endTime == "1040");
+    assert(constructed.channelId == event.channelId);
+    assert(constructed.title == "Server-owned EPG title");
+    assert(!makeServerOwnedEpgNativeOneShot(
+        event, defaults, {}, "Server-owned EPG title", "", constructed));
+    assert(constructed.channelId.empty());
+    auto wrongBackendClock = attestedClock;
+    wrongBackendClock.backendId = "backend-two";
+    assert(!makeServerOwnedEpgNativeOneShot(
+        event, defaults, wrongBackendClock,
+        "Server-owned EPG title", "", constructed));
+    wrongBackendClock = attestedClock;
+    wrongBackendClock.backendGeneration++;
+    assert(!makeServerOwnedEpgNativeOneShot(
+        event, defaults, wrongBackendClock,
+        "Server-owned EPG title", "", constructed));
+    defaults.startMarginSeconds = 60;
+    assert(makeServerOwnedEpgNativeOneShot(
+        event, defaults, attestedClock,
+        "Server-owned EPG title", "", constructed));
+    assert(constructed.startTime == "0939");
+    defaults.startMarginSeconds = 0;
+    defaults.vpsPreferred = true;
+    assert(!makeServerOwnedEpgNativeOneShot(
+        event, defaults, attestedClock,
+        "Server-owned EPG title", "", constructed));
+    defaults.vpsPreferred = false;
     assert(!nativeOneShotMatchesEpg(event, defaults, {}, native));
     const ServerOwnedNativeClockEvidence wrongZone{true, 0, 0};
     assert(!nativeOneShotMatchesEpg(event, defaults, wrongZone, native));
