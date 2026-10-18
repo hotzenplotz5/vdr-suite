@@ -15,7 +15,7 @@ jobs:
   cleanup:
     if: github.repository == 'hotzenplotz5/vdr-suite'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -92,15 +92,65 @@ jobs:
           ci/daily-ppa-install-smoke-20261018 1ca0955205e03f8be69c44224e7bfce7ccef86ee 497 merged
           ci/ppa-daily-install-acceptance-20261018 917a3176c68c56aa8ff95709aa8eb382f034ad3b 498 closed-unmerged
           docs/branch-lifecycle-grandfather-20261018 0bd642df62a2aab0d072cffa5eb8f6390734d9f8 496 merged
+          docs/documentation-consolidation-2026-10-11-round3 a479fc9347709489716c1c5f4c5f9553b3fbd609 455 merged
+          docs/github-onboarding-first-steps-2026-10-12 372557e581005a941cc8a022cd369ea54f7cc51c 464 merged
+          docs/historical-archive-safe-cleanup-2026-10-12 0a6e08bce4814cc12f6d91897916892f87c50e3f 462 merged
+          docs/historical-evidence-deep-audit-2026-10-12 0caa2ec0ac1a1ca83bec1b8ec63d2a7a201d4e9e 460 merged
+          docs/mu10-source-runtime-truth-2026-10-12 95776bd79011f152f317d93c6a0dafd24ffc551d 456 merged
+          docs/mu5-administration-architecture-acceptance 47863fabbfd2e640dc7c60f5e60dacecf51ef0f4 407 merged
+          docs/phase-map-historical-phase62-2026-10-12 6a90552156992c984b5947b1cbf42014820d7897 458 merged
+          docs/planning-productization-truth-2026-10-12 724691360f48e984cddaf4d4705b9a53bd1dd681 457 merged
           docs/ppa-noble-resolute-daily-gate-20261017 3d6b9e4be4a2418aa3ad5a50e6aaa463d697864d 495 merged
+          docs/public-v1-device-playback-openapi-2026-10-12 c8a39c776216e91d326157dc3127267a98de22ca 461 merged
+          docs/publication-refresh-screenshot-slots-2026-10-12 c1c551b2cd50466abce944104fae2eb4fd0b8a12 468 merged
+          docs/reader-first-navigation-2026-10-12 80c5b392ecb53d02fa2c5b95b8c6ce990a1dbd3f 459 merged
           docs/ubuntu-first-steps-after-install-20261017 24a88e39fb0a161373d1076bba36b11272b73a26 493 merged
-          work/ppa-noble-install-smoke-20261017 1e27567e68f2241ed0ec8e4fd844b0bce8e7d6db 494 merged
+          fix/authenticated-home-live-preview 302e0af5ad410514e98976c08c171214c2234644 422 merged
+          fix/install-build-separation 3b349a4c073256b8cebb03e01c9c4cfc36039ea7 424 merged
           fix/logo-tv-antenna-orientation-20261016 f3d0b1fcd05c5e2c76cd57f5544d16b965cfb07c 486 merged
+          fix/public-timer-assignment-warnings-main 165eba519abda41fea112dd37036f5a64c57fce9 423 merged
           hotzenplotz5-patch-1 056358e6500b08c063522b8eb67d1e4a17035cfe 483 merged
           hotzenplotz5-patch-2 0c6ae6b2bcdc0cb2e11669bd408c38cf516ab532 484 merged
           hotzenplotz5-patch-3 836fbb3a045c83ee2846f1999fdd946d1bde76f5 485 merged
           hotzenplotz5-patch-4 09f304d77f68fd43955aa7c7fde7fd51de29c08f 487 merged
           hotzenplotz5-patch-5 143e82b79f2b32fb5a711edfaa684be448aae7b3 488 merged
+          work/authenticated-home-warm-cache 2ff5e876ea52d2408407fccd4e80fa1557b0f218 425 merged
+          work/browser-auth-challenge-hardening 06c2524abca9caa664ff344bfa46ab5da1bf455f 421 merged
+          work/install-runtime-deployment-reliability f4e888596b1dbe9fc425a24307b7af39c056d9ce 432 merged
+          work/live-resource-safety-guard 2be46dfc20262cca8d1f239a1cbde9689b882903 438 merged
+          work/media-capability-evidence-client-path-v1 804c4affbc992f44ceb48ae102339c69eaad99b0 470 merged
+          work/media-ffprobe-hdr-current-main-20261012 c5b5a61d5212bcac0a877132362c31c62c9c36e8 466 merged
+          work/mu10-device-app-pairing 91e581fbb32bca8989272df3b857305813f94b41 436 merged
+          work/mu10b-admin-pairing-approval 5c1574e5949b4cf0ed6b341e7dfb22ec2dec55ba 437 merged
+          work/mu10c-device-issuance 9b96725a564dc368af1a069d2ab7de44a8560fd3 440 merged
+          work/mu10d-device-authentication cd97ed717c6433c8b53136af3b7d1ede296d6e62 441 merged
+          work/mu10e1-device-grant-administration 3e5851b1290e3b9358214b8028a0d45e06641d89 442 merged
+          work/mu10e2-device-revocation be971e033202b1a4bd80834757b0cba80bed4b4e 443 merged
+          work/mu10e3-device-credential-rotation c9f9a116071cf4cf4679e7bd9f39d345cd963d4d 444 merged
+          work/mu6-account-lifecycle-foundation c06bfa85f6734be5d5afb8164cbd77cd2df2325f 408 merged
+          work/mu6b-public-account-item-revision bdc3e510d1ab75810c4025577ad3ba5a756d33bc 409 merged
+          work/mu6c-public-account-lifecycle-mutation 3e6df755db60b5db29ea7c3e0fbc40166cdaa728 410 merged
+          work/mu6d-account-create-idempotency af4de9a05862a0bb28aa8f00ce6645b3c29fff8b 411 merged
+          work/mu7-grant-administration 5ded998262f63282a416b4e8c7aae2b87fd0da34 413 merged
+          work/mu7-post-merge-closeout ffe06f596fac04ded4bfc4d94657bf89fbc59cca 414 merged
+          work/mu8a-safe-credential-session-metadata 99da485103bea7831c8b72699756cffab97bece4 415 merged
+          work/mu8b-session-revoke 09b17ed2a72047f95a670a72982ac37211b15143 416 merged
+          work/mu8c-credential-revoke a0ac23f885a3c0ac9108dbd2cfc3a88928864454 417 merged
+          work/mu9-closeout 1c0a3e74a874c2a997215fcf9dcea53e26724c82 431 merged
+          work/mu9a-account-admin-read-ui ab1813d626821d3bd5383667c5568b1475e29c2c 418 merged
+          work/mu9a-post-merge-closeout febba1601ba3a42095bc17ce93964ebe36790f15 419 merged
+          work/mu9b-account-lifecycle-ui f5fa4f0288314e750970a2e8a84457a3df42074c 420 merged
+          work/mu9c-session-revoke-ui e165b0bd8b9c000abd4d08fc49e048d6a19067cf 426 merged
+          work/mu9d-credential-revoke-ui c1d069a4b9fe638facea058237ed25010ff0ed16 428 merged
+          work/mu9e-grant-mutation-ui 13a387c66c777585f7f6207da1478af30a9419f9 429 merged
+          work/mu9f-account-create-ui 87c167c5af5817ef77d6e4f0b226aa5092c9963c 430 merged
+          work/multiuser-admin-ux-guidance 4f056ce2bf664ffdabcedaf276fdb6b4373eac02 433 merged
+          work/multiuser-device-list-ux 7afc52f8dd4d6a5874659edf136cb98d8a8cd793 434 merged
+          work/post425-ci-test-alignment b9cf7184d262bef8f38e8979dcba81ccf609ec77 427 merged
+          work/ppa-noble-install-smoke-20261017 1e27567e68f2241ed0ec8e4fd844b0bce8e7d6db 494 merged
+          work/recording-marks-hero-entry-fix d11b8203b931c8dee013d9863af25eeafb2c57a3 435 merged
+          work/recordings-folder-genre-management 747ad6a26c3b65ab40e9c0093e2b73c19c54d3e7 412 merged
+          work/vidaa-device-tracks-index-srt-webvtt-integrated-20261011 bd6009018a0465d1ae5830a1b823437d2d89bf45 450 merged
           EXACT_BRANCH_ALLOWLIST
           # Clean up this PR's own temporary branch, provided this run was
           # triggered by a successful merge and it has no open consumers.
