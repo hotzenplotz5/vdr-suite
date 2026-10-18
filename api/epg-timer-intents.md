@@ -4,7 +4,7 @@
 
 `POST /api/v1/epg/timer-intents` is the *independent*, guarded Device-v1 entry for an EPG-selected one-shot recording. It is **not** a SearchTimer, an existing `TimerAssignment` POST, a native VDR timer ID, or a private `/api/vdr/timers/actions/create` alias.
 
-**Slice 1 only:** The request parser, strict permission gate, authoritative observation preflight and durable-Operation response adapter exist in source. The production source now registers the **read-only** `EpgTimerIntentObservationLookup`: it reuses the authoritative public event-detail owner, validates numeric schedule times, rechecks the current backend Agent generation and the independent backend write policy. It deliberately does **not** register `EpgTimerIntentSubmit`. Until Slice 2 wires and tests atomic TimerIntent/TimerAssignment/Operation persistence, this route must remain `503`; no real native Timer is created by this contract. Discovery must never imply otherwise. No daemon rebuild or installation is authorized by this document.
+**Slice 1 + incomplete Slice 2:** The request parser, strict permission gate, authoritative observation preflight and durable-Operation response adapter exist in source. The daemon registers the **read-only** `EpgTimerIntentObservationLookup`, reusing source event detail, backend Agent generation and write policy. The standalone atomic domain coordinator `EpgTimerIntentAtomicAdmissionService` now persists an intent, selected assignment, native CREATE Operation/payload and durable idempotency record in **one caller-owned transaction**, with rollback/replay/duplicate/stale-generation regressions. It requires a fresh authoritative native-specification attestation. **No productive `EpgTimerIntentSubmit` is registered yet**, because the necessary true backend-native schedule, capability/readback, health and conflict evidence is not currently composed in the daemon. The public route intentionally remains **503**, has not created a native timer, and must not be exposed as available. Source tests and CI do not authorize daemon build or installation.
 
 ## HTTP request
 
@@ -29,9 +29,17 @@ The runtime then fetches a fresh authoritative backend-scoped observation (backe
 
 Other outcomes include 400 malformed selection/headers, 401 unauthenticated, 403 Device-grant or backend-write denial, 404 no observed airing, 409 expired/identity/generation/state/idempotency conflict, 412 EPG revision conflict, 415 unsupported media type, 422 invalid server-side intent, 428 missing strong If-Match and 503 missing/unavailable admission services. See `PublicApiRuntime.cpp`, `SecurityHttpGate.h`, `test_public_epg_timer_intent_admission.cpp` and `test_public_epg_timer_intent_security.cpp`.
 
+## Source-tested atomic admission (not an enabled HTTP submit)
+
+The [Slice-2 coordinator](../core/timers/include/EpgTimerIntentAtomicAdmissionService.h) shares the existing TimerIntent and TimerAssignment repositories, the planner and NativeTimerCreateAdmissionService. A single SQLite transaction encompasses intent, assignment, native CREATE Operation/payload and the separately scoped actor/backend/idempotency-to-operation mapping. Exact replay returns the original durable Operation; a reused key with changed Event/ETag fails, and an active semantically equivalent intent is not silently duplicated. A failed Operation INSERT rolls back everything. The SQL implementation belongs solely to `EpgTimerIntentAdmissionRepository`, preserving the architecture boundary.
+
+The coordinator does **not** invent freshness evidence: a mandatory server-owned `revalidateSourceAndNativeSpecification` callback must prove that authoritative backend generation/EPG identity, complete native TimerSpecification, source title and chosen planning evidence are still current before any write. The real Daemon submit must also construct genuinely current execution authority, capability, health, channel, conflict and backend-local VDR clock evidence. No `confirmedClear` conflict can be inferred from a generic snapshot or user-supplied text. Until the daemon owns these facts and wires the submit callback, public EPG-to-native CREATE remains unavailable.
+
+**Verified source code:** `f8a5ab84fecd06e9de3f968b4c8deaa0181123bf`; [GitHub CI #10269 / run 39096159408](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39096159408), six checks PASS, including C++ fast regressions and hosted daemon build. **No yaVDR apply, running-daemon hash change or Hisense acceptance.** For volatile state, see [CURRENT](../docs/CURRENT.md).
+
 ## Remaining authorization and acceptance
 
-- **Backend Slice 2:** Implement trusted authoritative resolver and atomic durable submit; readback, no-duplicate/replay, unknown-outcome and restart tests.
+- **Backend Slice 2:** Implement the remaining production daemon-backed trusted planner/native-specification evidence and `EpgTimerIntentSubmit` registration. The atomic SQLite coordinator and its replay/rollback regression are already source-implemented and CI-tested; runtime dispatch, real readback, cross-process restart and unknown-outcome acceptance remain open.
 - **VIDAA Slice 4:** Use the same public Device contract from EPG timeline and day detail after backend installation, preserving D-pad focus and explicit confirmation; never equate `202` with native Timer presence.
 - **Real yaVDR/Hisense:** Uninstalled and unaccepted on current Slice-1 source. `docs/CURRENT.md` remains the operational truth.
 
