@@ -235,6 +235,54 @@ int main()
 {
     {
         OneShotServer server(
+            "900 vdr-suite-ntcreate-clock/1 vdr.timer.create 1 "
+            "suitebridge pie_1 1 1 1792222800 1792226400 0 0 "
+            "2026-10-17 0740 2026-10-17 0840\r\n");
+        SuiteBridgeNativeTimerCreateTransport transport(config(server.port()));
+        SuiteBridgeNativeTimerClockProjection proof;
+        std::string reason;
+        assert(transport.inspectClock(1792222800, 1792226400,
+            validRequest().command.localProviderSelection, proof, reason));
+        server.wait();
+        assert(reason == "native_timer_clock_verified");
+        assert(proof.startUtcOffsetSeconds == 0);
+        assert(proof.stopUtcOffsetSeconds == 0);
+        assert(proof.startDay == "2026-10-17");
+        assert(proof.stopHhmm == "0840");
+        assert(server.request() ==
+            "PLUG suitebridge NTCREATE CLOCK 1 1792222800 1792226400\r\n");
+    }
+
+    {
+        OneShotServer server(
+            "900 vdr-suite-ntcreate-clock/1 vdr.timer.create 1 "
+            "suitebridge pie_restarted 1 1 1792222800 1792226400 0 0 "
+            "2026-10-17 0740 2026-10-17 0840\r\n");
+        SuiteBridgeNativeTimerCreateTransport transport(config(server.port()));
+        SuiteBridgeNativeTimerClockProjection proof;
+        std::string reason;
+        assert(!transport.inspectClock(1792222800, 1792226400,
+            validRequest().command.localProviderSelection, proof, reason));
+        server.wait();
+        assert(reason == "native_timer_clock_reply_invalid_or_stale");
+    }
+
+    {
+        OneShotServer server(
+            "900 vdr-suite-ntcreate-clock/1 vdr.timer.create 1 "
+            "suitebridge pie_1 1 1 1792222800 1792226400 0 0 "
+            "2026-10-17 0940 2026-10-17 0840\r\n");
+        SuiteBridgeNativeTimerCreateTransport transport(config(server.port()));
+        SuiteBridgeNativeTimerClockProjection proof;
+        std::string reason;
+        assert(!transport.inspectClock(1792222800, 1792226400,
+            validRequest().command.localProviderSelection, proof, reason));
+        server.wait();
+        assert(reason == "native_timer_clock_reply_invalid_or_stale");
+    }
+
+    {
+        OneShotServer server(
             "900 vdr-suite-ntcreate-cap/1 "
             "vdr.timer.create 1 timer-create "
             "disabled suitebridge pie_1 1 1 disabled\r\n");

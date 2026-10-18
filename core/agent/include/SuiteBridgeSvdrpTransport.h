@@ -222,6 +222,8 @@ public:
     }
 
     SuiteBridgeCommandReply discoverNativeTimerCreateContract();
+    SuiteBridgeCommandReply inspectNativeTimerClockContract(
+        std::int64_t start, std::int64_t stop);
     SuiteBridgeCommandReply executeNativeTimerCreateContract(
         const BackendAgentNativeTimerCreateTransportRequest& request);
 

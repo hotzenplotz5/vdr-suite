@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <cstdio>
+#include <ctime>
 #include <limits>
 #include <sstream>
 #include <string>
@@ -97,6 +99,44 @@ bool unsignedValue(
     }
 
     return parsed > 0;
+}
+
+bool signedOffset(const std::string& value, std::int32_t& parsed)
+{
+    if (value.empty() || value.size() > 6) return false;
+    try
+    {
+        std::size_t used = 0;
+        const long offset = std::stol(value, &used, 10);
+        if (used != value.size() || offset < -14 * 3600 ||
+            offset > 14 * 3600 || offset % 60 != 0)
+            return false;
+        parsed = static_cast<std::int32_t>(offset);
+        return true;
+    }
+    catch (...) { return false; }
+}
+
+bool matchesLocalProjection(
+    std::int64_t unixSeconds, std::int32_t offset,
+    const std::string& day, const std::string& hhmm)
+{
+    if (day.size() != 10 || hhmm.size() != 4 ||
+        unixSeconds <= 0 || unixSeconds >
+            std::numeric_limits<std::int64_t>::max() - 14 * 3600)
+        return false;
+    const std::int64_t local = unixSeconds + offset;
+    const auto timestamp = static_cast<std::time_t>(local);
+    if (static_cast<std::int64_t>(timestamp) != local) return false;
+    std::tm parts{};
+    if (!gmtime_r(&timestamp, &parts)) return false;
+    char expectedDay[16]{};
+    char expectedTime[8]{};
+    return std::snprintf(expectedDay, sizeof(expectedDay), "%04d-%02d-%02d",
+               parts.tm_year + 1900, parts.tm_mon + 1, parts.tm_mday) == 10 &&
+        std::snprintf(expectedTime, sizeof(expectedTime), "%02d%02d",
+               parts.tm_hour, parts.tm_min) == 4 &&
+        day == expectedDay && hhmm == expectedTime;
 }
 
 bool safeWireToken(
@@ -207,6 +247,19 @@ SuiteBridgeSvdrpTransport::discoverNativeTimerCreateContract()
 {
     return executeRequest(
         "PLUG suitebridge NTCREATE CAP 1\r\n");
+}
+
+SuiteBridgeCommandReply
+SuiteBridgeSvdrpTransport::inspectNativeTimerClockContract(
+    std::int64_t start, std::int64_t stop)
+{
+    if (start <= 0 || stop <= start || stop - start > 48 * 3600)
+        return {SuiteBridgeTransportStatus::Failed, 0, {},
+            "invalid native timer clock request"};
+    std::ostringstream wire;
+    wire << "PLUG suitebridge NTCREATE CLOCK 1 "
+         << start << ' ' << stop << "\r\n";
+    return executeRequest(wire.str());
 }
 
 SuiteBridgeCommandReply
@@ -343,6 +396,73 @@ bool SuiteBridgeNativeTimerCreateTransport::discoverProvider(
             ? "native_timer_create_suitebridge_provider_discovered_enabled"
             : "native_timer_create_suitebridge_provider_discovered_disabled";
 
+    return true;
+}
+
+bool SuiteBridgeNativeTimerCreateTransport::inspectClock(
+    std::int64_t start, std::int64_t stop,
+    const BackendAgentLocalProviderSelection& authorizedSelection,
+    SuiteBridgeNativeTimerClockProjection& projection,
+    std::string& reasonCode)
+{
+    projection = {};
+    if (start <= 0 || stop <= start || stop - start > 48 * 3600 ||
+        !backendAgentLocalProviderValidSelection(authorizedSelection) ||
+        authorizedSelection.authorityDomain !=
+            kBackendAgentNativeTimerCreateAuthorityDomain ||
+        authorizedSelection.providerId !=
+            kBackendAgentNativeTimerCreateProviderId ||
+        authorizedSelection.providerKind !=
+            kBackendAgentNativeTimerCreateProviderKind ||
+        authorizedSelection.requiredCapability !=
+            kBackendAgentNativeTimerCreateCapability)
+    {
+        reasonCode = "native_timer_clock_request_invalid";
+        return false;
+    }
+    const SuiteBridgeCommandReply reply =
+        transport_.inspectNativeTimerClockContract(start, stop);
+    if (!reply.transportSucceeded() || reply.replyCode != CapabilityReplyCode)
+    {
+        reasonCode = "native_timer_clock_unavailable";
+        return false;
+    }
+    const auto values = split(reply.payload, 15);
+    std::uint64_t providerGeneration = 0, capabilityRevision = 0;
+    std::uint64_t echoedStart = 0, echoedStop = 0;
+    std::int32_t startOffset = 0, stopOffset = 0;
+    if (values.size() != 15 ||
+        values[0] != "vdr-suite-ntcreate-clock/1" ||
+        values[1] != kBackendAgentNativeTimerCreateCapability ||
+        values[2] != "1" ||
+        values[3] != kBackendAgentNativeTimerCreateProviderKind ||
+        values[4] != authorizedSelection.providerInstanceEpoch ||
+        !unsignedValue(values[5], providerGeneration) ||
+        !unsignedValue(values[6], capabilityRevision) ||
+        providerGeneration != authorizedSelection.providerGeneration ||
+        capabilityRevision != authorizedSelection.capabilityRevision ||
+        !unsignedValue(values[7], echoedStart) ||
+        !unsignedValue(values[8], echoedStop) ||
+        echoedStart != static_cast<std::uint64_t>(start) ||
+        echoedStop != static_cast<std::uint64_t>(stop) ||
+        !signedOffset(values[9], startOffset) ||
+        !signedOffset(values[10], stopOffset) ||
+        !matchesLocalProjection(start, startOffset, values[11], values[12]) ||
+        !matchesLocalProjection(stop, stopOffset, values[13], values[14]))
+    {
+        reasonCode = "native_timer_clock_reply_invalid_or_stale";
+        return false;
+    }
+    projection.start = start;
+    projection.stop = stop;
+    projection.startUtcOffsetSeconds = startOffset;
+    projection.stopUtcOffsetSeconds = stopOffset;
+    projection.startDay = values[11];
+    projection.startHhmm = values[12];
+    projection.stopDay = values[13];
+    projection.stopHhmm = values[14];
+    projection.providerInstanceEpoch = values[4];
+    reasonCode = "native_timer_clock_verified";
     return true;
 }
 
