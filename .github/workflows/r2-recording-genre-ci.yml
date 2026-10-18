@@ -3,7 +3,7 @@ name: R2 Public-v1 Recording + Genre tests
 on:
   push:
     branches:
-      - work/r2-recording-folder-browse
+      - work/public-v1-vidaa-unified-20261018
   workflow_dispatch:
 
 permissions:

@@ -3,7 +3,7 @@ name: VIDAA Device tracks + index + SRT focused CI
 on:
   push:
     branches:
-      - "work/vidaa-device-tracks-index-srt-webvtt-integrated-20261011"
+      - "work/public-v1-vidaa-unified-20261018"
 
 permissions:
   contents: read

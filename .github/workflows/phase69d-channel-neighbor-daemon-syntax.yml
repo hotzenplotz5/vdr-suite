@@ -3,7 +3,7 @@ name: Phase 69.D channel neighbor daemon syntax
 on:
   push:
     branches:
-      - work/integration-codec-public-v1-search-live-20261015
+      - work/public-v1-vidaa-unified-20261018
 
 permissions:
   contents: read
