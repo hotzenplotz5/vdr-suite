@@ -412,7 +412,7 @@ void test_epg_public_atomic_admission_and_replay()
     provider.capabilityRevision = 1;
     provider.requiredCapability = "vdr.timer.create";
     candidate.executionAuthorityFence =
-        vdrsuite::agent::backendAgentLocalProviderSelectionIdentity(provider);
+        vdrsuite::public_epg_timer::nativeTimerCreatePlanningAuthorityFence(provider);
     candidate.capability.backendGeneration = 7;
     candidate.capability.revision = "capability:7";
     candidate.capability.current = true;

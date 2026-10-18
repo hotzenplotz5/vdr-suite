@@ -45,9 +45,6 @@ const char **cPluginSuiteBridge::SVDRPHelpPages(void)
       "    Return the read-only VDR-Suite capability discovery payload.",
       "SNAP\n"
       "    Return the current read-only VDR-Suite status payload.",
-      "NTCREATE CAP 1 | CLOCK 1 <start-unix> <stop-unix>\n"
-      "    Read native CREATE capability or VDR-local EPG boundary clock evidence; "
-      "EXEC is a separate fenced mutation command.",
       "OSDSNAP\n"
       "    Return the current bounded semantic Legacy OSD full frame; no skin pixels.",
       "OSDINPUT <schema> <command-id> <request-fingerprint> <backend-generation> <surface-id> <osd-epoch> <lease-id> <lease-epoch> <lease-revision> <action> <deadline>\n"

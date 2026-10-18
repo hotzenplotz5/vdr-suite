@@ -2,6 +2,7 @@
 
 #include "BackendAgentLifecycle.h"
 #include "BackendAgentNativeTimerCreate.h"
+#include "BackendAgentNativeTimerDeleteFingerprint.h"
 #include "BackendAgentLocalProvider.h"
 #include "TimerAssignmentPlanner.h"
 
@@ -13,6 +14,21 @@ namespace vdrsuite::public_epg_timer
 // Structurally fences facts obtained by the server. The selected provider
 // must come from BackendAgentCommandRepository::selectLocalProvider, and
 // its identity is verified again by Agent reservation prior to dispatch.
+// The original identity is longer than TimerAssignmentPlanner's bounded
+// 160-byte fence. Pin its full canonical fields via a domain-separated
+// SHA-256 token rather than truncate it or relax existing planner limits.
+inline std::string nativeTimerCreatePlanningAuthorityFence(
+    const vdrsuite::agent::BackendAgentLocalProviderSelection& selection)
+{
+    const std::string canonical =
+        vdrsuite::agent::backendAgentLocalProviderSelectionIdentity(selection);
+    if (canonical.empty()) return {};
+    const std::string digest =
+        vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
+            "epg-native-create-provider-fence/1|" + canonical);
+    return digest.empty() ? std::string() : "epg-provider:" + digest;
+}
+
 inline bool currentNativeTimerCreateExecutionAuthority(
     const BackendAgentRecord& agent,
     const vdrsuite::agent::BackendAgentLocalProviderSelection& selection,
@@ -42,7 +58,7 @@ inline bool currentNativeTimerCreateExecutionAuthority(
 
     // Opaque provider identity also fences ownership/provider epoch/revision.
     const std::string selectionFence =
-        backendAgentLocalProviderSelectionIdentity(selection);
+        nativeTimerCreatePlanningAuthorityFence(selection);
     return !selectionFence.empty() &&
         selectionFence == candidate.executionAuthorityFence;
 }
