@@ -48,6 +48,7 @@ bool candidateMatches(
         && !n.title.empty()
         && n.title.size() <= 512U
         && nativeTimerSpecificationValid(n)
+        && nativeOneShotMatchesEpg(observed, request.defaults, request.nativeClock, n)
         && c.conflict == TimerAssignmentPlanningConflictState::confirmedClear;
 }
 

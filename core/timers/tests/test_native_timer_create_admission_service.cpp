@@ -285,6 +285,57 @@ void test_source_epg_draft_to_atomic_native_create_admission(bool rollbackWholeR
         chosen, source, "actor:owner", policy, true, true, 1792223000).valid);
 }
 
+void test_epg_native_time_contract()
+{
+    using namespace vdrsuite::public_epg_timer;
+    AuthoritativeObservation event;
+    event.channelId = "S19.2E-1-1019-10301";
+    event.startTime = 1792222800; // 2026-10-17 07:40 UTC
+    event.endTime = 1792226400;
+    event.exactNativeIdentity = true;
+    event.observationCurrent = true;
+    ServerOwnedRecordingDefaults defaults;
+    defaults.timezone = "Europe/Berlin";
+    defaults.priority = 50;
+    defaults.lifetimeDays = 99;
+    auto native = specification();
+    native.channelId = event.channelId;
+    native.day = "2026-10-17";
+    native.startTime = "0940";
+    native.endTime = "1040";
+    const ServerOwnedNativeClockEvidence cest{true, 7200, 7200};
+    assert(nativeOneShotMatchesEpg(event, defaults, cest, native));
+    assert(!nativeOneShotMatchesEpg(event, defaults, {}, native));
+    const ServerOwnedNativeClockEvidence wrongZone{true, 0, 0};
+    assert(!nativeOneShotMatchesEpg(event, defaults, wrongZone, native));
+    native.weekdays = "MTWTF--";
+    assert(!nativeOneShotMatchesEpg(event, defaults, cest, native));
+    native.weekdays = "-------";
+    defaults.startMarginSeconds = 60;
+    assert(!nativeOneShotMatchesEpg(event, defaults, cest, native));
+    native.startTime = "0939";
+    assert(nativeOneShotMatchesEpg(event, defaults, cest, native));
+    defaults.startMarginSeconds = 0;
+
+    // 2026-10-25: Europe's fall-back can give the two boundaries
+    // different source-attested UTC offsets, never a single inferred one.
+    event.startTime = 1792888200; // 2026-10-25 00:30 UTC
+    event.endTime = 1792895400;   // 2026-10-25 02:30 UTC
+    native.day = "2026-10-25";
+    native.startTime = "0230";
+    native.endTime = "0330";
+    assert(nativeOneShotMatchesEpg(event, defaults,
+        ServerOwnedNativeClockEvidence{true, 7200, 3600}, native));
+    assert(!nativeOneShotMatchesEpg(event, defaults,
+        ServerOwnedNativeClockEvidence{true, 7200, 7200}, native));
+    // End-of-program seconds round upwards, start seconds downwards.
+    event.startTime = 1792888229;
+    event.endTime = 1792895437;
+    native.endTime = "0331";
+    assert(nativeOneShotMatchesEpg(event, defaults,
+        ServerOwnedNativeClockEvidence{true, 7200, 3600}, native));
+}
+
 void test_epg_public_atomic_admission_and_replay()
 {
     using namespace vdrsuite::public_epg_timer;
@@ -306,6 +357,7 @@ void test_epg_public_atomic_admission_and_replay()
     request.defaults.channelSourceType = "vdr";
     request.authenticatedActorId = "actor:owner";
     request.authoritativeTitle = "Atomic admission";
+    request.nativeClock = {true, 7200, 7200}; // attested backend local CEST
     request.requestedAt = 1792223000;
     request.deadline = 0;
     auto& candidate = request.candidate;
@@ -378,6 +430,24 @@ void test_epg_public_atomic_admission_and_replay()
     const auto duplicate = afterRestart.admit(freshKey);
     assert(duplicate.status == AtomicAdmissionStatus::duplicateIntent);
 
+    auto wrongTime = request;
+    wrongTime.selection.idempotencyKey = "device-new-wrong-hour";
+    wrongTime.candidate.desiredNativeTimerSpecification.startTime = "0840";
+    assert(afterRestart.admit(wrongTime).status ==
+        AtomicAdmissionStatus::backendUnavailable);
+
+    auto missingClock = request;
+    missingClock.selection.idempotencyKey = "device-new-missing-clock";
+    missingClock.nativeClock.current = false;
+    assert(afterRestart.admit(missingClock).status ==
+        AtomicAdmissionStatus::backendUnavailable);
+
+    auto recurring = request;
+    recurring.selection.idempotencyKey = "device-new-recurring";
+    recurring.candidate.desiredNativeTimerSpecification.weekdays = "MTWTF--";
+    assert(afterRestart.admit(recurring).status ==
+        AtomicAdmissionStatus::backendUnavailable);
+
     auto generation = request;
     generation.selection.idempotencyKey = "device-new-stale-generation";
     generation.candidate.currentBackendGeneration = 8;
@@ -428,6 +498,7 @@ int main()
 {
     test_source_epg_draft_to_atomic_native_create_admission(false);
     test_source_epg_draft_to_atomic_native_create_admission(true);
+    test_epg_native_time_contract();
     test_epg_public_atomic_admission_and_replay();
     {
         Fixture fixture;
