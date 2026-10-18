@@ -10,6 +10,7 @@
 - [Backend discovery developer contract](backend-discovery.md)
 - [Federated Channel collection developer contract](channel-collection.md)
 - [TimerAssignments and Timer CREATE developer contract](timer-assignments.md)
+- [EPG-to-TimerIntent Device CREATE admission contract](epg-timer-intents.md) — guarded HTTP only until productive Slice 2
 - [Durable Operation read and reconciliation](operation-status.md)
 - [Human Accounts and permission grants](accounts-and-grants.md)
 - [TV/Device pairing bootstrap and credential issuance](device-pairing.md)
@@ -26,7 +27,7 @@
 
 **Documentation bootstrap — 2026-10-11; source baseline main `8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0`.**
 
-The OpenAPI file currently specifies **54 documented HTTP method/resource contracts** across **42 path templates**: discovery root/capabilities, Backend and Channel collections, TimerAssignment collection and item GET, protected TimerAssignment item POST for Timer CREATE, and actor-owned Operation item GET, with selected Account/Device security administration contracts detailed below. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
+The OpenAPI file currently specifies **55 documented HTTP method/resource contracts** across **43 path templates**: discovery root/capabilities, Backend and Channel collections, TimerAssignment collection and item GET, protected TimerAssignment item POST for Timer CREATE, and actor-owned Operation item GET, with selected Account/Device security administration contracts detailed below. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
 
 The public-v1 contract is distinct from older or browser-private `/api/...` routes, transport/provider implementation details, and the independent acceptance state of the VIDAA app.
 
@@ -95,7 +96,7 @@ Relevant implementation and verification entry points:
 
 The dependency-free [audited Public-v1 checker](../tools/check_public_v1_openapi.py) and its [regression tests](../tools/tests/test_public_v1_openapi.py) are run by the existing `make test-docs` CI job. They fail when an audited method/path disappears from this OpenAPI, a matching actual C++ GET/POST handler anchor disappears, a local schema reference is missing, path parameters/operation IDs become inconsistent, or a documented strong precondition or actor/token boundary is weakened. No runtime credentials or server connection is involved.
 
-The audited checker inventory is deliberately **limited to its 41 source-reviewed baseline methods**, even though the current OpenAPI file specifies 54 operations across 42 templates, not the entire present-day Public-v1 API. Newly introduced routes still require a deliberate API review and explicit expansion of the audited inventory; this is not full OpenAPI Schema validation or proof of live HTTP behavior. GitHub CI for this branch is only automatically triggered when its workflow event rules match (e.g. a PR), so code inclusion alone does not prove the CI job has run.
+The audited checker inventory is deliberately **limited to its 41 source-reviewed baseline methods**, even though the current OpenAPI file specifies 55 operations across 43 templates, not the entire present-day Public-v1 API. Newly introduced routes still require a deliberate API review and explicit expansion of the audited inventory; this is not full OpenAPI Schema validation or proof of live HTTP behavior. GitHub CI for this branch is only automatically triggered when its workflow event rules match (e.g. a PR), so code inclusion alone does not prove the CI job has run.
 
 ## Maintenance rule
 

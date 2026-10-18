@@ -9,7 +9,7 @@
 - Device clients authenticate using paired Device credentials and explicit backend grants. Browser/administrator APIs have different CSRF and ownership rules.
 - Public-v1 is an independent, versioned and secured contract, **not** an alias for `/api/vdr/...`. Native Timer, TimerIntent, TimerAssignment, NativeTimerBinding, SearchTimer and durable Operation are different resources.
 - Routes listed below are verified from `api/rest/src/PublicApiRuntime.cpp`, `api/rest/src/ApiRouter.cpp` and the [OpenAPI subset](../../api/openapi.json). Paths described as **proposed** are *not* implemented.
-- The machine-readable OpenAPI snapshot has **54 method operations on 42 templates** at the audit baseline. The historical **41/30** in `api/README.md` was stale; **41 audited contracts** may still be a narrower gate in `tools/check_public_v1_openapi.py`, not the file's actual operation count.
+- The machine-readable OpenAPI snapshot has **55 method operations on 43 templates** at the audit baseline. The historical **41/30** in `api/README.md` was stale; **41 audited contracts** may still be a narrower gate in `tools/check_public_v1_openapi.py`, not the file's actual operation count.
 
 ## Coverage and migration matrix
 
@@ -30,7 +30,7 @@
 
 | Slice | Deliverable | Backend | CI exact commit | yaVDR daemon | VIDAA build / Hisense |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Secure independent EPG one-shot TimerIntent admission HTTP contract; no implicit VDR execution | In progress, baseline `987820cf...` has only EPG GET, selection guard and draft | Not yet verified | Baseline code from `987820cf...` user-reported installed, running daemon SHA-256 `6adb7b1f8266f00f1c1abbc44318dc2f59aed5a8c9f2b609c6dde0347e94f52e` | Not integrated |
+| 1 | Secure independent EPG one-shot TimerIntent admission HTTP contract; no implicit VDR execution | **Source implemented** in `96c3e7e` with follow-up fixture corrections `12668ad`; not yet wired to productive persistence. Fail-closed 503 without observer+submit. | CI pending on `12668ad` (architecture/docs inventory additions in progress) | Baseline code from `987820cf...` user-reported installed, running daemon SHA-256 `6adb7b1f8266f00f1c1abbc44318dc2f59aed5a8c9f2b609c6dde0347e94f52e` | Not integrated |
 | 2 | Durable atomic TimerIntent + TimerAssignment + Operation, Agent dispatch/readback/outcome_unknown, generation and replay | Open | — | Not installed | Not integrated |
 | 3 | Native DELETE including policy on unbound timers and target-fingerprint concurrency fences | Open | — | Not installed | Not integrated |
 | 4 | VIDAA EPG/day/timer remote UI, explicit confirmation and SSE-driven GET/Operation reconciliation | Open | — | — | `b20261017.17` user-reported installed and partial HW acceptance; `.18` CI 593/593, *not* installed/tested |

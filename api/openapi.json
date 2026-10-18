@@ -172,6 +172,141 @@
         }
       }
     },
+    "/api/v1/epg/timer-intents": {
+      "post": {
+        "tags": [
+          "TimerAssignments"
+        ],
+        "operationId": "createEpgTimerIntent",
+        "summary": "Admit a one-shot TimerIntent for an exact EPG airing",
+        "description": "Device-only, exact backend timers.create authorization. The server independently resolves the EPG event, matches the source-provenanced strong ETag and verifies native identity, backend generation, expiration and independent backend write policy. This API is fail-closed (503) until the durable observation and submit services are installed. 202 means a durable operation was accepted/replayed, not that a native VDR timer exists. It is NOT POST /timer-assignments/{id}; no SearchTimer and no caller-controlled schedule. Never silently retry unknown outcomes.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified paired Device credential with exact timers.create@backendId grant; Browser sessions are not allowed; independent backend write-policy check"
+        },
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "description": "Exact canonical strong ETag from GET /api/v1/epg/event for this airing; no weak/list/wildcard tag",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Visible ASCII 1–160 characters; replays must carry the identical scope, payload and original revision; do not generate another key after timeout",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "backendId",
+                  "channelId",
+                  "eventId"
+                ],
+                "properties": {
+                  "backendId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9._-]+$"
+                  },
+                  "channelId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
+                  },
+                  "eventId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Durable Operation accepted or replayed. Not evidence of native VDR timer creation.",
+            "headers": {
+              "Location": {
+                "description": "Actor-owned /api/v1/operations/{operationId}",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Opaque strong durable Operation revision",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "No caching",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DurableOperation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid scope, JSON, header or closed-field selection"
+          },
+          "401": {
+            "description": "Unauthenticated actor"
+          },
+          "403": {
+            "description": "Device credential/grant missing or backend write policy denies"
+          },
+          "404": {
+            "description": "No matching authoritative EPG event"
+          },
+          "409": {
+            "description": "Event expired or native identity, generation, state, or idempotency conflict"
+          },
+          "412": {
+            "description": "Selected EPG resource revision changed"
+          },
+          "415": {
+            "description": "Only JSON request body is supported"
+          },
+          "422": {
+            "description": "TimerIntent admission rejected the validated programme"
+          },
+          "428": {
+            "description": "Strong If-Match precondition missing"
+          },
+          "503": {
+            "description": "Authoritative service not configured, unavailable or unverified"
+          }
+        }
+      }
+    },
     "/api/v1/native-timers": {
       "get": {
         "tags": [

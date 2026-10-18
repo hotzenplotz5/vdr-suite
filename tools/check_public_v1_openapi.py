@@ -36,6 +36,7 @@ AUDITED = {
     "/api/v1/epg/now-next": {"get": "if (path == PublicEpgNowNextPath)"},
     "/api/v1/epg/window": {"get": "if (path == PublicEpgWindowPath)"},
     "/api/v1/native-timers": {"get": "if (path == PublicNativeTimersPath)"},
+    "/api/v1/epg/timer-intents": {"post": "if (path == PublicEpgTimerIntentPath)"},
     "/api/v1/timer-assignments": {"get": "if (path == PublicTimerAssignmentCollectionPath)"},
     "/api/v1/search-timers": {"get": "if (path == PublicSearchTimerCollectionPath)", "post": "if (path == PublicSearchTimerCollectionPath)"},
     "/api/v1/search-timers/draft-preview": {"get": "if (path == PublicSearchTimerDraftPreviewPath)"},
@@ -155,6 +156,7 @@ NO_ACTOR = {
 }
 
 IF_MATCH = {
+    ("post", "/api/v1/epg/timer-intents"),
     ("post", "/api/v1/timer-assignments/{timerAssignmentId}"),
     ("post", "/api/v1/accounts/{accountId}"),
     ("post", "/api/v1/accounts/{accountId}/grants"),
@@ -168,6 +170,7 @@ IF_MATCH = {
 }
 
 IDEMPOTENCY = {
+    ("post", "/api/v1/epg/timer-intents"),
     ("post", "/api/v1/search-timers"),
     ("post", "/api/v1/accounts"),
     ("post", "/api/v1/timer-assignments/{timerAssignmentId}"),

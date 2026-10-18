@@ -335,6 +335,9 @@ reviewed_runtime_files = {
     Path("api/rest/tests/test_public_timer_assignment_lookup.cpp"),
     Path("api/rest/tests/test_public_timer_assignment_resource.cpp"),
     Path("api/rest/tests/test_public_timer_assignment_collection.cpp"),
+    # Post-Phase-69 reviewed fail-closed EPG TimerIntent admission regression.
+    # The HTTP test may name TimerIntent, but no native mutation runs here.
+    Path("api/rest/tests/test_public_epg_timer_intent_admission.cpp"),
     Path("core/daemon/include/DaemonRuntime.h"),
     Path("core/daemon/src/DaemonRuntimeInitialization.cpp"),
     Path("core/daemon/src/DaemonRuntimeShutdown.cpp"),

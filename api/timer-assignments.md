@@ -5,6 +5,7 @@
 - [API developer entry point](README.md)
 - [Partial OpenAPI 3.1 reference](openapi.json)
 - [Operation status and reconciliation](operation-status.md)
+- [EPG one-shot TimerIntent CREATE (separate admission resource)](epg-timer-intents.md)
 - [Accepted TimerAssignment collection contract](../docs/development/phase-69d-timer-assignment-collection.md)
 - [Accepted Timer CREATE admission contract](../docs/development/phase-69c-public-timer-create-admission.md)
 - [Public API compatibility and mutation semantics (ADR-0048)](../docs/adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)
