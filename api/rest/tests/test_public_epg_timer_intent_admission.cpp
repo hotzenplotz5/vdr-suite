@@ -26,7 +26,7 @@ int main()
     api.resetEpgEventDetailLookup();
     assert(post(body, etag).statusCode == 503);
     assert(post(body, "").statusCode == 428);
-    assert(post(body, "W/\\"weak\\"").statusCode == 400);
+    assert(post(body, "W/\"weak\"").statusCode == 400);
     assert(post(body, etag, "").statusCode == 400);
     assert(post(body, etag, "bad key").statusCode == 400);
     assert(post(body, etag, "idem", "foreign").statusCode == 400);
@@ -34,8 +34,8 @@ int main()
     assert(post(body, etag, "idem", "home", route, "text/plain").statusCode == 415);
     assert(post("{", etag).statusCode == 400);
     assert(post("{}", etag).statusCode == 400);
-    assert(post(body.substr(0,body.size()-1)+",\\"title\\":\\"spoof\\"}", etag).statusCode == 400);
-    assert(post(body.substr(0,body.size()-1)+",\\"eventId\\":\\"81234\\"}", etag).statusCode == 400);
+    assert(post(body.substr(0,body.size()-1)+",\"title\":\"spoof\"}", etag).statusCode == 400);
+    assert(post(body.substr(0,body.size()-1)+",\"eventId\":\"81234\"}", etag).statusCode == 400);
     assert(post(body,etag,"idem","home",route).headers.count("Location") == 0U);
 
     int observes=0, submits=0;
@@ -98,7 +98,8 @@ int main()
     observed.observation.nativeEventId="wrong";
     assert(post(body,etag).statusCode==409 && submits==called);
     observed.observation.nativeEventId="81234";
-    observed.observation.endTime=1;
+    observed.observation.startTime=1700000000LL;
+    observed.observation.endTime=1700003600LL;
     assert(post(body,etag).statusCode==409 && submits==called);
     api.resetEpgTimerIntentObservationLookup();
     api.resetEpgTimerIntentSubmit();
