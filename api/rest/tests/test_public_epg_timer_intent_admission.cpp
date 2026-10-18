@@ -8,7 +8,7 @@ int main()
 {
     auto& api = PublicApiRuntime::instance();
     const std::string route = "/api/v1/epg/timer-intents";
-    const std::string body = "{\\"backendId\\":\\"home\\",\\"channelId\\":\\"S19.2E-1-100\\",\\"eventId\\":\\"81234\\"}";
+    const std::string body = "{\"backendId\":\"home\",\"channelId\":\"S19.2E-1-100\",\"eventId\":\"81234\"}";
     const std::string revision = "epg1:sha256:" + std::string(64, 'a');
     const std::string etag = vdrsuite::http::publicStrongEntityTag(revision);
     const auto post = [&](const std::string& input, const std::string& match,
@@ -26,7 +26,7 @@ int main()
     api.resetEpgEventDetailLookup();
     assert(post(body, etag).statusCode == 503);
     assert(post(body, "").statusCode == 428);
-    assert(post(body, "W/\\\"weak\\\"").statusCode == 400);
+    assert(post(body, "W/\\"weak\\"").statusCode == 400);
     assert(post(body, etag, "").statusCode == 400);
     assert(post(body, etag, "bad key").statusCode == 400);
     assert(post(body, etag, "idem", "foreign").statusCode == 400);
@@ -34,8 +34,8 @@ int main()
     assert(post(body, etag, "idem", "home", route, "text/plain").statusCode == 415);
     assert(post("{", etag).statusCode == 400);
     assert(post("{}", etag).statusCode == 400);
-    assert(post(body.substr(0,body.size()-1)+",\\\"title\\\":\\\"spoof\\\"}", etag).statusCode == 400);
-    assert(post(body.substr(0,body.size()-1)+",\\\"eventId\\\":\\\"81234\\\"}", etag).statusCode == 400);
+    assert(post(body.substr(0,body.size()-1)+",\\"title\\":\\"spoof\\"}", etag).statusCode == 400);
+    assert(post(body.substr(0,body.size()-1)+",\\"eventId\\":\\"81234\\"}", etag).statusCode == 400);
     assert(post(body,etag,"idem","home",route).headers.count("Location") == 0U);
 
     int observes=0, submits=0;

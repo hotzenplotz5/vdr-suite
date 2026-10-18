@@ -10,9 +10,9 @@ int main()
         fixture.actorId,"timers.create","home"));
     HttpServerRequest request;
     request.method="POST"; request.path=route;
-    request.body="{\\"backendId\\":\\"home\\",\\"channelId\\":\\"c\\",\\"eventId\\":\\"e\\"}";
+    request.body="{\"backendId\":\"home\",\"channelId\":\"c\",\"eventId\":\"e\"}";
     request.headers["Content-Type"]="application/json";
-    request.headers["If-Match"]="\\\"vsr-1\\\"";
+    request.headers["If-Match"]="\\"vsr-1\\"";
     request.headers["Idempotency-Key"]="idem";
     fixture.addBrowserAuthentication(request,true);
     // A Browser session with timers.create may use legacy Browser routes,
