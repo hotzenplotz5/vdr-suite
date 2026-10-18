@@ -2,6 +2,16 @@ name: Published PPA Noble 24.04 clean-install acceptance
 
 on:
   workflow_dispatch:
+    inputs:
+      suite_archive:
+        description: 'VDR-Suite package archive (HbbTV web plugin still from tested PPA)'
+        type: choice
+        required: true
+        default: release
+        options:
+          - release
+          - daily
+
 
 permissions:
   contents: read
@@ -29,6 +39,9 @@ jobs:
           sudo apt-get install -y --no-install-recommends software-properties-common ca-certificates
           sudo add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
           sudo add-apt-repository -y ppa:hotzenplotz5/vdr-suite
+          if [[ '${{ inputs.suite_archive }}' == daily ]]; then
+            sudo add-apt-repository -y ppa:hotzenplotz5/vdr-suite-daily
+          fi
           sudo apt-get update
           apt-cache policy vdr vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge vdr-plugin-web
           echo 'BOTH_PPA_INDEXES_READ=PASS'
@@ -37,6 +50,27 @@ jobs:
         run: |
           set -Eeuo pipefail
           packages=(vdr vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge vdr-plugin-web)
+          if [[ '${{ inputs.suite_archive }}' == daily ]]; then
+            # Both PPAs are configured to install the existing patched web plugin.
+            # Never let APT silently select the higher-versioned release Suite.
+            # Select an actual published daily version for each of the three Suite packages.
+            for index in "${!packages[@]}"; do
+              pkg="${packages[$index]}"
+              case "$pkg" in
+                vdr-suite-daemon|vdr-suite-backend-agent|vdr-plugin-suitebridge)
+                  policy="$(apt-cache policy "$pkg")"
+                  printf '%s\n' "$policy"
+                  [[ "$policy" == *'ppa.launchpadcontent.net/hotzenplotz5/vdr-suite-daily/ubuntu noble'* ]] || {
+                    echo "NOBLE_DAILY_SOURCE_MISSING=$pkg"; exit 1;
+                  }
+                  version="$(apt-cache madison "$pkg" | awk '$3 ~ /~daily[0-9]+[+]/ {print $3; exit}')"
+                  test -n "$version" || { echo "NOBLE_DAILY_VERSION_MISSING=$pkg"; exit 1; }
+                  packages[$index]="$pkg=$version"
+                  echo "NOBLE_DAILY_REQUESTED=$pkg:$version"
+                  ;;
+              esac
+            done
+          fi
           sudo apt-get -s install --no-install-recommends "${packages[@]}"
           echo 'APT_DEPENDENCY_SIMULATION=PASS'
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${packages[@]}"
@@ -50,6 +84,15 @@ jobs:
             2.8.3-0yavdr0~noble) echo "MATCHED_VDR_VERSION=PASS $vdr_version" ;;
             *) echo "MATCHED_VDR_VERSION=FAIL $vdr_version"; exit 1 ;;
           esac
+          if [[ '${{ inputs.suite_archive }}' == daily ]]; then
+            suite_version="$(dpkg-query -W -f='${Version}' vdr-suite-daemon)"
+            [[ "$suite_version" =~ ~daily[0-9]+[+] ]] || { echo 'NOBLE_DAILY_WRONG_VERSION=FAIL'; exit 1; }
+            for pkg in vdr-suite-backend-agent vdr-plugin-suitebridge; do
+              test "$(dpkg-query -W -f='${Version}' "$pkg")" = "$suite_version"
+            done
+            echo "NOBLE_DAILY_PPA_APT_INSTALL=PASS version=$suite_version"
+            echo 'HBBTV_WEB_SOURCE=EXISTING_TEST_PPA_NOT_DAILY'
+          fi
           echo 'REAL_PPA_APT_INSTALL=PASS'
       - name: Verify installed frontend HbbTV plugins and services
         shell: bash
