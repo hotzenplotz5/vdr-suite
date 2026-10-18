@@ -1,0 +1,39 @@
+Source: vdr-suite
+Section: video
+Priority: optional
+Maintainer: VDR-Suite contributors <noreply@github.com>
+Build-Depends: debhelper-compat (= 13),
+ g++,
+ make,
+ pkg-config,
+ python3,
+ vdr-dev,
+ libsqlite3-dev <!plugin-only>,
+ libcurl4-openssl-dev <!plugin-only>,
+ libssl-dev <!plugin-only>,
+ libcrypt-dev <!plugin-only>,
+ nodejs <!plugin-only>
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+Homepage: https://github.com/hotzenplotz5/vdr-suite
+
+Package: vdr-suite-daemon
+Architecture: any
+Build-Profiles: <!plugin-only>
+Depends: ${shlibs:Depends}, ${misc:Depends}, python3
+Description: VDR-Suite control-plane server and web interface
+ VDR-Suite backend service including the bundled web application.
+
+Package: vdr-suite-backend-agent
+Architecture: any
+Build-Profiles: <!plugin-only>
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Outbound connector for authenticated VDR backends
+ VDR-Suite agent for enrollment, secure outbound HTTPS communication,
+ backend health reporting and capability-gated native operations.
+
+Package: vdr-plugin-suitebridge
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${vdr:Depends}
+Description: Native VDR-Suite bridge plugin
+ VDR plugin built for the VDR ABI provided by the target distribution.

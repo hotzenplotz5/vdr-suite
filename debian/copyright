@@ -1,0 +1,98 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: VDR-Suite
+Source: https://github.com/hotzenplotz5/vdr-suite
+Disclaimer: This is a provisional, evidence-scoped packaging inventory, not
+ a declaration of exclusive ownership or a release/legal clearance. Consult
+ docs/gplv3-compatibility-audit.md and docs/third-party-license-inventory.md
+ before redistribution. Further per-file provenance and holder approval is
+ required. The presence of this document does not authorize a PPA upload.
+
+Files: *
+Copyright: VDR-Suite contributors
+License: GPL-3.0-or-later
+Comment: This stanza describes the intended licensing of independently
+ authored VDR-Suite material only where the relevant rightsholders have
+ authorized GPL-3.0-or-later. It is NOT an assertion that every file in the
+ source tree, every contribution or every distributed asset is cleared.
+ Specific inherited source and artwork exceptions are documented below.
+ The root LICENSE contains the full GNU GPL version 3 license text.
+ Outstanding authorship and licensing evidence is a release blocker.
+ Distribution scope: this source package does not embed externally
+ synchronized TV broadcaster logos or movie/series posters. VDR, FFmpeg,
+ SQLite, libcurl and OpenSSL remain separate system dependencies; they are
+ not bundled source or executable payloads. Revisit this if delivery changes.
+
+Files: vdr-plugin-suite-bridge/services.h
+Copyright: Stefan Braun
+ Markus Ehrnsperger
+ VDR-Suite contributors (local adaptations; ownership not independently audited)
+License: GPL-2.0-or-later
+Comment: Adapted TVScraper service contract. Upstream:
+ https://github.com/MarkusEh/vdr-plugin-tvscraper/blob/master/services.h
+ The source file explicitly retains GPL-2.0-or-later and attribution.
+ These credits reflect the existing upstream-project attribution, not a
+ verified per-line allocation of copyright. The VDR-Suite integration is an
+ in-process service interface, not an independent HTTP protocol client.
+ .
+ On Debian systems the GPL version 2 text is available at
+ /usr/share/common-licenses/GPL-2.
+
+Files: vdr-plugin-suite-bridge/suitebridge_hbbtv_provider_contract.h
+ vdr-plugin-suite-bridge/suitebridge_teletext_provider_contract.h
+Copyright: VDR-Suite contributors
+License: GPL-3.0-or-later
+Comment: File-scoped SPDX notices identify the maintainer-introduced service
+ ABI contracts mirrored from the vdr-plugin-web and vdr-plugin-osdteletext
+ forks. Their original introduction is attributed to maintainer commits
+ 25e52132, 220711b5, b8c52779, 1d5af33c and 76c62292 respectively. See the original-commit provenance findings in
+ docs/third-party-license-inventory.md. This does not relicense the host
+ plugins or demonstrate exclusive copyright ownership.
+
+Files: web/frontend/assets/recording-genre-*.svg
+ web/frontend/assets/vdr-remote-photorealistic.png
+Copyright: VDR-Suite project artwork generated with ChatGPT at the maintainer's request
+License: GPL-3.0-or-later
+Comment: The maintainer explicitly selected GPL-3.0-or-later for the
+ project-specific AI-generated graphics on 2026-10-17. The graphics were
+ made from the maintainer's ideas and are not sourced from stock artwork,
+ according to the maintainer's declaration. This grants reuse under the
+ selected terms to the extent that protectable rights exist and the
+ maintainer can license them; it does not claim exclusive copyright in
+ entirely machine-generated output or override any third-party rights.
+ The genre SVGs are packaged by the daemon. The remote PNG is tracked
+ source, but is not staged by the inspected Debian install rules.
+
+Files: web/frontend/logo-vdr-suite.svg
+ web/frontend/logo-vdr-suite-dark.svg
+ web/frontend/icon-vdr-suite.svg
+ web/frontend/favicon.svg
+ web/frontend/channel-logos/vdr-suite-brand/*
+Copyright: VDR-Suite project artwork generated with ChatGPT at the maintainer's request
+License: GPL-3.0-or-later
+Comment: The maintainer selected the same GPL-3.0-or-later terms for the
+ project's logo, icons and branded variants. The declared production
+ process was ChatGPT generation from the maintainer's ideas. This is a
+ publication and reuse policy for rights the maintainer can license,
+ not a claim of exclusive ownership or a certification of trademark
+ clearance. External broadcasters' logos and movie art are excluded.
+
+License: GPL-3.0-or-later
+ This program is free software: you can redistribute it and/or modify it
+ under the terms of the GNU General Public License as published by the
+ Free Software Foundation, either version 3 of the License, or (at your
+ option) any later version.
+ .
+ This program is distributed in the hope that it will be useful, but
+ WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+ Public License for more details.
+ .
+ On Debian systems the GNU GPL version 3 text is available in
+ /usr/share/common-licenses/GPL-3.
+
+License: GPL-2.0-or-later
+ The referenced TVScraper interface is licensed under the GNU General
+ Public License, version 2 or (at your option) any later version.
+ .
+ On Debian systems the GNU GPL version 2 text is available in
+ /usr/share/common-licenses/GPL-2.

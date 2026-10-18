@@ -1,0 +1,205 @@
+name: Published PPA Noble 24.04 clean-install acceptance
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  clean-noble-ppa-install:
+    name: Install published VDR-Suite and HbbTV debs from real PPA
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Confirm disposable Ubuntu 24.04 and prevent automatic services
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$( . /etc/os-release; printf '%s' "$VERSION_CODENAME" )" = noble
+          test "$(dpkg --print-architecture)" = amd64
+          printf '#!/bin/sh\nexit 101\n' | sudo tee /usr/sbin/policy-rc.d >/dev/null
+          sudo chmod 0755 /usr/sbin/policy-rc.d
+          echo 'UBUNTU_NOBLE_DISPOSABLE_RUNNER=PASS'
+      - name: Configure Seahawk VDR and VDR-Suite PPAs
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends software-properties-common ca-certificates
+          sudo add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
+          sudo add-apt-repository -y ppa:hotzenplotz5/vdr-suite
+          sudo apt-get update
+          apt-cache policy vdr vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge vdr-plugin-web
+          echo 'BOTH_PPA_INDEXES_READ=PASS'
+      - name: Simulate and install published binaries
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          packages=(vdr vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge vdr-plugin-web)
+          sudo apt-get -s install --no-install-recommends "${packages[@]}"
+          echo 'APT_DEPENDENCY_SIMULATION=PASS'
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${packages[@]}"
+          sudo dpkg --audit
+          dpkg-query -W -f='${binary:Package} ${Version} ${Status}\n' "${packages[@]}"
+          for pkg in "${packages[@]}"; do
+            test "$(dpkg-query -W -f='${Status}' "$pkg")" = 'install ok installed'
+          done
+          vdr_version="$(dpkg-query -W -f='${Version}' vdr)"
+          case "$vdr_version" in
+            2.8.3-0yavdr0~noble) echo "MATCHED_VDR_VERSION=PASS $vdr_version" ;;
+            *) echo "MATCHED_VDR_VERSION=FAIL $vdr_version"; exit 1 ;;
+          esac
+          echo 'REAL_PPA_APT_INSTALL=PASS'
+      - name: Verify installed frontend HbbTV plugins and services
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test -s /usr/sbin/vdr-suite-daemon
+          test -s /usr/sbin/vdr-suite-backend-agent
+          test -s /usr/lib/vdr/plugins/libvdr-suitebridge.so.14
+          test -s /usr/lib/vdr/plugins/libvdr-web.so.14
+          test -s /usr/share/vdr-suite/web/frontend/index.html
+          test -s /usr/share/vdr-suite/web/frontend/app.js
+          test -s /usr/share/vdr-suite/web/frontend/style.css
+          test -s /usr/share/vdr-suite/web/frontend/hbbtv-qoi.js
+          test -s /usr/share/vdr-plugin-web/vdr-suite-tools/apply_cefbrowser_zdf_controls_fix.py
+          test -f /usr/lib/systemd/system/vdr-suite-daemon.service
+          test -f /usr/lib/systemd/system/vdr-suite-backend-agent.service
+          dpkg -S /usr/share/vdr-suite/web/frontend/index.html
+          dpkg -S /usr/lib/vdr/plugins/libvdr-web.so.14
+          dpkg -S /usr/lib/vdr/plugins/libvdr-suitebridge.so.14
+          grep -Fq 'VDR_SUITE_FRONTEND_ROOT=/usr/share/vdr-suite/web/frontend' /usr/lib/systemd/system/vdr-suite-daemon.service
+          grep -Fq 'ExecStart=/usr/sbin/vdr-suite-daemon' /usr/lib/systemd/system/vdr-suite-daemon.service
+          echo 'FRONTEND_HBBTV_AND_SERVICE_FILES=PASS'
+      - name: Verify VDR ABI and ELF shared libraries
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          dpkg-query -W -f='${Provides}\n' vdr | grep -Fw 'vdr-abi-2.8.3-0yavdr'
+          for pkg in vdr-plugin-suitebridge vdr-plugin-web; do
+            dpkg-query -W -f='${Depends}\n' "$pkg" | grep -F 'vdr-abi-2.8.3-0yavdr'
+          done
+          for binary in /usr/sbin/vdr-suite-daemon /usr/sbin/vdr-suite-backend-agent \
+               /usr/lib/vdr/plugins/libvdr-suitebridge.so.14 /usr/lib/vdr/plugins/libvdr-web.so.14; do
+            ldd "$binary" | tee /tmp/ppa-smoke-ldd.log
+            if grep -Fq 'not found' /tmp/ppa-smoke-ldd.log; then
+              echo "MISSING_SHARED_LIBRARY=$binary"; exit 1
+            fi
+          done
+          echo 'VDR_ABI_AND_ELF_DEPENDENCIES=PASS'
+      - name: Verify VDR plugin loader and packaged HbbTV entry points
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # Version mode performs the VDR plugin loader's compatibility/entry-point
+          # checks but does not start a VDR service, frontend or TV receiver.
+          vdr -L /usr/lib/vdr/plugins --version > "$RUNNER_TEMP/vdr-plugin-versions.txt" 2>&1
+          cat "$RUNNER_TEMP/vdr-plugin-versions.txt"
+          grep -Eiq '(^|[[:space:]])suitebridge([[:space:]:-]|$)' "$RUNNER_TEMP/vdr-plugin-versions.txt"
+          grep -Eiq '(^|[[:space:]])web([[:space:]:-]|$)' "$RUNNER_TEMP/vdr-plugin-versions.txt"
+          echo 'VDR_PLUGIN_VERSION_DISCOVERY=PASS (not HbbTV video playback)'
+
+      - name: Run installed daemon and serve packaged frontend
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(id -u)" -ne 0
+          workdir="$(mktemp -d "${RUNNER_TEMP}/vdr-suite-ppa-runtime.XXXXXXXX")"
+          daemon_pid=''
+          cleanup() {
+            if [ -n "$daemon_pid" ] && kill -0 "$daemon_pid" 2>/dev/null; then
+              kill -TERM "$daemon_pid" || true
+              for attempt in $(seq 1 20); do
+                if ! kill -0 "$daemon_pid" 2>/dev/null; then break; fi
+                sleep 1
+              done
+              if kill -0 "$daemon_pid" 2>/dev/null; then
+                kill -KILL "$daemon_pid" || true
+              fi
+              wait "$daemon_pid" || true
+            fi
+            if [ -f "$workdir/daemon.log" ]; then
+              echo '=== Test daemon log (last 100 lines) ==='
+              tail -n 100 "$workdir/daemon.log"
+            fi
+          }
+          trap cleanup EXIT
+          export VDR_SUITE_DATABASE_PATH="$workdir/runtime.sqlite"
+          export VDR_SUITE_SECURITY_DATABASE_PATH="$workdir/runtime.sqlite"
+          export VDR_SUITE_FRONTEND_ROOT=/usr/share/vdr-suite/web/frontend
+          export VDR_SUITE_SUITE_BRIDGE_ENABLED=false
+          export VDR_SUITE_SERIES_ARTWORK_FALLBACK_ENABLED=false
+          base=http://127.0.0.1:18080
+          start_daemon() {
+            /usr/sbin/vdr-suite-daemon >"$workdir/daemon.log" 2>&1 &
+            daemon_pid=$!
+            ready=0
+            for attempt in $(seq 1 45); do
+              if curl --noproxy '*' --fail --silent --max-time 2 \
+                 "$base/frontend/index.html" -o "$workdir/index.response"; then
+                ready=1
+                break
+              fi
+              if ! kill -0 "$daemon_pid" 2>/dev/null; then break; fi
+              sleep 1
+            done
+            if [ "$ready" -ne 1 ]; then
+              echo 'DAEMON_HTTP_START=FAIL'
+              tail -n 120 "$workdir/daemon.log"
+              exit 1
+            fi
+            kill -0 "$daemon_pid"
+            echo "DAEMON_HTTP_START=PASS pid=$daemon_pid"
+          }
+          stop_daemon() {
+            kill -TERM "$daemon_pid"
+            stopped=0
+            for attempt in $(seq 1 30); do
+              if ! kill -0 "$daemon_pid" 2>/dev/null; then stopped=1; break; fi
+              sleep 1
+            done
+            if [ "$stopped" -ne 1 ]; then
+              echo 'DAEMON_GRACEFUL_STOP=FAIL'
+              exit 1
+            fi
+            wait "$daemon_pid"
+            daemon_pid=''
+            echo 'DAEMON_GRACEFUL_STOP=PASS'
+          }
+          start_daemon
+          root=/usr/share/vdr-suite/web/frontend
+          cmp -s "$root/index.html" "$workdir/index.response"
+          for asset in style.css hbbtv-qoi.js api/public-v1-client.js; do
+            curl --noproxy '*' --fail --silent --show-error --max-time 5 \
+              "$base/frontend/$asset" -o "$workdir/asset.response"
+            cmp -s "$root/$asset" "$workdir/asset.response"
+            echo "PACKAGED_HTTP_ASSET=PASS $asset"
+          done
+          curl --noproxy '*' --fail --silent --show-error --max-time 5 \
+            "$base/frontend/app.js" -o "$workdir/app.response"
+          test -s "$workdir/app.response"
+          test "$(wc -c < "$workdir/app.response")" -ge "$(wc -c < "$root/app.js")"
+          echo 'PACKAGED_HTTP_JS_BUNDLE=PASS'
+          api_status="$(curl --noproxy '*' --silent --show-error --max-time 5 \
+            -D "$workdir/api.headers" -o "$workdir/api.response" \
+            -w '%{http_code}' "$base/api/v1/backends")"
+          echo "API_HTTP_STATUS=$api_status"
+          # Public-v1 security failures use RFC 7807 Problem Details.
+          test "$api_status" = 401
+          grep -Eiq '^Content-Type: application/problem[+]json' "$workdir/api.headers"
+          echo 'API_UNAUTHENTICATED_CONTRACT=PASS (401 Problem Details)'
+          stop_daemon
+          start_daemon
+          cmp -s "$root/index.html" "$workdir/index.response"
+          stop_daemon
+          echo 'PACKAGED_DAEMON_HTTP_RESTART=PASS'
+
+      - name: Record installed versions and service enablement
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          dpkg-query -W -f='${binary:Package} ${Version} ${Status}\n' vdr vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge vdr-plugin-web
+          systemctl is-enabled vdr-suite-daemon.service vdr-suite-backend-agent.service || true
+          apt-cache policy vdr-suite-daemon vdr-plugin-web vdr-plugin-suitebridge

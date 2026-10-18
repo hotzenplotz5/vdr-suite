@@ -1,7 +1,7 @@
 CXX := g++
 BUILD_DIR ?= $(CURDIR)/.build
 BUILD_CXX = mkdir -p "$(BUILD_DIR)" && $(CXX)
-VDR_SUITE_SERVER_VERSION ?= $(shell version=$$(git rev-parse --short=12 HEAD 2>/dev/null); if [ -n "$$version" ]; then printf 'git-%s' "$$version"; else printf 'source-unversioned'; fi)
+VDR_SUITE_SERVER_VERSION ?= $(shell if [ -f VERSION ]; then head -n 1 VERSION; else printf source-unversioned; fi)
 CXXFLAGS := -std=c++17 -Wall -Wextra \
         -Icore/sqlite/include \
         -Icore/recordings/include \

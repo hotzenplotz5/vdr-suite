@@ -1,5 +1,7 @@
 # vdr-plugin-suite-bridge
 
+For a **standalone plugin build**, staged installation or an experimental plugin-only Debian package, see [BUILDING.md](BUILDING.md). No daemon compilation is required.
+
 Native VDR integration bridge for VDR-Suite.
 
 ## Architectural position
@@ -23,7 +25,7 @@ TVScraper directly.
 
 ## Current contract
 
-Plugin version: `0.11.0`
+Plugin version: `0.14.1` (source: `suitebridge_plugin_identity.h`; the source of truth for future updates)
 
 The plugin exposes four bounded read-only commands through VDR's existing
 SVDRP server:

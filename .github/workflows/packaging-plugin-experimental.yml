@@ -1,0 +1,1247 @@
+name: Experimental SuiteBridge package
+
+on:
+  push:
+    branches:
+      - main
+      - work/packaging-debian-ubuntu-install
+    paths:
+      - "debian/**"
+      - "vdr-plugin-suite-bridge/**"
+      - "core/agent/include/**"
+      - "core/metadata/tests/test_packaging_p7_runtime_schema.cpp"
+      - "core/daemon/tests/test_series_artwork_backend_settings_service.cpp"
+      - "core/timers/tests/test_timer_assignment_reassignment_service.cpp"
+      - "core/agent/tests/test_backend_agent_command_delivery.cpp"
+      - "core/agent/tests/test_backend_agent_command_reservation.cpp"
+      - "core/agent/tests/test_backend_agent_native_timer_delete_assignment.cpp"
+      - "core/agent/tests/test_backend_agent_recording_cut_reconciliation.cpp"
+      - "core/agent/tests/test_backend_agent_recording_marks_modify_reconciliation.cpp"
+      - "core/recordings/tests/test_manual_recording_metadata_revision.cpp"
+      - "mk/metadata-tests.mk"
+      - "tools/fixtures/packaging/**"
+      - "database/schema/metadata-platform-v1.sql"
+      - "tools/*packaging*.py"
+      - ".gitignore"
+      - "VERSION"
+      - ".github/workflows/packaging-plugin-experimental.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "debian/**"
+      - "vdr-plugin-suite-bridge/**"
+      - "core/agent/include/**"
+      - "core/metadata/tests/test_packaging_p7_runtime_schema.cpp"
+      - "core/daemon/tests/test_series_artwork_backend_settings_service.cpp"
+      - "core/timers/tests/test_timer_assignment_reassignment_service.cpp"
+      - "core/agent/tests/test_backend_agent_command_delivery.cpp"
+      - "core/agent/tests/test_backend_agent_command_reservation.cpp"
+      - "core/agent/tests/test_backend_agent_native_timer_delete_assignment.cpp"
+      - "core/agent/tests/test_backend_agent_recording_cut_reconciliation.cpp"
+      - "core/agent/tests/test_backend_agent_recording_marks_modify_reconciliation.cpp"
+      - "core/recordings/tests/test_manual_recording_metadata_revision.cpp"
+      - "mk/metadata-tests.mk"
+      - "tools/fixtures/packaging/**"
+      - "database/schema/metadata-platform-v1.sql"
+      - "tools/*packaging*.py"
+      - ".gitignore"
+      - "VERSION"
+      - ".github/workflows/packaging-plugin-experimental.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: experimental-suitebridge-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  packaging-offline-regressions:
+    name: Offline Debian manifest and P8 unit regression checks (no PPA)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify exact SHA and execute source-only package tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git ls-files --stage debian/rules | grep -E '^100755 '
+          python3 -m unittest -v tools.test_packaging_profiles tools.test_packaging_p8_preinst tools.test_packaging_host_collision_preflight tools.test_packaging_p8_installer 2>&1 | tee packaging-offline-regressions.log
+          python3 tools/check_packaging_tracked_artifacts.py
+          python3 tools/check_packaging_version.py
+          echo 'PACKAGING_OFFLINE_P8_AND_MANIFEST=PASS'
+      - name: Upload offline test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: packaging-offline-regression-log
+          path: packaging-offline-regressions.log
+          if-no-files-found: warn
+          retention-days: 7
+
+  reproducible-debian-source-offline:
+    name: Offline deterministic Debian source package roundtrip (no PPA)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact source commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Create and compare two independent unsigned source packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git ls-files --stage debian/rules | grep -E '^100755 '
+          python3 tools/check_packaging_tracked_artifacts.py
+          python3 tools/check_packaging_version.py
+          version="$(cat VERSION)"
+          package_version="$(dpkg-parsechangelog -l debian/changelog -S Version)"
+          test "$(dpkg-parsechangelog -l debian/changelog -S Distribution)" = unstable
+          source_date_epoch="$(git show -s --format=%ct "$GITHUB_SHA")"
+          test -n "$source_date_epoch"
+          read -r total free < <(df -B1 --output=size,avail "$RUNNER_TEMP" | tail -n 1)
+          reserve=$((total * 15 / 100))
+          (( reserve >= 4294967296 )) || reserve=4294967296
+          budget=2147483648
+          printf 'SOURCEPKG_TOTAL=%s FREE=%s RESERVE=%s BUDGET=%s\n' "$total" "$free" "$reserve" "$budget"
+          (( free >= reserve + budget )) || { echo 'SOURCEPKG_RESOURCE_PREFLIGHT=FAIL'; exit 1; }
+          echo 'SOURCEPKG_RESOURCE_PREFLIGHT=PASS'
+          test -x "$(command -v dpkg-source)"
+          test -x "$(command -v tar)"
+          test -x "$(command -v xz)"
+          report="$GITHUB_WORKSPACE/source-reproducibility.txt"
+          : > "$report"
+          for n in 1 2; do
+            root="$RUNNER_TEMP/sourcepkg-roundtrip-$n"
+            source="$root/vdr-suite-$version"
+            mkdir -p "$source"
+            git archive --format=tar "$GITHUB_SHA" | tar -xf - -C "$source"
+            test -x "$source/debian/rules"
+            tar --sort=name --mtime="@$source_date_epoch" --owner=0 --group=0 \
+              --numeric-owner --exclude="vdr-suite-$version/debian" \
+              -C "$root" -cJf "$root/vdr-suite_$version.orig.tar.xz" "vdr-suite-$version"
+            (cd "$source" && SOURCE_DATE_EPOCH="$source_date_epoch" dpkg-source -b .)
+            test -f "$root/vdr-suite_$package_version.dsc"
+            test -f "$root/vdr-suite_$package_version.debian.tar.xz"
+            dpkg-source -x "$root/vdr-suite_$package_version.dsc" "$root/unpacked"
+            cmp -s "$source/VERSION" "$root/unpacked/VERSION"
+            test "$(dpkg-parsechangelog -l "$root/unpacked/debian/changelog" -S Distribution)" = unstable
+            (cd "$root" && sha256sum "vdr-suite_$version.orig.tar.xz" \
+              "vdr-suite_$package_version.debian.tar.xz" \
+              "vdr-suite_$package_version.dsc") > "$root/checksums.txt"
+            printf 'SOURCE_ROUNDTRIP_%s=PASS\n' "$n" | tee -a "$report"
+          done
+          diff -u "$RUNNER_TEMP/sourcepkg-roundtrip-1/checksums.txt" \
+            "$RUNNER_TEMP/sourcepkg-roundtrip-2/checksums.txt"
+          cat "$RUNNER_TEMP/sourcepkg-roundtrip-1/checksums.txt" | tee -a "$report"
+          stat -c 'SOURCEPKG_BYTES=%s %n' "$RUNNER_TEMP/sourcepkg-roundtrip-1"/vdr-suite_*.tar.xz | tee -a "$report"
+          read -r total free < <(df -B1 --output=size,avail "$RUNNER_TEMP" | tail -n 1)
+          (( free >= reserve )) || { echo 'SOURCEPKG_RESOURCE_POSTCHECK=FAIL'; exit 1; }
+          echo 'SOURCEPKG_SOURCE_TAR_DSC_REPRODUCIBILITY=PASS' | tee -a "$report"
+          echo 'SOURCEPKG_PPA_UPLOAD_READY=NO' | tee -a "$report"
+      - name: Verify unsigned Ubuntu noble and resolute source changes and DSC (no upload)
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(dpkg-parsechangelog -l debian/changelog -S Distribution)" = unstable
+          version="$(cat VERSION)"
+          upstream_version="$(dpkg-parsechangelog -l debian/changelog -S Version)"
+          epoch="$(git show -s --format=%ct "$GITHUB_SHA")"
+          read -r total free < <(df -B1 --output=size,avail "$RUNNER_TEMP" | tail -n 1)
+          reserve=$((total * 15 / 100))
+          (( reserve >= 4294967296 )) || reserve=4294967296
+          budget=2147483648
+          printf 'UBUNTU_SOURCE_TOTAL=%s FREE=%s RESERVE=%s BUDGET=%s\n' "$total" "$free" "$reserve" "$budget"
+          (( free >= reserve + budget )) || { echo 'UBUNTU_SOURCE_RESOURCE_PREFLIGHT=FAIL'; exit 1; }
+          echo 'UBUNTU_SOURCE_RESOURCE_PREFLIGHT=PASS'
+          report="$GITHUB_WORKSPACE/ubuntu-source-preview-evidence.txt"
+          printf 'EXACT_HEAD=%s\nPPA_UPLOAD_READY=NO\n' "$GITHUB_SHA" > "$report"
+          for series in noble resolute; do
+            root="$RUNNER_TEMP/source-preview-$series"
+            source="$root/vdr-suite-$version"
+            mkdir -p "$source"
+            git archive --format=tar "$GITHUB_SHA" | tar -xf - -C "$source"
+            test -x "$source/debian/rules"
+            tar --sort=name --mtime="@$epoch" --owner=0 --group=0 \
+              --numeric-owner --exclude="vdr-suite-$version/debian" \
+              -C "$root" -cJf "$root/vdr-suite_$version.orig.tar.xz" "vdr-suite-$version"
+            python3 - "$source/debian/changelog" "$version" "$epoch" "$series" <<'PY'
+          from pathlib import Path
+          import sys
+          from tools.build_vdr_suite_sourcepkg_isolated import prepare_ubuntu_preview
+          changelog = Path(sys.argv[1])
+          content, revision = prepare_ubuntu_preview(
+              changelog.read_text(encoding="utf-8"), sys.argv[2], sys.argv[3], sys.argv[4])
+          changelog.write_text(content, encoding="utf-8")
+          print("UBUNTU_SOURCE_VERSION=" + sys.argv[4] + " " + revision)
+          PY
+            candidate="$(dpkg-parsechangelog -l "$source/debian/changelog" -S Version)"
+            test "$candidate" = "$upstream_version~ubuntu$([ "$series" = noble ] && echo 24.04 || echo 26.04).1"
+            test "$(dpkg-parsechangelog -l "$source/debian/changelog" -S Distribution)" = "$series"
+            # git archive is a pristine source tree; -nc avoids requiring dh/vdr-dev
+            # merely for debian/rules clean in this source-only runner.
+            (cd "$source" && SOURCE_DATE_EPOCH="$epoch" dpkg-buildpackage -S -sa -us -uc -d -nc) \
+              > "$root/source-build.log" 2>&1 || { cat "$root/source-build.log"; exit 1; }
+            changes="$root/vdr-suite_${candidate}_source.changes"
+            dsc="$root/vdr-suite_${candidate}.dsc"
+            test -s "$changes" && test -s "$dsc"
+            test -s "$root/vdr-suite_${candidate}.debian.tar.xz"
+            grep -Fx "Distribution: $series" "$changes"
+            grep -Fx "Version: $candidate" "$changes"
+            grep -Fx 'Architecture: source' "$changes"
+            grep -Fx "Version: $candidate" "$dsc"
+            grep -F "vdr-suite_${candidate}.dsc" "$changes"
+            ! grep -q -- '-----BEGIN PGP SIGNATURE-----' "$changes"
+            ! grep -q -- '-----BEGIN PGP SIGNATURE-----' "$dsc"
+            dpkg-source -x "$dsc" "$root/unpacked" > /dev/null
+            cmp -s "$source/debian/changelog" "$root/unpacked/debian/changelog"
+            cmp -s "$source/VERSION" "$root/unpacked/VERSION"
+            printf 'UBUNTU_SOURCE_%s=PASS version=%s\n' "$series" "$candidate" | tee -a "$report"
+            sha256sum "$changes" "$dsc" "$root/vdr-suite_$version.orig.tar.xz" \
+              "$root/vdr-suite_${candidate}.debian.tar.xz" >> "$report"
+          done
+          cmp -s "$RUNNER_TEMP/source-preview-noble/vdr-suite_$version.orig.tar.xz" \
+                 "$RUNNER_TEMP/source-preview-resolute/vdr-suite_$version.orig.tar.xz"
+          echo 'UBUNTU_SOURCE_SHARED_ORIG_TARBALL=PASS' | tee -a "$report"
+          read -r total free < <(df -B1 --output=size,avail "$RUNNER_TEMP" | tail -n 1)
+          (( free >= reserve )) || { echo 'UBUNTU_SOURCE_RESOURCE_POSTCHECK=FAIL'; exit 1; }
+          echo 'UBUNTU_SOURCE_RESOURCE_POSTCHECK=PASS' | tee -a "$report"
+          echo 'PPA_UPLOAD=NOT_PERFORMED' | tee -a "$report"
+      - name: Save Ubuntu unsigned source-preview evidence (not source archives)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu-source-preview-evidence
+          path: ubuntu-source-preview-evidence.txt
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Save source-package evidence only (not release artifacts)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-source-reproducibility-evidence
+          path: source-reproducibility.txt
+          if-no-files-found: warn
+          retention-days: 7
+
+  plugin-only-noble:
+    name: Ubuntu 24.04 Seahawk VDR 2.8.3 independent plugin package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v4
+      - name: Record provenance and rules executable mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          git ls-files --stage debian/rules | grep -E '^100755 '
+          python3 tools/check_packaging_tracked_artifacts.py
+      - name: Install isolated build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends software-properties-common
+          sudo add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
+          sudo apt-get update
+          apt-cache policy vdr-dev
+          sudo apt-get install -y --no-install-recommends build-essential debhelper dpkg-dev g++ make pkg-config python3 vdr-dev
+          vdr_version="$(dpkg-query -W -f='${Version}' vdr-dev)"
+          echo "INSTALLED_VDR_DEV=$vdr_version"
+          case "$vdr_version" in
+            2.8.3-*) echo 'SEAHAWK_VDR_DEV=PASS' ;;
+            *) echo 'SEAHAWK_VDR_DEV=FAIL'; exit 1 ;;
+          esac
+          pkg-config --exists vdr
+          printf 'VDR_LIBDIR=%s\n' "$(pkg-config --variable=libdir vdr)"
+          printf 'VDR_APIVERSION=%s\n' "$(pkg-config --variable=apiversion vdr)"
+      - name: Run package/profile regression checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tools -p 'test_packaging_*.py'
+          python3 tools/check_packaging_version.py
+      - name: Build only VDR plugin binary package
+        shell: bash
+        run: |
+          set -euo pipefail
+          dpkg-buildpackage -B -Pplugin-only -us -uc
+          ls -l ../vdr-plugin-suitebridge_*.deb
+          test "$(find .. -maxdepth 1 -name 'vdr-suite-daemon_*.deb' | wc -l)" -eq 0
+          test "$(find .. -maxdepth 1 -name 'vdr-suite-backend-agent_*.deb' | wc -l)" -eq 0
+          for deb in ../vdr-plugin-suitebridge_*.deb; do
+            dpkg-deb --info "$deb"
+            dpkg-deb --contents "$deb"
+            dpkg-deb --ctrl-tarfile "$deb" | tar -xOf - ./preinst | sh -n
+            dpkg-deb --ctrl-tarfile "$deb" | tar -xOf - ./preinst | grep -F 'P8_PREUNPACK=BLOCKED'
+            ! dpkg-deb --field "$deb" Depends | grep -E 'vdr-suite-daemon|vdr-suite-backend-agent'
+          done
+      - name: Collect experiment outputs into workspace
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p packaging-artifacts
+          find .. -maxdepth 1 -type f \( -name 'vdr-plugin-suitebridge_*.deb' -o -name 'vdr-suite_*_amd64.buildinfo' -o -name 'vdr-suite_*_amd64.changes' \) -exec cp -- '{}' packaging-artifacts/ \;
+      - name: Save experiment outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: suitebridge-package-noble-experimental
+          path: packaging-artifacts/
+          if-no-files-found: warn
+          retention-days: 7
+
+  plugin-only-resolute-yavdr:
+    name: Ubuntu 26.04 Resolute VDR 2.8.3 API 14 plugin-only build
+    runs-on: ubuntu-24.04
+    container: ubuntu:26.04
+    timeout-minutes: 30
+    steps:
+      - name: Bootstrap git before source checkout
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git
+      - name: Check out exact candidate
+        uses: actions/checkout@v4
+      - name: Record exact source and apt provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(dpkg --print-architecture)" = amd64
+          test "$( . /etc/os-release; printf '%s' "$VERSION_CODENAME" )" = resolute
+          # GitHub mounts the workspace with a host UID, distinct from root
+          # inside this disposable container. Only trust this exact checkout.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git ls-files --stage debian/rules | grep -E '^100755 '
+      - name: Resolve target VDR 2.8.3 and guard service activation
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          printf '%s\n' '#!/bin/sh' 'exit 101' > /usr/sbin/policy-rc.d
+          chmod 0755 /usr/sbin/policy-rc.d
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates gnupg software-properties-common
+          add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
+          apt-get update
+          apt-cache policy vdr vdr-dev
+          apt-get install -y --no-install-recommends build-essential debhelper dpkg-dev g++ make pkg-config python3 passwd util-linux vdr vdr-dev
+          python3 tools/check_packaging_tracked_artifacts.py
+          # GitHub's mounted checkout belongs to its host-side build UID.
+          # Map that exact UID/GID inside the disposable container rather than
+          # weakening the non-root P7 recovery tests or rewriting workspace ownership.
+          build_uid="$(stat -c %u "$GITHUB_WORKSPACE")"
+          build_gid="$(stat -c %g "$GITHUB_WORKSPACE")"
+          test "$build_uid" -gt 0
+          if ! getent group "$build_gid" >/dev/null; then
+            groupadd --gid "$build_gid" ci-build-group
+          fi
+          if getent passwd "$build_uid" >/dev/null; then
+            build_user="$(getent passwd "$build_uid" | cut -d: -f1)"
+          else
+            useradd --no-create-home --uid "$build_uid" --gid "$build_gid" --home-dir "$GITHUB_WORKSPACE" --shell /bin/bash ci-build
+            build_user=ci-build
+          fi
+          test -n "$build_user"
+          test "$(stat -c %u "$GITHUB_WORKSPACE")" = "$build_uid"
+          # actions/checkout writes inner source files as root in containers.
+          # Copy only inside this disposable container and extract as the
+          # unprivileged builder; do not change the checkout's ownership.
+          build_root="/tmp/vdr-suite-resolute-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          # The parent also receives .deb files from dpkg-buildpackage.
+          install -d -o "$build_uid" -g "$build_gid" -m 0700 "$build_root"
+          install -d -o "$build_uid" -g "$build_gid" -m 0700 "$build_root/source"
+          test "$(stat -c %u "$build_root")" = "$build_uid"
+          tar -C "$GITHUB_WORKSPACE" -cf - . |
+            runuser -u "$build_user" -- tar -C "$build_root/source" -xf -
+          test "$(stat -c %u "$build_root/source/debian")" = "$build_uid"
+          test "$(runuser -u "$build_user" -- git -C "$build_root/source" rev-parse HEAD)" = "$GITHUB_SHA"
+          printf 'RESOLUTE_BUILD_USER=%s\n' "$build_user" >> "$GITHUB_ENV"
+          printf 'RESOLUTE_BUILD_ROOT=%s\n' "$build_root" >> "$GITHUB_ENV"
+          vdr_version="$(dpkg-query -W -f='${Version}' vdr)"
+          dev_version="$(dpkg-query -W -f='${Version}' vdr-dev)"
+          test "$vdr_version" = '2.8.3-0yavdr0~resolute'
+          test "$dev_version" = "$vdr_version"
+          test "$(pkg-config --modversion vdr)" = '2.8.3'
+          test "$(pkg-config --variable=apiversion vdr)" = '14'
+          test "$(pkg-config --variable=libdir vdr)" = '/usr/lib/vdr/plugins'
+          dpkg-query -W -f='${Provides}\n' vdr | grep -Fw 'vdr-abi-2.8.3-0yavdr'
+          echo "RESOLUTE_TARGET_VDR_ABI=PASS"
+      - name: Build independent plugin package for exact ABI
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tools -p 'test_packaging_profiles.py'
+          test -n "$RESOLUTE_BUILD_USER"
+          test "$(id -u "$RESOLUTE_BUILD_USER")" -gt 0
+          test -d "$RESOLUTE_BUILD_ROOT/source"
+          runuser -u "$RESOLUTE_BUILD_USER" -- bash -c 'cd "$1/source" && dpkg-buildpackage -B -Pplugin-only -us -uc' _ "$RESOLUTE_BUILD_ROOT"
+          shopt -s nullglob
+          debs=("$RESOLUTE_BUILD_ROOT"/vdr-plugin-suitebridge_*.deb)
+          (( ${#debs[@]} == 1 )) || exit 1
+          package="${debs[0]}"
+          test "$(dpkg-deb --field "$package" Package)" = 'vdr-plugin-suitebridge'
+          dpkg-deb --field "$package" Depends | grep -Fw 'vdr-abi-2.8.3-0yavdr'
+          dpkg-deb --contents "$package" | grep -F '/usr/lib/vdr/plugins/libvdr-suitebridge.so.14'
+          dpkg-deb --ctrl-tarfile "$package" | tar -xOf - ./preinst | sh -n
+          test "$(find "$RESOLUTE_BUILD_ROOT" -maxdepth 1 -name 'vdr-suite-daemon_*.deb' | wc -l)" -eq 0
+          test "$(find "$RESOLUTE_BUILD_ROOT" -maxdepth 1 -name 'vdr-suite-backend-agent_*.deb' | wc -l)" -eq 0
+          echo "RESOLUTE_SUITEBRIDGE_PLUGIN_ONLY=PASS"
+      - name: Stage exact-build diagnostics under workspace
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p package-artifacts-resolute
+          if test -n "${RESOLUTE_BUILD_ROOT:-}" && test -d "$RESOLUTE_BUILD_ROOT"; then
+            find "$RESOLUTE_BUILD_ROOT" -maxdepth 1 -type f \( -name 'vdr-plugin-suitebridge_*.deb' -o -name 'vdr-suite_*_amd64.buildinfo' -o -name 'vdr-suite_*_amd64.changes' \) -exec cp -- '{}' package-artifacts-resolute/ \;
+          fi
+      - name: Preserve exact-build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: suitebridge-package-resolute-experimental
+          path: package-artifacts-resolute/
+          if-no-files-found: warn
+          retention-days: 7
+
+  full-default-packages-resolute:
+    name: Ubuntu 26.04 Resolute VDR 2.8.3 API 14 daemon + agent + SuiteBridge
+    runs-on: ubuntu-24.04
+    container: ubuntu:26.04
+    timeout-minutes: 90
+    steps:
+      - name: Bootstrap git for exact checkout
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git python3
+      - name: Check out exact candidate
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify source identity, target distribution and available capacity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(dpkg --print-architecture)" = amd64
+          test "$( . /etc/os-release; printf '%s' "$VERSION_CODENAME" )" = resolute
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          test "$(git rev-parse --show-toplevel)" = "$GITHUB_WORKSPACE"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain)"
+          git ls-files --stage debian/rules | grep -E '^100755 '
+          python3 tools/check_packaging_tracked_artifacts.py
+          read -r total free < <(df -B1 --output=size,avail /tmp | tail -n 1)
+          reserve=$((total * 15 / 100))
+          (( reserve >= 4294967296 )) || reserve=4294967296
+          budget=4294967296
+          printf 'RESOURCE_TOTAL=%s RESOURCE_FREE=%s RESERVE=%s BUDGET=%s\n' "$total" "$free" "$reserve" "$budget"
+          (( free >= reserve + budget )) || { echo 'RESOURCE_PREFLIGHT=FAIL'; exit 1; }
+          echo 'RESOURCE_PREFLIGHT=PASS'
+      - name: Install exact Seahawk VDR and all default-profile build dependencies
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          printf '%s\n' '#!/bin/sh' 'exit 101' > /usr/sbin/policy-rc.d
+          chmod 0755 /usr/sbin/policy-rc.d
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates gnupg software-properties-common
+          add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
+          apt-get update
+          apt-cache policy vdr vdr-dev
+          apt-get install -y --no-install-recommends \
+            build-essential debhelper dpkg-dev g++ make pkg-config python3 nodejs \
+            passwd util-linux vdr vdr-dev libsqlite3-dev libcurl4-openssl-dev \
+            libssl-dev libcrypt-dev
+          vdr_version="$(dpkg-query -W -f='${Version}' vdr)"
+          dev_version="$(dpkg-query -W -f='${Version}' vdr-dev)"
+          test "$vdr_version" = '2.8.3-0yavdr0~resolute'
+          test "$dev_version" = "$vdr_version"
+          test "$(pkg-config --modversion vdr)" = '2.8.3'
+          test "$(pkg-config --variable=apiversion vdr)" = '14'
+          test "$(pkg-config --variable=libdir vdr)" = '/usr/lib/vdr/plugins'
+          dpkg-query -W -f='${Provides}\n' vdr | grep -Fw 'vdr-abi-2.8.3-0yavdr'
+          dpkg-checkbuilddeps -B
+          echo 'RESOLUTE_FULL_TARGET_VDR_ABI=PASS'
+      - name: Create isolated source copy owned by a non-root builder
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_uid="$(stat -c %u "$GITHUB_WORKSPACE")"
+          build_gid="$(stat -c %g "$GITHUB_WORKSPACE")"
+          test "$build_uid" -gt 0
+          if ! getent group "$build_gid" >/dev/null; then
+            groupadd --gid "$build_gid" ci-full-build-group
+          fi
+          if getent passwd "$build_uid" >/dev/null; then
+            build_user="$(getent passwd "$build_uid" | cut -d: -f1)"
+          else
+            useradd --no-create-home --uid "$build_uid" --gid "$build_gid" \
+              --home-dir "$GITHUB_WORKSPACE" --shell /bin/bash ci-full-build
+            build_user=ci-full-build
+          fi
+          build_root="/tmp/vdr-suite-full-resolute-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          install -d -o "$build_uid" -g "$build_gid" -m 0700 "$build_root"
+          install -d -o "$build_uid" -g "$build_gid" -m 0700 "$build_root/source"
+          tar -C "$GITHUB_WORKSPACE" -cf - . |
+            runuser -u "$build_user" -- tar -C "$build_root/source" -xf -
+          test "$(stat -c %u "$build_root/source/debian")" = "$build_uid"
+          test "$(runuser -u "$build_user" -- git -C "$build_root/source" rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(runuser -u "$build_user" -- git -C "$build_root/source" status --porcelain)"
+          runuser -u "$build_user" -- bash -c 'cd "$1/source" && dpkg-checkbuilddeps -B' _ "$build_root"
+          printf 'RESOLUTE_FULL_BUILD_ROOT=%s\n' "$build_root" >> "$GITHUB_ENV"
+          printf 'RESOLUTE_FULL_BUILD_USER=%s\n' "$build_user" >> "$GITHUB_ENV"
+          echo 'RESOLUTE_FULL_UNPRIVILEGED_SOURCE=PASS'
+      - name: Build all three default-profile Debian binaries without installing
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$RESOLUTE_FULL_BUILD_ROOT"
+          test "$(id -u "$RESOLUTE_FULL_BUILD_USER")" -gt 0
+          runuser -u "$RESOLUTE_FULL_BUILD_USER" -- bash -c '
+            set -euo pipefail
+            cd "$1/source"
+            export DEB_BUILD_OPTIONS=parallel=2
+            dpkg-buildpackage -B -us -uc
+          ' _ "$RESOLUTE_FULL_BUILD_ROOT" 2>&1 | tee full-package-build-resolute.log
+          echo 'RESOLUTE_FULL_DPKG_BUILDPACKAGE=PASS'
+      - name: Verify exact three binaries, manifests, dependencies and P8 guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p package-artifacts-full-resolute
+          shopt -s nullglob
+          source_version="$(dpkg-parsechangelog -l debian/changelog -S Version)"
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            files=("$RESOLUTE_FULL_BUILD_ROOT"/"$package"_*_amd64.deb)
+            (( ${#files[@]} == 1 )) || { echo "RESOLUTE_MISSING_OR_DUPLICATE_PACKAGE=$package"; exit 1; }
+            deb="${files[0]}"
+            test "$(dpkg-deb --field "$deb" Package)" = "$package"
+            test "$(dpkg-deb --field "$deb" Architecture)" = amd64
+            test "$(dpkg-deb --field "$deb" Version)" = "$source_version"
+            test -n "$(dpkg-deb --field "$deb" Depends)"
+            dpkg-deb --info "$deb"
+            dpkg-deb --fsys-tarfile "$deb" |
+              tar -tf - > "package-artifacts-full-resolute/$package.manifest"
+            dpkg-deb --ctrl-tarfile "$deb" | tar -xOf - ./preinst > "package-artifacts-full-resolute/$package.preinst"
+            sh -n "package-artifacts-full-resolute/$package.preinst"
+            grep -F 'P8_PREUNPACK=BLOCKED' "package-artifacts-full-resolute/$package.preinst"
+            cp -- "$deb" package-artifacts-full-resolute/
+          done
+          grep -Fx './usr/sbin/vdr-suite-daemon' package-artifacts-full-resolute/vdr-suite-daemon.manifest
+          grep -Fx './usr/share/vdr-suite/channel-logos/vdr-suite-brand/logo-vdr-suite.svg' package-artifacts-full-resolute/vdr-suite-daemon.manifest
+          grep -Fx './usr/share/vdr-suite/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.png' package-artifacts-full-resolute/vdr-suite-daemon.manifest
+          ! grep -F './var/cache/vdr-suite/channel-logos/vdr-suite-brand/' package-artifacts-full-resolute/vdr-suite-daemon.manifest
+          echo 'RESOLUTE_BRAND_ASSETS_PACKAGE_DATA=PASS'
+          grep -Fx './usr/sbin/vdr-suite-backend-agent' package-artifacts-full-resolute/vdr-suite-backend-agent.manifest
+          grep -Fx './usr/lib/vdr/plugins/libvdr-suitebridge.so.14' package-artifacts-full-resolute/vdr-plugin-suitebridge.manifest
+          grep -Fx './usr/lib/tmpfiles.d/vdr-suite-live.conf' package-artifacts-full-resolute/vdr-plugin-suitebridge.manifest
+          test "$(grep -Ec '^\./usr/lib/vdr/plugins/libvdr-suitebridge\.so\.' package-artifacts-full-resolute/vdr-plugin-suitebridge.manifest)" -eq 1
+          dpkg-deb --field "$RESOLUTE_FULL_BUILD_ROOT"/vdr-plugin-suitebridge_*_amd64.deb Depends |
+            grep -Fw 'vdr-abi-2.8.3-0yavdr'
+          test "$(find package-artifacts-full-resolute -maxdepth 1 -name '*.deb' | wc -l)" -eq 3
+          echo 'RESOLUTE_FULL_THREE_BINARIES_MANIFEST_ABI_P8=PASS'
+      - name: Record advisory Lintian baseline for all three Resolute packages
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          test -n "${RESOLUTE_FULL_BUILD_ROOT:-}"
+          mkdir -p package-artifacts-full-resolute
+          apt-get update
+          apt-get install -y --no-install-recommends lintian
+          shopt -s nullglob
+          debs=("$RESOLUTE_FULL_BUILD_ROOT"/vdr-suite-daemon_*_amd64.deb
+                "$RESOLUTE_FULL_BUILD_ROOT"/vdr-suite-backend-agent_*_amd64.deb
+                "$RESOLUTE_FULL_BUILD_ROOT"/vdr-plugin-suitebridge_*_amd64.deb)
+          (( ${#debs[@]} == 3 )) || { echo 'LINTIAN_PACKAGE_SET=FAIL'; exit 1; }
+          for deb in "${debs[@]}"; do
+            pkg="$(dpkg-deb --field "$deb" Package)"
+            dpkg-deb --contents "$deb" |
+              grep -F "./usr/share/doc/$pkg/copyright" >/dev/null || {
+                echo "DEBIAN_COPYRIGHT_PACKAGE_MISSING=$pkg"
+                exit 1
+              }
+          done
+          echo 'DEBIAN_COPYRIGHT_THREE_BINARIES=PASS'
+          set +e
+          lintian --no-tag-display-limit "${debs[@]}" > package-artifacts-full-resolute/lintian-resolute.txt 2>&1
+          lintian_rc=$?
+          set -e
+          cat package-artifacts-full-resolute/lintian-resolute.txt
+          if grep -Eq '^E: ' package-artifacts-full-resolute/lintian-resolute.txt; then
+            echo 'LINTIAN_ERROR_GATE=FAIL'
+            exit 1
+          fi
+          test "$lintian_rc" -eq 0 || {
+            echo "LINTIAN_EXIT_STATUS=$lintian_rc"
+            exit 1
+          }
+          printf 'LINTIAN_EXIT_STATUS=%s\nLINTIAN_ERROR_GATE=PASS\nLINTIAN_RIGHTS_RELEASE_GATE=NOT_YET_PASSED\n' "$lintian_rc" |
+            tee package-artifacts-full-resolute/lintian-status.txt
+          # Warnings remain visible in the uploaded log; legal provenance is
+          # an independent gate and is never approved by a lintian exit code.
+      - name: Collect build results and diagnostics
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p package-artifacts-full-resolute
+          if test -n "${RESOLUTE_FULL_BUILD_ROOT:-}" && test -d "$RESOLUTE_FULL_BUILD_ROOT"; then
+            find "$RESOLUTE_FULL_BUILD_ROOT" -maxdepth 1 -type f \( -name 'vdr-suite-daemon_*.deb' -o -name 'vdr-suite-backend-agent_*.deb' -o -name 'vdr-plugin-suitebridge_*.deb' -o -name 'vdr-suite_*_amd64.buildinfo' -o -name 'vdr-suite_*_amd64.changes' \) -exec cp -- '{}' package-artifacts-full-resolute/ \;
+          fi
+          if test -f full-package-build-resolute.log; then
+            cp -- full-package-build-resolute.log package-artifacts-full-resolute/
+          fi
+      - name: Upload exact-head Resolute unsigned binaries and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vdr-suite-three-binaries-resolute-experimental
+          path: package-artifacts-full-resolute/
+          if-no-files-found: warn
+          retention-days: 7
+
+  full-default-packages-noble:
+    name: Ubuntu 24.04 Seahawk VDR 2.8.3 daemon + agent + SuiteBridge
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v4
+      - name: Record SHA and inspect capacity before writes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          git ls-files --stage debian/rules | grep -E '^100755 '
+          read -r total free < <(df -B1 --output=size,avail . | tail -n 1)
+          reserve=$((total * 15 / 100))
+          (( reserve >= 4294967296 )) || reserve=4294967296
+          budget=4294967296
+          printf 'RESOURCE_TOTAL=%s RESOURCE_FREE=%s RESERVE=%s BUDGET=%s\n' "$total" "$free" "$reserve" "$budget"
+          (( free >= reserve + budget )) || { echo "RESOURCE_PREFLIGHT=FAIL"; exit 1; }
+          echo "RESOURCE_PREFLIGHT=PASS"
+      - name: Install build dependencies only on disposable runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends software-properties-common
+          sudo add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
+          sudo apt-get update
+          apt-cache policy vdr-dev
+          sudo apt-get install -y --no-install-recommends build-essential debhelper dpkg-dev g++ make pkg-config python3 vdr-dev libsqlite3-dev libcurl4-openssl-dev libssl-dev libcrypt-dev nodejs
+          vdr_version="$(dpkg-query -W -f='${Version}' vdr-dev)"
+          echo "INSTALLED_VDR_DEV=$vdr_version"
+          case "$vdr_version" in
+            2.8.3-*) echo 'SEAHAWK_VDR_DEV=PASS' ;;
+            *) echo 'SEAHAWK_VDR_DEV=FAIL'; exit 1 ;;
+          esac
+          dpkg-checkbuilddeps -B
+      - name: Exercise real C++ schema repositories on historical offline SQLite
+        shell: bash
+        run: |
+          set -euo pipefail
+          make test-packaging-p7-runtime-schema
+      - name: Rehearse Series artwork legacy-column migration with actual C++
+        shell: bash
+        run: |
+          set -euo pipefail
+          make test-suite-bridge-epg-metadata-resolver
+      - name: Rehearse timer reassignment legacy column with real C++ and temp triggers
+        shell: bash
+        run: |
+          set -euo pipefail
+          make test-phase64-timer-reassignment-failover
+      - name: Rehearse agent command result legacy column and retired triggers
+        shell: bash
+        run: |
+          set -euo pipefail
+          make test-phase63-command-delivery-runtime
+      - name: Rehearse command reservation schema and SQLite restore
+        shell: bash
+        run: |
+          set -euo pipefail
+          make test-phase64-backend-agent-command-reservation
+      - name: Rehearse timer-delete unique index and dormant capability trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          make test-phase64-native-timer-delete-assignment
+      - name: Rehearse recording-cut readback SQL schema and snapshot recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          make test-backend-agent-recording-cut-reconciliation
+      - name: Rehearse recording-marks readback SQL schema and snapshot recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          make test-backend-agent-recording-marks-modify-reconciliation
+      - name: Rehearse manual person-profile DDL and SQLite restore
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The historical test fragment is intentionally not included by
+          # the root Makefile. Load only this verified fragment for the P7 gate.
+          make -f Makefile -f mk/manual-recording-metadata-tests.mk test-manual-recording-metadata-revision
+      - name: Build all default binary packages (no host installation)
+        shell: bash
+        run: |
+          set -euo pipefail
+          export DEB_BUILD_OPTIONS=parallel=2
+          dpkg-buildpackage -B -us -uc 2>&1 | tee default-package-build.log
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            shopt -s nullglob
+            files=(../"$package"_*.deb)
+            (( ${#files[@]} == 1 )) || { echo "MISSING_BINARY_PACKAGE=$package"; exit 1; }
+            dpkg-deb --info "${files[0]}"
+            dpkg-deb --ctrl-tarfile "${files[0]}" | tar -xOf - ./preinst | sh -n
+            dpkg-deb --ctrl-tarfile "${files[0]}" | tar -xOf - ./preinst | grep -F 'P8_PREUNPACK=BLOCKED'
+          done
+          echo "P8_PACKAGE_PREINST_CONTROL=PASS"
+          echo "FULL_DEFAULT_PACKAGING=PASS"
+      - name: Stage unsigned binaries for a disposable installation test
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p packaging-artifacts-full
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            cp -- ../"${package}"_*.deb packaging-artifacts-full/
+          done
+          test "$(find packaging-artifacts-full -maxdepth 1 -name '*.deb' | wc -l)" -eq 3
+          cp -- tools/fixtures/packaging/v1.60.15m-vdr-suite.sql packaging-artifacts-full/p7-tagged-historical.sql
+          cp -- tools/fixtures/packaging/p7-pre-revision-security-operations.sql packaging-artifacts-full/p7-pre-revision.sql
+      - name: Share unsigned test binaries with isolated container
+        uses: actions/upload-artifact@v4
+        with:
+          name: vdr-suite-three-binaries-noble-experimental
+          path: packaging-artifacts-full/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Collect build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vdr-suite-default-noble-build-log
+          path: default-package-build.log
+          if-no-files-found: warn
+          retention-days: 7
+
+  p8-preunpack-collision-noble:
+    name: P8 disposable dpkg refusal (${{ matrix.case }})
+    needs: full-default-packages-noble
+    runs-on: ubuntu-24.04
+    container: ubuntu:24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case: nginx-snippet
+            package: vdr-suite-daemon
+            target: /etc/nginx/snippets/vdr-suite.conf
+            blocked_path: /etc/nginx/snippets/vdr-suite.conf
+            reason: OWNERSHIP_UNKNOWN
+            unpacked_path: /usr/sbin/vdr-suite-daemon
+          - case: daemon-systemd-dropin
+            package: vdr-suite-daemon
+            target: /etc/systemd/system/vdr-suite-daemon.service.d/recording-artwork.conf
+            blocked_path: /etc/systemd/system/vdr-suite-daemon.service.d
+            reason: MANUAL_INSTALL_PRESENT
+            unpacked_path: /usr/sbin/vdr-suite-daemon
+          - case: daemon-existing-state
+            package: vdr-suite-daemon
+            target: /var/lib/vdr-suite/unowned-state
+            blocked_path: /var/lib/vdr-suite
+            reason: MANUAL_INSTALL_PRESENT
+            unpacked_path: /usr/sbin/vdr-suite-daemon
+          - case: backend-agent-config
+            package: vdr-suite-backend-agent
+            target: /etc/vdr-suite/backend-agent.conf
+            blocked_path: /etc/vdr-suite/backend-agent.conf
+            reason: OWNERSHIP_UNKNOWN
+            unpacked_path: /usr/sbin/vdr-suite-backend-agent
+          - case: backend-agent-systemd-dropin
+            package: vdr-suite-backend-agent
+            target: /etc/systemd/system/vdr-suite-backend-agent.service.d/operator.conf
+            blocked_path: /etc/systemd/system/vdr-suite-backend-agent.service.d
+            reason: MANUAL_INSTALL_PRESENT
+            unpacked_path: /usr/sbin/vdr-suite-backend-agent
+          - case: suitebridge-abi-file
+            package: vdr-plugin-suitebridge
+            target: /usr/lib/vdr/plugins/libvdr-suitebridge.so.2.8.3
+            blocked_path: /usr/lib/vdr/plugins/libvdr-suitebridge.so.2.8.3
+            reason: OWNERSHIP_UNKNOWN
+            unpacked_path: /usr/lib/tmpfiles.d/vdr-suite-live.conf
+          - case: suitebridge-legacy-so11
+            package: vdr-plugin-suitebridge
+            target: /usr/lib/vdr/plugins/libvdr-suitebridge.so.11
+            blocked_path: /usr/lib/vdr/plugins/libvdr-suitebridge.so.11
+            reason: OWNERSHIP_UNKNOWN
+            unpacked_path: /usr/lib/tmpfiles.d/vdr-suite-live.conf
+          - case: suitebridge-legacy-so14
+            package: vdr-plugin-suitebridge
+            target: /usr/lib/vdr/plugins/libvdr-suitebridge.so.14
+            blocked_path: /usr/lib/vdr/plugins/libvdr-suitebridge.so.14
+            reason: OWNERSHIP_UNKNOWN
+            unpacked_path: /usr/lib/tmpfiles.d/vdr-suite-live.conf
+          - case: suitebridge-legacy-backup
+            package: vdr-plugin-suitebridge
+            target: /usr/lib/vdr/plugins/libvdr-suitebridge.so.11.bak-20260814-225540
+            blocked_path: /usr/lib/vdr/plugins/libvdr-suitebridge.so.11.bak-20260814-225540
+            reason: OWNERSHIP_UNKNOWN
+            unpacked_path: /usr/lib/tmpfiles.d/vdr-suite-live.conf
+    steps:
+      - name: Retrieve exact candidate Debian packages
+        uses: actions/download-artifact@v4
+        with:
+          name: vdr-suite-three-binaries-noble-experimental
+          path: packages
+      - name: Verify package-specific collision rejection before unpack
+        shell: bash
+        env:
+          PACKAGE: ${{ matrix.package }}
+          COLLISION_TARGET: ${{ matrix.target }}
+          BLOCKED_PATH: ${{ matrix.blocked_path }}
+          BLOCKED_REASON: ${{ matrix.reason }}
+          UNPACKED_PATH: ${{ matrix.unpacked_path }}
+          COLLISION_CASE: ${{ matrix.case }}
+        run: |
+          set -euo pipefail
+          test "$(id -u)" -eq 0
+          shopt -s nullglob
+          packages=(packages/"$PACKAGE"_*.deb)
+          (( ${#packages[@]} == 1 )) || { echo "P8_PACKAGE_COUNT=FAIL"; exit 1; }
+          test "$(dpkg-deb --field "${packages[0]}" Package)" = "$PACKAGE"
+          test ! -e "$COLLISION_TARGET"
+          test ! -e "$UNPACKED_PATH"
+          mkdir -p "$(dirname "$COLLISION_TARGET")"
+          printf 'operator collision sentinel for %s\n' "$COLLISION_CASE" > "$COLLISION_TARGET"
+          before="$(sha256sum "$COLLISION_TARGET" | cut -d' ' -f1)"
+          if dpkg --unpack "${packages[0]}" > /tmp/p8-preunpack-refusal.log 2>&1; then
+            echo "P8_DPKG_COLLISION_REFUSAL=FAIL unexpected unpack $COLLISION_CASE"
+            exit 1
+          fi
+          expected="P8_PREUNPACK=BLOCKED package=$PACKAGE reason=$BLOCKED_REASON path=$BLOCKED_PATH"
+          grep -Fx -- "$expected" /tmp/p8-preunpack-refusal.log
+          after="$(sha256sum "$COLLISION_TARGET" | cut -d' ' -f1)"
+          test "$before" = "$after"
+          test ! -e "$UNPACKED_PATH"
+          echo "P8_DPKG_COLLISION_REFUSAL=PASS case=$COLLISION_CASE"
+
+  isolated-package-lifecycle-noble:
+    name: Ubuntu 24.04 disposable package install/reinstall/remove/purge
+    needs: full-default-packages-noble
+    runs-on: ubuntu-24.04
+    container: ubuntu:24.04
+    timeout-minutes: 25
+    steps:
+      - name: Retrieve built packages from exact workflow run
+        uses: actions/download-artifact@v4
+        with:
+          name: vdr-suite-three-binaries-noble-experimental
+          path: packages
+      - name: Block all service activation inside the disposable container
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(id -u)" -eq 0
+          printf '%s\n' '#!/bin/sh' 'exit 101' | install -m 0755 /dev/stdin /usr/sbin/policy-rc.d
+          test "$(find packages -maxdepth 1 -name '*.deb' | wc -l)" -eq 3
+      - name: Install against Seahawk VDR 2.8.3 and verify package metadata
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates gnupg software-properties-common
+          add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
+          apt-get update
+          apt-get install -y --no-install-recommends ./packages/vdr-suite-daemon_*.deb ./packages/vdr-suite-backend-agent_*.deb ./packages/vdr-plugin-suitebridge_*.deb
+          vdr_version="$(dpkg-query -W -f='${Version}' vdr)"
+          case "$vdr_version" in 2.8.3-*) : ;; *) echo "WRONG_RUNTIME_VDR=$vdr_version"; exit 1 ;; esac
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            test "$(dpkg-query -W -f='${Status}' "$package")" = "install ok installed"
+          done
+          test -f /etc/default/vdr-suite-daemon
+          test -f /etc/vdr-suite/backend-agent.conf
+          test -f /etc/nginx/snippets/vdr-suite.conf
+          test -f /usr/lib/tmpfiles.d/vdr-suite-live.conf
+          test -f /usr/share/vdr-suite/channel-logos/vdr-suite-brand/logo-vdr-suite.svg
+          test -f /usr/share/vdr-suite/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.png
+          test ! -e /var/cache/vdr-suite/channel-logos/vdr-suite-brand/logo-vdr-suite.svg
+          test ! -f /var/lib/vdr-suite/vdr-suite.db
+          echo "P6_ISOLATED_INSTALL=PASS"
+      - name: Reinstall then remove and purge without losing caller state
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          mkdir -p /var/lib/vdr-suite
+          printf '%s\n' 'data not owned by dpkg' > /var/lib/vdr-suite/p6-keep-me
+          printf '%s\n' '# local operator setting: keep' >> /etc/default/vdr-suite-daemon
+          apt-get -y -o Dpkg::Options::=--force-confold --reinstall install ./packages/vdr-suite-daemon_*.deb ./packages/vdr-suite-backend-agent_*.deb ./packages/vdr-plugin-suitebridge_*.deb
+          grep -Fx '# local operator setting: keep' /etc/default/vdr-suite-daemon
+          apt-get -y remove vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge
+          test -f /etc/default/vdr-suite-daemon
+          test -f /etc/vdr-suite/backend-agent.conf
+          test -f /var/lib/vdr-suite/p6-keep-me
+          dpkg --purge vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge
+          test -f /var/lib/vdr-suite/p6-keep-me
+          test "$(cat /var/lib/vdr-suite/p6-keep-me)" = 'data not owned by dpkg'
+          echo "P6_ISOLATED_REINSTALL_REMOVE_PURGE=PASS"
+
+  isolated-package-lifecycle-resolute:
+    name: Ubuntu 26.04 disposable install/reinstall/remove/purge for exact API 14 packages
+    needs: full-default-packages-resolute
+    runs-on: ubuntu-24.04
+    container: ubuntu:26.04
+    timeout-minutes: 35
+    steps:
+      - name: Retrieve exact-run Resolute three-package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: vdr-suite-three-binaries-resolute-experimental
+          path: packages
+      - name: Require disposable Resolute, block activation and audit package identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(id -u)" -eq 0
+          test -f /.dockerenv
+          test "$(dpkg --print-architecture)" = amd64
+          test "$( . /etc/os-release; printf '%s' "$VERSION_CODENAME" )" = resolute
+          # The plain ubuntu:26.04 container has no guaranteed /dev/stdin
+          # source path for install(1). Write the activation block directly.
+          test -d /usr/sbin
+          printf '%s\n' '#!/bin/sh' 'exit 101' > /usr/sbin/policy-rc.d
+          chmod 0755 /usr/sbin/policy-rc.d
+          test -x /usr/sbin/policy-rc.d
+          shopt -s nullglob
+          all=(packages/*.deb)
+          (( ${#all[@]} == 3 )) || { echo 'RESOLUTE_LIFECYCLE_PACKAGE_SET=FAIL'; exit 1; }
+          expected_version=''
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            files=(packages/"$package"_*_amd64.deb)
+            (( ${#files[@]} == 1 )) || exit 1
+            deb="${files[0]}"
+            test "$(dpkg-deb --field "$deb" Package)" = "$package"
+            test "$(dpkg-deb --field "$deb" Architecture)" = amd64
+            version="$(dpkg-deb --field "$deb" Version)"
+            if test -z "$expected_version"; then expected_version="$version"; fi
+            test "$version" = "$expected_version"
+            dpkg-deb --ctrl-tarfile "$deb" | tar -xOf - ./preinst | grep -F 'P8_PREUNPACK=BLOCKED'
+          done
+          test "$expected_version" = '0.14.1-1~exp2'
+          dpkg-deb --field packages/vdr-plugin-suitebridge_*_amd64.deb Depends |
+            grep -Fw 'vdr-abi-2.8.3-0yavdr'
+          echo 'RESOLUTE_LIFECYCLE_ARTIFACT_IDENTITY=PASS'
+      - name: Install against pinned Seahawk Resolute VDR without starting units
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates gnupg software-properties-common
+          add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
+          apt-get update
+          apt-get install -y --no-install-recommends ./packages/vdr-suite-daemon_*.deb ./packages/vdr-suite-backend-agent_*.deb ./packages/vdr-plugin-suitebridge_*.deb
+          test "$(dpkg-query -W -f='${Version}' vdr)" = '2.8.3-0yavdr0~resolute'
+          dpkg-query -W -f='${Provides}\n' vdr | grep -Fw 'vdr-abi-2.8.3-0yavdr'
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            test "$(dpkg-query -W -f='${Status}' "$package")" = 'install ok installed'
+          done
+          getent passwd vdr
+          getent group vdr
+          test -f /usr/lib/systemd/system/vdr-suite-daemon.service
+          test -f /usr/lib/systemd/system/vdr-suite-backend-agent.service
+          grep -Fx 'User=vdr' /usr/lib/systemd/system/vdr-suite-backend-agent.service
+          test ! -L /etc/systemd/system/multi-user.target.wants/vdr-suite-daemon.service
+          test ! -L /etc/systemd/system/multi-user.target.wants/vdr-suite-backend-agent.service
+          test -f /etc/default/vdr-suite-daemon
+          test -f /etc/vdr-suite/backend-agent.conf
+          test -f /etc/nginx/snippets/vdr-suite.conf
+          test -f /usr/lib/tmpfiles.d/vdr-suite-live.conf
+          test -f /usr/share/vdr-suite/channel-logos/vdr-suite-brand/logo-vdr-suite.svg
+          test -f /usr/share/vdr-suite/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.png
+          test ! -e /var/cache/vdr-suite/channel-logos/vdr-suite-brand/logo-vdr-suite.svg
+          test ! -e /var/lib/vdr-suite/vdr-suite.db
+          echo 'RESOLUTE_LIFECYCLE_INSTALL_NO_START=PASS'
+      - name: Reinstall then remove and purge preserving operator state
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          install -d -m 0755 /var/lib/vdr-suite
+          printf '%s\n' 'caller-owned Resolute fixture' > /var/lib/vdr-suite/resolute-state-preserve
+          printf '%s\n' '# Resolute operator daemon sentinel' >> /etc/default/vdr-suite-daemon
+          printf '%s\n' '# Resolute operator agent sentinel' >> /etc/vdr-suite/backend-agent.conf
+          apt-get -y -o Dpkg::Options::=--force-confold --reinstall install ./packages/vdr-suite-daemon_*.deb ./packages/vdr-suite-backend-agent_*.deb ./packages/vdr-plugin-suitebridge_*.deb
+          grep -Fx '# Resolute operator daemon sentinel' /etc/default/vdr-suite-daemon
+          grep -Fx '# Resolute operator agent sentinel' /etc/vdr-suite/backend-agent.conf
+          test ! -e /var/lib/vdr-suite/vdr-suite.db
+          apt-get -y remove vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge
+          test -f /etc/default/vdr-suite-daemon
+          test -f /etc/vdr-suite/backend-agent.conf
+          test -f /var/lib/vdr-suite/resolute-state-preserve
+          dpkg --purge vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge
+          test "$(cat /var/lib/vdr-suite/resolute-state-preserve)" = 'caller-owned Resolute fixture'
+          test ! -e /var/lib/vdr-suite/vdr-suite.db
+          echo 'RESOLUTE_LIFECYCLE_REINSTALL_REMOVE_PURGE=PASS'
+
+  p7-prior-exp1-packages-noble:
+    name: P7 pinned prior exp1 three-binary build (disposable)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out immutable previously successful P7 baseline
+        uses: actions/checkout@v4
+        with:
+          ref: bc4623374a4df4c08118c424ea19aaf552a4964c
+          path: prior-source
+          persist-credentials: false
+      - name: Confirm baseline version, provenance, rules mode and resource reserve
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd prior-source
+          test "$(git rev-parse HEAD)" = "bc4623374a4df4c08118c424ea19aaf552a4964c"
+          test -z "$(git status --porcelain)"
+          git ls-files --stage debian/rules | grep -E '^100755 '
+          test "$(dpkg-parsechangelog -l debian/changelog -S Version)" = "0.14.1-1~exp1"
+          python3 tools/check_packaging_tracked_artifacts.py
+          read -r total free < <(df -B1 --output=size,avail . | tail -n 1)
+          reserve=$((total * 15 / 100))
+          (( reserve >= 4294967296 )) || reserve=4294967296
+          budget=4294967296
+          printf 'RESOURCE_TOTAL=%s RESOURCE_FREE=%s RESERVE=%s BUDGET=%s\n' "$total" "$free" "$reserve" "$budget"
+          (( free >= reserve + budget )) || { echo 'RESOURCE_PREFLIGHT=FAIL'; exit 1; }
+          echo 'RESOURCE_PREFLIGHT=PASS'
+      - name: Install Seahawk VDR 2.8.3 build dependencies on disposable runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends software-properties-common
+          sudo add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential debhelper dpkg-dev g++ make pkg-config python3 vdr-dev libsqlite3-dev libcurl4-openssl-dev libssl-dev libcrypt-dev
+          case "$(dpkg-query -W -f='${Version}' vdr-dev)" in 2.8.3-*) : ;; *) exit 1 ;; esac
+      - name: Build pinned prior three binaries without installing on runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd prior-source
+          export DEB_BUILD_OPTIONS=parallel=2
+          dpkg-checkbuilddeps -B
+          dpkg-buildpackage -B -us -uc
+          mkdir -p ../p7-prior-binaries
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            files=(../"${package}"_0.14.1-1~exp1_*.deb)
+            test "${#files[@]}" -eq 1
+            test "$(dpkg-deb --field "${files[0]}" Version)" = "0.14.1-1~exp1"
+            cp -- "${files[0]}" ../p7-prior-binaries/
+          done
+          test "$(find ../p7-prior-binaries -maxdepth 1 -name '*.deb' | wc -l)" -eq 3
+          echo 'P7_PREVIOUS_EXP1_BUILD=PASS'
+      - name: Upload pinned prior unsigned packages for upgrade-only test
+        uses: actions/upload-artifact@v4
+        with:
+          name: p7-prior-exp1-unsigned-binaries
+          path: p7-prior-binaries/
+          if-no-files-found: error
+          retention-days: 7
+
+  p7-versioned-upgrade-noble:
+    name: P7 exp1 to exp2 unpack/configure, state preservation and rollback
+    needs: [p7-prior-exp1-packages-noble, full-default-packages-noble]
+    runs-on: ubuntu-24.04
+    container: ubuntu:24.04
+    timeout-minutes: 35
+    steps:
+      - name: Retrieve pinned prior exp1 binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: p7-prior-exp1-unsigned-binaries
+          path: prior-packages
+      - name: Retrieve current exp2 binaries and checked historical fixtures
+        uses: actions/download-artifact@v4
+        with:
+          name: vdr-suite-three-binaries-noble-experimental
+          path: new-packages
+      - name: Block all service activation and verify isolated artifact sets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(id -u)" -eq 0
+          test -f /.dockerenv || { echo 'P7_DISPOSABLE_CONTAINER_REQUIRED=FAIL'; exit 1; }
+          printf '%s\n' '#!/bin/sh' 'exit 101' | install -m 0755 /dev/stdin /usr/sbin/policy-rc.d
+          test "$(find prior-packages -maxdepth 1 -name '*.deb' | wc -l)" -eq 3
+          test "$(find new-packages -maxdepth 1 -name '*.deb' | wc -l)" -eq 3
+          test -f new-packages/p7-tagged-historical.sql
+          test -f new-packages/p7-pre-revision.sql
+          dpkg --compare-versions '0.14.1-1~exp2' gt '0.14.1-1~exp1'
+      - name: Install exp1 packages against Seahawk VDR 2.8.3
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates gnupg software-properties-common python3
+          add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
+          apt-get update
+          apt-get install -y --no-install-recommends ./prior-packages/vdr-suite-daemon_*.deb ./prior-packages/vdr-suite-backend-agent_*.deb ./prior-packages/vdr-plugin-suitebridge_*.deb
+          case "$(dpkg-query -W -f='${Version}' vdr)" in 2.8.3-*) : ;; *) exit 1 ;; esac
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            test "$(dpkg-query -W -f='${Version}' "$package")" = "0.14.1-1~exp1"
+            test "$(dpkg-query -W -f='${Status}' "$package")" = "install ok installed"
+          done
+          echo 'P7_EXP1_INSTALL=PASS'
+      - name: Seed synthetically populated historical SQLite and managed configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          read -r total free < <(df -B1 --output=size,avail /var/lib | tail -n 1)
+          reserve=$((total * 15 / 100))
+          (( reserve >= 4294967296 )) || reserve=4294967296
+          budget=536870912
+          printf 'RESOURCE_TOTAL=%s RESOURCE_FREE=%s RESERVE=%s BUDGET=%s\n' "$total" "$free" "$reserve" "$budget"
+          (( free >= reserve + budget )) || { echo 'RESOURCE_PREFLIGHT=FAIL'; exit 1; }
+          echo 'RESOURCE_PREFLIGHT=PASS'
+          test -f /etc/default/vdr-suite-daemon
+          test -f /etc/vdr-suite/backend-agent.conf
+          test ! -e /var/lib/vdr-suite/vdr-suite.db
+          mkdir -p /var/lib/vdr-suite /tmp/p7-recovery
+          printf '%s\n' '# P7 operator-managed daemon config sentinel' >> /etc/default/vdr-suite-daemon
+          printf '%s\n' '# P7 operator-managed agent config sentinel' >> /etc/vdr-suite/backend-agent.conf
+          printf '%s\n' 'P7 caller-owned state (synthetic)' > /var/lib/vdr-suite/p7-unowned-state
+          python3 - <<'PY'
+          import sqlite3
+          from pathlib import Path
+          dest = Path('/var/lib/vdr-suite/vdr-suite.db')
+          with sqlite3.connect(dest) as db:
+              db.execute('PRAGMA foreign_keys=ON')
+              db.executescript(Path('new-packages/p7-tagged-historical.sql').read_text())
+              db.executescript(Path('new-packages/p7-pre-revision.sql').read_text())
+              db.execute("INSERT INTO recordings(title, recording_path, recording_format) VALUES (?,?,?)",
+                         ('P7 prior package test', '/offline/fixture.rec', 'TS'))
+              db.commit()
+              assert db.execute('PRAGMA integrity_check').fetchone() == ('ok',)
+              assert db.execute('PRAGMA foreign_key_check').fetchall() == []
+              assert db.execute("SELECT count(*) FROM security_human_accounts").fetchone() == (1,)
+          PY
+          test ! -e /var/lib/vdr-suite/vdr-suite.db-wal
+          test ! -e /var/lib/vdr-suite/vdr-suite.db-shm
+          test ! -e /var/lib/vdr-suite/vdr-suite.db-journal
+          cp -- /var/lib/vdr-suite/vdr-suite.db /tmp/p7-recovery/pre-exp2.db
+          sha256sum /var/lib/vdr-suite/vdr-suite.db > /tmp/p7-recovery/original.sha256
+          sha256sum /tmp/p7-recovery/pre-exp2.db > /tmp/p7-recovery/backup.sha256
+          echo 'P7_PRIOR_STATE_AND_BACKUP=PASS'
+      - name: Simulate interrupted unpack then configure upgraded exp2 packages
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          dpkg --unpack ./new-packages/vdr-suite-daemon_*.deb ./new-packages/vdr-suite-backend-agent_*.deb ./new-packages/vdr-plugin-suitebridge_*.deb
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            test "$(dpkg-query -W -f='${Version}' "$package")" = '0.14.1-1~exp2'
+            test "$(dpkg-query -W -f='${Status}' "$package")" = 'install ok unpacked'
+          done
+          echo 'P7_INTERRUPTED_UNPACK_STATE=PASS'
+          dpkg --configure -a
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            test "$(dpkg-query -W -f='${Status}' "$package")" = 'install ok installed'
+            test "$(dpkg-query -W -f='${Version}' "$package")" = '0.14.1-1~exp2'
+          done
+          echo 'P7_EXP1_TO_EXP2_PACKAGE_UPGRADE=PASS'
+      - name: Verify unchanged old SQLite schema, rows and user-managed configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum -c /tmp/p7-recovery/original.sha256
+          grep -Fx '# P7 operator-managed daemon config sentinel' /etc/default/vdr-suite-daemon
+          grep -Fx '# P7 operator-managed agent config sentinel' /etc/vdr-suite/backend-agent.conf
+          grep -Fx 'P7 caller-owned state (synthetic)' /var/lib/vdr-suite/p7-unowned-state
+          python3 - <<'PY'
+          import sqlite3
+          with sqlite3.connect('file:/var/lib/vdr-suite/vdr-suite.db?mode=ro', uri=True) as db:
+              assert db.execute('PRAGMA integrity_check').fetchone() == ('ok',)
+              assert db.execute('PRAGMA foreign_key_check').fetchall() == []
+              assert db.execute("SELECT title FROM recordings").fetchall() == [('P7 prior package test',)]
+              assert db.execute("SELECT account_id FROM security_human_accounts").fetchall() == [('p7_pre_account',)]
+              assert db.execute("SELECT operation_id FROM mutation_operations").fetchall() == [('p7_pre_operation',)]
+              for table, missing in [('security_human_accounts','revision'),
+                                     ('mutation_operations','expected_resource_fingerprint')]:
+                  columns = {row[1] for row in db.execute('PRAGMA table_info(' + table + ')')}
+                  assert missing not in columns, 'postinst changed pre-migration schema'
+          PY
+          echo 'P7_VERSIONED_UPGRADE_STATE_PRESERVED=PASS'
+      - name: Exercise verified offline restore before old binary downgrade
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          sha256sum -c /tmp/p7-recovery/backup.sha256
+          test ! -e /var/lib/vdr-suite/vdr-suite.db-wal
+          test ! -e /var/lib/vdr-suite/vdr-suite.db-shm
+          test ! -e /var/lib/vdr-suite/vdr-suite.db-journal
+          python3 - <<'PY'
+          import sqlite3
+          from pathlib import Path
+          backup = Path('/tmp/p7-recovery/pre-exp2.db')
+          with sqlite3.connect('file:' + str(backup) + '?mode=ro', uri=True) as db:
+              assert db.execute('PRAGMA integrity_check').fetchone() == ('ok',)
+              assert db.execute('PRAGMA foreign_key_check').fetchall() == []
+          with sqlite3.connect('/var/lib/vdr-suite/vdr-suite.db') as db:
+              db.execute("INSERT INTO recordings(title,recording_path,recording_format) VALUES (?,?,?)",
+                         ('P7 change after upgrade', '/offline/second.rec', 'TS'))
+              db.commit()
+          PY
+          ! sha256sum -c /tmp/p7-recovery/original.sha256
+          cp -- /tmp/p7-recovery/pre-exp2.db /var/lib/vdr-suite/vdr-suite.db
+          sha256sum -c /tmp/p7-recovery/original.sha256
+          apt-get install -y --allow-downgrades -o Dpkg::Options::=--force-confold ./prior-packages/vdr-suite-daemon_*.deb ./prior-packages/vdr-suite-backend-agent_*.deb ./prior-packages/vdr-plugin-suitebridge_*.deb
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            test "$(dpkg-query -W -f='${Version}' "$package")" = '0.14.1-1~exp1'
+            test "$(dpkg-query -W -f='${Status}' "$package")" = 'install ok installed'
+          done
+          sha256sum -c /tmp/p7-recovery/original.sha256
+          grep -Fx '# P7 operator-managed daemon config sentinel' /etc/default/vdr-suite-daemon
+          grep -Fx '# P7 operator-managed agent config sentinel' /etc/vdr-suite/backend-agent.conf
+          grep -Fx 'P7 caller-owned state (synthetic)' /var/lib/vdr-suite/p7-unowned-state
+          echo 'P7_VERIFIED_BACKUP_AND_BINARY_DOWNGRADE=PASS'

@@ -1,6 +1,6 @@
-.TH VDR-SUITE-BACKEND-AGENT 8 "August 2026" "VDR-Suite" "System Administration"
+.TH VDR-SUITE-BACKEND-AGENT 8 "October 2026" "VDR-Suite" "System Administration"
 .SH NAME
-vdr-suite-backend-agent \- outbound read-only Backend Agent for VDR-Suite
+vdr-suite-backend-agent \- outbound authenticated Backend Agent for VDR-Suite
 .SH SYNOPSIS
 .B vdr-suite-backend-agent
 .B --config
@@ -8,9 +8,9 @@ vdr-suite-backend-agent \- outbound read-only Backend Agent for VDR-Suite
 .RI [ --once " | " --rotate-credential ]
 .SH DESCRIPTION
 The Backend Agent establishes an outbound HTTPS connection to the VDR-Suite
-Control Plane.  The Phase-63 foundation supports controlled enrollment,
-protocol negotiation, backend-generation fencing, read-only capability
-publication, heartbeat renewal and reconnect reconciliation.  When explicitly
+Control Plane.  The Agent supports controlled enrollment,
+protocol negotiation, backend-generation fencing, read-only observation and
+capability publication, heartbeat renewal and reconnect reconciliation.  When explicitly
 configured with adapter
 .B channels-conf
 and observation domain
@@ -18,10 +18,14 @@ and observation domain
 it reads one bounded local
 .I channels.conf
 snapshot and publishes an Agent-owned, generation-fenced Channel observation.
-The packaged default remains backend-health only.
+The packaged default observation configuration remains backend-health only.
 .PP
-It does not execute VDR mutations, expose local provider URLs, or accept an
-inbound connection at the VDR site.
+Later implementation phases provide command handling for explicitly
+authorized native VDR operations.  The packaged command-type allowlist alone
+does not grant write access: control-plane authorization, backend generation,
+provider ownership and capability fences must be satisfied.  Successful
+enrollment is not mutation permission.  The Agent does not expose local
+provider URLs or accept inbound connections at the VDR site.
 .SH CONFIGURATION
 The packaged service reads
 .IR /etc/vdr-suite/backend-agent.conf .

@@ -6,11 +6,23 @@
 
 #include <cassert>
 #include <iostream>
+#include <sqlite3.h>
 
 using namespace vdrsuite::timers;
 
 namespace
 {
+int sqlCount(sqlite3* connection, const char* sql)
+{
+    sqlite3_stmt* statement = nullptr;
+    assert(sqlite3_prepare_v2(connection, sql, -1, &statement, nullptr)
+        == SQLITE_OK);
+    assert(sqlite3_step(statement) == SQLITE_ROW);
+    const int count = sqlite3_column_int(statement, 0);
+    sqlite3_finalize(statement);
+    return count;
+}
+
 TimerIntent activeIntent(TimerIntentRepository& repository, const std::string& id)
 {
     TimerIntent intent;
@@ -283,8 +295,56 @@ int main()
     assert(all.ok());
     assert(all.assignments.size() == 2);
 
+    // P7 synthetic legacy shape: the first real controlled replacement
+    // produces a durable historical-style row. Omit the later operation
+    // revision column, then let the actual C++ repository migrate it back.
+    // The older-schema transformation is test-only and never touches a host DB.
+    assert(database.execute(
+        "ALTER TABLE timer_assignment_reassignments "
+        "DROP COLUMN old_operation_revision;"));
+    assert(sqlCount(database.handle(),
+        "SELECT count(*) FROM pragma_table_info("
+        "'timer_assignment_reassignments') "
+        "WHERE name='old_operation_revision';") == 0);
+    assert(sqlCount(database.handle(),
+        "SELECT count(*) FROM timer_assignment_reassignments "
+        "WHERE replacement_assignment_id='assignment:replacement' "
+        "AND old_assignment_id='assignment:old' "
+        "AND old_assignment_revision='1' AND old_assignment_epoch=1 "
+        "AND old_backend_id='backend:alpha' "
+        "AND old_backend_generation=7 "
+        "AND old_native_outcome='before_dispatch' "
+        "AND reason='backend unavailable before native dispatch';") == 1);
+
     const auto replay = service.reassign(request);
     assert(replay.status == TimerAssignmentReassignmentStatus::alreadyPersisted);
+    assert(sqlCount(database.handle(),
+        "SELECT count(*) FROM pragma_table_info("
+        "'timer_assignment_reassignments') "
+        "WHERE name='old_operation_revision';") == 1);
+    assert(sqlCount(database.handle(),
+        "SELECT count(*) FROM timer_assignment_reassignments "
+        "WHERE replacement_assignment_id='assignment:replacement' "
+        "AND old_assignment_id='assignment:old' "
+        "AND old_assignment_revision='1' AND old_assignment_epoch=1 "
+        "AND old_backend_id='backend:alpha' "
+        "AND old_backend_generation=7 "
+        "AND old_native_outcome='before_dispatch' "
+        "AND old_operation_revision='' "
+        "AND reason='backend unavailable before native dispatch';") == 1);
+    assert(sqlCount(database.handle(),
+        "SELECT count(*) FROM pragma_foreign_key_check;") == 0);
+    assert(sqlCount(database.handle(),
+        "SELECT count(*) FROM sqlite_temp_master "
+        "WHERE name LIKE 'trg_timer_assignment_reassignment_%' "
+        "OR name='timer_assignment_reassignment_expectation';") == 0);
+    // Repeated lookup must not alter the legacy row or install temp objects.
+    assert(assignments.findControlledReplacement(
+        "assignment:replacement").ok());
+    assert(sqlCount(database.handle(),
+        "SELECT count(*) FROM timer_assignment_reassignments "
+        "WHERE replacement_assignment_id='assignment:replacement';") == 1);
+    std::cout << "P7_TIMER_REASSIGNMENT_LEGACY_COLUMN=PASS\\n";
     assert(replay.replacementAssignment.assignmentEpoch == 2);
     auto incompatibleReplay = request;
     incompatibleReplay.reason = "different reason";

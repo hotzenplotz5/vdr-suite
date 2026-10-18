@@ -4,6 +4,7 @@
 #include "Database.h"
 
 #include <cassert>
+#include <sqlite3.h>
 #include <string>
 
 namespace
@@ -450,5 +451,46 @@ int main()
     assert(nextPoll.assignment.commandId == next.commandId);
     assert(nextPoll.assignment.commandId != staleAssignment.commandId);
 
+    // P7: actual recording-cut reconciliation C++ table/index initializer.
+    // Preserve the existing verified readback across repeat schema creation
+    // and a SQLite memory-to-memory backup (no live recordings or databases).
+    assert(commands.ensureRecordingCutReconciliationSchema());
+    auto count = [](sqlite3* connection, const char* sql) {
+        sqlite3_stmt* query = nullptr;
+        assert(sqlite3_prepare_v2(connection, sql, -1, &query, nullptr)
+            == SQLITE_OK);
+        assert(sqlite3_step(query) == SQLITE_ROW);
+        const int result = sqlite3_column_int(query, 0);
+        sqlite3_finalize(query);
+        return result;
+    };
+    assert(count(database.handle(),
+        "SELECT count(*) FROM sqlite_master WHERE type='index' "
+        "AND name='idx_backend_agent_recording_cut_readback_operation';") == 1);
+    assert(count(database.handle(),
+        "SELECT count(*) FROM backend_agent_recording_cut_readbacks "
+        "WHERE operation_id='op_cut_exact_result' AND "
+        "recording_key='0123456789abcdef0123456789abcdef' AND "
+        "edited_recording_key='bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';") == 1);
+    assert(count(database.handle(),
+        "SELECT count(*) FROM pragma_foreign_key_check;") == 0);
+    Database restored;
+    assert(restored.open(":memory:"));
+    sqlite3_backup* snapshot =
+        sqlite3_backup_init(restored.handle(), "main",
+                            database.handle(), "main");
+    assert(snapshot != nullptr);
+    assert(sqlite3_backup_step(snapshot, -1) == SQLITE_DONE);
+    assert(sqlite3_backup_finish(snapshot) == SQLITE_OK);
+    BackendAgentCommandRepository reopened(restored);
+    assert(reopened.ensureSchema());
+    assert(reopened.ensureRecordingCutReconciliationSchema());
+    assert(reopened.recordingCutVerificationForOperation(
+        "default", "op_cut_exact_result").present);
+    assert(count(restored.handle(),
+        "SELECT count(*) FROM backend_agent_recording_cut_readbacks "
+        "WHERE operation_id='op_cut_exact_result';") == 1);
+    assert(count(restored.handle(),
+        "SELECT count(*) FROM pragma_foreign_key_check;") == 0);
     return 0;
 }

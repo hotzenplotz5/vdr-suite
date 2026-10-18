@@ -6,7 +6,7 @@ You do **not** need to read the implementation history or all ADRs to understand
 
 ### Recommended reading path
 
-**First visit or installation question?** [Start with the beginner guide](getting-started.md) for an honest explanation of what you can try and how installation currently works.
+**Ubuntu package installed, or considering the test PPA?** **[Erste Schritte nach der Installation (Deutsch)](erste-schritte-nach-installation.md)** covers the first admin, SQLite, the tabs, settings, Multiuser and safe first checks. For general orientation start with the [beginner guide](getting-started.md).
 
 1. **Understand the project:** [Project Overview](project-overview.md) — what VDR-Suite is and what it adds to native VDR.
 2. **Explore the functionality:** [Project Status Dashboard](project-status-dashboard.md) — Live TV, Recordings, Home, Timers, security and other capabilities, with accepted scope distinguished from future work.
@@ -20,7 +20,8 @@ Architecture, ADRs, phase plans and original acceptance evidence are **optional 
 
 | Your question | Read this first | Go deeper |
 | --- | --- | --- |
-| How can I try VDR-Suite, and is there a packaged installer? | [Getting started](getting-started.md) | [Packaging status](../packaging/README.md), [staged deployment contract](development/install-runtime-deployment-reliability.md) |
+| How do I install the Ubuntu test packages and set up the first admin? | **[Erste Schritte nach der Installation (Deutsch)](erste-schritte-nach-installation.md)** | [Packaging status](../packaging/README.md), [staged deployment contract](development/install-runtime-deployment-reliability.md) |
+| How can I try VDR-Suite, and is there a packaged installer? | [Getting started](getting-started.md) | [Experimental PPA](https://launchpad.net/~hotzenplotz5/+archive/ubuntu/vdr-suite) |
 | What is VDR-Suite meant to do? | [Project Overview](project-overview.md) | [Project Principles](project-principles.md) |
 | What works, and what is *actually* accepted? | [Project Status Dashboard](project-status-dashboard.md) | [CURRENT — verified project status](CURRENT.md) |
 | How do the server, VDR, Agent and clients fit together? | [Current Architecture State](development/current-architecture-state.md) | [Target Architecture](architecture/target-platform-architecture.md), [ADR Index](adr/index.md) |

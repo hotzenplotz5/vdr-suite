@@ -9,15 +9,16 @@
 | I want to… | Open |
 | --- | --- |
 | See what VDR-Suite can do | [Feature overview](docs/project-status-dashboard.md) |
+| **Install on Ubuntu / set up the first admin / configure VDR-Suite** | **[Erste Schritte nach der Installation (Deutsch)](docs/erste-schritte-nach-installation.md)** |
 | Explore an existing server or find the installation status | [Getting started](docs/getting-started.md) |
 | Compile and test from a clean checkout | [Developer quickstart](docs/development/quickstart.md) |
 | Contribute a change | [Contributing](CONTRIBUTING.md) |
 | Build a client | [Public API guide](api/README.md) and [partial OpenAPI](api/openapi.json) |
 | Understand architecture and roadmap | [Documentation home](docs/index.md) |
 
-**Deutsch:** [Projektüberblick](docs/project-overview.de.md) · [Dokumentationsübersicht](docs/index.md)
+**Deutsch:** [Erste Schritte nach der Ubuntu-Paketinstallation](docs/erste-schritte-nach-installation.md) · [Projektüberblick](docs/project-overview.de.md) · [Dokumentationsübersicht](docs/index.md)
 
-**Installation status:** source builds, test targets and a controlled staging/deployment procedure exist. There is **not yet a generally published one-command Ubuntu/Debian installer or a verified `.deb` release** in this repository. Do not run development deployment commands on an existing VDR without a reviewed installation and rollback plan. See [packaging status](packaging/README.md) and [staged deployment contract](docs/development/install-runtime-deployment-reliability.md).
+**Ubuntu installation (experimental):** a maintainer-operated [VDR-Suite test PPA](https://launchpad.net/~hotzenplotz5/+archive/ubuntu/vdr-suite) and an active [Ubuntu/Debian packaging workstream](https://github.com/hotzenplotz5/vdr-suite/tree/work/packaging-debian-ubuntu-install) exist. These are **not a generally supported production installer or a verified in-place migration for existing yaVDR/manual installations**. Check the actual PPA package versions and platform/ABI compatibility before installing. Start with **[Erste Schritte nach der Installation](docs/erste-schritte-nach-installation.md)**; see also [packaging status](packaging/README.md) and the [deployment contract](docs/development/install-runtime-deployment-reliability.md).
 
 ## What you get
 
@@ -34,16 +35,41 @@ For accepted scope versus ongoing/hardware-gated work, see the [feature dashboar
 
 The browser frontend lives in this repository under `web/frontend/`. The separate [VDR-Suite VIDAA client for Hisense televisions](https://github.com/hotzenplotz5/vdr-suite-vidaa) has its own installation, testing and real-TV acceptance status. It is not implied that an arbitrary TV already supports picture, sound, seeking or subtitles.
 
-### Screenshots — Mitmachen erwünscht / capture slots
+### Screenshots — VDR-Suite Web frontend
 
-**The following are text placeholders, not actual screenshots or rendered UI.** They show where real photographs/captures will be included once available.
+#### Home — Was läuft jetzt / Now & Next
 
-| Web Home / Now & Next | Web recording browser | Hisense VIDAA television |
-| --- | --- | --- |
-| **📷 Screenshot fehlt** — Home screen | **📷 Screenshot fehlt** — Recording list / details | **📷 Foto fehlt** — App running on a real TV |
-| [Capture instructions](docs/screenshots.md#1-web-home-now--next) | [Capture instructions](docs/screenshots.md#2-web-recordings) | [Capture instructions](docs/screenshots.md#3-hisense-vidaa-tv) |
+![VDR-Suite Web Home — Live TV, Now & Next and Was läuft jetzt](docs/media/web-home.png)
 
-You can help replace these slots with genuine captures. Please redact private data and confirm any visible programme artwork can be shared. Provide the captures to the project maintainer; they will be reviewed before adding them to the README. **No placeholder represents tested playback, audio or subtitle support.**
+*Real capture of the VDR-Suite Web Home showing the current channel, programme information and “Was läuft jetzt”.*
+
+#### Aufnahmen — Recording details
+
+![VDR-Suite Web frontend — recording detail view](docs/media/web-recording-details.png)
+
+*Real capture of the recordings detail view. This detail screen was chosen over the recording list to illustrate the UI.*
+
+#### EPG — Zeitleiste / Timeline
+
+![VDR-Suite EPG — programme timeline](docs/media/web-epg-timeline.png)
+
+*Real capture of the EPG timeline with scheduled programme information.*
+
+#### HbbTV
+
+![VDR-Suite — HbbTV view](docs/media/web-hbbtv.png)
+
+*Operator-supplied screenshot of the HbbTV view in VDR-Suite.*
+
+#### OSDTeletext — Videotext
+
+![VDR-Suite — OSDTeletext view](docs/media/web-osdteletext.png)
+
+*Operator-supplied screenshot of the OSDTeletext interface.*
+
+**Hisense VIDAA television:** **📷 Foto fehlt** — App running on a real TV. [Capture instructions](docs/screenshots.md#6-hisense-vidaa-tv).
+
+These five Web captures illustrate the interfaces, not independently verified installed build identity, HbbTV interoperability or audio, seeking, subtitle or playback acceptance. Please redact private data and confirm that any visible programme artwork can be published before contributing further captures.
 
 ## How the pieces fit
 

@@ -7,10 +7,22 @@
 #include <cassert>
 #include <chrono>
 #include <iostream>
+#include <sqlite3.h>
 #include <thread>
 
 namespace
 {
+int sqlCount(sqlite3* connection, const char* statement)
+{
+    sqlite3_stmt* query = nullptr;
+    assert(sqlite3_prepare_v2(connection, statement, -1, &query, nullptr)
+        == SQLITE_OK);
+    assert(sqlite3_step(query) == SQLITE_ROW);
+    const int result = sqlite3_column_int(query, 0);
+    sqlite3_finalize(query);
+    return result;
+}
+
 RequestSecurityContext context(ActorType type,const std::string& actor)
 {
     RequestSecurityContext c;c.requestId="req_test";c.correlationId="corr_test";c.authenticationState=AuthenticationState::Authenticated;c.actor=ActorIdentity{actor,type,"test",true};c.device=DeviceIdentity{"dev_test",true};c.credential=CredentialIdentity{"cred_test",true,false,false};c.permissionGrantResolution=PermissionGrantResolutionState::Resolved;return c;
@@ -52,5 +64,60 @@ int main()
         concurrentPoll.accepted);
     BackendAgentCommandPollRequest stale=poll;stale.backendGeneration=6;assert(!service.poll(context(ActorType::Agent,"actor_agent"),stale,109).accepted);
     assert(service.armFault(context(ActorType::System,"system_admin"),"default","receipt",110,reason));
+    // P7 reconstructed pre-result-evidence schema (private in-memory DB).
+    // The real command/result roundtrip above persisted this older-style row.
+    assert(sqlCount(db.handle(),
+        "SELECT count(*) FROM backend_agent_command_results "
+        "WHERE dispatch_state='effect_reported' "
+        "AND result_category='succeeded' "
+        "AND bounded_diagnostics='probe.noop completed without native side effect';") == 1);
+    assert(db.execute(
+        "ALTER TABLE backend_agent_command_results "
+        "DROP COLUMN result_evidence;"
+        // Historical dormant-capability trigger name: initializer must clear it.
+        "CREATE TRIGGER trg_backend_agent_timer_delete_dormant_capability "
+        "AFTER INSERT ON backend_agent_command_results "
+        "BEGIN SELECT 1; END;"));
+    assert(sqlCount(db.handle(),
+        "SELECT count(*) FROM pragma_table_info("
+        "'backend_agent_command_results') WHERE name='result_evidence';") == 0);
+    assert(sqlCount(db.handle(),
+        "SELECT count(*) FROM sqlite_master WHERE name="
+        "'trg_backend_agent_timer_delete_dormant_capability';") == 1);
+    assert(commands.ensureSchema());  // actual C++ ALTER + retired trigger cleanup
+    assert(commands.ensureSchema());  // idempotence
+    assert(sqlCount(db.handle(),
+        "SELECT count(*) FROM pragma_table_info("
+        "'backend_agent_command_results') WHERE name='result_evidence';") == 1);
+    assert(sqlCount(db.handle(),
+        "SELECT count(*) FROM backend_agent_command_results "
+        "WHERE dispatch_state='effect_reported' "
+        "AND result_category='succeeded' "
+        "AND bounded_diagnostics='probe.noop completed without native side effect' "
+        "AND result_evidence='';") == 1);
+    assert(sqlCount(db.handle(),
+        "SELECT count(*) FROM sqlite_master WHERE name IN ("
+        "'trg_backend_agent_timer_delete_dormant_capability',"
+        "'trg_backend_agent_recording_marks_modify_dormant_capability',"
+        "'trg_backend_agent_recording_cut_dormant_capability');") == 0);
+    assert(sqlCount(db.handle(),
+        "SELECT count(*) FROM pragma_foreign_key_check;") == 0);
+
+    // Exercise SQLite online backup API only between isolated memory databases.
+    Database snapshot;
+    assert(snapshot.open(":memory:"));
+    sqlite3_backup* backup =
+        sqlite3_backup_init(snapshot.handle(), "main", db.handle(), "main");
+    assert(backup != nullptr);
+    assert(sqlite3_backup_step(backup, -1) == SQLITE_DONE);
+    assert(sqlite3_backup_finish(backup) == SQLITE_OK);
+    BackendAgentCommandRepository restored(snapshot);
+    assert(restored.ensureSchema());
+    assert(sqlCount(snapshot.handle(),
+        "SELECT count(*) FROM backend_agent_command_results "
+        "WHERE result_category='succeeded' AND result_evidence='';") == 1);
+    assert(sqlCount(snapshot.handle(),
+        "SELECT count(*) FROM pragma_foreign_key_check;") == 0);
+    std::cout << "P7_AGENT_RESULT_EVIDENCE_MIGRATION=PASS\n";
     std::cout<<"Backend Agent command delivery tests passed"<<std::endl;return 0;
 }

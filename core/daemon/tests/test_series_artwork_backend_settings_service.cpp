@@ -1,6 +1,7 @@
 #include "SeriesArtworkBackendSettingsService.h"
 
 #include <cassert>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -96,11 +97,15 @@ ExternalArtworkHttpResponse imageResponse(const std::string& body)
 
 std::filesystem::path tempRoot()
 {
-    const std::filesystem::path root =
-        std::filesystem::temp_directory_path() /
-        "vdr-suite-series-artwork-backend-settings-test";
-    std::error_code error;
-    std::filesystem::remove_all(root, error);
+    // Never remove a predetermined /tmp path: only own a fresh mkdtemp dir.
+    const std::string pattern =
+        (std::filesystem::temp_directory_path() /
+         "vdr-suite-series-artwork-backend-settings-test-XXXXXX").string();
+    std::vector<char> writable(pattern.begin(), pattern.end());
+    writable.push_back('\0');
+    char* created = ::mkdtemp(writable.data());
+    assert(created != nullptr);
+    const std::filesystem::path root(created);
     std::filesystem::create_directories(root / "secrets");
     std::filesystem::create_directories(root / "incoming");
     std::filesystem::permissions(
@@ -185,6 +190,12 @@ int main()
         "PRIMARY KEY(backend_id,series_key)"
         ");"));
 
+    // Existing manually configured covers must survive all five ALTERs.
+    assert(database.execute(
+        "INSERT INTO backend_series_artwork_overrides "
+        "(backend_id,series_key,poster_url,revision) VALUES "
+        "('legacy-backend','legacy-series','/legacy-cover.jpg',7);"));
+
     assert(database.execute(
         "CREATE TABLE epg_scraper_metadata_cache ("
         "backend_id TEXT NOT NULL,channel_id TEXT NOT NULL,event_id TEXT NOT NULL,"
@@ -249,6 +260,19 @@ int main()
         database,
         "backend_series_artwork_overrides",
         "poster_reference"));
+
+    // Idempotent actual C++ initialization must not erase or reset old rows.
+    assert(service.ensureSchema());
+    assert(scalar(database,
+        "SELECT COUNT(*) FROM backend_series_artwork_overrides "
+        "WHERE backend_id='legacy-backend' AND series_key='legacy-series' "
+        "AND poster_url='/legacy-cover.jpg' AND revision=7 "
+        "AND poster_path='' AND provider_id='' "
+        "AND external_namespace='' AND external_id='' "
+        "AND poster_reference='';") == 1);
+    assert(scalar(database,
+        "SELECT COUNT(*) FROM backend_series_artwork_overrides "
+        "WHERE backend_id='legacy-backend' AND series_key='legacy-series';") == 1);
 
     const SeriesArtworkBackendSettingsSnapshot initial =
         service.get("default");

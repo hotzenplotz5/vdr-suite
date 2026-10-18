@@ -4,6 +4,7 @@
 #include "Database.h"
 
 #include <cassert>
+#include <sqlite3.h>
 #include <string>
 #include <utility>
 #include <vector>
@@ -402,5 +403,42 @@ int main()
     assert(!commands.recordingMarksModifyVerificationForOperation(
         "default", "op_marks_stale_provider").present);
 
+    // P7: prove the real persistent marks-readback table/index survives
+    // repeated C++ initialization and isolated SQLite backup/restore.
+    assert(commands.ensureRecordingMarksModifyReconciliationSchema());
+    auto count = [](sqlite3* connection, const char* sql) {
+        sqlite3_stmt* query = nullptr;
+        assert(sqlite3_prepare_v2(connection, sql, -1, &query, nullptr)
+            == SQLITE_OK);
+        assert(sqlite3_step(query) == SQLITE_ROW);
+        const int result = sqlite3_column_int(query, 0);
+        sqlite3_finalize(query);
+        return result;
+    };
+    assert(count(database.handle(),
+        "SELECT count(*) FROM sqlite_master WHERE type='index' "
+        "AND name='idx_backend_agent_recording_marks_modify_readback_operation';")
+        == 1);
+    const int rows = count(database.handle(),
+        "SELECT count(*) FROM backend_agent_recording_marks_modify_readbacks;");
+    assert(rows >= 1);
+    assert(count(database.handle(),
+        "SELECT count(*) FROM pragma_foreign_key_check;") == 0);
+    Database restored;
+    assert(restored.open(":memory:"));
+    sqlite3_backup* snapshot =
+        sqlite3_backup_init(restored.handle(), "main",
+                            database.handle(), "main");
+    assert(snapshot != nullptr);
+    assert(sqlite3_backup_step(snapshot, -1) == SQLITE_DONE);
+    assert(sqlite3_backup_finish(snapshot) == SQLITE_OK);
+    BackendAgentCommandRepository reopened(restored);
+    assert(reopened.ensureSchema());
+    assert(reopened.ensureRecordingMarksModifyReconciliationSchema());
+    assert(count(restored.handle(),
+        "SELECT count(*) FROM backend_agent_recording_marks_modify_readbacks;")
+        == rows);
+    assert(count(restored.handle(),
+        "SELECT count(*) FROM pragma_foreign_key_check;") == 0);
     return 0;
 }
