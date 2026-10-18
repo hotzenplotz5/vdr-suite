@@ -413,6 +413,12 @@ void test_epg_public_atomic_admission_and_replay()
     provider.requiredCapability = "vdr.timer.create";
     candidate.executionAuthorityFence =
         vdrsuite::public_epg_timer::nativeTimerCreatePlanningAuthorityFence(provider);
+    request.nativeClock.backendId = candidate.backendId;
+    request.nativeClock.backendGeneration = candidate.currentBackendGeneration;
+    request.nativeClock.providerInstanceEpoch = provider.providerInstanceEpoch;
+    request.nativeClock.executionAuthorityFence =
+        candidate.executionAuthorityFence;
+    request.nativeClock.observedAt = request.requestedAt - 1;
     candidate.capability.backendGeneration = 7;
     candidate.capability.revision = "capability:7";
     candidate.capability.current = true;
@@ -540,6 +546,18 @@ void test_epg_public_atomic_admission_and_replay()
     wrongTime.selection.idempotencyKey = "device-new-wrong-hour";
     wrongTime.candidate.desiredNativeTimerSpecification.startTime = "0840";
     assert(afterRestart.admit(wrongTime).status ==
+        AtomicAdmissionStatus::backendUnavailable);
+
+    auto oldClock = request;
+    oldClock.selection.idempotencyKey = "device-new-old-clock";
+    oldClock.nativeClock.observedAt -= 60;
+    assert(afterRestart.admit(oldClock).status ==
+        AtomicAdmissionStatus::backendUnavailable);
+
+    auto restartedClockProvider = request;
+    restartedClockProvider.selection.idempotencyKey = "device-new-clock-provider";
+    restartedClockProvider.nativeClock.providerInstanceEpoch = "pie_old";
+    assert(afterRestart.admit(restartedClockProvider).status ==
         AtomicAdmissionStatus::backendUnavailable);
 
     auto missingClock = request;

@@ -49,6 +49,14 @@ bool candidateMatches(
         && n.title.size() <= 512U
         && nativeTimerSpecificationValid(n)
         && nativeOneShotMatchesEpg(observed, request.defaults, request.nativeClock, n)
+        && request.nativeClock.backendId == c.backendId
+        && request.nativeClock.backendGeneration == c.currentBackendGeneration
+        && request.nativeClock.providerInstanceEpoch ==
+            request.nativeCreateProvider.providerInstanceEpoch
+        && request.nativeClock.executionAuthorityFence == c.executionAuthorityFence
+        && request.nativeClock.observedAt > 0
+        && request.nativeClock.observedAt <= request.requestedAt
+        && request.requestedAt - request.nativeClock.observedAt <= 15
         && prospectiveNativeTimerConflictClear(
             request.conflictProof, c, request.requestedAt)
         && currentNativeTimerCreateExecutionAuthority(

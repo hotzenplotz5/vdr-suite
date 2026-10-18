@@ -19,6 +19,15 @@ struct ServerOwnedNativeClockEvidence
     bool current = false;
     std::int32_t startUtcOffsetSeconds = 0;
     std::int32_t stopUtcOffsetSeconds = 0;
+
+    // Original Backend/VDR provider and when the native CLOCK reply was
+    // verified. The offsets alone are insufficient authority: a remote
+    // VDR may use another timezone or may have restarted its provider.
+    std::string backendId;
+    std::uint64_t backendGeneration = 0;
+    std::string providerInstanceEpoch;
+    std::string executionAuthorityFence;
+    std::int64_t observedAt = 0;
 };
 
 inline bool projectEpgBoundaryToNative(
