@@ -2,6 +2,7 @@
 #include "EpgTimerIntentDraft.h"
 #include "EpgTimerIntentAtomicAdmissionService.h"
 #include "EpgNativeTimerClockAttestation.h"
+#include "EpgNativeTimerPreviewAttestation.h"
 #include "TimerIntentApplicationService.h"
 #include "MutationOperationIdentity.h"
 #include "MutationOperationRepository.h"
@@ -485,6 +486,74 @@ void test_epg_public_atomic_admission_and_replay()
     candidate.desiredNativeTimerSpecification.startTime = "0940";
     candidate.desiredNativeTimerSpecification.endTime = "1040";
     candidate.conflict = TimerAssignmentPlanningConflictState::confirmedClear;
+    // A producer-independent domain test: the typed projection is a fixture,
+    // NOT live VDR evidence. Only the real native NTPREVIEW transport may
+    // provide it in the productive Daemon.
+    vdrsuite::agent::SuiteBridgeNativeTimerPreviewProjection preview;
+    preview.isolatedCandidateClear = true;
+    preview.proposedStart = request.observation.startTime;
+    preview.proposedStop = request.observation.endTime;
+    preview.nativeObservedAt = request.requestedAt - 1;
+    preview.providerInstanceEpoch = provider.providerInstanceEpoch;
+    preview.specificationDigest =
+        vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
+            nativeTimerSpecificationFingerprint(
+                candidate.desiredNativeTimerSpecification));
+    preview.evidenceRevision =
+        vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
+            "regression-native-preview-snapshot");
+    preview.consideredTimers = 2;
+    preview.consideredDevices = 1;
+    {
+        auto producerCandidate = candidate;
+        ProspectiveNativeTimerConflictProof attested;
+        assert(attestBackendNativeTimerPreview(
+            preview, request.authoritativeAgent, provider,
+            producerCandidate, request.requestedAt, attested));
+        assert(attested.current &&
+            attested.nativeSpecificationFingerprint ==
+                nativeTimerSpecificationFingerprint(
+                    candidate.desiredNativeTimerSpecification));
+        assert(producerCandidate.conflict ==
+            TimerAssignmentPlanningConflictState::confirmedClear);
+
+        auto stale = preview;
+        stale.providerInstanceEpoch = "pie_stale";
+        assert(!attestBackendNativeTimerPreview(
+            stale, request.authoritativeAgent, provider,
+            producerCandidate, request.requestedAt, attested));
+        assert(!attested.current);
+        assert(producerCandidate.conflict ==
+            TimerAssignmentPlanningConflictState::unknown);
+
+        stale = preview;
+        stale.consideredDevices = 0;
+        assert(!attestBackendNativeTimerPreview(
+            stale, request.authoritativeAgent, provider,
+            producerCandidate, request.requestedAt, attested));
+        assert(!attested.current);
+
+        stale = preview;
+        stale.specificationDigest = "sha256:wrong";
+        assert(!attestBackendNativeTimerPreview(
+            stale, request.authoritativeAgent, provider,
+            producerCandidate, request.requestedAt, attested));
+        assert(!attested.current);
+
+        stale = preview;
+        stale.nativeObservedAt = request.requestedAt - 16;
+        assert(!attestBackendNativeTimerPreview(
+            stale, request.authoritativeAgent, provider,
+            producerCandidate, request.requestedAt, attested));
+        assert(!attested.current);
+
+        auto unleased = request.authoritativeAgent;
+        unleased.leaseExpiresAt = request.requestedAt;
+        assert(!attestBackendNativeTimerPreview(
+            preview, unleased, provider, producerCandidate,
+            request.requestedAt, attested));
+        assert(!attested.current);
+    }
     request.conflictProof.current = true;
     request.conflictProof.backendId = candidate.backendId;
     request.conflictProof.backendGeneration = candidate.currentBackendGeneration;
