@@ -10,13 +10,22 @@ makefile = (ROOT / "vdr-plugin-suite-bridge/Makefile").read_text(encoding="utf-8
 tests = (ROOT / "vdr-plugin-suite-bridge/tests/test_suitebridge_native_timer_preview_core.cpp").read_text(encoding="utf-8")
 
 for needle in (
-    "GetTimersRead(", "GetChannelsRead(", "GetDevice(", "Query=true",
-    "cDevice::GetDevice(", "timerKey.Remove()", "timerKey.TimedOut()",
+    "GetTimersRead(", "GetChannelsRead(", "cDevice::GetDevice(index)",
+    "ProvidesChannel(", "!needsDetachReceivers", "!device->Occupied()",
+    "!device->Receiving()", "!device->IsBonded()",
+    "timerKey.Remove()", "timerKey.TimedOut()",
     "validLocalProjection(", "cDevice::NumDevices()", "tfActive",
     "t->WeekDays() == 0", "t->Local()", "CA_FTA",
 ):
     if needle not in native:
         raise SystemExit(f"SLICE2_PREVIEW_READ_BOUNDARY=FAIL missing {needle}")
+
+# Never reintroduce cDevice::GetDevice(channel, ..., Query=true):
+# upstream VDR 2.8.3 still detaches an idle CAM slot on that code path.
+# The sole allowed GetDevice invocation is the indexed inventory read.
+if native.count("cDevice::GetDevice(") != 1 or \
+        "cDevice::GetDevice(index)" not in native:
+    raise SystemExit("SLICE2_PREVIEW_READ_BOUNDARY=FAIL mutable device selection")
 
 for needle in (
     "GetTimersWrite", "GetChannelsWrite", "SetModified(", "SetExplicitModify(",
@@ -44,5 +53,5 @@ if tests.count("Disposition::unknown") < 9:
     raise SystemExit("SLICE2_PREVIEW_NEGATIVE_REGRESSIONS=FAIL")
 
 print("SLICE2_PREVIEW_SOURCE_BOUNDARY=PASS")
-print("VDR_2_8_3_NATIVE_HEADER_COMPILE=NOT_YET_TESTED")
+print("VDR_2_8_3_NATIVE_HEADER_COMPILE=SEPARATE_CI_REQUIRED")
 print("PUBLIC_TIMER_CREATE_ENABLED=NO")
