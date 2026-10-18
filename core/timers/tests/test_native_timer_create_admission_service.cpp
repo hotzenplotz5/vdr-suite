@@ -524,7 +524,7 @@ void test_epg_public_atomic_admission_and_replay()
             producerCandidate, request.requestedAt, attested));
         assert(!attested.current);
         assert(producerCandidate.conflict ==
-            TimerAssignmentPlanningConflictState::unknown);
+            TimerAssignmentPlanningConflictState::unavailable);
 
         stale = preview;
         stale.consideredDevices = 0;

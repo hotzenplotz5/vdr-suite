@@ -26,7 +26,7 @@ inline bool attestBackendNativeTimerPreview(
 {
     proof = {};
     candidate.conflict =
-        vdrsuite::timers::TimerAssignmentPlanningConflictState::unknown;
+        vdrsuite::timers::TimerAssignmentPlanningConflictState::unavailable;
 
     const std::string exactFingerprint =
         vdrsuite::timers::nativeTimerSpecificationFingerprint(
@@ -75,7 +75,7 @@ inline bool attestBackendNativeTimerPreview(
     if (!prospectiveNativeTimerConflictClear(proof, candidate, receivedAt))
     {
         candidate.conflict =
-            vdrsuite::timers::TimerAssignmentPlanningConflictState::unknown;
+            vdrsuite::timers::TimerAssignmentPlanningConflictState::unavailable;
         proof = {};
         return false;
     }
