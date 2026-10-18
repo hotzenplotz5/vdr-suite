@@ -103,9 +103,23 @@ int main()
     assert(recovered.headers.at("Location")==
         "/api/v1/operations/op_0123456789abcdef0123456789abcdef");
     assert(observes==oldObservations && submits==oldSubmits);
+    // A committed Operation is still queryable even while fresh CREATE
+    // remains intentionally unregistered (no live-time evidence assumed).
+    api.resetEpgTimerIntentSubmit();
+    assert(post(body,etag).statusCode==202);
     replayStatus=PublicEpgTimerIntentAdmissionStatus::idempotencyConflict;
     assert(post(body,etag).statusCode==409);
     assert(observes==oldObservations && submits==oldSubmits);
+    replayStatus=PublicEpgTimerIntentAdmissionStatus::notFound;
+    assert(post(body,etag).statusCode==503);
+    api.registerEpgTimerIntentSubmit([&](const PublicEpgTimerIntentAdmissionRequest& r,
+        const vdrsuite::public_epg_timer::AuthoritativeObservation& current) {
+        ++submits; assert(r.actorRef=="actor"); assert(current.backendGeneration==17);
+        PublicEpgTimerIntentAdmissionResult v; v.status=status;
+        v.operation.operationId="op_0123456789abcdef0123456789abcdef";
+        v.operation.state="accepted"; v.operation.backendId="home";
+        v.operation.resourceRevision="1"; return v;
+    });
     replayStatus=PublicEpgTimerIntentAdmissionStatus::notFound;
     observed.observation.startTime=4102444800LL;
     observed.observation.endTime=4102448400LL;

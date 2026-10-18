@@ -10861,7 +10861,7 @@ bool PublicApiRuntime::tryHandlePost(
             replay = epgTimerIntentReplayLookup_;
             submit = epgTimerIntentSubmit_;
         }
-        if (!replay || !submit)
+        if (!replay)
         {
             response = serviceUnavailableProblem(path, requestId, correlationId);
             return true;
@@ -10897,7 +10897,7 @@ bool PublicApiRuntime::tryHandlePost(
                 path, requestId, correlationId);
             return true;
         }
-        if (previous.status != S::notFound || !resolve ||
+        if (previous.status != S::notFound || !submit || !resolve ||
             !epgEventDetailLookupConfigured())
         {
             response = serviceUnavailableProblem(path, requestId, correlationId);
