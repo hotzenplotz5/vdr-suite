@@ -25,6 +25,7 @@ namespace vdrsuite::agent
 {
 
 struct BackendAgentNativeTimerCreateTransportRequest;
+struct BackendAgentNativeTimerCreateSpecification;
 struct BackendAgentNativeTimerDeleteTransportRequest;
 struct BackendAgentNativeTimerModifyTransportRequest;
 struct BackendAgentRecordingMarksModifyTransportRequest;
@@ -223,6 +224,10 @@ public:
 
     SuiteBridgeCommandReply discoverNativeTimerCreateContract();
     SuiteBridgeCommandReply inspectNativeTimerClockContract(
+        std::int64_t start, std::int64_t stop);
+    SuiteBridgeCommandReply inspectNativeTimerPreviewContract(
+        const BackendAgentNativeTimerCreateSpecification& specification,
+        const std::string& providerInstanceEpoch,
         std::int64_t start, std::int64_t stop);
     SuiteBridgeCommandReply executeNativeTimerCreateContract(
         const BackendAgentNativeTimerCreateTransportRequest& request);

@@ -21,6 +21,21 @@ struct SuiteBridgeNativeTimerClockProjection
     std::string providerInstanceEpoch;
 };
 
+// A typed, read-only native prospect assessment. This is not a
+// ProspectiveNativeTimerConflictProof and must not itself enable CREATE.
+struct SuiteBridgeNativeTimerPreviewProjection
+{
+    bool isolatedCandidateClear = false;
+    std::int64_t proposedStart = 0;
+    std::int64_t proposedStop = 0;
+    std::int64_t nativeObservedAt = 0;
+    std::uint64_t consideredTimers = 0;
+    std::uint64_t consideredDevices = 0;
+    std::string providerInstanceEpoch;
+    std::string specificationDigest;
+    std::string evidenceRevision;
+};
+
 class SuiteBridgeNativeTimerCreateTransport final :
     public IBackendAgentNativeTimerCreateTransport
 {
@@ -36,6 +51,24 @@ public:
         std::int64_t start, std::int64_t stop,
         const BackendAgentLocalProviderSelection& authorizedSelection,
         SuiteBridgeNativeTimerClockProjection& projection,
+        std::string& reasonCode);
+
+    bool inspectProspectiveNativeTimerPreview(
+        const BackendAgentNativeTimerCreateSpecification& specification,
+        std::int64_t start, std::int64_t stop,
+        const BackendAgentLocalProviderSelection& authorizedSelection,
+        SuiteBridgeNativeTimerPreviewProjection& projection,
+        std::string& reasonCode);
+
+    // Same verifier can be used with the existing backend-scoped Daemon
+    // transport; NEVER assume a remote Backend lives on localhost.
+    static bool verifyNativePreviewReply(
+        const SuiteBridgeCommandReply& reply,
+        const BackendAgentNativeTimerCreateSpecification& specification,
+        std::int64_t start, std::int64_t stop,
+        const BackendAgentLocalProviderSelection& authorizedSelection,
+        std::int64_t receivedAt,
+        SuiteBridgeNativeTimerPreviewProjection& projection,
         std::string& reasonCode);
 
     // Reusable by the Daemon's already-scoped SuiteBridge transport without

@@ -1,6 +1,7 @@
 #include "SuiteBridgeNativeTimerCreateTransport.h"
 
 #include "BackendAgentCommand.h"
+#include "BackendAgentNativeTimerDeleteFingerprint.h"
 
 #include <algorithm>
 #include <cctype>
@@ -397,6 +398,37 @@ bool SuiteBridgeNativeTimerCreateTransport::discoverProvider(
             : "native_timer_create_suitebridge_provider_discovered_disabled";
 
     return true;
+}
+
+SuiteBridgeCommandReply SuiteBridgeSvdrpTransport::inspectNativeTimerPreviewContract(
+    const BackendAgentNativeTimerCreateSpecification& spec,
+    const std::string& epoch, std::int64_t start, std::int64_t stop)
+{
+    const std::string nativeFingerprint =
+        backendAgentNativeTimerCreateSpecificationFingerprint(spec);
+    const std::string digest =
+        backendAgentNativeTimerDeleteFingerprintToken(nativeFingerprint);
+    if (!backendAgentNativeTimerCreateSpecificationValid(spec) ||
+        !safeWireToken(epoch, 128) || digest.empty() ||
+        start <= 0 || stop <= start || stop - start >= 24 * 3600)
+        return {SuiteBridgeTransportStatus::Failed, 0, {},
+            "invalid native preview request"};
+
+    std::ostringstream wire;
+    wire << "PLUG suitebridge NTPREVIEW CHECK 1 " << epoch
+         << ' ' << start << ' ' << stop
+         << ' ' << hexToken(spec.channelId)
+         << ' ' << hexToken(spec.title)
+         << ' ' << hexToken(spec.directory)
+         << ' ' << hexToken(spec.day)
+         << ' ' << hexToken(spec.weekdays)
+         << ' ' << hexToken(spec.startTime)
+         << ' ' << hexToken(spec.endTime)
+         << ' ' << spec.priority << ' ' << spec.lifetime
+         << ' ' << (spec.enabled ? 1 : 0)
+         << ' ' << (spec.vps ? 1 : 0)
+         << ' ' << digest << "\r\n";
+    return executeRequest(wire.str());
 }
 
 bool SuiteBridgeNativeTimerCreateTransport::inspectClock(
