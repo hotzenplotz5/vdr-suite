@@ -344,6 +344,22 @@ void test_epg_native_time_contract()
     native.endTime = "1041";
     assert(nativeOneShotMatchesEpg(event, defaults,
         ServerOwnedNativeClockEvidence{true, 7200, 7200}, native));
+    // A one-shot timer with HHMM start/end cannot encode an explicit
+    // stop date beyond the following day; even exact 24h is ambiguous.
+    defaults.startMarginSeconds = 24 * 60 * 60;
+    native.day = "2026-10-16";
+    native.startTime = "0940";
+    native.endTime = "1040";
+    assert(!nativeOneShotMatchesEpg(event, defaults, cest, native));
+    defaults.startMarginSeconds = 0;
+
+    // A normal midnight-crossing remains representable.
+    event.startTime = 1792269600; // 2026-10-17 20:40 UTC / 22:40 CEST
+    event.endTime = 1792276800;   // 2026-10-17 22:40 UTC / 00:40 CEST
+    native.day = "2026-10-17";
+    native.startTime = "2240";
+    native.endTime = "0040";
+    assert(nativeOneShotMatchesEpg(event, defaults, cest, native));
 }
 
 void test_epg_public_atomic_admission_and_replay()

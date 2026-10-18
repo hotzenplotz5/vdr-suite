@@ -91,7 +91,14 @@ inline bool nativeOneShotMatchesEpg(
 
     const auto start = event.startTime - defaults.startMarginSeconds;
     const auto stop = event.endTime + defaults.stopMarginSeconds;
-    if (stop - start > 48 * 60 * 60)
+    // One native date + two HHMM fields have no explicit stop date. VDR
+    // infers same-day/next-day from those fields, so a >=24-hour window
+    // would silently wrap or truncate even though the event itself is valid.
+    // Bound the minute-rounded interval, not just the source event length.
+    const auto nativeStart = start - start % 60;
+    const auto nativeStop = stop + (60 - stop % 60) % 60;
+    if (nativeStop <= nativeStart ||
+        nativeStop - nativeStart >= 24 * 60 * 60)
         return false;
 
     std::string localDay, localStart, ignoredEndDay, localStop;
