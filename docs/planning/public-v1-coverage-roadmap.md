@@ -1,0 +1,49 @@
+# Public API v1 coverage and client migration roadmap
+
+> Source audit: 2026-10-18, backend working branch `work/public-v1-epg-timer-intent-admission-20261017`, baseline `987820cf1229a728279a09c9d20a823c442fe386`. **Planning inventory, not a hardware or release acceptance.** For changing runtime, packaging and merge status, [CURRENT](../CURRENT.md) is authoritative; this roadmap records API coverage and work to be done.
+
+## Reading the states
+
+- **Public-v1 implemented** means a route exists in source; it does **not** mean the operation is installed, granted or verified against a real VDR.
+- **CI** is reported for an exact commit only; **installed** means a separately checked yaVDR daemon; **Hisense** means actual TV functional acceptance. Never conflate them.
+- Device clients authenticate using paired Device credentials and explicit backend grants. Browser/administrator APIs have different CSRF and ownership rules.
+- Public-v1 is an independent, versioned and secured contract, **not** an alias for `/api/vdr/...`. Native Timer, TimerIntent, TimerAssignment, NativeTimerBinding, SearchTimer and durable Operation are different resources.
+- Routes listed below are verified from `api/rest/src/PublicApiRuntime.cpp`, `api/rest/src/ApiRouter.cpp` and the [OpenAPI subset](../../api/openapi.json). Paths described as **proposed** are *not* implemented.
+- The machine-readable OpenAPI snapshot has **54 method operations on 42 templates** at the audit baseline. The historical **41/30** in `api/README.md` was stale; **41 audited contracts** may still be a narrower gate in `tools/check_public_v1_openapi.py`, not the file's actual operation count.
+
+## Coverage and migration matrix
+
+| Domain | Existing Public-v1 contracts (source) | Private/legacy parity and reusable domain owners | Real gap / security boundary | Remaining slices (estimate) |
+| --- | --- | --- | --- | --- |
+| Native Timer | `GET /api/v1/native-timers`; `GET/POST /api/v1/timer-assignments/{timerAssignmentId}` (POST CREATE **existing** Suite assignment); `GET /api/v1/timer-assignments`; `GET /api/v1/operations/{operationId}`; `GET /api/v1/epg/event` source handler (outside baseline OpenAPI). | `/api/vdr/timers/actions/create`, `/update`, `/delete` go via `ApiRouter`, `VdrTimerActionController`, `VdrTimerActionExecutionService`, adapter registry. `EpgTimerSelectionGuard`, `EpgTimerIntentDraft`, `NativeTimerCreateOperationPreparationService`, Agent/SuiteBridge, durable Operation/readback/reconciliation already exist. | EPG → managed intent/assignment/operation CREATE; fenced DELETE of bound **and unbound** existing VDR timers (no list-index deletion); MODIFY/toggle; freshness, strong ETag, exact `timers.create/delete/modify`, Device grant, backend write policy, Idempotency-Key, generation, readback, outcome_unknown. `202` is not success. | **5–6** (current timer slices 1–5, optional MODIFY/toggle Slice 6; unbound DELETE may require separate design) |
+| Recording management | `GET /api/v1/recordings`, genre/read, playback session and its stop/track/subtitle operations. | Private `/api/recordings/actions/...` and `/api/vdr/recordings/actions/...`; Recording action execution/preview, native marks and cut domain (ADR-0059). | Public DELETE, rename, move, marks edit, cut jobs with exact recording ownership/identity, modification grants, ETags, idempotent durable operations, readback and separate cancellation policy; no private credential fallback. | **4–5** |
+| Recording detail | Public recordings, recording searches `GET /api/v1/search/recordings`, recording genres, `GET /api/v1/recording-playback-sessions/{sessionId}`, trickplay/tracks; no complete public editing/resume model. | Existing Recording detail, artwork, metadata, series hierarchy, playback owner and Continue Watching/Resume domain. | Stable metadata/artwork/series projections, progress and durable resume state, authorization, conditional revisions; distinguish read projections from actor-owned writes; client presentation still separate. | **2–3** |
+| SearchTimer | `GET/POST /api/v1/search-timers`, `GET /api/v1/search-timers/{searchTimerId}/preview`, `GET /api/v1/search-timers/draft-preview` (some source routes outside baseline OpenAPI). | Legacy `/api/vdr/searchtimers/...`/older `/api/searchtimers/...` and SearchTimer domain/epgsearch bridge. | Public MODIFY, DELETE, full list/detail/manage with backend-qualified IDs, `searchtimers.modify/delete`, versioned revisions, idempotency, duplicate/blacklist semantics. **Not a native one-shot Timer.** | **2–3** |
+| Home and EPG | `GET /api/v1/epg/now-next`, `/epg/window`, `/epg/event`, `/search/epg`, EPG genres and Channel collection; recording collection for newer recordings. | Existing Web Home/EPG detail and event cache, current frontend timeline/selection projection. | Stable cross-client Home/new-recordings projection and event-to-Timer intent write; Server-owned descriptions/order/pagination/parity; `epg.view` or explicitly documented live permission, strong event ETag. VIDAA right-hand detail and remote focus are **client**, not backend, gaps. | **2–3** (count EPG write only in Native Timer row) |
+| Teletext / HbbTV / OSD | No independently verified generic Public-v1 control contract in audited OpenAPI subset. | Current legacy HbbTV session/media, Teletext and OSD owner/controllers (ADRs 0054, 0062); these are established product owners, not public protocols. | Device-safe versioned sessions/rights, lifecycle, bounded input/control, leases/ownership, media transport and failure semantics; `osd.view/control`, HbbTV-specific permissions; separate feature feasibility for TV/desktop/Kodi. | **3–5** |
+| Channels and Backends | `GET /api/v1/backends`, `GET /api/v1/channels`, `GET /api/v1/capabilities`; current source also has versioned Device live-playback sessions and native timers. | Private `/api/vdr/channels/move` and `/api/vdr/channels/actions/move`, BackendRegistry/AccessPolicy, channel/source mapping. | Capability shapes per backend, controlled channel order/move and selected settings with `channels.move` and backend settings grants, revisions and audit. Avoid treating provider channel numbers as globally stable. | **2–3** |
+| API docs, SDK, security | `api/openapi.json` is partial: 54 operations/42 paths audited here; `clients/reference-js/public-v1-client.js` exists. | SecurityHttpGate, actor/device pairing/grants, PublicResourcePreconditions, Operation registry, C++ tests. | Register only genuinely accepted source contracts in OpenAPI + docs, add negative authorization/idempotency/revision tests, JavaScript reference client for new flows and Kodi/Android/Desktop examples. Credential ownership and SSE resync must be documented; no independent polling or API downgrade. | **2–3** (rolling, partly overlaps other rows) |
+
+**Forecast after source audit:** about **22–31 non-overlapping implementation/test slices** for broad Webfrontend parity. The table's raw row estimates add to 22–31 only if shared EPG writes, OpenAPI/security/docs and client integrations are **not double-counted**. Previous 18–28 was optimistic for fenced unbound Timer DELETE, recording editing and the protected TV companion surfaces. This is an estimate, not a promise; revise at each finished slice.
+
+## Current native Timer programme (strict boundaries)
+
+| Slice | Deliverable | Backend | CI exact commit | yaVDR daemon | VIDAA build / Hisense |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Secure independent EPG one-shot TimerIntent admission HTTP contract; no implicit VDR execution | In progress, baseline `987820cf...` has only EPG GET, selection guard and draft | Not yet verified | Baseline code from `987820cf...` user-reported installed, running daemon SHA-256 `6adb7b1f8266f00f1c1abbc44318dc2f59aed5a8c9f2b609c6dde0347e94f52e` | Not integrated |
+| 2 | Durable atomic TimerIntent + TimerAssignment + Operation, Agent dispatch/readback/outcome_unknown, generation and replay | Open | — | Not installed | Not integrated |
+| 3 | Native DELETE including policy on unbound timers and target-fingerprint concurrency fences | Open | — | Not installed | Not integrated |
+| 4 | VIDAA EPG/day/timer remote UI, explicit confirmation and SSE-driven GET/Operation reconciliation | Open | — | — | `b20261017.17` user-reported installed and partial HW acceptance; `.18` CI 593/593, *not* installed/tested |
+| 5 | End-to-end security, conflict, replay, uncertain outcome, docs, device acceptance | Open | — | Not installed | Pending |
+| 6 (decision) | MODIFY/enable/disable native Timer with same discipline | Optional | — | — | — |
+
+## Acceptance template — maintain after each slice
+
+For every completed slice append the exact **repository/branch/full commit SHA**, changed endpoint/owner, C++/JS regression target with result, exact CI workflow/run URL and result, read-only daemon provenance if known, VIDAA candidate, and explicit **Hisense PASS/PENDING/FAIL**. Update [CURRENT](../CURRENT.md) only with separately verified mutable state. Never mark a route productive merely because a callback compiles or a CI mock passed.
+
+## Immediate ordered work
+
+1. Finish EPG contract and source-verified SecurityHttpGate tests (Slice 1); implement backed admission in Slice 2 before enabling VIDAA CREATE.
+2. Keep native READ distinct from Suite-assignment READ; design fresh fingerprint/revision DELETE for external/unbound VDR timers, with a fail-closed policy until the server can verify identity.
+3. Use the established SSE change feed and authorized `GET /api/v1/native-timers`/`GET /api/v1/operations/{id}`; no Device credentials in private URLs and no retry on uncertain write.
+4. Expand OpenAPI **after** accepting each new route; keep this coverage list and the [API developer entry point](../../api/README.md) synchronized.
