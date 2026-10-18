@@ -120,9 +120,10 @@ SuiteBridgeCaptureNativeTimerPreviewVdr(
         // Do not use VDR's channel-based GetDevice selector: even its
         // Query=true path may release a CAM slot. cDvbDevice::ProvidesChannel
         // also writes the internal bonded-receiver flag despite being const.
-        // ProvidesTransponder is a narrower capability query; require an
-        // actually idle, non-bonded, free-to-air device before suggesting
-        // an isolated candidate. No tuning, CAM changes or detachments.
+        // ProvidesTransponder is a narrower capability query; the public
+        // MaySwitchTransponder tests idle device/PIDs and, for cDvbDevice,
+        // bonded tuner/positioner compatibility without changing state.
+        // No tuning, CAM changes or receiver detachments.
         bool complete = true;
         for (int index = 0; index < count; ++index) {
           const cDevice* device = cDevice::GetDevice(index);
@@ -134,7 +135,7 @@ SuiteBridgeCaptureNativeTimerPreviewVdr(
           observed.availableWithoutPreemptingRecording =
               observed.supportsProposedChannel &&
               !device->Receiving() && !device->Occupied() &&
-              !device->IsBonded() &&
+              device->MaySwitchTransponder(channel) &&
               device->Priority(true) <= IDLEPRIORITY;
           result.devices.push_back(observed);
         }

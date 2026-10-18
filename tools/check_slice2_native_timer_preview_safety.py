@@ -12,7 +12,7 @@ tests = (ROOT / "vdr-plugin-suite-bridge/tests/test_suitebridge_native_timer_pre
 for needle in (
     "GetTimersRead(", "GetChannelsRead(", "cDevice::GetDevice(index)",
     "ProvidesTransponder(", "!device->Occupied()",
-    "!device->Receiving()", "!device->IsBonded()",
+    "!device->Receiving()", "MaySwitchTransponder(",
     "timerKey.Remove()", "timerKey.TimedOut()",
     "validLocalProjection(", "cDevice::NumDevices()", "tfActive",
     "t->WeekDays() == 0", "t->Local()", "CA_FTA",
