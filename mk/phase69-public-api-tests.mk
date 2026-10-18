@@ -181,6 +181,7 @@ test-phase69-atomic-timer-create-admission:
 		core/timers/src/NativeTimerCreateAdmissionService.cpp \
 		core/timers/src/EpgTimerIntentAdmissionRepository.cpp \
 		core/timers/src/EpgTimerIntentAtomicAdmissionService.cpp \
+		core/agent/src/BackendAgentLocalProvider.cpp \
 		core/timers/tests/test_native_timer_create_admission_service.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_native_timer_create_admission_service

@@ -393,7 +393,26 @@ void test_epg_public_atomic_admission_and_replay()
     candidate.state = TimerAssignmentPlanningBackendState::online;
     candidate.writeAllowed = true;
     candidate.executionAuthorityCurrent = true;
-    candidate.executionAuthorityFence = "backend-agent:7";
+    request.authoritativeAgent.agentId = "agent:owner";
+    request.authoritativeAgent.backendId = candidate.backendId;
+    request.authoritativeAgent.agentInstanceId = "agent-instance:7";
+    request.authoritativeAgent.backendGeneration = 7;
+    request.authoritativeAgent.heartbeatSequence = 8;
+    request.authoritativeAgent.capabilityRevision = 2;
+    request.authoritativeAgent.lastHeartbeatAt = request.requestedAt - 5;
+    request.authoritativeAgent.leaseExpiresAt = request.requestedAt + 30;
+    auto& provider = request.nativeCreateProvider;
+    provider.backendId = candidate.backendId;
+    provider.authorityDomain = "vdr.timer";
+    provider.providerId = "suitebridge:local";
+    provider.providerKind = "suitebridge";
+    provider.ownershipGeneration = 3;
+    provider.providerInstanceEpoch = "pie_9a2839a085848a27bd72c66481547420";
+    provider.providerGeneration = 1;
+    provider.capabilityRevision = 1;
+    provider.requiredCapability = "vdr.timer.create";
+    candidate.executionAuthorityFence =
+        vdrsuite::agent::backendAgentLocalProviderSelectionIdentity(provider);
     candidate.capability.backendGeneration = 7;
     candidate.capability.revision = "capability:7";
     candidate.capability.current = true;
@@ -497,6 +516,24 @@ void test_epg_public_atomic_admission_and_replay()
     wrongFingerprint.selection.idempotencyKey = "device-wrong-preview-spec";
     wrongFingerprint.conflictProof.nativeSpecificationFingerprint += "changed";
     assert(afterRestart.admit(wrongFingerprint).status ==
+        AtomicAdmissionStatus::backendUnavailable);
+
+    auto staleAgent = request;
+    staleAgent.selection.idempotencyKey = "device-agent-lease-stale";
+    staleAgent.authoritativeAgent.leaseExpiresAt = request.requestedAt;
+    assert(afterRestart.admit(staleAgent).status ==
+        AtomicAdmissionStatus::backendUnavailable);
+
+    auto otherProviderEpoch = request;
+    otherProviderEpoch.selection.idempotencyKey = "device-provider-restarted";
+    otherProviderEpoch.nativeCreateProvider.providerInstanceEpoch = "pie_changed";
+    assert(afterRestart.admit(otherProviderEpoch).status ==
+        AtomicAdmissionStatus::backendUnavailable);
+
+    auto wrongProviderKind = request;
+    wrongProviderKind.selection.idempotencyKey = "device-provider-fallback";
+    wrongProviderKind.nativeCreateProvider.providerKind = "restfulapi";
+    assert(afterRestart.admit(wrongProviderKind).status ==
         AtomicAdmissionStatus::backendUnavailable);
 
     auto wrongTime = request;

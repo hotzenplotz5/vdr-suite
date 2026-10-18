@@ -50,7 +50,10 @@ bool candidateMatches(
         && nativeTimerSpecificationValid(n)
         && nativeOneShotMatchesEpg(observed, request.defaults, request.nativeClock, n)
         && prospectiveNativeTimerConflictClear(
-            request.conflictProof, c, request.requestedAt);
+            request.conflictProof, c, request.requestedAt)
+        && currentNativeTimerCreateExecutionAuthority(
+            request.authoritativeAgent, request.nativeCreateProvider,
+            c, request.requestedAt);
 }
 
 AtomicAdmissionStatus nativeStatus(NativeTimerCreateAdmissionStatus status)

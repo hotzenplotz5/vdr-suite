@@ -2,6 +2,7 @@
 
 #include "EpgNativeTimerTimeGuard.h"
 #include "EpgNativeTimerConflictGuard.h"
+#include "EpgNativeTimerExecutionAuthority.h"
 #include "EpgTimerIntentDraft.h"
 #include "NativeTimerCreateAdmissionService.h"
 #include "TimerAssignmentPlanner.h"
@@ -47,6 +48,8 @@ struct AtomicAdmissionRequest
     std::string authoritativeTitle;
     ServerOwnedNativeClockEvidence nativeClock;
     ProspectiveNativeTimerConflictProof conflictProof;
+    BackendAgentRecord authoritativeAgent;
+    vdrsuite::agent::BackendAgentLocalProviderSelection nativeCreateProvider;
     vdrsuite::timers::TimerAssignmentPlanningBackendCandidate candidate;
     std::int64_t requestedAt = 0;
     std::int64_t deadline = 0;
