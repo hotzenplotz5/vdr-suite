@@ -1,4 +1,5 @@
 #include "suitebridge_native_timer_create.h"
+#include "suitebridge_native_timer_wallclock.h"
 
 #include <algorithm>
 #include <cctype>
@@ -462,6 +463,11 @@ SuiteBridgeCommandResult SuiteBridgeNativeTimerCreateService::clockEvidence(
       localStop.tm_year + 1900 > 9999) {
     return genericRejection(MalformedReplyCode, "clock-unavailable");
   }
+  if (!suitebridge_native_timer_wallclock::uniquelyRepresentsMinute(
+          timestampStart, localStart) ||
+      !suitebridge_native_timer_wallclock::uniquelyRepresentsMinute(
+          timestampStop, localStop))
+    return genericRejection(MalformedReplyCode, "clock-ambiguous-local-time");
   char startDay[16]{}, startHhmm[8]{}, stopDay[16]{}, stopHhmm[8]{};
   if (std::snprintf(startDay, sizeof(startDay), "%04d-%02d-%02d",
           localStart.tm_year + 1900, localStart.tm_mon + 1,

@@ -15,6 +15,7 @@ for needle in (
     "!device->Receiving()", "MaySwitchTransponder(",
     "timerKey.Remove()", "timerKey.TimedOut()",
     "validLocalProjection(", "nativeMinuteExpandedWindow(",
+    "suitebridge_native_timer_wallclock::uniquelyRepresentsMinute(",
     "cDevice::NumDevices()", "tfActive",
     "t->WeekDays() == 0", "t->Local()", "CA_FTA",
 ):

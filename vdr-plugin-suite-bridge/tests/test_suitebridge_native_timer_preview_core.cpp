@@ -1,6 +1,9 @@
 #include "suitebridge_native_timer_preview_core.h"
+#include "suitebridge_native_timer_wallclock.h"
 
 #include <cassert>
+#include <cstdlib>
+#include <ctime>
 #include <string>
 using namespace vdrsuite_native_timer_preview;
 
@@ -23,6 +26,29 @@ NativeSnapshot isolated()
 
 int main()
 {
+  // Isolated process-local timezone fixture, restored before returning.
+  const char* priorTz = std::getenv("TZ");
+  const bool hadTz = priorTz != nullptr;
+  const std::string originalTz = hadTz ? priorTz : "";
+  assert(setenv("TZ", "Europe/Berlin", 1) == 0);
+  tzset();
+  const std::time_t foldFirst = 1792888200;  // 02:30 CEST
+  const std::time_t foldSecond = 1792891800; // 02:30 CET
+  const std::time_t normal = 1792309200;     // ordinary 09:40 CEST
+  std::tm a{}, b{}, regular{};
+  assert(localtime_r(&foldFirst, &a));
+  assert(localtime_r(&foldSecond, &b));
+  assert(localtime_r(&normal, &regular));
+  assert(!suitebridge_native_timer_wallclock::uniquelyRepresentsMinute(
+      foldFirst, a));
+  assert(!suitebridge_native_timer_wallclock::uniquelyRepresentsMinute(
+      foldSecond, b));
+  assert(suitebridge_native_timer_wallclock::uniquelyRepresentsMinute(
+      normal, regular));
+  assert((hadTz ? setenv("TZ", originalTz.c_str(), 1) :
+                  unsetenv("TZ")) == 0);
+  tzset();
+
   std::int64_t minuteStart = 0, minuteStop = 0;
   assert(nativeMinuteExpandedWindow(
       1792222819, 1792226391, minuteStart, minuteStop));

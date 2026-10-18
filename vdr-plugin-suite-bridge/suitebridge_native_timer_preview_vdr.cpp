@@ -1,4 +1,5 @@
 #include "suitebridge_native_timer_preview_vdr.h"
+#include "suitebridge_native_timer_wallclock.h"
 
 #include <vdr/channels.h>
 #include <vdr/device.h>
@@ -34,6 +35,10 @@ bool validLocalProjection(const SuiteBridgeNativeTimerPreviewVdrRequest& r)
   if (!localtime_r(&nativeStart, &start) ||
       !localtime_r(&nativeStop, &stop) ||
       start.tm_gmtoff != stop.tm_gmtoff ||
+      !suitebridge_native_timer_wallclock::uniquelyRepresentsMinute(
+          nativeStart, start) ||
+      !suitebridge_native_timer_wallclock::uniquelyRepresentsMinute(
+          nativeStop, stop) ||
       start.tm_year + 1900 < 1970 ||
       start.tm_year + 1900 > 9999 ||
       stop.tm_year + 1900 > 9999)
