@@ -117,7 +117,7 @@ SuiteBridgeCaptureNativeTimerPreviewVdr(
       result.proposedFreeToAir = channel->Ca(0) == CA_FTA;
       const int count = cDevice::NumDevices();
       if (count > 0 && count <= MaximumNativeDevices) {
-        // Do NOT call cDevice::GetDevice(channel, ..., Query=true) here:
+        // Do NOT call the channel-based VDR device selector here:
         // VDR 2.8.3 device.c still contains an unguarded CamSlot()->Assign(NULL)
         // branch even for Query=true. Read each device directly and certify
         // only a genuinely idle, non-bonded FTA-capable device. No selection,
