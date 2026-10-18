@@ -38,6 +38,15 @@ public:
         SuiteBridgeNativeTimerClockProjection& projection,
         std::string& reasonCode);
 
+    // Reusable by the Daemon's already-scoped SuiteBridge transport without
+    // constructing a second localhost transport for remote backends.
+    static bool verifyNativeClockReply(
+        const SuiteBridgeCommandReply& reply,
+        std::int64_t start, std::int64_t stop,
+        const BackendAgentLocalProviderSelection& authorizedSelection,
+        SuiteBridgeNativeTimerClockProjection& projection,
+        std::string& reasonCode);
+
     BackendAgentNativeTimerCreateTransportReply createTimer(
         const BackendAgentNativeTimerCreateTransportRequest& request) override;
 

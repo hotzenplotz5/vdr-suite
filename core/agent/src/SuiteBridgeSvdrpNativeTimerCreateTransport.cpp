@@ -405,6 +405,24 @@ bool SuiteBridgeNativeTimerCreateTransport::inspectClock(
     SuiteBridgeNativeTimerClockProjection& projection,
     std::string& reasonCode)
 {
+    if (start <= 0 || stop <= start || stop - start > 48 * 3600)
+    {
+        projection = {};
+        reasonCode = "native_timer_clock_request_invalid";
+        return false;
+    }
+    return verifyNativeClockReply(
+        transport_.inspectNativeTimerClockContract(start, stop), start, stop,
+        authorizedSelection, projection, reasonCode);
+}
+
+bool SuiteBridgeNativeTimerCreateTransport::verifyNativeClockReply(
+    const SuiteBridgeCommandReply& reply,
+    std::int64_t start, std::int64_t stop,
+    const BackendAgentLocalProviderSelection& authorizedSelection,
+    SuiteBridgeNativeTimerClockProjection& projection,
+    std::string& reasonCode)
+{
     projection = {};
     if (start <= 0 || stop <= start || stop - start > 48 * 3600 ||
         !backendAgentLocalProviderValidSelection(authorizedSelection) ||
@@ -420,8 +438,6 @@ bool SuiteBridgeNativeTimerCreateTransport::inspectClock(
         reasonCode = "native_timer_clock_request_invalid";
         return false;
     }
-    const SuiteBridgeCommandReply reply =
-        transport_.inspectNativeTimerClockContract(start, stop);
     if (!reply.transportSucceeded() || reply.replyCode != CapabilityReplyCode)
     {
         reasonCode = "native_timer_clock_unavailable";
