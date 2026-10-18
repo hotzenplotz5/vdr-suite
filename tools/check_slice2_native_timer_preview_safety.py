@@ -11,7 +11,7 @@ tests = (ROOT / "vdr-plugin-suite-bridge/tests/test_suitebridge_native_timer_pre
 
 for needle in (
     "GetTimersRead(", "GetChannelsRead(", "cDevice::GetDevice(index)",
-    "ProvidesChannel(", "!needsDetachReceivers", "!device->Occupied()",
+    "ProvidesTransponder(", "!device->Occupied()",
     "!device->Receiving()", "!device->IsBonded()",
     "timerKey.Remove()", "timerKey.TimedOut()",
     "validLocalProjection(", "cDevice::NumDevices()", "tfActive",
@@ -23,6 +23,8 @@ for needle in (
 # Never reintroduce cDevice::GetDevice(channel, ..., Query=true):
 # upstream VDR 2.8.3 still detaches an idle CAM slot on that code path.
 # The sole allowed GetDevice invocation is the indexed inventory read.
+if "device->ProvidesChannel(" in native:
+    raise SystemExit("SLICE2_PREVIEW_READ_BOUNDARY=FAIL mutable channel query")
 if native.count("cDevice::GetDevice(") != 1 or \
         "cDevice::GetDevice(index)" not in native:
     raise SystemExit("SLICE2_PREVIEW_READ_BOUNDARY=FAIL mutable device selection")

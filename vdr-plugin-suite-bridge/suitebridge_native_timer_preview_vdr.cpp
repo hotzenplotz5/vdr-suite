@@ -117,23 +117,22 @@ SuiteBridgeCaptureNativeTimerPreviewVdr(
       result.proposedFreeToAir = channel->Ca(0) == CA_FTA;
       const int count = cDevice::NumDevices();
       if (count > 0 && count <= MaximumNativeDevices) {
-        // Do NOT call the channel-based VDR device selector here:
-        // VDR 2.8.3 device.c still contains an unguarded CamSlot()->Assign(NULL)
-        // branch even for Query=true. Read each device directly and certify
-        // only a genuinely idle, non-bonded FTA-capable device. No selection,
-        // CAM reassignment, retuning or receiver detachment is permitted.
+        // Do not use VDR's channel-based GetDevice selector: even its
+        // Query=true path may release a CAM slot. cDvbDevice::ProvidesChannel
+        // also writes the internal bonded-receiver flag despite being const.
+        // ProvidesTransponder is a narrower capability query; require an
+        // actually idle, non-bonded, free-to-air device before suggesting
+        // an isolated candidate. No tuning, CAM changes or detachments.
         bool complete = true;
         for (int index = 0; index < count; ++index) {
           const cDevice* device = cDevice::GetDevice(index);
           if (!device) { complete = false; break; }
-          bool needsDetachReceivers = false;
           Device observed;
           observed.enumerated = true;
           observed.supportsProposedChannel =
-              device->ProvidesChannel(
-                  channel, IDLEPRIORITY, &needsDetachReceivers);
+              device->ProvidesTransponder(channel);
           observed.availableWithoutPreemptingRecording =
-              observed.supportsProposedChannel && !needsDetachReceivers &&
+              observed.supportsProposedChannel &&
               !device->Receiving() && !device->Occupied() &&
               !device->IsBonded() &&
               device->Priority(true) <= IDLEPRIORITY;
