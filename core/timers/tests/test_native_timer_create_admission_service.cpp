@@ -1,6 +1,7 @@
 #include "Database.h"
 #include "EpgTimerIntentDraft.h"
 #include "EpgTimerIntentAtomicAdmissionService.h"
+#include "EpgNativeTimerClockAttestation.h"
 #include "TimerIntentApplicationService.h"
 #include "MutationOperationIdentity.h"
 #include "MutationOperationRepository.h"
@@ -413,12 +414,53 @@ void test_epg_public_atomic_admission_and_replay()
     provider.requiredCapability = "vdr.timer.create";
     candidate.executionAuthorityFence =
         vdrsuite::public_epg_timer::nativeTimerCreatePlanningAuthorityFence(provider);
-    request.nativeClock.backendId = candidate.backendId;
-    request.nativeClock.backendGeneration = candidate.currentBackendGeneration;
-    request.nativeClock.providerInstanceEpoch = provider.providerInstanceEpoch;
-    request.nativeClock.executionAuthorityFence =
-        candidate.executionAuthorityFence;
-    request.nativeClock.observedAt = request.requestedAt - 1;
+    // Already typed/verified backend projection is bound again to Agent
+    // generation, Provider epoch, and the exact requested clock window.
+    vdrsuite::agent::SuiteBridgeNativeTimerClockProjection projection;
+    projection.start = request.observation.startTime;
+    projection.stop = request.observation.endTime;
+    projection.startUtcOffsetSeconds = 7200;
+    projection.stopUtcOffsetSeconds = 7200;
+    projection.startDay = "2026-10-17";
+    projection.startHhmm = "0940";
+    projection.stopDay = "2026-10-17";
+    projection.stopHhmm = "1040";
+    projection.providerInstanceEpoch = provider.providerInstanceEpoch;
+    assert(attestBackendNativeTimerClock(
+        projection, request.authoritativeAgent, provider, candidate,
+        projection.start, projection.stop, request.requestedAt - 1,
+        request.nativeClock));
+
+    auto wrongClockReply = projection;
+    wrongClockReply.startHhmm = "0840";
+    ServerOwnedNativeClockEvidence refusedClock;
+    assert(!attestBackendNativeTimerClock(
+        wrongClockReply, request.authoritativeAgent, provider, candidate,
+        projection.start, projection.stop, request.requestedAt - 1,
+        refusedClock));
+    assert(!refusedClock.current);
+
+    wrongClockReply = projection;
+    wrongClockReply.providerInstanceEpoch = "pie_restarted";
+    assert(!attestBackendNativeTimerClock(
+        wrongClockReply, request.authoritativeAgent, provider, candidate,
+        projection.start, projection.stop, request.requestedAt - 1,
+        refusedClock));
+    assert(!refusedClock.current);
+
+    auto foreignClockAgent = request.authoritativeAgent;
+    foreignClockAgent.backendGeneration++;
+    assert(!attestBackendNativeTimerClock(
+        projection, foreignClockAgent, provider, candidate,
+        projection.start, projection.stop, request.requestedAt - 1,
+        refusedClock));
+    assert(!refusedClock.current);
+
+    assert(!attestBackendNativeTimerClock(
+        projection, request.authoritativeAgent, provider, candidate,
+        projection.start + 60, projection.stop, request.requestedAt - 1,
+        refusedClock));
+    assert(!refusedClock.current);
     candidate.capability.backendGeneration = 7;
     candidate.capability.revision = "capability:7";
     candidate.capability.current = true;
