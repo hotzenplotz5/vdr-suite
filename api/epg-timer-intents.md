@@ -1,6 +1,12 @@
 # Public API v1 — one-shot EPG TimerIntent CREATE admission
 
-## Boundary and current status (2026-10-18)
+## Current consolidated source contract (2026-10-18)
+
+The supported development branch is **`work/public-v1-vidaa-unified-20261018`** (Draft PR #500). Its `core/daemon/src/DaemonRuntimeInitialization.cpp` **registers `EpgTimerIntentSubmit`** and performs fresh EPG identity/revision verification, Device grant and backend write policy checks, native backend-local CLOCK attestation, conservative prospective `NTPREVIEW CHECK 1` verification and atomic Intent + Assignment + durable Operation persistence. The old Slice-2 comments below that submit was *not registered* record the earlier standalone branch and are **superseded as source-status statements**. The source contract is no longer just a dormant coordinator.
+
+**Runtime and TV acceptance remain separate:** the last inspected installed SuiteBridge 0.14.1 lacked the native CLOCK command (501 unsupported), so neither source CI nor a registered callback proves native CREATE is presently available on the real yaVDR. Real CLOCK/PREVIEW, backend Agent generation, conflict result, dispatch and VDR readback require a separately approved installed build and controlled test. Never interpret HTTP 202 as a recorded programme; treat `outcome_unknown` as unresolved. VIDAA has a source-only explicit two-step confirmation and deliberate Operation GET on its existing `work/vidaa-epg-timer-operation-readback-20261017` branch; no Hisense acceptance has occurred.
+
+## Historical Slice-2 boundary (superseded by consolidated source wiring)
 
 `POST /api/v1/epg/timer-intents` is the *independent*, guarded Device-v1 entry for an EPG-selected one-shot recording. It is **not** a SearchTimer, an existing `TimerAssignment` POST, a native VDR timer ID, or a private `/api/vdr/timers/actions/create` alias.
 
