@@ -1284,6 +1284,9 @@ public:
     using EpgTimerIntentObservationLookup =
         std::function<PublicEpgTimerIntentObservationResult(
             const PublicEpgTimerIntentAdmissionRequest&)>;
+    using EpgTimerIntentReplayLookup =
+        std::function<PublicEpgTimerIntentAdmissionResult(
+            const PublicEpgTimerIntentAdmissionRequest&)>;
     using EpgTimerIntentSubmit =
         std::function<PublicEpgTimerIntentAdmissionResult(
             const PublicEpgTimerIntentAdmissionRequest&,
@@ -1493,6 +1496,8 @@ public:
 
     void registerEpgTimerIntentObservationLookup(EpgTimerIntentObservationLookup callback);
     void resetEpgTimerIntentObservationLookup();
+    void registerEpgTimerIntentReplayLookup(EpgTimerIntentReplayLookup callback);
+    void resetEpgTimerIntentReplayLookup();
     void registerEpgTimerIntentSubmit(EpgTimerIntentSubmit callback);
     void resetEpgTimerIntentSubmit();
     bool epgTimerIntentAdmissionConfigured() const;
@@ -1657,6 +1662,7 @@ private:
 
     mutable std::mutex epgTimerIntentMutex_;
     EpgTimerIntentObservationLookup epgTimerIntentObservationLookup_;
+    EpgTimerIntentReplayLookup epgTimerIntentReplayLookup_;
     EpgTimerIntentSubmit epgTimerIntentSubmit_;
 
     mutable std::mutex timerCreateAdmissionMutex_;

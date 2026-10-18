@@ -5265,6 +5265,17 @@ void PublicApiRuntime::resetEpgTimerIntentObservationLookup()
     std::lock_guard<std::mutex> lock(epgTimerIntentMutex_);
     epgTimerIntentObservationLookup_ = {};
 }
+void PublicApiRuntime::registerEpgTimerIntentReplayLookup(
+    EpgTimerIntentReplayLookup callback)
+{
+    std::lock_guard<std::mutex> lock(epgTimerIntentMutex_);
+    epgTimerIntentReplayLookup_ = std::move(callback);
+}
+void PublicApiRuntime::resetEpgTimerIntentReplayLookup()
+{
+    std::lock_guard<std::mutex> lock(epgTimerIntentMutex_);
+    epgTimerIntentReplayLookup_ = {};
+}
 void PublicApiRuntime::registerEpgTimerIntentSubmit(EpgTimerIntentSubmit callback)
 {
     std::lock_guard<std::mutex> lock(epgTimerIntentMutex_);
@@ -5279,6 +5290,7 @@ bool PublicApiRuntime::epgTimerIntentAdmissionConfigured() const
 {
     std::lock_guard<std::mutex> lock(epgTimerIntentMutex_);
     return static_cast<bool>(epgTimerIntentObservationLookup_) &&
+        static_cast<bool>(epgTimerIntentReplayLookup_) &&
         static_cast<bool>(epgTimerIntentSubmit_) &&
         epgEventDetailLookupConfigured();
 }
@@ -10841,18 +10853,56 @@ bool PublicApiRuntime::tryHandlePost(
         selection.ifMatch = ifMatch;
         selection.idempotencyKey = idempotencyKey;
         EpgTimerIntentObservationLookup resolve;
+        EpgTimerIntentReplayLookup replay;
         EpgTimerIntentSubmit submit;
         {
             std::lock_guard<std::mutex> lock(epgTimerIntentMutex_);
             resolve = epgTimerIntentObservationLookup_;
+            replay = epgTimerIntentReplayLookup_;
             submit = epgTimerIntentSubmit_;
         }
-        if (!resolve || !submit || !epgEventDetailLookupConfigured())
+        if (!replay || !submit)
         {
             response = serviceUnavailableProblem(path, requestId, correlationId);
             return true;
         }
         const PublicEpgTimerIntentAdmissionRequest admission{actorRef, selection};
+        // SecurityHttpGate has authorized this actor and exact backend.
+        // First recover a durable Operation without depending on EPG liveness.
+        const auto previous = replay(admission);
+        using S = PublicEpgTimerIntentAdmissionStatus;
+        if (previous.status == S::replayed)
+        {
+            if (previous.operation.operationId.empty() ||
+                previous.operation.state.empty() ||
+                previous.operation.backendId != selection.backendId ||
+                previous.operation.resourceRevision.empty())
+            {
+                response = serviceUnavailableProblem(path, requestId, correlationId);
+                return true;
+            }
+            const std::string location =
+                std::string(PublicOperationPrefix) + previous.operation.operationId;
+            response = publicOperationResponse(previous.operation, location,
+                requestId, correlationId, "");
+            response.statusCode = 202;
+            response.headers["Location"] = location;
+            response.headers["Cache-Control"] = "no-store";
+            return true;
+        }
+        if (previous.status == S::idempotencyConflict)
+        {
+            response = publicTimerCreateProblem(409, "idempotency_conflict",
+                "Idempotency conflict", "Key used for another submission.",
+                path, requestId, correlationId);
+            return true;
+        }
+        if (previous.status != S::notFound || !resolve ||
+            !epgEventDetailLookupConfigured())
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
         const auto current = resolve(admission);
         if (current.status == PublicEpgTimerIntentObservationStatus::notFound)
         {
@@ -10917,7 +10967,6 @@ bool PublicApiRuntime::tryHandlePost(
             case D::ready: break;
         }
         const auto result = submit(admission, current.observation);
-        using S = PublicEpgTimerIntentAdmissionStatus;
         switch (result.status)
         {
             case S::accepted: case S::replayed:

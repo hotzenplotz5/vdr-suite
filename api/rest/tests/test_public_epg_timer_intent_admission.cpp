@@ -22,6 +22,7 @@ int main()
         return response;
     };
     api.resetEpgTimerIntentObservationLookup();
+    api.resetEpgTimerIntentReplayLookup();
     api.resetEpgTimerIntentSubmit();
     api.resetEpgEventDetailLookup();
     assert(post(body, etag).statusCode == 503);
@@ -68,6 +69,16 @@ int main()
     api.registerEpgTimerIntentObservationLookup([&](const PublicEpgTimerIntentAdmissionRequest& r) {
         ++observes; assert(r.selection.eventId=="81234"); return observed;
     });
+    int replayQueries=0;
+    auto replayStatus=PublicEpgTimerIntentAdmissionStatus::notFound;
+    api.registerEpgTimerIntentReplayLookup([&](const PublicEpgTimerIntentAdmissionRequest& r) {
+        ++replayQueries;
+        assert(r.actorRef=="actor" && r.selection.backendId=="home");
+        PublicEpgTimerIntentAdmissionResult v; v.status=replayStatus;
+        v.operation.operationId="op_0123456789abcdef0123456789abcdef";
+        v.operation.state="outcome_unknown"; v.operation.backendId="home";
+        v.operation.resourceRevision="2"; return v;
+    });
     auto status=PublicEpgTimerIntentAdmissionStatus::accepted;
     api.registerEpgTimerIntentSubmit([&](const PublicEpgTimerIntentAdmissionRequest& r,
         const vdrsuite::public_epg_timer::AuthoritativeObservation& current) {
@@ -84,6 +95,20 @@ int main()
     assert(accepted.statusCode==202 && submits==1);
     assert(accepted.headers.at("Location")=="/api/v1/operations/op_0123456789abcdef0123456789abcdef");
     assert(accepted.headers.at("Cache-Control")=="no-store");
+    const int oldObservations=observes, oldSubmits=submits;
+    replayStatus=PublicEpgTimerIntentAdmissionStatus::replayed;
+    observed.observation.startTime=1; observed.observation.endTime=100;
+    const auto recovered=post(body,etag);
+    assert(recovered.statusCode==202);
+    assert(recovered.headers.at("Location")==
+        "/api/v1/operations/op_0123456789abcdef0123456789abcdef");
+    assert(observes==oldObservations && submits==oldSubmits);
+    replayStatus=PublicEpgTimerIntentAdmissionStatus::idempotencyConflict;
+    assert(post(body,etag).statusCode==409);
+    assert(observes==oldObservations && submits==oldSubmits);
+    replayStatus=PublicEpgTimerIntentAdmissionStatus::notFound;
+    observed.observation.startTime=4102444800LL;
+    observed.observation.endTime=4102448400LL;
     status=PublicEpgTimerIntentAdmissionStatus::replayed;
     assert(post(body,etag).statusCode==202);
     status=PublicEpgTimerIntentAdmissionStatus::idempotencyConflict;
@@ -112,6 +137,7 @@ int main()
     observed.observation.endTime=1700003600LL;
     assert(post(body,etag).statusCode==409 && submits==called);
     api.resetEpgTimerIntentObservationLookup();
+    api.resetEpgTimerIntentReplayLookup();
     api.resetEpgTimerIntentSubmit();
     api.resetEpgEventDetailLookup();
     assert(!api.epgTimerIntentAdmissionConfigured());
