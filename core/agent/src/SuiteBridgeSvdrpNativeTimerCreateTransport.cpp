@@ -431,6 +431,133 @@ SuiteBridgeCommandReply SuiteBridgeSvdrpTransport::inspectNativeTimerPreviewCont
     return executeRequest(wire.str());
 }
 
+bool SuiteBridgeNativeTimerCreateTransport::inspectProspectiveNativeTimerPreview(
+    const BackendAgentNativeTimerCreateSpecification& specification,
+    std::int64_t start, std::int64_t stop,
+    const BackendAgentLocalProviderSelection& authorizedSelection,
+    SuiteBridgeNativeTimerPreviewProjection& projection,
+    std::string& reasonCode)
+{
+    if (start <= 0 || stop <= start || stop - start >= 24 * 3600)
+    {
+        projection = {};
+        reasonCode = "native_timer_preview_request_invalid";
+        return false;
+    }
+    return verifyNativePreviewReply(
+        transport_.inspectNativeTimerPreviewContract(
+            specification, authorizedSelection.providerInstanceEpoch,
+            start, stop),
+        specification, start, stop, authorizedSelection,
+        static_cast<std::int64_t>(std::time(nullptr)),
+        projection, reasonCode);
+}
+
+bool SuiteBridgeNativeTimerCreateTransport::verifyNativePreviewReply(
+    const SuiteBridgeCommandReply& reply,
+    const BackendAgentNativeTimerCreateSpecification& specification,
+    std::int64_t start, std::int64_t stop,
+    const BackendAgentLocalProviderSelection& authorizedSelection,
+    std::int64_t receivedAt,
+    SuiteBridgeNativeTimerPreviewProjection& projection,
+    std::string& reasonCode)
+{
+    projection = {};
+    if (receivedAt <= 0 || start <= 0 || stop <= start ||
+        stop - start >= 24 * 3600 ||
+        !backendAgentNativeTimerCreateSpecificationValid(specification) ||
+        specification.weekdays != "-------" ||
+        !specification.enabled || specification.vps ||
+        !backendAgentLocalProviderValidSelection(authorizedSelection) ||
+        authorizedSelection.authorityDomain !=
+            kBackendAgentNativeTimerCreateAuthorityDomain ||
+        authorizedSelection.providerId !=
+            kBackendAgentNativeTimerCreateProviderId ||
+        authorizedSelection.providerKind !=
+            kBackendAgentNativeTimerCreateProviderKind ||
+        authorizedSelection.requiredCapability !=
+            kBackendAgentNativeTimerCreateCapability)
+    {
+        reasonCode = "native_timer_preview_request_invalid";
+        return false;
+    }
+    if (!reply.transportSucceeded() || reply.replyCode != 900)
+    {
+        reasonCode = "native_timer_preview_unavailable_or_uncertain";
+        return false;
+    }
+
+    const std::string fingerprint =
+        backendAgentNativeTimerCreateSpecificationFingerprint(specification);
+    const std::string digest =
+        backendAgentNativeTimerDeleteFingerprintToken(fingerprint);
+    if (digest.empty())
+    {
+        reasonCode = "native_timer_preview_specification_invalid";
+        return false;
+    }
+
+    const auto fields = split(reply.payload, 15);
+    std::uint64_t generation = 0, capabilityRevision = 0;
+    std::uint64_t echoedStart = 0, echoedStop = 0;
+    std::uint64_t nativeNow = 0, timers = 0, devices = 0;
+    const auto nonnegative = [](const std::string& raw,
+        std::uint64_t& value) {
+        value = 0;
+        if (raw.empty() || raw.size() > 19) return false;
+        for (unsigned char c : raw) {
+            if (c < '0' || c > '9' ||
+                value > (static_cast<std::uint64_t>(
+                    std::numeric_limits<std::int64_t>::max()) -
+                    static_cast<unsigned>(c - '0')) / 10U)
+                return false;
+            value = value * 10U + static_cast<unsigned>(c - '0');
+        }
+        return true;
+    };
+    if (fields.size() != 15 ||
+        fields[0] != "vdr-suite-ntpreview/1" ||
+        fields[1] != kBackendAgentNativeTimerCreateCapability ||
+        fields[2] != "1" ||
+        fields[3] != "suitebridge" ||
+        fields[4] != authorizedSelection.providerInstanceEpoch ||
+        !unsignedValue(fields[5], generation) ||
+        !unsignedValue(fields[6], capabilityRevision) ||
+        generation != authorizedSelection.providerGeneration ||
+        capabilityRevision != authorizedSelection.capabilityRevision ||
+        fields[7] != digest ||
+        !unsignedValue(fields[8], echoedStart) ||
+        !unsignedValue(fields[9], echoedStop) ||
+        !unsignedValue(fields[10], nativeNow) ||
+        echoedStart != static_cast<std::uint64_t>(start) ||
+        echoedStop != static_cast<std::uint64_t>(stop) ||
+        !backendAgentNativeTimerDeleteFingerprintTokenValid(fields[11]) ||
+        !nonnegative(fields[12], timers) || timers > 4096 ||
+        !unsignedValue(fields[13], devices) || devices > 64 ||
+        fields[14] != "isolated_clear" ||
+        nativeNow > static_cast<std::uint64_t>(receivedAt) + 5U ||
+        static_cast<std::uint64_t>(receivedAt) - 
+            (nativeNow > static_cast<std::uint64_t>(receivedAt)
+                ? static_cast<std::uint64_t>(receivedAt)
+                : nativeNow) > 15U)
+    {
+        reasonCode = "native_timer_preview_reply_invalid_or_stale";
+        return false;
+    }
+
+    projection.isolatedCandidateClear = true;
+    projection.proposedStart = start;
+    projection.proposedStop = stop;
+    projection.nativeObservedAt = static_cast<std::int64_t>(nativeNow);
+    projection.consideredTimers = timers;
+    projection.consideredDevices = devices;
+    projection.providerInstanceEpoch = fields[4];
+    projection.specificationDigest = fields[7];
+    projection.evidenceRevision = fields[11];
+    reasonCode = "native_timer_preview_typed_clear";
+    return true;
+}
+
 bool SuiteBridgeNativeTimerCreateTransport::inspectClock(
     std::int64_t start, std::int64_t stop,
     const BackendAgentLocalProviderSelection& authorizedSelection,
