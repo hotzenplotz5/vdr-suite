@@ -10,3 +10,11 @@ test-slice2-native-timer-preview-kernel:
 	$(BUILD_DIR)/test_suitebridge_native_timer_preview_core
 
 test-fast: test-slice2-native-timer-preview-kernel
+
+.PHONY: test-slice2-native-timer-preview-source-architecture
+
+test-slice2-native-timer-preview-source-architecture:
+	python3 tools/check_slice2_native_timer_preview_safety.py
+
+test-architecture: test-slice2-native-timer-preview-source-architecture
+test-fast: test-slice2-native-timer-preview-source-architecture
