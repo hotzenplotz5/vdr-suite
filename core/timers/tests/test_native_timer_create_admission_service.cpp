@@ -516,6 +516,20 @@ void test_epg_public_atomic_admission_and_replay()
                     candidate.desiredNativeTimerSpecification));
         assert(producerCandidate.conflict ==
             TimerAssignmentPlanningConflictState::confirmedClear);
+        assert(attested.observedAt == preview.nativeObservedAt);
+        assert(attested.expiresAt == preview.nativeObservedAt + 15);
+
+        // A native snapshot at the freshness boundary may be admitted now,
+        // but its lifetime must NOT be renewed when the reply is received.
+        auto lastFresh = preview;
+        lastFresh.nativeObservedAt = request.requestedAt - 15;
+        assert(attestBackendNativeTimerPreview(
+            lastFresh, request.authoritativeAgent, provider,
+            producerCandidate, request.requestedAt, attested));
+        assert(attested.observedAt == lastFresh.nativeObservedAt);
+        assert(attested.expiresAt == request.requestedAt);
+        assert(!prospectiveNativeTimerConflictClear(
+            attested, producerCandidate, request.requestedAt + 1));
 
         auto stale = preview;
         stale.providerInstanceEpoch = "pie_stale";

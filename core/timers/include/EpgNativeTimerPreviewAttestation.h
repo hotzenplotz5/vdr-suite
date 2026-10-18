@@ -65,8 +65,10 @@ inline bool attestBackendNativeTimerPreview(
     proof.executionAuthorityFence = candidate.executionAuthorityFence;
     proof.nativeSpecificationFingerprint = exactFingerprint;
     proof.evidenceRevision = verified.evidenceRevision;
-    proof.observedAt = receivedAt;
-    proof.expiresAt = receivedAt + 15;
+    // The freshness budget starts at the native VDR observation, not at
+    // transport receipt. Never renew a stale snapshot while attesting it.
+    proof.observedAt = verified.nativeObservedAt;
+    proof.expiresAt = verified.nativeObservedAt + 15;
     proof.proposedTimerIncluded = true;
     proof.allExistingTimersConsidered = true;
     proof.devicesConsidered = true;
