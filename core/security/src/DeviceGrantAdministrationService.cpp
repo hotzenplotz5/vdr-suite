@@ -115,20 +115,22 @@ bool DeviceGrantAdministrationService::supportedGrant(
     const std::string& permission, const std::string& backendId)
 {
     // A Device Service Actor cannot receive role.admin, arbitrary
-    // administrative rights, or mutation permissions through this surface.
+    // administrative rights, or unrestricted mutation permissions here.
+    // Only the explicitly reviewed single-backend CREATE actions are allowed.
     const bool devicePermission =
         permission == "channels.view" ||
         permission == "recordings.view" ||
         permission == "epg.view" ||
         permission == "timers.view" ||
+        permission == "timers.create" ||
         permission == "searchtimers.view" ||
         permission == "searchtimers.create" ||
         permission == "media.live.play" ||
         permission == "media.recording.play";
-    // SearchTimer mutation must be explicitly bound to one concrete backend.
-    // Human grant vocabulary also supports global '*', but never widen a
-    // paired Device CREATE grant to every backend.
-    if (permission == "searchtimers.create" &&
+    // Both one-shot and SearchTimer CREATE require a concrete backend.
+    // Human grant vocabulary may allow '*', but Device CREATE may not.
+    if ((permission == "searchtimers.create" ||
+         permission == "timers.create") &&
         (backendId.empty() || backendId == "*" ||
          backendId == "." || backendId == ".."))
         return false;

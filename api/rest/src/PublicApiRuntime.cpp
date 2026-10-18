@@ -4515,7 +4515,7 @@ ApiResponse publicDeviceGrantSetResponse(
             jsonEscape(grantSet.grants[i].backendId) + "\"}";
     }
     body += "],\"supportedPermissions\":["
-        "\"channels.view\",\"recordings.view\",\"epg.view\",\"timers.view\","
+        "\"channels.view\",\"recordings.view\",\"epg.view\",\"timers.view\",\"timers.create\","
         "\"searchtimers.view\",\"searchtimers.create\","
         "\"media.live.play\",\"media.recording.play\"]}";
     ApiResponse result = jsonResponse(body, requestId, correlationId);

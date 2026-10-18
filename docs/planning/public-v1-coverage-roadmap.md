@@ -37,6 +37,10 @@
 | 5 | End-to-end security, conflict, replay, uncertain outcome, docs, device acceptance | Open | — | Not installed | Pending |
 | 6 (decision) | MODIFY/enable/disable native Timer with same discipline | Optional | — | — | — |
 
+### Device grant admission (2026-10-18)
+
+The source audit found that `SecurityHttpGate` requires `timers.create@backend`, but the normal Device administration allowlist originally exposed only `timers.view`. This prevents a paired VIDAA client from obtaining CREATE permission through normal administration. The Slice-1 permission correction makes **only `timers.create` on a concrete backend** assignable, updates Device `supportedPermissions`, and tests real grant/revocation with Device authentication. It does not enable an unconfigured EPG TimerIntent submit or authorize native writes by itself.
+
 ## Acceptance template — maintain after each slice
 
 For every completed slice append the exact **repository/branch/full commit SHA**, changed endpoint/owner, C++/JS regression target with result, exact CI workflow/run URL and result, read-only daemon provenance if known, VIDAA candidate, and explicit **Hisense PASS/PENDING/FAIL**. Update [CURRENT](../CURRENT.md) only with separately verified mutable state. Never mark a route productive merely because a callback compiles or a CI mock passed.

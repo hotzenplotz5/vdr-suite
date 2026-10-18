@@ -60,12 +60,13 @@ The supported grant permissions currently are exactly:
 - `recordings.view` (read-only Public-v1 recording search)
 - `epg.view` (read-only Public-v1 EPG search and Now/Next)
 - `timers.view`
+- `timers.create` (one EPG-selected native Timer intent, explicit backend only; available as a grant before productive admission is wired)
 - `searchtimers.view` (SearchTimer list and preview, independently of EPG read)
 - `searchtimers.create` (CREATE only on an explicit backend, never `*`)
 - `media.live.play`
 - `media.recording.play`
 
-No `role.admin`, `role.read-only`, `accounts.*`, `remote.control` or arbitrary strings are allowed here. Grant `backendId` is an explicit product Backend identity or the configured wildcard `*`, **except** `searchtimers.create` which requires an exact concrete backend.
+No `role.admin`, `role.read-only`, `accounts.*`, `remote.control` or arbitrary strings are allowed here. Grant `backendId` is an explicit product Backend identity or the configured wildcard `*`, **except** `timers.create` and `searchtimers.create`, both of which require an exact concrete backend.
 
 ## 4. Ensure or revoke one grant
 

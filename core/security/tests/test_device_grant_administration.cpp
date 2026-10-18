@@ -90,6 +90,12 @@ int main()
         "searchtimers.view", "default"));
     assert(DeviceGrantAdministrationService::supportedGrant(
         "searchtimers.create", "default"));
+    assert(DeviceGrantAdministrationService::supportedGrant(
+        "timers.create", "default"));
+    assert(!DeviceGrantAdministrationService::supportedGrant(
+        "timers.create", "*"));
+    assert(!DeviceGrantAdministrationService::supportedGrant(
+        "timers.create", "."));
     assert(!DeviceGrantAdministrationService::supportedGrant(
         "searchtimers.create", "*"));
     assert(!DeviceGrantAdministrationService::supportedGrant(
@@ -172,6 +178,41 @@ int main()
     assert(actorGrants.available);
     assert(actorGrants.grants.size() == 1U);
     assert(actorGrants.grants.front().permission == "media.live.play");
+
+    // Native one-shot Timer CREATE can be issued by the real administrator
+    // service and subsequently authenticated for exactly that backend.
+    {
+        Fixture nativeTimerGrants;
+        const auto initial = nativeTimerGrants.service.read(DeviceId);
+        assert(initial.status == DeviceGrantAdministrationStatus::ok);
+        const auto deniedWildcard = nativeTimerGrants.service.setGrant(
+            admin(), DeviceId, initial.grantSet.revision,
+            "timers.create", "*", true);
+        assert(deniedWildcard.status == DeviceGrantAdministrationStatus::invalid);
+        const auto permitted = nativeTimerGrants.service.setGrant(
+            admin(), DeviceId, initial.grantSet.revision,
+            "timers.create", "default", true);
+        assert(permitted.status == DeviceGrantAdministrationStatus::ok);
+        assert(permitted.grantSet.grants.size() == 1U);
+        DeviceCredentialAuthenticator nativeTimerAuth(
+            nativeTimerGrants.verifiers, nativeTimerGrants.identities,
+            nativeTimerGrants.grants);
+        const auto actor = nativeTimerAuth.authenticate(
+            authHeaders, "native-timer-device-grant", "");
+        assert(actor.authenticated());
+        assert(actor.grants.size() == 1U);
+        assert(actor.grants[0].permission == "timers.create");
+        assert(actor.grants[0].backendId == "default");
+        const auto revoked = nativeTimerGrants.service.setGrant(
+            admin(), DeviceId, permitted.grantSet.revision,
+            "timers.create", "default", false);
+        assert(revoked.status == DeviceGrantAdministrationStatus::ok);
+        assert(revoked.grantSet.grants.empty());
+        const auto afterRevocation = nativeTimerAuth.authenticate(
+            authHeaders, "native-timer-device-grant-revoked", "");
+        assert(afterRevocation.authenticated());
+        assert(afterRevocation.grants.empty());
+    }
 
     // Public-v1 search permissions are independently assignable to a Device.
     {
