@@ -1,4 +1,5 @@
 #include "EpgTimerIntentAtomicAdmissionService.h"
+#include "EpgTimerIntentAdmissionRepository.h"
 
 #include "Database.h"
 #include "MutationOperationIdentity.h"
@@ -7,7 +8,6 @@
 #include "TimerIntentApplicationService.h"
 #include "TimerIntentRepository.h"
 
-#include <sqlite3.h>
 
 #include <cstdint>
 #include <limits>
@@ -28,81 +28,6 @@ AtomicAdmissionResult outcome(
     result.status = status;
     result.operation = operation;
     return result;
-}
-
-bool bind(sqlite3_stmt* statement, int index, const std::string& value)
-{
-    return value.size() <= static_cast<std::size_t>(std::numeric_limits<int>::max())
-        && sqlite3_bind_text(statement, index, value.data(),
-            static_cast<int>(value.size()), SQLITE_TRANSIENT) == SQLITE_OK;
-}
-
-std::string column(sqlite3_stmt* statement, int index)
-{
-    const unsigned char* value = sqlite3_column_text(statement, index);
-    const int size = sqlite3_column_bytes(statement, index);
-    return value && size >= 0
-        ? std::string(reinterpret_cast<const char*>(value), size)
-        : std::string();
-}
-
-enum class Existing { none, same, conflict, error };
-
-Existing replayLookup(
-    Database& database, const AtomicAdmissionRequest& request,
-    std::string& operationId)
-{
-    sqlite3_stmt* statement = nullptr;
-    const char* sql =
-        "SELECT channel_id,event_id,event_etag,operation_id "
-        "FROM epg_timer_intent_admissions "
-        "WHERE actor_id=? AND backend_id=? AND idempotency_key=?;";
-    if (sqlite3_prepare_v2(database.handle(), sql, -1, &statement, nullptr)
-        != SQLITE_OK)
-        return Existing::error;
-    const bool bound = bind(statement, 1, request.authenticatedActorId)
-        && bind(statement, 2, request.selection.backendId)
-        && bind(statement, 3, request.selection.idempotencyKey);
-    const int rc = bound ? sqlite3_step(statement) : SQLITE_ERROR;
-    Existing result = Existing::error;
-    if (rc == SQLITE_DONE) result = Existing::none;
-    if (rc == SQLITE_ROW)
-    {
-        result = column(statement, 0) == request.selection.channelId
-            && column(statement, 1) == request.selection.eventId
-            && column(statement, 2) == request.selection.ifMatch
-            ? Existing::same : Existing::conflict;
-        if (result == Existing::same) operationId = column(statement, 3);
-    }
-    sqlite3_finalize(statement);
-    return result;
-}
-
-bool recordAdmission(Database& database, const AtomicAdmissionRequest& request,
-    const std::string& intentId, const std::string& assignmentId,
-    const std::string& operationId)
-{
-    sqlite3_stmt* statement = nullptr;
-    const char* sql =
-        "INSERT INTO epg_timer_intent_admissions "
-        "(actor_id,backend_id,idempotency_key,channel_id,event_id,"
-        "event_etag,intent_id,assignment_id,operation_id) "
-        "VALUES (?,?,?,?,?,?,?,?,?);";
-    if (sqlite3_prepare_v2(database.handle(), sql, -1, &statement, nullptr)
-        != SQLITE_OK)
-        return false;
-    const bool bound = bind(statement, 1, request.authenticatedActorId)
-        && bind(statement, 2, request.selection.backendId)
-        && bind(statement, 3, request.selection.idempotencyKey)
-        && bind(statement, 4, request.selection.channelId)
-        && bind(statement, 5, request.selection.eventId)
-        && bind(statement, 6, request.selection.ifMatch)
-        && bind(statement, 7, intentId)
-        && bind(statement, 8, assignmentId)
-        && bind(statement, 9, operationId);
-    const int rc = bound ? sqlite3_step(statement) : SQLITE_ERROR;
-    sqlite3_finalize(statement);
-    return rc == SQLITE_DONE;
 }
 
 bool candidateMatches(
@@ -168,19 +93,8 @@ EpgTimerIntentAtomicAdmissionService::EpgTimerIntentAtomicAdmissionService(
 
 bool EpgTimerIntentAtomicAdmissionService::ensureSchema()
 {
-    auto lease = database_.acquireTransactionLease();
-    return database_.execute(
-        "CREATE TABLE IF NOT EXISTS epg_timer_intent_admissions ("
-        "actor_id TEXT NOT NULL, backend_id TEXT NOT NULL,"
-        "idempotency_key TEXT NOT NULL, channel_id TEXT NOT NULL,"
-        "event_id TEXT NOT NULL, event_etag TEXT NOT NULL,"
-        "intent_id TEXT NOT NULL, assignment_id TEXT NOT NULL,"
-        "operation_id TEXT NOT NULL UNIQUE,"
-        "PRIMARY KEY(actor_id,backend_id,idempotency_key),"
-        "FOREIGN KEY(intent_id) REFERENCES timer_intents(timer_intent_id),"
-        "FOREIGN KEY(assignment_id) REFERENCES timer_assignments(timer_assignment_id),"
-        "FOREIGN KEY(operation_id) REFERENCES mutation_operations(operation_id)"
-        ");");
+    EpgTimerIntentAdmissionRepository repository(database_);
+    return repository.ensureSchema();
 }
 
 AtomicAdmissionResult EpgTimerIntentAtomicAdmissionService::admit(
@@ -206,16 +120,17 @@ AtomicAdmissionResult EpgTimerIntentAtomicAdmissionService::admit(
         database_.execute("ROLLBACK;");
         return outcome(status);
     };
-    std::string priorId;
-    const Existing existing = replayLookup(database_, request, priorId);
-    if (existing == Existing::error)
+    EpgTimerIntentAdmissionRepository admissionRepository(database_);
+    const auto existing = admissionRepository.lookup(
+        request.authenticatedActorId, request.selection);
+    if (existing.status == AdmissionReplayStatus::storageError)
         return fail(AtomicAdmissionStatus::storageError);
-    if (existing == Existing::conflict)
+    if (existing.status == AdmissionReplayStatus::conflict)
         return fail(AtomicAdmissionStatus::idempotencyConflict);
-    if (existing == Existing::same)
+    if (existing.status == AdmissionReplayStatus::same)
     {
         MutationOperationRepository repository(database_);
-        const auto op = repository.findById(priorId);
+        const auto op = repository.findById(existing.operationId);
         if (!op.ok() || op.operation.actorId != request.authenticatedActorId ||
             op.operation.backendId != request.selection.backendId ||
             op.operation.actionFamily != "timer.create")
@@ -281,7 +196,8 @@ AtomicAdmissionResult EpgTimerIntentAtomicAdmissionService::admit(
     if (prepared.status != NativeTimerCreateAdmissionStatus::prepared)
         return fail(nativeStatus(prepared.status));
 
-    if (!recordAdmission(database_, request, intentId,
+    if (!admissionRepository.record(
+            request.authenticatedActorId, request.selection, intentId,
             assignmentId, prepared.operation.operationId))
         return fail(AtomicAdmissionStatus::storageError);
 
