@@ -2,6 +2,7 @@
 #define VDR_SUITE_BRIDGE_NATIVE_TIMER_PREVIEW_CORE_H
 
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 // Pure, bounded decision kernel for a future read-only VDR-owned prospective
@@ -13,6 +14,27 @@
 // indeterminate, or overlaps the proposed airing, refuse to certify 'clear'
 // even when sharing a tuner might be possible. No parallel VDR scheduler.
 namespace vdrsuite_native_timer_preview {
+
+// VDR schedules one-shot timers at minute precision: expand the evidence
+// window outward. An unrounded EPG window could otherwise hide a conflict
+// with a timer beginning or ending in the same native scheduling minute.
+inline bool nativeMinuteExpandedWindow(std::int64_t start, std::int64_t stop,
+                                       std::int64_t& roundedStart,
+                                       std::int64_t& roundedStop)
+{
+  roundedStart = 0;
+  roundedStop = 0;
+  if (start <= 0 || stop <= start || stop - start >= 24 * 3600 ||
+      stop > std::numeric_limits<std::int64_t>::max() - 60)
+    return false;
+  const std::int64_t begin = start - start % 60;
+  const std::int64_t end = stop + (60 - stop % 60) % 60;
+  if (begin <= 0 || end <= begin || end - begin >= 24 * 3600)
+    return false;
+  roundedStart = begin;
+  roundedStop = end;
+  return true;
+}
 
 enum class Disposition { unknown, candidateClear };
 

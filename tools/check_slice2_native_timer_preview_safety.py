@@ -14,7 +14,8 @@ for needle in (
     "ProvidesTransponder(", "!device->Occupied()",
     "!device->Receiving()", "MaySwitchTransponder(",
     "timerKey.Remove()", "timerKey.TimedOut()",
-    "validLocalProjection(", "cDevice::NumDevices()", "tfActive",
+    "validLocalProjection(", "nativeMinuteExpandedWindow(",
+    "cDevice::NumDevices()", "tfActive",
     "t->WeekDays() == 0", "t->Local()", "CA_FTA",
 ):
     if needle not in native:

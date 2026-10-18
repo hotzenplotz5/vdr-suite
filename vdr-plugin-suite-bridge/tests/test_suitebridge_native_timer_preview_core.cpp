@@ -23,6 +23,23 @@ NativeSnapshot isolated()
 
 int main()
 {
+  std::int64_t minuteStart = 0, minuteStop = 0;
+  assert(nativeMinuteExpandedWindow(
+      1792222819, 1792226391, minuteStart, minuteStop));
+  assert(minuteStart == 1792222800);
+  assert(minuteStop == 1792226400);
+  // The final seconds of a preceding Timer still overlap VDR's expanded
+  // starting minute even when they precede the EPG event's raw start.
+  auto adjacent = isolated();
+  adjacent.proposedStart = minuteStart;
+  adjacent.proposedStop = minuteStop;
+  adjacent.existingTimers.push_back(
+      {true, true, minuteStart - 100, minuteStart + 1});
+  assert(std::string(evaluate(adjacent).reason) ==
+      "active_timer_overlap_not_simulated");
+  assert(!nativeMinuteExpandedWindow(
+      1792222800, 1792222800, minuteStart, minuteStop));
+
   const auto eligible = isolated();
   const auto decision = evaluate(eligible);
   assert(decision.disposition == Disposition::candidateClear);

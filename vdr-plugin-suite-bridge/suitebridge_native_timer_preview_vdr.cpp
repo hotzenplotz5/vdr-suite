@@ -19,18 +19,11 @@ bool validLocalProjection(const SuiteBridgeNativeTimerPreviewVdrRequest& r)
 {
   // Project the exact minute-rounded one-shot boundaries in the owning VDR
   // process. Do not use the Suite Daemon's TZ or trust a Device projection.
+  std::int64_t roundedStart = 0, roundedStop = 0;
   if (!r.enabled || r.vps || r.weekdays != "-------" ||
-      r.unixStart <= 0 || r.unixStop <= r.unixStart ||
-      r.unixStop - r.unixStart >= 24 * 3600 ||
-      r.unixStop > std::numeric_limits<std::int64_t>::max() - 60 ||
-      r.priority < 0 || r.priority > 99)
-    return false;
-  const std::int64_t roundedStart =
-      r.unixStart - r.unixStart % 60;
-  const std::int64_t roundedStop =
-      r.unixStop + (60 - r.unixStop % 60) % 60;
-  if (roundedStop <= roundedStart ||
-      roundedStop - roundedStart >= 24 * 3600)
+      r.priority < 0 || r.priority > 99 ||
+      !vdrsuite_native_timer_preview::nativeMinuteExpandedWindow(
+          r.unixStart, r.unixStop, roundedStart, roundedStop))
     return false;
   const time_t nativeStart = static_cast<time_t>(roundedStart);
   const time_t nativeStop = static_cast<time_t>(roundedStop);
@@ -64,10 +57,11 @@ SuiteBridgeCaptureNativeTimerPreviewVdr(
 {
   using namespace vdrsuite_native_timer_preview;
   NativeSnapshot result;
-  result.proposedStart = request.unixStart;
-  result.proposedStop = request.unixStop;
   result.proposedOneShot = validLocalProjection(request);
-  if (!result.proposedOneShot) return result;
+  if (!result.proposedOneShot ||
+      !nativeMinuteExpandedWindow(request.unixStart, request.unixStop,
+                                  result.proposedStart, result.proposedStop))
+    return result;
 
   // Never take a VDR write lock or add a candidate to the live Timer list.
   // Collect the entire Timer inventory and then verify its generation still
