@@ -37,7 +37,28 @@ jobs:
       - name: Verify exact VDR release
         run: |
           test "$(git -C vdr-upstream rev-parse HEAD)" = "339b9969b0cfaf27d3941f135e17a09b984cd094"
-          grep -q '^#define VDRVERSION "2.8.3"' vdr-upstream/config.h
+          grep -Eq '^#define[[:space:]]+VDRVERSION[[:space:]]+"2[.]8[.]3"
+
+      - name: Install native VDR header prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            g++ pkg-config libcap-dev libfontconfig1-dev \
+            libfreetype-dev libfribidi-dev libjpeg-dev
+
+      - name: Compile read-only VDR snapshot against 2.8.3
+        run: |
+          mkdir -p "$RUNNER_TEMP/include"
+          ln -s "$GITHUB_WORKSPACE/vdr-upstream" "$RUNNER_TEMP/include/vdr"
+          g++ -std=c++17 -Wall -Wextra -pedantic -fsyntax-only \
+            -I"$RUNNER_TEMP/include" -I"$GITHUB_WORKSPACE/vdr-upstream" \
+            -Icore/agent/include -Ivdr-plugin-suite-bridge \
+            $(pkg-config --cflags fontconfig freetype2) \
+            vdr-plugin-suite-bridge/suitebridge_native_timer_preview_vdr.cpp
+          echo "NATIVE_PREVIEW_VDR_2_8_3_HEADERS=PASS"
+          echo "NATIVE_PREVIEW_HARDWARE_ACCEPTANCE=NOT_TESTED"
+          echo "PUBLIC_EPG_TIMER_CREATE=DISABLED"
+ vdr-upstream/config.h
 
       - name: Install native VDR header prerequisites
         run: |
