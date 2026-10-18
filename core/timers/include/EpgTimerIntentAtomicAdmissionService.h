@@ -1,6 +1,7 @@
 #pragma once
 
 #include "EpgNativeTimerTimeGuard.h"
+#include "EpgNativeTimerConflictGuard.h"
 #include "EpgTimerIntentDraft.h"
 #include "NativeTimerCreateAdmissionService.h"
 #include "TimerAssignmentPlanner.h"
@@ -45,6 +46,7 @@ struct AtomicAdmissionRequest
     // authoritative backend/server owner, not from Device request JSON.
     std::string authoritativeTitle;
     ServerOwnedNativeClockEvidence nativeClock;
+    ProspectiveNativeTimerConflictProof conflictProof;
     vdrsuite::timers::TimerAssignmentPlanningBackendCandidate candidate;
     std::int64_t requestedAt = 0;
     std::int64_t deadline = 0;

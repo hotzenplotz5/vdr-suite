@@ -402,6 +402,19 @@ void test_epg_public_atomic_admission_and_replay()
     candidate.desiredNativeTimerSpecification.startTime = "0940";
     candidate.desiredNativeTimerSpecification.endTime = "1040";
     candidate.conflict = TimerAssignmentPlanningConflictState::confirmedClear;
+    request.conflictProof.current = true;
+    request.conflictProof.backendId = candidate.backendId;
+    request.conflictProof.backendGeneration = candidate.currentBackendGeneration;
+    request.conflictProof.executionAuthorityFence = candidate.executionAuthorityFence;
+    request.conflictProof.nativeSpecificationFingerprint =
+        nativeTimerSpecificationFingerprint(candidate.desiredNativeTimerSpecification);
+    request.conflictProof.evidenceRevision = "proposed-native-timer:7";
+    request.conflictProof.observedAt = request.requestedAt - 1;
+    request.conflictProof.expiresAt = request.requestedAt + 10;
+    request.conflictProof.proposedTimerIncluded = true;
+    request.conflictProof.allExistingTimersConsidered = true;
+    request.conflictProof.devicesConsidered = true;
+    request.conflictProof.conflictsFound = false;
     request.revalidateSourceAndNativeSpecification = [] { return true; };
 
     const auto first = coordinator.admit(request);
@@ -439,6 +452,36 @@ void test_epg_public_atomic_admission_and_replay()
     freshKey.selection.idempotencyKey = "device-once-2";
     const auto duplicate = afterRestart.admit(freshKey);
     assert(duplicate.status == AtomicAdmissionStatus::duplicateIntent);
+
+    auto absentPreview = request;
+    absentPreview.selection.idempotencyKey = "device-no-native-preview";
+    absentPreview.conflictProof.current = false;
+    assert(afterRestart.admit(absentPreview).status ==
+        AtomicAdmissionStatus::backendUnavailable);
+
+    auto lsccPretend = request;
+    lsccPretend.selection.idempotencyKey = "device-lscc-empty-not-proof";
+    lsccPretend.conflictProof.proposedTimerIncluded = false;
+    assert(afterRestart.admit(lsccPretend).status ==
+        AtomicAdmissionStatus::backendUnavailable);
+
+    auto noDeviceEvidence = request;
+    noDeviceEvidence.selection.idempotencyKey = "device-no-device-evidence";
+    noDeviceEvidence.conflictProof.devicesConsidered = false;
+    assert(afterRestart.admit(noDeviceEvidence).status ==
+        AtomicAdmissionStatus::backendUnavailable);
+
+    auto stalePreview = request;
+    stalePreview.selection.idempotencyKey = "device-stale-preview";
+    stalePreview.conflictProof.observedAt -= 60;
+    assert(afterRestart.admit(stalePreview).status ==
+        AtomicAdmissionStatus::backendUnavailable);
+
+    auto wrongFingerprint = request;
+    wrongFingerprint.selection.idempotencyKey = "device-wrong-preview-spec";
+    wrongFingerprint.conflictProof.nativeSpecificationFingerprint += "changed";
+    assert(afterRestart.admit(wrongFingerprint).status ==
+        AtomicAdmissionStatus::backendUnavailable);
 
     auto wrongTime = request;
     wrongTime.selection.idempotencyKey = "device-new-wrong-hour";
