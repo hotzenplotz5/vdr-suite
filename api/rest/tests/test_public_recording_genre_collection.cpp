@@ -69,7 +69,7 @@ int main()
     assert(recordings.body.find("recordingId") != std::string::npos);
     assert(recordings.body.find("backendNativeId") == std::string::npos);
     assert(recordings.body.find("recordingPath") == std::string::npos);
-    assert(recordings.body.find("\\"edited\\":true") != std::string::npos);
+    assert(recordings.body.find("\"edited\":true") != std::string::npos);
     for (const auto& invalid : {
         "/api/v1/genres?backendId=home&limit=31",
         "/api/v1/genres?backendId=home&genreId=crime",
