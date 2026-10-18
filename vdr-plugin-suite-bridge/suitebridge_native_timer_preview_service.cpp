@@ -168,25 +168,39 @@ std::string snapshotRevision(
     const NativeSnapshot& snapshot, const std::string& epoch,
     const std::string& digest, std::int64_t observedAt)
 {
-  std::string evidence = "vdr-native-preview-snapshot/1|";
-  append(evidence, epoch);
-  append(evidence, digest);
-  append(evidence, std::to_string(observedAt));
-  append(evidence, std::to_string(snapshot.proposedStart));
-  append(evidence, std::to_string(snapshot.proposedStop));
+  // The shared SHA-256 token routine intentionally bounds one canonical
+  // input to 4096 bytes. Fold one bounded native fact at a time rather
+  // than dropping the evidence from a valid 4096-Timer VDR inventory.
+  // Every step is domain-separated and length-delimited.
+  std::string state = "vdr-native-preview-snapshot/1|";
+  append(state, epoch);
+  append(state, digest);
+  append(state, std::to_string(observedAt));
+  append(state, std::to_string(snapshot.proposedStart));
+  append(state, std::to_string(snapshot.proposedStop));
+  state = vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
+      state);
+  if (state.empty()) return {};
   for (const auto& t : snapshot.existingTimers) {
-    append(evidence, t.active ? "1" : "0");
-    append(evidence, t.exactOneShot ? "1" : "0");
-    append(evidence, std::to_string(t.start));
-    append(evidence, std::to_string(t.stop));
+    std::string fact = "timer|";
+    append(fact, t.active ? "1" : "0");
+    append(fact, t.exactOneShot ? "1" : "0");
+    append(fact, std::to_string(t.start));
+    append(fact, std::to_string(t.stop));
+    state = vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
+        "vdr-native-preview-fold-timer/1|" + state + "|" + fact);
+    if (state.empty()) return {};
   }
   for (const auto& d : snapshot.devices) {
-    append(evidence, d.enumerated ? "1" : "0");
-    append(evidence, d.supportsProposedChannel ? "1" : "0");
-    append(evidence, d.availableWithoutPreemptingRecording ? "1" : "0");
+    std::string fact = "device|";
+    append(fact, d.enumerated ? "1" : "0");
+    append(fact, d.supportsProposedChannel ? "1" : "0");
+    append(fact, d.availableWithoutPreemptingRecording ? "1" : "0");
+    state = vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
+        "vdr-native-preview-fold-device/1|" + state + "|" + fact);
+    if (state.empty()) return {};
   }
-  return vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
-      evidence);
+  return state;
 }
 
 } // namespace

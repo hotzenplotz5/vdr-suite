@@ -91,6 +91,18 @@ int main()
   r = service.Handle("NTPREVIEW", "CHECK 1 pie_test 1 2 00");
   assert(r.replyCode == 501);
 
+  // Stress bounded native inventory without truncating its cryptographic
+  // evidence revision. This still uses a test-only reader, not real VDR.
+  SuiteBridgeNativeTimerPreviewService largeInventory(
+      "pie_test", [](const SuiteBridgeNativeTimerPreviewVdrRequest& request) {
+        NativeSnapshot s = snapshot(request);
+        s.existingTimers.resize(4096, {false, false, 0, 0});
+        return s;
+      });
+  r = largeInventory.Handle("NTPREVIEW", good.c_str());
+  assert(r.replyCode == 900);
+  assert(r.payload.find(" 4096 1 isolated_clear") != std::string::npos);
+
   SuiteBridgeNativeTimerPreviewService overlap(
       "pie_test", [](const SuiteBridgeNativeTimerPreviewVdrRequest& request) {
         NativeSnapshot s = snapshot(request);
