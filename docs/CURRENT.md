@@ -30,6 +30,12 @@ An external source check of [epgsearch SVDRP](https://manpages.debian.org/testin
 
 Outstanding, **not accepted**: backend-native prospective Timer/device simulation; productive server-owned EPG/Agent/provider/clock/planner composition; registration of `EpgTimerIntentSubmit` only after all real proofs; live VDR-header/SuiteBridge CLOCK build and read-only acceptance; exact final-head CI and native CREATE/readback/outcome-unknown/hardware acceptance. HTTP CREATE remains fail-closed, VIDAA recording action remains disabled. No root change, plugin deployment, daemon restart, CREATE or merge was performed.
 
+### Local installed CLOCK rejection and source hardening (2026-10-18)
+
+Read-only real yaVDR probe at the locally installed checkout `c9f9a116071cf4cf4679e7bd9f39d345cd963d4d` (branch `work/mu10e3-device-credential-rotation`, **not** the Public-v1 Slice-2 source) returned **900 enabled** for `PLUG suitebridge NTCREATE CAP 1`, general `CAPS 1` with `mutations: disabled`, and **501 `vdr-suite-ntcreate-rejected/1 unsupported`** for `PLUG suitebridge NTCREATE CLOCK 1 1792222800 1792226400`. The RESTfulAPI read-only endpoint returned HTTP 200. These outcomes are consistent with an installed SuiteBridge 0.14.1 lacking the newly added CLOCK verb. They do not prove proposed-timer conflict freedom, and no install or VDR mutation was performed.
+
+Source commit `6f736d78` adds a single typed raw CLOCK-reply-to-domain-attestation entry that rejects 501, stale Provider epochs and expired Agent leases; `24111adb` relocates its transport-backed regression to the approved Timer-domain test boundary rather than widening the legacy Phase-64 architecture allowlist. The branch remains **source-only**, with productive EPG CREATE disabled. Exact-head CI: [39121803291](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39121803291), check its final conclusion separately.
+
 ## Navigation
 
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)

@@ -51,6 +51,12 @@ The source and Agent parsing still require **a real server/Agent runtime wiring 
 | 5 | End-to-end security, conflict, replay, uncertain outcome, docs, device acceptance | Open | — | Not installed | Pending |
 | 6 (decision) | MODIFY/enable/disable native Timer with same discipline | Optional | — | — | — |
 
+### Slice-2 real installed CLOCK compatibility / negative regression (2026-10-18)
+
+On the running yaVDR with installed SuiteBridge 0.14.1, the operation-specific `NTCREATE CAP 1` returned 900 enabled, `CAPS 1` reported only the separate general `mutations: disabled`, and the read-only `NTCREATE CLOCK 1 1792222800 1792226400` returned `501 ... unsupported`. This shows the installed plugin has not yet gained the source CLOCK interface. User's checkout is on `work/mu10e3-device-credential-rotation` at `c9f9a116...`; no checkout switch, package build, install, VDR restart or mutation occurred.
+
+Source work `6f736d78` plus corrected test placement `24111adb` now explicitly tests that a 501 or stale provider/lease cannot create clock evidence. Exact-code CI: [39121803291](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39121803291). This does not complete Slice 2: a VDR-native non-mutating proposed-timer/device conflict simulation is still an unresolved **design and implementation** dependency, followed by validated runtime evidence, productive submit wiring and real VDR/VIDAA acceptance.
+
 ### Device grant admission (2026-10-18)
 
 The source audit found that `SecurityHttpGate` requires `timers.create@backend`, but the normal Device administration allowlist originally exposed only `timers.view`. This prevents a paired VIDAA client from obtaining CREATE permission through normal administration. The Slice-1 permission correction makes **only `timers.create` on a concrete backend** assignable, updates Device `supportedPermissions`, and tests real grant/revocation with Device authentication. It does not enable an unconfigured EPG TimerIntent submit or authorize native writes by itself.
