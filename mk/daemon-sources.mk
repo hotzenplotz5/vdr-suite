@@ -11,6 +11,10 @@ DAEMON_SRC := \
         core/timers/src/TimerIntentRepository.cpp \
         core/timers/src/TimerAssignment.cpp \
         core/timers/src/TimerAssignmentRepository.cpp \
+        core/timers/src/TimerAssignmentSetRevisionRepository.cpp \
+        core/timers/src/TimerAssignmentPlanner.cpp \
+        core/timers/src/TimerAssignmentSchedulingService.cpp \
+        core/timers/src/TimerIntentApplicationService.cpp \
         core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
         core/timers/src/TimerAssignmentReadService.cpp \
         core/timers/src/NativeTimerBinding.cpp \
@@ -24,6 +28,7 @@ DAEMON_SRC := \
         core/timers/src/NativeTimerCreateOperationPreparationService.cpp \
         core/timers/src/NativeTimerCreateAdmissionService.cpp \
         core/timers/src/EpgTimerIntentAdmissionRepository.cpp \
+        core/timers/src/EpgTimerIntentAtomicAdmissionService.cpp \
         core/timers/src/NativeTimerCreateReadbackExpectation.cpp \
         core/timers/src/NativeTimerObservation.cpp \
         core/timers/src/NativeTimerCreateReadbackEvidence.cpp \
@@ -37,6 +42,7 @@ DAEMON_SRC := \
         core/agent/src/BackendAgentCommandReservation.cpp \
         core/agent/src/BackendAgentNativeTimerCreateReservation.cpp \
         core/agent/src/BackendAgentNativeTimerCreateActivation.cpp \
+        core/agent/src/SuiteBridgeSvdrpNativeTimerCreateTransport.cpp \
         core/recordings/src/JobRepository.cpp \
         core/recordings/src/JobDashboardService.cpp \
         core/recordings/src/RecordingRepository.cpp \
