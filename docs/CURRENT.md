@@ -6,7 +6,17 @@
 
 Stable architecture, historical evidence and workflow rules live in their respective ADRs, roadmap and closeout documents. Exact live GitHub state must still be re-read before implementation, review-state or merge actions.
 
-## Active Public-v1 EPG single-recording Timer CREATE – Slice 2 (2026-10-18)
+## Consolidated API v1 / VIDAA Timer work (2026-10-18, newest branch state)
+
+**Active integration is the existing backend branch** `work/public-v1-vidaa-unified-20261018`, open Draft [PR #500](https://github.com/hotzenplotz5/vdr-suite/pull/500), **not** the earlier standalone Slice-2 branch named in the historical sections below. The independent client source branch is `work/vidaa-epg-timer-operation-readback-20261017`. Do not create successor branches, merge this draft to `main`, or deploy on yaVDR without the usual separate gates.
+
+**Current source wiring, verified by code inspection:** `core/daemon/src/DaemonRuntimeInitialization.cpp` now **does register** `registerEpgTimerIntentSubmit()`. It composes fresh EPG detail/permission/backend policy and backend-generation fences with the read-only native VDR-local `NTCREATE CLOCK 1` projection and `NTPREVIEW CHECK 1` prospective conflict attestation; only then can `EpgTimerIntentAtomicAdmissionService` persist the controlled Intent + Assignment + Operation. The source-level provider/clock/preview checks remain intentionally conservative, especially with overlapping, repeating, encrypted or unverified-device scheduling. The old statements below that “no productive submit is registered” are **historical** and must not be used as current source truth.
+
+**No installed/runtime equivalence is asserted:** The operator's last inspected installed SuiteBridge **0.14.1** returned **501 unsupported** for `NTCREATE CLOCK`. It has not been replaced in this work. Backend source tests and VDR 2.8.3 header compilation cannot establish real hardware conflict preview, operation dispatch, VDR Timer readback, or a successful TV recording. Until an explicitly approved isolated local build and read-only/native acceptance, treat Public-v1 EPG CREATE as **not verified on the installed yaVDR**.
+
+**Client progress:** VIDAA now implements an explicit EPG programme → confirm → one-shot `POST /api/v1/epg/timer-intents` → deliberate `GET /api/v1/operations/{operationId}` path in source. `202` is an admission only; a lost or ambiguous result does not cause a second CREATE. Hisense deployment and hardware acceptance remain **PENDING**. Exact current GitHub HEAD, relevant source CI and package rehearsal must be checked before any next gate, rather than inferring success from the historical snapshots below.
+
+## Historical 2026-10-18 standalone Slice-2 timeline (superseded as current branch status)
 
 Backend work branch: `work/public-v1-epg-timer-intent-admission-20261017`, current source candidate `e17786ff6f6557a2cc7e5e06e82bca0fbb3351c3`. Last **fully verified** source CI: `911beb67502f679ed88fb0b934243540f00221d4` / [39118345979](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39118345979) (six jobs PASS). The new CLOCK evidence-assembly product commit `e17786ff` has its own [CI 39119610820](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39119610820); its final result must be checked before claiming source acceptance.
 
