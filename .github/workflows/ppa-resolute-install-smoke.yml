@@ -2,6 +2,16 @@ name: Published PPA Resolute 26.04 readiness and runtime acceptance
 
 on:
   workflow_dispatch:
+    inputs:
+      suite_archive:
+        description: 'VDR-Suite archive (web plugin remains from tested PPA)'
+        type: choice
+        required: true
+        default: release
+        options:
+          - release
+          - daily
+
 
 permissions:
   contents: read
@@ -28,6 +38,9 @@ jobs:
             ca-certificates software-properties-common curl
           add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
           add-apt-repository -y ppa:hotzenplotz5/vdr-suite
+          if [[ '${{ inputs.suite_archive }}' == daily ]]; then
+            add-apt-repository -y ppa:hotzenplotz5/vdr-suite-daily
+          fi
           apt-get update
           echo 'RESOLUTE_DISPOSABLE_PPA_SETUP=PASS'
       - name: Check actual Resolute PPA candidates before installation
@@ -40,10 +53,20 @@ jobs:
           for package in "${packages[@]}"; do
             policy="$(apt-cache policy "$package")"
             printf '%s\n' "$policy"
-            # Require a candidate and source provenance from the VDR-Suite PPA.
-            if [[ "$policy" != *'ppa.launchpadcontent.net/hotzenplotz5/vdr-suite/ubuntu resolute'* ]] || \
+            # The web plugin is deliberately still supplied by the tested PPA.
+            # Suite packages must originate from the selected archive.
+            archive=vdr-suite
+            if [[ '${{ inputs.suite_archive }}' == daily && "$package" != vdr-plugin-web ]]; then
+              archive=vdr-suite-daily
+            fi
+            if [[ "$policy" != *"ppa.launchpadcontent.net/hotzenplotz5/$archive/ubuntu resolute"* ]] || \
                [[ "$policy" == *'Candidate: (none)'* ]]; then
               missing+=("$package")
+            fi
+            if [[ '${{ inputs.suite_archive }}' == daily && "$archive" == vdr-suite-daily ]]; then
+              version="$(apt-cache madison "$package" | awk '$3 ~ /~daily[0-9]+[+]/ {print $3; exit}')"
+              if [[ -z "$version" ]]; then missing+=("$package-daily-version"); fi
+              echo "RESOLUTE_DAILY_CANDIDATE=$package:$version"
             fi
           done
           vdr_policy="$(apt-cache policy vdr)"
@@ -54,6 +77,10 @@ jobs:
           fi
           if (( ${#missing[@]} > 0 )); then
             printf 'RESOLUTE_RELEASE_GATE=NOT_READY (missing published PPA candidates): %s\n' "${missing[*]}"
+            if [[ '${{ inputs.suite_archive }}' == daily ]]; then
+              echo 'RESOLUTE_DAILY_GATE=FAIL (no runtime acceptance performed)'
+              exit 1
+            fi
             echo 'ready=false' >> "$GITHUB_OUTPUT"
             {
               echo '## Resolute PPA: NOT READY'
@@ -71,6 +98,21 @@ jobs:
         run: |
           set -Eeuo pipefail
           packages=(vdr vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge vdr-plugin-web)
+          if [[ '${{ inputs.suite_archive }}' == daily ]]; then
+            # Force the actual Daily Suite versions. Default APT ordering would
+            # otherwise select the higher-versioned packages from release PPA.
+            for index in "${!packages[@]}"; do
+              pkg="${packages[$index]}"
+              case "$pkg" in
+                vdr-suite-daemon|vdr-suite-backend-agent|vdr-plugin-suitebridge)
+                  version="$(apt-cache madison "$pkg" | awk '$3 ~ /~daily[0-9]+[+]/ {print $3; exit}')"
+                  test -n "$version" || { echo "RESOLUTE_DAILY_VERSION_MISSING=$pkg"; exit 1; }
+                  packages[$index]="$pkg=$version"
+                  echo "RESOLUTE_DAILY_REQUESTED=$pkg:$version"
+                  ;;
+              esac
+            done
+          fi
           apt-get -s install --no-install-recommends "${packages[@]}"
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${packages[@]}"
           dpkg --audit
@@ -99,6 +141,15 @@ jobs:
               exit 1
             fi
           done
+          if [[ '${{ inputs.suite_archive }}' == daily ]]; then
+            suite_version="$(dpkg-query -W -f='${Version}' vdr-suite-daemon)"
+            [[ "$suite_version" =~ ~daily[0-9]+[+] ]] || { echo 'RESOLUTE_DAILY_WRONG_VERSION=FAIL'; exit 1; }
+            for pkg in vdr-suite-backend-agent vdr-plugin-suitebridge; do
+              test "$(dpkg-query -W -f='${Version}' "$pkg")" = "$suite_version"
+            done
+            echo "RESOLUTE_DAILY_PPA_APT_VDR_PLUGIN_ABI=PASS version=$suite_version"
+            echo 'HBBTV_WEB_SOURCE=EXISTING_TEST_PPA_NOT_DAILY'
+          fi
           echo 'RESOLUTE_PPA_APT_VDR_PLUGIN_ABI=PASS'
       - name: Start installed Resolute daemon as vdr; exercise HTTP and restart
         if: steps.availability.outputs.ready == 'true'
