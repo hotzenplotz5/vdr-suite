@@ -2,6 +2,12 @@
 
 > Source audit: 2026-10-18, backend working branch `work/public-v1-epg-timer-intent-admission-20261017`, baseline `987820cf1229a728279a09c9d20a823c442fe386`. **Planning inventory, not a hardware or release acceptance.** For changing runtime, packaging and merge status, [CURRENT](../CURRENT.md) is authoritative; this roadmap records API coverage and work to be done.
 
+## Slice-2 runtime integration boundary – 2026-10-18 (current)
+
+The source-level HTTP retry gap is closed by `4ea60784c31172a720add05c95f5397770cb33bf` and the read-only daemon repository wiring in `72057e6ee179c3e2c33704748eefd257651a790a`. After `SecurityHttpGate` has verified the Device's exact backend-scoped `timers.create` grant, a previously committed actor/backend/key/EPG-revision match can return the **original durable Operation** without requiring that the broadcast still exist. A changed logical event with the same idempotency key is a 409 conflict. `outcome_unknown` remains unresolved. Focused HTTP regression and hosted daemon build run in [GitHub Actions 39114714817](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39114714817); do not infer the final result without checking the run.
+
+**The runtime STILL has no `registerEpgTimerIntentSubmit` call.** A new EPG CREATE remains `503`, and only existing durable replay data (if any) can be served once the productive route is enabled. The missing authority is concrete: current `BackendAgentRepository`/provider ownership does not by itself certify timer readback, proposed-timer collision freedom or server-owned future local offsets. `VdrService::getTimerConflictReport()` accesses `/searchtimers/conflicts.json` and describes **existing timers**, not a hypothetical proposed Timer. Do not derive `TimerAssignmentPlanningConflictState::confirmedClear` from an empty report. Local read-only yaVDR capability/protocol inspection is the next necessary gate before choosing and implementing a real candidate-conflict proof. No host or TV installed change has been made.
+
 ## Reading the states
 
 - **Public-v1 implemented** means a route exists in source; it does **not** mean the operation is installed, granted or verified against a real VDR.

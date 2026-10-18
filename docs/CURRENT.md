@@ -6,6 +6,14 @@
 
 Stable architecture, historical evidence and workflow rules live in their respective ADRs, roadmap and closeout documents. Exact live GitHub state must still be re-read before implementation, review-state or merge actions.
 
+## Active Public-v1 EPG single-recording Timer CREATE – Slice 2 (2026-10-18)
+
+Backend work branch: `work/public-v1-epg-timer-intent-admission-20261017`, current functional SHA `72057e6ee179c3e2c33704748eefd257651a790a`. Verified earlier full CI: `1ecb15d62bfb0c04cb520b9d4b0bf750871b59a6` / [39098036648](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39098036648) (six jobs PASS). New HTTP/Daemon replay commits `4ea60784` and `72057e6e` are under [CI 39114714817](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39114714817), which requires a separately rechecked result.
+
+**Domain**: atomic EPG Intent + Assignment + Native CREATE Operation + idempotency mapping, exact rollback and replay, source-owned time guard are implemented and source-tested. **HTTP/Daemon**: authorized, read-only replay is now wired. **Productive EPG submit is NOT registered**; public CREATE remains unavailable / `503`. No authentic current proposed-timer conflict, capability/readback and backend-local offset proof has been composed in the runtime. Inspect the actual yaVDR/VDR/epgsearch read-only capabilities before completing this gate; no unsupported fake planner evidence, fallback to private API or unannounced VDR mutation.
+
+**Installed**: no new yaVDR daemon; **TV**: no new Hisense recording acceptance; **merge/main**: no change. See [Public-v1 Coverage Roadmap](planning/public-v1-coverage-roadmap.md) and [EPG Timer intent contract](../api/epg-timer-intents.md).
+
 ## Navigation
 
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
