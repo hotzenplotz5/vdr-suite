@@ -150,7 +150,7 @@ struct Fixture
     }
 };
 
-void test_source_epg_draft_to_atomic_native_create_admission()
+void test_source_epg_draft_to_atomic_native_create_admission(bool rollbackWholeRequest)
 {
     using namespace vdrsuite::public_epg_timer;
     Fixture fixture;
@@ -217,14 +217,17 @@ void test_source_epg_draft_to_atomic_native_create_admission()
 
     TimerIntentApplicationService application(
         fixture.intents, fixture.assignments, fixture.bindings);
+    auto lease = fixture.database.acquireTransactionLease();
+    assert(fixture.database.execute("BEGIN IMMEDIATE TRANSACTION;"));
     const auto selected =
-        application.submitAndSelectPrimary(applicationRequest);
+        application.submitAndSelectPrimaryInCurrentTransaction(applicationRequest);
     assert(selected.status == TimerIntentApplicationStatus::assignmentSelected);
     assert(selected.assignment.state == TimerAssignmentState::selected);
     assert(selected.assignment.assignmentRevision == "1");
     assert(selected.assignment.backendGeneration == source.backendGeneration);
     assert(selected.assignment.desiredNativeTimerSpecificationPresent);
-    const auto again = application.submitAndSelectPrimary(applicationRequest);
+    const auto again =
+        application.submitAndSelectPrimaryInCurrentTransaction(applicationRequest);
     assert(again.status == TimerIntentApplicationStatus::assignmentSelected);
     assert(again.assignment.assignmentRevision == "1");
 
@@ -242,7 +245,8 @@ void test_source_epg_draft_to_atomic_native_create_admission()
     native.expectedBackendId = chosen.backendId;
     native.requestedAt = 1792223003;
     native.deadline = 1792223300;
-    const auto admitted = fixture.admission.admit(native);
+    const auto admitted =
+        fixture.admission.admitInCurrentTransaction(native);
     assert(admitted.status == NativeTimerCreateAdmissionStatus::prepared);
     assert(admitted.operation.state == MutationOperationState::accepted);
     assert(admitted.operation.resourceId == applicationRequest.timerAssignmentId);
@@ -253,6 +257,25 @@ void test_source_epg_draft_to_atomic_native_create_admission()
     assert(stored.assignment.state == TimerAssignmentState::provisioning);
     assert(stored.assignment.assignmentRevision == "2");
 
+    if (rollbackWholeRequest)
+    {
+        assert(fixture.database.execute("ROLLBACK;"));
+        assert(fixture.intents.findById(
+            applicationRequest.intent.timerIntentId).status ==
+            TimerIntentRepositoryStatus::notFound);
+        assert(fixture.assignments.findById(
+            applicationRequest.timerAssignmentId).status ==
+            TimerAssignmentRepositoryStatus::notFound);
+        const auto absentAfterRollback = fixture.operations.findByIdempotencyScope(
+            "actor:owner", chosen.backendId, "TimerAssignment",
+            applicationRequest.timerAssignmentId, "timer.create",
+            chosen.idempotencyKey);
+        assert(absentAfterRollback.status ==
+            MutationOperationRepositoryStatus::notFound);
+        return;
+    }
+
+    assert(fixture.database.execute("COMMIT;"));
     const auto replay = fixture.admission.admit(native);
     assert(replay.status == NativeTimerCreateAdmissionStatus::replayed);
     assert(replay.operation.operationId == admitted.operation.operationId);
@@ -265,7 +288,8 @@ void test_source_epg_draft_to_atomic_native_create_admission()
 
 int main()
 {
-    test_source_epg_draft_to_atomic_native_create_admission();
+    test_source_epg_draft_to_atomic_native_create_admission(false);
+    test_source_epg_draft_to_atomic_native_create_admission(true);
     {
         Fixture fixture;
         // Nested admission without the coordinator's active transaction
