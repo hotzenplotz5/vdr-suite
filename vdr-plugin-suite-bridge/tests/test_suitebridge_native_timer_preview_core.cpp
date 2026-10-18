@@ -71,4 +71,13 @@ int main()
   s = isolated();
   s.existingTimers.resize(4097);
   assert(evaluate(s).disposition == Disposition::unknown);
+  s = isolated();
+  s.proposedChannelVerified = false;
+  assert(evaluate(s).disposition == Disposition::unknown);
+  s = isolated();
+  s.proposedStart = 0;
+  assert(evaluate(s).disposition == Disposition::unknown);
+  s = isolated();
+  s.proposedStop = s.proposedStart;
+  assert(evaluate(s).disposition == Disposition::unknown);
 }
