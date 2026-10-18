@@ -61,13 +61,18 @@ int main()
         SecurityHttpGateBrowserTestFixture fixture;
         assert(fixture.grantRepository.ensureGrant(
             fixture.actorId, "media.live.play", "home"));
-        for (const std::string& path: {std::string(Route), Window, Detail})
+        for (const std::string& path: {std::string(Route), Window})
         {
             const auto allowed = fixture.gate.evaluate(browserRead(fixture,path));
             assert(allowed.allowed);
             assert(allowed.authorizedBackendIds ==
                 std::vector<std::string>{"home"});
         }
+        // Detailed EPG event identity/revision needs the independent epg.view
+        // grant; a Live-playback permission must not reveal those facts.
+        const auto detailDenied = fixture.gate.evaluate(browserRead(fixture,Detail));
+        assert(!detailDenied.allowed);
+        assert(detailDenied.rejection.statusCode == 403);
     }
     {
         SecurityHttpGateBrowserTestFixture fixture;
