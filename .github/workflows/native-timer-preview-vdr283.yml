@@ -50,11 +50,18 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/include"
           ln -s "$GITHUB_WORKSPACE/vdr-upstream" "$RUNNER_TEMP/include/vdr"
-          g++ -std=c++17 -Wall -Wextra -pedantic -fsyntax-only \
-            -I"$RUNNER_TEMP/include" -I"$GITHUB_WORKSPACE/vdr-upstream" \
-            -Icore/agent/include -Ivdr-plugin-suite-bridge \
-            $(pkg-config --cflags fontconfig freetype2) \
-            vdr-plugin-suite-bridge/suitebridge_native_timer_preview_vdr.cpp
+          for source in \
+            vdr-plugin-suite-bridge/suitebridge_native_timer_preview_vdr.cpp \
+            vdr-plugin-suite-bridge/suitebridge_native_timer_preview_service.cpp \
+            vdr-plugin-suite-bridge/suitebridge.cpp \
+            vdr-plugin-suite-bridge/suitebridge_svdrp.cpp; do
+            echo "SYNTAX_CHECK=$source"
+            g++ -std=c++17 -Wall -Wextra -Wno-unused-parameter \
+              -pedantic -fsyntax-only \
+              -I"$RUNNER_TEMP/include" -I"$GITHUB_WORKSPACE/vdr-upstream" \
+              -Icore/agent/include -Ivdr-plugin-suite-bridge \
+              $(pkg-config --cflags fontconfig freetype2) "$source"
+          done
           echo "NATIVE_PREVIEW_VDR_2_8_3_HEADERS=PASS"
           echo "NATIVE_PREVIEW_HARDWARE_ACCEPTANCE=NOT_TESTED"
           echo "PUBLIC_EPG_TIMER_CREATE=DISABLED"
