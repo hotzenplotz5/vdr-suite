@@ -5,6 +5,7 @@
 #include "TimerAssignmentPlanner.h"
 
 #include <cstdint>
+#include <functional>
 #include <string>
 
 class Database;
@@ -45,6 +46,13 @@ struct AtomicAdmissionRequest
     vdrsuite::timers::TimerAssignmentPlanningBackendCandidate candidate;
     std::int64_t requestedAt = 0;
     std::int64_t deadline = 0;
+
+    // Mandatory server-owned authority: executed while the SQLite admission
+    // transaction is held. Must recheck Agent generation, current channel and
+    // native EPG identity/ETag, and certify the exact NativeTimerSpecification
+    // (title, time zone, start/stop, margins and source).
+    // Never populate this from JSON or make it optimistically true.
+    std::function<bool()> revalidateSourceAndNativeSpecification;
 };
 
 struct AtomicAdmissionResult

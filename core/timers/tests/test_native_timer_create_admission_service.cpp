@@ -340,6 +340,7 @@ void test_epg_public_atomic_admission_and_replay()
     candidate.desiredNativeTimerSpecification.startTime = "0940";
     candidate.desiredNativeTimerSpecification.endTime = "1040";
     candidate.conflict = TimerAssignmentPlanningConflictState::confirmedClear;
+    request.revalidateSourceAndNativeSpecification = [] { return true; };
 
     const auto first = coordinator.admit(request);
     assert(first.status == AtomicAdmissionStatus::prepared);
@@ -370,6 +371,16 @@ void test_epg_public_atomic_admission_and_replay()
     auto generation = request;
     generation.candidate.currentBackendGeneration = 8;
     assert(afterRestart.admit(generation).status ==
+        AtomicAdmissionStatus::backendUnavailable);
+
+    auto staleDuringAdmission = request;
+    staleDuringAdmission.revalidateSourceAndNativeSpecification =
+        [] { return false; };
+    assert(afterRestart.admit(staleDuringAdmission).status ==
+        AtomicAdmissionStatus::generationConflict);
+    auto missingAuthority = request;
+    missingAuthority.revalidateSourceAndNativeSpecification = {};
+    assert(afterRestart.admit(missingAuthority).status ==
         AtomicAdmissionStatus::backendUnavailable);
 
     // Failure after intent and assignment INSERT must leave neither one

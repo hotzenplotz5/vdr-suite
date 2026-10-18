@@ -110,7 +110,8 @@ AtomicAdmissionResult EpgTimerIntentAtomicAdmissionService::admit(
         request.deadline < 0 ||
         (request.deadline != 0 && request.deadline < request.requestedAt))
         return outcome(AtomicAdmissionStatus::invalid);
-    if (!candidateMatches(request))
+    if (!candidateMatches(request) ||
+        !request.revalidateSourceAndNativeSpecification)
         return outcome(AtomicAdmissionStatus::backendUnavailable);
 
     auto lease = database_.acquireTransactionLease();
@@ -120,6 +121,10 @@ AtomicAdmissionResult EpgTimerIntentAtomicAdmissionService::admit(
         database_.execute("ROLLBACK;");
         return outcome(status);
     };
+    // Generation/EPG projection can change between HTTP GET and admission.
+    // Fail before any domain write unless the runtime attests it again.
+    if (!request.revalidateSourceAndNativeSpecification())
+        return fail(AtomicAdmissionStatus::generationConflict);
     EpgTimerIntentAdmissionRepository admissionRepository(database_);
     const auto existing = admissionRepository.lookup(
         request.authenticatedActorId, request.selection);
