@@ -1,0 +1,122 @@
+name: Bounded legacy branch cleanup (2026-10-18)
+
+# Exactly one merge-triggered cleanup of an explicit, immutable allowlist.
+# Existing active/staked branches and all Launchpad recipe source branches are excluded.
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/one-time-branch-cleanup-20261018.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.repository == 'hotzenplotz5/vdr-suite'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Delete only explicitly approved, unchanged, unreferenced branch tips
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          repo="${GITHUB_REPOSITORY}"
+          test "$repo" = hotzenplotz5/vdr-suite
+          test "${GITHUB_REF}" = refs/heads/main
+          test "$(git branch --show-current)" = main
+          open_prs="$(gh api "repos/$repo/pulls?state=open&per_page=100")"
+          main_head="$(gh api "repos/$repo/branches/main" --jq '.commit.sha')"
+          echo "REPO=$repo MAIN_HEAD=$main_head"
+          successes=0
+          retained=0
+          while read -r branch expected_sha pr_number expected_state; do
+            test -n "$branch" || continue
+            case "$branch" in main|master|work/launchpad-debian-quilt-*|work/packaging-debian-ubuntu-install)
+              echo "STOP_PROTECTED_OR_RECIPE_BRANCH=$branch"; exit 1;;
+            esac
+            actual="$(gh api "repos/$repo/git/ref/heads/$branch" --jq '.object.sha' 2>/dev/null || true)"
+            if test -z "$actual"; then
+              echo "BRANCH_ALREADY_ABSENT=$branch"; continue
+            fi
+            if test "$actual" != "$expected_sha"; then
+              echo "BRANCH_RETAINED_SHA_CHANGED=$branch actual=$actual expected=$expected_sha"
+              retained=$((retained+1))
+              continue
+            fi
+            pr_json="$(gh api "repos/$repo/pulls/$pr_number")"
+            pr_branch="$(jq -r '.head.ref' <<<"$pr_json")"
+            pr_sha="$(jq -r '.head.sha' <<<"$pr_json")"
+            pr_state="$(jq -r '.state' <<<"$pr_json")"
+            pr_merged="$(jq -r '.merged_at // empty' <<<"$pr_json")"
+            test "$pr_branch" = "$branch" && test "$pr_sha" = "$expected_sha" &&
+              test "$pr_state" = closed || {
+                echo "BRANCH_RETAINED_PR_NOT_MATCHED=$branch"; retained=$((retained+1)); continue;
+              }
+            case "$expected_state" in
+              merged)
+                if test -z "$pr_merged"; then
+                  echo "BRANCH_RETAINED_PR_NOT_MERGED=$branch"; retained=$((retained+1)); continue
+                fi
+                ;;
+              closed-unmerged)
+                if test -n "$pr_merged"; then
+                  echo "BRANCH_RETAINED_DUPLICATE_PR_WAS_MERGED=$branch"; retained=$((retained+1)); continue
+                fi
+                ;;
+              *) echo "STOP_INVALID_EXPECTED_STATE=$expected_state"; exit 1;;
+            esac
+            if jq -e --arg name "$branch" 'any(.[]; .head.ref == $name or .base.ref == $name)' <<<"$open_prs" >/dev/null; then
+              echo "BRANCH_RETAINED_OPEN_PR_DEPENDENCY=$branch"; retained=$((retained+1)); continue
+            fi
+            if git grep -q -F "$branch" -- .github/workflows ':!.github/workflows/one-time-branch-cleanup-20261018.yml'; then
+              echo "BRANCH_RETAINED_WORKFLOW_REFERENCE=$branch"; retained=$((retained+1)); continue
+            fi
+            if gh api "repos/$repo/branches/$branch" --jq '.protected' | grep -Fxq true; then
+              echo "BRANCH_RETAINED_PROTECTED=$branch"; retained=$((retained+1)); continue
+            fi
+            # Guard immediately before deletion against concurrent branch movement.
+            tip="$(gh api "repos/$repo/git/ref/heads/$branch" --jq '.object.sha')"
+            if test "$tip" != "$expected_sha"; then
+              echo "BRANCH_RETAINED_RACED=$branch"; retained=$((retained+1)); continue
+            fi
+            gh api -X DELETE "repos/$repo/git/refs/heads/$branch"
+            echo "BRANCH_DELETED=$branch PR=$pr_number"
+            successes=$((successes+1))
+          done <<'EXACT_BRANCH_ALLOWLIST'
+          ci/daily-ppa-install-smoke-20261018 1ca0955205e03f8be69c44224e7bfce7ccef86ee 497 merged
+          ci/ppa-daily-install-acceptance-20261018 917a3176c68c56aa8ff95709aa8eb382f034ad3b 498 closed-unmerged
+          docs/branch-lifecycle-grandfather-20261018 0bd642df62a2aab0d072cffa5eb8f6390734d9f8 496 merged
+          docs/ppa-noble-resolute-daily-gate-20261017 3d6b9e4be4a2418aa3ad5a50e6aaa463d697864d 495 merged
+          docs/ubuntu-first-steps-after-install-20261017 24a88e39fb0a161373d1076bba36b11272b73a26 493 merged
+          work/ppa-noble-install-smoke-20261017 1e27567e68f2241ed0ec8e4fd844b0bce8e7d6db 494 merged
+          fix/logo-tv-antenna-orientation-20261016 f3d0b1fcd05c5e2c76cd57f5544d16b965cfb07c 486 merged
+          hotzenplotz5-patch-1 056358e6500b08c063522b8eb67d1e4a17035cfe 483 merged
+          hotzenplotz5-patch-2 0c6ae6b2cdbc0cb2e11669bd408c38cf516ab532 484 merged
+          hotzenplotz5-patch-3 836fbb3a045c83ee2846f1999fdd946d1e4a17035cfe 485 merged
+          hotzenplotz5-patch-4 09f304d77f68fd43955aa7c7fde7fd51de29c08f 487 merged
+          hotzenplotz5-patch-5 143e82b79f2b32fb5a711edfaa684be448aae7b3 488 merged
+          EXACT_BRANCH_ALLOWLIST
+          # Clean up this PR's own temporary branch, provided this run was
+          # triggered by a successful merge and it has no open consumers.
+          own='ops/cleanup-merged-branches-20261018'
+          self="$(gh api "repos/$repo/git/ref/heads/$own" --jq '.object.sha' 2>/dev/null || true)"
+          if test -n "$self"; then
+            recent="$(gh api "repos/$repo/pulls?state=closed&per_page=30")"
+            merged_sha="$(jq -r --arg own "$own" '[.[] | select(.head.ref == $own and .merged_at != null)] | .[0].head.sha // empty' <<<"$recent")"
+            if test -n "$merged_sha" && test "$self" = "$merged_sha" &&
+               ! jq -e --arg own "$own" 'any(.[]; .head.ref == $own or .base.ref == $own)' <<<"$open_prs" >/dev/null; then
+              gh api -X DELETE "repos/$repo/git/refs/heads/$own"
+              echo "BRANCH_DELETED=$own PR=this-merged-pr"
+              successes=$((successes+1))
+            else
+              echo "BRANCH_RETAINED_SELF_RECHECK_NEEDED=$own"
+              retained=$((retained+1))
+            fi
+          fi
+          echo "CLEANUP_DELETED_COUNT=$successes RETAINED_COUNT=$retained"
