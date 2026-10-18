@@ -19,6 +19,9 @@ test-packaging-p7-runtime-schema:
 		core/media/src/MediaSessionRepository.cpp \
 		core/media/src/MediaTranscodeBackendSettingsRepository.cpp \
 		core/media/src/DeviceMediaProfileRepository.cpp \
+		core/media/src/DeviceMediaCapabilityProfile.cpp \
+		core/media/src/MediaCapabilityEvidence.cpp \
+		core/media/src/MediaPresentationSelector.cpp \
 		core/vdr/src/EpgEventRepository.cpp \
 		core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp \
 		core/vdr/src/VdrRecordingCacheRepository.cpp \
