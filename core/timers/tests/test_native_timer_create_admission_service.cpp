@@ -268,6 +268,37 @@ int main()
     test_source_epg_draft_to_atomic_native_create_admission();
     {
         Fixture fixture;
+        // Nested admission without the coordinator's active transaction
+        // must fail closed and leave all domain rows untouched.
+        assert(fixture.admission.admitInCurrentTransaction(request()).status ==
+            NativeTimerCreateAdmissionStatus::repositoryError);
+        auto lease = fixture.database.acquireTransactionLease();
+        assert(fixture.database.execute("BEGIN IMMEDIATE TRANSACTION;"));
+        const auto nested =
+            fixture.admission.admitInCurrentTransaction(request());
+        assert(nested.status == NativeTimerCreateAdmissionStatus::prepared);
+        assert(fixture.database.transactionActive());
+        const auto pending = fixture.operations.findByIdempotencyScope(
+            "actor:owner", "backend-one", "TimerAssignment",
+            "assignment:atomic", "timer.create", "idem-atomic-1");
+        assert(pending.ok());
+        // Simulate a failed higher-level EPG admission after native
+        // preparation: neither the Operation nor provisioning may survive.
+        assert(fixture.database.execute("ROLLBACK;"));
+        const auto vanished = fixture.operations.findByIdempotencyScope(
+            "actor:owner", "backend-one", "TimerAssignment",
+            "assignment:atomic", "timer.create", "idem-atomic-1");
+        assert(vanished.status == MutationOperationRepositoryStatus::notFound);
+        const auto restored = fixture.assignments.findById("assignment:atomic");
+        assert(restored.ok());
+        assert(restored.assignment.state == TimerAssignmentState::selected);
+        assert(restored.assignment.assignmentRevision == "1");
+        // Existing independent CREATE semantics remain unchanged.
+        const auto accepted = fixture.admission.admit(request());
+        assert(accepted.status == NativeTimerCreateAdmissionStatus::prepared);
+    }
+    {
+        Fixture fixture;
 
         const auto first = fixture.admission.admit(request());
         assert(first.status == NativeTimerCreateAdmissionStatus::prepared);
