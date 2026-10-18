@@ -9,6 +9,7 @@
 #include <limits>
 #include <sstream>
 #include <string>
+#include <strings.h>
 #include <utility>
 #include <vector>
 
@@ -211,7 +212,12 @@ SuiteBridgeCommandResult SuiteBridgeNativeTimerPreviewService::Handle(
 
   // A positive result can only arise from the VDR-owned callback. A test
   // fixture returning candidateClear is never a production capability.
-  const NativeSnapshot snapshot = capture_(request);
+  NativeSnapshot snapshot;
+  try {
+    snapshot = capture_(request);
+  } catch (...) {
+    return reply(550, "vdr-suite-ntpreview-rejected/1 native_capture_failed");
+  }
   const Decision evaluated = evaluate(snapshot);
   if (evaluated.disposition != Disposition::candidateClear)
     return reply(550, std::string("vdr-suite-ntpreview-rejected/1 ") +

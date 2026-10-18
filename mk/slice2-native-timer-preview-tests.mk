@@ -18,3 +18,15 @@ test-slice2-native-timer-preview-source-architecture:
 
 test-architecture: test-slice2-native-timer-preview-source-architecture
 test-fast: test-slice2-native-timer-preview-source-architecture
+
+.PHONY: test-slice2-native-timer-preview-service
+
+test-slice2-native-timer-preview-service:
+	$(BUILD_CXX) $(CXXFLAGS) -Ivdr-plugin-suite-bridge \
+		vdr-plugin-suite-bridge/suitebridge_native_timer_preview_core.cpp \
+		vdr-plugin-suite-bridge/suitebridge_native_timer_preview_service.cpp \
+		vdr-plugin-suite-bridge/tests/test_suitebridge_native_timer_preview_service.cpp \
+		-o $(BUILD_DIR)/test_suitebridge_native_timer_preview_service
+	$(BUILD_DIR)/test_suitebridge_native_timer_preview_service
+
+test-fast: test-slice2-native-timer-preview-service
