@@ -138,10 +138,10 @@ public:
         HttpServerRequest request;
         request.method = "POST";
         request.path = "/api/v1/epg/timer-intents";
-        request.body = "{\\"backendId\\":\\"" + backend +
-            "\\",\\"channelId\\":\\"S19.2E-1-100\\",\\"eventId\\":\\"81234\\"}";
+        request.body = "{\"backendId\":\"" + backend +
+            "\",\"channelId\":\"S19.2E-1-100\",\"eventId\":\"81234\"}";
         request.headers["Content-Type"] = "application/json";
-        request.headers["If-Match"] = "\\"vsr-epg\\"";
+        request.headers["If-Match"] = "\"vsr-epg\"";
         request.headers["Idempotency-Key"] = "idem-native-epg-device";
         request.headers["X-Request-ID"] = "mu10d-public-native-epg-create";
         if (!authorization.empty())
