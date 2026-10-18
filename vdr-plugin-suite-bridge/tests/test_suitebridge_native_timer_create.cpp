@@ -2,6 +2,8 @@
 
 #include <cassert>
 #include <cstddef>
+#include <cstdlib>
+#include <ctime>
 #include <stdexcept>
 #include <string>
 
@@ -104,6 +106,33 @@ public:
 int main()
 {
   const std::string baseRequest = request("cmd_1", "fp_1", "op_1");
+
+  {
+    // Deterministic unit test; TZ affects this process only.
+    const char *prior = std::getenv("TZ");
+    const bool hadPrior = prior != nullptr;
+    const std::string saved = hadPrior ? prior : "";
+    assert(setenv("TZ", "UTC0", 1) == 0);
+    tzset();
+    SuiteBridgeNativeTimerCreateService clock("pie_1");
+    const auto valid = clock.Handle(
+        "NTCREATE", "CLOCK 1 1792222800 1792226400");
+    assert(valid.handled && valid.replyCode == 900);
+    assert(valid.payload ==
+        "vdr-suite-ntcreate-clock/1 vdr.timer.create 1 suitebridge "
+        "pie_1 1 1 1792222800 1792226400 0 0 "
+        "2026-10-17 0740 2026-10-17 0840");
+    assert(clock.Handle("NTCREATE", "CLOCK 1").replyCode == 501);
+    assert(clock.Handle("NTCREATE", "CLOCK 1 1792222800 1792222800")
+        .replyCode == 501);
+    assert(clock.Handle("NTCREATE", "CLOCK 1 -1 1792226400")
+        .replyCode == 501);
+    assert(clock.Handle("NTCREATE", "CLOCK 1 1792222800 1792400000")
+        .replyCode == 501);
+    if (hadPrior) assert(setenv("TZ", saved.c_str(), 1) == 0);
+    else assert(unsetenv("TZ") == 0);
+    tzset();
+  }
 
   {
     SuiteBridgeNativeTimerCreateService service("pie_1");
