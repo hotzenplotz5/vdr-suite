@@ -793,6 +793,11 @@ public:
         const bool isPublicSearchTimerPreviewRead =
             request.method == "GET" &&
             (isPublicSearchTimerPreviewResource || isPublicSearchTimerDraftPreview);
+        const bool isPublicEpgTimerIntentCreate =
+            isPost && path == "/api/v1/epg/timer-intents";
+        const std::string publicEpgTimerBackendId =
+            isPublicEpgTimerIntentCreate
+                ? jsonStringValue(request.body, "backendId") : std::string();
         const bool isPublicSearchTimerCreate =
             isPost && path == publicSearchTimerCollection;
         const bool isPublicSearchTimerRead =
@@ -884,6 +889,7 @@ public:
             isPublicAccountCredentialMutation ||
             isPublicAccountSessionMutation ||
             isPublicTimerAssignmentCreate ||
+            isPublicEpgTimerIntentCreate ||
             isPublicSearchTimerCreate ||
             isPublicDeviceRecordingSessionCreate ||
             isPublicDeviceLiveSessionCreate ||
@@ -1990,6 +1996,61 @@ public:
         // Versioned Recording session creation is Device-only. Browser
         // credentials and even user/admin grants are not Device proof.
         // This policy does not itself create sessions or expose media bytes.
+        if (isPublicEpgTimerIntentCreate)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            if (!gate.deviceAuthenticated ||
+                gate.context.actor.type != ActorType::Service ||
+                !gate.context.device || !gate.context.credential ||
+                gate.context.session.has_value())
+            {
+                AuthorizationDecision denial;
+                denial.permission = "timers.create";
+                denial.backendId = publicEpgTimerBackendId;
+                denial.action = "timers.create";
+                denial.reasonCode = "device_credential_required";
+                return rejectWithAudit(gate, denial, 403,
+                    "Verified Device credential required", "");
+            }
+            const bool validBackend =
+                !publicEpgTimerBackendId.empty() &&
+                publicEpgTimerBackendId.size() <= 128U &&
+                publicEpgTimerBackendId != "." &&
+                publicEpgTimerBackendId != ".." &&
+                publicEpgTimerBackendId != "*" &&
+                std::all_of(publicEpgTimerBackendId.begin(),
+                    publicEpgTimerBackendId.end(),
+                    [](unsigned char c) {
+                        return std::isalnum(c) || c == '.' || c == '_' || c == '-';
+                    });
+            if (!validBackend)
+            {
+                AuthorizationDecision denial;
+                denial.permission = "timers.create";
+                denial.backendId = publicEpgTimerBackendId;
+                denial.action = "timers.create";
+                denial.reasonCode = "invalid_backend_scope";
+                return rejectWithAudit(gate, denial, 400,
+                    "Invalid Timer backend", "");
+            }
+            const bool exactGrant = std::any_of(
+                gate.context.grants.begin(), gate.context.grants.end(),
+                [&publicEpgTimerBackendId](const PermissionGrant& grant) {
+                    return grant.permission == "timers.create" &&
+                        grant.backendId == publicEpgTimerBackendId;
+                });
+            if (!exactGrant)
+            {
+                AuthorizationDecision denial;
+                denial.permission = "timers.create";
+                denial.backendId = publicEpgTimerBackendId;
+                denial.action = "timers.create";
+                denial.reasonCode = "permission_denied";
+                return rejectWithAudit(gate, denial, 403,
+                    "Exact backend timers.create grant required", "");
+            }
+        }
         if (isPublicSearchTimerCreate)
         {
             if (!gate.context.authenticated())
@@ -2286,6 +2347,12 @@ public:
             requestToAuthorize.permission = "searchtimers.create";
             requestToAuthorize.action = "searchtimers.create";
             requestToAuthorize.backendId = publicSearchTimerBackendId;
+        }
+        else if (isPublicEpgTimerIntentCreate)
+        {
+            requestToAuthorize.permission = "timers.create";
+            requestToAuthorize.action = "timers.create";
+            requestToAuthorize.backendId = publicEpgTimerBackendId;
         }
         else if (isTimerCreateAction ||
                  isPublicTimerAssignmentCreate)

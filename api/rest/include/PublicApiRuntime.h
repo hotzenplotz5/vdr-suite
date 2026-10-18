@@ -1,5 +1,7 @@
 #pragma once
 
+#include "EpgTimerSelectionGuard.h"
+
 #include "DashboardController.h"
 
 #include <cstddef>
@@ -911,6 +913,34 @@ struct PublicAccountSessionMutationResult
     PublicAccountSessionResource resource;
 };
 
+// A new EPG intent is not an existing TimerAssignment and is never a
+// caller-supplied native Timer specification.
+struct PublicEpgTimerIntentAdmissionRequest
+{
+    std::string actorRef;
+    vdrsuite::public_epg_timer::Selection selection;
+};
+enum class PublicEpgTimerIntentObservationStatus { ok, notFound, unavailable };
+struct PublicEpgTimerIntentObservationResult
+{
+    PublicEpgTimerIntentObservationStatus status =
+        PublicEpgTimerIntentObservationStatus::unavailable;
+    vdrsuite::public_epg_timer::AuthoritativeObservation observation;
+    bool backendAllowsMutation = false;
+};
+enum class PublicEpgTimerIntentAdmissionStatus
+{
+    accepted, replayed, invalid, notFound, revisionConflict,
+    generationConflict, stateConflict, idempotencyConflict,
+    backendUnavailable, serviceUnavailable
+};
+struct PublicEpgTimerIntentAdmissionResult
+{
+    PublicEpgTimerIntentAdmissionStatus status =
+        PublicEpgTimerIntentAdmissionStatus::serviceUnavailable;
+    PublicOperationResource operation;
+};
+
 enum class PublicTimerCreateAdmissionStatus
 {
     accepted,
@@ -1251,6 +1281,14 @@ public:
         std::function<PublicDevicePairingDecisionResult(
             const PublicDevicePairingDecisionRequest& request)>;
 
+    using EpgTimerIntentObservationLookup =
+        std::function<PublicEpgTimerIntentObservationResult(
+            const PublicEpgTimerIntentAdmissionRequest&)>;
+    using EpgTimerIntentSubmit =
+        std::function<PublicEpgTimerIntentAdmissionResult(
+            const PublicEpgTimerIntentAdmissionRequest&,
+            const vdrsuite::public_epg_timer::AuthoritativeObservation&)>;
+
     using TimerCreateAdmission =
         std::function<PublicTimerCreateAdmissionResult(
             const PublicTimerCreateAdmissionRequest& request)>;
@@ -1453,6 +1491,12 @@ public:
     void resetDevicePairingDecision();
     bool devicePairingDecisionConfigured() const;
 
+    void registerEpgTimerIntentObservationLookup(EpgTimerIntentObservationLookup callback);
+    void resetEpgTimerIntentObservationLookup();
+    void registerEpgTimerIntentSubmit(EpgTimerIntentSubmit callback);
+    void resetEpgTimerIntentSubmit();
+    bool epgTimerIntentAdmissionConfigured() const;
+
     void registerTimerCreateAdmission(TimerCreateAdmission admission);
     void resetTimerCreateAdmission();
     bool timerCreateAdmissionConfigured() const;
@@ -1610,6 +1654,10 @@ private:
 
     mutable std::mutex devicePairingDecisionMutex_;
     DevicePairingDecision devicePairingDecision_;
+
+    mutable std::mutex epgTimerIntentMutex_;
+    EpgTimerIntentObservationLookup epgTimerIntentObservationLookup_;
+    EpgTimerIntentSubmit epgTimerIntentSubmit_;
 
     mutable std::mutex timerCreateAdmissionMutex_;
     TimerCreateAdmission timerCreateAdmission_;

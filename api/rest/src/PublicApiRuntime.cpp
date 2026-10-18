@@ -8,6 +8,7 @@
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
+#include <ctime>
 #include <limits>
 #include <iostream>
 #include <string>
@@ -109,6 +110,7 @@ constexpr std::size_t PublicGenreMaximumLimit = 30U;
 constexpr const char* PublicChannelCollectionPath =
     "/api/v1/channels";
 constexpr const char* PublicEpgEventDetailPath = "/api/v1/epg/event";
+constexpr const char* PublicEpgTimerIntentPath = "/api/v1/epg/timer-intents";
 constexpr const char* PublicEpgNowNextPath =
     "/api/v1/epg/now-next";
 constexpr const char* PublicEpgWindowPath =
@@ -2605,6 +2607,45 @@ bool parsePublicAccountMutationBody(
     return position == input.size();
 }
 
+
+// Reject unknown, duplicate and caller-owned scheduling fields.
+bool parsePublicEpgTimerIntentBody(const std::string& body,
+    vdrsuite::public_epg_timer::Selection& selection)
+{
+    std::size_t position = 0U;
+    std::vector<std::string> seen;
+    skipAccountMutationWhitespace(body, position);
+    if (position >= body.size() || body[position++] != '{') return false;
+    for (;;)
+    {
+        skipAccountMutationWhitespace(body, position);
+        std::string key, value;
+        if (!parseAccountMutationJsonString(body, position, key) ||
+            std::find(seen.begin(), seen.end(), key) != seen.end()) return false;
+        seen.push_back(key);
+        skipAccountMutationWhitespace(body, position);
+        if (position >= body.size() || body[position++] != ':') return false;
+        skipAccountMutationWhitespace(body, position);
+        if (!parseAccountMutationJsonString(body, position, value)) return false;
+        if (key == "backendId") selection.backendId = std::move(value);
+        else if (key == "channelId") selection.channelId = std::move(value);
+        else if (key == "eventId") selection.eventId = std::move(value);
+        else return false;
+        skipAccountMutationWhitespace(body, position);
+        if (position < body.size() && body[position] == ',')
+        {
+            ++position;
+            continue;
+        }
+        if (position >= body.size() || body[position++] != '}') return false;
+        break;
+    }
+    skipAccountMutationWhitespace(body, position);
+    return position == body.size() && seen.size() == 3U &&
+        vdrsuite::public_epg_timer::boundedId(selection.backendId, 128U) &&
+        vdrsuite::public_epg_timer::boundedId(selection.channelId, 160U) &&
+        vdrsuite::public_epg_timer::boundedId(selection.eventId, 160U);
+}
 
 bool parsePublicSearchTimerCreateBody(
     const std::string& input, PublicSearchTimerCreateRequest& out)
@@ -5211,6 +5252,35 @@ bool PublicApiRuntime::devicePairingDecisionConfigured() const
     std::lock_guard<std::mutex> lock(
         devicePairingDecisionMutex_);
     return static_cast<bool>(devicePairingDecision_);
+}
+
+void PublicApiRuntime::registerEpgTimerIntentObservationLookup(
+    EpgTimerIntentObservationLookup callback)
+{
+    std::lock_guard<std::mutex> lock(epgTimerIntentMutex_);
+    epgTimerIntentObservationLookup_ = std::move(callback);
+}
+void PublicApiRuntime::resetEpgTimerIntentObservationLookup()
+{
+    std::lock_guard<std::mutex> lock(epgTimerIntentMutex_);
+    epgTimerIntentObservationLookup_ = {};
+}
+void PublicApiRuntime::registerEpgTimerIntentSubmit(EpgTimerIntentSubmit callback)
+{
+    std::lock_guard<std::mutex> lock(epgTimerIntentMutex_);
+    epgTimerIntentSubmit_ = std::move(callback);
+}
+void PublicApiRuntime::resetEpgTimerIntentSubmit()
+{
+    std::lock_guard<std::mutex> lock(epgTimerIntentMutex_);
+    epgTimerIntentSubmit_ = {};
+}
+bool PublicApiRuntime::epgTimerIntentAdmissionConfigured() const
+{
+    std::lock_guard<std::mutex> lock(epgTimerIntentMutex_);
+    return static_cast<bool>(epgTimerIntentObservationLookup_) &&
+        static_cast<bool>(epgTimerIntentSubmit_) &&
+        epgEventDetailLookupConfigured();
 }
 
 void PublicApiRuntime::registerTimerCreateAdmission(
@@ -8687,6 +8757,11 @@ bool PublicApiRuntime::tryHandleGet(
         }
     }
 
+    if (path == PublicEpgTimerIntentPath)
+    {
+        response = methodNotAllowedProblem(path, requestId, correlationId, "POST");
+        return true;
+    }
     if (isPublicV1Path(path))
     {
         response = notFoundProblem(
@@ -10707,6 +10782,195 @@ bool PublicApiRuntime::tryHandlePost(
         }
     }
 
+    if (path == PublicEpgTimerIntentPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (requestTarget != path)
+        {
+            response = invalidRequestProblem(path, "EPG TimerIntent POST takes no query.",
+                requestId, correlationId); return true;
+        }
+        if (!applicationJsonContentType(contentType))
+        {
+            response = publicTimerCreateProblem(415, "unsupported_media_type",
+                "Unsupported media type", "JSON required.",
+                path, requestId, correlationId); return true;
+        }
+        if (body.size() > 4096U)
+        {
+            response = invalidRequestProblem(path, "EPG TimerIntent JSON too long.",
+                requestId, correlationId); return true;
+        }
+        JsonSyntaxValidator validator(body);
+        if (!validator.valid())
+        {
+            response = publicTimerCreateProblem(400, "invalid_json", "Invalid JSON",
+                "Malformed EPG selection.", path, requestId, correlationId);
+            return true;
+        }
+        vdrsuite::public_epg_timer::Selection selection;
+        if (!parsePublicEpgTimerIntentBody(body, selection) ||
+            selection.backendId != authorizedBackendId)
+        {
+            response = invalidRequestProblem(path,
+                "Exact authorized EPG backend, channel and event identity required.",
+                requestId, correlationId); return true;
+        }
+        if (ifMatch.empty())
+        {
+            response = publicTimerCreateProblem(428, "precondition_required",
+                "Precondition required", "Strong EPG If-Match required.",
+                path, requestId, correlationId); return true;
+        }
+        std::string revision;
+        if (!vdrsuite::http::publicStrongEntityTagResourceRevision(
+                ifMatch, revision))
+        {
+            response = invalidRequestProblem(path, "Invalid strong EPG If-Match.",
+                requestId, correlationId); return true;
+        }
+        if (!vdrsuite::public_epg_timer::validIdempotencyKey(idempotencyKey))
+        {
+            response = invalidRequestProblem(path, "Invalid Idempotency-Key.",
+                requestId, correlationId); return true;
+        }
+        selection.ifMatch = ifMatch;
+        selection.idempotencyKey = idempotencyKey;
+        EpgTimerIntentObservationLookup resolve;
+        EpgTimerIntentSubmit submit;
+        {
+            std::lock_guard<std::mutex> lock(epgTimerIntentMutex_);
+            resolve = epgTimerIntentObservationLookup_;
+            submit = epgTimerIntentSubmit_;
+        }
+        if (!resolve || !submit || !epgEventDetailLookupConfigured())
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        const PublicEpgTimerIntentAdmissionRequest admission{actorRef, selection};
+        const auto current = resolve(admission);
+        if (current.status == PublicEpgTimerIntentObservationStatus::notFound)
+        {
+            response = notFoundProblem(path, requestId, correlationId); return true;
+        }
+        if (current.status != PublicEpgTimerIntentObservationStatus::ok)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        // Resolve the exact source-side ETag a second time, independently of
+        // the timer observation; no revision or native ID comes from Device JSON.
+        const auto detail = lookupEpgEventDetail({selection.backendId,
+            selection.channelId, selection.eventId});
+        if (detail.status == PublicEpgNowNextStatus::notFound)
+        {
+            response = notFoundProblem(path, requestId, correlationId); return true;
+        }
+        if (detail.status != PublicEpgNowNextStatus::ok ||
+            detail.backendId != selection.backendId ||
+            detail.channelId != selection.channelId ||
+            detail.eventId != selection.eventId ||
+            detail.resourceRevision.empty() ||
+            current.observation.resourceEtag !=
+                vdrsuite::http::publicStrongEntityTag(detail.resourceRevision))
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        const auto decision = vdrsuite::public_epg_timer::preflight(
+            selection, current.observation, true, current.backendAllowsMutation,
+            static_cast<std::int64_t>(std::time(nullptr)));
+        using D = vdrsuite::public_epg_timer::Decision;
+        switch (decision)
+        {
+            case D::invalidSelection: case D::invalidIdempotencyKey:
+                response = invalidRequestProblem(path, "Invalid selection.",
+                    requestId, correlationId); return true;
+            case D::missingPrecondition:
+                response = publicTimerCreateProblem(428, "precondition_required",
+                    "Precondition required", "Strong If-Match required.",
+                    path, requestId, correlationId); return true;
+            case D::forbidden: case D::readOnlyBackend:
+                response = publicTimerCreateProblem(403, "read_only_backend",
+                    "Backend is read-only", "Timer CREATE not permitted.",
+                    path, requestId, correlationId); return true;
+            case D::noAuthoritativeObservation:
+                response = serviceUnavailableProblem(path, requestId, correlationId);
+                return true;
+            case D::scopeMismatch:
+                response = publicTimerCreateProblem(409, "event_conflict",
+                    "Event conflict", "Native EPG identity changed.",
+                    path, requestId, correlationId); return true;
+            case D::revisionConflict:
+                response = publicTimerCreateProblem(412, "revision_conflict",
+                    "Revision conflict", "Reload the EPG event.",
+                    path, requestId, correlationId); return true;
+            case D::eventExpired:
+                response = publicTimerCreateProblem(409, "event_expired",
+                    "Event expired", "The programme already ended.",
+                    path, requestId, correlationId); return true;
+            case D::ready: break;
+        }
+        const auto result = submit(admission, current.observation);
+        using S = PublicEpgTimerIntentAdmissionStatus;
+        switch (result.status)
+        {
+            case S::accepted: case S::replayed:
+            {
+                if (result.operation.operationId.empty() ||
+                    result.operation.state.empty() ||
+                    result.operation.backendId != selection.backendId ||
+                    result.operation.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(path, requestId, correlationId);
+                    return true;
+                }
+                const std::string location = std::string(PublicOperationPrefix)
+                    + result.operation.operationId;
+                response = publicOperationResponse(result.operation, location,
+                    requestId, correlationId, "");
+                response.statusCode = 202;
+                response.headers["Location"] = location;
+                response.headers["Cache-Control"] = "no-store";
+                return true;
+            }
+            case S::invalid:
+                response = publicTimerCreateProblem(422, "validation_error",
+                    "Validation failed", "TimerIntent submission rejected.",
+                    path, requestId, correlationId); return true;
+            case S::notFound:
+                response = notFoundProblem(path, requestId, correlationId); return true;
+            case S::revisionConflict:
+                response = publicTimerCreateProblem(412, "revision_conflict",
+                    "Revision conflict", "Selected event changed.",
+                    path, requestId, correlationId); return true;
+            case S::generationConflict:
+                response = publicTimerCreateProblem(409, "generation_conflict",
+                    "Generation conflict", "Backend generation changed.",
+                    path, requestId, correlationId); return true;
+            case S::stateConflict:
+                response = publicTimerCreateProblem(409, "operation_conflict",
+                    "Operation conflict", "TimerIntent state conflict.",
+                    path, requestId, correlationId); return true;
+            case S::idempotencyConflict:
+                response = publicTimerCreateProblem(409, "idempotency_conflict",
+                    "Idempotency conflict", "Key used for another submission.",
+                    path, requestId, correlationId); return true;
+            case S::backendUnavailable:
+                response = publicTimerCreateProblem(503, "backend_unavailable",
+                    "Backend unavailable", "Cannot create a timer right now.",
+                    path, requestId, correlationId); return true;
+            case S::serviceUnavailable:
+                response = serviceUnavailableProblem(path, requestId, correlationId);
+                return true;
+        }
+    }
+
     if (publicTimerAssignmentPath(
             path,
             timerAssignmentId))
@@ -11164,6 +11428,7 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
          path == PublicSearchEpgPath ||
         path == PublicEpgNowNextPath ||
         path == PublicEpgEventDetailPath ||
+        path == PublicEpgTimerIntentPath ||
         path == PublicEpgWindowPath ||
         path == PublicNativeTimersPath ||
         path == PublicChannelCollectionPath ||
