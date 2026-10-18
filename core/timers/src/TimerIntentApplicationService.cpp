@@ -92,7 +92,9 @@ TimerIntentApplicationService::submitPrimary(
         return result(TimerIntentApplicationStatus::invalid);
 
     TimerIntent intent;
-    const auto created = intentRepository_.create(request.intent);
+    const auto created = currentTransaction
+        ? intentRepository_.createInCurrentTransaction(request.intent)
+        : intentRepository_.create(request.intent);
     if (created.ok())
     {
         intent = created.intent;

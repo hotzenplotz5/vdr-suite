@@ -422,6 +422,15 @@ bool TimerIntentRepository::ensureSchema()
         "ON timer_intents (state,schedule_start_at,schedule_stop_at,timer_intent_id);");
 }
 
+TimerIntentRepositoryResult TimerIntentRepository::createInCurrentTransaction(
+    const TimerIntent& intent)
+{
+    auto lease = database_.acquireTransactionLease();
+    if (!database_.transactionActive())
+        return statusResult(TimerIntentRepositoryStatus::storageError);
+    return create(intent);
+}
+
 TimerIntentRepositoryResult TimerIntentRepository::create(const TimerIntent& intent)
 {
     if (!intent.intentRevision.empty())

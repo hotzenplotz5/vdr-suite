@@ -96,6 +96,19 @@ int main()
     assert(bindings.ensureSchema());
 
     TimerIntentApplicationService service(intents, assignments, bindings);
+    // An accidental "in current transaction" call without the coordinator's
+    // BEGIN may never leave a draft Intent behind in autocommit mode.
+    auto forbiddenNested = request();
+    forbiddenNested.intent.timerIntentId = "intent:requires-transaction";
+    forbiddenNested.timerAssignmentId = "assignment:requires-transaction";
+    assert(!database.transactionActive());
+    assert(service.submitAndSelectPrimaryInCurrentTransaction(
+        forbiddenNested).status == TimerIntentApplicationStatus::repositoryError);
+    assert(intents.findById("intent:requires-transaction").status ==
+        TimerIntentRepositoryStatus::notFound);
+    assert(assignments.findById("assignment:requires-transaction").status ==
+        TimerAssignmentRepositoryStatus::notFound);
+
     const auto first = service.submitAndProvisionPrimary(request());
     assert(first.status == TimerIntentApplicationStatus::provisioningStarted);
     assert(first.intent.state == TimerIntentState::active);

@@ -47,6 +47,11 @@ public:
     // intentRevision empty; the durable result starts at revision "1".
     TimerIntentRepositoryResult create(const TimerIntent& intent);
 
+    // Reject if the coordinator has not opened a transaction. Does not
+    // begin/commit/rollback the caller-owned transaction.
+    TimerIntentRepositoryResult createInCurrentTransaction(
+        const TimerIntent& intent);
+
     TimerIntentRepositoryResult findById(const std::string& timerIntentId);
 
     // Exact-equivalence lookup uses the versioned semantic identity from the
