@@ -1,39 +1,100 @@
 # VDR-Suite
 
-VDR-Suite is a VDR-centred, domain-first platform for modern Web, mobile, desktop and TV clients. VDR remains the native runtime authority; VDR-Suite owns backend scope, policy, orchestration, persistent read models and client-facing contracts.
+![VDR-Suite logo](web/frontend/logo-vdr-suite.svg)
+
+**A modern Web interface and control plane for [Video Disk Recorder (VDR)](https://www.tvdr.de/).** Browse TV channels and EPG, discover and manage recordings, use supported Live TV/recording playback, and connect first-party or external clients through bounded APIs. **VDR stays in charge of native recording, tuner, timer and plugin execution.**
 
 ## Start here
 
-- [Current State](docs/CURRENT.md) — sole repository authority for volatile operational status
-- [New Chat Handoff](docs/NEW-CHAT-HANDOFF.md) — mandatory entry point for a new VDR-Suite chat
-- [Strict Roadmap](docs/planning/roadmap.md) — binding forward execution order and phase gates
-- [Phase Map](docs/planning/phase-map.md) — compact phase-number map
-- [Current Project Status](docs/development/current-status.md) — stable narrative context
-- [Target Platform Architecture](docs/architecture/target-platform-architecture.md)
-- [Architecture Decision Records](docs/adr/index.md)
-- [Completed History](docs/development/completed-phases.md)
-- [Agent Workflow Rules](AGENTS.md)
+| I want to… | Open |
+| --- | --- |
+| See what VDR-Suite can do | [Feature overview](docs/project-status-dashboard.md) |
+| **Install on Ubuntu / set up the first admin / configure VDR-Suite** | **[Erste Schritte nach der Installation (Deutsch)](docs/erste-schritte-nach-installation.md)** |
+| Explore an existing server or find the installation status | [Getting started](docs/getting-started.md) |
+| Compile and test from a clean checkout | [Developer quickstart](docs/development/quickstart.md) |
+| Contribute a change | [Contributing](CONTRIBUTING.md) |
+| Build a client | [Public API guide](api/README.md) and [partial OpenAPI](api/openapi.json) |
+| Understand architecture and roadmap | [Documentation home](docs/index.md) |
 
-## Architecture direction
+**Deutsch:** [Erste Schritte nach der Ubuntu-Paketinstallation](docs/erste-schritte-nach-installation.md) · [Projektüberblick](docs/project-overview.de.md) · [Dokumentationsübersicht](docs/index.md)
 
-The stable platform boundary is:
+**Ubuntu installation (experimental):** a maintainer-operated [VDR-Suite test PPA](https://launchpad.net/~hotzenplotz5/+archive/ubuntu/vdr-suite) and an active [Ubuntu/Debian packaging workstream](https://github.com/hotzenplotz5/vdr-suite/tree/work/packaging-debian-ubuntu-install) exist. These are **not a generally supported production installer or a verified in-place migration for existing yaVDR/manual installations**. Check the actual PPA package versions and platform/ABI compatibility before installing. Start with **[Erste Schritte nach der Installation](docs/erste-schritte-nach-installation.md)**; see also [packaging status](packaging/README.md) and the [deployment contract](docs/development/install-runtime-deployment-reliability.md).
+
+## What you get
+
+- **Live TV and programme guide:** Channels, EPG, metadata and playback on supported client/source combinations.
+- **Recordings:** browse/search, metadata and artwork, supported playback profiles, and VDR-native editing boundaries.
+- **Home and discovery:** Now/Next, recently recorded, film/genre and series browsing.
+- **Recording plans:** backend-aware TimerIntent/TimerAssignment orchestration and protected VDR-native actions.
+- **Secure clients:** persistent identities, server-enforced permissions, Device pairing and versioned Public-v1 contracts.
+- **Multi-backend architecture:** Suite control plane and bounded Backend Agent instead of exposing plugin-provider URLs to every client.
+
+For accepted scope versus ongoing/hardware-gated work, see the [feature dashboard](docs/project-status-dashboard.md) and [Current State](docs/CURRENT.md). **Merged source does not prove a particular machine or television is running that build.**
+
+## Web and TV clients
+
+The browser frontend lives in this repository under `web/frontend/`. The separate [VDR-Suite VIDAA client for Hisense televisions](https://github.com/hotzenplotz5/vdr-suite-vidaa) has its own installation, testing and real-TV acceptance status. It is not implied that an arbitrary TV already supports picture, sound, seeking or subtitles.
+
+### Screenshots — VDR-Suite Web frontend
+
+#### Home — Was läuft jetzt / Now & Next
+
+![VDR-Suite Web Home — Live TV, Now & Next and Was läuft jetzt](docs/media/web-home.png)
+
+*Real capture of the VDR-Suite Web Home showing the current channel, programme information and “Was läuft jetzt”.*
+
+#### Aufnahmen — Recording details
+
+![VDR-Suite Web frontend — recording detail view](docs/media/web-recording-details.png)
+
+*Real capture of the recordings detail view. This detail screen was chosen over the recording list to illustrate the UI.*
+
+#### EPG — Zeitleiste / Timeline
+
+![VDR-Suite EPG — programme timeline](docs/media/web-epg-timeline.png)
+
+*Real capture of the EPG timeline with scheduled programme information.*
+
+#### HbbTV
+
+![VDR-Suite — HbbTV view](docs/media/web-hbbtv.png)
+
+*Operator-supplied screenshot of the HbbTV view in VDR-Suite.*
+
+#### OSDTeletext — Videotext
+
+![VDR-Suite — OSDTeletext view](docs/media/web-osdteletext.png)
+
+*Operator-supplied screenshot of the OSDTeletext interface.*
+
+**Hisense VIDAA television:** **📷 Foto fehlt** — App running on a real TV. [Capture instructions](docs/screenshots.md#6-hisense-vidaa-tv).
+
+These five Web captures illustrate the interfaces, not independently verified installed build identity, HbbTV interoperability or audio, seeking, subtitle or playback acceptance. Please redact private data and confirm that any visible programme artwork can be published before contributing further captures.
+
+## How the pieces fit
 
 ```text
-clients
-  -> VDR-Suite Control Plane / public Suite contracts
-  -> Backend Agent
-  -> explicitly owned local provider
-  -> VDR native runtime
+Web / TV / external clients
+   -> VDR-Suite API and authenticated streaming gateway
+   -> Suite daemon: identity, authorization, models, orchestration
+   -> Backend Agent and explicitly owned private providers
+   -> VDR native runtime
 ```
 
-VDR remains authoritative for native VDR state and execution. VDR-Suite owns durable Suite identity, authorization, policy, orchestration, reconciliation and client-facing semantics. Private provider details such as RESTfulAPI, SVDRP, Streamdev or SuiteBridge do not become public client contracts merely because they are reachable.
+VDR remains authoritative for native devices, schedules, timers, recordings and OSD. Plugin access (RESTfulAPI, SVDRP, Streamdev, SuiteBridge, TVScraper) stays behind adapter boundaries; it does not automatically become a public contract.
 
-## Phase direction
+## For developers
 
-The current numbered platform sequence is defined only by the [Strict Roadmap](docs/planning/roadmap.md). In particular, Phase 65 Streaming follows completion of the reliable Phase-64 Timer orchestration engine; a broad polished Timer UI is separately gated on account/backend access management and is not a prerequisite for Streaming.
+Start with the [clean-checkout quickstart](docs/development/quickstart.md), then [Developer Onboarding](docs/development/developer-onboarding.md), the [current architecture](docs/development/current-architecture-state.md), [ADRs](docs/adr/index.md) and [source-tested API](api/README.md). The repository's detailed rules for automated changes are in [AGENTS](AGENTS.md), not prerequisites to *reading* or *trying* the project.
 
-Do not copy exact branch heads, active PR numbers or CI checkpoints from this README. Those facts change quickly and belong only in [Current State](docs/CURRENT.md), with live GitHub state re-read before any action.
+Phases 64–69 are completed within their historically accepted scopes. The next strict numbered phase is Phase 70; [current status](docs/CURRENT.md) and [roadmap](docs/planning/roadmap.md) distinguish later R2 work from original Phase-69.F compatibility acceptance.
 
-## Project-decision rule
+## Project status and decision sources
 
-A chat discussion is not a binding VDR-Suite project decision until the decision is represented in the repository through the appropriate ADR, roadmap, current-state or workflow contract. Repository documents and exact accepted runtime evidence take precedence over conversational memory.
+[CURRENT](docs/CURRENT.md) is the **sole repository authority for volatile operational status**; always verify current GitHub refs and the installed runtime separately. [New Chat Handoff](docs/NEW-CHAT-HANDOFF.md) explains how to resume active repository work without mistaking historical checkpoints for current implementation.
+
+**A chat discussion is not a binding VDR-Suite project decision** until represented by the appropriate repository ADR, roadmap, status or accepted implementation contract.
+
+## License and publication status
+
+The maintainer has selected **`GPL-3.0-or-later` for original VDR-Suite code they are authorized to license**, subject to the documented provenance boundaries; see [LICENSE](LICENSE). See the [GPLv3 compatibility and copyright review](docs/gplv3-compatibility-audit.md) and [publication readiness](docs/publication-readiness.md), also covering GitHub About metadata and verified product screenshots. Publicly readable source code is not by itself a redistribution permission.

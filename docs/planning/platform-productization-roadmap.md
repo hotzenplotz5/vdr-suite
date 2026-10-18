@@ -29,7 +29,7 @@ ADR-0013 already states that a remote VDR-Suite instance is an Actor and gives t
 
 The still-open gap is the production federation layer between **independent Control Planes**. ADR-0041 intentionally did not define that protocol.
 
-These product milestones do **not** silently start Phase 68.
+These cross-cutting product milestones do **not** reopen completed Phase 68/69 or start Phase 70. Accepted numbered-phase contracts are prerequisites, not evidence that future client/federation/package products are delivered.
 
 ---
 
@@ -163,7 +163,7 @@ The intended user-facing capability includes:
 - EPG, Home and search;
 - playback controls and track selection;
 - Teletext and HbbTV integration through their existing Suite domains;
-- later Legacy OSD compatibility through Phase 68;
+- Legacy OSD compatibility using the completed Phase-68 Suite contract, subject to separate client-specific integration and acceptance;
 - remote-control/key input mapped to normalized Suite actions;
 - hardware-accelerated decode/rendering on supported hardware.
 
@@ -194,7 +194,7 @@ The architecture is not tied to one GPU vendor. The current yaVDR reference syst
 
 ### Sequencing
 
-Development experiments may happen earlier, but a **supported first-party client contract** is gated on Phase 69 so the client is not built against transitional private endpoints.
+The **Phase-69 public API compatibility foundation is completed**. A supported first-party living-room client still requires its own bounded client implementation, declared public/API compatibility scope and real hardware acceptance; completion of Phase 69 does not itself deliver that client.
 
 Binding architecture: [ADR-0062](../adr/ADR-0062-first-party-living-room-output-client.md).
 
@@ -206,9 +206,9 @@ ADR-0037 already established staged install layout and the rule that internal C+
 
 ### Gate
 
-Release-grade Debian/Ubuntu packaging starts after Phase 69 Public API and Client Compatibility Hardening.
+Phase 69 Public API and Client Compatibility Hardening is completed. Its sequencing prerequisite is satisfied; release-grade Debian/Ubuntu package implementation and clean-install/upgrade acceptance remain a distinct, uncompleted product milestone.
 
-Reason: packaging should freeze supported service/client/install contracts, not transitional internals. This does not prevent maintaining `make install DESTDIR=...` readiness before Phase 69.
+Package builds must use explicitly supported service/client/install contracts, not transient internal APIs. Existing staged installation and package-preparation work is not proof that the release-grade package acceptance below has passed.
 
 ### Required package work
 
@@ -273,16 +273,16 @@ Binding install boundary: [ADR-0037](../adr/ADR-0037-packaging-install-api-bound
 These milestones are binding productization work but are intentionally not inserted as surprise numbered runtime phases.
 
 ```text
-Phase 68 Legacy OSD
-  -> Phase 69 Public API hardening
-       -> stable independent-client boundary
-       -> supported living-room client rollout
-       -> release-grade Debian/Ubuntu packaging
+Phase 68 Legacy OSD [COMPLETED]
+  -> Phase 69 Public API hardening [COMPLETED]
+       -> accepted independent-client API foundation
+       -> supported living-room client rollout [SEPARATE PRODUCT GATE]
+       -> release-grade Debian/Ubuntu packaging [SEPARATE PRODUCT GATE]
 
 Federation + permissioned-client product work
   -> may be implemented as explicit cross-cutting product work
   -> must preserve Phase 62/63/64 authority and fencing
-  -> must not silently advance Phase 68/69
+  -> must not reopen completed Phase 68/69 or silently start Phase 70
 ```
 
 Any implementation still requires an explicit kickoff and current-main evidence before code changes.

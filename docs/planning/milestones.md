@@ -16,7 +16,7 @@
 
 ## Purpose
 
-This document is a lightweight planning entry point.
+This document is a historical milestone pointer plus links to canonical living plans; it is **not** the active milestone register.
 
 The authoritative current planning state is maintained in:
 
@@ -35,21 +35,23 @@ Older milestone sketches that described Phase 28 through early multi-backend wor
 
 ---
 
-## Current Position
+## Historical Phase-54.3 milestone snapshot (not current)
 
-Current implementation focus:
+The Phase-54.3 material below records an earlier planning checkpoint. It is preserved for traceability, **not** as a second active-milestone source. The numbered implementation programme has since completed through Phase 69; the next Phase 70 has not started. For current work and gates consult [CURRENT](../CURRENT.md) and the [strict roadmap](roadmap.md).
+
+Implementation focus recorded at that earlier checkpoint:
 
 ```text
 Phase 54.3 - SearchTimer warm EPG cache implementation
 ```
 
-Required planned follow-up:
+Follow-up recorded at that checkpoint:
 
 ```text
 Lazy Recording Loading and Backend-Scoped Recording Refresh
 ```
 
-Current planning focus:
+Planning focus recorded at that checkpoint:
 
 ```text
 SearchTimer preview performance first; recording startup performance must remain tracked as a required follow-up.
@@ -57,7 +59,7 @@ SearchTimer preview performance first; recording startup performance must remain
 
 ---
 
-## Active Planning Source
+## Current authoritative planning sources
 
 Use [Roadmap](roadmap.md) for the current milestone order and long-term direction.
 
@@ -69,9 +71,9 @@ Use [Current Project Status](../development/current-status.md) for the verified 
 
 ---
 
-## Current Implementation Direction
+## Historical implementation direction (Phase 54.3)
 
-Phase 54.3 should finish the SearchTimer preview warm EPG cache and cache-status semantics.
+At this earlier checkpoint the plan stated that Phase 54.3 should finish SearchTimer preview warm EPG cache and cache-status semantics. That statement is historical and must not be used as a new implementation instruction.
 
 The required recording follow-up must ensure:
 
@@ -83,9 +85,9 @@ The required recording follow-up must ensure:
 
 ---
 
-## Deferred Planning Areas
+## Historically deferred planning areas
 
-The following remain planned after the active SearchTimer preview performance work:
+The following items were listed as deferred after the then-active SearchTimer preview work. Their **current** completion or deferral must be checked in the roadmap and current-status authority:
 
 - Lazy recording loading and backend-scoped recording refresh.
 - Live-style information parity and frontend-ready API polish.
@@ -101,12 +103,7 @@ The following remain planned after the active SearchTimer preview performance wo
 
 Keep this file short. Detailed planning belongs in [Roadmap](roadmap.md), [Lazy Recording Loading](lazy-recording-loading.md), and completed implementation history belongs in [Completed Phases](../development/completed-phases.md).
 
-When the active milestone changes, update the current position here and then run:
-
-```text
-make test-docs
-make test-phase
-```
+Do not advance the historical Phase-54.3 snapshot when a current milestone changes. Update [CURRENT](../CURRENT.md) and the [binding roadmap](roadmap.md) at their established gates; validate relevant documentation and phase checks on the exact intended repository commit.
 
 ---
 

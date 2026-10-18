@@ -1,5 +1,8 @@
 # RecordingRepository
 
+> **Historisches Phase-1-Repositorymodell.** Die beschriebenen Methodennamen sind Entwurfsbeispiele, keine garantierte aktuelle C++- oder HTTP-Schnittstelle. Für implementierte Datenflüsse siehe [Core](../../core/README.md), [Recording-Service-Einordnung](README.md) und den [Architekturstand](../../docs/development/current-architecture-state.md).
+
+
 ## Ziel
 
 Das RecordingRepository kapselt den direkten Datenbankzugriff für Aufnahmen.

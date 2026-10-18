@@ -30,6 +30,11 @@ Stable architecture, historical evidence and workflow rules live in their respec
 - [MU.9 Closeout](development/post-phase69-mu9-closeout.md)
 - [Post-MU.9 Administration Usability](development/post-phase69-multiuser-administration-usability.md)
 - [MU.10B Administrator Pairing Approval](development/post-phase69-mu10b-admin-pairing-approval.md)
+- [MU.10C1 Device Credential Issuance](development/post-phase69-mu10c-device-credential-issuance.md)
+- [MU.10D1 Device Authentication](development/post-phase69-mu10d-device-authentication.md)
+- [MU.10E1 Device Grants](development/post-phase69-mu10e1-device-grant-administration.md)
+- [MU.10E2 Device/Credential Revocation](development/post-phase69-mu10e2-device-revocation.md)
+- [MU.10E3 Credential Rotation](development/post-phase69-mu10e3-device-credential-rotation.md)
 - [Post-Phase-69 P2 Legacy Basic Retirement Closeout](development/post-phase69-p2-legacy-basic-retirement-closeout.md)
 - [Phase 69.B Closeout](development/phase-69b-closeout.md)
 - [Phase 69.C Closeout](development/phase-69c-closeout.md)
@@ -119,10 +124,13 @@ Multiuser / Account and Backend Access Administration
 Current Multiuser architecture slice:
 MU.5 - Administration architecture contract - ADR-0067 [COMPLETED]
 
-Current Multiuser productization slice:
+Latest source-merged Multiuser Device scope:
+MU.10C1, MU.10D1 and MU.10E1-E3 [MERGED — PR #440-#444; latest MU.10E3 PR #444]. Repository integration is not real yaVDR/VIDAA acceptance.
+
+Latest separately demonstrated real yaVDR Multiuser acceptance:
 MU.10B Administrator Pairing Approval [ACCEPTED - PR #437 / REAL YAVDR PASS / HOSTED CI #9801 GREEN]
 
-Latest completed Multiuser milestone:
+Historical completed Post-MU.9 acceptance marker (retained for the established static UX guard, not a current successor):
 Post-MU.9 Administration Usability [MERGED - PR #433 / REAL YAVDR PASS / HOSTED CI GREEN]
 
 Historical completed MU.9 UI slice markers:
@@ -132,12 +140,13 @@ MU.9F - Account CREATE UI [IMPLEMENTATION MERGED - PR #430 / FOCUSED YAVDR PASS 
 Completed MU.7 sub-slice:
 MU.7 - Grant-set read + desired-state grant mutation [COMPLETED - REAL YAVDR PASS / PR #413 MERGED]
 
-Current cross-cutting successor:
-MU.10B - Administrator Pairing Approval [ACCEPTED - PR #437 / REAL YAVDR PASS / HOSTED CI #9801 GREEN]
+Current cross-cutting acceptance boundary:
+MU.10C1-E3 are source-merged; their real yaVDR/VIDAA installation and end-to-end acceptance remain separate from MU.10B's proven server acceptance. Recheck the live host before claiming deployment.
 
 Post-Phase-69 Multiuser productization status:
 MU.0 through MU.7 are completed. MU.6D Atomic Account CREATE + durable idempotency passed real yaVDR acceptance and merged as PR #411.
 ADR-0067 remains the accepted architecture. MU.7 completed the bounded grant-administration boundary: secret-free grant-set read with deterministic ETag, global accounts.grants.view/modify authority, desired-state ensure/revoke, explicit server-owned permission/scope allowlist, browser CSRF and final-usable-administrator protection. REAL YAVDR acceptance passed; PR #413 merged. MU.8 implementation is complete through MU.8C. MU.8A merged as PR #415 but its separately documented real-runtime acceptance remains pending. MU.8B passed focused yaVDR acceptance and merged as PR #416. MU.8C passed focused yaVDR acceptance, merged as PR #417, and both its PR CI and post-merge main CI are green. MU.9A read-only Account administration UI merged as PR #418 after exact merged-main yaVDR acceptance; PR and post-merge hosted CI are green. MU.9B Account Lifecycle Mutation UI merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green. MU.9C Session Revoke UI merged as PR #426 after focused yaVDR acceptance and green hosted PR CI. MU.9D Human-password Credential Revoke UI merged as PR #428 after focused yaVDR acceptance; PR and post-merge hosted CI are green. MU.9E Backend Grant Mutation UI merged as PR #429 after focused real-yaVDR acceptance. GitHub-hosted runner degradation interrupted queued jobs without executing them; post-merge main CI run #9763 ultimately completed successfully with all six jobs green. MU.9F Account CREATE UI passed focused real-yaVDR acceptance, merged as PR #430, and both PR CI #9764 and post-merge main CI #9765 completed with all six jobs green. MU.9A-F and the MU.9 closeout are complete; no MU.9G is selected. Post-MU.9 Administration Usability is complete. MU.10A Device Pairing Bootstrap passed real yaVDR runtime and real VIDAA first-consumer acceptance, merged as PR #436, and post-merge main CI #9779 completed successfully with all six jobs green. MU.10B Administrator Pairing Approval passed the exact real-yaVDR server acceptance gate. Pending-list/item reads, strong ETag/If-Match, browser CSRF, approve/reject, stale/already-decided/expired conflicts, token-scoped post-decision polling, SQLite lifecycle, verifier hashing and accountability all passed; Actor/Device/Credential/Session/Grant counts remained unchanged. PR #437 hosted CI #9801 completed successfully with all six jobs green.
+Subsequent verified source merges: [MU.10C1 PR #440](https://github.com/hotzenplotz5/vdr-suite/pull/440) (credential issuance), [MU.10D1 PR #441](https://github.com/hotzenplotz5/vdr-suite/pull/441) (Device authentication), [MU.10E1 PR #442](https://github.com/hotzenplotz5/vdr-suite/pull/442) (scoped grants), [MU.10E2 PR #443](https://github.com/hotzenplotz5/vdr-suite/pull/443) (revocation) and [MU.10E3 PR #444](https://github.com/hotzenplotz5/vdr-suite/pull/444) (rotation). Each exact PR head has successful hosted CI (#9839, #9850, #9876, #9879 and #9904 respectively); these tests do not substitute for real yaVDR or VIDAA acceptance. The corresponding original MU.10C-E documents retain their time-bound development checkpoints.
 Durable workstream status: [Post-Phase-69 Multiuser Productization Workstream](development/post-phase69-multiuser-workstream.md).
 Durable MU.5 evidence: [MU.5 Administration Architecture Acceptance](development/post-phase69-mu5-administration-architecture-acceptance.md).
 Durable MU.6A evidence: [MU.6A Human Account Lifecycle Authority Foundation](development/post-phase69-mu6-account-lifecycle-foundation.md).
@@ -353,6 +362,17 @@ The accepted post-Phase-66 Home rebuild branch `work/home-rebuild` ended at `0cc
 
 The later accepted post-phase runtime chain includes the Recordings 2 cinematic detail/presentation work, the related-Genre portrait correction, the Live-TV `ended` lifecycle stabilization, and the subsequent Recording-detail hardening through clickable cast/person search, corrected metadata navigation, strict paused prewarm and inline YouTube trailers. The current live `main` head must still be queried before repository-state actions; the runtime checkpoint above is historical evidence, not a permanent branch tip.
 
+## Post-Phase-69 Recording R2 and VIDAA Device status — `main` as of 2026-10-11
+
+The verified `main` source head for this documentation comparison is `8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0`, the merged R2 Recording Device audio/index/SRT/WebVTT integration. This is **repository source identity only**: it does not establish the running yaVDR daemon binary, selected TV build, a completed hardware smoke test or deployment approval.
+
+- The R2 Recording successor now has merged `main` code for canonical backend-scoped Recording collections, bounded folder/genre browse, `durationKnown` and public EPG now/next. The Phase-69.F accepted public-contract baseline remains closed; later additions must be validated independently and must **not** be silently relabelled as accepted Phase 69.F references.
+- Device-owned `POST /api/v1/recording-playback-sessions`, owned `GET` status and STOP use Device proof, backend-scoped `media.recording.play` authorization, canonical MediaSession/Gateway ownership and reauthorization of protected media artifacts. Browser credentials or `recordings.view` alone do not grant Device playback control.
+- The merged Device status projection reports only verified index-backed duration and bounded index-preparing state. The VDR index updater refuses existing `index`, `index.vdr` and symlink paths rather than invoking the potentially destructive VDR 2.7.9 generator over them.
+- Device-owned tracks and subtitle routes reuse the canonical Recording track/WebVTT implementation. Track inventory and successful WebVTT responses are bounded; a Device-owned subtitle mutation must not return native paths, private cookies or Browser-session capabilities. Audio changes reuse MediaSession replacement instead of a new unrestricted control route.
+- **Unverified at this source-only checkpoint:** exact installed daemon versus this `main` SHA, registered routes on the running server, real Hisense audio/SRT/WebVTT selection and the complete physical playback/cleanup acceptance. These remain explicit runtime/deployment gates, not completed facts.
+
+Evidence: [Device Recording playback](development/public-v1-device-recording-playback.md), [Device tracks/index/SRT integration](development/vidaa-device-tracks-index-srt-integration-20261011.md), [Index-status draft history](development/vidaa-index-status-public-v1-20261011.md).
 ## Phase 66 and post-phase completion state
 
 **Phase 66 is completed.** Slices 66.1 through 66.8 remain the numbered Phase-66 completion boundary. The later work below is deliberately non-numbered hardening/correctness work and does not reopen Phase 66 or start Phase 67.

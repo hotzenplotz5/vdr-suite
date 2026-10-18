@@ -32,17 +32,21 @@ This is a stable navigation page for development contracts and evidence. It does
 
 ## Current orientation
 
-- [Installed Add-on Registry Contract](addon-installed-registry-contract.md) — read-only package discovery; activation intentionally denied.
-- [Optional Add-on Source Packaging](addon-source-packaging.md) — versioned scaffold, module-specific AGENTS.md and isolated metadata staging (runtime inactive).
-
+- [Installed Add-on Registry Contract](addon-installed-registry-contract.md) — read-only package discovery and non-executing admission preview; no runtime activation.
+- [Optional Add-on Source Packaging](addon-source-packaging.md) — independent scaffold and C++ Media Tools preview packaging, disabled by default.
+- [Clean-checkout Developer Quickstart](quickstart.md) — first build/test on a disposable Linux environment, without deployment.
+- [Newcomer Getting Started](../getting-started.md) — user-facing product overview and honest install status.
 - [Current State](../CURRENT.md)
+- [Main Documentation Reconciliation — 2026-10-11](main-docs-audit-2026-10-11.md) — source baseline, verified drift and outstanding archive-wide audit.
+- [Post-Phase-69 Device Recording playback](public-v1-device-recording-playback.md) — merged R2 source and independently gated hardware acceptance.
+- [Device Tracks/Index/SRT Merge History](vidaa-device-tracks-index-srt-integration-20261011.md)
 - [Current Project Status](current-status.md)
 - [Current Architecture State](current-architecture-state.md)
 - [Architecture Map](architecture-map.md)
 - [Strict Roadmap](../planning/roadmap.md)
 - [Frontend Playback Integration Contract](frontend-playback-integration-contract.md)
 - [Phase 69 Closeout](phase-69-closeout.md) — completed public API/client compatibility phase.
-- [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md) — active cross-cutting Account/backend administration sequence.
+- [Post-Phase-69 Multiuser Productization Workstream](post-phase69-multiuser-workstream.md) — cross-cutting Account/backend administration scope and dependency history; the active successor is recorded only in [Current State](../CURRENT.md).
 - [MU.6C Public Account Lifecycle Mutation](post-phase69-mu6c-public-account-lifecycle-mutation.md) — completed lifecycle mutation boundary.
 - [MU.6D Atomic Account CREATE + Durable Idempotency](post-phase69-mu6d-account-create-idempotency.md) — completed Account CREATE boundary; real yaVDR acceptance passed and PR #411 merged.
 - [MU.7 Backend Access / Permission Grant Administration](post-phase69-mu7-account-grant-administration.md) — completed grant administration boundary; real yaVDR acceptance passed and PR #413 merged.
@@ -55,7 +59,11 @@ This is a stable navigation page for development contracts and evidence. It does
 - [MU.9D Human-password Credential Revoke UI](post-phase69-mu9d-credential-revoke-ui.md) — merged as PR #428 after focused yaVDR acceptance with green PR/post-merge hosted CI.
 - [MU.9E Backend Grant Mutation UI](post-phase69-mu9e-grant-mutation-ui.md) — merged as PR #429 after focused real-yaVDR acceptance; post-merge CI #9763 green.
 - [MU.9F Account CREATE UI](post-phase69-mu9f-account-create-ui.md)
-- [MU.9 Closeout](post-phase69-mu9-closeout.md) — closes the MU.9A-F browser administration surface after PR #430. — active implementation candidate over the accepted MU.6D Account CREATE/idempotency contract.
+- [MU.9 Closeout](post-phase69-mu9-closeout.md) — accepted MU.9A-F browser administration surface after PR #430, over the previously accepted MU.6D Account CREATE/idempotency contract.
+- [MU.10 Device/App Pairing Architecture and Gap Audit](post-phase69-mu10-device-app-pairing-audit.md) — pre-implementation audit; historical snapshot, not a live status source.
+- [MU.10A Device Pairing Bootstrap](post-phase69-mu10a-device-pairing-bootstrap.md) — short-lived Pairing Request and polling.
+- [MU.10B Administrator Pairing Approval](post-phase69-mu10b-admin-pairing-approval.md) — real yaVDR acceptance evidence.
+- [MU.10C1-E3 Device implementation contracts](post-phase69-mu10c-device-credential-issuance.md) — see the [Multiuser Workstream](post-phase69-multiuser-workstream.md) for issuance, authentication, grants, revocation and rotation, and [CURRENT](../CURRENT.md) for acceptance gates.
 - [Phase 67 Closeout](phase-67-closeout.md) — completed Teletext + HbbTV Broadcast Companion phase.
 - [Phase 67 Teletext Closeout](phase-67-teletext-closeout.md) — completed Teletext vertical.
 - [Phase 66 Closeout](phase-66-closeout.md)
@@ -124,6 +132,10 @@ Growing-Recording seek and Live-TV timeshift remain truthful deferred capability
 
 ## Developer references
 
+- [Documentation Guide / authority map](../documentation-guide.md)
+- [Historical Documentation Hub](../history/index.md)
+- [Pruning Decisions and Deletion Evidence](documentation-pruning-review.md)
+- [Canonical contribution instructions](../../CONTRIBUTING.md)
 - [Developer Onboarding](developer-onboarding.md)
 - [Build System State](build-system-state.md)
 - [GitHub Actions Status Handoff](github-actions-status-handoff.md)
@@ -146,5 +158,3 @@ Growing-Recording seek and Live-TV timeshift remain truthful deferred capability
 - [Back to Current State](../CURRENT.md)
 - [Back to README](../../README.md)
 
-- [MU.10 Device/App Pairing Architecture and Gap Audit](post-phase69-mu10-device-app-pairing-audit.md) — live authority/gap audit selecting the bounded first slice.
-- [MU.10A Device Pairing Bootstrap](post-phase69-mu10a-device-pairing-bootstrap.md) — short-lived Pairing Request creation and token-scoped polling; implementation candidate.

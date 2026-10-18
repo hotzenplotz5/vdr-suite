@@ -1,5 +1,12 @@
 # Final Roadmap Example
 
+> **Historical reference-client proposal.** This section records the
+> early vision, not a verified list of installable Windows, OSD or Live-like
+> clients. Route examples in the linked study are historical illustrations,
+> not the supported Public-v1 API contract. See the current [API guide](../../../api/README.md),
+> [implementation architecture](../../development/current-architecture-state.md)
+> and [strict roadmap](../../planning/roadmap.md) before planning client work.
+
 ## Navigation
 
 - [README](../../../README.md)

@@ -1,3 +1,60 @@
+.PHONY: test-packaging-p7-runtime-schema
+test-packaging-p7-runtime-schema: CXXFLAGS += -Icore/metadata/include -Icore/timers/include -Icore/operations/include -Icore/vdr/include -Icore/media/include -Icore/recordings/include -Icore/daemon/include
+test-packaging-p7-runtime-schema:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(METADATA_GENRE_SRC) \
+		core/security/src/SecurityIdentityRepository.cpp \
+		core/security/src/HumanAccountRepository.cpp \
+		core/security/src/CredentialVerifierRepository.cpp \
+		core/security/src/DevicePairingRequestRepository.cpp \
+		core/security/src/BrowserSessionCredentialRepository.cpp \
+		core/security/src/AccountabilityEventRepository.cpp \
+		core/security/src/DeviceCredentialVerifierRepository.cpp \
+		core/security/src/SecurityPermissionGrantRepository.cpp \
+		core/security/src/FirstAdminBootstrapRepository.cpp \
+		core/security/src/HumanAccountCreationRepository.cpp \
+		core/media/src/ContinueWatchingRepository.cpp \
+		core/media/src/RecentlyWatchedRepository.cpp \
+		core/media/src/MediaSessionRepository.cpp \
+		core/media/src/MediaTranscodeBackendSettingsRepository.cpp \
+		core/vdr/src/EpgEventRepository.cpp \
+		core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
+		core/vdr/src/EpgArtworkRepository.cpp \
+		core/vdr/src/EpgSeriesArtworkFallbackRepository.cpp \
+		core/vdr/src/EpgSeriesArtworkProviderCacheRepository.cpp \
+		core/recordings/src/PublicRecordingIdentityRepository.cpp \
+		core/metadata/src/RecordingSeriesHierarchyOverrideRepository.cpp \
+		core/metadata/src/ManualRecordingMetadataAssignmentRepository.cpp \
+		core/metadata/src/MetadataIdentity.cpp \
+		core/vdr/src/VdrChannelCacheRepository.cpp \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/timers/src/TimerIntent.cpp \
+		core/timers/src/TimerIntentRepository.cpp \
+		core/timers/src/TimerAssignment.cpp \
+		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
+		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/TimerAssignmentSetRevisionRepository.cpp \
+		core/timers/src/NativeTimerBinding.cpp \
+		core/timers/src/NativeTimerBindingRepository.cpp \
+		core/timers/src/NativeTimerBindingReadRepository.cpp \
+		core/timers/src/NativeTimerBindingWriteRepository.cpp \
+		core/agent/src/BackendRuntimeGeneration.cpp \
+		core/agent/src/BackendAgentRepository.cpp \
+		core/daemon/src/EmbeddedBackendLifecycle.cpp \
+		core/agent/src/EmbeddedRecordingCutRepository.cpp \
+		core/agent/src/EmbeddedRecordingMarksRepository.cpp \
+		core/vdr/src/VdrRecordingNativeMetadataRepositorySchema.cpp \
+		core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
+		core/vdr/src/GlobalSearchRepository.cpp \
+		core/metadata/tests/test_packaging_p7_runtime_schema.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_packaging_p7_runtime_schema
+	python3 tools/packaging_p7_runtime_schema_rehearsal.py \
+		--binary "$(BUILD_DIR)/test_packaging_p7_runtime_schema"
+
 .PHONY: \
 	test-metadata-make-boundary \
 	test-metadata-manual-recording-architecture \

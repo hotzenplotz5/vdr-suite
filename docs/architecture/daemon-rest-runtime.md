@@ -1,5 +1,14 @@
 # Daemon REST Runtime Architecture
 
+
+> **Historical early daemon composition sketch.** Its “future IHttpServer”
+> and “future request flow” headings describe design work before the current
+> HTTP listener, security gate, runtime and API routes were implemented. This
+> page is **not** a deployment or current DaemonRuntime wiring guide.
+> Use [current architecture](../development/current-architecture-state.md),
+> [Core runtime ownership](../../core/README.md) and
+> [REST implementation boundary](../../api/rest/README.md) instead.
+
 ## Navigation
 
 - [README](../../README.md)

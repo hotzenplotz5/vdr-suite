@@ -376,6 +376,39 @@ int main()
     assert(publicCapabilitiesPostDecision.allowed);
     assert(!publicCapabilitiesPostDecision.protectedMutation);
 
+    // A Browser login (even with the media grant) is not a Device
+    // Credential and must never issue or stop Public-v1 playback.
+    HttpServerRequest browserDevicePlayback =
+        fixture.mutationRequest(
+            "/api/v1/recording-playback-sessions",
+            "default");
+    fixture.addBrowserAuthentication(browserDevicePlayback, true);
+    const auto browserDeviceDecision =
+        fixture.gate.evaluate(browserDevicePlayback);
+    assert(!browserDeviceDecision.allowed);
+    assert(browserDeviceDecision.rejection.statusCode == 403);
+    HttpServerRequest browserDeviceStop =
+        fixture.mutationRequest(
+            "/api/v1/recording-playback-sessions/"
+            "ms_0123456789abcdef0123456789abcdef/stop",
+            "default");
+    fixture.addBrowserAuthentication(browserDeviceStop, true);
+    const auto browserStopDecision = fixture.gate.evaluate(browserDeviceStop);
+    assert(!browserStopDecision.allowed);
+    assert(browserStopDecision.rejection.statusCode == 403);
+    // Subtitles use the same Device proof, play grant, CSRF-independent
+    // session-owner boundary as protected Device Playback STOP.
+    HttpServerRequest browserDeviceSubtitles =
+        fixture.mutationRequest(
+            "/api/v1/recording-playback-sessions/"
+            "ms_0123456789abcdef0123456789abcdef/subtitles",
+            "default");
+    fixture.addBrowserAuthentication(browserDeviceSubtitles, true);
+    const auto browserSubtitlesDecision =
+        fixture.gate.evaluate(browserDeviceSubtitles);
+    assert(!browserSubtitlesDecision.allowed);
+    assert(browserSubtitlesDecision.rejection.statusCode == 403);
+
     HttpServerRequest unknownPublicPost =
         fixture.mutationRequest(
             "/api/v1/private",

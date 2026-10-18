@@ -1,5 +1,7 @@
 # MU.10C — Durable Device Identity and Credential Issuance Scope
 
+> **Historical pre-merge implementation checkpoint.** The original `Status`, branch and base notes below were written before this slice merged. The source is now on `main` via [PR #440](https://github.com/hotzenplotz5/vdr-suite/pull/440); the exact PR-head hosted CI #9839 succeeded. This does **not** establish installed yaVDR/VIDAA acceptance. For the present source/runtime distinction see [CURRENT](../CURRENT.md) and the [Multiuser workstream](post-phase69-multiuser-workstream.md).
+
 Status: **ARCHITECTURE / FAILURE-MODE AUDIT — IMPLEMENTATION NOT YET ACCEPTED**
 
 Base: merged MU.10B PR #437, main `eb25c7814e58b437cf418e6f7f95bd7760118b4c`.

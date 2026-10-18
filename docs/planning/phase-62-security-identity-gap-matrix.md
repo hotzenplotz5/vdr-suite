@@ -1,5 +1,7 @@
 # Phase 62 Security and Identity Gap Matrix
 
+> **Historical Phase-62 closeout snapshot — not current security configuration or an open PR queue.** This document preserves the original Phase-62 accepted decisions and exact runtime evidence at its own checkpoint. The historical `PR #117: open, Draft, unmerged` below has since become [merged PR #117](https://github.com/hotzenplotz5/vdr-suite/pull/117). Its former decision to retain transitional **Legacy Basic** was later superseded by the [accepted P2 Legacy Basic Retirement Closeout](../development/post-phase69-p2-legacy-basic-retirement-closeout.md) (PR #403 migration, PR #404 runtime removal). For current authentication/authorization ownership use [Security and Identity Foundation](../architecture/security-identity-foundation.md) and [CURRENT](../CURRENT.md). The original matrix, exit-gate decision and evidence below remain unchanged.
+
 Status: **completed Phase 62 closeout matrix**
 
 ```text

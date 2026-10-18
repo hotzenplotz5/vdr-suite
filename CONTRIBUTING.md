@@ -1,154 +1,63 @@
 # Contributing to VDR-Suite
 
-## Mandatory Project Rules
+Thanks for your interest in VDR-Suite! Small, focused contributions are welcome: a reproducible bug report, a test, clearer documentation or a bounded source-code improvement.
 
-These rules are non-negotiable and must be checked before every implementation change.
+**New here?** You don't need to read all phase archives or architecture decisions before making your first contribution. Start with the [developer quickstart](docs/development/quickstart.md) in a disposable checkout.
 
-1. No blind patches.
-2. Inspect the relevant files before proposing or applying changes.
-3. Prefer GitHub inspection for repository state and file context before local patch commands.
-4. Prove the current state and the root cause first.
-5. Explain the intended minimal change before patching.
-6. Do not use `sed` for code changes unless it is clearly the safest and smallest tool for the job.
-7. Do not generate CRAP patches, broad rewrites or unrelated cleanup.
-8. Keep patches minimal, reviewable and tied to the proven cause.
-9. Run the matching checks before commit.
-10. Commit only explicit files, never `git add .`.
-11. Patch only after the intended change is understood.
-12. If the diagnosis is uncertain, stop and ask instead of guessing.
-13. For interactive terminal blocks, do not use `set -e` or `exit 1`.
-14. Do not combine cleanup, patching, checks, commit and push in one large block.
-15. Never require a patch file to be downloaded to a mobile device or manually transferred to the VDR server.
-16. Deliver server-side changes through a direct repository commit or a repository-hosted Python patch script that runs after `git pull --ff-only`.
-17. Do not use here-documents to transfer patches or complete source files. Prefer committed files or a checked Python patch generator.
+## Your first contribution
 
+1. Read [what the project does](docs/getting-started.md) and [which area owns your topic](docs/development/quickstart.md#4-locate-the-code-you-need).
+2. Confirm a bug or document the improvement in a way someone else can reproduce. Distinguish a tested repository commit from what is actually installed on a VDR host.
+3. Work on a fresh branch from the **currently verified** `main`; keep unrelated cleanups out of the change.
+4. Run the smallest relevant test first. For a documentation-only change, use `make test-docs`; for affected runtime or client code, see [Make/test groups](mk/README.md).
+5. Open a pull request describing **what changed, why, how it was tested, and what remains unverified**. Include the exact candidate commit and relevant risk/compatibility notes.
 
-## Navigation
+A PR does not require proof of a deployed real VDR when it only modifies non-deploying documentation or isolated tests. Conversely, green CI does not prove installed yaVDR or Hisense playback acceptance.
 
-* [README](README.md)
-* [Documentation Index](docs/index.md)
-* [Project Overview](docs/project-overview.md)
-* [Development Documentation](docs/development/index.md)
-* [Architecture Documentation](docs/architecture/index.md)
+## Common source paths
 
----
+| Area | Where to start |
+| --- | --- |
+| REST API / OpenAPI | [API guide](api/README.md), `api/rest/` |
+| Native VDR domains and Backend Agent | [Core overview](core/README.md), `core/vdr/`, `core/agent/` |
+| Browser interface | `web/frontend/` |
+| Data models and persistence | [Database overview](database/README.md), `core/sqlite/` |
+| Packaging and installation staging | [Packaging status](packaging/README.md) |
+| Architecture and earlier decisions | [Current Architecture](docs/development/current-architecture-state.md), [ADRs](docs/adr/index.md) |
+| Standalone Hisense TV app | [VIDAA repository](https://github.com/hotzenplotz5/vdr-suite-vidaa) |
 
-## Introduction
+## Build and test without touching a real VDR
 
-Thank you for contributing to VDR-Suite.
-
-VDR-Suite is a modern backend platform for VDR environments with a strong focus on maintainability, documentation quality, architecture transparency and long-term evolution.
-
-Contributions should follow the documented architecture and development workflow.
-
-## Before You Start
-
-Please read:
-
-* [Project Overview](docs/project-overview.md)
-* [Current Project Status](docs/development/current-status.md)
-* [Architecture Documentation](docs/architecture/index.md)
-* [Architecture Decision Records](docs/adr/index.md)
-
-## Development Workflow
-
-Typical workflow:
-
-```bash
-git checkout phase-2-actions
-
-make test
-
-make test-docs
-```
-
-Implement changes.
-
-Run all checks again:
-
-```bash
-make test
-
-make test-docs
-```
-
-Commit only after all checks pass.
-
-## Documentation Requirements
-
-Documentation is treated as a first-class project artifact.
-
-When adding or changing functionality:
-
-* update relevant documentation
-* update architecture documentation if architecture changes
-* update ADRs when architectural decisions change
-* update project status documentation when phases are completed
-
-## Documentation Quality Gate
-
-The documentation quality gate verifies:
-
-* navigation sections
-* back sections
-* valid markdown links
-* complete index structures
-* documentation reachability from README.md
-
-Run:
+Use an isolated environment and follow the [CI-derived prerequisites](docs/development/quickstart.md):
 
 ```bash
 make test-docs
+make -j2 --output-sync=target test-ci-fast
+make daemon
 ```
 
-before committing documentation changes.
+These commands build or test the checked-out source; they do not install it into a live system. Choose targeted Make groups when possible; [`mk/README.md`](mk/README.md) describes the actual groups and deliberately separate real-system tests.
 
-## Architecture Changes
+## Safety and review boundaries
 
-Architecture-related changes should update:
+Please inspect the exact code and tests before editing, keep changes reviewable, and do not bypass authorization, idempotency, backend ownership or rollback requirements. Do **not** deploy, restart services, alter live recordings/databases, reset credentials or modify a protected branch without separate explicit authorization.
 
-* architecture documentation
-* ADR documentation
-* current status documentation
+**Automation and repository-operation rules:** [`AGENTS.md`](AGENTS.md) remains binding for automated assistants and scripted changes, including the detailed patch, terminal, provenance, testing and deployment constraints. These are intentionally not presented as 17 introductory hurdles for new humans.
 
-Avoid undocumented architectural changes.
+[Documentation standards](docs/development/documentation-standards.md) explain source ownership, local links and historical evidence. Accepted closeouts and ADRs are not to be retrospectively rewritten as though they described the current installed system.
 
-## Commit Messages
+## Pull-request checklist
 
-Use concise commit messages.
+- [ ] Change is focused and includes a reason or reproducible problem.
+- [ ] Documentation/contract updates match changed behavior where applicable.
+- [ ] Relevant tests are identified, with **actual outcomes** or an explicit not-run reason.
+- [ ] Runtime, data migration, permission and client-compatibility risks are acknowledged.
+- [ ] No unverifiable release/installation/TV acceptance is claimed.
 
-Examples:
-
-```text
-Phase 11.2: add snapshot query service
-
-Docs: update snapshot architecture
-
-Fix: resolve HTTP runtime diagnostics serialization
-```
-
-## Pull Requests
-
-Pull requests should include:
-
-* purpose of the change
-* affected components
-* test results
-* documentation updates
-
-## Coding Principles
-
-Preferred goals:
-
-* simple designs
-* explicit ownership
-* clear service boundaries
-* testability
-* documentation first
-* architecture consistency
-
----
+Use the [repository PR template](.github/PULL_REQUEST_TEMPLATE.md).
 
 ## Back
 
-* [Back to README](README.md)
+- [Getting started](docs/getting-started.md)
+- [Developer quickstart](docs/development/quickstart.md)
+- [Documentation index](docs/index.md)

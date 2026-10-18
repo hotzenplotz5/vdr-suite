@@ -12,6 +12,17 @@
 
 This page is a capability dashboard, not a second operational-status authority. Exact current phase/branch/CI state belongs only in [Current State](CURRENT.md).
 
+## Functionality at a glance
+
+- **Live TV and programme guide:** browse Channels and EPG and use Suite-owned authenticated playback where supported.
+- **Recordings:** browse, play, resume and manage Recordings; VDR-native marks and cutting remain under VDR authority.
+- **Home and discovery:** see Now/Next, new Recordings, Movies/Genres and Series with canonical metadata and artwork.
+- **Timers:** plan recordings using backend-aware TimerIntent orchestration; a broad polished Timer administration UI remains separately gated.
+- **TV features:** Teletext, HbbTV and a bounded Legacy OSD bridge are implemented for their accepted domains.
+- **Accounts, devices and integrations:** server-enforced permissions and public client contracts exist, but source-merged Device functionality is not proof of installed TV/yaVDR acceptance.
+
+The table below separates completed foundations from separately gated or future capabilities. It is **not** a report of which features are installed on a particular device.
+
 ## Platform capability view
 
 | Area | Durable assessment | Ownership / boundary |
@@ -29,7 +40,8 @@ This page is a capability dashboard, not a second operational-status authority. 
 | Native Recording marks/cutting | Completed non-numbered capability | VDR remains canonical marks/cutter authority. |
 | Teletext / HbbTV | Completed numbered domain | Phase 67 / ADR-0054 / Phase-67 closeout. |
 | Legacy OSD compatibility | Completed numbered domain | Phase 68 / ADR-0047 / Phase-68 closeout. |
-| Stable public API/SDK | Completed numbered domain | Phase 69 / ADR-0048 / Phase-69 closeout; all eight stable public-v1 contracts have accepted reference-client coverage. |
+| Stable public API/SDK | Completed numbered domain | Phase 69; original Phase-69.F reference-client contracts remain historically accepted. |
+| Additive Account and Device Recording R2 APIs | Separately gated expansion | Later Account contracts and Recording R2/Device source must be tracked independently; merged code does not imply hardware or external-client acceptance. |
 | Recommendation/content graph | Later vision | Phase 70. |
 
 ## Current Home capability
@@ -62,6 +74,12 @@ See [Golden User Journeys](planning/golden-user-journeys.md).
 - [Current Architecture State](development/current-architecture-state.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Completed Phases](development/completed-phases.md)
+
+## Continue: choose your topic
+
+You have seen the functionality overview. **Next, [choose the topic you want to explore](index.md#choose-your-topic)** — such as Live TV, Recording playback, permissions, TV pairing, API or installation.
+
+For technical depth (optional), open [Current Architecture State](development/current-architecture-state.md), [ADRs](adr/index.md), [Phase Map](planning/phase-map.md) or [historical acceptance evidence](history/index.md). For exact current deployment and acceptance claims use [CURRENT](CURRENT.md).
 
 ## Back
 

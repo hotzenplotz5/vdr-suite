@@ -4,10 +4,21 @@ CXXFLAGS += -Icore/media/include
 
 test-phase65-media-capability-negotiation:
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
+		core/media/src/MediaCapabilityEvidence.cpp \
+		core/media/src/MediaPlannedOutput.cpp \
 		core/media/src/MediaPresentationSelector.cpp \
 		core/media/tests/test_media_presentation_selector.cpp \
 		-o $(BUILD_DIR)/test_phase65_media_capability_negotiation
 	$(BUILD_DIR)/test_phase65_media_capability_negotiation
+
+# Pure, device-independent evidence filter; no running MediaSession or API.
+.PHONY: test-phase65-media-capability-evidence
+test-phase65-media-capability-evidence:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
+		core/media/src/MediaCapabilityEvidence.cpp \
+		core/media/tests/test_media_capability_evidence.cpp \
+		-o $(BUILD_DIR)/test_phase65_media_capability_evidence
+	$(BUILD_DIR)/test_phase65_media_capability_evidence
 
 test-phase65-media-transcode-policy:
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
@@ -114,6 +125,14 @@ test-phase65-recording-playback-authorization:
 		-o $(BUILD_DIR)/test_phase65_recording_playback_authorization
 	$(BUILD_DIR)/test_phase65_recording_playback_authorization
 
+.PHONY: test-public-recording-device-media-session-response
+test-public-recording-device-media-session-response:
+	$(BUILD_CXX) $(CXXFLAGS) -Iapi/rest/include -Icore/http/include \
+		api/rest/src/PublicRecordingDeviceMediaSessionResponse.cpp \
+		api/rest/tests/test_public_recording_device_media_session_response.cpp \
+		-o $(BUILD_DIR)/test_public_recording_device_media_session_response
+	$(BUILD_DIR)/test_public_recording_device_media_session_response
+
 test-phase65-media-access-credential-http:
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/http/include \
 		core/http/tests/test_media_access_credential_http.cpp \
@@ -202,7 +221,7 @@ test-phase65-live-media-session-runtime:
 
 # test-ci-fast already owns test-fast in the canonical group file. Extend that
 # existing public group instead of defining a second canonical group target.
-test-fast: test-phase65-media-capability-negotiation test-phase65-media-transcode-policy test-phase65-media-transcode-calibrator-install test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-recording-direct-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime test-phase65-live-provider-authority test-phase65-live-media-adaptation test-phase65-live-media-session-issuance test-phase65-live-media-session-runtime
+test-fast: test-phase65-media-capability-evidence test-phase65-media-capability-negotiation test-phase65-media-transcode-policy test-phase65-media-transcode-calibrator-install test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-recording-direct-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime test-phase65-live-provider-authority test-phase65-live-media-adaptation test-phase65-live-media-session-issuance test-phase65-live-media-session-runtime
 
 .PHONY: install-phase65-live-socket-runtime test-phase65-live-socket-runtime-install
 

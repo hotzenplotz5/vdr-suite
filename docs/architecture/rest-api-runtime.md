@@ -1,5 +1,15 @@
 # REST API Runtime Architecture
 
+
+> **Historical early REST design, not a current route inventory.** The
+> “future web frontend”, controller diagram and initial route list below
+> describe an earlier daemon checkpoint. The actual HTTP/API boundary now
+> includes versioned Public-v1 resources, security enforcement and many other
+> controllers. See [current architecture](../development/current-architecture-state.md),
+> [API implementation entrypoint](../../api/rest/README.md) and
+> [developer API contract](../../api/README.md). Preserve these early examples
+> as architecture history, not an exhaustive supported API list.
+
 ## Navigation
 
 - [README](../../README.md)

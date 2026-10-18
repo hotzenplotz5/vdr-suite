@@ -46,6 +46,8 @@ test-recording-action-execution-result:
 .PHONY: test-docs
 test-docs:
 	python3 tools/check_docs.py
+	python3 tools/check_public_v1_openapi.py
+	python3 -m unittest discover -s tools/tests -p 'test_public_v1_openapi.py'
 	python3 tools/check_doc_indexes.py
 	python3 tools/check_doc_reachability.py
 	python3 tools/check_doc_entrypoints.py

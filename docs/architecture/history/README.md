@@ -4,6 +4,14 @@ Status: **HISTORICAL**
 
 This directory preserves superseded architecture/diagnostic documents whose detail remains useful but whose old status wording is no longer current.
 
+**Navigation caveat:** These four snapshots were copied from earlier locations
+without rewriting their contents. Many relative links *inside* the archived
+bodies therefore resolve to nonexistent paths from this directory. Use the
+working links in **this archive index** and the current successors below
+instead of treating original snapshot navigation as current. The
+[2026-10-12 historical audit](../../history/audit-2026-10-12.md)
+documents the measured link drift. The archival originals remain unchanged.
+
 - [Target Platform Architecture before repository-truth refresh](target-platform-architecture-before-refresh.md)
 - [RESTfulAPI integration inventory before repository-truth refresh](restfulapi-integration-before-refresh.md)
 - [Metadata Genre Browser before Phase 61 closeout](metadata-genre-browser-pre-closeout.md)

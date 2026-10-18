@@ -126,6 +126,39 @@ int main()
     assert(failed.reasonCode == "recording_index_update_start_failed");
     assert(failedSpawnCalls == 1);
 
+    // VDR 2.7.9 --updindex is a destructive --genindex alias:
+    // never spawn it when any index already exists, even a symlink.
+    const std::filesystem::path existingIndex = root / "index";
+    {
+        std::ofstream output(existingIndex, std::ios::binary);
+        output << "existing-index-do-not-overwrite";
+    }
+    auto existing = failedUpdater.ensure(root.string(), {segment.string()});
+    assert(existing.state == VdrRecordingIndexUpdateState::Failed);
+    assert(existing.reasonCode == "recording_index_update_existing_index");
+    assert(failedSpawnCalls == 1);
+    {
+        std::ifstream input(existingIndex, std::ios::binary);
+        std::string actual;
+        std::getline(input, actual);
+        assert(actual == "existing-index-do-not-overwrite");
+    }
+    std::filesystem::remove(existingIndex);
+    const auto legacyIndex = root / "index.vdr";
+    {
+        std::ofstream output(legacyIndex);
+        output << "legacy-index-do-not-overwrite";
+    }
+    existing = failedUpdater.ensure(root.string(), {segment.string()});
+    assert(existing.reasonCode == "recording_index_update_existing_index");
+    assert(failedSpawnCalls == 1);
+    std::filesystem::remove(legacyIndex);
+    std::filesystem::create_symlink(segment, existingIndex);
+    existing = failedUpdater.ensure(root.string(), {segment.string()});
+    assert(existing.reasonCode == "recording_index_update_existing_index");
+    assert(failedSpawnCalls == 1);
+    std::filesystem::remove(existingIndex);
+
     std::filesystem::remove_all(root);
     std::filesystem::remove_all(activeRoot);
     std::filesystem::remove_all(legacyRoot);

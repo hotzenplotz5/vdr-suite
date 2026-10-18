@@ -60,6 +60,7 @@ void DaemonRuntime::shutdown()
     PublicApiRuntime::instance().resetTimerCreateAdmission();
     PublicApiRuntime::instance().resetBackendCollectionLookup();
     PublicApiRuntime::instance().resetChannelCollectionLookup();
+    PublicApiRuntime::instance().resetRecordingCollectionLookup();
     PublicApiRuntime::instance().resetTimerAssignmentCollectionLookup();
     PublicApiRuntime::instance().resetTimerAssignmentLookup();
     PublicApiRuntime::instance().resetOperationLookup();
@@ -188,6 +189,7 @@ void DaemonRuntime::shutdown()
     jobDashboardService_.reset();
     metadataRepository_.reset();
     recordingRepository_.reset();
+    publicRecordingIdentities_.reset();
     jobRepository_.reset();
     nativeTimerCreateOperationCompletionService_.reset();
     nativeTimerCreateReadbackVerificationService_.reset();

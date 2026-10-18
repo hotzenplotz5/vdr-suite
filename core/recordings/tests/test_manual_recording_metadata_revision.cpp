@@ -262,6 +262,58 @@ int main()
     assert(traceState.manualSchemaStatements == 0);
 
     sqlite3_trace_v2(database.handle(), 0, nullptr, nullptr);
+
+    // P7: actual MetadataRepository facade creates the manual person-profile
+    // table, index and schema marker; keep a prior reference byte-identical
+    // through independent SQLite backup and fresh C++ initialization.
+    // Public read facade invokes the private profile-schema initializer.
+    assert(!repository.getManualRecordingMetadataForBackend("default").empty());
+    assert(database.execute(
+        "INSERT INTO suite_metadata_person_profiles "
+        "(provider_id,external_namespace,external_id,profile_reference,"
+        "local_path,updated_at) VALUES "
+        "('tmdb','person','p7_profile_prior','p7-old-reference',"
+        "'','2000-01-01');"));
+    assert(scalar(database.handle(),
+        "SELECT count(*) FROM suite_metadata_person_profiles "
+        "WHERE external_id='p7_profile_prior' "
+        "AND profile_reference='p7-old-reference' "
+        "AND updated_at='2000-01-01';") == 1);
+    assert(scalar(database.handle(),
+        "SELECT count(*) FROM sqlite_master WHERE type='index' "
+        "AND name='idx_suite_metadata_person_profiles_path';") == 1);
+    assert(scalar(database.handle(),
+        "SELECT count(*) FROM suite_metadata_schema_versions "
+        "WHERE version=9;") == 1);
+    assert(scalar(database.handle(),
+        "SELECT count(*) FROM pragma_foreign_key_check;") == 0);
+
+    Database recovered;
+    assert(recovered.open(":memory:"));
+    sqlite3_backup* recovery =
+        sqlite3_backup_init(recovered.handle(), "main",
+                            database.handle(), "main");
+    assert(recovery != nullptr);
+    assert(sqlite3_backup_step(recovery, -1) == SQLITE_DONE);
+    assert(sqlite3_backup_finish(recovery) == SQLITE_OK);
+    MetadataRepository reopened(recovered);
+    assert(!reopened.getManualRecordingMetadataForBackend("default").empty());
+    assert(!reopened.getManualRecordingMetadataForBackend("default").empty());
+    assert(scalar(recovered.handle(),
+        "SELECT count(*) FROM suite_metadata_person_profiles "
+        "WHERE provider_id='tmdb' AND external_namespace='person' "
+        "AND external_id='p7_profile_prior' "
+        "AND profile_reference='p7-old-reference' AND local_path='' "
+        "AND updated_at='2000-01-01';") == 1);
+    assert(scalar(recovered.handle(),
+        "SELECT count(*) FROM sqlite_master WHERE type='index' AND "
+        "name='idx_suite_metadata_person_profiles_path';") == 1);
+    assert(scalar(recovered.handle(),
+        "SELECT count(*) FROM suite_metadata_schema_versions "
+        "WHERE version=9;") == 1);
+    assert(scalar(recovered.handle(),
+        "SELECT count(*) FROM pragma_foreign_key_check;") == 0);
+
     database.close();
     return 0;
 }

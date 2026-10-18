@@ -1,5 +1,15 @@
 # Post-Phase-66 Native Recording Editing — Current Status
 
+> **Historical 2026-09-07 implementation/installed-runtime snapshot — not the
+> current status authority.** The sentence “Phase 67 has not started” and the
+> listed pending cut-acceptance gates below applied to this document's original
+> checkpoint. Phase 67 and subsequent numbered phases were later closed for
+> their accepted scopes. Use [CURRENT](../CURRENT.md) for current operational
+> facts and [Native Recording Editing Closeout](post-phase66-recording-editing-closeout.md)
+> for the accepted completed editing work. This file preserves test/installation
+> evidence and historical safety gates, not instructions to mutate Recordings.
+
+
 This file is the compact current execution/evidence status for the bounded post-Phase-66 native Recording editing workstream. The architecture and detailed slice contracts remain owned by `post-phase66-native-recording-editing.md` and `post-phase66-native-recording-editing-slices.md`.
 
 Phase 66 remains complete. Phase 67 has not started.

@@ -1,5 +1,7 @@
 # Phase 69.F — Client Contract Matrix and Stable Integration Boundary
 
+**2026-10-11 reconciliation:** The Phase-69.F **original eight accepted method/resource contracts** and their accepted reference-client coverage remain the frozen closeout baseline. Subsequent Account work extends the accepted inventory; the later Recording R2 collection is represented in the machine-readable `publicV1Resources` inventory as a separately gated candidate. The 2026-10-11 matrix currently contains **10 entries: nine accepted plus one named Recording candidate**; inclusion in the JSON array or merge into `main` does not itself promote R2 to accepted compatibility. The historical slice-specific statements below retain their acceptance-time meaning. See [Current State](../CURRENT.md).
+
 ## Status
 
 **ACCEPTED — fourth bounded 69.F slice via PR #372.**
@@ -47,7 +49,7 @@ different contract classes:
 Treating all browser routes as public would freeze implementation details that
 ADR-0048 explicitly keeps outside the public compatibility promise.
 
-## Stable public-v1 surface today
+## Original Phase-69.F stable public-v1 surface (acceptance-time baseline)
 
 The matrix records only contracts that the current repository has deliberately
 stabilized:
@@ -62,6 +64,8 @@ stabilized:
 | GET | `/api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}` | Backend-scoped TimerAssignment item read. |
 | POST | `/api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}` | Preconditions + Idempotency-Key protected native Timer CREATE admission for an existing assignment. |
 | GET | `/api/v1/channels?backendId={backendId}` | Explicit-source federated Channel collection with keyset pagination and partial-source metadata. |
+
+The R2 successor workstream adds a **candidate** `GET /api/v1/recordings?backendId={backendId}` public collection. It uses a Suite-owned opaque ID, `recordings.view` grants, a backend-bound cursor and a private-field-free response. This successor is **not accepted or deployed** until the recording identity lifecycle and focused build/security tests pass. The existing Phase 69.F acceptance remains unchanged.
 
 No route is promoted by this slice. The matrix describes repository truth only.
 
@@ -367,8 +371,8 @@ The dedicated architecture guard must fail when:
 - the browser Client API starts consuming `/api/v1` without the matrix being
   intentionally advanced;
 - the declared stable public resources disappear from the accepted runtime/docs;
-- a currently absent `/api/v1/recordings`, `/api/v1/program-events` or
-  `/api/v1/search-timers` is silently invented;
+- a new public resource is introduced without an explicit contract-inventory successor;
+- `/api/v1/program-events` or `/api/v1/search-timers` is silently invented;
 - the stabilized `/api/v1/backends` contract disappears or is treated as a
   drop-in legacy-browser replacement;
 - the retired Timer live/snapshot fallback or generic

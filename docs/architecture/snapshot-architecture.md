@@ -1,5 +1,13 @@
 # Snapshot Architecture
 
+
+> **Historical snapshot-era architecture record.** The “current direction” and
+> “planned Phase 8.95/8.96” labels below describe the early Phase-8 snapshot
+> checkpoint, not today's active phase or a current TODO list. The implemented
+> snapshot, observation and Backend Agent ownership now belongs in
+> [Current Architecture State](../development/current-architecture-state.md)
+> and [CURRENT](../CURRENT.md). The original phase sequence remains as history.
+
 ## Navigation
 
 - [README](../../README.md)

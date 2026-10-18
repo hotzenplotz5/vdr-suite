@@ -141,6 +141,36 @@ int main()
     }
 
     {
+        const auto plan = probe.commandPlan();
+        assert(std::any_of(plan.argv.begin(), plan.argv.end(), [](const std::string& value) {
+            return value.find("color_transfer") != std::string::npos &&
+                value.find("time_base") != std::string::npos &&
+                value.find("bit_rate") != std::string::npos;
+        }));
+        const auto pq = probe.parse(
+            "codec_name=hevc|codec_type=video|width=3840|height=2160|"
+            "r_frame_rate=24000/1001|color_primaries=bt2020|color_transfer=smpte2084|"
+            "color_space=bt2020nc|pix_fmt=yuv420p10le|time_base=1/90000|bit_rate=15000000\n");
+        assert(pq.valid);
+        const auto& video = pq.source.videoStreams.front();
+        assert(video.hdr);
+        assert(video.colorPrimaries == "bt2020");
+        assert(video.colorTransfer == "smpte2084");
+        assert(video.colorSpace == "bt2020nc");
+        assert(video.pixelFormat == "yuv420p10le");
+        assert(video.timeBase == "1/90000");
+        assert(video.bitRate == 15000000);
+        const auto hlg = probe.parse(
+            "codec_name=hevc|codec_type=video|width=1920|height=1080|color_transfer=arib-std-b67\n");
+        assert(hlg.valid && hlg.source.videoStreams.front().hdr);
+        const auto unknown = probe.parse(
+            "codec_name=h264|codec_type=video|width=1920|height=1080|bit_rate=N/A\n");
+        assert(unknown.valid);
+        assert(!unknown.source.videoStreams.front().hdr);
+        assert(unknown.source.videoStreams.front().bitRate == 0);
+    }
+
+    {
         const auto result = probe.parse(
             "codec_name=av1|codec_type=video|width=1920|height=1080|r_frame_rate=25/1\n");
         assert(!result.valid);

@@ -4,6 +4,13 @@ Status: **HISTORICAL / SUPERSEDED**
 
 This directory preserves the exact pre-refresh versions of long planning and audit documents replaced during the 2026-07 repository-truth refresh.
 
+**Navigation caveat:** These six original snapshots retain relative links
+written for their *former* directory locations. Many embedded links no longer
+resolve from the present archive directory. Read through **this index** and
+its current-successor links below, not through the snapshots' old Navigation
+sections. The [2026-10-12 historical evidence audit](../../../history/audit-2026-10-12.md)
+measures the link drift; the original snapshot bodies are preserved.
+
 These files are retained for traceability only:
 
 - [Roadmap before refresh](roadmap-before-refresh.md)

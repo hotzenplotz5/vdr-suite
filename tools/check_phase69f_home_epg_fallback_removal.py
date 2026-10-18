@@ -68,16 +68,38 @@ resources = {
     for item in matrix.get("publicV1Resources", [])
 }
 require(len(resources) >= 8, "Phase-69 stable public-v1 baseline disappeared")
-for absent in ("/api/v1/recordings", "/api/v1/program-events"):
+# Phase 69 still forbids an invented ProgramEvent route. The separately
+# inventoried R2 Recording candidate may exist only with its durable identity,
+# scoped permission gate, and a distinct (non-accepted) client reference.
+require(
+    not any("/api/v1/program-events" in (template or "") for _, template in resources),
+    "identity audit does not authorize public ProgramEvent resource",
+)
+recording_resource = ("GET", "/api/v1/recordings?backendId={backendId}")
+if recording_resource in resources:
+    references = matrix.get("publicClientReferences", [])
     require(
-        not any(absent in (template or "") for _, template in resources),
-        "identity audit does not authorize public resource: " + absent,
+        any(
+            ref.get("id") == "reference-js-recording-collection"
+            and ref.get("status") == "candidate"
+            and ref.get("resources") ==
+                ["GET /api/v1/recordings?backendId={backendId}"]
+            for ref in references
+        ),
+        "Recording successor must remain an explicit candidate",
+    )
+    identity = read("core/recordings/src/PublicRecordingIdentityRepository.cpp")
+    security = read("core/security/include/SecurityHttpGate.h")
+    require(
+        "CREATE TABLE IF NOT EXISTS public_recording_identity" in identity
+        and 'recordingReadRequest.permission = "recordings.view"' in security,
+        "Recording candidate lacks its durable identity or permission boundary",
     )
 
 public_runtime = read("api/rest/src/PublicApiRuntime.cpp")
 require(
-    "/api/v1/recordings" not in public_runtime,
-    "Recording public route was invented without durable identity",
+    ("/api/v1/recordings" in public_runtime) == (recording_resource in resources),
+    "Recording public runtime and explicit successor inventory disagree",
 )
 require(
     "/api/v1/program-events" not in public_runtime,

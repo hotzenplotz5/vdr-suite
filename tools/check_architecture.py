@@ -61,6 +61,15 @@ SQLITE_ALLOWED_RUNTIME_ADAPTERS = {
 
 SQLITE_ALLOWED_CONTRACT_TESTS = {
     "api/rest/tests/test_vdr_recording_folder_controller.cpp",
+    # Packaging P7 and bounded Agent/Timer SQLite persistence tests. These are
+    # exact files using disposable fixtures; no blanket core/*/tests waiver.
+    "core/agent/tests/test_backend_agent_command_delivery.cpp",
+    "core/agent/tests/test_backend_agent_command_reservation.cpp",
+    "core/agent/tests/test_backend_agent_native_timer_delete_assignment.cpp",
+    "core/agent/tests/test_backend_agent_recording_cut_reconciliation.cpp",
+    "core/agent/tests/test_backend_agent_recording_marks_modify_reconciliation.cpp",
+    "core/metadata/tests/test_packaging_p7_runtime_schema.cpp",
+    "core/timers/tests/test_timer_assignment_reassignment_service.cpp",
     "core/agent/tests/test_backend_agent_lifecycle.cpp",
     "core/agent/tests/test_backend_agent_native_probe_delivery.cpp",
     "core/daemon/tests/test_daemon_sqlite_shutdown_cancellation.cpp",
@@ -201,6 +210,13 @@ def check_sqlite_boundary_contract() -> list[str]:
         "core/daemon/src/EmbeddedBackendLifecycle.cpp",
         "core/daemon/src/SeriesArtworkBackendSettingsService.cpp",
         "api/rest/tests/test_vdr_recording_folder_controller.cpp",
+        "core/agent/tests/test_backend_agent_command_delivery.cpp",
+        "core/agent/tests/test_backend_agent_command_reservation.cpp",
+        "core/agent/tests/test_backend_agent_native_timer_delete_assignment.cpp",
+        "core/agent/tests/test_backend_agent_recording_cut_reconciliation.cpp",
+        "core/agent/tests/test_backend_agent_recording_marks_modify_reconciliation.cpp",
+        "core/metadata/tests/test_packaging_p7_runtime_schema.cpp",
+        "core/timers/tests/test_timer_assignment_reassignment_service.cpp",
         "core/agent/tests/test_backend_agent_native_probe_delivery.cpp",
         "core/daemon/tests/test_series_artwork_backend_settings_service.cpp",
         "core/metadata/tests/test_manual_recording_metadata_assignment_repository.cpp",

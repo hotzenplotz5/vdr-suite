@@ -8,6 +8,20 @@
 - [Parent Index](../index.md)
 
 ---
+
+## Historical status — original Phase-0 planning
+
+These pages record **early project intentions**, not current VDR-Suite
+implementation or binding developer instructions. For today's capabilities use
+the [Project Overview](../project-overview.md), [Current Architecture State](../development/current-architecture-state.md),
+[CURRENT](../CURRENT.md), [Developer Onboarding](../development/developer-onboarding.md)
+and the [Strict Roadmap](../planning/roadmap.md).
+
+The Data Model and UI Concept pages below are **outline placeholders without
+technical specifications**. The external-module note is an independent
+VDR-Rectools **Phase-Explorer checkpoint**, not current integration/packaging
+acceptance. See the [historical evidence audit](../history/audit-2026-10-12.md).
+
 ## Documents
 
 - [Phase 0 – Überblick](00-overview.md)

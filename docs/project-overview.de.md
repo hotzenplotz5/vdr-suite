@@ -1,5 +1,7 @@
 # VDR-Suite Projektübersicht
 
+> **Deutschsprachige Einführung.** Diese Seite ist eine zusammenfassende Projektbeschreibung, keine zweite Quelle für den laufenden Projektstatus. Maßgeblich sind die [kanonische Projektübersicht](project-overview.md), [CURRENT](CURRENT.md) und die [aktuelle Architektur](development/current-architecture-state.md).
+
 ## Navigation
 
 - [README](../README.md)
@@ -12,7 +14,7 @@ VDR-Suite – Moderne Plattform für den VDR
 
 Was ist VDR-Suite?
 
-VDR-Suite ist eine moderne Open-Source-Plattform rund um den Video Disk Recorder (VDR).
+VDR-Suite ist eine moderne Plattform rund um den Video Disk Recorder (VDR). Der Quellcode ist öffentlich einsehbar; eine projektweite Open-Source-Lizenz ist jedoch noch nicht hinterlegt. Siehe [Lizenz- und Veröffentlichungsstatus](publication-readiness.md).
 
 Das Projekt verfolgt nicht das Ziel, den VDR zu ersetzen. Stattdessen soll eine moderne, langfristig wartbare Plattform entstehen, die den VDR um zeitgemäße Schnittstellen, Dienste und Frontends ergänzt.
 
@@ -80,12 +82,7 @@ Effizienz
 
 Ein wichtiges Entwicklungsziel ist die Vermeidung unnötiger Vollabfragen.
 
-Aktuelle Entwicklungsphasen konzentrieren sich auf:
-
-- selektive EPG-Aktualisierung
-- gezielte Event-Abfragen
-- reduzierte Netzwerklast
-- geringeren Ressourcenverbrauch
+Die selektive EPG-Aktualisierung, gezielte Event-Abfragen und ressourcenschonende Snapshot-Verarbeitung gehören inzwischen zur umgesetzten Plattform. Die nummerierten Phasen bis einschließlich Phase 69 sind für ihren jeweils abgenommenen Umfang abgeschlossen. Die nicht nummerierte Multiuser-/Geräteintegration wird separat weiterentwickelt; Phase 70 ist noch nicht gestartet. Der verbindliche aktuelle Stand steht in [CURRENT.md](CURRENT.md).
 
 Dies wird insbesondere bei mehreren VDR-Systemen wichtig.
 
@@ -114,8 +111,12 @@ Bereits umgesetzt wurden unter anderem:
 - Cache-System
 - Änderungsverfolgung
 - Live-Updates
-- Multi-Backend-Vorbereitungen
+- Backend-übergreifende Identitäts- und Rechteverwaltung
 - Selektive Aktualisierungsstrategien
+- Streaming Gateway und MediaSessions für Live-TV und Aufnahmen
+- Responsive Media Home, Videotext/HbbTV und Legacy-OSD-Brücke
+- Native Schnittmarken und Aufnahmebearbeitung
+- Public-v1-API und getrennte Device-Wiedergabeschnittstellen
 - Umfangreiche Testinfrastruktur
 
 Langfristige Vision
@@ -127,6 +128,13 @@ Der VDR bleibt das Herzstück.
 VDR-Suite soll ihn für moderne Anforderungen zugänglich machen.
 
 ---
+
+## Weiterlesen
+
+1. [Funktionsübersicht](project-status-dashboard.md) – Live-TV, Aufnahmen, Medienübersicht, Timer und weitere Fähigkeiten im Überblick.
+2. [Passendes Thema auswählen](index.md#choose-your-topic) – direkt zu API, Berechtigungen/Geräte-Pairing, Wiedergabe, Entwicklung oder Installation.
+
+Erst für technische Details sind die [aktuelle Architektur](development/current-architecture-state.md), [Architekturentscheidungen](adr/index.md), [Phasenplanung](planning/phase-map.md) und [historische Nachweise](history/index.md) gedacht. Den verbindlichen aktuellen Stand enthält [CURRENT](CURRENT.md).
 
 ## Back
 

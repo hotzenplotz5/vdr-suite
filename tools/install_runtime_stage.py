@@ -20,6 +20,14 @@ REQUIRED_STAGE_FILES = (
     Path("usr/sbin/vdr-suite-daemon"),
     FRONTEND_ROOT / "index.html",
 )
+# Staging may run with umask 077. Parent directory modes in its
+# manifest must never be copied onto existing system directories.
+# Only these VDR-Suite-owned directories require a strict private mode.
+PRIVATE_RUNTIME_DIRS = {
+    Path("var/lib/vdr-suite/backend-agent"),
+    Path("var/lib/vdr-suite/secrets"),
+    Path("var/lib/vdr-suite/secrets/series-artwork"),
+}
 
 
 class DeploymentError(RuntimeError):
@@ -163,6 +171,9 @@ def verify_sealed_stage(
         if actual["mode"] != expected_raw.get("mode"):
             fail(f"sealed stage mode changed: {rel}")
 
+    for rel in PRIVATE_RUNTIME_DIRS:
+        if recorded_dirs.get(rel.as_posix()) != 0o700:
+            fail(f"private runtime directory must be sealed 0700: {rel}")
     return recorded_dirs, recorded_files  # type: ignore[return-value]
 
 
@@ -185,15 +196,19 @@ def remove_path(path: Path) -> None:
         shutil.rmtree(path)
 
 
-def ensure_directory(destination: Path, mode: int, preserve_existing: bool) -> None:
+def ensure_directory(destination: Path, mode: int, private: bool) -> None:
     if destination.exists() or destination.is_symlink():
         if not destination.is_dir() or destination.is_symlink():
             fail(f"live path is not a directory: {destination}")
-        if not preserve_existing:
-            os.chmod(destination, mode)
+        if private and path_mode(destination) != mode:
+            fail(f"private runtime directory needs explicit repair: {destination}")
+        # NEVER chmod existing directories. Staging umask is not the
+        # live system's directory permission policy.
         return
     destination.mkdir(parents=True, exist_ok=False)
-    os.chmod(destination, mode)
+    # Newly created shared ancestors must be traversable. Only
+    # explicitly managed private paths inherit their sealed 0700.
+    os.chmod(destination, mode if private else 0o755)
 
 
 def atomic_copy_file(source: Path, destination: Path, mode: int) -> None:
@@ -259,12 +274,14 @@ def deployment_differences(
         live_dir = live_root / rel
         if is_frontend(rel):
             stage_frontend_dirs.add(rel.relative_to(FRONTEND_ROOT).as_posix())
-        if is_preserved_config(rel) and live_dir.is_dir() and not live_dir.is_symlink():
-            continue
         if not live_dir.is_dir() or live_dir.is_symlink():
             differences.append(f"missing-dir:{rel.as_posix()}")
             continue
-        if path_mode(live_dir) != expected_mode:
+        # Shared ancestor and existing config modes are host-owned,
+        # not install-runtime manifest-owned.
+        if (is_frontend(rel) or rel in PRIVATE_RUNTIME_DIRS) and (
+            path_mode(live_dir) != expected_mode
+        ):
             differences.append(f"dir-mode:{rel.as_posix()}")
 
     for rel_raw, expected in recorded_files.items():
@@ -329,6 +346,15 @@ def deploy(stage_root: Path, live_root: Path) -> None:
     payload = load_manifest(stage_root)
     recorded_dirs, recorded_files = verify_sealed_stage(stage_root, payload)
 
+    # Validate existing private directories before any deployment writes.
+    # An incorrect mode is a hard error, not permission to chmod it.
+    for rel in PRIVATE_RUNTIME_DIRS:
+        target = live_root / rel
+        if target.exists() or target.is_symlink():
+            if (not target.is_dir() or target.is_symlink() or
+                    path_mode(target) != recorded_dirs[rel.as_posix()]):
+                fail(f"private runtime directory needs explicit repair: {target}")
+
     for rel_raw, expected_mode in sorted(
         recorded_dirs.items(),
         key=lambda item: (len(Path(item[0]).parts), item[0]),
@@ -336,11 +362,8 @@ def deploy(stage_root: Path, live_root: Path) -> None:
         rel = safe_relative(rel_raw)
         if is_frontend(rel):
             continue
-        ensure_directory(
-            live_root / rel,
-            expected_mode,
-            preserve_existing=is_preserved_config(rel),
-        )
+        ensure_directory(live_root / rel, expected_mode,
+                         private=rel in PRIVATE_RUNTIME_DIRS)
 
     for rel_raw, expected in recorded_files.items():
         rel = safe_relative(rel_raw)

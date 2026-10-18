@@ -97,6 +97,13 @@ public:
         const std::string& folderPath,
         int limit,
         int offset) const;
+    // Opaque, non-secret presentation IDs. Authorization is enforced by the
+    // Public API SecurityHttpGate, not by knowing an ID.
+    static std::string publicFolderId(
+        const std::string& backendId, const std::string& folderPath);
+    bool folderPageForBackendByPublicId(
+        const std::string& backendId, const std::string& folderId,
+        int limit, int offset, VdrRecordingFolderPage& page) const;
 
 private:
     struct BrowseFolderSnapshot

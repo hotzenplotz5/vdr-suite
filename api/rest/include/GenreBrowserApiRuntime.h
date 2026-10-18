@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DashboardController.h"
+#include "GenreIndexRepository.h"
 #include "ISuiteBridgeEpgTypeSnapshotTransport.h"
 
 #include <cstdint>
@@ -52,6 +53,19 @@ public:
     bool tryHandleGet(
         const std::string& requestTarget,
         ApiResponse& response) const;
+
+    // Safe, read-only access to the same canonical Genre index used by Web.
+    // Caller remains responsible for Public-v1 Device authorization and
+    // public Recording identity projection.
+    bool recordingOverview(
+        const std::string& backendId,
+        const std::string& locale,
+        GenreOverview& result) const;
+    bool recordingPage(
+        const std::string& backendId,
+        const std::string& genreId,
+        int limit, int offset,
+        GenreRecordingPage& result) const;
 
     bool configured() const;
     void reset();

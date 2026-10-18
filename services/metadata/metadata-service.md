@@ -1,5 +1,8 @@
 # MetadataService
 
+> **Historischer Phase-1-Serviceentwurf (kein aktueller Laufzeit-/API-Nachweis).** Die unten genannten geplanten Methoden und „Implementierung später“ beschreiben den ursprünglichen Plan. Für den heutigen Code gelten [Core](../../core/README.md), [aktuelle Architektur](../../docs/development/current-architecture-state.md) und die [Metadaten-Service-Einordnung](README.md).
+
+
 ## Ziel
 
 Der MetadataService verwaltet alle Metadaten der VDR-Suite.

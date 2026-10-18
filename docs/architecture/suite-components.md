@@ -1,5 +1,17 @@
 # VDR-Suite – Component Architecture
 
+
+> **Historical/target component design, not an installed-component inventory.**
+> The original sections below include proposed `vdr-plugin-suite`,
+> desktop/mobile clients and adapter placeholders. The audited repository
+> contains an actual `vdr-plugin-suite-bridge/` implementation, **not** an
+> installed `vdr-plugin-suite` frontend simply because this design names one.
+> Read the [current ownership map](../development/current-architecture-state.md),
+> [Core entrypoint](../../core/README.md), [SuiteBridge source](../../vdr-plugin-suite-bridge/README.md)
+> and [first-party living-room client ADR](../adr/ADR-0062-first-party-living-room-output-client.md)
+> before treating any design component as executable or supported.
+> The remaining original text is retained as early planning context.
+
 ## Navigation
 
 - [README](../../README.md)

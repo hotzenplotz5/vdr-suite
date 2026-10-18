@@ -56,7 +56,16 @@ The completed numbered planning boundary is now Phase 69; 69.A-F are accepted. P
 
 For successor planning, re-read live `main`, CURRENT, the Strict Roadmap and the Phase-69 closeout. Do not start Phase 70 until its required runtime ADR is accepted.
 
-The active cross-cutting productization line is [Post-Phase-69 Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md): MU.0-MU.7 are complete; MU.6B Public Account item/revision and MU.6C public lifecycle mutation are completed, MU.6D Atomic Account CREATE + durable idempotency merged as PR #411, and MU.7 Backend access / permission grant administration passed REAL YAVDR acceptance and merged as PR #413. MU.8 implementation is complete through MU.8C. MU.8A merged as PR #415 with separately documented real-runtime acceptance still pending; MU.8B merged as PR #416 after focused yaVDR acceptance; MU.8C merged as PR #417 after focused yaVDR acceptance with PR and post-merge main CI green. MU.9A read-only Account administration UI merged as PR #418 after exact merged-main yaVDR acceptance; PR and post-merge hosted CI are green. MU.9B Account Lifecycle Mutation UI merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green. MU.9C Session Revoke UI merged as PR #426 after focused yaVDR acceptance and green hosted PR CI. MU.9D Human-password Credential Revoke UI merged as PR #428 after focused yaVDR acceptance; PR and post-merge hosted CI are green. MU.9E Backend Grant Mutation UI merged as PR #429 after focused real-yaVDR acceptance and post-merge CI #9763 green. MU.9F Account CREATE UI is now the active bounded implementation candidate over the accepted MU.6D Account CREATE contract.
+For the cross-cutting Account, permission-grant and Device pairing workstream, use the [Multiuser Productization Workstream](../development/post-phase69-multiuser-workstream.md) for its scope and dependency sequence, the [MU.9 Closeout](../development/post-phase69-mu9-closeout.md) and [MU.10B Administrator Pairing Approval](../development/post-phase69-mu10b-admin-pairing-approval.md) for accepted bounded evidence, and [Current State](../CURRENT.md) plus fresh GitHub checks for the active successor and CI state. This index deliberately does not maintain a second MU slice/PR/acceptance ledger.
+
+For historical cross-cutting contract navigation (and retained static-guard
+anchors), see [MU.6C Public Account Lifecycle Mutation](../development/post-phase69-mu6c-public-account-lifecycle-mutation.md),
+[MU.6D Atomic Account CREATE + Durable Idempotency](../development/post-phase69-mu6d-account-create-idempotency.md),
+[MU.7 Backend Access / Permission Grant Administration](../development/post-phase69-mu7-account-grant-administration.md)
+(including its original REAL YAVDR acceptance evidence), and
+[MU.8A Safe Credential / Session Metadata](../development/post-phase69-mu8a-credential-session-metadata.md).
+Those records retain their own time-bound acceptance facts; they do not
+update or certify a live installation.
 
 ## Planning cautions
 

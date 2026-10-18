@@ -1876,6 +1876,14 @@ HttpServerResponse TestHttpServer::handleRequest(
 
     if (request.method == "GET")
     {
+        if (pathWithoutQuery(request.path).rfind(
+                "/api/v1/recording-playback-sessions", 0) == 0)
+        {
+            apiResponse = apiRouter_.handleDeviceRecordingPlayback(
+                request.path, "", gate.context);
+        }
+        else
+        {
         apiResponse =
             apiRouter_.handleClientGet(
                 request.path,
@@ -1891,9 +1899,18 @@ HttpServerResponse TestHttpServer::handleRequest(
                 requestHeaderValue(
                     request,
                     "X-VDR-Suite-Pairing-Token"));
+        }
     }
     else if (request.method == "POST")
     {
+        if (pathWithoutQuery(request.path).rfind(
+                "/api/v1/recording-playback-sessions", 0) == 0)
+        {
+            apiResponse = apiRouter_.handleDeviceRecordingPlayback(
+                request.path, request.body, gate.context);
+        }
+        else
+        {
         apiResponse =
             apiRouter_.handleClientPost(
                 request.path,
@@ -1915,6 +1932,7 @@ HttpServerResponse TestHttpServer::handleRequest(
                 requestHeaderValue(
                     request,
                     "X-VDR-Suite-Pairing-Token"));
+        }
     }
     else
     {

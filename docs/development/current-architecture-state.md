@@ -82,7 +82,7 @@ The implemented security boundary includes:
 - append-only pre-dispatch accountability and protected operation outcomes;
 - secret handling that keeps raw session/credential material out of durable accountability data.
 
-Legacy Basic compatibility remains transitional where retained by deployment compatibility policy; its historical Phase-62 decision does not define the target identity architecture.
+Legacy Basic authentication is **retired** as an active runtime authority following the accepted P2 removal. Current human/browser authentication uses Human Account passwords with browser sessions, with optional explicitly configured Managed Basic. Old Legacy Basic environment/defaults settings do not reactivate the removed authenticator. The historical Phase-62 transitional design remains valid evidence for its own checkpoint, not a current supported mode. See the [P2 retirement closeout](post-phase69-p2-legacy-basic-retirement-closeout.md) and the current [SecurityHttpGate](../../core/security/include/SecurityHttpGate.h).
 
 ## Backend Agent and secure multi-site foundation
 
@@ -264,7 +264,9 @@ The Recording-detail presentation is a presentation layer over the existing Reco
 
 ## Public API and client boundary
 
-Current first-party clients use Suite-owned REST/client-wrapper semantics rather than private provider contracts. Stable independent third-party `/api/v1` compatibility remains governed by its separate roadmap/ADR boundary and must not be inferred from internal transition endpoints.
+Current first-party clients use Suite-owned REST/client-wrapper semantics rather than private provider contracts. Stable independent third-party `/api/v1` compatibility remains governed by ADR-0048 and the Phase-69.F accepted contract inventory; it must not be inferred from internal transition endpoints.
+
+The post-Phase-69 Recording R2 successor is implemented in the 2026-10-11 `main` code for backend-scoped Recording browse/identities and Device-owned Recording MediaSessions. Device status/index duration, track inventory and subtitle selection reuse the canonical media runtime while retaining Device identity, live playback-grant checks, owner/backend scope and private/native-path exclusion. Implementation in `main` is **not** evidence of a corresponding installed daemon or accepted Hisense behavior; the additive R2 candidate remains separately gated from the accepted Phase-69.F public compatibility baseline.
 
 `MediaPlaybackContract` is first-party Phase-65 semantic architecture. ADR-0056 does not by itself promote the current internal media endpoints to a stable third-party `/api/v1` contract.
 

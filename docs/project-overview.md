@@ -64,7 +64,7 @@ Completed product flows include:
 - use canonical TVScraper/native artwork and manual Series hierarchy/artwork overrides where explicitly configured;
 - edit Recording marks/cuts through VDR-native authority under Suite safety boundaries.
 
-Phase 67 Broadcast Companion Services and Phase 68 Legacy OSD Compatibility Bridge are completed. Phase 68 now provides bounded semantic OSD observation, authorized view sessions/viewers, exclusive controller leasing and fenced allowlisted native input. Phase 69 public API/client compatibility hardening is active at 69.A, beginning with an explicit inventory of pre-v1 routes before any stable `/api/v1` contract is declared.
+Phase 67 Broadcast Companion Services and Phase 68 Legacy OSD Compatibility Bridge are completed. Phase 68 now provides bounded semantic OSD observation, authorized view sessions/viewers, exclusive controller leasing and fenced allowlisted native input. Phase 69 public API/client compatibility hardening is completed for its accepted 69.A–F scope. The subsequent Public-v1 Recording R2/Device playback implementation is now in `main` but remains separately gated for external compatibility, installed-daemon identity and real Hisense playback acceptance. Phase 70 has not started.
 
 ## Key architectural rules
 
@@ -85,6 +85,8 @@ Binding numbered phase order and completion gates live in the [Strict Roadmap](p
 
 - [Current State](CURRENT.md)
 - [Current Project Status](development/current-status.md)
+- [Phase 69 Closeout](development/phase-69-closeout.md)
+- [Post-Phase-69 Device Recording playback](development/public-v1-device-recording-playback.md)
 - [Phase 69 Kickoff](development/phase-69-public-api-kickoff.md)
 - [Phase 68 Closeout](development/phase-68-closeout.md)
 - [Post-Phase-66 Home Rebuild Closeout](development/post-phase66-home-rebuild-closeout.md)
@@ -93,6 +95,13 @@ Binding numbered phase order and completion gates live in the [Strict Roadmap](p
 - [Phase Map](planning/phase-map.md)
 - [Completed History](development/completed-phases.md)
 - [Architecture Decision Records](adr/index.md)
+
+## Continue reading
+
+1. [Functionality overview](project-status-dashboard.md) — what VDR-Suite can do for TV, Recordings, Home, Timers and clients.
+2. [Choose the topic you care about](index.md#choose-your-topic) — find the relevant API, permissions, playback, development or installation guide.
+
+Only if you need implementation details, continue with [Current Architecture State](development/current-architecture-state.md), [ADRs](adr/index.md), [phase planning](planning/phase-map.md) or [historical acceptance](history/index.md). For live project/acceptance status use [CURRENT](CURRENT.md).
 
 ## Back
 

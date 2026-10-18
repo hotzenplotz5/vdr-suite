@@ -4,6 +4,7 @@ include mk/agent-sources.mk
 include mk/backend-agent-runtime.mk
 
 include mk/recording-sources.mk
+include mk/recording-public-identity-tests.mk
 include mk/metadata-sources.mk
 include mk/genre-browser.mk
 include mk/global-search.mk

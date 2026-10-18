@@ -19,7 +19,8 @@
 namespace
 {
 
-constexpr const char* Prefix = "/api/media/sessions/";
+constexpr const char* LegacyPrefix = "/api/media/sessions/";
+constexpr const char* PublicV1Prefix = "/api/v1/media/sessions/";
 constexpr const char* HlsMarker = "/hls/";
 constexpr const char* LiveSuffix = "/live/stream.mp4";
 constexpr const char* RecordingDirectSuffix = "/recording/stream.ts";
@@ -39,6 +40,7 @@ bool safeIdentifier(const std::string& value)
 struct MediaPath
 {
     bool valid = false;
+    bool publicV1 = false;
     bool live = false;
     bool recordingDirect = false;
     bool recordingStream = false;
@@ -49,7 +51,9 @@ struct MediaPath
 MediaPath parseMediaPath(const std::string& path)
 {
     MediaPath result;
-    const std::string prefix(Prefix);
+    const std::string prefix = path.rfind(PublicV1Prefix, 0) == 0
+        ? PublicV1Prefix : LegacyPrefix;
+    result.publicV1 = prefix == PublicV1Prefix;
     if (path.rfind(prefix, 0) != 0 || path.find('?') != std::string::npos ||
         path.find('#') != std::string::npos) {
         return result;
@@ -293,13 +297,15 @@ MediaGatewayHttpServer::MediaGatewayHttpServer(
     const MediaRouteLeaseRepository& routeLeaseRepository,
     const MediaHlsArtifactReader& artifactReader,
     std::string workspaceRoot,
-    const RecordingDirectSourceRegistry* directSourceRegistry)
+    const RecordingDirectSourceRegistry* directSourceRegistry,
+    PublicSessionAuthorizer publicSessionAuthorizer)
     : inner_(std::move(inner)),
       authenticator_(authenticator),
       routeLeaseRepository_(routeLeaseRepository),
       artifactReader_(artifactReader),
       workspaceRoot_(std::move(workspaceRoot)),
-      directSourceRegistry_(directSourceRegistry)
+      directSourceRegistry_(directSourceRegistry),
+      publicSessionAuthorizer_(std::move(publicSessionAuthorizer))
 {
 }
 
@@ -308,6 +314,14 @@ HttpServerResponse MediaGatewayHttpServer::handleRequest(
 {
     const MediaPath mediaPath = parseMediaPath(request.path);
     if (!mediaPath.valid) {
+        // Never delegate malformed paths in the versioned media-plane
+        // namespace to an application/static-file fallback.
+        const std::string publicRoot = "/api/v1/media/sessions";
+        // Reserve the entire Public-v1 media-session namespace, including
+        // encoded separators, query tails and near-miss path variants.
+        // None may reach another API or static-file handler unauthenticated.
+        if (request.path.rfind(publicRoot, 0) == 0)
+            return jsonError(404, "media_path_invalid");
         return inner_->handleRequest(request);
     }
 
@@ -334,6 +348,17 @@ HttpServerResponse MediaGatewayHttpServer::handleRequest(
         authentication.routeEpoch);
     if (!lease.has_value()) {
         return jsonError(409, "media_route_not_active");
+    }
+
+    // A Device-issued credential must never bypass a Device grant check by
+    // requesting the *legacy* path instead. The callback can distinguish a
+    // legacy Browser session from a registered Public-v1 Device session.
+    if ((mediaPath.publicV1 && !publicSessionAuthorizer_) ||
+        (publicSessionAuthorizer_ &&
+         !publicSessionAuthorizer_(
+            mediaPath.sessionId, authentication.actorId,
+            lease->backendId, mediaPath.publicV1))) {
+        return jsonError(403, "device_media_permission_denied");
     }
 
     if (mediaPath.live) {

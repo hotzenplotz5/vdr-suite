@@ -1,66 +1,40 @@
-# VDR-Suite Roadmap
+# VDR-Suite Roadmap — navigation
 
 ## Navigation
 
-- [README](README.md)
+- [Project README](README.md)
 - [Current State](docs/CURRENT.md)
 - [Strict Roadmap](docs/planning/roadmap.md)
 - [Phase Map](docs/planning/phase-map.md)
 - [Golden User Journeys](docs/planning/golden-user-journeys.md)
-- [Completed History](docs/development/completed-phases.md)
-- [Post-Phase-66 Home Rebuild Closeout](docs/development/post-phase66-home-rebuild-closeout.md)
-- [P2 Legacy Basic Retirement Closeout](docs/development/post-phase69-p2-legacy-basic-retirement-closeout.md)
+- [Planning Index](docs/planning/index.md)
+- [Completed Phase Evidence](docs/development/completed-phases.md)
 
-## Purpose
+## Where to find the authoritative plan
 
-This root file is the compact roadmap entry point. The authoritative execution order, phase prerequisites and completion gates live in [docs/planning/roadmap.md](docs/planning/roadmap.md). Volatile completed/active/next phase status lives in [docs/CURRENT.md](docs/CURRENT.md). Exact historical implementation evidence belongs in closeouts.
+This root page is a **navigation entrypoint**, not an independently maintained phase-status report. Its earlier duplicate lists of the completed/active/next phase and MU.6–MU.10 PR results have been consolidated into the owning records:
 
-## Current position
+| Question | Canonical source |
+| --- | --- |
+| What is completed/active/next right now? | [CURRENT](docs/CURRENT.md), verified against the actual GitHub refs |
+| What may be implemented next, in what order? | [Strict roadmap](docs/planning/roadmap.md) |
+| Which numbered phases are complete? | [Phase map](docs/planning/phase-map.md) and [completed phase evidence](docs/development/completed-phases.md) |
+| Where is Multiuser/Device work tracked? | [Multiuser workstream](docs/development/post-phase69-multiuser-workstream.md) and [CURRENT](docs/CURRENT.md) |
+| What is the longer-term platform product direction? | [Platform productization roadmap](docs/planning/platform-productization-roadmap.md) |
+| Which user-visible outcomes are acceptance gates? | [Golden User Journeys](docs/planning/golden-user-journeys.md) |
 
-```text
-Latest completed numbered runtime phase:
-Phase 69 - Public API and Client Compatibility Hardening
+The historical closeout markers below are retained as **stable completed evidence** required by the repository's existing phase/security guards, not as a second living implementation-status list:
 
-Current active numbered runtime phase:
-none - Phase 70 - Recommendation and Content Knowledge Graph not started
+- Phase 69 - Public API and Client Compatibility Hardening [COMPLETED] — [Phase 69 Closeout](docs/development/phase-69-closeout.md).
+- Legacy Basic retirement **[COMPLETED]** — [P2 Legacy Basic Retirement Closeout](docs/development/post-phase69-p2-legacy-basic-retirement-closeout.md).
 
-Next strict numbered runtime phase:
-Phase 70 - Recommendation and Content Knowledge Graph
-```
+Accepted historical closeouts, for example the [Phase-69 closeout](docs/development/phase-69-closeout.md) and [Legacy Basic retirement](docs/development/post-phase69-p2-legacy-basic-retirement-closeout.md), are immutable evidence of their own checkpoints. Additive Account/Device/Recording work does not retroactively alter earlier accepted phase scope.
 
-Phase 66 is completed. The later non-numbered Home performance, Recording Discovery, metadata/artwork, native Recording editing and Home-rebuild work is also completed for the merged accepted scopes and does not reopen Phase 66. The consolidated Home-rebuild evidence is recorded in [Post-Phase-66 Home Rebuild Closeout](docs/development/post-phase66-home-rebuild-closeout.md).
+The accepted Multiuser foundation also retains these **historical** milestone markers (not a live implementation queue): **MU.6C** public Account lifecycle, **MU.6D** Account CREATE/idempotency, **MU.7** permission-grant administration with **REAL YAVDR** acceptance, and its **MU.8** Account-security successor. Consult [the canonical Multiuser workstream](docs/development/post-phase69-multiuser-workstream.md) for exact slice evidence and [CURRENT](docs/CURRENT.md) for present acceptance gates.
 
-Phase 67, Phase 68 and Phase 69 are completed for their accepted bounded scopes. Durable Phase-69 evidence is in [Phase 69 Closeout](docs/development/phase-69-closeout.md). The cross-cutting P2 Legacy Basic retirement milestone is also completed and accepted on the real yaVDR target; see [P2 Legacy Basic Retirement Closeout](docs/development/post-phase69-p2-legacy-basic-retirement-closeout.md). Phase 70 is the next strict numbered phase but is not started and has no runtime authorization until its required ADR is accepted.
+**Maintenance rule:** Do not add a second living status register here. Update the primary source and link to it; verify current branch, CI and runtime claims separately.
 
-## Strict forward sequence
+## Back
 
-```text
-Phase 64 - Timer Intent and Multi-Backend Orchestration [COMPLETED]
-  -> Phase 65 - Streaming Gateway and Media Sessions [COMPLETED]
-  -> Phase 66 - Media Home and Browse Experience [COMPLETED]
-  -> Phase 67 - Broadcast Companion Services: Teletext and HbbTV [COMPLETED]
-  -> Phase 68 - Legacy OSD Compatibility Bridge [COMPLETED]
-  -> Phase 69 - Public API and Client Compatibility Hardening [COMPLETED]
-  -> Phase 70 - Recommendation and Content Knowledge Graph [NOT STARTED]
-```
-
-## Cross-cutting product milestones
-
-The following are deliberately not inserted as numbered phases:
-
-- Multiuser / Account and Backend Access Administration **[ACTIVE — MU.9F ACCOUNT CREATE UI CANDIDATE]**;
-- Broad Timer Product UI **[PLANNED — gated on Multiuser administration]**;
-- Audit/Security/Operations product surfaces;
-- Legacy Basic retirement **[COMPLETED]**;
-- first-party browser/TV/native/Kodi client rollout;
-- bounded post-phase correctness/performance hardening.
-
-Active Multiuser authority: [Post-Phase-69 Multiuser Productization Workstream](docs/development/post-phase69-multiuser-workstream.md).
-
-Completed Multiuser foundation through MU.7: explicit Human Accounts, First Admin/bootstrap/recovery, Legacy Basic retirement and accepted ADR-0067 administration architecture. MU.6B Public Account item/revision and MU.6C public lifecycle mutation are completed; MU.6D Atomic Account CREATE + durable idempotency merged as PR #411. MU.7 Backend access / permission grant administration passed REAL YAVDR acceptance and merged as PR #413. MU.8 implementation is complete through MU.8C; MU.8A still carries separately documented real-runtime acceptance debt. MU.8B merged as PR #416 after focused yaVDR acceptance. MU.8C merged as PR #417 after focused yaVDR acceptance, with PR and post-merge main CI green. MU.9A read-only Account administration UI merged as PR #418 after exact merged-main yaVDR acceptance; PR and post-merge hosted CI are green. MU.9B Account Lifecycle Mutation UI merged as PR #420 after real yaVDR acceptance; PR and post-merge hosted CI are green. MU.9C Session Revoke UI merged as PR #426 after focused yaVDR acceptance and green hosted PR CI. MU.9D Human-password Credential Revoke UI merged as PR #428 after focused yaVDR acceptance; PR and post-merge hosted CI are green. MU.9E Backend Grant Mutation UI merged as PR #429 after focused real-yaVDR acceptance and post-merge main CI #9763 green. MU.9F Account CREATE UI passed focused real-yaVDR acceptance, merged as PR #430, and both PR CI #9764 and post-merge main CI #9765 completed with all six jobs green. MU.9A-F are complete; no MU.9G is selected.
-
-Phase 70 remains a separate not-started numbered phase.
-
-## Roadmap rule
-
-Completed phases are not renumbered or reopened merely because later hardening consumes their contracts. Historical closeouts may retain wording or future numbering that was true at the time of acceptance; current execution authority is always [docs/CURRENT.md](docs/CURRENT.md) plus the [Strict Roadmap](docs/planning/roadmap.md).
+- [README](README.md)
+- [Documentation index](docs/index.md)
