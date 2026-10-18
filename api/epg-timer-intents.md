@@ -4,7 +4,7 @@
 
 `POST /api/v1/epg/timer-intents` is the *independent*, guarded Device-v1 entry for an EPG-selected one-shot recording. It is **not** a SearchTimer, an existing `TimerAssignment` POST, a native VDR timer ID, or a private `/api/vdr/timers/actions/create` alias.
 
-**Slice 1 only:** The request parser, strict permission gate, authoritative observation preflight and durable-Operation response adapter exist in source. The production daemon does **not** yet register both required `EpgTimerIntentObservationLookup` and `EpgTimerIntentSubmit`. Until Slice 2 wires and tests atomic TimerIntent/TimerAssignment/Operation persistence, this route must remain `503`; no real native Timer is created by this contract. Discovery must never imply otherwise. No daemon rebuild or installation is authorized by this document.
+**Slice 1 only:** The request parser, strict permission gate, authoritative observation preflight and durable-Operation response adapter exist in source. The production source now registers the **read-only** `EpgTimerIntentObservationLookup`: it reuses the authoritative public event-detail owner, validates numeric schedule times, rechecks the current backend Agent generation and the independent backend write policy. It deliberately does **not** register `EpgTimerIntentSubmit`. Until Slice 2 wires and tests atomic TimerIntent/TimerAssignment/Operation persistence, this route must remain `503`; no real native Timer is created by this contract. Discovery must never imply otherwise. No daemon rebuild or installation is authorized by this document.
 
 ## HTTP request
 

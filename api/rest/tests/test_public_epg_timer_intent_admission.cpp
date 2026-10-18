@@ -25,6 +25,16 @@ int main()
     api.resetEpgTimerIntentSubmit();
     api.resetEpgEventDetailLookup();
     assert(post(body, etag).statusCode == 503);
+    int prematureResolverCalls = 0;
+    api.registerEpgTimerIntentObservationLookup(
+        [&](const PublicEpgTimerIntentAdmissionRequest&) {
+            ++prematureResolverCalls;
+            return PublicEpgTimerIntentObservationResult{};
+        });
+    assert(!api.epgTimerIntentAdmissionConfigured());
+    assert(post(body, etag).statusCode == 503);
+    assert(prematureResolverCalls == 0);
+    api.resetEpgTimerIntentObservationLookup();
     assert(post(body, "").statusCode == 428);
     assert(post(body, "W/\"weak\"").statusCode == 400);
     assert(post(body, etag, "").statusCode == 400);
