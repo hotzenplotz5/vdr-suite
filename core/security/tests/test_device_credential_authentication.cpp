@@ -131,6 +131,24 @@ public:
         return gate.evaluate(request);
     }
 
+    SecurityGateDecision evaluateEpgTimerIntentCreate(
+        const std::string& backend,
+        const std::string& authorization = "") const
+    {
+        HttpServerRequest request;
+        request.method = "POST";
+        request.path = "/api/v1/epg/timer-intents";
+        request.body = "{\\"backendId\\":\\"" + backend +
+            "\\",\\"channelId\\":\\"S19.2E-1-100\\",\\"eventId\\":\\"81234\\"}";
+        request.headers["Content-Type"] = "application/json";
+        request.headers["If-Match"] = "\\"vsr-epg\\"";
+        request.headers["Idempotency-Key"] = "idem-native-epg-device";
+        request.headers["X-Request-ID"] = "mu10d-public-native-epg-create";
+        if (!authorization.empty())
+            request.headers["Authorization"] = authorization;
+        return gate.evaluate(request);
+    }
+
     SecurityGateDecision evaluateLegacySearchTimerPost(
         const std::string& target) const
     {
@@ -570,6 +588,40 @@ int main()
         assert(revoked.rejection.statusCode == 401);
         assert(revoked.context.authenticationState ==
             AuthenticationState::Revoked);
+    }
+
+    // The normal paired Device security path must accept a concrete
+    // timers.create grant, reject a foreign backend, and revoke cleanly.
+    {
+        Fixture fixture;
+        const auto anonymous = fixture.evaluateEpgTimerIntentCreate("default");
+        assert(!anonymous.allowed);
+        assert(anonymous.rejection.statusCode == 401);
+        const auto withoutGrant = fixture.evaluateEpgTimerIntentCreate(
+            "default", fixture.validAuthorization());
+        assert(!withoutGrant.allowed);
+        assert(withoutGrant.rejection.statusCode == 403);
+        assert(fixture.grants.ensureGrant(ActorId, "timers.create", "default"));
+        const auto admitted = fixture.evaluateEpgTimerIntentCreate(
+            "default", fixture.validAuthorization());
+        assert(admitted.allowed);
+        assert(admitted.protectedMutation);
+        assert(admitted.deviceAuthenticated);
+        assert(admitted.authorizationDecision.permission == "timers.create");
+        assert(admitted.authorizationDecision.backendId == "default");
+        const auto foreign = fixture.evaluateEpgTimerIntentCreate(
+            "other", fixture.validAuthorization());
+        assert(!foreign.allowed);
+        assert(foreign.rejection.statusCode == 403);
+        const auto malformed = fixture.evaluateEpgTimerIntentCreate(
+            "../bad", fixture.validAuthorization());
+        assert(!malformed.allowed);
+        assert(malformed.rejection.statusCode == 400);
+        assert(fixture.grants.revokeGrant(ActorId, "timers.create", "default"));
+        const auto afterRevocation = fixture.evaluateEpgTimerIntentCreate(
+            "default", fixture.validAuthorization());
+        assert(!afterRevocation.allowed);
+        assert(afterRevocation.rejection.statusCode == 403);
     }
 
     {
