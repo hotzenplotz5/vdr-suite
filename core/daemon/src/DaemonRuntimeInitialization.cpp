@@ -1,6 +1,7 @@
 #include "DaemonRuntime.h"
 
 #include "DaemonRuntimeRecordingCut.h"
+#include "EpgTimerIntentAdmissionRepository.h"
 
 #include "BackendAgentNativeTimerDeleteFingerprint.h"
 #include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
@@ -2257,6 +2258,58 @@ bool DaemonRuntime::initialize()
             result.endTime = event->endTime;
             result.durationSeconds = event->durationSeconds;
             result.status = PublicEpgNowNextStatus::ok;
+            return result;
+        });
+
+    // Replay is a read-only actor/backend/idempotency lookup and must remain
+    // available after the original EPG airing expires or a Backend goes down.
+    // It never invents a new Timer and never bypasses Device authorization.
+    vdrsuite::public_epg_timer::EpgTimerIntentAdmissionRepository
+        epgTimerAdmissionRepository(database_);
+    if (!epgTimerAdmissionRepository.ensureSchema())
+    {
+        std::cerr << "failed to initialize EPG TimerIntent replay schema"
+                  << std::endl;
+        return false;
+    }
+    PublicApiRuntime::instance().registerEpgTimerIntentReplayLookup(
+        [this](const PublicEpgTimerIntentAdmissionRequest& request)
+        {
+            PublicEpgTimerIntentAdmissionResult result;
+            if (!mutationOperationReadService_)
+                return result;
+            vdrsuite::public_epg_timer::EpgTimerIntentAdmissionRepository
+                repository(database_);
+            const auto record = repository.lookup(
+                request.actorRef, request.selection);
+            using R = vdrsuite::public_epg_timer::AdmissionReplayStatus;
+            if (record.status == R::absent)
+            {
+                result.status = PublicEpgTimerIntentAdmissionStatus::notFound;
+                return result;
+            }
+            if (record.status == R::conflict)
+            {
+                result.status =
+                    PublicEpgTimerIntentAdmissionStatus::idempotencyConflict;
+                return result;
+            }
+            if (record.status != R::same)
+                return result;
+            const auto found = mutationOperationReadService_->findForActor(
+                record.operationId, request.actorRef);
+            if (!found.ok() ||
+                found.operation.backendId != request.selection.backendId ||
+                found.operation.actionFamily != "timer.create")
+                return result;
+            result.status = PublicEpgTimerIntentAdmissionStatus::replayed;
+            result.operation.operationId = found.operation.operationId;
+            result.operation.state =
+                vdrsuite::operations::mutationOperationStateName(
+                    found.operation.state);
+            result.operation.backendId = found.operation.backendId;
+            result.operation.resourceRevision =
+                found.operation.operationRevision;
             return result;
         });
 

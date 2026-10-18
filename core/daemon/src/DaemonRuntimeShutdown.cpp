@@ -60,6 +60,7 @@ void DaemonRuntime::shutdown()
     PublicApiRuntime::instance().resetTimerCreateAdmission();
     PublicApiRuntime::instance().resetNativeTimersLookup();
     PublicApiRuntime::instance().resetEpgTimerIntentSubmit();
+    PublicApiRuntime::instance().resetEpgTimerIntentReplayLookup();
     PublicApiRuntime::instance().resetEpgTimerIntentObservationLookup();
     PublicApiRuntime::instance().resetEpgEventDetailLookup();
     PublicApiRuntime::instance().resetEpgWindowLookup();
