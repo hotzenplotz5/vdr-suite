@@ -100,19 +100,18 @@ bool EpgTimerIntentAtomicAdmissionService::ensureSchema()
 AtomicAdmissionResult EpgTimerIntentAtomicAdmissionService::admit(
     const AtomicAdmissionRequest& request)
 {
-    const Draft draft = makeProgrammeEventDraft(
-        request.selection, request.observation, request.authenticatedActorId,
-        request.defaults, true, true, request.requestedAt);
-    if (draft.guard == Decision::revisionConflict)
-        return outcome(AtomicAdmissionStatus::revisionConflict);
-    if (draft.guard != Decision::ready || !draft.valid ||
+    // Replay of a previously committed request must not depend on the
+    // programme still airing or the current backend being available.
+    // Reject malformed scopes before consulting durable idempotency state;
+    // callers remain responsible for authenticating and authorizing actor.
+    if (!boundedId(request.selection.backendId, 128) ||
+        !boundedId(request.selection.channelId, 160) ||
+        !boundedId(request.selection.eventId, 160) ||
+        !strongEtag(request.selection.ifMatch) ||
+        !validIdempotencyKey(request.selection.idempotencyKey) ||
         request.authenticatedActorId.empty() ||
-        request.deadline < 0 ||
-        (request.deadline != 0 && request.deadline < request.requestedAt))
+        request.authenticatedActorId.size() > 160)
         return outcome(AtomicAdmissionStatus::invalid);
-    if (!candidateMatches(request) ||
-        !request.revalidateSourceAndNativeSpecification)
-        return outcome(AtomicAdmissionStatus::backendUnavailable);
 
     auto lease = database_.acquireTransactionLease();
     if (!ensureSchema() || !database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
@@ -121,10 +120,9 @@ AtomicAdmissionResult EpgTimerIntentAtomicAdmissionService::admit(
         database_.execute("ROLLBACK;");
         return outcome(status);
     };
-    // Generation/EPG projection can change between HTTP GET and admission.
-    // Fail before any domain write unless the runtime attests it again.
-    if (!request.revalidateSourceAndNativeSpecification())
-        return fail(AtomicAdmissionStatus::generationConflict);
+    // Durable actor/backend/key lookup is exclusively read-only and precedes
+    // all fresh-source guards. The original Operation remains authoritative
+    // for idempotent replay after a backend disconnect or an elapsed airing.
     EpgTimerIntentAdmissionRepository admissionRepository(database_);
     const auto existing = admissionRepository.lookup(
         request.authenticatedActorId, request.selection);
@@ -144,6 +142,24 @@ AtomicAdmissionResult EpgTimerIntentAtomicAdmissionService::admit(
             return fail(AtomicAdmissionStatus::storageError);
         return outcome(AtomicAdmissionStatus::replayed, op.operation);
     }
+
+    // Only an absent idempotency scope may proceed to new mutation.
+    const Draft draft = makeProgrammeEventDraft(
+        request.selection, request.observation, request.authenticatedActorId,
+        request.defaults, true, true, request.requestedAt);
+    if (draft.guard == Decision::revisionConflict)
+        return fail(AtomicAdmissionStatus::revisionConflict);
+    if (draft.guard != Decision::ready || !draft.valid ||
+        request.deadline < 0 ||
+        (request.deadline != 0 && request.deadline < request.requestedAt))
+        return fail(AtomicAdmissionStatus::invalid);
+    if (!candidateMatches(request) ||
+        !request.revalidateSourceAndNativeSpecification)
+        return fail(AtomicAdmissionStatus::backendUnavailable);
+    // Source, generation and exact native scheduling evidence are revalidated
+    // under the same transaction before any domain write is admitted.
+    if (!request.revalidateSourceAndNativeSpecification())
+        return fail(AtomicAdmissionStatus::generationConflict);
 
     // Default one-shot policy never silently creates two native timers for
     // an already active semantically equivalent scheduling intent.

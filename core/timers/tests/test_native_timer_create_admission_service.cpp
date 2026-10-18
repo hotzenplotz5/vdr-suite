@@ -357,6 +357,16 @@ void test_epg_public_atomic_admission_and_replay()
     assert(replay.operation.operationId == first.operation.operationId);
     assert(replay.operation.operationRevision == first.operation.operationRevision);
 
+    // A lost first response can be replayed after the airing ends or the
+    // Agent is disconnected. No new write / fresh authority is attempted.
+    auto afterAiring = request;
+    afterAiring.requestedAt = request.observation.endTime + 100;
+    afterAiring.candidate = {};
+    afterAiring.revalidateSourceAndNativeSpecification = {};
+    const auto lateReplay = afterRestart.admit(afterAiring);
+    assert(lateReplay.status == AtomicAdmissionStatus::replayed);
+    assert(lateReplay.operation.operationId == first.operation.operationId);
+
     auto different = request;
     different.selection.eventId = "81235";
     different.observation.nativeEventId = "81235";
@@ -369,16 +379,19 @@ void test_epg_public_atomic_admission_and_replay()
     assert(duplicate.status == AtomicAdmissionStatus::duplicateIntent);
 
     auto generation = request;
+    generation.selection.idempotencyKey = "device-new-stale-generation";
     generation.candidate.currentBackendGeneration = 8;
     assert(afterRestart.admit(generation).status ==
         AtomicAdmissionStatus::backendUnavailable);
 
     auto staleDuringAdmission = request;
+    staleDuringAdmission.selection.idempotencyKey = "device-new-stale-authority";
     staleDuringAdmission.revalidateSourceAndNativeSpecification =
         [] { return false; };
     assert(afterRestart.admit(staleDuringAdmission).status ==
         AtomicAdmissionStatus::generationConflict);
     auto missingAuthority = request;
+    missingAuthority.selection.idempotencyKey = "device-new-missing-authority";
     missingAuthority.revalidateSourceAndNativeSpecification = {};
     assert(afterRestart.admit(missingAuthority).status ==
         AtomicAdmissionStatus::backendUnavailable);
