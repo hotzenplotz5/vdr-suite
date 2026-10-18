@@ -1,7 +1,9 @@
 #include "SuiteBridgeNativeTimerCreateTransport.h"
+#include "BackendAgentNativeTimerDeleteFingerprint.h"
 
 #include <arpa/inet.h>
 #include <cassert>
+#include <ctime>
 #include <netinet/in.h>
 #include <string>
 #include <sys/socket.h>
@@ -235,6 +237,82 @@ void testNativeTimerClockAttestationFromTypedSvdrpReply();
 
 int main()
 {
+    {
+        // Typed wire verification is separated from VDR capture. The test
+        // never manufactures an admission proof or executes native CREATE.
+        const auto request = validRequest();
+        const auto& spec = request.command.specification;
+        const auto& selection = request.command.localProviderSelection;
+        const std::string digest =
+            backendAgentNativeTimerDeleteFingerprintToken(
+                backendAgentNativeTimerCreateSpecificationFingerprint(spec));
+        const std::int64_t now = static_cast<std::int64_t>(std::time(nullptr));
+        const std::string revision =
+            backendAgentNativeTimerDeleteFingerprintToken(
+                "test-native-preview-observation");
+        const std::string prefix =
+            "vdr-suite-ntpreview/1 vdr.timer.create 1 suitebridge " +
+            selection.providerInstanceEpoch +
+            " 1 1 " + digest +
+            " 1792222800 1792226400 " + std::to_string(now) +
+            " " + revision + " 0 1 isolated_clear";
+        SuiteBridgeCommandReply accepted{
+            SuiteBridgeTransportStatus::Success, 900, prefix, {}};
+        SuiteBridgeNativeTimerPreviewProjection preview;
+        std::string reason;
+        assert(SuiteBridgeNativeTimerCreateTransport::verifyNativePreviewReply(
+            accepted, spec, 1792222800, 1792226400, selection,
+            now, preview, reason));
+        assert(reason == "native_timer_preview_typed_clear");
+        assert(preview.isolatedCandidateClear &&
+            preview.consideredTimers == 0 && preview.consideredDevices == 1);
+        assert(preview.specificationDigest == digest);
+
+        auto wrongEpoch = accepted;
+        wrongEpoch.payload = "vdr-suite-ntpreview/1 vdr.timer.create 1 suitebridge "
+            "pie_restarted 1 1 " + digest +
+            " 1792222800 1792226400 " + std::to_string(now) +
+            " " + revision + " 0 1 isolated_clear";
+        assert(!SuiteBridgeNativeTimerCreateTransport::verifyNativePreviewReply(
+            wrongEpoch, spec, 1792222800, 1792226400, selection,
+            now, preview, reason));
+        assert(!preview.isolatedCandidateClear);
+
+        auto stale = accepted;
+        stale.payload =
+            "vdr-suite-ntpreview/1 vdr.timer.create 1 suitebridge " +
+            selection.providerInstanceEpoch +
+            " 1 1 " + digest +
+            " 1792222800 1792226400 " + std::to_string(now - 16) +
+            " " + revision + " 0 1 isolated_clear";
+        assert(!SuiteBridgeNativeTimerCreateTransport::verifyNativePreviewReply(
+            stale, spec, 1792222800, 1792226400, selection,
+            now, preview, reason));
+        assert(!preview.isolatedCandidateClear);
+
+        auto unknown = accepted;
+        unknown.replyCode = 550;
+        unknown.payload =
+            "vdr-suite-ntpreview-rejected/1 active_timer_overlap_not_simulated";
+        assert(!SuiteBridgeNativeTimerCreateTransport::verifyNativePreviewReply(
+            unknown, spec, 1792222800, 1792226400, selection,
+            now, preview, reason));
+        assert(reason == "native_timer_preview_unavailable_or_uncertain");
+        assert(!preview.isolatedCandidateClear);
+
+        OneShotServer server("900 " + prefix + "\r\n");
+        SuiteBridgeNativeTimerCreateTransport transport(config(server.port()));
+        assert(transport.inspectProspectiveNativeTimerPreview(
+            spec, 1792222800, 1792226400, selection, preview, reason));
+        server.wait();
+        assert(preview.isolatedCandidateClear);
+        assert(server.request().find(
+            "PLUG suitebridge NTPREVIEW CHECK 1 pie_1 "
+            "1792222800 1792226400 ") == 0);
+        assert(server.request().find(digest + "\r\n") !=
+            std::string::npos);
+    }
+
     testNativeTimerClockAttestationFromTypedSvdrpReply();
 
     {
