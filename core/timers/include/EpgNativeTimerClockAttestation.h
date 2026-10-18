@@ -58,4 +58,38 @@ inline bool attestBackendNativeTimerClock(
     evidence.observedAt = observedAt;
     return true;
 }
+// Trusted Agent/Daemon entry: the raw SVDRP reply is validated by the
+// established typed transport parser BEFORE it can become domain evidence.
+// A missing CLOCK command (501 unsupported), transport failure, stale provider
+// or forged native date/time cannot produce current clock evidence.
+inline bool attestBackendNativeTimerClockReply(
+    const vdrsuite::agent::SuiteBridgeCommandReply& reply,
+    const BackendAgentRecord& agent,
+    const vdrsuite::agent::BackendAgentLocalProviderSelection& provider,
+    const vdrsuite::timers::TimerAssignmentPlanningBackendCandidate& candidate,
+    std::int64_t expectedStart, std::int64_t expectedStop,
+    std::int64_t observedAt,
+    ServerOwnedNativeClockEvidence& evidence,
+    std::string& reasonCode)
+{
+    evidence = {};
+    vdrsuite::agent::SuiteBridgeNativeTimerClockProjection projection;
+    if (!vdrsuite::agent::SuiteBridgeNativeTimerCreateTransport::
+            verifyNativeClockReply(
+                reply, expectedStart, expectedStop, provider, projection,
+                reasonCode))
+        return false;
+
+    if (!attestBackendNativeTimerClock(
+            projection, agent, provider, candidate,
+            expectedStart, expectedStop, observedAt, evidence))
+    {
+        reasonCode = "native_timer_clock_attestation_stale_or_invalid";
+        return false;
+    }
+
+    reasonCode = "native_timer_clock_attested";
+    return true;
+}
+
 } // namespace vdrsuite::public_epg_timer
