@@ -27,10 +27,9 @@ Für repositorybasierte Runtime-Deployments ist der **versiegelte Staging-Baum**
 Dieses README ist nur Navigation. Es führt **keine Installation, Migration, Rechtekorrektur oder Service-Neustarts** aus. Eine Änderung am laufenden System braucht eine getrennte Deployment-Freigabe mit Provenienz und Vorprüfung.
 
 
-## Öffentliches PPA: verifizierte Noble-Abnahme vom 17. Oktober 2026
+## Öffentliches experimentelles PPA: Noble und Resolute (17. Oktober 2026)
 
-Quellstand des separaten, nicht gemergten Testbranches:
-`work/ppa-noble-install-smoke-20261017`.
+Die kanonische Debian-/Ubuntu-Paketierung liegt seit [PR #494](https://github.com/hotzenplotz5/vdr-suite/pull/494) auf `main` (Merge-SHA `2a81dea07455ad2801ac959d9a8fcf759dbc4994`). Das vorhandene Launchpad-Rezept `vdr-suite-packaging-experimental` verwendet `lp:vdr-suite main` und bietet Noble und Resolute als Zielserien an. Die folgenden Noble-CI-Läufe stammen aus der Abnahme vor bzw. um den Merge.
 Die tatsächlich **veröffentlichten** Binärpakete werden auf einem frischen
 GitHub-Actions-Runner `ubuntu-24.04` mit den PPAs
 `ppa:seahawk1986-hotmail/vdr-2.8.3` und
@@ -75,18 +74,33 @@ Upgrade/Purge und Konfigurationsschutz waren bereits Gegenstand
 separater Offline-Paketlebenszyklus-Tests; ein Upgrade direkt aus dem
 **veröffentlichten** PPA ist nicht durch diesen Workflow bewiesen.
 
-**Ubuntu 26.04 Resolute – noch nicht vollständig verfügbar:** Die
-[separate PPA-Vorprüfung, Run 39039206371](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39039206371)
-(Commit `3d84b29ab6c5526683beb6266cc20dacacc79a13`)
-hat auf einem isolierten Ubuntu-26.04-Container Seahawk-VDR
-`2.8.3-0yavdr0~resolute` und das gepatchte `vdr-plugin-web`
-im Archiv gefunden. Dagegen fehlen noch die veröffentlichten Kandidaten
-`vdr-suite-daemon`, `vdr-suite-backend-agent` und
-`vdr-plugin-suitebridge`. Das Gate meldet
-`RESOLUTE_RELEASE_GATE=NOT_READY`. APT-Installation und Daemon-Laufzeittest
-wurden deshalb bewusst übersprungen. Ein grüner
-[Verfügbarkeits-Workflow](../.github/workflows/ppa-resolute-install-smoke.yml)
-ist **kein** erfolgreicher Resolute-Installationstest.
+**Ubuntu 26.04 Resolute – veröffentlicht und erfolgreich aus dem PPA installiert:**
+Das Rezept veröffentlichte die drei VDR-Suite-Binärpakete für amd64 mit der
+Version `0.14.1-1~exp2~ppa2+202610171542~ubuntu26.04.1` neben dem separat
+gepatchten `vdr-plugin-web`. Der manuell ausgelöste
+[Resolute-PPA-Abnahmelauf #39070097283](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39070097283)
+lief auf dem Merge-Commit `2a81dea07455ad2801ac959d9a8fcf759dbc4994`
+erfolgreich durch. Die tatsächlichen Schritte für APT-Installation,
+VDR-Plugin-ABI, ELF-Abhängigkeiten, Start des installierten Daemons als
+`vdr`, HTTP-Assets, HTTP-401-Sicherheitsvertrag, Shutdown und Neustart
+wurden **ausgeführt, nicht übersprungen**. Die Logs melden
+`RESOLUTE_PPA_CANDIDATES=READY`,
+`RESOLUTE_PPA_APT_VDR_PLUGIN_ABI=PASS` und
+`RESOLUTE_PPA_DAEMON_HTTP_RESTART=PASS`. Der frühere
+[Verfügbarkeitslauf #39039206371](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39039206371)
+ist nur noch ein historischer Vor-Publikationsnachweis.
+
+**Daily-Build-Grenze:** Das bestehende Rezept steht nach den bestätigten
+manuellen Builds weiterhin auf *Built on request*. Die aktuelle
+Versionserzeugung `0.14.1-1~exp2~ppa2+{revtime}` erzeugt für einen neueren
+Revision-Zeitstempel eine höhere Paketversion. Eine automatische
+Launchpad-Daily-Veröffentlichung wartet jedoch **nicht** auf erfolgreiche
+GitHub-CI-Läufe. Insbesondere ist die Packaging-CI auf bestimmte Pfade
+eingeschränkt, während Launchpad den ganzen geänderten `main`-Stand
+verpacken würde. Deshalb Daily nicht ohne eine ausdrücklich geprüfte
+Freigabepolitik bzw. Trennung von Daily- und freigegebenen Paketen
+einschalten. Die erfolgreiche PPA-Abnahme ist keine Hardware-, HbbTV-
+Wiedergabe-, Backend-Agent-Verbindungs- oder Produktivmigrationsabnahme.
 
 Weder die Noble-Abnahme noch ein PPA-Build autorisieren eine produktive
 Installation oder ungeprüfte Migration einer bestehenden yaVDR-Installation.
