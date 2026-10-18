@@ -1,5 +1,6 @@
 #include "Database.h"
 #include "EpgTimerIntentDraft.h"
+#include "EpgTimerIntentAtomicAdmissionService.h"
 #include "TimerIntentApplicationService.h"
 #include "MutationOperationIdentity.h"
 #include "MutationOperationRepository.h"
@@ -284,12 +285,126 @@ void test_source_epg_draft_to_atomic_native_create_admission(bool rollbackWholeR
         chosen, source, "actor:owner", policy, true, true, 1792223000).valid);
 }
 
+void test_epg_public_atomic_admission_and_replay()
+{
+    using namespace vdrsuite::public_epg_timer;
+    Fixture fixture;
+    TimerIntentApplicationService application(
+        fixture.intents, fixture.assignments, fixture.bindings);
+    EpgTimerIntentAtomicAdmissionService coordinator(
+        fixture.database, fixture.intents, fixture.assignments,
+        application, fixture.admission);
+    assert(coordinator.ensureSchema());
+    AtomicAdmissionRequest request;
+    request.selection = {"backend-one", "S19.2E-1-1019-10301", "81234",
+        "\"opaque-epg-v1\"", "device-once-1"};
+    request.observation = {request.selection.backendId,
+        request.selection.channelId, request.selection.eventId,
+        "backend-one", request.selection.ifMatch,
+        1792222800, 1792226400, 7U, true, true};
+    request.defaults.timezone = "Europe/Berlin";
+    request.defaults.channelSourceType = "vdr";
+    request.authenticatedActorId = "actor:owner";
+    request.authoritativeTitle = "Atomic admission";
+    request.requestedAt = 1792223000;
+    request.deadline = 0;
+    auto& candidate = request.candidate;
+    candidate.backendId = "backend-one";
+    candidate.siteId = "site:home";
+    candidate.currentBackendGeneration = 7;
+    candidate.state = TimerAssignmentPlanningBackendState::online;
+    candidate.writeAllowed = true;
+    candidate.executionAuthorityCurrent = true;
+    candidate.executionAuthorityFence = "backend-agent:7";
+    candidate.capability.backendGeneration = 7;
+    candidate.capability.revision = "capability:7";
+    candidate.capability.current = true;
+    candidate.capability.timerCreate = true;
+    candidate.capability.timerReadback = true;
+    candidate.health.backendGeneration = 7;
+    candidate.health.revision = "health:7";
+    candidate.health.current = true;
+    candidate.health.state = TimerAssignmentPlanningHealthState::healthy;
+    candidate.health.timerWritesAvailable = true;
+    candidate.channel.backendGeneration = 7;
+    candidate.channel.mappingRevision = "native:7";
+    candidate.channel.mappingSource = "native-epg";
+    candidate.channel.sourceType = "vdr";
+    candidate.channel.sourceId = "backend-one";
+    candidate.channel.sourceChannelId = request.selection.channelId;
+    candidate.channel.backendChannelId = request.selection.channelId;
+    candidate.channel.current = true;
+    candidate.desiredNativeTimerSpecificationPresent = true;
+    candidate.desiredNativeTimerSpecification = specification();
+    candidate.desiredNativeTimerSpecification.day = "2026-10-17";
+    candidate.desiredNativeTimerSpecification.startTime = "0940";
+    candidate.desiredNativeTimerSpecification.endTime = "1040";
+    candidate.conflict = TimerAssignmentPlanningConflictState::confirmedClear;
+
+    const auto first = coordinator.admit(request);
+    assert(first.status == AtomicAdmissionStatus::prepared);
+    assert(mutationOperationIdCanonical(first.operation.operationId));
+    assert(first.operation.state == MutationOperationState::accepted);
+    assert(first.operation.backendId == "backend-one");
+    assert(fixture.database.transactionActive() == false);
+
+    EpgTimerIntentAtomicAdmissionService afterRestart(
+        fixture.database, fixture.intents, fixture.assignments,
+        application, fixture.admission);
+    const auto replay = afterRestart.admit(request);
+    assert(replay.status == AtomicAdmissionStatus::replayed);
+    assert(replay.operation.operationId == first.operation.operationId);
+    assert(replay.operation.operationRevision == first.operation.operationRevision);
+
+    auto different = request;
+    different.selection.eventId = "81235";
+    different.observation.nativeEventId = "81235";
+    const auto conflict = afterRestart.admit(different);
+    assert(conflict.status == AtomicAdmissionStatus::idempotencyConflict);
+
+    auto freshKey = request;
+    freshKey.selection.idempotencyKey = "device-once-2";
+    const auto duplicate = afterRestart.admit(freshKey);
+    assert(duplicate.status == AtomicAdmissionStatus::duplicateIntent);
+
+    auto generation = request;
+    generation.candidate.currentBackendGeneration = 8;
+    assert(afterRestart.admit(generation).status ==
+        AtomicAdmissionStatus::backendUnavailable);
+
+    // Failure after intent and assignment INSERT must leave neither one
+    // committed, and must not reserve an Operation/idempotency alias.
+    Fixture aborted;
+    TimerIntentApplicationService abortedApplication(
+        aborted.intents, aborted.assignments, aborted.bindings);
+    EpgTimerIntentAtomicAdmissionService abortCoordinator(
+        aborted.database, aborted.intents, aborted.assignments,
+        abortedApplication, aborted.admission);
+    assert(abortCoordinator.ensureSchema());
+    assert(aborted.database.execute(
+        "CREATE TRIGGER fail_epg_atomic_op "
+        "BEFORE INSERT ON mutation_operations "
+        "BEGIN SELECT RAISE(ABORT,'forced failure'); END;"));
+    assert(abortCoordinator.admit(request).status ==
+        AtomicAdmissionStatus::storageError);
+    const auto expected = makeProgrammeEventDraft(
+        request.selection, request.observation, request.authenticatedActorId,
+        request.defaults, true, true, request.requestedAt);
+    assert(expected.valid);
+    const auto leftovers = aborted.intents.findEquivalent(expected.specification);
+    assert(leftovers.ok() && leftovers.intents.empty());
+    assert(aborted.database.execute("DROP TRIGGER fail_epg_atomic_op;"));
+    const auto recovered = abortCoordinator.admit(request);
+    assert(recovered.status == AtomicAdmissionStatus::prepared);
+}
+
 } // namespace
 
 int main()
 {
     test_source_epg_draft_to_atomic_native_create_admission(false);
     test_source_epg_draft_to_atomic_native_create_admission(true);
+    test_epg_public_atomic_admission_and_replay();
     {
         Fixture fixture;
         // Nested admission without the coordinator's active transaction

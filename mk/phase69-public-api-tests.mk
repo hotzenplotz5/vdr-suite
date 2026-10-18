@@ -179,6 +179,7 @@ test-phase69-atomic-timer-create-admission:
 		core/timers/src/NativeTimerCreateOperationPayload.cpp \
 		core/timers/src/NativeTimerCreateOperationPreparationService.cpp \
 		core/timers/src/NativeTimerCreateAdmissionService.cpp \
+		core/timers/src/EpgTimerIntentAtomicAdmissionService.cpp \
 		core/timers/tests/test_native_timer_create_admission_service.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_native_timer_create_admission_service
