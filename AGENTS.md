@@ -385,7 +385,20 @@ merely to reduce the number of commits.
 
 ### Main-first branch lifecycle and grandfathered work
 
-Follow [Branch- und Pull-Request-Lebenszyklus](docs/development/branch-pull-request-lifecycle.md): new work starts on the **current `main`** of the correct repository; do not create nested successor branches for the same work. **Branches and PR stacks already active before 2026-10-18 are grandfathered**: never force-rebase, rename, close, merge, delete or replace them just to satisfy the new rule. Any new stacked branch needs explicit approval and a documented dependency. After an authorized merge confirm `Merged/Closed`, exact `main` head and relevant CI, then delete the head branch **only after** checking Launchpad recipes, dependent PRs, workflows and other consumers. Report `BRANCH=RETAINED` with the reason if needed or if deletion is unavailable. Branch protection always takes precedence over a request for a direct `main` write.
+Follow [Branch- und Pull-Request-Lebenszyklus](docs/development/branch-pull-request-lifecycle.md).
+New work starts on the **current `main`** of the correct repository; do
+not create nested successor branches for the same work. **Branches and PR
+stacks already active before 2026-10-18 are grandfathered**: never
+force-rebase, rename, close, merge, delete or replace them just to satisfy
+the new rule. Any new stacked branch needs explicit approval and a documented
+dependency.
+
+After an authorized merge confirm `Merged/Closed`, exact `main` head and
+relevant CI, then delete the head branch **only after** checking Launchpad
+recipes, dependent PRs, workflows and other consumers. Report
+`BRANCH=RETAINED` with the reason if needed or if deletion is unavailable.
+Branch protection always takes precedence over a request for a direct
+`main` write.
 
 ## Reporting
 
