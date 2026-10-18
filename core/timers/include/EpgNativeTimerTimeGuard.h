@@ -70,8 +70,12 @@ inline bool nativeOneShotMatchesEpg(
 {
     // An absent backend-native offset proof is not UTC=0. A timer formatted
     // using the daemon's timezone could be wrong on a remote backend.
-    if (!clock.current || !event.exactNativeIdentity ||
-        !event.observationCurrent ||
+    // VDR's day+HHMM one-shot encoding does not contain a DST fold bit.
+    // An event straddling an offset transition cannot yet be represented
+    // unambiguously by the current native CREATE contract. Fail closed.
+    if (!clock.current ||
+        clock.startUtcOffsetSeconds != clock.stopUtcOffsetSeconds ||
+        !event.exactNativeIdentity || !event.observationCurrent ||
         event.endTime <= event.startTime ||
         event.startTime <= 0 ||
         event.endTime - event.startTime > 24 * 60 * 60 ||

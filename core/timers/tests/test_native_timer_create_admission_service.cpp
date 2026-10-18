@@ -324,7 +324,9 @@ void test_epg_native_time_contract()
     native.day = "2026-10-25";
     native.startTime = "0230";
     native.endTime = "0330";
-    assert(nativeOneShotMatchesEpg(event, defaults,
+    // A DST-fold crossing is currently unrepresentable in a native VDR
+    // HHMM timer (no fold discriminator). No ambiguous automatic mutation.
+    assert(!nativeOneShotMatchesEpg(event, defaults,
         ServerOwnedNativeClockEvidence{true, 7200, 3600}, native));
     assert(!nativeOneShotMatchesEpg(event, defaults,
         ServerOwnedNativeClockEvidence{true, 7200, 7200}, native));
@@ -332,8 +334,16 @@ void test_epg_native_time_contract()
     event.startTime = 1792888229;
     event.endTime = 1792895437;
     native.endTime = "0331";
-    assert(nativeOneShotMatchesEpg(event, defaults,
+    assert(!nativeOneShotMatchesEpg(event, defaults,
         ServerOwnedNativeClockEvidence{true, 7200, 3600}, native));
+    // Normal unchanged-offset schedule still rounds deterministically.
+    event.startTime = 1792222829;
+    event.endTime = 1792226437;
+    native.day = "2026-10-17";
+    native.startTime = "0940";
+    native.endTime = "1041";
+    assert(nativeOneShotMatchesEpg(event, defaults,
+        ServerOwnedNativeClockEvidence{true, 7200, 7200}, native));
 }
 
 void test_epg_public_atomic_admission_and_replay()
