@@ -114,6 +114,10 @@ public:
     TimerAssignmentRepositoryResult create(
         const TimerAssignment& assignment);
 
+    // Caller owns BEGIN/COMMIT/ROLLBACK, including rollback after failure.
+    TimerAssignmentRepositoryResult createInCurrentTransaction(
+        const TimerAssignment& assignment);
+
     // Snapshot-fenced creation reuses create() for the durable assignment write.
     // The opaque set revision represents the complete TimerAssignment set for
     // one TimerIntent. A stale set revision returns `conflict`; the repository
@@ -175,6 +179,8 @@ public:
         const std::string& expectedRevision);
 
 private:
+    TimerAssignmentRepositoryResult createImpl(
+        const TimerAssignment& assignment, bool currentTransaction);
     Database& database_;
 };
 

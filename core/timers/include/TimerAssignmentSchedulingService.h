@@ -72,10 +72,16 @@ public:
     TimerAssignmentSchedulingResult schedulePrimary(
         const TimerAssignmentPrimarySchedulingRequest& request);
 
+    TimerAssignmentSchedulingResult schedulePrimaryInCurrentTransaction(
+        const TimerAssignmentPrimarySchedulingRequest& request);
+
     TimerAssignmentSchedulingResult scheduleReplica(
         const TimerAssignmentReplicaSchedulingRequest& request);
 
 private:
+    TimerAssignmentSchedulingResult schedulePrimaryImpl(
+        const TimerAssignmentPrimarySchedulingRequest& request,
+        bool currentTransaction);
     TimerIntentRepository& intentRepository_;
     TimerAssignmentRepository& assignmentRepository_;
 };

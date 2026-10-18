@@ -69,6 +69,11 @@ public:
     TimerIntentApplicationResult submitAndSelectPrimary(
         const TimerIntentApplicationRequest& request);
 
+    // Does not commit: the EPG admission coordinator owns the entire
+    // Intent -> Assignment -> Operation transaction and rollback.
+    TimerIntentApplicationResult submitAndSelectPrimaryInCurrentTransaction(
+        const TimerIntentApplicationRequest& request);
+
     // Retained for existing owners with deliberate immediate provisioning.
     TimerIntentApplicationResult submitAndProvisionPrimary(
         const TimerIntentApplicationRequest& request);
@@ -76,7 +81,8 @@ public:
 private:
     TimerIntentApplicationResult submitPrimary(
         const TimerIntentApplicationRequest& request,
-        bool provisionImmediately);
+        bool provisionImmediately,
+        bool currentTransaction);
     TimerIntentRepository& intentRepository_;
     TimerAssignmentRepository& assignmentRepository_;
     TimerAssignmentSchedulingService scheduling_;

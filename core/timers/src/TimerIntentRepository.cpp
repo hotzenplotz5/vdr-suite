@@ -572,6 +572,20 @@ TimerIntentRepositoryResult TimerIntentRepository::update(
     const TimerIntent& next,
     const std::string& expectedRevision)
 {
+    return updateImpl(next, expectedRevision, false);
+}
+
+TimerIntentRepositoryResult TimerIntentRepository::updateInCurrentTransaction(
+    const TimerIntent& next,
+    const std::string& expectedRevision)
+{
+    return updateImpl(next, expectedRevision, true);
+}
+
+TimerIntentRepositoryResult TimerIntentRepository::updateImpl(
+    const TimerIntent& next, const std::string& expectedRevision,
+    bool currentTransaction)
+{
     std::int64_t expectedRevisionNumber = 0;
     if (!parseRevisionToken(expectedRevision, expectedRevisionNumber) ||
         next.intentRevision != expectedRevision)
@@ -580,7 +594,9 @@ TimerIntentRepositoryResult TimerIntentRepository::update(
     }
 
     auto lease = database_.acquireTransactionLease();
-    if (!ensureSchema() || !database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
+    if (currentTransaction != database_.transactionActive() ||
+        !ensureSchema() ||
+        (!currentTransaction && !database_.execute("BEGIN IMMEDIATE TRANSACTION;")))
     {
         return statusResult(TimerIntentRepositoryStatus::storageError);
     }
@@ -589,17 +605,17 @@ TimerIntentRepositoryResult TimerIntentRepository::update(
     bool found = false;
     if (!selectById(database_, next.timerIntentId, current, found))
     {
-        database_.execute("ROLLBACK;");
+        if (!currentTransaction) database_.execute("ROLLBACK;");
         return statusResult(TimerIntentRepositoryStatus::storageError);
     }
     if (!found)
     {
-        database_.execute("ROLLBACK;");
+        if (!currentTransaction) database_.execute("ROLLBACK;");
         return statusResult(TimerIntentRepositoryStatus::notFound);
     }
     if (!timerIntentRevisionMatches(expectedRevision, current.intentRevision))
     {
-        database_.execute("ROLLBACK;");
+        if (!currentTransaction) database_.execute("ROLLBACK;");
         return statusResult(TimerIntentRepositoryStatus::conflict, current);
     }
 
@@ -609,13 +625,13 @@ TimerIntentRepositoryResult TimerIntentRepository::update(
         next.updatedAt <= current.updatedAt ||
         (next.state != current.state && !timerIntentCanTransition(current.state, next.state)))
     {
-        database_.execute("ROLLBACK;");
+        if (!currentTransaction) database_.execute("ROLLBACK;");
         return statusResult(TimerIntentRepositoryStatus::invalid);
     }
 
     if (expectedRevisionNumber == std::numeric_limits<std::int64_t>::max())
     {
-        database_.execute("ROLLBACK;");
+        if (!currentTransaction) database_.execute("ROLLBACK;");
         return statusResult(TimerIntentRepositoryStatus::storageError);
     }
 
@@ -624,7 +640,7 @@ TimerIntentRepositoryResult TimerIntentRepository::update(
     const std::string semanticIdentity = timerIntentSemanticIdentity(durable.spec);
     if (!timerIntentValid(durable) || semanticIdentity.empty())
     {
-        database_.execute("ROLLBACK;");
+        if (!currentTransaction) database_.execute("ROLLBACK;");
         return statusResult(TimerIntentRepositoryStatus::invalid);
     }
 
@@ -646,7 +662,7 @@ TimerIntentRepositoryResult TimerIntentRepository::update(
     sqlite3_stmt* statement = nullptr;
     if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK)
     {
-        database_.execute("ROLLBACK;");
+        if (!currentTransaction) database_.execute("ROLLBACK;");
         return statusResult(TimerIntentRepositoryStatus::storageError);
     }
 
@@ -655,7 +671,7 @@ TimerIntentRepositoryResult TimerIntentRepository::update(
         sqlite3_bind_int64(statement, 48, expectedRevisionNumber) != SQLITE_OK)
     {
         sqlite3_finalize(statement);
-        database_.execute("ROLLBACK;");
+        if (!currentTransaction) database_.execute("ROLLBACK;");
         return statusResult(TimerIntentRepositoryStatus::storageError);
     }
 
@@ -663,13 +679,13 @@ TimerIntentRepositoryResult TimerIntentRepository::update(
     sqlite3_finalize(statement);
     if (step != SQLITE_DONE || sqlite3_changes(database_.handle()) != 1)
     {
-        database_.execute("ROLLBACK;");
+        if (!currentTransaction) database_.execute("ROLLBACK;");
         return statusResult(TimerIntentRepositoryStatus::storageError);
     }
 
-    if (!database_.execute("COMMIT;"))
+    if (!currentTransaction && !database_.execute("COMMIT;"))
     {
-        database_.execute("ROLLBACK;");
+        if (!currentTransaction) database_.execute("ROLLBACK;");
         return statusResult(TimerIntentRepositoryStatus::storageError);
     }
 

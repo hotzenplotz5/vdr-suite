@@ -63,21 +63,31 @@ TimerIntentApplicationResult
 TimerIntentApplicationService::submitAndSelectPrimary(
     const TimerIntentApplicationRequest& request)
 {
-    return submitPrimary(request, false);
+    return submitPrimary(request, false, false);
+}
+
+TimerIntentApplicationResult
+TimerIntentApplicationService::submitAndSelectPrimaryInCurrentTransaction(
+    const TimerIntentApplicationRequest& request)
+{
+    return submitPrimary(request, false, true);
 }
 
 TimerIntentApplicationResult
 TimerIntentApplicationService::submitAndProvisionPrimary(
     const TimerIntentApplicationRequest& request)
 {
-    return submitPrimary(request, true);
+    return submitPrimary(request, true, false);
 }
 
 TimerIntentApplicationResult
 TimerIntentApplicationService::submitPrimary(
     const TimerIntentApplicationRequest& request,
-    bool provisionImmediately)
+    bool provisionImmediately,
+    bool currentTransaction)
 {
+    if (currentTransaction && provisionImmediately)
+        return result(TimerIntentApplicationStatus::invalid);
     if (!requestValid(request))
         return result(TimerIntentApplicationStatus::invalid);
 
@@ -112,8 +122,10 @@ TimerIntentApplicationService::submitPrimary(
         TimerIntent active = intent;
         active.state = TimerIntentState::active;
         active.updatedAt = request.activatedAt;
-        const auto activated =
-            intentRepository_.update(active, intent.intentRevision);
+        const auto activated = currentTransaction
+            ? intentRepository_.updateInCurrentTransaction(
+                active, intent.intentRevision)
+            : intentRepository_.update(active, intent.intentRevision);
         if (!activated.ok())
             return result(
                 activated.status == TimerIntentRepositoryStatus::conflict
@@ -142,7 +154,9 @@ TimerIntentApplicationService::submitPrimary(
         schedulingRequest.expectedIntentRevision = intent.intentRevision;
         schedulingRequest.createdAt = request.scheduledAt;
         schedulingRequest.candidates = request.candidates;
-        const auto scheduled = scheduling_.schedulePrimary(schedulingRequest);
+        const auto scheduled = currentTransaction
+            ? scheduling_.schedulePrimaryInCurrentTransaction(schedulingRequest)
+            : scheduling_.schedulePrimary(schedulingRequest);
 
         if (scheduled.status ==
                 TimerAssignmentSchedulingStatus::activePrimaryExists

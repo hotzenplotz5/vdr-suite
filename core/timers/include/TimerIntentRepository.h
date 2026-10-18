@@ -61,7 +61,15 @@ public:
         const TimerIntent& next,
         const std::string& expectedRevision);
 
+    // Caller owns the active SQLite transaction and its recursive lease.
+    TimerIntentRepositoryResult updateInCurrentTransaction(
+        const TimerIntent& next,
+        const std::string& expectedRevision);
+
 private:
+    TimerIntentRepositoryResult updateImpl(
+        const TimerIntent& next, const std::string& expectedRevision,
+        bool currentTransaction);
     Database& database_;
 };
 
