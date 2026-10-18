@@ -14,6 +14,14 @@ Backend work branch: `work/public-v1-epg-timer-intent-admission-20261017`, curre
 
 **Installed**: no new yaVDR daemon; **TV**: no new Hisense recording acceptance; **merge/main**: no change. See [Public-v1 Coverage Roadmap](planning/public-v1-coverage-roadmap.md) and [EPG Timer intent contract](../api/epg-timer-intents.md).
 
+### Native capability and VDR-local clock findings (2026-10-18)
+
+Real yaVDR read-only observations: VDR **2.8.3**, epgsearch **2.4.6**, RESTfulAPI HTTP conflict endpoint **200**, `PLUG epgsearch LSCC` returns **901 no conflicts found**, native SuiteBridge **0.14.1** responds to `PLUG suitebridge NTCREATE CAP 1` with `vdr-suite-ntcreate-cap/1 ... timer-create enabled suitebridge ... 1 1 enabled`. The general `CAPS 1` discovery's `mutations: disabled` is a distinct general module capability and does not negate this operation-specific native timer CREATE capability. **Neither result proves conflict freedom for a proposed Timer.** The local checkout HEAD `c9f9a1160` differs from this working branch; no live daemon/plugin was installed by these changes.
+
+Source work in `5ddc9d53ffb61fc9daac393254ba87e26f837cf9` adds a **read-only** `PLUG suitebridge NTCREATE CLOCK 1 <unix-start> <unix-stop>` command to the native plugin handler without changing `EXEC`. It returns exact VDR-process-local calendar/HHMM and UTC offsets for both requested times, plus SuiteBridge provider epoch/revisions. Backend Agent commit `ad4d2cd4f2e29c228244cceb6d5c0bc4c25b28af` accepts only a typed response for the exact request, local zone projection and selected provider fence. This new CLOCK command is **not present in the already installed 0.14.1 plugin** until an explicitly approved new plugin build/install. The command is not advertised in public SVDRP HELP because existing architecture security policy forbids advertising native CREATE there. The derived domain provider fence is bounded by SHA-256 in `7b38f93338db8df4c9d1333c17b3b70201114d94`, retaining the 160-byte planner limit.
+
+The source and Agent parsing still require **a real server/Agent runtime wiring and a native proposed-timer conflict preview**, neither of which is supplied by epgsearch `LSCC`. Do not call `confirmedClear`, register the productive submit, activate VIDAA recording actions, or create a native Timer based solely on successful `CAP`/`CLOCK`. The new native plugin code has standalone host CI but not a completed yaVDR/VDR-header/plugin install acceptance. No new CREATE is available on the running daemon.
+
 ## Navigation
 
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
