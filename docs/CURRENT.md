@@ -36,6 +36,12 @@ Read-only real yaVDR probe at the locally installed checkout `c9f9a116071cf4cf46
 
 Source commit `6f736d78` adds a single typed raw CLOCK-reply-to-domain-attestation entry that rejects 501, stale Provider epochs and expired Agent leases; `24111adb` relocates its transport-backed regression to the approved Timer-domain test boundary rather than widening the legacy Phase-64 architecture allowlist. The branch remains **source-only**, with productive EPG CREATE disabled. Exact-head CI: [39121803291](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39121803291), check its final conclusion separately.
 
+### Slice-2 native prospective conflict decision kernel (2026-10-18)
+
+Source commit [`54199108`](https://github.com/hotzenplotz5/vdr-suite/commit/541991083992bf71974b4bcf331a47686297b3cc) introduces a **pure, non-mutating** conservative native Timer-preview decision kernel and focused C++ regressions (`test-slice2-native-timer-preview-kernel`, part of `test-fast`). It can classify a single one-shot as a *potentially clear candidate* only when a complete native Timer snapshot contains no overlapping active timer and a complete device inventory reports a non-preempting, channel-compatible device. Recurrences, overlaps, encrypted channels, unknown future device capacity, invalid or incomplete snapshots all fail closed. This is deliberately not a clone of epgsearch's multi-device scheduling simulation.
+
+**Explicit boundary:** `candidateClear` is a local, untrusted kernel classification, **not** `ProspectiveNativeTimerConflictProof`, `confirmedClear`, a live VDR attestation or permission for CREATE. There is no SuiteBridge VDR producer, provider-bound wire verification, generation-fenced projection, or Daemon submit registration for it yet. Existing `EpgTimerIntentAtomicAdmissionService` therefore cannot accept a new public CREATE via this kernel. The old installed yaVDR plugin remains unchanged. [Kernel CI](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39123447566) must be independently checked; docs-only next head needs its own final CI check for full acceptance.
+
 ## Navigation
 
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)

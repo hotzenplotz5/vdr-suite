@@ -51,6 +51,10 @@ Read-only native `NTCREATE CAP 1` returns `900 ... timer-create enabled`, but `N
 
 The new `attestBackendNativeTimerClockReply` source entry requires a validated typed native CLOCK reply plus current Agent lease, Backend generation, Provider fence and exact request window. A `501` maps to `native_timer_clock_unavailable`, resets the evidence to non-current and cannot satisfy atomic admission. This is regression-tested with a simulated wire reply in the Timer domain, not a real installed CLOCK acceptance. [Source CI 39121803291](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39121803291) requires final check. Proposed-timer conflict preview and productive submit are still missing.
 
+### Native prospective conflict preview kernel (source-only, 2026-10-18)
+
+`suitebridge_native_timer_preview_core.cpp` introduces a bounded pure decision step and C++ failure regressions. It does **not** emit a trusted `ProspectiveNativeTimerConflictProof`, and cannot on its own justify `candidate.conflict = confirmedClear`. It rejects unresolved overlapping Timers, repeating active Timers, missing native snapshots, encrypted candidates, and absent/non-preempting device evidence. Producing a positive proof still requires VDR-owned, read-only timer/channel/device capture and provider-epoch, backend-generation and exact-specification verification at the control plane. The installed SuiteBridge 0.14.1 is unchanged, `NTCREATE CLOCK` remains unproven locally, and the Public API CREATE remains fail-closed.
+
 ## Results and client obligations
 
 `202 Accepted` with `Location: /api/v1/operations/{operationId}` means **durable Operation accepted**, never **Timer scheduled successfully**. Show accepted/queued/dispatching/verified states separately. `outcome_unknown` is unresolved and must not trigger another POST. After authenticated Suite SSE hints, refresh the authorized Operation and native Timers resource using normal Public-v1 GET; no new polling loop or private fallback.
