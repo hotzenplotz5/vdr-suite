@@ -6,6 +6,7 @@
 #include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "RecordingArtworkHttpServer.h"
+#include "PublicResourcePreconditions.h"
 #include "PublicRecordingCollectionProjection.h"
 #include "PublicRecordingDisplayName.h"
 #include "PublicSearchProjection.h"
@@ -2256,6 +2257,86 @@ bool DaemonRuntime::initialize()
             result.endTime = event->endTime;
             result.durationSeconds = event->durationSeconds;
             result.status = PublicEpgNowNextStatus::ok;
+            return result;
+        });
+
+    // Slice 2a: server-owned current EPG identity resolution. This can
+    // prepare a native one-shot TimerIntent, but does not persist or dispatch
+    // anything: a separate durable submit callback is intentionally absent
+    // until atomic TimerIntent -> Assignment -> Operation admission is ready.
+    PublicApiRuntime::instance().registerEpgTimerIntentObservationLookup(
+        [this](const PublicEpgTimerIntentAdmissionRequest& request)
+        {
+            PublicEpgTimerIntentObservationResult result;
+            if (!backendRegistryService_ || !backendAgentRepository_ ||
+                !backendAccessPolicy_ || !vdrSnapshotReadService_ ||
+                !epgCacheServiceRegistry_)
+                return result;
+
+            const auto& selection = request.selection;
+            // The established public EPG detail owner checks online backend,
+            // live agent, source-cache readiness, native channel and event ID.
+            const auto detail = PublicApiRuntime::instance().lookupEpgEventDetail(
+                {selection.backendId, selection.channelId, selection.eventId});
+            if (detail.status == PublicEpgNowNextStatus::notFound)
+            {
+                result.status = PublicEpgTimerIntentObservationStatus::notFound;
+                return result;
+            }
+            if (detail.status != PublicEpgNowNextStatus::ok ||
+                detail.backendId != selection.backendId ||
+                detail.channelId != selection.channelId ||
+                detail.eventId != selection.eventId ||
+                detail.resourceRevision.empty())
+                return result;
+
+            const auto agent = backendAgentRepository_->findAgentForBackend(
+                selection.backendId);
+            if (!agent || agent->revoked || agent->incompatible ||
+                agent->backendGeneration == 0U)
+                return result;
+
+            // Public read wire times are Unix seconds; conversion must never
+            // overflow or fall back to the client's asserted schedule.
+            const auto seconds = [](const std::string& raw,
+                std::int64_t& value) {
+                if (raw.empty() || raw.size() > 12U) return false;
+                value = 0;
+                for (unsigned char c : raw)
+                {
+                    if (c < '0' || c > '9') return false;
+                    value = value * 10 + (c - '0');
+                }
+                return value > 0;
+            };
+            std::int64_t begin = 0, end = 0;
+            if (!seconds(detail.startTime, begin) ||
+                !seconds(detail.endTime, end) || end <= begin)
+                return result;
+
+            const auto& backendId = selection.backendId;
+            const auto backend = backendRegistryService_->getBackend(backendId);
+            if (!backend || !backend->enabled || !backend->online)
+                return result;
+            const auto access = backendAccessPolicy_->canWriteToBackend(
+                *backendRegistryService_, backendId);
+
+            auto& observation = result.observation;
+            observation.backendId = backendId;
+            observation.channelId = selection.channelId;
+            observation.nativeEventId = selection.eventId;
+            // The native EPG cache is scoped by exactly one Backend. Never
+            // promote that source-qualified airing to a canonical programme.
+            observation.sourceId = backendId;
+            observation.resourceEtag = vdrsuite::http::publicStrongEntityTag(
+                detail.resourceRevision);
+            observation.startTime = begin;
+            observation.endTime = end;
+            observation.backendGeneration = agent->backendGeneration;
+            observation.exactNativeIdentity = true;
+            observation.observationCurrent = true;
+            result.backendAllowsMutation = access.allowed;
+            result.status = PublicEpgTimerIntentObservationStatus::ok;
             return result;
         });
 
