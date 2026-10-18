@@ -110,8 +110,9 @@ SuiteBridgeCaptureNativeTimerPreviewVdr(
       : nullptr;
   if (channel) {
     const cString exactId = channel->GetChannelID().ToString();
-    result.proposedChannelVerified = exactId &&
-        request.channelId == *exactId;
+    const char* const canonicalId = *exactId;
+    result.proposedChannelVerified =
+        canonicalId != nullptr && request.channelId == canonicalId;
     if (result.proposedChannelVerified) {
       result.proposedFreeToAir = channel->Ca(0) == CA_FTA;
       const int count = cDevice::NumDevices();
