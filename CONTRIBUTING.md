@@ -12,7 +12,13 @@ Thanks for your interest in VDR-Suite! Small, focused contributions are welcome:
 4. Run the smallest relevant test first. For a documentation-only change, use `make test-docs`; for affected runtime or client code, see [Make/test groups](mk/README.md).
 5. Open a pull request describing **what changed, why, how it was tested, and what remains unverified**. Include the exact candidate commit and relevant risk/compatibility notes.
 
-**Branch- und PR-Lebenszyklus (verbindlich):** Für neue Arbeiten gilt ab 18.10.2026 `main` als Ausgangsbasis, nach erfolgreichem Merge sind PR-Abschluss und sichere Branch-Bereinigung zu prüfen. **Bereits laufende Branches besitzen Bestandsschutz** und müssen nicht neu angelegt, rebaset oder vorzeitig geschlossen werden. Die vollständigen Regeln einschließlich Launchpad-/PPA-Referenzen stehen unter [Branch- und Pull-Request-Lebenszyklus](docs/development/branch-pull-request-lifecycle.md).
+**Branch- und PR-Lebenszyklus (verbindlich):** Für neue Arbeiten gilt ab
+18.10.2026 `main` als Ausgangsbasis. Nach einem erfolgreichen Merge sind
+PR-Abschluss und sichere Branch-Bereinigung zu prüfen. **Bereits laufende
+Branches besitzen Bestandsschutz** und müssen nicht neu angelegt, rebaset
+oder vorzeitig geschlossen werden. Die vollständige Richtlinie samt
+Launchpad-/PPA-Referenzen steht unter
+[Branch- und Pull-Request-Lebenszyklus](docs/development/branch-pull-request-lifecycle.md).
 
 A PR does not require proof of a deployed real VDR when it only modifies non-deploying documentation or isolated tests. Conversely, green CI does not prove installed yaVDR or Hisense playback acceptance.
 
