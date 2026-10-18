@@ -372,6 +372,44 @@ def seed_owned_runtime_records(connection):
           backend_id,recording_key,ordinal,orientation,provider,path)
           VALUES('p7_backend','p7_new_native_recording',
                  0,'poster','p7_provider','/p7/new-native-artwork.jpg');
+        -- Three new schema owners in the unified Public API v1 candidate.
+        -- All rows are synthetic and must survive the second real C++ pass.
+        INSERT INTO device_media_verified_paths(
+          device_id,app_version,firmware_version,player_version,engine,
+          protocol,container,video_codec,audio_codec,max_width,max_height,
+          max_channels,video_profile,video_bit_depth,max_fps,hdr_transfer,
+          hdr_output,range_http,contract_version)
+          VALUES('p7_new_device','fixture-app','fixture-fw','fixture-player',
+                 1,1,1,1,1,1920,1080,2,'baseline',8,25.0,'SDR',0,1,1);
+        INSERT INTO public_search_timer_identity(public_id,backend_id,native_id)
+          VALUES('st_p7fixture','p7_backend','p7_native_searchtimer');
+        INSERT INTO timer_intents(
+          timer_intent_id,intent_revision,intent_type,state,owner_actor_id,
+          created_by_actor_id,schedule_start_at,schedule_stop_at,
+          schedule_timezone,recording_start_margin_seconds,
+          recording_stop_margin_seconds,recording_priority,
+          recording_lifetime_days,recording_vps_preferred,
+          assignment_allow_failover,assignment_require_operator_review,
+          replica_desired_assignments,replica_require_backend_diversity,
+          replica_require_site_diversity,
+          replica_simultaneous_recording_intentional,
+          duplicate_prevent_equivalent_intent,
+          duplicate_require_operator_review_on_ambiguity,
+          created_at,updated_at,semantic_identity)
+          VALUES('p7_epg_intent',1,'programme_event','active',
+                 'p7_actor','p7_actor',10000,11000,'UTC',
+                 0,0,50,99,0,0,0,1,0,0,0,1,0,1000,1000,'p7_epg_semantic');
+        INSERT INTO timer_assignments(
+          timer_assignment_id,assignment_revision,timer_intent_id,
+          intent_revision,assignment_epoch,state,role,
+          decision_policy_version,decision_reasons,created_at,updated_at)
+          VALUES('p7_epg_assignment',1,'p7_epg_intent','1',1,
+                 'selected','primary','p7-fixture','fixture',1000,1000);
+        INSERT INTO epg_timer_intent_admissions(
+          actor_id,backend_id,idempotency_key,channel_id,event_id,event_etag,
+          intent_id,assignment_id,operation_id)
+          VALUES('p7_actor','p7_backend','p7_epg_key','p7_channel',
+                 'p7_event','p7_etag','p7_epg_intent','p7_epg_assignment','p7_op');
     """)
     connection.commit()
 
@@ -386,7 +424,9 @@ def current_owned_records(connection):
               "continue_watching_state", "recently_watched_state",
               "media_sessions", "media_routes", "media_provider_stream_leases",
               "media_access_grants", "backend_media_transcode_settings",
+              "device_media_verified_paths",
               "epg_events", "epgsearch_native_fuzzy_capability_probes",
+              "public_search_timer_identity",
               "vdr_recording_cache", "public_recording_identity",
               "recording_series_hierarchy_overrides", "epg_event_artwork",
               "epg_scraper_metadata_cache", "epg_scraper_metadata_images",
@@ -403,7 +443,7 @@ def current_owned_records(connection):
               "suite_metadata_manual_assignment_withdrawals",
               "suite_metadata_person_values",
               "suite_metadata_recording_person_relations",
-              "native_timer_bindings",
+              "native_timer_bindings", "epg_timer_intent_admissions",
               "backend_agent_enrollments", "backend_agents",
               "backend_agent_credential_rotations",
               "backend_agent_capabilities",
@@ -690,6 +730,7 @@ def run(binary):
         print("P7_EMBEDDED_BACKEND_LIFECYCLE_PRESERVATION=PASS", flush=True)
         print("P7_EMBEDDED_RECORDING_EDITS_PRESERVATION=PASS", flush=True)
         print("P7_NATIVE_METADATA_ONETIME_DML_PRESERVATION=PASS", flush=True)
+        print("P7_PUBLIC_V1_NEW_SCHEMA_ROW_PRESERVATION=PASS", flush=True)
         print("P7_HISTORICAL_CPP_SCHEMA_REHEARSAL=PASS", flush=True)
 
 
