@@ -8,6 +8,16 @@ Stable architecture, historical evidence and workflow rules live in their respec
 
 ## Consolidated API v1 / VIDAA Timer work (2026-10-19, hardware CREATE accepted for one bounded case)
 
+### Public/native Timer specification boundary preserved (2026-10-19)
+
+The public MODIFY request previously included an internal
+`NativeTimerSpecification` type directly, violating the existing
+Phase-69.C API-domain separation. It now uses a bounded, backend-neutral
+public change-field DTO. Conversion to the internal native specification
+happens only inside the authenticated daemon callback, followed by
+the unchanged native validation before accepting a durable operation.
+No internal TimerAssignment desired specification is exposed publicly.
+
 ### Native Timer MODIFY contract, OpenAPI and focused test (2026-10-19)
 
 The POST `/api/v1/native-timers/{timerId}/modifications` contract is now

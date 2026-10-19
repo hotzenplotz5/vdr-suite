@@ -2676,8 +2676,8 @@ bool parsePublicEpgTimerIntentBody(const std::string& body,
 // accepts {"kind":"toggle","enabled":false} (or true).
 bool parsePublicNativeTimerModifyBody(
     const std::string& body,
-    vdrsuite::timers::NativeTimerModifyKind& kind,
-    vdrsuite::timers::NativeTimerSpecification& spec)
+    PublicNativeTimerChangeKind& kind,
+    PublicNativeTimerChangeFields& spec)
 {
     if (body.empty() || body.size() > 4096U) return false;
     std::size_t pos = 0U;
@@ -2753,14 +2753,19 @@ bool parsePublicNativeTimerModifyBody(
     if (pos != body.size()) return false;
     if (kindName == "toggle")
     {
-        kind = vdrsuite::timers::NativeTimerModifyKind::toggle;
+        kind = PublicNativeTimerChangeKind::toggle;
         return seen.size() == 2U &&
             std::find(seen.begin(), seen.end(), "enabled") != seen.end();
     }
     if (kindName != "update" || seen.size() != 12U ||
-        !vdrsuite::timers::nativeTimerSpecificationValid(spec))
+        spec.channelId.empty() || spec.channelId.size() > 160U ||
+        spec.title.size() > 1024U || spec.directory.size() > 1024U ||
+        spec.day.size() > 160U || spec.weekdays.size() != 7U ||
+        spec.startTime.empty() || spec.startTime.size() > 4U ||
+        spec.endTime.empty() || spec.endTime.size() > 4U)
+        
         return false;
-    kind = vdrsuite::timers::NativeTimerModifyKind::update;
+    kind = PublicNativeTimerChangeKind::update;
     return true;
 }
 

@@ -2296,8 +2296,19 @@ bool DaemonRuntime::initialize()
                 return response;
             }
 
-            NativeTimerSpecification specification = request.specification;
-            if (request.kind == NativeTimerModifyKind::toggle)
+            NativeTimerSpecification specification;
+            specification.channelId = request.specification.channelId;
+            specification.title = request.specification.title;
+            specification.directory = request.specification.directory;
+            specification.day = request.specification.day;
+            specification.weekdays = request.specification.weekdays;
+            specification.startTime = request.specification.startTime;
+            specification.endTime = request.specification.endTime;
+            specification.priority = request.specification.priority;
+            specification.lifetime = request.specification.lifetime;
+            specification.enabled = request.specification.enabled;
+            specification.vps = request.specification.vps;
+            if (request.kind == PublicNativeTimerChangeKind::toggle)
             {
                 const auto& current = binding.observedState;
                 specification.channelId = current.channelId;
@@ -2329,7 +2340,7 @@ bool DaemonRuntime::initialize()
                     specFingerprint);
             if (specFingerprint.empty() || specDigest.empty())
                 return response;
-            const std::string action = request.kind == NativeTimerModifyKind::toggle
+            const std::string action = request.kind == PublicNativeTimerChangeKind::toggle
                 ? "timer.toggle" : "timer.update";
             const std::string requestFingerprint =
                 "native-modify/1:" + binding.nativeTimerBindingId + ":" +
@@ -2415,7 +2426,10 @@ bool DaemonRuntime::initialize()
             candidate.idempotencyKey = request.idempotencyKey;
             candidate.actorId = request.actorRef;
             candidate.requestFingerprint = requestFingerprint;
-            candidate.kind = request.kind;
+            candidate.kind =
+                request.kind == PublicNativeTimerChangeKind::toggle
+                    ? NativeTimerModifyKind::toggle
+                    : NativeTimerModifyKind::update;
             candidate.timerAssignmentId = assigned.assignment.timerAssignmentId;
             candidate.expectedAssignmentRevision =
                 assigned.assignment.assignmentRevision;

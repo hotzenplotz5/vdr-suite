@@ -1,7 +1,7 @@
 #pragma once
 
 #include "EpgTimerSelectionGuard.h"
-#include "NativeTimerModifyOperationPayload.h"
+#include <cstdint>
 
 #include "DashboardController.h"
 
@@ -508,15 +508,29 @@ enum class PublicNativeTimerModifyStatus {
     adoptionRequired, stateConflict, idempotencyConflict,
     backendUnavailable, serviceUnavailable
 };
+enum class PublicNativeTimerChangeKind { update, toggle };
+struct PublicNativeTimerChangeFields
+{
+    std::string channelId;
+    std::string title;
+    std::string directory;
+    std::string day;
+    std::string weekdays = "-------";
+    std::string startTime;
+    std::string endTime;
+    std::int32_t priority = 50;
+    std::int32_t lifetime = 99;
+    bool enabled = true;
+    bool vps = false;
+};
 struct PublicNativeTimerModifyRequest {
     std::string actorRef;
     std::string backendId;
     std::string timerId;
     std::string expectedResourceRevision;
     std::string idempotencyKey;
-    vdrsuite::timers::NativeTimerModifyKind kind =
-        vdrsuite::timers::NativeTimerModifyKind::update;
-    vdrsuite::timers::NativeTimerSpecification specification;
+    PublicNativeTimerChangeKind kind = PublicNativeTimerChangeKind::update;
+    PublicNativeTimerChangeFields specification;
 };
 struct PublicNativeTimerModifyResult {
     PublicNativeTimerModifyStatus status = PublicNativeTimerModifyStatus::serviceUnavailable;
