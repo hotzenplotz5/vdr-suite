@@ -56,6 +56,13 @@ passed at `b6720d3ab67f86ffc055898c7ca24f568bfb1bc9`.
 PR #500 is still a Draft pending its own complete integration and merge
 gates. The live daemon's source ID is not the present PR head.
 
+### Native DELETE repository successor boundary (2026-10-19)
+
+The old Phase-64 repository source guard now explicitly audits only
+named daemon DELETE files against the durable typed Agent result and
+native absence readback; it does not permit general API, Agent or VDR
+repository bypasses. The legacy CREATE repository scope is unchanged.
+
 ### HTTP DELETE fallback compatibility correction (2026-10-19)
 
 The public DELETE route is dispatched explicitly, but all other

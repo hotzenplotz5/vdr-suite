@@ -155,6 +155,32 @@ if productive_successor_guard.is_file():
         "NativeTimerBindingOwnership::managed",
         "MutationOperationState::succeeded",
     ])
+# The later DELETE successor may consume the same repository only behind
+# exact, independently verified operation and native-absence fences.
+delete_successor = ROOT / "core/daemon/src/NativeTimerDeleteProductiveRuntime.cpp"
+delete_application = ROOT / "core/daemon/src/NativeTimerDeleteResultOutcomeApplication.cpp"
+delete_runtime_valid = (
+    delete_successor.is_file() and delete_application.is_file()
+    and all(token in delete_successor.read_text(encoding="utf-8")
+        for token in [
+            "NativeTimerBindingRepository& bindings",
+            "publicNativeTimerDeletePreflight(",
+            "applyDurableNativeTimerDeleteResult(",
+            "verification.verify(", "completion.complete(",
+        ])
+    and all(token in delete_application.read_text(encoding="utf-8")
+        for token in [
+            "NativeTimerBindingRepository& bindingRepository",
+            "backendAgentNativeTimerDeleteParseResultEvidence(",
+            "dispatchService.applyOutcome(",
+        ])
+)
+delete_repository_paths = {
+    Path("core/daemon/include/NativeTimerDeleteProductiveRuntime.h"),
+    Path("core/daemon/src/NativeTimerDeleteProductiveRuntime.cpp"),
+    Path("core/daemon/include/NativeTimerDeleteResultOutcomeApplication.h"),
+    Path("core/daemon/src/NativeTimerDeleteResultOutcomeApplication.cpp"),
+}
 productive_repository_paths = {
     Path("core/daemon/tests/test_native_timer_create_productive_runtime.cpp"),
 }
@@ -188,6 +214,12 @@ for scan_root in [
                 raise SystemExit(
                     "Phase-69.C NativeTimerBinding repository regression "
                     "requires the exact dormant readback-reconciliation guard")
+            continue
+        if relative in delete_repository_paths:
+            if not delete_runtime_valid:
+                raise SystemExit(
+                    "NativeTimerBinding DELETE repository use requires "
+                    "typed Agent result and complete absence readback")
             continue
         if relative in productive_repository_paths:
             if not productive_successor_valid:
