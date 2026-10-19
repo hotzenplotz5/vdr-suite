@@ -123,13 +123,16 @@ not prove that the expected backend identity and provider facts are current.
 Also check for local unit drop-ins, masked/aliased units and a duplicate
 Agent instance before changing startup policy.
 
-Only after those gates pass on the **actual host** may its operator execute:
+**Packaged post-enrollment helper (integration point for the eventual setup UI):**
 
 ```sh
-sudo systemctl enable vdr-suite-backend-agent.service
-systemctl is-enabled vdr-suite-backend-agent.service
-systemctl is-active vdr-suite-backend-agent.service
+sudo /usr/sbin/vdr-suite-backend-agent-autostart --check
+sudo /usr/sbin/vdr-suite-backend-agent-autostart --enable
 ```
+
+The helper validates the reviewed running `vdr:vdr` unit, the configured trusted HTTPS Control Plane, expected protected identity paths, a consumed enrollment package and the existing Agent administration's **current online lease and backend-health observation**. It performs a second preflight before changing links and verifies that the service stayed active afterward. It **only** executes `systemctl enable`, never `--now`, `start`, `restart`, credential rotation, enrollment, sqlite writes or replay of uncertain commands. `--check` is the non-enabling readiness gate. Any missing or unexpected fact blocks the mutation. See `man 8 vdr-suite-backend-agent-autostart`.
+
+The current experimental package ships this helper but does **not** run it automatically on install or upgrade. Enrollment-package creation is not evidence that the Agent has consumed it or connected; there is no existing integrated first-run wizard to invoke this step. The eventual setup workflow must call the helper only **after successful enrollment and live readiness**, so the operator will not need to remember `systemctl enable`. Until that workflow is implemented and tested, an administrator runs the guarded step once. An already enabled service retains its boot policy across upgrades; `dh_installsystemd --no-enable --no-start` deliberately remains unchanged.
 
 `enable` installs persistent boot-start links; it **does not restart**
 the running Agent or revoke its identity. Do **not** append `--now`, restart
