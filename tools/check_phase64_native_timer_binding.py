@@ -232,6 +232,34 @@ delete_runtime_paths = {
     Path("core/daemon/src/NativeTimerDeleteResultOutcomeApplication.cpp"),
 }
 
+modify_runtime_paths = {
+    Path("core/daemon/include/NativeTimerModifyProductiveRuntime.h"),
+    Path("core/daemon/src/NativeTimerModifyProductiveRuntime.cpp"),
+    Path("core/daemon/include/NativeTimerModifyResultOutcomeApplication.h"),
+    Path("core/daemon/src/NativeTimerModifyResultOutcomeApplication.cpp"),
+}
+modify_source = ROOT / "core/daemon/src/NativeTimerModifyProductiveRuntime.cpp"
+modify_outcome = ROOT / "core/daemon/src/NativeTimerModifyResultOutcomeApplication.cpp"
+modify_runtime_valid = (
+    modify_source.is_file() and modify_outcome.is_file()
+    and all(token in modify_source.read_text(encoding="utf-8") for token in [
+        "b.bindingRevision != payload.expectedBindingRevision",
+        "b.observedFingerprint != payload.expectedCurrentFingerprint",
+        "agents.findAgentForBackend(op.backendId)",
+        "assigner.assign(",
+        "applyDurableNativeTimerModifyResult(",
+        "readback(applied.outcome.expectation)",
+        "verifier.verify(",
+        "completion.complete(",
+    ])
+    and all(token in modify_outcome.read_text(encoding="utf-8") for token in [
+        "backendAgentNativeTimerModifyParseResultEvidence(",
+        "NativeTimerBindingOwnership::managed",
+        "NativeTimerBindingOwnership::adopted",
+        "dispatcher.applyOutcome(",
+    ])
+)
+
 productive_paths = {
     Path("core/daemon/include/NativeTimerCreateProductiveRuntime.h"),
     Path("core/daemon/src/NativeTimerCreateProductiveRuntime.cpp"),
@@ -265,6 +293,10 @@ for scan_root in forbidden_roots:
                 raise SystemExit(
                     "NativeTimerBinding DELETE runtime needs its explicit "
                     "typed-evidence and readback successor guard")
+            continue
+        if relative in modify_runtime_paths:
+            if not modify_runtime_valid:
+                raise SystemExit("native MODIFY binding successor lacks durable evidence or readback")
             continue
         if relative in productive_paths:
             if not productive_successor_valid:
