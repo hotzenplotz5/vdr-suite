@@ -181,6 +181,33 @@ delete_repository_paths = {
     Path("core/daemon/include/NativeTimerDeleteResultOutcomeApplication.h"),
     Path("core/daemon/src/NativeTimerDeleteResultOutcomeApplication.cpp"),
 }
+# Public-v1 MODIFY consumes binding persistence through the same
+# revision/provider-fenced Agent and verified-readback sequence.
+modify_repo_paths = {
+    Path("core/daemon/include/NativeTimerModifyProductiveRuntime.h"),
+    Path("core/daemon/src/NativeTimerModifyProductiveRuntime.cpp"),
+    Path("core/daemon/include/NativeTimerModifyResultOutcomeApplication.h"),
+    Path("core/daemon/src/NativeTimerModifyResultOutcomeApplication.cpp"),
+}
+modify_runtime = ROOT / "core/daemon/src/NativeTimerModifyProductiveRuntime.cpp"
+modify_result = ROOT / "core/daemon/src/NativeTimerModifyResultOutcomeApplication.cpp"
+modify_repo_valid = (
+    modify_runtime.is_file() and modify_result.is_file()
+    and all(token in modify_runtime.read_text(encoding="utf-8") for token in (
+        "NativeTimerBindingRepository& bindings",
+        "b.bindingRevision != payload.expectedBindingRevision",
+        "b.observedFingerprint != payload.expectedCurrentFingerprint",
+        "assigner.assign(",
+        "applyDurableNativeTimerModifyResult(",
+        "verifier.verify(",
+        "completion.complete(",
+    ))
+    and all(token in modify_result.read_text(encoding="utf-8") for token in (
+        "NativeTimerBindingRepository& bindings",
+        "backendAgentNativeTimerModifyParseResultEvidence(",
+        "dispatcher.applyOutcome(",
+    ))
+)
 productive_repository_paths = {
     Path("core/daemon/tests/test_native_timer_create_productive_runtime.cpp"),
 }
@@ -220,6 +247,10 @@ for scan_root in [
                 raise SystemExit(
                     "NativeTimerBinding DELETE repository use requires "
                     "typed Agent result and complete absence readback")
+            continue
+        if relative in modify_repo_paths:
+            if not modify_repo_valid:
+                raise SystemExit("native MODIFY repository use needs typed Agent result and readback")
             continue
         if relative in productive_repository_paths:
             if not productive_successor_valid:
