@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Enable Backend Agent boot startup only after an existing enrollment is healthy.
 
-No enrollment, service start/restart, database mutation, or secret output.
+No enrollment, service start/restart, direct SQL, or secret output. The existing
+Agent admin --status utility performs its normal repository initialization.
 Called by the operator's post-enrollment setup flow, never by dpkg postinst.
 """
 import argparse
