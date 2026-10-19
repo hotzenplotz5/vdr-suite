@@ -54,6 +54,7 @@ install-runtime:
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-backend-agent-enroll $(DESTDIR)$(SBINDIR)/vdr-suite-backend-agent-enroll
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-backend-agent-admin $(DESTDIR)$(SBINDIR)/vdr-suite-backend-agent-admin
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-backend-agent-command-admin $(DESTDIR)$(SBINDIR)/vdr-suite-backend-agent-command-admin
+	$(INSTALL) -m 0755 tools/vdr_suite_backend_agent_autostart.py $(DESTDIR)$(SBINDIR)/vdr-suite-backend-agent-autostart
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-first-admin-bootstrap $(DESTDIR)$(SBINDIR)/vdr-suite-first-admin-bootstrap
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-human-account-recover $(DESTDIR)$(SBINDIR)/vdr-suite-human-account-recover
 	$(INSTALL) -d $(DESTDIR)$(SYSCONFDIR)/vdr-suite
@@ -151,6 +152,7 @@ install-manpages:
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-backend-agent-enroll.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-backend-agent-enroll.8
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-backend-agent-admin.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-backend-agent-admin.8
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-backend-agent-command-admin.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-backend-agent-command-admin.8
+	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-backend-agent-autostart.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-backend-agent-autostart.8
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-first-admin-bootstrap.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-first-admin-bootstrap.8
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-human-account-recover.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-human-account-recover.8
 	$(INSTALL) -d $(DESTDIR)$(MANDIR)/man5
@@ -177,6 +179,7 @@ test-install-staging:
 	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-backend-agent-enroll
 	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-backend-agent-admin
 	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-backend-agent-command-admin
+	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-backend-agent-autostart
 	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-first-admin-bootstrap
 	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-human-account-recover
 	test -x /tmp/vdr-suite-pkgroot/usr/bin/vdr-suite-dashboard
