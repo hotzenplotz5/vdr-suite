@@ -10,7 +10,7 @@
 - [Backend discovery developer contract](backend-discovery.md)
 - [Federated Channel collection developer contract](channel-collection.md)
 - [TimerAssignments and Timer CREATE developer contract](timer-assignments.md)
-- [EPG-to-TimerIntent Device CREATE admission contract](epg-timer-intents.md) — guarded HTTP only until productive Slice 2
+- [EPG-to-TimerIntent Device CREATE admission contract](epg-timer-intents.md) — bounded real yaVDR CREATE/readback accepted 2026-10-19; see strict prerequisites and limitations
 - [Durable Operation read and reconciliation](operation-status.md)
 - [Human Accounts and permission grants](accounts-and-grants.md)
 - [TV/Device pairing bootstrap and credential issuance](device-pairing.md)
