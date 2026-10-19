@@ -163,5 +163,23 @@ class AutostartTests(unittest.TestCase):
                         subject.preflight()
 
 
+    def test_package_stages_post_enrollment_helper_without_auto_start(self):
+        root = SOURCE.parents[1]
+        make = (root / "mk/install.mk").read_text(encoding="utf-8")
+        manifest = (root / "debian/vdr-suite-backend-agent.install").read_text(
+            encoding="utf-8").splitlines()
+        rules = (root / "debian/rules").read_text(encoding="utf-8")
+        control = (root / "debian/control").read_text(encoding="utf-8")
+        self.assertIn("dh_installsystemd --no-enable --no-start", rules)
+        self.assertIn("tools/vdr_suite_backend_agent_autostart.py", make)
+        self.assertIn("usr/sbin/vdr-suite-backend-agent-autostart", manifest)
+        self.assertIn("usr/share/man/man8/vdr-suite-backend-agent-autostart.8",
+                      manifest)
+        self.assertIn("Depends: ${shlibs:Depends}, ${misc:Depends}, python3",
+                      control)
+        self.assertTrue((root / "docs/man/man8/vdr-suite-backend-agent-autostart.8")
+                        .is_file())
+
+
 if __name__ == "__main__":
     unittest.main()
