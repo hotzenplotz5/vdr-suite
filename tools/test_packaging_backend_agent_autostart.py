@@ -20,24 +20,28 @@ spec.loader.exec_module(subject)
 
 class AutostartTests(unittest.TestCase):
     def test_check_does_not_enable_or_restart(self):
-        with patch.object(subject, "preflight", return_value=(
-                "disabled", "agt_existing", "default")), (
-                patch.object(subject, "command") as execute), (
-                patch("sys.argv", ["helper", "--check"])), (
-                redirect_stdout(io.StringIO()) as output):
+        with (
+            patch.object(subject, "preflight", return_value=(
+                "disabled", "agt_existing", "default")),
+            patch.object(subject, "command") as execute,
+            patch("sys.argv", ["helper", "--check"]),
+            redirect_stdout(io.StringIO()) as output,
+        ):
             self.assertEqual(subject.main(), 0)
             self.assertIn("AGENT_BOOT_PREFLIGHT=PASS", output.getvalue())
             self.assertIn("AGENT_AUTOSTART=disabled", output.getvalue())
             execute.assert_not_called()
 
     def test_enable_once_without_start_or_restart(self):
-        with patch.object(subject, "preflight", return_value=(
-                "disabled", "agt_existing", "default")) as preflight, (
-                patch.object(subject, "command", side_effect=(
-                    "", "enabled", "active")) as execute), (
-                patch.object(subject.os, "geteuid", return_value=0)), (
-                patch("sys.argv", ["helper", "--enable"])), (
-                redirect_stdout(io.StringIO()) as output):
+        with (
+            patch.object(subject, "preflight", return_value=(
+                "disabled", "agt_existing", "default")) as preflight,
+            patch.object(subject, "command", side_effect=(
+                "", "enabled", "active")) as execute,
+            patch.object(subject.os, "geteuid", return_value=0),
+            patch("sys.argv", ["helper", "--enable"]),
+            redirect_stdout(io.StringIO()) as output,
+        ):
             self.assertEqual(subject.main(), 0)
             self.assertEqual(preflight.call_count, 2)
             self.assertEqual(execute.call_args_list[0].args[0],
@@ -49,21 +53,25 @@ class AutostartTests(unittest.TestCase):
                 self.assertNotIn("start", call.args[0])
 
     def test_reject_identity_change_before_enable(self):
-        with patch.object(subject, "preflight", side_effect=[
+        with (
+            patch.object(subject, "preflight", side_effect=[
                 ("disabled", "agt_original", "default"),
-                ("disabled", "agt_replaced", "default")]), (
-                patch.object(subject, "command") as execute), (
-                patch.object(subject.os, "geteuid", return_value=0)), (
-                patch("sys.argv", ["helper", "--enable"])), (
-                redirect_stderr(io.StringIO())):
+                ("disabled", "agt_replaced", "default")]),
+            patch.object(subject, "command") as execute,
+            patch.object(subject.os, "geteuid", return_value=0),
+            patch("sys.argv", ["helper", "--enable"]),
+            redirect_stderr(io.StringIO()),
+        ):
             self.assertEqual(subject.main(), 1)
             execute.assert_not_called()
 
     def test_non_root_cannot_enable(self):
-        with patch.object(subject.os, "geteuid", return_value=1000), (
-                patch.object(subject, "preflight") as preflight), (
-                patch("sys.argv", ["helper", "--enable"])), (
-                redirect_stderr(io.StringIO())):
+        with (
+            patch.object(subject.os, "geteuid", return_value=1000),
+            patch.object(subject, "preflight") as preflight,
+            patch("sys.argv", ["helper", "--enable"]),
+            redirect_stderr(io.StringIO()),
+        ):
             self.assertEqual(subject.main(), 1)
             preflight.assert_not_called()
 
@@ -133,10 +141,12 @@ class AutostartTests(unittest.TestCase):
             "FragmentPath": "/usr/lib/systemd/system/" + subject.UNIT,
             "ExecStart": "{ path=" + subject.AGENT_BIN + " ; argv[]=" +
                          subject.AGENT_BIN + " --config " + str(subject.CONFIG) + " }"}
-        with patch.object(subject, "properties", return_value=standard), (
-                patch.object(subject, "read_config", return_value="default")), (
-                patch.object(subject, "check_identity")), (
-                patch.object(subject, "read_status", return_value="agt_existing")):
+        with (
+            patch.object(subject, "properties", return_value=standard),
+            patch.object(subject, "read_config", return_value="default"),
+            patch.object(subject, "check_identity"),
+            patch.object(subject, "read_status", return_value="agt_existing"),
+        ):
             self.assertEqual(subject.preflight(),
                              ("disabled", "agt_existing", "default"))
             for change in [
