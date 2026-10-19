@@ -12,6 +12,12 @@ risk**. Protect the database and other mutable state separately.
 
 Reuse an existing verified target build and seal instead of compiling again.
 Only build once when there is no reusable target; `apply` never builds.
+The `build` action passes `VDR_SUITE_SERVER_VERSION=git-<source SHA first 12>`
+to `make daemon` explicitly: the repository `VERSION` file contains the
+product release (`0.14.1`), which is not an immutable source identity.
+An unsealed binary with the wrong provenance is rejected without silently
+sealing, relabeling or deleting it. When retrying at a new code SHA, the
+candidate path is distinct, preserving any unsuccessful earlier build.
 Keep the installation block short and use the **existing installer**.
 **Never add a GitHub CI query, poll, `sleep` or completion prerequisite to
 the install block.** CI happens independently during development/review.

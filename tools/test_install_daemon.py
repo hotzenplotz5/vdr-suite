@@ -152,7 +152,8 @@ class InstallerTests(unittest.TestCase):
         fakebin.mkdir()
         faker = fakebin / "make"
         faker.write_text("#!/bin/sh\n"
-                         "for arg in \"$@\"; do case \"$arg\" in BUILD_DIR=*) out=$(printf '%s' \"$arg\" | cut -c11-);; esac; done\n"
+                         "for arg in \"$@\"; do case \"$arg\" in BUILD_DIR=*) out=${arg#BUILD_DIR=};; VDR_SUITE_SERVER_VERSION=*) version=${arg#VDR_SUITE_SERVER_VERSION=};; esac; done\n"
+                         f"[ \"$version\" = \"git-{new[:12]}\" ] || exit 17\n"
                          "mkdir -p \"$out\"\n"
                          f"echo built >> '{counter}'\n"
                          f"printf '\\177ELFgit-{new[:12]} device_subtitle_delivery_invalid track-status /tracks /subtitles trickplay_request_invalid trickplay_worker_busy trickplay_source_not_ready /trickplay\\n' > \"$out/vdr-suite-daemon\"\n"
@@ -168,6 +169,21 @@ class InstallerTests(unittest.TestCase):
         binary.write_bytes(binary.read_bytes() + b"tamper")
         with self.assertRaisesRegex(mod.Rejected, "BUILD_SEAL_MISMATCH"):
             mod.verified_candidate(self.root, new)
+
+    def test_wrong_provenance_is_preserved_not_silently_sealed(self):
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// candidate\n")
+        directory, binary, seal = mod.candidate(self.root, new)
+        directory.mkdir(parents=True)
+        incorrect = b"\x7fELFversion-0.14.1 " + b" ".join(mod.FEATURES)
+        binary.write_bytes(incorrect)
+        binary.chmod(0o755)
+        with mock.patch.object(mod.subprocess, "run",
+                               side_effect=AssertionError("must not rebuild")):
+            with self.assertRaisesRegex(mod.Rejected, "BUILD_PROVENANCE_MISMATCH"):
+                mod.build(self.root, new)
+        self.assertEqual(binary.read_bytes(), incorrect)
+        self.assertFalse(seal.exists())
+
 
     def test_interrupted_build_can_be_recovered_without_recompile(self):
         new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// no schema\n")

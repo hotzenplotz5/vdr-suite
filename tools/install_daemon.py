@@ -200,7 +200,8 @@ def build(root: Path, sha: str) -> None:
     print(f"BUILD=START LOG={log}", flush=True)
     with log.open("ab") as stream:
         completed = subprocess.run(
-            ["make", "-C", str(root), "daemon", f"BUILD_DIR={directory}"],
+            ["make", "-C", str(root), "daemon", f"BUILD_DIR={directory}",
+             f"VDR_SUITE_SERVER_VERSION=git-{sha[:12]}"],
             stdout=stream, stderr=subprocess.STDOUT, check=False)
     require(completed.returncode == 0, f"BUILD_FAILED:see {log}")
     verify_binary(binary, sha)
