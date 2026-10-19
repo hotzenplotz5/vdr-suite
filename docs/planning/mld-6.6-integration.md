@@ -1,6 +1,6 @@
 # MLD 6.6 integration — separate distribution target
 
-**Status:** planned; no MLD build, package installation or end-to-end acceptance claimed.
+**Status:** MLD.1A source/read-only inventory documented; no MLD build, package installation or end-to-end acceptance claimed. The verified evidence and open questions are in [MLD.1A compatibility inventory](../development/mld66-compatibility-inventory.md).
 
 **Dedicated branch:** `work/mld66-platform-integration`
 **Branch baseline:** `main` at `01b74e30ec1a09ee68986059f508284564ef67e1` (2026-10-19).
@@ -46,7 +46,7 @@ Publish a documented MLD-supported installation/update flow only after clean ins
 
 - **MLD maintainers:** confirm official 6.6 build baseline, recipe owner, package feed, expected supported architectures and distribution service policy.
 - **VDR-Suite:** supply install manifest, source build boundaries, optional capability checks, API/authorization invariants, compatibility tests and necessary upstream fixes.
-- A dedicated **“VDR-Suite goes MLD”** MLD-Forum thread is the proposed question/answer venue; the general VDR-Portal thread remains for Suite product discussion.
+- The existing VDR-Portal thread [“VDR-Suite in MLD verfügbar machen”](https://www.vdr-portal.de/forum/thread/137533-vdr-suite-in-mld-verf%C3%BCgbar-machen/) is **already dedicated to this MLD integration** and remains the shared question/answer venue. Do **not** propose opening a second thread.
 - MLD is **not supported** until the real clean-install and functional acceptance described above succeeds. Do not advertise the preparatory branch, recipe drafts or Ubuntu PPA CI as MLD runtime acceptance.
 
 ## Non-goals and safety
@@ -55,6 +55,8 @@ No migration/reinstallation of the existing yaVDR host, no root-level modificati
 
 ## Source pointers
 
+- [MLD.1A compatibility matrix, sources and maintainer questions](../development/mld66-compatibility-inventory.md)
+- [Read-only MLD host probe](../../tools/mld66-readonly-inventory.sh) — optional, never an installation step
 - [MLD-6 developer build tree](https://gitlab.com/MLD-6/mld-dev)
 - [Platform productization roadmap](platform-productization-roadmap.md)
 - [Current state](../CURRENT.md)
