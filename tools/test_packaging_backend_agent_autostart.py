@@ -98,11 +98,12 @@ class AutostartTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             identity = Path(tmp) / "identity"
             enrollment = Path(tmp) / "enrollment"
-            identity.write_text("fixture-only-not-a-real-secret")
+            identity.write_text("agent_id=agt_existing\\nbackend_id=default\\ncredential_secret=fixture-only\\n".replace("\\n", "\n"))
             os.chmod(identity, 0o600)
             with patch.object(subject.pwd, "getpwnam",
                               return_value=Mock(pw_uid=os.stat(identity).st_uid)):
-                subject.check_identity(identity, enrollment)
+                self.assertEqual(subject.check_identity(identity, enrollment),
+                                 ("agt_existing", "default"))
                 enrollment.write_text("pending")
                 with self.assertRaises(subject.NotReady):
                     subject.check_identity(identity, enrollment)
@@ -144,7 +145,8 @@ class AutostartTests(unittest.TestCase):
         with (
             patch.object(subject, "properties", return_value=standard),
             patch.object(subject, "read_config", return_value="default"),
-            patch.object(subject, "check_identity"),
+            patch.object(subject, "check_identity",
+                         return_value=("agt_existing", "default")),
             patch.object(subject, "read_status", return_value="agt_existing"),
         ):
             self.assertEqual(subject.preflight(),
