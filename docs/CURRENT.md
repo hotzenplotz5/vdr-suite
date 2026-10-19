@@ -56,6 +56,51 @@ passed at `b6720d3ab67f86ffc055898c7ca24f568bfb1bc9`.
 PR #500 is still a Draft pending its own complete integration and merge
 gates. The live daemon's source ID is not the present PR head.
 
+### Agent autostart packaging handoff and next Timer v1 gates (2026-10-19)
+
+On the existing integration branch, the experimental `vdr-suite-backend-agent`
+package now stages a protected post-enrollment helper,
+`/usr/sbin/vdr-suite-backend-agent-autostart`, with `--check` and
+`--enable` and isolated no-root regression contracts. The helper checks the
+already-running `vdr:vdr` unit, local enrolled identity, configured HTTPS
+Control Plane, current online lease and fresh backend-health evidence before
+enabling **future** systemd boot startup; it never requests a service restart.
+The existing `debian/rules` `dh_installsystemd --no-enable --no-start`
+policy remains deliberately unchanged for unconfigured package installs.
+It is **not yet wired into a completed setup/first-run wizard**; it currently
+requires a same-host Control Plane/Agent, and remote-Agent automated readiness
+is a separate design task. Relevant source:
+[helper](../tools/vdr_suite_backend_agent_autostart.py),
+[package integration](../debian/vdr-suite-backend-agent.install),
+[regression test](../tools/test_packaging_backend_agent_autostart.py) and
+[operator guide](../debian/README.md#after-enrollment-boot-activation-operator-opt-in-not-package-auto-start).
+No published PPA package, live yaVDR unit or boot policy changed because of
+these source commits. **Package/CI completion, on-host activation and
+post-reboot evidence remain PENDING.** No claim that a new package installation
+automatically configures and starts an enrolled agent.
+
+**Next Timer API v1 workstream order:** (1) verify current integration
+branch/PR exact-head CI and safe package contracts without rerunning the
+accepted real CREATE; (2) for the already-enrolled yaVDR Agent, first read-only
+host preflight, then independently authorized `systemctl enable` and a later
+controlled reboot with same technical identity, fresh lease/provider facts and
+matching SuiteBridge epoch; (3) after 2026-10-20 20:15 Europe/Berlin, check
+the existing Tagesschau timer's *actual recorded file* and playable integrity
+without creating a second Timer; (4) deploy/test the existing VIDAA code on
+the Hisense TV, including remote focus, one submit, explicit Operation GET and
+uncertain-outcome handling; (5) implement Public-v1 native Timer DELETE and
+then MODIFY/enable-disable with protected permissions, exact native
+identity/revision/generation, idempotency, provider readback and
+reconciliation, including timers not originally created by Suite; and
+(6) separately expand conservative CREATE scheduling to overlaps,
+recurrences, encrypted channels, multiple tuners/backends. Public-v1
+`GET /api/v1/native-timers`, EPG TimerIntent POST, TimerAssignment reads,
+and actor-owned Operation GET already exist in source; the general
+Public-v1 native Timer DELETE/MODIFY APIs are **not yet accepted**. Never
+repeat the successful 2026-10-19 CREATE simply to reproduce it, replay
+historical `waiting_reconciliation` commands, revoke the existing VIDAA
+Device, or merge the draft PR without its outstanding gates.
+
 **Current source wiring, verified by code inspection:** `core/daemon/src/DaemonRuntimeInitialization.cpp` now **does register** `registerEpgTimerIntentSubmit()`. It composes fresh EPG detail/permission/backend policy and backend-generation fences with the read-only native VDR-local `NTCREATE CLOCK 1` projection and `NTPREVIEW CHECK 1` prospective conflict attestation; only then can `EpgTimerIntentAtomicAdmissionService` persist the controlled Intent + Assignment + Operation. The source-level provider/clock/preview checks remain intentionally conservative, especially with overlapping, repeating, encrypted or unverified-device scheduling. The old statements below that “no productive submit is registered” are **historical** and must not be used as current source truth.
 
 **Real yaVDR read-only CLOCK observation (2026-10-19):** The operator's running VDR **2.8.3** and SuiteBridge (still reporting plugin version **0.14.1**) now return `900` for `NTCREATE CAP 1` (`timer-create enabled`) and `900 vdr-suite-ntcreate-clock/1` for the UTC window `1792519200` to `1792522800`, projecting exactly `2026-10-20 20:00–21:00` VDR-local time with `7200`-second offsets at both boundaries. General `CAPS 1` still reports `mutations: disabled`; this is a separate capability. This supersedes the **historical 2026-10-18 `501 unsupported` CLOCK observation** for the *installed CLOCK command only*. The installed plugin binary's provenance/build SHA has not been verified; unchanged `0.14.1` version text is not proof of identical binaries. No plugin build, installation, timer mutation or daemon restart occurred during this read-only observation. **Still not accepted:** valid candidate `NTPREVIEW CHECK 1` on real VDR, exact backend Agent/generation wiring, real public EPG admission, native CREATE dispatch/readback/uncertain outcome, or VIDAA hardware behavior. Do not reinstall or rebuild solely because the earlier historical CLOCK probe failed.
