@@ -56,6 +56,18 @@ passed at `b6720d3ab67f86ffc055898c7ca24f568bfb1bc9`.
 PR #500 is still a Draft pending its own complete integration and merge
 gates. The live daemon's source ID is not the present PR head.
 
+### Native DELETE Agent typed outcome persistence (2026-10-19; source)
+
+The native DELETE Agent now persists its real local starting/dispatch/completion
+timestamps and immutable operation/provider correlation into typed
+`BackendAgentCommandResult.resultEvidence`, as CREATE already does.
+Recovery checks replay the same canonical evidence; missing or changed evidence
+fails closed instead of manufacturing a readback boundary. The durable result
+can therefore be consumed by a future daemon DELETE outcome-application
+service without guessing native dispatch time. This is an actual delivery-path
+change, but public DELETE and the dormant capability gate are **not enabled**
+by this commit. No backend mutation or host test was performed.
+
 ### Integration CI guard correction (2026-10-19)
 
 The new native Timer detail route is explicitly added to the audited
