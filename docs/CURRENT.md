@@ -56,6 +56,20 @@ passed at `b6720d3ab67f86ffc055898c7ca24f568bfb1bc9`.
 PR #500 is still a Draft pending its own complete integration and merge
 gates. The live daemon's source ID is not the present PR head.
 
+### Native DELETE capability lifecycle fixed (2026-10-19)
+
+The Phase-64 `ensureNativeTimerDeleteAssignmentSchema` previously
+deleted the authenticated Agent's `vdr.timer.delete` capability row and
+recreated its obsolete dormant trigger on **every assignment**. The
+productive DELETE loop therefore could never reach an executable Agent
+command after a healthy capability refresh. It now keeps the unique
+operation index, removes the legacy dormant trigger and leaves live
+capability facts to the existing provider-fenced Agent polling path.
+A regression checks that a replay assignment preserves the advertised
+capability. Explicit successor audit rules admit only the named daemon
+native-inventory consumer while retaining the Phase-64 restrictions on
+unrelated callers.
+
 ### Native DELETE repository successor boundary (2026-10-19)
 
 The old Phase-64 repository source guard now explicitly audits only

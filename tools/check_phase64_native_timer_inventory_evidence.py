@@ -127,6 +127,28 @@ allowed_later_consumers = {
     "core/vdr/tests/test_vdr_managed_timer_create_readback_evidence_builder.cpp",
 }
 
+# A complete inventory must be acquired after the Agent's immutable
+# native dispatch boundary. Permit only the named daemon DELETE successor.
+delete_runner_path = ROOT / "core/daemon/src/NativeTimerDeleteProductiveRuntime.cpp"
+daemon_poller_path = ROOT / "core/daemon/src/DaemonRuntimePolling.cpp"
+delete_runner = delete_runner_path.read_text(encoding="utf-8") if delete_runner_path.is_file() else ""
+daemon_poller = daemon_poller_path.read_text(encoding="utf-8") if daemon_poller_path.is_file() else ""
+delete_inventory_successor_valid = all(token in delete_runner for token in (
+    "applyDurableNativeTimerDeleteResult(",
+    "readback(outcome.dispatch.expectation)",
+    "verification.verify(", "completion.complete(",
+)) and all(token in daemon_poller for token in (
+    "NativeTimerDeleteProductiveRuntime",
+    "NativeTimerInventoryCompleteness::complete",
+    "inventory.evidence.completeness !=",
+))
+if delete_inventory_successor_valid:
+    allowed_later_consumers.update({
+        "core/daemon/include/NativeTimerDeleteProductiveRuntime.h",
+        "core/daemon/src/NativeTimerDeleteProductiveRuntime.cpp",
+        "core/daemon/src/DaemonRuntimePolling.cpp",
+    })
+
 for scan_root in [
     ROOT / "apps", ROOT / "api", ROOT / "core" / "agent",
     ROOT / "core" / "daemon", ROOT / "core" / "http",

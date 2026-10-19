@@ -183,14 +183,14 @@ int main()
         "default", "agt_timer_delete", "inst_timer_delete", 7,
         "vdr.timer.delete"));
 
-    // P7: permanent UNIQUE index and dormant gate exist while dispatch is
-    // fenced; no production tables/services are involved in this test.
+    // Permanent UNIQUE index is retained; a retired dormant trigger must
+    // not be reinstalled by assignment after live capability refresh.
     assert(sqlCount(database.handle(),
         "SELECT count(*) FROM sqlite_master WHERE type='index' "
         "AND name='idx_backend_agent_timer_delete_operation';") == 1);
     assert(sqlCount(database.handle(),
         "SELECT count(*) FROM sqlite_master WHERE type='trigger' "
-        "AND name='trg_backend_agent_timer_delete_dormant_capability';") == 1);
+        "AND name='trg_backend_agent_timer_delete_dormant_capability';") == 0);
 
     // Slice 25's assignment helper created the temporary dormant capability
     // gate. Slice 26 deliberately retires that gate when the exact bounded
@@ -206,6 +206,15 @@ int main()
     assert(blockedDelivery.accepted);
     assert(blockedDelivery.assignment.present);
     assert(blockedDelivery.assignment.commandId == assigned.assignment.commandId);
+    assert(commands.hasCapability(
+        "default", "agt_timer_delete", "inst_timer_delete", 7,
+        "vdr.timer.delete"));
+    // Critical regression: an idempotent assignment must NOT erase the
+    // observed capability or recreate the old dormant trigger.
+    const auto replayAfterAdvertisement =
+        service.assign(system, request(), 120, 500);
+    assert(replayAfterAdvertisement.accepted &&
+           replayAfterAdvertisement.replayed);
     assert(commands.hasCapability(
         "default", "agt_timer_delete", "inst_timer_delete", 7,
         "vdr.timer.delete"));
