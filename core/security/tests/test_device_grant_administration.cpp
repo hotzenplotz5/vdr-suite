@@ -92,6 +92,19 @@ int main()
         "searchtimers.create", "default"));
     assert(DeviceGrantAdministrationService::supportedGrant(
         "timers.create", "default"));
+    for (const std::string& permission : {"timers.modify", "timers.delete"})
+    {
+        assert(DeviceGrantAdministrationService::supportedGrant(
+            permission, "default"));
+        assert(!DeviceGrantAdministrationService::supportedGrant(
+            permission, "*"));
+        assert(!DeviceGrantAdministrationService::supportedGrant(
+            permission, "."));
+        assert(!DeviceGrantAdministrationService::supportedGrant(
+            permission, ".."));
+        assert(!DeviceGrantAdministrationService::supportedGrant(
+            permission, ""));
+    }
     assert(!DeviceGrantAdministrationService::supportedGrant(
         "timers.create", "*"));
     assert(!DeviceGrantAdministrationService::supportedGrant(
@@ -178,6 +191,37 @@ int main()
     assert(actorGrants.available);
     assert(actorGrants.grants.size() == 1U);
     assert(actorGrants.grants.front().permission == "media.live.play");
+
+    // Native Device MODIFY and DELETE are individually administrator-granted,
+    // always exact-backend scoped, visible after authentication, revocable.
+    for (const std::string& permission : {"timers.modify", "timers.delete"})
+    {
+        Fixture modifyGrants;
+        const auto initial = modifyGrants.service.read(DeviceId);
+        assert(initial.status == DeviceGrantAdministrationStatus::ok);
+        assert(modifyGrants.service.setGrant(
+            admin(), DeviceId, initial.grantSet.revision,
+            permission, "*", true).status ==
+                DeviceGrantAdministrationStatus::invalid);
+        const auto permitted = modifyGrants.service.setGrant(
+            admin(), DeviceId, initial.grantSet.revision,
+            permission, "default", true);
+        assert(permitted.status == DeviceGrantAdministrationStatus::ok);
+        DeviceCredentialAuthenticator authenticator(
+            modifyGrants.verifiers, modifyGrants.identities,
+            modifyGrants.grants);
+        const auto actor = authenticator.authenticate(
+            authHeaders, "native-modify-delete-grant", "");
+        assert(actor.authenticated());
+        assert(actor.grants.size() == 1U);
+        assert(actor.grants.front().permission == permission);
+        assert(actor.grants.front().backendId == "default");
+        const auto revoked = modifyGrants.service.setGrant(
+            admin(), DeviceId, permitted.grantSet.revision,
+            permission, "default", false);
+        assert(revoked.status == DeviceGrantAdministrationStatus::ok);
+        assert(revoked.grantSet.grants.empty());
+    }
 
     // Native one-shot Timer CREATE can be issued by the real administrator
     // service and subsequently authenticated for exactly that backend.

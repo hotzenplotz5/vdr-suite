@@ -8,6 +8,17 @@ Stable architecture, historical evidence and workflow rules live in their respec
 
 ## Consolidated API v1 / VIDAA Timer work (2026-10-19, hardware CREATE accepted for one bounded case)
 
+### Explicit Device grants for timer MODIFY/DELETE (2026-10-19)
+
+The Device-grant administration allowlist previously supported
+`timers.create` but **not** `timers.modify` or `timers.delete`.
+The latter already had an authenticated HTTP route but could never
+be approved for a paired TV. Both rights can now be explicitly granted
+or revoked by an administrator on one concrete backend. Wildcard,
+empty and parent scopes are denied. This does not grant new privileges
+to any existing VIDAA pairing or bypass the exact grant check on a
+public write endpoint. An end-to-end grant/revoke regression is included.
+
 ### Native MODIFY joined the productive Daemon polling loop (2026-10-19)
 
 Daemon lifetime now owns the UPDATE/TOGGLE dispatcher, Agent assignment
