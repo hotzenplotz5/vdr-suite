@@ -737,6 +737,15 @@ public:
             path.size() > nativeTimerItemPrefix.size() &&
             path.find('/', nativeTimerItemPrefix.size()) ==
                 std::string::npos;
+        const std::string modificationSuffix = "/modifications";
+        const bool isPublicNativeTimerModify =
+            isPost && path.compare(0U, nativeTimerItemPrefix.size(),
+                nativeTimerItemPrefix) == 0 &&
+            path.size() > nativeTimerItemPrefix.size() + modificationSuffix.size() &&
+            path.compare(path.size() - modificationSuffix.size(),
+                modificationSuffix.size(), modificationSuffix) == 0 &&
+            path.find('/', nativeTimerItemPrefix.size()) ==
+                path.size() - modificationSuffix.size();
         const bool isPublicNativeTimerDelete =
             request.method == "DELETE" && isPublicNativeTimerItem;
         const bool isPublicNativeTimerRead =
@@ -888,6 +897,7 @@ public:
              path == "/api/searchtimers/plan" ||
              path == "/api/vdr/searchtimers/plan");
         const bool isProtectedMutation =
+            isPublicNativeTimerModify ||
             isRemoteAction || isTimerCreateAction ||
             isPublicDevicePairingDecision ||
             isPublicAccountCreate ||
@@ -1724,6 +1734,89 @@ public:
             return gate;
         }
 
+        if (isPublicNativeTimerModify)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            const auto scopes = queryStringValues(request.path, "backendId");
+            const bool valid = scopes.size() == 1U &&
+                !scopes.front().empty() &&
+                scopes.front().size() <= 128U &&
+                scopes.front() != "." && scopes.front() != ".." &&
+                scopes.front() != "*" &&
+                std::all_of(scopes.front().begin(), scopes.front().end(),
+                    [](unsigned char ch) {
+                        return std::isalnum(ch) || ch == '.' ||
+                            ch == '_' || ch == '-';
+                    });
+            if (!valid)
+            {
+                AuthorizationDecision denial;
+                denial.permission = "timers.modify";
+                denial.backendId = "*";
+                denial.action = "native_timers.modify";
+                denial.reasonCode = "invalid_backend_scope";
+                return rejectWithAudit(gate, denial, 400,
+                    "One exact backendId required", "");
+            }
+            if (!gate.deviceAuthenticated ||
+                gate.context.actor.type != ActorType::Service ||
+                !gate.context.device || !gate.context.credential ||
+                gate.context.session.has_value())
+            {
+                AuthorizationDecision denial;
+                denial.permission = "timers.modify";
+                denial.backendId = scopes.front();
+                denial.action = "native_timers.modify";
+                denial.reasonCode = "device_credential_required";
+                return rejectWithAudit(gate, denial, 403,
+                    "Device credential required", "");
+            }
+            const bool exactGrant = std::any_of(
+                gate.context.grants.begin(), gate.context.grants.end(),
+                [&scopes](const PermissionGrant& grant) {
+                    return grant.permission == "timers.modify" &&
+                        grant.backendId == scopes.front();
+                });
+            if (!exactGrant)
+            {
+                AuthorizationDecision denial;
+                denial.permission = "timers.modify";
+                denial.backendId = scopes.front();
+                denial.action = "native_timers.modify";
+                denial.reasonCode = "permission_denied";
+                return rejectWithAudit(gate, denial, 403,
+                    "Exact backend timers.modify grant required", "");
+            }
+            AuthorizationRequest auth;
+            auth.permission = "timers.modify";
+            auth.backendId = scopes.front();
+            auth.action = "native_timers.modify";
+            const auto decision = authorizationService_.authorize(
+                gate.context, auth);
+            if (!appendDecisionEvent(gate.context, decision, ""))
+            {
+                gate.rejection = errorResponse(
+                    503, "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+            if (!decision.allowed)
+            {
+                gate.rejection = errorResponse(
+                    authenticationFailure(decision) ? 401 : 403,
+                    decision.reasonCode, messageForReason(decision.reasonCode),
+                    gate.context, authenticationFailure(decision),
+                    gate.publicApiV1);
+                return gate;
+            }
+            gate.authorizationDecision = decision;
+            gate.authorizedBackendIds = scopes;
+            gate.protectedMutation = true;
+            gate.allowed = true;
+            return gate;
+        }
         if (isPublicNativeTimerDelete)
         {
             if (!gate.context.authenticated())
