@@ -2,6 +2,7 @@ usr/sbin/vdr-suite-backend-agent
 usr/sbin/vdr-suite-backend-agent-enroll
 usr/sbin/vdr-suite-backend-agent-admin
 usr/sbin/vdr-suite-backend-agent-command-admin
+usr/sbin/vdr-suite-backend-agent-autostart
 usr/share/man/man8/vdr-suite-backend-agent.8
 usr/share/man/man8/vdr-suite-backend-agent-enroll.8
 usr/share/man/man8/vdr-suite-backend-agent-admin.8
