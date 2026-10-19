@@ -137,7 +137,9 @@ NativeTimerDeleteResultOutcomeResult applyDurableNativeTimerDeleteResult(
     if (op.actionFamily != "timer.delete" ||
         op.resourceType != "NativeTimerBinding" ||
         op.resourceId != b.nativeTimerBindingId ||
-        op.expectedRevision != b.bindingRevision ||
+        (op.expectedRevision != b.bindingRevision &&
+         !(b.lastVerifiedOperationId == op.operationId &&
+           b.missingSince > 0)) ||
         op.expectedResourceFingerprint != b.observedFingerprint ||
         op.backendId != b.backendId ||
         op.backendGeneration != b.backendGeneration ||
@@ -145,12 +147,14 @@ NativeTimerDeleteResultOutcomeResult applyDurableNativeTimerDeleteResult(
         op.backendGeneration != assignment->backendGeneration ||
         payload.timerAssignmentId != b.timerAssignmentId ||
         payload.backendNativeTimerId != b.backendNativeTimerId ||
-        payload.expectedBindingRevision != b.bindingRevision ||
+        payload.expectedBindingRevision != op.expectedRevision ||
         payload.operationRevision != evidence.operationRevision ||
         payload.controlPlaneClaimedAt <= 0 ||
         payload.controlPlaneClaimedAt > evidence.localStartingPersistedAt ||
-        b.missingSince != 0 ||
-        b.driftState != NativeTimerBindingDriftState::none ||
+        (b.missingSince != 0 && b.lastVerifiedOperationId != op.operationId) ||
+        (b.driftState != NativeTimerBindingDriftState::none &&
+         !(b.lastVerifiedOperationId == op.operationId &&
+           b.driftState == NativeTimerBindingDriftState::expectedTransition)) ||
         (b.ownership != NativeTimerBindingOwnership::managed &&
          b.ownership != NativeTimerBindingOwnership::adopted))
         return result(Status::identityConflict, "native_delete_identity_conflict");
@@ -169,8 +173,8 @@ NativeTimerDeleteResultOutcomeResult applyDurableNativeTimerDeleteResult(
     claim.operationId = op.operationId;
     claim.operationRevision = claimRevision;
     claim.nativeTimerBindingId = b.nativeTimerBindingId;
-    claim.expectedBindingRevision = b.bindingRevision;
-    claim.expectedNativeTimerFingerprint = b.observedFingerprint;
+    claim.expectedBindingRevision = op.expectedRevision;
+    claim.expectedNativeTimerFingerprint = op.expectedResourceFingerprint;
     claim.backendId = b.backendId;
     claim.backendGeneration = b.backendGeneration;
     claim.backendNativeTimerId = b.backendNativeTimerId;

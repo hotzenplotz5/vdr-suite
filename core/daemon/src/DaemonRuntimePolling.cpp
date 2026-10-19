@@ -1,6 +1,8 @@
 #include "DaemonRuntime.h"
 
 #include "NativeTimerCreateProductiveRuntime.h"
+#include "NativeTimerDeleteProductiveRuntime.h"
+#include "NativeTimerAbsenceReadbackExpectation.h"
 #include "RestfulApiNativeTimerInventoryReader.h"
 #include "VdrManagedTimerCreateReadbackEvidenceBuilder.h"
 
@@ -127,6 +129,70 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
             std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now()
                     .time_since_epoch()).count());
+    }
+
+    // Phase-64 native DELETE is an ADR-0042 Agent operation. The writer
+    // remains dormant until an actual capability is advertised and selected.
+    // Accepted/uncertain mutations are processed only through durable
+    // assignment and complete native-inventory readback.
+    if (mutationOperationRepository_ &&
+        backendAgentCommandRepository_ &&
+        backendAgentRepository_ &&
+        nativeTimerBindingRepository_ &&
+        backendAgentNativeTimerDeleteAssignmentService_ &&
+        nativeTimerDeleteDispatchService_ &&
+        nativeTimerAbsenceReadbackVerificationService_ &&
+        nativeTimerDeleteOperationCompletionService_)
+    {
+        const vdrsuite::daemon::NativeDeleteReadbackAcquirer acquireDelete =
+            [this](
+                const vdrsuite::timers::NativeTimerAbsenceReadbackExpectation&
+                    expectation)
+                -> std::optional<vdrsuite::timers::NativeTimerInventoryEvidence>
+            {
+                const auto agent = backendAgentRepository_
+                    ->findAgentForBackend(expectation.backendId);
+                if (!agent || agent->revoked || agent->incompatible ||
+                    agent->backendGeneration != expectation.backendGeneration)
+                    return std::nullopt;
+
+                for (const auto& context : backendRuntimeContexts_)
+                {
+                    if (!context || !context->httpClient ||
+                        context->backendId != expectation.backendId)
+                        continue;
+                    const auto observedAt =
+                        std::chrono::duration_cast<std::chrono::seconds>(
+                            std::chrono::system_clock::now()
+                                .time_since_epoch()).count();
+                    if (observedAt < expectation.readbackNotBefore)
+                        return std::nullopt;
+                    vdrsuite::vdr::RestfulApiNativeTimerInventoryReader reader(
+                        *context->httpClient);
+                    vdrsuite::vdr::RestfulApiNativeTimerInventoryReadRequest request;
+                    request.backendId = expectation.backendId;
+                    request.backendGeneration = expectation.backendGeneration;
+                    request.observedAt = observedAt;
+                    const auto inventory = reader.read(request);
+                    if (!inventory.ok() ||
+                        inventory.evidence.completeness !=
+                            vdrsuite::timers::NativeTimerInventoryCompleteness::complete)
+                        return std::nullopt;
+                    return inventory.evidence;
+                }
+                return std::nullopt;
+            };
+
+        vdrsuite::daemon::advanceNativeTimerDeleteRuntimeOnce(
+            *mutationOperationRepository_, *backendAgentCommandRepository_,
+            *backendAgentRepository_, *nativeTimerBindingRepository_,
+            *backendAgentNativeTimerDeleteAssignmentService_,
+            *nativeTimerDeleteDispatchService_,
+            *nativeTimerAbsenceReadbackVerificationService_,
+            *nativeTimerDeleteOperationCompletionService_,
+            acquireDelete,
+            std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count());
     }
 
     for (const auto& backendRuntimeContext : backendRuntimeContexts_) {

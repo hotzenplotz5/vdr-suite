@@ -56,6 +56,18 @@ passed at `b6720d3ab67f86ffc055898c7ca24f568bfb1bc9`.
 PR #500 is still a Draft pending its own complete integration and merge
 gates. The live daemon's source ID is not the present PR head.
 
+### Native DELETE productive daemon pipeline linked (2026-10-19; source)
+
+The existing daemon polling loop now discovers accepted DELETE operations,
+assigns a single provider-fenced command, applies canonical Agent outcome
+evidence, and verifies absence through a **complete native inventory** before
+marking the shared MutationOperation successful. The polling path uses the
+same Phase-64 dispatcher and completion services. Uncertain results are
+reconciled and never blindly repeated. The new source files are included
+in the daemon link source inventory. Public DELETE is not enabled yet
+and the Agent's deliberately dormant DELETE capability has not been
+silently overridden. The running VDR and timer schedule are untouched.
+
 ### Native DELETE durable Control-Plane outcome application (2026-10-19)
 
 The daemon-side `NativeTimerDeleteResultOutcomeApplication` now

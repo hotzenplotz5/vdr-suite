@@ -9,6 +9,10 @@
 #include "TimerIntentApplicationService.h"
 
 #include "BackendAgentNativeTimerDeleteFingerprint.h"
+#include "NativeTimerDeleteDispatchService.h"
+#include "NativeTimerAbsenceReadbackVerificationService.h"
+#include "NativeTimerDeleteOperationCompletionService.h"
+#include "BackendAgentNativeTimerDeleteAssignment.h"
 #include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "RecordingArtworkHttpServer.h"
@@ -128,6 +132,15 @@ bool DaemonRuntime::initialize()
     nativeTimerCreateDispatchService_ =
         std::make_unique<vdrsuite::timers::NativeTimerCreateDispatchService>(
             *mutationOperationRepository_);
+    nativeTimerDeleteDispatchService_ =
+        std::make_unique<vdrsuite::timers::NativeTimerDeleteDispatchService>(
+            *mutationOperationRepository_, *nativeTimerBindingRepository_);
+    nativeTimerAbsenceReadbackVerificationService_ =
+        std::make_unique<vdrsuite::timers::NativeTimerAbsenceReadbackVerificationService>(
+            *nativeTimerBindingRepository_);
+    nativeTimerDeleteOperationCompletionService_ =
+        std::make_unique<vdrsuite::timers::NativeTimerDeleteOperationCompletionService>(
+            *mutationOperationRepository_, *nativeTimerBindingRepository_);
     nativeTimerCreateReadbackVerificationService_ =
         std::make_unique<
             vdrsuite::timers::NativeTimerCreateReadbackVerificationService>(
@@ -258,6 +271,9 @@ bool DaemonRuntime::initialize()
            "runtime initialized"
         << std::endl;
 
+    backendAgentNativeTimerDeleteAssignmentService_ =
+        std::make_unique<vdrsuite::agent::BackendAgentNativeTimerDeleteAssignmentService>(
+            *backendAgentCommandRepository_, *backendAgentRepository_);
     backendAgentNativeTimerCreateReservationService_ =
         std::make_unique<
             vdrsuite::agent::BackendAgentNativeTimerCreateReservationService>(
