@@ -89,5 +89,22 @@ int main(){
    "fresh executor failed");
  require(backendAgentNativeTimerModifyCompleteLocalState(parsed,evidence,reason),
          "completion persist failed");
+ const auto resultEvidence =
+    backendAgentNativeTimerModifyResultEvidence(evidence,a,reason);
+ require(!resultEvidence.empty(),"MODIFY result serialization rejected");
+ BackendAgentNativeTimerModifyEvidence restoredEvidence;
+ require(backendAgentNativeTimerModifyParseResultEvidence(
+    resultEvidence,a,restoredEvidence,reason),
+    "MODIFY result evidence did not roundtrip");
+ require(restoredEvidence.dispatchStartedAt==evidence.dispatchStartedAt &&
+         restoredEvidence.localStartingPersistedAt==evidence.localStartingPersistedAt &&
+         restoredEvidence.operationId==evidence.operationId &&
+         restoredEvidence.evidenceReference==evidence.evidenceReference,
+         "MODIFY result lost immutable native dispatch identity");
+ auto forgedEvidence=resultEvidence;
+ forgedEvidence.push_back('x');
+ require(!backendAgentNativeTimerModifyParseResultEvidence(
+    forgedEvidence,a,restoredEvidence,reason),
+    "MODIFY parser accepted forged/trailing evidence");
  std::cout<<"native timer modify Agent contract tests passed\n";
 }

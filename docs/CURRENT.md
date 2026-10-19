@@ -8,6 +8,16 @@ Stable architecture, historical evidence and workflow rules live in their respec
 
 ## Consolidated API v1 / VIDAA Timer work (2026-10-19, hardware CREATE accepted for one bounded case)
 
+### Timer MODIFY native result evidence (2026-10-19)
+
+Native UPDATE and TOGGLE now have a canonical, bound, length-safe Agent
+result evidence contract, matching the existing DELETE operation pattern.
+It carries the durable local-starting, dispatch and completion times and
+rejects tampered or mismatched Agent assignments. The focused native
+MODIFY contract test checks roundtrip and trailing-field tampering.
+The public write method and Daemon outcome dispatcher remain separate
+work; this change does not modify VDR timers.
+
 ### Public Timer MODIFY – Agent capability lifecycle (2026-10-19)
 
 The native UPDATE/TOGGLE Phase-64 assignment helper previously
