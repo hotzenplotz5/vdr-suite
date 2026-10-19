@@ -8,6 +8,19 @@ Stable architecture, historical evidence and workflow rules live in their respec
 
 ## Consolidated API v1 / VIDAA Timer work (2026-10-19, hardware CREATE accepted for one bounded case)
 
+### Native MODIFY joined the productive Daemon polling loop (2026-10-19)
+
+Daemon lifetime now owns the UPDATE/TOGGLE dispatcher, Agent assignment
+service, native Timer observation verifier and completion service.
+Polling enumerates the two MutationOperation families and acquires
+an independently parsed, directly fetched RESTfulAPI Timer observation
+from the exact backend Agent generation. The shared operation is marked
+succeeded only after all requested Timer fields match and the binding
+revision is verified. This source-level production composition does
+not expose MODIFY HTTP admission, require a host restart or imply
+hardware acceptance. Legacy Phase-64 architecture checks must still
+validate this successor.
+
 ### Native UPDATE/TOGGLE productive runner (2026-10-19, source)
 
 A bounded Daemon MODIFY runner now shares the Phase-64 operation,

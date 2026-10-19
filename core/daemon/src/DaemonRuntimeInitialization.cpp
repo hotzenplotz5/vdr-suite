@@ -10,6 +10,10 @@
 
 #include "BackendAgentNativeTimerDeleteFingerprint.h"
 #include "NativeTimerDeleteDispatchService.h"
+#include "NativeTimerModifyDispatchService.h"
+#include "NativeTimerModifyReadbackVerificationService.h"
+#include "NativeTimerModifyOperationCompletionService.h"
+#include "BackendAgentNativeTimerModifyAssignment.h"
 #include "NativeTimerDeleteOperationPreparationService.h"
 #include "NativeTimerDeletePublicPreflight.h"
 #include "NativeTimerPublicDetailRevision.h"
@@ -138,6 +142,15 @@ bool DaemonRuntime::initialize()
             *mutationOperationRepository_);
     nativeTimerDeleteDispatchService_ =
         std::make_unique<vdrsuite::timers::NativeTimerDeleteDispatchService>(
+            *mutationOperationRepository_, *nativeTimerBindingRepository_);
+    nativeTimerModifyDispatchService_ =
+        std::make_unique<vdrsuite::timers::NativeTimerModifyDispatchService>(
+            *mutationOperationRepository_, *nativeTimerBindingRepository_);
+    nativeTimerModifyReadbackVerificationService_ =
+        std::make_unique<vdrsuite::timers::NativeTimerModifyReadbackVerificationService>(
+            *nativeTimerBindingRepository_);
+    nativeTimerModifyOperationCompletionService_ =
+        std::make_unique<vdrsuite::timers::NativeTimerModifyOperationCompletionService>(
             *mutationOperationRepository_, *nativeTimerBindingRepository_);
     nativeTimerAbsenceReadbackVerificationService_ =
         std::make_unique<vdrsuite::timers::NativeTimerAbsenceReadbackVerificationService>(
@@ -277,6 +290,9 @@ bool DaemonRuntime::initialize()
 
     backendAgentNativeTimerDeleteAssignmentService_ =
         std::make_unique<vdrsuite::agent::BackendAgentNativeTimerDeleteAssignmentService>(
+            *backendAgentCommandRepository_, *backendAgentRepository_);
+    backendAgentNativeTimerModifyAssignmentService_ =
+        std::make_unique<vdrsuite::agent::BackendAgentNativeTimerModifyAssignmentService>(
             *backendAgentCommandRepository_, *backendAgentRepository_);
     backendAgentNativeTimerCreateReservationService_ =
         std::make_unique<

@@ -66,6 +66,10 @@
 #include "MutationOperationRepository.h"
 #include "NativeTimerCreateAdmissionService.h"
 #include "NativeTimerDeleteDispatchService.h"
+#include "NativeTimerModifyDispatchService.h"
+#include "NativeTimerModifyReadbackVerificationService.h"
+#include "NativeTimerModifyOperationCompletionService.h"
+#include "BackendAgentNativeTimerModifyAssignment.h"
 #include "NativeTimerDeleteOperationCompletionService.h"
 #include "NativeTimerAbsenceReadbackVerificationService.h"
 #include "BackendAgentNativeTimerDeleteAssignment.h"
@@ -235,6 +239,14 @@ private:
         nativeTimerCreateDispatchService_;
     std::unique_ptr<vdrsuite::timers::NativeTimerDeleteDispatchService>
         nativeTimerDeleteDispatchService_;
+    std::unique_ptr<vdrsuite::timers::NativeTimerModifyDispatchService>
+        nativeTimerModifyDispatchService_;
+    std::unique_ptr<vdrsuite::timers::NativeTimerModifyReadbackVerificationService>
+        nativeTimerModifyReadbackVerificationService_;
+    std::unique_ptr<vdrsuite::timers::NativeTimerModifyOperationCompletionService>
+        nativeTimerModifyOperationCompletionService_;
+    std::unique_ptr<vdrsuite::agent::BackendAgentNativeTimerModifyAssignmentService>
+        backendAgentNativeTimerModifyAssignmentService_;
     std::unique_ptr<vdrsuite::timers::NativeTimerAbsenceReadbackVerificationService>
         nativeTimerAbsenceReadbackVerificationService_;
     std::unique_ptr<vdrsuite::timers::NativeTimerDeleteOperationCompletionService>

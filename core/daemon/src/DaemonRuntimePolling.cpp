@@ -2,6 +2,9 @@
 
 #include "NativeTimerCreateProductiveRuntime.h"
 #include "NativeTimerDeleteProductiveRuntime.h"
+#include "NativeTimerModifyProductiveRuntime.h"
+#include "RestfulApiNativeTimerModifyReadbackReader.h"
+#include "NativeTimerModifyReadbackVerificationService.h"
 #include "NativeTimerAbsenceReadbackExpectation.h"
 #include "RestfulApiNativeTimerInventoryReader.h"
 #include "VdrManagedTimerCreateReadbackEvidenceBuilder.h"
@@ -191,6 +194,71 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
             *nativeTimerAbsenceReadbackVerificationService_,
             *nativeTimerDeleteOperationCompletionService_,
             acquireDelete,
+            std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count());
+    }
+
+    // UPDATE and TOGGLE share a provider-fenced Agent but have distinct
+    // operation families. A full, current native field readback is required;
+    // cached snapshots cannot certify a successful mutation.
+    if (mutationOperationRepository_ &&
+        backendAgentCommandRepository_ && backendAgentRepository_ &&
+        timerIntentRepository_ && timerAssignmentRepository_ &&
+        nativeTimerBindingRepository_ &&
+        backendAgentNativeTimerModifyAssignmentService_ &&
+        nativeTimerModifyDispatchService_ &&
+        nativeTimerModifyReadbackVerificationService_ &&
+        nativeTimerModifyOperationCompletionService_)
+    {
+        const vdrsuite::daemon::NativeModifyReadbackAcquirer acquireModify =
+            [this](
+                const vdrsuite::timers::NativeTimerModifyReadbackExpectation&
+                    expectation)
+                -> std::optional<vdrsuite::timers::NativeTimerObservation>
+            {
+                const auto& target = expectation.payload;
+                const auto agent = backendAgentRepository_
+                    ->findAgentForBackend(target.backendId);
+                if (!agent || agent->revoked || agent->incompatible ||
+                    agent->backendGeneration != target.backendGeneration)
+                    return std::nullopt;
+
+                const auto observedAt =
+                    std::chrono::duration_cast<std::chrono::seconds>(
+                        std::chrono::system_clock::now()
+                            .time_since_epoch()).count();
+                if (observedAt < expectation.readbackNotBefore)
+                    return std::nullopt;
+
+                for (const auto& context : backendRuntimeContexts_)
+                {
+                    if (!context || !context->httpClient ||
+                        context->backendId != target.backendId)
+                        continue;
+                    vdrsuite::vdr::RestfulApiNativeTimerModifyReadbackReader reader(
+                        *context->httpClient);
+                    vdrsuite::vdr::NativeTimerModifyReadRequest request;
+                    request.backendId = target.backendId;
+                    request.backendGeneration = target.backendGeneration;
+                    request.backendNativeTimerId =
+                        target.backendNativeTimerId;
+                    request.observedAt = observedAt;
+                    request.notBefore = expectation.readbackNotBefore;
+                    const auto read = reader.read(request);
+                    if (read.ok()) return read.observation;
+                }
+                return std::nullopt;
+            };
+
+        vdrsuite::daemon::advanceNativeTimerModifyRuntimeOnce(
+            *mutationOperationRepository_, *backendAgentCommandRepository_,
+            *backendAgentRepository_, *timerIntentRepository_,
+            *timerAssignmentRepository_, *nativeTimerBindingRepository_,
+            *backendAgentNativeTimerModifyAssignmentService_,
+            *nativeTimerModifyDispatchService_,
+            *nativeTimerModifyReadbackVerificationService_,
+            *nativeTimerModifyOperationCompletionService_,
+            acquireModify,
             std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count());
     }
