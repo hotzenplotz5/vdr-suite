@@ -56,6 +56,19 @@ passed at `b6720d3ab67f86ffc055898c7ca24f568bfb1bc9`.
 PR #500 is still a Draft pending its own complete integration and merge
 gates. The live daemon's source ID is not the present PR head.
 
+### Native Timer single-resource revision evidence (2026-10-19; source-only)
+
+The new read-only \`NativeTimerPublicDetailRevision.h\` compares the
+full native VDR Timer snapshot against the durable NativeTimerBinding
+observed-state fingerprint and the independently supplied current Agent
+backend generation. Only an exact, present, non-recording, non-drifted
+managed/adopted binding yields a version token; externally owned bindings
+remain \`adoptionRequired\`, and unbound snapshot Timers have no
+write-precondition revision at all. Unsafe mismatches fail closed.
+The focused regression is in \`test-fast\`. This is **not yet a wired
+HTTP GET or DELETE endpoint** and does not add an implicit adoption path.
+The existing production CREATE, VIDAA identity and yaVDR host are unchanged.
+
 ### Public-v1 native Timer DELETE source preflight (2026-10-19)
 
 The source-only preflight checks exact backend and native Timer identity,

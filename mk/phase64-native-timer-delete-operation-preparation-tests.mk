@@ -30,3 +30,13 @@ test-public-v1-native-timer-delete-preflight:
 	$(BUILD_DIR)/test_public_native_timer_delete_preflight
 
 test-fast: test-public-v1-native-timer-delete-preflight
+
+.PHONY: test-public-v1-native-timer-detail-revision
+test-public-v1-native-timer-detail-revision:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/timers/src/NativeTimerBinding.cpp \
+		core/timers/tests/test_public_native_timer_detail_revision.cpp \
+		-o $(BUILD_DIR)/test_public_native_timer_detail_revision
+	$(BUILD_DIR)/test_public_native_timer_detail_revision
+
+test-fast: test-public-v1-native-timer-detail-revision
