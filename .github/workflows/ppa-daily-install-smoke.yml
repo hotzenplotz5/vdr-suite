@@ -1,6 +1,13 @@
 name: Daily PPA Noble and Resolute isolated acceptance
 
 on:
+  # Also run exactly when an updated acceptance workflow reaches main.
+  # This provides an auditable first published-PPA test without activating
+  # Launchpad's unattended Daily package builds.
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/ppa-daily-install-smoke.yml
   workflow_dispatch:
     inputs:
       revision_timestamp:
@@ -37,8 +44,8 @@ jobs:
     env:
       SERIES: ${{ matrix.series }}
       UBUNTU_VERSION: ${{ matrix.ubuntu_version }}
-      REVISION_TIMESTAMP: ${{ inputs.revision_timestamp }}
-      WEB_REVISION_TIMESTAMP: ${{ inputs.web_revision_timestamp }}
+      REVISION_TIMESTAMP: ${{ inputs.revision_timestamp || '202610180321' }}
+      WEB_REVISION_TIMESTAMP: ${{ inputs.web_revision_timestamp || '202610181549' }}
       DEBIAN_FRONTEND: noninteractive
 
     steps:
