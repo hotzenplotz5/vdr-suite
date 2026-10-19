@@ -15,6 +15,7 @@
 #include "NativeTimerModifyOperationCompletionService.h"
 #include "BackendAgentNativeTimerModifyAssignment.h"
 #include "NativeTimerDeleteOperationPreparationService.h"
+#include "NativeTimerModifyOperationPreparationService.h"
 #include "NativeTimerDeletePublicPreflight.h"
 #include "NativeTimerPublicDetailRevision.h"
 #include "MutationOperationIdentity.h"
@@ -2223,6 +2224,250 @@ bool DaemonRuntime::initialize()
 
     // Public Device DELETE admission only reserves a durable ADR-0042
     // operation. Native side effects remain in the agent/productive runner.
+    PublicApiRuntime::instance().registerNativeTimerModifyAdmission(
+        [this](const PublicNativeTimerModifyRequest& request)
+        {
+            using namespace vdrsuite::timers;
+            using namespace vdrsuite::operations;
+            using S = PublicNativeTimerModifyStatus;
+            PublicNativeTimerModifyResult response;
+            if (!backendRegistryService_ || !backendAccessPolicy_ ||
+                !backendAgentRepository_ || !nativeTimerBindingRepository_ ||
+                !timerAssignmentRepository_ || !timerIntentRepository_ ||
+                !mutationOperationRepository_ || !vdrSnapshotReadService_ ||
+                request.actorRef.empty() || request.backendId.empty() ||
+                request.timerId.empty())
+                return response;
+
+            const auto access = backendAccessPolicy_->canWriteToBackend(
+                *backendRegistryService_, request.backendId);
+            if (!access.allowed)
+            {
+                response.status = S::backendUnavailable;
+                return response;
+            }
+            const auto found = nativeTimerBindingRepository_
+                ->findByBackendNativeTimer(request.backendId, request.timerId);
+            if (found.status == NativeTimerBindingRepositoryStatus::notFound)
+            {
+                response.status = S::notFound;
+                return response;
+            }
+            if (!found.ok()) return response;
+            const auto& binding = found.binding;
+
+            const std::string expectedRevision =
+                "native-timer-binding/1:" + binding.nativeTimerBindingId +
+                ":" + std::to_string(binding.backendGeneration) +
+                ":" + binding.bindingRevision;
+            if (request.expectedResourceRevision != expectedRevision)
+            {
+                response.status = S::revisionConflict;
+                return response;
+            }
+            if (binding.ownership == NativeTimerBindingOwnership::external)
+            {
+                response.status = S::adoptionRequired;
+                return response;
+            }
+            if (binding.ownership != NativeTimerBindingOwnership::managed &&
+                binding.ownership != NativeTimerBindingOwnership::adopted)
+            {
+                response.status = S::stateConflict;
+                return response;
+            }
+
+            const auto assigned = timerAssignmentRepository_
+                ->findById(binding.timerAssignmentId);
+            if (!assigned.ok() ||
+                assigned.assignment.nativeTimerBindingId != binding.nativeTimerBindingId ||
+                assigned.assignment.backendId != request.backendId ||
+                assigned.assignment.backendGeneration != binding.backendGeneration ||
+                assigned.assignment.state != TimerAssignmentState::bound)
+            {
+                response.status = S::stateConflict;
+                return response;
+            }
+            const auto intent = timerIntentRepository_
+                ->findById(assigned.assignment.timerIntentId);
+            if (!intent.ok())
+            {
+                response.status = S::stateConflict;
+                return response;
+            }
+
+            NativeTimerSpecification specification = request.specification;
+            if (request.kind == NativeTimerModifyKind::toggle)
+            {
+                const auto& current = binding.observedState;
+                specification.channelId = current.channelId;
+                specification.title = current.title;
+                specification.directory = current.directory;
+                specification.day = current.day;
+                specification.weekdays = current.weekdays;
+                specification.startTime = current.startTime;
+                specification.endTime = current.endTime;
+                specification.priority = current.priority;
+                specification.lifetime = current.lifetime;
+                specification.vps = current.vps;
+            }
+            if (!nativeTimerSpecificationValid(specification))
+            {
+                response.status = S::invalid;
+                return response;
+            }
+            if (nativeTimerObservationMatchesSpecification(
+                specification, binding.observedState))
+            {
+                response.status = S::stateConflict;
+                return response;
+            }
+            const std::string specFingerprint =
+                nativeTimerSpecificationFingerprint(specification);
+            const std::string specDigest =
+                vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
+                    specFingerprint);
+            if (specFingerprint.empty() || specDigest.empty())
+                return response;
+            const std::string action = request.kind == NativeTimerModifyKind::toggle
+                ? "timer.toggle" : "timer.update";
+            const std::string requestFingerprint =
+                "native-modify/1:" + binding.nativeTimerBindingId + ":" +
+                binding.bindingRevision + ":" + action + ":" + specDigest;
+            if (requestFingerprint.size() > 512U)
+            {
+                response.status = S::invalid;
+                return response;
+            }
+
+            // Replays never generate another native operation. A key can be
+            // re-used only with the exact actor/resource/revision/body.
+            const auto existing = mutationOperationRepository_
+                ->findByIdempotencyScope(
+                    request.actorRef, request.backendId,
+                    "NativeTimerBinding", binding.nativeTimerBindingId,
+                    action, request.idempotencyKey);
+            if (existing.ok())
+            {
+                const auto& operation = existing.operation;
+                if (operation.actorId != request.actorRef ||
+                    operation.backendId != request.backendId ||
+                    operation.backendGeneration != binding.backendGeneration ||
+                    operation.expectedRevision != binding.bindingRevision ||
+                    operation.expectedResourceFingerprint != binding.observedFingerprint ||
+                    operation.requestFingerprint != requestFingerprint)
+                {
+                    response.status = S::idempotencyConflict;
+                    return response;
+                }
+                response.operation = {
+                    operation.operationId,
+                    mutationOperationStateName(operation.state),
+                    operation.backendId, operation.operationRevision};
+                response.status = S::replayed;
+                return response;
+            }
+            if (existing.status != MutationOperationRepositoryStatus::notFound)
+                return response;
+
+            const auto agent = backendAgentRepository_
+                ->findAgentForBackend(request.backendId);
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            if (!agent || agent->revoked || agent->incompatible ||
+                agent->backendGeneration != binding.backendGeneration ||
+                agent->leaseExpiresAt < now ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(request.backendId))
+            {
+                response.status = S::backendUnavailable;
+                return response;
+            }
+            const auto timers = vdrSnapshotReadService_
+                ->getTimersForBackend(request.backendId);
+            const auto same = [&request](const VdrTimer& timer) {
+                return timer.id == request.timerId;
+            };
+            const auto current = std::find_if(timers.begin(), timers.end(), same);
+            if (current == timers.end() ||
+                std::count_if(timers.begin(), timers.end(), same) != 1)
+            {
+                response.status = S::stateConflict;
+                return response;
+            }
+            const auto verification = nativeTimerPublicDetailRevision(
+                request.backendId, agent->backendGeneration,
+                *current, &binding);
+            if ((verification.status !=
+                    NativeTimerPublicDetailRevisionStatus::verifiedManaged &&
+                 verification.status !=
+                    NativeTimerPublicDetailRevisionStatus::verifiedAdopted) ||
+                verification.resourceRevision != expectedRevision ||
+                binding.lastObservedAt < now - 300 ||
+                binding.observedState.recording ||
+                binding.observedState.pending)
+            {
+                response.status = S::stateConflict;
+                return response;
+            }
+
+            NativeTimerModifyOperationPreparationRequest candidate;
+            candidate.operationId = generateMutationOperationId();
+            candidate.idempotencyKey = request.idempotencyKey;
+            candidate.actorId = request.actorRef;
+            candidate.requestFingerprint = requestFingerprint;
+            candidate.kind = request.kind;
+            candidate.timerAssignmentId = assigned.assignment.timerAssignmentId;
+            candidate.expectedAssignmentRevision =
+                assigned.assignment.assignmentRevision;
+            candidate.expectedIntentRevision = intent.intent.intentRevision;
+            candidate.expectedAssignmentEpoch =
+                assigned.assignment.assignmentEpoch;
+            candidate.nativeTimerBindingId = binding.nativeTimerBindingId;
+            candidate.expectedBindingRevision = binding.bindingRevision;
+            candidate.expectedBackendId = request.backendId;
+            candidate.expectedBackendGeneration = binding.backendGeneration;
+            candidate.backendNativeTimerId = binding.backendNativeTimerId;
+            candidate.expectedCurrentFingerprint = binding.observedFingerprint;
+            candidate.expectedSpecification = specification;
+            candidate.requestedAt = now;
+            candidate.deadline = now + 3600;
+
+            NativeTimerModifyOperationPreparationService preparation(
+                *timerIntentRepository_, *timerAssignmentRepository_,
+                *nativeTimerBindingRepository_, *mutationOperationRepository_);
+            const auto stored = preparation.prepare(candidate);
+            switch (stored.status)
+            {
+                case NativeTimerModifyOperationPreparationStatus::prepared:
+                case NativeTimerModifyOperationPreparationStatus::alreadyPrepared:
+                    response.operation = {
+                        stored.operation.operationId,
+                        mutationOperationStateName(stored.operation.state),
+                        stored.operation.backendId,
+                        stored.operation.operationRevision};
+                    response.status = S::accepted;
+                    return response;
+                case NativeTimerModifyOperationPreparationStatus::intentNotFound:
+                case NativeTimerModifyOperationPreparationStatus::assignmentNotFound:
+                case NativeTimerModifyOperationPreparationStatus::bindingNotFound:
+                    response.status = S::notFound; return response;
+                case NativeTimerModifyOperationPreparationStatus::bindingRevisionConflict:
+                case NativeTimerModifyOperationPreparationStatus::intentRevisionConflict:
+                case NativeTimerModifyOperationPreparationStatus::assignmentRevisionConflict:
+                    response.status = S::revisionConflict; return response;
+                case NativeTimerModifyOperationPreparationStatus::ownershipConflict:
+                    response.status = S::adoptionRequired; return response;
+                case NativeTimerModifyOperationPreparationStatus::idempotencyConflict:
+                    response.status = S::idempotencyConflict; return response;
+                case NativeTimerModifyOperationPreparationStatus::invalid:
+                    response.status = S::invalid; return response;
+                case NativeTimerModifyOperationPreparationStatus::repositoryError:
+                    return response;
+                default:
+                    response.status = S::stateConflict; return response;
+            }
+        });
+
     PublicApiRuntime::instance().registerNativeTimerDeleteAdmission(
         [this](const PublicNativeTimerDeleteRequest& request)
         {
