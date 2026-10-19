@@ -8,6 +8,21 @@ Stable architecture, historical evidence and workflow rules live in their respec
 
 ## Consolidated API v1 / VIDAA Timer work (2026-10-19, hardware CREATE accepted for one bounded case)
 
+### Native UPDATE/TOGGLE productive runner (2026-10-19, source)
+
+A bounded Daemon MODIFY runner now shares the Phase-64 operation,
+intent, assignment and native binding repositories. Before claim it
+rechecks the exact current binding fingerprint, assignment/intent
+revisions, backend generation, ownership, active Agent lease and
+observation freshness. It allocates one provider-fenced native
+UPDATE/TOGGLE command, applies only typed result evidence, and
+marks the MutationOperation succeeded **only after** the
+`NativeTimerModifyReadbackVerificationService` verifies the exact
+updated native Timer observation and completion advances the shared
+operation state. Unknown Agent results are reconciled, not resent.
+Production polling composition and authenticated public API admission
+are still outstanding.
+
 ### Direct native MODIFY readback reader (2026-10-19)
 
 A new RESTfulAPI readback reader fetches the exact native Timer state
