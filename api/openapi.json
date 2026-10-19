@@ -8101,6 +8101,209 @@
           }
         }
       }
+    },
+    "/api/v1/native-timers/{timerId}/modifications": {
+      "post": {
+        "tags": [
+          "TimerAssignments"
+        ],
+        "operationId": "modifyPublicNativeVdrTimer",
+        "summary": "Asynchronously update or activate/deactivate a verified bound native Timer",
+        "description": "Device-only, exact-backend timers.modify action. No implicit external adoption. Strong If-Match and Idempotency-Key are mandatory. UPDATE requires the complete target native Timer specification; TOGGLE accepts only kind and enabled and preserves remaining fields from the verified binding. Once accepted, one provider-fenced Agent command executes, and the mutation succeeds only after exact native Timer specification readback. Uncertain executor results are reconciled, not blindly retried.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Device credential and exact timers.modify@backendId; audited mutation"
+        },
+        "parameters": [
+          {
+            "name": "timerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "One strong ETag obtained from verified native Timer detail"
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Unique for a logical modification request"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "kind",
+                      "enabled"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "toggle"
+                        ]
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "kind",
+                      "channelId",
+                      "title",
+                      "directory",
+                      "day",
+                      "weekdays",
+                      "startTime",
+                      "endTime",
+                      "priority",
+                      "lifetime",
+                      "enabled",
+                      "vps"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "update"
+                        ]
+                      },
+                      "channelId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "title": {
+                        "type": "string",
+                        "maxLength": 1024
+                      },
+                      "directory": {
+                        "type": "string",
+                        "maxLength": 1024
+                      },
+                      "day": {
+                        "type": "string",
+                        "maxLength": 160
+                      },
+                      "weekdays": {
+                        "type": "string",
+                        "minLength": 7,
+                        "maxLength": 7
+                      },
+                      "startTime": {
+                        "type": "string"
+                      },
+                      "endTime": {
+                        "type": "string"
+                      },
+                      "priority": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 99
+                      },
+                      "lifetime": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 99
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "vps": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Durable operation accepted or exactly replayed",
+            "headers": {
+              "Location": {
+                "description": "Operation detail resource",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid fields, identifier or idempotency key"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Device not granted timers.modify for exact backend"
+          },
+          "404": {
+            "description": "Native Timer binding not found"
+          },
+          "409": {
+            "description": "Ownership adoption required, active/unchanged Timer state, or idempotency conflict"
+          },
+          "412": {
+            "description": "Binding revision changed"
+          },
+          "415": {
+            "description": "Requires application/json"
+          },
+          "428": {
+            "description": "Strong If-Match required"
+          },
+          "503": {
+            "description": "Backend/Agent/snapshot/repository unavailable"
+          }
+        }
+      }
     }
   },
   "components": {

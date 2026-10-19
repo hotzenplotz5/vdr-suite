@@ -8,6 +8,17 @@ Stable architecture, historical evidence and workflow rules live in their respec
 
 ## Consolidated API v1 / VIDAA Timer work (2026-10-19, hardware CREATE accepted for one bounded case)
 
+### Native Timer MODIFY contract, OpenAPI and focused test (2026-10-19)
+
+The POST `/api/v1/native-timers/{timerId}/modifications` contract is now
+audited in the Public-v1 OpenAPI inventory, with one complete UPDATE body
+or one explicit TOGGLE boolean; it requires a device-scoped
+`timers.modify` grant, strong `If-Match`, `Idempotency-Key`, exact backend
+and durable acceptance. The focused HTTP test covers 202/replay,
+revision conflict, external adoption refusal, incomplete/duplicate
+fields, malformed preconditions and missing backend service. Current
+GitHub CI must still verify compilation and route integration.
+
 ### Public native Timer modification HTTP request contract (2026-10-19)
 
 A bounded asynchronous `POST /api/v1/native-timers/{timerId}/modifications?backendId=...`

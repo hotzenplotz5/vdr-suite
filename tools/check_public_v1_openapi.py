@@ -40,6 +40,9 @@ AUDITED = {
         "get": "if (publicNativeTimerItemPath(path, nativeTimerId))",
         "delete": "if (!publicNativeTimerItemPath(path, timerId)) return false;",
     },
+    "/api/v1/native-timers/{timerId}/modifications": {
+        "post": "if (publicNativeTimerModificationPath(path, modifiedTimerId))",
+    },
     "/api/v1/epg/timer-intents": {"post": "if (path == PublicEpgTimerIntentPath)"},
     "/api/v1/timer-assignments": {"get": "if (path == PublicTimerAssignmentCollectionPath)"},
     "/api/v1/search-timers": {"get": "if (path == PublicSearchTimerCollectionPath)", "post": "if (path == PublicSearchTimerCollectionPath)"},
@@ -160,6 +163,7 @@ NO_ACTOR = {
 }
 
 IF_MATCH = {
+    ("post", "/api/v1/native-timers/{timerId}/modifications"),
     ("delete", "/api/v1/native-timers/{timerId}"),
     ("post", "/api/v1/epg/timer-intents"),
     ("post", "/api/v1/timer-assignments/{timerAssignmentId}"),
@@ -175,6 +179,7 @@ IF_MATCH = {
 }
 
 IDEMPOTENCY = {
+    ("post", "/api/v1/native-timers/{timerId}/modifications"),
     ("delete", "/api/v1/native-timers/{timerId}"),
     ("post", "/api/v1/epg/timer-intents"),
     ("post", "/api/v1/search-timers"),
