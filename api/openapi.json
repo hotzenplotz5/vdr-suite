@@ -84,7 +84,10 @@
         ],
         "operationId": "getPublicEpgWindow",
         "summary": "Read bounded cached EPG events for a backend and channel",
-        "x-vdr-suite-authentication": {"actorRequired": true, "authorization": "epg.view@backendId OR media.live.play@backendId; exact backend scope"},
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "epg.view@backendId OR media.live.play@backendId; exact backend scope"
+        },
         "description": "12-hour maximum per request, up to 192 real events. Device/backend auth: epg.view OR media.live.play on the same backend. No live provider fallback or fabricated programmes. A successful response may have hasMore=true; clients must not represent truncated pages as complete.",
         "parameters": [
           {
@@ -314,7 +317,10 @@
         ],
         "operationId": "getPublicNativeVdrTimers",
         "summary": "Read real VDR native timer snapshot, not Suite timer assignments",
-        "x-vdr-suite-authentication": {"actorRequired": true, "authorization": "timers.view@backendId; exact backend scope"},
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "timers.view@backendId; exact backend scope"
+        },
         "description": "Backend-scoped, read-only, stable ID-sorted snapshot page. Requires timers.view@backend. No timer mutation and no live native completeness guarantee beyond current snapshot.",
         "parameters": [
           {
@@ -7839,6 +7845,161 @@
           },
           "503": {
             "description": "Backend or EPG cache unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/native-timers/{timerId}": {
+      "get": {
+        "tags": [
+          "TimerAssignments"
+        ],
+        "operationId": "getPublicNativeVdrTimerDetail",
+        "summary": "Read an exact native VDR Timer with a conditional binding ETag",
+        "description": "Read-only snapshot-backed Timer resource, including Timers created outside VDR-Suite. Requires exact backend timers.view. A strong ETag is sent only if a durable binding, current agent backend generation and the full canonical observed native Timer fingerprint agree. Unbound native Timers have no ETag or write precondition. A bound externally owned Timer has an ETag for conditional reads but requires separate explicit adoption before DELETE. An ETag is not operation authorization or a lease. Native DELETE is not yet implemented.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "timers.view@backendId; exact backend scope"
+        },
+        "parameters": [
+          {
+            "name": "timerId",
+            "in": "path",
+            "required": true,
+            "description": "Exact native Timer ID from the snapshot",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "description": "Exactly one authorized backend ID; no other query keys",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "description": "Conditional strong ETag from a previously verified bound Timer. Unbound Timer has no ETag.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Native Timer details. ETag only for verified durable bindings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "backendId",
+                    "timerId",
+                    "ownership",
+                    "bindingState",
+                    "links"
+                  ],
+                  "properties": {
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "timerId": {
+                      "type": "string"
+                    },
+                    "channelId": {
+                      "type": "string"
+                    },
+                    "channelName": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "day": {
+                      "type": "string"
+                    },
+                    "weekdays": {
+                      "type": "string"
+                    },
+                    "startTime": {
+                      "type": "string"
+                    },
+                    "endTime": {
+                      "type": "string"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "recording": {
+                      "type": "boolean"
+                    },
+                    "pending": {
+                      "type": "boolean"
+                    },
+                    "ownership": {
+                      "type": "string",
+                      "enum": [
+                        "unbound",
+                        "managed",
+                        "adopted",
+                        "external"
+                      ]
+                    },
+                    "bindingState": {
+                      "type": "string",
+                      "enum": [
+                        "binding_required",
+                        "verified",
+                        "adoption_required"
+                      ]
+                    },
+                    "links": {
+                      "type": "object",
+                      "required": [
+                        "self"
+                      ],
+                      "properties": {
+                        "self": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "If-None-Match matches a verified bound Timer revision"
+          },
+          "400": {
+            "description": "Malformed identifier, backend scope, or conditional request"
+          },
+          "401": {
+            "description": "Missing authentication"
+          },
+          "403": {
+            "description": "Missing timers.view for exact backend"
+          },
+          "404": {
+            "description": "Native Timer not found in current backend snapshot"
+          },
+          "405": {
+            "description": "DELETE, PATCH and other mutation methods not implemented"
+          },
+          "503": {
+            "description": "Snapshot, backend, binding or generation not verifiable"
           }
         }
       }

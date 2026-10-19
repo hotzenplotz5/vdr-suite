@@ -56,6 +56,27 @@ passed at `b6720d3ab67f86ffc055898c7ca24f568bfb1bc9`.
 PR #500 is still a Draft pending its own complete integration and merge
 gates. The live daemon's source ID is not the present PR head.
 
+### Public-v1 native Timer detail GET wired (2026-10-19, CI pending)
+
+The existing integration branch now exposes
+\`GET /api/v1/native-timers/{timerId}?backendId=...\`. SecurityHttpGate
+requires the exact \`timers.view\` backend grant. The Daemon resolves
+one matching native snapshot ID, rejects duplicates, checks Backend Agent
+generation and the existing durable NativeTimerBinding using
+\`NativeTimerPublicDetailRevision\`. A strong conditional ETag is
+returned *only* for matched, non-drifted, non-recording managed/adopted
+bindings and verified external bindings (whose \`bindingState\` is
+\`adoption_required\`). Unbound Timer snapshots return a readable
+\`binding_required\` state with **no ETag**. Mismatched fingerprints
+and generation fail closed with 503, never a synthetic revision.
+
+\`DELETE\` remains **405**, not remotely executable; public
+\`timers.delete\`, explicit external adoption, operation idempotency,
+Agent/provider dispatch and post-dispatch absence readback remain
+separately gated. OpenAPI includes this bounded GET only. The focused
+HTTP test and daemon syntax check were added to \`test-fast\` but
+their CI pass is not yet asserted. No yaVDR host changes or merges.
+
 ### Native Timer single-resource revision evidence (2026-10-19; source-only)
 
 The new read-only \`NativeTimerPublicDetailRevision.h\` compares the
