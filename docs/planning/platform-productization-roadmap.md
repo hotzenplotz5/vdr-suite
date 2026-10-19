@@ -273,7 +273,7 @@ Binding install boundary: [ADR-0037](../adr/ADR-0037-packaging-install-api-bound
 
 ## 5. MLD 6.6 — native distribution integration (planned)
 
-**Status:** Plan only; no native MLD build or functional acceptance. **Dedicated exception branch:** `work/mld66-platform-integration`, created directly from `main` at `01b74e30ec1a09ee68986059f508284564ef67e1`.
+**Status:** MLD.1A source-based [compatibility inventory](../development/mld66-compatibility-inventory.md) and cross-build preparation exist on the dedicated branch; no native MLD package build, runtime probe result or functional acceptance. **Dedicated exception branch:** `work/mld66-platform-integration`, created directly from `main` at `01b74e30ec1a09ee68986059f508284564ef67e1`.
 
 MLD.1 targets a first-class **alternative installation and update method** for VDR-Suite under MLD 6.6. This is not a new numbered runtime phase and does not start Phase 70. The MLD team reports VDR running as root and `restfulapi` 0.2.6.6; their suitability and exact semantics remain verification tasks.
 
