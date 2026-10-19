@@ -8,13 +8,18 @@ on:
         required: true
         type: string
         default: "202610180321"
+      web_revision_timestamp:
+        description: "Published Web/HbbTV Daily recipe revtime (YYYYMMDDhhmm)"
+        required: true
+        type: string
+        default: "202610181549"
 
 permissions:
   contents: read
 
 jobs:
   daily-install:
-    name: "Daily PPA ${{ matrix.series }} amd64: APT, ABI, daemon HTTP"
+    name: "Daily PPA ${{ matrix.series }} amd64: Suite + HbbTV web, ABI, HTTP"
     runs-on: ubuntu-24.04
     container:
       image: ${{ matrix.image }}
@@ -33,6 +38,7 @@ jobs:
       SERIES: ${{ matrix.series }}
       UBUNTU_VERSION: ${{ matrix.ubuntu_version }}
       REVISION_TIMESTAMP: ${{ inputs.revision_timestamp }}
+      WEB_REVISION_TIMESTAMP: ${{ inputs.web_revision_timestamp }}
       DEBIAN_FRONTEND: noninteractive
 
     steps:
@@ -44,6 +50,7 @@ jobs:
           test "$VERSION_CODENAME" = "$SERIES"
           test "$(dpkg --print-architecture)" = amd64
           [[ "$REVISION_TIMESTAMP" =~ ^[0-9]{12}$ ]]
+          [[ "$WEB_REVISION_TIMESTAMP" =~ ^[0-9]{12}$ ]]
           printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d
           chmod 0755 /usr/sbin/policy-rc.d
           apt-get update
@@ -53,7 +60,7 @@ jobs:
           apt-get update
           echo "DAILY_ONLY_PPA_SETUP=PASS series=$SERIES"
 
-      - name: Reject missing or wrong PPA versions before installing
+      - name: Reject missing or wrong Suite and Web/HbbTV PPA versions before installing
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -67,6 +74,19 @@ jobs:
             }
             printf '%s\n' "$policy" | grep -Fq               "ppa.launchpadcontent.net/hotzenplotz5/vdr-suite-daily/ubuntu $SERIES"
           done
+          # The Web plugin uses its own source recipe and revision timestamp.
+          # Only the published package built directly from the integrated main
+          # tree is accepted; no fallback to Seahawk's unpatched web package.
+          web_expected="0.0.1+git20260827-111-34ded50-1yavdr1+vdrsuite1+daily1+${WEB_REVISION_TIMESTAMP}~ubuntu${UBUNTU_VERSION}.1"
+          web_policy="$(apt-cache policy vdr-plugin-web)"
+          printf '%s\n' "$web_policy"
+          web_candidate="$(printf '%s\n' "$web_policy" | awk '/Candidate:/ { print $2; exit }')"
+          test "$web_candidate" = "$web_expected" || {
+            echo "DAILY_WEB_VERSION_MISMATCH expected=$web_expected actual=$web_candidate"; exit 1;
+          }
+          printf '%s\n' "$web_policy" | grep -Fq \
+            "ppa.launchpadcontent.net/hotzenplotz5/vdr-suite-daily/ubuntu $SERIES"
+          echo "DAILY_WEB_PPA_CANDIDATE_EXACT=PASS version=$web_expected"
           vdr_policy="$(apt-cache policy vdr)"
           printf '%s\n' "$vdr_policy"
           printf '%s\n' "$vdr_policy" | grep -Fq             "ppa.launchpadcontent.net/seahawk1986-hotmail/vdr-2.8.3/ubuntu $SERIES"
@@ -77,7 +97,8 @@ jobs:
         run: |
           set -Eeuo pipefail
           expected="0.14.1-1~exp2~daily1+${REVISION_TIMESTAMP}~ubuntu${UBUNTU_VERSION}.1"
-          packages=(vdr vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge)
+          web_expected="0.0.1+git20260827-111-34ded50-1yavdr1+vdrsuite1+daily1+${WEB_REVISION_TIMESTAMP}~ubuntu${UBUNTU_VERSION}.1"
+          packages=(vdr vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge "vdr-plugin-web=$web_expected")
           apt-get -s install --no-install-recommends "${packages[@]}"
           apt-get install -y --no-install-recommends "${packages[@]}"
           dpkg --audit
@@ -89,20 +110,31 @@ jobs:
             }
             echo "DAILY_INSTALLED=PASS $pkg $actual"
           done
+          test "$(dpkg-query -W -f='${Version}' vdr-plugin-web)" = "$web_expected"
+          test "$(dpkg-query -W -f='${Status}' vdr-plugin-web)" = 'install ok installed'
+          echo "DAILY_WEB_PPA_INSTALLED=PASS version=$web_expected"
           test "$(dpkg-query -W -f='${Version}' vdr)" = "2.8.3-0yavdr0~$SERIES"
           dpkg-query -W -f='${Provides}\n' vdr | grep -F 'vdr-abi-2.8.3-0yavdr'
-          dpkg-query -W -f='${Depends}\n' vdr-plugin-suitebridge |
-            grep -F 'vdr-abi-2.8.3-0yavdr'
+          for pkg in vdr-plugin-suitebridge vdr-plugin-web; do
+            dpkg-query -W -f='${Depends}\n' "$pkg" |
+              grep -F 'vdr-abi-2.8.3-0yavdr'
+          done
           test -s /usr/sbin/vdr-suite-daemon
           test -s /usr/sbin/vdr-suite-backend-agent
           test -s /usr/lib/vdr/plugins/libvdr-suitebridge.so.14
+          test -s /usr/lib/vdr/plugins/libvdr-web.so.14
+          test -s /usr/share/vdr-plugin-web/vdr-suite-tools/apply_cefbrowser_zdf_controls_fix.py
+          test -s /usr/share/vdr-plugin-web/vdr-suite-tools/detect_cefbrowser_static_root.py
           test -s /usr/share/vdr-suite/web/frontend/index.html
           test -s /usr/share/vdr-suite/web/frontend/hbbtv-qoi.js
           test -f /usr/lib/systemd/system/vdr-suite-daemon.service
           test -f /usr/lib/systemd/system/vdr-suite-backend-agent.service
           dpkg -S /usr/lib/vdr/plugins/libvdr-suitebridge.so.14
+          dpkg -S /usr/lib/vdr/plugins/libvdr-web.so.14
+          dpkg -S /usr/share/vdr-plugin-web/vdr-suite-tools/apply_cefbrowser_zdf_controls_fix.py
           for elf in /usr/sbin/vdr-suite-daemon /usr/sbin/vdr-suite-backend-agent \
-            /usr/lib/vdr/plugins/libvdr-suitebridge.so.14; do
+            /usr/lib/vdr/plugins/libvdr-suitebridge.so.14 \
+            /usr/lib/vdr/plugins/libvdr-web.so.14; do
             ldd "$elf" > /tmp/vdr-suite-daily-ldd.log
             if grep -Fq 'not found' /tmp/vdr-suite-daily-ldd.log; then
               cat /tmp/vdr-suite-daily-ldd.log
@@ -113,6 +145,8 @@ jobs:
           vdr -L /usr/lib/vdr/plugins --version > /tmp/vdr-suite-daily-vdr-plugins.log 2>&1
           cat /tmp/vdr-suite-daily-vdr-plugins.log
           grep -Fq 'suitebridge (' /tmp/vdr-suite-daily-vdr-plugins.log
+          grep -Fq 'web (' /tmp/vdr-suite-daily-vdr-plugins.log
+          echo 'DAILY_WEB_HBBTV_ABI_PLUGIN_LOADER=PASS (not video-playback acceptance)'
           echo "DAILY_INSTALL_ABI_PLUGIN_LOADER=PASS series=$SERIES"
 
       - name: Start installed daemon as vdr; HTTP, 401 and restart
@@ -195,3 +229,4 @@ jobs:
           start_daemon
           stop_daemon
           echo "DAILY_DAEMON_HTTP_RESTART=PASS series=$SERIES"
+          echo "DAILY_SUITE_AND_WEB_COMBINED_ACCEPTANCE=PASS series=$SERIES"
