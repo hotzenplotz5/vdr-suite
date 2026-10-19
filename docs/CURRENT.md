@@ -6,9 +6,55 @@
 
 Stable architecture, historical evidence and workflow rules live in their respective ADRs, roadmap and closeout documents. Exact live GitHub state must still be re-read before implementation, review-state or merge actions.
 
-## Consolidated API v1 / VIDAA Timer work (2026-10-18, newest branch state)
+## Consolidated API v1 / VIDAA Timer work (2026-10-19, hardware CREATE accepted for one bounded case)
 
 **Active integration is the existing backend branch** `work/public-v1-vidaa-unified-20261018`, open Draft [PR #500](https://github.com/hotzenplotz5/vdr-suite/pull/500), **not** the earlier standalone Slice-2 branch named in the historical sections below. The independent client source branch is `work/vidaa-epg-timer-operation-readback-20261017`. Do not create successor branches, merge this draft to `main`, or deploy on yaVDR without the usual separate gates.
+
+### Real public-v1 one-shot Timer CREATE acceptance (2026-10-19; current evidence)
+
+**Hardware milestone:** The installed daemon identified itself as
+`git-f7e341ad6b97` ([commit](https://github.com/hotzenplotz5/vdr-suite/commit/f7e341ad6b9730bc35bf223c26a04f5b1df39ce8));
+yaVDR ran VDR 2.8.3 with SuiteBridge 0.14.1. An administrator-approved
+**temporary** paired Device received backend `default` permissions
+`epg.view` and `timers.create`. Real public
+`POST /api/v1/epg/timer-intents` with a strong event ETag and unique
+idempotency key returned **202**, durable Operation
+`op_d9589fb8b43b7d91ac4309423a2fc372` became **`succeeded`**,
+and the native VDR readback found **one and only one new** timer for
+**Tagesschau**, channel `C-1-1051-10301`, event `13520`,
+**2026-10-20 20:00–20:15 Europe/Berlin**. Before: 0 VDR Timers;
+after: 1; `VDR_READBACK=PASS`; `TEST_RESULT=PASS`. The temporary
+test Device was revoked, and the administrator logged out. The native
+Timer remains in place. This is an actual Public-v1-to-VDR end-to-end
+test, **not** SVDRP NEWT or a mock. See
+[exact bounded evidence and prerequisites](../api/epg-timer-intents.md).
+
+**Operational finding and remaining gates:** First HTTP **503** was
+caused by inactive/disabled Backend Agent with expired lease, stale
+provider facts and a mismatched SuiteBridge provider epoch. The Agent
+was deliberately started, lease/provider facts refreshed, exact
+backend-local native clock and `NTPREVIEW CHECK 1` returned attested
+`isolated_clear`, and the real POST then succeeded. Agent **autostart
+remains disabled**; host reboot/identity reuse still need verification.
+The actual programme recording on 2026-10-20, subsequent recording
+integrity, ambiguous `outcome_unknown` resolution, restart/reconciliation,
+concurrency, overlaps, encryption, recurrence and multi-backend cases
+are **not yet accepted**. Historical Agent reconciliation records must
+not be replayed/reset; existing VIDAA Device grants stay unchanged.
+See [packaging boot opt-in](../debian/README.md#after-enrollment-boot-activation-operator-opt-in-not-package-auto-start).
+Earlier read-only sections below are timestamped *pre-acceptance*
+checkpoints; assertions there that no live CREATE/readback occurred
+are **superseded for this single case** by the acceptance here.
+
+**Client follow-on:** The separate VIDAA work branch
+`work/vidaa-epg-timer-operation-readback-20261017` now retains the last
+accepted Operation across EPG navigation in the app session, distinguishes
+`outcome_unknown`/conflicts, and does not retry native CREATE. Its
+[exact-head CI #1412](https://github.com/hotzenplotz5/vdr-suite-vidaa/actions/runs/39277372021)
+passed at `b6720d3ab67f86ffc055898c7ca24f568bfb1bc9`.
+**Hisense deployment and functional TV acceptance are still PENDING.**
+PR #500 is still a Draft pending its own complete integration and merge
+gates. The live daemon's source ID is not the present PR head.
 
 **Current source wiring, verified by code inspection:** `core/daemon/src/DaemonRuntimeInitialization.cpp` now **does register** `registerEpgTimerIntentSubmit()`. It composes fresh EPG detail/permission/backend policy and backend-generation fences with the read-only native VDR-local `NTCREATE CLOCK 1` projection and `NTPREVIEW CHECK 1` prospective conflict attestation; only then can `EpgTimerIntentAtomicAdmissionService` persist the controlled Intent + Assignment + Operation. The source-level provider/clock/preview checks remain intentionally conservative, especially with overlapping, repeating, encrypted or unverified-device scheduling. The old statements below that “no productive submit is registered” are **historical** and must not be used as current source truth.
 
