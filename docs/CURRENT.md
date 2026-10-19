@@ -56,6 +56,19 @@ passed at `b6720d3ab67f86ffc055898c7ca24f568bfb1bc9`.
 PR #500 is still a Draft pending its own complete integration and merge
 gates. The live daemon's source ID is not the present PR head.
 
+### Native DELETE durable Control-Plane outcome application (2026-10-19)
+
+The daemon-side `NativeTimerDeleteResultOutcomeApplication` now
+consumes the actual typed Agent result, correlates the exact operation,
+binding, provider command identity, accepted-to-dispatching revision and
+persisted assignment timestamp, and delegates to the existing Phase-64
+`NativeTimerDeleteDispatchService::applyOutcome`. A trustworthy
+post-dispatch readback expectation is generated **only** from typed
+dispatch evidence, never from a generic success response. A missing,
+malformed or conflicting result does not mutate the operation.
+This source is not yet composed into the polling loop or publicly
+accessible, and the dormant Agent capability remains disabled.
+
 ### Native DELETE Agent typed outcome persistence (2026-10-19; source)
 
 The native DELETE Agent now persists its real local starting/dispatch/completion

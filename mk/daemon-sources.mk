@@ -37,6 +37,7 @@ DAEMON_SRC := \
         core/timers/src/NativeTimerCreateOperationCompletionService.cpp \
         core/timers/src/NativeTimerCreateDispatchService.cpp \
         core/daemon/src/NativeTimerCreateResultOutcomeApplication.cpp \
+        core/daemon/src/NativeTimerDeleteResultOutcomeApplication.cpp \
         core/daemon/src/NativeTimerCreateReadbackReconciliation.cpp \
         core/daemon/src/NativeTimerCreateProductiveRuntime.cpp \
         core/agent/src/BackendAgentCommandReservation.cpp \
