@@ -8,6 +8,18 @@ Stable architecture, historical evidence and workflow rules live in their respec
 
 ## Consolidated API v1 / VIDAA Timer work (2026-10-19, hardware CREATE accepted for one bounded case)
 
+### Direct native MODIFY readback reader (2026-10-19)
+
+A new RESTfulAPI readback reader fetches the exact native Timer state
+from VDR, not a cached Daemon snapshot. It requires two successful
+direct reads: a strict complete inventory and a full Timer field
+projection with an identical unique native ID set. HTTP errors,
+truncation, inconsistent snapshots, absent IDs and incomplete Timer
+fields fail closed. The resulting `NativeTimerObservation` is suitable
+for the Phase-64 MODIFY verification service, which must still compare
+all requested fields and update the binding before operation completion.
+No public MODIFY endpoint has been enabled.
+
 ### MODIFY durable Control-Plane operation outcomes (2026-10-19)
 
 The Daemon has a typed UPDATE/TOGGLE Agent-result bridge, based on the

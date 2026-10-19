@@ -4,6 +4,7 @@
 #include "BackendAgentNativeTimerModify.h"
 #include "BackendAgentNativeTimerModifyLocalState.h"
 #include "BackendAgentNativeTimerModifyPayload.h"
+#include "BackendAgentNativeTimerDeleteFingerprint.h"
 #include "MutationOperationRepository.h"
 #include "NativeTimerBindingRepository.h"
 
