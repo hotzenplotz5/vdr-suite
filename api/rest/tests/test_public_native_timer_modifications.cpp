@@ -43,7 +43,7 @@ int main()
             assert(r.backendId == "backend-one" && r.timerId == "17");
             assert(r.expectedResourceRevision == "native-timer-binding/1:bind17:7:10");
             assert(r.idempotencyKey == "modify-key");
-            assert(r.kind == vdrsuite::timers::NativeTimerModifyKind::toggle);
+            assert(r.kind == PublicNativeTimerChangeKind::toggle);
             assert(!r.specification.enabled);
             PublicNativeTimerModifyResult result;
             result.status = status;

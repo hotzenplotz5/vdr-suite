@@ -122,10 +122,10 @@ bool assignAndClaim(
         a.assignmentRevision != payload.expectedAssignmentRevision ||
         a.assignmentEpoch != payload.assignmentEpoch ||
         a.intentRevision != payload.expectedIntentRevision ||
-        intent.intentRevision != payload.expectedIntentRevision ||
-        (intent.state != TimerIntentState::active &&
+        intent.intent.intentRevision != payload.expectedIntentRevision ||
+        (intent.intent.state != TimerIntentState::active &&
          !(payload.kind == NativeTimerModifyKind::toggle &&
-           intent.state == TimerIntentState::paused)) ||
+           intent.intent.state == TimerIntentState::paused)) ||
         op.expectedRevision != b.bindingRevision ||
         op.expectedResourceFingerprint != b.observedFingerprint)
         return false;
