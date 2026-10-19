@@ -109,7 +109,8 @@ for needle, label in (
     ("backendAgentNativeTimerDeleteCompleteLocalState", "typed completion"),
     ("backendAgentNativeTimerDeleteSerializeLocalState", "typed completed serialization"),
     ("nativeTimerDeleteGenericProjection", "generic outcome projection"),
-    ("createTimerDeleteResult(state, projection, evidence.completedAt)", "shared evidence timestamp projection"),
+    ("backendAgentNativeTimerDeleteResultEvidence(", "typed immutable Agent result evidence"),
+    ("createTimerDeleteResult(", "shared evidence result projection"),
     ("persist(statePath, state, reason)", "durable completed state/result write"),
 ):
     require(handler_helper, needle, label)

@@ -56,6 +56,16 @@ passed at `b6720d3ab67f86ffc055898c7ca24f568bfb1bc9`.
 PR #500 is still a Draft pending its own complete integration and merge
 gates. The live daemon's source ID is not the present PR head.
 
+### Native DELETE successor architecture guards updated (2026-10-19)
+
+Legacy Phase-64/Phase-69 source guards that universally prohibited
+productive native DELETE source are extended only for the exact named
+DELETE runtime/outcome files. The successor requires typed Agent evidence,
+the existing public DELETE preflight, shared Operation dispatch and complete
+native readback. The previous generic outcome-timestamp string check was
+upgraded to require typed persisted resultEvidence instead. Existing CREATE
+checks remain unchanged. CI is still the actual acceptance authority.
+
 ### Native Timer DELETE API-v1 admission integrated (2026-10-19; source)
 
 Public `DELETE /api/v1/native-timers/{timerId}?backendId=...`

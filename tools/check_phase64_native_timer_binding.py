@@ -205,6 +205,33 @@ if productive_successor_guard.is_file():
         "NativeTimerBindingOwnership::managed",
         "reconciliationsCompleted == 1",
     ])
+# The native DELETE successor is a distinct, provider- and revision-fenced
+# Control-Plane path. Do not loosen the old blanket prohibition: admit only
+# explicit audited DELETE source paths when the specific safety markers exist.
+delete_runtime = ROOT / "core/daemon/src/NativeTimerDeleteProductiveRuntime.cpp"
+delete_application = ROOT / "core/daemon/src/NativeTimerDeleteResultOutcomeApplication.cpp"
+delete_runtime_valid = (
+    delete_runtime.is_file() and delete_application.is_file()
+    and all(marker in delete_runtime.read_text(encoding="utf-8") for marker in [
+        "publicNativeTimerDeletePreflight(", "applyDurableNativeTimerDeleteResult(",
+        "verification.verify(", "completion.complete(",
+        "MutationOperationState::outcomeUnknown",
+        "NativeTimerDeleteAssignmentService",
+    ])
+    and all(marker in delete_application.read_text(encoding="utf-8") for marker in [
+        "backendAgentNativeTimerDeleteParseResultEvidence(",
+        "NativeTimerDeleteDispatchService", "dispatchService.applyOutcome(",
+        "NativeTimerBindingOwnership::managed",
+        "NativeTimerBindingOwnership::adopted",
+    ])
+)
+delete_runtime_paths = {
+    Path("core/daemon/include/NativeTimerDeleteProductiveRuntime.h"),
+    Path("core/daemon/src/NativeTimerDeleteProductiveRuntime.cpp"),
+    Path("core/daemon/include/NativeTimerDeleteResultOutcomeApplication.h"),
+    Path("core/daemon/src/NativeTimerDeleteResultOutcomeApplication.cpp"),
+}
+
 productive_paths = {
     Path("core/daemon/include/NativeTimerCreateProductiveRuntime.h"),
     Path("core/daemon/src/NativeTimerCreateProductiveRuntime.cpp"),
@@ -232,6 +259,12 @@ for scan_root in forbidden_roots:
                 raise SystemExit(
                     "Phase-69.C NativeTimerBinding readback wiring requires "
                     "the exact dormant readback-reconciliation successor guard")
+            continue
+        if relative in delete_runtime_paths:
+            if not delete_runtime_valid:
+                raise SystemExit(
+                    "NativeTimerBinding DELETE runtime needs its explicit "
+                    "typed-evidence and readback successor guard")
             continue
         if relative in productive_paths:
             if not productive_successor_valid:
