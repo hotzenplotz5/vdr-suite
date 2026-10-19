@@ -43,12 +43,9 @@ DAEMON_SRC := \
         core/timers/src/NativeTimerModifyOperationPreparationService.cpp \
         core/timers/src/NativeTimerModifyReadbackVerificationService.cpp \
         core/timers/src/NativeTimerModifyOperationCompletionService.cpp \
-        core/agent/src/BackendAgentNativeTimerModifyAssignment.cpp \
         core/vdr/src/RestfulApiNativeTimerModifyReadbackReader.cpp \
         core/timers/src/NativeTimerModifyOperationPayload.cpp \
         core/timers/src/NativeTimerModifyDispatchService.cpp \
-        core/agent/src/BackendAgentNativeTimerModify.cpp \
-        core/agent/src/BackendAgentNativeTimerModifyPayload.cpp \
         core/agent/src/BackendAgentNativeTimerModifyLocalState.cpp \
         core/daemon/src/NativeTimerDeleteProductiveRuntime.cpp \
         core/timers/src/NativeTimerDeleteOperationPreparationService.cpp \
