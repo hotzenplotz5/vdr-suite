@@ -8,6 +8,16 @@ Stable architecture, historical evidence and workflow rules live in their respec
 
 ## Consolidated API v1 / VIDAA Timer work (2026-10-19, hardware CREATE accepted for one bounded case)
 
+### Phase-64 Agent DELETE contract check recognizes bounded daemon consumer (2026-10-19)
+
+After three native DELETE source-manifest checks were updated, CI advanced
+to a fourth guard that still prohibited using the pure DELETE domain
+validator inside `mk/daemon-sources.mk`. The later verified daemon
+successor now qualifies as a second audited consumer **only** when
+provider-fenced Agent assignment, typed result correlation and
+complete-inventory absence readback are present. The Agent remains the
+only native executor; other source manifests are still prohibited.
+
 ### DELETE successor architecture-check fix (2026-10-19)
 
 Two CI workflows on HEAD `5e7d714` failed at the same legacy Phase-64
