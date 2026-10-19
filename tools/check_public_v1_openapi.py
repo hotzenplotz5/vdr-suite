@@ -36,6 +36,7 @@ AUDITED = {
     "/api/v1/epg/now-next": {"get": "if (path == PublicEpgNowNextPath)"},
     "/api/v1/epg/window": {"get": "if (path == PublicEpgWindowPath)"},
     "/api/v1/native-timers": {"get": "if (path == PublicNativeTimersPath)"},
+    "/api/v1/native-timers/{timerId}": {"get": "if (publicNativeTimerItemPath(path, nativeTimerId))"},
     "/api/v1/epg/timer-intents": {"post": "if (path == PublicEpgTimerIntentPath)"},
     "/api/v1/timer-assignments": {"get": "if (path == PublicTimerAssignmentCollectionPath)"},
     "/api/v1/search-timers": {"get": "if (path == PublicSearchTimerCollectionPath)", "post": "if (path == PublicSearchTimerCollectionPath)"},

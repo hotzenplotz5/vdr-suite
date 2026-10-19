@@ -56,6 +56,15 @@ passed at `b6720d3ab67f86ffc055898c7ca24f568bfb1bc9`.
 PR #500 is still a Draft pending its own complete integration and merge
 gates. The live daemon's source ID is not the present PR head.
 
+### Integration CI guard correction (2026-10-19)
+
+The new native Timer detail route is explicitly added to the audited
+partial OpenAPI GET inventory and both Phase-69 public route-literal
+classifications. Exact-head CI before this correction failed solely on
+these inventory gates in docs-check and fast-regression. The route is
+still read-only, and native DELETE remains 405. No production host,
+VIDAA identity, other branch or package was modified.
+
 ### Public-v1 native Timer detail GET wired (2026-10-19, CI pending)
 
 The existing integration branch now exposes
