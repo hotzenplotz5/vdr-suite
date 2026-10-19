@@ -3,6 +3,8 @@
 
 No enrollment, service start/restart, direct SQL, or secret output. The existing
 Agent admin --status utility performs its normal repository initialization.
+Current readiness lookup requires a same-host Control Plane database; remote
+Agent hosts fail closed until their authenticated status path is implemented.
 Called by the operator's post-enrollment setup flow, never by dpkg postinst.
 """
 import argparse
