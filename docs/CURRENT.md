@@ -56,6 +56,16 @@ passed at `b6720d3ab67f86ffc055898c7ca24f568bfb1bc9`.
 PR #500 is still a Draft pending its own complete integration and merge
 gates. The live daemon's source ID is not the present PR head.
 
+### Native DELETE absence verification now covered by successor guards (2026-10-19)
+
+The original readback expectation and verification architecture guards
+continue rejecting arbitrary runtime uses. Their only newly permitted
+consumers are the explicit daemon DELETE runner and daemon composition
+files, and only when the successor contains exact operation/Agent-result
+fences, a complete generation-fenced native inventory and a
+verification-before-completion sequence. This replaces obsolete
+"readback is always premature" assumptions without bypassing them.
+
 ### Typed DELETE executor guard follows its extracted helper (2026-10-19)
 
 The Phase-64 executor architecture check now verifies that the complete
