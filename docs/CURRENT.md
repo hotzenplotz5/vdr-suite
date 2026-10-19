@@ -56,6 +56,16 @@ passed at `b6720d3ab67f86ffc055898c7ca24f568bfb1bc9`.
 PR #500 is still a Draft pending its own complete integration and merge
 gates. The live daemon's source ID is not the present PR head.
 
+### HTTP DELETE fallback compatibility correction (2026-10-19)
+
+The public DELETE route is dispatched explicitly, but all other
+previously read-only Public-v1 resources must still report HTTP 405
+for DELETE, not fall through unhandled. The public runtime
+unsupported-method matrix is restored to the original GET/POST
+exception while the new audited DELETE handler remains separate.
+The OpenAPI drift guard now anchors on the exact DELETE dispatch
+path check, not its GET equivalent.
+
 ### Native DELETE successor architecture guards updated (2026-10-19)
 
 Legacy Phase-64/Phase-69 source guards that universally prohibited

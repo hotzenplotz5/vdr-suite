@@ -38,7 +38,7 @@ AUDITED = {
     "/api/v1/native-timers": {"get": "if (path == PublicNativeTimersPath)"},
     "/api/v1/native-timers/{timerId}": {
         "get": "if (publicNativeTimerItemPath(path, nativeTimerId))",
-        "delete": "if (publicNativeTimerItemPath(path, timerId))",
+        "delete": "if (!publicNativeTimerItemPath(path, timerId)) return false;",
     },
     "/api/v1/epg/timer-intents": {"post": "if (path == PublicEpgTimerIntentPath)"},
     "/api/v1/timer-assignments": {"get": "if (path == PublicTimerAssignmentCollectionPath)"},

@@ -11608,8 +11608,7 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
     ApiResponse& response) const
 {
     if (method == "GET" ||
-        method == "POST" ||
-        method == "DELETE")
+        method == "POST")
     {
         return false;
     }
