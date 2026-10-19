@@ -1983,6 +1983,17 @@ HttpServerResponse TestHttpServer::handleRequest(
                     "X-VDR-Suite-Pairing-Token"));
         }
     }
+    else if (request.method == "DELETE")
+    {
+        apiResponse = apiRouter_.handleClientDelete(
+            request.path,
+            gate.context.actor.actorId,
+            gate.context.requestId,
+            gate.context.correlationId,
+            requestHeaderValue(request, "If-Match"),
+            requestHeaderValue(request, "Idempotency-Key"),
+            gate.authorizationDecision.backendId);
+    }
     else
     {
         apiResponse =

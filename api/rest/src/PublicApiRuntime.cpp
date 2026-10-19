@@ -11464,6 +11464,142 @@ bool PublicApiRuntime::tryHandlePost(
     return false;
 }
 
+void PublicApiRuntime::registerNativeTimerDeleteAdmission(
+    NativeTimerDeleteAdmission admission)
+{
+    std::lock_guard<std::mutex> lock(nativeTimerDeleteMutex_);
+    nativeTimerDeleteAdmission_ = std::move(admission);
+}
+
+void PublicApiRuntime::resetNativeTimerDeleteAdmission()
+{
+    std::lock_guard<std::mutex> lock(nativeTimerDeleteMutex_);
+    nativeTimerDeleteAdmission_ = {};
+}
+
+bool PublicApiRuntime::tryHandleDelete(
+    const std::string& requestTarget,
+    const std::string& actorRef,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::string& ifMatch,
+    const std::string& idempotencyKey,
+    const std::string& authorizedBackendId,
+    ApiResponse& response) const
+{
+    const std::string path = requestPath(requestTarget);
+    std::string timerId;
+    if (!publicNativeTimerItemPath(path, timerId)) return false;
+    if (actorRef.empty())
+    {
+        response = unauthorizedProblem(path, requestId, correlationId);
+        return true;
+    }
+    if (authorizedBackendId.empty() ||
+        requestTarget != path + "?backendId=" + authorizedBackendId)
+    {
+        response = invalidRequestProblem(path,
+            "Exactly one authorized backendId is required.",
+            requestId, correlationId);
+        return true;
+    }
+    if (ifMatch.empty())
+    {
+        response = problemResponse(428, "precondition_required",
+            "Precondition required", "Native Timer DELETE requires If-Match.",
+            path, requestId, correlationId);
+        return true;
+    }
+    std::string revision;
+    if (!vdrsuite::http::publicStrongEntityTagResourceRevision(
+            ifMatch, revision) ||
+        revision.compare(0U, 23U, "native-timer-binding/1:") != 0)
+    {
+        response = invalidRequestProblem(path,
+            "DELETE requires the strong native Timer binding ETag.",
+            requestId, correlationId);
+        return true;
+    }
+    if (!publicIdempotencyKeyValid(idempotencyKey))
+    {
+        response = invalidRequestProblem(path,
+            "DELETE requires a valid Idempotency-Key.",
+            requestId, correlationId);
+        return true;
+    }
+
+    NativeTimerDeleteAdmission admission;
+    {
+        std::lock_guard<std::mutex> lock(nativeTimerDeleteMutex_);
+        admission = nativeTimerDeleteAdmission_;
+    }
+    if (!admission)
+    {
+        response = serviceUnavailableProblem(path, requestId, correlationId);
+        return true;
+    }
+    PublicNativeTimerDeleteRequest request;
+    request.actorRef = actorRef;
+    request.backendId = authorizedBackendId;
+    request.timerId = timerId;
+    request.expectedResourceRevision = revision;
+    request.idempotencyKey = idempotencyKey;
+
+    const auto result = admission(request);
+    switch (result.status)
+    {
+        case PublicNativeTimerDeleteStatus::accepted:
+        case PublicNativeTimerDeleteStatus::replayed:
+        {
+            if (result.operation.operationId.empty() ||
+                result.operation.backendId != authorizedBackendId ||
+                result.operation.resourceRevision.empty())
+            {
+                response = serviceUnavailableProblem(path, requestId, correlationId);
+                return true;
+            }
+            const std::string location =
+                std::string(PublicOperationPrefix) + result.operation.operationId;
+            response = publicOperationResponse(
+                result.operation, location, requestId, correlationId, "");
+            response.statusCode = 202;
+            response.headers["Location"] = location;
+            return true;
+        }
+        case PublicNativeTimerDeleteStatus::invalid:
+            response = invalidRequestProblem(
+                path, "Invalid Timer DELETE admission.", requestId, correlationId);
+            return true;
+        case PublicNativeTimerDeleteStatus::notFound:
+            response = notFoundProblem(path, requestId, correlationId);
+            return true;
+        case PublicNativeTimerDeleteStatus::revisionConflict:
+            response = problemResponse(412, "revision_conflict",
+                "Resource revision conflict", "Native Timer changed after GET.",
+                path, requestId, correlationId);
+            return true;
+        case PublicNativeTimerDeleteStatus::adoptionRequired:
+            response = problemResponse(409, "adoption_required",
+                "Explicit adoption required",
+                "Externally owned native Timer cannot be deleted without adoption.",
+                path, requestId, correlationId);
+            return true;
+        case PublicNativeTimerDeleteStatus::stateConflict:
+        case PublicNativeTimerDeleteStatus::idempotencyConflict:
+            response = problemResponse(409, "operation_conflict",
+                "Operation conflict",
+                "Native Timer DELETE state or idempotency conflicts.",
+                path, requestId, correlationId);
+            return true;
+        case PublicNativeTimerDeleteStatus::backendUnavailable:
+        case PublicNativeTimerDeleteStatus::serviceUnavailable:
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+    }
+    response = serviceUnavailableProblem(path, requestId, correlationId);
+    return true;
+}
+
 bool PublicApiRuntime::tryHandleUnsupportedMethod(
     const std::string& method,
     const std::string& requestTarget,
@@ -11472,7 +11608,8 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
     ApiResponse& response) const
 {
     if (method == "GET" ||
-        method == "POST")
+        method == "POST" ||
+        method == "DELETE")
     {
         return false;
     }

@@ -485,6 +485,23 @@ struct PublicNativeTimerDetailResult
     std::string resourceRevision; // Empty for unbound, never a guessed ETag.
 };
 
+enum class PublicNativeTimerDeleteStatus {
+    accepted, replayed, invalid, notFound, revisionConflict,
+    adoptionRequired, stateConflict, idempotencyConflict,
+    backendUnavailable, serviceUnavailable
+};
+struct PublicNativeTimerDeleteRequest {
+    std::string actorRef;
+    std::string backendId;
+    std::string timerId;
+    std::string expectedResourceRevision;
+    std::string idempotencyKey;
+};
+struct PublicNativeTimerDeleteResult {
+    PublicNativeTimerDeleteStatus status = PublicNativeTimerDeleteStatus::serviceUnavailable;
+    PublicOperationResource operation;
+};
+
 enum class PublicBackendCollectionStatus
 {
     ok,
@@ -1203,6 +1220,8 @@ public:
 
     using NativeTimerDetailLookup = std::function<PublicNativeTimerDetailResult(
         const PublicNativeTimerDetailRequest&)>;
+    using NativeTimerDeleteAdmission = std::function<PublicNativeTimerDeleteResult(
+        const PublicNativeTimerDeleteRequest&)>;
     using BackendCollectionLookup =
         std::function<PublicBackendCollectionResult(
             const PublicBackendCollectionRequest& request)>;
@@ -1404,6 +1423,18 @@ public:
     void resetNativeTimerDetailLookup();
     PublicNativeTimerDetailResult lookupNativeTimerDetail(
         const PublicNativeTimerDetailRequest& request) const;
+
+    void registerNativeTimerDeleteAdmission(NativeTimerDeleteAdmission admit);
+    void resetNativeTimerDeleteAdmission();
+    bool tryHandleDelete(
+        const std::string& requestTarget,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::string& ifMatch,
+        const std::string& idempotencyKey,
+        const std::string& authorizedBackendId,
+        ApiResponse& response) const;
 
     void registerBackendCollectionLookup(
         BackendCollectionLookup lookup);
@@ -1612,6 +1643,8 @@ private:
 
     mutable std::mutex nativeTimerDetailMutex_;
     NativeTimerDetailLookup nativeTimerDetailLookup_;
+    mutable std::mutex nativeTimerDeleteMutex_;
+    NativeTimerDeleteAdmission nativeTimerDeleteAdmission_;
     mutable std::mutex backendCollectionLookupMutex_;
     BackendCollectionLookup backendCollectionLookup_;
 

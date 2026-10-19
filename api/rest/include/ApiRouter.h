@@ -359,6 +359,24 @@ public:
         return handleGet(requestTarget);
     }
 
+    ApiResponse handleClientDelete(
+        const std::string& target,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::string& ifMatch,
+        const std::string& idempotencyKey,
+        const std::string& backendId)
+    {
+        ApiResponse response;
+        if (PublicApiRuntime::instance().tryHandleDelete(
+                target, actorRef, requestId, correlationId,
+                ifMatch, idempotencyKey, backendId, response))
+            return response;
+        return handleClientUnsupportedMethod(
+            "DELETE", target, requestId, correlationId);
+    }
+
     ApiResponse handleClientUnsupportedMethod(
         const std::string& method,
         const std::string& requestTarget,
