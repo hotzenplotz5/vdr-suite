@@ -8,6 +8,18 @@ Stable architecture, historical evidence and workflow rules live in their respec
 
 ## Consolidated API v1 / VIDAA Timer work (2026-10-19, hardware CREATE accepted for one bounded case)
 
+### Native Timer DELETE expiry regression (2026-10-19)
+
+The follow-on fast-regression failure at
+`test_backend_agent_timer_delete_fresh_durable_starting.cpp:292`
+was caused by the new typed-result StateStore check: a command
+rejected after its deadline **before dispatch** correctly has no
+native starting extension. The StateStore now accepts that one exact
+expired, effect-free result without a typed native outcome, while
+every started DELETE still requires verified canonical evidence.
+The regression also confirms persisted reload and rejects a changed
+outcome category.
+
 ### Agent DELETE result replay persistence corrected (2026-10-19)
 
 Current-head Fast Regression and Recording-R2 builds both failed at

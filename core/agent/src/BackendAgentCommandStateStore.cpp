@@ -197,6 +197,26 @@ std::string boolText(bool value)
     return value ? "1" : "0";
 }
 
+// The sole DELETE result which has no native execution evidence is a
+// deadline rejection written before any durable starting marker existed.
+bool deleteExpiredBeforeDispatch(const LocalState& state)
+{
+    const auto& result = state.result;
+    return state.resultPresent &&
+        state.receiptAcknowledged &&
+        !state.stateExtensionPresent &&
+        state.dispatchState == "not_started" &&
+        result.dispatchState == "not_started" &&
+        result.verificationState == "outcome_unknown" &&
+        result.resultCategory == "rejected" &&
+        result.errorCategory == "expired" &&
+        result.retryClassification == "none" &&
+        result.boundedDiagnostics ==
+            "command deadline expired before native dispatch" &&
+        result.resultEvidence.empty() &&
+        result.completedAt >= state.assignment.deadline;
+}
+
 }
 
 bool retireProtectedState(const std::string& path, std::string& reason)
@@ -388,6 +408,16 @@ bool load(const std::string& path, LocalState& state, std::string& reason)
         else if (assignment.commandType ==
             kBackendAgentNativeTimerDeleteCommandType)
         {
+            if (!state.stateExtensionPresent)
+            {
+                if (!deleteExpiredBeforeDispatch(state))
+                {
+                    reason = "command_state_invalid_delete_result_evidence";
+                    return false;
+                }
+            }
+            else
+            {
             BackendAgentNativeTimerDeleteLocalState deleteState;
             if (!state.stateExtensionPresent ||
                 !backendAgentNativeTimerDeleteParseLocalState(
@@ -405,6 +435,7 @@ bool load(const std::string& path, LocalState& state, std::string& reason)
             {
                 reason = "command_state_invalid_delete_result_evidence";
                 return false;
+            }
             }
         }
         if (!backendAgentCommandValidResult(result))
@@ -471,6 +502,16 @@ bool persist(const std::string& path, const LocalState& state, std::string& reas
     else if (state.resultPresent &&
         assignment.commandType == kBackendAgentNativeTimerDeleteCommandType)
     {
+        if (!state.stateExtensionPresent)
+        {
+            if (!deleteExpiredBeforeDispatch(state))
+            {
+                reason = "command_state_invalid_delete_result_evidence";
+                return false;
+            }
+        }
+        else
+        {
         BackendAgentNativeTimerDeleteLocalState deleteState;
         if (!state.stateExtensionPresent ||
             !backendAgentNativeTimerDeleteParseLocalState(
@@ -489,6 +530,7 @@ bool persist(const std::string& path, const LocalState& state, std::string& reas
         {
             reason = "command_state_delete_result_evidence_conflict";
             return false;
+        }
         }
     }
 
