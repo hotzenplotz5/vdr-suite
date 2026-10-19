@@ -69,6 +69,8 @@ int main()
     assert(unbound.body.find("binding_required") != std::string::npos);
     assert(get(uri, tag).statusCode == 400);
     ApiResponse denied;
-    assert(api.tryHandleUnsupportedMethod("DELETE", uri, "req", "corr", denied));
-    assert(denied.statusCode == 405);
+    assert(!api.tryHandleUnsupportedMethod("DELETE", uri, "req", "corr", denied));
+    assert(api.tryHandleDelete(uri, "viewer", "req", "corr", "", "",
+        "backend-one", denied));
+    assert(denied.statusCode == 428);
 }

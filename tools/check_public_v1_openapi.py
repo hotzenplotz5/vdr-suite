@@ -36,7 +36,10 @@ AUDITED = {
     "/api/v1/epg/now-next": {"get": "if (path == PublicEpgNowNextPath)"},
     "/api/v1/epg/window": {"get": "if (path == PublicEpgWindowPath)"},
     "/api/v1/native-timers": {"get": "if (path == PublicNativeTimersPath)"},
-    "/api/v1/native-timers/{timerId}": {"get": "if (publicNativeTimerItemPath(path, nativeTimerId))"},
+    "/api/v1/native-timers/{timerId}": {
+        "get": "if (publicNativeTimerItemPath(path, nativeTimerId))",
+        "delete": "if (publicNativeTimerItemPath(path, timerId))",
+    },
     "/api/v1/epg/timer-intents": {"post": "if (path == PublicEpgTimerIntentPath)"},
     "/api/v1/timer-assignments": {"get": "if (path == PublicTimerAssignmentCollectionPath)"},
     "/api/v1/search-timers": {"get": "if (path == PublicSearchTimerCollectionPath)", "post": "if (path == PublicSearchTimerCollectionPath)"},
@@ -157,6 +160,7 @@ NO_ACTOR = {
 }
 
 IF_MATCH = {
+    ("delete", "/api/v1/native-timers/{timerId}"),
     ("post", "/api/v1/epg/timer-intents"),
     ("post", "/api/v1/timer-assignments/{timerAssignmentId}"),
     ("post", "/api/v1/accounts/{accountId}"),
@@ -171,6 +175,7 @@ IF_MATCH = {
 }
 
 IDEMPOTENCY = {
+    ("delete", "/api/v1/native-timers/{timerId}"),
     ("post", "/api/v1/epg/timer-intents"),
     ("post", "/api/v1/search-timers"),
     ("post", "/api/v1/accounts"),
@@ -196,13 +201,15 @@ def _handler_sections(source: str) -> dict[str, str]:
     bounds = [
         source.find("bool PublicApiRuntime::tryHandleGet("),
         source.find("bool PublicApiRuntime::tryHandlePost("),
+        source.find("bool PublicApiRuntime::tryHandleDelete("),
         source.find("bool PublicApiRuntime::tryHandleUnsupportedMethod("),
     ]
-    if any(i < 0 for i in bounds) or not bounds[0] < bounds[1] < bounds[2]:
+    if any(i < 0 for i in bounds) or not bounds[0] < bounds[1] < bounds[2] < bounds[3]:
         return {}
     return {
         "get": " ".join(source[bounds[0]:bounds[1]].split()),
         "post": " ".join(source[bounds[1]:bounds[2]].split()),
+        "delete": " ".join(source[bounds[2]:bounds[3]].split()),
     }
 
 

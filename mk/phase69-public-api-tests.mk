@@ -25,6 +25,16 @@ test-public-v1-native-timer-detail:
 
 test-fast: test-public-v1-native-timer-detail
 
+.PHONY: test-public-v1-native-timer-delete
+test-public-v1-native-timer-delete:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		api/rest/src/PublicApiRuntime.cpp \
+		api/rest/tests/test_public_native_timer_delete.cpp \
+		-o $(BUILD_DIR)/test_public_native_timer_delete
+	$(BUILD_DIR)/test_public_native_timer_delete
+
+test-fast: test-public-v1-native-timer-delete
+
 .PHONY: test-phase69-public-epg-timer-intent-draft
 
 test-phase69-public-epg-timer-intent-draft:

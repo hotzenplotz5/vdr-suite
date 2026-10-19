@@ -56,6 +56,21 @@ passed at `b6720d3ab67f86ffc055898c7ca24f568bfb1bc9`.
 PR #500 is still a Draft pending its own complete integration and merge
 gates. The live daemon's source ID is not the present PR head.
 
+### Native Timer DELETE API-v1 admission integrated (2026-10-19; source)
+
+Public `DELETE /api/v1/native-timers/{timerId}?backendId=...`
+now enters the existing Agent/ADR-0042 pipeline. The HTTP listener routes
+DELETE with strong `If-Match`, `Idempotency-Key`, and the exact backend
+scope admitted by the SecurityHttpGate. Only a verified Device credential
+with exact `timers.delete@backend` is authorized. Admission requires
+the existing bound TimerAssignment and NativeTimerBinding, current snapshot
+fingerprint, generation, active Agent lease and fresh observation, then
+reserves an idempotent `timer.delete` operation. External and unbound
+Timers remain nondeletable until explicit adoption. OpenAPI now audits
+the public method and its headers; the focused runtime test enters
+`test-fast`. Native absence, not command acceptance, defines success.
+Hardware tests and CI confirmation remain outstanding.
+
 ### Native DELETE productive daemon pipeline linked (2026-10-19; source)
 
 The existing daemon polling loop now discovers accepted DELETE operations,

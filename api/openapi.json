@@ -7856,7 +7856,7 @@
         ],
         "operationId": "getPublicNativeVdrTimerDetail",
         "summary": "Read an exact native VDR Timer with a conditional binding ETag",
-        "description": "Read-only snapshot-backed Timer resource, including Timers created outside VDR-Suite. Requires exact backend timers.view. A strong ETag is sent only if a durable binding, current agent backend generation and the full canonical observed native Timer fingerprint agree. Unbound native Timers have no ETag or write precondition. A bound externally owned Timer has an ETag for conditional reads but requires separate explicit adoption before DELETE. An ETag is not operation authorization or a lease. Native DELETE is not yet implemented.",
+        "description": "Read-only snapshot-backed Timer resource, including Timers created outside VDR-Suite. Requires exact backend timers.view. A strong ETag is sent only if a durable binding, current agent backend generation and the full canonical observed native Timer fingerprint agree. Unbound native Timers have no ETag or write precondition. A bound externally owned Timer has an ETag for conditional reads but requires separate explicit adoption before DELETE. An ETag is not operation authorization or a lease. Device-authorized native DELETE is a separate mutation with required strong If-Match and Idempotency-Key; external adoption remains unavailable.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "timers.view@backendId; exact backend scope"
@@ -7996,10 +7996,108 @@
             "description": "Native Timer not found in current backend snapshot"
           },
           "405": {
-            "description": "DELETE, PATCH and other mutation methods not implemented"
+            "description": "PATCH and unimplemented mutations are not supported"
           },
           "503": {
             "description": "Snapshot, backend, binding or generation not verifiable"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "TimerAssignments"
+        ],
+        "operationId": "deletePublicNativeVdrTimer",
+        "summary": "Delete a verified managed VDR native Timer asynchronously",
+        "description": "Exact backend-scoped Device-only timers.delete mutation. Requires a matching strong ETag from GET and a unique Idempotency-Key. Reserves an ADR-0042 timer.delete operation, dispatched once through the current backend Agent and provider-fenced SuiteBridge. Completion requires a full native Timer absence inventory; uncertain outcomes are reconciled, never blindly retried. Externally owned and unbound Timers are refused pending explicit adoption. Only managed/adopted TimerAssignments with an exact durable Binding are eligible.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Device credential required, exact timers.delete@backendId grant and audited protected mutation"
+        },
+        "parameters": [
+          {
+            "name": "timerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "description": "Exactly one canonical strong GET ETag of the verified native Timer Binding",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "One per logical native Timer DELETE, replayable to the same operation",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted or exact replay of durable timer.delete operation",
+            "headers": {
+              "Location": {
+                "description": "Read-only operation resource",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, ETag, backend scope or idempotency token"
+          },
+          "401": {
+            "description": "Missing or invalid authentication"
+          },
+          "403": {
+            "description": "No verified Device credential or exact timers.delete grant"
+          },
+          "404": {
+            "description": "Target Binding not found"
+          },
+          "409": {
+            "description": "Externally owned Timer requires adoption, stale state, or idempotency conflict"
+          },
+          "412": {
+            "description": "Strong If-Match Binding revision mismatch"
+          },
+          "428": {
+            "description": "Required strong If-Match absent"
+          },
+          "503": {
+            "description": "Backend, provider, snapshot, operation storage or Agent unavailable"
           }
         }
       }
