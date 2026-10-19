@@ -1,5 +1,6 @@
 #include "BackendAgentCommandStateStore.h"
 #include "BackendAgentNativeTimerDeleteLocalState.h"
+#include "BackendAgentNativeTimerModifyLocalState.h"
 
 #include <algorithm>
 #include <cerrno>
@@ -438,6 +439,40 @@ bool load(const std::string& path, LocalState& state, std::string& reason)
             }
             }
         }
+        else if (assignment.commandType ==
+                vdrsuite::agent::kBackendAgentNativeTimerUpdateCommandType ||
+            assignment.commandType ==
+                vdrsuite::agent::kBackendAgentNativeTimerToggleCommandType)
+        {
+            if (!state.stateExtensionPresent)
+            {
+                if (!deleteExpiredBeforeDispatch(state))
+                {
+                    reason = "command_state_invalid_modify_result_evidence";
+                    return false;
+                }
+            }
+            else
+            {
+                vdrsuite::agent::BackendAgentNativeTimerModifyLocalState modifyState;
+                if (!vdrsuite::agent::backendAgentNativeTimerModifyParseLocalState(
+                        state.stateExtension.payload, modifyState, reason) ||
+                    modifyState.phase !=
+                        vdrsuite::agent::BackendAgentNativeTimerModifyLocalPhase::completed)
+                {
+                    reason = "command_state_invalid_modify_result_evidence";
+                    return false;
+                }
+                result.resultEvidence =
+                    vdrsuite::agent::backendAgentNativeTimerModifyResultEvidence(
+                        modifyState.evidence, assignment, reason);
+                if (result.resultEvidence.empty())
+                {
+                    reason = "command_state_invalid_modify_result_evidence";
+                    return false;
+                }
+            }
+        }
         if (!backendAgentCommandValidResult(result))
         {
             reason = "command_state_invalid_result";
@@ -531,6 +566,42 @@ bool persist(const std::string& path, const LocalState& state, std::string& reas
             reason = "command_state_delete_result_evidence_conflict";
             return false;
         }
+        }
+    }
+
+    else if (state.resultPresent &&
+        (assignment.commandType ==
+            vdrsuite::agent::kBackendAgentNativeTimerUpdateCommandType ||
+         assignment.commandType ==
+            vdrsuite::agent::kBackendAgentNativeTimerToggleCommandType))
+    {
+        if (!state.stateExtensionPresent)
+        {
+            if (!deleteExpiredBeforeDispatch(state))
+            {
+                reason = "command_state_invalid_modify_result_evidence";
+                return false;
+            }
+        }
+        else
+        {
+            vdrsuite::agent::BackendAgentNativeTimerModifyLocalState modifyState;
+            if (!vdrsuite::agent::backendAgentNativeTimerModifyParseLocalState(
+                    state.stateExtension.payload, modifyState, reason) ||
+                modifyState.phase !=
+                    vdrsuite::agent::BackendAgentNativeTimerModifyLocalPhase::completed)
+            {
+                reason = "command_state_invalid_modify_result_evidence";
+                return false;
+            }
+            const auto expected =
+                vdrsuite::agent::backendAgentNativeTimerModifyResultEvidence(
+                    modifyState.evidence, assignment, reason);
+            if (expected.empty() || result.resultEvidence != expected)
+            {
+                reason = "command_state_modify_result_evidence_conflict";
+                return false;
+            }
         }
     }
 

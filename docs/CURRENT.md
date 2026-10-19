@@ -8,6 +8,17 @@ Stable architecture, historical evidence and workflow rules live in their respec
 
 ## Consolidated API v1 / VIDAA Timer work (2026-10-19, hardware CREATE accepted for one bounded case)
 
+### MODIFY Agent typed result wired to durable StateStore (2026-10-19)
+
+Native UPDATE and TOGGLE now persist their canonical typed result
+evidence through `BackendAgentCommandStateStore` on successful execution,
+unknown outcomes and subsequent restart/replay. The Agent compares the
+reconstructed result to the exact durable local MODIFY extension before
+resending, and rejects evidence conflicts. The same narrowly defined
+expired-before-dispatch exception applies to MODIFY operations, but no
+operation that might have reached the VDR may omit typed evidence.
+No public mutation or real hardware modification was invoked.
+
 ### Timer MODIFY native result evidence (2026-10-19)
 
 Native UPDATE and TOGGLE now have a canonical, bound, length-safe Agent
