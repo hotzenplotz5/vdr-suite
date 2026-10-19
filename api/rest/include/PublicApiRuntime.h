@@ -469,6 +469,22 @@ struct PublicNativeTimersResult
     bool hasMore = false;
 };
 
+enum class PublicNativeTimerDetailStatus { ok, notFound, unavailable };
+struct PublicNativeTimerDetailRequest
+{
+    std::string backendId;
+    std::string timerId;
+};
+struct PublicNativeTimerDetailResult
+{
+    PublicNativeTimerDetailStatus status = PublicNativeTimerDetailStatus::unavailable;
+    PublicNativeTimerItem timer;
+    std::string backendId;
+    std::string ownership = "unbound";
+    std::string bindingState = "binding_required";
+    std::string resourceRevision; // Empty for unbound, never a guessed ETag.
+};
+
 enum class PublicBackendCollectionStatus
 {
     ok,
@@ -1185,6 +1201,8 @@ public:
         std::function<PublicNativeTimersResult(
             const PublicNativeTimersRequest& request)>;
 
+    using NativeTimerDetailLookup = std::function<PublicNativeTimerDetailResult(
+        const PublicNativeTimerDetailRequest&)>;
     using BackendCollectionLookup =
         std::function<PublicBackendCollectionResult(
             const PublicBackendCollectionRequest& request)>;
@@ -1381,6 +1399,11 @@ public:
     bool nativeTimersLookupConfigured() const;
     PublicNativeTimersResult lookupNativeTimers(
         const PublicNativeTimersRequest& request) const;
+
+    void registerNativeTimerDetailLookup(NativeTimerDetailLookup callback);
+    void resetNativeTimerDetailLookup();
+    PublicNativeTimerDetailResult lookupNativeTimerDetail(
+        const PublicNativeTimerDetailRequest& request) const;
 
     void registerBackendCollectionLookup(
         BackendCollectionLookup lookup);
@@ -1587,6 +1610,8 @@ private:
     mutable std::mutex nativeTimersLookupMutex_;
     NativeTimersLookup nativeTimersLookup_;
 
+    mutable std::mutex nativeTimerDetailMutex_;
+    NativeTimerDetailLookup nativeTimerDetailLookup_;
     mutable std::mutex backendCollectionLookupMutex_;
     BackendCollectionLookup backendCollectionLookup_;
 

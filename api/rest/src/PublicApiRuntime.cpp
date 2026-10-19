@@ -107,6 +107,7 @@ constexpr const char* PublicGenreRecordingPath = "/api/v1/genres/recordings";
 constexpr const char* PublicEpgGenrePath = "/api/v1/genres/epg";
 constexpr const char* PublicEpgGenreEventsPath = "/api/v1/genres/epg/events";
 constexpr std::size_t PublicGenreMaximumLimit = 30U;
+constexpr const char* PublicNativeTimerPrefix = "/api/v1/native-timers/";
 constexpr const char* PublicChannelCollectionPath =
     "/api/v1/channels";
 constexpr const char* PublicEpgEventDetailPath = "/api/v1/epg/event";
@@ -147,6 +148,18 @@ bool publicDevicePairingPath(
     pairingRequestId = path.substr(prefix.size());
     return !pairingRequestId.empty() &&
         pairingRequestId.find('/') == std::string::npos;
+}
+
+bool publicNativeTimerItemPath(const std::string& path, std::string& id)
+{
+    const std::string prefix(PublicNativeTimerPrefix);
+    if (path.compare(0U, prefix.size(), prefix) != 0) return false;
+    id = path.substr(prefix.size());
+    return !id.empty() && id.size() <= 160U &&
+        std::all_of(id.begin(), id.end(), [](unsigned char c) {
+            return std::isalnum(c) || c == ':' || c == '.' ||
+                c == '-' || c == '_';
+        });
 }
 
 bool publicOperationPath(
@@ -6063,6 +6076,29 @@ PublicNativeTimersResult PublicApiRuntime::lookupNativeTimers(
     return lookup ? lookup(request) : PublicNativeTimersResult{};
 }
 
+void PublicApiRuntime::registerNativeTimerDetailLookup(NativeTimerDetailLookup cb)
+{
+    std::lock_guard<std::mutex> lock(nativeTimerDetailMutex_);
+    nativeTimerDetailLookup_ = std::move(cb);
+}
+
+void PublicApiRuntime::resetNativeTimerDetailLookup()
+{
+    std::lock_guard<std::mutex> lock(nativeTimerDetailMutex_);
+    nativeTimerDetailLookup_ = {};
+}
+
+PublicNativeTimerDetailResult PublicApiRuntime::lookupNativeTimerDetail(
+    const PublicNativeTimerDetailRequest& request) const
+{
+    NativeTimerDetailLookup cb;
+    {
+        std::lock_guard<std::mutex> lock(nativeTimerDetailMutex_);
+        cb = nativeTimerDetailLookup_;
+    }
+    return cb ? cb(request) : PublicNativeTimerDetailResult{};
+}
+
 void PublicApiRuntime::registerChannelCollectionLookup(
     ChannelCollectionLookup lookup)
 {
@@ -7842,6 +7878,100 @@ bool PublicApiRuntime::tryHandleGet(
                     path, requestId, correlationId);
                 return true;
         }
+    }
+
+    std::string nativeTimerId;
+    if (publicNativeTimerItemPath(path, nativeTimerId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (authorizedBackendIds.size() != 1U ||
+            requestQueryString(requestTarget) !=
+                "backendId=" + authorizedBackendIds.front())
+        {
+            response = invalidRequestProblem(path,
+                "Exactly one authorized backendId required.",
+                requestId, correlationId);
+            return true;
+        }
+
+        const auto found = lookupNativeTimerDetail(
+            {authorizedBackendIds.front(), nativeTimerId});
+        if (found.status == PublicNativeTimerDetailStatus::notFound)
+        {
+            response = notFoundProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (found.status != PublicNativeTimerDetailStatus::ok ||
+            found.backendId != authorizedBackendIds.front() ||
+            found.timer.id != nativeTimerId ||
+            found.timer.channelId.size() > 512U ||
+            found.timer.title.size() > 2048U ||
+            found.resourceRevision.size() > 512U ||
+            (found.ownership != "unbound" && found.ownership != "managed" &&
+             found.ownership != "adopted" && found.ownership != "external") ||
+            (found.bindingState != "binding_required" &&
+             found.bindingState != "verified" &&
+             found.bindingState != "adoption_required") ||
+            (found.resourceRevision.empty() !=
+                (found.bindingState == "binding_required")))
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        const std::string tag = found.resourceRevision.empty()
+            ? std::string()
+            : vdrsuite::http::publicStrongEntityTag(found.resourceRevision);
+        if (!ifNoneMatch.empty())
+        {
+            if (tag.empty())
+            {
+                response = invalidRequestProblem(path,
+                    "Unbound Timer has no ETag.", requestId, correlationId);
+                return true;
+            }
+            const auto condition =
+                vdrsuite::http::publicEvaluateIfNoneMatch(ifNoneMatch, tag);
+            if (condition ==
+                vdrsuite::http::PublicEntityTagConditionResult::malformed)
+            {
+                response = invalidRequestProblem(path,
+                    "Invalid If-None-Match.", requestId, correlationId);
+                return true;
+            }
+            if (condition ==
+                vdrsuite::http::PublicEntityTagConditionResult::matched)
+            {
+                response.statusCode = 304;
+                response.contentType = "application/json; charset=utf-8";
+                addPublicSuccessHeaders(response, requestId, correlationId);
+                response.headers["ETag"] = tag;
+                return true;
+            }
+        }
+        const auto& t = found.timer;
+        response = jsonResponse(
+            "{\"backendId\":\"" + jsonEscape(found.backendId) +
+            "\",\"timerId\":\"" + jsonEscape(t.id) +
+            "\",\"channelId\":\"" + jsonEscape(t.channelId) +
+            "\",\"channelName\":\"" + jsonEscape(t.channelName) +
+            "\",\"title\":\"" + jsonEscape(t.title) +
+            "\",\"day\":\"" + jsonEscape(t.day) +
+            "\",\"weekdays\":\"" + jsonEscape(t.weekdays) +
+            "\",\"startTime\":\"" + jsonEscape(t.startTime) +
+            "\",\"endTime\":\"" + jsonEscape(t.endTime) +
+            "\",\"enabled\":" + (t.enabled ? "true" : "false") +
+            ",\"recording\":" + (t.recording ? "true" : "false") +
+            ",\"pending\":" + (t.pending ? "true" : "false") +
+            ",\"ownership\":\"" + jsonEscape(found.ownership) +
+            "\",\"bindingState\":\"" + jsonEscape(found.bindingState) +
+            "\",\"links\":{\"self\":\"" + jsonEscape(requestTarget) + "\"}}",
+            requestId, correlationId);
+        if (!tag.empty()) response.headers["ETag"] = tag;
+        return true;
     }
 
     if (path == PublicNativeTimersPath)
@@ -11316,6 +11446,7 @@ bool PublicApiRuntime::tryHandlePost(
         path == PublicEpgEventDetailPath ||
         path == PublicEpgWindowPath ||
         path == PublicNativeTimersPath ||
+        publicNativeTimerItemPath(path, timerAssignmentId) ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         path == PublicSearchTimerCollectionPath ||
@@ -11480,6 +11611,7 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
         path == PublicEpgTimerIntentPath ||
         path == PublicEpgWindowPath ||
         path == PublicNativeTimersPath ||
+        publicNativeTimerItemPath(path, timerAssignmentId) ||
         path == PublicChannelCollectionPath ||
         path == PublicTimerAssignmentCollectionPath ||
         path == PublicSearchTimerCollectionPath ||
