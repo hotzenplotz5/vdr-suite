@@ -1,4 +1,23 @@
-# Public-v1 EPG → TimerIntent admission: verified gap and first guard
+# Public-v1 EPG → TimerIntent admission: historical first guard
+
+> **Status update, 2026-10-19:** The following implementation diary is an
+> **earlier Slice-1 / source-only checkpoint**, not the current API availability.
+> The integrated source on `work/public-v1-vidaa-unified-20261018` registers
+> `EpgTimerIntentSubmit`. A real yaVDR with VDR 2.8.3 / SuiteBridge 0.14.1,
+> running Suite daemon `git-f7e341ad6b97`, accepted a paired Device's
+> `POST /api/v1/epg/timer-intents` (HTTP 202) for *Tagesschau* on
+> 2026-10-20 20:00–20:15 and reported the durable Operation
+> `op_d9589fb8b43b7d91ac4309423a2fc372` as `succeeded`, with exactly
+> one new native VDR Timer confirmed by readback (`TEST_RESULT=PASS`).
+> The first live 503 was due to an inactive Agent/stale provider state;
+> after controlled start, the required lease/clock/preview evidence was fresh.
+> The Agent's **boot autostart is still disabled**. The actual recording,
+> reboot/reconciliation, ambiguous outcomes, multi-backend and Hisense
+> behavior remain **unaccepted**. Do not replay historic Agent commands.
+> See [current contract](../../api/epg-timer-intents.md) and
+> [current operational state](../CURRENT.md) for the bounded evidence.
+> All statements below saying *no submit registered*, *no real CREATE* or
+> *always 503* describe only this earlier source checkpoint.
 
 Status: **CONTRACT FOUNDATION ONLY**. Dependent on draft VIDAA EPG identity
 PR #491, source head `35bf9a0ebcce8ef9954c966a594c98e04bfa7f7d`.
