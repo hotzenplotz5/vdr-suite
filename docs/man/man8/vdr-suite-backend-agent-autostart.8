@@ -21,7 +21,10 @@ The verification uses the existing local
 .B vdr-suite-backend-agent-admin --status
 command, not direct SQL. The status utility still performs its own normal
 repository/schema initialization; this is not a database migration step.
-Any missing, stale or unexpected fact fails closed.
+Any missing, stale or unexpected fact fails closed. This helper currently targets
+a same-host Control Plane and Agent: a remote Agent with no local Control
+Plane status database must not bypass the guard. Remote activation requires
+a separately reviewed remote readiness integration.
 .PP
 .B --enable
 requires root and the same successful preflight immediately before enabling
