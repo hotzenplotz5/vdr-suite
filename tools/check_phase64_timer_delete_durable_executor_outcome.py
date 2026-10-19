@@ -109,11 +109,23 @@ for needle, label in (
     ("backendAgentNativeTimerDeleteCompleteLocalState", "typed completion"),
     ("backendAgentNativeTimerDeleteSerializeLocalState", "typed completed serialization"),
     ("nativeTimerDeleteGenericProjection", "generic outcome projection"),
-    ("backendAgentNativeTimerDeleteResultEvidence(", "typed immutable Agent result evidence"),
     ("createTimerDeleteResult(", "shared evidence result projection"),
     ("persist(statePath, state, reason)", "durable completed state/result write"),
 ):
     require(handler_helper, needle, label)
+# Result encoding is implemented in the dedicated projection helper
+# immediately before the fresh-execution function, so audit the entire
+# handler for typed evidence rather than only the fresh-execution tail.
+require(
+    timer_delete_handler,
+    "backendAgentNativeTimerDeleteResultEvidence(",
+    "typed immutable Agent result evidence",
+)
+require(
+    timer_delete_handler,
+    "result.resultEvidence =",
+    "durable typed Agent command result field",
+)
 if handler_helper.count("backendAgentNativeTimerDeleteExecuteFreshStartingOnce(") != 1:
     raise SystemExit("Slice 33 completion handler must invoke executor exactly once")
 for token in (

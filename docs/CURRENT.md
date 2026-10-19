@@ -56,6 +56,14 @@ passed at `b6720d3ab67f86ffc055898c7ca24f568bfb1bc9`.
 PR #500 is still a Draft pending its own complete integration and merge
 gates. The live daemon's source ID is not the present PR head.
 
+### Typed DELETE executor guard follows its extracted helper (2026-10-19)
+
+The Phase-64 executor architecture check now verifies that the complete
+dedicated Agent handler persists typed result evidence, instead of
+erroneously searching only the fresh-execution subroutine tail for a
+projection helper defined before that subroutine. The one-shot executor
+and receipt/durability fences are unchanged.
+
 ### Native DELETE capability lifecycle fixed (2026-10-19)
 
 The Phase-64 `ensureNativeTimerDeleteAssignmentSchema` previously
