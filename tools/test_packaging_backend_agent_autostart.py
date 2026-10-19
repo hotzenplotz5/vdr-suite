@@ -98,7 +98,7 @@ class AutostartTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             identity = Path(tmp) / "identity"
             enrollment = Path(tmp) / "enrollment"
-            identity.write_text("agent_id=agt_existing\\nbackend_id=default\\ncredential_secret=fixture-only\\n".replace("\\n", "\n"))
+            identity.write_text("agent_id=agt_existing\nbackend_id=default\ncredential_secret=fixture-only\n")
             os.chmod(identity, 0o600)
             with patch.object(subject.pwd, "getpwnam",
                               return_value=Mock(pw_uid=os.stat(identity).st_uid)):
