@@ -8,6 +8,17 @@ Stable architecture, historical evidence and workflow rules live in their respec
 
 ## Consolidated API v1 / VIDAA Timer work (2026-10-19, hardware CREATE accepted for one bounded case)
 
+### MODIFY durable Control-Plane operation outcomes (2026-10-19)
+
+The Daemon has a typed UPDATE/TOGGLE Agent-result bridge, based on the
+existing Phase-64 `NativeTimerModifyDispatchService`. It validates the
+Agent command envelope, persisted starting/dispatch times, complete
+operation payload, target specification, binding identity and provider
+generation before advancing a shared `MutationOperation`. This bridge
+does **not** by itself mark a Timer modified: the target native Timer must
+still be observed and verified by the separate MODIFY readback stage.
+Polling and public HTTP MODIFY admission are not wired yet.
+
 ### MODIFY Agent typed result wired to durable StateStore (2026-10-19)
 
 Native UPDATE and TOGGLE now persist their canonical typed result
