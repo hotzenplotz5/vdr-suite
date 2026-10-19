@@ -8,6 +8,20 @@ Stable architecture, historical evidence and workflow rules live in their respec
 
 ## Consolidated API v1 / VIDAA Timer work (2026-10-19, hardware CREATE accepted for one bounded case)
 
+### Agent DELETE result replay persistence corrected (2026-10-19)
+
+Current-head Fast Regression and Recording-R2 builds both failed at
+`test_backend_agent_timer_delete_durable_executor_outcome.cpp:342`:
+fresh DELETE wrote canonical `resultEvidence`, but the Version-3
+`BackendAgentCommandStateStore::load` reconstructed that field only
+for native CREATE and left the DELETE field empty. The subsequent
+reconcile therefore (correctly) rejected the generic result as conflicting
+with its immutable local evidence. DELETE now reconstructs the typed
+result from the completed, validated local extension on reload and
+checks the exact canonical equality before persisting, mirroring
+CREATE's existing guarantee. Focused replay regression asserts
+reload stability and rejects tampered evidence without rerunning VDR.
+
 ### Phase-64 Agent DELETE contract check recognizes bounded daemon consumer (2026-10-19)
 
 After three native DELETE source-manifest checks were updated, CI advanced

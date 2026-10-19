@@ -1,4 +1,5 @@
 #include "BackendAgentCommandStateStore.h"
+#include "BackendAgentNativeTimerDeleteLocalState.h"
 
 #include <algorithm>
 #include <cerrno>
@@ -384,6 +385,28 @@ bool load(const std::string& path, LocalState& state, std::string& reason)
                 return false;
             }
         }
+        else if (assignment.commandType ==
+            kBackendAgentNativeTimerDeleteCommandType)
+        {
+            BackendAgentNativeTimerDeleteLocalState deleteState;
+            if (!state.stateExtensionPresent ||
+                !backendAgentNativeTimerDeleteParseLocalState(
+                    state.stateExtension.payload, deleteState, reason) ||
+                deleteState.phase !=
+                    BackendAgentNativeTimerDeleteLocalPhase::completed)
+            {
+                reason = "command_state_invalid_delete_result_evidence";
+                return false;
+            }
+            result.resultEvidence =
+                backendAgentNativeTimerDeleteResultEvidence(
+                    deleteState.evidence, assignment, reason);
+            if (result.resultEvidence.empty())
+            {
+                reason = "command_state_invalid_delete_result_evidence";
+                return false;
+            }
+        }
         if (!backendAgentCommandValidResult(result))
         {
             reason = "command_state_invalid_result";
@@ -442,6 +465,29 @@ bool persist(const std::string& path, const LocalState& state, std::string& reas
             result.resultEvidence != expectedEvidence)
         {
             reason = "command_state_create_result_evidence_conflict";
+            return false;
+        }
+    }
+    else if (state.resultPresent &&
+        assignment.commandType == kBackendAgentNativeTimerDeleteCommandType)
+    {
+        BackendAgentNativeTimerDeleteLocalState deleteState;
+        if (!state.stateExtensionPresent ||
+            !backendAgentNativeTimerDeleteParseLocalState(
+                state.stateExtension.payload, deleteState, reason) ||
+            deleteState.phase !=
+                BackendAgentNativeTimerDeleteLocalPhase::completed)
+        {
+            reason = "command_state_invalid_delete_result_evidence";
+            return false;
+        }
+        const std::string expectedEvidence =
+            backendAgentNativeTimerDeleteResultEvidence(
+                deleteState.evidence, assignment, reason);
+        if (expectedEvidence.empty() ||
+            result.resultEvidence != expectedEvidence)
+        {
+            reason = "command_state_delete_result_evidence_conflict";
             return false;
         }
     }
