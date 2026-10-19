@@ -8,6 +8,21 @@ Stable architecture, historical evidence and workflow rules live in their respec
 
 ## Consolidated API v1 / VIDAA Timer work (2026-10-19, hardware CREATE accepted for one bounded case)
 
+### DELETE successor architecture-check fix (2026-10-19)
+
+Two CI workflows on HEAD `5e7d714` failed at the same legacy Phase-64
+`NativeTimerDeleteOperationCompletionService.cpp` source-manifest
+prohibition. Slice-21/22/23 audit scripts now admit only the actual
+`mk/daemon-sources.mk` successor if it simultaneously links preparation,
+dispatch, completion, typed Agent outcome handling and the bounded DELETE
+runner with existing exact-binding preflight, provider fences and
+native-inventory absence verification. No unrelated manifest, operation,
+API or direct VDR mutation is allowed. The fix addresses the identified
+CI root cause; subsequent CI must still prove C++ build and the
+protected public DELETE regression.
+
+
+
 **Active integration is the existing backend branch** `work/public-v1-vidaa-unified-20261018`, open Draft [PR #500](https://github.com/hotzenplotz5/vdr-suite/pull/500), **not** the earlier standalone Slice-2 branch named in the historical sections below. The independent client source branch is `work/vidaa-epg-timer-operation-readback-20261017`. Do not create successor branches, merge this draft to `main`, or deploy on yaVDR without the usual separate gates.
 
 ### Real public-v1 one-shot Timer CREATE acceptance (2026-10-19; current evidence)
