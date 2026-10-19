@@ -3,7 +3,7 @@ name: Recording R2 Candidate
 on:
   push:
     branches:
-      - work/vidaa-recording-r2-public-identity
+      - work/public-v1-vidaa-unified-20261018
 
 permissions:
   contents: read
