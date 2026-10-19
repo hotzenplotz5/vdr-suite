@@ -56,6 +56,19 @@ passed at `b6720d3ab67f86ffc055898c7ca24f568bfb1bc9`.
 PR #500 is still a Draft pending its own complete integration and merge
 gates. The live daemon's source ID is not the present PR head.
 
+### Public-v1 native Timer DELETE source preflight (2026-10-19)
+
+The source-only preflight checks exact backend and native Timer identity,
+backend generation, binding revision, canonical observed-state fingerprint,
+server-required observation freshness, missing/drift and recording state.
+Externally created Timers fail closed with adoptionRequired until an
+explicit, authorized adoption/TimerAssignment relationship exists.
+This is a read-only guard and test-fast regression, not yet an HTTP DELETE
+endpoint, installed feature or hardware acceptance. Public ETag/If-Match,
+timers.delete authorization, idempotency, Agent dispatch, native readback and
+OpenAPI integration remain pending. See
+[Public Native Timer DELETE preflight](development/public-v1-native-timer-delete-preflight.md).
+
 ### Agent autostart packaging handoff and next Timer v1 gates (2026-10-19)
 
 On the existing integration branch, the experimental `vdr-suite-backend-agent`
