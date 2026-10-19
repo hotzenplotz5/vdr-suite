@@ -14,6 +14,17 @@ test-public-epg-timer-intent-admission:
 
 test-phase: test-public-epg-timer-intent-admission
 
+.PHONY: test-public-v1-native-timer-detail
+test-public-v1-native-timer-detail:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		api/rest/src/PublicApiRuntime.cpp \
+		api/rest/tests/test_public_native_timer_detail.cpp \
+		-o $(BUILD_DIR)/test_public_native_timer_detail
+	$(BUILD_DIR)/test_public_native_timer_detail
+	$(CXX) $(CXXFLAGS) -fsyntax-only core/daemon/src/DaemonRuntimeInitialization.cpp
+
+test-fast: test-public-v1-native-timer-detail
+
 .PHONY: test-phase69-public-epg-timer-intent-draft
 
 test-phase69-public-epg-timer-intent-draft:

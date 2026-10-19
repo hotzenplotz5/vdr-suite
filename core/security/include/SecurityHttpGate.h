@@ -730,9 +730,16 @@ public:
             path == "/api/v1/epg/window" ||
             path == "/api/v1/epg/event" ||
             path == "/api/v1/search/epg";
+        const std::string nativeTimerItemPrefix = "/api/v1/native-timers/";
+        const bool isPublicNativeTimerItem =
+            path.compare(0U, nativeTimerItemPrefix.size(),
+                nativeTimerItemPrefix) == 0 &&
+            path.size() > nativeTimerItemPrefix.size() &&
+            path.find('/', nativeTimerItemPrefix.size()) ==
+                std::string::npos;
         const bool isPublicNativeTimerRead =
             request.method == "GET" &&
-            path == "/api/v1/native-timers";
+            (path == "/api/v1/native-timers" || isPublicNativeTimerItem);
         const bool isPublicDeviceEventRead =
             request.method == "GET" && path == "/api/v1/events";
         const bool isPublicEpgNowNextRead =
@@ -859,6 +866,7 @@ public:
              isPublicChannelCollection ||
              isPublicEpgNowNext ||
              path == "/api/v1/native-timers" ||
+             isPublicNativeTimerItem ||
              path == "/api/v1/events" ||
              isPublicTimerAssignmentCollection ||
              (path == publicSearchTimerCollection &&

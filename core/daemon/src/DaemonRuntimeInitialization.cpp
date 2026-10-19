@@ -30,6 +30,8 @@
 #include "TestHttpServer.h"
 #include "VdrRecordingCacheRepository.h"
 #include "VdrRecordingNativePersonSearchService.h"
+#include "NativeTimerPublicDetailRevision.h"
+#include "NativeTimerBindingRepository.h"
 
 #include <algorithm>
 #include <chrono>
@@ -2180,6 +2182,97 @@ bool DaemonRuntime::initialize()
                 result.timers.push_back(std::move(item));
             }
             result.status = PublicNativeTimersStatus::ok;
+            return result;
+        });
+
+    PublicApiRuntime::instance().registerNativeTimerDetailLookup(
+        [this](const PublicNativeTimerDetailRequest& request)
+        {
+            using S = PublicNativeTimerDetailStatus;
+            using P = vdrsuite::timers::NativeTimerPublicDetailRevisionStatus;
+            PublicNativeTimerDetailResult result;
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                !nativeTimerBindingRepository_ || !backendAgentRepository_)
+                return result;
+
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend || !backend->enabled || !backend->online ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(request.backendId))
+                return result;
+            const auto agent =
+                backendAgentRepository_->findAgentForBackend(request.backendId);
+            if (!agent || agent->revoked || agent->incompatible ||
+                agent->backendGeneration == 0U)
+                return result;
+
+            const auto timers =
+                vdrSnapshotReadService_->getTimersForBackend(request.backendId);
+            const auto sameId = [&request](const VdrTimer& timer) {
+                return timer.id == request.timerId;
+            };
+            const auto timer = std::find_if(timers.begin(), timers.end(), sameId);
+            if (timer == timers.end())
+            {
+                result.status = S::notFound;
+                return result;
+            }
+            // A duplicated native index is not unique mutation identity.
+            if (std::count_if(timers.begin(), timers.end(), sameId) != 1)
+                return result;
+
+            const auto binding = nativeTimerBindingRepository_
+                ->findByBackendNativeTimer(request.backendId, request.timerId);
+            const vdrsuite::timers::NativeTimerBinding* current = nullptr;
+            if (binding.status ==
+                vdrsuite::timers::NativeTimerBindingRepositoryStatus::ok)
+                current = &binding.binding;
+            else if (binding.status !=
+                vdrsuite::timers::NativeTimerBindingRepositoryStatus::notFound)
+                return result;
+
+            const auto revision =
+                vdrsuite::timers::nativeTimerPublicDetailRevision(
+                    request.backendId, agent->backendGeneration, *timer, current);
+            if (revision.status == P::unsafeEvidence)
+                return result;
+
+            result.backendId = request.backendId;
+            result.timer.id = timer->id;
+            result.timer.channelId = timer->channelId;
+            result.timer.channelName = timer->channelName;
+            result.timer.title = timer->title;
+            result.timer.day = timer->day;
+            result.timer.weekdays = timer->weekdays;
+            result.timer.startTime = timer->startTime;
+            result.timer.endTime = timer->endTime;
+            result.timer.enabled = timer->enabled;
+            result.timer.recording = timer->recording;
+            result.timer.pending = timer->pending;
+            result.resourceRevision = revision.resourceRevision;
+
+            switch (revision.status)
+            {
+                case P::verifiedManaged:
+                    result.ownership = "managed";
+                    result.bindingState = "verified";
+                    break;
+                case P::verifiedAdopted:
+                    result.ownership = "adopted";
+                    result.bindingState = "verified";
+                    break;
+                case P::adoptionRequired:
+                    result.ownership = "external";
+                    result.bindingState = "adoption_required";
+                    break;
+                case P::unboundReadOnly:
+                    result.ownership = "unbound";
+                    result.bindingState = "binding_required";
+                    break;
+                case P::unsafeEvidence:
+                    return PublicNativeTimerDetailResult{};
+            }
+            result.status = S::ok;
             return result;
         });
 
