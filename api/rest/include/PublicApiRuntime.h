@@ -1,6 +1,7 @@
 #pragma once
 
 #include "EpgTimerSelectionGuard.h"
+#include "NativeTimerModifyOperationPayload.h"
 
 #include "DashboardController.h"
 
@@ -499,6 +500,26 @@ struct PublicNativeTimerDeleteRequest {
 };
 struct PublicNativeTimerDeleteResult {
     PublicNativeTimerDeleteStatus status = PublicNativeTimerDeleteStatus::serviceUnavailable;
+    PublicOperationResource operation;
+};
+
+enum class PublicNativeTimerModifyStatus {
+    accepted, replayed, invalid, notFound, revisionConflict,
+    adoptionRequired, stateConflict, idempotencyConflict,
+    backendUnavailable, serviceUnavailable
+};
+struct PublicNativeTimerModifyRequest {
+    std::string actorRef;
+    std::string backendId;
+    std::string timerId;
+    std::string expectedResourceRevision;
+    std::string idempotencyKey;
+    vdrsuite::timers::NativeTimerModifyKind kind =
+        vdrsuite::timers::NativeTimerModifyKind::update;
+    vdrsuite::timers::NativeTimerSpecification specification;
+};
+struct PublicNativeTimerModifyResult {
+    PublicNativeTimerModifyStatus status = PublicNativeTimerModifyStatus::serviceUnavailable;
     PublicOperationResource operation;
 };
 
@@ -1222,6 +1243,8 @@ public:
         const PublicNativeTimerDetailRequest&)>;
     using NativeTimerDeleteAdmission = std::function<PublicNativeTimerDeleteResult(
         const PublicNativeTimerDeleteRequest&)>;
+    using NativeTimerModifyAdmission = std::function<PublicNativeTimerModifyResult(
+        const PublicNativeTimerModifyRequest&)>;
     using BackendCollectionLookup =
         std::function<PublicBackendCollectionResult(
             const PublicBackendCollectionRequest& request)>;
@@ -1424,6 +1447,8 @@ public:
     PublicNativeTimerDetailResult lookupNativeTimerDetail(
         const PublicNativeTimerDetailRequest& request) const;
 
+    void registerNativeTimerModifyAdmission(NativeTimerModifyAdmission admit);
+    void resetNativeTimerModifyAdmission();
     void registerNativeTimerDeleteAdmission(NativeTimerDeleteAdmission admit);
     void resetNativeTimerDeleteAdmission();
     bool tryHandleDelete(
@@ -1645,6 +1670,8 @@ private:
     NativeTimerDetailLookup nativeTimerDetailLookup_;
     mutable std::mutex nativeTimerDeleteMutex_;
     NativeTimerDeleteAdmission nativeTimerDeleteAdmission_;
+    mutable std::mutex nativeTimerModifyMutex_;
+    NativeTimerModifyAdmission nativeTimerModifyAdmission_;
     mutable std::mutex backendCollectionLookupMutex_;
     BackendCollectionLookup backendCollectionLookup_;
 

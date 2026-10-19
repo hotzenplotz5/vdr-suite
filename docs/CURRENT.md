@@ -8,6 +8,19 @@ Stable architecture, historical evidence and workflow rules live in their respec
 
 ## Consolidated API v1 / VIDAA Timer work (2026-10-19, hardware CREATE accepted for one bounded case)
 
+### Public native Timer modification HTTP request contract (2026-10-19)
+
+A bounded asynchronous `POST /api/v1/native-timers/{timerId}/modifications?backendId=...`
+now exists at PublicApiRuntime source level. The strict JSON body is
+either `{"kind":"toggle","enabled":false}` / `true`, or
+`{"kind":"update",...full native Timer specification...}` with
+exactly 11 specified fields. The route requires exact backend, strong
+`If-Match`, `Idempotency-Key`, valid JSON Content-Type and a
+registered durable operation-admission callback. Unknown/duplicate
+keys, partial field updates and unsafe native command strings are
+rejected. Device authorization and the Daemon admission callback must
+be joined before MODIFY becomes accessible in production.
+
 ### Explicit Device grants for timer MODIFY/DELETE (2026-10-19)
 
 The Device-grant administration allowlist previously supported

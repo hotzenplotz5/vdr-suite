@@ -162,6 +162,17 @@ bool publicNativeTimerItemPath(const std::string& path, std::string& id)
         });
 }
 
+bool publicNativeTimerModificationPath(
+    const std::string& path, std::string& id)
+{
+    const std::string suffix("/modifications");
+    if (path.size() <= suffix.size() ||
+        path.compare(path.size() - suffix.size(), suffix.size(), suffix) != 0)
+        return false;
+    return publicNativeTimerItemPath(
+        path.substr(0U, path.size() - suffix.size()), id);
+}
+
 bool publicOperationPath(
     const std::string& path,
     std::string& operationId)
@@ -2658,6 +2669,99 @@ bool parsePublicEpgTimerIntentBody(const std::string& body,
         vdrsuite::public_epg_timer::boundedId(selection.backendId, 128U) &&
         vdrsuite::public_epg_timer::boundedId(selection.channelId, 160U) &&
         vdrsuite::public_epg_timer::boundedId(selection.eventId, 160U);
+}
+
+// Exact JSON object, no unknown/duplicate keys and no arbitrary native
+// flags or SVDRP command content. Full update is explicit; a toggle only
+// accepts {"kind":"toggle","enabled":false} (or true).
+bool parsePublicNativeTimerModifyBody(
+    const std::string& body,
+    vdrsuite::timers::NativeTimerModifyKind& kind,
+    vdrsuite::timers::NativeTimerSpecification& spec)
+{
+    if (body.empty() || body.size() > 4096U) return false;
+    std::size_t pos = 0U;
+    std::vector<std::string> seen;
+    std::string kindName;
+    skipAccountMutationWhitespace(body, pos);
+    if (pos >= body.size() || body[pos++] != '{') return false;
+    for (;;)
+    {
+        skipAccountMutationWhitespace(body, pos);
+        if (pos < body.size() && body[pos] == '}')
+        {
+            ++pos;
+            break;
+        }
+        std::string key;
+        if (!parseAccountMutationJsonString(body, pos, key) ||
+            std::find(seen.begin(), seen.end(), key) != seen.end())
+            return false;
+        seen.push_back(key);
+        skipAccountMutationWhitespace(body, pos);
+        if (pos >= body.size() || body[pos++] != ':') return false;
+        skipAccountMutationWhitespace(body, pos);
+        if (key == "kind" || key == "channelId" || key == "title" ||
+            key == "directory" || key == "day" || key == "weekdays" ||
+            key == "startTime" || key == "endTime")
+        {
+            std::string value;
+            if (!parseAccountMutationJsonString(body, pos, value)) return false;
+            if (key == "kind") kindName = std::move(value);
+            else if (key == "channelId") spec.channelId = std::move(value);
+            else if (key == "title") spec.title = std::move(value);
+            else if (key == "directory") spec.directory = std::move(value);
+            else if (key == "day") spec.day = std::move(value);
+            else if (key == "weekdays") spec.weekdays = std::move(value);
+            else if (key == "startTime") spec.startTime = std::move(value);
+            else spec.endTime = std::move(value);
+        }
+        else if (key == "enabled" || key == "vps")
+        {
+            bool value = false;
+            if (consumeAccountMutationLiteral(body, pos, "true"))
+                value = true;
+            else if (consumeAccountMutationLiteral(body, pos, "false"))
+                value = false;
+            else return false;
+            if (key == "enabled") spec.enabled = value;
+            else spec.vps = value;
+        }
+        else if (key == "priority" || key == "lifetime")
+        {
+            int value = 0;
+            const std::size_t first = pos;
+            while (pos < body.size() && body[pos] >= '0' &&
+                body[pos] <= '9' && pos - first < 3U)
+                value = value * 10 + (body[pos++] - '0');
+            if (first == pos || pos - first > 2U || value > 99)
+                return false;
+            if (key == "priority") spec.priority = value;
+            else spec.lifetime = value;
+        }
+        else return false;
+        skipAccountMutationWhitespace(body, pos);
+        if (pos < body.size() && body[pos] == ',')
+        {
+            ++pos;
+            continue;
+        }
+        if (pos >= body.size() || body[pos++] != '}') return false;
+        break;
+    }
+    skipAccountMutationWhitespace(body, pos);
+    if (pos != body.size()) return false;
+    if (kindName == "toggle")
+    {
+        kind = vdrsuite::timers::NativeTimerModifyKind::toggle;
+        return seen.size() == 2U &&
+            std::find(seen.begin(), seen.end(), "enabled") != seen.end();
+    }
+    if (kindName != "update" || seen.size() != 12U ||
+        !vdrsuite::timers::nativeTimerSpecificationValid(spec))
+        return false;
+    kind = vdrsuite::timers::NativeTimerModifyKind::update;
+    return true;
 }
 
 bool parsePublicSearchTimerCreateBody(
@@ -8937,6 +9041,126 @@ bool PublicApiRuntime::tryHandlePost(
     std::string sessionId;
     std::string pairingRequestId;
 
+    std::string modifiedTimerId;
+    if (publicNativeTimerModificationPath(path, modifiedTimerId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (authorizedBackendId.empty() ||
+            requestTarget != path + "?backendId=" + authorizedBackendId)
+        {
+            response = invalidRequestProblem(
+                path, "Exactly one authorized backendId required.",
+                requestId, correlationId);
+            return true;
+        }
+        if (!publicJsonContentType(contentType))
+        {
+            response = problemResponse(415, "unsupported_media_type",
+                "Unsupported media type", "Expected application/json.",
+                path, requestId, correlationId);
+            return true;
+        }
+        if (ifMatch.empty())
+        {
+            response = problemResponse(428, "precondition_required",
+                "Precondition required", "MODIFY requires If-Match.",
+                path, requestId, correlationId);
+            return true;
+        }
+        std::string revision;
+        if (!vdrsuite::http::publicStrongEntityTagResourceRevision(
+                ifMatch, revision) ||
+            revision.compare(0U, 23U, "native-timer-binding/1:") != 0 ||
+            !publicIdempotencyKeyValid(idempotencyKey))
+        {
+            response = invalidRequestProblem(path,
+                "Strong native Timer ETag and Idempotency-Key required.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicNativeTimerModifyRequest request;
+        request.actorRef = actorRef;
+        request.backendId = authorizedBackendId;
+        request.timerId = modifiedTimerId;
+        request.expectedResourceRevision = revision;
+        request.idempotencyKey = idempotencyKey;
+        if (!parsePublicNativeTimerModifyBody(
+                body, request.kind, request.specification))
+        {
+            response = invalidRequestProblem(path,
+                "Invalid native Timer modification.", requestId, correlationId);
+            return true;
+        }
+        NativeTimerModifyAdmission handler;
+        {
+            std::lock_guard<std::mutex> lock(nativeTimerModifyMutex_);
+            handler = nativeTimerModifyAdmission_;
+        }
+        if (!handler)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        const auto saved = handler(request);
+        switch (saved.status)
+        {
+            case PublicNativeTimerModifyStatus::accepted:
+            case PublicNativeTimerModifyStatus::replayed:
+            {
+                if (saved.operation.operationId.empty() ||
+                    saved.operation.backendId != authorizedBackendId ||
+                    saved.operation.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(path, requestId, correlationId);
+                    return true;
+                }
+                const std::string location =
+                    std::string(PublicOperationPrefix) + saved.operation.operationId;
+                response = publicOperationResponse(
+                    saved.operation, location, requestId, correlationId, "");
+                response.statusCode = 202;
+                response.headers["Location"] = location;
+                return true;
+            }
+            case PublicNativeTimerModifyStatus::invalid:
+                response = invalidRequestProblem(
+                    path, "Invalid MODIFY admission.", requestId, correlationId);
+                return true;
+            case PublicNativeTimerModifyStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicNativeTimerModifyStatus::revisionConflict:
+                response = problemResponse(412, "revision_conflict",
+                    "Resource revision conflict",
+                    "Native Timer changed after GET.",
+                    path, requestId, correlationId);
+                return true;
+            case PublicNativeTimerModifyStatus::adoptionRequired:
+                response = problemResponse(409, "adoption_required",
+                    "Explicit adoption required",
+                    "Externally owned Timer cannot be modified without adoption.",
+                    path, requestId, correlationId);
+                return true;
+            case PublicNativeTimerModifyStatus::idempotencyConflict:
+            case PublicNativeTimerModifyStatus::stateConflict:
+                response = problemResponse(409, "operation_conflict",
+                    "Operation conflict",
+                    "Native Timer MODIFY state or idempotency conflicts.",
+                    path, requestId, correlationId);
+                return true;
+            case PublicNativeTimerModifyStatus::backendUnavailable:
+            case PublicNativeTimerModifyStatus::serviceUnavailable:
+                response = serviceUnavailableProblem(path, requestId, correlationId);
+                return true;
+        }
+        response = serviceUnavailableProblem(path, requestId, correlationId);
+        return true;
+    }
+
     const std::string issueSuffix = "/credential";
     const std::string pairingPrefix(PublicDevicePairingPrefix);
     if (path.compare(0U, pairingPrefix.size(), pairingPrefix) == 0 &&
@@ -11462,6 +11686,19 @@ bool PublicApiRuntime::tryHandlePost(
     }
 
     return false;
+}
+
+void PublicApiRuntime::registerNativeTimerModifyAdmission(
+    NativeTimerModifyAdmission admission)
+{
+    std::lock_guard<std::mutex> lock(nativeTimerModifyMutex_);
+    nativeTimerModifyAdmission_ = std::move(admission);
+}
+
+void PublicApiRuntime::resetNativeTimerModifyAdmission()
+{
+    std::lock_guard<std::mutex> lock(nativeTimerModifyMutex_);
+    nativeTimerModifyAdmission_ = {};
 }
 
 void PublicApiRuntime::registerNativeTimerDeleteAdmission(
