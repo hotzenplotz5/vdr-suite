@@ -9057,7 +9057,7 @@ bool PublicApiRuntime::tryHandlePost(
                 requestId, correlationId);
             return true;
         }
-        if (!publicJsonContentType(contentType))
+        if (!applicationJsonContentType(contentType))
         {
             response = problemResponse(415, "unsupported_media_type",
                 "Unsupported media type", "Expected application/json.",
