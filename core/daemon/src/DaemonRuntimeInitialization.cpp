@@ -10,6 +10,10 @@
 
 #include "BackendAgentNativeTimerDeleteFingerprint.h"
 #include "NativeTimerDeleteDispatchService.h"
+#include "NativeTimerDeleteOperationPreparationService.h"
+#include "NativeTimerDeletePublicPreflight.h"
+#include "NativeTimerPublicDetailRevision.h"
+#include "MutationOperationIdentity.h"
 #include "NativeTimerAbsenceReadbackVerificationService.h"
 #include "NativeTimerDeleteOperationCompletionService.h"
 #include "BackendAgentNativeTimerDeleteAssignment.h"
@@ -2198,6 +2202,238 @@ bool DaemonRuntime::initialize()
                 result.timers.push_back(std::move(item));
             }
             result.status = PublicNativeTimersStatus::ok;
+            return result;
+        });
+
+    // Public Device DELETE admission only reserves a durable ADR-0042
+    // operation. Native side effects remain in the agent/productive runner.
+    PublicApiRuntime::instance().registerNativeTimerDeleteAdmission(
+        [this](const PublicNativeTimerDeleteRequest& request)
+        {
+            using namespace vdrsuite::timers;
+            using namespace vdrsuite::operations;
+            using S = PublicNativeTimerDeleteStatus;
+            PublicNativeTimerDeleteResult result;
+            if (!backendRegistryService_ || !backendAccessPolicy_ ||
+                !backendAgentRepository_ || !nativeTimerBindingRepository_ ||
+                !timerAssignmentRepository_ || !mutationOperationRepository_ ||
+                !vdrSnapshotReadService_ ||
+                request.actorRef.empty() || request.backendId.empty() ||
+                request.timerId.empty())
+                return result;
+
+            const auto access = backendAccessPolicy_->canWriteToBackend(
+                *backendRegistryService_, request.backendId);
+            if (!access.allowed)
+            {
+                result.status = S::backendUnavailable;
+                return result;
+            }
+
+            const auto binding = nativeTimerBindingRepository_
+                ->findByBackendNativeTimer(request.backendId, request.timerId);
+            if (binding.status == NativeTimerBindingRepositoryStatus::notFound)
+            {
+                result.status = S::notFound;
+                return result;
+            }
+            if (!binding.ok())
+                return result;
+            const auto& durable = binding.binding;
+
+            // The resource ETag must come from this durable binding and
+            // generation, not from a mutable VDR list index.
+            const std::string revision =
+                "native-timer-binding/1:" + durable.nativeTimerBindingId +
+                ":" + std::to_string(durable.backendGeneration) +
+                ":" + durable.bindingRevision;
+            if (request.expectedResourceRevision != revision)
+            {
+                result.status = S::revisionConflict;
+                return result;
+            }
+
+            // Idempotent replay does not issue another delete even after a
+            // verified absence or a process restart. Never reuse a key with
+            // mismatched native resource, actor, revision or generation.
+            const auto existing = mutationOperationRepository_
+                ->findByIdempotencyScope(
+                    request.actorRef, request.backendId,
+                    "NativeTimerBinding", durable.nativeTimerBindingId,
+                    "timer.delete", request.idempotencyKey);
+            if (existing.status == MutationOperationRepositoryStatus::ok)
+            {
+                const auto& op = existing.operation;
+                if (op.actorId != request.actorRef ||
+                    op.backendId != request.backendId ||
+                    op.backendGeneration != durable.backendGeneration ||
+                    op.expectedRevision != durable.bindingRevision ||
+                    op.resourceId != durable.nativeTimerBindingId ||
+                    op.expectedResourceFingerprint != durable.observedFingerprint)
+                {
+                    result.status = S::idempotencyConflict;
+                    return result;
+                }
+                result.operation = {
+                    op.operationId, mutationOperationStateName(op.state),
+                    op.backendId, op.operationRevision};
+                result.status = S::replayed;
+                return result;
+            }
+            if (existing.status != MutationOperationRepositoryStatus::notFound)
+                return result;
+
+            if (durable.ownership == NativeTimerBindingOwnership::external)
+            {
+                result.status = S::adoptionRequired;
+                return result;
+            }
+            if (durable.ownership != NativeTimerBindingOwnership::managed &&
+                durable.ownership != NativeTimerBindingOwnership::adopted)
+            {
+                result.status = S::stateConflict;
+                return result;
+            }
+
+            const auto ownership = timerAssignmentRepository_
+                ->findById(durable.timerAssignmentId);
+            if (!ownership.ok() ||
+                ownership.assignment.timerAssignmentId != durable.timerAssignmentId ||
+                ownership.assignment.nativeTimerBindingId != durable.nativeTimerBindingId ||
+                ownership.assignment.backendId != request.backendId ||
+                ownership.assignment.backendGeneration != durable.backendGeneration ||
+                ownership.assignment.state != TimerAssignmentState::bound)
+            {
+                result.status = S::stateConflict;
+                return result;
+            }
+            const auto agent = backendAgentRepository_
+                ->findAgentForBackend(request.backendId);
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            if (!agent || agent->revoked || agent->incompatible ||
+                agent->backendGeneration != durable.backendGeneration ||
+                agent->leaseExpiresAt < now ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(request.backendId))
+            {
+                result.status = S::backendUnavailable;
+                return result;
+            }
+
+            const auto timers =
+                vdrSnapshotReadService_->getTimersForBackend(request.backendId);
+            const auto same = [&request](const VdrTimer& timer) {
+                return timer.id == request.timerId;
+            };
+            const auto timer = std::find_if(timers.begin(), timers.end(), same);
+            if (timer == timers.end() ||
+                std::count_if(timers.begin(), timers.end(), same) != 1)
+            {
+                result.status = S::stateConflict;
+                return result;
+            }
+            const auto verified = nativeTimerPublicDetailRevision(
+                request.backendId, agent->backendGeneration, *timer, &durable);
+            if ((verified.status !=
+                    NativeTimerPublicDetailRevisionStatus::verifiedManaged &&
+                 verified.status !=
+                    NativeTimerPublicDetailRevisionStatus::verifiedAdopted) ||
+                verified.resourceRevision != request.expectedResourceRevision)
+            {
+                result.status = S::stateConflict;
+                return result;
+            }
+
+            PublicNativeTimerDeletePreflightRequest preflight;
+            preflight.nativeTimerBindingId = durable.nativeTimerBindingId;
+            preflight.backendId = request.backendId;
+            preflight.expectedBackendGeneration = durable.backendGeneration;
+            preflight.backendNativeTimerId = request.timerId;
+            preflight.expectedBindingRevision = durable.bindingRevision;
+            preflight.expectedObservedFingerprint = durable.observedFingerprint;
+            preflight.observedNotBefore = std::max<std::int64_t>(1, now - 300);
+            if (publicNativeTimerDeletePreflight(preflight, durable) !=
+                PublicNativeTimerDeletePreflightStatus::eligible)
+            {
+                result.status = S::stateConflict;
+                return result;
+            }
+
+            const std::string nativeDigest =
+                vdrsuite::agent::backendAgentNativeTimerDeleteFingerprintToken(
+                    durable.observedFingerprint);
+            if (nativeDigest.empty())
+                return result;
+
+            NativeTimerDeleteOperationPreparationRequest candidate;
+            candidate.operationId = generateMutationOperationId();
+            candidate.idempotencyKey = request.idempotencyKey;
+            candidate.actorId = request.actorRef;
+            candidate.requestFingerprint =
+                "native-delete/1:" + durable.nativeTimerBindingId +
+                ":" + durable.bindingRevision + ":" + nativeDigest;
+            candidate.nativeTimerBindingId = durable.nativeTimerBindingId;
+            candidate.expectedBindingRevision = durable.bindingRevision;
+            candidate.expectedBackendGeneration = durable.backendGeneration;
+            candidate.requestedAt = now;
+            candidate.deadline = now + 3600;
+
+            NativeTimerDeleteOperationPreparationService prepare(
+                *mutationOperationRepository_, *nativeTimerBindingRepository_);
+            const auto stored = prepare.prepare(candidate);
+            switch (stored.status)
+            {
+                case NativeTimerDeleteOperationPreparationStatus::prepared:
+                case NativeTimerDeleteOperationPreparationStatus::alreadyPrepared:
+                    result.operation = {
+                        stored.operation.operationId,
+                        mutationOperationStateName(stored.operation.state),
+                        stored.operation.backendId,
+                        stored.operation.operationRevision};
+                    result.status = S::accepted;
+                    return result;
+                case NativeTimerDeleteOperationPreparationStatus::idempotencyConflict:
+                {
+                    const auto raced = mutationOperationRepository_
+                        ->findByIdempotencyScope(
+                            request.actorRef, request.backendId,
+                            "NativeTimerBinding", durable.nativeTimerBindingId,
+                            "timer.delete", request.idempotencyKey);
+                    if (raced.ok() &&
+                        raced.operation.expectedRevision == durable.bindingRevision &&
+                        raced.operation.expectedResourceFingerprint == durable.observedFingerprint &&
+                        raced.operation.backendGeneration == durable.backendGeneration &&
+                        raced.operation.actorId == request.actorRef)
+                    {
+                        result.operation = {
+                            raced.operation.operationId,
+                            mutationOperationStateName(raced.operation.state),
+                            raced.operation.backendId,
+                            raced.operation.operationRevision};
+                        result.status = S::replayed;
+                    }
+                    else
+                        result.status = S::idempotencyConflict;
+                    return result;
+                }
+                case NativeTimerDeleteOperationPreparationStatus::bindingNotFound:
+                    result.status = S::notFound; return result;
+                case NativeTimerDeleteOperationPreparationStatus::bindingRevisionConflict:
+                    result.status = S::revisionConflict; return result;
+                case NativeTimerDeleteOperationPreparationStatus::ownershipConflict:
+                    result.status = S::adoptionRequired; return result;
+                case NativeTimerDeleteOperationPreparationStatus::bindingMissing:
+                case NativeTimerDeleteOperationPreparationStatus::driftConflict:
+                case NativeTimerDeleteOperationPreparationStatus::generationConflict:
+                case NativeTimerDeleteOperationPreparationStatus::operationConflict:
+                case NativeTimerDeleteOperationPreparationStatus::operationStateConflict:
+                    result.status = S::stateConflict; return result;
+                case NativeTimerDeleteOperationPreparationStatus::invalid:
+                    result.status = S::invalid; return result;
+                case NativeTimerDeleteOperationPreparationStatus::operationRepositoryError:
+                case NativeTimerDeleteOperationPreparationStatus::bindingRepositoryError:
+                    return result;
+            }
             return result;
         });
 
