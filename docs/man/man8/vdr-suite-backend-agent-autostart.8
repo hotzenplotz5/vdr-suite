@@ -1,0 +1,61 @@
+.TH VDR-SUITE-BACKEND-AGENT-AUTOSTART 8 "October 2026" "VDR-Suite" "System Administration"
+.SH NAME
+vdr-suite-backend-agent-autostart \- enable an already enrolled Backend Agent at boot
+.SH SYNOPSIS
+.B vdr-suite-backend-agent-autostart
+.RB ( --check | --enable )
+.SH DESCRIPTION
+A protected post-enrollment setup step. The experimental package installs
+this command but deliberately does not invoke it in
+.BR postinst .
+A fresh, unenrolled Agent is not auto-enabled or started by package installation.
+.PP
+.B --check
+validates the current installed systemd service, non-secret configuration,
+protected local identity and the existing Backend Agent administration status.
+It requires an active
+.B vdr:vdr
+service, trusted HTTPS Control Plane, consumed enrollment package, current
+authenticated online lease and recent Backend health observation.
+The verification uses the existing local
+.B vdr-suite-backend-agent-admin --status
+command, not direct database editing.
+Any missing, stale or unexpected fact fails closed.
+.PP
+.B --enable
+requires root and the same successful preflight immediately before enabling
+the already running service for future boots. It invokes
+.B systemctl enable vdr-suite-backend-agent.service
+without
+.B --now
+and never starts, stops or restarts VDR, the Agent or the daemon.
+It does not enroll a new identity, rotate or revoke credentials, alter
+existing Timers or replay historical Agent commands.
+.PP
+This is not an unattended installer: a trusted setup process or operator must
+invoke the command AFTER the existing enrollment completes. The current
+experimental package does not yet include an interactive first-run wizard.
+On systems with custom systemd unit drop-ins, unexpected binary locations,
+masked units or unverified state, perform a separate operator review instead
+of bypassing the safety checks.
+.SH OPTIONS
+.TP
+.B --check
+Safe preflight; never change systemd startup links.
+.TP
+.B --enable
+Enable boot startup after a fresh successful preflight. No service restart.
+.SH EXIT STATUS
+Zero for successful check/enable, nonzero if unsafe or incomplete.
+Output never includes credentials or enrollment tokens.
+.SH SECURITY
+Identity state is reused in
+.I /var/lib/vdr-suite/backend-agent/identity
+and is never recreated. The enrolled device must have a current Backend Agent
+heartbeat and backend health observation before startup is enabled.
+A later reboot acceptance must separately verify that same identity and
+current lease/provider facts/epoch.
+.SH SEE ALSO
+.BR vdr-suite-backend-agent (8),
+.BR vdr-suite-backend-agent-admin (8),
+.BR systemctl (1)
