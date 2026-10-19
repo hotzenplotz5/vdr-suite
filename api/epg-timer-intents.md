@@ -4,13 +4,92 @@
 
 The supported development branch is **`work/public-v1-vidaa-unified-20261018`** (Draft PR #500). Its `core/daemon/src/DaemonRuntimeInitialization.cpp` **registers `EpgTimerIntentSubmit`** and performs fresh EPG identity/revision verification, Device grant and backend write policy checks, native backend-local CLOCK attestation, conservative prospective `NTPREVIEW CHECK 1` verification and atomic Intent + Assignment + durable Operation persistence. The old Slice-2 comments below that submit was *not registered* record the earlier standalone branch and are **superseded as source-status statements**. The source contract is no longer just a dormant coordinator.
 
-**Runtime and TV acceptance remain separate:** On 2026-10-19 the installed yaVDR 2.8.3 / SuiteBridge 0.14.1 returned `900` for operation-specific native CREATE capability, real VDR-local `NTCREATE CLOCK 1`, and complete digest-bound `NTPREVIEW CHECK 1` for `Das Erste HD`, 2026-10-20 20:00–21:00 VDR-local. The valid preview was **`900 ... 0 2 isolated_clear`**: at that observation there were no existing Timers, two considered native devices, and a safely isolated one-shot candidate. This supersedes the earlier installed `CLOCK 501 unsupported` evidence. The preview is read-only, snapshot-bound, and **not** a durable CREATE or proof that the running Suite Daemon implements the consolidated API v1 source. Real paired Device grant, Agent generation, EPG event admission, dispatch, native readback and uncertain-outcome recovery still need separately authorized live acceptance. Never interpret HTTP 202 as a recorded programme; treat `outcome_unknown` as unresolved. VIDAA has a source-only explicit confirmation and deliberate Operation GET on `work/vidaa-epg-timer-operation-readback-20261017`; no Hisense acceptance has occurred.
+**Earlier read-only preview checkpoint (superseded by the hardware CREATE acceptance above):** On 2026-10-19 the installed yaVDR 2.8.3 / SuiteBridge 0.14.1 returned `900` for operation-specific native CREATE capability, real VDR-local `NTCREATE CLOCK 1`, and complete digest-bound `NTPREVIEW CHECK 1` for `Das Erste HD`, 2026-10-20 20:00–21:00 VDR-local. The valid preview was **`900 ... 0 2 isolated_clear`**: at that observation there were no existing Timers, two considered native devices, and a safely isolated one-shot candidate. This supersedes the earlier installed `CLOCK 501 unsupported` evidence. The preview is read-only, snapshot-bound, and **not** a durable CREATE or proof that the running Suite Daemon implements the consolidated API v1 source. The later real paired-Device/grant, EPG admission, dispatch and native readback acceptance is recorded above. Cross-process recovery and uncertain-outcome reconciliation remain separate. Never interpret HTTP 202 as a recorded programme; treat `outcome_unknown` as unresolved. VIDAA has a source-only explicit confirmation and deliberate Operation GET on `work/vidaa-epg-timer-operation-readback-20261017`; no Hisense acceptance has occurred.
+
+## Real yaVDR public-v1 CREATE end-to-end acceptance (2026-10-19)
+
+**Accepted, strictly bounded test:** The installed daemon identified itself as
+`git-f7e341ad6b97` ([source commit](https://github.com/hotzenplotz5/vdr-suite/commit/f7e341ad6b9730bc35bf223c26a04f5b1df39ce8)).
+On a real yaVDR running **VDR 2.8.3** and **SuiteBridge 0.14.1**, a paired,
+administrator-approved test Device with explicit `epg.view` and
+`timers.create` grants for backend `default` submitted a real
+`POST /api/v1/epg/timer-intents`. The tested EPG identity was **Tagesschau**
+on **Das Erste HD**, channel `C-1-1051-10301`, event `13520`, airing
+**2026-10-20 20:00–20:15 Europe/Berlin**.
+
+The recorded end-to-end results were:
+
+```ini
+API_V1_ROOT_HTTP=200
+ADMIN_LOGIN_HTTP=200
+PAIRING_CREATE_HTTP=201
+PAIRING_APPROVE_HTTP=200
+CREDENTIAL_ISSUE_HTTP=201
+GRANT_EPG_VIEW_HTTP=200
+GRANT_TIMERS_CREATE_HTTP=200
+EPG_GET_HTTP=200
+EPG_TARGET_CHECK=PASS
+API_V1_TIMER_POST=202
+OPERATION_ID=op_d9589fb8b43b7d91ac4309423a2fc372
+OPERATION_STATE=succeeded
+VDR_TIMERS_BEFORE=0
+VDR_TIMERS_AFTER=1
+VDR_MATCHING_NEW_TIMERS=1
+VDR_READBACK=PASS
+TEMP_DEVICE_REVOKE_HTTP=200
+TEMP_DEVICE_REVOKED=PASS
+ADMIN_LOGOUT_HTTP=204
+TEST_RESULT=PASS
+```
+
+The resulting *native* VDR timer was:
+
+```text
+2 1:C-1-1051-10301:2026-10-20:2000:2015:50:99:Tagesschau
+```
+
+This is evidence of real Public-v1 admission, native CREATE execution,
+durable Operation **`succeeded`**, native readback, and revocation of the
+**test-only** Device. It is **not** a mock, and was **not** a direct
+`svdrpsend NEWT` test. The timer was intentionally retained; the actual
+broadcast recording, playback and later recording integrity were **not** yet
+verified. No Hisense VIDAA TV acceptance follows from this backend test.
+
+**Required operational fences:** An authenticated paired Device with
+backend-specific grant, fresh strong EPG ETag and client-supplied idempotency
+key; backend write permission and exact EPG/generation identity; a running
+authenticated Backend Agent with current lease, provider facts, matching
+SuiteBridge provider epoch and native CREATE capability; exact backend-local
+CLOCK attestation and strictly read-only `NTPREVIEW CHECK 1` evidence. For
+this isolated candidate the preview returned `isolated_clear`. The first
+attempt returned HTTP **503** while the Backend Agent was
+`inactive/dead`, autostart `disabled`, and its lease/provider evidence stale.
+After a controlled Agent start and renewed provider evidence, admission
+and dispatch passed. **Agent autostart remains disabled**, so reboot
+reliability is **not** accepted. Do not treat `503` as a permanent feature
+state or weaken any fence to bypass it.
+
+**Scope limitations:** Only the specific future, one-shot, unencrypted,
+nonconflicting live yaVDR scenario above was accepted. Recurrence, overlaps,
+encrypted channels, remote or multi-backend scheduling, concurrent mutation,
+cross-process recovery and `outcome_unknown` resolution are not proven by
+this test. Never infer success from `202 Accepted` alone: inspect the
+actor-owned `GET /api/v1/operations/{operationId}` and distinguish
+`succeeded` from `outcome_unknown`. In an uncertain result do **not**
+automatically issue another CREATE. The existing historical reconciliation
+commands must not be reset, replayed or deleted; existing VIDAA Device identity
+and grants must not be changed as part of test cleanup.
+
+**Provenance:** The exact installed daemon build is
+`git-f7e341ad6b97`, **not** automatically the current PR #500 head or
+`main`. The test result is an operator-reported hardware acceptance record,
+not a claim that every later source commit was independently installed.
 
 ## Historical Slice-2 boundary (superseded by consolidated source wiring)
 
 `POST /api/v1/epg/timer-intents` is the *independent*, guarded Device-v1 entry for an EPG-selected one-shot recording. It is **not** a SearchTimer, an existing `TimerAssignment` POST, a native VDR timer ID, or a private `/api/vdr/timers/actions/create` alias.
 
-**Slice 1 + incomplete Slice 2:** The request parser, strict permission gate, authoritative observation preflight and durable-Operation response adapter exist in source. The daemon registers the **read-only** `EpgTimerIntentObservationLookup`, reusing source event detail, backend Agent generation and write policy. The standalone atomic domain coordinator `EpgTimerIntentAtomicAdmissionService` now persists an intent, selected assignment, native CREATE Operation/payload and durable idempotency record in **one caller-owned transaction**, with rollback/replay/duplicate/stale-generation regressions. It requires a fresh authoritative native-specification attestation. **No productive `EpgTimerIntentSubmit` is registered yet**, because the necessary true backend-native schedule, capability/readback, health and conflict evidence is not currently composed in the daemon. The public route intentionally remains **503**, has not created a native timer, and must not be exposed as available. Source tests and CI do not authorize daemon build or installation.
+**Slice 1 + incomplete Slice 2:** The request parser, strict permission gate, authoritative observation preflight and durable-Operation response adapter exist in source. The daemon registers the **read-only** `EpgTimerIntentObservationLookup`, reusing source event detail, backend Agent generation and write policy. The standalone atomic domain coordinator `EpgTimerIntentAtomicAdmissionService` now persists an intent, selected assignment, native CREATE Operation/payload and durable idempotency record in **one caller-owned transaction**, with rollback/replay/duplicate/stale-generation regressions. It requires a fresh authoritative native-specification attestation. **Historical 2026-10-18 Slice-2 finding (no longer current):** The earlier standalone source had no productive `EpgTimerIntentSubmit` registration and returned **503**. This statement is superseded by the composed daemon callback and the real 2026-10-19 public-v1 CREATE acceptance above. Source tests alone never authorized a hardware-acceptance claim.
 
 ## HTTP request
 
@@ -37,13 +116,13 @@ Source work in `5ddc9d53ffb61fc9daac393254ba87e26f837cf9` adds a **read-only** `
 
 The source and Agent parsing still require **a real server/Agent runtime wiring and a native proposed-timer conflict preview**, neither of which is supplied by epgsearch `LSCC`. Do not call `confirmedClear`, register the productive submit, activate VIDAA recording actions, or create a native Timer based solely on successful `CAP`/`CLOCK`. The new native plugin code has standalone host CI but not a completed yaVDR/VDR-header/plugin install acceptance. No new CREATE is available on the running daemon.
 
-## Durable replay at the Public-v1 edge (source, not productive CREATE)
+## Durable replay at the Public-v1 edge (historical source-stage note)
 
-The HTTP layer now has a read-only `EpgTimerIntentReplayLookup`, registered against `EpgTimerIntentAdmissionRepository` and the actor-authorized `MutationOperationReadService` in the Daemon. With an enabled submit, a re-sent logical key is looked up **after Device grant verification and strict body/precondition parsing but before live EPG freshness checks**. This allows a previously accepted Operation to be recovered after EPG expiration/backend loss; changed Event/ETag returns `409`, never a second CREATE. The original Operation may be `outcome_unknown` and **must** be displayed unresolved. The backend does not register a productive submit yet, so the public POST remains `503` pending real backend execution/clock/conflict attestation.
+The HTTP layer now has a read-only `EpgTimerIntentReplayLookup`, registered against `EpgTimerIntentAdmissionRepository` and the actor-authorized `MutationOperationReadService` in the Daemon. With an enabled submit, a re-sent logical key is looked up **after Device grant verification and strict body/precondition parsing but before live EPG freshness checks**. This allows a previously accepted Operation to be recovered after EPG expiration/backend loss; changed Event/ETag returns `409`, never a second CREATE. The original Operation may be `outcome_unknown` and **must** be displayed unresolved. This was the historical source-stage limitation; the later wired submit and the bounded real hardware CREATE acceptance supersede it.
 
-## Backend-native one-shot clock proof (Slice 2 source, not enabled)
+## Backend-native one-shot clock proof (historical Slice-2 source stage)
 
-`EpgNativeTimerTimeGuard.h` requires **backend-owned** start and stop UTC offsets (attested for the actual margin-adjusted times), rather than assuming the daemon's timezone matches a remote VDR backend. It checks native `day`, `HHMM` start/end, channel, recording margins, active one-shot weekdays, priority, lifetime and VPS against the authoritative EPG occurrence. Start seconds round down, stop seconds round up. Unknown clock provenance or an offset transition between boundaries remains **unavailable**: a VDR `day + HHMM` specification cannot disambiguate a DST repeated hour without additional native backend evidence. These inputs are not permitted in the Device's JSON body. No truthful runtime clock/capability/conflict provenance has yet been connected to the public submit callback; the POST therefore still returns `503`.
+`EpgNativeTimerTimeGuard.h` requires **backend-owned** start and stop UTC offsets (attested for the actual margin-adjusted times), rather than assuming the daemon's timezone matches a remote VDR backend. It checks native `day`, `HHMM` start/end, channel, recording margins, active one-shot weekdays, priority, lifetime and VPS against the authoritative EPG occurrence. Start seconds round down, stop seconds round up. Unknown clock provenance or an offset transition between boundaries remains **unavailable**: a VDR `day + HHMM` specification cannot disambiguate a DST repeated hour without additional native backend evidence. These inputs are not permitted in the Device's JSON body. At that earlier source stage no truthful runtime clock/capability/conflict provenance was connected to the public submit; the 2026-10-19 hardware acceptance above supersedes that status.
 
 ### Source follow-up: typed native clock attestation and conflict boundary (2026-10-18)
 
@@ -55,7 +134,7 @@ An independent source review of [epgsearch `LSCC`](https://manpages.debian.org/t
 
 Read-only native `NTCREATE CAP 1` returns `900 ... timer-create enabled`, but `NTCREATE CLOCK 1 1792222800 1792226400` returns `501 vdr-suite-ntcreate-rejected/1 unsupported` on the user's running yaVDR, whose checkout is on MU10E3, not this Slice-2 branch. This is an expected old-plugin response, not evidence of VDR time zone correctness. The more general discovery `mutations: disabled` is independent of operation-specific NTCREATE CAP. No timer was created.
 
-The new `attestBackendNativeTimerClockReply` source entry requires a validated typed native CLOCK reply plus current Agent lease, Backend generation, Provider fence and exact request window. A `501` maps to `native_timer_clock_unavailable`, resets the evidence to non-current and cannot satisfy atomic admission. This is regression-tested with a simulated wire reply in the Timer domain, not a real installed CLOCK acceptance. [Source CI 39121803291](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39121803291) requires final check. Proposed-timer conflict preview and productive submit are still missing.
+The new `attestBackendNativeTimerClockReply` source entry requires a validated typed native CLOCK reply plus current Agent lease, Backend generation, Provider fence and exact request window. A `501` maps to `native_timer_clock_unavailable`, resets the evidence to non-current and cannot satisfy atomic admission. This is regression-tested with a simulated wire reply in the Timer domain, not a real installed CLOCK acceptance. [Source CI 39121803291](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39121803291) requires final check. That earlier checkpoint lacked proposed-timer conflict preview and a productive submit; both were subsequently wired for the bounded case documented above.
 
 ### Native prospective conflict preview kernel (source-only, 2026-10-18)
 
@@ -67,7 +146,7 @@ Source series `54199108` through `97245f5e` now includes a bounded C++ native VD
 
 **2026-10-18 native audit hardening:** Upstream VDR 2.8.3 `cDevice::GetDevice(channel, ..., Query=true)` can release an inactive CAM slot despite `Query=true`; `cDvbDevice::ProvidesChannel` also modifies its bonded-receiver flag while `const`. Neither method is called in the revised native preview. Source commit [`cd39c4e5`](https://github.com/hotzenplotz5/vdr-suite/commit/cd39c4e5752fd8dad205148ad021bee929476292) passed pinned VDR 2.8.3 header CI [39127037496](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39127037496). Minute-window and boundary regression source commit [`e500da40`](https://github.com/hotzenplotz5/vdr-suite/commit/e500da40a3ae57b3b8f4e2fd2b8d3d0898f6c4b7) also passed [pinned native header CI 39127157793](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39127157793); [full source CI 39127157979](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39127157979) must be checked independently. This is **not** an installed-plugin, production read-only, scheduler or hardware acceptance. Public CREATE remains disabled and VIDAA not accepted.
 
-**Limitations / release gate:** This is a strictly conservative prospective subset, not epgsearch's full tuner-allocation scheduler. A source mock may validate the parser, but its success must NEVER be treated as live VDR evidence. The new native VDR object and SuiteBridge entrypoint/service files now **pass syntax compilation against the exact official VDR 2.8.3 release headers**, pinned to upstream commit `339b9969b0cfaf27d3941f135e17a09b984cd094`, in [native CI 39126057133](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39126057133) on source commit `afb50c4b`. This proves source compatibility only: the plugin is **not built as a deployed binary**, installed, or accepted on real hardware. The existing SuiteBridge on yaVDR still returns `501 unsupported` for `NTCREATE CLOCK`. The Daemon has **not** registered the productive `EpgTimerIntentSubmit` callback, and no public EPG Timer CREATE is enabled. A final full-head CI acceptance plus native build/read-only preview acceptance, exact backend-scoped Daemon composition, Native CREATE/readback/outcome-unknown tests and public HTTP acceptance remain mandatory. Relevant source CI [39125145695](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39125145695) must be checked at the exact head.
+**Limitations / release gate:** This is a strictly conservative prospective subset, not epgsearch's full tuner-allocation scheduler. A source mock may validate the parser, but its success must NEVER be treated as live VDR evidence. The new native VDR object and SuiteBridge entrypoint/service files now **pass syntax compilation against the exact official VDR 2.8.3 release headers**, pinned to upstream commit `339b9969b0cfaf27d3941f135e17a09b984cd094`, in [native CI 39126057133](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39126057133) on source commit `afb50c4b`. This proves source compatibility only: the plugin is **not built as a deployed binary**, installed, or accepted on real hardware. The existing SuiteBridge on yaVDR still returns `501 unsupported` for `NTCREATE CLOCK`. At this historical checkpoint the Daemon had **not** registered the productive `EpgTimerIntentSubmit` callback; the later source and installed-daemon acceptance above supersede this status. A final full-head CI acceptance plus native build/read-only preview acceptance, exact backend-scoped Daemon composition, Native CREATE/readback/outcome-unknown tests and public HTTP acceptance remain mandatory. Relevant source CI [39125145695](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39125145695) must be checked at the exact head.
 
 ## Results and client obligations
 
@@ -75,18 +154,19 @@ Source series `54199108` through `97245f5e` now includes a bounded C++ native VD
 
 Other outcomes include 400 malformed selection/headers, 401 unauthenticated, 403 Device-grant or backend-write denial, 404 no observed airing, 409 expired/identity/generation/state/idempotency conflict, 412 EPG revision conflict, 415 unsupported media type, 422 invalid server-side intent, 428 missing strong If-Match and 503 missing/unavailable admission services. See `PublicApiRuntime.cpp`, `SecurityHttpGate.h`, `test_public_epg_timer_intent_admission.cpp` and `test_public_epg_timer_intent_security.cpp`.
 
-## Source-tested atomic admission (not an enabled HTTP submit)
+## Atomic admission implementation (earlier source checkpoint and later live acceptance)
 
 The [Slice-2 coordinator](../core/timers/include/EpgTimerIntentAtomicAdmissionService.h) shares the existing TimerIntent and TimerAssignment repositories, the planner and NativeTimerCreateAdmissionService. A single SQLite transaction encompasses intent, assignment, native CREATE Operation/payload and the separately scoped actor/backend/idempotency-to-operation mapping. Exact replay returns the original durable Operation; a reused key with changed Event/ETag fails, and an active semantically equivalent intent is not silently duplicated. A failed Operation INSERT rolls back everything. The SQL implementation belongs solely to `EpgTimerIntentAdmissionRepository`, preserving the architecture boundary.
 
-The coordinator does **not** invent freshness evidence: a mandatory server-owned `revalidateSourceAndNativeSpecification` callback must prove that authoritative backend generation/EPG identity, complete native TimerSpecification, source title and chosen planning evidence are still current before any write. The real Daemon submit must also construct genuinely current execution authority, capability, health, channel, conflict and backend-local VDR clock evidence. No `confirmedClear` conflict can be inferred from a generic snapshot or user-supplied text. Until the daemon owns these facts and wires the submit callback, public EPG-to-native CREATE remains unavailable.
+The coordinator does **not** invent freshness evidence: a mandatory server-owned `revalidateSourceAndNativeSpecification` callback must prove that authoritative backend generation/EPG identity, complete native TimerSpecification, source title and chosen planning evidence are still current before any write. The real Daemon submit must also construct genuinely current execution authority, capability, health, channel, conflict and backend-local VDR clock evidence. No `confirmedClear` conflict can be inferred from a generic snapshot or user-supplied text. The subsequent daemon callback supplies these prerequisites for the narrowly accepted one-shot hardware scenario above; unavailable or stale evidence still fails closed.
 
 **Verified source code:** `f8a5ab84fecd06e9de3f968b4c8deaa0181123bf`; [GitHub CI #10269 / run 39096159408](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39096159408), six checks PASS, including C++ fast regressions and hosted daemon build. **No yaVDR apply, running-daemon hash change or Hisense acceptance.** For volatile state, see [CURRENT](../docs/CURRENT.md).
 
 ## Remaining authorization and acceptance
 
-- **Backend Slice 2:** Implement the remaining production daemon-backed trusted planner/native-specification evidence and `EpgTimerIntentSubmit` registration. The atomic SQLite coordinator and its replay/rollback regression are already source-implemented and CI-tested; runtime dispatch, real readback, cross-process restart and unknown-outcome acceptance remain open.
-- **VIDAA Slice 4:** Use the same public Device contract from EPG timeline and day detail after backend installation, preserving D-pad focus and explicit confirmation; never equate `202` with native Timer presence.
-- **Real yaVDR/Hisense:** Uninstalled and unaccepted on current Slice-1 source. `docs/CURRENT.md` remains the operational truth.
+- **Backend Agent restart reliability:** Inspect systemd/packaging and confirm identity reuse, current lease, provider facts and epoch after an actual restart before considering boot reliability accepted. The Agent is running for the successful test but autostart is still disabled.
+- **Timer execution:** The public-v1 one-shot CREATE and native readback succeeded on the installed daemon described above. Actual 2026-10-20 recording, restart/reconciliation, ambiguous outcomes, multi-backend, concurrent/conflicting, encrypted and recurring cases remain unaccepted.
+- **VIDAA:** Consume this same Public-v1 Device contract from EPG detail with explicit confirmation, strong ETag, idempotency key and an actor-owned Operation GET; never equate `202` with a native Timer. No Hisense TV acceptance yet.
+- **Lifecycle:** Keep historical reconciliation commands and existing paired VIDAA devices intact. `docs/CURRENT.md` is still the `main` operational authority; this branch-specific 2026-10-19 acceptance must be reconciled there at the appropriate integrated checkpoint.
 
 Return to [TimerAssignment contract](timer-assignments.md) · [coverage roadmap](../docs/planning/public-v1-coverage-roadmap.md).
