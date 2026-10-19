@@ -87,8 +87,27 @@ def check_identity(path=Path(IDENTITY), enrollment=Path(ENROLLMENT)):
         raise NotReady("no persisted Agent identity") from exc
     if not stat.S_ISREG(details.st_mode) or details.st_mode & 0o077:
         raise NotReady("Agent identity missing or not protected")
-    if details.st_uid != pwd.getpwnam("vdr").pw_uid:
-        raise NotReady("Agent identity has unexpected owner")
+    if details.st_uid != pwd.getpwnam("vdr").pw_uid or details.st_nlink != 1:
+        raise NotReady("Agent identity has unexpected owner or file links")
+    # Read only the two non-secret identity fields. Ignore credential_secret.
+    fields = {}
+    try:
+        with path.open("rb") as stored:
+            for raw in stored:
+                if raw.startswith((b"agent_id=", b"backend_id=")):
+                    key, value = raw.rstrip(b"\r\n").split(b"=", 1)
+                    field = key.decode("ascii")
+                    if field in fields:
+                        raise NotReady("duplicate protected identity field")
+                    fields[field] = value.decode("ascii")
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise NotReady("unreadable protected Agent identity") from exc
+    if (not re.fullmatch(r"[A-Za-z0-9._:-]{1,128}",
+                         fields.get("agent_id", "")) or
+            not re.fullmatch(r"[A-Za-z0-9._-]{1,128}",
+                             fields.get("backend_id", ""))):
+        raise NotReady("protected Agent identity fields invalid")
+    return fields["agent_id"], fields["backend_id"]
 
 
 def read_status(backend):
@@ -135,8 +154,10 @@ def preflight():
             "--config " + str(CONFIG) not in unit["ExecStart"]):
         raise NotReady("installed Agent unit differs from reviewed running unit")
     backend = read_config()
-    check_identity()
-    return unit["UnitFileState"], read_status(backend), backend
+    agent_id, identity_backend = check_identity()
+    if identity_backend != backend or read_status(backend) != agent_id:
+        raise NotReady("Agent status does not match local identity")
+    return unit["UnitFileState"], agent_id, backend
 
 
 def main():
