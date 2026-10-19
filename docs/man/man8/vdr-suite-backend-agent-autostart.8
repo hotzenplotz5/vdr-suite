@@ -19,7 +19,8 @@ service, trusted HTTPS Control Plane, consumed enrollment package, current
 authenticated online lease and recent Backend health observation.
 The verification uses the existing local
 .B vdr-suite-backend-agent-admin --status
-command, not direct database editing.
+command, not direct SQL. The status utility still performs its own normal
+repository/schema initialization; this is not a database migration step.
 Any missing, stale or unexpected fact fails closed.
 .PP
 .B --enable
