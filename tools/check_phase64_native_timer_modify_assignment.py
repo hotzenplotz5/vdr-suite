@@ -5,6 +5,16 @@ source=(ROOT/"core/agent/src/BackendAgentNativeTimerModifyAssignment.cpp").read_
 for token in ("ensureNativeTimerModifyAssignmentSchema","selectLocalProvider",
 "insertAssignment","vdr.timer.update","vdr.timer.toggle","readback_required"):
  if token not in source:raise SystemExit("missing modify assignment invariant: "+token)
+# Live Agent capabilities are authoritative. A schema helper must never
+# remove an already-advertised vdr.timer.update/toggle capability.
+assert "DELETE FROM backend_agent_command_capabilities" not in source, (
+    "MODIFY assignment must not revoke Agent capabilities"
+)
+for trigger in ("timer_update", "timer_toggle"):
+    assert (
+        f"DROP TRIGGER IF EXISTS trg_backend_agent_{trigger}_dormant_capability"
+        in source
+    ), f"legacy {trigger} trigger must be removed"
 client=(ROOT/"core/agent/src/BackendAgentCommandClient.cpp").read_text()
 if "kBackendAgentNativeTimerToggleCommandType" not in client:
  raise SystemExit("modify advertisement fence missing")

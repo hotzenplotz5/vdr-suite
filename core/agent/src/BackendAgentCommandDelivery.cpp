@@ -161,6 +161,10 @@ bool BackendAgentCommandRepository::ensureSchema()
         database_.execute(
         "DROP TRIGGER IF EXISTS trg_backend_agent_timer_delete_dormant_capability;") &&
         database_.execute(
+        "DROP TRIGGER IF EXISTS trg_backend_agent_timer_update_dormant_capability;") &&
+        database_.execute(
+        "DROP TRIGGER IF EXISTS trg_backend_agent_timer_toggle_dormant_capability;") &&
+        database_.execute(
         "DROP TRIGGER IF EXISTS trg_backend_agent_recording_marks_modify_dormant_capability;") &&
         database_.execute(
         "DROP TRIGGER IF EXISTS trg_backend_agent_recording_cut_dormant_capability;");
@@ -605,6 +609,10 @@ BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendA
     {
         ok=database_.execute(
             "DROP TRIGGER IF EXISTS trg_backend_agent_timer_delete_dormant_capability;")&&
+            database_.execute(
+            "DROP TRIGGER IF EXISTS trg_backend_agent_timer_update_dormant_capability;")&&
+            database_.execute(
+            "DROP TRIGGER IF EXISTS trg_backend_agent_timer_toggle_dormant_capability;")&&
             database_.execute(
             "DROP TRIGGER IF EXISTS trg_backend_agent_recording_marks_modify_dormant_capability;")&&
             database_.execute(

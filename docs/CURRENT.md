@@ -8,6 +8,19 @@ Stable architecture, historical evidence and workflow rules live in their respec
 
 ## Consolidated API v1 / VIDAA Timer work (2026-10-19, hardware CREATE accepted for one bounded case)
 
+### Public Timer MODIFY – Agent capability lifecycle (2026-10-19)
+
+The native UPDATE/TOGGLE Phase-64 assignment helper previously
+revoked every advertised `vdr.timer.update`/`vdr.timer.toggle`
+capability and recreated old dormant triggers each time an operation
+was assigned. This would have made any public MODIFY API permanently
+unexecutable despite a healthy live SuiteBridge capability report.
+The unique operation index remains enforced, but assignment no longer
+removes capabilities. Agent schema initialization and capability refresh
+also remove these legacy triggers, with the architecture guard
+explicitly rejecting capability revocation. Source-level change only;
+public MODIFY and live hardware acceptance are not yet claimed.
+
 ### Native Timer DELETE expiry regression (2026-10-19)
 
 The follow-on fast-regression failure at
