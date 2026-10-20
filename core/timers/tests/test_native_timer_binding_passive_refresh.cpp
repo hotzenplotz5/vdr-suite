@@ -65,6 +65,11 @@ int main()
     assert(managed.ok() && second.ok() && external.ok());
     NativeTimerBindingReadbackService service(repo);
 
+    // Cursor progression remains bounded, independent of a failed candidate.
+    const auto initialTail = repo.listManagedForFreshness("binding:a", 1400, 2);
+    assert(initialTail.ok() && initialTail.bindings.size() == 1);
+    assert(initialTail.bindings[0].nativeTimerBindingId == "binding:b");
+
     // 300+ seconds after CREATE the passive strict-live observation may make
     // the binding eligible again without changing the authoritative fields.
     auto candidates = repo.listManagedForFreshness("", 1400, 1);
@@ -124,9 +129,8 @@ int main()
         evidence(after, 1700), true).status ==
            NativeTimerBindingReadbackStatus::reconciliationRequired);
 
-    // Keyset pagination: failures of one ID cannot indefinitely starve others.
-    const auto tail = repo.listManagedForFreshness("binding:a", 1400, 2);
-    assert(tail.ok() && tail.bindings.size() == 1);
-    assert(tail.bindings[0].nativeTimerBindingId == "binding:b");
+    // A drifted binding is not a refresh candidate.
+    const auto tail = repo.listManagedForFreshness("binding:a", 1800, 2);
+    assert(tail.ok() && tail.bindings.empty());
     std::cout << "test_native_timer_binding_passive_refresh passed\n";
 }
