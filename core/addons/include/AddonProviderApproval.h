@@ -22,7 +22,7 @@ struct ProviderApproval {
 
 enum class ApprovalReason {
     invalidIdentity, unapproved, originMismatch, backendMismatch,
-    generationMismatch, digestMismatch, versionMismatch, disabledProvider
+    generationMismatch, digestMismatch, versionMismatch, invalidBinding, disabledProvider
 };
 
 struct ApprovalDecision {
@@ -61,7 +61,7 @@ inline ApprovalDecision compareApprovedProvider(
     // Even a matching approval cannot override malformed backend tokens,
     // digest encoding or an independently rejected installation.
     if (binding.reason != BindingReason::deniedProvider)
-        return {false, ApprovalReason::disabledProvider, binding};
+        return {false, ApprovalReason::invalidBinding, binding};
     // Never upgrade checked evidence to RuntimeEvidence.packageTrusted.
     return {false, ApprovalReason::disabledProvider, binding};
 }
