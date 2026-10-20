@@ -11,6 +11,7 @@ int main()
     const std::vector<std::string> safeRoutes = {
         "/api/recordings/actions/validate",
         "/api/vdr/recordings/actions/validate",
+        "/api/v1/recordings/actions/validate",
         "/api/recordings/actions/preview",
         "/api/vdr/recordings/actions/preview",
         "/api/searchtimers/validate",
@@ -92,6 +93,7 @@ int main()
     const std::vector<std::string> protectedMutations = {
         "/api/searchtimers/execute",
         "/api/vdr/searchtimers/execute",
+        "/api/v1/recordings/actions/execute",
         "/api/searchtimers/real-test",
         "/api/vdr/searchtimers/real-test",
         "/api/epgsearch/native-fuzzy/refresh",
