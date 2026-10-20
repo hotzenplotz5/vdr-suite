@@ -485,3 +485,15 @@ privileges to the system `nobody` identity. The same snapshot check must
 succeed without root; making the approval private or the binary unreadable
 must deny access. Neither the user's yaVDR permissions nor systemd units
 are modified by these isolated tests.
+
+## No add-on command self-advertisement
+
+The actual `BackendAgentCommandClient` poll discovery now reserves
+`addon.` and `addons.` command prefixes: a value merely added to
+`COMMAND_TYPES` cannot advertise an unregistered add-on executor.
+The existing Agent-poll regression sends these names alongside a normal
+probe command and asserts that only the normal command remains
+advertised. The test exercises the existing Agent transport payload,
+not a mock add-on registry. Enabling an add-on command will require a
+separate, explicitly registered and verified handler with the same
+Agent reservation/replay/fencing ownership as other protected writes.
