@@ -99,6 +99,7 @@ const std::set<std::string>& supportedPermissionSet()
         "timers.delete",
         "media.recording.play",
         "media.live.play",
+        "addons.media.import",
         "remote.control",
         "osd.view",
         "osd.control",
@@ -299,6 +300,7 @@ bool HumanAccountGrantAdministrationService::supportedGrant(
     const std::string& backendId)
 {
     return safeBackendScope(backendId) &&
+        (permission != "addons.media.import" || backendId != "*") &&
         supportedPermissionSet().count(permission) != 0U;
 }
 
