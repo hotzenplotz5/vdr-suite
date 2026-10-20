@@ -1,4 +1,5 @@
 #include "AddonActivationIntentRepository.h"
+#include <sqlite3.h>
 
 #include <atomic>
 #include <cassert>
@@ -233,6 +234,12 @@ int main()
            !audited.intent.desiredEnabled);
     auditRead = store.read(actor, "rectools", "backend-audit");
     assert(auditRead.status == IntentStatus::ok && auditRead.intent.revision == 1);
+    sqlite3_stmt* auditCount = nullptr;
+    assert(sqlite3_prepare_v2(f.database.handle(),
+           "SELECT COUNT(*) FROM addon_audit_probe;", -1, &auditCount, nullptr) == SQLITE_OK);
+    assert(sqlite3_step(auditCount) == SQLITE_ROW);
+    assert(sqlite3_column_int(auditCount, 0) == 1);
+    assert(sqlite3_finalize(auditCount) == SQLITE_OK);
     ++checks;
 
     auto rejectedBlankAudit = store.updateAudited(
