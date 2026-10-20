@@ -80,6 +80,10 @@ def issue(root: Path, module: str, version: str, approved_sha256: str,
                     raise IssueError("missing-root-component")
                 os.mkdir(part, mode=0o700, dir_fd=held)
                 child = os.open(part, flags, dir_fd=held)
+                # Only the exact directory just created by this issuer:
+                # metadata contains no secrets, and the unprivileged Agent
+                # must be able to inspect root-controlled approval evidence.
+                os.fchmod(child, 0o755)
             os.close(held)
             held = child
 
@@ -104,6 +108,8 @@ def issue(root: Path, module: str, version: str, approved_sha256: str,
         fd = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY |
                      os.O_NOFOLLOW, 0o600, dir_fd=held)
         try:
+            # Newly created record only; no chmod of existing host files.
+            os.fchmod(fd, 0o644)
             with os.fdopen(fd, "wb") as file:
                 file.write(payload)
                 file.flush()
@@ -206,6 +212,7 @@ def revoke(root: Path, module: str, allow_live_root: bool = False) -> Path:
         temp_fd = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY |
                           os.O_NOFOLLOW, 0o600, dir_fd=held)
         try:
+            os.fchmod(temp_fd, 0o644)
             with os.fdopen(temp_fd, "wb") as target:
                 target.write(payload)
                 target.flush()
