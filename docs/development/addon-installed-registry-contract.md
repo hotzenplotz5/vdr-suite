@@ -190,7 +190,7 @@ A digest computed from the installed file itself proves nothing beyond self-cons
 package, binary path and intended backend-Agent transport at compile time.
 The declared handler is **not executable**; no daemon route, worker, or
 installation handler consumes this definition yet. Unknown module and package
-pairings—including TVScraper—have no mapping. This is a reviewable identity
+pairings have no mapping. This is a reviewable identity
 definition only, not provider trust, permission or activation. The isolated
 `make test-addon-handler-registry` test verifies the immutable mapping and
 fail-closed unknown identities, without starting the daemon.
