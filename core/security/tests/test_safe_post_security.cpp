@@ -122,9 +122,12 @@ int main()
         assert(decision.protectedMutation);
         assert(
             decision.rejection.statusCode == 403);
+        const std::string expectedError =
+            route.rfind("/api/v1/", 0) == 0
+                ? "forbidden"
+                : "csrf_validation_failed";
         assert(decision.rejection.body.find(
-            "csrf_validation_failed") !=
-            std::string::npos);
+            expectedError) != std::string::npos);
     }
 
     const std::vector<std::string> stillUnmigrated = {
