@@ -214,7 +214,7 @@ int main()
             request.headers["Authorization"] = fixture.validAuthorization();
             if (method == "POST")
             {
-                request.body = "{\\"kind\\":\\"toggle\\",\\"enabled\\":false}";
+                request.body = R"({"kind":"toggle","enabled":false})";
                 request.headers["Content-Type"] = "application/json";
             }
             return fixture.gate.evaluate(request);
