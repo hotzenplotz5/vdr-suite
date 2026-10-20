@@ -1228,8 +1228,8 @@ BackendAgentCommandResultAck BackendAgentCommandDeliveryService::result(
             original->agentInstanceId == value.agentInstanceId &&
             original->backendGeneration == value.backendGeneration &&
             original->requestFingerprint == value.requestFingerprint &&
-            (original->commandType == kBackendAgentNativeTimerUpdateCommandType ||
-             original->commandType == kBackendAgentNativeTimerToggleCommandType) &&
+            (original->commandType == vdrsuite::agent::kBackendAgentNativeTimerUpdateCommandType ||
+             original->commandType == vdrsuite::agent::kBackendAgentNativeTimerToggleCommandType) &&
             value.resultCategory == "outcome_unknown" &&
             value.verificationState == "outcome_unknown" &&
             value.retryClassification == "reconcile_only" &&
