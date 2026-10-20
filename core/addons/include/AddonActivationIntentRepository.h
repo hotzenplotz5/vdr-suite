@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <vector>
 
 namespace vdrsuite::addons {
 
@@ -31,6 +32,11 @@ struct IntentResult {
     ActivationIntent intent;
 };
 
+struct IntentCatalogResult {
+    IntentStatus status = IntentStatus::unavailable;
+    std::vector<ActivationIntent> intents;
+};
+
 struct IntentMutation {
     std::string moduleId;
     std::string backendId;
@@ -52,6 +58,9 @@ public:
     IntentResult read(const RequestSecurityContext& actor,
                       const std::string& moduleId,
                       const std::string& backendId) const;
+    IntentCatalogResult readCatalog(const RequestSecurityContext& actor,
+                                    const std::string& backendId) const;
+
     IntentResult update(const RequestSecurityContext& actor,
                         const IntentMutation& mutation,
                         const BackendAccessDecision& backend,
