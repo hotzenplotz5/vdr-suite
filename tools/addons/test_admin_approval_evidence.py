@@ -71,6 +71,36 @@ class ApprovalEvidenceTests(unittest.TestCase):
         self.write(self.data)
         self.assertFalse(examine(self.root, "rectools")["consistent"])
 
+    def test_version_and_identity_cannot_drift(self):
+        from unittest.mock import patch
+        from types import SimpleNamespace
+        original = Path.lstat
+
+        def synthetic_root_owned(path):
+            actual = original(path)
+            # Pure unit simulation of a secured administrator-owned root.
+            # No privilege change or live approval file is performed.
+            return SimpleNamespace(
+                st_uid=0, st_mode=actual.st_mode & ~0o022,
+                st_dev=actual.st_dev, st_ino=actual.st_ino,
+                st_size=actual.st_size, st_mtime_ns=actual.st_mtime_ns,
+                st_ctime_ns=actual.st_ctime_ns,
+            )
+
+        with patch.object(Path, "lstat", synthetic_root_owned):
+            with patch("admin_approval_evidence.examine_binary",
+                       return_value={"consistent": True, "reason": "fixture"}):
+                self.assertTrue(examine(self.root, "rectools")["consistent"])
+                self.data["version"] = "9.9.9"
+                self.write(self.data)
+                self.assertEqual(examine(self.root, "rectools")["reason"],
+                                 "approval-metadata-mismatch")
+                self.data["version"] = "0.1.0"
+                self.data["id"] = "image"
+                self.write(self.data)
+                self.assertEqual(examine(self.root, "rectools")["reason"],
+                                 "invalid-approval-identity")
+
     def test_cli_is_read_only(self):
         import subprocess
         script = Path(__file__).with_name("installed_registry.py")
