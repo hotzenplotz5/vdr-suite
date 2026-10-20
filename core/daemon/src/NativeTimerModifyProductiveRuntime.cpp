@@ -268,9 +268,32 @@ void advanceFamily(
             : kBackendAgentNativeTimerUpdateCommandType;
         const auto assignment = commands.findAssignmentForOperation(
             op.backendId, op.operationId, type);
-        if (!assignment || !commands.resultForCommand(assignment->commandId))
+        if (!assignment)
         {
             ++summary.deferred;
+            continue;
+        }
+        const auto durableResult = commands.resultForCommand(assignment->commandId);
+        if (!durableResult)
+        {
+            ++summary.deferred;
+            continue;
+        }
+
+        // A legacy MODIFY result with no command-bound evidence cannot prove
+        // either an execution or a pre-dispatch rejection. Never redispatch,
+        // complete or label it failed_verified. Quarantine only a still-
+        // dispatching operation under its exact revision for reconciliation.
+        if (op.state == MutationOperationState::dispatching &&
+            durableResult->resultEvidence.empty())
+        {
+            const auto quarantined = operations.transition(
+                op.operationId, op.operationRevision,
+                MutationOperationState::dispatching,
+                MutationOperationState::outcomeUnknown,
+                "native-timer-modify:missing-result-evidence", now);
+            ++summary.deferred;
+            (void)quarantined; // A conflict preserves the existing operation.
             continue;
         }
         const auto applied = applyDurableNativeTimerModifyResult(
