@@ -258,3 +258,10 @@ construct authenticated approval evidence. Thus the comparison returns
 `approvedForExecution=false` unconditionally, and does not bypass the
 disabled handler definition or install a new loader. No `dpkg`
 requirement is introduced for manual installs.
+
+Approval matching also reapplies the canonical provider-binding validation:
+two mutually agreeing approval/observation records with a malformed backend
+identity are **not** accepted merely because their strings match. The
+offline regression asserts `ApprovalReason::invalidBinding` and the
+underlying `BindingReason::invalidBackend`. This still does not authenticate
+or issue approvals; no effective rights or executable handler are created.
