@@ -1,6 +1,7 @@
 """Focused module validation and source staging without live VDR effects."""
 import importlib.util
 import json
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -35,8 +36,12 @@ class AddonTests(unittest.TestCase):
     def test_extra_source_module_cannot_self_register(self):
         with tempfile.TemporaryDirectory(prefix="addon-unreviewed-test-") as directory:
             root = Path(directory)
-            (root / "modules").mkdir()
-            (root / "modules/tvscraper").mkdir()
+            modules = root / "modules"
+            modules.mkdir()
+            for name in addon.SOURCE_MODULES:
+                shutil.copytree(addon.ROOT / "modules" / name, modules / name)
+            self.assertEqual(set(addon.validate_all(root)), set(addon.SOURCE_MODULES))
+            (modules / "tvscraper").mkdir()
             with self.assertRaises(addon.ContractError):
                 addon.validate_all(root)
 
