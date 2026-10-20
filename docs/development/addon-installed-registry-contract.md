@@ -424,3 +424,23 @@ Agent reservation/receipt/result machinery and recheck provenance at the
 execution boundary. The focused `test-addon-agent-dispatch-gate` target
 exercises missing command state, stale generation, mismatched operation and
 revoked approval.
+
+## Non-secret approval visibility for the unprivileged Agent
+
+The packaged Backend Agent runs as `User=vdr`, with no elevated
+capabilities. The administrator-issued approval JSON contains only
+non-secret identity/version/hash/origin/revocation data. Newly published
+approval files therefore use root ownership with **0644** permissions,
+while newly created approval directories are root-owned **0755**.
+Only directory/file descriptors just created by the root-only issuer
+have their modes set; pre-existing paths are never chmodded. The
+verification boundary still refuses symlinks, non-root owners and
+group/world-writable components. An earlier restrictive approval
+hierarchy is not silently relaxed; an operator must address its
+accessibility deliberately before enabling a non-root consumer.
+
+**Readable does not mean trusted.** The Agent must independently
+verify its approved root-owned record, handler bytes and backend
+generation before any future dispatch. Neither this file's existence
+nor its readable permissions enable a handler. No live host permissions
+are changed by this source-only update.
