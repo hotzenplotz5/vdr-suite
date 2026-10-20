@@ -65,6 +65,16 @@ jobs:
           sudo env TMPDIR=/root "$(pwd)/.build/addons/test_addon_pinned_handler"
           echo "PINNED_ADDON_HANDLER_CI=PASS"
 
+      - name: Build canonical Core approval verifier
+        run: make build-addon-root-approval-test
+
+      - name: Verify Core approval and pinned handler agree
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo env TMPDIR=/root "$(pwd)/.build/addons/test_addon_root_approval"
+          echo "CORE_ADDON_APPROVAL_CI=PASS"
+
       - name: Isolated root-owned approval and revocation acceptance
         shell: bash
         run: |
