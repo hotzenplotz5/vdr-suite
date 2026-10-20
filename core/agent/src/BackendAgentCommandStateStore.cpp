@@ -446,11 +446,11 @@ bool load(const std::string& path, LocalState& state, std::string& reason)
         {
             if (!state.stateExtensionPresent)
             {
-                if (!deleteExpiredBeforeDispatch(state))
-                {
-                    reason = "command_state_invalid_modify_result_evidence";
-                    return false;
-                }
+                // MODIFY has no legacy evidence-free completion exception.
+                // DELETE's pre-dispatch expiry rule must never authorize a
+                // MODIFY result without command-bound execution evidence.
+                reason = "command_state_invalid_modify_result_evidence";
+                return false;
             }
             else
             {
@@ -577,11 +577,8 @@ bool persist(const std::string& path, const LocalState& state, std::string& reas
     {
         if (!state.stateExtensionPresent)
         {
-            if (!deleteExpiredBeforeDispatch(state))
-            {
-                reason = "command_state_invalid_modify_result_evidence";
-                return false;
-            }
+            reason = "command_state_invalid_modify_result_evidence";
+            return false;
         }
         else
         {
