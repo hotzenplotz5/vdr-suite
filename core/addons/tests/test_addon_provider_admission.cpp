@@ -25,6 +25,33 @@ int main()
            ProviderReason::missingDefinition);
     assert(reviewProvider("music", "vdr-suite-addon-music", evidence).reason ==
            ProviderReason::missingDefinition);
-    evidence.sourceApproved = false;
-    assert(!reviewProvider("rectools", "vdr-suite-addon-media-tools", evidence).packageTrusted);
+    // Both install pathways must reject each missing independent prerequisite.
+    for (auto origin : {InstallOrigin::manual, InstallOrigin::debian}) {
+        evidence.origin = origin;
+        const auto reason = [&]() {
+            return reviewProvider("rectools", "vdr-suite-addon-media-tools", evidence).reason;
+        };
+        evidence.metadataPresent = false;
+        assert(reason() == ProviderReason::missingInstall);
+        evidence.metadataPresent = true;
+        evidence.integrityMatches = false;
+        assert(reason() == ProviderReason::invalidIntegrity);
+        evidence.integrityMatches = true;
+        evidence.sourceApproved = false;
+        assert(reason() == ProviderReason::unapprovedSource);
+        evidence.sourceApproved = true;
+        evidence.ownershipSecure = false;
+        assert(reason() == ProviderReason::insecureOwnership);
+        evidence.ownershipSecure = true;
+        evidence.versionCompatible = false;
+        assert(reason() == ProviderReason::incompatibleVersion);
+        evidence.versionCompatible = true;
+        evidence.handlerHealthy = false;
+        assert(reason() == ProviderReason::unhealthyHandler);
+        evidence.handlerHealthy = true;
+        assert(reason() == ProviderReason::disabledDefinition);
+    }
+    evidence.origin = InstallOrigin::absent;
+    assert(reviewProvider("rectools", "vdr-suite-addon-media-tools", evidence).reason ==
+           ProviderReason::missingInstall);
 }
