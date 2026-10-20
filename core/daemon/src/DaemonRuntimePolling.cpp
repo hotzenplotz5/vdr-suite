@@ -48,7 +48,7 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
                         ->findAgentForBackend(binding.backendId);
                     if (!agent || agent->revoked || agent->incompatible ||
                         agent->leaseExpiresAt < now ||
-                        agent->backendGeneration != binding.backendGeneration)
+                        agent->backendGeneration < binding.backendGeneration)
                         continue;
 
                     for (const auto& context : backendRuntimeContexts_)
@@ -62,7 +62,7 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
                                 reader(*context->httpClient);
                             vdrsuite::vdr::NativeTimerModifyReadRequest request;
                             request.backendId = binding.backendId;
-                            request.backendGeneration = binding.backendGeneration;
+                            request.backendGeneration = agent->backendGeneration;
                             request.backendNativeTimerId =
                                 binding.backendNativeTimerId;
                             request.observedAt = std::chrono::duration_cast<
@@ -83,7 +83,7 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
                                 !stillAgent->incompatible &&
                                 stillAgent->leaseExpiresAt >= finish &&
                                 stillAgent->backendGeneration ==
-                                    binding.backendGeneration)
+                                    request.backendGeneration)
                             {
                                 // A changed fingerprint or an in-flight
                                 // operation is a no-write, fail-closed result.
