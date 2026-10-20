@@ -4,6 +4,7 @@
 #include "NativeTimerObservation.h"
 
 #include <cassert>
+#include <sqlite3.h>
 #include <iostream>
 #include <string>
 
@@ -56,6 +57,20 @@ int main()
     assert(db.execute(
         "CREATE TABLE mutation_operations (resource_type TEXT NOT NULL,"
         "resource_id TEXT NOT NULL,state TEXT NOT NULL);"));
+    // Minimal durable Assignment/Intent state for same-transaction rebind.
+    assert(db.execute(
+        "CREATE TABLE timer_intents (timer_intent_id TEXT PRIMARY KEY,"
+        "intent_revision INTEGER,state TEXT);"
+        "CREATE TABLE timer_assignments (timer_assignment_id TEXT PRIMARY KEY,"
+        "native_timer_binding_id TEXT,backend_id TEXT,backend_generation INTEGER,"
+        "assignment_revision INTEGER,updated_at INTEGER,intent_revision TEXT,"
+        "timer_intent_id TEXT,state TEXT);"
+        "INSERT INTO timer_intents VALUES ('intent:a',1,'active');"
+        "INSERT INTO timer_intents VALUES ('intent:b',1,'active');"
+        "INSERT INTO timer_assignments VALUES "
+        "('assignment:binding:a','binding:a','default',7,1,1000,'1','intent:a','bound');"
+        "INSERT INTO timer_assignments VALUES "
+        "('assignment:binding:b','binding:b','default',7,1,1000,'1','intent:b','bound');"));
     const auto managed = repo.create(makeBinding(
         "binding:a", NativeTimerBindingOwnership::managed));
     const auto second = repo.create(makeBinding(
@@ -99,6 +114,22 @@ int main()
            managed.binding.timerAssignmentId);
     assert(rebound.binding.lastVerifiedOperationId ==
            managed.binding.lastVerifiedOperationId);
+    // Recover a deployment where the old fix updated only the Binding.
+    assert(db.execute(
+        "UPDATE timer_assignments SET backend_generation=7 "
+        "WHERE timer_assignment_id='assignment:binding:a';"));
+    const auto repaired = service.applyPresentObservation(
+        evidence(rebound.binding, 1551), true);
+    assert(repaired.ok() && repaired.binding.backendGeneration == 8);
+    sqlite3_stmt* synced = nullptr;
+    assert(sqlite3_prepare_v2(db.handle(),
+        "SELECT backend_generation,assignment_revision FROM timer_assignments "
+        "WHERE timer_assignment_id='assignment:binding:a';",
+        -1, &synced, nullptr) == SQLITE_OK);
+    assert(sqlite3_step(synced) == SQLITE_ROW);
+    assert(sqlite3_column_int64(synced, 0) == 8);
+    assert(sqlite3_column_int64(synced, 1) == 3);
+    sqlite3_finalize(synced);
     // An old Agent generation must never roll back the binding.
     auto oldGeneration = evidence(rebound.binding, 1560);
     oldGeneration.backendGeneration = 7;
