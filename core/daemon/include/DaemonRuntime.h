@@ -230,6 +230,7 @@ private:
     std::unique_ptr<vdrsuite::timers::NativeTimerBindingRepository>
         nativeTimerBindingRepository_;
     std::string nativeTimerRefreshCursor_;
+    bool nativeTimerSnapshotRefreshPending_ = false;
     std::unique_ptr<vdrsuite::timers::TimerAssignmentFulfillmentService>
         timerAssignmentFulfillmentService_;
     std::unique_ptr<vdrsuite::timers::NativeTimerCreateOperationPreparationService>
