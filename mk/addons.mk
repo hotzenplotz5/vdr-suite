@@ -124,3 +124,14 @@ test-addon-provider-admission:
 	"$(BUILD_DIR)/addons/test_addon_provider_admission"
 
 test-ci-fast: test-addon-provider-admission
+
+# Non-authorizing provider snapshot: pinned binary/version + backend generation.
+.PHONY: test-addon-provider-binding
+test-addon-provider-binding:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include \
+		core/addons/tests/test_addon_provider_binding.cpp \
+		-o "$(BUILD_DIR)/addons/test_addon_provider_binding"
+	"$(BUILD_DIR)/addons/test_addon_provider_binding"
+
+test-ci-fast: test-addon-provider-binding
