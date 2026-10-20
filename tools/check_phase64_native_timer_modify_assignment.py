@@ -44,9 +44,8 @@ for required in (
     "op.expectedResourceFingerprint != b.observedFingerprint",
     "agent->leaseExpiresAt < now",
     "agent->backendGeneration != op.backendGeneration",
-    "backendAgentNativeTimerModifyCapability",
 ):
-    if required not in runtime and required != "backendAgentNativeTimerModifyCapability":
+    if required not in runtime:
         raise SystemExit("missing safe delayed MODIFY dispatcher gate: " + required)
 assert "b.lastObservedAt < now - 300" not in runtime, (
     "accepted MODIFY must not deadlock on its own frozen observation")
