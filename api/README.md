@@ -16,6 +16,7 @@
 - [Human Account create/lifecycle/grant mutations](account-mutations.md)
 - [Human Credential and Browser Session administration](account-security-administration.md)
 - [Recording browse, genre facets and EPG now/next](recording-browse-epg.md)
+- [Recording Action validation and execution (candidate Public-v1 integration)](recording-actions.md)
 - [Device Recording playback/session and media track implementation guide](device-recording-playback.md) — five audited R2 Device playback routes, separate from Phase-69.F
 - [Device and Credential revocation/rotation](device-lifecycle.md)
 - [Public API compatibility ADR-0048](../docs/adr/ADR-0048-public-api-versioning-error-compatibility-contract.md)
