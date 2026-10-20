@@ -240,6 +240,43 @@ void verifyRejectedWithoutEffect(
     assert(applied.operation.state ==
         MutationOperationState::failedVerified);
 }
+void verifyEvidenceFreeLegacyQuarantine(
+    MutationOperationRepository& operations,
+    NativeTimerBindingRepository& bindings)
+{
+    const auto binding = createBinding(bindings, "missing-evidence");
+    const auto payload = payloadFor(binding, NativeTimerModifyKind::update);
+    const auto operation = reserve(operations, payload, "missing-evidence", 300);
+    NativeTimerModifyDispatchService dispatch(operations, bindings);
+    NativeTimerModifyDispatchClaimRequest claim;
+    claim.operationId = operation.operationId;
+    claim.expectedOperationRevision = operation.operationRevision;
+    const auto claimed = dispatch.claim(claim, 305);
+    assert(claimed.ok());
+    assert(claimed.operation.state == MutationOperationState::dispatching);
+
+    // A persisted legacy ACK lacking evidence can only be quarantined. It
+    // cannot establish either success or verified no-effect, and it does not
+    // authorize another native dispatch.
+    const std::string reason =
+        "native-timer-modify:missing-result-evidence";
+    const auto quarantined = operations.transition(
+        operation.operationId, claimed.operation.operationRevision,
+        MutationOperationState::dispatching,
+        MutationOperationState::outcomeUnknown, reason, 310);
+    assert(quarantined.ok());
+    assert(quarantined.operation.state == MutationOperationState::outcomeUnknown);
+    assert(quarantined.operation.resultReference == reason);
+    const auto persisted = operations.findById(operation.operationId);
+    assert(persisted.ok());
+    assert(persisted.operation.state == MutationOperationState::outcomeUnknown);
+    const auto staleSuccess = operations.transition(
+        operation.operationId, claimed.operation.operationRevision,
+        MutationOperationState::outcomeUnknown,
+        MutationOperationState::succeeded, "unverified-success", 311);
+    assert(!staleSuccess.ok());
+}
+
 } // namespace
 
 int main()
@@ -265,6 +302,7 @@ int main()
         NativeTimerModifyExecutorOutcomeCategory::outcomeUnknown,
         "toggle");
     verifyRejectedWithoutEffect(operations, bindings);
+    verifyEvidenceFreeLegacyQuarantine(operations, bindings);
 
     std::cout << "test_native_timer_modify_dispatch passed\n";
     return 0;
