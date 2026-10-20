@@ -4,6 +4,7 @@
 #include "Database.h"
 
 #include <cstdint>
+#include <functional>
 #include <string>
 
 namespace vdrsuite::addons {
@@ -55,6 +56,15 @@ public:
                         const BackendAccessDecision& backend,
                         const RuntimeEvidence& evidence);
 
+    // Future management routes MUST use this path with the existing
+    // AccountabilityEventRepository on the same Database transaction.
+    // Failure to append audit aborts the state change, including its CAS.
+    IntentResult updateAudited(const RequestSecurityContext& actor,
+                               const IntentMutation& mutation,
+                               const BackendAccessDecision& backend,
+                               const RuntimeEvidence& evidence,
+                               const std::function<bool()>& appendAudit);
+
 private:
     // Only the internal dry-run admission service may read desired state
     // without a global administrator context. No public route may use it.
@@ -70,6 +80,12 @@ private:
     static bool eligibleForFutureEnable(const IntentMutation& mutation,
                                         const BackendAccessDecision& backend,
                                         const RuntimeEvidence& evidence);
+
+    IntentResult updateInternal(const RequestSecurityContext& actor,
+                                const IntentMutation& mutation,
+                                const BackendAccessDecision& backend,
+                                const RuntimeEvidence& evidence,
+                                const std::function<bool()>* appendAudit);
 
     Database& database_;
 };
