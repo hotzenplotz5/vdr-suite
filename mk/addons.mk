@@ -177,3 +177,20 @@ test-addon-administration-service:
 	"$(BUILD_DIR)/addons/test_addon_administration_service"
 
 test-ci-fast: test-addon-administration-service
+
+# Admin-only desired-state inventory. Effective/active capabilities remain empty.
+.PHONY: test-addon-activation-catalog
+test-addon-activation-catalog:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
+		-I core/addons/include -I core/security/include \
+		-I core/vdr/include -I core/sqlite/include \
+		core/sqlite/src/Database.cpp \
+		core/addons/src/AddonAccessPolicy.cpp \
+		core/addons/src/AddonActivationIntentRepository.cpp \
+		core/addons/src/AddonActivationCatalogReadService.cpp \
+		core/addons/tests/test_addon_activation_catalog_read_service.cpp \
+		-lsqlite3 -o "$(BUILD_DIR)/addons/test_addon_activation_catalog"
+	"$(BUILD_DIR)/addons/test_addon_activation_catalog"
+
+test-ci-fast: test-addon-activation-catalog
