@@ -14,6 +14,7 @@ import stat
 from pathlib import Path
 
 from manual_handler_evidence import examine as examine_binary
+from addon_contract import ContractError, validate_directory
 
 APPROVAL_PATH = "etc/vdr-suite/addon-approvals/rectools.json"
 BINARY_PATH = "usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import"
@@ -77,6 +78,13 @@ def examine(root: Path, module: str) -> dict:
             return denied("invalid-approval-digest")
         if record["origin"] not in ("manual", "debian"):
             return denied("invalid-approval-origin")
+        manifest_path = root / "usr/share/vdr-suite/addons/rectools"
+        try:
+            manifest = validate_directory(manifest_path, "rectools")
+        except (ContractError, OSError, ValueError, UnicodeError):
+            return denied("invalid-installed-metadata")
+        if manifest["version"] != record["version"] or manifest["package"] != record["package"]:
+            return denied("approval-metadata-mismatch")
         binary = examine_binary(root, module, record["sha256"])
         if not binary["consistent"]:
             return denied("approved-binary-" + binary["reason"])
