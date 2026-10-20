@@ -22,6 +22,7 @@ class ApprovalEvidenceTests(unittest.TestCase):
             "schemaVersion": 1, "id": "rectools",
             "package": "vdr-suite-addon-media-tools",
             "version": "0.1.0", "sha256": "a" * 64, "origin": "manual",
+            "state": "approved",
         }
         self.write(self.data)
 
@@ -96,6 +97,11 @@ class ApprovalEvidenceTests(unittest.TestCase):
                 self.assertEqual(examine(self.root, "rectools")["reason"],
                                  "approval-metadata-mismatch")
                 self.data["version"] = "0.1.0"
+                self.data["state"] = "revoked"
+                self.write(self.data)
+                self.assertEqual(examine(self.root, "rectools")["reason"],
+                                 "approval-revoked")
+                self.data["state"] = "approved"
                 self.data["id"] = "image"
                 self.write(self.data)
                 self.assertEqual(examine(self.root, "rectools")["reason"],
