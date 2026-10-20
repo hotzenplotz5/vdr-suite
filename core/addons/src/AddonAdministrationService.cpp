@@ -64,6 +64,15 @@ IntentResult AddonAdministrationService::setDesiredState(
                 {mutation.moduleId, mutation.backendId, false, 0}};
     }
 
+    // The administrative facade must not accept optimistic caller-supplied
+    // RuntimeEvidence as live handler provenance. Until the Core-owned
+    // installation verifier/Agent adapter exists, enable is unavailable.
+    // The SQLite intent repository remains a separately tested state
+    // primitive; the production-facing coordinator is stricter.
+    if (mutation.desiredEnabled)
+        return {IntentStatus::ineligible,
+                {mutation.moduleId, mutation.backendId, false, 0}};
+
     AccountabilityEvent event;
     event.eventId = context.eventId;
     event.classes = "security,administration";
