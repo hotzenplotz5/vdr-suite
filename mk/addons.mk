@@ -215,3 +215,13 @@ build-addon-pinned-handler-test:
 		core/addons/src/AddonPinnedHandler.cpp \
 		core/addons/tests/test_addon_pinned_handler.cpp -lcrypto \
 		-o "$(BUILD_DIR)/addons/test_addon_pinned_handler"
+
+# Build only. The real root-owned fixture is run in disposable CI.
+.PHONY: build-addon-root-approval-test
+build-addon-root-approval-test:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include \
+		core/addons/src/AddonRootApproval.cpp \
+		core/addons/src/AddonPinnedHandler.cpp \
+		core/addons/tests/test_addon_root_approval.cpp -lcrypto \
+		-o "$(BUILD_DIR)/addons/test_addon_root_approval"
