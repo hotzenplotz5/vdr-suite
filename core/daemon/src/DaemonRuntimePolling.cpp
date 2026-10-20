@@ -10,6 +10,7 @@
 #include "RestfulApiNativeTimerInventoryReader.h"
 #include "VdrManagedTimerCreateReadbackEvidenceBuilder.h"
 
+#include <algorithm>
 #include <chrono>
 #include <exception>
 #include <iostream>
@@ -377,6 +378,7 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
     // succeeded, refresh the legacy snapshot explicitly; otherwise Public v1
     // compares a new verified binding with an old cached Timer and returns
     // 503 indefinitely. Keep retrying if the full native read fails.
+    std::set<std::string> refreshedNativeTimerBackends;
     if (nativeTimerSnapshotRefreshPending_ && snapshotCacheService_ &&
         backendAgentRepository_)
     {
@@ -430,6 +432,7 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
                 }
                 snapshotCacheService_->updateTimersForBackend(
                     context->backendId, timers);
+                refreshedNativeTimerBackends.insert(context->backendId);
             }
             catch (const std::exception& error)
             {
@@ -509,6 +512,17 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
                         VdrChangeType::RecordingMarksChanged);
                 }
             }
+        }
+
+        if (refreshedNativeTimerBackends.count(
+                backendRuntimeContext->backendId) != 0 &&
+            std::none_of(
+                readyChanges.begin(), readyChanges.end(),
+                [](const VdrChangeEvent& event) {
+                    return event.type() == VdrChangeType::TimersChanged;
+                }))
+        {
+            readyChanges.emplace_back(VdrChangeType::TimersChanged);
         }
 
         snapshotChangeFeedService_->appendChanges(
