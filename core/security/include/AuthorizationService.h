@@ -110,6 +110,26 @@ public:
             return decision;
         }
 
+        // Add-on import is deliberately *not* implied by role.admin,
+        // general permission wildcards or backend-wide grants. Only an
+        // explicitly resolved permission on the exact backend qualifies.
+        if (request.permission == "addons.media.import")
+        {
+            for (const PermissionGrant& grant : context.grants)
+            {
+                if (grant.permission == request.permission &&
+                    grant.backendId == request.backendId &&
+                    request.backendId != "*")
+                {
+                    decision.allowed = true;
+                    decision.reasonCode = "permission_granted";
+                    return decision;
+                }
+            }
+            decision.reasonCode = "permission_denied";
+            return decision;
+        }
+
         bool permissionPresent = false;
         for (const PermissionGrant& grant : context.grants)
         {
@@ -156,7 +176,8 @@ private:
     static bool protectedMutationPermission(
         const std::string& permission)
     {
-        return permission == "remote.control" ||
+        return permission == "addons.media.import" ||
+            permission == "remote.control" ||
             permission == "timers.create" ||
             permission == "timers.modify" ||
             permission == "timers.delete" ||
