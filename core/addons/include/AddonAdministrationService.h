@@ -10,8 +10,6 @@ namespace vdrsuite::addons {
 
 struct AdministrationAuditContext {
     std::string eventId;
-    std::string requestId;
-    std::string correlationId;
     std::string occurredAt;
 };
 
