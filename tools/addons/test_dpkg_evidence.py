@@ -64,8 +64,7 @@ class DpkgEvidenceTests(unittest.TestCase):
             self._evidence(),
             {"consistent": True, "reason": "dpkg-ledger-consistent"},
         )
-        self.assertEqual(inspect(self.root)["modules"][-1]["dpkgEvidence"],
-                         {"consistent": False, "reason": "not-checked"})
+        self.assertNotIn("dpkgEvidence", inspect(self.root)["modules"][-1])
         self.assertEqual(plan_enable(self.root, "rectools", verify_dpkg=True)["decision"],
                          "denied")
 

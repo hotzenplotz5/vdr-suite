@@ -102,14 +102,17 @@ def inspect(root: Path, verify_dpkg: bool = False) -> dict:
                     "active": False,
                     "capabilities": [],
                 }
-    for item in installed.values():
-        item["dpkgEvidence"] = {"consistent": False, "reason": "not-checked"}
-        if verify_dpkg:
+    # Preserve the existing schema-1 inventory shape unless the caller
+    # explicitly opts into the additional diagnostic field.
+    if verify_dpkg:
+        for item in installed.values():
             if item["installed"] and item["id"] in SUPPORTED_PACKAGES:
                 item["dpkgEvidence"] = examine(
                     root, item["id"], item["package"], item["version"])
             else:
-                item["dpkgEvidence"]["reason"] = "metadata-not-installed"
+                item["dpkgEvidence"] = {
+                    "consistent": False, "reason": "metadata-not-installed"
+                }
 
     for name, package in SUPPORTED_PACKAGES.items():
         installed.setdefault(name, {
@@ -120,8 +123,9 @@ def inspect(root: Path, verify_dpkg: bool = False) -> dict:
             "reason": "missing-package",
             "active": False,
             "capabilities": [],
-            "dpkgEvidence": {"consistent": False, "reason": "metadata-not-installed"
-                             if verify_dpkg else "not-checked"},
+            **({"dpkgEvidence": {
+                "consistent": False, "reason": "metadata-not-installed"
+            }} if verify_dpkg else {}),
         })
     return {"registrySchemaVersion": 1, "modules": [installed[n] for n in sorted(installed)]}
 

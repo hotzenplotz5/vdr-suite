@@ -150,7 +150,8 @@ checksum mismatches fail closed. No `dpkg` command or external program runs.
 Example: `python3 tools/addons/installed_registry.py inventory --root /
 --verify-dpkg` is a **read-only operator diagnostic** on a Debian host.
 The regular `--root <isolated>` metadata-only mode still works without
-any dpkg database and returns `dpkgEvidence.consistent=false`.
+any dpkg database and does not emit a `dpkgEvidence` field, preserving
+the existing registry schema-1 response shape.
 
 **This is local dpkg ledger *consistency*, not trusted package provenance.**
 The dpkg status/list/MD5 files and package content are mutable local data;
