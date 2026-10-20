@@ -311,7 +311,10 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
                 const auto agent = backendAgentRepository_
                     ->findAgentForBackend(target.backendId);
                 if (!agent || agent->revoked || agent->incompatible ||
-                    agent->backendGeneration != target.backendGeneration)
+                    agent->backendGeneration < target.backendGeneration ||
+                    (agent->backendGeneration != target.backendGeneration &&
+                     expectation.operationState !=
+                         vdrsuite::timers::NativeTimerReadbackOperationState::outcomeUnknown))
                     return std::nullopt;
 
                 const auto observedAt =
@@ -330,7 +333,11 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
                         *context->httpClient);
                     vdrsuite::vdr::NativeTimerModifyReadRequest request;
                     request.backendId = target.backendId;
-                    request.backendGeneration = target.backendGeneration;
+                    // The read itself is current-generation evidence. A
+                    // historical unknown MODIFY may be reconciled against it,
+                    // but positive completion still requires the original
+                    // generation in the readback verifier.
+                    request.backendGeneration = agent->backendGeneration;
                     request.backendNativeTimerId =
                         target.backendNativeTimerId;
                     request.observedAt = observedAt;
