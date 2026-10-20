@@ -142,7 +142,10 @@ for scan_root in [
                 if all(marker in poll for marker in [
                     "RestfulApiNativeTimerModifyReadbackReader",
                     "listManagedForFreshness(",
-                    "stillAgent->backendGeneration",
+                    "agent->backendGeneration < binding.backendGeneration",
+                    "request.backendGeneration = agent->backendGeneration",
+                    "stillAgent->backendGeneration ==\n"
+                    "                                    request.backendGeneration",
                     "observed.observation, true",
                 ]):
                     continue
