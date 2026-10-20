@@ -21,6 +21,7 @@ This section contains binding future execution order, product acceptance journey
 - [Architecture Audit Gap Matrix](architecture-audit-gap-matrix.md) — living accepted-code gap register.
 - [Parity Audit and Frontend Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md) — frontend/product parity gap register.
 - [Platform Productization Roadmap](platform-productization-roadmap.md) — federated MultiBackend sharing, permissioned pure clients, first-party living-room/output client and Debian/Ubuntu release packaging.
+- [Optional Add-on Platform Roadmap](addon-platform-roadmap.md) — one-branch platform, Media Tools, Images/Music, trust and runtime acceptance gates.
 - [ADR Index](../adr/index.md) — accepted architectural decisions.
 
 ## Stable phase dependency chain

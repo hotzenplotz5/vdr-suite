@@ -1,6 +1,6 @@
 # VDR-Suite optional add-on source tree
 
-[Architecture decision](../docs/adr/ADR-0068-optional-addons-and-source-packaging.md) · [Packaging guide](../docs/development/addon-source-packaging.md)
+[Architecture decision](../docs/adr/ADR-0068-optional-addons-and-source-packaging.md) · [Packaging guide](../docs/development/addon-source-packaging.md) · [Roadmap](../docs/planning/addon-platform-roadmap.md)
 
 This directory owns the *source* of optional product extensions. It is not a runtime plugin loader. The existing browser `VdrSuitePlatform.registerModule()` registers web UI modules only; it does **not** grant backend permissions, register endpoints, or load external executables.
 

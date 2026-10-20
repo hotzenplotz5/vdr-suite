@@ -1,6 +1,6 @@
 # Optional Add-ons: source packaging and module rules
 
-[ADR-0068](../adr/ADR-0068-optional-addons-and-source-packaging.md) · [Module inventory](../../modules/README.md)
+[ADR-0068](../adr/ADR-0068-optional-addons-and-source-packaging.md) · [Module inventory](../../modules/README.md) · [Add-on execution roadmap](../planning/addon-platform-roadmap.md)
 
 ## Current implementation
 
@@ -50,7 +50,7 @@ The [installed registry specification](addon-installed-registry-contract.md) doc
 
 ## Next bounded implementation slices
 
-1. Versioned activation/capability/permission contract with an explicitly trusted package boundary and tests (not an arbitrary backend loader).
+1. Source/manual-install handler registration and trust boundary first, reusing the existing Suite ownership model; versioned capability and permission contract. Optional Debian package provenance follows through the same core authority (not an arbitrary backend loader).
 2. Rectools safe media preview/import/check CLI audited in its own repository; repair-free, source-preserving, check non-mutating.
 3. Suite protected backend-bound import workflow, job and verify/reconciliation; focused integration tests and stageable runtime files with exact dependencies.
 4. Optional frontend UI and advertised capability only after authorization, worker and install tests.
@@ -87,8 +87,19 @@ remain separate security-gated implementation work.
 
 ## Optional dpkg consistency read (non-authorizing)
 
-The metadata registry supports `--verify-dpkg` to compare the package's
-local dpkg status/list/checksum ledger with its source-owned metadata.
+The current VDR-Suite yaVDR installation is a conventional/source deployment,
+not a VDR-Suite Debian package installation. Daily builds and optional
+Debian package builders already exist, but a built artifact does not imply an
+installed package. **No dpkg record is required for the existing Suite.**
+
+The metadata registry supports an *explicit*, optional `--verify-dpkg`
+diagnostic for later packaged add-ons, comparing the local dpkg
+status/list/checksum ledger with source-owned metadata.
 See [Installed registry contract](addon-installed-registry-contract.md).
-This only reports ledger consistency; it does **not** attest repository
-signatures, set `packageTrusted`, enable handlers or change VDR.
+Normal inventory works without any dpkg database. This only reports ledger
+consistency; it does **not** attest repository signatures, set
+`packageTrusted`, enable handlers or change VDR.
+
+The [central add-on roadmap](../planning/addon-platform-roadmap.md) now
+prioritizes safe source/manual-install handler identity and lifecycle, with
+Debian/PPA delivery supported as an **additional** mode.

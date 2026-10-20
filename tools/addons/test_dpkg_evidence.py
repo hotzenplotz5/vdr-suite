@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from addon_contract import FILES, ROOT, stage
@@ -89,6 +90,19 @@ class DpkgEvidenceTests(unittest.TestCase):
             for p in self.root.rglob("*") if p.is_file()
         }
         self.assertEqual(before, after)
+
+    def test_default_scan_does_not_probe_dpkg(self):
+        # Suite may be installed manually, with no local Debian add-on
+        # package. The default registry and plan must remain independent
+        # from this optional verifier.
+        with patch("installed_registry.examine",
+                   side_effect=AssertionError("unexpected dpkg probe")):
+            inventory = inspect(self.root)
+            self.assertNotIn("dpkgEvidence",
+                             next(m for m in inventory["modules"]
+                                  if m["id"] == "rectools"))
+            decision = plan_enable(self.root, "rectools")
+            self.assertEqual(decision["decision"], "denied")
 
     def test_missing_status_fails_closed(self):
         (self.ledger / "status").unlink()

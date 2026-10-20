@@ -147,11 +147,20 @@ the applicable architecture, claimed ownership of all three metadata files
 and matching file hashes. Missing ledgers, duplicate entries, symlinks and
 checksum mismatches fail closed. No `dpkg` command or external program runs.
 
-Example: `python3 tools/addons/installed_registry.py inventory --root /
---verify-dpkg` is a **read-only operator diagnostic** on a Debian host.
-The regular `--root <isolated>` metadata-only mode still works without
-any dpkg database and does not emit a `dpkgEvidence` field, preserving
-the existing registry schema-1 response shape.
+On the current conventionally/source-installed yaVDR, **do not require or
+run this dpkg check** for VDR-Suite or Media Tools development. Current
+package builds and daily builds are build artifacts, not proof of an
+installed add-on or Suite package. The offline fixture exercises the optional
+diagnostic using an isolated root with synthetic dpkg files; the real host's
+`/var/lib/dpkg` is not inspected by routine add-on tests.
+
+The regular `--root <isolated>` metadata-only mode works **without**
+a dpkg database and emits no `dpkgEvidence` field. It preserves the
+existing registry schema-1 response shape. Later, for a genuinely Debian-
+installed add-on, an operator can explicitly request `--verify-dpkg`.
+A manual/source-built handler will need a *separate*, independently approved
+install identity and integrity mechanism; it must not pretend to be a
+Debian package.
 
 **This is local dpkg ledger *consistency*, not trusted package provenance.**
 The dpkg status/list/MD5 files and package content are mutable local data;
