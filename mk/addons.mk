@@ -159,3 +159,21 @@ test-addon-provider-approval:
 	"$(BUILD_DIR)/addons/test_addon_provider_approval"
 
 test-ci-fast: test-addon-provider-approval
+
+# Internal admin coordinator: same-transaction Suite accountability + intent CAS.
+.PHONY: test-addon-administration-service
+test-addon-administration-service:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
+		-I core/addons/include -I core/security/include \
+		-I core/vdr/include -I core/sqlite/include \
+		core/sqlite/src/Database.cpp \
+		core/security/src/AccountabilityEventRepository.cpp \
+		core/addons/src/AddonAccessPolicy.cpp \
+		core/addons/src/AddonActivationIntentRepository.cpp \
+		core/addons/src/AddonAdministrationService.cpp \
+		core/addons/tests/test_addon_administration_service.cpp \
+		-lsqlite3 -o "$(BUILD_DIR)/addons/test_addon_administration_service"
+	"$(BUILD_DIR)/addons/test_addon_administration_service"
+
+test-ci-fast: test-addon-administration-service
