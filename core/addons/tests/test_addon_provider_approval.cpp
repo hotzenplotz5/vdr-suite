@@ -37,6 +37,14 @@ int main()
         approval.version = "0.2.0";
         assert(review().reason == ApprovalReason::versionMismatch);
         approval.version = "0.1.0";
+        approval.backendId = "../unsafe";
+        observed.backendId = "../unsafe";
+        const auto malformed = review();
+        assert(malformed.reason == ApprovalReason::invalidBinding);
+        assert(!malformed.binding.accepted);
+        assert(malformed.binding.reason == BindingReason::invalidBackend);
+        approval.backendId = "backend-a";
+        observed.backendId = "backend-a";
         observed.packageName = "vdr-suite-addon-music";
         assert(review().reason == ApprovalReason::invalidIdentity);
     }
