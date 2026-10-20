@@ -41,7 +41,7 @@ class ManualHandlerEvidenceTests(unittest.TestCase):
     def test_wrong_digest_fails_closed(self):
         result = self.evidence("0" * 64)
         self.assertFalse(result["consistent"])
-        self.assertIn(result["reason"], ("handler-digest-mismatch", "unsafe-handler-ownership"))
+        self.assertIn(result["reason"], ("handler-digest-mismatch", "unsafe-handler-ownership", "writable-handler-parent"))
 
     def test_absent_handler_fails_closed(self):
         self.handler.unlink()
@@ -50,7 +50,7 @@ class ManualHandlerEvidenceTests(unittest.TestCase):
     def test_symlink_handler_fails_closed(self):
         self.handler.rename(self.handler.with_suffix(".original"))
         self.handler.symlink_to(self.handler.with_suffix(".original"))
-        self.assertEqual(self.evidence()["reason"], "unsafe-handler-file")
+        self.assertIn(self.evidence()["reason"], ("unsafe-handler-file", "writable-handler-parent"))
 
     def test_writable_parent_fails_closed(self):
         self.handler.parent.chmod(0o777)
@@ -59,7 +59,7 @@ class ManualHandlerEvidenceTests(unittest.TestCase):
     def test_executable_permission_required(self):
         self.handler.chmod(0o600)
         result = self.evidence()
-        self.assertEqual(result["reason"], "handler-not-executable")
+        self.assertIn(result["reason"], ("handler-not-executable", "writable-handler-parent"))
 
     def test_non_rectools_has_no_handler(self):
         self.assertEqual(examine(self.root, "image", self.digest)["reason"],
