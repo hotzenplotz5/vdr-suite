@@ -231,6 +231,30 @@ void advanceFamily(
     {
         if (op.state == MutationOperationState::accepted)
         {
+            // An expired, never-assigned operation cannot have reached the
+            // native executor. Terminate it without retrying or touching VDR.
+            // If an Agent assignment exists, never claim no side effect:
+            // preserve the operation for explicit reconciliation instead.
+            if (op.deadline != 0 && op.deadline <= now)
+            {
+                const char* commandType = family == "timer.toggle"
+                    ? kBackendAgentNativeTimerToggleCommandType
+                    : kBackendAgentNativeTimerUpdateCommandType;
+                if (commands.findAssignmentForOperation(
+                        op.backendId, op.operationId, commandType))
+                {
+                    ++summary.deferred;
+                    continue;
+                }
+                const auto expired = operations.transition(
+                    op.operationId, op.operationRevision,
+                    MutationOperationState::accepted,
+                    MutationOperationState::failedBeforeDispatch,
+                    "native-timer-modify:expired-before-assignment", now);
+                if (expired.ok()) ++summary.expired;
+                else ++summary.deferred;
+                continue;
+            }
             if (!assignAndClaim(op, operations, commands, agents, intents,
                 assignments, bindings, assigner, dispatcher, now))
             {
