@@ -291,3 +291,10 @@ authorize another. Its record and matching binary checks remain read-only and
 non-authorizing. Unit tests simulate root-owned metadata for positive-path
 contract validation; they are **not** proof that a live installation has an
 approved handler.
+
+The versioned root-owned record also requires an explicit `state` field:
+`approved` or `revoked`. Revoked records fail closed even when hashes and
+package metadata still match. Removing the record also denies. These are
+offline state observations, not an automated revocation pipeline: a future
+Core issuer must persist changes safely, invalidate cached provider evidence,
+and fence in-flight operations.
