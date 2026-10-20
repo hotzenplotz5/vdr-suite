@@ -1,5 +1,7 @@
 #include "AddonActivationCatalogReadService.h"
 
+#include <utility>
+
 namespace vdrsuite::addons {
 
 AddonCatalogReadResult AddonActivationCatalogReadService::read(
