@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Single-run yaVDR hardware acceptance for API v1 native Timer MODIFY/DELETE.
 
-Only the exact VDRSuite-HW-Test-20261020 timer is mutated.
-No CREATE, no blind retries, no credentials printed, no filesystem permission changes.
+Only a newly API-v1-created, Suite-managed disposable timer is modified/deleted.
+The old unbound VDRSuite-HW-Test-20261020 and all production timers remain untouched.
+CREATE is setup only, not a repeated CREATE acceptance. No blind retries or secrets logged.
 """
 import json
 import subprocess
