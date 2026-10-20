@@ -84,14 +84,32 @@ int main()
     assert(refreshed.binding.lastVerifiedOperationId ==
            managed.binding.lastVerifiedOperationId);
 
-    // Freshness is not adoption and cannot be used to advance generations.
+    // After an Agent restart the same native Timer may have a newer
+    // generation. A strict, unchanged live fingerprint rebinds it safely.
+    auto nextGeneration = evidence(refreshed.binding, 1550);
+    nextGeneration.backendGeneration = 8;
+    const auto rebound = service.applyPresentObservation(
+        nextGeneration, true);
+    assert(rebound.ok() && rebound.binding.bindingRevision == "3");
+    assert(rebound.binding.backendGeneration == 8);
+    assert(rebound.binding.lastObservedAt == 1550);
+    assert(rebound.binding.observedFingerprint ==
+           managed.binding.observedFingerprint);
+    assert(rebound.binding.timerAssignmentId ==
+           managed.binding.timerAssignmentId);
+    assert(rebound.binding.lastVerifiedOperationId ==
+           managed.binding.lastVerifiedOperationId);
+    // An old Agent generation must never roll back the binding.
+    auto oldGeneration = evidence(rebound.binding, 1560);
+    oldGeneration.backendGeneration = 7;
+    assert(service.applyPresentObservation(oldGeneration, true).status ==
+           NativeTimerBindingReadbackStatus::reconciliationRequired);
+    assert(repo.findById("binding:a").binding.backendGeneration == 8);
+
+    // A read cannot passively adopt an externally owned native Timer.
     assert(service.applyPresentObservation(
         evidence(external.binding, 1500), true).status ==
         NativeTimerBindingReadbackStatus::reconciliationRequired);
-    auto futureGeneration = evidence(second.binding, 1600);
-    futureGeneration.backendGeneration++;
-    assert(service.applyPresentObservation(futureGeneration, true).status ==
-           NativeTimerBindingReadbackStatus::reconciliationRequired);
 
     // Changed live fields must not be hidden by refreshing the timestamp.
     auto changed = evidence(second.binding, 1600);
@@ -110,10 +128,16 @@ int main()
     assert(blocked.status ==
            NativeTimerBindingReadbackStatus::repositoryConflict);
     assert(repo.findById("binding:b").binding.bindingRevision == "1");
+    // Even a newer Agent generation must not rewrite an accepted mutation.
+    auto pendingGeneration = evidence(second.binding, 1601);
+    pendingGeneration.backendGeneration = 8;
+    assert(service.applyPresentObservation(pendingGeneration, true).status ==
+           NativeTimerBindingReadbackStatus::repositoryConflict);
+    assert(repo.findById("binding:b").binding.backendGeneration == 7);
     assert(db.execute(
         "UPDATE mutation_operations SET state='outcome_unknown';"));
     assert(service.applyPresentObservation(
-        evidence(second.binding, 1601), true).status ==
+        pendingGeneration, true).status ==
            NativeTimerBindingReadbackStatus::repositoryConflict);
     assert(db.execute(
         "UPDATE mutation_operations SET state='succeeded';"));
