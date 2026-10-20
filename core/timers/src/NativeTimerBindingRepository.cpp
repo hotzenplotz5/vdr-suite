@@ -460,7 +460,8 @@ NativeTimerBindingRepositoryResult NativeTimerBindingRepository::update(
         sqlite3_stmt* pending = nullptr;
         const char* sql =
             "SELECT 1 FROM mutation_operations "
-            "WHERE resource_type='NativeTimerBinding' AND resource_id=? "
+            "WHERE ((resource_type='NativeTimerBinding' AND resource_id=?) "
+            "OR (resource_type='TimerAssignment' AND resource_id=?)) "
             "AND state NOT IN ('rejected','conflict','succeeded',"
             "'failed_before_dispatch','failed_verified','cancelled') LIMIT 1;";
         if (sqlite3_prepare_v2(database_.handle(), sql, -1, &pending, nullptr)
@@ -470,9 +471,13 @@ NativeTimerBindingRepositoryResult NativeTimerBindingRepository::update(
             rollback();
             return statusResult(NativeTimerBindingRepositoryStatus::storageError);
         }
-        const bool bound = sqlite3_bind_text(
-            pending, 1, current.nativeTimerBindingId.c_str(), -1,
-            SQLITE_TRANSIENT) == SQLITE_OK;
+        const bool bound =
+            sqlite3_bind_text(pending, 1,
+                current.nativeTimerBindingId.c_str(), -1,
+                SQLITE_TRANSIENT) == SQLITE_OK &&
+            sqlite3_bind_text(pending, 2,
+                current.timerAssignmentId.c_str(), -1,
+                SQLITE_TRANSIENT) == SQLITE_OK;
         const int step = bound ? sqlite3_step(pending) : SQLITE_ERROR;
         sqlite3_finalize(pending);
         if (step != SQLITE_DONE)
