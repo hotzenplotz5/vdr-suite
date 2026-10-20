@@ -6,8 +6,8 @@ add-on runtime is enabled or installed.
 
 ## Single development branch
 
-All future Add-on Architecture / Media Tools / Registry / image / music /
-tvscraper slices continue directly on
+All future Add-on Architecture / Media Tools / Registry / image / music
+slices continue directly on
 `work/addon-platform-registry-lifecycle`. No more per-slice successor
 branches are necessary. Synchronize it with current `main` using regular
 non-force merges without changing `main`.

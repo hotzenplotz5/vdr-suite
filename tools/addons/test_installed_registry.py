@@ -23,7 +23,7 @@ class InstalledAddonRegistryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="addon-registry-test-") as tmp:
             result = registry.inspect(Path(tmp))
             self.assertEqual(result["registrySchemaVersion"], 1)
-            self.assertEqual(len(result["modules"]), 4)
+            self.assertEqual(len(result["modules"]), 3)
             self.assertTrue(all(not m["installed"] and not m["active"] for m in result["modules"]))
             self.assertEqual(registry.plan_enable(Path(tmp), "rectools")["reason"], "missing-package")
 
@@ -54,6 +54,21 @@ class InstalledAddonRegistryTests(unittest.TestCase):
             self.assertEqual(rejected["reason"], "unregistered-package")
             self.assertFalse(rejected["active"])
             self.assertEqual(registry.plan_enable(root, "malicious")["reason"], "unregistered-package")
+
+    def test_legacy_tvscraper_files_cannot_restore_addon(self):
+        with tempfile.TemporaryDirectory(prefix="addon-registry-test-") as tmp:
+            root = Path(tmp)
+            legacy = root / "usr/share/vdr-suite/addons/tvscraper"
+            legacy.mkdir(parents=True)
+            (legacy / "addon.json").write_text('{"id":"tvscraper"}')
+            report = registry.inspect(root)
+            entry = next(m for m in report["modules"] if m["id"] == "tvscraper")
+            self.assertFalse(entry["installed"])
+            self.assertFalse(entry["active"])
+            self.assertEqual(entry["capabilities"], [])
+            self.assertEqual(entry["reason"], "unregistered-package")
+            self.assertEqual(registry.plan_enable(root, "tvscraper")["reason"],
+                             "unregistered-package")
 
     def test_tampered_manifest_rejected(self):
         with tempfile.TemporaryDirectory(prefix="addon-registry-test-") as tmp:
@@ -109,19 +124,20 @@ class InstalledAddonRegistryTests(unittest.TestCase):
     def test_deterministic_cli_read_only_output(self):
         with tempfile.TemporaryDirectory(prefix="addon-registry-test-") as tmp:
             root = Path(tmp)
-            self._stage(root, "tvscraper")
+            self._stage(root, "image")
             script = Path(__file__).with_name("installed_registry.py")
             result = subprocess.run(
                 ["python3", str(script), "inventory", "--root", str(root)],
                 text=True, capture_output=True, check=True)
             payload = json.loads(result.stdout)
-            self.assertEqual(len(payload["modules"]), 4)
+            self.assertEqual(len(payload["modules"]), 3)
             self.assertFalse(any(m["active"] for m in payload["modules"]))
             before = sorted(str(p) for p in root.rglob("*"))
             decision = subprocess.run(
                 ["python3", str(script), "plan-enable", "--root", str(root),
                  "--module", "tvscraper"], text=True, capture_output=True, check=True)
             self.assertEqual(json.loads(decision.stdout)["decision"], "denied")
+            self.assertEqual(json.loads(decision.stdout)["reason"], "unregistered-package")
             self.assertEqual(before, sorted(str(p) for p in root.rglob("*")))
 
 

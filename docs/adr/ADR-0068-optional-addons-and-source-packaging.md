@@ -6,7 +6,7 @@ Accepted as an architectural direction on 2026-10-08. The packageable scaffold d
 
 ## Context
 
-VDR-Suite already has internal domain modules, an in-browser `VdrSuitePlatform` module registry and empty `modules/{rectools,image,music,tvscraper}` placeholders. Internal C++ module boundaries are not a stable public ABI (ADR-0037). External VDR tools remain behind adapters (ADR-0005/0026); the daemon owns policy, jobs, metadata and APIs (ADR-0013/0043/0061).
+VDR-Suite already has internal domain modules, an in-browser `VdrSuitePlatform` module registry and empty `modules/{rectools,image,music}` placeholders. Internal C++ module boundaries are not a stable public ABI (ADR-0037). External VDR tools remain behind adapters (ADR-0005/0026); the daemon owns policy, jobs, metadata and APIs (ADR-0013/0043/0061).
 
 Adding Rectools directly to core would couple import/optional transcode dependencies and unsafe legacy filesystem workflows to every installation. Building a general third-party C++ plugin ABI now would promise stability we cannot prove.
 
@@ -46,7 +46,7 @@ Do not expose an arbitrary dynamic library loader, arbitrary shell hooks or mani
 
 The Rectools-backed Media Tools add-on is the first intended runtime slice, limited to import, **read-only** media checking and later explicitly gated shrink. No repair/smart_repair, PES-to-TS, cutting, marks, rename or move. The existing Rectools source must be hardened before Suite can execute it; do not reuse the legacy world-writable worker.
 
-Images and Music are independent media domains (not forced into VDR Recording identity). TVScraper is a metadata provider adapter, not a second metadata authority. The same manifest/AGENTS/staging contract applies to each.
+Images and Music are independent media domains (not forced into VDR Recording identity). TVScraper is an existing native SuiteBridge-to-Core provider integration under ADR-0036, **not** an add-on. The optional add-on manifest/AGENTS/staging contract applies only to Media Tools, Images and Music.
 
 ## Verification, rollout and non-goals
 

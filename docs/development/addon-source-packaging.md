@@ -6,7 +6,7 @@
 
 The following are **implemented now**: versioned declarative manifest validation, per-module developer rules, offline package staging, optional nonfunctional Debian scaffold-package building, and focused regression tests. Everything staged today is inert metadata: no daemon load, no systemd unit, no browser menu, no API route, no database migration and no media worker.
 
-Source modules: `rectools`, `image`, `music`, `tvscraper`. The `rectools` source module's future package is called `vdr-suite-addon-media-tools`, reflecting its bounded functionality.
+Source modules: `rectools`, `image`, `music`. The `rectools` source module's future package is called `vdr-suite-addon-media-tools`, reflecting its bounded functionality.
 
 ## Commands (repository checkout only)
 
@@ -45,7 +45,7 @@ The [installed registry specification](addon-installed-registry-contract.md) doc
 
 - `make check-addon-contract`: validates all manifests and tests non-destructive metadata staging without invoking `dpkg-deb`.
 - `make check-addon-registry`: tests isolated installed catalog discovery and denied activation previews without touching live paths.
-- `make check-addon-deb`: builds and inspects four inert packages in temporary directories (requires `dpkg-deb`, capacity preflight, never installs them).
+- `make check-addon-deb`: builds and inspects three inert packages in temporary directories (requires `dpkg-deb`, capacity preflight, never installs them).
 - The existing `test-docs` and `test-install-staging` targets pick up the corresponding focused checks without executing a full build merely for metadata edits.
 
 ## Next bounded implementation slices
@@ -55,7 +55,7 @@ The [installed registry specification](addon-installed-registry-contract.md) doc
 3. Suite protected backend-bound import workflow, job and verify/reconciliation; focused integration tests and stageable runtime files with exact dependencies.
 4. Optional frontend UI and advertised capability only after authorization, worker and install tests.
 5. Optional shrink only after proving non-destructive staged replacement, verification, resource budgets, and failure handling.
-6. Image/Music use the same addon contract to demonstrate independent media domains; TVScraper provider remains optional.
+6. Images and Music use the same add-on contract as independent media domains. TVScraper stays a core/SuiteBridge provider, not an add-on.
 
 These slices require normal AGENTS.md preflight and fresh main evidence. No automatic switch-on or live host operations are implied.
 

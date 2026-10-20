@@ -23,6 +23,10 @@ FIELDS = frozenset((
 NAME = re.compile(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*\Z")
 VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
 
+# Deliberately reviewed source add-ons. TVScraper is an existing native
+# VDR/SuiteBridge metadata provider, not an optional Suite add-on.
+SOURCE_MODULES = frozenset(("rectools", "image", "music"))
+
 
 class ContractError(ValueError):
     pass
@@ -96,8 +100,8 @@ def validate_all(root=ROOT):
     if directory.is_symlink() or not directory.is_dir():
         raise ContractError("missing modules source root")
     names = sorted(item.name for item in directory.iterdir() if item.is_dir() or item.is_symlink())
-    if not names:
-        raise ContractError("no module source directories")
+    if set(names) != SOURCE_MODULES:
+        raise ContractError("unexpected or missing optional add-on source directory")
     packages, modules = set(), {}
     for name in names:
         manifest = validate_module(root, name)

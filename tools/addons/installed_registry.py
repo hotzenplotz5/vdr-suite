@@ -22,7 +22,6 @@ SUPPORTED_PACKAGES = {
     "rectools": "vdr-suite-addon-media-tools",
     "image": "vdr-suite-addon-image",
     "music": "vdr-suite-addon-music",
-    "tvscraper": "vdr-suite-addon-tvscraper",
 }
 
 # The current registry contract has no approved execution adapters. A new

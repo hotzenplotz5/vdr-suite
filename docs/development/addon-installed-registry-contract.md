@@ -13,7 +13,7 @@ inventory**, not an add-on loader, HTTP endpoint or activation service.
 - Independently installed package metadata: `/usr/share/vdr-suite/addons/<id>/`
 - Isolated package root is supplied explicitly with `--root <root>`; the
   command is entirely read-only, with no startup side effects.
-- The four provisionally known package names are core-owned; unknown package
+- The three reviewed package names are core-owned; unknown package
   directories are reported as rejected rather than self-registered.
 - Corrupt, mismatched, incomplete or symlinked package records are rejected.
 - A valid manifest is reported as **installed-disabled**, never `active`.
@@ -41,9 +41,12 @@ python3 tools/addons/installed_registry.py inventory --root /path/to/package-sta
 python3 tools/addons/installed_registry.py plan-enable --root /path/to/package-stage --module rectools
 ```
 
-Tests construct four isolated package roots, exercise malformed package
-metadata, fake rights, symlinks, unknown packages, missing installed modules
-and zero-side-effect enable previews. No installed VDR path is touched.
+Tests cover the three reviewed module identities, rejection of legacy
+TVScraper add-on paths, malformed package metadata, fake rights, symlinks,
+unknown packages, missing installed modules and zero-side-effect enable
+previews. No installed VDR path is touched. TVScraper metadata continues
+through the native SuiteBridge/Core provider integration (ADR-0036);
+existing installations are not modified by this source-only change.
 
 ## What must still be implemented before activation
 

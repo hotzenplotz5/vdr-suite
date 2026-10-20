@@ -21,7 +21,10 @@ Current source modules:
 | [rectools](rectools/README.md) | Media import, read-only checking, optionally guarded shrink | scaffold, no executable integration |
 | [image](image/README.md) | Photo library/album/diashow | scaffold |
 | [music](music/README.md) | Audio library/playlists | scaffold |
-| [tvscraper](tvscraper/README.md) | External scraper metadata integration | scaffold |
+The VDR `tvscraper` plugin is **not a Suite add-on**. Native recording/EPG
+metadata flows through the existing SuiteBridge adapter and Suite Core
+provider/evidence model (ADR-0036); it must not be independently staged or
+enabled by the optional add-on registry.
 
 The core owns VDR-native marks/cut/rename/move, account rights, common jobs, stable client APIs and reconciliation. Future add-ons implement bounded domain functionality through shared APIs instead of duplicating these owners.
 
@@ -45,7 +48,7 @@ A standalone Suite-Core policy under `core/addons/` now checks authenticated act
 The [SQLite activation-intent proof](../docs/development/addon-installed-registry-contract.md)
 models administrator preference separately from installed and effective
 capabilities. It is **not connected to the daemon** and does not activate
-any of these four packages. No automatic add-on enable or client discovery
+any of these three packages. No automatic add-on enable or client discovery
 is permitted from persisted preference alone.
 
 ## Non-executing admission preview

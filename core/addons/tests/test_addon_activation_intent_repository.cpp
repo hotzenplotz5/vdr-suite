@@ -156,13 +156,21 @@ int main()
            IntentStatus::forbidden);
     ++checks;
 
-    // Never let inactive photo/music/tvscraper scaffolds express enabled intent.
+    // Inactive photo/music scaffolds cannot express enabled intent.
     b = backend();
     evidence = trustedEvidence();
-    for (auto module : {"image", "music", "tvscraper"}) {
+    for (auto module : {"image", "music"}) {
         assert(store.update(actor, {module, "backend-a", true, 0}, b, evidence).status ==
                IntentStatus::ineligible);
     }
+    ++checks;
+
+    // TVScraper is native SuiteBridge/Core metadata integration, not an add-on.
+    assert(store.read(actor, "tvscraper", "backend-a").status == IntentStatus::invalid);
+    assert(store.update(actor, {"tvscraper", "backend-a", false, 0}, b, evidence).status ==
+           IntentStatus::invalid);
+    assert(store.update(actor, {"tvscraper", "backend-a", true, 0}, b, evidence).status ==
+           IntentStatus::invalid);
     ++checks;
 
     read = store.read(actor, "rectools", "backend-a");

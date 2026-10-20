@@ -71,8 +71,7 @@ IntentResult outcome(IntentStatus status,
 
 bool AddonActivationIntentRepository::validModule(const std::string& id)
 {
-    return id == "rectools" || id == "image" ||
-        id == "music" || id == "tvscraper";
+    return id == "rectools" || id == "image" || id == "music";
 }
 
 bool AddonActivationIntentRepository::validBackend(const std::string& id)

@@ -21,13 +21,20 @@ class DebianAddonTests(unittest.TestCase):
                 with self.assertRaises(builder.ContractError):
                     builder.validate_maintainer(value)
 
+    def test_removed_tvscraper_package_refused(self):
+        with tempfile.TemporaryDirectory(prefix="addon-removed-package-") as directory:
+            with self.assertRaises(builder.ContractError):
+                builder.build(
+                    addon.ROOT, "tvscraper", directory,
+                    "Test Builder <builder@example.org>"
+                )
+
     @unittest.skipUnless(shutil.which("dpkg-deb"), "dpkg-deb unavailable")
     def test_build_inert_deb_without_install(self):
         expected = {
             "rectools": "vdr-suite-addon-media-tools",
             "image": "vdr-suite-addon-image",
             "music": "vdr-suite-addon-music",
-            "tvscraper": "vdr-suite-addon-tvscraper",
         }
         for module, package_name in expected.items():
             with self.subTest(module=module):

@@ -15,7 +15,7 @@ spec.loader.exec_module(addon)
 class AddonTests(unittest.TestCase):
     def test_modules_are_inert_and_have_rules(self):
         manifests = addon.validate_all()
-        self.assertEqual(set(manifests), {"rectools", "image", "music", "tvscraper"})
+        self.assertEqual(set(manifests), {"rectools", "image", "music"})
         self.assertEqual(manifests["rectools"]["package"], "vdr-suite-addon-media-tools")
         for name, manifest in manifests.items():
             self.assertEqual(manifest["state"], "scaffold")
@@ -24,6 +24,21 @@ class AddonTests(unittest.TestCase):
             self.assertIn("root AGENTS.md", (
                 addon.ROOT / "modules" / name / "AGENTS.md"
             ).read_text())
+
+    def test_tvscraper_is_not_an_optional_addon(self):
+        self.assertFalse((addon.ROOT / "modules/tvscraper").exists())
+        with tempfile.TemporaryDirectory(prefix="addon-removed-test-") as directory:
+            with self.assertRaises(addon.ContractError):
+                addon.stage(addon.ROOT, "tvscraper", directory)
+            self.assertEqual(list(Path(directory).iterdir()), [])
+
+    def test_extra_source_module_cannot_self_register(self):
+        with tempfile.TemporaryDirectory(prefix="addon-unreviewed-test-") as directory:
+            root = Path(directory)
+            (root / "modules").mkdir()
+            (root / "modules/tvscraper").mkdir()
+            with self.assertRaises(addon.ContractError):
+                addon.validate_all(root)
 
     def test_stage_exact_files_and_reject_overwrite(self):
         with tempfile.TemporaryDirectory(prefix="addon-stage-test-") as directory:
