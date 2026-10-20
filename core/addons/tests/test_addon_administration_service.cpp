@@ -134,6 +134,29 @@ int main()
     assert(audit.listAll().size() == 1);
     assert(intents.read(actor, "rectools", "backend-a").intent.revision == 1);
 
+    // Even fabricated all-positive runtime facts must not enable the
+    // administrative facade before the trusted Core provider exists.
+    RuntimeEvidence forged;
+    forged.moduleId = "rectools";
+    forged.packageName = "vdr-suite-addon-media-tools";
+    forged.backendId = "backend-a";
+    forged.installed = true;
+    forged.manifestValid = true;
+    forged.packageTrusted = true;
+    forged.versionCompatible = true;
+    forged.handlerRegistered = true;
+    forged.handlerHealthy = true;
+    BackendAccessDecision writable;
+    writable.backendId = "backend-a";
+    writable.backendFound = true;
+    writable.allowed = true;
+    writable.readOnly = false;
+    assert(service.setDesiredState(
+        actor, {"rectools", "backend-a", true, 1}, writable, forged,
+        another).status == IntentStatus::ineligible);
+    assert(audit.listAll().size() == 1);
+    assert(intents.read(actor, "rectools", "backend-a").intent.revision == 1);
+
     // No caller-provided request/correlation identity bypass.
     actor.requestId = "";
     assert(service.setDesiredState(
