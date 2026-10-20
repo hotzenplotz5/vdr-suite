@@ -183,3 +183,14 @@ The checker requires an existing regular executable with root ownership, no grou
 A digest computed from the installed file itself proves nothing beyond self-consistency. Even a pinned digest check is subject to filesystem replacement after inspection: a future backend executor must acquire/revalidate its own execution descriptor, verify core-owned approval and maintain lifecycle fencing. The Python CLI is an offline diagnostic, **not** a security authority for the daemon.
 
 `make check-addon-registry` runs the additional isolated manual-install negative tests without reading the live filesystem.
+
+## Core handler identity scaffold
+
+`core/addons/include/AddonHandlerRegistry.h` fixes the Media Tools identity,
+package, binary path and intended backend-Agent transport at compile time.
+The declared handler is **not executable**; no daemon route, worker, or
+installation handler consumes this definition yet. Unknown module and package
+pairings—including TVScraper—have no mapping. This is a reviewable identity
+definition only, not provider trust, permission or activation. The isolated
+`make test-addon-handler-registry` test verifies the immutable mapping and
+fail-closed unknown identities, without starting the daemon.
