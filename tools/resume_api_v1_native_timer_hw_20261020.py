@@ -160,17 +160,19 @@ def submit_or_resume(stage, method, path, body, etag):
 print("RESUME=EXISTING_TEST_TIMER_ONLY", flush=True)
 print("UPDATE_ALREADY_SUBMITTED=", UPDATE_OP, flush=True)
 completed("UPDATE", UPDATE_OP)
-etag = read_timer(UPDATED, True)
+etag = read_timer(UPDATED, True) if "toggle_off" not in journal else None
 
 path = "/native-timers/" + TIMER_ID + "/modifications?backendId=default"
 submit_or_resume("toggle_off", "POST", path,
                  {"kind": "toggle", "enabled": False}, etag)
-etag = read_timer(UPDATED, False)
+if "toggle_on" not in journal:
+    etag = read_timer(UPDATED, False)
 print("TOGGLE_OFF=PASS", flush=True)
 
 submit_or_resume("toggle_on", "POST", path,
                  {"kind": "toggle", "enabled": True}, etag)
-etag = read_timer(UPDATED, True)
+if "delete" not in journal:
+    etag = read_timer(UPDATED, True)
 print("TOGGLE_ON=PASS", flush=True)
 
 submit_or_resume("delete", "DELETE",
