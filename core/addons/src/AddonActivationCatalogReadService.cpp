@@ -11,19 +11,23 @@ AddonCatalogReadResult AddonActivationCatalogReadService::read(
     if (!canInspectInventory(actor).allowed)
         return {CatalogReadStatus::forbidden, {}};
 
-    AddonCatalogReadResult result;
-    for (const auto& reviewed : kReviewedAddonCatalog)
-    {
-        const IntentResult intent = intents_.read(
-            actor, std::string(reviewed.id), backendId);
-        if (intent.status != IntentStatus::ok)
-            return {CatalogReadStatus::unavailable, {}};
+    const IntentCatalogResult snapshot = intents_.readCatalog(actor, backendId);
+    if (snapshot.status != IntentStatus::ok ||
+        snapshot.intents.size() != kReviewedAddonCatalog.size())
+        return {CatalogReadStatus::unavailable, {}};
 
+    AddonCatalogReadResult result;
+    for (std::size_t i = 0; i < kReviewedAddonCatalog.size(); ++i)
+    {
+        const auto& reviewed = kReviewedAddonCatalog[i];
+        const auto& intent = snapshot.intents[i];
+        if (intent.moduleId != reviewed.id || intent.backendId != backendId)
+            return {CatalogReadStatus::unavailable, {}};
         AddonCatalogRecord record;
         record.moduleId = std::string(reviewed.id);
         record.packageName = std::string(reviewed.packageName);
-        record.desiredEnabled = intent.intent.desiredEnabled;
-        record.revision = intent.intent.revision;
+        record.desiredEnabled = intent.desiredEnabled;
+        record.revision = intent.revision;
         // No installed provider is approved or executable at this stage.
         // A persisted administrator wish does not imply active capability.
         record.active = false;
