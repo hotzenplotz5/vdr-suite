@@ -13,7 +13,7 @@ import stat
 from pathlib import Path
 
 HANDLER = "usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import"
-SHA256 = re.compile(r"[0-9a-f]{64}\\Z")
+SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 MAX_BYTES = 128 * 1024 * 1024
 
 
