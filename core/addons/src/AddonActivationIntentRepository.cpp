@@ -1,4 +1,5 @@
 #include "AddonActivationIntentRepository.h"
+#include "AddonCatalog.h"
 
 #include <sqlite3.h>
 
@@ -71,7 +72,7 @@ IntentResult outcome(IntentStatus status,
 
 bool AddonActivationIntentRepository::validModule(const std::string& id)
 {
-    return id == "rectools" || id == "image" || id == "music";
+    return reviewedAddon(id) != nullptr;
 }
 
 bool AddonActivationIntentRepository::validBackend(const std::string& id)
