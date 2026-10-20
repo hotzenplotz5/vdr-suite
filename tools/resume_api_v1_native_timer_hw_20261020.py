@@ -231,32 +231,34 @@ def verify_native_modify_provider_sync():
     # A VDR restart creates a new SuiteBridge provider instance epoch.
     # Before a *new* operation, require the Control Plane's published Agent
     # facts to match the LIVE SuiteBridge capabilities. No mutation here.
-    command = shutil.which("svdrpsend") or shutil.which("svdrpsend.sh")
-    if command is None:
+    commands = [path for name in ("svdrpsend.sh", "svdrpsend")
+                if (path := shutil.which(name))]
+    if not commands:
         stop("SVDRP_CLIENT_MISSING_NO_MUTATION")
 
     def live_capability(kind):
-        try:
-            result = subprocess.run(
-                [command, "plug", "suitebridge", "NTMOD", "CAP", "1", kind],
-                capture_output=True, text=True, timeout=8)
-        except (OSError, subprocess.TimeoutExpired):
-            return None
-        if result.returncode != 0:
-            return None
-        for line in result.stdout.splitlines():
-            marker = "vdr-suite-ntmod-cap/1"
-            position = line.find(marker)
-            if position < 0:
+        for command in commands:
+            try:
+                result = subprocess.run(
+                    [command, "plug", "suitebridge", "NTMOD", "CAP", "1", kind],
+                    capture_output=True, text=True, timeout=8)
+            except (OSError, subprocess.TimeoutExpired):
                 continue
-            fields = line[position:].split()
-            capability = "vdr.timer." + kind
-            if (len(fields) == 10 and fields[0] == marker and
-                fields[1] == capability and fields[2:5] ==
-                    ["1", "timer-modify", "enabled"] and
-                fields[5] == "suitebridge" and fields[9] == "enabled" and
-                fields[7].isdigit() and fields[8].isdigit()):
-                return (fields[6], int(fields[7]), int(fields[8]))
+            if result.returncode != 0:
+                continue
+            for line in result.stdout.splitlines():
+                marker = "vdr-suite-ntmod-cap/1"
+                position = line.find(marker)
+                if position < 0:
+                    continue
+                fields = line[position:].split()
+                capability = "vdr.timer." + kind
+                if (len(fields) == 10 and fields[0] == marker and
+                    fields[1] == capability and fields[2:5] ==
+                        ["1", "timer-modify", "enabled"] and
+                    fields[5] == "suitebridge" and fields[9] == "enabled" and
+                    fields[7].isdigit() and fields[8].isdigit()):
+                    return (fields[6], int(fields[7]), int(fields[8]))
         return None
 
     for _ in range(15):
