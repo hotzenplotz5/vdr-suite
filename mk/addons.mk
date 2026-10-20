@@ -226,3 +226,14 @@ build-addon-root-approval-test:
 		core/addons/src/AddonInstallSnapshot.cpp \
 		core/addons/tests/test_addon_root_approval.cpp -lcrypto \
 		-o "$(BUILD_DIR)/addons/test_addon_root_approval"
+
+# Build only; drops privileges in a root-owned disposable CI fixture.
+.PHONY: build-addon-nonroot-snapshot-test
+build-addon-nonroot-snapshot-test:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include \
+		core/addons/src/AddonRootApproval.cpp \
+		core/addons/src/AddonPinnedHandler.cpp \
+		core/addons/src/AddonInstallSnapshot.cpp \
+		core/addons/tests/test_addon_nonroot_snapshot.cpp -lcrypto \
+		-o "$(BUILD_DIR)/addons/test_addon_nonroot_snapshot"
