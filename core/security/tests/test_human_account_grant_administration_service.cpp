@@ -402,5 +402,26 @@ int main()
             "*"));
     }
 
+    {
+        // Real SQLite account-grant cycle for backend-exact Media Tools import.
+        Fixture fixture;
+        const auto baseline = fixture.service.read("account-viewer");
+        assert(baseline.status == HumanAccountGrantAdministrationStatus::success);
+        const auto granted = fixture.service.setGrant(
+            context(), "account-viewer", baseline.grantSet.resourceRevision,
+            "addons.media.import", "backend-a", true);
+        assert(granted.status == HumanAccountGrantAdministrationStatus::success);
+        assert(hasGrant(granted.grantSet, "addons.media.import", "backend-a"));
+        const auto globalDenied = fixture.service.setGrant(
+            context(), "account-viewer", granted.grantSet.resourceRevision,
+            "addons.media.import", "*", true);
+        assert(globalDenied.status == HumanAccountGrantAdministrationStatus::invalidGrant);
+        const auto removed = fixture.service.setGrant(
+            context(), "account-viewer", granted.grantSet.resourceRevision,
+            "addons.media.import", "backend-a", false);
+        assert(removed.status == HumanAccountGrantAdministrationStatus::success);
+        assert(!hasGrant(removed.grantSet, "addons.media.import", "backend-a"));
+    }
+
     return 0;
 }
