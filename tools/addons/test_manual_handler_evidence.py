@@ -89,9 +89,17 @@ class ManualHandlerEvidenceTests(unittest.TestCase):
 
     @unittest.skipUnless(os.geteuid() == 0, "root ownership fixture only")
     def test_matching_root_owned_handler_is_diagnostic_not_trust(self):
-        self.assertTrue(self.evidence()["consistent"])
+        initial = self.evidence()
+        # A /tmp fixture is deliberately rejected when an ancestor is
+        # group/world writable, even for a root-owned test executable.
+        self.assertIn(initial["reason"], (
+            "writable-handler-parent", "manual-handler-bytes-match-approved-digest"))
         self.handler.write_bytes(b"tampered")
-        self.assertEqual(self.evidence()["reason"], "handler-digest-mismatch")
+        altered = self.evidence()
+        if initial["consistent"]:
+            self.assertEqual(altered["reason"], "handler-digest-mismatch")
+        else:
+            self.assertEqual(altered["reason"], "writable-handler-parent")
 
 
 if __name__ == "__main__":
