@@ -75,12 +75,12 @@ class ApprovalEvidenceTests(unittest.TestCase):
     def test_version_and_identity_cannot_drift(self):
         from unittest.mock import patch
         from types import SimpleNamespace
-        original = Path.lstat
+        original = os.fstat
 
-        def synthetic_root_owned(path):
-            actual = original(path)
-            # Pure unit simulation of a secured administrator-owned root.
-            # No privilege change or live approval file is performed.
+        def synthetic_root_owned(fd):
+            actual = original(fd)
+            # Simulate metadata on already opened FDs without modifying
+            # privileges or a host-owned approval record.
             return SimpleNamespace(
                 st_uid=0, st_mode=actual.st_mode & ~0o022,
                 st_dev=actual.st_dev, st_ino=actual.st_ino,
@@ -88,7 +88,7 @@ class ApprovalEvidenceTests(unittest.TestCase):
                 st_ctime_ns=actual.st_ctime_ns,
             )
 
-        with patch.object(Path, "lstat", synthetic_root_owned):
+        with patch("admin_approval_evidence.os.fstat", synthetic_root_owned):
             with patch("admin_approval_evidence.examine_binary",
                        return_value={"consistent": True, "reason": "fixture"}):
                 self.assertTrue(examine(self.root, "rectools")["consistent"])
