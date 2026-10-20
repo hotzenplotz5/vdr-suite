@@ -438,6 +438,7 @@ path = "/native-timers/" + TIMER_ID + "/modifications?backendId=default"
 if "update_after_provider_sync" not in journal:
     if any(stage in journal for stage in ("toggle_off", "toggle_on", "delete")):
         stop("JOURNAL_OUT_OF_ORDER")
+    verify_native_modify_provider_sync()
     etag = read_timer(ORIGINAL, True)
     with sqlite3.connect(
             "file:/var/lib/vdr-suite/vdr-suite.db?mode=ro", uri=True) as db:
@@ -468,7 +469,6 @@ if "update_after_provider_sync" not in journal:
         "vps": bool(native[9]),
         "enabled": True,
     }
-    verify_native_modify_provider_sync()
 else:
     etag = None
     update_body = None
