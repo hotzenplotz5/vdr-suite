@@ -107,8 +107,8 @@ test-ci-fast: test-addon-admission-preview
 .PHONY: test-addon-handler-registry
 test-addon-handler-registry:
 	mkdir -p "$(BUILD_DIR)/addons"
-	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include \\
-		core/addons/tests/test_addon_handler_registry.cpp \\
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include \
+		core/addons/tests/test_addon_handler_registry.cpp \
 		-o "$(BUILD_DIR)/addons/test_addon_handler_registry"
 	"$(BUILD_DIR)/addons/test_addon_handler_registry"
 
