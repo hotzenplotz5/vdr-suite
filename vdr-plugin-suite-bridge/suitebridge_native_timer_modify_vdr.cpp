@@ -87,13 +87,12 @@ void appendField(std::string &value, const std::string &field)
 
 void appendInteger(std::string &value, long long number)
 {
-  value += std::to_string(number);
-  value += '|';
+  appendField(value, std::to_string(number));
 }
 
 void appendBoolean(std::string &value, bool flag)
 {
-  value += flag ? "1|" : "0|";
+  appendField(value, flag ? "1" : "0");
 }
 
 std::string hhmm(int value)
