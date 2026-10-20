@@ -298,3 +298,10 @@ package metadata still match. Removing the record also denies. These are
 offline state observations, not an automated revocation pipeline: a future
 Core issuer must persist changes safely, invalidate cached provider evidence,
 and fence in-flight operations.
+
+The fixed handler file diagnostic now opens each filesystem component relative
+to an already held directory descriptor using `O_DIRECTORY|O_NOFOLLOW`,
+then hashes the open file descriptor. This closes the earlier check-then-open
+parent-path substitution gap in that **read-only diagnostic**. It does not
+make the verification result a durable lease: a real Agent must repeat the
+check and use its own pinned descriptor when executing a registered handler.
