@@ -1,11 +1,14 @@
 #include "AddonProviderBinding.h"
 #include <cassert>
+#include <initializer_list>
 #include <string>
 
 int main()
 {
     using namespace vdrsuite::addons;
     const std::string digest(64, 'a');
+    const std::string differentDigest(64, 'b');
+    const std::string uppercaseDigest(64, 'A');
     HandlerInstallFacts facts;
     facts.origin = InstallOrigin::manual;
     facts.metadataPresent = true;
@@ -36,7 +39,7 @@ int main()
         binding.backendId = "*";
         assert(reason() == BindingReason::invalidBackend);
         binding.backendId = "backend-1";
-        binding.observedBinarySha256 = std::string(64, 'b');
+        binding.observedBinarySha256 = differentDigest;
         assert(reason() == BindingReason::binaryMismatch);
         binding.observedBinarySha256 = digest;
         binding.approvedBinarySha256 = "not-approved";
@@ -59,6 +62,6 @@ int main()
     assert(reason() == BindingReason::invalidIdentity);
     binding.moduleId = "rectools";
     binding.packageName = "vdr-suite-addon-media-tools";
-    binding.approvedBinarySha256 = std::string(64, 'A');
+    binding.approvedBinarySha256 = uppercaseDigest;
     assert(reason() == BindingReason::missingApproval);
 }
