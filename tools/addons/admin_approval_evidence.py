@@ -13,6 +13,8 @@ import re
 import stat
 from pathlib import Path
 
+from manual_handler_evidence import examine as examine_binary
+
 APPROVAL_PATH = "etc/vdr-suite/addon-approvals/rectools.json"
 BINARY_PATH = "usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import"
 EXPECTED_KEYS = frozenset(("schemaVersion", "id", "package", "version", "sha256", "origin"))
@@ -75,9 +77,12 @@ def examine(root: Path, module: str) -> dict:
             return denied("invalid-approval-digest")
         if record["origin"] not in ("manual", "debian"):
             return denied("invalid-approval-origin")
-        # This proves local admin-controlled record shape only, not the
-        # actual installed binary nor the authenticity of the approver.
-        return {"consistent": True, "reason": "root-owned-approval-record"}
+        binary = examine_binary(root, module, record["sha256"])
+        if not binary["consistent"]:
+            return denied("approved-binary-" + binary["reason"])
+        # This proves agreement with local root-owned administrative state,
+        # not an authenticated release signature or runtime dispatch lease.
+        return {"consistent": True, "reason": "root-owned-approval-and-binary-match"}
     except (OSError, ValueError, UnicodeError, TypeError):
         return denied("missing-or-invalid-approval")
 
