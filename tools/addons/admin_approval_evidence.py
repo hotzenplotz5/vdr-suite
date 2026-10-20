@@ -9,6 +9,7 @@ descriptor-pinned dispatch validation.
 from __future__ import annotations
 
 import json
+import os
 import re
 import stat
 from pathlib import Path
@@ -17,7 +18,6 @@ from manual_handler_evidence import examine as examine_binary
 from addon_contract import ContractError, validate_directory
 
 APPROVAL_PATH = "etc/vdr-suite/addon-approvals/rectools.json"
-BINARY_PATH = "usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import"
 EXPECTED_KEYS = frozenset(("schemaVersion", "id", "package", "version", "sha256", "origin", "state"))
 HEX = re.compile(r"[0-9a-f]{64}\Z")
 VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
@@ -30,33 +30,36 @@ def examine(root: Path, module: str) -> dict:
         return denied("no-reviewed-approval")
     if not root.is_absolute() or "." in root.parts or ".." in root.parts:
         return denied("unsafe-root")
-    path = root
+    held = None
     try:
-        for component in APPROVAL_PATH.split("/"):
-            parent = path.lstat()
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        held = os.open("/", flags)
+        for part in (*root.parts[1:], *APPROVAL_PATH.split("/")[:-1]):
+            parent = os.fstat(held)
             if (not stat.S_ISDIR(parent.st_mode) or parent.st_uid != 0 or
                     parent.st_mode & 0o022):
                 return denied("unsafe-approval-parent")
-            path = path / component
-        meta = path.lstat()
-        if (not stat.S_ISREG(meta.st_mode) or meta.st_uid != 0 or
-                meta.st_mode & 0o022 or not 0 < meta.st_size <= 4096):
-            return denied("unsafe-approval-record")
-        import os
-        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+            next_fd = os.open(part, flags, dir_fd=held)
+            os.close(held)
+            held = next_fd
+        parent = os.fstat(held)
+        if (not stat.S_ISDIR(parent.st_mode) or parent.st_uid != 0 or
+                parent.st_mode & 0o022):
+            return denied("unsafe-approval-parent")
+        fd = os.open(APPROVAL_PATH.rsplit("/", 1)[-1],
+                     os.O_RDONLY | os.O_NOFOLLOW, dir_fd=held)
         with os.fdopen(fd, "rb") as file:
-            info = os.fstat(file.fileno())
-            if (info.st_dev, info.st_ino, info.st_mtime_ns, info.st_size) != (
-                    meta.st_dev, meta.st_ino, meta.st_mtime_ns, meta.st_size):
-                return denied("approval-record-changed")
-            raw = file.read(4097)
-            if len(raw) != meta.st_size:
-                return denied("approval-record-changed")
-            if len(raw) > 4096:
+            first = os.fstat(file.fileno())
+            if (not stat.S_ISREG(first.st_mode) or first.st_uid != 0 or
+                    first.st_mode & 0o022 or not 0 < first.st_size <= 4096):
                 return denied("unsafe-approval-record")
-            after = os.fstat(file.fileno())
-            if (after.st_ctime_ns, after.st_mtime_ns, after.st_size) != (
-                    info.st_ctime_ns, info.st_mtime_ns, info.st_size):
+            raw = file.read(4097)
+            final = os.fstat(file.fileno())
+            if (len(raw) != first.st_size or
+                    (first.st_dev, first.st_ino, first.st_size, first.st_mtime_ns,
+                     first.st_ctime_ns) !=
+                    (final.st_dev, final.st_ino, final.st_size, final.st_mtime_ns,
+                     final.st_ctime_ns)):
                 return denied("approval-record-changed")
         def unique(pairs):
             data = {}
@@ -97,6 +100,9 @@ def examine(root: Path, module: str) -> dict:
         return {"consistent": True, "reason": "root-owned-approval-and-binary-match"}
     except (OSError, ValueError, UnicodeError, TypeError):
         return denied("missing-or-invalid-approval")
+    finally:
+        if held is not None:
+            os.close(held)
 
 
 if __name__ == "__main__":
