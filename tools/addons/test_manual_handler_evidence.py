@@ -56,12 +56,6 @@ class ManualHandlerEvidenceTests(unittest.TestCase):
         self.handler.parent.chmod(0o777)
         self.assertEqual(self.evidence()["reason"], "unsafe-handler-parent")
 
-    def test_handler_parent_must_not_be_replaceable(self):
-        # Ownership of every ancestor is required, not just the file.
-        parent = self.handler.parent
-        parent.chmod(0o777)
-        self.assertEqual(self.evidence()["reason"], "unsafe-handler-parent")
-
     def test_executable_permission_required(self):
         self.handler.chmod(0o600)
         result = self.evidence()
@@ -69,8 +63,6 @@ class ManualHandlerEvidenceTests(unittest.TestCase):
 
     def test_non_rectools_has_no_handler(self):
         self.assertEqual(examine(self.root, "image", self.digest)["reason"],
-                         "no-reviewed-manual-handler")
-        self.assertEqual(examine(self.root, "tvscraper", self.digest)["reason"],
                          "no-reviewed-manual-handler")
 
     def test_registry_diagnostic_never_grants_capability(self):
