@@ -275,10 +275,34 @@ def submit_or_resume(stage, method, path, body, etag):
 
 
 print("RESUME=EXISTING_TEST_TIMER_ONLY", flush=True)
-original_state = get_operation(UPDATE_OP)
-print("PREVIOUS_UPDATE=", UPDATE_OP, "STATE=", original_state, flush=True)
-if original_state != "failed_verified":
-    stop("PREVIOUS_UPDATE_NOT_VERIFIED_FAILED_NO_NEW_MUTATION")
+
+# The old UPDATE belongs to the now-lost Device credential's actor. Public
+# operation GET is strictly actor-scoped: even an Admin browser session gets
+# 404 for somebody else's operation. Confirm this *historical* result
+# through the authoritative local DB, read-only; new operations still use
+# their normal actor-scoped Public-v1 GET throughout this acceptance.
+with sqlite3.connect(
+        "file:/var/lib/vdr-suite/vdr-suite.db?mode=ro", uri=True) as db:
+    historical = db.execute("""
+        SELECT action_family, resource_type, resource_id, backend_id,
+               state, result_reference
+        FROM mutation_operations WHERE operation_id=?
+    """, (UPDATE_OP,)).fetchone()
+    binding_owner = db.execute("""
+        SELECT native_timer_binding_id FROM native_timer_bindings
+        WHERE backend_id='default' AND backend_native_timer_id=?
+          AND ownership='managed' AND drift_state='none' AND missing_since=0
+    """, (TIMER_ID,)).fetchone()
+if (not historical or not binding_owner or
+        historical[0] != "timer.update" or
+        historical[1] != "NativeTimerBinding" or
+        historical[2] != binding_owner[0] or
+        historical[3] != "default" or
+        historical[4] != "failed_verified" or
+        historical[5] != "native-timer-modify:unchanged-after-uncertain-execution"):
+    stop("HISTORICAL_UPDATE_NOT_VERIFIED_FAILED_NO_NEW_MUTATION")
+print("PREVIOUS_UPDATE=", UPDATE_OP, "STATE=failed_verified",
+      "SOURCE=AUTHORITATIVE_READ_ONLY_DB", flush=True)
 
 path = "/native-timers/" + TIMER_ID + "/modifications?backendId=default"
 if "update_replacement" not in journal:
