@@ -1,4 +1,5 @@
 #include "AddonPinnedHandler.h"
+#include "AddonInstallSnapshot.h"
 #include "AddonRootApproval.h"
 
 #include <cassert>
@@ -67,14 +68,21 @@ int main()
     auto binary = inspectPinnedMediaToolsHandler(fixture.root.string(),
                                                   approval.sha256);
     assert(binary.verified());
+    auto snapshot = inspectMediaToolsInstallSnapshot(fixture.root.string());
+    assert(snapshot.bytesVerified());
+    assert(snapshot.origin == InstallOrigin::manual);
+    assert(snapshot.approvedVersion == "0.1.0");
+    assert(snapshot.pinnedBinary.get() >= 0);
 
     fixture.write("revoked", Digest);
     assert(readRootMediaToolsApproval(fixture.root.string()).status ==
            RootApprovalStatus::revoked);
+    assert(!inspectMediaToolsInstallSnapshot(fixture.root.string()).bytesVerified());
     fixture.write("approved", std::string(64, '0'));
     assert(readRootMediaToolsApproval(fixture.root.string()).approved());
     assert(!inspectPinnedMediaToolsHandler(fixture.root.string(),
                                             std::string(64, '0')).verified());
+    assert(!inspectMediaToolsInstallSnapshot(fixture.root.string()).bytesVerified());
     fixture.write("approved", Digest);
 
     ::chmod(fixture.approval.c_str(), 0666);
