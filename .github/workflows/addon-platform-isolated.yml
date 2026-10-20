@@ -45,3 +45,12 @@ jobs:
           make test-addon-activation-intent
           make test-addon-administration-service
           echo "ADDON_ISOLATED_CI=PASS"
+
+      - name: Isolated root-owned approval and revocation acceptance
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test -d /root || sudo test -d /root
+          sudo env TMPDIR=/root PYTHONDONTWRITEBYTECODE=1 \
+            python3 -m unittest discover -s tools/addons \
+            -p 'test_admin_approval_root_acceptance.py'
