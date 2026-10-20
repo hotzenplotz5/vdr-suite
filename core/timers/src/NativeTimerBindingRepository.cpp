@@ -514,4 +514,126 @@ NativeTimerBindingRepositoryResult NativeTimerBindingRepository::update(
     return bindingResult(NativeTimerBindingRepositoryStatus::ok, durable);
 }
 
+
+NativeTimerBindingRepositoryResult
+NativeTimerBindingRepository::updateVerifiedNativeIdentity(
+    const NativeTimerBinding& next, const std::string& expectedRevision)
+{
+    std::int64_t revision = 0;
+    if (!parseRevision(expectedRevision, revision) ||
+        revision == std::numeric_limits<std::int64_t>::max() ||
+        next.bindingRevision != expectedRevision ||
+        !nativeTimerBindingValid(next) ||
+        !safeIdentity(next.backendNativeTimerId) ||
+        next.lastVerifiedOperationId.empty() ||
+        !representableGeneration(next.backendGeneration))
+        return statusResult(NativeTimerBindingRepositoryStatus::invalid);
+
+    auto lease = database_.acquireTransactionLease();
+    if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
+        return statusResult(NativeTimerBindingRepositoryStatus::storageError);
+    auto rollback = [this]() { database_.execute("ROLLBACK;"); };
+    NativeTimerBinding current;
+    bool found = false;
+    if (!detail::nativeBindingSelectById(
+            database_, next.nativeTimerBindingId, current, found))
+    {
+        rollback();
+        return statusResult(NativeTimerBindingRepositoryStatus::storageError);
+    }
+    if (!found || current.bindingRevision != expectedRevision)
+    {
+        rollback();
+        return statusResult(NativeTimerBindingRepositoryStatus::conflict);
+    }
+    if (next.backendNativeTimerId == current.backendNativeTimerId ||
+        next.backendId != current.backendId ||
+        next.timerAssignmentId != current.timerAssignmentId ||
+        next.ownership != current.ownership ||
+        !managedOwnership(current.ownership) ||
+        current.missingSince != 0 ||
+        current.driftState != NativeTimerBindingDriftState::none ||
+        current.backendGeneration != next.backendGeneration ||
+        next.lastObservedAt < current.lastObservedAt ||
+        next.observedFingerprint == current.observedFingerprint ||
+        next.lastVerifiedOperationId == current.lastVerifiedOperationId)
+    {
+        rollback();
+        return statusResult(NativeTimerBindingRepositoryStatus::immutableConflict);
+    }
+
+    // This is NOT a generic rename. Its authority is a durable UPDATE
+    // whose exact predecessor binding/generation is still current.
+    sqlite3_stmt* guard = nullptr;
+    const char* check =
+        "SELECT 1 FROM mutation_operations WHERE operation_id=? "
+        "AND action_family='timer.update' "
+        "AND resource_type='NativeTimerBinding' AND resource_id=? "
+        "AND backend_id=? AND backend_generation=? "
+        "AND expected_revision=? "
+        "AND state IN ('executed_unverified','outcome_unknown') LIMIT 1;";
+    if (sqlite3_prepare_v2(database_.handle(), check, -1, &guard, nullptr)
+            != SQLITE_OK)
+    {
+        rollback();
+        return statusResult(NativeTimerBindingRepositoryStatus::storageError);
+    }
+    const bool ok =
+        sqlite3_bind_text(guard, 1, next.lastVerifiedOperationId.c_str(), -1,
+            SQLITE_TRANSIENT) == SQLITE_OK &&
+        sqlite3_bind_text(guard, 2, current.nativeTimerBindingId.c_str(), -1,
+            SQLITE_TRANSIENT) == SQLITE_OK &&
+        sqlite3_bind_text(guard, 3, current.backendId.c_str(), -1,
+            SQLITE_TRANSIENT) == SQLITE_OK &&
+        sqlite3_bind_int64(guard, 4,
+            static_cast<sqlite3_int64>(current.backendGeneration)) == SQLITE_OK &&
+        sqlite3_bind_text(guard, 5, expectedRevision.c_str(), -1,
+            SQLITE_TRANSIENT) == SQLITE_OK;
+    const int guardStep = ok ? sqlite3_step(guard) : SQLITE_ERROR;
+    sqlite3_finalize(guard);
+    if (guardStep != SQLITE_ROW)
+    {
+        rollback();
+        return statusResult(NativeTimerBindingRepositoryStatus::conflict);
+    }
+
+    sqlite3_stmt* rename = nullptr;
+    const char* sql =
+        "UPDATE native_timer_bindings SET backend_native_timer_id=? "
+        "WHERE native_timer_binding_id=? AND binding_revision=? "
+        "AND backend_native_timer_id=?;";
+    if (sqlite3_prepare_v2(database_.handle(), sql, -1, &rename, nullptr)
+            != SQLITE_OK)
+    {
+        rollback();
+        return statusResult(NativeTimerBindingRepositoryStatus::storageError);
+    }
+    const bool bound =
+        sqlite3_bind_text(rename, 1, next.backendNativeTimerId.c_str(), -1,
+            SQLITE_TRANSIENT) == SQLITE_OK &&
+        sqlite3_bind_text(rename, 2, current.nativeTimerBindingId.c_str(), -1,
+            SQLITE_TRANSIENT) == SQLITE_OK &&
+        sqlite3_bind_int64(rename, 3, revision) == SQLITE_OK &&
+        sqlite3_bind_text(rename, 4, current.backendNativeTimerId.c_str(), -1,
+            SQLITE_TRANSIENT) == SQLITE_OK;
+    const int renamed = bound ? sqlite3_step(rename) : SQLITE_ERROR;
+    const int affected = sqlite3_changes(database_.handle());
+    sqlite3_finalize(rename);
+    if (renamed != SQLITE_DONE || affected != 1)
+    {
+        rollback();
+        return statusResult(NativeTimerBindingRepositoryStatus::nativeIdentityConflict);
+    }
+
+    NativeTimerBinding durable = next;
+    durable.bindingRevision = std::to_string(revision + 1);
+    if (!detail::nativeBindingUpdate(database_, durable, revision) ||
+        !database_.execute("COMMIT;"))
+    {
+        rollback();
+        return statusResult(NativeTimerBindingRepositoryStatus::storageError);
+    }
+    return bindingResult(NativeTimerBindingRepositoryStatus::ok, durable);
+}
+
 }
