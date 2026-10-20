@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Read-only manual Media Tools handler integrity diagnostic.
+"""Read-only integrity check of the fixed manual Media Tools handler.
 
-The SHA-256 expectation must come from a separately reviewed, trusted
-deployment record. A caller-supplied digest is NOT package provenance or
-permission to execute the binary. No subprocesses or handler execution.
+No package trust or executable grant is created by this diagnostic.
+Every path component is opened relative to a held directory descriptor;
+symlinks and writable/non-root parent directories are denied.
 """
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 import stat
 from pathlib import Path
@@ -27,40 +28,40 @@ def examine(root: Path, module: str, expected_sha256: str) -> dict:
         return deny("invalid-approved-digest")
     if not root.is_absolute() or "." in root.parts or ".." in root.parts:
         return deny("unsafe-root")
-    path = root
+
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    held = None
     try:
-        # No configurable executable path; disallow symlinks at every level.
-        for part in HANDLER.split("/"):
-            info_parent = path.lstat()
-            mode = info_parent.st_mode
-            if not stat.S_ISDIR(mode) or stat.S_ISLNK(mode):
-                return deny("unsafe-handler-path")
-            if info_parent.st_uid != 0 or mode & 0o022:
+        # Start from a stable root descriptor rather than checking and then
+        # reopening a path by name. Ancestors of an isolated DESTDIR are also
+        # checked, including a potentially writable /tmp ancestor.
+        held = os.open("/", directory_flags)
+        for component in (*root.parts[1:], *HANDLER.split("/")[:-1]):
+            parent = os.fstat(held)
+            if (not stat.S_ISDIR(parent.st_mode) or parent.st_uid != 0 or
+                    parent.st_mode & 0o022):
                 return deny("unsafe-handler-parent")
-            path = path / part
-        info = path.lstat()
-        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode):
-            return deny("unsafe-handler-file")
-        if not info.st_mode & 0o100:
-            return deny("handler-not-executable")
-        if info.st_uid != 0 or info.st_mode & 0o022:
-            return deny("unsafe-handler-ownership")
-        if not 0 < info.st_size <= MAX_BYTES:
-            return deny("invalid-handler-size")
-        digest = hashlib.sha256()
-        # O_NOFOLLOW and descriptor identity prevent final-component symlink
-        # substitution; the path can still change after the check. Runtime
-        # must revalidate and pin the opened descriptor before dispatch.
-        import os
-        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+            next_fd = os.open(component, directory_flags, dir_fd=held)
+            os.close(held)
+            held = next_fd
+        parent = os.fstat(held)
+        if (not stat.S_ISDIR(parent.st_mode) or parent.st_uid != 0 or
+                parent.st_mode & 0o022):
+            return deny("unsafe-handler-parent")
+
+        fd = os.open(HANDLER.rsplit("/", 1)[-1],
+                     os.O_RDONLY | os.O_NOFOLLOW, dir_fd=held)
         with os.fdopen(fd, "rb") as source:
-            current = os.fstat(source.fileno())
-            if (current.st_dev, current.st_ino, current.st_size,
-                    current.st_mtime_ns) != (info.st_dev, info.st_ino,
-                                             info.st_size, info.st_mtime_ns):
-                return deny("handler-changed-during-check")
-            if not stat.S_ISREG(current.st_mode) or current.st_uid != 0 or current.st_mode & 0o022:
+            first = os.fstat(source.fileno())
+            if not stat.S_ISREG(first.st_mode):
+                return deny("unsafe-handler-file")
+            if not first.st_mode & 0o100:
+                return deny("handler-not-executable")
+            if first.st_uid != 0 or first.st_mode & 0o022:
                 return deny("unsafe-handler-ownership")
+            if not 0 < first.st_size <= MAX_BYTES:
+                return deny("invalid-handler-size")
+            digest = hashlib.sha256()
             total = 0
             while True:
                 chunk = source.read(min(1024 * 1024, MAX_BYTES + 1 - total))
@@ -71,11 +72,18 @@ def examine(root: Path, module: str, expected_sha256: str) -> dict:
                     return deny("invalid-handler-size")
                 digest.update(chunk)
             final = os.fstat(source.fileno())
-            if (final.st_size, final.st_mtime_ns, final.st_ctime_ns) != (
-                    current.st_size, current.st_mtime_ns, current.st_ctime_ns):
+            if (first.st_dev, first.st_ino, first.st_size, first.st_mtime_ns,
+                    first.st_ctime_ns) != (
+                    final.st_dev, final.st_ino, final.st_size, final.st_mtime_ns,
+                    final.st_ctime_ns):
                 return deny("handler-changed-during-check")
         if digest.hexdigest() != expected_sha256:
             return deny("handler-digest-mismatch")
+        # The descriptor closes here. A future Agent must independently pin
+        # and revalidate its own executable descriptor at dispatch.
         return {"consistent": True, "reason": "manual-handler-bytes-match-approved-digest"}
     except OSError:
         return deny("missing-or-unreadable-handler")
+    finally:
+        if held is not None:
+            os.close(held)
