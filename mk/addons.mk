@@ -113,3 +113,14 @@ test-addon-handler-registry:
 	"$(BUILD_DIR)/addons/test_addon_handler_registry"
 
 test-ci-fast: test-addon-handler-registry
+
+# Non-executable common source/deb provider admission contract.
+.PHONY: test-addon-provider-admission
+test-addon-provider-admission:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include \
+		core/addons/tests/test_addon_provider_admission.cpp \
+		-o "$(BUILD_DIR)/addons/test_addon_provider_admission"
+	"$(BUILD_DIR)/addons/test_addon_provider_admission"
+
+test-ci-fast: test-addon-provider-admission
