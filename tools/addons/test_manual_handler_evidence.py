@@ -41,7 +41,7 @@ class ManualHandlerEvidenceTests(unittest.TestCase):
     def test_wrong_digest_fails_closed(self):
         result = self.evidence("0" * 64)
         self.assertFalse(result["consistent"])
-        self.assertIn(result["reason"], ("handler-digest-mismatch", "unsafe-handler-ownership", "writable-handler-parent"))
+        self.assertIn(result["reason"], ("handler-digest-mismatch", "unsafe-handler-ownership", "unsafe-handler-parent"))
 
     def test_absent_handler_fails_closed(self):
         self.handler.unlink()
@@ -50,16 +50,22 @@ class ManualHandlerEvidenceTests(unittest.TestCase):
     def test_symlink_handler_fails_closed(self):
         self.handler.rename(self.handler.with_suffix(".original"))
         self.handler.symlink_to(self.handler.with_suffix(".original"))
-        self.assertIn(self.evidence()["reason"], ("unsafe-handler-file", "writable-handler-parent"))
+        self.assertIn(self.evidence()["reason"], ("unsafe-handler-file", "unsafe-handler-parent"))
 
     def test_writable_parent_fails_closed(self):
         self.handler.parent.chmod(0o777)
-        self.assertEqual(self.evidence()["reason"], "writable-handler-parent")
+        self.assertEqual(self.evidence()["reason"], "unsafe-handler-parent")
+
+    def test_handler_parent_must_not_be_replaceable(self):
+        # Ownership of every ancestor is required, not just the file.
+        parent = self.handler.parent
+        parent.chmod(0o777)
+        self.assertEqual(self.evidence()["reason"], "unsafe-handler-parent")
 
     def test_executable_permission_required(self):
         self.handler.chmod(0o600)
         result = self.evidence()
-        self.assertIn(result["reason"], ("handler-not-executable", "writable-handler-parent"))
+        self.assertIn(result["reason"], ("handler-not-executable", "unsafe-handler-parent"))
 
     def test_non_rectools_has_no_handler(self):
         self.assertEqual(examine(self.root, "image", self.digest)["reason"],
@@ -93,13 +99,13 @@ class ManualHandlerEvidenceTests(unittest.TestCase):
         # A /tmp fixture is deliberately rejected when an ancestor is
         # group/world writable, even for a root-owned test executable.
         self.assertIn(initial["reason"], (
-            "writable-handler-parent", "manual-handler-bytes-match-approved-digest"))
+            "unsafe-handler-parent", "manual-handler-bytes-match-approved-digest"))
         self.handler.write_bytes(b"tampered")
         altered = self.evidence()
         if initial["consistent"]:
             self.assertEqual(altered["reason"], "handler-digest-mismatch")
         else:
-            self.assertEqual(altered["reason"], "writable-handler-parent")
+            self.assertEqual(altered["reason"], "unsafe-handler-parent")
 
 
 if __name__ == "__main__":
