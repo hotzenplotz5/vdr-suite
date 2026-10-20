@@ -147,6 +147,13 @@ bool hasGrant(
 
 int main()
 {
+    assert(HumanAccountGrantAdministrationService::supportedGrant(
+        "addons.media.import", "backend-a"));
+    assert(!HumanAccountGrantAdministrationService::supportedGrant(
+        "addons.media.import", "*"));
+    assert(!HumanAccountGrantAdministrationService::supportedGrant(
+        "addons.media.import", "../unsafe"));
+
     {
         const std::vector<std::string> permissions =
             HumanAccountGrantAdministrationService::
