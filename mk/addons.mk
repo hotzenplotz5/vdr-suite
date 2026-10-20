@@ -223,5 +223,6 @@ build-addon-root-approval-test:
 	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include \
 		core/addons/src/AddonRootApproval.cpp \
 		core/addons/src/AddonPinnedHandler.cpp \
+		core/addons/src/AddonInstallSnapshot.cpp \
 		core/addons/tests/test_addon_root_approval.cpp -lcrypto \
 		-o "$(BUILD_DIR)/addons/test_addon_root_approval"
