@@ -125,6 +125,23 @@ int main()
     historical.deadline = 700;
     historical.requestFingerprint = backendAgentCommandFingerprint(historical);
     assert(!historical.payload.empty());
+    // Receipt for a native timer command requires live matching ownership
+    // and provider facts. The historical-generation scenario below must
+    // begin with a valid provider fence before advancing the generation.
+    assert(db.execute(
+        "INSERT INTO backend_agent_local_provider_ownership "
+        "(backend_id,authority_domain,provider_id,provider_kind,"
+        "ownership_generation,allowed_capabilities,active,updated_at) "
+        "VALUES('default','vdr.timer','suitebridge:local','suitebridge',"
+        "1,'vdr.timer.update',1,109);"));
+    assert(db.execute(
+        "INSERT INTO backend_agent_local_provider_facts "
+        "(backend_id,agent_id,agent_instance_id,backend_generation,"
+        "provider_id,provider_kind,provider_instance_epoch,"
+        "provider_generation,capability_revision,available,"
+        "capabilities,observed_at) VALUES "
+        "('default','agt_test','inst_test',7,'suitebridge:local',"
+        "'suitebridge','pie_historical',1,1,1,'vdr.timer.update',109);"));
     assert(commands.insertAssignment(historical, &provider));
 
     BackendAgentCommandReceipt received;
