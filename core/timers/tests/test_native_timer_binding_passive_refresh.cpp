@@ -57,7 +57,8 @@ int main()
         "CREATE TABLE mutation_operations (resource_type TEXT NOT NULL,"
         "resource_id TEXT NOT NULL,state TEXT NOT NULL,"
         "operation_id TEXT,action_family TEXT,backend_id TEXT,"
-        "backend_generation INTEGER,expected_revision TEXT);"));
+        "backend_generation INTEGER,expected_revision TEXT,"
+        "expected_resource_fingerprint TEXT);"));
     // Minimal durable Assignment/Intent state for same-transaction rebind.
     assert(db.execute(
         "CREATE TABLE timer_intents (timer_intent_id TEXT PRIMARY KEY,"
@@ -215,9 +216,10 @@ int main()
     assert(db.execute(
         "INSERT INTO mutation_operations "
         "(resource_type,resource_id,state,operation_id,action_family,"
-        "backend_id,backend_generation,expected_revision) VALUES "
-        "('NativeTimerBinding','binding:identity','executed_unverified',"
-        "'op:rename','timer.update','default',7,'1');"));
+        "backend_id,backend_generation,expected_revision,expected_resource_fingerprint) "
+        "VALUES ('NativeTimerBinding','binding:identity','executed_unverified',"
+        "'op:rename','timer.update','default',7,'1','" +
+        changedId.binding.observedFingerprint + "');"));
     const auto remapped = repo.updateVerifiedNativeIdentity(post, "1");
     assert(remapped.ok() && remapped.binding.bindingRevision == "2");
     assert(repo.findByBackendNativeTimer(
