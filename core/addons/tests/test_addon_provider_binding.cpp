@@ -38,6 +38,8 @@ int main()
         binding.backendGeneration = 8;
         binding.backendId = "*";
         assert(reason() == BindingReason::invalidBackend);
+        binding.backendId = "../backend";
+        assert(reason() == BindingReason::invalidBackend);
         binding.backendId = "backend-1";
         binding.observedBinarySha256 = differentDigest;
         assert(reason() == BindingReason::binaryMismatch);
