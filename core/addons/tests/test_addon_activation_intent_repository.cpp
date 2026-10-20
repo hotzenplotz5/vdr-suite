@@ -209,5 +209,38 @@ int main()
     otherDatabase.close();
     ++checks;
 
+    // Atomic audit append: failed accountability persistence must never
+    // commit the desired-state revision or leave an orphan audit record.
+    assert(f.database.execute(
+        "CREATE TABLE addon_audit_probe (entry TEXT NOT NULL);"));
+    auto refusedAudit = store.updateAudited(
+        actor, {"rectools", "backend-audit", false, 0}, {}, {},
+        [&] {
+            return f.database.execute("INSERT INTO addon_audit_probe VALUES ('rolled-back');")
+                && false;
+        });
+    assert(refusedAudit.status == IntentStatus::unavailable);
+    auto auditRead = store.read(actor, "rectools", "backend-audit");
+    assert(auditRead.status == IntentStatus::ok && auditRead.intent.revision == 0);
+    ++checks;
+
+    auto audited = store.updateAudited(
+        actor, {"rectools", "backend-audit", false, 0}, {}, {},
+        [&] {
+            return f.database.execute("INSERT INTO addon_audit_probe VALUES ('committed');");
+        });
+    assert(audited.status == IntentStatus::ok && audited.intent.revision == 1 &&
+           !audited.intent.desiredEnabled);
+    auditRead = store.read(actor, "rectools", "backend-audit");
+    assert(auditRead.status == IntentStatus::ok && auditRead.intent.revision == 1);
+    ++checks;
+
+    auto rejectedBlankAudit = store.updateAudited(
+        actor, {"rectools", "backend-audit", false, 1}, {}, {}, {});
+    assert(rejectedBlankAudit.status == IntentStatus::unavailable);
+    auditRead = store.read(actor, "rectools", "backend-audit");
+    assert(auditRead.status == IntentStatus::ok && auditRead.intent.revision == 1);
+    ++checks;
+
     std::cout << "ADDON_ACTIVATION_INTENT=PASS checks=" << checks << "\n";
 }
