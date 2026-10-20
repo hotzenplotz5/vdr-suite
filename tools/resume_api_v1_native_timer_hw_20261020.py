@@ -304,17 +304,44 @@ if (not historical or not binding_owner or
 print("PREVIOUS_UPDATE=", UPDATE_OP, "STATE=failed_verified",
       "SOURCE=AUTHORITATIVE_READ_ONLY_DB", flush=True)
 
+# The prior replacement reached the Agent but was rejected before any
+# native effect by the SuiteBridge CAS encoding mismatch. This particular
+# historical failure is terminal; never replay its POST. A corrected plugin
+# permits exactly one *new* UPDATE, with a distinct durable journal stage.
+REJECTED_UPDATE_OP = "op_d9164b555970f8bfc742b72ff0be16a2"
+prior = journal.get("update_replacement", {})
+if prior.get("state") != "accepted" or prior.get("operationId") != REJECTED_UPDATE_OP:
+    stop("PREVIOUS_REPLACEMENT_JOURNAL_MISMATCH_NO_MUTATION")
+with sqlite3.connect(
+        "file:/var/lib/vdr-suite/vdr-suite.db?mode=ro", uri=True) as db:
+    rejected = db.execute("""
+        SELECT state, result_reference, action_family, resource_type
+        FROM mutation_operations WHERE operation_id=?
+    """, (REJECTED_UPDATE_OP,)).fetchone()
+    commands = db.execute("""
+        SELECT c.command_id, c.state, r.result_category, r.error_category,
+               r.dispatch_state, r.verification_state
+        FROM backend_agent_commands c
+        LEFT JOIN backend_agent_command_results r ON r.command_id=c.command_id
+        WHERE c.operation_id=?
+    """, (REJECTED_UPDATE_OP,)).fetchall()
+if (not rejected or rejected[0] != "failed_verified" or
+    rejected[2:] != ("timer.update", "NativeTimerBinding") or
+    len(commands) != 1 or
+    rejected[1] != "ntmod:vdr:fingerprint-mismatch:" + commands[0][0] or
+    commands[0][1:] != ("completed", "rejected", "fenced",
+                        "not_started", "verified")):
+    stop("PRIOR_FINGERPRINT_REJECTION_NOT_PROVEN_NO_MUTATION")
+print("PRIOR_UPDATE=FAILED_VERIFIED_REJECTED_WITHOUT_EFFECT",
+      "OPERATION=", REJECTED_UPDATE_OP, flush=True)
+
 path = "/native-timers/" + TIMER_ID + "/modifications?backendId=default"
-if "update_replacement" not in journal:
+if "update_after_cas_fix" not in journal:
     if any(stage in journal for stage in ("toggle_off", "toggle_on", "delete")):
         stop("JOURNAL_OUT_OF_ORDER")
     etag = read_timer(ORIGINAL, True)
-
-    # Preserve all existing native fields except the intended title change.
-    # Do not guess priority, directory or lifetime from the public projection.
-    db = sqlite3.connect(
-        "file:/var/lib/vdr-suite/vdr-suite.db?mode=ro", uri=True)
-    try:
+    with sqlite3.connect(
+            "file:/var/lib/vdr-suite/vdr-suite.db?mode=ro", uri=True) as db:
         native = db.execute("""
             SELECT observed_channel_id, observed_title,
                    observed_directory, observed_day, observed_weekdays,
@@ -326,8 +353,6 @@ if "update_replacement" not in journal:
               AND ownership='managed' AND drift_state='none'
               AND missing_since=0
         """, (TIMER_ID,)).fetchone()
-    finally:
-        db.close()
     if not native or native[1] != ORIGINAL or not native[10] or native[11] or native[12]:
         stop("BINDING_SPECIFICATION_NOT_VERIFIED")
     update_body = {
@@ -347,7 +372,7 @@ if "update_replacement" not in journal:
 else:
     etag = None
     update_body = None
-submit_or_resume("update_replacement", "POST", path, update_body, etag)
+submit_or_resume("update_after_cas_fix", "POST", path, update_body, etag)
 if "toggle_off" not in journal:
     etag = read_timer(UPDATED, True)
 print("UPDATE=PASS", flush=True)
