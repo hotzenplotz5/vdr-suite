@@ -75,6 +75,16 @@ jobs:
           sudo env TMPDIR=/root "$(pwd)/.build/addons/test_addon_root_approval"
           echo "CORE_ADDON_APPROVAL_CI=PASS"
 
+      - name: Build unprivileged Agent filesystem acceptance
+        run: make build-addon-nonroot-snapshot-test
+
+      - name: Verify root-controlled approval as nonroot Agent identity
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo env TMPDIR=/root "$(pwd)/.build/addons/test_addon_nonroot_snapshot"
+          echo "NONROOT_ADDON_SNAPSHOT_CI=PASS"
+
       - name: Isolated root-owned approval and revocation acceptance
         shell: bash
         run: |
