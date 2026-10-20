@@ -208,3 +208,14 @@ return no trusted package, registered handler, effective availability, or
 permission. `make test-addon-provider-admission` verifies both origins
 without requiring `dpkg`. No daemon/Agent integration or executable
 capability exists yet.
+
+### Independent provider gate regression
+
+The provider evaluator now reports the first failed prerequisite before
+the still-disabled runtime gate, for both manual and Debian origins. The
+focused C++ regression covers missing installation, digest mismatch,
+unapproved source, unsafe ownership, incompatible version, unhealthy handler
+and the final disabled definition. This does not imply provider approval:
+all decisions continue to return `available=false`,
+`packageTrusted=false`, `handlerRegistered=false`, and
+`handlerHealthy=false` until a separately reviewed runtime owner is wired.
