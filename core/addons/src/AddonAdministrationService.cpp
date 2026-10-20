@@ -27,7 +27,22 @@ bool validUtcTimestamp(const std::string& t)
             continue;
         if (t[i] < '0' || t[i] > '9') return false;
     }
-    return true;
+    const auto number = [&](std::size_t start, std::size_t count) {
+        int value = 0;
+        for (std::size_t i = start; i < start + count; ++i)
+            value = value * 10 + (t[i] - '0');
+        return value;
+    };
+    const int year = number(0, 4), month = number(5, 2);
+    const int day = number(8, 2), hour = number(11, 2);
+    const int minute = number(14, 2), second = number(17, 2);
+    if (year < 1 || month < 1 || month > 12 ||
+        hour > 23 || minute > 59 || second > 59)
+        return false;
+    const bool leap = (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0));
+    const int days[] = {31, leap ? 29 : 28, 31, 30, 31, 30,
+                        31, 31, 30, 31, 30, 31};
+    return day >= 1 && day <= days[month - 1];
 }
 
 IntentResult AddonAdministrationService::setDesiredState(
