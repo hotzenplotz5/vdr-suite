@@ -46,7 +46,7 @@ NativeTimerBindingReadbackService::applyPresentObservation(
          current.driftState != NativeTimerBindingDriftState::none ||
          current.missingSince != 0 ||
          current.observedState.recording || current.observedState.pending ||
-         observation.backendGeneration != current.backendGeneration))
+         observation.backendGeneration < current.backendGeneration))
     {
         return result(
             NativeTimerBindingReadbackStatus::reconciliationRequired, current);
