@@ -18,7 +18,7 @@ from addon_contract import ContractError, validate_directory
 
 APPROVAL_PATH = "etc/vdr-suite/addon-approvals/rectools.json"
 BINARY_PATH = "usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import"
-EXPECTED_KEYS = frozenset(("schemaVersion", "id", "package", "version", "sha256", "origin"))
+EXPECTED_KEYS = frozenset(("schemaVersion", "id", "package", "version", "sha256", "origin", "state"))
 HEX = re.compile(r"[0-9a-f]{64}\Z")
 VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
 
@@ -78,6 +78,10 @@ def examine(root: Path, module: str) -> dict:
             return denied("invalid-approval-digest")
         if record["origin"] not in ("manual", "debian"):
             return denied("invalid-approval-origin")
+        if record["state"] == "revoked":
+            return denied("approval-revoked")
+        if record["state"] != "approved":
+            return denied("invalid-approval-state")
         manifest_path = root / "usr/share/vdr-suite/addons/rectools"
         try:
             manifest = validate_directory(manifest_path, "rectools")
