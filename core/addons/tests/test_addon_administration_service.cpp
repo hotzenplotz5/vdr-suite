@@ -72,6 +72,20 @@ int main()
     assert(events.front().action == "addons.intent.disable");
     assert(events.front().outcome == "committed");
 
+    // A different SQLite database must never be mistaken for an atomic
+    // accountability owner, even when the supplied event appears valid.
+    Database otherDatabase;
+    assert(otherDatabase.open((f.folder / "other.sqlite").string()));
+    AccountabilityEventRepository foreignAudit(otherDatabase);
+    assert(foreignAudit.ensureSchema());
+    AddonAdministrationService foreignService(intents, foreignAudit);
+    const AdministrationAuditContext foreignEvent{"event-foreign", "2026-10-20T10:00:00Z"};
+    assert(foreignService.setDesiredState(
+        actor, {"rectools", "backend-a", false, 1}, {}, {},
+        foreignEvent).status == IntentStatus::forbidden);
+    assert(foreignAudit.listAll().empty());
+    otherDatabase.close();
+
     // Duplicate audit ID must make the whole new mutation fail: no rev2.
     auto duplicate = service.setDesiredState(
         actor, {"rectools", "backend-a", false, 1}, {}, {}, context);
