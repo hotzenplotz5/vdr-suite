@@ -173,7 +173,15 @@ int main()
         pendingGeneration, true).status ==
            NativeTimerBindingReadbackStatus::repositoryConflict);
     assert(db.execute(
-        "UPDATE mutation_operations SET state='succeeded';"));
+        "UPDATE mutation_operations SET state='succeeded';"
+        "INSERT INTO mutation_operations (resource_type,resource_id,state) VALUES "
+        "('TimerAssignment','assignment:binding:b','executed_unverified');"));
+    assert(service.applyPresentObservation(
+        evidence(second.binding, 1602), true).status ==
+        NativeTimerBindingReadbackStatus::repositoryConflict);
+    assert(db.execute(
+        "UPDATE mutation_operations SET state='succeeded' "
+        "WHERE resource_type='TimerAssignment';"));
     assert(service.applyPresentObservation(
         evidence(second.binding, 1602), true).ok());
     assert(repo.findById("binding:b").binding.bindingRevision == "2");
