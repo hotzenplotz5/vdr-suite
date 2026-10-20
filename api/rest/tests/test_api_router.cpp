@@ -1756,6 +1756,19 @@ int main()
     assert(actionExecuteAliasResponse.body.find("\"type\":\"DELETE\"")
            != std::string::npos);
 
+    // Public-v1 aliases run through the same validated action controllers.
+    const ApiResponse publicValidation = router.handleClientPost(
+        "/api/v1/recordings/actions/validate", executeBody);
+    const ApiResponse legacyValidation = router.handleClientPost(
+        "/api/vdr/recordings/actions/validate", executeBody);
+    assert(publicValidation.statusCode == legacyValidation.statusCode);
+    assert(publicValidation.body == legacyValidation.body);
+
+    const ApiResponse publicExecution = router.handleClientPost(
+        "/api/v1/recordings/actions/execute", executeBody);
+    assert(publicExecution.statusCode == actionExecuteResponse.statusCode);
+    assert(publicExecution.body == actionExecuteResponse.body);
+
     const std::string timerCreateBody =
         "{"
         "\"backendId\":\"router-backend\","
