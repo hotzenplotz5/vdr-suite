@@ -11,6 +11,7 @@ import base64
 import getpass
 import json
 import os
+import shutil
 import sqlite3
 from pathlib import Path
 import socket
@@ -226,6 +227,72 @@ def read_timer(expected_title, expected_enabled):
     stop("TEST_TIMER_READBACK_NOT_VERIFIED_NO_RETRY")
 
 
+def verify_native_modify_provider_sync():
+    # A VDR restart creates a new SuiteBridge provider instance epoch.
+    # Before a *new* operation, require the Control Plane's published Agent
+    # facts to match the LIVE SuiteBridge capabilities. No mutation here.
+    command = shutil.which("svdrpsend") or shutil.which("svdrpsend.sh")
+    if command is None:
+        stop("SVDRP_CLIENT_MISSING_NO_MUTATION")
+
+    def live_capability(kind):
+        try:
+            result = subprocess.run(
+                [command, "plug", "suitebridge", "NTMOD", "CAP", "1", kind],
+                capture_output=True, text=True, timeout=8)
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        if result.returncode != 0:
+            return None
+        for line in result.stdout.splitlines():
+            marker = "vdr-suite-ntmod-cap/1"
+            position = line.find(marker)
+            if position < 0:
+                continue
+            fields = line[position:].split()
+            capability = "vdr.timer." + kind
+            if (len(fields) == 10 and fields[0] == marker and
+                fields[1] == capability and fields[2:5] ==
+                    ["1", "timer-modify", "enabled"] and
+                fields[5] == "suitebridge" and fields[9] == "enabled" and
+                fields[7].isdigit() and fields[8].isdigit()):
+                return (fields[6], int(fields[7]), int(fields[8]))
+        return None
+
+    for _ in range(15):
+        update = live_capability("update")
+        toggle = live_capability("toggle")
+        if update and toggle and update == toggle:
+            with sqlite3.connect(
+                    "file:/var/lib/vdr-suite/vdr-suite.db?mode=ro",
+                    uri=True) as db:
+                facts = db.execute("""
+                    SELECT provider_kind, provider_instance_epoch,
+                           provider_generation, capability_revision,
+                           available, capabilities, observed_at
+                    FROM backend_agent_local_provider_facts
+                    WHERE backend_id='default'
+                      AND provider_id='suitebridge:local'
+                """).fetchone()
+            if (facts and facts[0] == "suitebridge" and
+                (facts[1], facts[2], facts[3]) == update and
+                facts[4] == 1 and
+                all(c in facts[5].split(",") for c in
+                    ("vdr.timer.update", "vdr.timer.toggle")) and
+                facts[6] > 0):
+                print("NATIVE_MODIFY_PROVIDER_SYNC=PASS",
+                      "EPOCH=", update[0], flush=True)
+                return
+            print("NATIVE_MODIFY_PROVIDER_SYNC=WAIT",
+                  "LIVE_EPOCH=", update[0],
+                  "PUBLISHED_EPOCH=", facts[1] if facts else "missing",
+                  flush=True)
+        else:
+            print("NATIVE_MODIFY_PROVIDER_SYNC=WAIT_LIVE_CAPS", flush=True)
+        time.sleep(2)
+    stop("NATIVE_MODIFY_PROVIDER_NOT_SYNCHRONIZED_NO_MUTATION")
+
+
 def persist(journal):
     tmp = JOURNAL.with_name(JOURNAL.name + ".tmp")
     fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
@@ -335,8 +402,38 @@ if (not rejected or rejected[0] != "failed_verified" or
 print("PRIOR_UPDATE=FAILED_VERIFIED_REJECTED_WITHOUT_EFFECT",
       "OPERATION=", REJECTED_UPDATE_OP, flush=True)
 
+# The CAS-corrected attempt was fenced before the native executor after
+# the SuiteBridge provider epoch changed. Never replay that command.
+STALE_PROVIDER_OP = "op_d34a6048a2b929ca55c926f7cc0dc1fd"
+prior = journal.get("update_after_cas_fix", {})
+if prior.get("state") != "accepted" or prior.get("operationId") != STALE_PROVIDER_OP:
+    stop("PREVIOUS_PROVIDER_FENCE_JOURNAL_MISMATCH_NO_MUTATION")
+with sqlite3.connect(
+        "file:/var/lib/vdr-suite/vdr-suite.db?mode=ro", uri=True) as db:
+    rejected = db.execute("""
+        SELECT state, result_reference, action_family, resource_type
+        FROM mutation_operations WHERE operation_id=?
+    """, (STALE_PROVIDER_OP,)).fetchone()
+    commands = db.execute("""
+        SELECT c.state, r.result_category, r.error_category,
+               r.dispatch_state, r.verification_state, r.result_evidence
+        FROM backend_agent_commands c
+        LEFT JOIN backend_agent_command_results r ON r.command_id=c.command_id
+        WHERE c.operation_id=?
+    """, (STALE_PROVIDER_OP,)).fetchall()
+if (not rejected or rejected !=
+        ("failed_verified", "executor-fence:provider-changed",
+         "timer.update", "NativeTimerBinding") or
+    len(commands) != 1 or
+    commands[0][:5] !=
+        ("completed", "rejected", "fenced", "not_started", "verified") or
+    "executor-fence:provider-changed" not in (commands[0][5] or "")):
+    stop("PREVIOUS_PROVIDER_CHANGE_NOT_VERIFIED_NO_MUTATION")
+print("PRIOR_PROVIDER_CHANGE=REJECTED_WITHOUT_EFFECT",
+      "OPERATION=", STALE_PROVIDER_OP, flush=True)
+
 path = "/native-timers/" + TIMER_ID + "/modifications?backendId=default"
-if "update_after_cas_fix" not in journal:
+if "update_after_provider_sync" not in journal:
     if any(stage in journal for stage in ("toggle_off", "toggle_on", "delete")):
         stop("JOURNAL_OUT_OF_ORDER")
     etag = read_timer(ORIGINAL, True)
@@ -369,10 +466,11 @@ if "update_after_cas_fix" not in journal:
         "vps": bool(native[9]),
         "enabled": True,
     }
+    verify_native_modify_provider_sync()
 else:
     etag = None
     update_body = None
-submit_or_resume("update_after_cas_fix", "POST", path, update_body, etag)
+submit_or_resume("update_after_provider_sync", "POST", path, update_body, etag)
 if "toggle_off" not in journal:
     etag = read_timer(UPDATED, True)
 print("UPDATE=PASS", flush=True)
