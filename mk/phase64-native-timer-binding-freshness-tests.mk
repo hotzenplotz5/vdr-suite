@@ -14,3 +14,5 @@ test-phase64-native-timer-binding-freshness:
 	$(BUILD_DIR)/test_native_timer_binding_passive_refresh
 
 test-fast: test-phase64-native-timer-binding-freshness
+
+test-ci-fast: test-phase64-native-timer-binding-freshness
