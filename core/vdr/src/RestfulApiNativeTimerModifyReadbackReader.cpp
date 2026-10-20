@@ -1,6 +1,7 @@
 #include "RestfulApiNativeTimerModifyReadbackReader.h"
 
 #include "RestfulApiNativeTimerInventoryReader.h"
+#include "NativeTimerSpecification.h"
 #include "RestfulApiTimerMapper.h"
 #include "VdrNativeTimerObservationMapper.h"
 #include "HttpRequest.h"
@@ -28,7 +29,10 @@ NativeTimerModifyReadResult RestfulApiNativeTimerModifyReadbackReader::read(
         request.backendNativeTimerId.empty() ||
         request.backendNativeTimerId.size() > 160 ||
         request.backendGeneration == 0 || request.observedAt <= 0 ||
-        request.notBefore <= 0 || request.observedAt < request.notBefore)
+        request.notBefore <= 0 || request.observedAt < request.notBefore ||
+        (request.allowIdentityChange &&
+         !vdrsuite::timers::nativeTimerSpecificationValid(
+             request.expectedSpecification)))
     {
         result.status = NativeTimerModifyReadStatus::invalidRequest;
         return result;
@@ -44,7 +48,9 @@ NativeTimerModifyReadResult RestfulApiNativeTimerModifyReadbackReader::read(
         return result; // HTTP, truncation and parse failure are never success.
 
     const auto& ids = inventory.evidence.backendNativeTimerIds;
-    if (std::count(ids.begin(), ids.end(), request.backendNativeTimerId) != 1)
+    const bool oldIdPresent =
+        std::count(ids.begin(), ids.end(), request.backendNativeTimerId) == 1;
+    if (!oldIdPresent && !request.allowIdentityChange)
     {
         result.status = NativeTimerModifyReadStatus::notFound;
         return result;
@@ -88,20 +94,51 @@ NativeTimerModifyReadResult RestfulApiNativeTimerModifyReadbackReader::read(
         timers.begin(), timers.end(), [&request](const VdrTimer& timer) {
             return timer.id == request.backendNativeTimerId;
         });
-    if (it == timers.end())
+    if (it == timers.end() && request.allowIdentityChange &&
+        !oldIdPresent)
     {
-        result.status = NativeTimerModifyReadStatus::inconsistent;
-        return result;
+        // The native UPDATE may change the provider's compound Timer ID.
+        // Only an EXACTLY ONE match for the requested postcondition in two
+        // complete independently consistent inventories is acceptable.
+        for (const auto& candidate : timers)
+        {
+            const auto observed = VdrNativeTimerObservationMapper::map(
+                request.backendId, request.backendGeneration,
+                request.observedAt, candidate);
+            if (!observed.ok() ||
+                !vdrsuite::timers::nativeTimerObservationMatchesSpecification(
+                    request.expectedSpecification, observed.observation.observedState))
+                continue;
+            if (!result.observation.backendNativeTimerId.empty())
+            {
+                result.status = NativeTimerModifyReadStatus::inconsistent;
+                return result;
+            }
+            result.observation = observed.observation;
+        }
+        if (result.observation.backendNativeTimerId.empty())
+        {
+            result.status = NativeTimerModifyReadStatus::notFound;
+            return result;
+        }
     }
-    const auto mapped = VdrNativeTimerObservationMapper::map(
-        request.backendId, request.backendGeneration,
-        request.observedAt, *it);
-    if (!mapped.ok())
+    else
     {
-        result.status = NativeTimerModifyReadStatus::inconsistent;
-        return result;
+        if (it == timers.end())
+        {
+            result.status = NativeTimerModifyReadStatus::inconsistent;
+            return result;
+        }
+        const auto mapped = VdrNativeTimerObservationMapper::map(
+            request.backendId, request.backendGeneration,
+            request.observedAt, *it);
+        if (!mapped.ok())
+        {
+            result.status = NativeTimerModifyReadStatus::inconsistent;
+            return result;
+        }
+        result.observation = mapped.observation;
     }
-    result.observation = mapped.observation;
     result.status = NativeTimerModifyReadStatus::observed;
     return result;
 }
