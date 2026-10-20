@@ -1,6 +1,7 @@
 #pragma once
 
 #include "NativeTimerObservation.h"
+#include "NativeTimerSpecification.h"
 
 #include <cstdint>
 #include <string>
@@ -21,6 +22,9 @@ struct NativeTimerModifyReadRequest {
     std::string backendNativeTimerId;
     std::int64_t observedAt = 0;
     std::int64_t notBefore = 0;
+    // Only a dispatched UPDATE may discover a changed RESTfulAPI tuple ID.
+    bool allowIdentityChange = false;
+    vdrsuite::timers::NativeTimerSpecification expectedSpecification;
 };
 struct NativeTimerModifyReadResult {
     NativeTimerModifyReadStatus status = NativeTimerModifyReadStatus::unavailable;
