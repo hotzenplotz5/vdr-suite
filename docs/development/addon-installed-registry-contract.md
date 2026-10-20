@@ -305,3 +305,21 @@ then hashes the open file descriptor. This closes the earlier check-then-open
 parent-path substitution gap in that **read-only diagnostic**. It does not
 make the verification result a durable lease: a real Agent must repeat the
 check and use its own pinned descriptor when executing a registered handler.
+
+## Transactional administrator intent and accountability seam
+
+The preexisting SQLite activation-intent proof now has an additional
+`updateAudited(..., appendAudit)` entrypoint. It retains canonical global
+administrator authorization and revision-fenced SQLite CAS, and invokes the
+audit append inside the **same database transaction** before committing.
+An absent, failed or throwing audit callback denies and rolls back the
+entire state mutation (including any partial audit SQL). The focused
+`test-addon-activation-intent` regression checks both rolled-back and
+committed audit rows and that the intent revision never advances on failure.
+
+The callback must use the established Suite
+`AccountabilityEventRepository` against the **same** `Database`.
+This is a Core-level integration seam, not yet a protected API endpoint.
+The prior non-audited `update` remains only for existing isolated proof
+tests; production administrative routes must use the audited path.
+No package authority or handler execution is granted by persistent intent.
