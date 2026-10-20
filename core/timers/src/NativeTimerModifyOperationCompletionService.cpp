@@ -85,7 +85,9 @@ bool bindingEvidenceMatches(
         binding.timerAssignmentId == payload.timerAssignmentId &&
         binding.backendId == payload.backendId &&
         binding.backendGeneration == payload.backendGeneration &&
-        binding.backendNativeTimerId == payload.backendNativeTimerId &&
+        (binding.backendNativeTimerId == payload.backendNativeTimerId ||
+         (payload.kind == NativeTimerModifyKind::update &&
+          binding.backendNativeTimerId != payload.backendNativeTimerId)) &&
         binding.lastVerifiedOperationId == expectation.operationId &&
         binding.lastObservedAt >= expectation.readbackNotBefore &&
         binding.missingSince == 0 &&
