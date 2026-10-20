@@ -206,3 +206,12 @@ test-addon-agent-dispatch-gate:
 	"$(BUILD_DIR)/addons/test_addon_agent_dispatch_gate"
 
 test-ci-fast: test-addon-agent-dispatch-gate
+
+# Build only: privileged fixture executes ONLY in disposable CI under /root.
+.PHONY: build-addon-pinned-handler-test
+build-addon-pinned-handler-test:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include \
+		core/addons/src/AddonPinnedHandler.cpp \
+		core/addons/tests/test_addon_pinned_handler.cpp -lcrypto \
+		-o "$(BUILD_DIR)/addons/test_addon_pinned_handler"
