@@ -41,8 +41,6 @@ inline ProviderDecision reviewProvider(
     const auto* definition = reviewedHandler(module, package);
     if (!definition) return {false, false, false, false,
                               ProviderReason::missingDefinition};
-    if (!definition->executable) return {false, false, false, false,
-                                         ProviderReason::disabledDefinition};
     if (facts.origin == InstallOrigin::absent || !facts.metadataPresent)
         return {false, false, false, false, ProviderReason::missingInstall};
     if (!facts.integrityMatches)
@@ -55,6 +53,8 @@ inline ProviderDecision reviewProvider(
         return {false, false, false, false, ProviderReason::incompatibleVersion};
     if (!facts.handlerHealthy)
         return {false, false, false, false, ProviderReason::unhealthyHandler};
+    if (!definition->executable) return {false, false, false, false,
+                                         ProviderReason::disabledDefinition};
     // Wiring this to a real runtime needs a backend-local descriptor lease,
     // generation fencing and re-verification at dispatch time.
     return {false, false, false, false, ProviderReason::runtimeUnavailable};
