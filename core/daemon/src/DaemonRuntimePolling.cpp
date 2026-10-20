@@ -335,6 +335,10 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
                         target.backendNativeTimerId;
                     request.observedAt = observedAt;
                     request.notBefore = expectation.readbackNotBefore;
+                    request.allowIdentityChange =
+                        target.kind == vdrsuite::timers::NativeTimerModifyKind::update;
+                    if (request.allowIdentityChange)
+                        request.expectedSpecification = target.expectedSpecification;
                     const auto read = reader.read(request);
                     if (read.ok()) return read.observation;
                 }
