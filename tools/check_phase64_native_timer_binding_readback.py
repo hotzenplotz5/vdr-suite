@@ -49,7 +49,8 @@ for token in [
     "NativeTimerBindingReadbackStatus::reconciliationRequired",
     "next.backendGeneration = observation.backendGeneration",
     "next.lastObservedAt = observation.observedAt",
-    "repository_.update(next, current.bindingRevision)",
+    "repository_.update(",
+    "next, current.bindingRevision, passiveFreshnessRefresh",
     "NativeTimerBindingRepositoryStatus::conflict",
     "NativeTimerBindingReadbackStatus::repositoryConflict",
 ]:
@@ -133,6 +134,18 @@ for scan_root in [
             continue
         if "NativeTimerBindingReadbackService" in path.read_text(
             encoding="utf-8", errors="ignore"):
+            # Phase-69 successor: only the productive daemon polling owner
+            # may consume the service, and only after strict live evidence.
+            if (path.relative_to(ROOT) ==
+                    Path("core/daemon/src/DaemonRuntimePolling.cpp")):
+                poll = path.read_text(encoding="utf-8")
+                if all(marker in poll for marker in [
+                    "RestfulApiNativeTimerModifyReadbackReader",
+                    "listManagedForFreshness(",
+                    "stillAgent->backendGeneration",
+                    "observed.observation, true",
+                ]):
+                    continue
             raise SystemExit(
                 "premature NativeTimerBinding readback runtime wiring: "
                 + str(path.relative_to(ROOT)))
