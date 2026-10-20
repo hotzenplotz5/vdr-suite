@@ -244,3 +244,17 @@ intent. Even all-positive synthetic installation data produces zero effective
 authorization. The focused `test-addon-provider-read-service` target covers
 both install origins and unknown identities. Connecting a real independently
 approved provider and backend Agent requires a separate reviewed implementation.
+
+## Independent approval comparison boundary
+
+`AddonProviderApproval.h` introduces an explicit *separately supplied*
+Core-approved install record: fixed identity, backend scope, origin,
+pinned binary digest, version and backend generation. The offline
+`compareApprovedProvider` function rejects absent approval, origin change,
+backend/generation substitution, binary tampering and version drift.
+A boolean `independentlyAuthorized` in a test fixture is **not** itself
+a verifier; only a future hardened Core-owned approval issuer can
+construct authenticated approval evidence. Thus the comparison returns
+`approvedForExecution=false` unconditionally, and does not bypass the
+disabled handler definition or install a new loader. No `dpkg`
+requirement is introduced for manual installs.
