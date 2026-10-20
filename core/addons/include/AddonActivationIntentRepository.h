@@ -48,6 +48,7 @@ public:
         : database_(database) {}
 
     bool ensureSchema();
+    const Database* databaseIdentity() const noexcept { return &database_; }
     IntentResult read(const RequestSecurityContext& actor,
                       const std::string& moduleId,
                       const std::string& backendId) const;
