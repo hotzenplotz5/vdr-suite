@@ -23,7 +23,8 @@ inline DispatchGateDecision previewMediaImportDispatch(
     const vdrsuite::operations::MutationOperation& operation,
     const BackendAgentCommandAssignment& assignment,
     const ProviderApproval& approval,
-    const ProviderBinding& provider)
+    const ProviderBinding& provider,
+    std::int64_t nowSeconds)
 {
     // Until a separately reviewed media import Agent executor exists, no
     // command type can be registered or dispatched by this preview.
@@ -31,7 +32,11 @@ inline DispatchGateDecision previewMediaImportDispatch(
         operation.backendGeneration == 0)
         return {false, DispatchGateReason::invalidOperation};
     if (!assignment.present || assignment.operationId.empty() ||
-        assignment.backendId.empty() || assignment.commandId.empty())
+        assignment.backendId.empty() || assignment.commandId.empty() ||
+        assignment.commandType.empty() || nowSeconds <= 0 ||
+        operation.deadline <= nowSeconds ||
+        assignment.deadline <= nowSeconds ||
+        assignment.deadline > operation.deadline)
         return {false, DispatchGateReason::invalidAssignment};
     if (operation.backendGeneration != assignment.backendGeneration ||
         operation.backendGeneration != approval.backendGeneration ||
