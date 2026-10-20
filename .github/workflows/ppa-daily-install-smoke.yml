@@ -1,0 +1,239 @@
+name: Daily PPA Noble and Resolute isolated acceptance
+
+on:
+  # Also run exactly when an updated acceptance workflow reaches main.
+  # This provides an auditable first published-PPA test without activating
+  # Launchpad's unattended Daily package builds.
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/ppa-daily-install-smoke.yml
+  workflow_dispatch:
+    inputs:
+      revision_timestamp:
+        description: "Published Daily recipe revtime (YYYYMMDDhhmm)"
+        required: true
+        type: string
+        default: "202610180321"
+      web_revision_timestamp:
+        description: "Published Web/HbbTV Daily recipe revtime (YYYYMMDDhhmm)"
+        required: true
+        type: string
+        default: "202610181549"
+
+permissions:
+  contents: read
+
+jobs:
+  daily-install:
+    name: "Daily PPA ${{ matrix.series }} amd64: Suite + HbbTV web, ABI, HTTP"
+    runs-on: ubuntu-24.04
+    container:
+      image: ${{ matrix.image }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - series: noble
+            ubuntu_version: "24.04"
+            image: "ubuntu:24.04"
+          - series: resolute
+            ubuntu_version: "26.04"
+            image: "ubuntu:26.04"
+    env:
+      SERIES: ${{ matrix.series }}
+      UBUNTU_VERSION: ${{ matrix.ubuntu_version }}
+      REVISION_TIMESTAMP: ${{ inputs.revision_timestamp || '202610180321' }}
+      WEB_REVISION_TIMESTAMP: ${{ inputs.web_revision_timestamp || '202610181549' }}
+      DEBIAN_FRONTEND: noninteractive
+
+    steps:
+      - name: Disposable runner, only Seahawk VDR and Daily PPA
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          . /etc/os-release
+          test "$VERSION_CODENAME" = "$SERIES"
+          test "$(dpkg --print-architecture)" = amd64
+          [[ "$REVISION_TIMESTAMP" =~ ^[0-9]{12}$ ]]
+          [[ "$WEB_REVISION_TIMESTAMP" =~ ^[0-9]{12}$ ]]
+          printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d
+          chmod 0755 /usr/sbin/policy-rc.d
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates software-properties-common curl
+          add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
+          add-apt-repository -y ppa:hotzenplotz5/vdr-suite-daily
+          apt-get update
+          echo "DAILY_ONLY_PPA_SETUP=PASS series=$SERIES"
+
+      - name: Reject missing or wrong Suite and Web/HbbTV PPA versions before installing
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          expected="0.14.1-1~exp2~daily1+${REVISION_TIMESTAMP}~ubuntu${UBUNTU_VERSION}.1"
+          for pkg in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            policy="$(apt-cache policy "$pkg")"
+            printf '%s\n' "$policy"
+            candidate="$(printf '%s\n' "$policy" | awk '/Candidate:/ { print $2; exit }')"
+            test "$candidate" = "$expected" || {
+              echo "DAILY_VERSION_MISMATCH=$pkg expected=$expected actual=$candidate"; exit 1;
+            }
+            printf '%s\n' "$policy" | grep -Fq               "ppa.launchpadcontent.net/hotzenplotz5/vdr-suite-daily/ubuntu $SERIES"
+          done
+          # The Web plugin uses its own source recipe and revision timestamp.
+          # Only the published package built directly from the integrated main
+          # tree is accepted; no fallback to Seahawk's unpatched web package.
+          web_expected="0.0.1+git20260827-111-34ded50-1yavdr1+vdrsuite1+daily1+${WEB_REVISION_TIMESTAMP}~ubuntu${UBUNTU_VERSION}.1"
+          web_policy="$(apt-cache policy vdr-plugin-web)"
+          printf '%s\n' "$web_policy"
+          web_candidate="$(printf '%s\n' "$web_policy" | awk '/Candidate:/ { print $2; exit }')"
+          test "$web_candidate" = "$web_expected" || {
+            echo "DAILY_WEB_VERSION_MISMATCH expected=$web_expected actual=$web_candidate"; exit 1;
+          }
+          printf '%s\n' "$web_policy" | grep -Fq \
+            "ppa.launchpadcontent.net/hotzenplotz5/vdr-suite-daily/ubuntu $SERIES"
+          echo "DAILY_WEB_PPA_CANDIDATE_EXACT=PASS version=$web_expected"
+          vdr_policy="$(apt-cache policy vdr)"
+          printf '%s\n' "$vdr_policy"
+          printf '%s\n' "$vdr_policy" | grep -Fq             "ppa.launchpadcontent.net/seahawk1986-hotmail/vdr-2.8.3/ubuntu $SERIES"
+          echo "DAILY_PPA_CANDIDATES_EXACT=PASS version=$expected"
+
+      - name: Simulate and install published Daily binaries
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          expected="0.14.1-1~exp2~daily1+${REVISION_TIMESTAMP}~ubuntu${UBUNTU_VERSION}.1"
+          web_expected="0.0.1+git20260827-111-34ded50-1yavdr1+vdrsuite1+daily1+${WEB_REVISION_TIMESTAMP}~ubuntu${UBUNTU_VERSION}.1"
+          packages=(vdr vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge "vdr-plugin-web=$web_expected")
+          apt-get -s install --no-install-recommends "${packages[@]}"
+          apt-get install -y --no-install-recommends "${packages[@]}"
+          dpkg --audit
+          for pkg in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
+            actual="$(dpkg-query -W -f='${Version}' "$pkg")"
+            status="$(dpkg-query -W -f='${Status}' "$pkg")"
+            test "$actual" = "$expected" && test "$status" = 'install ok installed' || {
+              echo "DAILY_INSTALLED_VERSION_MISMATCH=$pkg version=$actual status=$status"; exit 1;
+            }
+            echo "DAILY_INSTALLED=PASS $pkg $actual"
+          done
+          test "$(dpkg-query -W -f='${Version}' vdr-plugin-web)" = "$web_expected"
+          test "$(dpkg-query -W -f='${Status}' vdr-plugin-web)" = 'install ok installed'
+          echo "DAILY_WEB_PPA_INSTALLED=PASS version=$web_expected"
+          test "$(dpkg-query -W -f='${Version}' vdr)" = "2.8.3-0yavdr0~$SERIES"
+          dpkg-query -W -f='${Provides}\n' vdr | grep -F 'vdr-abi-2.8.3-0yavdr'
+          for pkg in vdr-plugin-suitebridge vdr-plugin-web; do
+            dpkg-query -W -f='${Depends}\n' "$pkg" |
+              grep -F 'vdr-abi-2.8.3-0yavdr'
+          done
+          test -s /usr/sbin/vdr-suite-daemon
+          test -s /usr/sbin/vdr-suite-backend-agent
+          test -s /usr/lib/vdr/plugins/libvdr-suitebridge.so.14
+          test -s /usr/lib/vdr/plugins/libvdr-web.so.14
+          test -s /usr/share/vdr-plugin-web/vdr-suite-tools/apply_cefbrowser_zdf_controls_fix.py
+          test -s /usr/share/vdr-plugin-web/vdr-suite-tools/detect_cefbrowser_static_root.py
+          test -s /usr/share/vdr-suite/web/frontend/index.html
+          test -s /usr/share/vdr-suite/web/frontend/hbbtv-qoi.js
+          test -f /usr/lib/systemd/system/vdr-suite-daemon.service
+          test -f /usr/lib/systemd/system/vdr-suite-backend-agent.service
+          dpkg -S /usr/lib/vdr/plugins/libvdr-suitebridge.so.14
+          dpkg -S /usr/lib/vdr/plugins/libvdr-web.so.14
+          dpkg -S /usr/share/vdr-plugin-web/vdr-suite-tools/apply_cefbrowser_zdf_controls_fix.py
+          for elf in /usr/sbin/vdr-suite-daemon /usr/sbin/vdr-suite-backend-agent \
+            /usr/lib/vdr/plugins/libvdr-suitebridge.so.14 \
+            /usr/lib/vdr/plugins/libvdr-web.so.14; do
+            ldd "$elf" > /tmp/vdr-suite-daily-ldd.log
+            if grep -Fq 'not found' /tmp/vdr-suite-daily-ldd.log; then
+              cat /tmp/vdr-suite-daily-ldd.log
+              echo "DAILY_LIBRARY_MISSING=$elf"
+              exit 1
+            fi
+          done
+          vdr -L /usr/lib/vdr/plugins --version > /tmp/vdr-suite-daily-vdr-plugins.log 2>&1
+          cat /tmp/vdr-suite-daily-vdr-plugins.log
+          grep -Fq 'suitebridge (' /tmp/vdr-suite-daily-vdr-plugins.log
+          grep -Fq 'web (' /tmp/vdr-suite-daily-vdr-plugins.log
+          echo 'DAILY_WEB_HBBTV_ABI_PLUGIN_LOADER=PASS (not video-playback acceptance)'
+          echo "DAILY_INSTALL_ABI_PLUGIN_LOADER=PASS series=$SERIES"
+
+      - name: Start installed daemon as vdr; HTTP, 401 and restart
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(id -u)" = 0
+          id vdr
+          command -v setpriv
+          workdir=/tmp/vdr-suite-daily-smoke
+          install -d -o vdr -g vdr -m 0700 "$workdir"
+          root=/usr/share/vdr-suite/web/frontend
+          base=http://127.0.0.1:18080
+          pid=''
+          cleanup() {
+            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+              kill -TERM "$pid" || true
+              for attempt in $(seq 1 20); do
+                if ! kill -0 "$pid" 2>/dev/null; then break; fi
+                sleep 1
+              done
+              if kill -0 "$pid" 2>/dev/null; then kill -KILL "$pid" || true; fi
+              wait "$pid" || true
+            fi
+            if [ -f "$workdir/daemon.log" ]; then tail -n 60 "$workdir/daemon.log"; fi
+          }
+          trap cleanup EXIT
+          start_daemon() {
+            setpriv --reuid="$(id -u vdr)" --regid="$(id -g vdr)" --init-groups \
+              env VDR_SUITE_DATABASE_PATH="$workdir/runtime.sqlite" \
+                VDR_SUITE_SECURITY_DATABASE_PATH="$workdir/runtime.sqlite" \
+                VDR_SUITE_FRONTEND_ROOT="$root" \
+                VDR_SUITE_SUITE_BRIDGE_ENABLED=false \
+                VDR_SUITE_SERIES_ARTWORK_FALLBACK_ENABLED=false \
+                /usr/sbin/vdr-suite-daemon > "$workdir/daemon.log" 2>&1 &
+            pid=$!
+            ready=false
+            for attempt in $(seq 1 45); do
+              if curl --noproxy '*' --fail --silent --max-time 2 \
+                "$base/frontend/index.html" -o "$workdir/index.html"; then
+                ready=true
+                break
+              fi
+              if ! kill -0 "$pid" 2>/dev/null; then break; fi
+              sleep 1
+            done
+            if [ "$ready" != true ]; then
+              echo 'DAILY_DAEMON_HTTP_START=FAIL'; exit 1
+            fi
+            cmp "$root/index.html" "$workdir/index.html"
+            echo 'DAILY_DAEMON_HTTP_START=PASS'
+          }
+          stop_daemon() {
+            kill -TERM "$pid"
+            stopped=false
+            for attempt in $(seq 1 30); do
+              if ! kill -0 "$pid" 2>/dev/null; then stopped=true; break; fi
+              sleep 1
+            done
+            if [ "$stopped" != true ]; then echo 'DAILY_DAEMON_STOP=FAIL'; exit 1; fi
+            wait "$pid"
+            pid=''
+            echo 'DAILY_DAEMON_STOP=PASS'
+          }
+          start_daemon
+          for asset in style.css hbbtv-qoi.js api/public-v1-client.js; do
+            curl --noproxy '*' --fail --silent --max-time 5 \
+              "$base/frontend/$asset" -o "$workdir/asset"
+            cmp "$root/$asset" "$workdir/asset"
+          done
+          curl --noproxy '*' --fail --silent --max-time 5 \
+            "$base/frontend/app.js" -o "$workdir/app"
+          test "$(wc -c < "$workdir/app")" -ge "$(wc -c < "$root/app.js")"
+          status="$(curl --noproxy '*' --silent --show-error --max-time 5 \
+            -D "$workdir/api.headers" -o "$workdir/api.response" \
+            -w '%{http_code}' "$base/api/v1/backends")"
+          test "$status" = 401
+          grep -Eiq '^Content-Type: application/problem[+]json' "$workdir/api.headers"
+          stop_daemon
+          start_daemon
+          stop_daemon
+          echo "DAILY_DAEMON_HTTP_RESTART=PASS series=$SERIES"
+          echo "DAILY_SUITE_AND_WEB_COMBINED_ACCEPTANCE=PASS series=$SERIES"

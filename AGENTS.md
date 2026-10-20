@@ -219,6 +219,37 @@ Immediately after entering, verify the repository root with
 before branch/head validation. Test blocks must be self-contained and safe to
 paste from an arbitrary shell working directory.
 
+## Temporary worktree and test-artifact lifecycle
+
+Temporary Git worktrees, detached test checkouts, build directories and staging
+directories created for a bounded test or acceptance step must be treated as
+short-lived resources, not retained project state.
+
+As soon as the test or acceptance step no longer needs them:
+
+1. verify that the exact temporary worktree contains no uncommitted or otherwise
+   unsaved work that belongs to the active workstream;
+2. remove that exact worktree immediately with `git worktree remove` (use
+   `--force` only when the worktree is intentionally disposable);
+3. remove the test-specific build/stage directories created for that step;
+4. run `git worktree prune` to discard stale metadata.
+
+Do not defer this cleanup to a later phase or accumulate obsolete worktrees in
+`/tmp`, `/home`, `/root` or tool-managed worktree directories. Test blocks
+that create temporary worktrees or substantial temporary build/stage trees must
+include their own cleanup path in the same bounded workflow.
+
+Before deleting anything, identify the exact resource created by the current
+test. Never delete or prune a still-active worktree, build tree or stage tree
+belonging to another concurrent workstream. In particular, shared or parallel
+MU/client/runtime work must remain untouched unless its own workstream has
+finished and its state has been checked.
+
+On tmpfs-backed `/tmp` or other capacity-constrained temporary storage, check
+available space before creating a large worktree/build tree when recent evidence
+shows pressure. Prefer a bounded location with sufficient capacity rather than
+allowing a predictable `ENOSPC`/inode failure.
+
 ## Frontend lifecycle and composition gates
 
 For cross-cutting frontend behavior, prove the real production composition and
@@ -382,6 +413,23 @@ approval.
 Keep each implementation slice within its documented boundary. Do not combine
 unrelated phases, runtime installation, broad refactors or deferred features
 merely to reduce the number of commits.
+
+### Main-first branch lifecycle and grandfathered work
+
+Follow [Branch- und Pull-Request-Lebenszyklus](docs/development/branch-pull-request-lifecycle.md).
+New work starts on the **current `main`** of the correct repository; do
+not create nested successor branches for the same work. **Branches and PR
+stacks already active before 2026-10-18 are grandfathered**: never
+force-rebase, rename, close, merge, delete or replace them just to satisfy
+the new rule. Any new stacked branch needs explicit approval and a documented
+dependency.
+
+After an authorized merge confirm `Merged/Closed`, exact `main` head and
+relevant CI, then delete the head branch **only after** checking Launchpad
+recipes, dependent PRs, workflows and other consumers. Report
+`BRANCH=RETAINED` with the reason if needed or if deletion is unavailable.
+Branch protection always takes precedence over a request for a direct
+`main` write.
 
 ## Reporting
 
