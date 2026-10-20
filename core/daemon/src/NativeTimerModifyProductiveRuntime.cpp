@@ -292,8 +292,8 @@ void advanceFamily(
                 MutationOperationState::dispatching,
                 MutationOperationState::outcomeUnknown,
                 "native-timer-modify:missing-result-evidence", now);
-            ++summary.deferred;
-            (void)quarantined; // A conflict preserves the existing operation.
+            if (quarantined.ok()) ++summary.quarantined;
+            else ++summary.deferred; // A conflict preserves existing state.
             continue;
         }
         const auto applied = applyDurableNativeTimerModifyResult(
