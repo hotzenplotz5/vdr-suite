@@ -147,3 +147,14 @@ test-addon-provider-read-service:
 	"$(BUILD_DIR)/addons/test_addon_provider_read_service"
 
 test-ci-fast: test-addon-provider-read-service
+
+# Independent approval matching; no runtime authority or execution.
+.PHONY: test-addon-provider-approval
+test-addon-provider-approval:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include \
+		core/addons/tests/test_addon_provider_approval.cpp \
+		-o "$(BUILD_DIR)/addons/test_addon_provider_approval"
+	"$(BUILD_DIR)/addons/test_addon_provider_approval"
+
+test-ci-fast: test-addon-provider-approval
