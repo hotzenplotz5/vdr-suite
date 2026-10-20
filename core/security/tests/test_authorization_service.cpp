@@ -289,6 +289,21 @@ int main()
             kGlobalStaleProbeDeletePermission,
             "*")).allowed);
 
+    // Media Tools import must be an exact backend-scoped permission.
+    const auto importRequest = permissionRequest("addons.media.import", "backend-a");
+    assert(!service.authorize(adminRole, importRequest).allowed);
+    assert(!service.authorize(wildcard, importRequest).allowed);
+    RequestSecurityContext importActor = authenticatedContext();
+    importActor.grants.push_back({"addons.media.import", "*"});
+    assert(!service.authorize(importActor, importRequest).allowed);
+    importActor.grants.clear();
+    importActor.grants.push_back({"addons.media.import", "backend-other"});
+    assert(!service.authorize(importActor, importRequest).allowed);
+    importActor.grants.push_back({"addons.media.import", "backend-a"});
+    assert(service.authorize(importActor, importRequest).allowed);
+    importActor.grants.push_back({"role.read-only", "backend-a"});
+    assert(service.authorize(importActor, importRequest).reasonCode == "role_read_only");
+
     RequestSecurityContext expired = allowed;
     expired.session->expired = true;
     assert(service.authorize(expired, requestFor("default")).reasonCode ==
