@@ -76,6 +76,8 @@ int main()
     a.grants.push_back({"addons.media.import", "backend-other"});
     assert(!canUseMediaImport(a, b, e).allowed);
     ++checks;
+    a.grants.push_back({"addons.media.import", "*"});
+    assert(!canUseMediaImport(a, b, e).allowed);
     a.grants.push_back({"addons.media.import", "backend-a"});
     assert(canUseMediaImport(a, b, e).allowed);
     ++checks;
