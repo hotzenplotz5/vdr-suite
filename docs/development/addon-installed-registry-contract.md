@@ -411,3 +411,16 @@ The canonical read-only-role mutation gate treats Media Tools import as a
 protected write and denies it for a read-only grant on the same backend.
 This is grant vocabulary/policy readiness, not an HTTP action, an enabled
 handler or permission to touch recordings.
+
+## Canonical Agent operation binding preview (no execution)
+
+`AddonAgentDispatchGate.h` verifies a proposed Media Tools operation
+against existing `MutationOperation`, `BackendAgentCommandAssignment`
+and approved provider identities, including strict backend generation and
+operation ID equality. This is a **denial-only** preview; it does not
+introduce a second operation scheduler, register a new command type, dispatch
+a job or activate a handler. The next stage must use the actual canonical
+Agent reservation/receipt/result machinery and recheck provenance at the
+execution boundary. The focused `test-addon-agent-dispatch-gate` target
+exercises missing command state, stale generation, mismatched operation and
+revoked approval.
