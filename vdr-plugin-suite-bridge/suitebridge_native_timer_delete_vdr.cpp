@@ -1,4 +1,5 @@
 #include "suitebridge_native_timer_delete_vdr.h"
+#include "suitebridge_native_timer_identity.h"
 
 #include <vdr/channels.h>
 #include <vdr/epg.h>
@@ -28,19 +29,6 @@ SuiteBridgeNativeTimerDeleteMutationResult result(
 std::string evidence(const char *reason, const std::string &commandId)
 {
   return std::string("ntdel:vdr:") + reason + ":" + commandId;
-}
-
-bool parseLocalTimerId(const std::string &value, int &timerId)
-{
-  if (value.empty() || value.size() > 10) return false;
-  errno = 0;
-  char *end = nullptr;
-  const long parsed = std::strtol(value.c_str(), &end, 10);
-  if (errno != 0 || end == value.c_str() || *end != '\0' || parsed <= 0 ||
-      parsed > std::numeric_limits<int>::max())
-    return false;
-  timerId = static_cast<int>(parsed);
-  return std::to_string(timerId) == value;
 }
 
 void appendField(std::string &value, const std::string &field)
@@ -200,11 +188,6 @@ SuiteBridgeNativeTimerDeleteMutationResult
 SuiteBridgeNativeTimerDeleteVdrMutationCallback::DeleteTimer(
     const SuiteBridgeNativeTimerDeleteRequest &request)
 {
-  int timerId = 0;
-  if (!parseLocalTimerId(request.backendNativeTimerId, timerId))
-    return result(SuiteBridgeNativeTimerDeleteMutationDisposition::RejectedWithoutEffect,
-                  evidence("invalid-id", request.commandId));
-
   try {
     cStateKey stateKey;
     cTimers *timers = cTimers::GetTimersWrite(stateKey, TimerWriteLockTimeoutMs);
@@ -212,7 +195,7 @@ SuiteBridgeNativeTimerDeleteVdrMutationCallback::DeleteTimer(
       return result(SuiteBridgeNativeTimerDeleteMutationDisposition::RejectedWithoutEffect,
                     evidence("lock-unavailable", request.commandId));
 
-    cTimer *timer = timers->GetById(timerId, nullptr);
+    cTimer *timer = vdrsuite_suitebridge::exactLocalTimer(*timers, request.backendNativeTimerId);
     if (timer == nullptr) {
       stateKey.Remove(false);
       return result(SuiteBridgeNativeTimerDeleteMutationDisposition::RejectedWithoutEffect,
