@@ -561,6 +561,10 @@ NativeTimerBindingRepository::updateVerifiedNativeIdentity(
         current.backendGeneration != next.backendGeneration ||
         next.lastObservedAt < current.lastObservedAt ||
         next.observedFingerprint == current.observedFingerprint ||
+        current.observedState.recording || current.observedState.pending ||
+        next.observedState.recording || next.observedState.pending ||
+        next.missingSince != 0 ||
+        next.driftState != NativeTimerBindingDriftState::none ||
         next.lastVerifiedOperationId == current.lastVerifiedOperationId)
     {
         rollback();
@@ -575,7 +579,7 @@ NativeTimerBindingRepository::updateVerifiedNativeIdentity(
         "AND action_family='timer.update' "
         "AND resource_type='NativeTimerBinding' AND resource_id=? "
         "AND backend_id=? AND backend_generation=? "
-        "AND expected_revision=? "
+        "AND expected_revision=? AND expected_resource_fingerprint=? "
         "AND state IN ('executed_unverified','outcome_unknown') LIMIT 1;";
     if (sqlite3_prepare_v2(database_.handle(), check, -1, &guard, nullptr)
             != SQLITE_OK)
@@ -593,6 +597,8 @@ NativeTimerBindingRepository::updateVerifiedNativeIdentity(
         sqlite3_bind_int64(guard, 4,
             static_cast<sqlite3_int64>(current.backendGeneration)) == SQLITE_OK &&
         sqlite3_bind_text(guard, 5, expectedRevision.c_str(), -1,
+            SQLITE_TRANSIENT) == SQLITE_OK &&
+        sqlite3_bind_text(guard, 6, current.observedFingerprint.c_str(), -1,
             SQLITE_TRANSIENT) == SQLITE_OK;
     const int guardStep = ok ? sqlite3_step(guard) : SQLITE_ERROR;
     sqlite3_finalize(guard);
