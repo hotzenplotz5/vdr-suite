@@ -6,6 +6,10 @@ on:
       - work/addon-platform-registry-lifecycle
     paths:
       - 'core/addons/**'
+      - 'core/security/include/AuthorizationService.h'
+      - 'core/security/src/HumanAccountGrantAdministrationService.cpp'
+      - 'core/security/tests/test_authorization_service.cpp'
+      - 'core/security/tests/test_human_account_grant_administration_service.cpp'
       - 'tools/addons/**'
       - 'mk/addons.mk'
       - '.github/workflows/addon-platform-isolated.yml'
@@ -45,6 +49,9 @@ jobs:
           make test-addon-activation-intent
           make test-addon-administration-service
           make test-addon-activation-catalog
+          make test-addon-access-policy
+          make test-security-authorization
+          make test-security-human-account-grant-administration
           echo "ADDON_ISOLATED_CI=PASS"
 
       - name: Isolated root-owned approval and revocation acceptance
