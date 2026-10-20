@@ -444,3 +444,29 @@ verify its approved root-owned record, handler bytes and backend
 generation before any future dispatch. Neither this file's existence
 nor its readable permissions enable a handler. No live host permissions
 are changed by this source-only update.
+
+## Native Core approval and pinned handler verification (source-only)
+
+The C++17 `AddonRootApproval` reader accepts **only** the canonical
+root-issued JSON representation under the compiled
+`/etc/vdr-suite/addon-approvals/rectools.json` path. It traverses directories
+using `openat(O_NOFOLLOW)`, requires root ownership, rejects group/world
+write permissions, bounds record size and rechecks file identity after
+reading. Duplicated fields, noncanonical JSON, unknown module identities,
+changed schema, revoked records and unsafe symlinks are not accepted.
+
+`AddonPinnedHandler` separately opens the exact compiled
+`/usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import` path,
+checks root-owned, non-writable directory and binary descriptors, hashes the
+**opened** regular file with OpenSSL SHA-256 and retains the same descriptor
+after successful comparison. This prevents path replacement between the
+hash check and a future executor's descriptor use. A later Agent executor
+must still establish actor/backend admission, stable lease/generation,
+recheck revocation, limits and durable result reconciliation before
+invoking this descriptor.
+
+The two native readers are compiled and tested together on isolated,
+root-owned CI fixtures. **They do not currently register a worker,
+mint a trusted RuntimeEvidence value, call exec or enable Media Tools.**
+Production deployment and source/Debian packaging integration remain
+separate gates.
