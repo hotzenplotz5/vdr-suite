@@ -356,3 +356,27 @@ No public route or permission grant is created.
 The compile-time `AddonCatalog.h` allowlist is now shared by the Core
 catalog and the activation repository's valid-module gate.
 `test-addon-activation-catalog` is part of the scoped Add-on CI.
+
+## Explicit administrator approval issuance (isolated by default)
+
+`tools/addons/admin_approval_issuer.py issue` now implements a root-only,
+fixed-path, no-overwrite administrative approval publication for an already
+installed reviewed Media Tools binary. It **requires** an externally approved
+SHA-256 supplied by the operator; it never computes an acceptable digest from
+an arbitrary local binary, installs a package, runs a handler, or flips a Suite
+capability. Metadata/version and installed binary bytes must agree first.
+It creates the `etc/vdr-suite/addon-approvals/` directory chain securely,
+publishes one root-owned mode-0600 versioned record with hardlink-based atomic
+no-overwrite semantics and syncs its parent directory. A second issuance
+refuses to replace the existing record. Explicitly passing `--root /` is
+rejected unless `--allow-live-root` is also provided; neither mode is
+invoked automatically by tests or deployment. No production host issue or
+revocation has been performed.
+
+The isolated root acceptance test under `/root` on a disposable CI runner
+covers successful publication, duplicate refusal, mismatched digest, explicit
+live-root refusal, binary tampering, revoked approval, version drift and
+unsafe parent permissions. This is approval **issuance/diagnostic tooling**,
+not an on-demand privilege escalation surface, daemon permission grant or
+production installation flow. Revocation/update migration, authenticated
+administrator UI, API and Agent descriptor-fenced execution remain pending.
