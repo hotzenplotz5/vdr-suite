@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
@@ -63,10 +64,11 @@ int main()
         output << "malicious replacement";
     }
     ::chmod(fixture.handler.c_str(), 0700);
-    char buffer[sizeof(FixtureBytes)]{};
-    assert(::read(valid.descriptor.get(), buffer, sizeof(FixtureBytes) - 1) ==
-           static_cast<ssize_t>(sizeof(FixtureBytes) - 1));
-    assert(std::string(buffer) == FixtureBytes);
+    const std::size_t size = std::strlen(FixtureBytes);
+    std::string heldBytes(size, '\0');
+    assert(::read(valid.descriptor.get(), heldBytes.data(), size) ==
+           static_cast<ssize_t>(size));
+    assert(heldBytes == FixtureBytes);
     expect(HandlerDescriptorReason::digestMismatch,
            inspectPinnedMediaToolsHandler(root, ApprovedDigest));
     fs::remove(fixture.handler);
