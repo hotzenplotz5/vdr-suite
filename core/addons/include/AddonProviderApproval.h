@@ -58,6 +58,10 @@ inline ApprovalDecision compareApprovedProvider(
         approved.version != observed.installedVersion)
         return {false, ApprovalReason::versionMismatch, {}};
     const BindingDecision binding = reviewProviderBinding(observed);
+    // Even a matching approval cannot override malformed backend tokens,
+    // digest encoding or an independently rejected installation.
+    if (binding.reason != BindingReason::deniedProvider)
+        return {false, ApprovalReason::disabledProvider, binding};
     // Never upgrade checked evidence to RuntimeEvidence.packageTrusted.
     return {false, ApprovalReason::disabledProvider, binding};
 }
