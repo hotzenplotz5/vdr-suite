@@ -135,3 +135,15 @@ test-addon-provider-binding:
 	"$(BUILD_DIR)/addons/test_addon_provider_binding"
 
 test-ci-fast: test-addon-provider-binding
+
+# Fail-closed bridge into the established Core RuntimeEvidence contract.
+.PHONY: test-addon-provider-read-service
+test-addon-provider-read-service:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror \
+		-I core/addons/include -I core/security/include -I core/vdr/include \
+		core/addons/tests/test_addon_provider_read_service.cpp \
+		-o "$(BUILD_DIR)/addons/test_addon_provider_read_service"
+	"$(BUILD_DIR)/addons/test_addon_provider_read_service"
+
+test-ci-fast: test-addon-provider-read-service
