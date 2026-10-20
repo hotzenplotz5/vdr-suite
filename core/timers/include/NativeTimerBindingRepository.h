@@ -89,6 +89,14 @@ public:
         const std::string& expectedRevision,
         bool passiveFreshnessRefresh = false);
 
+    // UPDATE-only, readback-verified rename of a RESTfulAPI compound native
+    // Timer identity. The original binding and assignment remain stable.
+    // Requires an already dispatched, still unresolved durable timer.update
+    // operation, exact current binding revision and authoritative postcondition.
+    NativeTimerBindingRepositoryResult updateVerifiedNativeIdentity(
+        const NativeTimerBinding& next,
+        const std::string& expectedRevision);
+
 private:
     Database& database_;
 };
