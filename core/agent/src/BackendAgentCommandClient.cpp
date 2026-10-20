@@ -685,6 +685,32 @@ bool reconcileBackendAgentCommandState(
         if (state.resultPresent && state.receiptAcknowledged &&
             state.resultAcknowledged)
             return retireProtectedState(config.statePath, reason);
+
+        // The native UPDATE/TOGGLE execution is already over. A durable
+        // outcome_unknown result must reach the command's original ledger
+        // even if the Agent re-enrolled into a newer backend generation.
+        // This path sends evidence only: it NEVER resumes native execution,
+        // changes the recorded assignment identity, or replays the command.
+        // The control plane verifies the exact original assignment/evidence.
+        const bool historicalModifyResult =
+            timerModifyCommand &&
+            state.receiptAcknowledged &&
+            state.resultPresent && !state.resultAcknowledged &&
+            state.assignment.backendId == context.backendId &&
+            state.assignment.agentId == context.agentId &&
+            state.assignment.backendGeneration < context.backendGeneration &&
+            state.result.resultCategory == "outcome_unknown" &&
+            state.result.verificationState == "outcome_unknown" &&
+            state.result.retryClassification == "reconcile_only" &&
+            !state.result.resultEvidence.empty();
+        if (historicalModifyResult)
+        {
+            if (!sendResult(config, context, transport, state, reason))
+                return false;
+            reason = "native_modify_historical_result_reconciled";
+            return true;
+        }
+
         reason = "local_command_generation_fenced";
         return false;
     }
