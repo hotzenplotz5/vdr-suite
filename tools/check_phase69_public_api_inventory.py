@@ -212,7 +212,7 @@ LEGACY_ALIAS_GROUPS = (
         "source": "api/rest/src/ApiRouter.cpp",
         "routes": ("/api/recordings/actions/validate", "/api/vdr/recordings/actions/validate"),
         "containsMutation": True,
-        "publicV1Successor": "/api/v1/recordings/actions/validate",
+        "publicV1Successor": None,
     },
     {
         "id": "recording-action-execute",
@@ -221,7 +221,7 @@ LEGACY_ALIAS_GROUPS = (
         "source": "api/rest/src/ApiRouter.cpp",
         "routes": ("/api/recordings/actions/execute", "/api/vdr/recordings/actions/execute"),
         "containsMutation": True,
-        "publicV1Successor": "/api/v1/recordings/actions/execute",
+        "publicV1Successor": None,
     },
     {
         "id": "recording-action-preview",
