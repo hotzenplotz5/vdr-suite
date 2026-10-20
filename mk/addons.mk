@@ -194,3 +194,15 @@ test-addon-activation-catalog:
 	"$(BUILD_DIR)/addons/test_addon_activation_catalog"
 
 test-ci-fast: test-addon-activation-catalog
+
+# Read-only binding to existing operation/Agent identities; never dispatches.
+.PHONY: test-addon-agent-dispatch-gate
+test-addon-agent-dispatch-gate:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror \
+		-I core/addons/include -I core/agent/include -I core/operations/include \
+		core/addons/tests/test_addon_agent_dispatch_gate.cpp \
+		-o "$(BUILD_DIR)/addons/test_addon_agent_dispatch_gate"
+	"$(BUILD_DIR)/addons/test_addon_agent_dispatch_gate"
+
+test-ci-fast: test-addon-agent-dispatch-gate
