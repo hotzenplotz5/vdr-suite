@@ -200,6 +200,47 @@ int main()
         assert(authorized.context.permissionGrantResolution ==
             PermissionGrantResolutionState::Resolved);
 
+        // Native Timer v1 retains the strict device-only exact-grant path.
+        auto nativeTimer = [&](const std::string& method,
+                               const std::string& backend)
+        {
+            HttpServerRequest request;
+            request.method = method;
+            request.path =
+                "/api/v1/native-timers/C-1-1051-10301:0:1792447200:2100:2145";
+            if (method == "POST")
+                request.path += "/modifications";
+            request.path += "?backendId=" + backend;
+            request.headers["Authorization"] = fixture.validAuthorization();
+            if (method == "POST")
+            {
+                request.body = "{\\"kind\\":\\"toggle\\",\\"enabled\\":false}";
+                request.headers["Content-Type"] = "application/json";
+            }
+            return fixture.gate.evaluate(request);
+        };
+        assert(nativeTimer("GET", "default").rejection.statusCode == 403);
+        assert(nativeTimer("POST", "default").rejection.statusCode == 403);
+        assert(nativeTimer("DELETE", "default").rejection.statusCode == 403);
+        assert(fixture.grants.ensureGrant(ActorId, "timers.view", "default"));
+        assert(nativeTimer("GET", "default").allowed);
+        assert(fixture.grants.ensureGrant(ActorId, "timers.modify", "default"));
+        const auto deviceModify = nativeTimer("POST", "default");
+        assert(deviceModify.allowed);
+        assert(deviceModify.deviceAuthenticated);
+        assert(deviceModify.protectedMutation);
+        assert(!nativeTimer("POST", "foreign").allowed);
+        assert(!nativeTimer("DELETE", "default").allowed);
+        assert(fixture.grants.ensureGrant(ActorId, "timers.delete", "default"));
+        const auto deviceDelete = nativeTimer("DELETE", "default");
+        assert(deviceDelete.allowed);
+        assert(deviceDelete.deviceAuthenticated);
+        assert(deviceDelete.protectedMutation);
+        assert(!nativeTimer("DELETE", "foreign").allowed);
+        assert(fixture.grants.revokeGrant(ActorId, "timers.view", "default"));
+        assert(fixture.grants.revokeGrant(ActorId, "timers.modify", "default"));
+        assert(fixture.grants.revokeGrant(ActorId, "timers.delete", "default"));
+
         // Pairing authenticates identity; it does not grant Recording access.
         const auto recordingsDenied = fixture.evaluate(
             "/api/v1/recordings?backendId=default",
