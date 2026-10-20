@@ -1,5 +1,6 @@
 """Root-managed approval record remains a non-authorizing optional read."""
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
