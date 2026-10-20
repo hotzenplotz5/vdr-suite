@@ -341,3 +341,18 @@ schema/implementation in an isolated SQLite database.
 This is not a usable management API: session/CSRF, HTTP idempotency contract,
 real independently trusted package evidence and Agent execution remain
 separate deployment gates. All existing handler definitions remain disabled.
+
+## Administrative desired-state catalog (Core-internal)
+
+`AddonActivationCatalogReadService` now supplies a strictly administrator-
+authorized, backend-scoped view of exactly three reviewed Core identities,
+using the existing revision-fenced SQLite activation repository. It reports
+the stored `desiredEnabled` wish and revision, **not** runtime installation
+or effective capabilities. Every record's `active` flag remains false,
+including when isolated synthetic tests persist a desired-enabled row.
+An unavailable database or invalid backend fails without a partial catalog.
+No public route or permission grant is created.
+
+The compile-time `AddonCatalog.h` allowlist is now shared by the Core
+catalog and the activation repository's valid-module gate.
+`test-addon-activation-catalog` is part of the scoped Add-on CI.
