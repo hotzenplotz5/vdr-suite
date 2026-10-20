@@ -40,4 +40,5 @@ jobs:
           make test-addon-provider-binding
           make test-addon-provider-read-service
           make test-addon-provider-approval
+          make test-addon-activation-intent
           echo "ADDON_ISOLATED_CI=PASS"
