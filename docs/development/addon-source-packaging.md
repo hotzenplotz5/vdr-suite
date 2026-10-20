@@ -84,3 +84,11 @@ reads only SQLite desired state and injected core policy evidence. It does
 not make metadata-only packages authoritative or discover executable
 handlers. The source-only registry, package verifier and live activation
 remain separate security-gated implementation work.
+
+## Optional dpkg consistency read (non-authorizing)
+
+The metadata registry supports `--verify-dpkg` to compare the package's
+local dpkg status/list/checksum ledger with its source-owned metadata.
+See [Installed registry contract](addon-installed-registry-contract.md).
+This only reports ledger consistency; it does **not** attest repository
+signatures, set `packageTrusted`, enable handlers or change VDR.

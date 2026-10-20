@@ -134,3 +134,32 @@ connect the Python installed-metadata inventory to the C++ runtime.
 A future runtime must independently verify package provenance, owner,
 schema/version compatibility, handler identity and backend generation,
 and recheck desired-state/revision at the fenced operation boundary.
+
+## Read-only Debian package-ledger consistency (2026-10-20)
+
+The installed inventory now accepts the optional `--verify-dpkg` diagnostic,
+always scoped to the **same absolute `--root`** as the metadata tree. The
+`dpkgEvidence` item contains `consistent` and a bounded reason. The
+verifier reads `var/lib/dpkg/status`, the exact reviewed package's
+`info/<package>.list` and `info/<package>.md5sums` under that root.
+It requires `install ok installed`, an approved scaffold/CPP-preview version,
+the applicable architecture, claimed ownership of all three metadata files
+and matching file hashes. Missing ledgers, duplicate entries, symlinks and
+checksum mismatches fail closed. No `dpkg` command or external program runs.
+
+Example: `python3 tools/addons/installed_registry.py inventory --root /
+--verify-dpkg` is a **read-only operator diagnostic** on a Debian host.
+The regular `--root <isolated>` metadata-only mode still works without
+any dpkg database and returns `dpkgEvidence.consistent=false`.
+
+**This is local dpkg ledger *consistency*, not trusted package provenance.**
+The dpkg status/list/MD5 files and package content are mutable local data;
+MD5 is not a cryptographic authenticity guarantee. `installed` continues
+to mean manifest metadata exists. `active=false` and `capabilities=[]`
+are unconditional, even with consistent ledger data. No value from this
+offline CLI is permitted to set C++ `packageTrusted` or authorize a worker.
+Actual production trust still needs independently verified package source/
+signature policy, immutable handler identity, revocation and backend fencing.
+
+The isolated regression target `make check-addon-registry` now also verifies
+the dpkg-ledger checks against a synthetic, caller-owned root.

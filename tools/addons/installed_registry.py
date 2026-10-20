@@ -15,6 +15,7 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 
 from addon_contract import ContractError, validate_directory
+from dpkg_evidence import examine
 
 # Core-owned review boundary. A package cannot add itself to this table merely
 # by dropping a manifest under /usr/share/vdr-suite/addons.
@@ -48,7 +49,7 @@ def _directory(root: Path) -> Path:
     return cursor
 
 
-def inspect(root: Path) -> dict:
+def inspect(root: Path, verify_dpkg: bool = False) -> dict:
     """Inventory is descriptive only; it never implies 'enabled'."""
     catalog = _directory(root)
     installed = {}
@@ -101,6 +102,15 @@ def inspect(root: Path) -> dict:
                     "active": False,
                     "capabilities": [],
                 }
+    for item in installed.values():
+        item["dpkgEvidence"] = {"consistent": False, "reason": "not-checked"}
+        if verify_dpkg:
+            if item["installed"] and item["id"] in SUPPORTED_PACKAGES:
+                item["dpkgEvidence"] = examine(
+                    root, item["id"], item["package"], item["version"])
+            else:
+                item["dpkgEvidence"]["reason"] = "metadata-not-installed"
+
     for name, package in SUPPORTED_PACKAGES.items():
         installed.setdefault(name, {
             "id": name,
@@ -110,13 +120,15 @@ def inspect(root: Path) -> dict:
             "reason": "missing-package",
             "active": False,
             "capabilities": [],
+            "dpkgEvidence": {"consistent": False, "reason": "metadata-not-installed"
+                             if verify_dpkg else "not-checked"},
         })
     return {"registrySchemaVersion": 1, "modules": [installed[n] for n in sorted(installed)]}
 
 
-def plan_enable(root: Path, name: str) -> dict:
+def plan_enable(root: Path, name: str, verify_dpkg: bool = False) -> dict:
     """No mutation. An enable request without a core handler always fails."""
-    data = inspect(root)
+    data = inspect(root, verify_dpkg=verify_dpkg)
     record = next((m for m in data["modules"] if m["id"] == name), None)
     if record is None or name not in SUPPORTED_PACKAGES:
         reason = "unregistered-package"
@@ -142,15 +154,17 @@ def main(argv=None) -> int:
     parser.add_argument("action", choices=("inventory", "plan-enable"))
     parser.add_argument("--root", required=True, help="Explicit filesystem root, e.g. isolated DESTDIR")
     parser.add_argument("--module", default="")
+    parser.add_argument("--verify-dpkg", action="store_true",
+                        help="Read-only consistency check against this root's dpkg status/list/checksums")
     args = parser.parse_args(argv)
     try:
         root = Path(args.root)
         if args.action == "inventory":
-            result = inspect(root)
+            result = inspect(root, verify_dpkg=args.verify_dpkg)
         else:
             if not args.module:
                 raise ContractError("--module is required for plan-enable")
-            result = plan_enable(root, args.module)
+            result = plan_enable(root, args.module, verify_dpkg=args.verify_dpkg)
         print(json.dumps(result, sort_keys=True, separators=(",", ":")))
         return 0
     except (ContractError, OSError) as exc:

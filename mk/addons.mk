@@ -11,6 +11,7 @@ check-addon-deb:
 # Pure metadata inventory with no installation, activation or daemon interaction.
 check-addon-registry:
 	python3 -m unittest discover -s tools/addons -p 'test_installed_registry.py'
+	python3 -m unittest discover -s tools/addons -p 'test_dpkg_evidence.py'
 
 stage-addon:
 	python3 tools/addons/addon_contract.py stage --module "$(MODULE)" --destdir "$(DESTDIR)" --prefix "$(PREFIX)"
