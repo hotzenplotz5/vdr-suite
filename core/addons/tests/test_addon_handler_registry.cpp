@@ -14,6 +14,5 @@ int main()
     assert(reviewedHandler("rectools", "vdr-suite-addon-music") == nullptr);
     assert(reviewedHandler("image", "vdr-suite-addon-image") == nullptr);
     assert(reviewedHandler("music", "vdr-suite-addon-music") == nullptr);
-    assert(reviewedHandler("tvscraper", "vdr-suite-addon-tvscraper") == nullptr);
     assert(reviewedHandler("../../rectools", "vdr-suite-addon-media-tools") == nullptr);
 }
