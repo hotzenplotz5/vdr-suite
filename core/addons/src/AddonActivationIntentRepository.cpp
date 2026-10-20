@@ -148,6 +148,47 @@ IntentResult AddonActivationIntentRepository::readForAdmission(
     return readInTransaction(moduleId, backendId);
 }
 
+IntentCatalogResult AddonActivationIntentRepository::readCatalog(
+    const RequestSecurityContext& actor, const std::string& backendId) const
+{
+    IntentCatalogResult result;
+    if (!canInspectInventory(actor).allowed)
+    {
+        result.status = IntentStatus::forbidden;
+        return result;
+    }
+    if (!validBackend(backendId))
+    {
+        result.status = IntentStatus::invalid;
+        return result;
+    }
+    auto lease = database_.acquireTransactionLease();
+    if (!database_.execute("BEGIN;"))
+        return result;
+    // BEGIN gives all three SELECTs a coherent SQLite read snapshot.
+    // Any invalid/unavailable row fails without returning partial results.
+    for (const auto& definition : kReviewedAddonCatalog)
+    {
+        const IntentResult row = readInTransaction(
+            std::string(definition.id), backendId);
+        if (row.status != IntentStatus::ok)
+        {
+            database_.execute("ROLLBACK;");
+            result.intents.clear();
+            return result;
+        }
+        result.intents.push_back(row.intent);
+    }
+    if (!database_.execute("COMMIT;"))
+    {
+        database_.execute("ROLLBACK;");
+        result.intents.clear();
+        return result;
+    }
+    result.status = IntentStatus::ok;
+    return result;
+}
+
 bool AddonActivationIntentRepository::eligibleForFutureEnable(
     const IntentMutation& mutation,
     const BackendAccessDecision& backend,
