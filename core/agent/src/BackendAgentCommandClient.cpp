@@ -590,6 +590,12 @@ CommandAvailability availableCommands(
                 availability.commandTypes.push_back(type);
             continue;
         }
+        // An add-on manifest or COMMAND_TYPES value cannot self-advertise
+        // an unregistered executor. Reserve both namespaces until the
+        // reviewed Backend-Agent handler is actually connected.
+        if (type.rfind("addon.", 0) == 0 ||
+            type.rfind("addons.", 0) == 0)
+            continue;
         if (type != "vdr.native.probe")
         {
             availability.commandTypes.push_back(type);
