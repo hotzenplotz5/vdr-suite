@@ -1,6 +1,9 @@
 #include "AccountabilityEventRepository.h"
 #include "BackendAgentCommandDelivery.h"
 #include "BackendAgentLifecycle.h"
+#include "BackendAgentNativeTimerModifyExecutor.h"
+#include "BackendAgentNativeTimerModifyLocalState.h"
+#include "BackendAgentNativeTimerModifyPayload.h"
 #include "Database.h"
 
 #include <atomic>
@@ -63,6 +66,134 @@ int main()
         pollBlocked&&pollFinished.load()&&
         concurrentPoll.accepted);
     BackendAgentCommandPollRequest stale=poll;stale.backendGeneration=6;assert(!service.poll(context(ActorType::Agent,"actor_agent"),stale,109).accepted);
+    // A native UPDATE was received under generation 7. The Agent persisted
+    // its uncertain result locally; heartbeat advanced the Agent to
+    // generation 8 before the result could be delivered. The old command
+    // identity/evidence must be accepted once, without opening stale polling,
+    // receipts, or success results.
+    using namespace vdrsuite::agent;
+    BackendAgentNativeTimerModifyPayload modify;
+    modify.kind = BackendAgentNativeTimerModifyKind::update;
+    modify.operationRevision = "1";
+    modify.timerAssignmentId = "assignment_historical_modify";
+    modify.expectedAssignmentRevision = "1";
+    modify.expectedIntentRevision = "1";
+    modify.assignmentEpoch = 1;
+    modify.nativeTimerBindingId = "binding_historical_modify";
+    modify.expectedBindingRevision = "1";
+    modify.backendId = "default";
+    modify.backendGeneration = 7;
+    modify.backendNativeTimerId = "native_historical_modify";
+    modify.expectedCurrentFingerprint = "sha256:" + std::string(64, 'a');
+    modify.specification.channelId = "S19.2E-1-1019-10301";
+    modify.specification.title = "Test MODIFY";
+    modify.specification.day = "2026-11-20";
+    modify.specification.startTime = "1200";
+    modify.specification.endTime = "1230";
+    modify.expectedSpecificationFingerprint =
+        backendAgentNativeTimerCreateSpecificationFingerprint(modify.specification);
+    modify.controlPlaneClaimedAt = 110;
+    auto& provider = modify.localProviderSelection;
+    provider.backendId = "default";
+    provider.authorityDomain = "vdr.timer";
+    provider.providerId = "suitebridge:local";
+    provider.providerKind = "suitebridge";
+    provider.ownershipGeneration = 1;
+    provider.providerInstanceEpoch = "pie_historical";
+    provider.providerGeneration = 1;
+    provider.capabilityRevision = 1;
+    provider.requiredCapability = "vdr.timer.update";
+
+    BackendAgentCommandAssignment historical;
+    historical.present = true;
+    historical.requestId = "req_historical_modify";
+    historical.correlationId = historical.requestId;
+    historical.operationId = "op_historical_modify";
+    historical.jobId = "job_historical_modify";
+    historical.attemptId = "att_historical_modify";
+    historical.claimEpoch = 1;
+    historical.commandId = "cmd_historical_modify";
+    historical.backendId = "default";
+    historical.agentId = "agt_test";
+    historical.agentInstanceId = "inst_test";
+    historical.backendGeneration = 7;
+    historical.commandType = kBackendAgentNativeTimerUpdateCommandType;
+    historical.payloadVersion = kBackendAgentNativeTimerModifyPayloadVersion;
+    historical.payload = backendAgentNativeTimerModifyPayload(modify);
+    historical.verificationPolicy = "readback_required";
+    historical.assignedAt = 110;
+    historical.deadline = 700;
+    historical.requestFingerprint = backendAgentCommandFingerprint(historical);
+    assert(!historical.payload.empty());
+    assert(commands.insertAssignment(historical, &provider));
+
+    BackendAgentCommandReceipt received;
+    received.commandId = historical.commandId;
+    received.requestFingerprint = historical.requestFingerprint;
+    received.jobId = historical.jobId;
+    received.attemptId = historical.attemptId;
+    received.claimEpoch = historical.claimEpoch;
+    received.backendId = historical.backendId;
+    received.agentId = historical.agentId;
+    received.agentInstanceId = historical.agentInstanceId;
+    received.backendGeneration = historical.backendGeneration;
+    received.receiptCategory = "accepted";
+    received.receivedAt = 111;
+    received.reasonCode = "durably_recorded";
+    assert(service.receipt(context(ActorType::Agent,"actor_agent"), received,111).accepted);
+
+    BackendAgentNativeTimerModifyLocalState starting;
+    assert(backendAgentNativeTimerModifyPrepareLocalStarting(
+        historical, 112, starting, reason));
+    const auto recovery = backendAgentNativeTimerModifyRecoverLocalState(
+        starting, "default", "agt_test", "inst_test", 7, 113);
+    assert(recovery.decision ==
+        BackendAgentNativeTimerModifyRecoveryDecision::reconcileOnly);
+    BackendAgentCommandResult uncertain;
+    uncertain.commandId = historical.commandId;
+    uncertain.requestFingerprint = historical.requestFingerprint;
+    uncertain.jobId = historical.jobId;
+    uncertain.attemptId = historical.attemptId;
+    uncertain.claimEpoch = historical.claimEpoch;
+    uncertain.backendId = historical.backendId;
+    uncertain.agentId = historical.agentId;
+    uncertain.agentInstanceId = historical.agentInstanceId;
+    uncertain.backendGeneration = historical.backendGeneration;
+    uncertain.dispatchState = "starting";
+    uncertain.verificationState = "outcome_unknown";
+    uncertain.resultCategory = "outcome_unknown";
+    uncertain.errorCategory = "executor_unknown";
+    uncertain.retryClassification = "reconcile_only";
+    uncertain.boundedDiagnostics = "native Timer modify outcome unknown";
+    uncertain.resultEvidence = backendAgentNativeTimerModifyResultEvidence(
+        recovery.evidence, historical, reason);
+    uncertain.completedAt = recovery.evidence.completedAt;
+    assert(!uncertain.resultEvidence.empty());
+
+    assert(db.execute("UPDATE backend_agents SET agent_instance_id='inst_new',"
+        "backend_generation=8 WHERE agent_id='agt_test';"));
+    assert(!service.poll(context(ActorType::Agent,"actor_agent"),poll,115).accepted);
+    assert(!service.receipt(
+        context(ActorType::Agent,"actor_agent"),received,115).accepted);
+    assert(!service.result(context(ActorType::Agent,"actor_agent"),result,115).accepted);
+    assert(!service.result(
+        context(ActorType::Agent,"different_actor"),uncertain,115).accepted);
+    const auto staleAccepted =
+        service.result(context(ActorType::Agent,"actor_agent"),uncertain,115);
+    assert(staleAccepted.accepted && !staleAccepted.replayed);
+    const auto staleReplayed =
+        service.result(context(ActorType::Agent,"actor_agent"),uncertain,116);
+    assert(staleReplayed.accepted && staleReplayed.replayed);
+    const auto staleSummary = service.summaryForBackend("default");
+    assert(staleSummary.present &&
+        staleSummary.commandId == historical.commandId &&
+        staleSummary.state == "waiting_reconciliation" &&
+        staleSummary.resultCategory == "outcome_unknown");
+    assert(sqlCount(db.handle(),
+        "SELECT count(*) FROM backend_agent_command_results "
+        "WHERE command_id='cmd_historical_modify'") == 1);
+    std::cout << "HISTORICAL_MODIFY_RESULT_GENERATION_RECOVERY=PASS\\n";
+
     assert(service.armFault(context(ActorType::System,"system_admin"),"default","receipt",110,reason));
     // P7 reconstructed pre-result-evidence schema (private in-memory DB).
     // The real command/result roundtrip above persisted this older-style row.
