@@ -135,7 +135,14 @@ bool assignAndClaim(
         agent->leaseExpiresAt < now ||
         agent->backendGeneration != op.backendGeneration)
         return false;
-    if (b.lastObservedAt <= 0 || b.lastObservedAt < now - 300)
+    // Admission already required a fresh, fingerprint-bound observation.
+    // Accepted work freezes binding revisions while awaiting owner/Agent
+    // assignment; comparing against *current* time deadlocks deferred work.
+    // Keep the exact admission-time freshness fence instead. The backend
+    // execution still requires provider fencing and live native CAS, and the
+    // durable operation deadline prevents unbounded delayed dispatch.
+    if (op.requestedAt > now || b.lastObservedAt <= 0 ||
+        b.lastObservedAt < op.requestedAt - 300)
         return false;
 
     const char* type = payload.kind == NativeTimerModifyKind::toggle
