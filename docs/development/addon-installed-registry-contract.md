@@ -283,3 +283,11 @@ The CLI merely reports `adminApprovalEvidence.consistent` and never sets
 `packageTrusted`, allows activation or executes handlers.
 The default inventory does not read `/etc` and retains its existing schema.
 Only isolated tests run via `check-addon-registry`.
+
+The optional approval diagnostic additionally revalidates the installed
+manifest with the existing strict metadata parser and requires the approved
+package/version to match it. An approval for one version must not silently
+authorize another. Its record and matching binary checks remain read-only and
+non-authorizing. Unit tests simulate root-owned metadata for positive-path
+contract validation; they are **not** proof that a live installation has an
+approved handler.
