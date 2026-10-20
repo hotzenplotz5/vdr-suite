@@ -340,6 +340,27 @@ BackendAgentCommandPollRequest capturePoll(
     return request;
 }
 
+void testAddonCommandsNeverSelfAdvertise()
+{
+    const std::string path = "/tmp/vdr-suite-addon-command-advertisement";
+    std::remove(path.c_str());
+    BackendAgentCommandClientConfig config;
+    config.statePath = path;
+    config.commandTypes = {
+        "addon.media.import", "addons.media.import", "probe.noop"
+    };
+    const BackendAgentCommandClientContext context{
+        "agt_client", "secret-material-at-least-thirty-two-bytes",
+        "default", "agi_current", 8};
+    PollTransport transport;
+    std::string reason;
+    const auto request = capturePoll(config, context, transport, reason);
+    assert(request.supportedCommandTypes ==
+           std::vector<std::string>{"probe.noop"});
+    assert(request.localProviders.empty());
+    std::remove(path.c_str());
+}
+
 void testTimerAdvertisementActivation()
 {
     const std::string path = "/tmp/vdr-suite-command-activation-state";
@@ -534,6 +555,7 @@ void testOsdInputDispatchAndNoBlindRetry()
 
 int main()
 {
+    testAddonCommandsNeverSelfAdvertise();
     testTimerAdvertisementActivation();
     testOsdInputAdvertisement();
     testOsdInputDispatchAndNoBlindRetry();
