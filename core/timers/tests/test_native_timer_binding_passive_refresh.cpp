@@ -4,7 +4,6 @@
 #include "NativeTimerObservation.h"
 
 #include <cassert>
-#include <sqlite3.h>
 #include <iostream>
 #include <string>
 
@@ -121,15 +120,16 @@ int main()
     const auto repaired = service.applyPresentObservation(
         evidence(rebound.binding, 1551), true);
     assert(repaired.ok() && repaired.binding.backendGeneration == 8);
-    sqlite3_stmt* synced = nullptr;
-    assert(sqlite3_prepare_v2(db.handle(),
-        "SELECT backend_generation,assignment_revision FROM timer_assignments "
-        "WHERE timer_assignment_id='assignment:binding:a';",
-        -1, &synced, nullptr) == SQLITE_OK);
-    assert(sqlite3_step(synced) == SQLITE_ROW);
-    assert(sqlite3_column_int64(synced, 0) == 8);
-    assert(sqlite3_column_int64(synced, 1) == 3);
-    sqlite3_finalize(synced);
+    // Check both persisted fields using SQL constraints without crossing
+    // the approved SQLite boundary for domain tests.
+    assert(db.execute(
+        "CREATE TABLE assert_rebound (generation INTEGER NOT NULL CHECK(generation=8),"
+        "revision INTEGER NOT NULL CHECK(revision=3));"
+        "INSERT INTO assert_rebound SELECT "
+        "COALESCE((SELECT backend_generation FROM timer_assignments "
+        "WHERE timer_assignment_id='assignment:binding:a'),-1),"
+        "COALESCE((SELECT assignment_revision FROM timer_assignments "
+        "WHERE timer_assignment_id='assignment:binding:a'),-1);"));
     // An old Agent generation must never roll back the binding.
     auto oldGeneration = evidence(rebound.binding, 1560);
     oldGeneration.backendGeneration = 7;
