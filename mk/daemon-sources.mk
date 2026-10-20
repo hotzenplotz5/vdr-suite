@@ -47,7 +47,6 @@ DAEMON_SRC := \
         core/vdr/src/RestfulApiNativeTimerModifyReadbackReader.cpp \
         core/timers/src/NativeTimerModifyOperationPayload.cpp \
         core/timers/src/NativeTimerModifyDispatchService.cpp \
-        core/agent/src/BackendAgentNativeTimerModifyLocalState.cpp \
         core/daemon/src/NativeTimerDeleteProductiveRuntime.cpp \
         core/timers/src/NativeTimerDeleteOperationPreparationService.cpp \
         core/timers/src/NativeTimerDeleteDispatchService.cpp \
