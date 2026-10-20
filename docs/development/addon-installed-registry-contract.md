@@ -268,10 +268,10 @@ or issue approvals; no effective rights or executable handler are created.
 
 ## Root-controlled administrator approval diagnostics
 
-The optional `--verify-admin-approval` inventory flag reads only the fixed
+The optional `--verify-admin-approval` inventory flag examines only the fixed
 `/etc/vdr-suite/addon-approvals/rectools.json` under the explicit filesystem
 root. A versioned record must have an exact reviewed identity, version,
-SHA-256 digest and install origin; its parents and file must be root-owned
+SHA-256 digest and install origin; the fixed handler binary must also match that digest under the same filesystem root. The approval parents and file must be root-owned
 and non-group/world-writable, with no symlink components. Unknown addons
 cannot create their own approval records. The root-controlled record is
 separate from installed addon metadata and any dpkg ledger.
