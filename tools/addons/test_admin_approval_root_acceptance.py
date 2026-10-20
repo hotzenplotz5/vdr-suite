@@ -12,7 +12,7 @@ from pathlib import Path
 
 from addon_contract import ROOT, stage
 from admin_approval_evidence import APPROVAL_PATH, examine
-from admin_approval_issuer import issue, IssueError
+from admin_approval_issuer import issue, revoke, IssueError
 from manual_handler_evidence import HANDLER
 
 
@@ -69,6 +69,29 @@ class RootOwnedApprovalAcceptance(unittest.TestCase):
         with self.assertRaisesRegex(IssueError, "live-root-requires-explicit-confirmation"):
             issue(Path("/"), "rectools", "0.1.0",
                   self.document["sha256"], "manual")
+
+    def test_revocation_survives_missing_handler(self):
+        self.handler.unlink()
+        self.assertEqual(revoke(self.root, "rectools"), self.approval)
+        self.assertEqual(examine(self.root, "rectools")["reason"], "approval-revoked")
+        before = self.approval.read_bytes()
+        self.assertEqual(revoke(self.root, "rectools"), self.approval)
+        self.assertEqual(self.approval.read_bytes(), before)
+        with self.assertRaises(IssueError):
+            issue(self.root, "rectools", "0.1.0",
+                  self.document["sha256"], "manual")
+        self.assertEqual(self.approval.read_bytes(), before)
+
+    def test_revocation_refuses_live_root(self):
+        with self.assertRaisesRegex(IssueError, "live-root-requires-explicit-confirmation"):
+            revoke(Path("/"), "rectools")
+
+    def test_invalid_approval_cannot_be_revoked_as_another_identity(self):
+        self.document["id"] = "image"
+        self.write()
+        with self.assertRaises(IssueError):
+            revoke(self.root, "rectools")
+        self.assertEqual(json.loads(self.approval.read_text())["id"], "image")
 
     def test_real_root_ownership_and_bytes_match(self):
         self.assertEqual(examine(self.root, "rectools"),
