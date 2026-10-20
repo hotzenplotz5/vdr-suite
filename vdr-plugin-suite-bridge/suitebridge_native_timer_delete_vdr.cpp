@@ -210,10 +210,11 @@ SuiteBridgeNativeTimerDeleteVdrMutationCallback::DeleteTimer(
                     evidence("fingerprint-mismatch", request.commandId));
     }
 
-    if (timer->Recording()) {
+    if (timer->Recording() || timer->Pending()) {
       stateKey.Remove(false);
       return result(SuiteBridgeNativeTimerDeleteMutationDisposition::RejectedWithoutEffect,
-                    evidence("recording", request.commandId));
+                    evidence(timer->Recording() ? "recording" : "pending",
+                             request.commandId));
     }
 
     timers->SetExplicitModify();
