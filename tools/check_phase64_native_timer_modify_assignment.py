@@ -47,6 +47,17 @@ for required in (
 ):
     if required not in runtime:
         raise SystemExit("missing safe delayed MODIFY dispatcher gate: " + required)
+for required in (
+    "if (op.deadline != 0 && op.deadline <= now)",
+    "commands.findAssignmentForOperation(",
+    "MutationOperationState::failedBeforeDispatch",
+    "native-timer-modify:expired-before-assignment",
+):
+    assert required in runtime, "missing expired-unassigned recovery fence: " + required
+summary = (ROOT/"core/daemon/include/NativeTimerModifyProductiveRuntime.h").read_text()
+assert "std::size_t expired = 0;" in summary
+assert "if (expired.ok()) ++summary.expired;" in runtime
+assert "if (commands.findAssignmentForOperation(" in runtime
 assert "b.lastObservedAt < now - 300" not in runtime, (
     "accepted MODIFY must not deadlock on its own frozen observation")
 print("phase64 native Timer modify assignment guard passed")
