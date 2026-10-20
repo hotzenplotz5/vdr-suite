@@ -470,3 +470,18 @@ root-owned CI fixtures. **They do not currently register a worker,
 mint a trusted RuntimeEvidence value, call exec or enable Media Tools.**
 Production deployment and source/Debian packaging integration remain
 separate gates.
+
+## Nonroot install snapshot validation
+
+`AddonInstallSnapshot` now combines root-owned, non-revoked approval data
+with the exactly verified open C++ handler descriptor in a move-only
+`MediaToolsInstallSnapshot`. The positive state is deliberately named
+`verifiedBytesOnly`: it does not establish effective backend capability,
+manifest provenance, account rights, job authority or a runnable handler.
+
+Disposable CI additionally prepares a root-owned **0755** directory tree,
+**0644** approval and **0755** binary, then drops its child-process
+privileges to the system `nobody` identity. The same snapshot check must
+succeed without root; making the approval private or the binary unreadable
+must deny access. Neither the user's yaVDR permissions nor systemd units
+are modified by these isolated tests.
