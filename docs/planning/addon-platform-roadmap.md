@@ -114,3 +114,34 @@ capabilities from that diagnostic.
   [source packaging](../development/addon-source-packaging.md),
   [Media Tools audit](../development/rectools-cpp-import-audit.md) and the
   affected module's README/AGENTS/manifests at coherent milestones.
+
+## Gate before productive `vdr-suite-addon-media-tools` work
+
+Do **not** equate an inert C++ import preview or a successful
+`ProviderBinding` validation with readiness to enable Media Tools.
+Implementation may proceed on the existing add-on branch, but the product
+integration cutover is gated on concrete reviewed evidence:
+
+1. **Core provider:** manual and Debian paths supply independently verified
+   approval, exact binary/version identity, revocation and backend-local
+   provenance; no caller-created `RuntimeEvidence.packageTrusted`.
+2. **Administrative lifecycle:** canonical global-admin checks, audit and
+   idempotent revision-fenced enable/disable, explicit removal/upgrade
+   invalidation and durable backend-scoped state.
+3. **Operation authorization:** the established grant administration
+   supports an exact backend-scoped import permission; generic administrator,
+   recorder or device rights cannot substitute.
+4. **Backend agent:** one registered command handler with descriptor/path
+   confinement, generation/lease fencing, deadline and resource limits,
+   cancellation and durable outcome reconciliation.
+5. **Public API:** versioned protected endpoints, CSRF, account/device scopes
+   and capability discovery derived from effective backend state.
+6. **Media acceptance boundary:** no source deletion, no legacy worker,
+   verification of created VDR recording/index, capacity preflight,
+   authoritative reconciliation, and crash/duplicate tests.
+
+Until all six are satisfied and focused isolated/host-specific checks pass,
+keep `AddonHandlerRegistry::kMediaToolsCandidate.executable=false`,
+`RuntimeEvidence.packageTrusted=false` in diagnostic adapters, and the
+Media Tools manifest without executable capabilities. Use existing Suite
+security, operation/job, Agent and frontend owners; do not fork them.
