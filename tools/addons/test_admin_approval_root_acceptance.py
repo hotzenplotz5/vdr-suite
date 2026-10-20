@@ -12,6 +12,7 @@ from pathlib import Path
 
 from addon_contract import ROOT, stage
 from admin_approval_evidence import APPROVAL_PATH, examine
+from admin_approval_issuer import issue, IssueError
 from manual_handler_evidence import HANDLER
 
 
@@ -45,6 +46,29 @@ class RootOwnedApprovalAcceptance(unittest.TestCase):
     def write(self):
         self.approval.write_text(json.dumps(self.document), encoding="utf-8")
         self.approval.chmod(0o600)
+
+    def test_admin_issuer_is_atomic_and_no_overwrite(self):
+        self.approval.unlink()
+        created = issue(self.root, "rectools", "0.1.0",
+                        self.document["sha256"], "manual")
+        self.assertEqual(created, self.approval)
+        published = self.approval.read_bytes()
+        self.assertTrue(examine(self.root, "rectools")["consistent"])
+        with self.assertRaises(IssueError):
+            issue(self.root, "rectools", "0.1.0",
+                  self.document["sha256"], "manual")
+        self.assertEqual(self.approval.read_bytes(), published)
+
+    def test_admin_issuer_rejects_unapproved_digest(self):
+        self.approval.unlink()
+        with self.assertRaises(IssueError):
+            issue(self.root, "rectools", "0.1.0", "0" * 64, "manual")
+        self.assertFalse(self.approval.exists())
+
+    def test_admin_issuer_refuses_live_root(self):
+        with self.assertRaisesRegex(IssueError, "live-root-requires-explicit-confirmation"):
+            issue(Path("/"), "rectools", "0.1.0",
+                  self.document["sha256"], "manual")
 
     def test_real_root_ownership_and_bytes_match(self):
         self.assertEqual(examine(self.root, "rectools"),
