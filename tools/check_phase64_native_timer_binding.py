@@ -166,6 +166,27 @@ allowed_phase69_daemon_paths = {
     Path("core/daemon/include/DaemonRuntime.h"),
     Path("core/daemon/src/DaemonRuntimeInitialization.cpp"),
 }
+# Passive refresh is a later, expressly fenced runtime successor. Unlike
+# Slice-9 domain-only wiring it requires a strict live readback AND an atomic
+# nonterminal-operation guard. Keep all unrelated daemon files forbidden.
+passive_poll = ROOT / "core/daemon/src/DaemonRuntimePolling.cpp"
+passive_repo = ROOT / "core/timers/src/NativeTimerBindingRepository.cpp"
+passive_service = ROOT / "core/timers/src/NativeTimerBindingReadbackService.cpp"
+passive_refresh_valid = (
+    passive_poll.is_file() and passive_repo.is_file() and
+    passive_service.is_file() and
+    all(t in passive_poll.read_text(encoding="utf-8") for t in [
+        "listManagedForFreshness(", "RestfulApiNativeTimerModifyReadbackReader",
+        "stillAgent->backendGeneration", "service.applyPresentObservation(",
+        "observed.observation, true",
+    ]) and
+    all(t in passive_repo.read_text(encoding="utf-8") for t in [
+        "BEGIN IMMEDIATE TRANSACTION", "passiveFreshnessRefresh",
+        "state NOT IN", "resource_type='NativeTimerBinding'",
+        "sqlite3_step(pending)",
+    ]) and
+    "passiveFreshnessRefresh" in passive_service.read_text(encoding="utf-8")
+)
 allowed_phase69_readback_paths = {
     Path("core/daemon/include/NativeTimerCreateReadbackReconciliation.h"),
     Path("core/daemon/src/NativeTimerCreateReadbackReconciliation.cpp"),
@@ -281,6 +302,12 @@ for scan_root in forbidden_roots:
                 raise SystemExit(
                     "Phase-69.C NativeTimerBinding daemon wiring requires "
                     "the exact dormant fulfillment successor guard")
+            continue
+        if relative == Path("core/daemon/src/DaemonRuntimePolling.cpp"):
+            if not passive_refresh_valid:
+                raise SystemExit(
+                    "Passive NativeTimerBinding polling requires strict live "
+                    "readback and atomic pending-mutation revision fence")
             continue
         if relative in allowed_phase69_readback_paths:
             if not readback_successor_valid:
