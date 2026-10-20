@@ -6,6 +6,7 @@ No live VDR-Suite installation or system paths are changed.
 import hashlib
 import json
 import os
+import stat
 import tempfile
 import unittest
 from pathlib import Path
@@ -53,6 +54,7 @@ class RootOwnedApprovalAcceptance(unittest.TestCase):
                         self.document["sha256"], "manual")
         self.assertEqual(created, self.approval)
         published = self.approval.read_bytes()
+        self.assertEqual(stat.S_IMODE(self.approval.stat().st_mode), 0o644)
         self.assertTrue(examine(self.root, "rectools")["consistent"])
         with self.assertRaises(IssueError):
             issue(self.root, "rectools", "0.1.0",
@@ -73,6 +75,7 @@ class RootOwnedApprovalAcceptance(unittest.TestCase):
     def test_revocation_survives_missing_handler(self):
         self.handler.unlink()
         self.assertEqual(revoke(self.root, "rectools"), self.approval)
+        self.assertEqual(stat.S_IMODE(self.approval.stat().st_mode), 0o644)
         self.assertEqual(examine(self.root, "rectools")["reason"], "approval-revoked")
         before = self.approval.read_bytes()
         self.assertEqual(revoke(self.root, "rectools"), self.approval)
