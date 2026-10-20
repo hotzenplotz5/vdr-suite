@@ -4,6 +4,8 @@
 #include "NativeTimerBindingRepositoryStorage.h"
 
 #include <cstdint>
+#include <sqlite3.h>
+#include <vector>
 #include <limits>
 #include <string>
 
@@ -227,9 +229,79 @@ NativeTimerBindingRepository::listForAssignment(
     return result;
 }
 
+NativeTimerBindingRepositoryListResult
+NativeTimerBindingRepository::listManagedForFreshness(
+    const std::string& afterId, std::int64_t staleBefore, std::size_t limit)
+{
+    NativeTimerBindingRepositoryListResult result;
+    if (afterId.size() > kMaxIdentityLength || staleBefore <= 0 ||
+        limit == 0 || limit > 8)
+    {
+        result.status = NativeTimerBindingRepositoryStatus::invalid;
+        return result;
+    }
+
+    // Query IDs first, then hydrate through the existing authoritative
+    // repository parser. A keyset cursor prevents one drifted binding from
+    // starving other managed timers on every polling tick.
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT native_timer_binding_id FROM native_timer_bindings "
+        "WHERE native_timer_binding_id > ? "
+        "AND ownership IN ('managed','adopted') AND missing_since=0 "
+        "AND drift_state='none' AND observed_recording=0 "
+        "AND observed_pending=0 AND last_observed_at < ? "
+        "ORDER BY native_timer_binding_id ASC LIMIT ?;";
+    if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr)
+            != SQLITE_OK)
+    {
+        if (statement) sqlite3_finalize(statement);
+        result.status = NativeTimerBindingRepositoryStatus::storageError;
+        return result;
+    }
+    const bool bound =
+        sqlite3_bind_text(statement, 1, afterId.c_str(), -1, SQLITE_TRANSIENT)
+            == SQLITE_OK &&
+        sqlite3_bind_int64(statement, 2, staleBefore) == SQLITE_OK &&
+        sqlite3_bind_int(statement, 3, static_cast<int>(limit)) == SQLITE_OK;
+    std::vector<std::string> ids;
+    int step = bound ? sqlite3_step(statement) : SQLITE_ERROR;
+    while (step == SQLITE_ROW)
+    {
+        const unsigned char* value = sqlite3_column_text(statement, 0);
+        if (!value)
+        {
+            step = SQLITE_ERROR;
+            break;
+        }
+        ids.emplace_back(reinterpret_cast<const char*>(value));
+        step = sqlite3_step(statement);
+    }
+    sqlite3_finalize(statement);
+    if (step != SQLITE_DONE)
+    {
+        result.status = NativeTimerBindingRepositoryStatus::storageError;
+        return result;
+    }
+    for (const auto& id : ids)
+    {
+        const auto found = findById(id);
+        if (!found.ok())
+        {
+            result.bindings.clear();
+            result.status = NativeTimerBindingRepositoryStatus::storageError;
+            return result;
+        }
+        result.bindings.push_back(found.binding);
+    }
+    result.status = NativeTimerBindingRepositoryStatus::ok;
+    return result;
+}
+
 NativeTimerBindingRepositoryResult NativeTimerBindingRepository::update(
     const NativeTimerBinding& next,
-    const std::string& expectedRevision)
+    const std::string& expectedRevision,
+    bool passiveFreshnessRefresh)
 {
     std::int64_t expected = 0;
     if (!safeIdentity(next.nativeTimerBindingId) ||
@@ -288,6 +360,57 @@ NativeTimerBindingRepositoryResult NativeTimerBindingRepository::update(
         return bindingResult(
             NativeTimerBindingRepositoryStatus::observationConflict, current);
     }
+    if (passiveFreshnessRefresh)
+    {
+        // Never turn passive observation into adoption, generation advancement,
+        // reconciliation or a change to any pre-existing operation evidence.
+        if (!managedOwnership(current.ownership) ||
+            current.missingSince != 0 ||
+            current.driftState != NativeTimerBindingDriftState::none ||
+            current.observedState.recording || current.observedState.pending ||
+            current.backendGeneration != next.backendGeneration ||
+            current.observedFingerprint != next.observedFingerprint ||
+            current.lastVerifiedOperationId != next.lastVerifiedOperationId ||
+            current.missingSince != next.missingSince ||
+            current.driftState != next.driftState ||
+            current.lastObservedAt >= next.lastObservedAt)
+        {
+            rollback();
+            return bindingResult(
+                NativeTimerBindingRepositoryStatus::conflict, current);
+        }
+
+        // This check and the revision update share BEGIN IMMEDIATE. A new
+        // timer mutation cannot be reserved between them (including through
+        // another SQLite connection), so accepted/uncertain work retains its
+        // binding-revision fence.
+        sqlite3_stmt* pending = nullptr;
+        const char* sql =
+            "SELECT 1 FROM mutation_operations "
+            "WHERE resource_type='NativeTimerBinding' AND resource_id=? "
+            "AND state NOT IN ('rejected','conflict','succeeded',"
+            "'failed_before_dispatch','failed_verified','cancelled') LIMIT 1;";
+        if (sqlite3_prepare_v2(database_.handle(), sql, -1, &pending, nullptr)
+                != SQLITE_OK)
+        {
+            if (pending) sqlite3_finalize(pending);
+            rollback();
+            return statusResult(NativeTimerBindingRepositoryStatus::storageError);
+        }
+        const bool bound = sqlite3_bind_text(
+            pending, 1, current.nativeTimerBindingId.c_str(), -1,
+            SQLITE_TRANSIENT) == SQLITE_OK;
+        const int step = bound ? sqlite3_step(pending) : SQLITE_ERROR;
+        sqlite3_finalize(pending);
+        if (step != SQLITE_DONE)
+        {
+            rollback();
+            return step == SQLITE_ROW
+                ? bindingResult(NativeTimerBindingRepositoryStatus::conflict, current)
+                : statusResult(NativeTimerBindingRepositoryStatus::storageError);
+        }
+    }
+
     if (expected == std::numeric_limits<std::int64_t>::max())
     {
         rollback();

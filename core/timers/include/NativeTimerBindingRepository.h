@@ -74,13 +74,20 @@ public:
     NativeTimerBindingRepositoryListResult listForAssignment(
         const std::string& timerAssignmentId);
 
+    // Keyset pagination bounds passive refresh work per poll. Only stable,
+    // idle, managed/adopted bindings are candidates; this is not adoption.
+    NativeTimerBindingRepositoryListResult listManagedForFreshness(
+        const std::string& afterId, std::int64_t staleBefore,
+        std::size_t limit);
+
     // Generic update is observation/revision persistence only. Stable binding
     // identity, backend/native identity, ownership and assignment relationship
     // are immutable here. Adoption/reclassification requires a later explicit
     // authorized operation.
     NativeTimerBindingRepositoryResult update(
         const NativeTimerBinding& next,
-        const std::string& expectedRevision);
+        const std::string& expectedRevision,
+        bool passiveFreshnessRefresh = false);
 
 private:
     Database& database_;

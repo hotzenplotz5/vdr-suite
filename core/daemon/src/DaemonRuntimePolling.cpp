@@ -5,6 +5,7 @@
 #include "NativeTimerModifyProductiveRuntime.h"
 #include "RestfulApiNativeTimerModifyReadbackReader.h"
 #include "NativeTimerModifyReadbackVerificationService.h"
+#include "NativeTimerBindingReadbackService.h"
 #include "NativeTimerAbsenceReadbackExpectation.h"
 #include "RestfulApiNativeTimerInventoryReader.h"
 #include "VdrManagedTimerCreateReadbackEvidenceBuilder.h"
@@ -19,6 +20,96 @@
 void DaemonRuntime::pollVdrAndUpdateChangeFeed()
 {
     backendPollingCoordinator_->pollAll();
+
+    // Refresh unchanged, verified managed bindings well before the existing
+    // five-minute public API mutation gate expires. Never use cached
+    // snapshots or trigger discovery, reconciliation or a backend write.
+    // The repository atomically blocks revision churn for any nonterminal
+    // timer mutation, including accepted work not yet dispatched.
+    if (nativeTimerBindingRepository_ && backendAgentRepository_)
+    {
+        const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        if (now > 210)
+        {
+            const auto candidates =
+                nativeTimerBindingRepository_->listManagedForFreshness(
+                    nativeTimerRefreshCursor_, now - 180, 4);
+            if (candidates.ok())
+            {
+                if (candidates.bindings.empty())
+                    nativeTimerRefreshCursor_.clear();
+                vdrsuite::timers::NativeTimerBindingReadbackService service(
+                    *nativeTimerBindingRepository_);
+                for (const auto& binding : candidates.bindings)
+                {
+                    nativeTimerRefreshCursor_ = binding.nativeTimerBindingId;
+                    const auto agent = backendAgentRepository_
+                        ->findAgentForBackend(binding.backendId);
+                    if (!agent || agent->revoked || agent->incompatible ||
+                        agent->leaseExpiresAt < now ||
+                        agent->backendGeneration != binding.backendGeneration)
+                        continue;
+
+                    for (const auto& context : backendRuntimeContexts_)
+                    {
+                        if (!context || !context->httpClient ||
+                            context->backendId != binding.backendId)
+                            continue;
+                        try
+                        {
+                            vdrsuite::vdr::RestfulApiNativeTimerModifyReadbackReader
+                                reader(*context->httpClient);
+                            vdrsuite::vdr::NativeTimerModifyReadRequest request;
+                            request.backendId = binding.backendId;
+                            request.backendGeneration = binding.backendGeneration;
+                            request.backendNativeTimerId =
+                                binding.backendNativeTimerId;
+                            request.observedAt = std::chrono::duration_cast<
+                                std::chrono::seconds>(
+                                    std::chrono::system_clock::now()
+                                        .time_since_epoch()).count();
+                            request.notBefore = request.observedAt;
+                            const auto observed = reader.read(request);
+                            const auto finish = std::chrono::duration_cast<
+                                std::chrono::seconds>(
+                                    std::chrono::system_clock::now()
+                                        .time_since_epoch()).count();
+                            const auto stillAgent = backendAgentRepository_
+                                ->findAgentForBackend(binding.backendId);
+                            if (observed.ok() && finish >= request.observedAt &&
+                                finish - request.observedAt <= 30 &&
+                                stillAgent && !stillAgent->revoked &&
+                                !stillAgent->incompatible &&
+                                stillAgent->leaseExpiresAt >= finish &&
+                                stillAgent->backendGeneration ==
+                                    binding.backendGeneration)
+                            {
+                                // A changed fingerprint or an in-flight
+                                // operation is a no-write, fail-closed result.
+                                service.applyPresentObservation(
+                                    observed.observation, true);
+                            }
+                        }
+                        catch (const std::exception& error)
+                        {
+                            std::cerr << "[WARNING] Native Timer passive "
+                                         "readback unavailable for backend "
+                                      << binding.backendId << ": "
+                                      << error.what() << std::endl;
+                        }
+                        catch (...)
+                        {
+                            std::cerr << "[WARNING] Native Timer passive "
+                                         "readback failed for backend "
+                                      << binding.backendId << std::endl;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+    }
 
     using NativeCreateEvidence =
         vdrsuite::timers::NativeTimerCreateReadbackEvidence;

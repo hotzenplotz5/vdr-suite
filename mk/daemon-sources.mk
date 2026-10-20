@@ -20,6 +20,7 @@ DAEMON_SRC := \
         core/timers/src/NativeTimerBinding.cpp \
         core/timers/src/NativeTimerBindingIdentity.cpp \
         core/timers/src/NativeTimerBindingRepository.cpp \
+        core/timers/src/NativeTimerBindingReadbackService.cpp \
         core/timers/src/NativeTimerBindingReadRepository.cpp \
         core/timers/src/NativeTimerBindingWriteRepository.cpp \
         core/timers/src/TimerAssignmentFulfillmentService.cpp \

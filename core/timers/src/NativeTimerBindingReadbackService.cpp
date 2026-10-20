@@ -25,7 +25,8 @@ NativeTimerBindingReadbackService::NativeTimerBindingReadbackService(
 
 NativeTimerBindingReadbackResult
 NativeTimerBindingReadbackService::applyPresentObservation(
-    const NativeTimerObservation& observation)
+    const NativeTimerObservation& observation,
+    bool passiveFreshnessRefresh)
 {
     if (!nativeTimerObservationValid(observation))
         return result(NativeTimerBindingReadbackStatus::invalid);
@@ -39,6 +40,17 @@ NativeTimerBindingReadbackService::applyPresentObservation(
         return result(NativeTimerBindingReadbackStatus::repositoryError);
 
     const NativeTimerBinding& current = found.binding;
+    if (passiveFreshnessRefresh &&
+        ((current.ownership != NativeTimerBindingOwnership::managed &&
+          current.ownership != NativeTimerBindingOwnership::adopted) ||
+         current.driftState != NativeTimerBindingDriftState::none ||
+         current.missingSince != 0 ||
+         current.observedState.recording || current.observedState.pending ||
+         observation.backendGeneration != current.backendGeneration))
+    {
+        return result(
+            NativeTimerBindingReadbackStatus::reconciliationRequired, current);
+    }
     if (observation.backendGeneration < current.backendGeneration)
         return result(
             NativeTimerBindingReadbackStatus::staleGeneration,
@@ -73,7 +85,8 @@ NativeTimerBindingReadbackService::applyPresentObservation(
     // Preserve the already-durable copied representation when the normalized
     // fingerprint is equal. This prevents 930/0930 representation churn from
     // issuing revisions while still advancing authoritative observation fences.
-    const auto updated = repository_.update(next, current.bindingRevision);
+    const auto updated = repository_.update(
+        next, current.bindingRevision, passiveFreshnessRefresh);
     if (updated.status == NativeTimerBindingRepositoryStatus::conflict)
         return result(
             NativeTimerBindingReadbackStatus::repositoryConflict,
