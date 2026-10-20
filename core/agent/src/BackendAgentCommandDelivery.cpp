@@ -1197,15 +1197,49 @@ BackendAgentCommandResultAck BackendAgentCommandDeliveryService::result(
 {
     BackendAgentCommandResultAck result;
     std::string reason;
-    if (!backendAgentCommandValidResult(value) ||
-        !agentContextMatches(
+    if (!backendAgentCommandValidResult(value))
+    {
+        result.reasonCode = "invalid_command_result";
+        return result;
+    }
+    if (!agentContextMatches(
             context, value.backendId, value.agentId,
             value.agentInstanceId, value.backendGeneration,
             false, now, reason))
     {
-        result.reasonCode =
-            reason.empty() ? "invalid_command_result" : reason;
-        return result;
+        // Accept only a pre-existing, command-bound native MODIFY uncertainty
+        // result from the SAME authenticated Agent after its generation moves
+        // forward. The original assignment and full result evidence remain
+        // immutable and are validated again by acceptResult(). Poll, receipt,
+        // dispatch, and every other command/result retain their strict fence.
+        const auto current = agentRepository_.findAgentForBackend(value.backendId);
+        const auto original = commandRepository_.findAssignment(value.commandId);
+        const bool historicalModifyResult =
+            context.authenticated() &&
+            context.actor.type == ActorType::Agent &&
+            current.has_value() && !current->revoked &&
+            !current->incompatible &&
+            current->actorId == context.actor.actorId &&
+            current->agentId == value.agentId &&
+            current->backendGeneration > value.backendGeneration &&
+            original.has_value() &&
+            original->backendId == value.backendId &&
+            original->agentId == value.agentId &&
+            original->agentInstanceId == value.agentInstanceId &&
+            original->backendGeneration == value.backendGeneration &&
+            original->requestFingerprint == value.requestFingerprint &&
+            (original->commandType == kBackendAgentNativeTimerUpdateCommandType ||
+             original->commandType == kBackendAgentNativeTimerToggleCommandType) &&
+            value.resultCategory == "outcome_unknown" &&
+            value.verificationState == "outcome_unknown" &&
+            value.retryClassification == "reconcile_only" &&
+            !value.resultEvidence.empty();
+        if (!historicalModifyResult)
+        {
+            result.reasonCode =
+                reason.empty() ? "command_generation_fenced" : reason;
+            return result;
+        }
     }
 
     const auto assignment = commandRepository_.findAssignment(value.commandId);
