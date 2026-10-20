@@ -56,6 +56,17 @@ for required in (
     assert required in runtime, "missing expired-unassigned recovery fence: " + required
 summary = (ROOT/"core/daemon/include/NativeTimerModifyProductiveRuntime.h").read_text()
 assert "std::size_t expired = 0;" in summary
+# Legacy MODIFY results without command-bound evidence may not hold dispatching
+# forever. Revision-CAS quarantine is outcome_unknown and never a blind retry.
+for required in (
+    "durableResult->resultEvidence.empty()",
+    "op.state == MutationOperationState::dispatching",
+    "MutationOperationState::outcomeUnknown",
+    "native-timer-modify:missing-result-evidence",
+    "if (quarantined.ok()) ++summary.quarantined;",
+):
+    assert required in runtime, "missing evidence-free MODIFY quarantine: " + required
+assert "std::size_t quarantined = 0;" in summary
 assert "if (expired.ok()) ++summary.expired;" in runtime
 assert "if (commands.findAssignmentForOperation(" in runtime
 assert "b.lastObservedAt < now - 300" not in runtime, (
