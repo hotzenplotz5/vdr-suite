@@ -207,7 +207,12 @@ def completed(label, operation_id):
 
 
 def read_timer(expected_title, expected_enabled):
-    for _ in range(5):
+    # A successful native readback updates the durable binding before the
+    # independent five-second VDR snapshot poll catches up. Public v1
+    # correctly responds 503 while those two views disagree. Wait for the
+    # existing cache refresh; do not repeat the successful mutation.
+    last_status = None
+    for attempt in range(31):
         code, hdr, body = safe_get(
             "/native-timers/" + TIMER_ID + "?backendId=default")
         if code == 200 and body.get("timerId") == TIMER_ID and (
@@ -222,7 +227,20 @@ def read_timer(expected_title, expected_enabled):
                 print("TIMER_READBACK=PASS", "TITLE=", expected_title,
                       "ENABLED=", expected_enabled, flush=True)
                 return tag
-        time.sleep(1)
+        # 503 is a transient snapshot-versus-binding conflict after a
+        # successful UPDATE. Do not interpret it as mutation failure.
+        status = (code, body.get("title") if code == 200 else None)
+        if status != last_status:
+            print("TIMER_READBACK=WAIT",
+                  "HTTP=", code, "TITLE=",
+                  body.get("title") if code == 200 else "<unavailable>",
+                  flush=True)
+            last_status = status
+        if code not in (200, 503):
+            print("TIMER_DETAIL_HTTP=", code, "DETAIL=", body, flush=True)
+            stop("TEST_TIMER_READBACK_UNEXPECTED_RESPONSE_NO_MUTATION")
+        if attempt != 30:
+            time.sleep(2)
     print("TIMER_DETAIL_HTTP=", code, "DETAIL=", body, flush=True)
     stop("TEST_TIMER_READBACK_NOT_VERIFIED_NO_RETRY")
 
