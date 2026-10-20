@@ -323,3 +323,21 @@ This is a Core-level integration seam, not yet a protected API endpoint.
 The prior non-audited `update` remains only for existing isolated proof
 tests; production administrative routes must use the audited path.
 No package authority or handler execution is granted by persistent intent.
+
+## Internal administration with canonical accountability
+
+`AddonAdministrationService` is now a Core-internal coordinator connecting
+`AddonActivationIntentRepository.updateAudited` with the existing Suite
+`AccountabilityEventRepository` on one SQLite Database. The caller supplies
+a canonical authenticated actor context with request/correlation IDs and a
+bounded event ID/timestamp. Global user-administrator admission remains
+mandatory; it is not a public controller. The append-only audit event and
+desired-state revision commit or roll back together. Duplicate event IDs,
+revoked actors, absent admin grants, stale revisions and unsupported enables
+deny without a partially committed state. The focused
+`test-addon-administration-service` exercises the real Suite accountability
+schema/implementation in an isolated SQLite database.
+
+This is not a usable management API: session/CSRF, HTTP idempotency contract,
+real independently trusted package evidence and Agent execution remain
+separate deployment gates. All existing handler definitions remain disabled.
