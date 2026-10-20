@@ -128,22 +128,134 @@ def issue(root: Path, module: str, version: str, approved_sha256: str,
         os.close(held)
 
 
+
+def revoke(root: Path, module: str, allow_live_root: bool = False) -> Path:
+    """Atomically mark an existing admin approval revoked, even if binary is gone."""
+    if os.geteuid() != 0:
+        raise IssueError("root-administrator-required")
+    if not root.is_absolute() or "." in root.parts or ".." in root.parts:
+        raise IssueError("unsafe-root")
+    if root == Path("/") and not allow_live_root:
+        raise IssueError("live-root-requires-explicit-confirmation")
+    if module != "rectools":
+        raise IssueError("no-reviewed-handler")
+
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    held = os.open("/", flags)
+    temporary = ""
+    try:
+        for part in (*root.parts[1:], *APPROVAL_PATH.split("/")[:-1]):
+            parent = os.fstat(held)
+            if (not stat.S_ISDIR(parent.st_mode) or parent.st_uid != 0 or
+                    parent.st_mode & 0o022):
+                raise IssueError("unsafe-approval-parent")
+            child = os.open(part, flags, dir_fd=held)
+            os.close(held)
+            held = child
+        parent = os.fstat(held)
+        if (not stat.S_ISDIR(parent.st_mode) or parent.st_uid != 0 or
+                parent.st_mode & 0o022):
+            raise IssueError("unsafe-approval-parent")
+        name = APPROVAL_PATH.rsplit("/", 1)[-1]
+        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=held)
+        with os.fdopen(fd, "rb") as source:
+            original = os.fstat(source.fileno())
+            if (not stat.S_ISREG(original.st_mode) or original.st_uid != 0 or
+                    original.st_mode & 0o022 or not 0 < original.st_size <= 4096):
+                raise IssueError("unsafe-approval-record")
+            raw = source.read(4097)
+            last = os.fstat(source.fileno())
+            if len(raw) != original.st_size or (
+                original.st_dev, original.st_ino, original.st_size,
+                original.st_mtime_ns, original.st_ctime_ns) != (
+                last.st_dev, last.st_ino, last.st_size,
+                last.st_mtime_ns, last.st_ctime_ns):
+                raise IssueError("approval-record-changed")
+
+        def unique(pairs):
+            record = {}
+            for key, value in pairs:
+                if key in record:
+                    raise IssueError("duplicate-approval-key")
+                record[key] = value
+            return record
+
+        document = json.loads(raw.decode("utf-8"), object_pairs_hook=unique)
+        if (not isinstance(document, dict) or
+                set(document) != {
+                    "schemaVersion", "id", "package", "version",
+                    "sha256", "origin", "state",
+                } or type(document["schemaVersion"]) is not int or
+                document["schemaVersion"] != 1 or
+                document["id"] != "rectools" or
+                document["package"] != "vdr-suite-addon-media-tools" or
+                not isinstance(document["sha256"], str) or
+                not _SHA.fullmatch(document["sha256"]) or
+                not isinstance(document["version"], str) or
+                not _VERSION.fullmatch(document["version"]) or
+                document["origin"] not in ("manual", "debian") or
+                document["state"] not in ("approved", "revoked")):
+            raise IssueError("invalid-approval-record")
+
+        if document["state"] == "revoked":
+            return root / APPROVAL_PATH
+
+        document["state"] = "revoked"
+        payload = (json.dumps(document, sort_keys=True, separators=(",", ":")) + "\n").encode()
+        temporary = ".rectools-revoke-" + uuid.uuid4().hex + ".tmp"
+        temp_fd = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY |
+                          os.O_NOFOLLOW, 0o600, dir_fd=held)
+        try:
+            with os.fdopen(temp_fd, "wb") as target:
+                target.write(payload)
+                target.flush()
+                os.fsync(target.fileno())
+            present = os.stat(name, dir_fd=held, follow_symlinks=False)
+            if (present.st_dev, present.st_ino, present.st_size,
+                    present.st_mtime_ns, present.st_ctime_ns) != (
+                    original.st_dev, original.st_ino, original.st_size,
+                    original.st_mtime_ns, original.st_ctime_ns):
+                raise IssueError("approval-record-changed")
+            os.replace(temporary, name, src_dir_fd=held, dst_dir_fd=held)
+            temporary = ""
+            os.fsync(held)
+        finally:
+            if temporary:
+                os.unlink(temporary, dir_fd=held)
+                temporary = ""
+        return root / APPROVAL_PATH
+    except (OSError, ValueError, UnicodeError, TypeError) as exc:
+        if isinstance(exc, IssueError):
+            raise
+        raise IssueError("approval-revocation-failed") from exc
+    finally:
+        if temporary:
+            try:
+                os.unlink(temporary, dir_fd=held)
+            except OSError:
+                pass
+        os.close(held)
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("issue",))
+    parser.add_argument("command", choices=("issue", "revoke"))
     parser.add_argument("--root", required=True)
     parser.add_argument("--module", required=True)
-    parser.add_argument("--version", required=True)
-    parser.add_argument("--approved-sha256", required=True,
+    parser.add_argument("--version", default="")
+    parser.add_argument("--approved-sha256", default="",
                         help="Independently reviewed expected digest, NOT generated from installed file")
-    parser.add_argument("--origin", choices=("manual", "debian"), required=True)
+    parser.add_argument("--origin", choices=("manual", "debian"), default="")
     parser.add_argument("--allow-live-root", action="store_true",
                         help="Explicit operator approval to write on / (never used in tests)")
     args = parser.parse_args(argv)
     try:
-        location = issue(Path(args.root), args.module, args.version,
-                         args.approved_sha256, args.origin, args.allow_live_root)
-        print("ADDON_ADMIN_APPROVAL_ISSUED=" + str(location))
+        if args.command == "issue":
+            location = issue(Path(args.root), args.module, args.version,
+                             args.approved_sha256, args.origin, args.allow_live_root)
+            print("ADDON_ADMIN_APPROVAL_ISSUED=" + str(location))
+        else:
+            location = revoke(Path(args.root), args.module, args.allow_live_root)
+            print("ADDON_ADMIN_APPROVAL_REVOKED=" + str(location))
         return 0
     except (IssueError, OSError) as exc:
         print("ADDON_ADMIN_APPROVAL=FAIL " + str(exc), file=sys.stderr)
