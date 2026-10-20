@@ -194,3 +194,17 @@ pairings have no mapping. This is a reviewable identity
 definition only, not provider trust, permission or activation. The isolated
 `make test-addon-handler-registry` test verifies the immutable mapping and
 fail-closed unknown identities, without starting the daemon.
+
+## Unified provider-admission scaffold (non-executable)
+
+`core/addons/include/AddonProviderAdmission.h` now models **manual** and
+**Debian** installation as distinct origin facts but applies one common
+Core-owned evidence contract. Locally observed integrity, metadata or
+package-ledger consistency cannot establish approval. A separately
+reviewed origin/administrator approval, ownership, compatibility, and
+handler health would also be necessary. Importantly, the compile-time
+handler definition is still disabled: even all-positive synthetic facts
+return no trusted package, registered handler, effective availability, or
+permission. `make test-addon-provider-admission` verifies both origins
+without requiring `dpkg`. No daemon/Agent integration or executable
+capability exists yet.
