@@ -8,6 +8,7 @@
 #include "BackendAgentNativeTimerDeleteAdvertisement.h"
 #include "BackendAgentNativeTimerDeletePayload.h"
 #include "BackendAgentNativeTimerModifyPayload.h"
+#include "BackendAgentNativeTimerModifyLocalState.h"
 #include "BackendAgentRecordingMarksModifyPayload.h"
 #include "BackendAgentRecordingCut.h"
 #include "BackendAgentRecordingCutPayload.h"
@@ -928,6 +929,57 @@ BackendAgentCommandResultAck BackendAgentCommandRepository::acceptResult(const B
         sqlite3_finalize(selected);
         if(!recorded)
         {result.reasonCode="local_provider_selection_required";return result;}
+
+        // A generic ACK alone cannot prove that native MODIFY never started.
+        // Require agent-produced, command-bound evidence before persisting any
+        // result. Otherwise dispatching operations become irreconcilable.
+        BackendAgentNativeTimerModifyEvidence evidence;
+        if (r.resultEvidence.empty() ||
+            !backendAgentNativeTimerModifyParseResultEvidence(
+                r.resultEvidence, *durableAssignment, evidence, payloadReason) ||
+            evidence.completedAt != r.completedAt)
+        {
+            result.reasonCode = "native_timer_modify_result_evidence_invalid";
+            return result;
+        }
+        const bool toggle =
+            commandType == kBackendAgentNativeTimerToggleCommandType;
+        if ((modifyPayload.kind == BackendAgentNativeTimerModifyKind::toggle)
+                != toggle)
+        {
+            result.reasonCode = "native_timer_modify_result_evidence_conflict";
+            return result;
+        }
+        bool projectionMatches = false;
+        switch (evidence.outcome)
+        {
+            case BackendAgentNativeTimerModifyOutcomeCategory::rejectedWithoutEffect:
+                projectionMatches = r.dispatchState == "not_started" &&
+                    r.verificationState == "verified" &&
+                    r.resultCategory == "rejected" &&
+                    r.errorCategory == "fenced" &&
+                    r.retryClassification == "none";
+                break;
+            case BackendAgentNativeTimerModifyOutcomeCategory::acceptedUnverified:
+                projectionMatches = r.dispatchState == "accepted_by_executor" &&
+                    r.verificationState == "outcome_unknown" &&
+                    r.resultCategory == "outcome_unknown" &&
+                    r.errorCategory == "none" &&
+                    r.retryClassification == "reconcile_only";
+                break;
+            case BackendAgentNativeTimerModifyOutcomeCategory::outcomeUnknown:
+                projectionMatches = r.dispatchState == "starting" &&
+                    r.verificationState == "outcome_unknown" &&
+                    r.resultCategory == "outcome_unknown" &&
+                    r.errorCategory == "executor_unknown" &&
+                    r.retryClassification == "reconcile_only";
+                break;
+        }
+        if (!projectionMatches)
+        {
+            result.reasonCode = "native_timer_modify_result_evidence_conflict";
+            return result;
+        }
     }
     else if(commandType==kBackendAgentRecordingMarksModifyCommandType)
     {
