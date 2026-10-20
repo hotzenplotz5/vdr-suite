@@ -6,6 +6,9 @@ unchanged native state. Submit a new UPDATE only once, on that same managed
 fixture; then TOGGLE OFF/ON and DELETE. Never CREATE or replay a submitted
 mutation. Every step has a durable one-shot local journal.
 """
+import atexit
+import base64
+import getpass
 import json
 import os
 import sqlite3
@@ -82,14 +85,75 @@ def discover_existing_auth():
         except (OSError, ValueError, TypeError, KeyError,
                 urllib.error.URLError):
             continue
-    stop("EXISTING_DEVICE_CREDENTIAL_UNAVAILABLE_NO_MUTATION_SUBMITTED")
+    return None
 
 
-auth = discover_existing_auth()
+def admin_browser_session():
+    # Reuse the existing server administrator account. This creates only a
+    # temporary authenticated browser session; no new device/pairing/credential.
+    if not sys.stdin.isatty():
+        stop("DEVICE_CREDENTIAL_MISSING_ADMIN_TTY_REQUIRED_NO_MUTATION")
+    print("AUTH=EXISTING_DEVICE_RECEIPT_MISSING", flush=True)
+    print("AUTH_FALLBACK=ADMIN_BROWSER_SESSION_LOCAL_ONLY", flush=True)
+    username = input("VDR-Suite Admin-Benutzer: ").strip()
+    if not username or ":" in username or any(ord(c) < 32 for c in username):
+        stop("ADMIN_USERNAME_INVALID_NO_MUTATION")
+    password = getpass.getpass("VDR-Suite Admin-Passwort: ")
+    if not password:
+        stop("ADMIN_PASSWORD_EMPTY_NO_MUTATION")
+    basic = base64.b64encode((username + ":" + password).encode()).decode()
+    del password
+    login = urllib.request.Request(
+        "http://127.0.0.1:18080/api/security/browser-sessions",
+        data=b"{}", method="POST",
+        headers={"Authorization": "Basic " + basic,
+                 "Content-Type": "application/json",
+                 "Accept": "application/json",
+                 "Origin": "http://127.0.0.1:18080"})
+    del basic
+    try:
+        with urllib.request.urlopen(login, timeout=8) as response:
+            cookie = response.headers.get("Set-Cookie", "").split(";", 1)[0]
+            material = json.loads(response.read())
+            if response.status != 200:
+                stop("ADMIN_LOGIN_UNEXPECTED_STATUS_NO_MUTATION")
+    except urllib.error.HTTPError as error:
+        print("ADMIN_LOGIN_HTTP=", error.code, flush=True)
+        stop("ADMIN_SESSION_UNAVAILABLE_NO_MUTATION")
+    except (OSError, ValueError, TypeError, urllib.error.URLError):
+        stop("ADMIN_SESSION_TRANSPORT_OR_RESPONSE_INVALID_NO_MUTATION")
+    csrf = material.get("csrfToken")
+    if (not cookie.startswith("vdr_suite_session=") or
+        not isinstance(csrf, str) or not csrf or
+        any(c in cookie for c in "\r\n")):
+        stop("ADMIN_SESSION_COOKIE_OR_CSRF_MISSING_NO_MUTATION")
+
+    headers = {"Cookie": cookie, "X-CSRF-Token": csrf,
+               "Origin": "http://127.0.0.1:18080"}
+
+    def logout():
+        try:
+            req = urllib.request.Request(
+                "http://127.0.0.1:18080/api/security/browser-sessions/logout",
+                data=b"{}", method="POST",
+                headers={**headers, "Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=3):
+                pass
+        except (OSError, urllib.error.URLError):
+            pass
+
+    atexit.register(logout)
+    print("AUTH=ADMIN_BROWSER_SESSION_CREATED", flush=True)
+    return headers
+
+
+device_auth = discover_existing_auth()
+auth_headers = ({"Authorization": device_auth} if device_auth
+                else admin_browser_session())
 
 
 def request(method, path, body=None, tag=None, key=None):
-    hdr = {"Authorization": auth, "Accept": "application/json"}
+    hdr = {**auth_headers, "Accept": "application/json"}
     payload = None
     if body is not None:
         payload = json.dumps(body, separators=(",", ":")).encode("utf-8")
