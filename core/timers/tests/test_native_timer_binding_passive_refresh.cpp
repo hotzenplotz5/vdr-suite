@@ -55,7 +55,9 @@ int main()
     // authority is not present, so supply its minimal queried schema here.
     assert(db.execute(
         "CREATE TABLE mutation_operations (resource_type TEXT NOT NULL,"
-        "resource_id TEXT NOT NULL,state TEXT NOT NULL);"));
+        "resource_id TEXT NOT NULL,state TEXT NOT NULL,"
+        "operation_id TEXT,action_family TEXT,backend_id TEXT,"
+        "backend_generation INTEGER,expected_revision TEXT);"));
     // Minimal durable Assignment/Intent state for same-transaction rebind.
     assert(db.execute(
         "CREATE TABLE timer_intents (timer_intent_id TEXT PRIMARY KEY,"
@@ -152,7 +154,7 @@ int main()
 
     // A reserved operation, even before dispatch, freezes the revision.
     assert(db.execute(
-        "INSERT INTO mutation_operations VALUES "
+        "INSERT INTO mutation_operations (resource_type,resource_id,state) VALUES "
         "('NativeTimerBinding','binding:b','accepted');"));
     const auto blocked = service.applyPresentObservation(
         evidence(second.binding, 1600), true);
@@ -187,5 +189,36 @@ int main()
     // A drifted binding is not a refresh candidate.
     const auto tail = repo.listManagedForFreshness("binding:a", 1800, 2);
     assert(tail.ok() && tail.bindings.empty());
+    // A provider UPDATE may change the RESTfulAPI compound ID. The
+    // stable binding identity can be rekeyed only with an executed durable
+    // timer.update operation and optimistic binding revision.
+    const auto changedId = repo.create(makeBinding(
+        "binding:identity", NativeTimerBindingOwnership::managed));
+    assert(changedId.ok());
+    auto post = changedId.binding;
+    post.backendNativeTimerId = "native:changed-identity";
+    post.observedState.startTime = "2200";
+    post.observedFingerprint =
+        nativeTimerObservedStateFingerprint(post.observedState);
+    post.lastObservedAt = 2000;
+    post.lastVerifiedOperationId = "op:rename";
+    assert(repo.updateVerifiedNativeIdentity(post, "1").status ==
+           NativeTimerBindingRepositoryStatus::conflict);
+    assert(db.execute(
+        "INSERT INTO mutation_operations "
+        "(resource_type,resource_id,state,operation_id,action_family,"
+        "backend_id,backend_generation,expected_revision) VALUES "
+        "('NativeTimerBinding','binding:identity','executed_unverified',"
+        "'op:rename','timer.update','default',7,'1');"));
+    const auto remapped = repo.updateVerifiedNativeIdentity(post, "1");
+    assert(remapped.ok() && remapped.binding.bindingRevision == "2");
+    assert(repo.findByBackendNativeTimer(
+        "default", "native:binding:identity").status ==
+        NativeTimerBindingRepositoryStatus::notFound);
+    assert(repo.findByBackendNativeTimer(
+        "default", "native:changed-identity").ok());
+    assert(repo.updateVerifiedNativeIdentity(post, "1").status ==
+           NativeTimerBindingRepositoryStatus::conflict);
+
     std::cout << "test_native_timer_binding_passive_refresh passed\n";
 }
