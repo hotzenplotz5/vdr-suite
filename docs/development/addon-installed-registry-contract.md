@@ -380,3 +380,20 @@ unsafe parent permissions. This is approval **issuance/diagnostic tooling**,
 not an on-demand privilege escalation surface, daemon permission grant or
 production installation flow. Revocation/update migration, authenticated
 administrator UI, API and Agent descriptor-fenced execution remain pending.
+
+### Explicit offline revocation
+
+`admin_approval_issuer.py revoke --root <isolated-root> --module rectools`
+atomically changes a valid, root-owned approval to `state=revoked` under
+held, no-symlink directory descriptors. It does not need the handler binary
+to remain installed, so removal/breakage cannot prevent withdrawal. Repeated
+revocation is idempotent, identity mismatches fail closed and a revoked
+record blocks re-issuance by the default no-overwrite `issue` command.
+An operation on the real `/` requires the additional explicit
+`--allow-live-root` flag and is **never** invoked by CI or this development
+work. Existing Suite runtime state and media are not touched by the tool.
+
+The disposable root-owned CI acceptance now verifies both issuing and
+revoking, including removal of the binary, duplicate publication and
+revoked-state rejection. Production administrator API/audit integration,
+explicit upgrade/rotation and backend command fencing are still required.
