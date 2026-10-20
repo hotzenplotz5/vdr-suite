@@ -85,9 +85,12 @@ int main()
         assert(
             trailingSlashDecision.rejection.statusCode ==
             503);
+        const std::string expectedError = 
+            route.rfind("/api/v1/", 0) == 0
+                ? "service_unavailable"
+                : "security_policy_not_migrated";
         assert(trailingSlashDecision.rejection.body.find(
-            "security_policy_not_migrated") !=
-            std::string::npos);
+            expectedError) != std::string::npos);
     }
 
     const std::vector<std::string> protectedMutations = {
