@@ -47,6 +47,78 @@ bool managedOwnership(NativeTimerBindingOwnership ownership)
         ownership == NativeTimerBindingOwnership::adopted;
 }
 
+// The passive same-Timer proof must move the bound Assignment's generation
+// with the Binding in the SAME SQLite transaction. Otherwise public GET works
+// after an Agent restart while UPDATE/TOGGLE/DELETE fail with HTTP 409.
+// Only this exact bound identity and its current active/paused intent qualify.
+bool refreshBoundAssignmentGeneration(
+    Database& database, const NativeTimerBinding& binding,
+    std::uint64_t generation, std::int64_t observedAt)
+{
+    sqlite3_stmt* read = nullptr;
+    const char* sql =
+        "SELECT a.backend_generation,a.assignment_revision,a.updated_at "
+        "FROM timer_assignments a JOIN timer_intents i "
+        "ON i.timer_intent_id=a.timer_intent_id "
+        "AND CAST(a.intent_revision AS INTEGER)=i.intent_revision "
+        "WHERE a.timer_assignment_id=? AND a.native_timer_binding_id=? "
+        "AND a.backend_id=? AND a.state='bound' "
+        "AND i.state IN ('active','paused');";
+    if (sqlite3_prepare_v2(database.handle(), sql, -1, &read, nullptr)
+            != SQLITE_OK)
+        return false;
+    const bool bound =
+        sqlite3_bind_text(read, 1, binding.timerAssignmentId.c_str(), -1,
+            SQLITE_TRANSIENT) == SQLITE_OK &&
+        sqlite3_bind_text(read, 2, binding.nativeTimerBindingId.c_str(), -1,
+            SQLITE_TRANSIENT) == SQLITE_OK &&
+        sqlite3_bind_text(read, 3, binding.backendId.c_str(), -1,
+            SQLITE_TRANSIENT) == SQLITE_OK;
+    const int step = bound ? sqlite3_step(read) : SQLITE_ERROR;
+    const std::int64_t oldGeneration =
+        step == SQLITE_ROW ? sqlite3_column_int64(read, 0) : -1;
+    const std::int64_t oldRevision =
+        step == SQLITE_ROW ? sqlite3_column_int64(read, 1) : -1;
+    const std::int64_t oldTime =
+        step == SQLITE_ROW ? sqlite3_column_int64(read, 2) : -1;
+    sqlite3_finalize(read);
+    if (step != SQLITE_ROW || oldGeneration <= 0 ||
+        oldGeneration > static_cast<std::int64_t>(generation) ||
+        oldRevision <= 0 ||
+        oldRevision == std::numeric_limits<std::int64_t>::max() ||
+        oldTime <= 0 || oldTime == std::numeric_limits<std::int64_t>::max())
+        return false;
+    if (oldGeneration == static_cast<std::int64_t>(generation))
+        return true;
+
+    sqlite3_stmt* update = nullptr;
+    const char* writeSql =
+        "UPDATE timer_assignments SET backend_generation=?, "
+        "assignment_revision=assignment_revision+1, "
+        "updated_at=MAX(updated_at+1,?) "
+        "WHERE timer_assignment_id=? AND native_timer_binding_id=? "
+        "AND backend_id=? AND state='bound' AND backend_generation=? "
+        "AND assignment_revision=?;";
+    if (sqlite3_prepare_v2(database.handle(), writeSql, -1, &update, nullptr)
+            != SQLITE_OK)
+        return false;
+    const bool ready =
+        sqlite3_bind_int64(update, 1, static_cast<sqlite3_int64>(generation))
+            == SQLITE_OK &&
+        sqlite3_bind_int64(update, 2, observedAt) == SQLITE_OK &&
+        sqlite3_bind_text(update, 3, binding.timerAssignmentId.c_str(), -1,
+            SQLITE_TRANSIENT) == SQLITE_OK &&
+        sqlite3_bind_text(update, 4, binding.nativeTimerBindingId.c_str(), -1,
+            SQLITE_TRANSIENT) == SQLITE_OK &&
+        sqlite3_bind_text(update, 5, binding.backendId.c_str(), -1,
+            SQLITE_TRANSIENT) == SQLITE_OK &&
+        sqlite3_bind_int64(update, 6, oldGeneration) == SQLITE_OK &&
+        sqlite3_bind_int64(update, 7, oldRevision) == SQLITE_OK;
+    const int written = ready ? sqlite3_step(update) : SQLITE_ERROR;
+    sqlite3_finalize(update);
+    return written == SQLITE_DONE && sqlite3_changes(database.handle()) == 1;
+}
+
 NativeTimerBindingRepositoryResult statusResult(
     NativeTimerBindingRepositoryStatus status)
 {
@@ -426,6 +498,13 @@ NativeTimerBindingRepositoryResult NativeTimerBindingRepository::update(
     {
         rollback();
         return statusResult(NativeTimerBindingRepositoryStatus::storageError);
+    }
+    if (passiveFreshnessRefresh &&
+        !refreshBoundAssignmentGeneration(database_, current, durable.backendGeneration,
+            durable.lastObservedAt))
+    {
+        rollback();
+        return statusResult(NativeTimerBindingRepositoryStatus::conflict);
     }
     if (!database_.execute("COMMIT;"))
     {
