@@ -119,6 +119,21 @@ int main()
     assert(enable.status == IntentStatus::ineligible);
     assert(audit.listAll().size() == 1);
 
+    // Malformed calendar values must never enter durable audit history.
+    for (const auto* invalid : {"2026-02-30T10:00:00Z",
+                                "2025-02-29T10:00:00Z",
+                                "2026-13-20T10:00:00Z",
+                                "2026-10-20T24:00:00Z",
+                                "2026-10-20T10:60:00Z",
+                                "2026-10-20T10:00:60Z"}) {
+        const AdministrationAuditContext bad{"event-invalid", invalid};
+        assert(service.setDesiredState(
+            actor, {"rectools", "backend-a", false, 1}, {}, {}, bad).status ==
+            IntentStatus::forbidden);
+    }
+    assert(audit.listAll().size() == 1);
+    assert(intents.read(actor, "rectools", "backend-a").intent.revision == 1);
+
     // No caller-provided request/correlation identity bypass.
     actor.requestId = "";
     assert(service.setDesiredState(
