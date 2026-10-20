@@ -32,10 +32,60 @@ def stop(reason):
     sys.exit(1)
 
 
-if not AUTH_PATH.is_file():
-    stop("EXISTING_DEVICE_CREDENTIALS_NOT_FOUND")
-creds = json.loads(AUTH_PATH.read_text())
-auth = "VDR-Suite-Device " + creds["credentialId"] + "." + creds["credentialSecret"]
+def discover_existing_auth():
+    # Reboots remove /run; prefer the original credential location but
+    # also accept other previously saved device-credential receipts.
+    # Never print, copy, rotate or issue a credential here.
+    candidates = [AUTH_PATH]
+    from_env = os.environ.get("VDR_SUITE_API_V1_CREDENTIAL_FILE", "")
+    if from_env:
+        candidates.insert(0, Path(from_env))
+    roots = (Path("/run"), Path("/tmp"), Path("/root"),
+             Path("/home/yavdr"), Path("/etc/vdr-suite"),
+             Path("/var/lib/vdr-suite"))
+    patterns = ("vdr-suite-api-v1*.json", "vdr-suite-timer*.json",
+                "*device*credential*.json", "*api*v1*credential*.json")
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for pattern in patterns:
+            candidates.extend(sorted(root.glob(pattern)))
+            candidates.extend(sorted(root.glob("*/" + pattern)))
+
+    seen = set()
+    for candidate in candidates:
+        if str(candidate) in seen:
+            continue
+        seen.add(str(candidate))
+        if not candidate.is_file():
+            continue
+        try:
+            document = json.loads(candidate.read_text())
+            credential_id = document.get("credentialId", "")
+            credential_secret = document.get("credentialSecret", "")
+            if not isinstance(credential_id, str) or not credential_id or (
+                not isinstance(credential_secret, str) or
+                len(credential_secret) < 16
+            ):
+                continue
+            token = "VDR-Suite-Device " + credential_id + "." + credential_secret
+            req = urllib.request.Request(
+                BASE + "/native-timers?backendId=default",
+                headers={"Authorization": token, "Accept": "application/json"},
+                method="GET")
+            with urllib.request.urlopen(req, timeout=4) as response:
+                if response.status != 200:
+                    continue
+            print("AUTH=EXISTING_DEVICE_CREDENTIAL_VERIFIED",
+                  "PATH=", candidate, flush=True)
+            return token
+        except (OSError, ValueError, TypeError, KeyError,
+                urllib.error.URLError):
+            continue
+    stop("EXISTING_DEVICE_CREDENTIAL_UNAVAILABLE_NO_MUTATION_SUBMITTED")
+
+
+auth = discover_existing_auth()
 
 
 def request(method, path, body=None, tag=None, key=None):
