@@ -16,6 +16,7 @@ sys.dont_write_bytecode = True
 
 from addon_contract import ContractError, validate_directory
 from dpkg_evidence import examine
+from manual_handler_evidence import examine as examine_manual
 
 # Core-owned review boundary. A package cannot add itself to this table merely
 # by dropping a manifest under /usr/share/vdr-suite/addons.
@@ -49,7 +50,7 @@ def _directory(root: Path) -> Path:
     return cursor
 
 
-def inspect(root: Path, verify_dpkg: bool = False) -> dict:
+def inspect(root: Path, verify_dpkg: bool = False, manual_sha256: str = "") -> dict:
     """Inventory is descriptive only; it never implies 'enabled'."""
     catalog = _directory(root)
     installed = {}
@@ -114,6 +115,10 @@ def inspect(root: Path, verify_dpkg: bool = False) -> dict:
                     "consistent": False, "reason": "metadata-not-installed"
                 }
 
+    if manual_sha256:
+        for item in installed.values():
+            item["manualHandlerEvidence"] = examine_manual(root, item["id"], manual_sha256)
+
     for name, package in SUPPORTED_PACKAGES.items():
         installed.setdefault(name, {
             "id": name,
@@ -123,6 +128,7 @@ def inspect(root: Path, verify_dpkg: bool = False) -> dict:
             "reason": "missing-package",
             "active": False,
             "capabilities": [],
+            **({"manualHandlerEvidence": examine_manual(root, name, manual_sha256)} if manual_sha256 else {}),
             **({"dpkgEvidence": {
                 "consistent": False, "reason": "metadata-not-installed"
             }} if verify_dpkg else {}),
@@ -130,9 +136,9 @@ def inspect(root: Path, verify_dpkg: bool = False) -> dict:
     return {"registrySchemaVersion": 1, "modules": [installed[n] for n in sorted(installed)]}
 
 
-def plan_enable(root: Path, name: str, verify_dpkg: bool = False) -> dict:
+def plan_enable(root: Path, name: str, verify_dpkg: bool = False, manual_sha256: str = "") -> dict:
     """No mutation. An enable request without a core handler always fails."""
-    data = inspect(root, verify_dpkg=verify_dpkg)
+    data = inspect(root, verify_dpkg=verify_dpkg, manual_sha256=manual_sha256)
     record = next((m for m in data["modules"] if m["id"] == name), None)
     if record is None or name not in SUPPORTED_PACKAGES:
         reason = "unregistered-package"
@@ -160,15 +166,16 @@ def main(argv=None) -> int:
     parser.add_argument("--module", default="")
     parser.add_argument("--verify-dpkg", action="store_true",
                         help="Read-only consistency check against this root's dpkg status/list/checksums")
+    parser.add_argument("--manual-sha256", default="", help="Expected independently approved Media Tools handler digest (diagnostic only)")
     args = parser.parse_args(argv)
     try:
         root = Path(args.root)
         if args.action == "inventory":
-            result = inspect(root, verify_dpkg=args.verify_dpkg)
+            result = inspect(root, verify_dpkg=args.verify_dpkg, manual_sha256=args.manual_sha256)
         else:
             if not args.module:
                 raise ContractError("--module is required for plan-enable")
-            result = plan_enable(root, args.module, verify_dpkg=args.verify_dpkg)
+            result = plan_enable(root, args.module, verify_dpkg=args.verify_dpkg, manual_sha256=args.manual_sha256)
         print(json.dumps(result, sort_keys=True, separators=(",", ":")))
         return 0
     except (ContractError, OSError) as exc:
