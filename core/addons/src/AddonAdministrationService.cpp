@@ -16,6 +16,19 @@ bool safeAuditIdentifier(const std::string& value)
         });
 }
 }
+bool validUtcTimestamp(const std::string& t)
+{
+    if (t.size() != 20 || t[4] != '-' || t[7] != '-' ||
+        t[10] != 'T' || t[13] != ':' || t[16] != ':' || t[19] != 'Z')
+        return false;
+    for (std::size_t i = 0; i < t.size(); ++i)
+    {
+        if (i == 4 || i == 7 || i == 10 || i == 13 || i == 16 || i == 19)
+            continue;
+        if (t[i] < '0' || t[i] > '9') return false;
+    }
+    return true;
+}
 
 IntentResult AddonAdministrationService::setDesiredState(
     const RequestSecurityContext& actor,
@@ -27,9 +40,9 @@ IntentResult AddonAdministrationService::setDesiredState(
     if (actor.actor.type != ActorType::User ||
         !canInspectInventory(actor).allowed ||
         !safeAuditIdentifier(context.eventId) ||
-        !safeAuditIdentifier(context.requestId) ||
-        !safeAuditIdentifier(context.correlationId) ||
-        context.occurredAt.empty() || context.occurredAt.size() > 64)
+        !safeAuditIdentifier(actor.requestId) ||
+        !safeAuditIdentifier(actor.correlationId) ||
+        !validUtcTimestamp(context.occurredAt))
     {
         return {IntentStatus::forbidden,
                 {mutation.moduleId, mutation.backendId, false, 0}};
@@ -48,8 +61,8 @@ IntentResult AddonAdministrationService::setDesiredState(
     event.authenticationState = authenticationStateName(actor.authenticationState);
     event.permission = "role.admin";
     event.backendId = mutation.backendId;
-    event.requestId = context.requestId;
-    event.correlationId = context.correlationId;
+    event.requestId = actor.requestId;
+    event.correlationId = actor.correlationId;
     event.action = mutation.desiredEnabled ? "addons.intent.enable" : "addons.intent.disable";
     event.decision = "allowed";
     event.reasonCode = "administrator_intent";
