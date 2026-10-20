@@ -42,6 +42,8 @@ EXPECTED_RUNTIME_OWNERS = {
 
 EXPECTED_ROUTE_LITERALS = {
     "/api/v1/recordings",
+    "/api/v1/recordings/actions/validate",
+    "/api/v1/recordings/actions/execute",
     "/api/v1/epg/now-next",
     "/api/v1/genres",
     "/api/v1/genres/recordings",
@@ -179,6 +181,8 @@ EXPECTED_ROUTE_LITERALS = {
 
 EXPECTED_PUBLIC_V1_ROUTE_LITERALS = {
     "/api/v1/recordings",
+    "/api/v1/recordings/actions/validate",
+    "/api/v1/recordings/actions/execute",
     "/api/v1/epg/now-next",
     "/api/v1/genres",
     "/api/v1/genres/recordings",
@@ -208,7 +212,7 @@ LEGACY_ALIAS_GROUPS = (
         "source": "api/rest/src/ApiRouter.cpp",
         "routes": ("/api/recordings/actions/validate", "/api/vdr/recordings/actions/validate"),
         "containsMutation": True,
-        "publicV1Successor": None,
+        "publicV1Successor": "/api/v1/recordings/actions/validate",
     },
     {
         "id": "recording-action-execute",
@@ -217,7 +221,7 @@ LEGACY_ALIAS_GROUPS = (
         "source": "api/rest/src/ApiRouter.cpp",
         "routes": ("/api/recordings/actions/execute", "/api/vdr/recordings/actions/execute"),
         "containsMutation": True,
-        "publicV1Successor": None,
+        "publicV1Successor": "/api/v1/recordings/actions/execute",
     },
     {
         "id": "recording-action-preview",
