@@ -17,6 +17,7 @@ sys.dont_write_bytecode = True
 from addon_contract import ContractError, validate_directory
 from dpkg_evidence import examine
 from manual_handler_evidence import examine as examine_manual
+from admin_approval_evidence import examine as examine_approval
 
 # Core-owned review boundary. A package cannot add itself to this table merely
 # by dropping a manifest under /usr/share/vdr-suite/addons.
@@ -50,7 +51,7 @@ def _directory(root: Path) -> Path:
     return cursor
 
 
-def inspect(root: Path, verify_dpkg: bool = False, manual_sha256: str = "") -> dict:
+def inspect(root: Path, verify_dpkg: bool = False, manual_sha256: str = "", verify_admin_approval: bool = False) -> dict:
     """Inventory is descriptive only; it never implies 'enabled'."""
     catalog = _directory(root)
     installed = {}
@@ -115,6 +116,9 @@ def inspect(root: Path, verify_dpkg: bool = False, manual_sha256: str = "") -> d
                     "consistent": False, "reason": "metadata-not-installed"
                 }
 
+    if verify_admin_approval:
+        for item in installed.values():
+            item["adminApprovalEvidence"] = examine_approval(root, item["id"])
     if manual_sha256:
         for item in installed.values():
             item["manualHandlerEvidence"] = examine_manual(root, item["id"], manual_sha256)
@@ -129,6 +133,7 @@ def inspect(root: Path, verify_dpkg: bool = False, manual_sha256: str = "") -> d
             "active": False,
             "capabilities": [],
             **({"manualHandlerEvidence": examine_manual(root, name, manual_sha256)} if manual_sha256 else {}),
+            **({"adminApprovalEvidence": examine_approval(root, name)} if verify_admin_approval else {}),
             **({"dpkgEvidence": {
                 "consistent": False, "reason": "metadata-not-installed"
             }} if verify_dpkg else {}),
@@ -136,9 +141,9 @@ def inspect(root: Path, verify_dpkg: bool = False, manual_sha256: str = "") -> d
     return {"registrySchemaVersion": 1, "modules": [installed[n] for n in sorted(installed)]}
 
 
-def plan_enable(root: Path, name: str, verify_dpkg: bool = False, manual_sha256: str = "") -> dict:
+def plan_enable(root: Path, name: str, verify_dpkg: bool = False, manual_sha256: str = "", verify_admin_approval: bool = False) -> dict:
     """No mutation. An enable request without a core handler always fails."""
-    data = inspect(root, verify_dpkg=verify_dpkg, manual_sha256=manual_sha256)
+    data = inspect(root, verify_dpkg=verify_dpkg, manual_sha256=manual_sha256, verify_admin_approval=verify_admin_approval)
     record = next((m for m in data["modules"] if m["id"] == name), None)
     if record is None or name not in SUPPORTED_PACKAGES:
         reason = "unregistered-package"
@@ -167,15 +172,16 @@ def main(argv=None) -> int:
     parser.add_argument("--verify-dpkg", action="store_true",
                         help="Read-only consistency check against this root's dpkg status/list/checksums")
     parser.add_argument("--manual-sha256", default="", help="Expected independently approved Media Tools handler digest (diagnostic only)")
+    parser.add_argument("--verify-admin-approval", action="store_true", help="Optional read-only root-owned admin approval record diagnostic")
     args = parser.parse_args(argv)
     try:
         root = Path(args.root)
         if args.action == "inventory":
-            result = inspect(root, verify_dpkg=args.verify_dpkg, manual_sha256=args.manual_sha256)
+            result = inspect(root, verify_dpkg=args.verify_dpkg, manual_sha256=args.manual_sha256, verify_admin_approval=args.verify_admin_approval)
         else:
             if not args.module:
                 raise ContractError("--module is required for plan-enable")
-            result = plan_enable(root, args.module, verify_dpkg=args.verify_dpkg, manual_sha256=args.manual_sha256)
+            result = plan_enable(root, args.module, verify_dpkg=args.verify_dpkg, manual_sha256=args.manual_sha256, verify_admin_approval=args.verify_admin_approval)
         print(json.dumps(result, sort_keys=True, separators=(",", ":")))
         return 0
     except (ContractError, OSError) as exc:
