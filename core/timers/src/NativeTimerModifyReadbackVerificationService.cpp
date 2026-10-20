@@ -80,9 +80,14 @@ NativeTimerModifyReadbackVerificationService::verify(
 
     const bool changedIdentity =
         observation.backendNativeTimerId != payload.backendNativeTimerId;
+    const bool alreadyRenamed =
+        payload.kind == NativeTimerModifyKind::update &&
+        current.backendNativeTimerId == observation.backendNativeTimerId &&
+        current.lastVerifiedOperationId == expectation.operationId;
     if (current.timerAssignmentId != payload.timerAssignmentId
         || current.backendId != payload.backendId
-        || current.backendNativeTimerId != payload.backendNativeTimerId
+        || (current.backendNativeTimerId != payload.backendNativeTimerId &&
+            !alreadyRenamed)
         || observation.backendId != payload.backendId
         || (changedIdentity && payload.kind != NativeTimerModifyKind::update))
         return result(
@@ -133,7 +138,7 @@ NativeTimerModifyReadbackVerificationService::verify(
     next.lastVerifiedOperationId = expectation.operationId;
     next.missingSince = 0;
     next.driftState = NativeTimerBindingDriftState::none;
-    const auto updated = changedIdentity
+    const auto updated = changedIdentity && !alreadyRenamed
         ? repository_.updateVerifiedNativeIdentity(next, current.bindingRevision)
         : repository_.update(next, current.bindingRevision);
     if (updated.status == NativeTimerBindingRepositoryStatus::conflict)
