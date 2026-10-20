@@ -1759,10 +1759,24 @@ public:
                 return rejectWithAudit(gate, denial, 400,
                     "One exact backendId required", "");
             }
-            if (!gate.deviceAuthenticated ||
-                gate.context.actor.type != ActorType::Service ||
-                !gate.context.device || !gate.context.credential ||
-                gate.context.session.has_value())
+            const bool deviceClient =
+                gate.deviceAuthenticated &&
+                gate.context.actor.type == ActorType::Service &&
+                gate.context.device.has_value() &&
+                gate.context.credential.has_value() &&
+                !gate.context.session.has_value();
+            const bool browserAdmin =
+                gate.browserAuthenticated &&
+                gate.context.actor.type == ActorType::User &&
+                gate.context.session.has_value() &&
+                std::any_of(gate.context.grants.begin(),
+                    gate.context.grants.end(),
+                    [&scopes](const PermissionGrant& grant) {
+                        return grant.permission == "role.admin" &&
+                            (grant.backendId == "*" ||
+                             grant.backendId == scopes.front());
+                    });
+            if (!deviceClient && !browserAdmin)
             {
                 AuthorizationDecision denial;
                 denial.permission = "timers.modify";
@@ -1770,7 +1784,20 @@ public:
                 denial.action = "native_timers.modify";
                 denial.reasonCode = "device_credential_required";
                 return rejectWithAudit(gate, denial, 403,
-                    "Device credential required", "");
+                    "Verified Device credential or administrator session required", "");
+            }
+            // This route returns before the shared Browser CSRF gate.
+            if (browserAdmin &&
+                (browserSessionAuthenticator_ == nullptr ||
+                 !browserSessionAuthenticator_->verifyCsrf(request.headers)))
+            {
+                AuthorizationDecision denial;
+                denial.permission = "timers.modify";
+                denial.backendId = scopes.front();
+                denial.action = "native_timers.modify";
+                denial.reasonCode = "csrf_validation_failed";
+                return rejectWithAudit(gate, denial, 403,
+                    "A valid CSRF token is required", "");
             }
             const bool exactGrant = std::any_of(
                 gate.context.grants.begin(), gate.context.grants.end(),
@@ -1778,7 +1805,7 @@ public:
                     return grant.permission == "timers.modify" &&
                         grant.backendId == scopes.front();
                 });
-            if (!exactGrant)
+            if (deviceClient && !exactGrant)
             {
                 AuthorizationDecision denial;
                 denial.permission = "timers.modify";
@@ -1842,10 +1869,24 @@ public:
                 return rejectWithAudit(gate, denial, 400,
                     "One exact backendId required", "");
             }
-            if (!gate.deviceAuthenticated ||
-                gate.context.actor.type != ActorType::Service ||
-                !gate.context.device || !gate.context.credential ||
-                gate.context.session.has_value())
+            const bool deviceClient =
+                gate.deviceAuthenticated &&
+                gate.context.actor.type == ActorType::Service &&
+                gate.context.device.has_value() &&
+                gate.context.credential.has_value() &&
+                !gate.context.session.has_value();
+            const bool browserAdmin =
+                gate.browserAuthenticated &&
+                gate.context.actor.type == ActorType::User &&
+                gate.context.session.has_value() &&
+                std::any_of(gate.context.grants.begin(),
+                    gate.context.grants.end(),
+                    [&scopes](const PermissionGrant& grant) {
+                        return grant.permission == "role.admin" &&
+                            (grant.backendId == "*" ||
+                             grant.backendId == scopes.front());
+                    });
+            if (!deviceClient && !browserAdmin)
             {
                 AuthorizationDecision denial;
                 denial.permission = "timers.delete";
@@ -1853,7 +1894,20 @@ public:
                 denial.action = "native_timers.delete";
                 denial.reasonCode = "device_credential_required";
                 return rejectWithAudit(gate, denial, 403,
-                    "Device credential required", "");
+                    "Verified Device credential or administrator session required", "");
+            }
+            // This route returns before the shared Browser CSRF gate.
+            if (browserAdmin &&
+                (browserSessionAuthenticator_ == nullptr ||
+                 !browserSessionAuthenticator_->verifyCsrf(request.headers)))
+            {
+                AuthorizationDecision denial;
+                denial.permission = "timers.delete";
+                denial.backendId = scopes.front();
+                denial.action = "native_timers.delete";
+                denial.reasonCode = "csrf_validation_failed";
+                return rejectWithAudit(gate, denial, 403,
+                    "A valid CSRF token is required", "");
             }
             const bool exactGrant = std::any_of(
                 gate.context.grants.begin(), gate.context.grants.end(),
@@ -1861,7 +1915,7 @@ public:
                     return grant.permission == "timers.delete" &&
                         grant.backendId == scopes.front();
                 });
-            if (!exactGrant)
+            if (deviceClient && !exactGrant)
             {
                 AuthorizationDecision denial;
                 denial.permission = "timers.delete";
