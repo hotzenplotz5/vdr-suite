@@ -265,3 +265,21 @@ identity are **not** accepted merely because their strings match. The
 offline regression asserts `ApprovalReason::invalidBinding` and the
 underlying `BindingReason::invalidBackend`. This still does not authenticate
 or issue approvals; no effective rights or executable handler are created.
+
+## Root-controlled administrator approval diagnostics
+
+The optional `--verify-admin-approval` inventory flag reads only the fixed
+`/etc/vdr-suite/addon-approvals/rectools.json` under the explicit filesystem
+root. A versioned record must have an exact reviewed identity, version,
+SHA-256 digest and install origin; its parents and file must be root-owned
+and non-group/world-writable, with no symlink components. Unknown addons
+cannot create their own approval records. The root-controlled record is
+separate from installed addon metadata and any dpkg ledger.
+
+**This is not an approval issuer** and is not sufficient for trust: there
+is no privileged installation transaction, authenticated record issuance,
+revocation/watch handling or safe descriptor-pinned execution yet.
+The CLI merely reports `adminApprovalEvidence.consistent` and never sets
+`packageTrusted`, allows activation or executes handlers.
+The default inventory does not read `/etc` and retains its existing schema.
+Only isolated tests run via `check-addon-registry`.
