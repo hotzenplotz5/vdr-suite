@@ -78,6 +78,9 @@ int main()
         assertAllowed(fixture.gate.evaluate(
             browserRequest(fixture, "POST", modify)),
             "timers.modify", true);
+        const auto deleteWithoutCsrf = fixture.gate.evaluate(
+            browserRequest(fixture, "DELETE", detail, false));
+        assertDenied(deleteWithoutCsrf, 403);
         assertAllowed(fixture.gate.evaluate(
             browserRequest(fixture, "DELETE", detail)),
             "timers.delete", true);
