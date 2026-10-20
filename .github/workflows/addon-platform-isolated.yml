@@ -33,6 +33,8 @@ jobs:
         run: |
           set -Eeuo pipefail
           export PYTHONDONTWRITEBYTECODE=1
+          export TMPDIR="$RUNNER_TEMP"
+          test -d "$TMPDIR"
           echo "TESTED_SHA=$(git rev-parse HEAD)"
           make check-addon-registry
           make test-addon-handler-registry
