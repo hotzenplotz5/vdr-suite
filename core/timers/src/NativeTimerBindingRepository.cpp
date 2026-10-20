@@ -362,13 +362,14 @@ NativeTimerBindingRepositoryResult NativeTimerBindingRepository::update(
     }
     if (passiveFreshnessRefresh)
     {
-        // Never turn passive observation into adoption, generation advancement,
-        // reconciliation or a change to any pre-existing operation evidence.
+        // An unchanged native fingerprint with a newer authoritative read may
+        // advance the Agent generation. Never adopt, reconcile drift,
+        // or rewrite in-flight mutation evidence.
         if (!managedOwnership(current.ownership) ||
             current.missingSince != 0 ||
             current.driftState != NativeTimerBindingDriftState::none ||
             current.observedState.recording || current.observedState.pending ||
-            current.backendGeneration != next.backendGeneration ||
+            current.backendGeneration > next.backendGeneration ||
             current.observedFingerprint != next.observedFingerprint ||
             current.lastVerifiedOperationId != next.lastVerifiedOperationId ||
             current.missingSince != next.missingSince ||
