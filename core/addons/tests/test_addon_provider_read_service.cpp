@@ -1,5 +1,6 @@
 #include "AddonProviderReadService.h"
 #include <cassert>
+#include <initializer_list>
 #include <string>
 
 int main()
