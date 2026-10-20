@@ -41,7 +41,17 @@ inline BindingDecision reviewProviderBinding(const ProviderBinding& binding)
 {
     if (!reviewedHandler(binding.moduleId, binding.packageName))
         return {false, BindingReason::invalidIdentity, {}};
-    if (binding.backendId.empty() || binding.backendId == "*")
+    const auto validBackend = [](std::string_view id) {
+        if (id.empty() || id.size() > 128 || id == "*") return false;
+        for (const char ch : id)
+            if (!((ch >= 'a' && ch <= 'z') ||
+                  (ch >= 'A' && ch <= 'Z') ||
+                  (ch >= '0' && ch <= '9') ||
+                  ch == '-' || ch == '_' || ch == '.'))
+                return false;
+        return true;
+    };
+    if (!validBackend(binding.backendId))
         return {false, BindingReason::invalidBackend, {}};
     if (binding.backendGeneration == 0 || binding.observedGeneration == 0 ||
         binding.backendGeneration != binding.observedGeneration)
