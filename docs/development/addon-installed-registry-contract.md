@@ -397,3 +397,17 @@ The disposable root-owned CI acceptance now verifies both issuing and
 revoking, including removal of the binary, duplicate publication and
 revoked-state rejection. Production administrator API/audit integration,
 explicit upgrade/rotation and backend command fencing are still required.
+
+## Human account import permission (backend-specific only)
+
+The canonical Human Account Grant Administration now recognizes the explicit
+`addons.media.import` permission **only for a concrete backend ID**.
+`role.admin`, `*` wildcard permission and `addons.media.import@*`
+cannot substitute for the exact grant: the core `AddonAccessPolicy`
+and shared `AuthorizationService` both enforce that distinction.
+The existing Device Grant Administration remains allowlisted for playback
+and read-only functions, so it cannot hand import rights to a device actor.
+The canonical read-only-role mutation gate treats Media Tools import as a
+protected write and denies it for a read-only grant on the same backend.
+This is grant vocabulary/policy readiness, not an HTTP action, an enabled
+handler or permission to touch recordings.
