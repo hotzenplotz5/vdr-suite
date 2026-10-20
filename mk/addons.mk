@@ -237,3 +237,15 @@ build-addon-nonroot-snapshot-test:
 		core/addons/src/AddonInstallSnapshot.cpp \
 		core/addons/tests/test_addon_nonroot_snapshot.cpp -lcrypto \
 		-o "$(BUILD_DIR)/addons/test_addon_nonroot_snapshot"
+
+# Reuse the actual canonical Agent poll implementation, not a mock registry.
+.PHONY: test-addon-agent-advertisement
+test-addon-agent-advertisement:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) $(CXXFLAGS) \
+		$(AGENT_COMMAND_DOMAIN_SRC) \
+		$(AGENT_COMMAND_JSON_SRC) \
+		$(AGENT_COMMAND_CLIENT_SRC) \
+		core/agent/tests/test_backend_agent_command_client.cpp \
+		-o "$(BUILD_DIR)/addons/test_addon_agent_advertisement"
+	"$(BUILD_DIR)/addons/test_addon_agent_advertisement"
