@@ -219,3 +219,17 @@ and the final disabled definition. This does not imply provider approval:
 all decisions continue to return `available=false`,
 `packageTrusted=false`, `handlerRegistered=false`, and
 `handlerHealthy=false` until a separately reviewed runtime owner is wired.
+
+## Version and backend-generation binding (non-authorizing)
+
+`AddonProviderBinding.h` now checks the **agreement** of injected approved
+and observed SHA-256, version and backend-generation facts against the fixed
+Core identity. A missing/mismatched digest, changed version, missing backend,
+or stale generation rejects the binding. These are not authenticators:
+the caller cannot claim provenance merely by supplying identical values.
+Actual provenance must be established by a separate trusted release or
+administrator authority outside the add-on manifest, and the backend Agent
+must recheck an open handler descriptor at dispatch. The preview never marks
+a provider trusted, registered or executable, including for all-positive
+manual and Debian fixtures. Run the focused `test-addon-provider-binding`
+target for regressions.
