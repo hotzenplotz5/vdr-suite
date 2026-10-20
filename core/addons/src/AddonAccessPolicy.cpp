@@ -67,7 +67,11 @@ AccessDecision canUseMediaImport(
 
     // Separate import permission. Existing 'recordings.execute', generic
     // admin and media-play permissions deliberately cannot substitute.
-    if (!hasGrant(actor, "addons.media.import", evidence.backendId))
+    if (!std::any_of(actor.grants.begin(), actor.grants.end(),
+            [&](const PermissionGrant& grant) {
+                return grant.permission == "addons.media.import" &&
+                    grant.backendId == evidence.backendId;
+            }))
         return deny(AccessReason::permissionDenied);
 
     return {true, AccessReason::allowed};
