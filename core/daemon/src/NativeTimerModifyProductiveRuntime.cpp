@@ -6,6 +6,7 @@
 #include "NativeTimerModifyReadbackVerificationService.h"
 #include "NativeTimerModifyOperationCompletionService.h"
 #include "NativeTimerBindingRepository.h"
+#include "NativeTimerSpecification.h"
 #include "TimerIntentRepository.h"
 #include "TimerAssignmentRepository.h"
 #include "MutationOperationRepository.h"
@@ -314,6 +315,37 @@ void advanceFamily(
             ++summary.deferred;
             continue;
         }
+
+        // An uncertain native MODIFY can no longer execute once the Agent
+        // has durably submitted its result. If a fresh, complete native
+        // readback proves the original timer fingerprint is still present
+        // (and the requested postcondition is absent), close that attempt
+        // as failed_verified. Do not replay the mutation. This also releases
+        // the passive binding/assignment generation refresh after an Agent
+        // restart, which would otherwise stay blocked indefinitely.
+        const auto& expectation = applied.outcome.expectation;
+        const auto& payload = expectation.payload;
+        if (op.state == MutationOperationState::outcomeUnknown &&
+            observation->backendId == payload.backendId &&
+            observation->backendGeneration >= payload.backendGeneration &&
+            observation->backendNativeTimerId == payload.backendNativeTimerId &&
+            observation->observedAt >= expectation.readbackNotBefore &&
+            observation->observedFingerprint == payload.expectedCurrentFingerprint &&
+            !observation->observedState.recording &&
+            !observation->observedState.pending &&
+            !nativeTimerObservationMatchesSpecification(
+                payload.expectedSpecification, observation->observedState))
+        {
+            const auto unchanged = operations.transition(
+                op.operationId, op.operationRevision,
+                MutationOperationState::outcomeUnknown,
+                MutationOperationState::failedVerified,
+                "native-timer-modify:unchanged-after-uncertain-execution", now);
+            if (unchanged.ok()) ++summary.completed;
+            else ++summary.deferred;
+            continue;
+        }
+
         const auto verified =
             verifier.verify(applied.outcome.expectation, *observation);
         if (!verified.ok())
