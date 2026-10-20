@@ -171,6 +171,28 @@ IntentResult AddonActivationIntentRepository::update(
     const BackendAccessDecision& backend,
     const RuntimeEvidence& evidence)
 {
+    return updateInternal(actor, mutation, backend, evidence, nullptr);
+}
+
+IntentResult AddonActivationIntentRepository::updateAudited(
+    const RequestSecurityContext& actor,
+    const IntentMutation& mutation,
+    const BackendAccessDecision& backend,
+    const RuntimeEvidence& evidence,
+    const std::function<bool()>& appendAudit)
+{
+    if (!appendAudit)
+        return outcome(IntentStatus::unavailable, mutation.moduleId, mutation.backendId);
+    return updateInternal(actor, mutation, backend, evidence, &appendAudit);
+}
+
+IntentResult AddonActivationIntentRepository::updateInternal(
+    const RequestSecurityContext& actor,
+    const IntentMutation& mutation,
+    const BackendAccessDecision& backend,
+    const RuntimeEvidence& evidence,
+    const std::function<bool()>* appendAudit)
+{
     if (canInspectInventory(actor).allowed == false)
         return outcome(IntentStatus::forbidden, mutation.moduleId, mutation.backendId);
     if (!validModule(mutation.moduleId) || !validBackend(mutation.backendId) ||
@@ -212,6 +234,21 @@ IntentResult AddonActivationIntentRepository::update(
         !bindText(write.get(), 5, actor.actor.actorId) ||
         sqlite3_step(write.get()) != SQLITE_DONE)
         return outcome(IntentStatus::unavailable, mutation.moduleId, mutation.backendId);
+    // Same DB transaction as the desired-state write: a failed accountability
+    // append must rollback both state and audit. The callback must use the
+    // existing Suite AccountabilityEventRepository on this same Database.
+    if (appendAudit != nullptr)
+    {
+        try
+        {
+            if (!(*appendAudit)())
+                return outcome(IntentStatus::unavailable, mutation.moduleId, mutation.backendId);
+        }
+        catch (...)
+        {
+            return outcome(IntentStatus::unavailable, mutation.moduleId, mutation.backendId);
+        }
+    }
     if (!tx.commit())
         return outcome(IntentStatus::unavailable, mutation.moduleId, mutation.backendId);
 
