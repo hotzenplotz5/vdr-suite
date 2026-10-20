@@ -102,3 +102,14 @@ test-addon-admission-preview:
 	"$(BUILD_DIR)/addons/test_addon_admission_preview"
 
 test-ci-fast: test-addon-admission-preview
+
+# Immutable reviewed handler identity; no runtime integration/dispatch.
+.PHONY: test-addon-handler-registry
+test-addon-handler-registry:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include \\
+		core/addons/tests/test_addon_handler_registry.cpp \\
+		-o "$(BUILD_DIR)/addons/test_addon_handler_registry"
+	"$(BUILD_DIR)/addons/test_addon_handler_registry"
+
+test-ci-fast: test-addon-handler-registry
