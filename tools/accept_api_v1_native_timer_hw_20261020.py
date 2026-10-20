@@ -155,11 +155,15 @@ from urllib.parse import urlencode
 now = int(time.time())
 candidate = None
 candidate_etag = None
-# Prefer a broadcast between 48h and 6d in the future so no recording starts
-# during the short-lived hardware acceptance.
-for slot in range(8):
-    start = now + 48 * 3600 + slot * 12 * 3600
-    end = start + 12 * 3600 - 1
+# Search the actual near-term EPG cache. Its native-ID provenance is
+# typically fresher than the remote 48h-6d window previously searched.
+# Earliest eligible recording remains at least six hours ahead.
+stats = {"windows": 0, "events": 0, "native_ids": 0,
+         "future_events": 0, "detail_ok": 0, "etag_ok": 0}
+for slot in range(14):
+    start = now + 6 * 3600 + slot * 3 * 3600
+    end = start + 3 * 3600 - 1
+    stats["windows"] += 1
     path = "/epg/window?" + urlencode({
         "backendId": BACKEND, "channelId": "C-1-1051-10301",
         "fromTime": str(start), "untilTime": str(end), "limit": "192"
@@ -169,6 +173,8 @@ for slot in range(8):
         print("EPG_WINDOW_HTTP=", code, flush=True)
         continue
     possible = sorted(events.get("items", []), key=lambda item: item.get("startTime", ""))
+    stats["events"] += len(possible)
+    stats["native_ids"] += sum(bool(e.get("eventId")) for e in possible)
     for event in possible:
         event_id = event.get("eventId")
         event_title = event.get("title")
@@ -177,8 +183,9 @@ for slot in range(8):
             duration = int(event.get("durationSeconds", 0))
         except (ValueError, TypeError):
             continue
-        if not event_id or not event_title or begins < now + 48 * 3600 or duration < 600:
+        if not event_id or not event_title or begins < now + 6 * 3600 or duration < 600:
             continue
+        stats["future_events"] += 1
         # Skip any currently visible timer with the same backend channel and
         # same one-shot day close to its start, leaving existing VDR plans alone.
         local_day = datetime.fromtimestamp(begins).strftime("%Y-%m-%d")
@@ -195,9 +202,11 @@ for slot in range(8):
         }))
         if code != 200 or epg_detail.get("eventId") != event_id:
             continue
+        stats["detail_ok"] += 1
         tag = hdr.get("ETag")
         if not tag or tag.startswith("W/"):
             continue
+        stats["etag_ok"] += 1
         candidate = epg_detail
         candidate_etag = tag
         break
@@ -205,7 +214,14 @@ for slot in range(8):
         break
 
 if candidate is None:
-    stop("NO_ELIGIBLE_EPG_EVENT_FOR_OWNED_FIXTURE")
+    print("EPG_CANDIDATE_DIAGNOSTICS=", stats, flush=True)
+    if stats["events"] == 0:
+        stop("EPG_CACHE_NO_EVENTS_IN_6_TO_48_HOURS")
+    if stats["native_ids"] == 0:
+        stop("EPG_CACHE_HAS_NO_PROVEN_NATIVE_EVENT_IDS")
+    if stats["detail_ok"] == 0:
+        stop("EPG_SOURCE_EVENT_DETAIL_UNAVAILABLE")
+    stop("NO_SAFE_UNIQUE_EPG_FIXTURE_CANDIDATE")
 
 print("TEST_EVENT=", candidate.get("title"),
       "TIME=", candidate.get("startTime"), flush=True)
