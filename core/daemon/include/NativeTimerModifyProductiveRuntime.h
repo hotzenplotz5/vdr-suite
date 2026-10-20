@@ -32,6 +32,7 @@ struct NativeTimerModifyProductiveSummary {
     std::size_t completed = 0;
     std::size_t deferred = 0;
     std::size_t expired = 0;
+    std::size_t quarantined = 0;
 };
 
 NativeTimerModifyProductiveSummary advanceNativeTimerModifyRuntimeOnce(
