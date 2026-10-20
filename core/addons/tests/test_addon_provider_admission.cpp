@@ -1,5 +1,6 @@
 #include "AddonProviderAdmission.h"
 #include <cassert>
+#include <initializer_list>
 
 int main()
 {
