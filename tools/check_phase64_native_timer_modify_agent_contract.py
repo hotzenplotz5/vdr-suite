@@ -25,7 +25,7 @@ store=(ROOT/"core/agent/src/BackendAgentCommandStateStore.cpp").read_text(encodi
 if store.count("if (!deleteExpiredBeforeDispatch(state))") != 2:
  raise SystemExit("DELETE-only evidence-free exception leaked into another command")
 delivery=(ROOT/"core/agent/src/BackendAgentCommandDelivery.cpp").read_text(encoding="utf-8")
-if "native_timer_modify_result_evidence_invalid" not in delivery or \\
-   "backendAgentNativeTimerModifyParseResultEvidence(" not in delivery:
+if ("native_timer_modify_result_evidence_invalid" not in delivery or
+    "backendAgentNativeTimerModifyParseResultEvidence(" not in delivery):
  raise SystemExit("missing server-side MODIFY evidence admission guard")
 print("phase64 native Timer modify Agent contract guard passed")
