@@ -15,6 +15,7 @@
 #include <iostream>
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
 
 void DaemonRuntime::pollVdrAndUpdateChangeFeed()
@@ -210,7 +211,7 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
         timerAssignmentFulfillmentService_ &&
         nativeTimerCreateOperationCompletionService_)
     {
-        vdrsuite::daemon::advanceNativeTimerCreateRuntimeOnce(
+        const auto summary = vdrsuite::daemon::advanceNativeTimerCreateRuntimeOnce(
             *mutationOperationRepository_,
             *backendAgentCommandRepository_,
             *backendAgentNativeTimerCreateReservationService_,
@@ -223,6 +224,8 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
             std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now()
                     .time_since_epoch()).count());
+        if (summary.reconciliationsCompleted != 0)
+            nativeTimerSnapshotRefreshPending_ = true;
     }
 
     // Phase-64 native DELETE is an ADR-0042 Agent operation. The writer
@@ -277,7 +280,7 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
                 return std::nullopt;
             };
 
-        vdrsuite::daemon::advanceNativeTimerDeleteRuntimeOnce(
+        const auto summary = vdrsuite::daemon::advanceNativeTimerDeleteRuntimeOnce(
             *mutationOperationRepository_, *backendAgentCommandRepository_,
             *backendAgentRepository_, *nativeTimerBindingRepository_,
             *backendAgentNativeTimerDeleteAssignmentService_,
@@ -287,6 +290,8 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
             acquireDelete,
             std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count());
+        if (summary.completed != 0)
+            nativeTimerSnapshotRefreshPending_ = true;
     }
 
     // UPDATE and TOGGLE share a provider-fenced Agent but have distinct
@@ -352,7 +357,7 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
                 return std::nullopt;
             };
 
-        vdrsuite::daemon::advanceNativeTimerModifyRuntimeOnce(
+        const auto summary = vdrsuite::daemon::advanceNativeTimerModifyRuntimeOnce(
             *mutationOperationRepository_, *backendAgentCommandRepository_,
             *backendAgentRepository_, *timerIntentRepository_,
             *timerAssignmentRepository_, *nativeTimerBindingRepository_,
@@ -363,6 +368,84 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
             acquireModify,
             std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count());
+        if (summary.completed != 0)
+            nativeTimerSnapshotRefreshPending_ = true;
+    }
+
+    // RESTfulAPI's change-state counter can remain unchanged for a
+    // SuiteBridge-originated native mutation. Once its durable operation
+    // succeeded, refresh the legacy snapshot explicitly; otherwise Public v1
+    // compares a new verified binding with an old cached Timer and returns
+    // 503 indefinitely. Keep retrying if the full native read fails.
+    if (nativeTimerSnapshotRefreshPending_ && snapshotCacheService_ &&
+        backendAgentRepository_)
+    {
+        bool refreshedAll = !backendRuntimeContexts_.empty();
+        for (const auto& context : backendRuntimeContexts_)
+        {
+            if (!context || !context->httpClient || !context->service)
+            {
+                refreshedAll = false;
+                continue;
+            }
+            const auto agent =
+                backendAgentRepository_->findAgentForBackend(context->backendId);
+            if (!agent || agent->revoked || agent->incompatible ||
+                agent->backendGeneration == 0)
+            {
+                refreshedAll = false;
+                continue;
+            }
+            try
+            {
+                vdrsuite::vdr::RestfulApiNativeTimerInventoryReader reader(
+                    *context->httpClient);
+                vdrsuite::vdr::RestfulApiNativeTimerInventoryReadRequest request;
+                request.backendId = context->backendId;
+                request.backendGeneration = agent->backendGeneration;
+                request.observedAt = std::chrono::duration_cast<
+                    std::chrono::seconds>(
+                        std::chrono::system_clock::now()
+                            .time_since_epoch()).count();
+                const auto inventory = reader.read(request);
+                if (!inventory.ok())
+                {
+                    refreshedAll = false;
+                    continue;
+                }
+
+                const auto timers = context->service->getTimers();
+                std::set<std::string> liveIds;
+                for (const auto& timer : timers)
+                    liveIds.insert(timer.id);
+                const std::set<std::string> inventoryIds(
+                    inventory.evidence.backendNativeTimerIds.begin(),
+                    inventory.evidence.backendNativeTimerIds.end());
+
+                if (timers.size() != inventoryIds.size() ||
+                    liveIds != inventoryIds)
+                {
+                    refreshedAll = false;
+                    continue;
+                }
+                snapshotCacheService_->updateTimersForBackend(
+                    context->backendId, timers);
+            }
+            catch (const std::exception& error)
+            {
+                refreshedAll = false;
+                std::cerr << "[WARNING] Native Timer snapshot refresh unavailable "
+                          << "for backend " << context->backendId << ": "
+                          << error.what() << std::endl;
+            }
+            catch (...)
+            {
+                refreshedAll = false;
+                std::cerr << "[WARNING] Native Timer snapshot refresh failed "
+                          << "for backend " << context->backendId << std::endl;
+            }
+        }
+        nativeTimerSnapshotRefreshPending_ = !refreshedAll;
     }
 
     for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
