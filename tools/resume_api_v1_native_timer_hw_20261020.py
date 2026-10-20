@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Resume only the accepted 2026-10-20 native timer UPDATE hardware acceptance.
+"""Resume existing 2026-10-20 native Timer hardware acceptance.
 
-No CREATE or UPDATE is submitted. Each later mutation has a durable local
-one-shot journal: restart may poll the saved operation but never re-POST it.
+The original UPDATE was independently reconciled to failed_verified with
+unchanged native state. Submit a new UPDATE only once, on that same managed
+fixture; then TOGGLE OFF/ON and DELETE. Never CREATE or replay a submitted
+mutation. Every step has a durable one-shot local journal.
 """
 import json
 import os
+import sqlite3
 from pathlib import Path
 import socket
 import subprocess
@@ -158,26 +161,76 @@ def submit_or_resume(stage, method, path, body, etag):
 
 
 print("RESUME=EXISTING_TEST_TIMER_ONLY", flush=True)
-print("UPDATE_ALREADY_SUBMITTED=", UPDATE_OP, flush=True)
-completed("UPDATE", UPDATE_OP)
-etag = read_timer(UPDATED, True) if "toggle_off" not in journal else None
+original_state = get_operation(UPDATE_OP)
+print("PREVIOUS_UPDATE=", UPDATE_OP, "STATE=", original_state, flush=True)
+if original_state != "failed_verified":
+    stop("PREVIOUS_UPDATE_NOT_VERIFIED_FAILED_NO_NEW_MUTATION")
 
 path = "/native-timers/" + TIMER_ID + "/modifications?backendId=default"
+if "update_replacement" not in journal:
+    if any(stage in journal for stage in ("toggle_off", "toggle_on", "delete")):
+        stop("JOURNAL_OUT_OF_ORDER")
+    etag = read_timer(ORIGINAL, True)
+
+    # Preserve all existing native fields except the intended title change.
+    # Do not guess priority, directory or lifetime from the public projection.
+    db = sqlite3.connect(
+        "file:/var/lib/vdr-suite/vdr-suite.db?mode=ro", uri=True)
+    try:
+        native = db.execute("""
+            SELECT observed_channel_id, observed_title,
+                   observed_directory, observed_day, observed_weekdays,
+                   observed_start_time, observed_end_time,
+                   observed_priority, observed_lifetime, observed_vps,
+                   observed_enabled, observed_recording, observed_pending
+            FROM native_timer_bindings
+            WHERE backend_id='default' AND backend_native_timer_id=?
+              AND ownership='managed' AND drift_state='none'
+              AND missing_since=0
+        """, (TIMER_ID,)).fetchone()
+    finally:
+        db.close()
+    if not native or native[1] != ORIGINAL or not native[10] or native[11] or native[12]:
+        stop("BINDING_SPECIFICATION_NOT_VERIFIED")
+    update_body = {
+        "kind": "update",
+        "channelId": native[0],
+        "title": UPDATED,
+        "directory": native[2],
+        "day": native[3],
+        "weekdays": native[4],
+        "startTime": native[5],
+        "endTime": native[6],
+        "priority": native[7],
+        "lifetime": native[8],
+        "vps": bool(native[9]),
+        "enabled": True,
+    }
+else:
+    etag = None
+    update_body = None
+submit_or_resume("update_replacement", "POST", path, update_body, etag)
+if "toggle_off" not in journal:
+    etag = read_timer(UPDATED, True)
+print("UPDATE=PASS", flush=True)
+
 submit_or_resume("toggle_off", "POST", path,
-                 {"kind": "toggle", "enabled": False}, etag)
+                 {"kind": "toggle", "enabled": False},
+                 etag if "toggle_off" not in journal else None)
 if "toggle_on" not in journal:
     etag = read_timer(UPDATED, False)
 print("TOGGLE_OFF=PASS", flush=True)
 
 submit_or_resume("toggle_on", "POST", path,
-                 {"kind": "toggle", "enabled": True}, etag)
+                 {"kind": "toggle", "enabled": True},
+                 etag if "toggle_on" not in journal else None)
 if "delete" not in journal:
     etag = read_timer(UPDATED, True)
 print("TOGGLE_ON=PASS", flush=True)
 
 submit_or_resume("delete", "DELETE",
                  "/native-timers/" + TIMER_ID + "?backendId=default",
-                 None, etag)
+                 None, etag if "delete" not in journal else None)
 code, _, body = safe_get("/native-timers/" + TIMER_ID + "?backendId=default")
 if code != 404:
     print("DELETE_READBACK_HTTP=", code, "DETAIL=", body, flush=True)
@@ -187,7 +240,7 @@ try:
                             text=True, timeout=10)
 except (OSError, subprocess.TimeoutExpired) as e:
     stop("VDR_LSTT_UNAVAILABLE_" + type(e).__name__)
-if native.returncode != 0 or UPDATED in native.stdout or ORIGINAL + "-APIv1-HW" in native.stdout:
+if native.returncode != 0 or UPDATED in native.stdout:
     stop("NATIVE_LSTT_DOES_NOT_PROVE_ABSENCE")
 print("DELETE=PASS", flush=True)
 print("HARDWARE_ACCEPTANCE=PASS UPDATE TOGGLE_OFF TOGGLE_ON DELETE", flush=True)
