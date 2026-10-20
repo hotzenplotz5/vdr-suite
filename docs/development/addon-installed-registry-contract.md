@@ -233,3 +233,14 @@ must recheck an open handler descriptor at dispatch. The preview never marks
 a provider trusted, registered or executable, including for all-positive
 manual and Debian fixtures. Run the focused `test-addon-provider-binding`
 target for regressions.
+
+## Safe bridge to the existing Core policy evidence
+
+`AddonProviderReadService.h` provides a deliberately non-authorizing
+`ProviderBinding`-to-`RuntimeEvidence` adapter. It accepts only the Core-
+compiled handler identity and never copies optimistic caller flags into
+`packageTrusted`, `handlerRegistered`, `handlerHealthy` or administrator
+intent. Even all-positive synthetic installation data produces zero effective
+authorization. The focused `test-addon-provider-read-service` target covers
+both install origins and unknown identities. Connecting a real independently
+approved provider and backend Agent requires a separate reviewed implementation.
