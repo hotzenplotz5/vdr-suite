@@ -40,10 +40,10 @@ def examine(root: Path, module: str, expected_sha256: str) -> dict:
         info = path.lstat()
         if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode):
             return deny("unsafe-handler-file")
-        if info.st_uid != 0 or info.st_mode & 0o022:
-            return deny("unsafe-handler-ownership")
         if not info.st_mode & 0o100:
             return deny("handler-not-executable")
+        if info.st_uid != 0 or info.st_mode & 0o022:
+            return deny("unsafe-handler-ownership")
         if not 0 < info.st_size <= MAX_BYTES:
             return deny("invalid-handler-size")
         digest = hashlib.sha256()
