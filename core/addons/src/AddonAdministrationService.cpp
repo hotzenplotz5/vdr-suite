@@ -37,7 +37,8 @@ IntentResult AddonAdministrationService::setDesiredState(
     const RuntimeEvidence& evidence,
     const AdministrationAuditContext& context)
 {
-    if (actor.actor.type != ActorType::User ||
+    if (intents_.databaseIdentity() != accountability_.databaseIdentity() ||
+        actor.actor.type != ActorType::User ||
         !canInspectInventory(actor).allowed ||
         !safeAuditIdentifier(context.eventId) ||
         !safeAuditIdentifier(actor.requestId) ||
