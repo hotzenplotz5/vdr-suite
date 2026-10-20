@@ -30,12 +30,13 @@ def examine(root: Path, module: str, expected_sha256: str) -> dict:
     path = root
     try:
         # No configurable executable path; disallow symlinks at every level.
-        for index, part in enumerate(HANDLER.split("/")):
-            mode = path.lstat().st_mode
+        for part in HANDLER.split("/"):
+            info_parent = path.lstat()
+            mode = info_parent.st_mode
             if not stat.S_ISDIR(mode) or stat.S_ISLNK(mode):
                 return deny("unsafe-handler-path")
-            if mode & 0o022:
-                return deny("writable-handler-parent")
+            if info_parent.st_uid != 0 or mode & 0o022:
+                return deny("unsafe-handler-parent")
             path = path / part
         info = path.lstat()
         if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode):
