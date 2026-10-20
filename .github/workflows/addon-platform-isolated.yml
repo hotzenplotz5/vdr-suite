@@ -55,6 +55,16 @@ jobs:
           make test-security-human-account-grant-administration
           echo "ADDON_ISOLATED_CI=PASS"
 
+      - name: Build descriptor-pinned handler verifier
+        run: make build-addon-pinned-handler-test
+
+      - name: Run root-owned descriptor test in isolated CI fixture
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo env TMPDIR=/root "$(pwd)/.build/addons/test_addon_pinned_handler"
+          echo "PINNED_ADDON_HANDLER_CI=PASS"
+
       - name: Isolated root-owned approval and revocation acceptance
         shell: bash
         run: |
