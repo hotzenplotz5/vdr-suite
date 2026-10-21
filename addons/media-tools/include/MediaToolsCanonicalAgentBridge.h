@@ -1,0 +1,32 @@
+#pragma once
+
+#include "MediaToolsAgentRequest.h"
+#include "BackendAgentCommand.h"
+#include "MutationOperation.h"
+
+namespace vdrsuite::mediatools {
+
+// Media Tools never owns command reservation, scheduling or actor grants.
+// This strictly observational adapter reads the *canonical* Core/Agent
+// objects and cannot turn them into executable authority.
+inline ImportEnvelopeReason inspectCanonicalImportAssignment(
+    const vdrsuite::operations::MutationOperation& operation,
+    const BackendAgentCommandAssignment& assignment,
+    std::int64_t now)
+{
+    const AgentImportEnvelope envelope{
+        "rectools", "vdr-suite-addon-media-tools",
+        assignment.commandType, assignment.operationId,
+        assignment.commandId, assignment.backendId,
+        operation.backendGeneration, assignment.backendGeneration,
+        operation.deadline, assignment.deadline
+    };
+    if (!assignment.present || assignment.operationId != operation.operationId ||
+        assignment.backendId != operation.backendId ||
+        assignment.jobId.empty() || assignment.attemptId.empty() ||
+        assignment.claimEpoch == 0)
+        return ImportEnvelopeReason::missingOperation;
+    return inspectImportEnvelope(envelope, now);
+}
+
+} // namespace vdrsuite::mediatools
