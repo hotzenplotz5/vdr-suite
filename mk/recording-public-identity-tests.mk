@@ -25,7 +25,7 @@ test-public-recording-collection-projection:
 
 test-public-recording-collection-api:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_recording_collection.cpp \
 		-o $(BUILD_DIR)/test_public_recording_collection
 	$(BUILD_DIR)/test_public_recording_collection
@@ -49,7 +49,7 @@ test-public-recording-collection-security:
 .PHONY: test-public-recording-genre-api
 test-public-recording-genre-api:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_recording_genre_collection.cpp \
 		-o $(BUILD_DIR)/test_public_recording_genre_collection
 	$(BUILD_DIR)/test_public_recording_genre_collection

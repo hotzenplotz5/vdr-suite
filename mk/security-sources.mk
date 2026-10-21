@@ -104,7 +104,7 @@ test-security-device-pairing-request:
 		-o $(BUILD_DIR)/test_device_pairing_request_service
 	$(BUILD_DIR)/test_device_pairing_request_service
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_device_pairing.cpp \
 		-o $(BUILD_DIR)/test_public_device_pairing
 	$(BUILD_DIR)/test_public_device_pairing
@@ -140,7 +140,7 @@ test-security-device-grant-administration:
 		-o $(BUILD_DIR)/test_device_grant_administration
 	$(BUILD_DIR)/test_device_grant_administration
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_device_grants.cpp \
 		-o $(BUILD_DIR)/test_public_device_grants
 	$(BUILD_DIR)/test_public_device_grants
@@ -163,7 +163,7 @@ test-security-device-credential-rotation:
 		-o $(BUILD_DIR)/test_device_credential_rotation
 	$(BUILD_DIR)/test_device_credential_rotation
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_device_credential_rotation.cpp \
 		-o $(BUILD_DIR)/test_public_device_credential_rotation
 	$(BUILD_DIR)/test_public_device_credential_rotation
@@ -186,7 +186,7 @@ test-security-device-lifecycle-administration:
 		-o $(BUILD_DIR)/test_device_lifecycle_administration
 	$(BUILD_DIR)/test_device_lifecycle_administration
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_device_lifecycle.cpp \
 		-o $(BUILD_DIR)/test_public_device_lifecycle
 	$(BUILD_DIR)/test_public_device_lifecycle
@@ -394,7 +394,7 @@ test-security-human-account-grant-administration:
 
 test-security-public-account-collection:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_account_collection.cpp \
 		-o $(BUILD_DIR)/test_public_account_collection
 	$(BUILD_DIR)/test_public_account_collection
@@ -416,7 +416,7 @@ test-security-public-account-collection:
 
 test-security-public-account-grants:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_account_grants.cpp \
 		-o $(BUILD_DIR)/test_public_account_grants
 	$(BUILD_DIR)/test_public_account_grants
@@ -471,7 +471,7 @@ test-security-human-account-session-administration:
 
 test-security-public-account-security-metadata: test-security-human-account-credential-session-read
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_account_security_metadata.cpp \
 		-o $(BUILD_DIR)/test_public_account_security_metadata
 	$(BUILD_DIR)/test_public_account_security_metadata
@@ -488,7 +488,7 @@ test-security-public-account-security-metadata: test-security-human-account-cred
 
 test-security-public-account-session-revoke: test-security-human-account-session-administration
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_account_session_revoke.cpp \
 		-o $(BUILD_DIR)/test_public_account_session_revoke
 	$(BUILD_DIR)/test_public_account_session_revoke
@@ -505,7 +505,7 @@ test-security-public-account-session-revoke: test-security-human-account-session
 
 test-security-public-account-credential-revoke: test-security-human-account-credential-administration
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_account_credential_revoke.cpp \
 		-o $(BUILD_DIR)/test_public_account_credential_revoke
 	$(BUILD_DIR)/test_public_account_credential_revoke
