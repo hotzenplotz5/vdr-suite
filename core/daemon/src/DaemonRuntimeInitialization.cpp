@@ -28,6 +28,9 @@
 #include "PublicResourcePreconditions.h"
 #include "PublicRecordingCollectionProjection.h"
 #include "PublicRecordingPlaybackTargetResolver.h"
+#include "PublicRecordingActionReadback.h"
+#include "RestfulApiRecordingMapper.h"
+#include "HttpRequest.h"
 #include "PublicRecordingDisplayName.h"
 #include "PublicSearchProjection.h"
 #include "GenreBrowserApiRuntime.h"
@@ -843,6 +846,89 @@ bool DaemonRuntime::initialize()
                     ? "default"
                     : request.backendId;
 
+            // This branch applies only to Public-v1 writes. Legacy route
+            // behavior remains unchanged. A provider 2xx is not sufficient:
+            // verify effect with an independent provider inventory before
+            // retiring/rebinding the only persistent rec_ identity authority.
+            if (request.parameters.count("publicV1Action") != 0U) {
+                if (!publicRecordingIdentities_ ||
+                    !vdrRecordingCacheRepository_ ||
+                    !snapshotCacheService_)
+                    return false;
+
+                const auto native = request.parameters.find("backendNativeId");
+                VdrRecording before;
+                if (native == request.parameters.end() ||
+                    !vdrRecordingCacheRepository_->findByBackendNativeId(
+                        backendId, native->second, before))
+                    return false;
+
+                for (const auto& context : backendRuntimeContexts_) {
+                    if (!context || context->backendId != backendId ||
+                        !context->httpClient)
+                        continue;
+                    HttpRequest read;
+                    read.method = "GET";
+                    read.url = "/recordings.json";
+                    read.headers["Accept"] = "application/json";
+                    const HttpResponse upstream =
+                        context->httpClient->execute(read);
+                    if (upstream.statusCode != 200 ||
+                        upstream.body.size() > 8U * 1024U * 1024U)
+                        return false;
+
+                    const auto first =
+                        upstream.body.find_first_not_of(" \t\r\n");
+                    const auto field =
+                        upstream.body.find("\"recordings\"");
+                    // A malformed/unreachable backend must never make the
+                    // final recording look deleted due to an empty vector.
+                    if (first == std::string::npos ||
+                        !(upstream.body[first] == '[' ||
+                          (upstream.body[first] == '{' &&
+                           field != std::string::npos &&
+                           upstream.body.find('[', field) !=
+                               std::string::npos)))
+                        return false;
+
+                    std::vector<VdrRecording> fresh =
+                        RestfulApiRecordingMapper::parseRecordings(upstream.body);
+                    for (VdrRecording& item : fresh) {
+                        item.backendId = backendId;
+                        if (item.backendNativeId.empty())
+                            return false;
+                    }
+
+                    if (request.type == RecordingActionType::Delete) {
+                        if (!PublicRecordingActionReadback::deletedNativeId(
+                                before, fresh) ||
+                            !publicRecordingIdentities_->removeAfterVerifiedDeletion(
+                                backendId, before.backendNativeId))
+                            return false;
+                    } else {
+                        const auto relocated =
+                            PublicRecordingActionReadback::relocatedNativeId(
+                                before, fresh);
+                        if (!relocated ||
+                            !publicRecordingIdentities_->rebindAfterVerifiedMove(
+                                backendId, before.backendNativeId, *relocated))
+                            return false;
+                    }
+
+                    if (!vdrRecordingCacheRepository_->
+                            replaceRecordingsForBackend(backendId, fresh))
+                        return false;
+                    vdrRecordingCacheRepository_->markRefreshFinished(
+                        backendId, static_cast<int>(fresh.size()));
+                    snapshotCacheService_->updateRecordingsForBackend(
+                        backendId, fresh);
+                    recordingPresentationChangeQueue_.request(backendId);
+                    recordingCacheRefreshQueue_.request(backendId);
+                    return true;
+                }
+                return false;
+            }
+
             // A successful DELETE already has authoritative mutation evidence.
             // Project that one Recording out of the Suite caches immediately,
             // publish one backend-scoped presentation invalidation, and let one
@@ -886,6 +972,15 @@ bool DaemonRuntime::initialize()
                 return false;
             }
 
+            VdrRecording previous;
+            bool hasPrevious = false;
+            const auto oldNative = request.parameters.find("backendNativeId");
+            if (oldNative != request.parameters.end() &&
+                vdrRecordingCacheRepository_ && publicRecordingIdentities_) {
+                hasPrevious = vdrRecordingCacheRepository_->findByBackendNativeId(
+                    backendId, oldNative->second, previous);
+            }
+
             // Rename and move change backend-native identity. Keep their
             // single synchronous refresh so an immediate follow-up action resolves
             // the new path rather than a stale pre-mutation snapshot.
@@ -898,6 +993,21 @@ bool DaemonRuntime::initialize()
 
                 const std::vector<VdrRecording> recordings =
                     backendRuntimeContext->snapshotBuilder->buildRecordings();
+
+                // Preserve existing public identity across a legacy rename
+                // or move only when the new provider inventory proves a
+                // unique equivalent source and no old native path remains.
+                if (hasPrevious && publicRecordingIdentities_ &&
+                    (request.type == RecordingActionType::Rename ||
+                     request.type == RecordingActionType::Move)) {
+                    const auto next =
+                        PublicRecordingActionReadback::relocatedNativeId(
+                            previous, recordings);
+                    if (next)
+                        (void) publicRecordingIdentities_->
+                            rebindAfterVerifiedMove(backendId,
+                                previous.backendNativeId, *next);
+                }
 
                 snapshotCacheService_->updateRecordingsForBackend(
                     backendRuntimeContext->backendId,

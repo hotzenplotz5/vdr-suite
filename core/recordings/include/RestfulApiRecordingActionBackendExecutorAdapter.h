@@ -187,6 +187,25 @@ private:
             type == RecordingActionType::Delete;
     }
 
+    static bool matchesPublicExpectedRevision(
+        const RecordingActionJobPayload& payload,
+        const std::string& recordingsState,
+        const std::string& timersState)
+    {
+        const auto recording = payload.parameters.find(
+            "publicExpectedRecordingsState");
+        const auto timer = payload.parameters.find(
+            "publicExpectedTimersState");
+        if (recording == payload.parameters.end() &&
+            timer == payload.parameters.end())
+            return true;
+        return recording != payload.parameters.end() &&
+            timer != payload.parameters.end() &&
+            !recording->second.empty() && !timer->second.empty() &&
+            recording->second == recordingsState &&
+            timer->second == timersState;
+    }
+
     static bool hasParameter(
         const std::map<std::string, std::string>& parameters,
         const std::string& name)
@@ -663,6 +682,13 @@ private:
                 "missing revision state");
         }
 
+        if (!matchesPublicExpectedRevision(
+                payload, recordingsState, timersState))
+            return RecordingActionExecutionResult::failed(
+                payload.type, payload.recordingId, payload.backendId,
+                "provider recording state changed before execution",
+                {"public recording revision conflict"});
+
         if (payload.dryRun)
         {
             RecordingActionExecutionResult result;
@@ -868,6 +894,13 @@ private:
                 "missing revision state");
         }
 
+        if (!matchesPublicExpectedRevision(
+                payload, recordingsState, timersState))
+            return RecordingActionExecutionResult::failed(
+                payload.type, payload.recordingId, payload.backendId,
+                "provider recording state changed before execution",
+                {"public recording revision conflict"});
+
         if (payload.dryRun)
         {
             RecordingActionExecutionResult result;
@@ -1072,6 +1105,13 @@ private:
                 "safe trash preview response is "
                 "missing revision state");
         }
+
+        if (!matchesPublicExpectedRevision(
+                payload, recordingsState, timersState))
+            return RecordingActionExecutionResult::failed(
+                payload.type, payload.recordingId, payload.backendId,
+                "provider recording state changed before execution",
+                {"public recording revision conflict"});
 
         if (payload.dryRun)
         {

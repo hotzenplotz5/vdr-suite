@@ -189,6 +189,23 @@ int main()
         "\"targetFolderId\":\"fld1_0123456789abcdef0123456789abcdef\"}",
         publicRequest));
 
+    assert(parser.parsePublic(
+        "{\"backendId\":\"backend-a\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"DELETE\",\"dryRun\":false,\"confirmDelete\":true}",
+        publicRequest));
+    assert(publicRequest.parameters.at("publicDeleteConfirmed") == "1");
+    assert(!parser.parsePublic(
+        "{\"backendId\":\"backend-a\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"DELETE\",\"confirmDelete\":\"true\"}",
+        publicRequest));
+    assert(!parser.parsePublic(
+        "{\"backendId\":\"backend-a\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"RENAME\",\"newName\":\"X\",\"confirmDelete\":true}",
+        publicRequest));
+
     // Authoritative SafeMutation provider preview counters become an opaque,
     // operation-scoped public ETag without any backend-native path.
     RecordingActionExecutionResult acceptedProvider;

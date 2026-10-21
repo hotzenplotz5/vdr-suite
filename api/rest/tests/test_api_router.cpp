@@ -1813,7 +1813,7 @@ int main()
         "\"action\":\"DELETE\",\"dryRun\":false}",
         "\"vsr-74657374\"");
     assert(acceptedSyntaxNotAuthority.statusCode == 409);
-    assert(acceptedSyntaxNotAuthority.body.find("revision") !=
+    assert(acceptedSyntaxNotAuthority.body.find("preflight") !=
         std::string::npos);
 
     // A caller cannot supply native MOVE destinations through the public API.

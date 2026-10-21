@@ -22,6 +22,7 @@
 #include "VdrSnapshotReadService.h"
 
 #include <functional>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -565,6 +566,7 @@ private:
 
     PublicRecordingActionResolver publicRecordingActionResolver_;
     PublicRecordingFolderResolver publicRecordingFolderResolver_;
+    std::mutex publicRecordingWriteMutex_;
     DashboardController& dashboardController_;
     JobsController& jobsController_;
     RecordingsController& recordingsController_;

@@ -130,7 +130,7 @@ std::map<std::string, std::string> parseFlatObject(
         std::string value;
         if (position < body.size() && body[position] == '"')
         {
-            if (strictPublic && key == "dryRun")
+            if (strictPublic && (key == "dryRun" || key == "confirmDelete"))
                 return {};
             if (!parseJsonString(body, position, value))
                 return {};
@@ -144,7 +144,8 @@ std::map<std::string, std::string> parseFlatObject(
                 ++position;
             value = trim(body.substr(valueStart, position - valueStart));
             if (strictPublic &&
-                (key != "dryRun" || (value != "true" && value != "false")))
+                ((key != "dryRun" && key != "confirmDelete") ||
+                 (value != "true" && value != "false")))
                 return {};
         }
 
@@ -290,7 +291,8 @@ bool RecordingActionValidationRequestParser::parsePublic(
     {
         if (item.first != "backendId" && item.first != "recordingId" &&
             item.first != "action" && item.first != "dryRun" &&
-            item.first != "newName" && item.first != "targetFolderId")
+            item.first != "newName" && item.first != "targetFolderId" &&
+            item.first != "confirmDelete")
             return false;
     }
 
@@ -348,6 +350,15 @@ bool RecordingActionValidationRequestParser::parsePublic(
     else if (!folderId.empty())
     {
         return false;
+    }
+
+    const auto confirmation = values.find("confirmDelete");
+    if (confirmation != values.end())
+    {
+        if (action != "DELETE")
+            return false;
+        if (confirmation->second == "true")
+            request.parameters["publicDeleteConfirmed"] = "1";
     }
 
     return true;

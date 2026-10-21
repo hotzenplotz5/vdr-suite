@@ -367,8 +367,8 @@ ApiRouter::ApiRouter(
 ApiResponse ApiRouter::handlePublicRecordingAction(
     const std::string& body, bool execute, const std::string& ifMatch)
 {
-    // SecurityHttpGate checks the actor, backend-scoped action grant and
-    // browser CSRF first. This v1-only boundary never dispatches mutations.
+    // The HTTP security gate has checked the actor, exact backend-scoped
+    // recording grant and browser CSRF. Legacy routes stay independent.
     const auto problem = [](int status, const char* title,
                             const char* detail) {
         ApiResponse response;
@@ -386,6 +386,13 @@ ApiResponse ApiRouter::handlePublicRecordingAction(
     if (!parser.parsePublic(body, request))
         return problem(400, "Bad Request",
             "A valid backendId, public recordingId and action are required.");
+
+    // Serialize Public-v1 writes within one Suite daemon. Independent VDR
+    // mutations are fenced again by provider revision validation.
+    std::unique_lock<std::mutex> writeLock(
+        publicRecordingWriteMutex_, std::defer_lock);
+    if (execute && !request.dryRun)
+        writeLock.lock();
 
     // R3: map only an existing backend-scoped fld1_ ID to a server-side
     // logical folder using the same Recording browse cache as clients.
@@ -433,7 +440,7 @@ ApiResponse ApiRouter::handlePublicRecordingAction(
                 break;
             offset = end + 1U;
         }
-        request.parameters.erase(supplied);
+        // Keep the public folder token for the operation-scoped ETag.
         request.parameters["targetPath"] =
             folderPath.empty() ? "/" : folderPath;
     }
@@ -492,11 +499,11 @@ ApiResponse ApiRouter::handlePublicRecordingAction(
     const std::string safeValidation = serializer.serialize(validation);
 
     std::string providerTag;
+    PublicRecordingActionProviderPreflight provider;
     if (validation.valid)
     {
         RecordingActionRequest previewRequest = request;
         previewRequest.dryRun = true;
-        PublicRecordingActionProviderPreflight provider;
         if (PublicRecordingActionProviderPreflight::read(
                 recordingActionExecutionController_.previewBackend(
                     previewRequest), provider))
@@ -517,8 +524,56 @@ ApiResponse ApiRouter::handlePublicRecordingAction(
         if (ifMatch != providerTag)
             return problem(412, "Precondition Failed",
                 "Recording action revision is stale.");
-        return problem(409, "Conflict",
-            "Verified public recording mutation is not yet enabled.");
+        if (!validation.valid)
+            return problem(409, "Conflict",
+                "Recording action validation failed.");
+        if (request.type == RecordingActionType::Delete &&
+            request.parameters.count("publicDeleteConfirmed") == 0U)
+            return problem(400, "Bad Request",
+                "Explicit confirmDelete:true is required for DELETE.");
+
+        // Prevent a source-identity swap between the local preflight and
+        // the only actual invocation of the existing mutation executor.
+        VdrRecording current;
+        if (!publicRecordingActionResolver_(
+                request.backendId, publicId, current) ||
+            current.backendId != recording.backendId ||
+            current.backendNativeId != recording.backendNativeId ||
+            current.id != recording.id ||
+            current.title != recording.title)
+            return problem(412, "Precondition Failed",
+                "Recording identity changed during preflight.");
+
+        request.parameters["publicV1Action"] = "1";
+        request.parameters["publicExpectedRecordingsState"] =
+            provider.recordingsState;
+        request.parameters["publicExpectedTimersState"] =
+            provider.timersState;
+
+        // Same RecordingActionExecutionController and SafeMutation adapter
+        // as legacy. The daemon's Public-v1 callback requires a separate
+        // native inventory readback before any rec_ lifecycle update.
+        const RecordingActionExecutionResult outcome =
+            recordingActionExecutionController_.executeResult(request);
+        if (!outcome.success)
+            return problem(409, "Conflict",
+                "Recording mutation was not confirmed; do not retry automatically.");
+        if (!outcome.snapshotRefreshed)
+            return problem(409, "Conflict",
+                "Recording mutation readback is inconclusive; do not retry automatically.");
+
+        ApiResponse committed;
+        committed.statusCode = 200;
+        committed.contentType = "application/json";
+        committed.headers["Cache-Control"] = "no-store";
+        const char* action = request.type == RecordingActionType::Rename
+            ? "RENAME" : request.type == RecordingActionType::Move
+                ? "MOVE" : "DELETE";
+        committed.body = std::string("{\"success\":true,\"executed\":true,") +
+            "\"readbackVerified\":true,\"action\":\"" + action +
+            "\",\"backendId\":\"" + request.backendId +
+            "\",\"recordingId\":\"" + publicId + "\"}";
+        return committed;
     }
 
     ApiResponse response;
