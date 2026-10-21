@@ -1,12 +1,14 @@
 #include "PinnedMediaImportAgentExecutor.h"
 
 #include "AddonRootApproval.h"
+#include "MediaImportRecordingEvidence.h"
 
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
 #include <csignal>
 #include <fcntl.h>
+#include <cstring>
 #include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
@@ -32,12 +34,41 @@ bool safePath(const std::filesystem::path& path)
     return true;
 }
 
-// Execute the *pinned descriptor*, never reopen the installed pathname.
-// Do not inherit the Agent's environment or leak API payloads to logs.
-// A killed or failed child is always reconciliation-required (unknown).
-MediaImportAgentOutcome runPinned(
-    int fd, const LocalMediaImportSource& source, std::int64_t deadline)
+// The handler runs through the reviewed pinned descriptor. Its stdout is
+// observed only to correlate a freshly promoted .rec with Suite's readback;
+// neither exit 0 nor stdout alone verifies a recording.
+std::string parseCommittedRecording(
+    const std::string& stdoutText, const LocalMediaImportSource& source)
 {
+    const std::string marker = "RECORDING=";
+    const auto pos = stdoutText.find(marker);
+    if (pos == std::string::npos ||
+        (pos != 0 && stdoutText[pos - 1] != '\n') ||
+        stdoutText.find(marker, pos + marker.size()) != std::string::npos ||
+        stdoutText.find("IMPORT_STATUS=COMMITTED\n") == std::string::npos)
+        return {};
+    const auto last = stdoutText.find('\n', pos);
+    if (last == std::string::npos) return {};
+    const std::string destination =
+        stdoutText.substr(pos + marker.size(),
+                          last - (pos + marker.size()));
+    const std::filesystem::path path(destination);
+    if (!safePath(path) || path.lexically_normal() != path ||
+        path.extension() != ".rec")
+        return {};
+    const auto relative = path.lexically_relative(source.videoRoot);
+    if (relative.empty() || relative == "." || relative.is_absolute())
+        return {};
+    for (const auto& component : relative)
+        if (component == "." || component == "..") return {};
+    return recordingPathEvidence(destination);
+}
+
+MediaImportAgentOutcome runPinned(
+    int fd, const LocalMediaImportSource& source, std::int64_t deadline,
+    std::string& recordingEvidence)
+{
+    recordingEvidence.clear();
     if (fd < 0 || !safePath(source.sourceRoot) ||
         !safePath(source.videoRoot) || !safePath(source.sourceFile))
         return MediaImportAgentOutcome::rejected;
@@ -59,39 +90,87 @@ MediaImportAgentOutcome runPinned(
     char environmentLocale[] = "LC_ALL=C";
     char* const environment[] = {environmentPath, environmentLocale, nullptr};
 
+    int capture[2] = {-1, -1};
+    if (::pipe(capture) != 0) return MediaImportAgentOutcome::unknown;
+    (void)::fcntl(capture[0], F_SETFD, FD_CLOEXEC);
+    (void)::fcntl(capture[1], F_SETFD, FD_CLOEXEC);
+    if (::fcntl(capture[0], F_SETFL, O_NONBLOCK) != 0)
+    {
+        ::close(capture[0]);
+        ::close(capture[1]);
+        return MediaImportAgentOutcome::unknown;
+    }
     const pid_t pid = ::fork();
-    if (pid < 0) return MediaImportAgentOutcome::unknown;
+    if (pid < 0)
+    {
+        ::close(capture[0]);
+        ::close(capture[1]);
+        return MediaImportAgentOutcome::unknown;
+    }
     if (pid == 0)
     {
-        // New process group contains spawned ffmpeg/ffprobe descendants.
+        ::close(capture[0]);
         if (::setsid() < 0) ::_exit(127);
         const int devnull = ::open("/dev/null", O_WRONLY | O_CLOEXEC);
-        if (devnull < 0 || ::dup2(devnull, STDOUT_FILENO) < 0 ||
+        if (devnull < 0 ||
+            ::dup2(capture[1], STDOUT_FILENO) < 0 ||
             ::dup2(devnull, STDERR_FILENO) < 0)
             ::_exit(127);
+        ::close(capture[1]);
         ::close(devnull);
         ::fexecve(fd, argv, environment);
         ::_exit(127);
     }
+    ::close(capture[1]);
+    std::string output;
+    bool overflow = false;
+    const auto drain = [&]() {
+        char bytes[1024];
+        while (true)
+        {
+            const ssize_t count = ::read(capture[0], bytes, sizeof bytes);
+            if (count > 0)
+            {
+                if (output.size() + static_cast<std::size_t>(count) <= 8192)
+                    output.append(bytes, static_cast<std::size_t>(count));
+                else
+                    overflow = true;
+                continue;
+            }
+            if (count < 0 && errno == EINTR) continue;
+            break;
+        }
+    };
 
-    // Bound child lifetime; the Agent cannot turn a deadline into a blind
-    // replay. Even exit 0 only means submitted, never recording verified.
     const auto until = std::chrono::steady_clock::now() +
         std::chrono::seconds(std::min<std::int64_t>(deadline - now, 600));
     int status = 0;
     while (std::chrono::steady_clock::now() < until)
     {
+        drain();
         const pid_t waited = ::waitpid(pid, &status, WNOHANG);
         if (waited == pid)
-            return WIFEXITED(status) && WEXITSTATUS(status) == 0
-                ? MediaImportAgentOutcome::submitted
-                : MediaImportAgentOutcome::unknown;
-        if (waited < 0) return MediaImportAgentOutcome::unknown;
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        {
+            drain();
+            ::close(capture[0]);
+            if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+                return MediaImportAgentOutcome::unknown;
+            if (!overflow)
+                recordingEvidence = parseCommittedRecording(output, source);
+            // No evidence -> still unverified, never a false success.
+            return MediaImportAgentOutcome::submitted;
+        }
+        if (waited < 0)
+        {
+            ::close(capture[0]);
+            return MediaImportAgentOutcome::unknown;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(25));
     }
     ::kill(-pid, SIGKILL);
     ::kill(pid, SIGKILL);
     while (::waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
+    ::close(capture[0]);
     return MediaImportAgentOutcome::unknown;
 }
 } // namespace
@@ -121,6 +200,7 @@ bool PinnedMediaImportAgentExecutor::authorize(
     const std::string& backendId, std::uint64_t generation)
 {
     pinned_.reset();
+    recordingEvidence_.clear();
     pendingCommandId_.clear();
     pendingFingerprint_.clear();
     pendingSource_ = {};
@@ -192,7 +272,15 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
         local.sourceFile != approvedSource.sourceFile)
         return MediaImportAgentOutcome::rejected;
 
-    return runPinned(snapshot->pinnedBinary.get(), local, assignment.deadline);
+    return runPinned(snapshot->pinnedBinary.get(), local, assignment.deadline,
+                     recordingEvidence_);
+}
+
+std::string PinnedMediaImportAgentExecutor::takeRecordingEvidence()
+{
+    auto evidence = std::move(recordingEvidence_);
+    recordingEvidence_.clear();
+    return evidence;
 }
 
 } // namespace vdrsuite::mediatools
