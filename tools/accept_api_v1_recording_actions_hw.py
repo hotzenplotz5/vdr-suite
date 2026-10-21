@@ -9,6 +9,7 @@ import urllib.error
 import urllib.request
 
 MARKER = "VDR-SUITE-TEST"
+APPROVED_NATIVE_SUFFIX = "/Report_Mainz/2026-10-20.21.45.1-0.rec"
 RENAME = "VDR-SUITE-TEST-API-V1-RENAMED"
 MOVE = "VDR-SUITE-TEST-API-V1-MOVED"
 
@@ -66,7 +67,7 @@ def confirm(text):
 
 def run_action(base, backend, item, action, **params):
     native, rid = identity(item)
-    if MARKER not in native or not native.endswith(".rec") or not rid:
+    if (MARKER not in native and not native.endswith(APPROVED_NATIVE_SUFFIX) and RENAME.replace("-", "_") not in native and MOVE.replace("-", "_") not in native) or not native.endswith(".rec") or not rid:
         raise RuntimeError("STOP: missing marker/native .rec identity/recordingId")
     payload = {"backendId": backend, "recordingId": rid, "backendNativeId": native,
                "action": action, "dryRun": True, **params}
@@ -106,23 +107,25 @@ def main():
     if not args.execute:
         raise RuntimeError("Real mutations disabled: explicitly specify --execute")
     native = args.native
-    if MARKER not in native or not native.endswith(".rec"):
+    if (MARKER not in native and not native.endswith(APPROVED_NATIVE_SUFFIX)) or not native.endswith(".rec"):
         raise RuntimeError("Fixture native path must contain VDR-SUITE-TEST and end in .rec")
     base = args.base.rstrip("/")
     item = find_exact(snapshot(base), native)
+    if not native.endswith(APPROVED_NATIVE_SUFFIX):
+        raise RuntimeError("STOP: this acceptance run only permits the explicitly approved Report_Mainz fixture")
     print("FIXTURE=", json.dumps(item, ensure_ascii=False)[:1400])
     confirm("Confirm this is a disposable, completed dedicated TEST recording; NO real recordings")
     results = {"RENAME": "NOT_RUN", "MOVE": "NOT_RUN", "DELETE": "NOT_RUN"}
     try:
         old = run_action(base, args.backend, item, "RENAME", newName=RENAME)
         def renamed(items):
-            matches = [x for x in items if MARKER in identity(x)[0] and RENAME.replace("-", "_") in identity(x)[0] and identity(x)[0] != old]
+            matches = [x for x in items if RENAME.replace("-", "_") in identity(x)[0] and identity(x)[0] != old]
             return matches[0] if len(matches) == 1 else None
         item = wait_for(base, renamed, "RENAME")
         results["RENAME"] = "PASS"
         old = run_action(base, args.backend, item, "MOVE", targetPath=MOVE)
         def moved(items):
-            matches = [x for x in items if MARKER in identity(x)[0] and MOVE.replace("-", "_") in identity(x)[0] and identity(x)[0] != old]
+            matches = [x for x in items if MOVE.replace("-", "_") in identity(x)[0] and identity(x)[0] != old]
             return matches[0] if len(matches) == 1 else None
         item = wait_for(base, moved, "MOVE")
         results["MOVE"] = "PASS"
