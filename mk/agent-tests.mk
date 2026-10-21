@@ -182,6 +182,7 @@ test-phase63-command-delivery-runtime:
 		core/operations/src/MutationOperationRepository.cpp \
 		core/security/src/SecurityPermissionGrantRepository.cpp \
 		core/addons/src/MediaImportOperationFence.cpp \
+		core/agent/src/BackendAgentMediaImportAssignment.cpp \
 		core/agent/tests/test_backend_agent_command_delivery.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_backend_agent_command_delivery

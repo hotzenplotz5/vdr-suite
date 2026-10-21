@@ -75,6 +75,7 @@ public:
     bool ensureNativeTimerModifyAssignmentSchema();
     bool ensureRecordingMarksModifyAssignmentSchema();
     bool ensureRecordingCutAssignmentSchema();
+    bool ensureMediaImportAssignmentSchema();
     bool ensureRecordingMarksModifyReconciliationSchema();
     bool ensureRecordingCutReconciliationSchema();
     std::optional<BackendAgentCommandAssignment> findAssignment(

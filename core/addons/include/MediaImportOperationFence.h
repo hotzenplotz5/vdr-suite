@@ -36,6 +36,11 @@ public:
                const BackendAgentCommandReceipt& receipt,
                std::int64_t now, std::string& reason) const;
 
+    // Used by the existing Agent CommandRepository assignment service.
+    // No synthetic receipt or extra queue is created during reservation.
+    bool checkCandidate(const BackendAgentCommandAssignment& assignment,
+                        std::int64_t now, std::string& reason) const;
+
     // Called only AFTER the existing Agent result repository durably stores
     // the result. Never equate handler exit with a verified VDR recording.
     bool applyResult(const BackendAgentCommandAssignment& assignment,
@@ -43,6 +48,10 @@ public:
                      std::int64_t now, std::string& reason) const;
 
 private:
+    bool checkCore(const BackendAgentCommandAssignment& assignment,
+                   std::int64_t now, bool requireDispatching,
+                   std::string& reason) const;
+
     vdrsuite::operations::MutationOperationRepository& operations_;
     SecurityIdentityRepository& identities_;
     SecurityPermissionGrantRepository& grants_;

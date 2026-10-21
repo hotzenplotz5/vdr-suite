@@ -52,19 +52,34 @@ bool MediaImportOperationFence::check(
     const BackendAgentCommandReceipt& receipt,
     std::int64_t now, std::string& reason) const
 {
+    if (!backendAgentCommandValidReceipt(receipt) ||
+        !exactReceipt(assignment, receipt) ||
+        receipt.receivedAt > now)
+        return denied(reason, "media_import_invalid_receipt_fence");
+    return checkCore(assignment, now, true, reason);
+}
+
+bool MediaImportOperationFence::checkCandidate(
+    const BackendAgentCommandAssignment& assignment,
+    std::int64_t now, std::string& reason) const
+{
+    return checkCore(assignment, now, false, reason);
+}
+
+bool MediaImportOperationFence::checkCore(
+    const BackendAgentCommandAssignment& assignment,
+    std::int64_t now, bool requireDispatching, std::string& reason) const
+{
     reason.clear();
     std::string sourceId;
     if (now <= 0 || !backendAgentCommandValidAssignment(assignment) ||
-        !backendAgentCommandValidReceipt(receipt) ||
         assignment.commandType != vdrsuite::mediatools::kMediaImportCommandType ||
         assignment.payloadVersion != 1 ||
         assignment.verificationPolicy != "reconciliation_required" ||
         !vdrsuite::mediatools::parseMediaImportSelection(
             assignment.payload, sourceId) ||
-        !exactReceipt(assignment, receipt) ||
-        receipt.receivedAt > now || assignment.deadline <= now ||
-        assignment.assignedAt > now)
-        return denied(reason, "media_import_invalid_receipt_fence");
+        assignment.deadline <= now || assignment.assignedAt > now)
+        return denied(reason, "media_import_invalid_assignment_fence");
 
     // A live Agent identity, instance, generation and explicitly published
     // capability are necessary, but never sufficient for authorization.
@@ -86,8 +101,11 @@ bool MediaImportOperationFence::check(
     const auto& op = operation.operation;
     // Operation requestFingerprint is the *logical API request* fingerprint;
     // the Agent command fingerprint is independently computed and validated.
-    if (op.state !=
-            vdrsuite::operations::MutationOperationState::dispatching ||
+    using OperationState = vdrsuite::operations::MutationOperationState;
+    if ((requireDispatching
+            ? op.state != OperationState::dispatching
+            : (op.state != OperationState::accepted &&
+               op.state != OperationState::dispatching)) ||
         op.actionFamily != "media.import" ||
         op.resourceType != "MediaImportSource" ||
         op.resourceId != sourceId ||

@@ -2,6 +2,7 @@
 #include "BackendAgentCommandDelivery.h"
 #include "BackendAgentLifecycle.h"
 #include "MediaImportOperationFence.h"
+#include "BackendAgentMediaImportAssignment.h"
 #include "MutationOperationRepository.h"
 #include "SecurityIdentityRepository.h"
 #include "SecurityPermissionGrantRepository.h"
@@ -344,6 +345,68 @@ int main()
     fakeSuccess.verificationState = "verified";
     fakeSuccess.retryClassification = "none";
     assert(!coreFence.applyResult(media, fakeSuccess, 123, fenceReason));
+
+    // A6: the actual Agent command reservation uses only the existing
+    // persistent ADR-0042 operation + Agent command table, including replay.
+    assert(db.execute(
+        "INSERT INTO security_actors(actor_id,actor_type,display_name) "
+        "VALUES('human_assign','user','Assignment tester');"));
+    assert(mediaGrants.ensureGrant(
+        "human_assign", "addons.media.import", "default"));
+    auto queued = op;
+    queued.operationId = "op_media_assign";
+    queued.idempotencyKey = "idem_media_assign";
+    queued.actorId = "human_assign";
+    queued.resourceId = "queued_token";
+    queued.requestFingerprint = "logical_queued_request";
+    queued.requestedAt = 125;
+    queued.updatedAt = queued.requestedAt;
+    auto queuedPayload = payload;
+    queuedPayload.operationId = queued.operationId;
+    queuedPayload.payload = "{\"sourceId\":\"queued_token\"}";
+    queuedPayload.payloadFingerprint = "logical_queued_payload";
+    assert(operations.reserveWithPayload(queued, queuedPayload).ok());
+
+    vdrsuite::agent::BackendAgentMediaImportAssignmentService assigner(
+        operations, commands, agents, coreFence);
+    const auto authorized = assigner.assign(
+        context(ActorType::System, "system_admin"), queued.operationId, 130);
+    assert(authorized.accepted && !authorized.replayed);
+    assert(backendAgentCommandValidAssignment(authorized.assignment));
+    assert(authorized.assignment.payload == queuedPayload.payload);
+    assert(authorized.assignment.claimEpoch == 1);
+    assert(operations.findById(queued.operationId).operation.state ==
+        vdrsuite::operations::MutationOperationState::dispatching);
+    const auto replayed = assigner.assign(
+        context(ActorType::System, "system_admin"), queued.operationId, 131);
+    assert(replayed.accepted && replayed.replayed &&
+           replayed.assignment.commandId == authorized.assignment.commandId);
+    assert(!assigner.assign(
+        context(ActorType::User, "human_assign"), queued.operationId, 132
+        ).accepted);
+
+    // Crash after the Core operation CAS but before command persistence:
+    // the same operation can complete its reservation with no new DB/queue.
+    queued.operationId = "op_media_crash";
+    queued.idempotencyKey = "idem_media_crash";
+    queued.requestFingerprint = "logical_crash_request";
+    queuedPayload.operationId = queued.operationId;
+    queuedPayload.payloadFingerprint = "logical_crash_payload";
+    const auto crashReserved = operations.reserveWithPayload(
+        queued, queuedPayload);
+    assert(crashReserved.ok());
+    assert(operations.transition(
+        queued.operationId, crashReserved.operation.operationRevision,
+        vdrsuite::operations::MutationOperationState::accepted,
+        vdrsuite::operations::MutationOperationState::dispatching,
+        "", 129).ok());
+    const auto recovered = assigner.assign(
+        context(ActorType::System, "system_admin"), queued.operationId, 133);
+    assert(recovered.accepted && !recovered.replayed);
+    assert(assigner.assign(
+        context(ActorType::System, "system_admin"), queued.operationId, 134
+        ).replayed);
+
 
 
     std::cout << "P7_AGENT_RESULT_EVIDENCE_MIGRATION=PASS\n";
