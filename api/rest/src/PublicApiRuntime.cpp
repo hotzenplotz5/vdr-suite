@@ -3770,31 +3770,52 @@ ApiResponse publicDevicePairingAdministrationCollectionResponse(
         : "\"" + jsonEscape(next) + "\"";
     body += "}}";
 
-    return jsonResponsuntSessionRevokeAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.device-pairing-bootstrap\",\"version\":1,\"availability\":\"" +
-        std::string(devicePairingBootstrapAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.device-pairing-administration\",\"version\":1,\"availability\":\"" +
-        std::string(devicePairingAdministrationAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.device-credential-issuance\",\"version\":1,\"availability\":\"" +
-        std::string(deviceCredentialIssueAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.compatibility-policy\",\"version\":1,\"availability\":\"available\"},"
-        "{\"id\":\"public-api.deprecation-metadata\",\"version\":1,\"availability\":\"available\"}"
-        "],\"compatibility\":{\"policyVersion\":1,"
-        "\"supportedApiMajors\":[\"v1\"],"
-        "\"responseEvolution\":\"additive\","
-        "\"breakingChanges\":\"new-major\","
-        "\"unknownRequestFields\":\"reject\","
-        "\"legacyUnversioned\":\"transition\","
-        "\"lifecycle\":[\"supported\",\"deprecated\",\"sunset-announced\",\"removed\"],"
-        "\"deprecationHeaders\":[\"Deprecation\",\"Sunset\",\"Link\"],"
-        "\"deprecatedAliases\":[]},"
-        "\"links\":{\"self\":\"/api/v1/capabilities\",\"root\":\"/api/v1\"}}",
+    return jsonResponse(
+        body,
         requestId,
         correlationId);
+}
+
+ApiResponse publicDevicePairingCreatedResponse(
+    const PublicDevicePairingCreateResult& created,
+    const std::string& requestId,
+    const std::string& correlationId)
+{
+    const std::string self =
+        std::string(PublicDevicePairingPrefix) +
+        created.resource.pairingRequestId;
+    std::string body =
+        "{\"pairingRequestId\":\"" +
+        jsonEscape(created.resource.pairingRequestId) +
+        "\",\"userCode\":\"" +
+        jsonEscape(created.userCode) +
+        "\",\"pairingToken\":\"" +
+        jsonEscape(created.pairingToken) +
+        "\",\"status\":\"" +
+        jsonEscape(created.resource.state) +
+        "\",\"expiresAt\":\"" +
+        jsonEscape(created.resource.expiresAt) +
+        "\",\"pollIntervalSeconds\":" +
+        std::to_string(
+            created.resource.pollIntervalSeconds) +
+        ",\"client\":{\"displayName\":\"" +
+        jsonEscape(created.resource.client.displayName) +
+        "\",\"clientKind\":\"" +
+        jsonEscape(created.resource.client.clientKind) +
+        "\",\"appVersion\":\"" +
+        jsonEscape(created.resource.client.appVersion) +
+        "\"},\"links\":{\"self\":\"" +
+        jsonEscape(self) +
+        "\"}}";
+
+    ApiResponse response =
+        jsonResponse(
+            body,
+            requestId,
+            correlationId);
+    response.statusCode = 201;
+    response.headers["Location"] = self;
+    return response;
 }
 
 ApiResponse publicOperationResponse(
