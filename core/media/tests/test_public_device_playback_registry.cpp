@@ -87,6 +87,40 @@ int main() {
     assert(!registry.describeOwned(id,device()));
     assert(grants.ensureGrant("actor-playback","media.recording.play","backend-a"));
     assert(registry.authorized(id,"actor-playback","backend-a",true));
+    // Live is a different resourceKind and permission. Neither the
+    // recording grant nor its owner mapping can authorize live media.
+    MediaSessionIssuanceRequest liveRequest=request;
+    liveRequest.resourceKind="live-channel";
+    liveRequest.resourceId="S19.2E-1-1101-28106";
+    liveRequest.presentationProfileId="live-progressive-fmp4";
+    liveRequest.providerId="suitebridge-native-live";
+    auto live=issuer.issue(liveRequest);
+    assert(live.issued);
+    assert(sessions.activateBundle(live.session.sessionId));
+    const auto liveId=live.session.sessionId;
+    assert(!registry.authorized(liveId,"actor-playback","backend-a",true));
+    assert(!registry.addLive(liveId,"backend-a",device()));
+    assert(grants.ensureGrant("actor-playback","media.live.play","backend-a"));
+    assert(registry.addLive(liveId,"backend-a",device()));
+    assert(!registry.add(liveId,"backend-a",device()));
+    assert(!registry.describeOwned(liveId,device()));
+    const auto liveOwned=registry.describeOwnedLive(liveId,device());
+    assert(liveOwned.has_value());
+    assert(liveOwned->resourceKind=="live-channel");
+    assert(liveOwned->resourceId=="S19.2E-1-1101-28106");
+    assert(registry.authorized(liveId,"actor-playback","backend-a",true));
+    assert(!registry.owned(liveId,"backend-b",device()));
+    assert(grants.revokeGrant("actor-playback","media.live.play","backend-a"));
+    assert(!registry.authorized(liveId,"actor-playback","backend-a",true));
+    assert(!registry.describeOwnedLive(liveId,device()));
+    // Revoking live does not silently revoke a separately granted Recording.
+    assert(registry.authorized(id,"actor-playback","backend-a",true));
+    assert(grants.ensureGrant("actor-playback","media.live.play","backend-a"));
+    assert(registry.authorized(liveId,"actor-playback","backend-a",true));
+    assert(!registry.describeOwnedLive(liveId,other));
+    registry.erase(liveId);
+    assert(!registry.authorized(liveId,"actor-playback","backend-a",true));
+
     assert(identities.revokeCredential("credential-playback"));
     assert(!registry.authorized(id,"actor-playback","backend-a",true));
     assert(!registry.describeOwned(id,device()));

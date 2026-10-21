@@ -1,4 +1,5 @@
 #include "PublicApiRuntime.h"
+#include "PublicSearchProjection.h"
 
 #include <cassert>
 #include <string>
@@ -120,6 +121,7 @@ int main()
                 leaf.singleRecording =
                     recording("rec_00000000000000000000000000000001");
                 leaf.singleRecording.title = "48 Hrs";
+                leaf.singleRecording.edited = true;
                 page.folders.push_back(leaf);
             }
             else if (request.offset == 2U)
@@ -145,6 +147,7 @@ int main()
     assert(children.body.find("\"kind\":\"recording\"") != std::string::npos);
     assert(children.body.find("\"title\":\"48 Hrs\"") != std::string::npos);
     assert(children.body.find("\"folderId\"") == std::string::npos);
+    assert(children.body.find("\"edited\":true") != std::string::npos);
     assert(children.body.find("\"hasMore\":true") != std::string::npos);
     ApiResponse direct;
     assert(runtime.tryHandleGet(
@@ -223,5 +226,162 @@ int main()
     assert(unauthenticated.statusCode == 401);
 
     runtime.resetRecordingCollectionLookup();
+    runtime.resetSearchLookup();
+    runtime.registerSearchLookup([](const PublicSearchRequest& request) {
+        PublicSearchResult result;
+        result.status = PublicSearchStatus::ok;
+        result.totalCount = 1U;
+        if (request.offset == 0U) {
+            PublicSearchItem item;
+            item.backendId = request.backendId;
+            item.title = "Der Hobbit";
+            if (request.epg) {
+                item.channelId = "S19.2E-1-100";
+                item.eventId = "123";
+                item.startTime = "1791565200";
+                item.endTime = "1791572400";
+            } else {
+                item.recordingId = "rec_0123456789abcdef0123456789abcdef";
+            }
+            result.items.push_back(item);
+        }
+        return result;
+    });
+    ApiResponse searchRecording;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search/recordings?backendId=backend-a&query=hobbit",
+        "actor:tv", "search-rec", "", searchRecording, "", "", {"backend-a"}));
+    assert(searchRecording.statusCode == 200);
+    assert(searchRecording.body.find("\"kind\":\"recording\"") != std::string::npos);
+    assert(searchRecording.body.find("rec_0123456789abcdef0123456789abcdef") != std::string::npos);
+    assert(searchRecording.body.find("backendNativeId") == std::string::npos);
+    assert(searchRecording.headers.at("Cache-Control") == "no-store");
+    ApiResponse searchEpg;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search/epg?backendId=backend-a&query=Hobbit",
+        "actor:tv", "search-epg", "", searchEpg, "", "", {"backend-a"}));
+    assert(searchEpg.statusCode == 200);
+    assert(searchEpg.body.find("\"kind\":\"epg\"") != std::string::npos);
+    for (const std::string& invalid : {
+        "backendId=backend-a&query=%GG",
+        "backendId=backend-a&query=a",
+        "backendId=backend-a&query=Hobbit&limit=31",
+        "backendId=backend-a&query=Hobbit&query=duplicate",
+        "backendId=backend-a&query=Hobbit&offset=1000001"})
+    {
+        ApiResponse response;
+        assert(runtime.tryHandleGet(
+            "/api/v1/search/recordings?" + invalid,
+            "actor:tv", "invalid-search", "", response, "", "", {"backend-a"}));
+        assert(response.statusCode == 400);
+    }
+    ApiResponse deniedSearch;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search/recordings?backendId=backend-a&query=Hobbit",
+        "actor:tv", "wrong-scope", "", deniedSearch, "", "", {"backend-b"}));
+    assert(deniedSearch.statusCode == 400);
+    ApiResponse anonymousSearch;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search/epg?backendId=backend-a&query=Hobbit",
+        "", "anonymous", "", anonymousSearch, "", "", {"backend-a"}));
+    assert(anonymousSearch.statusCode == 401);
+    // HTTP-level parity: transport the same three canonical Web search
+    // records through the actual Public-v1 serializer, without file paths.
+    runtime.registerSearchLookup([](const PublicSearchRequest& request) {
+        GlobalSearchResult web;
+        web.query = request.query;
+        web.backendId = request.backendId;
+        web.recordingTotal = 3;
+        std::vector<VdrRecording> live;
+        for (int i = 0; i != 3; ++i)
+        {
+            GlobalSearchRecording result;
+            result.backendId = request.backendId;
+            result.backendNativeId = "hobbit-" + std::to_string(i);
+            result.title = "Der Hobbit " + std::to_string(i);
+            result.path = "/private/recordings/hobbit";
+            web.recordings.push_back(result);
+            VdrRecording current;
+            current.backendId = request.backendId;
+            current.backendNativeId = result.backendNativeId;
+            current.title = "VDR-native-title";
+            live.push_back(current);
+        }
+        return PublicSearchProjection::project(
+            request, web, live,
+            [](const std::string&, const std::string& native)
+                -> std::optional<std::string>
+            {
+                if (native == "hobbit-0")
+                    return "rec_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+                if (native == "hobbit-1")
+                    return "rec_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+                if (native == "hobbit-2")
+                    return "rec_cccccccccccccccccccccccccccccccc";
+                return std::nullopt;
+            });
+    });
+    ApiResponse parity;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search/recordings?backendId=backend-a&query=Hobbit&limit=30&offset=0",
+        "actor:tv", "web-parity", "", parity, "", "", {"backend-a"}));
+    assert(parity.statusCode == 200);
+    assert(parity.body.find("\"totalCount\":3") != std::string::npos);
+    assert(parity.body.find("\"title\":\"Der Hobbit 0\"") != std::string::npos);
+    assert(parity.body.find("\"title\":\"Der Hobbit 1\"") != std::string::npos);
+    assert(parity.body.find("\"title\":\"Der Hobbit 2\"") != std::string::npos);
+    assert(parity.body.find("VDR-native-title") == std::string::npos);
+    assert(parity.body.find("/private") == std::string::npos);
+    assert(parity.body.find("backendNativeId") == std::string::npos);
+    assert(parity.body.find("\"hasMore\":false") != std::string::npos);
+
+    runtime.registerSearchLookup([](const PublicSearchRequest& request) {
+        GlobalSearchResult web;
+        web.backendId = request.backendId;
+        web.recordingTotal = 2;
+        std::vector<VdrRecording> live;
+        for (int i = 0; i < 2; ++i)
+        {
+            GlobalSearchRecording found;
+            found.backendId = request.backendId;
+            found.backendNativeId = i == 0 ? "cut-1" : "manual-2";
+            found.title = i == 0 ? "Filme~%Der_Hobbit" :
+                "Manueller Hobbit-Titel";
+            found.startTime = "2026-10-15";
+            web.recordings.push_back(found);
+            VdrRecording original;
+            original.backendId = request.backendId;
+            original.backendNativeId = found.backendNativeId;
+            original.title = i == 0 ? found.title : "Filme~Der_Hobbit";
+            original.path = i == 0 ?
+                "/srv/vdr/video/Filme/%Der_Hobbit/2026-10-15.rec" :
+                "/srv/vdr/video/Filme/Der_Hobbit/2026-10-15.rec";
+            live.push_back(original);
+        }
+        return PublicSearchProjection::project(
+            request, web, live,
+            [](const std::string&, const std::string& native)
+                -> std::optional<std::string>
+            {
+                if (native == "cut-1")
+                    return "rec_dddddddddddddddddddddddddddddddd";
+                if (native == "manual-2")
+                    return "rec_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+                return std::nullopt;
+            });
+    });
+    ApiResponse cutSearch;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search/recordings?backendId=backend-a&query=Hobbit",
+        "actor:tv", "cut-search", "", cutSearch, "", "", {"backend-a"}));
+    assert(cutSearch.statusCode == 200);
+    assert(cutSearch.body.find("\"title\":\"Der Hobbit\",\"recordingId\":"
+        "\"rec_dddddddddddddddddddddddddddddddd\",\"edited\":true") !=
+        std::string::npos);
+    assert(cutSearch.body.find("\"title\":\"Manueller Hobbit-Titel\"") !=
+        std::string::npos);
+    assert(cutSearch.body.find("/srv/vdr/video") == std::string::npos);
+
+    runtime.resetSearchLookup();
     return 0;
 }

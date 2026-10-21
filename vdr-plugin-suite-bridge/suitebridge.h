@@ -10,6 +10,7 @@
 #include "suitebridge_native_probe.h"
 #include "suitebridge_osd_input.h"
 #include "suitebridge_native_timer_create.h"
+#include "suitebridge_native_timer_preview_service.h"
 #include "suitebridge_native_timer_create_vdr.h"
 #include "suitebridge_native_timer_delete.h"
 #include "suitebridge_native_timer_delete_vdr.h"
@@ -61,6 +62,7 @@ private:
   SuiteBridgeTeletextCommandService teletextCommand_;
   SuiteBridgeNativeTimerCreateVdrMutationCallback nativeTimerCreateVdrMutation_;
   SuiteBridgeNativeTimerCreateService nativeTimerCreate_;
+  SuiteBridgeNativeTimerPreviewService nativeTimerPreview_;
   SuiteBridgeNativeTimerDeleteVdrMutationCallback nativeTimerDeleteVdrMutation_;
   SuiteBridgeNativeTimerDeleteService nativeTimerDelete_;
   SuiteBridgeNativeTimerModifyVdrMutationCallback nativeTimerModifyVdrMutation_;

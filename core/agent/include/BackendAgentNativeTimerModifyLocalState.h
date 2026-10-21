@@ -23,6 +23,19 @@ struct BackendAgentNativeTimerModifyRecoveryResult {
     std::string reasonCode;
     BackendAgentNativeTimerModifyEvidence evidence;
 };
+// Canonical Agent result body. The result's dispatch timestamps originate
+// in the durable local modification evidence, never the control-plane clock.
+std::string backendAgentNativeTimerModifyResultEvidence(
+    const BackendAgentNativeTimerModifyEvidence& evidence,
+    const BackendAgentCommandAssignment& assignment,
+    std::string& reason);
+
+bool backendAgentNativeTimerModifyParseResultEvidence(
+    const std::string& encoded,
+    const BackendAgentCommandAssignment& assignment,
+    BackendAgentNativeTimerModifyEvidence& evidence,
+    std::string& reason);
+
 bool backendAgentNativeTimerModifyCommandFromAssignment(
     const BackendAgentCommandAssignment&,BackendAgentNativeTimerModifyCommand&,
     std::string&);

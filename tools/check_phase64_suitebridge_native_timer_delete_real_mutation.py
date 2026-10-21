@@ -26,6 +26,13 @@ mk = read("mk/phase64-suitebridge-native-timer-delete-real-mutation-tests.mk")
 doc = read("docs/development/phase-64-suitebridge-native-timer-delete-real-mutation.md")
 header = read("vdr-plugin-suite-bridge/suitebridge_native_timer_delete_vdr.h")
 source = read("vdr-plugin-suite-bridge/suitebridge_native_timer_delete_vdr.cpp")
+identity = read("vdr-plugin-suite-bridge/suitebridge_native_timer_identity.h")
+for marker in ("timer.Channel()->GetChannelID().ToString()", "timer.WeekDays()",
+               "timer.Day()", "timer.Start()", "timer.Stop()",
+               "return nullptr;", "if (match) return nullptr;",
+               "timers.GetById(static_cast<int>(numeric), nullptr)"):
+    require(identity, marker, "RESTfulAPI/native Timer identity guard")
+
 plugin_header = read("vdr-plugin-suite-bridge/suitebridge.h")
 plugin_main = read("vdr-plugin-suite-bridge/suitebridge.cpp")
 plugin_svdrp = read("vdr-plugin-suite-bridge/suitebridge_svdrp.cpp")
@@ -55,7 +62,7 @@ for needle, label in (
 for needle, label in (
     ('#include <vdr/timers.h>', "VDR Timer API include"),
     ("cTimers::GetTimersWrite(stateKey, TimerWriteLockTimeoutMs)", "bounded VDR Timer write lock"),
-    ("timers->GetById(timerId, nullptr)", "local-only exact Timer lookup"),
+    ("vdrsuite_suitebridge::exactLocalTimer(*timers, request.backendNativeTimerId)", "local-only exact Timer lookup"),
     ("canonicalObservedState(*timer)", "live canonical Timer state"),
     ("sha256Token(canonical)", "live SHA-256 CAS token"),
     ("request.expectedNativeTimerFingerprint", "expected CAS token"),
@@ -68,7 +75,8 @@ for needle, label in (
     ("SuiteBridgeNativeTimerDeleteMutationDisposition::RejectedWithoutEffect", "pre-effect rejection result"),
     ("SuiteBridgeNativeTimerDeleteMutationDisposition::OutcomeUnknown", "ambiguous exception result"),
     ('evidence("fingerprint-mismatch"', "CAS mismatch rejection evidence"),
-    ('evidence("recording"', "recording rejection evidence"),
+    ('timer->Recording() || timer->Pending()', "recording/pending lock-time safety fence"),
+    ('"recording" : "pending"', "pending and recording rejection evidence"),
     ('evidence("not-found"', "missing Timer rejection evidence"),
     ('evidence("lock-unavailable"', "write-lock rejection evidence"),
     ('evidence("deleted-unverified"', "local deletion evidence"),
@@ -80,7 +88,7 @@ if source.count("timers->Del(timer)") != 1:
 
 ordered = [
     "cTimers::GetTimersWrite(stateKey, TimerWriteLockTimeoutMs)",
-    "timers->GetById(timerId, nullptr)",
+    "vdrsuite_suitebridge::exactLocalTimer(*timers, request.backendNativeTimerId)",
     "canonicalObservedState(*timer)",
     "liveFingerprint != request.expectedNativeTimerFingerprint",
     "timer->Recording()",

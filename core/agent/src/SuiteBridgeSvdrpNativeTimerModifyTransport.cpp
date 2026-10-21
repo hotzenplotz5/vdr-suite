@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <limits>
+#include <iostream>
 #include <sstream>
 #include <utility>
 #include <vector>
@@ -115,9 +116,15 @@ SuiteBridgeNativeTimerModifyTransport::modifyTimer(
    return result(BackendAgentNativeTimerModifyTransportDisposition::rejectedWithoutEffect,
                  "suitebridge:ntmod:local-request-invalid");
  const auto reply=transport_.executeNativeTimerModifyContract(request);
- if(!reply.transportSucceeded())
+ if(!reply.transportSucceeded()){
+   // One diagnostic per actual dispatch, never a retry. Expose whether the
+   // local SVDRP channel failed during connection, send, or response.
+   std::cerr << "NATIVE_MODIFY_TRANSPORT_FAILURE"
+             << " status=" << static_cast<int>(reply.transportStatus)
+             << " reason=" << reply.diagnostic << std::endl;
    return result(BackendAgentNativeTimerModifyTransportDisposition::outcomeUnknown,
                  "suitebridge:ntmod:transport-outcome-unknown");
+ }
  const auto& c=request.command;const auto& q=c.localProviderSelection;
  auto v=split(reply.payload,11);std::uint64_t generation=0,revision=0;
  if(v.size()!=11||v[0]!=ResultProtocol||v[1]!=c.commandId||

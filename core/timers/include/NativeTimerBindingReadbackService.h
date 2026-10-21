@@ -45,7 +45,8 @@ public:
     // overwritten. There is no implicit discovery/adoption and no hidden retry
     // after an optimistic-concurrency conflict.
     NativeTimerBindingReadbackResult applyPresentObservation(
-        const NativeTimerObservation& observation);
+        const NativeTimerObservation& observation,
+        bool passiveFreshnessRefresh = false);
 
 private:
     NativeTimerBindingRepository& repository_;

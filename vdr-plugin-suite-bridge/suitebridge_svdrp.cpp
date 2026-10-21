@@ -105,6 +105,11 @@ cString cPluginSuiteBridge::SVDRPCommand(
       nativeTimerCreate_.Handle(Command, Option);
   if (nativeTimerCreate.handled) return ReturnResult(nativeTimerCreate, ReplyCode);
 
+  const SuiteBridgeCommandResult nativeTimerPreview =
+      nativeTimerPreview_.Handle(Command, Option);
+  if (nativeTimerPreview.handled)
+    return ReturnResult(nativeTimerPreview, ReplyCode);
+
   const SuiteBridgeCommandResult nativeTimerDelete =
       nativeTimerDelete_.Handle(Command, Option);
   if (nativeTimerDelete.handled) return ReturnResult(nativeTimerDelete, ReplyCode);

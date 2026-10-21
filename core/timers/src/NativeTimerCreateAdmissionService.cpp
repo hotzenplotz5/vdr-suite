@@ -282,6 +282,25 @@ NativeTimerCreateAdmissionService::replayIfPresent(
 NativeTimerCreateAdmissionResult NativeTimerCreateAdmissionService::admit(
     const NativeTimerCreateAdmissionRequest& request)
 {
+    return admitImpl(request, false);
+}
+
+NativeTimerCreateAdmissionResult
+NativeTimerCreateAdmissionService::admitInCurrentTransaction(
+    const NativeTimerCreateAdmissionRequest& request)
+{
+    return admitImpl(request, true);
+}
+
+NativeTimerCreateAdmissionResult NativeTimerCreateAdmissionService::admitImpl(
+    const NativeTimerCreateAdmissionRequest& request,
+    bool currentTransaction)
+{
+    // Acquire the recursive lease even in nested mode. Its caller must
+    // retain the outer lease and transaction until final COMMIT/ROLLBACK.
+    auto lease = database_.acquireTransactionLease();
+    if (currentTransaction != database_.transactionActive())
+        return result(NativeTimerCreateAdmissionStatus::repositoryError);
     if (!validRequest(request))
         return result(NativeTimerCreateAdmissionStatus::invalid);
 
@@ -298,11 +317,11 @@ NativeTimerCreateAdmissionResult NativeTimerCreateAdmissionService::admit(
         return replay;
     }
 
-    auto lease = database_.acquireTransactionLease();
-    if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
+    if (!currentTransaction &&
+        !database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
         return result(NativeTimerCreateAdmissionStatus::repositoryError);
-    const auto rollback = [this]() {
-        database_.execute("ROLLBACK;");
+    const auto rollback = [this, currentTransaction]() {
+        if (!currentTransaction) database_.execute("ROLLBACK;");
     };
 
     replay = replayIfPresent(request, fingerprint, replayPresent);
@@ -427,7 +446,7 @@ NativeTimerCreateAdmissionResult NativeTimerCreateAdmissionService::admit(
         return result(status);
     }
 
-    if (!database_.execute("COMMIT;"))
+    if (!currentTransaction && !database_.execute("COMMIT;"))
     {
         rollback();
         return result(NativeTimerCreateAdmissionStatus::repositoryError);

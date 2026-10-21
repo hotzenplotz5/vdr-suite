@@ -383,6 +383,7 @@ if delete_fence_offset < 0 or full_refresh_offset < 0 or delete_fence_offset >= 
 for token in (
     'removeByBackendNativeId(',
     'removeRecordingForBackend(',
+    'publicRecordingIdentities_->removeAfterVerifiedDeletion(',
     'recordingPresentationChangeQueue_.request(backendId);',
     'recordingCacheRefreshQueue_.request(backendId);',
 ):

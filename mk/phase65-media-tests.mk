@@ -10,7 +10,24 @@ test-phase65-media-capability-negotiation:
 		core/media/tests/test_media_presentation_selector.cpp \
 		-o $(BUILD_DIR)/test_phase65_media_capability_negotiation
 	$(BUILD_DIR)/test_phase65_media_capability_negotiation
-
+	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/media/include \
+		core/media/src/MediaProcessRunner.cpp \
+		core/media/src/MediaPresentationSelector.cpp \
+		core/media/src/MediaPlannedOutput.cpp \
+		core/media/src/MediaEmittedFmp4Probe.cpp \
+		core/media/tests/test_media_emitted_fmp4_probe.cpp \
+		-o $(BUILD_DIR)/test_phase65_media_emitted_fmp4_probe
+	$(BUILD_DIR)/test_phase65_media_emitted_fmp4_probe
+	@set -eu; d="$$(mktemp -d)"; trap 'rm -rf "$$d"' EXIT; \
+		(cd "$$d" && /usr/bin/ffmpeg -nostdin -hide_banner -loglevel error \
+		-f lavfi -i testsrc2=size=320x180:rate=25 \
+		-f lavfi -i sine=frequency=440:sample_rate=48000 \
+		-t 1 -c:v libx264 -preset ultrafast -pix_fmt yuv420p \
+		-c:a aac -ac 2 -f hls -hls_segment_type fmp4 \
+		-hls_fmp4_init_filename init.mp4 \
+		-hls_segment_filename "segment-%06d.m4s" \
+		-hls_time 1 master.m3u8); \
+		$(BUILD_DIR)/test_phase65_media_emitted_fmp4_probe "$$d"
 # Pure, device-independent evidence filter; no running MediaSession or API.
 .PHONY: test-phase65-media-capability-evidence
 test-phase65-media-capability-evidence:
@@ -57,6 +74,33 @@ test-phase65-ffmpeg-hls-command-builder:
 		core/media/tests/test_ffmpeg_hls_command_builder.cpp \
 		-o $(BUILD_DIR)/test_phase65_ffmpeg_hls_command_builder
 	$(BUILD_DIR)/test_phase65_ffmpeg_hls_command_builder
+
+.PHONY: test-phase65-recording-trickplay-preview-plan
+test-phase65-recording-trickplay-preview-plan:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
+		core/media/src/RecordingTrickplayPreviewPlan.cpp \
+		core/media/tests/test_recording_trickplay_preview_plan.cpp \
+		-o $(BUILD_DIR)/test_phase65_recording_trickplay_preview_plan
+	$(BUILD_DIR)/test_phase65_recording_trickplay_preview_plan
+
+.PHONY: test-phase65-recording-trickplay-preview-renderer
+test-phase65-recording-trickplay-preview-renderer:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/media/include \
+		core/media/src/RecordingTrickplayPreviewPlan.cpp \
+		core/media/src/RecordingTrickplayPreviewRenderer.cpp \
+		core/media/src/MediaProcessRunner.cpp \
+		core/media/src/MediaSessionWorkspace.cpp \
+		core/media/tests/test_recording_trickplay_preview_renderer.cpp \
+		-o $(BUILD_DIR)/test_phase65_recording_trickplay_preview_renderer
+	$(BUILD_DIR)/test_phase65_recording_trickplay_preview_renderer
+
+.PHONY: test-phase65-recording-trickplay-device-request
+test-phase65-recording-trickplay-device-request:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
+		core/media/src/RecordingTrickplayDeviceRequest.cpp \
+		core/media/tests/test_recording_trickplay_device_request.cpp \
+		-o $(BUILD_DIR)/test_phase65_recording_trickplay_device_request
+	$(BUILD_DIR)/test_phase65_recording_trickplay_device_request
 
 test-phase65-ffprobe-recording-source:
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
@@ -221,7 +265,7 @@ test-phase65-live-media-session-runtime:
 
 # test-ci-fast already owns test-fast in the canonical group file. Extend that
 # existing public group instead of defining a second canonical group target.
-test-fast: test-phase65-media-capability-evidence test-phase65-media-capability-negotiation test-phase65-media-transcode-policy test-phase65-media-transcode-calibrator-install test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-recording-direct-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime test-phase65-live-provider-authority test-phase65-live-media-adaptation test-phase65-live-media-session-issuance test-phase65-live-media-session-runtime
+test-fast: test-phase65-recording-trickplay-device-request test-phase65-recording-trickplay-preview-renderer test-phase65-recording-trickplay-preview-plan test-phase65-media-capability-evidence test-phase65-media-capability-negotiation test-phase65-media-transcode-policy test-phase65-media-transcode-calibrator-install test-phase65-local-recording-source test-phase65-segmented-recording-byte-source test-phase65-recording-direct-source test-phase65-ffmpeg-hls-command-builder test-phase65-ffprobe-recording-source test-phase65-media-session-workspace test-phase65-media-process-runner test-phase65-media-session-persistence test-phase65-media-hls-artifact-reader test-phase65-media-gateway-http test-phase65-api-response-headers test-phase65-recording-playback-authorization test-phase65-media-access-credential-http test-phase65-recording-media-session-request-parser test-phase65-recording-media-session-runtime test-phase65-live-provider-authority test-phase65-live-media-adaptation test-phase65-live-media-session-issuance test-phase65-live-media-session-runtime
 
 .PHONY: install-phase65-live-socket-runtime test-phase65-live-socket-runtime-install
 
@@ -274,3 +318,43 @@ test-phase65d1-live-tv-view-dom-stability:
 	node web/frontend/tests/test_live_tv_view_dom_stability.js
 
 test-frontend-i18n: test-phase65d1-live-tv-view-dom-stability
+
+.PHONY: test-device-media-profile-selector
+test-device-media-profile-selector:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
+		core/media/src/MediaCapabilityEvidence.cpp \
+		core/media/src/MediaPresentationSelector.cpp \
+		core/media/src/DeviceMediaCapabilityProfile.cpp \
+		core/media/tests/test_device_media_capability_profile.cpp \
+		-o $(BUILD_DIR)/test_device_media_capability_profile
+	$(BUILD_DIR)/test_device_media_capability_profile
+
+test-fast: test-device-media-profile-selector
+
+
+.PHONY: test-device-media-profile-persistence
+test-device-media-profile-persistence:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include -Icore/sqlite/include \
+		core/sqlite/src/Database.cpp \
+		core/media/src/DeviceMediaCapabilityProfile.cpp \
+		core/media/src/DeviceMediaProfileRepository.cpp \
+		core/media/src/MediaCapabilityEvidence.cpp \
+		core/media/src/MediaPresentationSelector.cpp \
+		core/media/tests/test_device_media_profile_repository.cpp \
+		-lsqlite3 -o $(BUILD_DIR)/test_device_media_profile_repository
+	$(BUILD_DIR)/test_device_media_profile_repository
+
+test-fast: test-device-media-profile-persistence
+
+.PHONY: test-device-media-profile-query
+test-device-media-profile-query:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/media/include \
+		core/media/src/DeviceMediaCapabilityProfile.cpp \
+		core/media/src/DeviceMediaProfileQuery.cpp \
+		core/media/src/MediaCapabilityEvidence.cpp \
+		core/media/src/MediaPresentationSelector.cpp \
+		core/media/tests/test_device_media_profile_query.cpp \
+		-o $(BUILD_DIR)/test_device_media_profile_query
+	$(BUILD_DIR)/test_device_media_profile_query
+
+test-fast: test-device-media-profile-query

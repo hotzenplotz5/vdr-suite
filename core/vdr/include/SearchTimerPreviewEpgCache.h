@@ -4,13 +4,18 @@
 
 #include <cstddef>
 #include <map>
+#include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
 /*
- * Header-only by design: many legacy single-target Makefile tests compile
- * SnapshotCacheService.cpp without linking the full VDR source list. Keeping
- * this small cache inline prevents fragile per-target linker dependencies.
+ * Header-only by design: legacy single-target Makefile tests compile
+ * SnapshotCacheService.cpp without the full VDR source list.
+ *
+ * Runtime refresh and Public-v1 preview can run on different threads.
+ * Readers of live cache data must retain a shared immutable snapshot,
+ * never a pointer into a vector being replaced by a refresh.
  */
 enum class SearchTimerPreviewEpgCacheStatus
 {
@@ -29,139 +34,133 @@ struct SearchTimerPreviewEpgCacheEntry
     }
 
     SearchTimerPreviewEpgCacheStatus status;
-    std::vector<VdrEvent> events;
+    std::shared_ptr<const std::vector<VdrEvent>> events;
+};
+
+struct SearchTimerPreviewEpgCacheRead
+{
+    SearchTimerPreviewEpgCacheStatus status =
+        SearchTimerPreviewEpgCacheStatus::Unknown;
+    std::shared_ptr<const std::vector<VdrEvent>> events;
 };
 
 class SearchTimerPreviewEpgCache
 {
 public:
-    SearchTimerPreviewEpgCache()
+    SearchTimerPreviewEpgCache() = default;
+
+    // Status and ready event generation must be observed under one mutex.
+    // The read owns its immutable payload across later invalidations.
+    SearchTimerPreviewEpgCacheRead readForBackend(
+        const std::string& backendId) const
     {
+        std::lock_guard<std::mutex> lock(mutex_);
+        SearchTimerPreviewEpgCacheRead read;
+        const auto* entry = findEntryForBackend(backendId);
+        if (!entry) return read;
+        read.status = entry->status;
+        if (read.status == SearchTimerPreviewEpgCacheStatus::Ready)
+            read.events = entry->events;
+        return read;
     }
 
     SearchTimerPreviewEpgCacheStatus statusForBackend(
         const std::string& backendId) const
     {
-        const SearchTimerPreviewEpgCacheEntry* entry =
-            findEntryForBackend(backendId);
-
-        if (entry == nullptr)
-        {
-            return SearchTimerPreviewEpgCacheStatus::Unknown;
-        }
-
-        return entry->status;
+        return readForBackend(backendId).status;
     }
 
-    bool isReadyForBackend(
-        const std::string& backendId) const
+    bool isReadyForBackend(const std::string& backendId) const
     {
         return statusForBackend(backendId) ==
             SearchTimerPreviewEpgCacheStatus::Ready;
     }
 
+    // Thread-safe, lifetime-stable runtime read. A later refresh or
+    // invalidation cannot change the contents of an already admitted preview.
+    std::shared_ptr<const std::vector<VdrEvent>> sharedEventsForBackend(
+        const std::string& backendId) const
+    {
+        return readForBackend(backendId).events;
+    }
+
+    // Compatibility for existing single-threaded callers and tests.
+    // Concurrent runtime consumers must use sharedEventsForBackend().
     const std::vector<VdrEvent>* eventsForBackend(
         const std::string& backendId) const
     {
-        const SearchTimerPreviewEpgCacheEntry* entry =
-            findEntryForBackend(backendId);
-
-        if (entry == nullptr ||
-            entry->status != SearchTimerPreviewEpgCacheStatus::Ready)
-        {
-            return nullptr;
-        }
-
-        return &entry->events;
+        std::lock_guard<std::mutex> lock(mutex_);
+        const auto* entry = findEntryForBackend(backendId);
+        return entry && entry->status == SearchTimerPreviewEpgCacheStatus::Ready
+            && entry->events ? entry->events.get() : nullptr;
     }
 
     std::size_t readyEventCountForBackend(
         const std::string& backendId) const
     {
-        const std::vector<VdrEvent>* events =
-            eventsForBackend(backendId);
-
-        if (events == nullptr)
-        {
-            return 0;
-        }
-
-        return events->size();
+        const auto snapshot = sharedEventsForBackend(backendId);
+        return snapshot ? snapshot->size() : 0;
     }
 
-    void markWarming(
-        const std::string& backendId)
+    void markWarming(const std::string& backendId)
     {
-        SearchTimerPreviewEpgCacheEntry& entry =
-            entryForBackend(backendId);
-
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto& entry = entryForBackend(backendId);
         entry.status = SearchTimerPreviewEpgCacheStatus::Warming;
-        entry.events.clear();
+        entry.events.reset();
     }
 
     void updateReady(
         const std::string& backendId,
         const std::vector<VdrEvent>& events)
     {
-        SearchTimerPreviewEpgCacheEntry& entry =
-            entryForBackend(backendId);
-
+        auto immutable = std::make_shared<const std::vector<VdrEvent>>(events);
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto& entry = entryForBackend(backendId);
         entry.status = SearchTimerPreviewEpgCacheStatus::Ready;
-        entry.events = events;
+        entry.events = std::move(immutable);
     }
 
-    void markStale(
-        const std::string& backendId)
+    void markStale(const std::string& backendId)
     {
-        SearchTimerPreviewEpgCacheEntry& entry =
-            entryForBackend(backendId);
-
-        entry.status = SearchTimerPreviewEpgCacheStatus::Stale;
+        std::lock_guard<std::mutex> lock(mutex_);
+        entryForBackend(backendId).status =
+            SearchTimerPreviewEpgCacheStatus::Stale;
     }
 
-    void markUnavailable(
-        const std::string& backendId)
+    void markUnavailable(const std::string& backendId)
     {
-        SearchTimerPreviewEpgCacheEntry& entry =
-            entryForBackend(backendId);
-
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto& entry = entryForBackend(backendId);
         entry.status = SearchTimerPreviewEpgCacheStatus::Unavailable;
-        entry.events.clear();
+        entry.events.reset();
     }
 
-    void clearBackend(
-        const std::string& backendId)
+    void clearBackend(const std::string& backendId)
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         entriesByBackend_.erase(normalizeBackendId(backendId));
     }
 
     void clear()
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         entriesByBackend_.clear();
     }
 
     std::vector<std::string> backendIds() const
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         std::vector<std::string> ids;
-
         for (const auto& entry : entriesByBackend_)
-        {
             ids.push_back(entry.first);
-        }
-
         return ids;
     }
 
 private:
-    static std::string normalizeBackendId(
-        const std::string& backendId)
+    static std::string normalizeBackendId(const std::string& backendId)
     {
-        if (backendId.empty())
-        {
-            return "default";
-        }
-
-        return backendId;
+        return backendId.empty() ? "default" : backendId;
     }
 
     SearchTimerPreviewEpgCacheEntry& entryForBackend(
@@ -173,16 +172,10 @@ private:
     const SearchTimerPreviewEpgCacheEntry* findEntryForBackend(
         const std::string& backendId) const
     {
-        const auto it =
-            entriesByBackend_.find(normalizeBackendId(backendId));
-
-        if (it == entriesByBackend_.end())
-        {
-            return nullptr;
-        }
-
-        return &it->second;
+        const auto it = entriesByBackend_.find(normalizeBackendId(backendId));
+        return it == entriesByBackend_.end() ? nullptr : &it->second;
     }
 
+    mutable std::mutex mutex_;
     std::map<std::string, SearchTimerPreviewEpgCacheEntry> entriesByBackend_;
 };

@@ -46,10 +46,13 @@ for token in [
     "observation.observedAt < current.lastObservedAt",
     "current.missingSince != 0",
     "observation.observedFingerprint != current.observedFingerprint",
+    "nativeTimerObservedStateSameExceptEventId(",
+    "eventIdOnlyDrift",
     "NativeTimerBindingReadbackStatus::reconciliationRequired",
     "next.backendGeneration = observation.backendGeneration",
     "next.lastObservedAt = observation.observedAt",
-    "repository_.update(next, current.bindingRevision)",
+    "repository_.update(",
+    "next, current.bindingRevision, passiveFreshnessRefresh",
     "NativeTimerBindingRepositoryStatus::conflict",
     "NativeTimerBindingReadbackStatus::repositoryConflict",
 ]:
@@ -58,7 +61,6 @@ for token in [
 
 for forbidden in [
     "next.observedState =",
-    "next.observedFingerprint =",
     "next.ownership =",
     "next.timerAssignmentId =",
     "next.missingSince =",
@@ -74,6 +76,23 @@ for forbidden in [
 ]:
     if forbidden in source + header:
         raise SystemExit(f"premature Slice-12 boundary crossing: {forbidden}")
+
+# Phase-69 successor: a VDR EPG event association is transient, not a
+# native timer configuration mutation. Exactly one narrowly fenced metadata
+# refresh may update eventId and its canonical fingerprint. Preserve the
+# historic ban against any other passive observed-state rewrite.
+epg_guard = """    if (eventIdOnlyDrift)
+    {
+        next.observedState.eventId = observation.observedState.eventId;
+        next.observedFingerprint = nativeTimerObservedStateFingerprint(
+            next.observedState);
+    }"""
+if source.count("next.observedFingerprint =") != 1 or (
+        source.count("next.observedState.eventId =") != 1 or
+        epg_guard not in source or
+        "passiveFreshnessRefresh &&" not in source or
+        "nativeTimerObservedStateSameExceptEventId(" not in source):
+    raise SystemExit("unfenced EPG-only native timer readback mutation")
 
 for token in [
     "NativeTimerBindingReadbackStatus::refreshed",
@@ -133,11 +152,26 @@ for scan_root in [
             continue
         if "NativeTimerBindingReadbackService" in path.read_text(
             encoding="utf-8", errors="ignore"):
+            # Phase-69 successor: only the productive daemon polling owner
+            # may consume the service, and only after strict live evidence.
+            if (path.relative_to(ROOT) ==
+                    Path("core/daemon/src/DaemonRuntimePolling.cpp")):
+                poll = path.read_text(encoding="utf-8")
+                if all(marker in poll for marker in [
+                    "RestfulApiNativeTimerModifyReadbackReader",
+                    "listManagedForFreshness(",
+                    "agent->backendGeneration < binding.backendGeneration",
+                    "request.backendGeneration = agent->backendGeneration",
+                    "stillAgent->backendGeneration ==\n"
+                    "                                    request.backendGeneration",
+                    "observed.observation, true",
+                ]):
+                    continue
             raise SystemExit(
                 "premature NativeTimerBinding readback runtime wiring: "
                 + str(path.relative_to(ROOT)))
 
 print("Phase-64 NativeTimerBinding present readback check passed")
 print(
-    "Slice-12 boundary: unchanged present observation refresh only; "
-    "changed/missing reconciliation and native mutation deferred")
+    "Slice-12 successor: unchanged/config-preserving EPG-only passive refresh; "
+    "changed/missing timer configuration and native mutation still deferred")

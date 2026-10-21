@@ -76,6 +76,44 @@ Items use `backendId ASC, channelId ASC`; the source order in the query is norma
 
 A `409 cursor_expired` means the requested backend scope changed: throw away the old cursor and start again with the first page. Pagination is not a frozen snapshot, and no retry should silently switch to legacy routes.
 
+## Additive numeric VDR-neighbor operation (October 2026 candidate)
+
+The original Channel collection above **retains** its stable `ch1_` cursor
+and `backendId ASC, channelId ASC` ordering. That listing is **not**
+the native VDR tuning sequence; a paginated 30-item client view is
+not an authoritative basis for CH+/CH−.
+
+The same **authorized** Public-v1 endpoint now supports a separate, bounded
+`GET` variant for one adjacent enabled, nonradio TV channel:
+
+```http
+GET /api/v1/channels?backendId=home&limit=1&relativeTo=S19.2E-1-1019-10301&direction=up
+```
+
+The request must supply exactly one explicitly authorized `backendId`,
+one native public `channelId` in `relativeTo`, `direction=up|down`,
+and `limit=1`. `cursor`, `sort`, and `order` are forbidden.
+The existing SecurityHttpGate still enforces `channels.view@backend`;
+Device credentials are not bypassed. The daemon uses the complete current
+VDR snapshot, ascending `channelNumber` (stable `channelId` tie-break),
+with first/last wrap and disabled/radio channel exclusion. The response
+uses the usual single-item `items` list and `page.hasMore=false`,
+`page.nextCursor=null`, `meta.partial=false`; unknown current channel,
+noneligible current channel, or no second eligible channel returns
+`404`. The variant does not create or stop a media session.
+All playback remains within the separate authorized Device MediaSession
+contract and one client playback owner.
+
+Provenance warning: this is a *development-branch source candidate*,
+not confirmation that any running yaVDR daemon serves this new variant.
+The established Hisense Live-TV playback continues to work independently.
+Relevant regression targets: `test-phase69d-public-channel-collection`,
+`tools/check_phase69d_public_channel_collection.py`, and
+`tools/check_public_v1_openapi.py`. The branch integration preserves
+the real `/api/v1/search/recordings`, `/api/v1/search/epg`, and three
+Live Device SecurityHttpGate route cases rather than suppressing their
+OpenAPI drift checks.
+
 ## Errors
 
 | HTTP | Meaning | Recommended client action |

@@ -65,6 +65,14 @@
 #include "MutationOperationReadService.h"
 #include "MutationOperationRepository.h"
 #include "NativeTimerCreateAdmissionService.h"
+#include "NativeTimerDeleteDispatchService.h"
+#include "NativeTimerModifyDispatchService.h"
+#include "NativeTimerModifyReadbackVerificationService.h"
+#include "NativeTimerModifyOperationCompletionService.h"
+#include "BackendAgentNativeTimerModifyAssignment.h"
+#include "NativeTimerDeleteOperationCompletionService.h"
+#include "NativeTimerAbsenceReadbackVerificationService.h"
+#include "BackendAgentNativeTimerDeleteAssignment.h"
 #include "NativeTimerCreateDispatchService.h"
 #include "NativeTimerCreateOperationCompletionService.h"
 #include "NativeTimerCreateOperationPreparationService.h"
@@ -82,6 +90,7 @@
 #include "RecordingDashboardService.h"
 #include "RecordingRepository.h"
 #include "PublicRecordingIdentityRepository.h"
+#include "PublicSearchTimerIdentityRepository.h"
 #include "RecordingActionBackendExecutorAdapterRegistry.h"
 #include "RecordingActionExecutionController.h"
 #include "RecordingActionExecutionResultJsonSerializer.h"
@@ -132,6 +141,7 @@
 #include "SnapshotChangeFeedJsonSerializer.h"
 #include "SnapshotChangeFeedService.h"
 #include "SseLiveTransport.h"
+#include "DeviceLiveEventHub.h"
 #include "VdrSnapshotReadJsonSerializer.h"
 #include "VdrSnapshotReadService.h"
 #include "SnapshotCache.h"
@@ -219,6 +229,8 @@ private:
         timerAssignmentReadService_;
     std::unique_ptr<vdrsuite::timers::NativeTimerBindingRepository>
         nativeTimerBindingRepository_;
+    std::string nativeTimerRefreshCursor_;
+    bool nativeTimerSnapshotRefreshPending_ = false;
     std::unique_ptr<vdrsuite::timers::TimerAssignmentFulfillmentService>
         timerAssignmentFulfillmentService_;
     std::unique_ptr<vdrsuite::timers::NativeTimerCreateOperationPreparationService>
@@ -227,6 +239,22 @@ private:
         nativeTimerCreateAdmissionService_;
     std::unique_ptr<vdrsuite::timers::NativeTimerCreateDispatchService>
         nativeTimerCreateDispatchService_;
+    std::unique_ptr<vdrsuite::timers::NativeTimerDeleteDispatchService>
+        nativeTimerDeleteDispatchService_;
+    std::unique_ptr<vdrsuite::timers::NativeTimerModifyDispatchService>
+        nativeTimerModifyDispatchService_;
+    std::unique_ptr<vdrsuite::timers::NativeTimerModifyReadbackVerificationService>
+        nativeTimerModifyReadbackVerificationService_;
+    std::unique_ptr<vdrsuite::timers::NativeTimerModifyOperationCompletionService>
+        nativeTimerModifyOperationCompletionService_;
+    std::unique_ptr<vdrsuite::agent::BackendAgentNativeTimerModifyAssignmentService>
+        backendAgentNativeTimerModifyAssignmentService_;
+    std::unique_ptr<vdrsuite::timers::NativeTimerAbsenceReadbackVerificationService>
+        nativeTimerAbsenceReadbackVerificationService_;
+    std::unique_ptr<vdrsuite::timers::NativeTimerDeleteOperationCompletionService>
+        nativeTimerDeleteOperationCompletionService_;
+    std::unique_ptr<vdrsuite::agent::BackendAgentNativeTimerDeleteAssignmentService>
+        backendAgentNativeTimerDeleteAssignmentService_;
     std::unique_ptr<vdrsuite::timers::NativeTimerCreateReadbackVerificationService>
         nativeTimerCreateReadbackVerificationService_;
     std::unique_ptr<vdrsuite::timers::NativeTimerCreateOperationCompletionService>
@@ -235,6 +263,7 @@ private:
     std::unique_ptr<JobRepository> jobRepository_;
     std::unique_ptr<RecordingRepository> recordingRepository_;
     std::unique_ptr<PublicRecordingIdentityRepository> publicRecordingIdentities_;
+    std::unique_ptr<PublicSearchTimerIdentityRepository> publicSearchTimerIdentities_;
     std::unique_ptr<MetadataRepository> metadataRepository_;
     std::unique_ptr<HumanAccountRepository> humanAccountRepository_;
     std::unique_ptr<FirstAdminBootstrapRepository> firstAdminBootstrapRepository_;
@@ -291,6 +320,7 @@ private:
     std::unique_ptr<SnapshotChangeFeedService> snapshotChangeFeedService_;
     std::unique_ptr<SnapshotChangeFeedJsonSerializer> snapshotChangeFeedJsonSerializer_;
     std::unique_ptr<SnapshotChangeFeedController> snapshotChangeFeedController_;
+    std::shared_ptr<DeviceLiveEventHub> deviceLiveEventHub_;
     std::unique_ptr<SseLiveTransport> liveTransport_;
     std::unique_ptr<LiveTransportService> liveTransportService_;
     std::unique_ptr<LiveTransportController> liveTransportController_;

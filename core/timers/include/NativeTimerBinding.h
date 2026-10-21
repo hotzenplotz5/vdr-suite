@@ -77,6 +77,13 @@ bool nativeTimerObservedStateValid(
 std::string nativeTimerObservedStateFingerprint(
     const NativeTimerObservedState& state);
 
+// Only for no-effect reconciliation of an already uncertain mutation.
+// EPG event association is dynamic; equality here still requires every
+// actual timer configuration/runtime field to match exactly.
+bool nativeTimerObservedStateSameExceptEventId(
+    const NativeTimerObservedState& prior,
+    const NativeTimerObservedState& observed);
+
 bool nativeTimerBindingValid(const NativeTimerBinding& binding);
 bool nativeTimerBindingRevisionMatches(
     const std::string& expectedRevision,

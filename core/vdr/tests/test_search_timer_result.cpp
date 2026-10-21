@@ -7,6 +7,7 @@
 int main()
 {
     SearchTimerResult emptyResult = SearchTimerResult::empty(25, 10);
+    assert(emptyResult.available());
     assert(emptyResult.empty());
     assert(emptyResult.returnedCount() == 0);
     assert(emptyResult.totalCount() == 0);
@@ -45,6 +46,13 @@ int main()
     assert(result.items().at(0).backendNativeId() == "1");
     assert(result.items().at(1).name() == "Tatort");
     assert(result.items().at(1).isInactive());
+
+    SearchTimerResult failed = SearchTimerResult::unavailable(25, 10);
+    assert(!failed.available());
+    assert(failed.empty());
+    assert(failed.limit() == 25);
+    assert(failed.offset() == 10);
+    assert(result.available());
 
     std::cout << "test_search_timer_result passed" << std::endl;
     return 0;

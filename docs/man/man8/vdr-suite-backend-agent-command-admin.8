@@ -15,6 +15,7 @@ vdr-suite-backend-agent-command-admin \- inspect and administer backend command 
 .B --set-live-owner
 .RB " | " --clear-live-owner " | "
 .B --set-timer-create-owner
+.RB " | " --set-timer-crud-owner
 .RB " | " --clear-timer-owner " | "
 .B --set-recording-marks-owner
 .RB " | " --clear-recording-marks-owner " | "
@@ -53,8 +54,16 @@ Read the latest command-delivery summary for this backend.
 .BR --provider-ownership-status ", " --live-provider-ownership-status ", " --timer-provider-ownership-status ", " --recording-marks-provider-ownership-status ", " --recording-cut-provider-ownership-status
 Read the corresponding scoped provider ownership and activation state.
 .TP
-.BR --set-native-probe-owner ", " --set-live-owner ", " --set-timer-create-owner ", " --set-recording-marks-owner ", " --set-recording-cut-owner
+.BR --set-native-probe-owner ", " --set-live-owner ", " --set-timer-create-owner ", " --set-timer-crud-owner ", " --set-recording-marks-owner ", " --set-recording-cut-owner
 Persist a corresponding local provider ownership binding; not a harmless probe.
+.B --set-timer-create-owner
+allows only native Timer CREATE for the selected backend.
+.B --set-timer-crud-owner
+explicitly authorizes CREATE, UPDATE, TOGGLE and DELETE under the existing
+local vdr.timer provider owner; it preserves CREATE instead of replacing it
+with MODIFY-only ownership. It does not infer authorization from provider
+advertisement, cannot override the independent Device grants or replace
+Agent/Provider safety fencing, and must only be run by an authorized operator.
 .TP
 .BR --clear-native-probe-owner ", " --clear-live-owner ", " --clear-timer-owner ", " --clear-recording-marks-owner ", " --clear-recording-cut-owner
 Clear the corresponding persisted ownership binding.

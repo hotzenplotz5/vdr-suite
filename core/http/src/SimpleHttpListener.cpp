@@ -2,6 +2,7 @@
 
 #include "HttpServerRequest.h"
 #include "HttpServerResponse.h"
+#include "DeviceLiveEventHub.h"
 
 #include <cerrno>
 #include <cctype>
@@ -32,6 +33,8 @@ constexpr std::size_t IMAGE_WRITER_THREAD_COUNT = 4;
 constexpr std::size_t IMAGE_WRITER_MAX_PENDING = 16;
 constexpr std::size_t STREAM_WRITER_THREAD_COUNT = 4;
 constexpr std::size_t STREAM_WRITER_MAX_PENDING = 4;
+constexpr std::size_t DEVICE_EVENT_WRITER_THREADS = 4;
+constexpr std::size_t DEVICE_EVENT_MAX_PENDING = 4;
 constexpr auto STREAM_FIRST_DATA_TIMEOUT = std::chrono::seconds(5);
 constexpr auto STREAM_POLL_INTERVAL = std::chrono::milliseconds(100);
 
@@ -603,6 +606,128 @@ private:
     bool stopping_ = false;
 };
 
+
+// Device events have a separate, bounded writer pool. Streaming clients may
+// occupy a worker for up to two minutes but must never exhaust media FIFO or
+// image writers. Every queued job already passed SecurityHttpGate admission.
+class DeviceEventResponseWriterPool {
+public:
+    DeviceEventResponseWriterPool()
+    {
+        workers_.reserve(DEVICE_EVENT_WRITER_THREADS);
+        for (std::size_t i = 0; i < DEVICE_EVENT_WRITER_THREADS; ++i)
+            workers_.emplace_back([this]() { runWorker(); });
+    }
+
+    ~DeviceEventResponseWriterPool() { shutdown(); }
+
+    bool enqueue(int fd, std::string headers,
+                 std::shared_ptr<DeviceLiveEventSubscription> subscriber)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (stopping_ || jobs_.size() >= DEVICE_EVENT_MAX_PENDING)
+            return false;
+        jobs_.push_back(Job{fd, std::move(headers), std::move(subscriber)});
+        condition_.notify_one();
+        return true;
+    }
+
+    void shutdown()
+    {
+        std::deque<Job> pending;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (stopping_) return;
+            stopping_ = true;
+            pending.swap(jobs_);
+        }
+        for (auto& job : pending) {
+            job.subscriber->close();
+            ::close(job.fd);
+        }
+        condition_.notify_all();
+        for (auto& worker : workers_)
+            if (worker.joinable()) worker.join();
+    }
+
+private:
+    struct Job {
+        int fd;
+        std::string headers;
+        std::shared_ptr<DeviceLiveEventSubscription> subscriber;
+    };
+
+    bool stopping() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return stopping_;
+    }
+
+    bool sendBounded(int fd, const std::string& data) const {
+        std::size_t offset = 0;
+        int timeoutCount = 0;
+        while (offset < data.size()) {
+            if (stopping()) return false;
+            const ssize_t sent = ::send(fd, data.data() + offset,
+                data.size() - offset, noSignalSendFlags());
+            if (sent > 0) {
+                offset += static_cast<std::size_t>(sent);
+                timeoutCount = 0;
+            } else if (sent < 0 && errno == EINTR) {
+                continue;
+            } else if (sent < 0 &&
+                      (errno == EAGAIN || errno == EWOULDBLOCK) &&
+                      ++timeoutCount < 2) {
+                continue;
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    void write(Job& job) {
+        if (!sendBounded(job.fd, job.headers)) return;
+        auto lastHeartbeat = std::chrono::steady_clock::now();
+        while (!stopping()) {
+            std::string frame;
+            if (!job.subscriber->next(frame, std::chrono::milliseconds(250)))
+                break;
+            if (!frame.empty()) {
+                if (!sendBounded(job.fd, frame)) break;
+                lastHeartbeat = std::chrono::steady_clock::now();
+            } else if (std::chrono::steady_clock::now() - lastHeartbeat >=
+                       std::chrono::seconds(10)) {
+                if (!sendBounded(job.fd, ": keepalive\n\n")) break;
+                lastHeartbeat = std::chrono::steady_clock::now();
+            }
+        }
+        job.subscriber->close();
+    }
+
+    void runWorker() {
+        while (true) {
+            Job job{};
+            {
+                std::unique_lock<std::mutex> lock(mutex_);
+                condition_.wait(lock, [this]() {
+                    return stopping_ || !jobs_.empty();
+                });
+                if (stopping_ && jobs_.empty()) return;
+                job = std::move(jobs_.front());
+                jobs_.pop_front();
+            }
+            write(job);
+            ::close(job.fd);
+        }
+    }
+
+    mutable std::mutex mutex_;
+    std::condition_variable condition_;
+    std::deque<Job> jobs_;
+    std::vector<std::thread> workers_;
+    bool stopping_ = false;
+};
+
 } // namespace
 
 SimpleHttpListener::SimpleHttpListener(
@@ -675,6 +800,7 @@ int SimpleHttpListener::runUntilStopped()
     StreamResponseWriterPool streamWriters(
         STREAM_WRITER_THREAD_COUNT,
         STREAM_WRITER_MAX_PENDING);
+    DeviceEventResponseWriterPool deviceEventWriters;
 
     std::cout
         << "simple HTTP listener running on "
@@ -726,12 +852,24 @@ int SimpleHttpListener::runUntilStopped()
         std::string rawResponse;
         bool imageResponse = false;
         std::string streamBodyPath;
+        std::shared_ptr<DeviceLiveEventSubscription> deviceEvents;
 
         if (!prepareClientResponse(
                 clientSocket,
                 rawResponse,
                 imageResponse,
-                streamBodyPath)) {
+                streamBodyPath,
+                deviceEvents)) {
+            close(clientSocket);
+            continue;
+        }
+
+        if (deviceEvents) {
+            if (deviceEventWriters.enqueue(
+                    clientSocket, std::move(rawResponse),
+                    std::move(deviceEvents))) continue;
+            // No SSE headers were written: fail closed with an ordinary 503.
+            writeAll(clientSocket, streamQueueBusyResponse());
             close(clientSocket);
             continue;
         }
@@ -763,6 +901,7 @@ int SimpleHttpListener::runUntilStopped()
         close(clientSocket);
     }
 
+    deviceEventWriters.shutdown();
     streamWriters.shutdown();
     imageWriters.shutdown();
     close(listenSocket);
@@ -846,7 +985,8 @@ bool SimpleHttpListener::prepareClientResponse(
     int clientSocket,
     std::string& rawResponse,
     bool& imageResponse,
-    std::string& streamBodyPath) const
+    std::string& streamBodyPath,
+    std::shared_ptr<DeviceLiveEventSubscription>& deviceEvents) const
 {
     std::string rawRequest;
     char buffer[4096];
@@ -878,6 +1018,8 @@ bool SimpleHttpListener::prepareClientResponse(
     const HttpServerResponse response = server_.handleRequest(request);
     imageResponse = isImageResponse(response);
     streamBodyPath = response.streamBodyPath;
-    rawResponse = serializeResponse(response, !streamBodyPath.empty());
+    deviceEvents = response.deviceEventSubscription;
+    rawResponse = serializeResponse(
+        response, !streamBodyPath.empty() || static_cast<bool>(deviceEvents));
     return true;
 }

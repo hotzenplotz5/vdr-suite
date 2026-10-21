@@ -281,6 +281,34 @@
     return '?' + params.toString();
   }
 
+  // A distinct post-Phase69 VDR SearchTimer collection. Never send
+  // native IDs or transfer TimerAssignment semantics to SearchTimers.
+  function searchTimerCollectionQuery(query) {
+    if (!query || typeof query !== 'object' || Array.isArray(query))
+      throw new Error('SearchTimer query must be an object');
+    const allowed = new Set(['backendId','limit','cursor']);
+    Object.keys(query).forEach(function (key) {
+      if (!allowed.has(key)) throw new Error('unsupported SearchTimer field: ' + key);
+    });
+    if (typeof query.backendId !== 'string' ||
+        !/^[A-Za-z0-9._-]{1,128}$/.test(query.backendId))
+      throw new Error('SearchTimer backendId must be canonical and scoped');
+    const params = new URLSearchParams();
+    params.set('backend', query.backendId);
+    if (query.limit !== undefined) {
+      if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 30)
+        throw new Error('SearchTimer limit must be an integer from 1 to 30');
+      params.set('limit', String(query.limit));
+    }
+    if (query.cursor !== undefined) {
+      if (typeof query.cursor !== 'string' ||
+          !/^st1_[0-9a-f]{2,508}$/.test(query.cursor))
+        throw new Error('SearchTimer cursor must be an opaque st1_ cursor');
+      params.set('cursor', query.cursor);
+    }
+    return '?' + params.toString();
+  }
+
   function timerAssignmentCollectionQuery(query) {
     if (!query || typeof query !== 'object' || Array.isArray(query)) {
       throw new Error('TimerAssignment collection query must be an object');
@@ -987,6 +1015,13 @@
       getChannels(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
         return request('/api/v1/channels' + channelQuery(normalizedOptions.query), normalizedOptions);
+      },
+      getSearchTimers(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return request(
+          '/api/v1/search-timers' + searchTimerCollectionQuery(normalizedOptions.query),
+          normalizedOptions
+        );
       },
       getTimerAssignments(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};

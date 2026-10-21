@@ -160,15 +160,20 @@ def main():
     references = matrix.get("publicClientReferences", [])
     accepted = [ref for ref in references if ref.get("status") == "accepted"]
     candidates = [ref for ref in references if ref.get("status") == "candidate"]
-    if len(accepted) != 7 or len(candidates) != 1:
+    if len(accepted) != 7 or len(candidates) != 2:
         raise AssertionError(
-            "expected seven accepted reference slices and one R2 candidate"
+            "expected seven accepted references plus two explicit post-69 candidates"
         )
-    if candidates[0].get("id") != "reference-js-recording-collection" or (
-        candidates[0].get("resources") !=
-        ["GET /api/v1/recordings?backendId={backendId}"]
+    expected_candidates = {
+        "reference-js-recording-collection":
+            "GET /api/v1/recordings?backendId={backendId}",
+        "reference-js-search-timer-collection":
+            "GET /api/v1/search-timers?backend={backendId}",
+    }
+    if {r.get("id"): (r.get("resources") or [None])[0] for r in candidates} != expected_candidates or any(
+        len(r.get("resources", [])) != 1 for r in candidates
     ):
-        raise AssertionError("unexpected Public-v1 candidate contract")
+        raise AssertionError("unexpected Public-v1 candidate contracts")
     accepted_contracts = {
         contract
         for reference in accepted
@@ -179,7 +184,12 @@ def main():
     }
     if len(accepted_contracts) != 9 or not accepted_contracts.issubset(all_contracts):
         raise AssertionError("accepted nine Public-v1 contracts drifted")
-    if all_contracts - accepted_contracts != set(candidates[0]["resources"]):
+    candidate_contracts = {
+        value for candidate in candidates for value in candidate["resources"]
+    }
+    if all_contracts - accepted_contracts != candidate_contracts or (
+        accepted_contracts & candidate_contracts
+    ):
         raise AssertionError("Public-v1 matrix gained an unreviewed contract")
     account_reference = next(
         (
@@ -195,8 +205,8 @@ def main():
         raise AssertionError("Account reference resource drifted")
 
     require("matrix_guard", '("GET", "/api/v1/accounts")')
-    require("matrix_guard", "expected eight public client reference slices including R2 candidate")
-    require("matrix_guard", "Public-v1 method/resource contracts: 9 accepted, 1 Recording R2 candidate.")
+    require("matrix_guard", "expected nine public client reference slices including Recording and SearchTimer candidates")
+    require("matrix_guard", "Public-v1 method/resource contracts: 9 accepted, 2 scoped read-only candidates")
 
     require("adr61", "accounts.view@*")
     require("adr65", "accounts.view@*")
