@@ -4595,6 +4595,92 @@ ApiResponse publicDeviceLifecycleResponse(
     return response;
 }
 
+// Device catalogue cursor is an admin-only keyset marker; it never carries
+// credentials, session identifiers or backend secrets.
+struct PublicDeviceCollectionQuery
+{
+    std::size_t limit = 50U;
+    std::string afterDeviceId;
+};
+
+bool publicDeviceCollectionIdentifier(const std::string& value)
+{
+    return !value.empty() && value.size() <= 128U &&
+        std::all_of(value.begin(), value.end(), [](unsigned char c) {
+            return (c >= 'a' && c <= 'z') ||
+                   (c >= 'A' && c <= 'Z') ||
+                   (c >= '0' && c <= '9') ||
+                   c == '_' || c == '-' || c == '.';
+        });
+}
+
+bool parsePublicDeviceCollectionQuery(
+    const std::string& target, PublicDeviceCollectionQuery& query)
+{
+    const std::string args = requestQueryString(target);
+    if (args.empty()) return true;
+    bool sawLimit = false, sawCursor = false;
+    std::size_t begin = 0U;
+    while (begin <= args.size())
+    {
+        const std::size_t end = args.find('&', begin);
+        const std::string pair = args.substr(begin,
+            end == std::string::npos ? std::string::npos : end - begin);
+        const std::size_t eq = pair.find('=');
+        if (eq == std::string::npos || eq == 0U) return false;
+        const std::string key = pair.substr(0U, eq);
+        const std::string val = pair.substr(eq + 1U);
+        if (key == "limit")
+        {
+            std::size_t n = 0U;
+            if (sawLimit || !decimalSize(val, n) || n < 1U || n > 100U)
+                return false;
+            sawLimit = true;
+            query.limit = n;
+        }
+        else if (key == "cursor")
+        {
+            if (sawCursor || val.compare(0U, 4U, "dv1_") != 0 ||
+                !publicDeviceCollectionIdentifier(val.substr(4U)))
+                return false;
+            sawCursor = true;
+            query.afterDeviceId = val.substr(4U);
+        }
+        else return false;
+        if (end == std::string::npos) break;
+        begin = end + 1U;
+    }
+    return true;
+}
+
+ApiResponse publicDeviceCollectionResponse(
+    const PublicDeviceCollectionResult& result,
+    const PublicDeviceCollectionQuery& query,
+    const std::string& requestId, const std::string& correlationId)
+{
+    std::string body = "{\\"items\\":[";
+    for (std::size_t i = 0; i < result.items.size(); ++i)
+    {
+        const auto& item = result.items[i];
+        if (i) body += ",";
+        body += "{\\"deviceId\\":\\"" + jsonEscape(item.deviceId) +
+            "\\",\\"actorId\\":\\"" + jsonEscape(item.actorId) +
+            "\\",\\"displayName\\":\\"" + jsonEscape(item.displayName) +
+            "\\",\\"active\\":" + (item.active ? "true" : "false") +
+            ",\\"revoked\\":" + (item.revoked ? "true" : "false") + "}";
+    }
+    body += "],\\"page\\":{\\"limit\\":" + std::to_string(query.limit) +
+        ",\\"hasMore\\":" + (result.hasMore ? "true" : "false") +
+        ",\\"nextCursor\\":";
+    body += result.hasMore && !result.items.empty()
+        ? "\\"dv1_" + jsonEscape(result.items.back().deviceId) + "\\""
+        : "null";
+    body += "}}";
+    ApiResponse response = jsonResponse(body, requestId, correlationId);
+    response.headers["Cache-Control"] = "no-store";
+    return response;
+}
+
 ApiResponse publicDeviceGrantSetResponse(
     const PublicDeviceGrantSetResource& grantSet,
     const std::string& path,
@@ -5743,6 +5829,19 @@ bool PublicApiRuntime::deviceCredentialRotationConfigured() const
 {
     std::lock_guard<std::mutex> lock(deviceCredentialRotationMutex_);
     return static_cast<bool>(deviceCredentialRotation_);
+}
+
+void PublicApiRuntime::registerDeviceCollectionLookup(
+    DeviceCollectionLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(deviceCollectionLookupMutex_);
+    deviceCollectionLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetDeviceCollectionLookup()
+{
+    std::lock_guard<std::mutex> lock(deviceCollectionLookupMutex_);
+    deviceCollectionLookup_ = {};
 }
 
 void PublicApiRuntime::registerDeviceGrantLookup(
@@ -7143,6 +7242,44 @@ bool PublicApiRuntime::tryHandleGet(
                     path, requestId, correlationId);
                 return true;
         }
+    }
+
+    if (path == "/api/v1/devices")
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicDeviceCollectionQuery query;
+        if (!parsePublicDeviceCollectionQuery(requestTarget, query))
+        {
+            response = invalidRequestProblem(path,
+                "Device collection accepts only bounded limit and cursor.",
+                requestId, correlationId);
+            return true;
+        }
+        DeviceCollectionLookup lookup;
+        {
+            std::lock_guard<std::mutex> lock(deviceCollectionLookupMutex_);
+            lookup = deviceCollectionLookup_;
+        }
+        if (!lookup)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        const PublicDeviceCollectionResult page = lookup(
+            PublicDeviceCollectionRequest{query.afterDeviceId, query.limit});
+        if (!page.available || page.items.size() > query.limit ||
+            (page.hasMore && page.items.empty()))
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        response = publicDeviceCollectionResponse(
+            page, query, requestId, correlationId);
+        return true;
     }
 
     std::string deviceGrantDeviceId;
@@ -11651,6 +11788,13 @@ bool PublicApiRuntime::tryHandlePost(
                     correlationId);
                 return true;
         }
+    }
+
+    if (path == "/api/v1/devices")
+    {
+        response = methodNotAllowedProblem(path, requestId,
+            correlationId, "GET");
+        return true;
     }
 
     if (path == PublicAccountCollectionPath)
