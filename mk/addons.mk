@@ -249,3 +249,14 @@ test-addon-agent-advertisement:
 		core/agent/tests/test_backend_agent_command_client.cpp \
 		-o "$(BUILD_DIR)/addons/test_addon_agent_advertisement"
 	"$(BUILD_DIR)/addons/test_addon_agent_advertisement"
+
+# Read-only permission descriptor catalog for settings, no grant mutation.
+.PHONY: test-addon-permission-catalog
+test-addon-permission-catalog:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include \
+		core/addons/tests/test_addon_permission_catalog.cpp \
+		-o "$(BUILD_DIR)/addons/test_addon_permission_catalog"
+	"$(BUILD_DIR)/addons/test_addon_permission_catalog"
+
+test-ci-fast: test-addon-permission-catalog
