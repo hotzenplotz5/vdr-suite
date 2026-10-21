@@ -135,6 +135,9 @@
       report(view, operationLabel(operation.state), false);
       view.operationDetail.textContent =
         'Vorgang ' + operation.operationId + ' · ' + operation.state;
+      if (terminalState(operation.state)) {
+        view.newButton.hidden = false;
+      }
       if (!terminalState(operation.state) && view.reads < MAX_AUTOMATIC_READS) {
         ++view.reads;
         view.timer = global.setTimeout(function () { readOperation(view); }, POLL_MS);
@@ -155,6 +158,7 @@
       : 'Anfrage gesendet, Antwort nicht bestätigt.';
     view.refreshButton.hidden = false;
     view.refreshButton.disabled = !view.attempt.operationId;
+    view.newButton.hidden = !terminalState(view.attempt.state);
     if (view.attempt.operationId) {
       readOperation(view);
     } else {
@@ -238,7 +242,8 @@
           });
         });
       }).then(function (result) {
-        if (!isCurrent(view) || !result) return;
+        if (!result || !view.attempt ||
+            activeAttempts[view.backendId] !== view.attempt) return;
         const operation = result.data;
         if (!operation || typeof operation.operationId !== 'string' ||
             !/^op_[A-Za-z0-9_-]+$/.test(operation.operationId) ||
@@ -247,7 +252,7 @@
         }
         view.attempt.operationId = operation.operationId;
         view.attempt.state = operation.state || 'accepted';
-        showAttempt(view);
+        if (isCurrent(view)) showAttempt(view);
       }).catch(function (error) {
         if (!isCurrent(view)) return;
         if (view.attempt) {
@@ -289,6 +294,10 @@
     root.appendChild(startButton);
     root.appendChild(reloadButton);
     root.appendChild(refreshButton);
+    const newButton = element('button', 'media-import-new', 'Neuen Import vorbereiten');
+    newButton.type = 'button';
+    newButton.hidden = true;
+    root.appendChild(newButton);
     const message = element('p', 'status');
     message.setAttribute('role', 'status');
     message.setAttribute('aria-live', 'polite');
@@ -298,7 +307,8 @@
     mountTarget.replaceChildren(root);
     const view = {owner: owner, backendId: backendId, root: root,
       select: select, startButton: startButton, reloadButton: reloadButton,
-      refreshButton: refreshButton, message: message, operationDetail: operationDetail,
+      refreshButton: refreshButton, newButton: newButton,
+      message: message, operationDetail: operationDetail,
       sources: [], sourcesGeneration: 0, submitting: false, reading: false,
       reads: 0, timer: null, attempt: activeAttempts[backendId] || null};
     current = view;
@@ -308,6 +318,19 @@
     startButton.addEventListener('click', function () { return startImport(view); });
     reloadButton.addEventListener('click', function () { return loadSources(view); });
     refreshButton.addEventListener('click', function () { return readOperation(view); });
+    newButton.addEventListener('click', function () {
+      if (!isCurrent(view) || !view.attempt ||
+          !terminalState(view.attempt.state) || view.reading) return;
+      clearPolling(view);
+      delete activeAttempts[backendId];
+      view.attempt = null;
+      view.reads = 0;
+      view.newButton.hidden = true;
+      view.refreshButton.hidden = true;
+      view.reloadButton.disabled = false;
+      view.operationDetail.textContent = '';
+      return loadSources(view);
+    });
     // Even an already-visible tab must recheck the live Core capability.
     return checkCapability(backendId).then(function (available) {
       if (!isCurrent(view)) return;
