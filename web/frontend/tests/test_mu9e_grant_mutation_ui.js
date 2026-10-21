@@ -26,6 +26,7 @@ let grantItems = [
   {permission: 'channels.view', backendId: 'default'}
 ];
 let grantRevision = 1;
+let addonEffective = false;
 let grantEtagAvailable = true;
 let mutationStatus = 200;
 let confirmResult = true;
@@ -83,7 +84,9 @@ const publicClient = {
           {permission: 'timers.view', presentationKey: 'timers.view', category: 'permission'},
           {permission: 'addons.media.import', presentationKey: 'addons.media.import', category: 'addon'}
         ],
-        addonPermissions: [],
+        addonPermissions: addonEffective
+          ? [{permission: 'addons.media.import', selectable: true}]
+          : [],
         supportedScopeKinds: ['global', 'backend']
       }
     });
@@ -239,6 +242,19 @@ function setEnsureFields(root, permission, backendId) {
     backendPicker.children.map(option => option.value),
     ['*', 'default', 'bedroom']
   );
+  addonEffective = true;
+  const addonRoot = await renderRoot();
+  const addonPicker = findByClass(
+    addonRoot, 'settings-account-admin-grant-permission-input');
+  const group = addonPicker.children.find(function(child) {
+    return child.tagName === 'OPTGROUP' && child.label === 'Add-ons';
+  });
+  assert(group, 'active effective provider must create Add-ons group');
+  assert(group.children.some(function(option) {
+    return option.value === 'addons.media.import';
+  }), 'only reviewed effective import permission must be selectable');
+  addonEffective = false;
+
   assert(calls.some(call => call.name === 'getBackends'),
     'backend selector must use canonical Public-v1 backend discovery');
 
