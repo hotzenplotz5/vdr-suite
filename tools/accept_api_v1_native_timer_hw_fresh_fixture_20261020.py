@@ -123,7 +123,7 @@ def timers():
 
 
 def detail(timer_id):
-    return get("/native-timers/" + urllib.parse.quote(timer_id, safe="") +
+    return get("/native-timers/" + urllib.parse.quote(timer_id, safe=":._-") +
                "?backendId=default")
 
 
@@ -299,10 +299,13 @@ else:
 timer_id = journal.get("timerId") or find_fixture()
 if timer_id == EXCLUDED or timer_id in journal["candidate"]["beforeIds"]:
     stop("NOT_A_NEW_DISPOSABLE_FIXTURE")
+if not timer_id or not all(c.isascii() and (c.isalnum() or c in ":._-")
+                           for c in timer_id):
+    stop("INVALID_NATIVE_TIMER_ID")
 
 title = journal["initialTitle"]
 updated = title + "-APIv1-HW"
-path = "/native-timers/" + urllib.parse.quote(timer_id, safe="") + \
+path = "/native-timers/" + urllib.parse.quote(timer_id, safe=":._-") + \
        "/modifications?backendId=default"
 
 if "UPDATE" not in journal["stages"]:
@@ -337,7 +340,7 @@ print("TOGGLE_ON=PASS")
 if "DELETE" not in journal["stages"]:
     _, etag = valid_detail(timer_id, updated, True)
     submit("DELETE", "DELETE",
-           "/native-timers/" + urllib.parse.quote(timer_id, safe="") +
+           "/native-timers/" + urllib.parse.quote(timer_id, safe=":._-") +
            "?backendId=default", None, etag)
 else:
     operation("DELETE")
