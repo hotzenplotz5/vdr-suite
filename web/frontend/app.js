@@ -3615,14 +3615,15 @@ function renderSettingsView(data) {
 
   appendSettingsLanguageCard(panel);
 
-  const accountAdminSettings = window.VdrSuiteAccountAdminSettings;
-  if (accountAdminSettings && typeof accountAdminSettings.render === 'function') {
-    accountAdminSettings.render(panel);
-  }
-
+  // Paired TVs/Apps are distinct from Human browser sessions. Show first.
   const deviceAdminSettings = window.VdrSuiteDeviceAdminSettings;
   if (deviceAdminSettings && typeof deviceAdminSettings.render === 'function') {
     deviceAdminSettings.render(panel);
+  }
+
+  const accountAdminSettings = window.VdrSuiteAccountAdminSettings;
+  if (accountAdminSettings && typeof accountAdminSettings.render === 'function') {
+    accountAdminSettings.render(panel);
   }
 
   const remoteCard = document.createElement('article');
