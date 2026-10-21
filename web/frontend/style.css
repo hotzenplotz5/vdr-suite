@@ -4485,3 +4485,30 @@ body.channel-sorter-dragging * {
     width: 100%;
   }
 }
+
+/* A7.5: capability-gated Media Tools uses the existing detail mount. */
+.module-tab.media-import-tab[hidden] {
+  display: none !important;
+}
+.media-import-panel {
+  display: grid;
+  gap: 0.8rem;
+  max-width: 42rem;
+  padding: 1rem;
+}
+.media-import-panel label {
+  display: grid;
+  gap: 0.4rem;
+}
+.media-import-panel select {
+  min-width: 0;
+  max-width: 100%;
+  padding: 0.65rem;
+}
+.media-import-panel button {
+  justify-self: start;
+  min-height: 2.75rem;
+}
+.media-import-panel .status {
+  overflow-wrap: anywhere;
+}
