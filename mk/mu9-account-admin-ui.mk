@@ -28,4 +28,11 @@ test-multiuser-admin-ux-guidance:
 	python3 tools/check_multiuser_admin_ux_guidance.py
 
 test-frontend-contracts: test-mu9a-account-admin-read-ui test-mu9b-account-lifecycle-ui test-mu9c-session-revoke-ui test-mu9d-credential-revoke-ui test-mu9e-grant-mutation-ui test-mu9f-account-create-ui test-multiuser-admin-ux-guidance
-test-ci-frontend: test-mu9a-account-admin-read-ui test-mu9b-account-lifecycle-ui test-mu9c-session-revoke-ui test-mu9d-credential-revoke-ui test-mu9e-grant-mutation-ui test-mu9f-account-create-ui test-multiuser-admin-ux-guidance
+test-ci-frontend: test-addon-media-import-ui test-mu9a-account-admin-read-ui test-mu9b-account-lifecycle-ui test-mu9c-session-revoke-ui test-mu9d-credential-revoke-ui test-mu9e-grant-mutation-ui test-mu9f-account-create-ui test-multiuser-admin-ux-guidance
+
+.PHONY: test-addon-media-import-ui
+test-addon-media-import-ui:
+	node --check web/frontend/api/public-v1-client.js
+	node --check web/frontend/modules/media-import.js
+	node --check web/frontend/app.js
+	node web/frontend/tests/test_media_import_composition.js
