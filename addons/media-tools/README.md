@@ -166,3 +166,17 @@ authorization adapter and the Add-on pinned-fd executor. Its synthetic
 handler is a copied `/bin/true` ELF; no VDR recordings are touched.
 Negative cases include default missing executor, revocation, stale backend
 generation, writable inventory and a modified source before execution.
+
+### A6.4 contiguous real-Agent synthetic lifecycle
+
+The isolated root-only composition test also drives the *existing* protected
+Agent inbox, first authenticated receipt, two exact effective-grant replays,
+durable `starting`, pinned `/bin/true` ELF execution, protected result
+persistence, authenticated result acknowledgement and restart replay without
+a second execution. Revocation immediately after receipt but before
+dispatch denies, and recovery from persistent `starting` does not run an
+importer. Every test uses disposable CI root fixtures and no real VDR
+recordings. The real Core command-delivery test separately proves that only
+fresh matching recording-cache readback can transition an operation to
+`succeeded`. The explicit `--enable-media-import` option is not allowed
+in `--once`, credential-rotation or native-probe modes.

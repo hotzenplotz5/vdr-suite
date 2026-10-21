@@ -112,7 +112,7 @@ int main(int argc, char** argv)
         }
     }
     if ((once && rotateCredential) ||
-        (nativeProbe && enableMediaImport))
+        (enableMediaImport && (nativeProbe || once || rotateCredential)))
     {
         usage();
         return 64;

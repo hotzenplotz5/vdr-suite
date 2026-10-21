@@ -2,6 +2,7 @@
 #include "BackendAgentClient.h"
 #include "BackendAgentCommandClient.h"
 #include "BackendAgentCommandStateStore.h"
+#include "BackendAgentCommandJson.h"
 #include "MediaToolsAgentExecutor.h"
 #include <openssl/evp.h>
 #include <cassert>
@@ -62,7 +63,9 @@ BackendAgentCommandAssignment command() {
 }
 struct Transport final: IBackendAgentControlPlaneTransport {
     bool allowed=true;
+    bool firstReceiptAccepted=false;
     unsigned checks=0;
+    unsigned resultAcks=0;
     BackendAgentTransportResponse postEnrollment(
         const std::string&,const std::string&,const std::string&,
         const std::string&) override { return {}; }
@@ -70,9 +73,20 @@ struct Transport final: IBackendAgentControlPlaneTransport {
         const std::string& id,const std::string& secret,
         const std::string& path,const std::string& body) override {
         assert(id=="agent" && secret=="secret");
+        if(path=="/api/agent/v1/commands/result") {
+            ++resultAcks;
+            BackendAgentCommandResult result;
+            std::string reason;
+            assert(parseBackendAgentCommandResultJson(body,result,reason));
+            assert(result.commandId=="command_A6");
+            assert(result.verificationState=="outcome_unknown");
+            return {true,200,"{}",""};
+        }
         assert(path=="/api/agent/v1/commands/receipt");
         assert(body.find("\"commandId\":\"command_A6\"")!=std::string::npos);
         ++checks;
+        if(firstReceiptAccepted && checks==1) return {true,200,
+            "{\"outcome\":\"accepted\",\"reasonCode\":\"command_receipt_accepted\"}",""};
         if(!allowed) return {true,409,"","media_import_permission_denied"};
         return {true,200,
             "{\"outcome\":\"replayed\",\"reasonCode\":\"command_receipt_replayed\"}",""};
@@ -156,6 +170,103 @@ struct Fixture {
     ~Fixture(){std::error_code e;fs::remove_all(root,e);}
 };
 }
+
+void verifyDurableAgentLifecycle()
+{
+    const BackendAgentCommandClientContext current{
+        "agent", "secret", "backend", "instance", 19};
+
+    const auto runFromUnacknowledgedReceipt = [&](Fixture& fixture,
+        Transport& server, BackendAgentMediaImportRuntime& executor) {
+        BackendAgentCommandClientConfig configuration;
+        configuration.statePath = fixture.statePath.string();
+        configuration.commandTypes = {
+            vdrsuite::mediatools::kMediaImportCommandType};
+        configuration.mediaImportExecutor = &executor;
+        std::string reason;
+        commandstate::LocalState pending;
+        assert(commandstate::load(configuration.statePath, pending, reason));
+        pending.receiptAcknowledged = false;
+        assert(commandstate::persist(configuration.statePath, pending, reason));
+        assert(reconcileBackendAgentCommandState(
+            configuration, current, server, reason));
+        commandstate::LocalState completed;
+        assert(commandstate::load(
+            configuration.statePath, completed, reason));
+        assert(completed.receiptAcknowledged && completed.resultPresent &&
+               completed.resultAcknowledged && server.resultAcks == 1);
+        const unsigned checks = server.checks;
+        assert(reconcileBackendAgentCommandState(
+            configuration, current, server, reason));
+        assert(server.resultAcks == 1 && server.checks == checks);
+        return completed;
+    };
+
+    // One actual protected Agent inbox, two authoritative receipt rechecks,
+    // one actual pinned /bin/true child, durable result and restart replay.
+    Fixture normal;
+    Transport allowed;
+    allowed.firstReceiptAccepted = true;
+    BackendAgentMediaImportRuntime executor(
+        normal.root.string(), "backend", normal.statePath.string(), allowed,
+        [&] { return current; });
+    const auto finished = runFromUnacknowledgedReceipt(
+        normal, allowed, executor);
+    assert(allowed.checks == 3 && allowed.resultAcks == 1);
+    assert(finished.dispatchState == "accepted_by_executor");
+    assert(finished.result.resultCategory == "outcome_unknown");
+    assert(finished.result.retryClassification == "reconcile_only");
+    assert(finished.result.resultEvidence.empty());
+    assert(fs::is_empty(normal.video));
+
+    // The server accepted receipt, then withdrew effective permission.
+    // The executable must not start, even though it is installed and pinned.
+    Fixture revoked;
+    Transport blocked;
+    blocked.firstReceiptAccepted = true;
+    blocked.allowed = false;
+    BackendAgentMediaImportRuntime revocationGuard(
+        revoked.root.string(), "backend", revoked.statePath.string(), blocked,
+        [&] { return current; });
+    const auto denied = runFromUnacknowledgedReceipt(
+        revoked, blocked, revocationGuard);
+    assert(blocked.checks == 2 && blocked.resultAcks == 1);
+    assert(denied.result.resultCategory == "rejected");
+    assert(denied.dispatchState == "not_started");
+    assert(fs::is_empty(revoked.video));
+
+    // Restart from durable 'starting' cannot attempt the import again.
+    Fixture crashed;
+    Transport crashServer;
+    commandstate::LocalState inFlight;
+    std::string reason;
+    assert(commandstate::load(
+        crashed.statePath.string(), inFlight, reason));
+    inFlight.dispatchState = "starting";
+    assert(commandstate::persist(
+        crashed.statePath.string(), inFlight, reason));
+    BackendAgentMediaImportRuntime crashedRuntime(
+        crashed.root.string(), "backend", crashed.statePath.string(), crashServer,
+        [&] { return current; });
+    BackendAgentCommandClientConfig crashConfig;
+    crashConfig.statePath = crashed.statePath.string();
+    crashConfig.commandTypes = {
+        vdrsuite::mediatools::kMediaImportCommandType};
+    crashConfig.mediaImportExecutor = &crashedRuntime;
+    assert(reconcileBackendAgentCommandState(
+        crashConfig, current, crashServer, reason));
+    assert(crashServer.checks == 0 && crashServer.resultAcks == 1);
+    assert(commandstate::load(
+        crashConfig.statePath, inFlight, reason));
+    assert(inFlight.resultPresent &&
+           inFlight.result.resultCategory == "outcome_unknown" &&
+           inFlight.result.retryClassification == "reconcile_only");
+    assert(reconcileBackendAgentCommandState(
+        crashConfig, current, crashServer, reason));
+    assert(crashServer.resultAcks == 1);
+    assert(fs::is_empty(crashed.video));
+}
+
 int main() {
     Fixture f;
     Transport transport;
@@ -207,4 +318,5 @@ int main() {
     assert(runtime.execute(a)==vdrsuite::mediatools::MediaImportAgentOutcome::rejected);
     assert(fs::is_empty(f.video));
     assert(transport.checks>=3);
+    verifyDurableAgentLifecycle();
 }
