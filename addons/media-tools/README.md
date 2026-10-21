@@ -69,3 +69,5 @@ mutating yaVDR; it is not yet a product-ready Media Import feature.
 The isolated A6 CI now also exercises `BackendAgentClientRuntime` itself with an injected synthetic executor: authenticated heartbeat, command poll, durable receipt, execution, result acknowledgement and subsequent heartbeat replay without a second dispatch. The shipped Agent still injects no Media Tools executor.
 
 The existing Agent delivery service additionally refuses Media Import receipts unless its trusted `setMediaImportReceiptFenceCheck` verifies the exact reserved operation, effective grant and claim. This server fence defaults to denial; no production code installs a grant-issuing callback yet. Positive and negative tests operate exclusively on in-memory SQLite and synthetic Agent contexts.
+
+The pinned executor snapshots the trusted local source/target resolution during authorization and rejects remapped inventory selections immediately before `fexecve`; CI explicitly tests the swap after authorization as a negative case.

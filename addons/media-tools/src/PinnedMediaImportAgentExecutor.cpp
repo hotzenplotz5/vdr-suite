@@ -123,6 +123,8 @@ bool PinnedMediaImportAgentExecutor::authorize(
     pinned_.reset();
     pendingCommandId_.clear();
     pendingFingerprint_.clear();
+    pendingSource_ = {};
+    pendingSourceValid_ = false;
     std::string sourceId;
     if (backendId != backendId_ || generation != generation_ ||
         assignment.backendId != backendId_ ||
@@ -149,6 +151,8 @@ bool PinnedMediaImportAgentExecutor::authorize(
     pinned_ = std::move(snapshot);
     pendingCommandId_ = assignment.commandId;
     pendingFingerprint_ = assignment.requestFingerprint;
+    pendingSource_ = local;
+    pendingSourceValid_ = true;
     return true;
 }
 
@@ -157,7 +161,9 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
 {
     // One-shot permit: even direct repeated calls never run the same handler.
     auto snapshot = std::move(pinned_);
-    const bool matching = snapshot && snapshot->bytesVerified() &&
+    const auto approvedSource = std::move(pendingSource_);
+    const bool matching = pendingSourceValid_ &&
+        snapshot && snapshot->bytesVerified() &&
         assignment.commandId == pendingCommandId_ &&
         assignment.requestFingerprint == pendingFingerprint_ &&
         assignment.backendId == backendId_ &&
@@ -165,6 +171,8 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
         assignment.deadline > unixNow();
     pendingCommandId_.clear();
     pendingFingerprint_.clear();
+    pendingSource_ = {};
+    pendingSourceValid_ = false;
     if (!matching) return MediaImportAgentOutcome::rejected;
     const auto approval = vdrsuite::addons::readRootMediaToolsApproval(root_);
     if (!approval.approved() || approval.sha256 != snapshot->approvedSha256 ||
@@ -176,7 +184,12 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
     std::string sourceId;
     LocalMediaImportSource local;
     if (!parseMediaImportSelection(assignment.payload, sourceId) ||
-        !inventory_.resolve(backendId_, sourceId, local))
+        !inventory_.resolve(backendId_, sourceId, local) ||
+        !safePath(local.sourceRoot) || !safePath(local.videoRoot) ||
+        !safePath(local.sourceFile) ||
+        local.sourceRoot != approvedSource.sourceRoot ||
+        local.videoRoot != approvedSource.videoRoot ||
+        local.sourceFile != approvedSource.sourceFile)
         return MediaImportAgentOutcome::rejected;
 
     return runPinned(snapshot->pinnedBinary.get(), local, assignment.deadline);

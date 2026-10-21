@@ -108,6 +108,7 @@ struct Fixture {
 
 struct Inventory final : ILocalMediaImportInventory {
     bool valid = true;
+    bool swapped = false;
     int resolutions = 0;
     bool resolve(const std::string& backend, const std::string& sourceId,
                  LocalMediaImportSource& out) override
@@ -115,7 +116,9 @@ struct Inventory final : ILocalMediaImportInventory {
         ++resolutions;
         if (backend != "backend" || sourceId != "inventory_17") return false;
         out = {"/ci-only/media-in", "/ci-only/media-out",
-               valid ? "/ci-only/media-in/recording.ts" : "/ci-only/media-in/../private"};
+               !valid ? "/ci-only/media-in/../private" :
+               swapped ? "/ci-only/media-in/another.ts" :
+               "/ci-only/media-in/recording.ts"};
         return true;
     }
 };
@@ -174,6 +177,13 @@ int main()
     fixture.writeApproval(true);
     assert(executor.execute(a) == MediaImportAgentOutcome::rejected);
     fixture.writeApproval(false);
+
+    // A previously authorized opaque inventory token must not be remapped
+    // to different source bytes or a different output directory before exec.
+    assert(executor.authorize(a, "backend", 19));
+    inventory.swapped = true;
+    assert(executor.execute(a) == MediaImportAgentOutcome::rejected);
+    inventory.swapped = false;
 
     grants.allowed = false;
     assert(!executor.authorize(a, "backend", 19));

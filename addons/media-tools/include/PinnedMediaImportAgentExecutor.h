@@ -60,6 +60,8 @@ private:
     std::unique_ptr<vdrsuite::addons::MediaToolsInstallSnapshot> pinned_;
     std::string pendingCommandId_;
     std::string pendingFingerprint_;
+    LocalMediaImportSource pendingSource_;
+    bool pendingSourceValid_ = false;
 };
 
 } // namespace vdrsuite::mediatools
