@@ -2606,7 +2606,9 @@ public:
         else if (isPublicEpgTimerIntentCreate)
         {
             requestToAuthorize.permission = "timers.create";
-            requestToAuthorize.action = "timers.create";
+            // Distinguish native Public-v1 EPG CREATE from legacy CREATE.
+            // Only this exact action receives role.admin@* expansion.
+            requestToAuthorize.action = "native_timers.create";
             requestToAuthorize.backendId = publicEpgTimerBackendId;
         }
         else if (isTimerCreateAction ||
