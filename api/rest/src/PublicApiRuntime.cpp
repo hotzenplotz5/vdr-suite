@@ -12007,6 +12007,13 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
     std::string sessionId;
     std::string pairingRequestId;
 
+    if (path == "/api/v1/devices")
+    {
+        response = methodNotAllowedProblem(
+            path, requestId, correlationId, "GET");
+        return true;
+    }
+
     if (path == PublicDevicePairingCollectionPath)
     {
         response = methodNotAllowedProblem(
