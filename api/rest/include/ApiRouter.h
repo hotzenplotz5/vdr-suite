@@ -127,6 +127,14 @@ public:
             const std::string& body,
             const RequestSecurityContext& verifiedDevice)>;
 
+    using PublicRecordingActionResolver =
+        std::function<bool(const std::string&, const std::string&, VdrRecording&)>;
+
+    void setPublicRecordingActionResolver(PublicRecordingActionResolver resolver)
+    {
+        publicRecordingActionResolver_ = std::move(resolver);
+    }
+
     ApiRouter(
         DashboardController& dashboardController,
         JobsController& jobsController,
@@ -542,6 +550,10 @@ public:
     }
 
 private:
+    ApiResponse handlePublicRecordingAction(
+        const std::string& body, bool execute);
+
+    PublicRecordingActionResolver publicRecordingActionResolver_;
     DashboardController& dashboardController_;
     JobsController& jobsController_;
     RecordingsController& recordingsController_;

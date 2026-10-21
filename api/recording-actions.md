@@ -1,5 +1,22 @@
 # Public API v1 — Recording Actions
 
+> **R1 source checkpoint (2026-10-21):** Public-v1 `validate` and `execute` now
+> require a backend-scoped `rec_<32hex>` identity from the Public Recording
+> collection. The runtime rejects client-provided native ID/path/title fields
+> and unknown input keys, reusing the existing
+> `PublicRecordingPlaybackTargetResolver` and cache for server-side lookup.
+> Both public entry points require the action's scoped permission and browser
+> CSRF. Public-v1 `execute` only accepts `dryRun:true` in R1: it performs
+> local validation without a backend dispatch and reports `executed:false`.
+> Real public-v1 mutation returns HTTP 409 pending R2/R3 revisions and
+> verified identity rebind. Private/legacy action routes remain unchanged.
+> The historical real-VDR acceptance below predates this R1 request shape.
+>
+> **Transitional documentation:** Original sections immediately below describe
+> the previous v1-as-Legacy-alias behavior and remain for historical context;
+> this checkpoint takes precedence for the current v1 behavior.
+
+
 The public-v1 Recording Action entry points reuse the already deployed VDR-Suite recording action controllers and execution service. They do not create a second mutation stack or change the Web frontend's private routes.
 
 ## HTTP surface

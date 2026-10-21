@@ -27,6 +27,7 @@
 #include "RecordingArtworkHttpServer.h"
 #include "PublicResourcePreconditions.h"
 #include "PublicRecordingCollectionProjection.h"
+#include "PublicRecordingPlaybackTargetResolver.h"
 #include "PublicRecordingDisplayName.h"
 #include "PublicSearchProjection.h"
 #include "GenreBrowserApiRuntime.h"
@@ -3739,6 +3740,23 @@ bool DaemonRuntime::initialize()
 
     apiRouter_->setSearchTimerPreviewEpgCache(
         searchTimerPreviewEpgCache_.get());
+
+    // Reuse the existing public-ID / cache binding without trusting a
+    // backend-native path or service recording ID from the client.
+    apiRouter_->setPublicRecordingActionResolver(
+        [this](const std::string& backendId,
+               const std::string& publicId,
+               VdrRecording& recording) -> bool {
+            if (!publicRecordingIdentities_ || !vdrRecordingCacheRepository_)
+                return false;
+            PublicRecordingPlaybackTargetResolver resolver(
+                *publicRecordingIdentities_, *vdrRecordingCacheRepository_);
+            const auto found = resolver.resolve(backendId, publicId);
+            if (found.status != PublicRecordingPlaybackTargetStatus::ready)
+                return false;
+            recording = found.recording;
+            return true;
+        });
 
     std::cout << "API router runtime initialized" << std::endl;
     std::cout << "SearchTimer preview EPG cache runtime initialized" << std::endl;

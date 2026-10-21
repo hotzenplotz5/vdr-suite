@@ -118,7 +118,8 @@ public:
         const bool isRecordingExecutionAction = isPost &&
             (path == "/api/recordings/actions/execute" ||
              path == "/api/vdr/recordings/actions/execute" ||
-             path == "/api/v1/recordings/actions/execute");
+             path == "/api/v1/recordings/actions/execute" ||
+             path == "/api/v1/recordings/actions/validate");
         const bool isRecordingMarksModifyAction =
             isPost && path == "/api/vdr/recordings/marks";
         const bool isRecordingCutAction =
@@ -892,7 +893,6 @@ public:
         const bool isSafePost = isPost &&
             (path == "/api/recordings/actions/validate" ||
              path == "/api/vdr/recordings/actions/validate" ||
-             path == "/api/v1/recordings/actions/validate" ||
              path == "/api/recordings/actions/preview" ||
              path == "/api/vdr/recordings/actions/preview" ||
              path == "/api/searchtimers/validate" ||

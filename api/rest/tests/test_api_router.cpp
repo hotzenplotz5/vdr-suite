@@ -1756,18 +1756,61 @@ int main()
     assert(actionExecuteAliasResponse.body.find("\"type\":\"DELETE\"")
            != std::string::npos);
 
-    // Public-v1 aliases run through the same validated action controllers.
+    // Public-v1 requires a bound rec_ identity; legacy aliases keep the
+    // native DTO and continue using the old executor unchanged.
+    router.setPublicRecordingActionResolver(
+        [](const std::string& backend, const std::string& id,
+           VdrRecording& recording) {
+            if (backend != "router-backend" ||
+                id != "rec_0123456789abcdef0123456789abcdef")
+                return false;
+            recording.backendId = backend;
+            recording.id = "router-recording-1";
+            recording.backendNativeId = "/private/native-recording.rec";
+            recording.title = "Private test recording";
+            return true;
+        });
+    const std::string publicBody =
+        "{\"backendId\":\"router-backend\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"DELETE\",\"dryRun\":true}";
     const ApiResponse publicValidation = router.handlePost(
-        "/api/v1/recordings/actions/validate", executeBody);
-    const ApiResponse legacyValidation = router.handlePost(
-        "/api/vdr/recordings/actions/validate", executeBody);
-    assert(publicValidation.statusCode == legacyValidation.statusCode);
-    assert(publicValidation.body == legacyValidation.body);
+        "/api/v1/recordings/actions/validate", publicBody);
+    assert(publicValidation.statusCode == 200);
+    assert(publicValidation.body.find("\"valid\":true") != std::string::npos);
+    assert(publicValidation.body.find("rec_0123456789abcdef0123456789abcdef")
+        != std::string::npos);
+    assert(publicValidation.body.find("/private/") == std::string::npos);
+    assert(publicValidation.body.find("router-recording-1") == std::string::npos);
 
     const ApiResponse publicExecution = router.handlePost(
-        "/api/v1/recordings/actions/execute", executeBody);
-    assert(publicExecution.statusCode == actionExecuteResponse.statusCode);
-    assert(publicExecution.body == actionExecuteResponse.body);
+        "/api/v1/recordings/actions/execute", publicBody);
+    assert(publicExecution.statusCode == 200);
+    assert(publicExecution.body.find("\"executed\":false") != std::string::npos);
+    assert(publicExecution.body.find("\"success\":true") != std::string::npos);
+    assert(publicExecution.body.find("/private/") == std::string::npos);
+
+    const ApiResponse blockedMutation = router.handlePost(
+        "/api/v1/recordings/actions/execute",
+        "{\"backendId\":\"router-backend\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"DELETE\",\"dryRun\":false}");
+    assert(blockedMutation.statusCode == 409);
+    assert(blockedMutation.contentType == "application/problem+json");
+
+    const ApiResponse spoofedNative = router.handlePost(
+        "/api/v1/recordings/actions/execute",
+        "{\"backendId\":\"router-backend\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"DELETE\",\"dryRun\":true,"
+        "\"backendNativeId\":\"/private/other.rec\"}");
+    assert(spoofedNative.statusCode == 400);
+    const ApiResponse wrongBackend = router.handlePost(
+        "/api/v1/recordings/actions/validate",
+        "{\"backendId\":\"other-backend\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"DELETE\"}");
+    assert(wrongBackend.statusCode == 404);
 
     const std::string timerCreateBody =
         "{"

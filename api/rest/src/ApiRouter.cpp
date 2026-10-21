@@ -16,6 +16,9 @@
 #include "RecordingActionExecutionController.h"
 #include "RecordingActionPreviewController.h"
 #include "RecordingActionValidationController.h"
+#include "RecordingActionValidationRequestParser.h"
+#include "RecordingActionValidationResult.h"
+#include "RecordingActionValidationResultJsonSerializer.h"
 #include "RecordingPersonSearchController.h"
 #include "RestQueryParameters.h"
 #include "RestfulApiRecordingActionBackendConfig.h"
@@ -356,6 +359,78 @@ ApiRouter::ApiRouter(
 }
 
 
+
+ApiResponse ApiRouter::handlePublicRecordingAction(
+    const std::string& body, bool execute)
+{
+    // SecurityHttpGate checks the actor, backend-scoped action grant and
+    // browser CSRF first. This v1-only boundary never dispatches mutations.
+    const auto problem = [](int status, const char* title,
+                            const char* detail) {
+        ApiResponse response;
+        response.statusCode = status;
+        response.contentType = "application/problem+json";
+        response.headers["Cache-Control"] = "no-store";
+        response.body = std::string("{\"type\":\"about:blank\",\"title\":\"") +
+            title + "\",\"status\":" + std::to_string(status) +
+            ",\"detail\":\"" + detail + "\"}";
+        return response;
+    };
+
+    RecordingActionValidationRequestParser parser;
+    RecordingActionRequest request;
+    if (!parser.parsePublic(body, request))
+        return problem(400, "Bad Request",
+            "A valid backendId, public recordingId and action are required.");
+
+    if (execute && !request.dryRun)
+        return problem(409, "Conflict",
+            "Public recording mutation is not enabled in R1.");
+
+    if (!publicRecordingActionResolver_)
+        return problem(503, "Service Unavailable",
+            "Public recording identity resolution is unavailable.");
+
+    VdrRecording recording;
+    if (!publicRecordingActionResolver_(
+            request.backendId, request.recordingId, recording) ||
+        recording.backendId != request.backendId ||
+        recording.id.empty() || recording.backendNativeId.empty() ||
+        recording.title.empty())
+        return problem(404, "Not Found",
+            "Recording not available for this backend.");
+
+    const std::string publicId = request.recordingId;
+    request.recordingId = recording.id;
+    request.parameters["backendNativeId"] = recording.backendNativeId;
+    request.parameters["recordingTitle"] = recording.title;
+
+    RecordingActionValidationResult validation =
+        recordingActionValidationController_.validateResult(request);
+
+    // Public responses contain only public IDs; legacy guard errors can
+    // include backend-native diagnostics.
+    validation.recordingId = publicId;
+    if (!validation.valid)
+        validation.errors = {"Recording action validation failed"};
+
+    RecordingActionValidationResultJsonSerializer serializer;
+    const std::string safeValidation = serializer.serialize(validation);
+
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.headers["Cache-Control"] = "no-store";
+    if (!execute)
+        response.body = safeValidation;
+    else
+        response.body = std::string("{\"success\":") +
+            (validation.valid ? "true" : "false") +
+            ",\"dryRun\":true,\"executed\":false,\"validation\":" +
+            safeValidation + "}";
+    return response;
+}
+
 ApiResponse ApiRouter::handlePost(
     const std::string& requestTarget,
     const std::string& body)
@@ -369,16 +444,19 @@ ApiResponse ApiRouter::handlePost(
         RestQueryParameters::parse(
             requestQueryString(requestTarget));
 
+    if (path == "/api/v1/recordings/actions/validate")
+        return handlePublicRecordingAction(body, false);
+    if (path == "/api/v1/recordings/actions/execute")
+        return handlePublicRecordingAction(body, true);
+
     if (path == "/api/recordings/actions/validate" ||
-        path == "/api/vdr/recordings/actions/validate" ||
-        path == "/api/v1/recordings/actions/validate")
+        path == "/api/vdr/recordings/actions/validate")
     {
         return recordingActionValidationController_.validateBody(body);
     }
 
     if (path == "/api/recordings/actions/execute" ||
-        path == "/api/vdr/recordings/actions/execute" ||
-        path == "/api/v1/recordings/actions/execute")
+        path == "/api/vdr/recordings/actions/execute")
     {
         return recordingActionExecutionController_.executeBody(body);
     }

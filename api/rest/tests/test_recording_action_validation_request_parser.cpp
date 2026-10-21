@@ -103,6 +103,50 @@ int main()
     assert(missingFieldsRequest.type == RecordingActionType::Unknown);
     assert(missingFieldsRequest.dryRun);
 
+
+    // Public-v1 accepts the public identity only and rejects native fields,
+    // duplicate keys, non-boolean dry-run and unsupported mutation types.
+    RecordingActionRequest publicRequest;
+    const std::string validPublicBody =
+        "{\"backendId\":\"backend-a\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"DELETE\",\"dryRun\":true}";
+    assert(parser.parsePublic(validPublicBody, publicRequest));
+    assert(publicRequest.recordingId ==
+        "rec_0123456789abcdef0123456789abcdef");
+    assert(publicRequest.dryRun && publicRequest.parameters.empty());
+    assert(!parser.parsePublic(
+        "{\"backendId\":\"backend-a\",\"recordingId\":\"native\","
+        "\"action\":\"DELETE\"}", publicRequest));
+    assert(!parser.parsePublic(
+        "{\"backendId\":\"backend-a\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"DELETE\",\"backendNativeId\":\"/private/native\"}",
+        publicRequest));
+    assert(!parser.parsePublic(
+        "{\"backendId\":\"backend-a\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"DELETE\",\"recordingPath\":\"/private/path\"}",
+        publicRequest));
+    assert(!parser.parsePublic(
+        "{\"backendId\":\"backend-b\",\"backendId\":\"backend-a\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"DELETE\"}", publicRequest));
+    assert(!parser.parsePublic(
+        "{\"backendId\":\"backend-a\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"DELETE\",\"dryRun\":\"false\"}", publicRequest));
+    assert(!parser.parsePublic(
+        "{\"backendId\":\"backend-a\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"SHRINK\"}", publicRequest));
+    assert(parser.parsePublic(
+        "{\"backendId\":\"backend-a\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"RENAME\",\"newName\":\"Test\",\"dryRun\":false}",
+        publicRequest));
+    assert(!publicRequest.dryRun && publicRequest.type == RecordingActionType::Rename);
+
     std::cout
         << "test_recording_action_validation_request_parser passed"
         << std::endl;
