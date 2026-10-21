@@ -16,6 +16,8 @@ class IBackendAgentNativeTimerModifyTransport;
 class ISuiteBridgeLegacyOsdInputTransport;
 }
 
+namespace vdrsuite::mediatools { class IMediaImportAgentExecutor; }
+
 struct BackendAgentClientConfig
 {
     std::string controlPlaneUrl;
@@ -50,6 +52,8 @@ struct BackendAgentClientConfig
     int reconnectMaximumSeconds = 30;
     long connectTimeoutMilliseconds = 5000;
     long requestTimeoutMilliseconds = 10000;
+    // Set only by a trusted binary composition root, never parsed from config.
+    vdrsuite::mediatools::IMediaImportAgentExecutor* mediaImportExecutor = nullptr;
 };
 
 struct BackendAgentClientState

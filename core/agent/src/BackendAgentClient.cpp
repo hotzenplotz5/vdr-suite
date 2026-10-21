@@ -2015,6 +2015,7 @@ bool BackendAgentClientRuntime::pollCommands(
         config_.nativeTimerModifyTransport;
     commandConfig.legacyOsdInputTransport =
         config_.legacyOsdInputTransport;
+    commandConfig.mediaImportExecutor = config_.mediaImportExecutor;
 
     BackendAgentCommandClientContext commandContext{
         state_.agentId,
@@ -2065,6 +2066,7 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
         config_.nativeTimerModifyTransport;
     commandConfig.legacyOsdInputTransport =
         config_.legacyOsdInputTransport;
+    commandConfig.mediaImportExecutor = config_.mediaImportExecutor;
     BackendAgentCommandClientContext commandContext{state_.agentId, state_.credentialSecret, state_.backendId, agentInstanceId_, state_.backendGeneration};
     if (!reconcileBackendAgentCommandState(commandConfig, commandContext, transport_, reasonCode))
     {
