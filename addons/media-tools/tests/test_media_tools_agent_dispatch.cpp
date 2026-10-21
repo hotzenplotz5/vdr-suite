@@ -4,6 +4,7 @@
 #include "BackendAgentCommandJson.h"
 #include "BackendAgentCommandStateStore.h"
 #include "MediaToolsAgentExecutor.h"
+#include "MediaImportRecordingEvidence.h"
 
 #include <algorithm>
 #include <cassert>
@@ -56,6 +57,13 @@ public:
     int dispatchCount = 0;
     int authorizationCount = 0;
     MediaImportAgentOutcome outcome = MediaImportAgentOutcome::submitted;
+    std::string evidence;
+    std::string takeRecordingEvidence() override
+    {
+        auto result = evidence;
+        evidence.clear();
+        return result;
+    }
     bool available() override { return trusted; }
     bool authorize(const BackendAgentCommandAssignment& a,
                    const std::string& backend, std::uint64_t generation) override
@@ -186,6 +194,9 @@ void testDurableReceiptExecutionAndReplay()
 {
     Fixture f("execute");
     f.control.command = assignment("normal");
+    f.executor.evidence = recordingPathEvidence(
+        "/var/lib/video/Movie/2026-10-21.18.00.00-0.rec");
+    assert(validRecordingPathEvidence(f.executor.evidence));
     std::string reason;
     assert(pollBackendAgentCommand(f.config, f.context, f.control, reason));
     assert(f.control.receipts == 1 && f.control.results == 1);
@@ -194,6 +205,7 @@ void testDurableReceiptExecutionAndReplay()
     assert(f.control.lastResult.verificationState == "outcome_unknown");
     assert(f.control.lastResult.retryClassification == "reconcile_only");
     assert(f.control.lastResult.dispatchState == "accepted_by_executor");
+    assert(validRecordingPathEvidence(f.control.lastResult.resultEvidence));
     assert(f.control.calls == std::vector<std::string>({
         "/api/agent/v1/commands/poll",
         "/api/agent/v1/commands/receipt",
