@@ -98,6 +98,39 @@ int main()
     }
 
     {
+        // Protected A7.3 mutation inherits the same CSRF and accountability
+        // behavior as other API-v1 operations.
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "addons.media.import", "backend-a"));
+        HttpServerRequest post;
+        post.method = "POST";
+        post.path = "/api/v1/backends/backend-a/media-imports";
+        post.body = "{\"sourceId\":\"opaque_source_123456\"}";
+        post.headers["Content-Type"] = "application/json";
+        fixture.addBrowserAuthentication(post, true);
+        const auto allowed = fixture.gate.evaluate(post);
+        assert(allowed.allowed && allowed.protectedMutation);
+        assert(allowed.authorizationDecision.permission ==
+            "addons.media.import");
+        assert(allowed.authorizationDecision.action == "media.import");
+        assert(allowed.authorizationDecision.backendId == "backend-a");
+
+        fixture.addBrowserAuthentication(post, false);
+        post.headers.erase("X-CSRF-Token");
+        const auto csrf = fixture.gate.evaluate(post);
+        assert(!csrf.allowed && csrf.rejection.statusCode == 403);
+
+        HttpServerRequest anonymous;
+        anonymous.method = "POST";
+        anonymous.path = post.path;
+        anonymous.body = post.body;
+        const auto unauthenticated = fixture.gate.evaluate(anonymous);
+        assert(!unauthenticated.allowed);
+        assert(unauthenticated.rejection.statusCode == 401);
+    }
+
+    {
         SecurityHttpGateBrowserTestFixture fixture;
         HttpServerRequest anonymous;
         anonymous.method = "GET";

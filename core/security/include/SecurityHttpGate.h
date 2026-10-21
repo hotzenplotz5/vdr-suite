@@ -396,6 +396,34 @@ public:
                 path.size() - mediaImportCapabilityPrefix.size() -
                 mediaImportCapabilitySuffix.size()).find('/') ==
                     std::string::npos;
+        const std::string mediaImportCollectionSuffix = "/media-imports";
+        const bool mediaImportCollectionPrefix =
+            path.compare(0, mediaImportCapabilityPrefix.size(),
+                         mediaImportCapabilityPrefix) == 0 &&
+            path.size() > mediaImportCapabilityPrefix.size() +
+                mediaImportCollectionSuffix.size() &&
+            path.compare(path.size() - mediaImportCollectionSuffix.size(),
+                         mediaImportCollectionSuffix.size(),
+                         mediaImportCollectionSuffix) == 0;
+        const std::string publicMediaImportBackendId =
+            mediaImportCollectionPrefix
+                ? path.substr(mediaImportCapabilityPrefix.size(),
+                    path.size() - mediaImportCapabilityPrefix.size() -
+                    mediaImportCollectionSuffix.size())
+                : std::string();
+        const bool isPublicMediaImportCollection =
+            !publicMediaImportBackendId.empty() &&
+            publicMediaImportBackendId.size() <= 128U &&
+            publicMediaImportBackendId != "*" &&
+            publicMediaImportBackendId != "." &&
+            publicMediaImportBackendId != ".." &&
+            std::all_of(publicMediaImportBackendId.begin(),
+                publicMediaImportBackendId.end(), [](unsigned char ch) {
+                    return std::isalnum(ch) || ch == '-' ||
+                        ch == '_' || ch == '.';
+                });
+        const bool isPublicMediaImportCreate =
+            isPost && isPublicMediaImportCollection;
         const bool isPublicBackendRead =
             request.method == "GET" &&
             (isPublicBackendCollection || isPublicMediaImportCapabilityResource);
@@ -847,6 +875,7 @@ public:
             isPublicAccountCredentialMutation ||
             isPublicAccountSessionMutation ||
             isPublicTimerAssignmentCreate ||
+            isPublicMediaImportCreate ||
             isPublicDeviceRecordingSessionCreate ||
             isPublicDeviceRecordingSessionStop ||
             isPublicDeviceRecordingSubtitleSelection || isTimerUpdateAction ||
@@ -1859,6 +1888,12 @@ public:
         {
             requestToAuthorize.permission = "remote.control";
             requestToAuthorize.action = "remote.control";
+        }
+        else if (isPublicMediaImportCreate)
+        {
+            requestToAuthorize.permission = "addons.media.import";
+            requestToAuthorize.action = "media.import";
+            requestToAuthorize.backendId = publicMediaImportBackendId;
         }
         else if (isTimerCreateAction ||
                  isPublicTimerAssignmentCreate)

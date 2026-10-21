@@ -10,6 +10,7 @@ on:
       - 'core/daemon/src/DaemonRuntimeInitialization.cpp'
       - 'core/security/include/SecurityHttpGate.h'
       - 'core/security/tests/test_public_backend_collection_security.cpp'
+      - 'core/addons/src/MediaImportOperationAdmission.cpp'
       - 'api/rest/include/PublicApiRuntime.h'
       - 'api/rest/src/PublicApiRuntime.cpp'
       - 'api/rest/tests/test_public_media_import_capability.cpp'
