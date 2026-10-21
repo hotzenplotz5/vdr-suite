@@ -356,6 +356,14 @@ void advanceFamily(
                       << " fingerprint_original="
                       << (observation->observedFingerprint ==
                           expected.expectedCurrentFingerprint ? 1 : 0)
+                      << " original_except_event_id="
+                      << (sameOriginalTimerWithoutEpgId ? 1 : 0)
+                      << " observed_event_id="
+                      << observation->observedState.eventId
+                      << " stored_event_id="
+                      << (storedBinding.ok()
+                          ? storedBinding.binding.observedState.eventId
+                          : "<missing>")
                       << " postcondition="
                       << (nativeTimerObservationMatchesSpecification(
                           expected.expectedSpecification,
@@ -364,6 +372,32 @@ void advanceFamily(
                       << " pending=" << (observation->observedState.pending ? 1 : 0)
                       << std::endl;
         }
+
+        // An EPG event ID may be associated AFTER the native CREATE readback.
+        // Earlier RESTfulAPI null event_id was also misparsed as "weekdays".
+        // Neither changes a timer's actual configuration. For an outcome-
+        // unknown operation, compare ALL durable original timer fields except
+        // that transient EPG ID, and only if the original binding revision,
+        // generation, native identity and fingerprint still match the immutable
+        // request. Do not update the binding or repeat the native command.
+        const auto& expectedPayload = applied.outcome.expectation.payload;
+        const auto storedBinding = bindings.findById(
+            expectedPayload.nativeTimerBindingId);
+        const bool sameOriginalTimerWithoutEpgId =
+            storedBinding.ok() &&
+            storedBinding.binding.backendId == expectedPayload.backendId &&
+            storedBinding.binding.backendGeneration ==
+                expectedPayload.backendGeneration &&
+            storedBinding.binding.backendNativeTimerId ==
+                expectedPayload.backendNativeTimerId &&
+            storedBinding.binding.bindingRevision ==
+                expectedPayload.expectedBindingRevision &&
+            storedBinding.binding.observedFingerprint ==
+                expectedPayload.expectedCurrentFingerprint &&
+            storedBinding.binding.lastVerifiedOperationId != op.operationId &&
+            nativeTimerObservedStateSameExceptEventId(
+                storedBinding.binding.observedState,
+                observation->observedState);
 
         // An uncertain native MODIFY can no longer execute once the Agent
         // has durably submitted its result. If a fresh, complete native
@@ -386,7 +420,8 @@ void advanceFamily(
             observation->backendGeneration >= payload.backendGeneration &&
             observation->backendNativeTimerId == payload.backendNativeTimerId &&
             observation->observedAt >= expectation.readbackNotBefore &&
-            observation->observedFingerprint == payload.expectedCurrentFingerprint &&
+            (observation->observedFingerprint == payload.expectedCurrentFingerprint ||
+             sameOriginalTimerWithoutEpgId) &&
             !observation->observedState.recording &&
             !observation->observedState.pending &&
             !nativeTimerObservationMatchesSpecification(
