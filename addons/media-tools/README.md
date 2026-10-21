@@ -65,3 +65,5 @@ The trusted inventory and grant adapters and the server-side operation completio
 are **not yet wired to production**. `apps/agent/main.cpp` deliberately injects
 no executor or command advertisement. This is testable in isolated CI without
 mutating yaVDR; it is not yet a product-ready Media Import feature.
+
+The isolated A6 CI now also exercises `BackendAgentClientRuntime` itself with an injected synthetic executor: authenticated heartbeat, command poll, durable receipt, execution, result acknowledgement and subsequent heartbeat replay without a second dispatch. The shipped Agent still injects no Media Tools executor.

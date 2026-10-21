@@ -12,6 +12,9 @@ on:
       - 'core/agent/src/BackendAgentCommand.cpp'
       - 'core/agent/src/BackendAgentCommandClient.cpp'
       - 'core/agent/src/BackendAgentCommandJson.cpp'
+      - 'core/agent/tests/test_backend_agent_client.cpp'
+      - 'mk/agent-tests.mk'
+      - 'mk/backend-agent-runtime.mk'
       - 'mk/common.mk'
       - 'addons/media-tools/**'
       - 'core/security/include/AuthorizationService.h'
@@ -79,6 +82,7 @@ jobs:
           make test-addon-agent-advertisement
           make test-media-tools-agent-dispatch
           make backend-agent
+          make test-backend-agent-client
           make test-addon-activation-intent
           make test-addon-administration-service
           make test-addon-activation-catalog

@@ -150,7 +150,7 @@ test-backend-agent-client: test-backend-agent-foundation-architecture
 		$(AGENT_CHANNEL_DOMAIN_SRC) \
 		$(AGENT_COMMAND_DOMAIN_SRC) \
 		core/agent/tests/test_backend_agent_client.cpp \
-		$(LDFLAGS) \
+		$(LDFLAGS) $(shell pkg-config --libs libcurl) \
 		-o $(BUILD_DIR)/test_backend_agent_client
 	$(BUILD_DIR)/test_backend_agent_client
 

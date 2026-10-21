@@ -1,10 +1,13 @@
 #include "BackendAgentClient.h"
+#include "BackendAgentCommandJson.h"
+#include "MediaToolsAgentExecutor.h"
 #include "BackendAgentChannelObservation.h"
 #include "BackendAgentChannelObservationJson.h"
 #include "BackendAgentLifecycle.h"
 #include "ISuiteBridgeLegacyOsdInputTransport.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cassert>
 #include <cstdio>
 #include <deque>
@@ -129,6 +132,7 @@ void removeTree(const std::string& root)
     std::remove((root + "/channels.conf").c_str());
     std::remove((root + "/enrollment").c_str());
     std::remove((root + "/config").c_str());
+    std::remove((root + "/command.state").c_str());
     rmdir(root.c_str());
 }
 
@@ -931,6 +935,131 @@ void test_low_latency_command_poll_between_heartbeats()
     removeTree(root);
 }
 
+
+class SyntheticMediaExecutor final
+    : public vdrsuite::mediatools::IMediaImportAgentExecutor
+{
+public:
+    int executions = 0;
+    int authorizations = 0;
+    bool available() override { return true; }
+    bool authorize(const BackendAgentCommandAssignment& value,
+                   const std::string& backend,
+                   std::uint64_t generation) override
+    {
+        ++authorizations;
+        std::string source;
+        return backend == "default" && generation == 9 &&
+            value.backendId == backend &&
+            value.backendGeneration == generation &&
+            value.claimEpoch == 3 &&
+            value.verificationPolicy == "reconciliation_required" &&
+            vdrsuite::mediatools::parseMediaImportSelection(
+                value.payload, source) &&
+            source == "local_token";
+    }
+    vdrsuite::mediatools::MediaImportAgentOutcome execute(
+        const BackendAgentCommandAssignment&) override
+    {
+        ++executions;
+        // No real import, no filesystem paths or media writes in this test.
+        return vdrsuite::mediatools::MediaImportAgentOutcome::submitted;
+    }
+};
+
+void test_media_import_actual_agent_runtime_no_double_dispatch()
+{
+    const std::string root =
+        "/tmp/vdr-suite-agent-media-import-runtime";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+
+    BackendAgentClientConfig config = configFor(root);
+    config.commandStatePath = root + "/command.state";
+    config.commandTypes = {"addon.media.import"};
+    SyntheticMediaExecutor executor;
+    config.mediaImportExecutor = &executor;
+
+    BackendAgentClientState state;
+    state.agentId = "agt_client";
+    state.backendId = "default";
+    state.credentialId = "agc_client";
+    state.credentialSecret = Secret;
+    state.credentialGeneration = 1;
+    std::string reason;
+    assert(BackendAgentClientRuntime::writeIdentityAtomically(
+        config.identityPath, state, reason));
+
+    FakeTransport transport;
+    BackendAgentClientRuntime runtime(config, transport);
+    BackendAgentCommandAssignment command;
+    command.present = true;
+    command.requestId = "req_import";
+    command.correlationId = "corr_import";
+    command.operationId = "op_import";
+    command.jobId = "job_import";
+    command.attemptId = "att_import";
+    command.claimEpoch = 3;
+    command.commandId = "cmd_import";
+    command.backendId = "default";
+    command.agentId = "agt_client";
+    command.agentInstanceId = runtime.agentInstanceId();
+    command.backendGeneration = 9;
+    command.commandType = "addon.media.import";
+    command.payloadVersion = 1;
+    command.payload = "{\\"sourceId\\":\\"local_token\\"}";
+    command.verificationPolicy = "reconciliation_required";
+    command.assignedAt = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    command.deadline = command.assignedAt + 50;
+    command.requestFingerprint = backendAgentCommandFingerprint(command);
+    assert(backendAgentCommandValidAssignment(command));
+
+    BackendAgentCommandPollResult assigned;
+    assigned.accepted = true;
+    assigned.reasonCode = "command_assigned";
+    assigned.assignment = command;
+
+    transport.responses.push_back(success(
+        200, "{\\"agentId\\":\\"agt_client\\",\\"backendId\\":\\"default\\","
+             "\\"backendGeneration\\":9,\\"credentialGeneration\\":1,"
+             "\\"heartbeatSequence\\":0,\\"capabilityRevision\\":0,"
+             "\\"leaseDurationSeconds\\":90,\\"disposition\\":\\"replace\\"}"));
+    transport.responses.push_back(success(
+        200, "{\\"capabilityRevision\\":1,\\"duplicate\\":false}"));
+    transport.responses.push_back(success(
+        200, "{\\"heartbeatSequence\\":1,\\"leaseExpiresAt\\":123,"
+             "\\"duplicate\\":false}"));
+    transport.responses.push_back(observationSuccess(9, 1));
+    transport.responses.push_back(success(
+        200, serializeBackendAgentCommandPollResponseJson(assigned)));
+    transport.responses.push_back(success(200, "{}")); // receipt ack
+    transport.responses.push_back(success(200, "{}")); // result ack
+
+    assert(runtime.synchronize(reason));
+    assert(executor.authorizations == 1 && executor.executions == 1);
+    assert(transport.paths.size() == 7);
+    assert(transport.paths[4] == "/api/agent/v1/commands/poll");
+    assert(transport.paths[5] == "/api/agent/v1/commands/receipt");
+    assert(transport.paths[6] == "/api/agent/v1/commands/result");
+    assert(transport.bodies[4].find("addon.media.import") !=
+        std::string::npos);
+    assert(transport.bodies[6].find("reconcile_only") != std::string::npos);
+
+    // Heartbeat reconciles the persisted result, but must not execute twice.
+    transport.responses.push_back(success(
+        200, "{\\"heartbeatSequence\\":2,\\"leaseExpiresAt\\":153,"
+             "\\"duplicate\\":false}"));
+    transport.responses.push_back(observationSuccess(9, 2));
+    transport.responses.push_back(success(
+        200, "{\\"hasAssignment\\":false,"
+             "\\"reasonCode\\":\\"no_command_available\\"}"));
+    assert(runtime.heartbeat(reason));
+    assert(executor.executions == 1 && executor.authorizations == 1);
+    assert(transport.responses.empty());
+    removeTree(root);
+}
+
 void test_heartbeat_wait_is_interruptible()
 {
     const std::string root =
@@ -1008,6 +1137,7 @@ int main()
     test_malformed_control_plane_numbers_fail_closed();
     test_permissions_and_bounded_backoff();
     test_low_latency_command_poll_between_heartbeats();
+    test_media_import_actual_agent_runtime_no_double_dispatch();
     test_heartbeat_wait_is_interruptible();
     std::cout << "test_backend_agent_client passed" << std::endl;
     return 0;
