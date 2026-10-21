@@ -3,7 +3,10 @@ name: R2 Public-v1 Recording + Genre tests
 on:
   push:
     branches:
-      - work/public-v1-vidaa-unified-20261018
+      - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:

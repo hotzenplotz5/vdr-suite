@@ -3,7 +3,10 @@ name: Recording R2 Candidate
 on:
   push:
     branches:
-      - work/public-v1-vidaa-unified-20261018
+      - main
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read

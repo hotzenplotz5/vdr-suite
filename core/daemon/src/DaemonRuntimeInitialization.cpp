@@ -869,6 +869,15 @@ bool DaemonRuntime::initialize()
                         backendNativeId);
                 }
 
+                // Retire the opaque public ID only after a successful real
+                // DELETE. A later recording at the same native path must get
+                // a fresh public ID instead of inheriting the deleted one.
+                if (!backendNativeId.empty() && publicRecordingIdentities_) {
+                    publicRecordingIdentities_->removeAfterVerifiedDeletion(
+                        backendId,
+                        backendNativeId);
+                }
+
                 // The mutation is authoritative even if a local cache row was
                 // already absent. Home still needs one immediate invalidation.
                 recordingPresentationChangeQueue_.request(backendId);
