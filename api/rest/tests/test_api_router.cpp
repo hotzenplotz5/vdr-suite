@@ -1798,7 +1798,7 @@ int main()
     assert(blockedMutation.statusCode == 428);
     assert(blockedMutation.contentType == "application/problem+json");
 
-    // Header is forwarded by handleClientPost for real HTTP requests.
+    // Verify the If-Match argument at the existing router boundary.
     const ApiResponse malformedPrecondition = router.handlePost(
         "/api/v1/recordings/actions/execute",
         "{\"backendId\":\"router-backend\","
@@ -1806,12 +1806,12 @@ int main()
         "\"action\":\"DELETE\",\"dryRun\":false}",
         "W/\"vsr-74657374\"");
     assert(malformedPrecondition.statusCode == 400);
-    const ApiResponse acceptedSyntaxNotAuthority = router.handleClientPost(
+    const ApiResponse acceptedSyntaxNotAuthority = router.handlePost(
         "/api/v1/recordings/actions/execute",
         "{\"backendId\":\"router-backend\","
         "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
         "\"action\":\"DELETE\",\"dryRun\":false}",
-        "", "", "", "", "\"vsr-74657374\"");
+        "\"vsr-74657374\"");
     assert(acceptedSyntaxNotAuthority.statusCode == 409);
     assert(acceptedSyntaxNotAuthority.body.find("revision") !=
         std::string::npos);
