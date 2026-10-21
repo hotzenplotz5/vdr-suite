@@ -1,4 +1,5 @@
 #include "BackendAgentCommandStateStore.h"
+#include "MediaImportRecordingEvidence.h"
 
 #include <algorithm>
 #include <cerrno>
@@ -181,6 +182,16 @@ const std::vector<std::string>& extendedKeys()
     return keys;
 }
 
+const std::vector<std::string>& mediaImportKeys()
+{
+    static const std::vector<std::string> keys = [] {
+        auto result = extendedKeys();
+        result.push_back("media_import_recording_evidence");
+        return result;
+    }();
+    return keys;
+}
+
 bool exactKeys(
     const std::map<std::string, std::string>& values,
     const std::vector<std::string>& keys)
@@ -234,10 +245,12 @@ bool load(const std::string& path, LocalState& state, std::string& reason)
     const bool legacy = values["version"] == "1";
     const bool current = values["version"] == "2";
     const bool extended = values["version"] == "3";
-    const bool nativeState = current || extended;
+    const bool mediaVersion = values["version"] == "4";
+    const bool nativeState = current || extended || mediaVersion;
     const auto& expectedKeys = legacy
-        ? legacyKeys() : current ? currentKeys() : extendedKeys();
-    if ((!legacy && !current && !extended) ||
+        ? legacyKeys() : current ? currentKeys() :
+          extended ? extendedKeys() : mediaImportKeys();
+    if ((!legacy && !current && !extended && !mediaVersion) ||
         !exactKeys(values, expectedKeys))
     {
         reason = "command_state_invalid";
@@ -286,6 +299,11 @@ bool load(const std::string& path, LocalState& state, std::string& reason)
         reason = "command_state_invalid_assignment";
         return false;
     }
+    if (mediaVersion && assignment.commandType != "addon.media.import")
+    {
+        reason = "command_state_invalid_media_version";
+        return false;
+    }
 
     auto& receipt = state.receipt;
     receipt.commandId = assignment.commandId;
@@ -328,7 +346,7 @@ bool load(const std::string& path, LocalState& state, std::string& reason)
         }
     }
 
-    if (extended && !values["state_extension"].empty())
+    if ((extended || mediaVersion) && !values["state_extension"].empty())
     {
         BackendAgentCommandStateExtension extension;
         if (!backendAgentCommandStateExtensionParse(
@@ -362,6 +380,17 @@ bool load(const std::string& path, LocalState& state, std::string& reason)
         result.retryClassification = values["retry_classification"];
         result.boundedDiagnostics = values["bounded_diagnostics"];
         result.completedAt = static_cast<std::int64_t>(completed);
+        if (mediaVersion)
+        {
+            result.resultEvidence = values["media_import_recording_evidence"];
+            if (!result.resultEvidence.empty() &&
+                !vdrsuite::mediatools::validRecordingPathEvidence(
+                    result.resultEvidence))
+            {
+                reason = "command_state_invalid_media_recording_evidence";
+                return false;
+            }
+        }
         if (assignment.commandType ==
             kBackendAgentNativeTimerCreateCommandType)
         {
@@ -389,6 +418,12 @@ bool load(const std::string& path, LocalState& state, std::string& reason)
             reason = "command_state_invalid_result";
             return false;
         }
+    }
+    if (mediaVersion && !state.resultPresent &&
+        !values["media_import_recording_evidence"].empty())
+    {
+        reason = "command_state_unexpected_media_recording_evidence";
+        return false;
     }
     if (nativeState && assignment.commandType == "vdr.native.probe" &&
         assignment.payloadVersion == 2 && !state.resultPresent &&
@@ -446,8 +481,17 @@ bool persist(const std::string& path, const LocalState& state, std::string& reas
         }
     }
 
+    const bool mediaImport =
+        assignment.commandType == "addon.media.import";
+    if (mediaImport && !result.resultEvidence.empty() &&
+        !vdrsuite::mediatools::validRecordingPathEvidence(
+            result.resultEvidence))
+    {
+        reason = "command_state_invalid_media_recording_evidence";
+        return false;
+    }
     std::ostringstream output;
-    output << "version=3\n"
+    output << "version=" << (mediaImport ? "4" : "3") << "\n"
         << "protocol_version=" << assignment.protocolVersion << "\n"
         << "request_id=" << assignment.requestId << "\n"
         << "correlation_id=" << assignment.correlationId << "\n"
@@ -494,6 +538,9 @@ bool persist(const std::string& path, const LocalState& state, std::string& reas
         << "native_result_evidence=" << state.nativeResultEvidence << "\n"
         << "native_readback_evidence=" << state.nativeReadbackEvidence << "\n"
         << "state_extension=" << stateExtension << "\n";
+    if (mediaImport)
+        output << "media_import_recording_evidence="
+               << (state.resultPresent ? result.resultEvidence : "") << "\n";
     return writeProtected(path, output.str(), reason);
 }
 
