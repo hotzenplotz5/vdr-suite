@@ -224,7 +224,7 @@ void advanceFamily(
         {MutationOperationState::accepted,
          MutationOperationState::dispatching,
          MutationOperationState::executedUnverified,
-         MutationOperationState::outcomeUnknown}, 32);
+         MutationOperationState::outcomeUnknown}, 256);
     if (!candidates.ok()) return;
     summary.discovered += candidates.operations.size();
 
@@ -323,9 +323,16 @@ void advanceFamily(
         // as failed_verified. Do not replay the mutation. This also releases
         // the passive binding/assignment generation refresh after an Agent
         // restart, which would otherwise stay blocked indefinitely.
+        //
+        // Use the durable outcome state, not the candidate snapshot: the
+        // result application may have changed dispatching -> outcome_unknown
+        // *during this very poll*, leaving op.state stale. Also examine the
+        // full bounded operation backlog so old uncertain work cannot keep
+        // newer accepted/reconcilable operations permanently outside page 1.
+        const auto& persisted = applied.outcome.operation;
         const auto& expectation = applied.outcome.expectation;
         const auto& payload = expectation.payload;
-        if (op.state == MutationOperationState::outcomeUnknown &&
+        if (persisted.state == MutationOperationState::outcomeUnknown &&
             observation->backendId == payload.backendId &&
             observation->backendGeneration >= payload.backendGeneration &&
             observation->backendNativeTimerId == payload.backendNativeTimerId &&
@@ -337,7 +344,7 @@ void advanceFamily(
                 payload.expectedSpecification, observation->observedState))
         {
             const auto unchanged = operations.transition(
-                op.operationId, op.operationRevision,
+                persisted.operationId, persisted.operationRevision,
                 MutationOperationState::outcomeUnknown,
                 MutationOperationState::failedVerified,
                 "native-timer-modify:unchanged-after-uncertain-execution", now);
