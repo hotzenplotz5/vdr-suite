@@ -424,8 +424,18 @@
         ];
         permissionCategories.forEach(function(category) {
           const choices = permissionOptions.filter(function(option) {
-            return option && option.permission &&
-              (option.category === category.id ||
+            if (!option || !option.permission) return false;
+            // Add-on rights are shown only after an authoritative effective
+            // capability projection supplies selectable permissions.
+            if (option.category === 'addon') {
+              const available = Array.isArray(overview.addonPermissions)
+                ? overview.addonPermissions : [];
+              if (!available.some(function(entry) {
+                return entry && entry.permission === option.permission &&
+                  entry.selectable === true;
+              })) return false;
+            }
+            return (option.category === category.id ||
                 (category.id === 'permission' &&
                  option.category !== 'role' && option.category !== 'addon'));
           });
