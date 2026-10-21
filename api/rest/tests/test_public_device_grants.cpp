@@ -82,10 +82,10 @@ int main()
     assert(runtime.tryHandleGet("/api/v1/devices?limit=1",
         "admin_actor", "devices-page-1", "", firstDevices));
     assert(firstDevices.statusCode == 200);
-    assert(firstDevices.body.find("\\"displayName\\":\\"Hisense Wohnzimmer\\"") !=
+    assert(firstDevices.body.find("\"displayName\":\"Hisense Wohnzimmer\"") !=
         std::string::npos);
-    assert(firstDevices.body.find("\\"hasMore\\":true") != std::string::npos);
-    assert(firstDevices.body.find("\\"nextCursor\\":\\"dv1_device_10001\\"") !=
+    assert(firstDevices.body.find("\"hasMore\":true") != std::string::npos);
+    assert(firstDevices.body.find("\"nextCursor\":\"dv1_device_10001\"") !=
         std::string::npos);
     assert(firstDevices.body.find("credentialSecret") == std::string::npos);
     ApiResponse secondDevices;
@@ -93,8 +93,8 @@ int main()
         "/api/v1/devices?limit=1&cursor=dv1_device_10001",
         "admin_actor", "devices-page-2", "", secondDevices));
     assert(secondDevices.statusCode == 200);
-    assert(secondDevices.body.find("\\"revoked\\":true") != std::string::npos);
-    assert(secondDevices.body.find("\\"hasMore\\":false") != std::string::npos);
+    assert(secondDevices.body.find("\"revoked\":true") != std::string::npos);
+    assert(secondDevices.body.find("\"hasMore\":false") != std::string::npos);
     ApiResponse anonDevices;
     assert(runtime.tryHandleGet("/api/v1/devices?limit=1",
         "", "devices-anon", "", anonDevices));
