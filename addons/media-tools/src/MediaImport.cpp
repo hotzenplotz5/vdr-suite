@@ -172,7 +172,8 @@ ImportPlan inspectImport(const ImportRequest& request) {
     rejectSymlinkComponents(request.sourceFile);
     const auto resolved = fs::canonical(request.sourceFile);
     require(isChild(sourceRoot, resolved), "source resolves outside import root");
-    const auto size = signature(resolved).size;
+    const auto sourceIdentity = signature(resolved);
+    const auto size = sourceIdentity.size;
     std::string extension = resolved.extension().string();
     std::transform(extension.begin(), extension.end(), extension.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
@@ -183,7 +184,11 @@ ImportPlan inspectImport(const ImportRequest& request) {
     const auto folder = videoRoot / title;
     require(!containsRecording(folder), "target already has a VDR recording");
     return {sourceRoot, videoRoot, resolved, folder, title,
-            static_cast<std::uintmax_t>(size)};
+            static_cast<std::uintmax_t>(size),
+            static_cast<std::uint64_t>(sourceIdentity.device),
+            static_cast<std::uint64_t>(sourceIdentity.inode),
+            sourceIdentity.seconds,
+            sourceIdentity.nanoseconds};
 }
 
 void requireProductionCapacity(const ImportPlan& plan) {
@@ -207,7 +212,11 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
     // Re-inspect at execution time: no untrusted request may reuse a stale plan.
     const auto fresh = inspectImport({plan.sourceRoot, plan.videoRoot, plan.sourceFile});
     require(fresh.titleDirectory == plan.titleDirectory &&
-            fresh.sourceBytes == plan.sourceBytes && fresh.title == plan.title,
+            fresh.sourceBytes == plan.sourceBytes && fresh.title == plan.title &&
+            fresh.sourceDevice == plan.sourceDevice &&
+            fresh.sourceInode == plan.sourceInode &&
+            fresh.sourceMtimeSeconds == plan.sourceMtimeSeconds &&
+            fresh.sourceMtimeNanoseconds == plan.sourceMtimeNanoseconds,
             "import plan is stale");
     const auto before = signature(plan.sourceFile);
     require(static_cast<std::uintmax_t>(before.size) == plan.sourceBytes, "source changed");
