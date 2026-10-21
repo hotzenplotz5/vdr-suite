@@ -1030,7 +1030,7 @@ void test_media_import_actual_agent_runtime_no_double_dispatch()
     transport.responses.push_back(success(
         200, "{\"heartbeatSequence\":1,\"leaseExpiresAt\":123,"
              "\"duplicate\":false}"));
-    transport.responses.push_back(observationSuccess(9, 1));
+    transport.responses.push_back(observationSuccess(1, 1));
     transport.responses.push_back(success(
         200, serializeBackendAgentCommandPollResponseJson(assigned)));
     transport.responses.push_back(success(200, "{}")); // receipt ack
@@ -1054,7 +1054,7 @@ void test_media_import_actual_agent_runtime_no_double_dispatch()
     transport.responses.push_back(success(
         200, "{\"heartbeatSequence\":2,\"leaseExpiresAt\":153,"
              "\"duplicate\":false}"));
-    transport.responses.push_back(observationSuccess(9, 2));
+    transport.responses.push_back(observationSuccess(1, 2));
     transport.responses.push_back(success(
         200, "{\"hasAssignment\":false,"
              "\"reasonCode\":\"no_command_available\"}"));
