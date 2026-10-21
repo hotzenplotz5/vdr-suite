@@ -197,6 +197,22 @@ std::string nativeTimerObservedStateFingerprint(
     return fingerprint;
 }
 
+bool nativeTimerObservedStateSameExceptEventId(
+    const NativeTimerObservedState& prior,
+    const NativeTimerObservedState& observed)
+{
+    // Compare using the existing canonical fingerprint. Only the transient
+    // EPG event association may differ; do not weaken title, clock, flags,
+    // channel, directory, priority, or runtime recording-state checks.
+    if (!nativeTimerObservedStateValid(prior) ||
+        !nativeTimerObservedStateValid(observed))
+        return false;
+    NativeTimerObservedState normalized = observed;
+    normalized.eventId = prior.eventId;
+    return nativeTimerObservedStateFingerprint(prior) ==
+        nativeTimerObservedStateFingerprint(normalized);
+}
+
 bool nativeTimerBindingValid(const NativeTimerBinding& binding)
 {
     if (!nonEmptyBounded(
