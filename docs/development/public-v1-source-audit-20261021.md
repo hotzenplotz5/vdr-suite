@@ -1,5 +1,8 @@
 # Public API v1 – Source-Inventur und Umsetzungsstart (2026-10-21)
 
+> **Incremental implementation update, 2026-10-21:** R1 is merged on `main` through `dd8b3317` with all ten exact-head GitHub checks successful; this is not installed-hardware acceptance. Current strategy is **R1 → R2 → R3 → responsibility-only Public API router refactoring checkpoint → EPG/metadata/search-timers/resume**. No full router restructuring before R3. Initial R2 work establishes fail-closed strong `If-Match` input checks for future writes; no cache-derived revision is accepted as an authoritative mutation fence, and current v1 RENAME/DELETE remain non-mutating. Native public MOVE `targetPath` is prohibited until R3 provides logical folder identity. See `docs/CURRENT.md` for volatile progress and `api/recording-actions.md` for current request behavior.
+
+
 **Basis:** `main` bei `5addcc916a39a48bd59f099c076871c1ae1a8d2b` (PR #504 / #505 gemergt). Dieser Prüfpunkt ergänzt die [historische Coverage-Roadmap](../planning/public-v1-coverage-roadmap.md), ersetzt aber keine Hardware-/Release-Abnahme. Ältere Aussagen der Roadmap (z. B. zu fehlender TimerIntent-Submit-Registrierung oder fehlendem Device-SSE) sind nicht mit diesem aktuellen Stand gleichzusetzen.
 
 ## Evidenzdisziplin

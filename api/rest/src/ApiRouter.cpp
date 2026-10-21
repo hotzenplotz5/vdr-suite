@@ -19,6 +19,7 @@
 #include "RecordingActionValidationRequestParser.h"
 #include "RecordingActionValidationResult.h"
 #include "RecordingActionValidationResultJsonSerializer.h"
+#include "PublicResourcePreconditions.h"
 #include "RecordingPersonSearchController.h"
 #include "RestQueryParameters.h"
 #include "RestfulApiRecordingActionBackendConfig.h"
@@ -361,7 +362,7 @@ ApiRouter::ApiRouter(
 
 
 ApiResponse ApiRouter::handlePublicRecordingAction(
-    const std::string& body, bool execute)
+    const std::string& body, bool execute, const std::string& ifMatch)
 {
     // SecurityHttpGate checks the actor, backend-scoped action grant and
     // browser CSRF first. This v1-only boundary never dispatches mutations.
@@ -383,9 +384,34 @@ ApiResponse ApiRouter::handlePublicRecordingAction(
         return problem(400, "Bad Request",
             "A valid backendId, public recordingId and action are required.");
 
-    if (execute && !request.dryRun)
+    // MOVE requires the public logical-folder contract and verified
+    // identity rebind of R3. No native targetPath is accepted in v1.
+    if (request.type == RecordingActionType::Move)
         return problem(409, "Conflict",
-            "Public recording mutation is not enabled in R1.");
+            "Public recording MOVE is not enabled before R3.");
+
+    if (!execute && !request.dryRun)
+        return problem(409, "Conflict",
+            "Mutation preflight is not enabled before R2.");
+
+    if (execute && !request.dryRun)
+    {
+        if (ifMatch.empty())
+            return problem(428, "Precondition Required",
+                "A strong If-Match is required for recording mutation.");
+
+        // Parse only: we cannot yet verify an authoritative write revision
+        // using the cached recording alone. Never dispatch on a parsed tag.
+        std::string revision;
+        if (ifMatch.size() > 4096U ||
+            !vdrsuite::http::publicStrongEntityTagResourceRevision(
+                ifMatch, revision))
+            return problem(400, "Bad Request",
+                "If-Match must be one valid strong public entity tag.");
+
+        return problem(409, "Conflict",
+            "Authoritative recording revision and mutation are not yet enabled.");
+    }
 
     if (!publicRecordingActionResolver_)
         return problem(503, "Service Unavailable",
@@ -433,7 +459,8 @@ ApiResponse ApiRouter::handlePublicRecordingAction(
 
 ApiResponse ApiRouter::handlePost(
     const std::string& requestTarget,
-    const std::string& body)
+    const std::string& body,
+    const std::string& ifMatch)
 {
     (void)body;
 
@@ -445,9 +472,9 @@ ApiResponse ApiRouter::handlePost(
             requestQueryString(requestTarget));
 
     if (path == "/api/v1/recordings/actions/validate")
-        return handlePublicRecordingAction(body, false);
+        return handlePublicRecordingAction(body, false, ifMatch);
     if (path == "/api/v1/recordings/actions/execute")
-        return handlePublicRecordingAction(body, true);
+        return handlePublicRecordingAction(body, true, ifMatch);
 
     if (path == "/api/recordings/actions/validate" ||
         path == "/api/vdr/recordings/actions/validate")

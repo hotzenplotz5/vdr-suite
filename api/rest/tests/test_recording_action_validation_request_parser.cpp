@@ -146,6 +146,19 @@ int main()
         "\"action\":\"RENAME\",\"newName\":\"Test\",\"dryRun\":false}",
         publicRequest));
     assert(!publicRequest.dryRun && publicRequest.type == RecordingActionType::Rename);
+    assert(!parser.parsePublic(
+        "{\"backendId\":\"backend-a\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"DELETE\",\"newName\":\"wrong\"}", publicRequest));
+    assert(!parser.parsePublic(
+        "{\"backendId\":\"backend-a\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"MOVE\",\"targetPath\":\"/private/move\"}",
+        publicRequest));
+    assert(!parser.parsePublic(
+        "{\"backendId\":\"backend-a\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"RENAME\",\"newName\":\"../escape\"}", publicRequest));
 
     std::cout
         << "test_recording_action_validation_request_parser passed"

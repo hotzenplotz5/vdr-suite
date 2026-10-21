@@ -245,7 +245,8 @@ public:
 
     ApiResponse handlePost(
         const std::string& path,
-        const std::string& body);
+        const std::string& body,
+        const std::string& ifMatch = "");
 
     ApiResponse handleClientGet(
         const std::string& requestTarget,
@@ -546,12 +547,13 @@ public:
             return response;
         }
 
-        return handlePost(requestTarget, body);
+        return handlePost(requestTarget, body, ifMatch);
     }
 
 private:
     ApiResponse handlePublicRecordingAction(
-        const std::string& body, bool execute);
+        const std::string& body, bool execute,
+        const std::string& ifMatch);
 
     PublicRecordingActionResolver publicRecordingActionResolver_;
     DashboardController& dashboardController_;

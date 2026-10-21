@@ -1,5 +1,19 @@
 # Public API v1 — Recording Actions
 
+> **R2 initial safe-precondition slice, 2026-10-21:** For the public-v1
+> `execute` route with `dryRun:false`, missing `If-Match` returns
+> HTTP 428. Malformed/weak/wildcard/multiple entity tags are refused with
+> HTTP 400. A syntactically valid strong tag currently still returns 409:
+> cache-only Recording observations do **not** prove an authoritative
+> write revision, and no productive mutation can be dispatched.
+> A public MOVE request always returns 409 pending R3's public logical
+> destination; `targetPath` (native or otherwise) is rejected as a
+> Public-v1 body field. RENAME's `newName` accepts only one name
+> component, not directory/path separators. Validate with
+> `dryRun:false` also returns 409 until write preflights are connected.
+> No change to any private/legacy action route.
+
+
 > **R1 source checkpoint (2026-10-21):** Public-v1 `validate` and `execute` now
 > require a backend-scoped `rec_<32hex>` identity from the Public Recording
 > collection. The runtime rejects client-provided native ID/path/title fields

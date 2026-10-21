@@ -290,7 +290,7 @@ bool RecordingActionValidationRequestParser::parsePublic(
     {
         if (item.first != "backendId" && item.first != "recordingId" &&
             item.first != "action" && item.first != "dryRun" &&
-            item.first != "newName" && item.first != "targetPath")
+            item.first != "newName")
             return false;
     }
 
@@ -315,16 +315,19 @@ bool RecordingActionValidationRequestParser::parsePublic(
     request.type = fromString(action);
     request.dryRun = parseBool(values, "dryRun", true);
 
-    for (const char* name : {"newName", "targetPath"})
-    {
-        const std::string value = getValue(values, name);
-        if (value.size() > 1024U ||
-            std::any_of(value.begin(), value.end(), [](unsigned char c) {
-                return c < 0x20;
-            }))
-            return false;
-        if (!value.empty())
-            request.parameters[name] = value;
-    }
+    // Public rename is a single display-name component, not a path.
+    const std::string newName = getValue(values, "newName");
+    if ((!newName.empty() && action != "RENAME") ||
+        newName.size() > 255U ||
+        newName == "." || newName == ".." ||
+        newName.find('/') != std::string::npos ||
+        newName.find('\\') != std::string::npos ||
+        newName.find('~') != std::string::npos ||
+        std::any_of(newName.begin(), newName.end(), [](unsigned char c) {
+            return c < 0x20 || c == 0x7f;
+        }))
+        return false;
+    if (!newName.empty())
+        request.parameters["newName"] = newName;
     return true;
 }

@@ -1,5 +1,14 @@
 # VDR-Suite Current State
 
+## Recording Public-v1 checkpoint and delivery order (2026-10-21)
+
+**Authoritative working branch: `main`; strategy: R1 -> R2 -> R3 -> router modularization checkpoint -> E1/E2/M1/M2/S1/P1.** Avoid a general `ApiRouter`/`PublicApiRuntime` refactor until the Recording semantics have settled at R3. The later router checkpoint must only relocate responsibilities without changing URLs, JSON contracts, grants, identity ownership, or domain behavior.
+
+- **R1 source + CI COMPLETE at `dd8b3317f9347146463b3ce78636228aa2ebb84f`**: Public `rec_` resolution via existing identity/cache playback resolver; v1-only validation/dry-run; client-native fields rejected; scoped action permission and browser CSRF on validate and execute; legacy routes retained. All ten GitHub check runs green at that SHA. This is code/CI verification, **not** a new productive yaVDR hardware acceptance.
+- **R2 in progress (initial precondition-only increment):** public RENAME/DELETE real mutation is still disabled; a real `execute` must require syntactically strong `If-Match`, but parsing it does *not* substitute an authoritative recording revision. No derived cache-only ETag is accepted for a write. Unsafe client `targetPath` is rejected and MOVE is held for R3. Proper public DTO, authority/If-Match comparison, execution, verified readback, DELETE identity retirement and RENAME rebind remain open. Explicit disposable hardware fixture is required for any later live write.
+- **R3 not started:** logical public folder target, verified move and persistent `rec_` rebind. No automatic mutation retry.
+- Older dated entries below may describe earlier candidate-only or branch-specific stages; do not overgeneralize them to current source or installed host.
+
 ## Operational status authority
 
 **This file is the sole repository authority for volatile operational phase status.**
