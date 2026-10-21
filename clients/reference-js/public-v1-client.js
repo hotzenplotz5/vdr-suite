@@ -442,6 +442,15 @@
   }
 
 
+  function mediaImportPath(options, suffix) {
+    if (!options || typeof options !== 'object' ||
+        typeof options.backendId !== 'string' ||
+        !/^[A-Za-z0-9._-]{1,128}$/.test(options.backendId)) {
+      throw new Error('Media Import requires canonical backendId');
+    }
+    return '/api/v1/backends/' + options.backendId + '/' + suffix;
+  }
+
   function operationItemPath(options) {
     if (!options || typeof options !== 'object' || Array.isArray(options)) {
       throw new Error('Operation item options must be an object');
@@ -492,6 +501,45 @@
       });
     }
 
+
+    function requestMediaImport(options) {
+      const requestOptions = options && typeof options === 'object' ? options : {};
+      const path = mediaImportPath(requestOptions, 'media-imports');
+      if (typeof requestOptions.sourceId !== 'string' ||
+          !/^[A-Za-z0-9_-]{16,64}$/.test(requestOptions.sourceId)) {
+        throw new Error('Media Import requires opaque sourceId');
+      }
+      if (typeof requestOptions.idempotencyKey !== 'string' ||
+          !/^[!-~]{1,160}$/.test(requestOptions.idempotencyKey)) {
+        throw new Error('Media Import requires valid Idempotency-Key');
+      }
+      const headers = Object.assign(
+        {Accept: 'application/json'},
+        defaultHeaders,
+        copyHeaders(requestOptions.headers),
+        {'Content-Type': 'application/json',
+          'Idempotency-Key': requestOptions.idempotencyKey}
+      );
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST',
+        headers: headers,
+        credentials: requestOptions.credentials !== undefined
+          ? requestOptions.credentials : normalized.credentials,
+        cache: 'no-store',
+        signal: requestOptions.signal,
+        body: JSON.stringify({sourceId: requestOptions.sourceId})
+      }).then(function (response) {
+        const location = headerValue(response, 'Location');
+        const entityTag = headerValue(response, 'ETag');
+        return parseJsonBody(response).then(function (payload) {
+          if (!response.ok) {
+            throw new VdrSuitePublicClientError(path, response.status, payload, response);
+          }
+          return {status: response.status, location: location,
+            etag: entityTag, data: payload};
+        });
+      });
+    }
 
     function requestDevicePairingCreate(payload, options) {
       const requestOptions = options && typeof options === 'object' ? options : {};
@@ -1008,6 +1056,19 @@
           timerAssignmentItemPath(normalizedOptions),
           normalizedOptions
         );
+      },
+      getMediaImportCapability(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return request(mediaImportPath(normalizedOptions,
+          'capabilities/media-import'), normalizedOptions);
+      },
+      getMediaImportSources(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return request(mediaImportPath(normalizedOptions,
+          'media-import-sources'), normalizedOptions);
+      },
+      submitMediaImport(options) {
+        return requestMediaImport(options);
       },
       getOperation(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
