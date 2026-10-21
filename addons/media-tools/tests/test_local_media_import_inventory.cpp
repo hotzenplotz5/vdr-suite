@@ -139,8 +139,12 @@ int main()
             ::_exit(2);
         RootOwnedMediaImportInventory nonroot(fixture.root);
         LocalMediaImportSource result;
-        ::_exit(nonroot.resolve("backend", Key, result) &&
-                result.sourceFile == fixture.source ? 0 : 3);
+        std::vector<std::string> safeIds;
+        const bool canRead = nonroot.resolve("backend", Key, result) &&
+            result.sourceFile == fixture.source &&
+            nonroot.listTrustedSourceIds("backend", safeIds) &&
+            safeIds == std::vector<std::string>{Key};
+        ::_exit(canRead ? 0 : 3);
     }
     int status = 0;
     assert(::waitpid(child, &status, 0) == child);

@@ -18,6 +18,7 @@ on:
       - 'api/rest/tests/test_public_media_import_source_list.cpp'
       - 'core/agent/include/BackendAgentMediaImportCatalog.h'
       - 'core/agent/tests/test_backend_agent_media_import_catalog.cpp'
+      - 'core/agent/tests/test_backend_agent_lifecycle.cpp'
       - 'core/agent/src/BackendAgentHttpServer.cpp'
       - 'core/agent/include/BackendAgentHttpServer.h'
       - 'core/addons/include/MediaImportOperationAdmission.h'
