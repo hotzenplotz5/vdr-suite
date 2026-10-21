@@ -938,6 +938,14 @@ public:
             const PublicEpgNowNextRequest& request)>;
 
     // A7.2: the Core actor/backend authority is the only source of truth.
+    enum class MediaImportSourceStatus { ok, forbidden, unavailable };
+    struct MediaImportSourceResult {
+        MediaImportSourceStatus status = MediaImportSourceStatus::unavailable;
+        std::vector<std::string> ids;
+    };
+    using MediaImportSourceLookup = std::function<MediaImportSourceResult(
+        const std::string& actorId, const std::string& backendId)>;
+
     using MediaImportCapabilityLookup =
         std::function<bool(const std::string& actorId,
                            const std::string& backendId)>;
@@ -1090,6 +1098,11 @@ public:
     bool epgNowNextLookupConfigured() const;
     PublicEpgNowNextResult lookupEpgNowNext(
         const PublicEpgNowNextRequest& request) const;
+
+    void registerMediaImportSourceLookup(MediaImportSourceLookup lookup);
+    void resetMediaImportSourceLookup();
+    MediaImportSourceResult lookupMediaImportSources(
+        const std::string& actorId, const std::string& backendId) const;
 
     void registerMediaImportCapabilityLookup(MediaImportCapabilityLookup lookup);
     void resetMediaImportCapabilityLookup();
@@ -1273,6 +1286,9 @@ private:
 
     mutable std::mutex epgNowNextLookupMutex_;
     EpgNowNextLookup epgNowNextLookup_;
+
+    mutable std::mutex mediaImportSourceLookupMutex_;
+    MediaImportSourceLookup mediaImportSourceLookup_;
 
     mutable std::mutex mediaImportCapabilityLookupMutex_;
     MediaImportCapabilityLookup mediaImportCapabilityLookup_;
