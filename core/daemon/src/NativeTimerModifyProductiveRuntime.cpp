@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <limits>
+#include <iostream>
 #include <string>
 
 namespace vdrsuite::daemon {
@@ -230,6 +231,22 @@ void advanceFamily(
 
     for (const auto& op : candidates.operations)
     {
+        // One bounded diagnostic per minute for an already uncertain
+        // operation. This neither changes the operation nor dispatches a
+        // second native command. It pinpoints a failing reconciliation gate.
+        static std::int64_t nextUncertainTraceAt = 0;
+        const bool traceUncertain =
+            op.state == MutationOperationState::outcomeUnknown &&
+            now >= nextUncertainTraceAt;
+        if (traceUncertain)
+        {
+            nextUncertainTraceAt = now + 60;
+            std::cerr << "NATIVE_MODIFY_RECONCILE operation=" << op.operationId
+                      << " stage=selected"
+                      << " revision=" << op.operationRevision
+                      << " backend_generation=" << op.backendGeneration
+                      << std::endl;
+        }
         if (op.state == MutationOperationState::accepted)
         {
             // An expired, never-assigned operation cannot have reached the
@@ -271,12 +288,16 @@ void advanceFamily(
             op.backendId, op.operationId, type);
         if (!assignment)
         {
+            if (traceUncertain)
+                std::cerr << "NATIVE_MODIFY_RECONCILE stage=assignment_missing" << std::endl;
             ++summary.deferred;
             continue;
         }
         const auto durableResult = commands.resultForCommand(assignment->commandId);
         if (!durableResult)
         {
+            if (traceUncertain)
+                std::cerr << "NATIVE_MODIFY_RECONCILE stage=result_unavailable" << std::endl;
             ++summary.deferred;
             continue;
         }
@@ -302,18 +323,46 @@ void advanceFamily(
             assignment->commandId);
         if (!applied.ok())
         {
+            if (traceUncertain)
+                std::cerr << "NATIVE_MODIFY_RECONCILE stage=outcome_application"
+                          << " status=" << static_cast<int>(applied.status)
+                          << std::endl;
             ++summary.deferred;
             continue;
         }
         if (applied.status == NativeTimerModifyResultStatus::applied)
             ++summary.applied;
-        if (!applied.outcome.expectationPresent) continue;
+        if (!applied.outcome.expectationPresent)
+        {
+            if (traceUncertain)
+                std::cerr << "NATIVE_MODIFY_RECONCILE stage=expectation_missing" << std::endl;
+            continue;
+        }
 
         const auto observation = readback(applied.outcome.expectation);
         if (!observation)
         {
+            if (traceUncertain)
+                std::cerr << "NATIVE_MODIFY_RECONCILE stage=readback_unavailable" << std::endl;
             ++summary.deferred;
             continue;
+        }
+        if (traceUncertain)
+        {
+            const auto& expected = applied.outcome.expectation.payload;
+            std::cerr << "NATIVE_MODIFY_RECONCILE stage=readback_observed"
+                      << " state=" << static_cast<int>(applied.outcome.operation.state)
+                      << " generation=" << observation->backendGeneration
+                      << " fingerprint_original="
+                      << (observation->observedFingerprint ==
+                          expected.expectedCurrentFingerprint ? 1 : 0)
+                      << " postcondition="
+                      << (nativeTimerObservationMatchesSpecification(
+                          expected.expectedSpecification,
+                          observation->observedState) ? 1 : 0)
+                      << " recording=" << (observation->observedState.recording ? 1 : 0)
+                      << " pending=" << (observation->observedState.pending ? 1 : 0)
+                      << std::endl;
         }
 
         // An uncertain native MODIFY can no longer execute once the Agent
@@ -348,6 +397,10 @@ void advanceFamily(
                 MutationOperationState::outcomeUnknown,
                 MutationOperationState::failedVerified,
                 "native-timer-modify:unchanged-after-uncertain-execution", now);
+            if (traceUncertain)
+                std::cerr << "NATIVE_MODIFY_RECONCILE stage=no_effect_resolution"
+                          << " status=" << static_cast<int>(unchanged.status)
+                          << std::endl;
             if (unchanged.ok()) ++summary.completed;
             else ++summary.deferred;
             continue;
