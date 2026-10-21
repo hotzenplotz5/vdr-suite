@@ -325,7 +325,8 @@ HumanAccountGrantAdministrationService::supportedGrantPermissionOptions()
         option.category =
             permission.rfind("role.", 0U) == 0U
                 ? "role"
-                : "permission";
+                : (permission.rfind("addons.", 0U) == 0U
+                    ? "addon" : "permission");
         options.push_back(std::move(option));
     }
 
