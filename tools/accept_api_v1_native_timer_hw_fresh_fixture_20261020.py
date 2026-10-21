@@ -128,11 +128,27 @@ def get(path, public=True):
 
 
 def timers():
-    code, _, body = get("/native-timers?backendId=default&limit=30&offset=0")
-    if code != 200 or not isinstance(body.get("items"), list):
-        print("LIST_HTTP=", code, "DETAIL=", body)
-        stop("PUBLIC_TIMER_LIST_UNAVAILABLE")
-    return body["items"]
+    # A complete baseline is required: with >30 real timers, an old timer
+    # outside page 1 must never be mistaken for our newly created fixture.
+    items, known = [], set()
+    for offset in range(0, 480, 30):
+        code, _, body = get(
+            "/native-timers?backendId=default&limit=30&offset=" + str(offset))
+        if code != 200 or not isinstance(body.get("items"), list):
+            print("LIST_HTTP=", code, "OFFSET=", offset, "DETAIL=", body)
+            stop("PUBLIC_TIMER_LIST_UNAVAILABLE")
+        page = body["items"]
+        if len(page) > 30:
+            stop("UNBOUNDED_NATIVE_TIMER_INVENTORY")
+        for item in page:
+            timer_id = item.get("timerId")
+            if not isinstance(timer_id, str) or not timer_id or timer_id in known:
+                stop("INVALID_OR_REPEATED_NATIVE_TIMER_INVENTORY")
+            known.add(timer_id)
+        items.extend(page)
+        if len(page) < 30:
+            return items
+    stop("NATIVE_TIMER_INVENTORY_EXCEEDS_TEST_LIMIT")
 
 
 def detail(timer_id):
