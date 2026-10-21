@@ -86,6 +86,8 @@ function transport(url, options) {
   if (path.endsWith('/media-imports')) {
     ++submits;
     if (submitMode === 'uncertain') return Promise.reject(new Error('lost response'));
+    if (submitMode === 'expired') return Promise.resolve(reply(422, {detail: 'Selection expired'}));
+    if (submitMode === 'denied') return Promise.resolve(reply(403, {detail: 'Permission denied'}));
     return Promise.resolve(reply(202, {operationId: OP, backendId: 'backend-a',
       state: 'dispatching'}, {'Location': '/api/v1/operations/' + OP}));
   }
@@ -243,8 +245,30 @@ function publishHomeResume() {}
   allow = true;
   assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
   context.selectModule('media-import');
-  sourcesStatus = 503;
   await settle();
+
+  // An explicit HTTP denial is not an indeterminate transport failure.
+  submitMode = 'expired';
+  select = findClass(mount, 'media-import-source');
+  select.value = SOURCE;
+  select.listeners.change();
+  await findClass(mount, 'media-import-start').listeners.click();
+  await settle();
+  assert(findClass(mount, 'status').textContent.includes('abgelaufen'));
+  assert.strictEqual(findClass(mount, 'media-import-start').disabled, true);
+  assert.strictEqual(findClass(mount, 'media-import-reload').disabled, false);
+
+  submitMode = 'denied';
+  await findClass(mount, 'media-import-reload').listeners.click();
+  await settle();
+  select = findClass(mount, 'media-import-source');
+  select.value = SOURCE;
+  select.listeners.change();
+  await findClass(mount, 'media-import-start').listeners.click();
+  await settle();
+  assert(findClass(mount, 'status').textContent.includes('Berechtigung'));
+
+  sourcesStatus = 503;
   await findClass(mount, 'media-import-reload').listeners.click();
   await settle();
   assert(findClass(mount, 'status').textContent.includes('abgelaufen'));
