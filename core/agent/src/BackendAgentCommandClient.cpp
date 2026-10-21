@@ -20,6 +20,7 @@
 #include "ISuiteBridgeLegacyOsdInputTransport.h"
 #include "LegacyOsdInputDomain.h"
 #include "MediaToolsAgentExecutor.h"
+#include "MediaImportRecordingEvidence.h"
 
 #include <algorithm>
 #include <chrono>
@@ -769,6 +770,17 @@ bool reconcileBackendAgentCommandState(
                 outcome == vdrsuite::mediatools::MediaImportAgentOutcome::submitted
                     ? "none" : "executor_unknown",
                 "reconcile_only", "Media import requires recording reconciliation");
+        if (outcome == vdrsuite::mediatools::MediaImportAgentOutcome::submitted)
+        {
+            try
+            {
+                const auto evidence =
+                    config.mediaImportExecutor->takeRecordingEvidence();
+                if (vdrsuite::mediatools::validRecordingPathEvidence(evidence))
+                    state.result.resultEvidence = evidence;
+            }
+            catch (...) {} // No readback proof, never report verification.
+        }
         if (!persist(config.statePath, state, reason)) return false;
         return sendResult(config, context, transport, state, reason);
     }
