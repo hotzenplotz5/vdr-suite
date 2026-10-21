@@ -1804,6 +1804,14 @@ int main()
     const ApiResponse publicValidation = router.handlePost(
         "/api/v1/recordings/actions/validate", publicBody);
     assert(publicValidation.statusCode == 200);
+    assert(publicValidation.contentType == "application/json");
+    assert(publicValidation.headers.at("Cache-Control") == "no-store");
+    const ApiResponse publicQueryValidation = router.handlePost(
+        "/api/v1/recordings/actions/validate?unused=1", publicBody);
+    assert(publicQueryValidation.statusCode == publicValidation.statusCode);
+    assert(publicQueryValidation.contentType == publicValidation.contentType);
+    assert(publicQueryValidation.headers == publicValidation.headers);
+    assert(publicQueryValidation.body == publicValidation.body);
     assert(publicValidation.body.find("\"valid\":true") != std::string::npos);
     assert(publicValidation.body.find("rec_0123456789abcdef0123456789abcdef")
         != std::string::npos);
@@ -1813,6 +1821,7 @@ int main()
     const ApiResponse publicExecution = router.handlePost(
         "/api/v1/recordings/actions/execute", publicBody);
     assert(publicExecution.statusCode == 200);
+    assert(publicExecution.headers.at("Cache-Control") == "no-store");
     assert(publicExecution.body.find("\"executed\":false") != std::string::npos);
     assert(publicExecution.body.find("\"success\":true") != std::string::npos);
     assert(publicExecution.body.find("/private/") == std::string::npos);
@@ -1823,6 +1832,9 @@ int main()
         "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
         "\"action\":\"DELETE\",\"dryRun\":false}");
     assert(blockedMutation.statusCode == 428);
+    assert(blockedMutation.headers.at("Cache-Control") == "no-store");
+    assert(blockedMutation.body.find("/api/v1/recordings/actions/execute") !=
+           std::string::npos);
     assert(blockedMutation.contentType == "application/problem+json");
 
     // Verify the If-Match argument at the existing router boundary.
