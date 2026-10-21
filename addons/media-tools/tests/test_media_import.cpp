@@ -1,6 +1,7 @@
 #include "MediaImport.h"
 
 #include <cassert>
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -41,6 +42,7 @@ struct FakeProcess : ProcessRunner {
     std::string codec{"h264\n"};
     bool failRemux = false;
     bool failIndex = false;
+    fs::path probedSource;
     int probes = 0;
     int remuxes = 0;
     int indices = 0;
@@ -49,10 +51,20 @@ struct FakeProcess : ProcessRunner {
         if (argv[0] == "/usr/bin/ffprobe") {
             assert(output);
             ++probes;
+            probedSource = argv.back();
+            assert(probedSource.filename() == "input.mp4");
+            assert(fs::exists(probedSource));
+            std::ifstream in(probedSource, std::ios::binary);
+            const std::string data((std::istreambuf_iterator<char>(in)),
+                                   std::istreambuf_iterator<char>());
+            assert(data == "synthetic-source-unchanged");
             return {0, codec};
         }
         assert(!output);
         if (argv[0] == "/usr/bin/ffmpeg") {
+            const auto input = std::find(argv.begin(), argv.end(), "-i");
+            assert(input != argv.end() && (input + 1) != argv.end());
+            assert(fs::path(*(input + 1)) == probedSource);
             ++remuxes;
             if (failRemux) return {1, ""};
             std::ofstream(argv.back()) << "synthetic ts bytes";
@@ -126,6 +138,7 @@ int main() {
         const auto output = executeRemuxImport(plan, runner, [](const ImportPlan&) {});
         assert(fs::exists(output / "00001.ts") && fs::exists(output / "index"));
         assert(fs::exists(f.source));
+        assert(!fs::exists(runner.probedSource));
         assert(runner.probes == 1 && runner.remuxes == 1 && runner.indices == 1);
         assert(fs::path(output).extension() == ".rec");
         mustFail([&] { inspectImport(f.request()); });
