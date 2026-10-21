@@ -132,7 +132,7 @@ int main()
     media.commandId = "cmd_media";
     media.commandType = "addon.media.import";
     media.payloadVersion = 1;
-    media.payload = "{\\"sourceId\\":\\"local_token\\"}";
+    media.payload = "{\"sourceId\":\"local_token\"}";
     media.verificationPolicy = "reconciliation_required";
     media.assignedAt = 111;
     media.deadline = 500;
