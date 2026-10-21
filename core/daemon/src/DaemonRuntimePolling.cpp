@@ -314,6 +314,17 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
                 -> std::optional<vdrsuite::timers::NativeTimerObservation>
             {
                 const auto& target = expectation.payload;
+                const auto observedAt =
+                    std::chrono::duration_cast<std::chrono::seconds>(
+                        std::chrono::system_clock::now()
+                            .time_since_epoch()).count();
+                static std::int64_t nextUnknownReadbackTraceAt = 0;
+                const bool traceReadback =
+                    expectation.operationState ==
+                        vdrsuite::timers::NativeTimerReadbackOperationState::outcomeUnknown &&
+                    observedAt >= nextUnknownReadbackTraceAt;
+                if (traceReadback) nextUnknownReadbackTraceAt = observedAt + 60;
+
                 const auto agent = backendAgentRepository_
                     ->findAgentForBackend(target.backendId);
                 if (!agent || agent->revoked || agent->incompatible ||
@@ -321,15 +332,27 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
                     (agent->backendGeneration != target.backendGeneration &&
                      expectation.operationState !=
                          vdrsuite::timers::NativeTimerReadbackOperationState::outcomeUnknown))
+                {
+                    if (traceReadback)
+                        std::cerr << "NATIVE_MODIFY_READBACK stage=agent_generation"
+                                  << " available=" << (agent ? 1 : 0)
+                                  << " generation=" << (agent ? agent->backendGeneration : 0)
+                                  << " expected=" << target.backendGeneration
+                                  << std::endl;
                     return std::nullopt;
+                }
 
-                const auto observedAt =
-                    std::chrono::duration_cast<std::chrono::seconds>(
-                        std::chrono::system_clock::now()
-                            .time_since_epoch()).count();
                 if (observedAt < expectation.readbackNotBefore)
+                {
+                    if (traceReadback)
+                        std::cerr << "NATIVE_MODIFY_READBACK stage=observation_time"
+                                  << " now=" << observedAt
+                                  << " not_before=" << expectation.readbackNotBefore
+                                  << std::endl;
                     return std::nullopt;
+                }
 
+                bool attemptedRead = false;
                 for (const auto& context : backendRuntimeContexts_)
                 {
                     if (!context || !context->httpClient ||
@@ -353,8 +376,18 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
                     if (request.allowIdentityChange)
                         request.expectedSpecification = target.expectedSpecification;
                     const auto read = reader.read(request);
+                    attemptedRead = true;
+                    if (traceReadback)
+                        std::cerr << "NATIVE_MODIFY_READBACK stage=reader"
+                                  << " status=" << static_cast<int>(read.status)
+                                  << " backend=" << target.backendId
+                                  << std::endl;
                     if (read.ok()) return read.observation;
                 }
+                if (traceReadback && !attemptedRead)
+                    std::cerr << "NATIVE_MODIFY_READBACK stage=no_http_context"
+                              << " backend=" << target.backendId
+                              << std::endl;
                 return std::nullopt;
             };
 
