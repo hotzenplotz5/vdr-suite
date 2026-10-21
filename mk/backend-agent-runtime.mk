@@ -14,7 +14,7 @@ backend-agent:
 		$(AGENT_RECORDING_MARKS_MODIFY_TRANSPORT_SRC) \
 		$(AGENT_RECORDING_CUT_TRANSPORT_SRC) \
 		apps/agent/main.cpp \
-		$(LDFLAGS) \
+		$(LDFLAGS) $(shell pkg-config --libs libcurl) \
 		-o $(BUILD_DIR)/vdr-suite-backend-agent
 
 backend-agent-enrollment:

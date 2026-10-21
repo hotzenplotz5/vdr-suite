@@ -43,6 +43,13 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Install Backend Agent build dependencies in isolated runner
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update
+          sudo apt-get install -y libcurl4-openssl-dev libssl-dev
+
       - name: Run targeted installed registry and Core provider tests
         shell: bash
         run: |
