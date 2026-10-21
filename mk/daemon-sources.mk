@@ -160,6 +160,7 @@ DAEMON_SRC := \
         core/vdr/src/RestfulApiVdrTimerActionExecutorAdapter.cpp \
         api/rest/src/VdrTimerActionRequestParser.cpp \
         api/rest/src/ApiRouter.cpp \
+        api/rest/src/ApiRouterPublicRecordingActions.cpp \
         core/http/src/BasicHttpClient.cpp \
         core/http/src/SimpleHttpListener.cpp \
         core/http/src/BrowserSessionCsrfRecoveryService.cpp \
