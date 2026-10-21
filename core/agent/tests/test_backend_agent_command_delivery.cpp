@@ -2,6 +2,7 @@
 #include "BackendAgentCommandDelivery.h"
 #include "BackendAgentLifecycle.h"
 #include "MediaImportOperationFence.h"
+#include "AddonActivationIntentRepository.h"
 #include "MediaImportRecordingEvidence.h"
 #include "BackendAgentMediaImportAssignment.h"
 #include "MutationOperationRepository.h"
@@ -252,9 +253,11 @@ int main()
     registry.addBackend(writable);
     BackendRegistryService backendRegistry(registry);
     BackendAccessPolicy backendAccess;
+    vdrsuite::addons::AddonActivationIntentRepository activation(db);
+    assert(activation.ensureSchema());
     vdrsuite::addons::MediaImportOperationFence coreFence(
         operations, identities, mediaGrants, agents, commands,
-        backendRegistry, backendAccess);
+        backendRegistry, backendAccess, activation);
     BackendAgentCommandPollRequest importPoll = poll;
     importPoll.supportedCommandTypes = {"probe.noop", "addon.media.import"};
     assert(service.poll(
@@ -271,8 +274,38 @@ int main()
     assert(!coreFence.check(media, mediaReceipt, 118, fenceReason));
     assert(mediaGrants.ensureGrant(
         "human_media", "addons.media.import", "default"));
+    assert(!coreFence.check(media, mediaReceipt, 118, fenceReason) &&
+           fenceReason == "media_import_activation_disabled");
+
+    // Only a trusted administrative intent transition can enable dispatch.
+    RequestSecurityContext admin = context(ActorType::User, "admin_media");
+    admin.grants.push_back({"role.admin", "*"});
+    vdrsuite::addons::RuntimeEvidence trusted;
+    trusted.moduleId = "rectools";
+    trusted.packageName = "vdr-suite-addon-media-tools";
+    trusted.backendId = "default";
+    trusted.installed = true;
+    trusted.manifestValid = true;
+    trusted.packageTrusted = true;
+    trusted.versionCompatible = true;
+    trusted.handlerRegistered = true;
+    trusted.handlerHealthy = true;
+    auto access = backendAccess.canWriteToBackend(backendRegistry, "default");
+    const auto activated = activation.update(
+        admin, {"rectools", "default", true, 0}, access, trusted);
+    assert(activated.status == vdrsuite::addons::IntentStatus::ok);
     assert(coreFence.check(media, mediaReceipt, 118, fenceReason));
     assert(fenceReason == "media_import_operation_and_grant_verified");
+
+    const auto disabled = activation.update(
+        admin, {"rectools", "default", false, 1}, access, {});
+    assert(disabled.status == vdrsuite::addons::IntentStatus::ok);
+    assert(!coreFence.check(media, mediaReceipt, 118, fenceReason) &&
+           fenceReason == "media_import_activation_disabled");
+    assert(activation.update(
+        admin, {"rectools", "default", true, 2}, access, trusted).status ==
+        vdrsuite::addons::IntentStatus::ok);
+    assert(coreFence.check(media, mediaReceipt, 118, fenceReason));
 
     service.setMediaImportReceiptFenceCheck(
         [&](const BackendAgentCommandAssignment& original,

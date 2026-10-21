@@ -79,6 +79,9 @@ private:
     // Only the internal dry-run admission service may read desired state
     // without a global administrator context. No public route may use it.
     friend class AddonAdmissionReadService;
+    // Execution fence may read desired admin intent as one necessary condition;
+    // it cannot turn this intent into executable authority by itself.
+    friend class MediaImportOperationFence;
 
     IntentResult readForAdmission(const std::string& moduleId,
                                   const std::string& backendId) const;

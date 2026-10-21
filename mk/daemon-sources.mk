@@ -3,6 +3,8 @@ DAEMON_SRC := \
         core/operations/src/MutationOperation.cpp \
         core/operations/src/MutationOperationIdentity.cpp \
         core/operations/src/MutationOperationRepository.cpp \
+        core/addons/src/AddonAccessPolicy.cpp \
+        core/addons/src/AddonActivationIntentRepository.cpp \
         core/addons/src/MediaImportOperationFence.cpp \
         core/agent/src/BackendAgentMediaImportAssignment.cpp \
         core/operations/src/MutationOperationReadService.cpp \

@@ -275,12 +275,17 @@ bool DaemonRuntime::initialize()
         std::make_unique<SecurityPermissionGrantRepository>(database_);
     if (!mediaImportGrantRepository_->ensureSchema())
         return false;
+    mediaImportActivationIntents_ =
+        std::make_unique<vdrsuite::addons::AddonActivationIntentRepository>(
+            database_);
+    if (!mediaImportActivationIntents_->ensureSchema())
+        return false;
     mediaImportOperationFence_ =
         std::make_unique<vdrsuite::addons::MediaImportOperationFence>(
             *mutationOperationRepository_, *backendAgentIdentityRepository_,
             *mediaImportGrantRepository_, *backendAgentRepository_,
             *backendAgentCommandRepository_, *backendRegistryService_,
-            *backendAccessPolicy_);
+            *backendAccessPolicy_, *mediaImportActivationIntents_);
     backendAgentCommandDeliveryService_->setMediaImportReceiptFenceCheck(
         [this](const BackendAgentCommandAssignment& assignment,
                const BackendAgentCommandReceipt& receipt,

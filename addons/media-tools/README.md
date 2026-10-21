@@ -131,3 +131,14 @@ dispatch; missing or inconsistent state, revocation, network or server failure
 deny. The check occurs both before and after durable `starting`, before the
 pinned handler is executed. It does not create a second permission database.
 Production composition remains default-deny until the full activation gates.
+
+### A6.3 server activation gate
+
+The *same* Core `AddonActivationIntentRepository` now supplies a necessary
+per-backend administrator desired-enabled condition to the **actual** media
+import operation/receipt fence. Missing schema, absent row, disabled intent or
+database failure denies before dispatch even when a user still has the
+independent `addons.media.import` grant. It is not an execution capability
+by itself. The isolated command-delivery test exercises default deny and
+administrative disable/re-enable while retaining the existing grant tests.
+No production Agent registration or handler activation is performed by this.

@@ -9,6 +9,7 @@
 #include <string>
 
 class BackendAccessPolicy;
+namespace vdrsuite::addons { class AddonActivationIntentRepository; }
 class BackendAgentCommandRepository;
 class BackendAgentRepository;
 class BackendRegistryService;
@@ -33,7 +34,8 @@ public:
         BackendAgentRepository& agents,
         BackendAgentCommandRepository& commands,
         BackendRegistryService& backendRegistry,
-        BackendAccessPolicy& backendAccess);
+        BackendAccessPolicy& backendAccess,
+        const AddonActivationIntentRepository& activationIntents);
 
     bool check(const BackendAgentCommandAssignment& assignment,
                const BackendAgentCommandReceipt& receipt,
@@ -72,6 +74,7 @@ private:
     BackendAgentCommandRepository& commands_;
     BackendRegistryService& backendRegistry_;
     BackendAccessPolicy& backendAccess_;
+    const AddonActivationIntentRepository& activationIntents_;
 };
 
 } // namespace vdrsuite::addons

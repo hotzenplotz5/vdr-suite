@@ -1,5 +1,6 @@
 #include "MediaImportOperationFence.h"
 
+#include "AddonActivationIntentRepository.h"
 #include "AuthorizationService.h"
 #include "BackendAccessPolicy.h"
 #include "BackendAgentCommandDelivery.h"
@@ -44,10 +45,12 @@ MediaImportOperationFence::MediaImportOperationFence(
     BackendAgentRepository& agents,
     BackendAgentCommandRepository& commands,
     BackendRegistryService& backendRegistry,
-    BackendAccessPolicy& backendAccess)
+    BackendAccessPolicy& backendAccess,
+    const AddonActivationIntentRepository& activationIntents)
     : operations_(operations), identities_(identities), grants_(grants),
       agents_(agents), commands_(commands),
-      backendRegistry_(backendRegistry), backendAccess_(backendAccess)
+      backendRegistry_(backendRegistry), backendAccess_(backendAccess),
+      activationIntents_(activationIntents)
 {
 }
 
@@ -159,6 +162,15 @@ bool MediaImportOperationFence::checkCore(
         backendRegistry_, assignment.backendId);
     if (!backend.backendFound || !backend.allowed || backend.readOnly)
         return denied(reason, "media_import_backend_unavailable");
+
+    // A previously issued per-actor grant must never revive a disabled
+    // add-on. Reuse the one audited per-backend desired-state repository.
+    // This is an additional necessary gate, NEVER sufficient permission.
+    const auto intent = activationIntents_.readForAdmission(
+        "rectools", assignment.backendId);
+    if (intent.status != IntentStatus::ok ||
+        !intent.intent.desiredEnabled || intent.intent.revision <= 0)
+        return denied(reason, "media_import_activation_disabled");
 
     reason = "media_import_operation_and_grant_verified";
     return true;

@@ -161,6 +161,7 @@
 #include "VdrSnapshotBuilder.h"
 #include "SimpleHttpListener.h"
 #include "MediaImportOperationFence.h"
+#include "AddonActivationIntentRepository.h"
 #include "SecurityPermissionGrantRepository.h"
 
 #include <atomic>
@@ -270,6 +271,8 @@ private:
     std::unique_ptr<EmbeddedBackendLifecycleService> embeddedBackendLifecycleService_;
     std::unique_ptr<BackendAgentCommandDeliveryService> backendAgentCommandDeliveryService_;
     std::unique_ptr<SecurityPermissionGrantRepository> mediaImportGrantRepository_;
+    std::unique_ptr<vdrsuite::addons::AddonActivationIntentRepository>
+        mediaImportActivationIntents_;
     std::unique_ptr<vdrsuite::addons::MediaImportOperationFence> mediaImportOperationFence_;
     std::unique_ptr<BackendAccessPolicy> backendAccessPolicy_;
     std::unique_ptr<BackendRegistryJsonSerializer> backendRegistryJsonSerializer_;
