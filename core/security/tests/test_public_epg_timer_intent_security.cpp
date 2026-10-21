@@ -34,6 +34,7 @@ int main()
         assert(result.protectedMutation);
         assert(result.authorizationDecision.allowed);
         assert(result.authorizationDecision.permission == "timers.create");
+        assert(result.authorizationDecision.action == "native_timers.create");
         assert(result.authorizationDecision.backendId == "home");
         result = fixture.gate.evaluate(createRequest(fixture, false));
         assert(!result.allowed && result.rejection.statusCode == 403);
