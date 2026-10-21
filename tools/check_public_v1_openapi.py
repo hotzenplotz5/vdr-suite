@@ -77,6 +77,9 @@ AUDITED = {
     "/api/v1/device-pairings/{pairingRequestId}/credential": {
         "post": 'const std::string issueSuffix = "/credential";',
     },
+    "/api/v1/devices": {
+        "get": 'if (path == "/api/v1/devices")',
+    },
     "/api/v1/devices/{deviceId}/grants": {
         "get": "if (publicDeviceGrantPath(",
         "post": "if (publicDeviceGrantPath(",
