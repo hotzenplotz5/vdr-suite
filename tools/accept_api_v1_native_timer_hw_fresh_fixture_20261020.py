@@ -30,7 +30,17 @@ EXCLUDED = "C-1-1051-10301:0:1792447200:2100:2145"
 # (403 Verified Device credential required) and admitted no operation.
 # Preserve its uncertain marker untouched; use a distinct journal for the
 # intentionally authorized administrator attempt.
-JOURNAL = Path("/var/lib/vdr-suite/native-timer-hw-fresh-admin-20261021.json")
+# Explicit one-time new-fixture mode: preserve the successful first
+# hardware run and its immutable command identities in its original journal.
+NEW_TIMER_RUN = len(sys.argv) == 2 and sys.argv[1] == "--new-timer"
+if len(sys.argv) > 1 and not NEW_TIMER_RUN:
+    print("STOP=UNSUPPORTED_ARGUMENT_USE_--new-timer", flush=True)
+    raise SystemExit(2)
+RUN_ID = "fresh-20261021-r2" if NEW_TIMER_RUN else "fresh-20261021-r1"
+JOURNAL = Path(
+    "/var/lib/vdr-suite/native-timer-hw-fresh-admin-r2-20261021.json"
+    if NEW_TIMER_RUN else
+    "/var/lib/vdr-suite/native-timer-hw-fresh-admin-20261021.json")
 # outcome_unknown is not terminal: the daemon may reconcile this exact
 # command via read-only native readback and close it as succeeded/failed_verified.
 TERMINAL_FAILURE = {"failed_verified", "failed",
@@ -401,13 +411,18 @@ if JOURNAL.exists():
     journal = json.loads(JOURNAL.read_text())
     if journal.get("backendId") != BACKEND or journal.get("channelId") != CHANNEL:
         stop("UNEXPECTED_JOURNAL")
+    if NEW_TIMER_RUN and journal.get("testRun") != RUN_ID:
+        stop("NEW_TIMER_JOURNAL_IDENTITY_MISMATCH")
 else:
-    journal = {"backendId": BACKEND, "channelId": CHANNEL, "stages": {}}
+    journal = {"backendId": BACKEND, "channelId": CHANNEL,
+               "testRun": RUN_ID, "stages": {}}
     save()
 
 auth = login()
 print("ACCEPTANCE=FRESH_FUTURE_DISPOSABLE_TIMER_ADMIN")
-print("PREVIOUS_CREATE=HTTP_403_REJECTED_NO_OPERATION")
+print("TEST_RUN=", RUN_ID, "JOURNAL=", JOURNAL.name)
+if not NEW_TIMER_RUN:
+    print("PREVIOUS_CREATE=HTTP_403_REJECTED_NO_OPERATION")
 print("OLD_RECORDING_TIMER=EXCLUDED")
 
 if "candidate" not in journal:
@@ -432,7 +447,7 @@ if not timer_id or not all(c.isascii() and (c.isalnum() or c in ":._-")
     stop("INVALID_NATIVE_TIMER_ID")
 
 title = journal["initialTitle"]
-updated = title + "-APIv1-HW"
+updated = title + ("-APIv1-HW-R2" if NEW_TIMER_RUN else "-APIv1-HW")
 path = "/native-timers/" + urllib.parse.quote(timer_id, safe=":._-") + \
        "/modifications?backendId=default"
 
@@ -448,6 +463,12 @@ if "UPDATE" not in journal["stages"]:
     submit("UPDATE", "POST", path, update, etag)
 else:
     operation("UPDATE")
+
+if not journal.get("updateNoEffectVerified"):
+    # A terminal succeeded state alone is not enough. Confirm actual
+    # UPDATED native title through the fresh Public v1 GET before toggling.
+    valid_detail(timer_id, updated, True)
+    print("UPDATE=PASS_VERIFIED_NATIVE_READBACK")
 
 # The earlier hardware fixture already proved a successful UPDATE. When
 # *this* uncertain UPDATE has now been verified with no side effect, keep
@@ -484,6 +505,10 @@ for attempt in range(20):
     if code == 404:
         print("DELETE=PASS")
         if journal.get("updateNoEffectVerified"):
+            if NEW_TIMER_RUN:
+                print("HARDWARE_ACCEPTANCE=PARTIAL CREATE TOGGLE_OFF TOGGLE_ON DELETE; "
+                      "UPDATE=FAILED_VERIFIED_NO_EFFECT")
+                raise SystemExit(1)
             print("HARDWARE_ACCEPTANCE=PASS CREATE TOGGLE_OFF TOGGLE_ON DELETE; "
                   "UPDATE=FAILED_VERIFIED_NO_EFFECT (prior fixture UPDATE=PASS)")
         else:
