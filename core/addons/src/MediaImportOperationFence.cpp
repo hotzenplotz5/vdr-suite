@@ -249,6 +249,18 @@ bool MediaImportOperationFence::applyResult(
         reason = "media_import_result_already_applied";
         return true;
     }
+    // Agent result ACK may be lost after the native cache independently
+    // finished reconciliation. Exact replay must not roll succeeded back or
+    // strand the Agent in an endless 409 acknowledgement loop.
+    if (op.state == State::succeeded &&
+        op.resultReference == reference &&
+        target == State::outcomeUnknown &&
+        vdrsuite::mediatools::validRecordingPathEvidence(
+            result.resultEvidence))
+    {
+        reason = "media_import_result_already_verified";
+        return true;
+    }
     if (op.state != State::dispatching)
         return denied(reason, "media_import_result_state_conflict");
 
