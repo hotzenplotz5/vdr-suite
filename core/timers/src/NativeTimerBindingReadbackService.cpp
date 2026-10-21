@@ -60,10 +60,19 @@ NativeTimerBindingReadbackService::applyPresentObservation(
             NativeTimerBindingReadbackStatus::staleObservation,
             current);
 
-    // A present observation cannot silently clear durable missing evidence, and
-    // a material fingerprint change must remain available to reconciliation.
-    if (current.missingSince != 0
-        || observation.observedFingerprint != current.observedFingerprint)
+    // Dynamic EPG association is not a timer configuration mutation. It may
+    // change event_id from null to a schedule event after CREATE, even though
+    // the native timer is unchanged. All other fields must match exactly.
+    // The repository's passive-write path still fences ANY nonterminal timer
+    // operation, so no in-flight UPDATE can lose its original fingerprint.
+    const bool eventIdOnlyDrift =
+        passiveFreshnessRefresh &&
+        observation.observedFingerprint != current.observedFingerprint &&
+        nativeTimerObservedStateSameExceptEventId(
+            current.observedState, observation.observedState);
+    if (current.missingSince != 0 ||
+        (observation.observedFingerprint != current.observedFingerprint &&
+         !eventIdOnlyDrift))
     {
         return result(
             NativeTimerBindingReadbackStatus::reconciliationRequired,
@@ -81,10 +90,16 @@ NativeTimerBindingReadbackService::applyPresentObservation(
     NativeTimerBinding next = current;
     next.backendGeneration = observation.backendGeneration;
     next.lastObservedAt = observation.observedAt;
+    if (eventIdOnlyDrift)
+    {
+        next.observedState.eventId = observation.observedState.eventId;
+        next.observedFingerprint = nativeTimerObservedStateFingerprint(
+            next.observedState);
+    }
 
-    // Preserve the already-durable copied representation when the normalized
-    // fingerprint is equal. This prevents 930/0930 representation churn from
-    // issuing revisions while still advancing authoritative observation fences.
+    // Preserve existing copied clock/field representations when canonical
+    // fingerprints are equal. Only an EPG-only difference is refreshed here;
+    // all actual native Timer configuration changes remain reconciliation work.
     const auto updated = repository_.update(
         next, current.bindingRevision, passiveFreshnessRefresh);
     if (updated.status == NativeTimerBindingRepositoryStatus::conflict)
