@@ -202,6 +202,12 @@ test-install-staging:
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/index.html
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/app.js
+	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/public-v1-client.js
+	cmp -s clients/reference-js/public-v1-client.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/public-v1-client.js
+	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/public-v1-client.js
+	grep -F 'data-module="media-import" hidden disabled' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/index.html >/dev/null
+	grep -F 'src="../frontend/api/public-v1-client.js"' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/index.html >/dev/null
+	grep -F 'src="../frontend/modules/media-import.js"' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/index.html >/dev/null
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/genre-client-api.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-logos.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/home-now-next.js
