@@ -16,6 +16,11 @@ struct LocalMediaImportSource {
     std::filesystem::path sourceRoot;
     std::filesystem::path videoRoot;
     std::filesystem::path sourceFile;
+    std::uint64_t sourceDevice = 0;
+    std::uint64_t sourceInode = 0;
+    std::uintmax_t sourceBytes = 0;
+    std::int64_t sourceMtimeSeconds = 0;
+    std::int64_t sourceMtimeNanoseconds = 0;
 };
 
 class ILocalMediaImportInventory {

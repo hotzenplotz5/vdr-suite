@@ -143,6 +143,16 @@ jobs:
             "$(pwd)/.build/addons/test_pinned_media_import_agent_executor"
           echo "PINNED_MEDIA_IMPORT_AGENT_CI=PASS"
 
+      - name: Build root-owned source inventory verifier
+        run: make build-media-tools-local-inventory-test
+
+      - name: Verify opaque local media source inventory in isolated fixture
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo env TMPDIR=/root "$(pwd)/.build/addons/test_local_media_import_inventory"
+          echo "LOCAL_MEDIA_INVENTORY_CI=PASS"
+
       - name: Verify add-on permissions in existing settings UI
         shell: bash
         run: |

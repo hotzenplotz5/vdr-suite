@@ -114,6 +114,7 @@ struct Inventory final : ILocalMediaImportInventory {
     bool valid = true;
     bool swapped = false;
     bool swappedTarget = false;
+    bool swappedIdentity = false;
     int resolutions = 0;
     bool resolve(const std::string& backend, const std::string& sourceId,
                  LocalMediaImportSource& out) override
@@ -125,6 +126,10 @@ struct Inventory final : ILocalMediaImportInventory {
                !valid ? "/ci-only/media-in/../private" :
                swapped ? "/ci-only/media-in/another.ts" :
                "/ci-only/media-in/recording.ts"};
+        out.sourceDevice = 10;
+        out.sourceInode = swappedIdentity ? 99 : 11;
+        out.sourceBytes = 1024;
+        out.sourceMtimeNanoseconds = 42;
         return true;
     }
 };
@@ -194,6 +199,10 @@ int main()
     inventory.swappedTarget = true;
     assert(executor.execute(a) == MediaImportAgentOutcome::rejected);
     inventory.swappedTarget = false;
+    assert(executor.authorize(a, "backend", 19));
+    inventory.swappedIdentity = true;
+    assert(executor.execute(a) == MediaImportAgentOutcome::rejected);
+    inventory.swappedIdentity = false;
 
     grants.allowed = false;
     assert(!executor.authorize(a, "backend", 19));

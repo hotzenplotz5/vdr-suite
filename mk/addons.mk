@@ -317,3 +317,14 @@ build-media-tools-pinned-agent-executor-test:
 		addons/media-tools/src/PinnedMediaImportAgentExecutor.cpp \
 		addons/media-tools/tests/test_pinned_media_import_agent_executor.cpp \
 		-lcrypto -o "$(BUILD_DIR)/addons/test_pinned_media_import_agent_executor"
+
+# A6.1: root-owned backend-local opaque source map. Only CI runs this test
+# as root in a disposable /run fixture; no productive import is performed.
+.PHONY: build-media-tools-local-inventory-test
+build-media-tools-local-inventory-test:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) $(CXXFLAGS) -Werror -Icore/addons/include \
+		addons/media-tools/src/MediaImport.cpp \
+		addons/media-tools/src/LocalMediaImportInventory.cpp \
+		addons/media-tools/tests/test_local_media_import_inventory.cpp \
+		-o "$(BUILD_DIR)/addons/test_local_media_import_inventory"

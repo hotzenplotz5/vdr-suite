@@ -282,7 +282,12 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
         !safePath(local.sourceFile) ||
         local.sourceRoot != approvedSource.sourceRoot ||
         local.videoRoot != approvedSource.videoRoot ||
-        local.sourceFile != approvedSource.sourceFile)
+        local.sourceFile != approvedSource.sourceFile ||
+        local.sourceDevice != approvedSource.sourceDevice ||
+        local.sourceInode != approvedSource.sourceInode ||
+        local.sourceBytes != approvedSource.sourceBytes ||
+        local.sourceMtimeSeconds != approvedSource.sourceMtimeSeconds ||
+        local.sourceMtimeNanoseconds != approvedSource.sourceMtimeNanoseconds)
         return MediaImportAgentOutcome::rejected;
 
     return runPinned(snapshot->pinnedBinary.get(), local, assignment.deadline,

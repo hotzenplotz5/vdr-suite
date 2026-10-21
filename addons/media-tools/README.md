@@ -104,3 +104,18 @@ normalization differences likewise fail closed rather than invent success.
 composition, final operator/readback acceptance and effective capability API
 discovery still require further implementation and CI. No live VDR data is
 modified by hosted tests.
+
+### A6.1 local source mapping (default denied)
+
+`RootOwnedMediaImportInventory` reads a *backend-local*, root-owned
+`/etc/vdr-suite/addon-sources/media-import.tsv` (relative to its trusted
+installation root). Each TSV row binds one exact backend ID, opaque source ID
+(minimum 16 URL-safe characters), configured source root, VDR video root and
+a source file. No payload-derived paths, scanning service or second database
+are introduced. Missing, symlinked, writable, ambiguous, malformed or
+unreadable mappings deny. Every selected entry passes the existing C++17
+`inspectImport` checks and carries source inode, device, size and mtime
+identity into the executor's second resolution before `fexecve`. The ledger
+does **not** grant import execution; the current production Agent remains
+unregistered/default-deny until effective server-side authorization is wired.
+Only disposable, root-controlled CI fixtures are used by its tests.
