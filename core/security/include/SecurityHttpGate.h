@@ -381,9 +381,24 @@ public:
             isPublicOperationResource;
         const bool isPublicBackendCollection =
             path == "/api/v1/backends";
+        const std::string mediaImportCapabilityPrefix = "/api/v1/backends/";
+        const std::string mediaImportCapabilitySuffix =
+            "/capabilities/media-import";
+        const bool isPublicMediaImportCapabilityResource =
+            path.compare(0, mediaImportCapabilityPrefix.size(),
+                         mediaImportCapabilityPrefix) == 0 &&
+            path.size() > mediaImportCapabilityPrefix.size() +
+                          mediaImportCapabilitySuffix.size() &&
+            path.compare(path.size() - mediaImportCapabilitySuffix.size(),
+                         mediaImportCapabilitySuffix.size(),
+                         mediaImportCapabilitySuffix) == 0 &&
+            path.substr(mediaImportCapabilityPrefix.size(),
+                path.size() - mediaImportCapabilityPrefix.size() -
+                mediaImportCapabilitySuffix.size()).find('/') ==
+                    std::string::npos;
         const bool isPublicBackendRead =
             request.method == "GET" &&
-            isPublicBackendCollection;
+            (isPublicBackendCollection || isPublicMediaImportCapabilityResource);
         const bool isPublicAccountCollection =
             path == "/api/v1/accounts";
         const std::string publicAccountPrefix =
@@ -804,6 +819,7 @@ public:
             (path == "/api/v1" ||
              path == "/api/v1/capabilities" ||
              isPublicBackendCollection ||
+             isPublicMediaImportCapabilityResource ||
              isPublicChannelCollection ||
              isPublicEpgNowNext ||
              isPublicTimerAssignmentCollection ||

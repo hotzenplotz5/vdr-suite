@@ -8,6 +8,12 @@ on:
       - 'core/addons/**'
       - 'core/daemon/include/DaemonRuntime.h'
       - 'core/daemon/src/DaemonRuntimeInitialization.cpp'
+      - 'core/security/include/SecurityHttpGate.h'
+      - 'core/security/tests/test_public_backend_collection_security.cpp'
+      - 'api/rest/include/PublicApiRuntime.h'
+      - 'api/rest/src/PublicApiRuntime.cpp'
+      - 'api/rest/tests/test_public_media_import_capability.cpp'
+      - 'mk/phase69-public-api-tests.mk'
       - 'core/daemon/src/DaemonRuntimeRecordingCache.cpp'
       - 'mk/daemon-sources.mk'
       - 'core/agent/include/BackendAgentClient.h'
@@ -93,6 +99,8 @@ jobs:
           make test-addon-agent-advertisement
           make test-media-tools-agent-dispatch
           make test-media-tools-effective-authorization
+          make test-addon-media-import-api-capability
+          make test-phase69f-public-backend-collection
           make backend-agent
           # Compile and link the real Suite daemon with its trusted A6 callback.
           # Build only: no service start, install, package or recording access.

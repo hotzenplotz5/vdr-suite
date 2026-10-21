@@ -286,6 +286,16 @@ bool DaemonRuntime::initialize()
             *mediaImportGrantRepository_, *backendAgentRepository_,
             *backendAgentCommandRepository_, *backendRegistryService_,
             *backendAccessPolicy_, *mediaImportActivationIntents_);
+    PublicApiRuntime::instance().registerMediaImportCapabilityLookup(
+        [this](const std::string& actorId, const std::string& backendId)
+        {
+            if (!mediaImportOperationFence_) return false;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            std::string reason;
+            return mediaImportOperationFence_->effectiveMediaImportCapability(
+                actorId, backendId, now, reason);
+        });
     backendAgentCommandDeliveryService_->setMediaImportReceiptFenceCheck(
         [this](const BackendAgentCommandAssignment& assignment,
                const BackendAgentCommandReceipt& receipt,

@@ -181,6 +181,18 @@ fresh matching recording-cache readback can transition an operation to
 `succeeded`. The explicit `--enable-media-import` option is not allowed
 in `--once`, credential-rotation or native-probe modes.
 
+### A7.2 authenticated public API v1 capability read
+
+`GET /api/v1/backends/{backendId}/capabilities/media-import` is a
+read-only actor/backend-scoped view. The existing HTTP gate supplies
+independently authenticated discovery scopes; an out-of-scope backend
+returns 404. The daemon only delegates the live check to Core's
+`effectiveMediaImportCapability`. An absent delegate or unavailable Agent,
+activation or effective user permission yields `available:false`, not an
+optimistic flag or information about internal rejection reasons. The route
+never accepts a path selected by the caller as an import source, creates
+no operation and performs no import. This is **not** a production launch.
+
 ### A7.1 authoritative backend capability discovery
 
 `MediaImportOperationFence::effectiveMediaImportCapability` evaluates the

@@ -81,6 +81,24 @@ int main()
 
     {
         SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "addons.media.import", "backend-a"));
+        HttpServerRequest request = browserGet(fixture);
+        request.path = "/api/v1/backends/backend-a/capabilities/media-import";
+        const auto decision = fixture.gate.evaluate(request);
+        assert(decision.allowed);
+        assert(decision.authorizedBackendIds ==
+            (std::vector<std::string>{"backend-a"}));
+        HttpServerRequest anonymous;
+        anonymous.method = "GET";
+        anonymous.path = request.path;
+        const auto blocked = fixture.gate.evaluate(anonymous);
+        assert(!blocked.allowed);
+        assert(blocked.rejection.statusCode == 401);
+    }
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
         HttpServerRequest anonymous;
         anonymous.method = "GET";
         anonymous.path = Route;

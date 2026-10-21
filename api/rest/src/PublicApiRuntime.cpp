@@ -61,6 +61,8 @@ constexpr const char* PublicTimerAssignmentCursorPayloadVersion =
     "timer-assignments/1|";
 constexpr const char* PublicBackendCollectionPath =
     "/api/v1/backends";
+constexpr const char* PublicMediaImportCapabilitySuffix =
+    "/capabilities/media-import";
 constexpr std::size_t PublicBackendDefaultLimit = 50U;
 constexpr std::size_t PublicBackendMaximumLimit = 100U;
 constexpr const char* PublicBackendCollectionSort = "backendId";
@@ -140,6 +142,22 @@ bool publicOperationPath(
     operationId = path.substr(prefix.size());
     return !operationId.empty() &&
         operationId.find('/') == std::string::npos;
+}
+
+bool publicMediaImportCapabilityPath(
+    const std::string& path, std::string& backendId)
+{
+    static const std::string prefix = "/api/v1/backends/";
+    static const std::string suffix = PublicMediaImportCapabilitySuffix;
+    if (path.compare(0U, prefix.size(), prefix) != 0 ||
+        path.size() <= prefix.size() + suffix.size() ||
+        path.compare(path.size() - suffix.size(), suffix.size(), suffix) != 0)
+        return false;
+    backendId = path.substr(prefix.size(),
+                            path.size() - prefix.size() - suffix.size());
+    return !backendId.empty() &&
+        backendId.find('/') == std::string::npos &&
+        backendId.find('%') == std::string::npos;
 }
 
 bool publicAccountPath(
@@ -4473,6 +4491,30 @@ PublicApiRuntime::lookupTimerAssignmentCollection(
     return lookup(request);
 }
 
+void PublicApiRuntime::registerMediaImportCapabilityLookup(
+    MediaImportCapabilityLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(mediaImportCapabilityLookupMutex_);
+    mediaImportCapabilityLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetMediaImportCapabilityLookup()
+{
+    std::lock_guard<std::mutex> lock(mediaImportCapabilityLookupMutex_);
+    mediaImportCapabilityLookup_ = {};
+}
+
+bool PublicApiRuntime::lookupMediaImportCapability(
+    const std::string& actorId, const std::string& backendId) const
+{
+    MediaImportCapabilityLookup lookup;
+    {
+        std::lock_guard<std::mutex> lock(mediaImportCapabilityLookupMutex_);
+        lookup = mediaImportCapabilityLookup_;
+    }
+    return lookup && lookup(actorId, backendId);
+}
+
 void PublicApiRuntime::registerBackendCollectionLookup(
     BackendCollectionLookup lookup)
 {
@@ -6113,6 +6155,45 @@ bool PublicApiRuntime::tryHandleGet(
         }
     }
 
+    // A7.2: capability discovery is a live read, not activation or dispatch.
+    std::string mediaCapabilityBackendId;
+    if (publicMediaImportCapabilityPath(path, mediaCapabilityBackendId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        const bool scoped =
+            authorizedBackendId == mediaCapabilityBackendId ||
+            authorizedBackendId == "*" ||
+            std::find(authorizedBackendIds.begin(), authorizedBackendIds.end(),
+                      mediaCapabilityBackendId) != authorizedBackendIds.end() ||
+            std::find(authorizedBackendIds.begin(), authorizedBackendIds.end(),
+                      std::string("*")) != authorizedBackendIds.end();
+        if (!scoped)
+        {
+            response = notFoundProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (!requestQueryString(requestTarget).empty())
+        {
+            response = invalidRequestProblem(path,
+                "Media Import capability discovery accepts no query parameters.",
+                requestId, correlationId);
+            return true;
+        }
+        const bool available = lookupMediaImportCapability(
+            actorRef, mediaCapabilityBackendId);
+        response = jsonResponse(
+            "{\"backendId\":\"" + jsonEscape(mediaCapabilityBackendId) +
+            "\",\"capability\":\"addons.media.import\",\"available\":" +
+            std::string(available ? "true" : "false") +
+            ",\"links\":{\"self\":\"" + jsonEscape(path) + "\"}}",
+            requestId, correlationId);
+        return true;
+    }
+
     if (path == PublicBackendCollectionPath)
     {
         if (actorRef.empty())
@@ -7070,6 +7151,7 @@ bool PublicApiRuntime::tryHandlePost(
     const std::string& pairingToken) const
 {
     const std::string path = requestPath(requestTarget);
+    std::string mediaCapabilityBackendId;
     std::string operationId;
     std::string timerAssignmentId;
     std::string accountId;
@@ -9236,6 +9318,7 @@ bool PublicApiRuntime::tryHandlePost(
     if (path == "/api/v1" ||
         path == "/api/v1/capabilities" ||
         path == PublicBackendCollectionPath ||
+        publicMediaImportCapabilityPath(path, mediaCapabilityBackendId) ||
         path == PublicRecordingCollectionPath ||
         path == PublicEpgNowNextPath ||
         path == PublicChannelCollectionPath ||
@@ -9266,6 +9349,7 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
     }
 
     const std::string path = requestPath(requestTarget);
+    std::string mediaCapabilityBackendId;
     std::string operationId;
     std::string timerAssignmentId;
     std::string accountId;
@@ -9391,6 +9475,7 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
     if (path == "/api/v1" ||
         path == "/api/v1/capabilities" ||
         path == PublicBackendCollectionPath ||
+        publicMediaImportCapabilityPath(path, mediaCapabilityBackendId) ||
         path == PublicRecordingCollectionPath ||
         path == PublicEpgNowNextPath ||
         path == PublicChannelCollectionPath ||

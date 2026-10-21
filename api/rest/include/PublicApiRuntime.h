@@ -916,6 +916,11 @@ public:
         std::function<PublicEpgNowNextResult(
             const PublicEpgNowNextRequest& request)>;
 
+    // A7.2: the Core actor/backend authority is the only source of truth.
+    using MediaImportCapabilityLookup =
+        std::function<bool(const std::string& actorId,
+                           const std::string& backendId)>;
+
     using BackendCollectionLookup =
         std::function<PublicBackendCollectionResult(
             const PublicBackendCollectionRequest& request)>;
@@ -1060,6 +1065,11 @@ public:
     bool epgNowNextLookupConfigured() const;
     PublicEpgNowNextResult lookupEpgNowNext(
         const PublicEpgNowNextRequest& request) const;
+
+    void registerMediaImportCapabilityLookup(MediaImportCapabilityLookup lookup);
+    void resetMediaImportCapabilityLookup();
+    bool lookupMediaImportCapability(const std::string& actorId,
+                                     const std::string& backendId) const;
 
     void registerBackendCollectionLookup(
         BackendCollectionLookup lookup);
@@ -1235,6 +1245,9 @@ private:
 
     mutable std::mutex epgNowNextLookupMutex_;
     EpgNowNextLookup epgNowNextLookup_;
+
+    mutable std::mutex mediaImportCapabilityLookupMutex_;
+    MediaImportCapabilityLookup mediaImportCapabilityLookup_;
 
     mutable std::mutex backendCollectionLookupMutex_;
     BackendCollectionLookup backendCollectionLookup_;
