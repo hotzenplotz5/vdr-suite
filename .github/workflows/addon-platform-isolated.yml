@@ -6,6 +6,13 @@ on:
       - work/addon-platform-registry-lifecycle
     paths:
       - 'core/addons/**'
+      - 'core/agent/include/BackendAgentClient.h'
+      - 'core/agent/include/BackendAgentCommandClient.h'
+      - 'core/agent/src/BackendAgentClient.cpp'
+      - 'core/agent/src/BackendAgentCommand.cpp'
+      - 'core/agent/src/BackendAgentCommandClient.cpp'
+      - 'core/agent/src/BackendAgentCommandJson.cpp'
+      - 'mk/common.mk'
       - 'addons/media-tools/**'
       - 'core/security/include/AuthorizationService.h'
       - 'core/security/src/HumanAccountGrantAdministrationService.cpp'
@@ -64,6 +71,7 @@ jobs:
           make test-addon-media-tools-package
           make test-addon-agent-advertisement
           make test-media-tools-agent-dispatch
+          make backend-agent
           make test-addon-activation-intent
           make test-addon-administration-service
           make test-addon-activation-catalog
