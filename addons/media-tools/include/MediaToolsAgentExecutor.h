@@ -51,6 +51,9 @@ public:
                            std::uint64_t generation) = 0;
     virtual MediaImportAgentOutcome execute(
         const BackendAgentCommandAssignment& assignment) = 0;
+    // One-shot, empty unless the reviewed handler reported a committed
+    // recording. Never a reason to mark a VDR recording verified by itself.
+    virtual std::string takeRecordingEvidence() { return {}; }
 };
 
 } // namespace vdrsuite::mediatools
