@@ -434,15 +434,18 @@ NativeTimerBindingRepositoryResult NativeTimerBindingRepository::update(
     }
     if (passiveFreshnessRefresh)
     {
-        // An unchanged native fingerprint with a newer authoritative read may
-        // advance the Agent generation. Never adopt, reconcile drift,
-        // or rewrite in-flight mutation evidence.
+        // An unchanged timer, or one differing ONLY in transient EPG event
+        // association, may accept a fresh native readback. Do not adopt any
+        // actual configuration drift. The transaction also checks nonterminal
+        // operations below, before any binding revision can advance.
         if (!managedOwnership(current.ownership) ||
             current.missingSince != 0 ||
             current.driftState != NativeTimerBindingDriftState::none ||
             current.observedState.recording || current.observedState.pending ||
             current.backendGeneration > next.backendGeneration ||
-            current.observedFingerprint != next.observedFingerprint ||
+            (current.observedFingerprint != next.observedFingerprint &&
+             !nativeTimerObservedStateSameExceptEventId(
+                 current.observedState, next.observedState)) ||
             current.lastVerifiedOperationId != next.lastVerifiedOperationId ||
             current.missingSince != next.missingSince ||
             current.driftState != next.driftState ||
