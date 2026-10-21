@@ -19,4 +19,4 @@ Inherit all requirements from [root AGENTS.md](../../AGENTS.md). These stricter 
 
 13. The installed-module inventory is descriptive only. No change to Media Tools may infer server activation or permission from a valid package manifest; any future execution requires a reviewed core handler registry, actor authorization, backend scope and durable lifecycle.
 
-14. Media Tools implementation source is owned by `../../addons/media-tools/` after relocation; this `modules/rectools/` folder retains the inert manifest/staging contract. Do not duplicate importer code.\n
+14. Media Tools implementation source is owned by `../../addons/media-tools/` after relocation; this `modules/rectools/` folder retains the inert manifest/staging contract. Do not duplicate importer code.
