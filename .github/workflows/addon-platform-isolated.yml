@@ -55,6 +55,8 @@ jobs:
           make test-media-tools-agent-request
           make test-media-tools-canonical-agent-bridge
           make test-addon-media-import
+          make addon-media-import
+          make test-addon-media-tools-package
           make test-addon-agent-advertisement
           make test-addon-activation-intent
           make test-addon-administration-service
