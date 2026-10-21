@@ -272,3 +272,16 @@ test-media-tools-agent-request:
 	"$(BUILD_DIR)/addons/test_media_tools_agent_request"
 
 test-ci-fast: test-media-tools-agent-request
+
+# Media Tools consumes canonical Suite operation and Agent contracts; no job creation.
+.PHONY: test-media-tools-canonical-agent-bridge
+test-media-tools-canonical-agent-bridge:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror \
+		-I addons/media-tools/include -I core/agent/include \
+		-I core/operations/include \
+		addons/media-tools/tests/test_media_tools_canonical_agent_bridge.cpp \
+		-o "$(BUILD_DIR)/addons/test_media_tools_canonical_agent_bridge"
+	"$(BUILD_DIR)/addons/test_media_tools_canonical_agent_bridge"
+
+test-ci-fast: test-media-tools-canonical-agent-bridge
