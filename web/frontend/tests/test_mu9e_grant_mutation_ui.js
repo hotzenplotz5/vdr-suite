@@ -80,8 +80,10 @@ const publicClient = {
           {permission: 'role.read-only', presentationKey: 'role.read-only', category: 'role'},
           {permission: 'channels.view', presentationKey: 'channels.view', category: 'permission'},
           {permission: 'recordings.rename', presentationKey: 'recordings.rename', category: 'permission'},
-          {permission: 'timers.view', presentationKey: 'timers.view', category: 'permission'}
+          {permission: 'timers.view', presentationKey: 'timers.view', category: 'permission'},
+          {permission: 'addons.media.import', presentationKey: 'addons.media.import', category: 'addon'}
         ],
+        addonPermissions: [],
         supportedScopeKinds: ['global', 'backend']
       }
     });
@@ -230,6 +232,9 @@ function setEnsureFields(root, permission, backendId) {
     }),
     ['', 'role.admin', 'role.read-only', 'channels.view', 'recordings.rename', 'timers.view']
   );
+  assert(!permissionPicker.children.some(function(item) {
+    return item.tagName === 'OPTGROUP' && item.label === 'Add-ons';
+  }), 'inactive addon capabilities must not offer grant controls');
   assert.deepStrictEqual(
     backendPicker.children.map(option => option.value),
     ['*', 'default', 'bedroom']
