@@ -13,6 +13,9 @@ on:
       - 'core/agent/src/BackendAgentCommandClient.cpp'
       - 'core/agent/src/BackendAgentCommandJson.cpp'
       - 'core/agent/tests/test_backend_agent_client.cpp'
+      - 'core/agent/include/BackendAgentCommandDelivery.h'
+      - 'core/agent/src/BackendAgentCommandDelivery.cpp'
+      - 'core/agent/tests/test_backend_agent_command_delivery.cpp'
       - 'mk/agent-tests.mk'
       - 'mk/backend-agent-runtime.mk'
       - 'mk/common.mk'
@@ -83,6 +86,7 @@ jobs:
           make test-media-tools-agent-dispatch
           make backend-agent
           make test-backend-agent-client
+          make test-phase63-command-delivery-runtime
           make test-addon-activation-intent
           make test-addon-administration-service
           make test-addon-activation-catalog

@@ -193,6 +193,14 @@ public:
 
     void setReceiptFenceCheck(ReceiptFenceCheck check);
 
+    // Authenticated Agent receipts for an add-on may not authorize execution
+    // unless the Core operation/grant authority explicitly accepts the exact
+    // reserved command and backend/claim fence. Default is DENY.
+    using MediaImportReceiptFenceCheck = std::function<bool(
+        const BackendAgentCommandAssignment&,
+        const BackendAgentCommandReceipt&, std::string&)>;
+    void setMediaImportReceiptFenceCheck(MediaImportReceiptFenceCheck check);
+
     BackendAgentCommandResultAck result(
         const RequestSecurityContext& context,
         const BackendAgentCommandResult& result,
@@ -249,4 +257,5 @@ private:
     BackendAgentRepository& agentRepository_;
     AccountabilityEventRepository& accountabilityRepository_;
     ReceiptFenceCheck receiptFenceCheck_;
+    MediaImportReceiptFenceCheck mediaImportReceiptFenceCheck_;
 };

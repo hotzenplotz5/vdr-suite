@@ -118,6 +118,80 @@ int main()
         "WHERE result_category='succeeded' AND result_evidence='';") == 1);
     assert(sqlCount(snapshot.handle(),
         "SELECT count(*) FROM pragma_foreign_key_check;") == 0);
+
+    // A6: even a valid reserved add-on command and Agent receipt cannot
+    // bypass the server-side operation/grant authority. In this fixture the
+    // sole positive authorization is explicitly injected by trusted code.
+    auto media = *assignment;
+    media.requestId = "req_media";
+    media.correlationId = "corr_media";
+    media.operationId = "op_media";
+    media.jobId = "job_media";
+    media.attemptId = "att_media";
+    media.claimEpoch = 3;
+    media.commandId = "cmd_media";
+    media.commandType = "addon.media.import";
+    media.payloadVersion = 1;
+    media.payload = "{\\"sourceId\\":\\"local_token\\"}";
+    media.verificationPolicy = "reconciliation_required";
+    media.assignedAt = 111;
+    media.deadline = 500;
+    media.requestFingerprint = backendAgentCommandFingerprint(media);
+    assert(backendAgentCommandValidAssignment(media));
+    assert(commands.insertAssignment(media));
+    auto mediaReceipt = receipt;
+    mediaReceipt.commandId = media.commandId;
+    mediaReceipt.requestFingerprint = media.requestFingerprint;
+    mediaReceipt.jobId = media.jobId;
+    mediaReceipt.attemptId = media.attemptId;
+    mediaReceipt.claimEpoch = media.claimEpoch;
+    mediaReceipt.receivedAt = 112;
+
+    const auto defaultDeny = service.receipt(
+        context(ActorType::Agent, "actor_agent"), mediaReceipt, 112);
+    assert(!defaultDeny.accepted &&
+           defaultDeny.reasonCode == "media_import_server_fence_unavailable");
+    assert(sqlCount(db.handle(),
+        "SELECT COUNT(*) FROM backend_agent_command_receipts "
+        "WHERE command_id='cmd_media';") == 0);
+
+    int grantChecks = 0;
+    bool grantAvailable = false;
+    service.setMediaImportReceiptFenceCheck(
+        [&](const BackendAgentCommandAssignment& reserved,
+            const BackendAgentCommandReceipt& actual, std::string& gateReason) {
+            ++grantChecks;
+            assert(reserved.commandId == media.commandId);
+            assert(reserved.operationId == media.operationId);
+            assert(reserved.backendGeneration == media.backendGeneration);
+            assert(reserved.claimEpoch == actual.claimEpoch);
+            assert(reserved.requestFingerprint == actual.requestFingerprint);
+            gateReason = grantAvailable ? "media_import_operation_validated" :
+                "media_import_effective_grant_denied";
+            return grantAvailable;
+        });
+    const auto denied = service.receipt(
+        context(ActorType::Agent, "actor_agent"), mediaReceipt, 113);
+    assert(!denied.accepted &&
+           denied.reasonCode == "media_import_effective_grant_denied");
+    assert(sqlCount(db.handle(),
+        "SELECT COUNT(*) FROM backend_agent_command_receipts "
+        "WHERE command_id='cmd_media';") == 0);
+    grantAvailable = true;
+    const auto acceptedMedia = service.receipt(
+        context(ActorType::Agent, "actor_agent"), mediaReceipt, 114);
+    assert(acceptedMedia.accepted && !acceptedMedia.replayed);
+    const auto replayedMedia = service.receipt(
+        context(ActorType::Agent, "actor_agent"), mediaReceipt, 115);
+    assert(replayedMedia.accepted && replayedMedia.replayed);
+    grantAvailable = false;
+    const auto revokedMedia = service.receipt(
+        context(ActorType::Agent, "actor_agent"), mediaReceipt, 116);
+    assert(!revokedMedia.accepted);
+    assert(grantChecks == 4);
+    assert(sqlCount(db.handle(),
+        "SELECT COUNT(*) FROM backend_agent_command_receipts "
+        "WHERE command_id='cmd_media';") == 1);
     std::cout << "P7_AGENT_RESULT_EVIDENCE_MIGRATION=PASS\n";
     std::cout<<"Backend Agent command delivery tests passed"<<std::endl;return 0;
 }

@@ -1035,6 +1035,11 @@ void BackendAgentCommandDeliveryService::setReceiptFenceCheck(
 {
     receiptFenceCheck_ = std::move(check);
 }
+void BackendAgentCommandDeliveryService::setMediaImportReceiptFenceCheck(
+    MediaImportReceiptFenceCheck check)
+{
+    mediaImportReceiptFenceCheck_ = std::move(check);
+}
 
 BackendAgentCommandReceiptResult BackendAgentCommandDeliveryService::receipt(
     const RequestSecurityContext& context,
@@ -1058,6 +1063,48 @@ BackendAgentCommandReceiptResult BackendAgentCommandDeliveryService::receipt(
     const bool legacyOsdInput =
         assignment.has_value() &&
         assignment->commandType == kLegacyOsdInputCommandType;
+    const bool mediaImport =
+        assignment.has_value() &&
+        assignment->commandType == "addon.media.import";
+    if (mediaImport)
+    {
+        // The Command DB and an Agent-advertised command type do not prove
+        // human permission or approved operation identity. Check at the
+        // existing receipt boundary *before* the Agent starts the child.
+        bool granted = false;
+        if (mediaImportReceiptFenceCheck_)
+        {
+            try
+            {
+                granted = mediaImportReceiptFenceCheck_(
+                    *assignment, receipt, reason);
+            }
+            catch (...)
+            {
+                reason = "media_import_server_fence_failed";
+            }
+        }
+        else
+        {
+            reason = "media_import_server_fence_unavailable";
+        }
+        if (!granted)
+        {
+            if (!appendEvent(
+                    context, "addon.media.import.rejected",
+                    receipt.backendId, assignment->operationId,
+                    "addon.media.import", "deny",
+                    reason.empty() ? "media_import_server_fenced" : reason,
+                    "rejected", now))
+            {
+                result.reasonCode = "command_accountability_unavailable";
+                return result;
+            }
+            result.reasonCode =
+                reason.empty() ? "media_import_server_fenced" : reason;
+            return result;
+        }
+    }
     if (legacyOsdInput)
     {
         if (!receiptFenceCheck_)
