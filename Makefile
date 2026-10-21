@@ -88,6 +88,7 @@ include mk/phase64-native-timer-absence-readback-verification-tests.mk
 include mk/phase64-mutation-operation-repository-tests.mk
 include mk/phase64-native-timer-create-operation-preparation-tests.mk
 include mk/phase64-native-timer-modify-operation-tests.mk
+include mk/phase64-native-timer-binding-freshness-tests.mk
 include mk/phase64-native-timer-modify-dispatch-tests.mk
 include mk/phase64-managed-timer-fulfillment-acceptance.mk
 include mk/phase64-timer-reassignment-failover-tests.mk

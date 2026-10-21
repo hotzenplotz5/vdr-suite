@@ -257,6 +257,55 @@ int main()
     assert(verification.verify(expectation, observation).status ==
         NativeTimerModifyReadbackVerificationStatus::alreadyVerified);
 
+    // UPDATE of a clock field changes RESTfulAPI's compound native ID.
+    // It must retain the stable Suite binding and never synthesize a
+    // remap without a dispatched durable timer.update operation.
+    Database secondDb;
+    assert(secondDb.open(":memory:"));
+    TimerIntentRepository secondIntents(secondDb);
+    TimerAssignmentRepository secondAssignments(secondDb);
+    NativeTimerBindingRepository secondBindings(secondDb);
+    MutationOperationRepository secondOperations(secondDb);
+    assert(secondIntents.ensureSchema() && secondAssignments.ensureSchema());
+    assert(secondBindings.ensureSchema() && secondOperations.ensureSchema());
+    const auto secondIntent = activeIntent(secondIntents);
+    const auto secondAssignment =
+        boundAssignment(secondAssignments, secondIntent);
+    const auto secondBinding = bindingFor(secondBindings, secondAssignment);
+    auto renamedRequest = requestFor(
+        secondIntent, secondAssignment, secondBinding,
+        NativeTimerModifyKind::update);
+    renamedRequest.expectedSpecification.startTime = "0945";
+    NativeTimerModifyOperationPreparationService secondPreparation(
+        secondIntents, secondAssignments, secondBindings, secondOperations);
+    const auto accepted = secondPreparation.prepare(renamedRequest);
+    assert(accepted.ok());
+    NativeTimerModifyReadbackExpectation changedExpectation;
+    changedExpectation.operationId = renamedRequest.operationId;
+    changedExpectation.payload = accepted.payload;
+    changedExpectation.readbackNotBefore = 300;
+    auto newIdentity = observationFor(
+        secondBinding, renamedRequest.expectedSpecification);
+    newIdentity.backendNativeTimerId = "changed-restfulapi-tuple-id";
+    newIdentity.observedState.startTime = "0945";
+    newIdentity.observedFingerprint =
+        nativeTimerObservedStateFingerprint(newIdentity.observedState);
+    NativeTimerModifyReadbackVerificationService secondVerification(secondBindings);
+    assert(secondVerification.verify(changedExpectation, newIdentity).status !=
+           NativeTimerModifyReadbackVerificationStatus::verified);
+    assert(secondDb.execute(
+        "UPDATE mutation_operations SET state='executed_unverified' "
+        "WHERE operation_id='operation:update:1';"));
+    const auto rekeyed = secondVerification.verify(changedExpectation, newIdentity);
+    assert(rekeyed.status == NativeTimerModifyReadbackVerificationStatus::verified);
+    assert(rekeyed.binding.nativeTimerBindingId == secondBinding.nativeTimerBindingId);
+    assert(rekeyed.binding.backendNativeTimerId ==
+           newIdentity.backendNativeTimerId);
+    assert(secondBindings.findByBackendNativeTimer("backend:1","42").status ==
+           NativeTimerBindingRepositoryStatus::notFound);
+    assert(secondVerification.verify(changedExpectation, newIdentity).status ==
+           NativeTimerModifyReadbackVerificationStatus::alreadyVerified);
+
     std::cout << "test_native_timer_modify_operation passed\n";
     return 0;
 }

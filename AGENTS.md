@@ -64,6 +64,12 @@ complete content or use a bounded edit strategy. Recheck the remote branch head
 before every write and inspect the resulting commit or diff before treating the
 change as complete.
 
+## Ubuntu command fidelity: no `.sh` SVDRP shortcut
+
+On the user's Ubuntu/yaVDR host, **never propose or invoke `svdrpsend.sh`** (nor silently substitute a shell-script wrapper for an executable). This is an explicit operator prohibition, not a fallback preference. Do not confuse MLD-specific `svdrpsend.sh` behavior or forum examples with the Ubuntu host.
+
+For all VDR/SVDRP operator test blocks, verify the Ubuntu-installed command name, binary path, supported syntax and service context from actual host/package evidence before issuing commands. If the exact working Ubuntu invocation is unverified, avoid issuing a guessed command; perform a bounded read-only identification instead. Use the verified native Ubuntu command, never a `.sh` workaround. Shell code blocks may use Bash for orchestration; the prohibition concerns invoking `.sh` wrappers as replacement utilities.
+
 ## Absolute prohibition on guessing: verified evidence before instructions
 
 **Guessing operational facts is strictly forbidden.** Never invent, assume,

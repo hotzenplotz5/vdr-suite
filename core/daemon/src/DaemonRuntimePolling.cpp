@@ -5,20 +5,113 @@
 #include "NativeTimerModifyProductiveRuntime.h"
 #include "RestfulApiNativeTimerModifyReadbackReader.h"
 #include "NativeTimerModifyReadbackVerificationService.h"
+#include "NativeTimerBindingReadbackService.h"
 #include "NativeTimerAbsenceReadbackExpectation.h"
 #include "RestfulApiNativeTimerInventoryReader.h"
 #include "VdrManagedTimerCreateReadbackEvidenceBuilder.h"
 
+#include <algorithm>
 #include <chrono>
 #include <exception>
 #include <iostream>
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
 
 void DaemonRuntime::pollVdrAndUpdateChangeFeed()
 {
     backendPollingCoordinator_->pollAll();
+
+    // Refresh unchanged, verified managed bindings well before the existing
+    // five-minute public API mutation gate expires. Never use cached
+    // snapshots or trigger discovery, reconciliation or a backend write.
+    // The repository atomically blocks revision churn for any nonterminal
+    // timer mutation, including accepted work not yet dispatched.
+    if (nativeTimerBindingRepository_ && backendAgentRepository_)
+    {
+        const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        if (now > 210)
+        {
+            const auto candidates =
+                nativeTimerBindingRepository_->listManagedForFreshness(
+                    nativeTimerRefreshCursor_, now - 180, 4);
+            if (candidates.ok())
+            {
+                if (candidates.bindings.empty())
+                    nativeTimerRefreshCursor_.clear();
+                vdrsuite::timers::NativeTimerBindingReadbackService service(
+                    *nativeTimerBindingRepository_);
+                for (const auto& binding : candidates.bindings)
+                {
+                    nativeTimerRefreshCursor_ = binding.nativeTimerBindingId;
+                    const auto agent = backendAgentRepository_
+                        ->findAgentForBackend(binding.backendId);
+                    if (!agent || agent->revoked || agent->incompatible ||
+                        agent->leaseExpiresAt < now ||
+                        agent->backendGeneration < binding.backendGeneration)
+                        continue;
+
+                    for (const auto& context : backendRuntimeContexts_)
+                    {
+                        if (!context || !context->httpClient ||
+                            context->backendId != binding.backendId)
+                            continue;
+                        try
+                        {
+                            vdrsuite::vdr::RestfulApiNativeTimerModifyReadbackReader
+                                reader(*context->httpClient);
+                            vdrsuite::vdr::NativeTimerModifyReadRequest request;
+                            request.backendId = binding.backendId;
+                            request.backendGeneration = agent->backendGeneration;
+                            request.backendNativeTimerId =
+                                binding.backendNativeTimerId;
+                            request.observedAt = std::chrono::duration_cast<
+                                std::chrono::seconds>(
+                                    std::chrono::system_clock::now()
+                                        .time_since_epoch()).count();
+                            request.notBefore = request.observedAt;
+                            const auto observed = reader.read(request);
+                            const auto finish = std::chrono::duration_cast<
+                                std::chrono::seconds>(
+                                    std::chrono::system_clock::now()
+                                        .time_since_epoch()).count();
+                            const auto stillAgent = backendAgentRepository_
+                                ->findAgentForBackend(binding.backendId);
+                            if (observed.ok() && finish >= request.observedAt &&
+                                finish - request.observedAt <= 30 &&
+                                stillAgent && !stillAgent->revoked &&
+                                !stillAgent->incompatible &&
+                                stillAgent->leaseExpiresAt >= finish &&
+                                stillAgent->backendGeneration ==
+                                    request.backendGeneration)
+                            {
+                                // A changed fingerprint or an in-flight
+                                // operation is a no-write, fail-closed result.
+                                service.applyPresentObservation(
+                                    observed.observation, true);
+                            }
+                        }
+                        catch (const std::exception& error)
+                        {
+                            std::cerr << "[WARNING] Native Timer passive "
+                                         "readback unavailable for backend "
+                                      << binding.backendId << ": "
+                                      << error.what() << std::endl;
+                        }
+                        catch (...)
+                        {
+                            std::cerr << "[WARNING] Native Timer passive "
+                                         "readback failed for backend "
+                                      << binding.backendId << std::endl;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+    }
 
     using NativeCreateEvidence =
         vdrsuite::timers::NativeTimerCreateReadbackEvidence;
@@ -119,7 +212,7 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
         timerAssignmentFulfillmentService_ &&
         nativeTimerCreateOperationCompletionService_)
     {
-        vdrsuite::daemon::advanceNativeTimerCreateRuntimeOnce(
+        const auto summary = vdrsuite::daemon::advanceNativeTimerCreateRuntimeOnce(
             *mutationOperationRepository_,
             *backendAgentCommandRepository_,
             *backendAgentNativeTimerCreateReservationService_,
@@ -132,6 +225,8 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
             std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now()
                     .time_since_epoch()).count());
+        if (summary.reconciliationsCompleted != 0)
+            nativeTimerSnapshotRefreshPending_ = true;
     }
 
     // Phase-64 native DELETE is an ADR-0042 Agent operation. The writer
@@ -186,7 +281,7 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
                 return std::nullopt;
             };
 
-        vdrsuite::daemon::advanceNativeTimerDeleteRuntimeOnce(
+        const auto summary = vdrsuite::daemon::advanceNativeTimerDeleteRuntimeOnce(
             *mutationOperationRepository_, *backendAgentCommandRepository_,
             *backendAgentRepository_, *nativeTimerBindingRepository_,
             *backendAgentNativeTimerDeleteAssignmentService_,
@@ -196,6 +291,8 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
             acquireDelete,
             std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count());
+        if (summary.completed != 0)
+            nativeTimerSnapshotRefreshPending_ = true;
     }
 
     // UPDATE and TOGGLE share a provider-fenced Agent but have distinct
@@ -217,19 +314,45 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
                 -> std::optional<vdrsuite::timers::NativeTimerObservation>
             {
                 const auto& target = expectation.payload;
-                const auto agent = backendAgentRepository_
-                    ->findAgentForBackend(target.backendId);
-                if (!agent || agent->revoked || agent->incompatible ||
-                    agent->backendGeneration != target.backendGeneration)
-                    return std::nullopt;
-
                 const auto observedAt =
                     std::chrono::duration_cast<std::chrono::seconds>(
                         std::chrono::system_clock::now()
                             .time_since_epoch()).count();
-                if (observedAt < expectation.readbackNotBefore)
-                    return std::nullopt;
+                static std::int64_t nextUnknownReadbackTraceAt = 0;
+                const bool traceReadback =
+                    expectation.operationState ==
+                        vdrsuite::timers::NativeTimerReadbackOperationState::outcomeUnknown &&
+                    observedAt >= nextUnknownReadbackTraceAt;
+                if (traceReadback) nextUnknownReadbackTraceAt = observedAt + 60;
 
+                const auto agent = backendAgentRepository_
+                    ->findAgentForBackend(target.backendId);
+                if (!agent || agent->revoked || agent->incompatible ||
+                    agent->backendGeneration < target.backendGeneration ||
+                    (agent->backendGeneration != target.backendGeneration &&
+                     expectation.operationState !=
+                         vdrsuite::timers::NativeTimerReadbackOperationState::outcomeUnknown))
+                {
+                    if (traceReadback)
+                        std::cerr << "NATIVE_MODIFY_READBACK stage=agent_generation"
+                                  << " available=" << (agent ? 1 : 0)
+                                  << " generation=" << (agent ? agent->backendGeneration : 0)
+                                  << " expected=" << target.backendGeneration
+                                  << std::endl;
+                    return std::nullopt;
+                }
+
+                if (observedAt < expectation.readbackNotBefore)
+                {
+                    if (traceReadback)
+                        std::cerr << "NATIVE_MODIFY_READBACK stage=observation_time"
+                                  << " now=" << observedAt
+                                  << " not_before=" << expectation.readbackNotBefore
+                                  << std::endl;
+                    return std::nullopt;
+                }
+
+                bool attemptedRead = false;
                 for (const auto& context : backendRuntimeContexts_)
                 {
                     if (!context || !context->httpClient ||
@@ -239,18 +362,36 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
                         *context->httpClient);
                     vdrsuite::vdr::NativeTimerModifyReadRequest request;
                     request.backendId = target.backendId;
-                    request.backendGeneration = target.backendGeneration;
+                    // The read itself is current-generation evidence. A
+                    // historical unknown MODIFY may be reconciled against it,
+                    // but positive completion still requires the original
+                    // generation in the readback verifier.
+                    request.backendGeneration = agent->backendGeneration;
                     request.backendNativeTimerId =
                         target.backendNativeTimerId;
                     request.observedAt = observedAt;
                     request.notBefore = expectation.readbackNotBefore;
+                    request.allowIdentityChange =
+                        target.kind == vdrsuite::timers::NativeTimerModifyKind::update;
+                    if (request.allowIdentityChange)
+                        request.expectedSpecification = target.expectedSpecification;
                     const auto read = reader.read(request);
+                    attemptedRead = true;
+                    if (traceReadback)
+                        std::cerr << "NATIVE_MODIFY_READBACK stage=reader"
+                                  << " status=" << static_cast<int>(read.status)
+                                  << " backend=" << target.backendId
+                                  << std::endl;
                     if (read.ok()) return read.observation;
                 }
+                if (traceReadback && !attemptedRead)
+                    std::cerr << "NATIVE_MODIFY_READBACK stage=no_http_context"
+                              << " backend=" << target.backendId
+                              << std::endl;
                 return std::nullopt;
             };
 
-        vdrsuite::daemon::advanceNativeTimerModifyRuntimeOnce(
+        const auto summary = vdrsuite::daemon::advanceNativeTimerModifyRuntimeOnce(
             *mutationOperationRepository_, *backendAgentCommandRepository_,
             *backendAgentRepository_, *timerIntentRepository_,
             *timerAssignmentRepository_, *nativeTimerBindingRepository_,
@@ -261,6 +402,86 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
             acquireModify,
             std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count());
+        if (summary.completed != 0)
+            nativeTimerSnapshotRefreshPending_ = true;
+    }
+
+    // RESTfulAPI's change-state counter can remain unchanged for a
+    // SuiteBridge-originated native mutation. Once its durable operation
+    // succeeded, refresh the legacy snapshot explicitly; otherwise Public v1
+    // compares a new verified binding with an old cached Timer and returns
+    // 503 indefinitely. Keep retrying if the full native read fails.
+    std::set<std::string> refreshedNativeTimerBackends;
+    if (nativeTimerSnapshotRefreshPending_ && snapshotCacheService_ &&
+        backendAgentRepository_)
+    {
+        bool refreshedAll = !backendRuntimeContexts_.empty();
+        for (const auto& context : backendRuntimeContexts_)
+        {
+            if (!context || !context->httpClient || !context->service)
+            {
+                refreshedAll = false;
+                continue;
+            }
+            const auto agent =
+                backendAgentRepository_->findAgentForBackend(context->backendId);
+            if (!agent || agent->revoked || agent->incompatible ||
+                agent->backendGeneration == 0)
+            {
+                refreshedAll = false;
+                continue;
+            }
+            try
+            {
+                vdrsuite::vdr::RestfulApiNativeTimerInventoryReader reader(
+                    *context->httpClient);
+                vdrsuite::vdr::RestfulApiNativeTimerInventoryReadRequest request;
+                request.backendId = context->backendId;
+                request.backendGeneration = agent->backendGeneration;
+                request.observedAt = std::chrono::duration_cast<
+                    std::chrono::seconds>(
+                        std::chrono::system_clock::now()
+                            .time_since_epoch()).count();
+                const auto inventory = reader.read(request);
+                if (!inventory.ok())
+                {
+                    refreshedAll = false;
+                    continue;
+                }
+
+                const auto timers = context->service->getTimers();
+                std::set<std::string> liveIds;
+                for (const auto& timer : timers)
+                    liveIds.insert(timer.id);
+                const std::set<std::string> inventoryIds(
+                    inventory.evidence.backendNativeTimerIds.begin(),
+                    inventory.evidence.backendNativeTimerIds.end());
+
+                if (timers.size() != inventoryIds.size() ||
+                    liveIds != inventoryIds)
+                {
+                    refreshedAll = false;
+                    continue;
+                }
+                snapshotCacheService_->updateTimersForBackend(
+                    context->backendId, timers);
+                refreshedNativeTimerBackends.insert(context->backendId);
+            }
+            catch (const std::exception& error)
+            {
+                refreshedAll = false;
+                std::cerr << "[WARNING] Native Timer snapshot refresh unavailable "
+                          << "for backend " << context->backendId << ": "
+                          << error.what() << std::endl;
+            }
+            catch (...)
+            {
+                refreshedAll = false;
+                std::cerr << "[WARNING] Native Timer snapshot refresh failed "
+                          << "for backend " << context->backendId << std::endl;
+            }
+        }
+        nativeTimerSnapshotRefreshPending_ = !refreshedAll;
     }
 
     for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
@@ -324,6 +545,17 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
                         VdrChangeType::RecordingMarksChanged);
                 }
             }
+        }
+
+        if (refreshedNativeTimerBackends.count(
+                backendRuntimeContext->backendId) != 0 &&
+            std::none_of(
+                readyChanges.begin(), readyChanges.end(),
+                [](const VdrChangeEvent& event) {
+                    return event.type() == VdrChangeType::TimersChanged;
+                }))
+        {
+            readyChanges.emplace_back(VdrChangeType::TimersChanged);
         }
 
         snapshotChangeFeedService_->appendChanges(

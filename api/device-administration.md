@@ -84,6 +84,8 @@ A stale ETag generally yields `412 revision_conflict` unless the tuple is alread
 
 A newly issued Device Credential can subsequently authenticate with `Authorization: VDR-Suite-Device <credentialId>.<credentialSecret>`. Server-side authorization still evaluates its grants on each request.
 
+The native EPG Timer CREATE route (`POST /api/v1/epg/timer-intents`) also accepts a verified Human administrator Browser Session with a matching `role.admin` grant and a valid CSRF token. Ordinary Human users with only `timers.create` are not accepted on this route. Device clients still require a verified Device Credential and the exact `timers.create@<backendId>` grant. This is an explicit administrator capability, not Device impersonation.
+
 ## Source and regression anchors
 
 - [Public REST pairing/Device grant runtime](rest/src/PublicApiRuntime.cpp)

@@ -78,6 +78,7 @@ AGENT_COMMAND_JSON_SRC := \
 
 AGENT_COMMAND_DELIVERY_SRC := \
 	core/agent/src/BackendAgentCommandDelivery.cpp \
+	core/agent/src/BackendAgentNativeTimerModifyLocalState.cpp \
 	core/agent/src/BackendAgentNativeProbeDelivery.cpp \
 	core/agent/src/BackendAgentNativeTimerModifyAssignment.cpp \
 	core/agent/src/BackendAgentRecordingMarksModifyAssignment.cpp \

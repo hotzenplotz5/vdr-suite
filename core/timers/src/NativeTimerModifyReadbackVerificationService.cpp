@@ -78,11 +78,18 @@ NativeTimerModifyReadbackVerificationService::verify(
             NativeTimerModifyReadbackVerificationStatus::repositoryError);
     const NativeTimerBinding& current = found.binding;
 
+    const bool changedIdentity =
+        observation.backendNativeTimerId != payload.backendNativeTimerId;
+    const bool alreadyRenamed =
+        payload.kind == NativeTimerModifyKind::update &&
+        current.backendNativeTimerId == observation.backendNativeTimerId &&
+        current.lastVerifiedOperationId == expectation.operationId;
     if (current.timerAssignmentId != payload.timerAssignmentId
         || current.backendId != payload.backendId
-        || current.backendNativeTimerId != payload.backendNativeTimerId
+        || (current.backendNativeTimerId != payload.backendNativeTimerId &&
+            !alreadyRenamed)
         || observation.backendId != payload.backendId
-        || observation.backendNativeTimerId != payload.backendNativeTimerId)
+        || (changedIdentity && payload.kind != NativeTimerModifyKind::update))
         return result(
             NativeTimerModifyReadbackVerificationStatus::identityConflict,
             current);
@@ -123,13 +130,17 @@ NativeTimerModifyReadbackVerificationService::verify(
 
     NativeTimerBinding next = current;
     next.backendGeneration = observation.backendGeneration;
+    if (changedIdentity)
+        next.backendNativeTimerId = observation.backendNativeTimerId;
     next.observedState = observation.observedState;
     next.observedFingerprint = observation.observedFingerprint;
     next.lastObservedAt = observation.observedAt;
     next.lastVerifiedOperationId = expectation.operationId;
     next.missingSince = 0;
     next.driftState = NativeTimerBindingDriftState::none;
-    const auto updated = repository_.update(next, current.bindingRevision);
+    const auto updated = changedIdentity && !alreadyRenamed
+        ? repository_.updateVerifiedNativeIdentity(next, current.bindingRevision)
+        : repository_.update(next, current.bindingRevision);
     if (updated.status == NativeTimerBindingRepositoryStatus::conflict)
         return result(
             NativeTimerModifyReadbackVerificationStatus::repositoryConflict,

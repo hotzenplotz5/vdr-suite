@@ -18,6 +18,22 @@ vdr=read("vdr-plugin-suite-bridge/suitebridge_native_timer_modify_vdr.cpp")
 for token in ("GetTimersWrite","expectedNativeTimerFingerprint","Recording()",
               "Pending()","SetExplicitModify","SetModified"):
     if token not in vdr: raise SystemExit("missing VDR mutation guard: "+token)
+
+# Native timer CAS must hash the exact backend canonical field encoding.
+# In particular, numbers and booleans are length-prefixed fields, not
+# bare "number|" tokens. Check both VDR mutation callbacks.
+canonical=read("core/timers/src/NativeTimerBinding.cpp")
+for token in ("appendField(output, std::to_string(value));",
+              'appendField(output, value ? "1" : "0");'):
+    if token not in canonical:
+        raise SystemExit("backend canonical Timer field contract changed: "+token)
+for path in ("vdr-plugin-suite-bridge/suitebridge_native_timer_modify_vdr.cpp",
+             "vdr-plugin-suite-bridge/suitebridge_native_timer_delete_vdr.cpp"):
+    mutation=read(path)
+    for token in ("appendField(value, std::to_string(number));",
+                  'appendField(value, flag ? "1" : "0");'):
+        if token not in mutation:
+            raise SystemExit("VDR native Timer CAS encoding mismatch in "+path+": "+token)
 plugin=read("vdr-plugin-suite-bridge/suitebridge_svdrp.cpp")
 help_start=plugin.find("SVDRPHelpPages")
 command_start=plugin.find("SVDRPCommand",help_start)

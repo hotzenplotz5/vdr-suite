@@ -100,8 +100,12 @@ std::string getStringField(const std::string& objectText, const std::string& fie
         return "";
     }
 
-    const std::size_t quoteStart = objectText.find('"', colon + 1);
-    if (quoteStart == std::string::npos) {
+    // A JSON string must start immediately after the colon and whitespace.
+    // Scanning ahead to the next quote steals an unrelated field name when
+    // the actual value is null, numeric, boolean, or absent.
+    const std::size_t quoteStart = skipWhitespace(objectText, colon + 1);
+    if (quoteStart >= objectText.size() ||
+        objectText[quoteStart] != '"') {
         return "";
     }
 

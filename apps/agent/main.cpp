@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cerrno>
+#include <chrono>
 #include <csignal>
 #include <cstdint>
 #include <cstdlib>
@@ -182,9 +183,18 @@ int main(int argc, char** argv)
         nativeTimerDeleteTransport = std::make_unique<
             vdrsuite::agent::SuiteBridgeNativeTimerDeleteTransport>(
                 timerTransportConfig);
+        // Native UPDATE/TOGGLE executes on VDR's main-thread timer lock.
+        // An otherwise healthy, locally busy VDR can exceed the generic
+        // 1-second SVDRP reply deadline. Give only MODIFY a realistic
+        // bounded budget; an ambiguous timeout is still outcome_unknown
+        // and is NEVER dispatched a second time.
+        auto modifyTransportConfig = timerTransportConfig;
+        modifyTransportConfig.ioTimeout = std::chrono::milliseconds(4000);
+        modifyTransportConfig.operationTimeout =
+            std::chrono::milliseconds(12000);
         nativeTimerModifyTransport = std::make_unique<
             vdrsuite::agent::SuiteBridgeNativeTimerModifyTransport>(
-                timerTransportConfig);
+                modifyTransportConfig);
         recordingMarksModifyTransport = std::make_unique<
             vdrsuite::agent::SuiteBridgeRecordingMarksModifyTransport>(
                 timerTransportConfig);
