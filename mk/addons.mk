@@ -287,8 +287,8 @@ test-media-tools-canonical-agent-bridge:
 test-ci-fast: test-media-tools-canonical-agent-bridge
 
 
-// A6 integration: genuine durable Agent polling/receipts/recovery, isolated
-// injected executor only. No production activation or recording mutation.
+# A6 integration: genuine durable Agent polling/receipts/recovery, isolated
+# injected executor only. No production activation or recording mutation.
 .PHONY: test-media-tools-agent-dispatch
 test-media-tools-agent-dispatch:
 	mkdir -p "$(BUILD_DIR)/addons"
