@@ -206,6 +206,14 @@ void testDurableReceiptExecutionAndReplay()
     assert(f.control.lastResult.retryClassification == "reconcile_only");
     assert(f.control.lastResult.dispatchState == "accepted_by_executor");
     assert(validRecordingPathEvidence(f.control.lastResult.resultEvidence));
+    // The Agent persisted the exact digest before HTTP acknowledgement.
+    // A local process restart must load it without re-running the importer.
+    vdrsuite::agent::commandstate::LocalState persisted;
+    assert(vdrsuite::agent::commandstate::load(
+        f.config.statePath, persisted, reason));
+    assert(persisted.resultPresent);
+    assert(persisted.result.resultEvidence ==
+           f.control.lastResult.resultEvidence);
     assert(f.control.calls == std::vector<std::string>({
         "/api/agent/v1/commands/poll",
         "/api/agent/v1/commands/receipt",
