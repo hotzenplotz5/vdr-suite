@@ -334,10 +334,9 @@ build-media-tools-local-inventory-test:
 test-media-tools-effective-authorization:
 	mkdir -p "$(BUILD_DIR)/addons"
 	$(CXX) $(CXXFLAGS) -Werror \
-		core/agent/src/BackendAgentCommand.cpp \
-		core/agent/src/BackendAgentCommandStateExtension.cpp \
-		core/agent/src/BackendAgentCommandStateStore.cpp \
-		core/agent/src/BackendAgentCommandJson.cpp \
+		$(AGENT_COMMAND_DOMAIN_SRC) \
+		$(AGENT_COMMAND_JSON_SRC) \
+		$(AGENT_COMMAND_CLIENT_SRC) \
 		core/agent/src/BackendAgentMediaImportAuthorization.cpp \
 		core/agent/tests/test_backend_agent_media_import_authorization.cpp \
 		-lcrypto -o "$(BUILD_DIR)/addons/test_backend_agent_media_import_authorization"
