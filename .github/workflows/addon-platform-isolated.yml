@@ -53,6 +53,7 @@ jobs:
           make test-addon-provider-approval
           make test-addon-agent-dispatch-gate
           make test-media-tools-agent-request
+          make test-media-tools-canonical-agent-bridge
           make test-addon-media-import
           make test-addon-agent-advertisement
           make test-addon-activation-intent
