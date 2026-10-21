@@ -230,5 +230,48 @@ int main()
     assert(repo.updateVerifiedNativeIdentity(post, "1").status ==
            NativeTimerBindingRepositoryStatus::conflict);
 
+    // VDR's later EPG association must be recognized as metadata-only drift.
+    // Even this safe refresh cannot rewrite a binding while an UPDATE is
+    // unresolved; it may proceed only after the operation becomes terminal.
+    const auto originalEpgBinding = repo.findById("binding:a").binding;
+    auto eventDrift = evidence(originalEpgBinding, 1900);
+    eventDrift.observedState.eventId = "13546";
+    eventDrift.observedFingerprint =
+        nativeTimerObservedStateFingerprint(eventDrift.observedState);
+    assert(eventDrift.observedFingerprint !=
+           originalEpgBinding.observedFingerprint);
+    assert(nativeTimerObservedStateSameExceptEventId(
+        originalEpgBinding.observedState, eventDrift.observedState));
+
+    assert(db.execute(
+        "INSERT INTO mutation_operations (resource_type,resource_id,state) "
+        "VALUES ('NativeTimerBinding','binding:a','outcome_unknown');"));
+    assert(service.applyPresentObservation(eventDrift, true).status ==
+           NativeTimerBindingReadbackStatus::repositoryConflict);
+    const auto beforeTerminal = repo.findById("binding:a").binding;
+    assert(beforeTerminal.observedFingerprint ==
+           originalEpgBinding.observedFingerprint);
+    assert(beforeTerminal.bindingRevision ==
+           originalEpgBinding.bindingRevision);
+    assert(db.execute(
+        "UPDATE mutation_operations SET state='failed_verified' "
+        "WHERE resource_id='binding:a';"));
+    const auto eventRefreshed = service.applyPresentObservation(
+        eventDrift, true);
+    assert(eventRefreshed.ok());
+    assert(eventRefreshed.binding.observedState.eventId == "13546");
+    assert(eventRefreshed.binding.observedFingerprint ==
+           eventDrift.observedFingerprint);
+    assert(eventRefreshed.binding.lastVerifiedOperationId ==
+           originalEpgBinding.lastVerifiedOperationId);
+
+    // A title change is a real mutation, never a passive metadata refresh.
+    auto titleDrift = evidence(eventRefreshed.binding, 1901);
+    titleDrift.observedState.title = "Mutated";
+    titleDrift.observedFingerprint =
+        nativeTimerObservedStateFingerprint(titleDrift.observedState);
+    assert(service.applyPresentObservation(titleDrift, true).status ==
+           NativeTimerBindingReadbackStatus::reconciliationRequired);
+
     std::cout << "test_native_timer_binding_passive_refresh passed\n";
 }
