@@ -304,6 +304,18 @@ int main()
     importActor.grants.push_back({"role.read-only", "backend-a"});
     assert(service.authorize(importActor, importRequest).reasonCode == "role_read_only");
 
+    // Future and unknown add-on grants are not activated by raw DB rows,
+    // administrator roles or wildcard grants.
+    for (const auto* future : {"addons.media.check", "addons.media.shrink",
+                               "addons.unknown.run"}) {
+        const auto request = permissionRequest(future, "backend-a");
+        assert(!service.authorize(adminRole, request).allowed);
+        assert(!service.authorize(wildcard, request).allowed);
+        RequestSecurityContext forged = authenticatedContext();
+        forged.grants.push_back({future, "backend-a"});
+        assert(!service.authorize(forged, request).allowed);
+    }
+
     RequestSecurityContext expired = allowed;
     expired.session->expired = true;
     assert(service.authorize(expired, requestFor("default")).reasonCode ==
