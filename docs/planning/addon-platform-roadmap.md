@@ -61,7 +61,7 @@ or metadata-only presence may bootstrap trust.
 | A4. Trusted runtime provider | Common core authority over either reviewed manual-install or reviewed Debian package provenance, with fixed binary identity and healthy backend-local handler | **Partial:** disabled Core admission, pinned identity/generation, approval comparison and native combined approval/pinned-descriptor checks and unprivileged Agent-path CI; no daemon/Agent adapter | Both paths use the same registry, signed/admin-approved provenance policy and negative trust tests; neither dpkg alone nor source files confer authority |
 | A5. Administration and operation rights | Admin enable/disable with audit/idempotency/migrations; scoped media-import grant | SQLite desired-state prototype, audited admin coordinator and admin-only three-module desired-state catalog; exact backend-scoped human import grant and Core-owned permission vocabulary, categorized grant settings, backend-exact grant eligibility callback (default denied) and negative tests; live effective provider source pending | Proper grant vocabulary, authorization, CSRF, preconditions, revocation and upgrade/removal semantics |
 | A6. Protected backend execution | Fenced command/worker, bounded resources and crash-safe durable jobs | **Partial:** non-executing canonical command/generation gate plus real Agent-poll denial of unregistered add-on command namespaces; no command adapter/executor | Agent generation and job fencing, cancellation/retry/readback, no arbitrary paths or shell |
-| A7. Public API and client UI | Entitlement-filtered discovery, safe admin surface, addon action/status | **Not implemented** | Versioned v1 routes, account/device tests, frontend empty-state/fallback, safe install staging |
+| A7. Public API and client UI | Entitlement-filtered discovery, safe admin surface, addon action/status | **A7.1–A7.4 isolated implementation accepted; A7.5 web source composed for CI validation. Not deployed.** Capability, opaque source listing, protected admission and actor-owned Operation GET reuse Core and canonical frontend. | Versioned v1 routes, grants/session/CSRF tests, actual UI composition, source expiry and uncertain-state checks; safe install staging and separately authorized host acceptance before production |
 | M1. Media Tools import | Single-file safe remux to VDR recording | Standalone C++ prototype; 11 isolated tests passed; private C++ preview .deb | Fix missing TOCTOU/fd, timeouts, crash recovery and recording reconciliation before live writes |
 | M2. Media Tools Check | Read-only FFprobe/FFmpeg recording integrity report | **Not implemented** | No markers, messages or recording-file writes; bounded parser/job/tests |
 | M3. Media Tools Shrink | Optional space reduction preserving original until separately verified | **Not implemented** | Explicit consent, staged output/verification, rollback and capacity checks; no silent replacement |
@@ -91,7 +91,7 @@ capabilities from that diagnostic.
 5. Integrate a single controlled Media Tools import with A6: constrained
    source roots, staging, durable jobs, VDR indexing/readback,
    recording reconciliation and no source deletion.
-6. Only after controlled real yaVDR acceptance expose A7 API/UI capabilities.
+6. Do not install or enable A7 API/UI in production until separately authorized controlled real yaVDR acceptance; source-level client integration and isolated CI may precede deployment.
 7. Add read-only M2 Check, later M3 Shrink, then independent Images/Music.
 
 ## Validation, release and safety boundaries
@@ -173,3 +173,16 @@ The first A6 module-local command boundary consumes canonical
 with denied mismatched identity/generation/deadlines and no executor.
 It is **not** registered or advertised. Compiled importer/package tests
 are included in the isolated Add-on CI after the source relocation.
+
+## A7.5 Web source integration checkpoint
+
+The optional `Media Import` tab belongs to the current `index.html` /
+`app.js` production composition. It is hidden without a live, actor/backend-
+scoped `addons.media.import` capability and invalidated on backend/session
+changes. The module reads only opaque source IDs, submits with browser CSRF
+and one unique Idempotency-Key, then follows the existing actor-owned Operation.
+It displays `outcome_unknown` without claiming success or submitting a second
+job. The source/test/CI owner is `web/frontend/modules/media-import.js`,
+`web/frontend/tests/test_media_import_composition.js` and
+`make test-ci-frontend`. This milestone does not activate Media Check,
+Shrink or real-host execution, and is not a claim of productive deployment.
