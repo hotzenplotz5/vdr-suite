@@ -11,6 +11,7 @@
 #include <ctime>
 #include <fcntl.h>
 #include <fstream>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <stdexcept>
@@ -151,6 +152,50 @@ struct FdGuard {
     FdGuard& operator=(const FdGuard&) = delete;
 };
 
+// Copy the exact opened source into private backend-local staging. Both media
+// subprocesses operate exclusively on this snapshot, never on a pathname
+// that an external importer can swap between probe and remux.
+void stageVerifiedSource(const ImportPlan& plan, const Signature& expected,
+                         const fs::path& destination) {
+    FdGuard input(::open(plan.sourceFile.c_str(),
+                         O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
+    require(input.fd >= 0, "cannot open source for private staging");
+    struct stat initial{};
+    require(::fstat(input.fd, &initial) == 0 && S_ISREG(initial.st_mode) &&
+            same(expected, {initial.st_dev, initial.st_ino, initial.st_size,
+                            initial.st_mtim.tv_sec, initial.st_mtim.tv_nsec}),
+            "source identity changed before snapshot");
+    FdGuard output(::open(destination.c_str(),
+                          O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
+                          0600));
+    require(output.fd >= 0, "cannot create private source snapshot");
+    std::array<char, 65536> buffer{};
+    std::uintmax_t copied = 0;
+    while (true) {
+        const ssize_t amount = ::read(input.fd, buffer.data(), buffer.size());
+        if (amount < 0 && errno == EINTR) continue;
+        require(amount >= 0, "source snapshot read failed");
+        if (amount == 0) break;
+        require(copied + static_cast<std::uintmax_t>(amount) <= plan.sourceBytes,
+                "source grew during snapshot");
+        std::size_t offset = 0;
+        while (offset < static_cast<std::size_t>(amount)) {
+            const ssize_t written = ::write(output.fd, buffer.data() + offset,
+                static_cast<std::size_t>(amount) - offset);
+            if (written < 0 && errno == EINTR) continue;
+            require(written > 0, "source snapshot write failed");
+            offset += static_cast<std::size_t>(written);
+        }
+        copied += static_cast<std::uintmax_t>(amount);
+    }
+    struct stat after{};
+    require(copied == plan.sourceBytes && ::fstat(input.fd, &after) == 0 &&
+            same(expected, {after.st_dev, after.st_ino, after.st_size,
+                            after.st_mtim.tv_sec, after.st_mtim.tv_nsec}),
+            "source changed during snapshot");
+    require(::fsync(output.fd) == 0, "cannot sync source snapshot");
+}
+
 void runRequired(ProcessRunner& runner, const std::vector<std::string>& argv) {
     const auto result = runner.run(argv, false);
     require(result.exitCode == 0, "external media command failed");
@@ -230,16 +275,6 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
     require(!containsRecording(plan.titleDirectory), "target appeared during import");
     capacityPreflight(plan);
 
-    const auto probe = runner.run({
-        "/usr/bin/ffprobe", "-v", "error", "-select_streams", "v:0",
-        "-show_entries", "stream=codec_name", "-of", "default=nw=1:nk=1",
-        plan.sourceFile.string()
-    }, true);
-    require(probe.exitCode == 0, "ffprobe failed");
-    const auto codec = probe.output;
-    require(codec == "h264\n" || codec == "hevc\n" || codec == "mpeg2video\n",
-            "video codec requires explicit later re-encode support");
-
     std::string templatePath = (plan.videoRoot / ".vdr-suite-import-XXXXXX").string();
     std::vector<char> buffer(templatePath.begin(), templatePath.end());
     buffer.push_back('\0');
@@ -247,6 +282,20 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
     require(created != nullptr, "cannot create private staging directory");
     StageCleanup stage{fs::path(created)};
     require(::chmod(stage.path.c_str(), 0700) == 0, "staging permissions failed");
+
+    // The reserve accounts for this complete source snapshot plus remux.
+    const auto stagedSource =
+        stage.path / ("input" + plan.sourceFile.extension().string());
+    stageVerifiedSource(plan, before, stagedSource);
+    const auto probe = runner.run({
+        "/usr/bin/ffprobe", "-v", "error", "-select_streams", "v:0",
+        "-show_entries", "stream=codec_name", "-of", "default=nw=1:nk=1",
+        stagedSource.string()
+    }, true);
+    require(probe.exitCode == 0, "ffprobe failed");
+    const auto codec = probe.output;
+    require(codec == "h264\n" || codec == "hevc\n" || codec == "mpeg2video\n",
+            "video codec requires explicit later re-encode support");
 
     {
         std::ofstream info(stage.path / "info", std::ios::binary | std::ios::trunc);
@@ -259,13 +308,14 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
 
     const auto output = stage.path / "00001.ts";
     runRequired(runner, {"/usr/bin/ffmpeg", "-nostdin", "-hide_banner", "-v", "error",
-                        "-i", plan.sourceFile.string(), "-map", "0:v:0",
+                        "-i", stagedSource.string(), "-map", "0:v:0",
                         "-map", "0:a?", "-c", "copy", "-f", "mpegts",
                         "-y", output.string()});
     require(nonemptyRegular(output), "remux output missing or empty");
     runRequired(runner, {"/usr/bin/vdr", "--genindex=" + stage.path.string()});
     require(nonemptyRegular(stage.path / "index"), "VDR index missing or empty");
     require(same(before, signature(plan.sourceFile)), "source changed during media processing");
+    require(fs::remove(stagedSource), "cannot remove private source snapshot");
     require(!containsRecording(plan.titleDirectory), "duplicate appeared before commit");
 
     if (!fs::exists(plan.titleDirectory)) {
