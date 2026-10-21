@@ -328,3 +328,17 @@ build-media-tools-local-inventory-test:
 		addons/media-tools/src/LocalMediaImportInventory.cpp \
 		addons/media-tools/tests/test_local_media_import_inventory.cpp \
 		-o "$(BUILD_DIR)/addons/test_local_media_import_inventory"
+
+# A6.2 Core Grant adapter: actual durable receipt and authenticated server recheck.
+.PHONY: test-media-tools-effective-authorization
+test-media-tools-effective-authorization:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) $(CXXFLAGS) -Werror \
+		core/agent/src/BackendAgentCommand.cpp \
+		core/agent/src/BackendAgentCommandStateExtension.cpp \
+		core/agent/src/BackendAgentCommandStateStore.cpp \
+		core/agent/src/BackendAgentCommandJson.cpp \
+		core/agent/src/BackendAgentMediaImportAuthorization.cpp \
+		core/agent/tests/test_backend_agent_media_import_authorization.cpp \
+		-lcrypto -o "$(BUILD_DIR)/addons/test_backend_agent_media_import_authorization"
+	"$(BUILD_DIR)/addons/test_backend_agent_media_import_authorization"

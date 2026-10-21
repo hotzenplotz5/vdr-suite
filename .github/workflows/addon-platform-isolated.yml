@@ -88,6 +88,7 @@ jobs:
           make test-addon-media-tools-package
           make test-addon-agent-advertisement
           make test-media-tools-agent-dispatch
+          make test-media-tools-effective-authorization
           make backend-agent
           # Compile and link the real Suite daemon with its trusted A6 callback.
           # Build only: no service start, install, package or recording access.

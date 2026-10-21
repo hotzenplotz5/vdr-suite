@@ -119,3 +119,15 @@ identity into the executor's second resolution before `fexecve`. The ledger
 does **not** grant import execution; the current production Agent remains
 unregistered/default-deny until effective server-side authorization is wired.
 Only disposable, root-controlled CI fixtures are used by its tests.
+
+### A6.2 effective Core permission revalidation (not activated)
+
+`ReceiptRevalidatingMediaImportAuthorization` reads the existing durable
+Agent inbox and replays its *previously acknowledged exact receipt* over the
+existing authenticated Agent transport. The server reevaluates the canonical
+operation, current backend-specific grant, live Agent identity/generation,
+lease, claim and command. Only an exact successful receipt **replay** allows
+dispatch; missing or inconsistent state, revocation, network or server failure
+deny. The check occurs both before and after durable `starting`, before the
+pinned handler is executed. It does not create a second permission database.
+Production composition remains default-deny until the full activation gates.
