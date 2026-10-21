@@ -178,6 +178,10 @@ test-phase63-command-delivery-runtime:
 		core/vdr/src/BackendRegistry.cpp \
 		core/vdr/src/BackendRegistryService.cpp \
 		$(AGENT_CONTROL_PLANE_DOMAIN_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/security/src/SecurityPermissionGrantRepository.cpp \
+		core/addons/src/MediaImportOperationFence.cpp \
 		core/agent/tests/test_backend_agent_command_delivery.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_backend_agent_command_delivery

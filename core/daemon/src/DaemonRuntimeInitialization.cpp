@@ -267,6 +267,34 @@ bool DaemonRuntime::initialize()
             *backendAgentCommandRepository_,
             *backendAgentRepository_,
             *backendAgentAccountabilityRepository_);
+
+    // A6: bind the real Core operation and effective grant authorities at
+    // the Agent receipt boundary. This does not advertise or execute Media
+    // Tools: the production Agent still injects no Media Import executor.
+    mediaImportGrantRepository_ =
+        std::make_unique<SecurityPermissionGrantRepository>(database_);
+    if (!mediaImportGrantRepository_->ensureSchema())
+        return false;
+    mediaImportOperationFence_ =
+        std::make_unique<vdrsuite::addons::MediaImportOperationFence>(
+            *mutationOperationRepository_, *backendAgentIdentityRepository_,
+            *mediaImportGrantRepository_, *backendAgentRepository_,
+            *backendAgentCommandRepository_, *backendRegistryService_,
+            *backendAccessPolicy_);
+    backendAgentCommandDeliveryService_->setMediaImportReceiptFenceCheck(
+        [this](const BackendAgentCommandAssignment& assignment,
+               const BackendAgentCommandReceipt& receipt,
+               std::string& reason)
+        {
+            if (!mediaImportOperationFence_) {
+                reason = "media_import_operation_fence_unavailable";
+                return false;
+            }
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            return mediaImportOperationFence_->check(
+                assignment, receipt, now, reason);
+        });
     std::cout << "Backend Agent enrollment, lease and command delivery runtime initialized" << std::endl;
 
     epgSearchNativeFuzzyCapabilityRepository_ =

@@ -1,6 +1,13 @@
 #include "AccountabilityEventRepository.h"
 #include "BackendAgentCommandDelivery.h"
 #include "BackendAgentLifecycle.h"
+#include "MediaImportOperationFence.h"
+#include "MutationOperationRepository.h"
+#include "SecurityIdentityRepository.h"
+#include "SecurityPermissionGrantRepository.h"
+#include "BackendRegistry.h"
+#include "BackendRegistryService.h"
+#include "BackendAccessPolicy.h"
 #include "Database.h"
 
 #include <atomic>
@@ -192,6 +199,105 @@ int main()
     assert(sqlCount(db.handle(),
         "SELECT COUNT(*) FROM backend_agent_command_receipts "
         "WHERE command_id='cmd_media';") == 1);
+
+    // A6: use the REAL persisted operation, immutable payload and effective
+    // human-grant authorities behind the existing Agent receipt callback.
+    vdrsuite::operations::MutationOperationRepository operations(db);
+    SecurityIdentityRepository identities(db);
+    SecurityPermissionGrantRepository mediaGrants(db);
+    assert(operations.ensureSchema() && identities.ensureSchema() &&
+           mediaGrants.ensureSchema());
+    assert(db.execute(
+        "INSERT INTO security_actors(actor_id,actor_type,display_name) "
+        "VALUES('human_media','user','Media tester');"));
+
+    vdrsuite::operations::MutationOperation op;
+    op.operationId = media.operationId;
+    op.idempotencyKey = "idem_media";
+    op.actorId = "human_media";
+    op.backendId = "default";
+    op.backendGeneration = 7;
+    op.resourceType = "MediaImportSource";
+    op.resourceId = "local_token";
+    op.expectedRevision = "1";
+    op.actionFamily = "media.import";
+    op.requestFingerprint = "logical_api_request_fingerprint";
+    op.requestedAt = 100;
+    op.deadline = 500;
+    op.verificationPolicy =
+        vdrsuite::operations::MutationOperationVerificationPolicy::
+            reconciliationRequired;
+    op.updatedAt = op.requestedAt;
+    vdrsuite::operations::MutationOperationPayload payload;
+    payload.operationId = op.operationId;
+    payload.payloadType = "addon.media.import";
+    payload.payloadVersion = 1;
+    payload.payload = media.payload;
+    payload.payloadFingerprint = "logical_payload_fingerprint";
+    const auto reserved = operations.reserveWithPayload(op, payload);
+    assert(reserved.ok());
+    const auto dispatching = operations.transition(
+        op.operationId, reserved.operation.operationRevision,
+        vdrsuite::operations::MutationOperationState::accepted,
+        vdrsuite::operations::MutationOperationState::dispatching,
+        "", 110);
+    assert(dispatching.ok());
+
+    BackendRegistry registry;
+    BackendNode writable;
+    writable.backendId = "default";
+    writable.accessMode = "read-write";
+    registry.addBackend(writable);
+    BackendRegistryService backendRegistry(registry);
+    BackendAccessPolicy backendAccess;
+    vdrsuite::addons::MediaImportOperationFence coreFence(
+        operations, identities, mediaGrants, agents, commands,
+        backendRegistry, backendAccess);
+    BackendAgentCommandPollRequest importPoll = poll;
+    importPoll.supportedCommandTypes = {"probe.noop", "addon.media.import"};
+    assert(service.poll(
+        context(ActorType::Agent, "actor_agent"), importPoll, 117).accepted);
+
+    std::string fenceReason;
+    assert(!coreFence.check(media, mediaReceipt, 118, fenceReason) &&
+           fenceReason == "media_import_permission_denied");
+    // Neither role.admin nor generic wildcard can elevate add-on import.
+    assert(mediaGrants.ensureGrant("human_media", "role.admin", "*"));
+    assert(!coreFence.check(media, mediaReceipt, 118, fenceReason));
+    assert(mediaGrants.ensureGrant(
+        "human_media", "addons.media.import", "other-backend"));
+    assert(!coreFence.check(media, mediaReceipt, 118, fenceReason));
+    assert(mediaGrants.ensureGrant(
+        "human_media", "addons.media.import", "default"));
+    assert(coreFence.check(media, mediaReceipt, 118, fenceReason));
+    assert(fenceReason == "media_import_operation_and_grant_verified");
+
+    service.setMediaImportReceiptFenceCheck(
+        [&](const BackendAgentCommandAssignment& original,
+            const BackendAgentCommandReceipt& incoming,
+            std::string& checkedReason) {
+            return coreFence.check(original, incoming, 119, checkedReason);
+        });
+    const auto verifiedReplay = service.receipt(
+        context(ActorType::Agent, "actor_agent"), mediaReceipt, 119);
+    assert(verifiedReplay.accepted && verifiedReplay.replayed);
+    assert(mediaGrants.revokeGrant(
+        "human_media", "addons.media.import", "default"));
+    assert(!coreFence.check(media, mediaReceipt, 120, fenceReason));
+    const auto revokedRealGrant = service.receipt(
+        context(ActorType::Agent, "actor_agent"), mediaReceipt, 120);
+    assert(!revokedRealGrant.accepted);
+
+    assert(mediaGrants.ensureGrant(
+        "human_media", "addons.media.import", "default"));
+    auto tampered = media;
+    tampered.payload = "{\"sourceId\":\"different_token\"}";
+    tampered.requestFingerprint = backendAgentCommandFingerprint(tampered);
+    assert(!coreFence.check(tampered, mediaReceipt, 120, fenceReason));
+    assert(!coreFence.check(media, mediaReceipt, 501, fenceReason));
+    assert(identities.revokeActor("human_media"));
+    assert(!coreFence.check(media, mediaReceipt, 120, fenceReason));
+
     std::cout << "P7_AGENT_RESULT_EVIDENCE_MIGRATION=PASS\n";
     std::cout<<"Backend Agent command delivery tests passed"<<std::endl;return 0;
 }

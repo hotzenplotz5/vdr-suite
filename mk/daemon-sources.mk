@@ -3,6 +3,7 @@ DAEMON_SRC := \
         core/operations/src/MutationOperation.cpp \
         core/operations/src/MutationOperationIdentity.cpp \
         core/operations/src/MutationOperationRepository.cpp \
+        core/addons/src/MediaImportOperationFence.cpp \
         core/operations/src/MutationOperationReadService.cpp \
         core/timers/src/TimerIntent.cpp \
         core/timers/src/TimerIntentRepository.cpp \
