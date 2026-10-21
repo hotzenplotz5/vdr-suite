@@ -64,6 +64,7 @@ EXPECTED_ROUTE_LITERALS = {
     "/api/v1/channels",
     "/api/v1/device-pairings",
     "/api/v1/device-pairings/",
+    "/api/v1/devices",
     "/api/v1/devices/",
     "/api/v1/operations/",
     "/api/v1/timer-assignments",
