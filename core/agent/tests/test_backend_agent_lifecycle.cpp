@@ -976,30 +976,6 @@ void test_http_protocol_and_redaction()
     assert(connected.body.find("\"backendGeneration\":1") != std::string::npos);
     assert(connected.body.find(AgentSecret) == std::string::npos);
 
-    // A7.4 is an Agent-authenticated, ephemeral report: only opaque IDs.
-    HttpServerRequest sources;
-    sources.method = "POST";
-    sources.path = "/api/agent/v1/observations/media-import-sources";
-    sources.headers["Authorization"] =
-        "Basic " + base64(agentId + ":" + AgentSecret);
-    sources.body =
-        "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
-        "\"backendGeneration\":1,\"sourceIds\":[\"source_00000000001\"]}";
-    const auto sourceObserved = server.handleRequest(sources);
-    assert(sourceObserved.statusCode == 200);
-    std::vector<std::string> ids;
-    const auto live = fixture.agentRepository.findAgentForBackend("default");
-    const auto observedNow = std::chrono::duration_cast<std::chrono::seconds>(
-        std::chrono::system_clock::now().time_since_epoch()).count();
-    assert(live && mediaImportCatalog.list(*live, "default", observedNow, ids));
-    assert(ids == (std::vector<std::string>{"source_00000000001"}));
-    sources.body =
-        "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
-        "\"backendGeneration\":2,\"sourceIds\":[\"source_00000000002\"]}";
-    assert(server.handleRequest(sources).statusCode == 409);
-    sources.headers.erase("Authorization");
-    assert(server.handleRequest(sources).statusCode == 401);
-
     HttpServerRequest rotation;
     rotation.method = "POST";
     rotation.path = "/api/agent/v1/credentials/rotate";
@@ -1044,6 +1020,30 @@ void test_http_protocol_and_redaction()
         "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
         "\"backendGeneration\":1,\"heartbeatSequence\":1}";
     assert(server.handleRequest(heartbeat).statusCode == 200);
+
+    // A7.4 is an Agent-authenticated, ephemeral report: only opaque IDs.
+    HttpServerRequest sources;
+    sources.method = "POST";
+    sources.path = "/api/agent/v1/observations/media-import-sources";
+    sources.headers = connect.headers;
+    sources.body =
+        "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
+        "\"backendGeneration\":1,\"sourceIds\":[\"source_00000000001\"]}";
+    const auto sourceObserved = server.handleRequest(sources);
+    assert(sourceObserved.statusCode == 200);
+    std::vector<std::string> ids;
+    const auto live = fixture.agentRepository.findAgentForBackend("default");
+    const auto observedNow = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    assert(live && mediaImportCatalog.list(*live, "default", observedNow, ids));
+    assert(ids == (std::vector<std::string>{"source_00000000001"}));
+    sources.body =
+        "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
+        "\"backendGeneration\":2,\"sourceIds\":[\"source_00000000002\"]}";
+    assert(server.handleRequest(sources).statusCode == 409);
+    sources.headers.erase("Authorization");
+    assert(server.handleRequest(sources).statusCode == 401);
+
 
     HttpServerRequest observation;
     observation.method = "POST";
