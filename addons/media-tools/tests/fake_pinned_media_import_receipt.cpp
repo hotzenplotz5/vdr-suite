@@ -9,8 +9,8 @@ int main(int argc, char** argv)
         std::string(argv[5]) != "--confirm-writes")
         return 2;
     std::cout << "IMPORT_STATUS=COMMITTED\n"
-              << "RECORDING=" << argv[3]
-              << "/Media/2026-10-21.18.00.00-0.rec\n"
+              << "RECORDING=\\\"" << argv[3]
+              << "/Media/2026-10-21.18.00.00-0.rec\\\"\n"
               << "SOURCE_PRESERVED=YES\n";
     return 0;
 }
