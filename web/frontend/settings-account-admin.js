@@ -417,16 +417,28 @@
         permissionInput.disabled = Boolean(actions.busy);
         appendOption(permissionInput, '',
           t('settings.accountAdminChoosePermission', 'Bitte auswählen …'), true);
-        permissionOptions.forEach(function(option) {
-          if (!option || !option.permission) return;
-          const label = permissionLabel(option.permission, permissionOptions);
-          appendOption(
-            permissionInput,
-            option.permission,
-            label === option.permission
-              ? label
-              : label + ' — ' + option.permission,
-            false);
+        const permissionCategories = [
+          { id: 'role', label: t('settings.accountAdminRolesGroup', 'Rollen') },
+          { id: 'permission', label: t('settings.accountAdminPermissionsGroup', 'Berechtigungen') },
+          { id: 'addon', label: t('settings.accountAdminAddonsGroup', 'Add-ons') }
+        ];
+        permissionCategories.forEach(function(category) {
+          const choices = permissionOptions.filter(function(option) {
+            return option && option.permission &&
+              (option.category === category.id ||
+                (category.id === 'permission' &&
+                 option.category !== 'role' && option.category !== 'addon'));
+          });
+          if (!choices.length) return;
+          const group = document.createElement('optgroup');
+          group.label = category.label;
+          choices.forEach(function(option) {
+            const label = permissionLabel(option.permission, permissionOptions);
+            appendOption(group, option.permission,
+              label === option.permission ? label : label + ' — ' + option.permission,
+              false);
+          });
+          permissionInput.appendChild(group);
         });
         permissionInput.value = '';
         permissionField.appendChild(permissionInput);
