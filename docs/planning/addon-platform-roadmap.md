@@ -145,3 +145,14 @@ keep `AddonHandlerRegistry::kMediaToolsCandidate.executable=false`,
 `RuntimeEvidence.packageTrusted=false` in diagnostic adapters, and the
 Media Tools manifest without executable capabilities. Use existing Suite
 security, operation/job, Agent and frontend owners; do not fork them.
+
+## Media Tools A6 code ownership
+
+New add-on-specific A6 contract and tests live under
+`addons/media-tools/` on the **existing** add-on branch.
+There is no new branch or repository. The existing standalone C++17
+importer under `modules/rectools/` is not duplicated; a future
+single tested source/packaging migration must move it rather than fork it.
+The add-on request envelope is non-executing and does not replace the
+Core-owned command, permission or operation lifecycle. Runtime integration
+and API effective capability projection remain open.
