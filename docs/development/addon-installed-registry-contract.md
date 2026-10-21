@@ -509,3 +509,24 @@ The settings projection requires both approved installation and effective
 runtime activation to mark a reviewed permission selectable. It does not
 itself grant access: the existing authorization and grant repositories
 remain authoritative, including exact backend scope and revocation.
+
+## User settings integration (inert until effective provider capability)
+
+The existing grant administration marks the single currently reviewed
+`addons.media.import` option with `category=addon`. The browser's existing
+account grant selector groups categories under Roles, Permissions and
+Add-ons. The account-admin client maps the optional server-provided
+`addonPermissions` effective-capability projection into the view. If
+that field is absent, empty, or an item is not `selectable=true`, the
+add-on option is **not shown**. No alternative account store or permission
+system was created.
+
+This is **not live discovery yet**: the account-grants Public-v1 producer
+does not currently emit an effective provider capability projection, so
+the Add-ons selection is correctly hidden. Do not derive it from a staged
+manifest, desired-enabled SQLite row or arbitrary browser input.
+The next A5/A7 integration must obtain backend-specific effective
+capabilities from Core/Agent authority, and must independently enforce the
+same check on grant mutation. The authorization service already rejects
+unreviewed `addons.*` requests even when a wildcard or exact raw grant
+was injected. Check and Shrink remain disabled.
