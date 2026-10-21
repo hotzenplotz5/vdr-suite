@@ -174,6 +174,43 @@ std::optional<StoredDeviceIdentity> SecurityIdentityRepository::findDevice(
     return result;
 }
 
+std::optional<std::vector<StoredDeviceIdentity>>
+SecurityIdentityRepository::listDevices(
+    const std::string& afterDeviceId, std::size_t limit) const
+{
+    if (limit == 0U || limit > 101U) return std::nullopt;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT d.device_id, d.actor_id, d.display_name, d.active, "
+        "d.revoked_at <> '' "
+        "FROM security_devices d "
+        "JOIN security_actors a ON a.actor_id = d.actor_id "
+        "WHERE a.actor_type = 'service' AND d.device_id > ? "
+        "ORDER BY d.device_id COLLATE BINARY ASC LIMIT ?;";
+    if (!prepareAndBind(database_, statement, sql, afterDeviceId))
+        return std::nullopt;
+    if (sqlite3_bind_int(statement, 2, static_cast<int>(limit)) != SQLITE_OK)
+    {
+        sqlite3_finalize(statement);
+        return std::nullopt;
+    }
+    std::vector<StoredDeviceIdentity> result;
+    int status = SQLITE_ROW;
+    while ((status = sqlite3_step(statement)) == SQLITE_ROW)
+    {
+        StoredDeviceIdentity item;
+        item.deviceId = columnText(statement, 0);
+        item.actorId = columnText(statement, 1);
+        item.displayName = columnText(statement, 2);
+        item.active = sqlite3_column_int(statement, 3) != 0;
+        item.revoked = sqlite3_column_int(statement, 4) != 0;
+        result.push_back(std::move(item));
+    }
+    sqlite3_finalize(statement);
+    return status == SQLITE_DONE
+        ? std::make_optional(std::move(result)) : std::nullopt;
+}
+
 std::optional<StoredSessionIdentity> SecurityIdentityRepository::findSession(
     const std::string& sessionId) const
 {
