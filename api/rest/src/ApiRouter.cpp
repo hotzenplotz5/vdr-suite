@@ -370,13 +370,15 @@ ApiResponse ApiRouter::handlePost(
             requestQueryString(requestTarget));
 
     if (path == "/api/recordings/actions/validate" ||
-        path == "/api/vdr/recordings/actions/validate")
+        path == "/api/vdr/recordings/actions/validate" ||
+        path == "/api/v1/recordings/actions/validate")
     {
         return recordingActionValidationController_.validateBody(body);
     }
 
     if (path == "/api/recordings/actions/execute" ||
-        path == "/api/vdr/recordings/actions/execute")
+        path == "/api/vdr/recordings/actions/execute" ||
+        path == "/api/v1/recordings/actions/execute")
     {
         return recordingActionExecutionController_.executeBody(body);
     }

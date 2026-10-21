@@ -11,6 +11,7 @@ int main()
     const std::vector<std::string> safeRoutes = {
         "/api/recordings/actions/validate",
         "/api/vdr/recordings/actions/validate",
+        "/api/v1/recordings/actions/validate",
         "/api/recordings/actions/preview",
         "/api/vdr/recordings/actions/preview",
         "/api/searchtimers/validate",
@@ -84,14 +85,18 @@ int main()
         assert(
             trailingSlashDecision.rejection.statusCode ==
             503);
+        const std::string expectedError = 
+            route.rfind("/api/v1/", 0) == 0
+                ? "service_unavailable"
+                : "security_policy_not_migrated";
         assert(trailingSlashDecision.rejection.body.find(
-            "security_policy_not_migrated") !=
-            std::string::npos);
+            expectedError) != std::string::npos);
     }
 
     const std::vector<std::string> protectedMutations = {
         "/api/searchtimers/execute",
         "/api/vdr/searchtimers/execute",
+        "/api/v1/recordings/actions/execute",
         "/api/searchtimers/real-test",
         "/api/vdr/searchtimers/real-test",
         "/api/epgsearch/native-fuzzy/refresh",
@@ -117,9 +122,12 @@ int main()
         assert(decision.protectedMutation);
         assert(
             decision.rejection.statusCode == 403);
+        const std::string expectedError =
+            route.rfind("/api/v1/", 0) == 0
+                ? "forbidden"
+                : "csrf_validation_failed";
         assert(decision.rejection.body.find(
-            "csrf_validation_failed") !=
-            std::string::npos);
+            expectedError) != std::string::npos);
     }
 
     const std::vector<std::string> stillUnmigrated = {
