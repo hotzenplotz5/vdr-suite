@@ -1979,12 +1979,30 @@ bool DaemonRuntime::initialize()
                 return result;
             }
 
+            // ADR-0035 intentionally skips recordings in the startup snapshot.
+            // Use the same warmed backend cache as Web/Home folder browsing.
+            if (!vdrRecordingCacheRepository_)
+            {
+                result.status = PublicRecordingCollectionStatus::unavailable;
+                return result;
+            }
+            const auto cacheStatus =
+                vdrRecordingCacheRepository_->statusForBackend(request.backendId);
+            if (cacheStatus.state != "ready")
+            {
+                result.status = PublicRecordingCollectionStatus::unavailable;
+                return result;
+            }
+            const auto cached =
+                vdrRecordingCacheRepository_->findAllForBackend(request.backendId);
+            if (cached.empty() && cacheStatus.totalCount > 0)
+            {
+                result.status = PublicRecordingCollectionStatus::unavailable;
+                return result;
+            }
             PublicRecordingCollectionProjection projection(
                 *publicRecordingIdentities_);
-            const auto page = projection.project(
-                request.backendId,
-                vdrSnapshotReadService_->getRecordingsForBackend(
-                    request.backendId));
+            const auto page = projection.project(request.backendId, cached);
             if (!page.valid)
             {
                 result.status = PublicRecordingCollectionStatus::unavailable;

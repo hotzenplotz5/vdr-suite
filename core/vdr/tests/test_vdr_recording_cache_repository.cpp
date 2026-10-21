@@ -391,8 +391,42 @@ static void test_genre_members_resolve_from_cache_without_startup_recording_snap
     assert(!repository.findByBackendNativeId("other-backend", nativeId, found));
 }
 
+static void test_flat_recordings_warmed_cache_not_startup_snapshot()
+{
+    Database db;
+    assert(db.open(":memory:"));
+    VdrRecordingCacheRepository cache(db);
+    assert(cache.statusForBackend("default").state != "ready");
+    assert(cache.markRefreshStarted("default"));
+    assert(cache.statusForBackend("default").state == "warming");
+
+    const std::string nativeId =
+        "/srv/vdr/video/Brisant/2026-10-21.17.15.1-0.rec";
+    assert(cache.replaceRecordingsForBackend("default", {
+        makeRecording("br", nativeId, "Brisant",
+                      "/Brisant/2026-10-21.17.15.1-0.rec",
+                      "1792595700", 0, 57)
+    }));
+    assert(cache.markRefreshFinished("default", 1));
+    const auto ready = cache.statusForBackend("default");
+    assert(ready.state == "ready");
+    assert(ready.totalCount == 1);
+    const auto records = cache.findAllForBackend("default");
+    assert(records.size() == 1U);
+    assert(records.front().backendId == "default");
+    assert(records.front().backendNativeId == nativeId);
+    assert(records.front().sizeMb == 57);
+    assert(cache.findAllForBackend("other-backend").empty());
+
+    assert(cache.replaceRecordingsForBackend("default", {}));
+    assert(cache.markRefreshFinished("default", 0));
+    assert(cache.statusForBackend("default").state == "ready");
+    assert(cache.findAllForBackend("default").empty());
+}
+
 int main()
 {
+    test_flat_recordings_warmed_cache_not_startup_snapshot();
     test_public_root_leaf_preserves_backend_scope_after_replace();
     test_genre_members_resolve_from_cache_without_startup_recording_snapshot();
     test_recording_cache_repository_schema();
