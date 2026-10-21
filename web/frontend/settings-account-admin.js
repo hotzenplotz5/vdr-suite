@@ -820,6 +820,21 @@
               'Berechtigung und Backend/Scope dürfen nicht leer sein.');
             return Promise.resolve(false);
           }
+          if (normalizedPermission.indexOf('addons.') === 0) {
+            const projection = state.selectedOverview &&
+              Array.isArray(state.selectedOverview.addonPermissions)
+                ? state.selectedOverview.addonPermissions : [];
+            const approvedForBackend = projection.some(function(entry) {
+              return entry && entry.permission === normalizedPermission &&
+                entry.backendId === normalizedBackendId &&
+                entry.selectable === true && normalizedBackendId !== '*';
+            });
+            if (!approvedForBackend) {
+              status.textContent = t('settings.accountAdminAddonUnavailable',
+                'Das Add-on ist für diesen Backend-Server nicht verfügbar.');
+              return Promise.resolve(false);
+            }
+          }
           return mutateSelected(function(overview) {
             return api.setAccountGrant(
               overview.account.accountId,
