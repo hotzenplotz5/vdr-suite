@@ -1007,7 +1007,7 @@ void test_media_import_actual_agent_runtime_no_double_dispatch()
     command.backendGeneration = 9;
     command.commandType = "addon.media.import";
     command.payloadVersion = 1;
-    command.payload = "{\\"sourceId\\":\\"local_token\\"}";
+    command.payload = "{\"sourceId\":\"local_token\"}";
     command.verificationPolicy = "reconciliation_required";
     command.assignedAt = std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
@@ -1021,15 +1021,15 @@ void test_media_import_actual_agent_runtime_no_double_dispatch()
     assigned.assignment = command;
 
     transport.responses.push_back(success(
-        200, "{\\"agentId\\":\\"agt_client\\",\\"backendId\\":\\"default\\","
-             "\\"backendGeneration\\":9,\\"credentialGeneration\\":1,"
-             "\\"heartbeatSequence\\":0,\\"capabilityRevision\\":0,"
-             "\\"leaseDurationSeconds\\":90,\\"disposition\\":\\"replace\\"}"));
+        200, "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+             "\"backendGeneration\":9,\"credentialGeneration\":1,"
+             "\"heartbeatSequence\":0,\"capabilityRevision\":0,"
+             "\"leaseDurationSeconds\":90,\"disposition\":\"replace\"}"));
     transport.responses.push_back(success(
-        200, "{\\"capabilityRevision\\":1,\\"duplicate\\":false}"));
+        200, "{\"capabilityRevision\":1,\"duplicate\":false}"));
     transport.responses.push_back(success(
-        200, "{\\"heartbeatSequence\\":1,\\"leaseExpiresAt\\":123,"
-             "\\"duplicate\\":false}"));
+        200, "{\"heartbeatSequence\":1,\"leaseExpiresAt\":123,"
+             "\"duplicate\":false}"));
     transport.responses.push_back(observationSuccess(9, 1));
     transport.responses.push_back(success(
         200, serializeBackendAgentCommandPollResponseJson(assigned)));
@@ -1048,12 +1048,12 @@ void test_media_import_actual_agent_runtime_no_double_dispatch()
 
     // Heartbeat reconciles the persisted result, but must not execute twice.
     transport.responses.push_back(success(
-        200, "{\\"heartbeatSequence\\":2,\\"leaseExpiresAt\\":153,"
-             "\\"duplicate\\":false}"));
+        200, "{\"heartbeatSequence\":2,\"leaseExpiresAt\":153,"
+             "\"duplicate\":false}"));
     transport.responses.push_back(observationSuccess(9, 2));
     transport.responses.push_back(success(
-        200, "{\\"hasAssignment\\":false,"
-             "\\"reasonCode\\":\\"no_command_available\\"}"));
+        200, "{\"hasAssignment\":false,"
+             "\"reasonCode\":\"no_command_available\"}"));
     assert(runtime.heartbeat(reason));
     assert(executor.executions == 1 && executor.authorizations == 1);
     assert(transport.responses.empty());
