@@ -3,6 +3,8 @@
 #include "PinnedMediaImportAgentExecutor.h"
 
 #include <filesystem>
+#include <string>
+#include <vector>
 
 namespace vdrsuite::mediatools {
 
@@ -17,6 +19,9 @@ public:
     // Capability discovery: a protected ledger with at least one currently
     // inspectable source for this backend, without producing any side effect.
     bool hasTrustedSource(const std::string& backendId);
+    // Fail closed: opaque IDs only, no paths or partial trusted inventory.
+    bool listTrustedSourceIds(const std::string& backendId,
+                              std::vector<std::string>& sourceIds);
 
 private:
     std::filesystem::path installRoot_;

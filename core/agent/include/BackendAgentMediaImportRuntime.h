@@ -22,6 +22,7 @@ public:
         IBackendAgentControlPlaneTransport& transport,
         CurrentContext currentContext);
     bool available() override;
+    bool listTrustedSourceIds(std::vector<std::string>& out) override;
     bool authorize(const BackendAgentCommandAssignment& assignment,
                    const std::string& backendId,
                    std::uint64_t generation) override;

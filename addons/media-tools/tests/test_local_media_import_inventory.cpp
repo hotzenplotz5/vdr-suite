@@ -82,6 +82,11 @@ int main()
     assert(selected.videoRoot == fixture.destination);
     assert(selected.sourceDevice != 0 && selected.sourceInode != 0);
     assert(selected.sourceBytes > 0);
+    std::vector<std::string> ids;
+    assert(inventory.listTrustedSourceIds("backend", ids));
+    assert(ids == std::vector<std::string>{Key});
+    assert(inventory.listTrustedSourceIds("other", ids));
+    assert(ids.empty());
     assert(!inventory.resolve("other", Key, selected));
     assert(selected.sourceFile.empty());
     assert(!inventory.resolve("backend", "../../etc/passwd", selected));
@@ -90,13 +95,17 @@ int main()
     // All duplicate and malformed rows fail closed, including unrelated rows.
     fixture.write(fixture.entry() + fixture.entry());
     assert(!inventory.resolve("backend", Key, selected));
+    assert(!inventory.listTrustedSourceIds("backend", ids));
+    assert(ids.empty());
     fixture.write(fixture.entry() + "malformed\n");
     assert(!inventory.resolve("backend", Key, selected));
+    assert(!inventory.listTrustedSourceIds("backend", ids));
     fixture.write();
 
     // No writable or symlinked authority, even with syntactically valid keys.
     assert(::chmod(fixture.ledger.c_str(), 0666) == 0);
     assert(!inventory.resolve("backend", Key, selected));
+    assert(!inventory.listTrustedSourceIds("backend", ids));
     assert(::chmod(fixture.ledger.c_str(), 0644) == 0);
     const auto originalLedger = fixture.ledger.string() + ".saved";
     fs::rename(fixture.ledger, originalLedger);

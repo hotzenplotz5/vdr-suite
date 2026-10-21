@@ -6,6 +6,7 @@
 #include <cctype>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace vdrsuite::mediatools {
 
@@ -46,6 +47,9 @@ class IMediaImportAgentExecutor {
 public:
     virtual ~IMediaImportAgentExecutor() = default;
     virtual bool available() = 0;
+    // Default deny; only explicit trusted Agent composition may enumerate.
+    virtual bool listTrustedSourceIds(std::vector<std::string>& out)
+    { out.clear(); return false; }
     virtual bool authorize(const BackendAgentCommandAssignment& assignment,
                            const std::string& backendId,
                            std::uint64_t generation) = 0;

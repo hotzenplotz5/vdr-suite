@@ -27,6 +27,19 @@ bool BackendAgentMediaImportRuntime::available()
     } catch (...) { return false; }
 }
 
+bool BackendAgentMediaImportRuntime::listTrustedSourceIds(
+    std::vector<std::string>& out)
+{
+    out.clear();
+    if (!available()) return false;
+    try {
+        return inventory_.listTrustedSourceIds(backendId_, out);
+    } catch (...) {
+        out.clear();
+        return false;
+    }
+}
+
 bool BackendAgentMediaImportRuntime::authorize(
     const BackendAgentCommandAssignment& assignment,
     const std::string& backendId, std::uint64_t generation)

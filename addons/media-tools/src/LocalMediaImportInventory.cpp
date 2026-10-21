@@ -3,6 +3,7 @@
 #include "MediaImport.h"
 
 #include <array>
+#include <algorithm>
 #include <cerrno>
 #include <cctype>
 #include <fcntl.h>
@@ -206,4 +207,43 @@ bool RootOwnedMediaImportInventory::hasTrustedSource(
     return found;
 }
 
+} // namespace vdrsuite::mediatools
+
+namespace vdrsuite::mediatools {
+
+bool RootOwnedMediaImportInventory::listTrustedSourceIds(
+    const std::string& backendId, std::vector<std::string>& sourceIds)
+{
+    sourceIds.clear();
+    if (!inventoryIdentifier(backendId, 1)) return false;
+    std::string content;
+    if (!readInventory(installRoot_, content)) return false;
+    std::istringstream input(content);
+    std::set<std::pair<std::string, std::string>> seen;
+    std::string line;
+    std::size_t count = 0;
+    std::vector<std::string> fresh;
+    while (std::getline(input, line))
+    {
+        if (++count > 128 || line.empty() || line.back() == '\r')
+            return false;
+        std::array<std::string, 5> columns{};
+        if (!fields(line, columns) ||
+            !inventoryIdentifier(columns[0], 1) ||
+            !inventoryIdentifier(columns[1], 16) ||
+            !seen.emplace(columns[0], columns[1]).second)
+            return false;
+        if (columns[0] != backendId) continue;
+        try {
+            (void)inspectImport({columns[2], columns[3], columns[4]});
+            fresh.push_back(columns[1]);
+            if (fresh.size() > 32U) return false;
+        } catch (...) {
+            // Disappearances are omitted; a malformed ledger invalidates all.
+        }
+    }
+    std::sort(fresh.begin(), fresh.end());
+    sourceIds = std::move(fresh);
+    return true;
+}
 } // namespace vdrsuite::mediatools
