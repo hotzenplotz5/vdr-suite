@@ -1,4 +1,114 @@
-# Public API v1 — real yaVDR Recording Action acceptance
+# Public API v1 R2/R3 – yaVDR Hardware-Abnahme (2026-10-21)
+
+## Aktuelle Abnahme – verbindlich
+
+Branch: main. Der vorhandene ältere Prüfblock weiter unten ist historisch
+und darf NICHT mehr ausgeführt werden; das frühere Report-Mainz-Fixture
+existiert nicht mehr. Der neue Helfer ist:
+tools/accept_api_v1_recording_actions_hw.py
+
+Freigegeben ist ausschließlich eine NEUE, fertiggestellte, kurze
+VDR-Aufnahme namens VDR-SUITE-TEST-R3. Keine produktiven Aufnahmen.
+Das Testergebnis ist nur aussagekräftig, wenn der lokal installierte
+VDR-Suite-Daemon tatsächlich dem aktuellen, vollständig per CI
+geprüften Build entspricht. Ein Git-Checkout auf main allein beweist
+keine installierte Version. Build-ID vorher separat festhalten.
+
+Der neue Helfer akzeptiert ausschließlich öffentliche rec_- und
+fld1_-Identitäten. Native Aufnahme-/Zielpfade werden nur LESEND
+gegen den VDR abgeglichen, nie als öffentliche Aktionsparameter
+gesendet. Mutationen gehen ausschließlich an Public API v1 mit
+If-Match und Browser-CSRF; die RESTfulAPI dient ausschließlich dem
+unabhängigen Readback.
+
+## Vorbereitungen
+
+1. Die VDR-Aufnahme VDR-SUITE-TEST-R3 für etwa 1–3 Minuten anlegen.
+   Aufnahme vollständig beenden und sicherstellen, dass sie nicht mehr
+   wächst. Keine bereits vorhandene persönliche Aufnahme umbenennen.
+2. Für MOVE ist ein bereits im öffentlichen Recording-Folder-Browse
+   sichtbarer Root-Zielordner notwendig. Es wird KEIN Ordner angelegt,
+   geraten oder aus einem absoluten Pfad konstruiert. Den echten
+   fld1_-Wert aus der read-only Liste wählen.
+3. Den aktuellen Checkout und die installierte Daemon-Build-ID notieren.
+   Kein automatischer Paket-/Binary-Wechsel.
+
+## Schritt A – nur lesen: Testaufnahme und Zielordner
+
+Auf dem yaVDR-Host im VDR-Suite-Checkout ausführen:
+
+    git rev-parse HEAD
+    python3 tools/accept_api_v1_recording_actions_hw.py --list-folders
+
+Der Helfer fragt das Human-Account-Passwort interaktiv ab. Bitte niemals
+Passwort, Cookie oder CSRF-Token in Chats kopieren. Er verlangt exakt eine
+neue VDR-SUITE-TEST-R3-Aufnahme mit passender .rec-Identität, bekannter
+Dauer und Größe. Die Ausgabe zeigt die öffentliche rec_-ID und bereits
+vorhandene root-fld1_-Ordner.
+
+## Schritt B – schreibfrei Validate / Dry-run
+
+Ohne MOVE-Ziel:
+
+    python3 tools/accept_api_v1_recording_actions_hw.py
+
+Mit echtem Root-Zielordner aus Schritt A:
+
+    python3 tools/accept_api_v1_recording_actions_hw.py --folder-id 'fld1_REALE_32_HEX_ZEICHEN'
+
+Validierung und Ausführung mit dryRun:true müssen die aktuelle rec_-ID
+behalten und den serverseitig ausgegebenen starken ETag prüfen.
+Es erfolgt keine echte Aufnahmeänderung. Ohne Folder-ID bedeutet
+R3_MOVE_PREFLIGHT=NOT_RUN; dies ist KEIN R3-Gesamterfolg.
+
+## Schritt C – erst danach echte Aktionen, jeweils einzeln bestätigen
+
+Nur mit aktueller installierter Revision, zuvor grünem Preflight und
+der freigegebenen, abgeschlossenen Testaufnahme:
+
+    python3 tools/accept_api_v1_recording_actions_hw.py --folder-id 'fld1_REALE_32_HEX_ZEICHEN' --execute
+
+Nach einer Gesamtfreigabe muss jede einzelne Aktion RENAME, MOVE und
+DELETE nochmals interaktiv mit ACTION + rec_-ID bestätigt werden.
+Der Helfer fordert vor jedem Schreibzugriff eine frische Validierung
+und einen providergebundenen If-Match-ETag an. Jeder POST mit
+dryRun:false wird exakt EINMAL gesendet; es gibt KEINEN automatischen
+Retry nach Timeout oder HTTP-Konflikt.
+
+Nach RENAME/MOVE werden alter und neuer nativer Zustand sowie
+die weiterhin gleiche öffentliche rec_-ID unabhängig geprüft.
+DELETE wird explizit mit confirmDelete:true ausgelöst; die alte
+Aufnahme muss danach fehlen und die rec_-ID aus der Public Collection
+verschwunden sein. Ein unklarer Status: STOP, nicht erneut ausführen.
+
+Die echten Tests dürfen niemals mit einem alten nativen Aufnahmeindex,
+einem erratenen Zielpfad oder einer fremden Recording-ID erfolgen.
+
+## Evidenz und Abschluss
+
+Benötigt werden die installierte Build-ID, source HEAD, die getestete
+Backend-ID, die rec_-ID, der fld1_-Zielordner sowie die Statusmeldungen:
+
+    HUMAN_AUTH=PASS
+    R2_RENAME_DELETE_PREFLIGHT=PASS
+    R3_MOVE_PREFLIGHT=PASS
+    API_V1_RECORDING_RENAME=PASS
+    API_V1_RECORDING_MOVE=PASS
+    API_V1_RECORDING_DELETE=PASS
+    API_V1_RECORDING_HW_ACCEPTANCE=PASS
+    AUTOMATIC_RETRY=DISABLED
+
+Nur drei verifizierte echte Mutationen erlauben das Hardware-PASS.
+CI-Grün und Dry-run sind ausdrücklich nicht ausreichend.
+Unklare Mutationsausgänge müssen vor allgemeinem Client-Rollout
+auch hinsichtlich Durable Operation / Idempotenz gesondert bewertet
+werden. Das allgemeine Router-Refactoring ist erst nach R3
+gemäß ADR-0068 erlaubt.
+
+---
+
+## Historischer Abnahmevertrag (VOR R1–R3; NICHT AUSFÜHREN)
+
 
 ## Scope
 
