@@ -71,7 +71,7 @@ ORDER BY backend_generation DESC LIMIT 1
 """).fetchone()
 show("LIVE_AGENT=", agent)
 rows = conn.execute("""
-SELECT c.command_id, c.state, c.operation_id, c.operation_revision,
+SELECT c.command_id, c.state, c.operation_id,
        c.backend_generation, c.assigned_at, c.deadline,
        r.dispatch_state, r.result_category, r.error_category,
        r.verification_state, r.completed_at, r.bounded_diagnostics,
