@@ -9,12 +9,35 @@
 #include "IHttpClient.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
+#include <iostream>
 #include <set>
 #include <string>
 
 namespace vdrsuite::vdr
 {
+namespace
+{
+// Diagnostic only: identify which direct-GET safety fence rejected an
+// UPDATE readback without logging request contents or any credentials.
+// Rate-limited even when a local provider is temporarily unavailable.
+void logModifyReadbackFailure(
+    const NativeTimerModifyReadRequest& request,
+    const char* stage, int detail = 0)
+{
+    if (!request.allowIdentityChange) return;
+    static std::int64_t nextLogAt = 0;
+    const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    if (now < nextLogAt) return;
+    nextLogAt = now + 60;
+    std::cerr << "NATIVE_MODIFY_READER"
+              << " stage=" << stage
+              << " detail=" << detail
+              << " backend=" << request.backendId << std::endl;
+}
+}
 RestfulApiNativeTimerModifyReadbackReader::
 RestfulApiNativeTimerModifyReadbackReader(IHttpClient& httpClient)
     : httpClient_(httpClient)
@@ -45,7 +68,13 @@ NativeTimerModifyReadResult RestfulApiNativeTimerModifyReadbackReader::read(
     snapshot.observedAt = request.observedAt;
     const auto inventory = strict.read(snapshot);
     if (!inventory.ok())
+    {
+        logModifyReadbackFailure(
+            request, "strict_inventory", inventory.httpStatusCode != 0
+                ? inventory.httpStatusCode
+                : -1 - static_cast<int>(inventory.status));
         return result; // HTTP, truncation and parse failure are never success.
+    }
 
     const auto& ids = inventory.evidence.backendNativeTimerIds;
     const bool oldIdPresent =
@@ -67,10 +96,18 @@ NativeTimerModifyReadResult RestfulApiNativeTimerModifyReadbackReader::read(
     const auto response = httpClient_.execute(http);
     if (response.statusCode != 200 ||
         response.body.size() > 4U * 1024U * 1024U)
+    {
+        logModifyReadbackFailure(
+            request, "second_inventory",
+            response.statusCode == 200 ? -2 : response.statusCode);
         return result;
+    }
     const auto timers = RestfulApiTimerMapper::parseTimers(response.body);
     if (timers.size() != ids.size() || timers.size() > 4096U)
     {
+        logModifyReadbackFailure(
+            request, "mapped_inventory_size",
+            static_cast<int>(timers.size()) - static_cast<int>(ids.size()));
         result.status = NativeTimerModifyReadStatus::inconsistent;
         return result;
     }
