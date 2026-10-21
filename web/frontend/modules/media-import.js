@@ -256,7 +256,27 @@
       }).catch(function (error) {
         if (!isCurrent(view)) return;
         if (view.attempt) {
-          // The request may have arrived even if HTTP delivery failed.
+          // A validated HTTP 4xx is a definite rejection before admission.
+          // Timeouts, 5xx, invalid 202 responses and 409 are NOT proof of failure.
+          if (error && [400, 401, 403, 404, 422].includes(error.status)) {
+            delete activeAttempts[view.backendId];
+            view.attempt = null;
+            view.reloadButton.disabled = false;
+            view.select.disabled = true;
+            view.startButton.disabled = true;
+            const detail = error.status === 422
+              ? 'Ausgewählte Importquelle ungültig oder abgelaufen. Quellen aktualisieren.'
+              : error.status === 403
+                ? 'Media-Import-Berechtigung wurde verweigert. Kein Auftrag angelegt.'
+                : error.status === 401
+                  ? 'Anmeldung ist abgelaufen. Bitte erneut anmelden.'
+                  : error.status === 404
+                    ? 'Backend nicht verfügbar oder nicht zugänglich.'
+                    : 'Import-Anfrage wurde vom Server zurückgewiesen.';
+            report(view, detail, true);
+            return;
+          }
+          // Network errors and 5xx can occur after durable operation reservation.
           showAttempt(view);
           return;
         }
