@@ -184,7 +184,7 @@ test-phase63-command-delivery-runtime:
 		core/addons/src/MediaImportOperationFence.cpp \
 		core/agent/src/BackendAgentMediaImportAssignment.cpp \
 		core/agent/tests/test_backend_agent_command_delivery.cpp \
-		$(LDFLAGS) \
+		$(LDFLAGS) -lcrypto \
 		-o $(BUILD_DIR)/test_backend_agent_command_delivery
 	$(BUILD_DIR)/test_backend_agent_command_delivery
 
