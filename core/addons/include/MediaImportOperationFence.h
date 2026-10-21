@@ -46,6 +46,14 @@ public:
     bool checkCandidate(const BackendAgentCommandAssignment& assignment,
                         std::int64_t now, std::string& reason) const;
 
+    // A7: backend- and actor-specific live discovery. The same authoritative
+    // Agent capability, Core actor/grant and audited activation gates as
+    // dispatch; no manifest, stored intent or administrator role is enough.
+    bool effectiveMediaImportCapability(const std::string& actorId,
+                                        const std::string& backendId,
+                                        std::int64_t now,
+                                        std::string& reason) const;
+
     // Called only AFTER the existing Agent result repository durably stores
     // the result. Never equate handler exit with a verified VDR recording.
     bool applyResult(const BackendAgentCommandAssignment& assignment,
@@ -66,6 +74,9 @@ private:
     bool checkCore(const BackendAgentCommandAssignment& assignment,
                    std::int64_t now, bool requireDispatching,
                    std::string& reason) const;
+    bool actorBackendAllowed(const std::string& actorId,
+                             const std::string& backendId,
+                             std::string& reason) const;
 
     vdrsuite::operations::MutationOperationRepository& operations_;
     SecurityIdentityRepository& identities_;

@@ -73,6 +73,72 @@ bool MediaImportOperationFence::checkCandidate(
     return checkCore(assignment, now, false, reason);
 }
 
+bool MediaImportOperationFence::actorBackendAllowed(
+    const std::string& actorId, const std::string& backendId,
+    std::string& reason) const
+{
+    // Shared by authenticated API discovery and immutable operation dispatch.
+    const auto actor = identities_.findActor(actorId);
+    if (!actor || !actor->active || actor->revoked ||
+        (actor->type != ActorType::User &&
+         actor->type != ActorType::Service))
+        return denied(reason, "media_import_actor_revoked");
+
+    const auto grants = grants_.findActiveGrantsForActor(actorId);
+    if (!grants.available)
+        return denied(reason, "media_import_grants_unavailable");
+
+    RequestSecurityContext context;
+    context.authenticationState = AuthenticationState::Authenticated;
+    context.actor = {actor->actorId, actor->type, actor->displayName, true};
+    context.permissionGrantResolution = PermissionGrantResolutionState::Resolved;
+    context.grants = grants.grants;
+    const AuthorizationService auth;
+    if (!auth.authorize(context, {
+            "addons.media.import", backendId, "media.import"
+        }).allowed)
+        return denied(reason, "media_import_permission_denied");
+
+    const auto backend = backendAccess_.canWriteToBackend(
+        backendRegistry_, backendId);
+    if (!backend.backendFound || !backend.allowed || backend.readOnly)
+        return denied(reason, "media_import_backend_unavailable");
+
+    // A previously issued per-actor grant must never revive a disabled
+    // add-on. Reuse the one audited per-backend desired-state repository.
+    // This is an additional necessary gate, NEVER sufficient permission.
+    const auto intent = activationIntents_.readForAdmission(
+        "rectools", backendId);
+    if (intent.status != IntentStatus::ok ||
+        !intent.intent.desiredEnabled || intent.intent.revision <= 0)
+        return denied(reason, "media_import_activation_disabled");
+
+    reason = "media_import_actor_backend_authorized";
+    return true;
+}
+
+bool MediaImportOperationFence::effectiveMediaImportCapability(
+    const std::string& actorId, const std::string& backendId,
+    std::int64_t now, std::string& reason) const
+{
+    reason.clear();
+    if (now <= 0 || actorId.empty() || backendId.empty() ||
+        backendId == "*" || actorId == "*")
+        return denied(reason, "media_import_capability_invalid_context");
+    const auto agent = agents_.findAgentForBackend(backendId);
+    if (!agent || agent->revoked || agent->incompatible ||
+        agent->agentId.empty() || agent->agentInstanceId.empty() ||
+        agent->backendGeneration == 0 || agent->leaseExpiresAt < now ||
+        !commands_.hasCapability(
+            backendId, agent->agentId, agent->agentInstanceId,
+            agent->backendGeneration,
+            vdrsuite::mediatools::kMediaImportCommandType))
+        return denied(reason, "media_import_capability_agent_unavailable");
+    if (!actorBackendAllowed(actorId, backendId, reason)) return false;
+    reason = "media_import_effective_capability_available";
+    return true;
+}
+
 bool MediaImportOperationFence::checkCore(
     const BackendAgentCommandAssignment& assignment,
     std::int64_t now, bool requireDispatching, std::string& reason) const
@@ -137,40 +203,8 @@ bool MediaImportOperationFence::checkCore(
         payload.payload.payloadFingerprint.empty())
         return denied(reason, "media_import_payload_conflict");
 
-    const auto actor = identities_.findActor(op.actorId);
-    if (!actor || !actor->active || actor->revoked ||
-        (actor->type != ActorType::User &&
-         actor->type != ActorType::Service))
-        return denied(reason, "media_import_actor_revoked");
-
-    const auto grants = grants_.findActiveGrantsForActor(op.actorId);
-    if (!grants.available)
-        return denied(reason, "media_import_grants_unavailable");
-
-    RequestSecurityContext context;
-    context.authenticationState = AuthenticationState::Authenticated;
-    context.actor = {actor->actorId, actor->type, actor->displayName, true};
-    context.permissionGrantResolution = PermissionGrantResolutionState::Resolved;
-    context.grants = grants.grants;
-    const AuthorizationService auth;
-    if (!auth.authorize(context, {
-            "addons.media.import", assignment.backendId, "media.import"
-        }).allowed)
-        return denied(reason, "media_import_permission_denied");
-
-    const auto backend = backendAccess_.canWriteToBackend(
-        backendRegistry_, assignment.backendId);
-    if (!backend.backendFound || !backend.allowed || backend.readOnly)
-        return denied(reason, "media_import_backend_unavailable");
-
-    // A previously issued per-actor grant must never revive a disabled
-    // add-on. Reuse the one audited per-backend desired-state repository.
-    // This is an additional necessary gate, NEVER sufficient permission.
-    const auto intent = activationIntents_.readForAdmission(
-        "rectools", assignment.backendId);
-    if (intent.status != IntentStatus::ok ||
-        !intent.intent.desiredEnabled || intent.intent.revision <= 0)
-        return denied(reason, "media_import_activation_disabled");
+    if (!actorBackendAllowed(op.actorId, assignment.backendId, reason))
+        return false;
 
     reason = "media_import_operation_and_grant_verified";
     return true;

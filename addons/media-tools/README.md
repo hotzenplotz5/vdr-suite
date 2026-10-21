@@ -180,3 +180,15 @@ recordings. The real Core command-delivery test separately proves that only
 fresh matching recording-cache readback can transition an operation to
 `succeeded`. The explicit `--enable-media-import` option is not allowed
 in `--once`, credential-rotation or native-probe modes.
+
+### A7.1 authoritative backend capability discovery
+
+`MediaImportOperationFence::effectiveMediaImportCapability` evaluates the
+current nonrevoked Agent identity, live lease and exact published
+`addon.media.import` capability **together with** the existing Core
+user/service actor, backend-scoped effective grant, writable backend and
+audited administrator enable intent. It shares the dispatch code's actor and
+backend authority evaluator rather than duplicating a permission system.
+Missing/stale/invalid input is default-deny. This is a read-only capability,
+not a mutation or permission grant. The real Core operation/command fixture
+covers the enabled, grantless, disabled, wrong backend and stale lease cases.

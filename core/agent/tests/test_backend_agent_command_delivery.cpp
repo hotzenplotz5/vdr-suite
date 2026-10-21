@@ -266,6 +266,9 @@ int main()
     std::string fenceReason;
     assert(!coreFence.check(media, mediaReceipt, 118, fenceReason) &&
            fenceReason == "media_import_permission_denied");
+    assert(!coreFence.effectiveMediaImportCapability(
+        "human_media", "default", 118, fenceReason) &&
+        fenceReason == "media_import_permission_denied");
     // Neither role.admin nor generic wildcard can elevate add-on import.
     assert(mediaGrants.ensureGrant("human_media", "role.admin", "*"));
     assert(!coreFence.check(media, mediaReceipt, 118, fenceReason));
@@ -296,11 +299,23 @@ int main()
     assert(activated.status == vdrsuite::addons::IntentStatus::ok);
     assert(coreFence.check(media, mediaReceipt, 118, fenceReason));
     assert(fenceReason == "media_import_operation_and_grant_verified");
+    assert(coreFence.effectiveMediaImportCapability(
+        "human_media", "default", 118, fenceReason));
+    assert(fenceReason == "media_import_effective_capability_available");
+    assert(!coreFence.effectiveMediaImportCapability(
+        "human_media", "wrong-backend", 118, fenceReason));
+    assert(!coreFence.effectiveMediaImportCapability(
+        "human_media", "default", 1001, fenceReason));
+    assert(!coreFence.effectiveMediaImportCapability(
+        "admin_media", "default", 118, fenceReason));
 
     const auto disabled = activation.update(
         admin, {"rectools", "default", false, 1}, access, {});
     assert(disabled.status == vdrsuite::addons::IntentStatus::ok);
     assert(!coreFence.check(media, mediaReceipt, 118, fenceReason) &&
+           fenceReason == "media_import_activation_disabled");
+    assert(!coreFence.effectiveMediaImportCapability(
+        "human_media", "default", 118, fenceReason) &&
            fenceReason == "media_import_activation_disabled");
     assert(activation.update(
         admin, {"rectools", "default", true, 2}, access, trusted).status ==
@@ -319,6 +334,8 @@ int main()
     assert(mediaGrants.revokeGrant(
         "human_media", "addons.media.import", "default"));
     assert(!coreFence.check(media, mediaReceipt, 120, fenceReason));
+    assert(!coreFence.effectiveMediaImportCapability(
+        "human_media", "default", 120, fenceReason));
     const auto revokedRealGrant = service.receipt(
         context(ActorType::Agent, "actor_agent"), mediaReceipt, 120);
     assert(!revokedRealGrant.accepted);
