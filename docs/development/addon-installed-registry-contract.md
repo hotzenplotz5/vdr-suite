@@ -530,3 +530,21 @@ capabilities from Core/Agent authority, and must independently enforce the
 same check on grant mutation. The authorization service already rejects
 unreviewed `addons.*` requests even when a wildcard or exact raw grant
 was injected. Check and Shrink remain disabled.
+
+## Backend-scoped grant creation gate
+
+`HumanAccountGrantAdministrationService` now accepts an optional
+constructor-injected `AddonGrantEligibility(permission, backendId)` sourced
+only from a future **Core-effective** capability owner. Without that
+source, add-on grant creation is denied by default. A disabled/missing
+provider, wrong backend, and unreviewed action cannot produce a new
+grant. Deleting a previously stored right remains possible when a
+provider is removed or revoked, so administrators can clean up state
+without reinstalling anything. This check is enforced on the server,
+in addition to the browser's backend-scoped selection guard.
+
+The existing `AuthorizationService` separately denies unsupported
+`addons.*` rights, even if a wildcard or exact raw grant has been
+inserted. A future owner must supply fresh effective capability evidence
+and recheck it at operation dispatch. No caller-provided manifest may
+be used to implement this eligibility callback.
