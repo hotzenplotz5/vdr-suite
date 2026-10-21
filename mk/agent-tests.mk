@@ -184,6 +184,8 @@ test-phase63-command-delivery-runtime:
 		core/addons/src/AddonAccessPolicy.cpp \
 		core/addons/src/AddonActivationIntentRepository.cpp \
 		core/addons/src/MediaImportOperationFence.cpp \
+		core/addons/src/MediaImportOperationAdmission.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
 		core/agent/src/BackendAgentMediaImportAssignment.cpp \
 		core/agent/tests/test_backend_agent_command_delivery.cpp \
 		$(LDFLAGS) -lcrypto \

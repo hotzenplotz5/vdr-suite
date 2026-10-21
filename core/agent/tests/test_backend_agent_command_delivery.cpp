@@ -2,6 +2,7 @@
 #include "BackendAgentCommandDelivery.h"
 #include "BackendAgentLifecycle.h"
 #include "MediaImportOperationFence.h"
+#include "MediaImportOperationAdmission.h"
 #include "AddonActivationIntentRepository.h"
 #include "MediaImportRecordingEvidence.h"
 #include "BackendAgentMediaImportAssignment.h"
@@ -489,6 +490,43 @@ int main()
     assert(!assigner.assign(
         context(ActorType::User, "human_assign"), queued.operationId, 132
         ).accepted);
+
+
+    // A7.3: the public admission Core only reserves an immutable opaque
+    // selection and correctly handles identical requests and revocations.
+    vdrsuite::addons::MediaImportOperationAdmissionService admission(
+        operations, agents, coreFence);
+    vdrsuite::addons::MediaImportOperationAdmissionRequest apiInput;
+    apiInput.actorId = "human_assign";
+    apiInput.backendId = "default";
+    apiInput.sourceId = "opaque_source_123456";
+    apiInput.idempotencyKey = "media_import_key_1";
+    apiInput.now = 140;
+    const auto apiCreated = admission.admit(apiInput);
+    assert(apiCreated.status ==
+        vdrsuite::addons::MediaImportOperationAdmissionStatus::accepted);
+    assert(apiCreated.operation.state ==
+        vdrsuite::operations::MutationOperationState::accepted);
+    assert(apiCreated.operation.resourceId == apiInput.sourceId);
+    const auto apiPayload = operations.findPayloadByOperationId(
+        apiCreated.operation.operationId);
+    assert(apiPayload.ok());
+    assert(apiPayload.payload.payload ==
+        "{\"sourceId\":\"opaque_source_123456\"}");
+    const auto apiReplay = admission.admit(apiInput);
+    assert(apiReplay.status ==
+        vdrsuite::addons::MediaImportOperationAdmissionStatus::replayed);
+    assert(apiReplay.operation.operationId ==
+        apiCreated.operation.operationId);
+    apiInput.idempotencyKey = "media_import_key_2";
+    apiInput.sourceId = "../traversal";
+    assert(admission.admit(apiInput).status ==
+        vdrsuite::addons::MediaImportOperationAdmissionStatus::invalid);
+    apiInput.sourceId = "opaque_source_123456";
+    apiInput.actorId = "unprivileged_actor";
+    assert(admission.admit(apiInput).status ==
+        vdrsuite::addons::MediaImportOperationAdmissionStatus::forbidden);
+    apiInput.actorId = "human_assign";
 
     // Crash after the Core operation CAS but before command persistence:
     // the same operation can complete its reservation with no new DB/queue.
