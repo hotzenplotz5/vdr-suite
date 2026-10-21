@@ -40,6 +40,9 @@
   function isDeviceId(id) {
     return typeof id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(id);
   }
+  function isBackendId(id) {
+    return typeof id === 'string' && /^[A-Za-z0-9_.-]{1,128}$/.test(id);
+  }
   function render(parent) {
     const api = global.VdrSuiteDeviceAdminClientApi;
     if (!api || !parent || typeof api.listDevices !== 'function') {
@@ -96,9 +99,16 @@
       if (!state.selected || !state.revision || state.loading ||
           !isDeviceId(state.selected) || !state.selectedDevice ||
           !state.selectedDevice.active || state.selectedDevice.revoked) return;
-      if (!state.grants.supportedPermissions.includes(permission) ||
-          !state.backends.some(function(x) { return x.backendId === backendId; }) &&
-            backendId !== '*') return;
+      if (!state.grants.supportedPermissions.includes(permission)) return;
+      // Removed backends may still have historical grants that an admin must
+      // be able to revoke; never allow a new grant for an unknown backend.
+      const knownBackend = state.backends.some(function(x) {
+        return x.backendId === backendId;
+      });
+      const existingGrant = state.grants.items.some(function(x) {
+        return x.permission === permission && x.backendId === backendId;
+      });
+      if (active ? !knownBackend : !existingGrant) return;
       if (['timers.create', 'searchtimers.create'].includes(permission) &&
           backendId === '*') return;
       const target = state.selected;
@@ -168,7 +178,7 @@
       backend.setAttribute('aria-label', 'VDR-Backend');
       backend.className = 'settings-account-admin-grant-backend-input';
       state.backends.filter(function(b) {
-        return isDeviceId(b.backendId);
+        return isBackendId(b.backendId);
       }).forEach(function(b) {
         option(backend, b.backendId, b.name || b.backendId);
       });
