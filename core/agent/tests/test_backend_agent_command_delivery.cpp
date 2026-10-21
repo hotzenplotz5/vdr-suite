@@ -394,6 +394,11 @@ int main()
         "default", readback, actualRecordings, 129) == 0);
     assert(operations.findById(media.operationId).operation.operationRevision ==
            reconciledOp.operation.operationRevision);
+    const auto completedReplay = service.result(
+        context(ActorType::Agent, "actor_agent"), mediaOutcome, 130);
+    assert(completedReplay.accepted && completedReplay.replayed);
+    assert(operations.findById(media.operationId).operation.operationRevision ==
+           reconciledOp.operation.operationRevision);
 
 
     // A6: the actual Agent command reservation uses only the existing
