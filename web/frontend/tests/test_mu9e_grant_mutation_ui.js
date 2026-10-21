@@ -224,7 +224,10 @@ function setEnsureFields(root, permission, backendId) {
   assert.strictEqual(backendPicker.tagName, 'SELECT',
     'grant scope must be a selector, not free text');
   assert.deepStrictEqual(
-    permissionPicker.children.map(option => option.value),
+    permissionPicker.children.flatMap(function(child) {
+      return child.tagName === 'OPTGROUP'
+        ? child.children.map(option => option.value) : [child.value];
+    }),
     ['', 'role.admin', 'role.read-only', 'channels.view', 'recordings.rename', 'timers.view']
   );
   assert.deepStrictEqual(
