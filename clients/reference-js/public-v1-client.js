@@ -134,6 +134,31 @@
 
 
 
+  function deviceCollectionQuery(query) {
+    if (query === undefined || query === null) return '';
+    if (typeof query !== 'object' || Array.isArray(query)) {
+      throw new Error('Device collection query must be an object');
+    }
+    const allowed = new Set(['limit', 'cursor']);
+    Object.keys(query).forEach(function(key) {
+      if (!allowed.has(key)) throw new Error('unsupported Device query: ' + key);
+    });
+    const params = new URLSearchParams();
+    if (query.limit !== undefined) {
+      if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100)
+        throw new Error('Device limit must be 1..100');
+      params.set('limit', String(query.limit));
+    }
+    if (query.cursor !== undefined) {
+      if (typeof query.cursor !== 'string' ||
+          !/^dv1_[A-Za-z0-9_.-]{1,128}$/.test(query.cursor))
+        throw new Error('Device cursor is invalid');
+      params.set('cursor', query.cursor);
+    }
+    const result = params.toString();
+    return result ? '?' + result : '';
+  }
+
   function accountQuery(query) {
     if (query === undefined || query === null) return '';
     if (typeof query !== 'object' || Array.isArray(query)) {
@@ -832,6 +857,11 @@
       getBackends(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
         return request('/api/v1/backends' + backendQuery(normalizedOptions.query), normalizedOptions);
+      },
+      getDevices(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/devices' +
+          deviceCollectionQuery(input.query), input);
       },
       getAccounts(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
