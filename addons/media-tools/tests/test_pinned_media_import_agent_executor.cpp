@@ -7,6 +7,9 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <grp.h>
+#include <pwd.h>
+#include <sys/wait.h>
 #include <stdexcept>
 #include <string>
 #include <sys/stat.h>
@@ -109,13 +112,15 @@ struct Fixture {
 struct Inventory final : ILocalMediaImportInventory {
     bool valid = true;
     bool swapped = false;
+    bool swappedTarget = false;
     int resolutions = 0;
     bool resolve(const std::string& backend, const std::string& sourceId,
                  LocalMediaImportSource& out) override
     {
         ++resolutions;
         if (backend != "backend" || sourceId != "inventory_17") return false;
-        out = {"/ci-only/media-in", "/ci-only/media-out",
+        out = {"/ci-only/media-in",
+               swappedTarget ? "/ci-only/other-destination" : "/ci-only/media-out",
                !valid ? "/ci-only/media-in/../private" :
                swapped ? "/ci-only/media-in/another.ts" :
                "/ci-only/media-in/recording.ts"};
@@ -184,6 +189,10 @@ int main()
     inventory.swapped = true;
     assert(executor.execute(a) == MediaImportAgentOutcome::rejected);
     inventory.swapped = false;
+    assert(executor.authorize(a, "backend", 19));
+    inventory.swappedTarget = true;
+    assert(executor.execute(a) == MediaImportAgentOutcome::rejected);
+    inventory.swappedTarget = false;
 
     grants.allowed = false;
     assert(!executor.authorize(a, "backend", 19));
@@ -199,4 +208,34 @@ int main()
     a.requestFingerprint = backendAgentCommandFingerprint(a);
     assert(!executor.authorize(a, "backend", 19));
     assert(executor.execute(a) == MediaImportAgentOutcome::rejected);
+
+    // The normal Agent process runs unprivileged. Prove that the same
+    // root-owned approval and pinned executable work after dropping every
+    // supplemental group and uid/gid in this disposable CI fixture.
+    const passwd* nobody = ::getpwnam("nobody");
+    assert(nobody != nullptr && nobody->pw_uid != 0);
+    const pid_t child = ::fork();
+    assert(child >= 0);
+    if (child == 0)
+    {
+        if (::setgroups(0, nullptr) != 0 ||
+            ::setgid(nobody->pw_gid) != 0 ||
+            ::setuid(nobody->pw_uid) != 0 ||
+            ::geteuid() == 0)
+            ::_exit(2);
+        Inventory unprivilegedInventory;
+        Grants unprivilegedGrants;
+        PinnedMediaImportAgentExecutor unprivileged(
+            fixture.root.string(), "backend", 19,
+            unprivilegedInventory, unprivilegedGrants);
+        const auto operation = command();
+        if (!unprivileged.available() ||
+            !unprivileged.authorize(operation, "backend", 19) ||
+            unprivileged.execute(operation) != MediaImportAgentOutcome::submitted)
+            ::_exit(3);
+        ::_exit(0);
+    }
+    int status = 0;
+    assert(::waitpid(child, &status, 0) == child);
+    assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
 }
