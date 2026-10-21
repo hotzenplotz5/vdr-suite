@@ -260,3 +260,15 @@ test-addon-permission-catalog:
 	"$(BUILD_DIR)/addons/test_addon_permission_catalog"
 
 test-ci-fast: test-addon-permission-catalog
+
+# Inert add-on-owned request envelope; no Core execution or package install.
+.PHONY: test-media-tools-agent-request
+test-media-tools-agent-request:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror \
+		-I addons/media-tools/include \
+		addons/media-tools/tests/test_media_tools_agent_request.cpp \
+		-o "$(BUILD_DIR)/addons/test_media_tools_agent_request"
+	"$(BUILD_DIR)/addons/test_media_tools_agent_request"
+
+test-ci-fast: test-media-tools-agent-request
