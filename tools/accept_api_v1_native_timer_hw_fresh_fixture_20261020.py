@@ -208,6 +208,35 @@ def diagnostic_readback(opid):
         print("UNRESOLVED_LIVE_READ=", type(error).__name__, flush=True)
 
 
+def same_timer_fingerprint_except_epg_event_id(original, current):
+    """Compare all 15 canonical native timer fields except transient eventId."""
+    prefix = b"native-timer-observed-state/1|"
+
+    def decode(value):
+        if not isinstance(value, str):
+            return None
+        data = value.encode("utf-8")
+        if not data.startswith(prefix) or len(data) > 4096:
+            return None
+        pos, fields = len(prefix), []
+        while pos < len(data) and len(fields) < 15:
+            colon = data.find(b":", pos)
+            if colon < 0 or not data[pos:colon].isdigit():
+                return None
+            size = int(data[pos:colon])
+            start, end = colon + 1, colon + 1 + size
+            if end >= len(data) or data[end:end + 1] != b"|":
+                return None
+            fields.append(data[start:end])
+            pos = end + 1
+        return fields if pos == len(data) and len(fields) == 15 else None
+
+    before = decode(original)
+    after = decode(current)
+    return before is not None and after is not None and (
+        before[0] == after[0] and before[2:] == after[2:])
+
+
 def update_no_effect_verified(opid):
     """Read-only proof that the original UPDATE terminated without effect."""
     try:
@@ -228,7 +257,8 @@ def update_no_effect_verified(opid):
     return bool(
         row and row[0] == "failed_verified" and
         row[1] == "native-timer-modify:unchanged-after-uncertain-execution" and
-        row[2] == row[3] and row[4] != opid and
+        same_timer_fingerprint_except_epg_event_id(row[2], row[3]) and
+        row[4] != opid and
         row[5] == journal.get("timerId") and
         row[6] == journal.get("initialTitle") and
         row[7] == 0 and row[8] == 0
