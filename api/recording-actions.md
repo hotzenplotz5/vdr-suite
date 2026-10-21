@@ -1,5 +1,49 @@
 # Public API v1 — Recording Actions
 
+> **R2/R3 implementation source checkpoint (2026-10-21, `6b388c2c`):**
+> This newer source contract supersedes all older "R1 only / writes return
+> 409" descriptions below. Verify exact-head GitHub CI and a separately
+> approved disposable real-yaVDR fixture before calling R2/R3 accepted.
+> `POST /api/v1/recordings/actions/validate` accepts the opaque public
+> `rec_<32hex>` and action RENAME, DELETE or MOVE (MOVE requires an existing
+> backend-scoped `targetFolderId: fld1_<32hex>`; native `targetPath` is
+> rejected). RENAME requires `newName`. With a provider-safe executable
+> preview the validation response includes an opaque strong `ETag`
+> derived from exact backend/public recording/action/target and the
+> provider's Recording/Timer revision counters. It does not expose native
+> paths, service recording IDs or upstream payloads.
+>
+> Real `execute` requires `dryRun:false`, the identical action and
+> target, and exactly one matching strong `If-Match`. Missing=428,
+> malformed/weak=400, changed=412. DELETE additionally requires the
+> literal JSON boolean `confirmDelete:true`. Only the already-registered
+> RESTfulAPI SafeMutation adapter may preview and execute. The adapter
+> independently rechecks both provider revision counters immediately
+> before its native validate/execute stage; mismatch stops before the
+> mutation endpoint. One execution attempt only, **no automatic retry**.
+>
+> After provider 2xx, a separate live `/recordings.json` readback must
+> show confirmed absence for DELETE, or a unique matching relocated source
+> for RENAME/MOVE. The persistent Suite `rec_` identity is then retired or
+> rebound exclusively through the existing `PublicRecordingIdentityRepository`.
+> Only verified readback returns HTTP 200 with public `recordingId`,
+> `executed:true` and `readbackVerified:true`. Failures/ambiguous
+> outcomes are sanitized `application/problem+json` responses (especially
+> HTTP 409: **do not retry automatically**). No native path, backend
+> response body or source-service ID is ever serialized by these public
+> results. The private/legacy action endpoints and their DTOs are
+> unchanged. Authorization is the existing exact backend-scoped recording
+> grant and browser CSRF (no anonymous or legacy credential bypass).
+>
+> **Safety/acceptance debt:** Source and mock tests are not a real Recording
+> hardware acceptance. The previous disposable yaVDR fixture was deleted.
+> Never test real RENAME/DELETE/MOVE on an arbitrary productive Recording.
+> Ambiguous native outcomes lack an actor-owned durable Operation/replay
+> protocol; do not treat HTTP 409 as evidence that the mutation did not
+> happen. Hardware acceptance with a newly authorized disposable fixture
+> and durable idempotency policy review remain independent gates.
+
+
 > **R2 initial safe-precondition slice, 2026-10-21:** For the public-v1
 > `execute` route with `dryRun:false`, missing `If-Match` returns
 > HTTP 428. Malformed/weak/wildcard/multiple entity tags are refused with

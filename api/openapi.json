@@ -5833,6 +5833,273 @@
         }
       }
     },
+    "/api/v1/recordings/actions/validate": {
+      "post": {
+        "tags": [
+          "Recording browse"
+        ],
+        "operationId": "validatePublicRecordingAction",
+        "summary": "Validate public rec_ Recording mutation without changing the backend",
+        "description": "Requires an authenticated actor and exact recordings.rename/move/delete@backendId grant, plus browser CSRF for protected POST. Reuses the existing Recording validation and safe provider preview only; no mutation dispatch. When a healthy SafeMutation provider preview verifies executable and source revision counters, returns an operation-scoped strong ETag. A missing ETag means no safe public write is authorized. No native IDs/paths or upstream bodies are emitted.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "backend-scoped recordings.rename / recordings.move / recordings.delete as selected by action; browser CSRF required; no device/legacy impersonation"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicRecordingActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Local validation and optional provider-safe preflight",
+            "headers": {
+              "ETag": {
+                "description": "Optional opaque strong action-specific provider preflight revision; required for subsequent real execute.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicRecordingActionValidation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Strict JSON body, action or strong If-Match syntax invalid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Actor authentication required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing backend-scoped mutation grant, CSRF or write authorization",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Public rec_ identity or destination fld1_ is absent/mismatched",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Provider preflight unavailable, mutation rejected or effect/readback unknown; do not automatically retry",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Action-scoped provider revision or Recording identity became stale",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Required strong If-Match missing for real execution",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Public identity, destination or backend service unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/recordings/actions/execute": {
+      "post": {
+        "tags": [
+          "Recording browse"
+        ],
+        "operationId": "executePublicRecordingAction",
+        "summary": "Dry-run or execute revision-fenced public RENAME/DELETE/MOVE",
+        "description": "For dryRun:true, only local validation; executed:false. For dryRun:false, requires one exact strong action-scoped If-Match from validate and the same action/target/recording. The server re-resolves the public rec_ mapping, uses the existing SafeMutation adapter preview→revision validate→execute (single dispatch), and requires a separate provider /recordings.json readback before returning success. RENAME/MOVE rebind rec_ only after uniquely verified native relocation; DELETE retires it only after verified absence. No native fields or paths in public response, no automatic retry after an unknown outcome. DELETE requires explicit confirmDelete:true.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "exact recordings.rename / recordings.move / recordings.delete@backendId grant and browser CSRF; legacy/private routes unaffected"
+        },
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "description": "Mandatory for dryRun:false: one canonical strong ETag obtained from the validated provider preflight. Missing=428; malformed=400; stale=412.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicRecordingActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dry-run result or verified one-shot provider mutation. A 200 real success requires confirmed provider readback and rec_ lifecycle.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicRecordingActionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Strict JSON body, action or strong If-Match syntax invalid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Actor authentication required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing backend-scoped mutation grant, CSRF or write authorization",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Public rec_ identity or destination fld1_ is absent/mismatched",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Provider preflight unavailable, mutation rejected or effect/readback unknown; do not automatically retry",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Action-scoped provider revision or Recording identity became stale",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Required strong If-Match missing for real execution",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Public identity, destination or backend service unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/genres": {
       "get": {
         "tags": [
@@ -10721,6 +10988,183 @@
             }
           }
         }
+      },
+      "PublicRecordingActionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "backendId",
+          "recordingId",
+          "action"
+        ],
+        "description": "Closed Public-v1 recording action DTO. RENAME requires newName; MOVE requires existing backend-scoped targetFolderId. DELETE real execution requires literal confirmDelete:true; dryRun defaults to true. Native backendNativeId, recordingPath, recordingTitle and targetPath are prohibited.",
+        "properties": {
+          "backendId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9._-]+$"
+          },
+          "recordingId": {
+            "type": "string",
+            "pattern": "^rec_[0-9a-f]{32}$"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "RENAME",
+              "DELETE",
+              "MOVE"
+            ]
+          },
+          "newName": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "description": "Single display-name component; never a slash, tilde or native path."
+          },
+          "targetFolderId": {
+            "type": "string",
+            "pattern": "^fld1_[0-9a-f]{32}$",
+            "description": "Existing logical folder ID in this exact backend's Recording browse index."
+          },
+          "dryRun": {
+            "type": "boolean",
+            "default": true
+          },
+          "confirmDelete": {
+            "type": "boolean",
+            "description": "Explicit literal true required for real DELETE; irrelevant to other actions."
+          }
+        }
+      },
+      "PublicRecordingActionValidation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "valid",
+          "dryRun",
+          "wouldCreateJob",
+          "backendId",
+          "recordingId",
+          "requiredCapabilities",
+          "requiredPermissions",
+          "warnings",
+          "errors"
+        ],
+        "properties": {
+          "valid": {
+            "type": "boolean"
+          },
+          "dryRun": {
+            "type": "boolean"
+          },
+          "wouldCreateJob": {
+            "type": "boolean"
+          },
+          "backendId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9._-]+$"
+          },
+          "recordingId": {
+            "type": "string",
+            "pattern": "^rec_[0-9a-f]{32}$"
+          },
+          "requiredCapabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "requiredPermissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "PublicRecordingActionResult": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "success",
+              "dryRun",
+              "executed",
+              "validation"
+            ],
+            "properties": {
+              "success": {
+                "type": "boolean"
+              },
+              "dryRun": {
+                "const": true
+              },
+              "executed": {
+                "const": false
+              },
+              "validation": {
+                "$ref": "#/components/schemas/PublicRecordingActionValidation"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "success",
+              "executed",
+              "readbackVerified",
+              "action",
+              "backendId",
+              "recordingId"
+            ],
+            "properties": {
+              "success": {
+                "const": true
+              },
+              "executed": {
+                "const": true
+              },
+              "readbackVerified": {
+                "const": true
+              },
+              "action": {
+                "enum": [
+                  "RENAME",
+                  "DELETE",
+                  "MOVE"
+                ]
+              },
+              "backendId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9._-]+$"
+              },
+              "recordingId": {
+                "type": "string",
+                "pattern": "^rec_[0-9a-f]{32}$"
+              }
+            }
+          }
+        ]
       }
     }
   },

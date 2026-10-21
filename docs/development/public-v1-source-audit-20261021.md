@@ -1,5 +1,21 @@
 # Public API v1 – Source-Inventur und Umsetzungsstart (2026-10-21)
 
+> **R2/R3 implementation follow-up (2026-10-21):** Main source commits
+> `826adee0`, `769d5537` and `6b388c2c` add backend-scoped
+> `fld1_` MOVE target resolution, a fail-closed provider SafeMutation
+> preflight ETag, provider revision equality checked before native
+> execution, sanitized public RENAME/DELETE/MOVE results, independent
+> Recording readback and conditional `rec_` retirement/rebind using
+> existing repository and executor infrastructure. See
+> [Recording actions](../../api/recording-actions.md) for current DTOs.
+> Do **not** equate source implementation with exact-HEAD completed
+> CI or real yaVDR acceptance. A new dedicated disposable test Recording
+> must be explicitly approved before a destructive hardware test.
+> Remaining acceptance includes unknown-outcome/durable-idempotency
+> policy review. ADR-0068 still prohibits general router refactoring
+> until R3's functional acceptance is closed.
+
+
 > **Architecture sequencing decision:** [ADR-0068](../adr/ADR-0068-public-api-router-modularization-checkpoint.md) and the [Strict Roadmap](../planning/roadmap.md) bind the workstream to **R1 → R2 → R3 → Public-v1 router modularization (strictly no functional change) → E1/E2/M1/M2/S1/P1**. `ApiRouter`/`PublicApiRuntime` can receive narrow Recording fixes now, but **no general refactor before R3**. No new routes, changed JSON, permissions, identity owners or domain services in the refactor checkpoint; exact route/security/HTTP contract testing is required. This source audit remains technical evidence, while `docs/CURRENT.md` tracks volatile progress.
 
 > **Incremental implementation update, 2026-10-21:** R1 is merged on `main` through `dd8b3317` with all ten exact-head GitHub checks successful; this is not installed-hardware acceptance. Current strategy is **R1 → R2 → R3 → responsibility-only Public API router refactoring checkpoint → EPG/metadata/search-timers/resume**. No full router restructuring before R3. Initial R2 work establishes fail-closed strong `If-Match` input checks for future writes; no cache-derived revision is accepted as an authoritative mutation fence, and current v1 RENAME/DELETE remain non-mutating. Native public MOVE `targetPath` is prohibited until R3 provides logical folder identity. See `docs/CURRENT.md` for volatile progress and `api/recording-actions.md` for current request behavior.

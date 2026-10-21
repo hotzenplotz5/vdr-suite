@@ -22,6 +22,7 @@
 #include "RecordingActionValidationResultJsonSerializer.h"
 #include "RecordingActionExecutionController.h"
 #include "PublicRecordingActionProviderPreflight.h"
+#include "PublicProblemDetails.h"
 #include "PublicResourcePreconditions.h"
 #include "RecordingPersonSearchController.h"
 #include "RestQueryParameters.h"
@@ -365,19 +366,34 @@ ApiRouter::ApiRouter(
 
 
 ApiResponse ApiRouter::handlePublicRecordingAction(
-    const std::string& body, bool execute, const std::string& ifMatch)
+    const std::string& body, bool execute, const std::string& ifMatch,
+    const std::string& requestId, const std::string& correlationId)
 {
     // The HTTP security gate has checked the actor, exact backend-scoped
     // recording grant and browser CSRF. Legacy routes stay independent.
-    const auto problem = [](int status, const char* title,
+    const auto problem = [execute, &requestId, &correlationId](
+                            int status, const char* title,
                             const char* detail) {
+        PublicProblemDetails issue;
+        issue.statusCode = status;
+        issue.title = title;
+        issue.detail = detail;
+        issue.code = status == 400 ? "invalid_request" :
+                     status == 404 ? "recording_not_found" :
+                     status == 412 ? "recording_revision_conflict" :
+                     status == 428 ? "precondition_required" :
+                     status == 503 ? "recording_service_unavailable" :
+                     "recording_mutation_conflict";
+        issue.requestId = requestId;
+        issue.correlationId = correlationId;
+        issue.instance = execute
+            ? "/api/v1/recordings/actions/execute"
+            : "/api/v1/recordings/actions/validate";
         ApiResponse response;
         response.statusCode = status;
-        response.contentType = "application/problem+json";
+        response.contentType = PublicProblemDetails::contentType();
         response.headers["Cache-Control"] = "no-store";
-        response.body = std::string("{\"type\":\"about:blank\",\"title\":\"") +
-            title + "\",\"status\":" + std::to_string(status) +
-            ",\"detail\":\"" + detail + "\"}";
+        response.body = issue.serialize();
         return response;
     };
 
@@ -595,7 +611,9 @@ ApiResponse ApiRouter::handlePublicRecordingAction(
 ApiResponse ApiRouter::handlePost(
     const std::string& requestTarget,
     const std::string& body,
-    const std::string& ifMatch)
+    const std::string& ifMatch,
+    const std::string& requestId,
+    const std::string& correlationId)
 {
     (void)body;
 
@@ -607,9 +625,11 @@ ApiResponse ApiRouter::handlePost(
             requestQueryString(requestTarget));
 
     if (path == "/api/v1/recordings/actions/validate")
-        return handlePublicRecordingAction(body, false, ifMatch);
+        return handlePublicRecordingAction(body, false, ifMatch,
+                                           requestId, correlationId);
     if (path == "/api/v1/recordings/actions/execute")
-        return handlePublicRecordingAction(body, true, ifMatch);
+        return handlePublicRecordingAction(body, true, ifMatch,
+                                           requestId, correlationId);
 
     if (path == "/api/recordings/actions/validate" ||
         path == "/api/vdr/recordings/actions/validate")

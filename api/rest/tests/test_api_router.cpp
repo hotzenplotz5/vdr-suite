@@ -40,6 +40,7 @@
 #include "RecordingActionValidationResultJsonSerializer.h"
 #include "RecordingActionBackendExecutorAdapterRegistry.h"
 #include "RecordingActionExecutionService.h"
+#include "RestfulApiRecordingActionBackendExecutorAdapter.h"
 #include "RecordingActionValidationService.h"
 #include "RuntimeDiagnosticsController.h"
 #include "SearchTimerController.h"
@@ -100,6 +101,32 @@
 
 namespace
 {
+class PublicRecordingSafeHttpClient final : public IHttpClient
+{
+public:
+    HttpResponse execute(const HttpRequest& request) const override
+    {
+        urls.push_back(request.url);
+        HttpResponse response;
+        response.statusCode = 200;
+        if (request.url.find("/preview.json") != std::string::npos)
+            response.body =
+                "{\"executable\":true,\"revision_recordings_state\":111,"
+                "\"revision_timers_state\":222}";
+        else if (request.url.find("/validate.json") != std::string::npos)
+            response.body = "{\"status\":\"ready\"}";
+        else if (request.url.find("/rename.json") != std::string::npos)
+            response.body = "{\"status\":\"renamed\"}";
+        else if (request.url.find("/trash.json") != std::string::npos)
+            response.body = "{\"status\":\"trashed\"}";
+        else
+            response.body = "{\"status\":\"moved\"}";
+        return response;
+    }
+
+    mutable std::vector<std::string> urls;
+};
+
 class RouterRecordingActionBackendExecutorAdapter final
     : public IRecordingActionBackendExecutorAdapter
 {
@@ -2120,6 +2147,136 @@ int main()
     assert(searchTimerValidationAliasResponse.body.find("\"valid\":false") != std::string::npos);
     assert(searchTimerValidationAliasResponse.body.find("\"operation\":\"update\"") != std::string::npos);
     assert(searchTimerValidationAliasResponse.body.find("\"backendNativeId is required\"") != std::string::npos);
+
+    // Integration: the same SafeMutation adapter performs public provider
+    // preflight and a single revision-fenced write, without native JSON leaks.
+    PublicRecordingSafeHttpClient safeHttp;
+    RestfulApiRecordingActionBackendConfig safeConfig;
+    safeConfig.backendId = "router-backend";
+    safeConfig.apiMode = RestfulApiRecordingActionApiMode::SafeMutation;
+    safeConfig.videoDirectory = "/srv/vdr/video";
+    safeConfig.allowExecution = true;
+    safeConfig.readOnly = false;
+    recordingActionBackendExecutorAdapterRegistry.registerAdapter(
+        std::make_shared<RestfulApiRecordingActionBackendExecutorAdapter>(
+            safeConfig, safeHttp));
+    int publicReadbacks = 0;
+    recordingActionExecutionController.setAfterSuccessfulExecutionCallback(
+        [&publicReadbacks](const RecordingActionRequest& req) {
+            assert(req.parameters.at("publicV1Action") == "1");
+            assert(req.parameters.at("publicExpectedRecordingsState") == "111");
+            assert(req.parameters.at("publicExpectedTimersState") == "222");
+            ++publicReadbacks;
+            return true; // daemon's real callback verifies provider inventory
+        });
+    const std::string publicRenamePreviewBody =
+        "{\"backendId\":\"router-backend\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"RENAME\",\"newName\":\"NewTitle\",\"dryRun\":true}";
+    const auto preflight = router.handlePost(
+        "/api/v1/recordings/actions/validate", publicRenamePreviewBody);
+    assert(preflight.statusCode == 200);
+    assert(preflight.headers.count("ETag") == 1U);
+    const std::string providerTag = preflight.headers.at("ETag");
+    assert(providerTag.rfind("\"vsr-", 0U) == 0U);
+    assert(providerTag.find("/private/") == std::string::npos);
+    const std::string publicRenameWriteBody =
+        "{\"backendId\":\"router-backend\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"RENAME\",\"newName\":\"NewTitle\",\"dryRun\":false}";
+
+    const auto staleWrite = router.handlePost(
+        "/api/v1/recordings/actions/execute", publicRenameWriteBody,
+        "\"vsr-74657374\"");
+    assert(staleWrite.statusCode == 412);
+    assert(publicReadbacks == 0);
+
+    const auto acceptedWrite = router.handlePost(
+        "/api/v1/recordings/actions/execute", publicRenameWriteBody, providerTag);
+    assert(acceptedWrite.statusCode == 200);
+    assert(acceptedWrite.body.find("\"readbackVerified\":true") !=
+        std::string::npos);
+    assert(acceptedWrite.body.find(
+        "rec_0123456789abcdef0123456789abcdef") != std::string::npos);
+    assert(acceptedWrite.body.find("/private/") == std::string::npos);
+    assert(acceptedWrite.body.find("router-recording-1") == std::string::npos);
+    assert(publicReadbacks == 1);
+
+    int renameDispatches = 0;
+    for (const std::string& url : safeHttp.urls)
+        if (url == "/recordings/rename.json")
+            ++renameDispatches;
+    assert(renameDispatches == 1);
+
+    // Public DELETE must require an explicit confirmation and the exact
+    // DELETE preflight, never the earlier RENAME tag.
+    const std::string deletePreviewBody =
+        "{\"backendId\":\"router-backend\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"DELETE\",\"dryRun\":true}";
+    const auto deletePreflight = router.handlePost(
+        "/api/v1/recordings/actions/validate", deletePreviewBody);
+    assert(deletePreflight.statusCode == 200);
+    assert(deletePreflight.headers.count("ETag") == 1U);
+    const std::string deleteTag = deletePreflight.headers.at("ETag");
+
+    const std::string deleteBody =
+        "{\"backendId\":\"router-backend\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"DELETE\",\"dryRun\":false}";
+    const auto deleteWithoutConfirmation = router.handlePost(
+        "/api/v1/recordings/actions/execute", deleteBody, deleteTag);
+    assert(deleteWithoutConfirmation.statusCode == 400);
+    const std::string confirmedDeleteBody =
+        "{\"backendId\":\"router-backend\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"DELETE\",\"dryRun\":false,\"confirmDelete\":true}";
+    const auto committedDelete = router.handlePost(
+        "/api/v1/recordings/actions/execute", confirmedDeleteBody, deleteTag);
+    assert(committedDelete.statusCode == 200);
+    assert(committedDelete.body.find("\"readbackVerified\":true") !=
+        std::string::npos);
+    assert(committedDelete.body.find("\"action\":\"DELETE\"") !=
+        std::string::npos);
+    assert(committedDelete.body.find("/private/") == std::string::npos);
+    assert(publicReadbacks == 2);
+
+    // R3 MOVE uses the existing fld1_ destination only and no native
+    // destination in the request, ETag, or public success JSON.
+    const std::string movePreflightBody =
+        "{\"backendId\":\"router-backend\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"MOVE\","
+        "\"targetFolderId\":\"fld1_0123456789abcdef0123456789abcdef\","
+        "\"dryRun\":true}";
+    const auto movePreflight = router.handlePost(
+        "/api/v1/recordings/actions/validate", movePreflightBody);
+    assert(movePreflight.statusCode == 200);
+    assert(movePreflight.headers.count("ETag") == 1U);
+    const std::string moveTag = movePreflight.headers.at("ETag");
+    assert(moveTag.find("Movies/Archive") == std::string::npos);
+
+    const std::string moveWriteBody =
+        "{\"backendId\":\"router-backend\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"MOVE\","
+        "\"targetFolderId\":\"fld1_0123456789abcdef0123456789abcdef\","
+        "\"dryRun\":false}";
+    const auto moved = router.handlePost(
+        "/api/v1/recordings/actions/execute", moveWriteBody, moveTag);
+    assert(moved.statusCode == 200);
+    assert(moved.body.find("\"action\":\"MOVE\"") != std::string::npos);
+    assert(moved.body.find("\"readbackVerified\":true") != std::string::npos);
+    assert(moved.body.find("Movies/Archive") == std::string::npos);
+    assert(publicReadbacks == 3);
+
+    int moveDispatches = 0;
+    int deleteDispatches = 0;
+    for (const auto& url : safeHttp.urls) {
+        if (url == "/recordings/move.json") ++moveDispatches;
+        if (url == "/recordings/trash.json") ++deleteDispatches;
+    }
+    assert(moveDispatches == 1 && deleteDispatches == 1);
 
     std::cout
         << "test_api_router passed"

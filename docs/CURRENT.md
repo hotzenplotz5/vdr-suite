@@ -1,5 +1,40 @@
 # VDR-Suite Current State
 
+## Recording R2/R3 source integration checkpoint — 2026-10-21
+
+The current Recording action source workstream on the **only authorized
+branch `main`** implemented the R2/R3 functionality in steps
+`826adee0`, `769d5537` and `6b388c2c`. Current exact-head CI must be
+checked independently: commits and passing partial checks alone do **not**
+establish complete source acceptance, running daemon upgrade, or live
+yaVDR behavior. The previous real-VDR Recording test fixture has already
+been deleted; **no further real Recording mutation has been authorized**.
+
+- **R2:** public `rec_` RENAME/DELETE requests use the existing
+  `PublicRecordingPlaybackTargetResolver`, SafeMutation preview, strong
+  operation-scoped provider `If-Match`, repeated provider revision fence,
+  existing single-dispatch controller/executor, and independent provider
+  inventory readback. DELETE requires `confirmDelete:true` and verifies
+  provider absence before retiring public identity. Unverified/unknown
+  mutation outcomes return generic Problem Details, never a public success
+  and never an automatic retry.
+- **R3:** MOVE uses only an existing exact-backend `fld1_`
+  `targetFolderId` from `VdrRecordingCacheRepository`; native client
+  `targetPath` is forbidden. The existing SafeMutation adapter translates
+  the server-resolved logical folder. A conservatively unique provider
+  readback is required before persistent `rec_` rebind through the
+  existing Identity Repository. No second folder index, identity
+  persistence or executor was introduced.
+- **Outstanding acceptance:** finish CI on exact final source commit;
+  OpenAPI/negative tests, real yaVDR test with an explicitly approved new
+  disposable Recording, and separate durable idempotency/unknown-outcome
+  review. This source checkpoint is not a blanket approval to mutate
+  production Recordings and is not a live R2/R3 closeout.
+- **Order remains unchanged:** Recording R2/R3 first, then the
+  responsibility-only ADR-0068 ApiRouter/PublicApiRuntime checkpoint,
+  then E1/E2/M1/M2/S1/P1. No general router refactoring was started.
+
+
 ## Accepted Public API v1 router sequencing ADR (2026-10-21)
 
 The accepted [ADR-0068](adr/ADR-0068-public-api-router-modularization-checkpoint.md) and [Strict Roadmap](planning/roadmap.md) formally reserve a **behavior-preserving `ApiRouter`/`PublicApiRuntime` modularization checkpoint only after R3**, before E1/E2/M1/M2/S1/P1. It does **not** change the current R2 priority, allow new routes/JSON/grants, create a second identity/Executor, or constitute an implemented refactor. Current work: recording-v1 R2 source and regression gates; no live destructive recording test authorized.

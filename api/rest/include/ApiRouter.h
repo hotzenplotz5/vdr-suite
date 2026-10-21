@@ -255,7 +255,9 @@ public:
     ApiResponse handlePost(
         const std::string& path,
         const std::string& body,
-        const std::string& ifMatch = "");
+        const std::string& ifMatch = "",
+        const std::string& requestId = "",
+        const std::string& correlationId = "");
 
     ApiResponse handleClientGet(
         const std::string& requestTarget,
@@ -556,13 +558,16 @@ public:
             return response;
         }
 
-        return handlePost(requestTarget, body, ifMatch);
+        return handlePost(requestTarget, body, ifMatch,
+                          requestRef, correlationRef);
     }
 
 private:
     ApiResponse handlePublicRecordingAction(
         const std::string& body, bool execute,
-        const std::string& ifMatch);
+        const std::string& ifMatch,
+        const std::string& requestId,
+        const std::string& correlationId);
 
     PublicRecordingActionResolver publicRecordingActionResolver_;
     PublicRecordingFolderResolver publicRecordingFolderResolver_;
