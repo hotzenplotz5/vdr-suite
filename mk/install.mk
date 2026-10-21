@@ -113,6 +113,7 @@ install-runtime:
 	$(INSTALL) -m 0644 web/frontend/modules/channels.js $(DESTDIR)$(DATADIR)/web/frontend/channel-browser.js
 	$(INSTALL) -m 0644 web/frontend/modules/timers.js $(DESTDIR)$(DATADIR)/web/frontend/modules/timers.js
 	$(INSTALL) -m 0644 web/frontend/modules/searchtimers.js $(DESTDIR)$(DATADIR)/web/frontend/modules/searchtimers.js
+	$(INSTALL) -m 0644 web/frontend/modules/media-import.js $(DESTDIR)$(DATADIR)/web/frontend/modules/media-import.js
 	$(INSTALL) -m 0644 web/frontend/modules/genres.js $(DESTDIR)$(DATADIR)/web/frontend/modules/genres.js
 	$(INSTALL) -m 0644 web/frontend/modules/global-search.js $(DESTDIR)$(DATADIR)/web/frontend/modules/global-search.js
 	$(INSTALL) -m 0644 web/frontend/epg-cache.js $(DESTDIR)$(DATADIR)/web/frontend/epg-cache.js
@@ -258,6 +259,8 @@ test-install-staging:
 	! test -e /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/recordings.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/timers.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/searchtimers.js
+	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/media-import.js
+	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/media-import.js
 	! test -e /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-browser.js
 	! test -e /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-artwork.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-cache.js
