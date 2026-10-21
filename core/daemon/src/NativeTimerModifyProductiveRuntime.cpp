@@ -347,32 +347,6 @@ void advanceFamily(
             ++summary.deferred;
             continue;
         }
-        if (traceUncertain)
-        {
-            const auto& expected = applied.outcome.expectation.payload;
-            std::cerr << "NATIVE_MODIFY_RECONCILE stage=readback_observed"
-                      << " state=" << static_cast<int>(applied.outcome.operation.state)
-                      << " generation=" << observation->backendGeneration
-                      << " fingerprint_original="
-                      << (observation->observedFingerprint ==
-                          expected.expectedCurrentFingerprint ? 1 : 0)
-                      << " original_except_event_id="
-                      << (sameOriginalTimerWithoutEpgId ? 1 : 0)
-                      << " observed_event_id="
-                      << observation->observedState.eventId
-                      << " stored_event_id="
-                      << (storedBinding.ok()
-                          ? storedBinding.binding.observedState.eventId
-                          : "<missing>")
-                      << " postcondition="
-                      << (nativeTimerObservationMatchesSpecification(
-                          expected.expectedSpecification,
-                          observation->observedState) ? 1 : 0)
-                      << " recording=" << (observation->observedState.recording ? 1 : 0)
-                      << " pending=" << (observation->observedState.pending ? 1 : 0)
-                      << std::endl;
-        }
-
         // An EPG event ID may be associated AFTER the native CREATE readback.
         // Earlier RESTfulAPI null event_id was also misparsed as "weekdays".
         // Neither changes a timer's actual configuration. For an outcome-
@@ -398,6 +372,32 @@ void advanceFamily(
             nativeTimerObservedStateSameExceptEventId(
                 storedBinding.binding.observedState,
                 observation->observedState);
+
+        if (traceUncertain)
+        {
+            const auto& expected = applied.outcome.expectation.payload;
+            std::cerr << "NATIVE_MODIFY_RECONCILE stage=readback_observed"
+                      << " state=" << static_cast<int>(applied.outcome.operation.state)
+                      << " generation=" << observation->backendGeneration
+                      << " fingerprint_original="
+                      << (observation->observedFingerprint ==
+                          expected.expectedCurrentFingerprint ? 1 : 0)
+                      << " original_except_event_id="
+                      << (sameOriginalTimerWithoutEpgId ? 1 : 0)
+                      << " observed_event_id="
+                      << observation->observedState.eventId
+                      << " stored_event_id="
+                      << (storedBinding.ok()
+                          ? storedBinding.binding.observedState.eventId
+                          : "<missing>")
+                      << " postcondition="
+                      << (nativeTimerObservationMatchesSpecification(
+                          expected.expectedSpecification,
+                          observation->observedState) ? 1 : 0)
+                      << " recording=" << (observation->observedState.recording ? 1 : 0)
+                      << " pending=" << (observation->observedState.pending ? 1 : 0)
+                      << std::endl;
+        }
 
         // An uncertain native MODIFY can no longer execute once the Agent
         // has durably submitted its result. If a fresh, complete native
