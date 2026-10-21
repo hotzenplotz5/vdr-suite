@@ -181,6 +181,36 @@ fresh matching recording-cache readback can transition an operation to
 `succeeded`. The explicit `--enable-media-import` option is not allowed
 in `--once`, credential-rotation or native-probe modes.
 
+### A7.5 capability-gated Webfrontend (source integration only)
+
+The shipped Webfrontend's real `index.html` script composition loads
+`modules/media-import.js` before `app.js`. The established backend
+selector and `app.js` module-navigation owner show the initially hidden
+**Media Import** tab only when authenticated
+`GET /api/v1/backends/{backendId}/capabilities/media-import` returns
+the exact backend, capability and `available:true`. Backend switches,
+session expiry and logout invalidate that view; activation checks again.
+
+The view lists only opaque `sourceId` tokens using the public v1
+source-list route, refreshes the ephemeral list before submitting, and sends
+only one `sourceId` with a cryptographically random, caller-owned
+`Idempotency-Key` and the normal browser session CSRF header through
+`POST /api/v1/backends/{backendId}/media-imports`.
+It observes only the existing authenticated
+`GET /api/v1/operations/{operationId}` resource, with bounded active-view
+reads and explicit manual refresh. Core states including
+`executed_unverified` and `outcome_unknown` are never represented as
+success. Unknown POST results block a fresh request for that backend in
+the current browser session; there is no automatic resubmission.
+A new import is offered only after a terminal operation state.
+
+This is **source integration, not a production release**. Only an explicitly
+opted-in and trusted Agent, effective Core grant, activation intent and
+independent native Recording readback can authorize and confirm execution.
+No production frontend installation or host acceptance has occurred; Media
+Check and Shrink remain disabled. The production composition and user-action
+regression is `web/frontend/tests/test_media_import_composition.js`.
+
 ### A7.4 per-backend source list, no filesystem paths
 
 An explicitly opted-in Agent reads its root-controlled TSV locally and
