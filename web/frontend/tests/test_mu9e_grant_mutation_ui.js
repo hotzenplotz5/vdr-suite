@@ -85,7 +85,7 @@ const publicClient = {
           {permission: 'addons.media.import', presentationKey: 'addons.media.import', category: 'addon'}
         ],
         addonPermissions: addonEffective
-          ? [{permission: 'addons.media.import', selectable: true}]
+          ? [{permission: 'addons.media.import', backendId: 'default', selectable: true}]
           : [],
         supportedScopeKinds: ['global', 'backend']
       }
@@ -253,6 +253,17 @@ function setEnsureFields(root, permission, backendId) {
   assert(group.children.some(function(option) {
     return option.value === 'addons.media.import';
   }), 'only reviewed effective import permission must be selectable');
+  const callsBeforeScopeDenial = calls.filter(function(call) {
+    return call.name === 'setAccountGrant';
+  }).length;
+  const deniedEnsure = setEnsureFields(
+    addonRoot, 'addons.media.import', 'bedroom');
+  assert.strictEqual(await deniedEnsure.listeners.click(), undefined);
+  assert.strictEqual(calls.filter(function(call) {
+    return call.name === 'setAccountGrant';
+  }).length, callsBeforeScopeDenial,
+  'UI must not submit an add-on grant for an inactive backend');
+
   addonEffective = false;
 
   assert(calls.some(call => call.name === 'getBackends'),
