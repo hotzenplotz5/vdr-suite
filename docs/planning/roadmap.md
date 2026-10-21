@@ -44,6 +44,20 @@ A roadmap entry is never automatic permission to implement the next possible dif
 
 ---
 
+## Post-69 Public API v1 Recording and router modularization order (decision 2026-10-21)
+
+**Binding sequence:** `R1 → R2 → R3 → behavior-preserving Public API router modularization checkpoint → E1 → E2 → M1 → M2 → S1 → P1`. This is the post-69 Public-v1 workstream ordering; it **does not renumber or start Phase 70**.
+
+- **R1:** Existing Suite-owned `rec_` identity via current Recording resolver, safe validation/dry-run, no live writes.
+- **R2:** Public-v1 RENAME/DELETE with backend-authoritative revision checks, validated write, verified readback, identity lifecycle, public errors and existing security.
+- **R3:** Public-v1 MOVE with logical folder identity, verified change, persistent public Recording-ID rebind and no blind retry.
+- **Checkpoint after R3, before E1:** Apply [ADR-0068](../adr/ADR-0068-public-api-router-modularization-checkpoint.md) to separate the existing `ApiRouter`/`PublicApiRuntime` domains without changing functionality. **No new API methods/routes, JSON schemas, permissions, identities or domain logic; no large router refactor during R1–R3.**
+- **Then:** E1 full available EPG-cache horizon via bounded deterministic continuation; E2 EPG/TimerIntent; M1 read-only metadata; M2 artwork; S1 SearchTimer mutations; P1 Resume/device playback integration.
+
+The post-R3 checkpoint is an independent source-compatibility/CI gate, **not a claim of implemented modules**. Exact work progress and CI belongs in [CURRENT](../CURRENT.md), details in the [Public-v1 coverage roadmap](public-v1-coverage-roadmap.md) and [Recording source audit](../development/public-v1-source-audit-20261021.md).
+
+---
+
 ## Current phase position
 
 ```text

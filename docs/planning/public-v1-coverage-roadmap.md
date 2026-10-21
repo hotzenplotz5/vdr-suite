@@ -2,6 +2,22 @@
 
 > Source audit: 2026-10-18, backend working branch `work/public-v1-epg-timer-intent-admission-20261017`, baseline `987820cf1229a728279a09c9d20a823c442fe386`. **Planning inventory, not a hardware or release acceptance.** For changing runtime, packaging and merge status, [CURRENT](../CURRENT.md) is authoritative; this roadmap records API coverage and work to be done.
 
+## Decision: Recording R1–R3 first, router modularization checkpoint next (2026-10-21)
+
+This post-69 Public-v1 workstream is subject to [ADR-0068](../adr/ADR-0068-public-api-router-modularization-checkpoint.md) and the [Strict Roadmap](roadmap.md). The **non-negotiable sequence** is:
+
+```text
+R1 rec_ identity/Validate/Dry-run
+ → R2 RENAME + DELETE: strong revisions, verified readback and lifecycle
+ → R3 MOVE: logical public folder destination, readback and identity rebind
+ → Refactor checkpoint: ApiRouter + PublicApiRuntime only (behavior-preserving)
+ → E1 EPG window / E2 TimerIntent / M1 metadata / M2 artwork
+ → S1 SearchTimer MODIFY/DELETE / P1 Resume/device playback
+```
+
+Until R3 is closed, **do not start a general router refactor**. The checkpoint is not a feature phase and must preserve *every* URL, HTTP method, JSON/status/header contract, security/CSRF/grant rule and domain authority. Desired extraction ownership: `PublicDiscoveryRoutes`, `PublicBackendRoutes`, `PublicChannelRoutes`, `PublicRecordingRoutes`, `PublicEpgRoutes`, `PublicTimerRoutes`, `PublicSearchTimerRoutes`, `PublicAccountRoutes`, `PublicDeviceRoutes` and `PublicMediaRoutes`; these are logical destinations, not an order to create duplicate runtime modules. Golden route and security contract tests are mandatory for each extraction. R1–R3 runtime work remains on current `main`; `docs/CURRENT.md` owns volatile progress.
+
+
 ## Consolidated Public-v1 + VIDAA Timer status (2026-10-18, active)
 
 - **Backend branch:** `work/public-v1-vidaa-unified-20261018`, existing [Draft PR #500](https://github.com/hotzenplotz5/vdr-suite/pull/500). **Client branch:** `work/vidaa-epg-timer-operation-readback-20261017`; do not create successor branches or silently merge either draft.

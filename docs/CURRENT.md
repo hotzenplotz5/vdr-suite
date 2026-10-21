@@ -1,5 +1,9 @@
 # VDR-Suite Current State
 
+## Accepted Public API v1 router sequencing ADR (2026-10-21)
+
+The accepted [ADR-0068](adr/ADR-0068-public-api-router-modularization-checkpoint.md) and [Strict Roadmap](planning/roadmap.md) formally reserve a **behavior-preserving `ApiRouter`/`PublicApiRuntime` modularization checkpoint only after R3**, before E1/E2/M1/M2/S1/P1. It does **not** change the current R2 priority, allow new routes/JSON/grants, create a second identity/Executor, or constitute an implemented refactor. Current work: recording-v1 R2 source and regression gates; no live destructive recording test authorized.
+
 ## Recording Public-v1 checkpoint and delivery order (2026-10-21)
 
 **Authoritative working branch: `main`; strategy: R1 -> R2 -> R3 -> router modularization checkpoint -> E1/E2/M1/M2/S1/P1.** Avoid a general `ApiRouter`/`PublicApiRuntime` refactor until the Recording semantics have settled at R3. The later router checkpoint must only relocate responsibilities without changing URLs, JSON contracts, grants, identity ownership, or domain behavior.
