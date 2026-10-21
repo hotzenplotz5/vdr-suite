@@ -24,7 +24,15 @@ inline ImportEnvelopeReason inspectCanonicalImportAssignment(
     if (!assignment.present || assignment.operationId != operation.operationId ||
         assignment.backendId != operation.backendId ||
         assignment.jobId.empty() || assignment.attemptId.empty() ||
-        assignment.claimEpoch == 0)
+        assignment.claimEpoch == 0 ||
+        assignment.requestFingerprint.empty() ||
+        assignment.payloadVersion == 0 ||
+        assignment.verificationPolicy != "reconciliation_required" ||
+        operation.verificationPolicy !=
+            vdrsuite::operations::MutationOperationVerificationPolicy::
+                reconciliationRequired ||
+        operation.state != vdrsuite::operations::MutationOperationState::
+            dispatching)
         return ImportEnvelopeReason::missingOperation;
     return inspectImportEnvelope(envelope, now);
 }
