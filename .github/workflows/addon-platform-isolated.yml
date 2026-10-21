@@ -45,7 +45,7 @@ concurrency:
 jobs:
   addon-platform:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 25
     steps:
       - name: Checkout exact revision
         uses: actions/checkout@v4
@@ -88,6 +88,9 @@ jobs:
           make test-addon-agent-advertisement
           make test-media-tools-agent-dispatch
           make backend-agent
+          # Compile and link the real Suite daemon with its trusted A6 callback.
+          # Build only: no service start, install, package or recording access.
+          make -j2 daemon
           make test-backend-agent-client
           make test-phase63-command-delivery-runtime
           make test-addon-activation-intent
