@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import socket
+import sqlite3
 import sys
 import time
 import urllib.error
@@ -30,7 +31,9 @@ EXCLUDED = "C-1-1051-10301:0:1792447200:2100:2145"
 # Preserve its uncertain marker untouched; use a distinct journal for the
 # intentionally authorized administrator attempt.
 JOURNAL = Path("/var/lib/vdr-suite/native-timer-hw-fresh-admin-20261021.json")
-TERMINAL_FAILURE = {"failed_verified", "outcome_unknown", "failed",
+# outcome_unknown is not terminal: the daemon may reconcile this exact
+# command via read-only native readback and close it as succeeded/failed_verified.
+TERMINAL_FAILURE = {"failed_verified", "failed",
                     "failed_before_dispatch", "rejected", "cancelled", "canceled"}
 
 
@@ -150,6 +153,61 @@ def valid_detail(timer_id, title, enabled):
     stop("DETAIL_UNVERIFIED_OR_TIMER_RECORDING_NO_MUTATION")
 
 
+def diagnostic_readback(opid):
+    # Only inspect the existing operation, stored result and the one owned
+    # test timer. No credential, bearer token or command payload is logged.
+    try:
+        with sqlite3.connect(
+                "file:/var/lib/vdr-suite/vdr-suite.db?mode=ro",
+                uri=True) as db:
+            db.execute("PRAGMA query_only=ON")
+            op = db.execute(
+                "SELECT state, result_reference, backend_generation "
+                "FROM mutation_operations WHERE operation_id=?", (opid,)
+            ).fetchone()
+            print("UNRESOLVED_OPERATION_DB=", op, flush=True)
+            rows = db.execute(
+                "SELECT c.state, r.result_category, r.error_category, "
+                "r.dispatch_state, r.verification_state, "
+                "length(r.result_evidence) "
+                "FROM backend_agent_commands c "
+                "LEFT JOIN backend_agent_command_results r "
+                "ON r.command_id=c.command_id "
+                "WHERE c.operation_id=?", (opid,)
+            ).fetchall()
+            print("UNRESOLVED_COMMAND_RESULTS=", rows, flush=True)
+            bound = db.execute(
+                "SELECT backend_native_timer_id, observed_title, "
+                "observed_directory, observed_enabled, observed_recording, "
+                "observed_pending, last_verified_operation_id "
+                "FROM native_timer_bindings "
+                "WHERE native_timer_binding_id=("
+                "SELECT resource_id FROM mutation_operations "
+                "WHERE operation_id=?)", (opid,)
+            ).fetchone()
+            print("UNRESOLVED_BINDING=", bound, flush=True)
+    except (sqlite3.Error, OSError) as error:
+        print("UNRESOLVED_DB_DIAGNOSTIC=", type(error).__name__, flush=True)
+    try:
+        with urllib.request.urlopen(
+                "http://127.0.0.1:8002/timers.json",
+                timeout=8) as response:
+            raw = json.load(response)
+        listed = raw.get("timers", []) if isinstance(raw, dict) else raw
+        timer_id = journal.get("timerId")
+        for timer in listed:
+            if timer.get("id") == timer_id:
+                print("UNRESOLVED_LIVE_TIMER=",
+                      {field: timer.get(field) for field in
+                       ("id", "filename", "flags", "is_active",
+                        "is_recording", "is_pending")}, flush=True)
+                break
+        else:
+            print("UNRESOLVED_LIVE_TIMER=NOT_FOUND", flush=True)
+    except (OSError, ValueError, urllib.error.URLError) as error:
+        print("UNRESOLVED_LIVE_READ=", type(error).__name__, flush=True)
+
+
 def operation(stage):
     record = journal["stages"][stage]
     if record["status"] == "unknown":
@@ -164,13 +222,19 @@ def operation(stage):
         state = body.get("state")
         if state != last:
             print(stage, "OPERATION=", opid, "STATE=", state, flush=True)
+            if state == "outcome_unknown":
+                print(stage, "READBACK_RECONCILIATION=PENDING_NO_REDISPATCH",
+                      flush=True)
             last = state
         if state == "succeeded":
             return
         if state in TERMINAL_FAILURE:
+            if state == "failed_verified":
+                diagnostic_readback(opid)
             stop(stage + "_" + str(state).upper() + "_NO_RETRY")
         if attempt != 44:
             time.sleep(2)
+    diagnostic_readback(opid)
     stop(stage + "_NOT_TERMINAL_NO_RETRY")
 
 
