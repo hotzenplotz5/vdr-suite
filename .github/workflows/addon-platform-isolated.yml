@@ -43,6 +43,7 @@ jobs:
           make check-addon-registry
           make test-addon-handler-registry
           make test-addon-provider-admission
+          make test-addon-permission-catalog
           make test-addon-provider-binding
           make test-addon-provider-read-service
           make test-addon-provider-approval
