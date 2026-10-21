@@ -12,6 +12,8 @@ on:
       - 'core/security/tests/test_human_account_grant_administration_service.cpp'
       - 'tools/addons/**'
       - 'mk/addons.mk'
+      - 'web/frontend/settings-account-admin.js'
+      - 'web/frontend/tests/test_mu9e_grant_mutation_ui.js'
       - '.github/workflows/addon-platform-isolated.yml'
   workflow_dispatch:
 
