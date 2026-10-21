@@ -497,3 +497,15 @@ advertised. The test exercises the existing Agent transport payload,
 not a mock add-on registry. Enabling an add-on command will require a
 separate, explicitly registered and verified handler with the same
 Agent reservation/replay/fencing ownership as other protected writes.
+
+## Settings permission vocabulary
+
+`AddonPermissionCatalog.h` defines a Core-owned settings descriptor list,
+not a manifest-provided ACL. The stable Media Tools rights are
+`addons.media.import`, `addons.media.check` and `addons.media.shrink`.
+Only Import is currently reviewed as grantable. The other two are visible
+future descriptors but disabled; Images and Music have no invented rights.
+The settings projection requires both approved installation and effective
+runtime activation to mark a reviewed permission selectable. It does not
+itself grant access: the existing authorization and grant repositories
+remain authoritative, including exact backend scope and revocation.
