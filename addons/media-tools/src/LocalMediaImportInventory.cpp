@@ -168,3 +168,42 @@ bool RootOwnedMediaImportInventory::resolve(
 }
 
 } // namespace vdrsuite::mediatools
+
+namespace vdrsuite::mediatools {
+
+bool RootOwnedMediaImportInventory::hasTrustedSource(
+    const std::string& backendId)
+{
+    if (!inventoryIdentifier(backendId, 1)) return false;
+    std::string content;
+    if (!readInventory(installRoot_, content)) return false;
+    std::istringstream input(content);
+    std::set<std::pair<std::string, std::string>> unique;
+    std::string line;
+    bool found = false;
+    std::size_t count = 0;
+    while (std::getline(input, line))
+    {
+        if (++count > 128 || line.empty() || line.back() == '\r')
+            return false;
+        std::array<std::string, 5> fieldsOnDisk{};
+        if (!fields(line, fieldsOnDisk) ||
+            !inventoryIdentifier(fieldsOnDisk[0], 1) ||
+            !inventoryIdentifier(fieldsOnDisk[1], 16) ||
+            !unique.emplace(fieldsOnDisk[0], fieldsOnDisk[1]).second)
+            return false;
+        if (fieldsOnDisk[0] != backendId) continue;
+        try {
+            (void)inspectImport({
+                fieldsOnDisk[2], fieldsOnDisk[3], fieldsOnDisk[4]});
+            found = true;
+        } catch (...) {
+            // A stale source must not become executable merely because its
+            // mapping remains in the root-owned ledger.
+            continue;
+        }
+    }
+    return found;
+}
+
+} // namespace vdrsuite::mediatools

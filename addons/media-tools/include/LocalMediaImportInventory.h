@@ -14,6 +14,9 @@ public:
     explicit RootOwnedMediaImportInventory(std::filesystem::path installRoot = "/");
     bool resolve(const std::string& backendId, const std::string& sourceId,
                  LocalMediaImportSource& output) override;
+    // Capability discovery: a protected ledger with at least one currently
+    // inspectable source for this backend, without producing any side effect.
+    bool hasTrustedSource(const std::string& backendId);
 
 private:
     std::filesystem::path installRoot_;

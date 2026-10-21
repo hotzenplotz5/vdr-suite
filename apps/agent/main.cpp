@@ -2,6 +2,8 @@
 #include "BackendAgentCommandClient.h"
 #include "BackendAgentRecordingMarksModify.h"
 #include "BackendAgentRecordingCut.h"
+#include "BackendAgentMediaImportRuntime.h"
+#include "MediaToolsAgentExecutor.h"
 #include "SuiteBridgeNativeTimerCreateTransport.h"
 #include "SuiteBridgeNativeTimerDeleteTransport.h"
 #include "SuiteBridgeNativeTimerModifyTransport.h"
@@ -55,7 +57,7 @@ void usage()
         << "usage: vdr-suite-backend-agent [--config PATH] "
            "[--once | --rotate-credential] "
            "[--native-probe --suitebridge-host LOOPBACK "
-           "--suitebridge-port PORT]" << std::endl;
+           "--suitebridge-port PORT] [--enable-media-import]" << std::endl;
 }
 }
 
@@ -65,6 +67,7 @@ int main(int argc, char** argv)
     bool once = false;
     bool rotateCredential = false;
     bool nativeProbe = false;
+    bool enableMediaImport = false;
     std::string suiteBridgeHost;
     std::uint16_t suiteBridgePort = 0;
     for (int index = 1; index < argc; ++index)
@@ -86,6 +89,10 @@ int main(int argc, char** argv)
         {
             nativeProbe = true;
         }
+        else if (argument == "--enable-media-import")
+        {
+            enableMediaImport = true;
+        }
         else if (argument == "--suitebridge-host" && index + 1 < argc)
         {
             suiteBridgeHost = argv[++index];
@@ -104,7 +111,8 @@ int main(int argc, char** argv)
             return 64;
         }
     }
-    if (once && rotateCredential)
+    if ((once && rotateCredential) ||
+        (nativeProbe && enableMediaImport))
     {
         usage();
         return 64;
@@ -292,11 +300,49 @@ int main(int argc, char** argv)
     }
 
     CurlBackendAgentControlPlaneTransport transport(config);
+
+    // Production defaults to no Media Import executor. Neither installed
+    // metadata nor COMMAND_TYPES may opt in. A locally explicit CLI switch
+    // only constructs the gated composition; it cannot bypass the server's
+    // per-backend administrator intent, operation and effective grant fence.
+    BackendAgentClientRuntime* runtimeAccess = nullptr;
+    std::unique_ptr<vdrsuite::agent::BackendAgentMediaImportRuntime>
+        mediaImportRuntime;
+    if (enableMediaImport)
+    {
+        if (std::find(config.commandTypes.begin(), config.commandTypes.end(),
+                      "probe.noop") != config.commandTypes.end())
+        {
+            std::cerr << "media import cannot be combined with probe.noop"
+                      << std::endl;
+            return 78;
+        }
+        mediaImportRuntime = std::make_unique<
+            vdrsuite::agent::BackendAgentMediaImportRuntime>(
+                "/", config.backendId, config.commandStatePath, transport,
+                [&]() {
+                    BackendAgentCommandClientContext context;
+                    if (runtimeAccess)
+                    {
+                        const auto& state = runtimeAccess->state();
+                        context.agentId = state.agentId;
+                        context.credentialSecret = state.credentialSecret;
+                        context.backendId = state.backendId;
+                        context.agentInstanceId = runtimeAccess->agentInstanceId();
+                        context.backendGeneration = state.backendGeneration;
+                    }
+                    return context;
+                });
+        config.mediaImportExecutor = mediaImportRuntime.get();
+        config.commandTypes.push_back(
+            vdrsuite::mediatools::kMediaImportCommandType);
+    }
     BackendAgentClientRuntime runtime(
         config,
         transport,
         {},
         [](const std::string& message) { std::cout << message << std::endl; });
+    runtimeAccess = &runtime;
 
     if (once || rotateCredential)
     {

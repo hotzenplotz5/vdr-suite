@@ -142,3 +142,19 @@ independent `addons.media.import` grant. It is not an execution capability
 by itself. The isolated command-delivery test exercises default deny and
 administrative disable/re-enable while retaining the existing grant tests.
 No production Agent registration or handler activation is performed by this.
+
+### A6.3 explicit production Agent composition
+
+`apps/agent/main.cpp` now owns the real Media Import Agent composition:
+root-controlled `RootOwnedMediaImportInventory`, effective Core receipt
+revalidation and the Add-on's `PinnedMediaImportAgentExecutor`. The Agent
+config parser still rejects `addon.*` in `COMMAND_TYPES`. Only an
+**explicit** `--enable-media-import` runtime option installs this
+composition; the packaged normal Agent starts without it and continues
+default-deny. Even with opt-in, capability discovery requires a current
+Agent identity/generation, trusted pinned install bytes and at least one
+valid root-owned local source. At each command, the server also requires an
+enabled audited per-backend administrator activation intent, effective
+actor grant, live Agent, receipt and immutable operation. All requirements
+are checked again before the handler runs. `Media Check` and `Shrink`
+remain disabled.
