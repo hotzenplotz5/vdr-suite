@@ -3741,6 +3741,24 @@ bool DaemonRuntime::initialize()
     apiRouter_->setSearchTimerPreviewEpgCache(
         searchTimerPreviewEpgCache_.get());
 
+    // Public-v1 MOVE destinations are looked up through the one existing
+    // backend-scoped public fld1_ browse index; never accept native paths.
+    apiRouter_->setPublicRecordingFolderResolver(
+        [this](const std::string& backendId,
+               const std::string& publicFolderId,
+               std::string& logicalFolder) -> bool {
+            if (!vdrRecordingCacheRepository_)
+                return false;
+            VdrRecordingFolderPage page;
+            if (!vdrRecordingCacheRepository_->
+                    folderPageForBackendByPublicId(
+                        backendId, publicFolderId, 1, 0, page) ||
+                !page.cacheReady || page.backendId != backendId)
+                return false;
+            logicalFolder = page.path;
+            return true;
+        });
+
     // Reuse the existing public-ID / cache binding without trusting a
     // backend-native path or service recording ID from the client.
     apiRouter_->setPublicRecordingActionResolver(

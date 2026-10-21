@@ -290,7 +290,7 @@ bool RecordingActionValidationRequestParser::parsePublic(
     {
         if (item.first != "backendId" && item.first != "recordingId" &&
             item.first != "action" && item.first != "dryRun" &&
-            item.first != "newName")
+            item.first != "newName" && item.first != "targetFolderId")
             return false;
     }
 
@@ -329,5 +329,26 @@ bool RecordingActionValidationRequestParser::parsePublic(
         return false;
     if (!newName.empty())
         request.parameters["newName"] = newName;
+
+    // R3: only opaque folder identities from the existing Recording browse
+    // hierarchy are accepted. Client targetPath is never a Public-v1 field.
+    const std::string folderId = getValue(values, "targetFolderId");
+    if (action == "MOVE")
+    {
+        if (folderId.size() != 37U ||
+            folderId.compare(0, 5U, "fld1_") != 0 ||
+            !std::all_of(folderId.begin() + 5, folderId.end(),
+                [](unsigned char c) {
+                    return (c >= '0' && c <= '9') ||
+                           (c >= 'a' && c <= 'f');
+                }))
+            return false;
+        request.parameters["publicTargetFolderId"] = folderId;
+    }
+    else if (!folderId.empty())
+    {
+        return false;
+    }
+
     return true;
 }

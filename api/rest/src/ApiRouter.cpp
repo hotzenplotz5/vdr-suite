@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "ApiRouter.h"
 
 #include "BackendRegistryController.h"
@@ -384,11 +385,56 @@ ApiResponse ApiRouter::handlePublicRecordingAction(
         return problem(400, "Bad Request",
             "A valid backendId, public recordingId and action are required.");
 
-    // MOVE requires the public logical-folder contract and verified
-    // identity rebind of R3. No native targetPath is accepted in v1.
+    // R3: map only an existing backend-scoped fld1_ ID to a server-side
+    // logical folder using the same Recording browse cache as clients.
+    // The native targetPath is never read from the public JSON.
     if (request.type == RecordingActionType::Move)
-        return problem(409, "Conflict",
-            "Public recording MOVE is not enabled before R3.");
+    {
+        if (!publicRecordingFolderResolver_)
+            return problem(503, "Service Unavailable",
+                "Public recording folder resolution is unavailable.");
+
+        const auto supplied =
+            request.parameters.find("publicTargetFolderId");
+        if (supplied == request.parameters.end())
+            return problem(400, "Bad Request",
+                "A public targetFolderId is required for MOVE.");
+
+        std::string folderPath;
+        if (!publicRecordingFolderResolver_(
+                request.backendId, supplied->second, folderPath))
+            return problem(404, "Not Found",
+                "Target folder not available for this backend.");
+
+        // Even a cache-derived path must never become an absolute/escaping
+        // backend path through a faulty backend inventory.
+        if (folderPath.size() > 2048U ||
+            (!folderPath.empty() && folderPath.front() == '/') ||
+            folderPath.find('\\') != std::string::npos ||
+            folderPath.find('~') != std::string::npos ||
+            folderPath.find("//") != std::string::npos ||
+            std::any_of(folderPath.begin(), folderPath.end(),
+                [](unsigned char c) { return c < 0x20 || c == 0x7f; }))
+            return problem(409, "Conflict",
+                "Target folder cannot be safely resolved.");
+        std::size_t offset = 0;
+        while (offset < folderPath.size())
+        {
+            const std::size_t end = folderPath.find('/', offset);
+            const std::string segment = folderPath.substr(
+                offset, end == std::string::npos
+                    ? std::string::npos : end - offset);
+            if (segment.empty() || segment == "." || segment == "..")
+                return problem(409, "Conflict",
+                    "Target folder cannot be safely resolved.");
+            if (end == std::string::npos)
+                break;
+            offset = end + 1U;
+        }
+        request.parameters.erase(supplied);
+        request.parameters["targetPath"] =
+            folderPath.empty() ? "/" : folderPath;
+    }
 
     if (!execute && !request.dryRun)
         return problem(409, "Conflict",

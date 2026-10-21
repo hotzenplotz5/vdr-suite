@@ -135,6 +135,14 @@ public:
         publicRecordingActionResolver_ = std::move(resolver);
     }
 
+    using PublicRecordingFolderResolver =
+        std::function<bool(const std::string&, const std::string&, std::string&)>;
+
+    void setPublicRecordingFolderResolver(PublicRecordingFolderResolver resolver)
+    {
+        publicRecordingFolderResolver_ = std::move(resolver);
+    }
+
     ApiRouter(
         DashboardController& dashboardController,
         JobsController& jobsController,
@@ -556,6 +564,7 @@ private:
         const std::string& ifMatch);
 
     PublicRecordingActionResolver publicRecordingActionResolver_;
+    PublicRecordingFolderResolver publicRecordingFolderResolver_;
     DashboardController& dashboardController_;
     JobsController& jobsController_;
     RecordingsController& recordingsController_;

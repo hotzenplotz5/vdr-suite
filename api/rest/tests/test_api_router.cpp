@@ -1823,12 +1823,56 @@ int main()
         "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
         "\"action\":\"MOVE\",\"targetPath\":\"/srv/vdr/video/archive\"}");
     assert(unsafeMoveTarget.statusCode == 400);
-    const ApiResponse pendingLogicalMove = router.handlePost(
+    const ApiResponse noLogicalTarget = router.handlePost(
         "/api/v1/recordings/actions/validate",
         "{\"backendId\":\"router-backend\","
         "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
         "\"action\":\"MOVE\"}");
-    assert(pendingLogicalMove.statusCode == 409);
+    assert(noLogicalTarget.statusCode == 400);
+
+    router.setPublicRecordingFolderResolver(
+        [](const std::string& backend, const std::string& folder,
+           std::string& logicalPath) {
+            if (backend != "router-backend" ||
+                folder != "fld1_0123456789abcdef0123456789abcdef")
+                return false;
+            logicalPath = "Movies/Archive";
+            return true;
+        });
+    const std::string publicMoveBody =
+        "{\"backendId\":\"router-backend\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"MOVE\","
+        "\"targetFolderId\":\"fld1_0123456789abcdef0123456789abcdef\","
+        "\"dryRun\":true}";
+    const ApiResponse logicalMove = router.handlePost(
+        "/api/v1/recordings/actions/validate", publicMoveBody);
+    assert(logicalMove.statusCode == 200);
+    assert(logicalMove.body.find("\"valid\":true") != std::string::npos);
+    assert(logicalMove.body.find("Movies/Archive") == std::string::npos);
+    const ApiResponse logicalMoveDryRun = router.handlePost(
+        "/api/v1/recordings/actions/execute", publicMoveBody);
+    assert(logicalMoveDryRun.statusCode == 200);
+    assert(logicalMoveDryRun.body.find("\"executed\":false") != std::string::npos);
+    assert(logicalMoveDryRun.body.find("Movies/Archive") == std::string::npos);
+
+    const ApiResponse wrongTargetBackend = router.handlePost(
+        "/api/v1/recordings/actions/validate",
+        "{\"backendId\":\"other-backend\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"MOVE\","
+        "\"targetFolderId\":\"fld1_0123456789abcdef0123456789abcdef\"}");
+    assert(wrongTargetBackend.statusCode == 404);
+
+    const ApiResponse publicWriteMove = router.handlePost(
+        "/api/v1/recordings/actions/execute",
+        "{\"backendId\":\"router-backend\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"MOVE\","
+        "\"targetFolderId\":\"fld1_0123456789abcdef0123456789abcdef\","
+        "\"dryRun\":false}",
+        "\"vsr-74657374\"");
+    assert(publicWriteMove.statusCode == 409);
 
     const ApiResponse spoofedNative = router.handlePost(
         "/api/v1/recordings/actions/execute",

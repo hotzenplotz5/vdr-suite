@@ -160,6 +160,34 @@ int main()
         "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
         "\"action\":\"RENAME\",\"newName\":\"../escape\"}", publicRequest));
 
+    // R3 folder references are opaque, backend-neutral inputs. Native
+    // destination paths or incomplete/mismatched types never reach a backend.
+    assert(parser.parsePublic(
+        "{\"backendId\":\"backend-a\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"MOVE\","
+        "\"targetFolderId\":\"fld1_0123456789abcdef0123456789abcdef\"}",
+        publicRequest));
+    assert(publicRequest.parameters.at("publicTargetFolderId") ==
+        "fld1_0123456789abcdef0123456789abcdef");
+    assert(publicRequest.parameters.count("targetPath") == 0U);
+    assert(!parser.parsePublic(
+        "{\"backendId\":\"backend-a\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"MOVE\"}", publicRequest));
+    assert(!parser.parsePublic(
+        "{\"backendId\":\"backend-a\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"MOVE\","
+        "\"targetFolderId\":\"fld1_0000000000000000000000000000000X\"}",
+        publicRequest));
+    assert(!parser.parsePublic(
+        "{\"backendId\":\"backend-a\","
+        "\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"DELETE\","
+        "\"targetFolderId\":\"fld1_0123456789abcdef0123456789abcdef\"}",
+        publicRequest));
+
     std::cout
         << "test_recording_action_validation_request_parser passed"
         << std::endl;
