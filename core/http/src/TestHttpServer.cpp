@@ -1292,6 +1292,28 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter,
             return response;
         });
 
+    PublicApiRuntime::instance().registerDeviceCollectionLookup(
+        [this](const PublicDeviceCollectionRequest& request)
+        {
+            PublicDeviceCollectionResult result;
+            if (!securityIdentityRepository_ || request.limit < 1U ||
+                request.limit > 100U) return result;
+            const auto devices = securityIdentityRepository_->listDevices(
+                request.afterDeviceId, request.limit + 1U);
+            if (!devices.has_value()) return result;
+            result.available = true;
+            result.hasMore = devices->size() > request.limit;
+            for (std::size_t i = 0U;
+                 i < devices->size() && i < request.limit; ++i)
+            {
+                const auto& device = (*devices)[i];
+                result.items.push_back(PublicDeviceCollectionItem{
+                    device.deviceId, device.actorId, device.displayName,
+                    device.active, device.revoked});
+            }
+            return result;
+        });
+
     PublicApiRuntime::instance().registerDeviceGrantLookup(
         [this](const std::string& deviceId)
         {
@@ -1776,6 +1798,7 @@ TestHttpServer::~TestHttpServer()
     PublicApiRuntime::instance().resetDeviceLifecycleLookup();
     PublicApiRuntime::instance().resetDeviceGrantMutation();
     PublicApiRuntime::instance().resetDeviceGrantLookup();
+    PublicApiRuntime::instance().resetDeviceCollectionLookup();
     PublicApiRuntime::instance().resetAccountGrantMutation();
     PublicApiRuntime::instance().resetAccountGrantLookup();
     PublicApiRuntime::instance().resetAccountCreate();
