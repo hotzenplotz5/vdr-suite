@@ -285,3 +285,19 @@ test-media-tools-canonical-agent-bridge:
 	"$(BUILD_DIR)/addons/test_media_tools_canonical_agent_bridge"
 
 test-ci-fast: test-media-tools-canonical-agent-bridge
+
+
+// A6 integration: genuine durable Agent polling/receipts/recovery, isolated
+// injected executor only. No production activation or recording mutation.
+.PHONY: test-media-tools-agent-dispatch
+test-media-tools-agent-dispatch:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) $(CXXFLAGS) -Werror \
+		$(AGENT_COMMAND_DOMAIN_SRC) \
+		$(AGENT_COMMAND_JSON_SRC) \
+		$(AGENT_COMMAND_CLIENT_SRC) \
+		addons/media-tools/tests/test_media_tools_agent_dispatch.cpp \
+		-o "$(BUILD_DIR)/addons/test_media_tools_agent_dispatch"
+	"$(BUILD_DIR)/addons/test_media_tools_agent_dispatch"
+
+test-ci-fast: test-media-tools-agent-dispatch

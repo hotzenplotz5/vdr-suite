@@ -29,7 +29,6 @@ namespace vdrsuite::mediatools { class IMediaImportAgentExecutor; }
 struct BackendAgentCommandClientConfig
 {
     std::string statePath;
-    vdrsuite::mediatools::IMediaImportAgentExecutor* mediaImportExecutor = nullptr;
     std::vector<std::string> commandTypes;
     vdrsuite::agent::IBackendAgentNativeProbeTransport* nativeProbeTransport = nullptr;
     vdrsuite::agent::IBackendAgentNativeTimerDeleteTransport* nativeTimerDeleteTransport = nullptr;
@@ -38,6 +37,7 @@ struct BackendAgentCommandClientConfig
     vdrsuite::agent::ISuiteBridgeLegacyOsdInputTransport* legacyOsdInputTransport = nullptr;
     vdrsuite::agent::IBackendAgentRecordingCutTransport* recordingCutTransport =
         vdrsuite::agent::RecordingCutDefaultTransport;
+    vdrsuite::mediatools::IMediaImportAgentExecutor* mediaImportExecutor = nullptr;
 };
 
 struct BackendAgentCommandAvailabilitySnapshot
