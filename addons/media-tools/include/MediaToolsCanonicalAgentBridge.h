@@ -25,7 +25,9 @@ inline ImportEnvelopeReason inspectCanonicalImportAssignment(
         assignment.backendId != operation.backendId ||
         assignment.jobId.empty() || assignment.attemptId.empty() ||
         assignment.claimEpoch == 0 ||
-        assignment.requestFingerprint.empty() ||
+        assignment.agentId.empty() || assignment.agentInstanceId.empty() ||
+        operation.requestFingerprint.empty() ||
+        assignment.requestFingerprint != operation.requestFingerprint ||
         assignment.payloadVersion == 0 ||
         assignment.verificationPolicy != "reconciliation_required" ||
         operation.verificationPolicy !=
