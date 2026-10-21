@@ -30,7 +30,7 @@ struct Fixture
     unsigned char entropyCounter = 1;
     HumanAccountGrantAdministrationService service;
 
-    Fixture(bool secondAdmin = false)
+    Fixture(bool secondAdmin = false, bool addonAvailable = false)
         : accountability(database),
           identities(database),
           provisioning(database),
@@ -57,6 +57,12 @@ struct Fixture
               {
                   return std::chrono::system_clock::time_point(
                       std::chrono::seconds(1700000000));
+              },
+              [addonAvailable](const std::string& permission,
+                               const std::string& backendId) {
+                  return addonAvailable &&
+                      permission == "addons.media.import" &&
+                      backendId == "backend-a";
               })
     {
         assert(database.open(":memory:"));
@@ -406,8 +412,21 @@ int main()
     }
 
     {
-        // Real SQLite account-grant cycle for backend-exact Media Tools import.
+        // A recognized but currently inactive add-on cannot accumulate
+        // latent grants that silently reactivate on later reinstall.
         Fixture fixture;
+        auto blocked = fixture.service.read("account-viewer");
+        assert(blocked.status == HumanAccountGrantAdministrationStatus::success);
+        assert(fixture.service.setGrant(
+            context(), "account-viewer", blocked.grantSet.resourceRevision,
+            "addons.media.import", "backend-a", true).status ==
+            HumanAccountGrantAdministrationStatus::invalidGrant);
+    }
+
+    {
+        // Real SQLite grant cycle when the trusted Core provider reports
+        // exactly this backend's import capability.
+        Fixture fixture(false, true);
         const auto baseline = fixture.service.read("account-viewer");
         assert(baseline.status == HumanAccountGrantAdministrationStatus::success);
         const auto granted = fixture.service.setGrant(
