@@ -200,6 +200,10 @@ public:
         const BackendAgentCommandAssignment&,
         const BackendAgentCommandReceipt&, std::string&)>;
     void setMediaImportReceiptFenceCheck(MediaImportReceiptFenceCheck check);
+    using MediaImportResultApply = std::function<bool(
+        const BackendAgentCommandAssignment&,
+        const BackendAgentCommandResult&, std::string&)>;
+    void setMediaImportResultApply(MediaImportResultApply apply);
 
     BackendAgentCommandResultAck result(
         const RequestSecurityContext& context,
@@ -258,4 +262,5 @@ private:
     AccountabilityEventRepository& accountabilityRepository_;
     ReceiptFenceCheck receiptFenceCheck_;
     MediaImportReceiptFenceCheck mediaImportReceiptFenceCheck_;
+    MediaImportResultApply mediaImportResultApply_;
 };

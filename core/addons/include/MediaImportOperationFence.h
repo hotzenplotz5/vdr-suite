@@ -36,6 +36,12 @@ public:
                const BackendAgentCommandReceipt& receipt,
                std::int64_t now, std::string& reason) const;
 
+    // Called only AFTER the existing Agent result repository durably stores
+    // the result. Never equate handler exit with a verified VDR recording.
+    bool applyResult(const BackendAgentCommandAssignment& assignment,
+                     const BackendAgentCommandResult& result,
+                     std::int64_t now, std::string& reason) const;
+
 private:
     vdrsuite::operations::MutationOperationRepository& operations_;
     SecurityIdentityRepository& identities_;

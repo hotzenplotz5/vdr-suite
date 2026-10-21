@@ -298,6 +298,54 @@ int main()
     assert(identities.revokeActor("human_media"));
     assert(!coreFence.check(media, mediaReceipt, 120, fenceReason));
 
+    // Applying the durable Agent result uses ADR-0042's CAS transition.
+    // A remux process exit never implies successful recording reconciliation.
+    service.setMediaImportResultApply(
+        [&](const BackendAgentCommandAssignment& original,
+            const BackendAgentCommandResult& outcome,
+            std::string& appliedReason) {
+            return coreFence.applyResult(original, outcome, 121, appliedReason);
+        });
+    BackendAgentCommandResult mediaOutcome;
+    mediaOutcome.commandId = media.commandId;
+    mediaOutcome.requestFingerprint = media.requestFingerprint;
+    mediaOutcome.jobId = media.jobId;
+    mediaOutcome.attemptId = media.attemptId;
+    mediaOutcome.claimEpoch = media.claimEpoch;
+    mediaOutcome.backendId = media.backendId;
+    mediaOutcome.agentId = media.agentId;
+    mediaOutcome.agentInstanceId = media.agentInstanceId;
+    mediaOutcome.backendGeneration = media.backendGeneration;
+    mediaOutcome.dispatchState = "accepted_by_executor";
+    mediaOutcome.verificationState = "outcome_unknown";
+    mediaOutcome.resultCategory = "outcome_unknown";
+    mediaOutcome.errorCategory = "none";
+    mediaOutcome.retryClassification = "reconcile_only";
+    mediaOutcome.boundedDiagnostics = "recording reconciliation pending";
+    mediaOutcome.completedAt = 121;
+    assert(backendAgentCommandValidResult(mediaOutcome));
+    auto mediaApplied = service.result(
+        context(ActorType::Agent, "actor_agent"), mediaOutcome, 121);
+    assert(mediaApplied.accepted);
+    const auto resultOperation = operations.findById(media.operationId);
+    assert(resultOperation.ok());
+    assert(resultOperation.operation.state ==
+        vdrsuite::operations::MutationOperationState::outcomeUnknown);
+    assert(resultOperation.operation.resultReference ==
+        "agent.media.import:" + media.commandId);
+    auto duplicateMediaOutcome = service.result(
+        context(ActorType::Agent, "actor_agent"), mediaOutcome, 122);
+    assert(duplicateMediaOutcome.accepted && duplicateMediaOutcome.replayed);
+    assert(operations.findById(media.operationId).operation.operationRevision ==
+           resultOperation.operation.operationRevision);
+    auto fakeSuccess = mediaOutcome;
+    fakeSuccess.dispatchState = "effect_reported";
+    fakeSuccess.resultCategory = "succeeded";
+    fakeSuccess.verificationState = "verified";
+    fakeSuccess.retryClassification = "none";
+    assert(!coreFence.applyResult(media, fakeSuccess, 123, fenceReason));
+
+
     std::cout << "P7_AGENT_RESULT_EVIDENCE_MIGRATION=PASS\n";
     std::cout<<"Backend Agent command delivery tests passed"<<std::endl;return 0;
 }

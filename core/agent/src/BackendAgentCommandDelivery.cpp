@@ -1040,6 +1040,11 @@ void BackendAgentCommandDeliveryService::setMediaImportReceiptFenceCheck(
 {
     mediaImportReceiptFenceCheck_ = std::move(check);
 }
+void BackendAgentCommandDeliveryService::setMediaImportResultApply(
+    MediaImportResultApply apply)
+{
+    mediaImportResultApply_ = std::move(apply);
+}
 
 BackendAgentCommandReceiptResult BackendAgentCommandDeliveryService::receipt(
     const RequestSecurityContext& context,
@@ -1210,6 +1215,36 @@ BackendAgentCommandResultAck BackendAgentCommandDeliveryService::result(
     }
 
     result = commandRepository_.acceptResult(value);
+
+    // Persist the shared ADR-0042 operation outcome BEFORE acknowledging the
+    // Agent result. If the application fails after the Agent journal commit,
+    // a replay of this same result retries reconciliation, not media execution.
+    if (result.accepted && assignment.has_value() &&
+        assignment->commandType == "addon.media.import")
+    {
+        bool applied = false;
+        std::string applyReason;
+        if (mediaImportResultApply_)
+        {
+            try
+            {
+                applied = mediaImportResultApply_(
+                    *assignment, value, applyReason);
+            }
+            catch (...) { applyReason = "media_import_result_apply_exception"; }
+        }
+        else
+            applyReason = "media_import_result_apply_unavailable";
+        if (!applied)
+        {
+            result.accepted = false;
+            result.replayed = false;
+            result.dropResponse = false;
+            result.reasonCode = applyReason.empty()
+                ? "media_import_result_apply_failed" : applyReason;
+            return result;
+        }
+    }
 
     if (legacyOsdInput)
     {

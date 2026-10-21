@@ -295,6 +295,20 @@ bool DaemonRuntime::initialize()
             return mediaImportOperationFence_->check(
                 assignment, receipt, now, reason);
         });
+    backendAgentCommandDeliveryService_->setMediaImportResultApply(
+        [this](const BackendAgentCommandAssignment& assignment,
+               const BackendAgentCommandResult& result,
+               std::string& reason)
+        {
+            if (!mediaImportOperationFence_) {
+                reason = "media_import_operation_fence_unavailable";
+                return false;
+            }
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            return mediaImportOperationFence_->applyResult(
+                assignment, result, now, reason);
+        });
     std::cout << "Backend Agent enrollment, lease and command delivery runtime initialized" << std::endl;
 
     epgSearchNativeFuzzyCapabilityRepository_ =
