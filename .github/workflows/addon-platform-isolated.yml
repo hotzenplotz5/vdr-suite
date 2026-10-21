@@ -154,6 +154,16 @@ jobs:
           sudo env TMPDIR=/root "$(pwd)/.build/addons/test_local_media_import_inventory"
           echo "LOCAL_MEDIA_INVENTORY_CI=PASS"
 
+      - name: Build opted-in Media Import runtime composition test
+        run: make build-media-tools-agent-composition-test
+
+      - name: Run protected Agent composition in disposable root fixture
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo env TMPDIR=/root "$(pwd)/.build/addons/test_backend_agent_media_import_runtime"
+          echo "MEDIA_IMPORT_RUNTIME_COMPOSITION_CI=PASS"
+
       - name: Verify add-on permissions in existing settings UI
         shell: bash
         run: |

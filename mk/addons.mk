@@ -341,3 +341,23 @@ test-media-tools-effective-authorization:
 		core/agent/tests/test_backend_agent_media_import_authorization.cpp \
 		-lcrypto -o "$(BUILD_DIR)/addons/test_backend_agent_media_import_authorization"
 	"$(BUILD_DIR)/addons/test_backend_agent_media_import_authorization"
+
+# A6.3: the exact opted-in Agent composition, verified in root-only
+# disposable CI with a non-recording synthetic ELF handler.
+.PHONY: build-media-tools-agent-composition-test
+build-media-tools-agent-composition-test:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) $(CXXFLAGS) -Werror \
+		$(AGENT_COMMAND_DOMAIN_SRC) \
+		$(AGENT_COMMAND_JSON_SRC) \
+		$(AGENT_COMMAND_CLIENT_SRC) \
+		core/addons/src/AddonRootApproval.cpp \
+		core/addons/src/AddonPinnedHandler.cpp \
+		core/addons/src/AddonInstallSnapshot.cpp \
+		addons/media-tools/src/MediaImport.cpp \
+		addons/media-tools/src/LocalMediaImportInventory.cpp \
+		addons/media-tools/src/PinnedMediaImportAgentExecutor.cpp \
+		core/agent/src/BackendAgentMediaImportAuthorization.cpp \
+		core/agent/src/BackendAgentMediaImportRuntime.cpp \
+		core/agent/tests/test_backend_agent_media_import_runtime.cpp \
+		-lcrypto -o "$(BUILD_DIR)/addons/test_backend_agent_media_import_runtime"

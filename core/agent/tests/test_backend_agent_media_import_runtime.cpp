@@ -1,0 +1,210 @@
+#include "BackendAgentMediaImportRuntime.h"
+#include "BackendAgentClient.h"
+#include "BackendAgentCommandClient.h"
+#include "BackendAgentCommandStateStore.h"
+#include "MediaToolsAgentExecutor.h"
+#include <openssl/evp.h>
+#include <cassert>
+#include <chrono>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <stdexcept>
+#include <string>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <vector>
+
+namespace fs = std::filesystem;
+using namespace vdrsuite::agent;
+
+namespace {
+std::int64_t now() {
+    return std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+}
+std::string fileDigest(const fs::path& path) {
+    std::ifstream in(path,std::ios::binary);
+    if (!in) throw std::runtime_error("fixture binary open");
+    EVP_MD_CTX* ctx=EVP_MD_CTX_new();
+    if (!ctx || EVP_DigestInit_ex(ctx,EVP_sha256(),nullptr)!=1)
+        throw std::runtime_error("fixture digest init");
+    char bytes[8192]; unsigned char digest[EVP_MAX_MD_SIZE];unsigned n=0;
+    while(in) {
+        in.read(bytes,sizeof bytes);
+        if (in.gcount()>0 &&
+            EVP_DigestUpdate(ctx,bytes,static_cast<std::size_t>(in.gcount()))!=1)
+            throw std::runtime_error("fixture digest update");
+    }
+    if(EVP_DigestFinal_ex(ctx,digest,&n)!=1||n!=32)
+        throw std::runtime_error("fixture digest complete");
+    EVP_MD_CTX_free(ctx);
+    const char* hex="0123456789abcdef";
+    std::string result;
+    for(unsigned i=0;i<n;++i) {
+        result+=hex[digest[i]>>4];
+        result+=hex[digest[i]&15];
+    }
+    return result;
+}
+BackendAgentCommandAssignment command() {
+    BackendAgentCommandAssignment a;
+    a.present=true;a.requestId="request_A6";a.correlationId="corr_A6";
+    a.operationId="operation_A6";a.jobId="job_A6";a.attemptId="attempt_A6";
+    a.claimEpoch=4;a.commandId="command_A6";a.backendId="backend";
+    a.agentId="agent";a.agentInstanceId="instance";a.backendGeneration=19;
+    a.commandType=vdrsuite::mediatools::kMediaImportCommandType;
+    a.payloadVersion=1;a.payload="{\"sourceId\":\"inventory_Token_0001\"}";
+    a.verificationPolicy="reconciliation_required";
+    a.assignedAt=now()-1;a.deadline=now()+60;
+    a.requestFingerprint=backendAgentCommandFingerprint(a);
+    assert(backendAgentCommandValidAssignment(a));return a;
+}
+struct Transport final: IBackendAgentControlPlaneTransport {
+    bool allowed=true;
+    unsigned checks=0;
+    BackendAgentTransportResponse postEnrollment(
+        const std::string&,const std::string&,const std::string&,
+        const std::string&) override { return {}; }
+    BackendAgentTransportResponse postAuthenticated(
+        const std::string& id,const std::string& secret,
+        const std::string& path,const std::string& body) override {
+        assert(id=="agent" && secret=="secret");
+        assert(path=="/api/agent/v1/commands/receipt");
+        assert(body.find("\"commandId\":\"command_A6\"")!=std::string::npos);
+        ++checks;
+        if(!allowed) return {true,409,"","media_import_permission_denied"};
+        return {true,200,
+            "{\"outcome\":\"replayed\",\"reasonCode\":\"command_receipt_replayed\"}",""};
+    }
+};
+struct Fixture {
+    fs::path root,binary,approval,ledger,source,video,statePath;
+    Fixture() {
+        if(::geteuid()!=0 || !std::getenv("TMPDIR") ||
+           std::string(std::getenv("TMPDIR"))!="/root")
+            throw std::runtime_error("CI-only root fixture required");
+        struct stat parent{};
+        if(::stat("/run",&parent)!=0||!S_ISDIR(parent.st_mode)||
+           parent.st_uid!=0||(parent.st_mode&0022))
+            throw std::runtime_error("unsafe CI fixture parent");
+        std::string pattern="/run/vdr-a6-runtime-XXXXXX";
+        std::vector<char> name(pattern.begin(),pattern.end());
+        name.push_back('\0');
+        if(!::mkdtemp(name.data()))throw std::runtime_error("mkdtemp");
+        root=name.data();
+        binary=root/"usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import";
+        approval=root/"etc/vdr-suite/addon-approvals/rectools.json";
+        ledger=root/"etc/vdr-suite/addon-sources/media-import.tsv";
+        source=root/"media/in/movie.ts";
+        video=root/"media/out";
+        statePath=root/"state/command.state";
+        fs::create_directories(binary.parent_path());
+        fs::create_directories(approval.parent_path());
+        fs::create_directories(ledger.parent_path());
+        fs::create_directories(source.parent_path());
+        fs::create_directories(video);
+        fs::create_directories(statePath.parent_path());
+        for(const char* sub : {"", "usr", "usr/libexec",
+            "usr/libexec/vdr-suite", "usr/libexec/vdr-suite/addons",
+            "usr/libexec/vdr-suite/addons/rectools", "etc",
+            "etc/vdr-suite","etc/vdr-suite/addon-approvals",
+            "etc/vdr-suite/addon-sources", "media", "media/in", "media/out",
+            "state"})
+            if(::chmod((root/sub).c_str(),0755)!=0)
+                throw std::runtime_error("fixture mkdir mode");
+        // The synthetic executable is the actual /bin/true ELF. It cannot
+        // create recordings, even when the pinned fexecve path is exercised.
+        fs::copy_file("/bin/true",binary);
+        if(::chmod(binary.c_str(),0755)!=0)
+            throw std::runtime_error("binary chmod");
+        writeApproval(false);
+        {std::ofstream file(source);file<<"synthetic-media-input";}
+        {std::ofstream file(ledger);
+         file<<"backend\tinventory_Token_0001\t"
+             <<(root/"media/in").string()<<"\t"<<video.string()
+             <<"\t"<<source.string()<<"\n";}
+        if(::chmod(ledger.c_str(),0644)!=0)
+            throw std::runtime_error("ledger chmod");
+        commandstate::LocalState state;
+        state.assignment=command();
+        const auto& a=state.assignment;
+        auto& r=state.receipt;
+        r.commandId=a.commandId;r.requestFingerprint=a.requestFingerprint;
+        r.jobId=a.jobId;r.attemptId=a.attemptId;r.claimEpoch=a.claimEpoch;
+        r.backendId=a.backendId;r.agentId=a.agentId;
+        r.agentInstanceId=a.agentInstanceId;
+        r.backendGeneration=a.backendGeneration;
+        r.receiptCategory="accepted";r.receivedAt=now();
+        r.reasonCode="durably_recorded";
+        state.receiptAcknowledged=true;
+        std::string reason;
+        if(!commandstate::persist(statePath.string(),state,reason))
+            throw std::runtime_error(reason);
+    }
+    void writeApproval(bool revoked) {
+        {std::ofstream out(approval);
+         out<<"{\"id\":\"rectools\",\"origin\":\"manual\","
+               "\"package\":\"vdr-suite-addon-media-tools\","
+               "\"schemaVersion\":1,\"sha256\":\""
+            <<fileDigest(binary)<<"\",\"state\":\""
+            <<(revoked?"revoked":"approved")
+            <<"\",\"version\":\"0.1.0\"}\n";}
+        if(::chmod(approval.c_str(),0644)!=0)
+            throw std::runtime_error("approval chmod");
+    }
+    ~Fixture(){std::error_code e;fs::remove_all(root,e);}
+};
+}
+int main() {
+    Fixture f;
+    Transport transport;
+    BackendAgentCommandClientContext current;
+    current.agentId="agent";current.credentialSecret="secret";
+    current.backendId="backend";current.agentInstanceId="instance";
+    current.backendGeneration=19;
+
+    BackendAgentMediaImportRuntime runtime(
+        f.root.string(),"backend",f.statePath.string(),transport,
+        [&]{return current;});
+    BackendAgentCommandClientConfig config;
+    config.commandTypes={vdrsuite::mediatools::kMediaImportCommandType};
+    // Core's default is still null; even a hand-populated command allowlist
+    // does not advertise anything without a separately injected executor.
+    assert(discoverBackendAgentCommandAvailability(config).commandTypes.empty());
+    config.mediaImportExecutor=&runtime;
+    assert(runtime.available());
+    assert(discoverBackendAgentCommandAvailability(config).commandTypes.size()==1);
+
+    const auto a=command();
+    assert(runtime.authorize(a,"backend",19));
+    transport.allowed=false;
+    assert(runtime.execute(a)==vdrsuite::mediatools::MediaImportAgentOutcome::rejected);
+    transport.allowed=true;
+    assert(runtime.authorize(a,"backend",19));
+    assert(runtime.execute(a)==vdrsuite::mediatools::MediaImportAgentOutcome::submitted);
+    assert(runtime.execute(a)==vdrsuite::mediatools::MediaImportAgentOutcome::rejected);
+    assert(runtime.takeRecordingEvidence().empty());
+    assert(fs::is_empty(f.video));
+
+    current.backendGeneration=20;
+    assert(!runtime.available() || !runtime.authorize(a,"backend",19));
+    current.backendGeneration=19;
+    f.writeApproval(true);
+    assert(!runtime.available());
+    assert(discoverBackendAgentCommandAvailability(config).commandTypes.empty());
+    assert(!runtime.authorize(a,"backend",19));
+    f.writeApproval(false);
+
+    assert(::chmod(f.ledger.c_str(),0666)==0);
+    assert(!runtime.available());
+    assert(::chmod(f.ledger.c_str(),0644)==0);
+    assert(runtime.available());
+
+    assert(runtime.authorize(a,"backend",19));
+    {std::ofstream replace(f.source,std::ios::trunc);
+     replace<<"modified-input-material";}
+    assert(runtime.execute(a)==vdrsuite::mediatools::MediaImportAgentOutcome::rejected);
+    assert(fs::is_empty(f.video));
+    assert(transport.checks>=3);
+}

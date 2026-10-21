@@ -158,3 +158,11 @@ enabled audited per-backend administrator activation intent, effective
 actor grant, live Agent, receipt and immutable operation. All requirements
 are checked again before the handler runs. `Media Check` and `Shrink`
 remain disabled.
+
+The root-only A6.3 composition test uses the *actual* Agent capability
+discovery function, the real protected local command inbox, the real
+install-snapshot and root-ledger adapters, the new Core receipt-replay
+authorization adapter and the Add-on pinned-fd executor. Its synthetic
+handler is a copied `/bin/true` ELF; no VDR recordings are touched.
+Negative cases include default missing executor, revocation, stale backend
+generation, writable inventory and a modified source before execution.
