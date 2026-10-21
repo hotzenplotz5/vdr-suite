@@ -800,6 +800,29 @@ struct PublicDeviceCredentialRotationResult
     std::string credentialSecret;
 };
 
+// Administrator-only catalogue, populated from the canonical security_devices table.
+struct PublicDeviceCollectionRequest
+{
+    std::string afterDeviceId;
+    std::size_t limit = 50U;
+};
+
+struct PublicDeviceCollectionItem
+{
+    std::string deviceId;
+    std::string actorId;
+    std::string displayName;
+    bool active = false;
+    bool revoked = false;
+};
+
+struct PublicDeviceCollectionResult
+{
+    bool available = false;
+    std::vector<PublicDeviceCollectionItem> items;
+    bool hasMore = false;
+};
+
 enum class PublicDeviceGrantStatus
 {
     ok, invalid, notFound, revisionConflict, unavailable
@@ -1290,6 +1313,10 @@ public:
         std::function<PublicDeviceCredentialRotationResult(
             const PublicDeviceCredentialRotationRequest& request)>;
 
+    using DeviceCollectionLookup =
+        std::function<PublicDeviceCollectionResult(
+            const PublicDeviceCollectionRequest& request)>;
+
     using DeviceGrantLookup =
         std::function<PublicDeviceGrantLookupResult(
             const std::string& deviceId)>;
@@ -1512,6 +1539,8 @@ public:
     void resetDeviceCredentialRotation();
     bool deviceCredentialRotationConfigured() const;
 
+    void registerDeviceCollectionLookup(DeviceCollectionLookup lookup);
+    void resetDeviceCollectionLookup();
     void registerDeviceGrantLookup(DeviceGrantLookup lookup);
     void resetDeviceGrantLookup();
     void registerDeviceGrantMutation(DeviceGrantMutation mutation);
@@ -1708,6 +1737,9 @@ private:
     DeviceLifecycleMutation deviceLifecycleMutation_;
     mutable std::mutex deviceCredentialRotationMutex_;
     DeviceCredentialRotation deviceCredentialRotation_;
+
+    mutable std::mutex deviceCollectionLookupMutex_;
+    DeviceCollectionLookup deviceCollectionLookup_;
 
     mutable std::mutex deviceGrantLookupMutex_;
     DeviceGrantLookup deviceGrantLookup_;
