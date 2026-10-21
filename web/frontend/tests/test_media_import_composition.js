@@ -164,6 +164,7 @@ function frontendPlatformModule(name, legacy) {
   return window.VdrSuitePlatform.getModule(name) || legacy;
 }
 function selectedEpgBackendId() { return selectedBackendId; }
+function renderSnapshotMetrics() {}
 function shouldPublishHomeResume() { return false; }
 function publishHomeResume() {}
 `, Object.assign(context, {testMount: mount}));
