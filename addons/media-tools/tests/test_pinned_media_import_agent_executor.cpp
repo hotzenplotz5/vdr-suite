@@ -1,4 +1,5 @@
 #include "PinnedMediaImportAgentExecutor.h"
+#include "MediaImportRecordingEvidence.h"
 
 #include <openssl/evp.h>
 
@@ -58,7 +59,7 @@ std::string sha256(const fs::path& path)
 
 struct Fixture {
     fs::path root, binary, approval;
-    explicit Fixture()
+    explicit Fixture(const char* fixtureBinary = "/bin/true")
     {
         if (::geteuid() != 0 || !std::getenv("TMPDIR") ||
             std::string(std::getenv("TMPDIR")) != "/root")
@@ -84,7 +85,7 @@ struct Fixture {
                 throw std::runtime_error("chmod directory");
         // Real executable bytes, deliberately NOT a Media Import binary.
         // A successful isolated fd-exec can therefore mutate no recordings.
-        fs::copy_file("/bin/true", binary);
+        fs::copy_file(fixtureBinary, binary);
         if (::chmod(binary.c_str(), 0755) != 0)
             throw std::runtime_error("chmod binary");
         writeApproval(false);
@@ -238,4 +239,25 @@ int main()
     int status = 0;
     assert(::waitpid(child, &status, 0) == child);
     assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+
+    // This separate reviewed synthetic ELF outputs a committed .rec receipt
+    // but writes no files. It proves the actual pinned fd/pipe parser.
+    const char* receiptBinary = std::getenv(
+        "MEDIA_IMPORT_TEST_RECEIPT_BINARY");
+    assert(receiptBinary != nullptr && *receiptBinary != '\0');
+    Fixture receiptFixture(receiptBinary);
+    Inventory receiptInventory;
+    Grants receiptGrants;
+    PinnedMediaImportAgentExecutor receiptExecutor(
+        receiptFixture.root.string(), "backend", 19,
+        receiptInventory, receiptGrants);
+    const auto receiptAssignment = command();
+    assert(receiptExecutor.authorize(receiptAssignment, "backend", 19));
+    assert(receiptExecutor.execute(receiptAssignment) ==
+        MediaImportAgentOutcome::submitted);
+    const std::string proof = receiptExecutor.takeRecordingEvidence();
+    assert(proof == recordingPathEvidence(
+        "/ci-only/media-out/Media/2026-10-21.18.00.00-0.rec"));
+    assert(validRecordingPathEvidence(proof));
+    assert(receiptExecutor.takeRecordingEvidence().empty());
 }
