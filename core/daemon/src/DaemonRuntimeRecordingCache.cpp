@@ -313,10 +313,28 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
 
             bool genreIndexed = false;
             if (stored) {
-                vdrRecordingCacheRepository_->markRefreshFinished(
+                const bool ready = vdrRecordingCacheRepository_->markRefreshFinished(
                     backendRuntimeContext->backendId,
                     static_cast<int>(recordings.size()));
-
+                if (ready && mediaImportOperationFence_)
+                {
+                    // Only a successfully committed, fresh native provider
+                    // inventory can verify an unverified import operation.
+                    const auto cacheStatus =
+                        vdrRecordingCacheRepository_->statusForBackend(
+                            backendRuntimeContext->backendId);
+                    const auto committedRecordings =
+                        vdrRecordingCacheRepository_->findAllForBackend(
+                            backendRuntimeContext->backendId);
+                    const auto verified =
+                        mediaImportOperationFence_->reconcileRecordingCache(
+                            backendRuntimeContext->backendId, cacheStatus,
+                            committedRecordings, recordingMetadataEpochSeconds());
+                    if (verified != 0)
+                        std::cout << "Media Import readback verified: backend="
+                                  << backendRuntimeContext->backendId
+                                  << ", operations=" << verified << std::endl;
+                }
                 recordingCacheRefreshQueue_.completed(backendRuntimeContext->backendId);
 
                 if (runRecordingMetadataEnrichment(
