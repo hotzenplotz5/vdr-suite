@@ -87,6 +87,13 @@ jobs:
           sudo env TMPDIR=/root "$(pwd)/.build/addons/test_addon_nonroot_snapshot"
           echo "NONROOT_ADDON_SNAPSHOT_CI=PASS"
 
+      - name: Verify add-on permissions in existing settings UI
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          node --check web/frontend/settings-account-admin.js
+          node web/frontend/tests/test_mu9e_grant_mutation_ui.js
+
       - name: Isolated root-owned approval and revocation acceptance
         shell: bash
         run: |
