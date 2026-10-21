@@ -306,8 +306,14 @@ bool DaemonRuntime::initialize()
             }
             const auto now = std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count();
-            return mediaImportOperationFence_->applyResult(
+            const bool applied = mediaImportOperationFence_->applyResult(
                 assignment, result, now, reason);
+            // Reuse the existing coalesced, read-only Recording refresh
+            // queue. Never spawn another job or mutate VDR from this callback.
+            if (applied && !result.resultEvidence.empty() &&
+                result.dispatchState == "accepted_by_executor")
+                recordingCacheRefreshQueue_.request(assignment.backendId, 2);
+            return applied;
         });
     std::cout << "Backend Agent enrollment, lease and command delivery runtime initialized" << std::endl;
 
