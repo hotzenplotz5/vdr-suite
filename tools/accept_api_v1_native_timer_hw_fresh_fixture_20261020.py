@@ -208,6 +208,33 @@ def diagnostic_readback(opid):
         print("UNRESOLVED_LIVE_READ=", type(error).__name__, flush=True)
 
 
+def update_no_effect_verified(opid):
+    """Read-only proof that the original UPDATE terminated without effect."""
+    try:
+        with sqlite3.connect(
+                "file:/var/lib/vdr-suite/vdr-suite.db?mode=ro", uri=True) as db:
+            db.execute("PRAGMA query_only=ON")
+            row = db.execute(
+                "SELECT o.state, o.result_reference, "
+                "o.expected_resource_fingerprint, b.observed_fingerprint, "
+                "b.last_verified_operation_id, b.backend_native_timer_id, "
+                "b.observed_title, b.observed_recording, b.observed_pending "
+                "FROM mutation_operations o "
+                "JOIN native_timer_bindings b ON b.native_timer_binding_id = "
+                "o.resource_id WHERE o.operation_id=?", (opid,)
+            ).fetchone()
+    except (sqlite3.Error, OSError):
+        return False
+    return bool(
+        row and row[0] == "failed_verified" and
+        row[1] == "native-timer-modify:unchanged-after-uncertain-execution" and
+        row[2] == row[3] and row[4] != opid and
+        row[5] == journal.get("timerId") and
+        row[6] == journal.get("initialTitle") and
+        row[7] == 0 and row[8] == 0
+    )
+
+
 def operation(stage):
     record = journal["stages"][stage]
     if record["status"] == "unknown":
@@ -228,6 +255,13 @@ def operation(stage):
             last = state
         if state == "succeeded":
             return
+        if state == "failed_verified" and stage == "UPDATE":
+            if update_no_effect_verified(opid):
+                journal["updateNoEffectVerified"] = True
+                save()
+                print("UPDATE=FAILED_VERIFIED_NO_EFFECT_KEEP_ORIGINAL_TITLE",
+                      flush=True)
+                return
         if state in TERMINAL_FAILURE:
             if state == "failed_verified":
                 diagnostic_readback(opid)
@@ -385,8 +419,14 @@ if "UPDATE" not in journal["stages"]:
 else:
     operation("UPDATE")
 
+# The earlier hardware fixture already proved a successful UPDATE. When
+# *this* uncertain UPDATE has now been verified with no side effect, keep
+# the same disposable timer for the independent TOGGLE/DELETE checks.
+# Never declare the fresh-fixture UPDATE a success in this case.
+toggle_title = title if journal.get("updateNoEffectVerified") else updated
+
 if "TOGGLE_OFF" not in journal["stages"]:
-    _, etag = valid_detail(timer_id, updated, True)
+    _, etag = valid_detail(timer_id, toggle_title, True)
     submit("TOGGLE_OFF", "POST", path,
            {"kind": "toggle", "enabled": False}, etag)
 else:
@@ -394,7 +434,7 @@ else:
 print("TOGGLE_OFF=PASS")
 
 if "TOGGLE_ON" not in journal["stages"]:
-    _, etag = valid_detail(timer_id, updated, False)
+    _, etag = valid_detail(timer_id, toggle_title, False)
     submit("TOGGLE_ON", "POST", path,
            {"kind": "toggle", "enabled": True}, etag)
 else:
@@ -402,7 +442,7 @@ else:
 print("TOGGLE_ON=PASS")
 
 if "DELETE" not in journal["stages"]:
-    _, etag = valid_detail(timer_id, updated, True)
+    _, etag = valid_detail(timer_id, toggle_title, True)
     submit("DELETE", "DELETE",
            "/native-timers/" + urllib.parse.quote(timer_id, safe=":._-") +
            "?backendId=default", None, etag)
@@ -413,7 +453,11 @@ for attempt in range(20):
     code, _, item = detail(timer_id)
     if code == 404:
         print("DELETE=PASS")
-        print("HARDWARE_ACCEPTANCE=PASS CREATE UPDATE TOGGLE_OFF TOGGLE_ON DELETE")
+        if journal.get("updateNoEffectVerified"):
+            print("HARDWARE_ACCEPTANCE=PASS CREATE TOGGLE_OFF TOGGLE_ON DELETE; "
+                  "UPDATE=FAILED_VERIFIED_NO_EFFECT (prior fixture UPDATE=PASS)")
+        else:
+            print("HARDWARE_ACCEPTANCE=PASS CREATE UPDATE TOGGLE_OFF TOGGLE_ON DELETE")
         break
     if attempt != 19:
         time.sleep(2)
