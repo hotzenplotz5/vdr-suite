@@ -156,3 +156,20 @@ single tested source/packaging migration must move it rather than fork it.
 The add-on request envelope is non-executing and does not replace the
 Core-owned command, permission or operation lifecycle. Runtime integration
 and API effective capability projection remain open.
+
+## A6 implementation location (same branch, no repo fork)
+
+The existing standalone C++17 media importer was **moved** (Git blobs
+retained, old implementation paths removed) from `modules/rectools/`
+into `addons/media-tools/include/`, `src/` and `tests/`. No
+duplicate implementation exists. The old module directory owns only
+the existing disabled metadata manifest and its staging/packaging
+documentation. All new Media Tools-specific code is under
+`addons/media-tools/`, while Core/Agent continue to own execution,
+authorization, backend generations, jobs and recording reconciliation.
+
+The first A6 module-local command boundary consumes canonical
+`MutationOperation` and `BackendAgentCommandAssignment` values,
+with denied mismatched identity/generation/deadlines and no executor.
+It is **not** registered or advertised. Compiled importer/package tests
+are included in the isolated Add-on CI after the source relocation.
