@@ -297,7 +297,7 @@ test-media-tools-agent-dispatch:
 		$(AGENT_COMMAND_JSON_SRC) \
 		$(AGENT_COMMAND_CLIENT_SRC) \
 		addons/media-tools/tests/test_media_tools_agent_dispatch.cpp \
-		-o "$(BUILD_DIR)/addons/test_media_tools_agent_dispatch"
+		-lcrypto -o "$(BUILD_DIR)/addons/test_media_tools_agent_dispatch"
 	"$(BUILD_DIR)/addons/test_media_tools_agent_dispatch"
 
 test-ci-fast: test-media-tools-agent-dispatch
