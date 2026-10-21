@@ -3,6 +3,7 @@
 #include "Database.h"
 
 #include <sqlite3.h>
+#include <utility>
 
 namespace
 {
