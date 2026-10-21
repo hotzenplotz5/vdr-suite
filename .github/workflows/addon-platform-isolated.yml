@@ -54,6 +54,11 @@ jobs:
           make test-addon-agent-dispatch-gate
           make test-media-tools-agent-request
           make test-media-tools-canonical-agent-bridge
+          # One implementation owner, never a shadow copy under modules.
+          for name in include/MediaImport.h src/MediaImport.cpp src/main.cpp tests/test_media_import.cpp; do
+            test -f "addons/media-tools/$name"
+            test ! -e "modules/rectools/$name"
+          done
           make test-addon-media-import
           make addon-media-import
           make test-addon-media-tools-package
