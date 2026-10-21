@@ -139,7 +139,8 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          sudo env TMPDIR=/root "$(pwd)/.build/addons/test_pinned_media_import_agent_executor"
+          sudo env TMPDIR=/root MEDIA_IMPORT_TEST_RECEIPT_BINARY="$(pwd)/.build/addons/fake_pinned_media_import_receipt" \
+            "$(pwd)/.build/addons/test_pinned_media_import_agent_executor"
           echo "PINNED_MEDIA_IMPORT_AGENT_CI=PASS"
 
       - name: Verify add-on permissions in existing settings UI
