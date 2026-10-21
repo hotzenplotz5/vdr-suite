@@ -1,6 +1,9 @@
 #pragma once
 
 #include "BackendAgentCommand.h"
+#include "VdrRecordingCacheRepository.h"
+
+#include <vector>
 
 #include <cstdint>
 #include <string>
@@ -46,6 +49,16 @@ public:
     bool applyResult(const BackendAgentCommandAssignment& assignment,
                      const BackendAgentCommandResult& result,
                      std::int64_t now, std::string& reason) const;
+
+    // Invoked after the existing native-provider refresh successfully commits.
+    // No new scheduler, readback database, or daemon-side media filesystem IO.
+    // Only a fresh ready cache with one correlated native recording may
+    // promote the canonical ADR-0042 operation to succeeded.
+    std::size_t reconcileRecordingCache(
+        const std::string& backendId,
+        const VdrRecordingCacheStatus& cacheStatus,
+        const std::vector<VdrRecording>& recordings,
+        std::int64_t now) const;
 
 private:
     bool checkCore(const BackendAgentCommandAssignment& assignment,
