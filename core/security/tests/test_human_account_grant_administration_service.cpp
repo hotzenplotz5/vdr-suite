@@ -193,7 +193,10 @@ int main()
             assert(!option.permission.empty());
             assert(option.presentationKey == option.permission);
             assert(option.category == "role" ||
-                option.category == "permission");
+                option.category == "permission" ||
+                option.category == "addon");
+            if (option.permission == "addons.media.import")
+                assert(option.category == "addon");
         }
     }
 
