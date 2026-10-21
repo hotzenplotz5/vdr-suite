@@ -1,4 +1,5 @@
 #include "BackendAgentClient.h"
+#include "MediaToolsAgentExecutor.h"
 #include "BackendAgentChannelObservation.h"
 #include "BackendAgentChannelObservationJson.h"
 #include "BackendAgentCommandClient.h"

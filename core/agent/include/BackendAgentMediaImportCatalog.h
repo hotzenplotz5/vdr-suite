@@ -10,6 +10,7 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <utility>
 
 // Ephemeral, bounded Agent-reported observations, NOT source authority.
 // Core grants and backend-local root mapping are rechecked separately.

@@ -181,6 +181,23 @@ fresh matching recording-cache readback can transition an operation to
 `succeeded`. The explicit `--enable-media-import` option is not allowed
 in `--once`, credential-rotation or native-probe modes.
 
+### A7.4 per-backend source list, no filesystem paths
+
+An explicitly opted-in Agent reads its root-controlled TSV locally and
+reports at most 32 freshly inspected opaque `sourceId` tokens via
+authenticated `POST /api/agent/v1/observations/media-import-sources`.
+Missing approval or an invalid inventory sends an empty snapshot. The daemon
+holds this report only in RAM, bound to the current Agent actor, instance,
+backend generation, active lease and a maximum 90-second age.
+
+Authenticated `GET /api/v1/backends/{backendId}/media-import-sources`
+rechecks the SecurityHttpGate discovery scope and Core's live
+`addons.media.import` authorization/activation/Agent capability before
+exposing the bounded IDs. Missing/expired observations yield 503, denied
+users 403, unscoped backends 404. No paths or writable source claims are
+returned. Actual import rereads and pins the local source from the
+protected ledger and requires the canonical VDR recording readback.
+
 ### A7.3 protected Media Import admission
 
 `POST /api/v1/backends/{backendId}/media-imports` accepts only

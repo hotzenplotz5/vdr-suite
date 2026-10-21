@@ -1,5 +1,6 @@
 #include "AccountabilityEventRepository.h"
 #include "BackendAgentHttpServer.h"
+#include "BackendAgentMediaImportCatalog.h"
 #include "BackendAgentCommandDelivery.h"
 #include "BackendAgentLifecycle.h"
 #include "BackendRegistry.h"
@@ -934,13 +935,15 @@ void test_http_protocol_and_redaction()
     assert(fixture.service.createEnrollment(
         adminContext(), "enr_http", "default", hash,
         realNow + 600, realNow, reason));
+    BackendAgentMediaImportCatalog mediaImportCatalog;
     BackendAgentHttpServer server(
         std::make_unique<FallbackServer>(),
         fixture.service,
         fixture.commandService,
         fixture.agentRepository,
         fixture.verifierRepository,
-        fixture.identityRepository);
+        fixture.identityRepository,
+        &mediaImportCatalog);
 
     HttpServerRequest enrollment;
     enrollment.method = "POST";
@@ -972,6 +975,28 @@ void test_http_protocol_and_redaction()
     assert(connected.statusCode == 200);
     assert(connected.body.find("\"backendGeneration\":1") != std::string::npos);
     assert(connected.body.find(AgentSecret) == std::string::npos);
+
+    // A7.4 is an Agent-authenticated, ephemeral report: only opaque IDs.
+    HttpServerRequest sources;
+    sources.method = "POST";
+    sources.path = "/api/agent/v1/observations/media-import-sources";
+    sources.headers["Authorization"] =
+        "Basic " + base64(agentId + ":" + AgentSecret);
+    sources.body =
+        "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
+        "\"backendGeneration\":1,\"sourceIds\":[\"source_00000000001\"]}";
+    const auto observed = server.handleRequest(sources);
+    assert(observed.statusCode == 200);
+    std::vector<std::string> ids;
+    const auto live = fixture.agentRepository.findAgentForBackend("default");
+    assert(live && mediaImportCatalog.list(*live, "default", realNow, ids));
+    assert(ids == (std::vector<std::string>{"source_00000000001"}));
+    sources.body =
+        "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
+        "\"backendGeneration\":2,\"sourceIds\":[\"source_00000000002\"]}";
+    assert(server.handleRequest(sources).statusCode == 409);
+    sources.headers.erase("Authorization");
+    assert(server.handleRequest(sources).statusCode == 401);
 
     HttpServerRequest rotation;
     rotation.method = "POST";
