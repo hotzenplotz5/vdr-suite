@@ -1,4 +1,5 @@
 #include "PublicApiRuntime.h"
+#include "PublicDiscoveryRoutes.h"
 
 #include "PublicProblemDetails.h"
 #include "PublicResourcePreconditions.h"
@@ -3602,27 +3603,6 @@ ApiResponse publicTimerCreateProblem(
         correlationId);
 }
 
-ApiResponse contractRoot(
-    const bool authenticated,
-    const std::string& requestId,
-    const std::string& correlationId)
-{
-    return jsonResponse(
-        std::string("{\"apiVersion\":\"v1\",\"serverVersion\":\"")
-        + VdrSuiteServerBuildIdentity::ServerVersion
-        + "\",\"supportedApiMajors\":[\"v1\"],"
-          "\"compatibilityPolicy\":{\"version\":1,"
-          "\"responseEvolution\":\"additive\","
-          "\"breakingChanges\":\"new-major\","
-          "\"unknownRequestFields\":\"reject\","
-          "\"legacyUnversioned\":\"transition\"},"
-          "\"authentication\":{\"authenticated\":"
-        + (authenticated ? "true" : "false")
-        + "},\"links\":{\"self\":\"/api/v1\",\"capabilities\":\"/api/v1/capabilities\",\"backends\":\"/api/v1/backends\",\"accounts\":\"/api/v1/accounts\",\"devicePairings\":\"/api/v1/device-pairings\"}}",
-        requestId,
-        correlationId);
-}
-
 std::string publicDevicePairingJson(
     const PublicDevicePairingResource& resource,
     const std::string& self)
@@ -3836,139 +3816,6 @@ ApiResponse publicDevicePairingCreatedResponse(
     response.statusCode = 201;
     response.headers["Location"] = self;
     return response;
-}
-
-ApiResponse platformCapabilities(
-    const bool operationReadAvailable,
-    const bool timerAssignmentReadAvailable,
-    const bool timerCreateAdmissionAvailable,
-    const bool searchTimerCollectionAvailable,
-    const bool backendCollectionAvailable,
-    const bool recordingCollectionAvailable,
-    const bool genreCollectionAvailable,
-    const bool epgGenreAvailable,
-    const bool epgNowNextAvailable,
-    const bool epgWindowAvailable,
-    const bool epgEventDetailAvailable,
-    const bool nativeTimersAvailable,
-    const bool searchAvailable,
-    const bool accountCollectionAvailable,
-    const bool accountMutationAvailable,
-    const bool accountCreateAvailable,
-    const bool accountGrantAdministrationAvailable,
-    const bool deviceGrantAdministrationAvailable,
-    const bool deviceLifecycleAdministrationAvailable,
-    const bool deviceCredentialRotationAvailable,
-    const bool accountSecurityMetadataAvailable,
-    const bool accountCredentialRevokeAvailable,
-    const bool accountSessionRevokeAvailable,
-    const bool devicePairingBootstrapAvailable,
-    const bool devicePairingAdministrationAvailable,
-    const bool deviceCredentialIssueAvailable,
-    const std::string& requestId,
-    const std::string& correlationId)
-{
-    return jsonResponse(
-        "{\"apiVersion\":\"v1\",\"capabilities\":["
-        "{\"id\":\"public-api.contract-root\",\"version\":1,\"availability\":\"available\"},"
-        "{\"id\":\"public-api.durable-operations-read\",\"version\":1,\"availability\":\"" +
-        std::string(operationReadAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.timer-assignments-read\",\"version\":1,\"availability\":\"" +
-        std::string(timerAssignmentReadAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.search-timers-read\",\"version\":1,\"availability\":\"" +
-        std::string(searchTimerCollectionAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.timer-create-admission\",\"version\":1,\"availability\":\"" +
-        std::string(timerCreateAdmissionAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.backends-read\",\"version\":1,\"availability\":\"" +
-        std::string(backendCollectionAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.recordings-read\",\"version\":1,\"availability\":\"" +
-        std::string(recordingCollectionAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.recordings-browse\",\"version\":1,\"availability\":\"" +
-        std::string(recordingCollectionAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.recording-genres-read\",\"version\":1,\"availability\":\"" +
-        std::string(genreCollectionAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.epg-genres-read\",\"version\":1,\"availability\":\"" +
-        std::string(epgGenreAvailable ? "available" : "unavailable") +
-        "\"}," 
-        "{\"id\":\"public-api.recording-search\",\"version\":1,\"availability\":\"" +
-        std::string(searchAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.epg-search\",\"version\":1,\"availability\":\"" +
-        std::string(searchAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.epg-now-next-read\",\"version\":1,\"availability\":\"" +
-        std::string(epgNowNextAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.epg-window-read\",\"version\":1,\"availability\":\"" +
-        std::string(epgWindowAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.epg-event-detail-read\",\"version\":1,\"availability\":\"" +
-        std::string(epgEventDetailAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.native-timers-read\",\"version\":1,\"availability\":\"" +
-        std::string(nativeTimersAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.accounts-read\",\"version\":1,\"availability\":\"" +
-        std::string(accountCollectionAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.accounts-lifecycle-mutation\",\"version\":1,\"availability\":\"" +
-        std::string(accountMutationAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.accounts-create\",\"version\":1,\"availability\":\"" +
-        std::string(accountCreateAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.accounts-grants-administration\",\"version\":1,\"availability\":\"" +
-        std::string(accountGrantAdministrationAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.devices-grants-administration\",\"version\":1,\"availability\":\"" +
-        std::string(deviceGrantAdministrationAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.devices-lifecycle-administration\",\"version\":1,\"availability\":\"" +
-        std::string(deviceLifecycleAdministrationAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.devices-credential-rotation\",\"version\":1,\"availability\":\"" +
-        std::string(deviceCredentialRotationAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.accounts-credential-session-metadata\",\"version\":1,\"availability\":\"" +
-        std::string(accountSecurityMetadataAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.accounts-credential-revoke\",\"version\":1,\"availability\":\"" +
-        std::string(accountCredentialRevokeAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.accounts-session-revoke\",\"version\":1,\"availability\":\"" +
-        std::string(accountSessionRevokeAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.device-pairing-bootstrap\",\"version\":1,\"availability\":\"" +
-        std::string(devicePairingBootstrapAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.device-pairing-administration\",\"version\":1,\"availability\":\"" +
-        std::string(devicePairingAdministrationAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.device-credential-issuance\",\"version\":1,\"availability\":\"" +
-        std::string(deviceCredentialIssueAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.compatibility-policy\",\"version\":1,\"availability\":\"available\"},"
-        "{\"id\":\"public-api.deprecation-metadata\",\"version\":1,\"availability\":\"available\"}"
-        "],\"compatibility\":{\"policyVersion\":1,"
-        "\"supportedApiMajors\":[\"v1\"],"
-        "\"responseEvolution\":\"additive\","
-        "\"breakingChanges\":\"new-major\","
-        "\"unknownRequestFields\":\"reject\","
-        "\"legacyUnversioned\":\"transition\","
-        "\"lifecycle\":[\"supported\",\"deprecated\",\"sunset-announced\",\"removed\"],"
-        "\"deprecationHeaders\":[\"Deprecation\",\"Sunset\",\"Link\"],"
-        "\"deprecatedAliases\":[]},"
-        "\"links\":{\"self\":\"/api/v1/capabilities\",\"root\":\"/api/v1\"}}",
-        requestId,
-        correlationId);
 }
 
 ApiResponse publicOperationResponse(
@@ -6300,51 +6147,19 @@ bool PublicApiRuntime::tryHandleGet(
 
     if (path == "/api/v1")
     {
-        response = contractRoot(
-            !actorRef.empty(),
-            requestId,
-            correlationId);
+        response = jsonResponse(
+            vdrsuite::public_api::discoveryGetBody(
+                *this, path, !actorRef.empty()),
+            requestId, correlationId);
         return true;
     }
 
     if (path == "/api/v1/capabilities")
     {
-        response = platformCapabilities(
-            operationLookupConfigured(),
-            timerAssignmentLookupConfigured(),
-            timerCreateAdmissionConfigured(),
-            searchTimerCollectionLookupConfigured(),
-            backendCollectionLookupConfigured(),
-            recordingCollectionLookupConfigured(),
-            genreCollectionLookupConfigured(),
-            epgGenreLookupConfigured(),
-            epgNowNextLookupConfigured(),
-            epgWindowLookupConfigured(),
-            epgEventDetailLookupConfigured(),
-            nativeTimersLookupConfigured(),
-            searchLookupConfigured(),
-            accountCollectionLookupConfigured(),
-            accountMutationConfigured(),
-            accountCreateConfigured(),
-            accountGrantLookupConfigured() &&
-                accountGrantMutationConfigured(),
-            deviceGrantAdministrationConfigured(),
-            deviceLifecycleAdministrationConfigured(),
-            deviceCredentialRotationConfigured(),
-            accountCredentialLookupConfigured() &&
-                accountSessionLookupConfigured(),
-            accountCredentialItemLookupConfigured() &&
-                accountCredentialMutationConfigured(),
-            accountSessionItemLookupConfigured() &&
-                accountSessionMutationConfigured(),
-            devicePairingCreateConfigured() &&
-                devicePairingLookupConfigured(),
-            devicePairingAdministrationCollectionLookupConfigured() &&
-                devicePairingAdministrationLookupConfigured() &&
-                devicePairingDecisionConfigured(),
-            deviceCredentialIssueConfigured(),
-            requestId,
-            correlationId);
+        response = jsonResponse(
+            vdrsuite::public_api::discoveryGetBody(
+                *this, path, !actorRef.empty()),
+            requestId, correlationId);
         return true;
     }
 

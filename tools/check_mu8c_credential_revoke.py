@@ -19,6 +19,7 @@ FILES = {
     "gate": ROOT / "core/security/include/SecurityHttpGate.h",
     "runtime_h": ROOT / "api/rest/include/PublicApiRuntime.h",
     "runtime_cpp": ROOT / "api/rest/src/PublicApiRuntime.cpp",
+    "discovery_cpp": ROOT / "api/rest/src/PublicDiscoveryRoutes.cpp",
     "server_h": ROOT / "core/http/include/TestHttpServer.h",
     "server_cpp": ROOT / "core/http/src/TestHttpServer.cpp",
     "service_test": ROOT / "core/security/tests/test_human_account_credential_administration_service.cpp",
@@ -143,7 +144,7 @@ def main():
         "The Account Credential lifecycle changed after it was read.",
         "The final usable administrator credential cannot be revoked.",
     ):
-        require("runtime_cpp", marker)
+        require("discovery_cpp" if marker == "public-api.accounts-credential-revoke" else "runtime_cpp", marker)
 
     public_scope = between(
         "runtime_cpp",

@@ -19,6 +19,7 @@ FILES = {
     "compat_guard": ROOT / "tools/check_phase69e_compatibility_policy.py",
     "classification_guard": ROOT / "tools/check_phase69e_legacy_route_classification.py",
     "runtime": ROOT / "api/rest/src/PublicApiRuntime.cpp",
+    "discovery": ROOT / "api/rest/src/PublicDiscoveryRoutes.cpp",
     "phase_make": ROOT / "mk/phase69-public-api-tests.mk",
     "groups": ROOT / "mk/test-groups.mk",
     "maintenance": ROOT / "mk/maintenance-tests.mk",
@@ -87,7 +88,7 @@ require(
 )
 require(classification, "[Phase 69.E Closeout]", "classification closeout link")
 
-runtime = read("runtime")
+runtime = read("runtime") + "\n" + read("discovery")
 require(runtime, r'\"deprecatedAliases\":[]', "empty deprecatedAliases capability")
 
 compat_guard = read("compat_guard")

@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 paths = {
     "public_h": ROOT / "api/rest/include/PublicApiRuntime.h",
     "public_cpp": ROOT / "api/rest/src/PublicApiRuntime.cpp",
+    "discovery_cpp": ROOT / "api/rest/src/PublicDiscoveryRoutes.cpp",
     "router": ROOT / "api/rest/include/ApiRouter.h",
     "http": ROOT / "core/http/src/TestHttpServer.cpp",
     "security": ROOT / "core/security/include/SecurityHttpGate.h",
@@ -35,9 +36,9 @@ required = {
         "authorizedBackendId",
         "publicStrongEntityTag(",
         "publicEvaluateIfNoneMatch(",
-        "public-api.timer-assignments-read",
         "PublicTimerAssignmentLookupStatus::notFound",
     ],
+    "discovery_cpp": ["public-api.timer-assignments-read"],
     "router": [
         "authorizedBackendRef",
         "ifNoneMatch,",

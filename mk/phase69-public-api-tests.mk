@@ -2,7 +2,7 @@
 
 test-public-epg-timer-intent-admission:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_epg_timer_intent_admission.cpp \
 		-o $(BUILD_DIR)/test_public_epg_timer_intent_admission
 	$(BUILD_DIR)/test_public_epg_timer_intent_admission
@@ -17,7 +17,7 @@ test-phase: test-public-epg-timer-intent-admission
 .PHONY: test-public-v1-native-timer-detail
 test-public-v1-native-timer-detail:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_native_timer_detail.cpp \
 		-o $(BUILD_DIR)/test_public_native_timer_detail
 	$(BUILD_DIR)/test_public_native_timer_detail
@@ -28,7 +28,7 @@ test-fast: test-public-v1-native-timer-detail
 .PHONY: test-public-v1-native-timer-delete
 test-public-v1-native-timer-delete:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_native_timer_delete.cpp \
 		-o $(BUILD_DIR)/test_public_native_timer_delete
 	$(BUILD_DIR)/test_public_native_timer_delete
@@ -38,7 +38,7 @@ test-fast: test-public-v1-native-timer-delete
 .PHONY: test-public-v1-native-timer-modifications
 test-public-v1-native-timer-modifications:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_native_timer_modifications.cpp \
 		-o $(BUILD_DIR)/test_public_native_timer_modifications
 	$(BUILD_DIR)/test_public_native_timer_modifications
@@ -67,7 +67,7 @@ test-phase69-public-epg-timer-selection:
 
 test-phase69-public-api-contract-root:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_api_contract_runtime.cpp \
 		-o $(BUILD_DIR)/test_public_api_contract_runtime
 	$(BUILD_DIR)/test_public_api_contract_runtime
@@ -97,7 +97,7 @@ test-phase69-operation-read-facade:
 
 test-phase69-public-operation-resource:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_operation_resource.cpp \
 		-o $(BUILD_DIR)/test_public_operation_resource
 	$(BUILD_DIR)/test_public_operation_resource
@@ -120,7 +120,7 @@ test-phase69-timer-assignment-read-facade:
 
 test-phase69-timer-assignment-runtime-composition:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_timer_assignment_lookup.cpp \
 		-o $(BUILD_DIR)/test_public_timer_assignment_lookup
 	$(BUILD_DIR)/test_public_timer_assignment_lookup
@@ -130,7 +130,7 @@ test-phase69-timer-assignment-runtime-composition:
 
 test-phase69-public-timer-assignment-resource:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_timer_assignment_resource.cpp \
 		-o $(BUILD_DIR)/test_public_timer_assignment_resource
 	$(BUILD_DIR)/test_public_timer_assignment_resource
@@ -223,7 +223,7 @@ test-phase69-atomic-timer-create-admission:
 
 test-phase69-public-timer-create-admission:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_timer_create_admission.cpp \
 		-o $(BUILD_DIR)/test_public_timer_create_admission
 	$(BUILD_DIR)/test_public_timer_create_admission
@@ -398,7 +398,7 @@ test-phase69d-timer-assignment-collection-read:
 
 test-phase69d-public-timer-assignment-collection:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_timer_assignment_collection.cpp \
 		-o $(BUILD_DIR)/test_public_timer_assignment_collection
 	$(BUILD_DIR)/test_public_timer_assignment_collection
@@ -415,7 +415,7 @@ test-phase69d-public-timer-assignment-collection:
 
 test-phase69d-public-channel-collection:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_channel_collection.cpp \
 		-o $(BUILD_DIR)/test_public_channel_collection
 	$(BUILD_DIR)/test_public_channel_collection
@@ -500,7 +500,7 @@ test-frontend-contracts: test-phase69f-client-contract-matrix
 
 test-phase69f-public-backend-collection:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_backend_collection.cpp \
 		-o $(BUILD_DIR)/test_public_backend_collection
 	$(BUILD_DIR)/test_public_backend_collection
@@ -587,7 +587,7 @@ test-phase69-closeout:
 
 test-public-epg-now-next-api:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_epg_now_next.cpp \
 		-o $(BUILD_DIR)/test_public_epg_now_next
 	$(BUILD_DIR)/test_public_epg_now_next
@@ -679,7 +679,7 @@ test-phase: test-searchtimer-create-device-admission
 # Authenticated Public-v1 read only, no Timer CREATE mutation.
 test-public-epg-event-detail:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_epg_event_detail.cpp \
 		-o $(BUILD_DIR)/test_public_epg_event_detail
 	$(BUILD_DIR)/test_public_epg_event_detail

@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FILES = {
     "runtime_h": ROOT / "api/rest/include/PublicApiRuntime.h",
     "runtime_cpp": ROOT / "api/rest/src/PublicApiRuntime.cpp",
+    "discovery_cpp": ROOT / "api/rest/src/PublicDiscoveryRoutes.cpp",
     "authorization": ROOT / "core/security/include/AuthorizationService.h",
     "gate": ROOT / "core/security/include/SecurityHttpGate.h",
     "server_h": ROOT / "core/http/include/TestHttpServer.h",
@@ -72,7 +73,7 @@ def main():
         "public-api.accounts-lifecycle-mutation",
         "GET, POST",
     ):
-        require("runtime_cpp", marker)
+        require("discovery_cpp" if marker == "public-api.accounts-lifecycle-mutation" else "runtime_cpp", marker)
 
     for marker in (
         'permission == "accounts.modify"',
