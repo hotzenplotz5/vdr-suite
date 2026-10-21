@@ -44,3 +44,24 @@ source is never deleted. Focused tests confirm that a replaced
 same-size file is rejected before probing, and that probing and
 remuxing share the same private input. This does **not** substitute
 for Core's canonical recording reconciliation and Agent job lifecycle.
+
+
+## A6 isolated durable dispatch and pinned execution candidate
+
+The existing Core Agent command inbox now accepts the strict opaque
+`addon.media.import` assignment schema with `reconciliation_required`,
+persists an accepted receipt, writes `starting` before invoking an explicitly
+injected executor, and emits a durable unknown/unverified result for recording
+reconciliation. Crash recovery never blindly runs a remux twice.
+
+`PinnedMediaImportAgentExecutor` is the concrete add-on-owned Agent execution
+implementation. It rereads root approval, retains the verified binary descriptor
+from the common Core install snapshot, resolves only a local inventory token,
+rechecks the effective backend-specific authorization hook, and invokes the pinned
+descriptor without a shell with bounded child lifetime. No file paths are read
+from the API command payload; the original recording is never deleted.
+
+The trusted inventory and grant adapters and the server-side operation completion
+are **not yet wired to production**. `apps/agent/main.cpp` deliberately injects
+no executor or command advertisement. This is testable in isolated CI without
+mutating yaVDR; it is not yet a product-ready Media Import feature.
