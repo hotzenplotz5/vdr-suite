@@ -9,12 +9,15 @@ int main()
     op.backendId = "backend-a";
     op.backendGeneration = 7;
     op.deadline = 200;
+    op.requestFingerprint = "fingerprint-1";
     op.state = vdrsuite::operations::MutationOperationState::dispatching;
     op.verificationPolicy = vdrsuite::operations::MutationOperationVerificationPolicy::reconciliationRequired;
     BackendAgentCommandAssignment command;
     command.present = true;
     command.operationId = "operation-a";
     command.jobId = "job-a";
+    command.agentId = "agent-a";
+    command.agentInstanceId = "instance-a";
     command.attemptId = "attempt-a";
     command.claimEpoch = 1;
     command.commandId = "command-a";
@@ -22,7 +25,7 @@ int main()
     command.backendGeneration = 7;
     command.commandType = "addon.media.import";
     command.deadline = 150;
-    command.requestFingerprint = "fixed-fingerprint";
+    command.requestFingerprint = "fingerprint-1";
     command.payloadVersion = 1;
     command.verificationPolicy = "reconciliation_required";
     auto reason = [&] { return inspectCanonicalImportAssignment(op, command, 100); };
@@ -50,5 +53,10 @@ int main()
     assert(reason() == ImportEnvelopeReason::missingOperation);
     command.payloadVersion = 1;
     command.requestFingerprint.clear();
+    assert(reason() == ImportEnvelopeReason::missingOperation);
+    command.requestFingerprint = "different";
+    assert(reason() == ImportEnvelopeReason::missingOperation);
+    command.requestFingerprint = op.requestFingerprint;
+    command.agentInstanceId.clear();
     assert(reason() == ImportEnvelopeReason::missingOperation);
 }
