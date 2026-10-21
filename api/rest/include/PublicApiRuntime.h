@@ -867,6 +867,27 @@ struct PublicDevicePairingDecisionResult
     PublicDevicePairingAdministrativeResource request;
 };
 
+enum class PublicMediaImportAdmissionStatus
+{
+    accepted, replayed, invalid, forbidden, idempotencyConflict,
+    conflict, unavailable
+};
+
+struct PublicMediaImportAdmissionRequest
+{
+    std::string actorRef;
+    std::string backendId;
+    std::string sourceId;
+    std::string idempotencyKey;
+};
+
+struct PublicMediaImportAdmissionResult
+{
+    PublicMediaImportAdmissionStatus status =
+        PublicMediaImportAdmissionStatus::unavailable;
+    PublicOperationResource operation;
+};
+
 struct PublicTimerCreateAdmissionRequest
 {
     std::string actorRef;
@@ -1016,6 +1037,10 @@ public:
     using DevicePairingDecision =
         std::function<PublicDevicePairingDecisionResult(
             const PublicDevicePairingDecisionRequest& request)>;
+
+    using MediaImportAdmission =
+        std::function<PublicMediaImportAdmissionResult(
+            const PublicMediaImportAdmissionRequest& request)>;
 
     using TimerCreateAdmission =
         std::function<PublicTimerCreateAdmissionResult(
@@ -1183,6 +1208,9 @@ public:
     void resetDevicePairingDecision();
     bool devicePairingDecisionConfigured() const;
 
+    void registerMediaImportAdmission(MediaImportAdmission admission);
+    void resetMediaImportAdmission();
+
     void registerTimerCreateAdmission(TimerCreateAdmission admission);
     void resetTimerCreateAdmission();
     bool timerCreateAdmissionConfigured() const;
@@ -1321,6 +1349,9 @@ private:
 
     mutable std::mutex devicePairingDecisionMutex_;
     DevicePairingDecision devicePairingDecision_;
+
+    mutable std::mutex mediaImportAdmissionMutex_;
+    MediaImportAdmission mediaImportAdmission_;
 
     mutable std::mutex timerCreateAdmissionMutex_;
     TimerCreateAdmission timerCreateAdmission_;

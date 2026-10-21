@@ -160,6 +160,26 @@ bool publicMediaImportCapabilityPath(
         backendId.find('%') == std::string::npos;
 }
 
+bool publicMediaImportCollectionPath(
+    const std::string& path, std::string& backendId)
+{
+    static const std::string prefix = "/api/v1/backends/";
+    static const std::string suffix = "/media-imports";
+    if (path.compare(0U, prefix.size(), prefix) != 0 ||
+        path.size() <= prefix.size() + suffix.size() ||
+        path.compare(path.size() - suffix.size(), suffix.size(), suffix) != 0)
+        return false;
+    backendId = path.substr(prefix.size(),
+                            path.size() - prefix.size() - suffix.size());
+    return backendId.size() <= 128U &&
+        backendId != "*" && backendId != "." && backendId != ".." &&
+        std::all_of(backendId.begin(), backendId.end(),
+            [](unsigned char ch) {
+                return std::isalnum(ch) || ch == '-' ||
+                       ch == '_' || ch == '.';
+            });
+}
+
 bool publicAccountPath(
     const std::string& path,
     std::string& accountId)
@@ -2038,6 +2058,33 @@ bool parsePublicAccountMutationBody(
     }
     skipAccountMutationWhitespace(input, position);
     return position == input.size();
+}
+
+// A7.3: a single JSON string field, closed grammar; never a source path.
+bool parseMediaImportAdmissionBody(
+    const std::string& input, std::string& sourceId)
+{
+    std::size_t position = 0U;
+    skipAccountMutationWhitespace(input, position);
+    if (position >= input.size() || input[position++] != '{') return false;
+    skipAccountMutationWhitespace(input, position);
+    std::string key;
+    if (!parseAccountMutationJsonString(input, position, key) ||
+        key != "sourceId") return false;
+    skipAccountMutationWhitespace(input, position);
+    if (position >= input.size() || input[position++] != ':') return false;
+    skipAccountMutationWhitespace(input, position);
+    if (!parseAccountMutationJsonString(input, position, sourceId))
+        return false;
+    skipAccountMutationWhitespace(input, position);
+    if (position >= input.size() || input[position++] != '}') return false;
+    skipAccountMutationWhitespace(input, position);
+    if (position != input.size() ||
+        sourceId.size() < 16U || sourceId.size() > 64U) return false;
+    return std::all_of(sourceId.begin(), sourceId.end(),
+        [](unsigned char ch) {
+            return std::isalnum(ch) || ch == '_' || ch == '-';
+        });
 }
 
 bool parsePublicAccountCreateBody(
@@ -4431,6 +4478,19 @@ bool PublicApiRuntime::devicePairingDecisionConfigured() const
     std::lock_guard<std::mutex> lock(
         devicePairingDecisionMutex_);
     return static_cast<bool>(devicePairingDecision_);
+}
+
+void PublicApiRuntime::registerMediaImportAdmission(
+    MediaImportAdmission admission)
+{
+    std::lock_guard<std::mutex> lock(mediaImportAdmissionMutex_);
+    mediaImportAdmission_ = std::move(admission);
+}
+
+void PublicApiRuntime::resetMediaImportAdmission()
+{
+    std::lock_guard<std::mutex> lock(mediaImportAdmissionMutex_);
+    mediaImportAdmission_ = {};
 }
 
 void PublicApiRuntime::registerTimerCreateAdmission(
@@ -7125,6 +7185,14 @@ bool PublicApiRuntime::tryHandleGet(
         }
     }
 
+    std::string mediaImportBackend;
+    if (publicMediaImportCollectionPath(path, mediaImportBackend))
+    {
+        response = methodNotAllowedProblem(
+            path, requestId, correlationId, "POST");
+        return true;
+    }
+
     if (isPublicV1Path(path))
     {
         response = notFoundProblem(
@@ -7158,6 +7226,133 @@ bool PublicApiRuntime::tryHandlePost(
     std::string credentialId;
     std::string sessionId;
     std::string pairingRequestId;
+
+    std::string mediaImportBackend;
+    if (publicMediaImportCollectionPath(path, mediaImportBackend))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        // The backend scope is independently authorized by SecurityHttpGate.
+        if (authorizedBackendId != mediaImportBackend)
+        {
+            response = notFoundProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (requestTarget != path)
+        {
+            response = invalidRequestProblem(path,
+                "Media Import accepts no query parameters.",
+                requestId, correlationId);
+            return true;
+        }
+        if (!applicationJsonContentType(contentType))
+        {
+            response = problemResponse(415, "unsupported_media_type",
+                "Unsupported media type",
+                "Media Import requires Content-Type application/json.",
+                path, requestId, correlationId);
+            return true;
+        }
+        if (body.size() > 256U)
+        {
+            response = invalidRequestProblem(path,
+                "Media Import body is too large.",
+                requestId, correlationId);
+            return true;
+        }
+        JsonSyntaxValidator validator(body);
+        if (!validator.valid())
+        {
+            response = invalidRequestProblem(path,
+                "Invalid Media Import JSON.", requestId, correlationId);
+            return true;
+        }
+        std::string sourceId;
+        if (!parseMediaImportAdmissionBody(body, sourceId))
+        {
+            response = problemResponse(422, "validation_error",
+                "Validation failed",
+                "Exactly one opaque sourceId string is required.",
+                path, requestId, correlationId);
+            return true;
+        }
+        if (!publicIdempotencyKeyValid(idempotencyKey))
+        {
+            response = invalidRequestProblem(path,
+                "A valid Idempotency-Key is required.",
+                requestId, correlationId);
+            return true;
+        }
+        MediaImportAdmission admit;
+        {
+            std::lock_guard<std::mutex> lock(mediaImportAdmissionMutex_);
+            admit = mediaImportAdmission_;
+        }
+        if (!admit)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicMediaImportAdmissionRequest input;
+        input.actorRef = actorRef;
+        input.backendId = mediaImportBackend;
+        input.sourceId = sourceId;
+        input.idempotencyKey = idempotencyKey;
+        const auto result = admit(input);
+        switch (result.status)
+        {
+            case PublicMediaImportAdmissionStatus::accepted:
+            case PublicMediaImportAdmissionStatus::replayed:
+                if (result.operation.operationId.empty() ||
+                    result.operation.state.empty() ||
+                    result.operation.backendId != mediaImportBackend ||
+                    result.operation.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                {
+                    const std::string operationPath =
+                        std::string(PublicOperationPrefix) +
+                        result.operation.operationId;
+                    response = publicOperationResponse(
+                        result.operation, operationPath,
+                        requestId, correlationId, "");
+                    response.statusCode = 202;
+                    response.headers["Location"] = operationPath;
+                    return true;
+                }
+            case PublicMediaImportAdmissionStatus::invalid:
+                response = problemResponse(422, "validation_error",
+                    "Validation failed", "Invalid Media Import selection.",
+                    path, requestId, correlationId);
+                return true;
+            case PublicMediaImportAdmissionStatus::forbidden:
+                response = problemResponse(403, "permission_denied",
+                    "Forbidden", "Media Import is not authorized.",
+                    path, requestId, correlationId);
+                return true;
+            case PublicMediaImportAdmissionStatus::idempotencyConflict:
+                response = problemResponse(409, "idempotency_conflict",
+                    "Idempotency conflict",
+                    "The key conflicts with an existing Media Import operation.",
+                    path, requestId, correlationId);
+                return true;
+            case PublicMediaImportAdmissionStatus::conflict:
+                response = problemResponse(409, "operation_conflict",
+                    "Operation conflict", "Media Import operation conflict.",
+                    path, requestId, correlationId);
+                return true;
+            case PublicMediaImportAdmissionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
 
     const std::string issueSuffix = "/credential";
     const std::string pairingPrefix(PublicDevicePairingPrefix);
@@ -9469,6 +9664,14 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
             requestId,
             correlationId,
             "GET, POST");
+        return true;
+    }
+
+    std::string mediaImportBackend;
+    if (publicMediaImportCollectionPath(path, mediaImportBackend))
+    {
+        response = methodNotAllowedProblem(
+            path, requestId, correlationId, "POST");
         return true;
     }
 

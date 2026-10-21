@@ -13,6 +13,9 @@ on:
       - 'api/rest/include/PublicApiRuntime.h'
       - 'api/rest/src/PublicApiRuntime.cpp'
       - 'api/rest/tests/test_public_media_import_capability.cpp'
+      - 'api/rest/tests/test_public_media_import_admission.cpp'
+      - 'core/addons/include/MediaImportOperationAdmission.h'
+      - 'core/addons/src/MediaImportOperationAdmission.cpp'
       - 'mk/phase69-public-api-tests.mk'
       - 'core/daemon/src/DaemonRuntimeRecordingCache.cpp'
       - 'mk/daemon-sources.mk'
@@ -100,6 +103,7 @@ jobs:
           make test-media-tools-agent-dispatch
           make test-media-tools-effective-authorization
           make test-addon-media-import-api-capability
+          make test-addon-media-import-api-admission
           make test-phase69f-public-backend-collection
           make backend-agent
           # Compile and link the real Suite daemon with its trusted A6 callback.

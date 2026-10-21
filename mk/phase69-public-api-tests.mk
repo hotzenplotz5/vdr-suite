@@ -417,6 +417,15 @@ test-phase69f-client-contract-matrix:
 test-frontend-contracts: test-phase69f-client-contract-matrix
 
 
+.PHONY: test-addon-media-import-api-admission
+
+test-addon-media-import-api-admission:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		api/rest/src/PublicApiRuntime.cpp \
+		api/rest/tests/test_public_media_import_admission.cpp \
+		-o $(BUILD_DIR)/test_public_media_import_admission
+	$(BUILD_DIR)/test_public_media_import_admission
+
 .PHONY: test-addon-media-import-api-capability
 
 test-addon-media-import-api-capability:
