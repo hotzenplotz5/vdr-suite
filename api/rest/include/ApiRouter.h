@@ -94,19 +94,16 @@ public:
             return snapshotReadService_.getEventsForBackend(backendId);
         }
 
-        const SearchTimerPreviewEpgCacheStatus status =
-            searchTimerPreviewEpgCache_->statusForBackend(backendId);
-
+        // Do not sample cache readiness and its event generation in
+        // separate locks: an EPG change can invalidate between the two.
+        const auto read =
+            searchTimerPreviewEpgCache_->readForBackend(backendId);
         SearchTimerPreviewEpgInputContext::setCacheStatus(
-            status,
-            backendId);
+            read.status, backendId);
 
-        const std::vector<VdrEvent>* cachedEvents =
-            searchTimerPreviewEpgCache_->eventsForBackend(backendId);
-
-        if (cachedEvents != nullptr)
+        if (read.events)
         {
-            return *cachedEvents;
+            return *read.events;
         }
 
         return snapshotReadService_.getEventsForBackend(backendId);
@@ -192,6 +189,26 @@ public:
         response.statusCode = 503;
         response.headers["Cache-Control"] = "no-store";
         response.body = "{\"error\":{\"code\":\"device_playback_unavailable\"}}";
+        return response;
+    }
+
+    void setDeviceLivePlaybackHandler(DeviceRecordingPlaybackHandler handler)
+    {
+        deviceLivePlaybackHandler_ = std::move(handler);
+    }
+
+    ApiResponse handleDeviceLivePlayback(
+        const std::string& requestTarget,
+        const std::string& body,
+        const RequestSecurityContext& verifiedDevice)
+    {
+        if (deviceLivePlaybackHandler_)
+            return deviceLivePlaybackHandler_(
+                requestTarget, body, verifiedDevice);
+        ApiResponse response;
+        response.statusCode = 503;
+        response.headers["Cache-Control"] = "no-store";
+        response.body = "{\"error\":{\"code\":\"device_live_unavailable\"}}";
         return response;
     }
 
@@ -340,6 +357,24 @@ public:
         }
 
         return handleGet(requestTarget);
+    }
+
+    ApiResponse handleClientDelete(
+        const std::string& target,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::string& ifMatch,
+        const std::string& idempotencyKey,
+        const std::string& backendId)
+    {
+        ApiResponse response;
+        if (PublicApiRuntime::instance().tryHandleDelete(
+                target, actorRef, requestId, correlationId,
+                ifMatch, idempotencyKey, backendId, response))
+            return response;
+        return handleClientUnsupportedMethod(
+            "DELETE", target, requestId, correlationId);
     }
 
     ApiResponse handleClientUnsupportedMethod(
@@ -539,4 +574,5 @@ private:
     VdrRecordingFolderController* vdrRecordingFolderController_;
     RecordingMediaSessionHandler recordingMediaSessionHandler_;
     DeviceRecordingPlaybackHandler deviceRecordingPlaybackHandler_;
+    DeviceRecordingPlaybackHandler deviceLivePlaybackHandler_;
 };

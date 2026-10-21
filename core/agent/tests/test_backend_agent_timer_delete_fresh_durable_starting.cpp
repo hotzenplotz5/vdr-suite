@@ -3,6 +3,7 @@
 #include "BackendAgentCommandClient.h"
 #include "BackendAgentCommandStateExtension.h"
 #include "BackendAgentNativeTimerDeleteLocalState.h"
+#include "BackendAgentCommandStateStore.h"
 #include "BackendAgentNativeTimerDeletePayload.h"
 
 #include <cassert>
@@ -297,6 +298,16 @@ int main()
     assert(valueFor(expiredPersisted, "result_category") == "rejected");
     assert(valueFor(expiredPersisted, "error_category") == "expired");
     assert(valueFor(expiredPersisted, "state_extension").empty());
+    vdrsuite::agent::commandstate::LocalState expiredLoaded;
+    assert(vdrsuite::agent::commandstate::load(
+        path, expiredLoaded, reason));
+    assert(expiredLoaded.result.resultEvidence.empty());
+    assert(vdrsuite::agent::commandstate::persist(
+        path, expiredLoaded, reason));
+    expiredLoaded.result.resultCategory = "outcome_unknown";
+    assert(!vdrsuite::agent::commandstate::persist(
+        path, expiredLoaded, reason));
+    assert(reason == "command_state_invalid_delete_result_evidence");
     std::remove(path.c_str());
 
     // Receipt transport failure after the durable starting write cannot reopen

@@ -1,6 +1,7 @@
 #include "RecordingMediaSessionController.h"
 #include "PublicRecordingDeviceMediaSessionResponse.h"
 
+#include "DeviceMediaCapabilityProfile.h"
 #include "FfprobeRecordingSource.h"
 #include "LocalVdrRecordingSourceResolver.h"
 #include "MediaAccessCredentialHttp.h"
@@ -204,7 +205,7 @@ ApiResponse RecordingMediaSessionController::createSession(
     const std::string& body,
     const std::string& actorId) const
 {
-    return createSessionInternal(body, actorId, nullptr, {}, {}, {}, nullptr);
+    return createSessionInternal(body, actorId, nullptr, {}, {}, {}, nullptr, nullptr, nullptr);
 }
 
 ApiResponse RecordingMediaSessionController::createDeviceSession(
@@ -214,12 +215,15 @@ ApiResponse RecordingMediaSessionController::createDeviceSession(
     const std::string& publicRecordingId,
     const std::string& externalMediaPrefix,
     const std::string& cookiePrefix,
-    std::string& activatedSessionId) const
+    std::string& activatedSessionId,
+    const DeviceMediaCapabilityProfile* storedVerifiedProfile,
+    const DeviceMediaProfileKey* authenticatedPlayer) const
 {
     activatedSessionId.clear();
     return createSessionInternal(
         body, actorId, &authorizedRecording, publicRecordingId,
-        externalMediaPrefix, cookiePrefix, &activatedSessionId);
+        externalMediaPrefix, cookiePrefix, &activatedSessionId,
+        storedVerifiedProfile, authenticatedPlayer);
 }
 
 ApiResponse RecordingMediaSessionController::createSessionInternal(
@@ -229,7 +233,9 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
     const std::string& publicRecordingId,
     const std::string& externalMediaPrefix,
     const std::string& cookiePrefix,
-    std::string* activatedSessionId) const
+    std::string* activatedSessionId,
+    const DeviceMediaCapabilityProfile* storedVerifiedProfile,
+    const DeviceMediaProfileKey* authenticatedPlayer) const
 {
     const auto requestStartedAt = std::chrono::steady_clock::now();
     if (actorId.empty()) {
@@ -424,11 +430,25 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
         removeProgressiveCapability(effectiveCapabilities);
     }
 
-    MediaPresentationProfile profile =
-        MediaPresentationSelector().select(
-            source,
-            effectiveCapabilities,
-            preferredAudioStreamIndex);
+    MediaPresentationProfile profile;
+    if (storedVerifiedProfile != nullptr || authenticatedPlayer != nullptr) {
+        if (storedVerifiedProfile == nullptr || authenticatedPlayer == nullptr ||
+            authorizedRecording == nullptr) {
+            return jsonError(403, "device_media_profile_context_invalid");
+        }
+        const auto selected = DeviceMediaProfileSelector().select(
+            source, effectiveCapabilities, *storedVerifiedProfile,
+            *authenticatedPlayer, preferredAudioStreamIndex);
+        if (!selected.available)
+            return jsonError(422, "device_media_profile_no_compatible_path");
+        profile = selected.presentation;
+    }
+    else {
+        // Existing legacy/Device CREATE behavior is deliberately unchanged
+        // unless the registered Device explicitly selects a stored profile.
+        profile = MediaPresentationSelector().select(
+            source, effectiveCapabilities, preferredAudioStreamIndex);
+    }
     if (!profile.available || profile.profileId.empty()) {
         return jsonError(
             requestedAudioTrack.audioTrackId.empty() ? 422 : 409,

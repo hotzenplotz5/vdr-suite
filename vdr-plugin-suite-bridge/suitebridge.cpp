@@ -23,6 +23,10 @@ cPluginSuiteBridge::cPluginSuiteBridge()
       nativeTimerCreate_(
           nativeProbe_.PluginInstanceEpoch(),
           &nativeTimerCreateVdrMutation_),
+      nativeTimerPreview_(nativeProbe_.PluginInstanceEpoch(),
+          [](const SuiteBridgeNativeTimerPreviewVdrRequest& request) {
+            return SuiteBridgeCaptureNativeTimerPreviewVdr(request);
+          }),
       nativeTimerDelete_(
           nativeProbe_.PluginInstanceEpoch(),
           &nativeTimerDeleteVdrMutation_),

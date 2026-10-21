@@ -1,5 +1,6 @@
 #include "Database.h"
 #include "EpgCacheService.h"
+#include "SearchTimerPreviewEpgCache.h"
 #include "IVdrAdapter.h"
 #include "VdrService.h"
 
@@ -396,8 +397,69 @@ static void test_truncated_channel_is_not_reconciled()
         "default", "channel-1", "current-id"));
 }
 
+static void test_warmup_reuses_authoritative_events_for_searchtimer_preview()
+{
+    const char* dbPath =
+        "/tmp/vdr-suite-epg-cache-search-preview-integration-test.db";
+    std::remove(dbPath);
+    Database database;
+    assert(database.open(dbPath));
+    EpgEventRepository repository(database);
+    MockEventAdapter adapter;
+    VdrService vdrService(adapter);
+    SearchTimerPreviewEpgCache preview;
+    EpgCacheService service(repository, vdrService, nullptr, nullptr, &preview);
+
+    VdrEventQuery query;
+    query.from = 900;
+    query.timespan = 7200;
+    query.channelEventLimit = 10;
+
+    adapter.events = {
+        make_event("native-1", "channel-1", "Amerika", "1000", "2000"),
+        make_event("native-2", "channel-2", "Tatort", "1100", "2100")};
+
+    // A normal EPG refresh is not allowed to replace the SearchTimer input.
+    assert(service.refreshBackendWindow("home-vdr", query).stored);
+    assert(!preview.sharedEventsForBackend("home-vdr"));
+    assert(adapter.boundedEventCalls == 1);
+
+    // Startup warmup publishes the already fetched, backend-scoped payload.
+    assert(service.refreshBackendWindow("home-vdr", query, true).stored);
+    auto events = preview.sharedEventsForBackend("home-vdr");
+    assert(events && events->size() == 2);
+    assert(events->at(0).title == "Amerika");
+    assert(events->at(1).channelId == "channel-2");
+    assert(adapter.boundedEventCalls == 2);
+    assert(adapter.unboundedEventCalls == 0);
+    assert(!preview.sharedEventsForBackend("remote-vdr"));
+
+    // Manual partial-channel refresh must not destroy a full preview.
+    VdrEventQuery partial = query;
+    partial.channelId = "channel-1";
+    adapter.events = {
+        make_event("native-3", "channel-1", "Only One", "1200", "2200")};
+    assert(service.refreshBackendWindow("home-vdr", partial, true).stored);
+    auto retained = preview.sharedEventsForBackend("home-vdr");
+    assert(retained && retained->size() == 2);
+    assert(retained->at(0).title == "Amerika");
+
+    // The real change hint marks the preview stale until a new warmup.
+    preview.markStale("home-vdr");
+    assert(!preview.sharedEventsForBackend("home-vdr"));
+    adapter.events = {
+        make_event("native-4", "channel-1", "Fresh", "1300", "2300")};
+    assert(service.refreshBackendWindow("home-vdr", query, true).stored);
+    auto refreshed = preview.sharedEventsForBackend("home-vdr");
+    assert(refreshed && refreshed->size() == 1);
+    assert(refreshed->at(0).title == "Fresh");
+    assert(events->at(0).title == "Amerika");
+}
+
 int main()
 {
+    test_warmup_reuses_authoritative_events_for_searchtimer_preview();
+
     test_unbounded_refresh_is_rejected_without_fetching_events();
     test_bounded_refresh_fetches_and_stores_backend_scoped_events();
     test_cache_reads_do_not_fetch_adapter_events();

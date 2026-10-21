@@ -2,6 +2,7 @@
 
 #include <cerrno>
 #include <climits>
+#include <cctype>
 #include <cstdlib>
 #include <map>
 #include <sstream>
@@ -47,7 +48,8 @@ int integerValue(const std::map<std::string, std::string>& fields, const std::st
 
     char* end = nullptr;
     const long value = std::strtol(iterator->second.c_str(), &end, 10);
-    if (end == iterator->second.c_str() || *end != '\0' || value < 0) return 0;
+    if (end == iterator->second.c_str() || *end != '\0' ||
+        value < 0 || value > INT_MAX) return 0;
     return static_cast<int>(value);
 }
 
@@ -124,6 +126,26 @@ bool flagValue(
     return fieldValue(fields, key) == "1";
 }
 
+std::string boundedCodecProfile(const std::string& profile)
+{
+    if (profile.empty() || profile.size() > 32U) return {};
+    for (unsigned char c : profile) {
+        if (!std::isalnum(c) && c != ' ' && c != '-' && c != '_' &&
+            c != '.') return {};
+    }
+    return profile;
+}
+
+int knownPixelBitDepth(const std::string& pixelFormat)
+{
+    if (pixelFormat == "yuv420p" || pixelFormat == "yuv422p" ||
+        pixelFormat == "yuv444p" || pixelFormat == "nv12") return 8;
+    if (pixelFormat == "yuv420p10le" || pixelFormat == "yuv420p10be" ||
+        pixelFormat == "yuv422p10le" || pixelFormat == "p010le") return 10;
+    if (pixelFormat == "yuv420p12le" || pixelFormat == "yuv422p12le") return 12;
+    return 0;
+}
+
 } // namespace
 
 FfprobeRecordingPlan FfprobeRecordingSource::commandPlan() const
@@ -136,7 +158,7 @@ FfprobeRecordingPlan FfprobeRecordingSource::commandPlan() const
         "-safe", "1",
         "-i", "input.ffconcat",
         "-show_entries",
-        "stream=codec_type,codec_name,width,height,r_frame_rate,field_order,color_primaries,color_transfer,color_space,pix_fmt,time_base,bit_rate,channels,channel_layout:stream_tags=language,title:stream_disposition=default,original,comment,hearing_impaired,visual_impaired,forced",
+        "stream=codec_type,codec_name,profile,level,bits_per_raw_sample,width,height,r_frame_rate,field_order,color_primaries,color_transfer,color_space,pix_fmt,time_base,bit_rate,channels,channel_layout:stream_tags=language,title:stream_disposition=default,original,comment,hearing_impaired,visual_impaired,forced",
         "-of", "compact=p=0:nk=0"
     };
     return plan;
@@ -175,6 +197,16 @@ FfprobeRecordingResult FfprobeRecordingSource::parse(
             video.pixelFormat = fieldValue(fields, "pix_fmt");
             video.timeBase = fieldValue(fields, "time_base");
             video.bitRate = nonNegativeBitRate(fields);
+            video.codecProfile = boundedCodecProfile(fieldValue(fields, "profile"));
+            video.codecLevel = integerValue(fields, "level");
+            if (video.codecLevel > 255) video.codecLevel = 0;
+            video.bitDepth = knownPixelBitDepth(video.pixelFormat);
+            const int reportedDepth = integerValue(fields, "bits_per_raw_sample");
+            if (reportedDepth > 0 && reportedDepth <= 16 &&
+                (video.bitDepth == 0 || video.bitDepth == reportedDepth))
+                video.bitDepth = reportedDepth;
+            else if (reportedDepth > 0 && reportedDepth != video.bitDepth)
+                video.bitDepth = 0;
             // PQ and HLG are explicit HDR transfer characteristics; absent
             // or unknown values must not be promoted to HDR.
             video.hdr = video.colorTransfer == "smpte2084" ||

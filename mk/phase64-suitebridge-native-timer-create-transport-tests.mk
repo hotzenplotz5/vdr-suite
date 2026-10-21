@@ -20,6 +20,7 @@ test-phase64-suitebridge-native-timer-create-transport: \
 		core/agent/src/BackendAgentRecordingCutPayload.cpp \
 		$(AGENT_SVDRP_TRANSPORT_STANDALONE_SRC) \
 		$(AGENT_NATIVE_TIMER_CREATE_TRANSPORT_SRC) \
+		core/timers/tests/test_epg_native_timer_clock_attestation.cpp \
 		core/agent/tests/test_suite_bridge_svdrp_native_timer_create_transport.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_suite_bridge_svdrp_native_timer_create_transport

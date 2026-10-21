@@ -116,11 +116,38 @@ if agent_sources.count("core/agent/src/BackendAgentNativeTimerDelete.cpp") != 1:
     failures.append("Slice-29 Agent state owner must wire the Timer-delete domain validator exactly once")
 if "AGENT_COMMAND_STATE_SRC :=" not in agent_sources:
     failures.append("Slice-29 Agent state owner command-state source set is missing")
+# The future DELETE control plane owns a *second* explicitly checked
+# consumer of the pure domain validator. The Agent state owner remains the
+# only local executor; the daemon may not import direct SVDRP mutation.
+delete_runner = ROOT / "core/daemon/src/NativeTimerDeleteProductiveRuntime.cpp"
+delete_result = ROOT / "core/daemon/src/NativeTimerDeleteResultOutcomeApplication.cpp"
+runner_text = delete_runner.read_text(encoding="utf-8") if delete_runner.is_file() else ""
+result_text = delete_result.read_text(encoding="utf-8") if delete_result.is_file() else ""
+delete_successor_valid = all(marker in runner_text for marker in (
+    "publicNativeTimerDeletePreflight(",
+    "applyDurableNativeTimerDeleteResult(",
+    "verification.verify(",
+    "completion.complete(",
+    "BackendAgentNativeTimerDeleteAssignmentService& assigner",
+)) and all(marker in result_text for marker in (
+    "backendAgentNativeTimerDeleteParseResultEvidence(",
+    "dispatchService.applyOutcome(",
+    "NativeTimerBindingOwnership::managed",
+    "NativeTimerBindingOwnership::adopted",
+))
 for source_manifest in (ROOT / "mk").glob("*-sources.mk"):
     text = source_manifest.read_text(encoding="utf-8")
     if "BackendAgentNativeTimerDelete.cpp" in text and source_manifest != AGENT_SOURCES:
+        if (
+            source_manifest.name == "daemon-sources.mk"
+            and delete_successor_valid
+            and "NativeTimerDeleteProductiveRuntime.cpp" in text
+            and "NativeTimerDeleteResultOutcomeApplication.cpp" in text
+            and text.count("core/agent/src/BackendAgentNativeTimerDelete.cpp") == 1
+        ):
+            continue
         failures.append(
-            f"Slice-24 contract is unexpectedly wired outside the bounded Agent state owner: {source_manifest.relative_to(ROOT)}"
+            f"Slice-24 contract wired outside verified DELETE successor: {source_manifest.relative_to(ROOT)}"
         )
 
 if failures:

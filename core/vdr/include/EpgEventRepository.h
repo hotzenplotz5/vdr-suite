@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -43,6 +44,22 @@ public:
         const std::string& backendId,
         const std::string& channelId,
         const std::string& eventId) const;
+
+    // True only when this exact backend/channel/EPG key was ingested with
+    // a nonempty source EventID. Old cache rows remain unproven. This is
+    // evidence of a supplied ID, NOT proof of canonical ProgramEvent identity.
+    bool hasSourceEventIdForBackend(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& eventId) const;
+
+    // Exact source-provenanced VDR EPG observation; a synthetic/cache-only
+    // event ID or legacy row is never considered a native event. The caller
+    // must still verify backend generation, freshness and write permission.
+    std::optional<VdrEvent> findSourceEventForBackend(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& nativeEventId) const;
 
     std::vector<VdrEvent> findNowNextForBackend(
         const std::string& backendId,

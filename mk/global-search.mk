@@ -18,7 +18,7 @@ GLOBAL_SEARCH_TEST_SUPPORT_SRC := \
 	api/rest/src/GlobalSearchApiRuntime.cpp \
 	api/rest/src/RestQueryParameters.cpp
 
-.PHONY: test-global-search-repository test-global-search-controller test-global-search-frontend test-global-search-architecture test-global-search
+.PHONY: test-global-search-repository test-global-search-controller test-global-search-frontend test-global-search-architecture test-global-search test-public-v1-search-web-parity
 
 test-global-search-repository:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -46,6 +46,12 @@ test-global-search-frontend:
 test-global-search-architecture:
 	python3 tools/check_global_search_architecture_contracts.py
 
-test-global-search: test-global-search-repository test-global-search-controller test-global-search-frontend test-global-search-architecture
+test-public-v1-search-web-parity:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/daemon/tests/test_public_search_web_parity.cpp \
+		-o $(BUILD_DIR)/test_public_search_web_parity
+	$(BUILD_DIR)/test_public_search_web_parity
+
+test-global-search: test-global-search-repository test-global-search-controller test-global-search-frontend test-global-search-architecture test-public-v1-search-web-parity
 
 test-fast: test-global-search

@@ -705,7 +705,8 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
             *epgEventRepository_,
             *context->epgService,
             context->epgArtworkEnrichmentService.get(),
-            context->epgReadRepository.get());
+            context->epgReadRepository.get(),
+            searchTimerPreviewEpgCache_.get());
     }
 
     return context;

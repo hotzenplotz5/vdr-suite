@@ -3,7 +3,10 @@ name: R2 Public-v1 Recording + Genre tests
 on:
   push:
     branches:
-      - work/r2-recording-folder-browse
+      - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:

@@ -18,6 +18,10 @@ test-packaging-p7-runtime-schema:
 		core/media/src/RecentlyWatchedRepository.cpp \
 		core/media/src/MediaSessionRepository.cpp \
 		core/media/src/MediaTranscodeBackendSettingsRepository.cpp \
+		core/media/src/DeviceMediaProfileRepository.cpp \
+		core/media/src/DeviceMediaCapabilityProfile.cpp \
+		core/media/src/MediaCapabilityEvidence.cpp \
+		core/media/src/MediaPresentationSelector.cpp \
 		core/vdr/src/EpgEventRepository.cpp \
 		core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp \
 		core/vdr/src/VdrRecordingCacheRepository.cpp \
@@ -33,6 +37,7 @@ test-packaging-p7-runtime-schema:
 		core/operations/src/MutationOperationRepository.cpp \
 		core/timers/src/TimerIntent.cpp \
 		core/timers/src/TimerIntentRepository.cpp \
+		core/timers/src/EpgTimerIntentAdmissionRepository.cpp \
 		core/timers/src/TimerAssignment.cpp \
 		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
 		core/timers/src/TimerAssignmentRepository.cpp \
@@ -49,6 +54,7 @@ test-packaging-p7-runtime-schema:
 		core/vdr/src/VdrRecordingNativeMetadataRepositorySchema.cpp \
 		core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
 		core/vdr/src/GlobalSearchRepository.cpp \
+		core/vdr/src/PublicSearchTimerIdentityRepository.cpp \
 		core/metadata/tests/test_packaging_p7_runtime_schema.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_packaging_p7_runtime_schema

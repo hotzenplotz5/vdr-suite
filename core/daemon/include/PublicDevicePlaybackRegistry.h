@@ -24,47 +24,17 @@ public:
         : sessions_(sessions), identities_(identities), grants_(grants) {}
 
     bool add(
-        const std::string& sessionId,
-        const std::string& backendId,
+        const std::string& sessionId, const std::string& backendId,
         const RequestSecurityContext& verifiedContext)
     {
-        if (sessionId.empty() || backendId.empty() ||
-            !verifiedContext.authenticated() ||
-            verifiedContext.actor.type != ActorType::Service ||
-            !verifiedContext.device || !verifiedContext.credential ||
-            verifiedContext.device->deviceId.empty() ||
-            verifiedContext.credential->credentialId.empty() ||
-            verifiedContext.session ||
-            verifiedContext.permissionGrantResolution !=
-                PermissionGrantResolutionState::Resolved)
-            return false;
+        return addKind(sessionId, backendId, verifiedContext, "recording");
+    }
 
-        const auto stored = sessions_.findSession(sessionId);
-        if (!stored || stored->state != "ready" ||
-            stored->resourceKind != "recording" ||
-            stored->actorId != verifiedContext.actor.actorId ||
-            stored->backendId != backendId)
-            return false;
-
-        const Owner owner{
-            verifiedContext.actor.actorId,
-            verifiedContext.device->deviceId,
-            verifiedContext.credential->credentialId,
-            backendId};
-        // Admission may take seconds to probe/transcode. Recheck persistent
-        // grants and revocation immediately before publishing a Session.
-        if (!currentGrant(owner, sessionId)) return false;
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (owners_.count(sessionId) || owners_.size() >= 128)
-            return false;
-        std::size_t actorSessions = 0;
-        for (const auto& entry : owners_)
-            if (entry.second.actorId == stored->actorId)
-                ++actorSessions;
-        if (actorSessions >= 4)
-            return false;
-        owners_.emplace(sessionId, owner);
-        return true;
+    bool addLive(
+        const std::string& sessionId, const std::string& backendId,
+        const RequestSecurityContext& verifiedContext)
+    {
+        return addKind(sessionId, backendId, verifiedContext, "live-channel");
     }
 
     bool authorized(
@@ -124,6 +94,18 @@ public:
         return stored;
     }
 
+    std::optional<StoredMediaSession> describeOwnedLive(
+        const std::string& sessionId,
+        const RequestSecurityContext& verifiedDevice) const
+    {
+        const auto stored = sessions_.findSession(sessionId);
+        if (!stored || stored->state != "ready" ||
+            stored->resourceKind != "live-channel" ||
+            !owned(sessionId, stored->backendId, verifiedDevice))
+            return std::nullopt;
+        return stored;
+    }
+
     void erase(const std::string& sessionId)
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -149,7 +131,56 @@ private:
         std::string deviceId;
         std::string credentialId;
         std::string backendId;
+        std::string resourceKind;
     };
+
+    bool addKind(
+        const std::string& sessionId,
+        const std::string& backendId,
+        const RequestSecurityContext& verifiedContext,
+        const std::string& resourceKind)
+    {
+        if (sessionId.empty() || backendId.empty() ||
+            !verifiedContext.authenticated() ||
+            verifiedContext.actor.type != ActorType::Service ||
+            !verifiedContext.device || !verifiedContext.credential ||
+            verifiedContext.device->deviceId.empty() ||
+            verifiedContext.credential->credentialId.empty() ||
+            verifiedContext.session ||
+            verifiedContext.permissionGrantResolution !=
+                PermissionGrantResolutionState::Resolved)
+            return false;
+
+        const auto stored = sessions_.findSession(sessionId);
+        if (!stored || stored->state != "ready" ||
+            stored->resourceKind != resourceKind ||
+            stored->actorId != verifiedContext.actor.actorId ||
+            stored->backendId != backendId)
+            return false;
+
+        const Owner owner{
+            verifiedContext.actor.actorId,
+            verifiedContext.device->deviceId,
+            verifiedContext.credential->credentialId,
+            backendId,
+            resourceKind};
+        // Admission may take seconds to probe/transcode. Recheck persistent
+        // grants and revocation immediately before publishing a Session.
+        if (!currentGrant(owner, sessionId)) return false;
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (owners_.count(sessionId) || owners_.size() >= 128)
+            return false;
+        std::size_t actorSessions = 0;
+        for (const auto& entry : owners_)
+            if (entry.second.actorId == stored->actorId)
+                ++actorSessions;
+        if (actorSessions >= 4)
+            return false;
+        owners_.emplace(sessionId, owner);
+        return true;
+    }
+
+
 
     bool currentGrant(
         const Owner& owner,
@@ -157,7 +188,7 @@ private:
     {
         const auto session = sessions_.findSession(sessionId);
         if (!session || session->state != "ready" ||
-            session->resourceKind != "recording" ||
+            session->resourceKind != owner.resourceKind ||
             session->actorId != owner.actorId ||
             session->backendId != owner.backendId)
             return false;
@@ -184,9 +215,10 @@ private:
         context.credential = CredentialIdentity{owner.credentialId, true, false, false};
         context.permissionGrantResolution = PermissionGrantResolutionState::Resolved;
         context.grants = resolved.grants;
+        const std::string permission = owner.resourceKind == "live-channel"
+            ? "media.live.play" : "media.recording.play";
         return AuthorizationService().authorize(
-            context, {"media.recording.play", owner.backendId,
-                      "media.recording.play"}).allowed;
+            context, {permission, owner.backendId, permission}).allowed;
     }
 
     const MediaSessionRepository& sessions_;

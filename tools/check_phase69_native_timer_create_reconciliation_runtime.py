@@ -146,7 +146,10 @@ for scan_root in [
         # A successor prerequisite may expose only the stateless durable-result
         # adapter. Direct DaemonRuntime member invocation remains forbidden.
         if (
-            path.name != "NativeTimerCreateResultOutcomeApplication.cpp"
+            path.name not in {
+                "NativeTimerCreateResultOutcomeApplication.cpp",
+                "NativeTimerDeleteResultOutcomeApplication.cpp",
+            }
             and "dispatchService.applyOutcome(" in text
         ):
             raise SystemExit(

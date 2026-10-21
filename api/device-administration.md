@@ -57,11 +57,16 @@ Requires global `devices.grants.view@*`. The returned representation contains `d
 The supported grant permissions currently are exactly:
 
 - `channels.view`
+- `recordings.view` (read-only Public-v1 recording search)
+- `epg.view` (read-only Public-v1 EPG search and Now/Next)
 - `timers.view`
+- `timers.create` (one EPG-selected native Timer intent, explicit backend only; available as a grant before productive admission is wired)
+- `searchtimers.view` (SearchTimer list and preview, independently of EPG read)
+- `searchtimers.create` (CREATE only on an explicit backend, never `*`)
 - `media.live.play`
 - `media.recording.play`
 
-No `role.admin`, `role.read-only`, `accounts.*`, `remote.control` or arbitrary strings are allowed here. Grant `backendId` is an explicit product Backend identity or the configured wildcard `*`.
+No `role.admin`, `role.read-only`, `accounts.*`, `remote.control` or arbitrary strings are allowed here. Grant `backendId` is an explicit product Backend identity or the configured wildcard `*`, **except** `timers.create` and `searchtimers.create`, both of which require an exact concrete backend.
 
 ## 4. Ensure or revoke one grant
 
@@ -79,6 +84,8 @@ A stale ETag generally yields `412 revision_conflict` unless the tuple is alread
 
 A newly issued Device Credential can subsequently authenticate with `Authorization: VDR-Suite-Device <credentialId>.<credentialSecret>`. Server-side authorization still evaluates its grants on each request.
 
+The native EPG Timer CREATE route (`POST /api/v1/epg/timer-intents`) also accepts a verified Human administrator Browser Session with a matching `role.admin` grant and a valid CSRF token. Ordinary Human users with only `timers.create` are not accepted on this route. Device clients still require a verified Device Credential and the exact `timers.create@<backendId>` grant. This is an explicit administrator capability, not Device impersonation.
+
 ## Source and regression anchors
 
 - [Public REST pairing/Device grant runtime](rest/src/PublicApiRuntime.cpp)
@@ -94,3 +101,13 @@ This documentation does **not** add the Device revoke/rotation, pairing administ
 
 - [API entry](README.md)
 - [Documentation index](../docs/index.md)
+
+### SearchTimer grant and mutation
+
+An administrator may explicitly grant `searchtimers.view` and
+`searchtimers.create` **independently per backend**. The latter permits
+one confirmed `POST /api/v1/search-timers?backend=<id>` through the
+durable, idempotent SearchTimer one-shot operation. This is distinct
+from Suite TimerAssignments and native VDR Timer CREATE. Browser
+sessions and legacy paths never inherit paired Device CREATE rights.
+A 202 response is an Operation, not guaranteed backend recording.

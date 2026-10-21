@@ -2,6 +2,9 @@
 #define HTTP_SERVER_RESPONSE_H
 
 #include <map>
+#include <memory>
+
+class DeviceLiveEventSubscription;
 #include <string>
 
 struct HttpServerResponse {
@@ -13,6 +16,10 @@ struct HttpServerResponse {
     // streams this already-authorized local FIFO/file until EOF or disconnect.
     // The path is never serialized into the HTTP response.
     std::string streamBodyPath;
+
+    // Authenticated, backend-scoped incremental Device events. Never use a
+    // media FIFO or a serialized credential URL for this response.
+    std::shared_ptr<DeviceLiveEventSubscription> deviceEventSubscription;
 };
 
 #endif

@@ -882,6 +882,20 @@ TimerAssignmentRepositoryResult
 TimerAssignmentRepository::create(
     const TimerAssignment& assignment)
 {
+    return createImpl(assignment, false);
+}
+
+TimerAssignmentRepositoryResult
+TimerAssignmentRepository::createInCurrentTransaction(
+    const TimerAssignment& assignment)
+{
+    return createImpl(assignment, true);
+}
+
+TimerAssignmentRepositoryResult
+TimerAssignmentRepository::createImpl(
+    const TimerAssignment& assignment, bool currentTransaction)
+{
     if (!assignment.assignmentRevision.empty() ||
         assignment.assignmentEpoch != 0 ||
         !safeIdentity(assignment.timerAssignmentId) ||
@@ -893,8 +907,9 @@ TimerAssignmentRepository::create(
     }
 
     auto lease = database_.acquireTransactionLease();
-    if (!ensureSchema() ||
-        !database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
+    if (currentTransaction != database_.transactionActive() ||
+        !ensureSchema() ||
+        (!currentTransaction && !database_.execute("BEGIN IMMEDIATE TRANSACTION;")))
     {
         return statusResult(
             TimerAssignmentRepositoryStatus::storageError);
@@ -908,13 +923,13 @@ TimerAssignmentRepository::create(
             existing,
             found))
     {
-        database_.execute("ROLLBACK;");
+        if (!currentTransaction) database_.execute("ROLLBACK;");
         return statusResult(
             TimerAssignmentRepositoryStatus::storageError);
     }
     if (found)
     {
-        database_.execute("ROLLBACK;");
+        if (!currentTransaction) database_.execute("ROLLBACK;");
         return statusResult(
             TimerAssignmentRepositoryStatus::alreadyExists);
     }
@@ -923,7 +938,7 @@ TimerAssignmentRepository::create(
         validateIntentRevision(database_, assignment);
     if (intentStatus != TimerAssignmentRepositoryStatus::ok)
     {
-        database_.execute("ROLLBACK;");
+        if (!currentTransaction) database_.execute("ROLLBACK;");
         return statusResult(intentStatus);
     }
 
@@ -936,7 +951,7 @@ TimerAssignmentRepository::create(
             durable.assignmentEpoch) ||
         !timerAssignmentValid(durable))
     {
-        database_.execute("ROLLBACK;");
+        if (!currentTransaction) database_.execute("ROLLBACK;");
         return statusResult(
             TimerAssignmentRepositoryStatus::invalid);
     }
@@ -949,7 +964,7 @@ TimerAssignmentRepository::create(
             && !controlledReplacementExpected(
                 database_, durable.timerAssignmentId))
         {
-            database_.execute("ROLLBACK;");
+            if (!currentTransaction) database_.execute("ROLLBACK;");
             return statusResult(
                 TimerAssignmentRepositoryStatus::ownershipConflict);
         }
@@ -961,14 +976,14 @@ TimerAssignmentRepository::create(
                 "",
                 activePrimary))
         {
-            database_.execute("ROLLBACK;");
+            if (!currentTransaction) database_.execute("ROLLBACK;");
             return statusResult(
                 TimerAssignmentRepositoryStatus::storageError);
         }
         if (durable.role != TimerAssignmentRole::replacement
             && activePrimary)
         {
-            database_.execute("ROLLBACK;");
+            if (!currentTransaction) database_.execute("ROLLBACK;");
             return statusResult(
                 TimerAssignmentRepositoryStatus::ownershipConflict);
         }
@@ -997,7 +1012,7 @@ TimerAssignmentRepository::create(
             &statement,
             nullptr) != SQLITE_OK)
     {
-        database_.execute("ROLLBACK;");
+        if (!currentTransaction) database_.execute("ROLLBACK;");
         return statusResult(
             TimerAssignmentRepositoryStatus::storageError);
     }
@@ -1009,7 +1024,7 @@ TimerAssignmentRepository::create(
             true))
     {
         sqlite3_finalize(statement);
-        database_.execute("ROLLBACK;");
+        if (!currentTransaction) database_.execute("ROLLBACK;");
         return statusResult(
             TimerAssignmentRepositoryStatus::storageError);
     }
@@ -1018,16 +1033,16 @@ TimerAssignmentRepository::create(
     sqlite3_finalize(statement);
     if (step != SQLITE_DONE)
     {
-        database_.execute("ROLLBACK;");
+        if (!currentTransaction) database_.execute("ROLLBACK;");
         return statusResult(
             sqlite3_errcode(database_.handle()) == SQLITE_CONSTRAINT
                 ? TimerAssignmentRepositoryStatus::ownershipConflict
                 : TimerAssignmentRepositoryStatus::storageError);
     }
 
-    if (!database_.execute("COMMIT;"))
+    if (!currentTransaction && !database_.execute("COMMIT;"))
     {
-        database_.execute("ROLLBACK;");
+        if (!currentTransaction) database_.execute("ROLLBACK;");
         return statusResult(
             TimerAssignmentRepositoryStatus::storageError);
     }

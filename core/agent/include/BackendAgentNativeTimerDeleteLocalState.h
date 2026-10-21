@@ -45,6 +45,20 @@ bool backendAgentNativeTimerDeleteCommandFromAssignment(
     BackendAgentNativeTimerDeleteCommand& command,
     std::string& reasonCode);
 
+// Canonical durable Agent result evidence. Unlike generic command categories,
+// this carries the observed post-dispatch starting boundary needed for safe
+// absence readback. No caller may manufacture that boundary from claim time.
+std::string backendAgentNativeTimerDeleteResultEvidence(
+    const BackendAgentNativeTimerDeleteEvidence& evidence,
+    const BackendAgentCommandAssignment& assignment,
+    std::string& reasonCode);
+
+bool backendAgentNativeTimerDeleteParseResultEvidence(
+    const std::string& encoded,
+    const BackendAgentCommandAssignment& assignment,
+    BackendAgentNativeTimerDeleteEvidence& evidence,
+    std::string& reasonCode);
+
 bool backendAgentNativeTimerDeletePrepareLocalStarting(
     const BackendAgentCommandAssignment& assignment,
     std::int64_t now,

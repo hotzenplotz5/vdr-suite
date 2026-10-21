@@ -1,4 +1,6 @@
 #include "BackendAgentCommandStateStore.h"
+#include "BackendAgentNativeTimerDeleteLocalState.h"
+#include "BackendAgentNativeTimerModifyLocalState.h"
 
 #include <algorithm>
 #include <cerrno>
@@ -196,6 +198,26 @@ std::string boolText(bool value)
     return value ? "1" : "0";
 }
 
+// The sole DELETE result which has no native execution evidence is a
+// deadline rejection written before any durable starting marker existed.
+bool deleteExpiredBeforeDispatch(const LocalState& state)
+{
+    const auto& result = state.result;
+    return state.resultPresent &&
+        state.receiptAcknowledged &&
+        !state.stateExtensionPresent &&
+        state.dispatchState == "not_started" &&
+        result.dispatchState == "not_started" &&
+        result.verificationState == "outcome_unknown" &&
+        result.resultCategory == "rejected" &&
+        result.errorCategory == "expired" &&
+        result.retryClassification == "none" &&
+        result.boundedDiagnostics ==
+            "command deadline expired before native dispatch" &&
+        result.resultEvidence.empty() &&
+        result.completedAt >= state.assignment.deadline;
+}
+
 }
 
 bool retireProtectedState(const std::string& path, std::string& reason)
@@ -384,6 +406,73 @@ bool load(const std::string& path, LocalState& state, std::string& reason)
                 return false;
             }
         }
+        else if (assignment.commandType ==
+            kBackendAgentNativeTimerDeleteCommandType)
+        {
+            if (!state.stateExtensionPresent)
+            {
+                if (!deleteExpiredBeforeDispatch(state))
+                {
+                    reason = "command_state_invalid_delete_result_evidence";
+                    return false;
+                }
+            }
+            else
+            {
+            BackendAgentNativeTimerDeleteLocalState deleteState;
+            if (!state.stateExtensionPresent ||
+                !backendAgentNativeTimerDeleteParseLocalState(
+                    state.stateExtension.payload, deleteState, reason) ||
+                deleteState.phase !=
+                    BackendAgentNativeTimerDeleteLocalPhase::completed)
+            {
+                reason = "command_state_invalid_delete_result_evidence";
+                return false;
+            }
+            result.resultEvidence =
+                backendAgentNativeTimerDeleteResultEvidence(
+                    deleteState.evidence, assignment, reason);
+            if (result.resultEvidence.empty())
+            {
+                reason = "command_state_invalid_delete_result_evidence";
+                return false;
+            }
+            }
+        }
+        else if (assignment.commandType ==
+                vdrsuite::agent::kBackendAgentNativeTimerUpdateCommandType ||
+            assignment.commandType ==
+                vdrsuite::agent::kBackendAgentNativeTimerToggleCommandType)
+        {
+            if (!state.stateExtensionPresent)
+            {
+                // MODIFY has no legacy evidence-free completion exception.
+                // DELETE's pre-dispatch expiry rule must never authorize a
+                // MODIFY result without command-bound execution evidence.
+                reason = "command_state_invalid_modify_result_evidence";
+                return false;
+            }
+            else
+            {
+                vdrsuite::agent::BackendAgentNativeTimerModifyLocalState modifyState;
+                if (!vdrsuite::agent::backendAgentNativeTimerModifyParseLocalState(
+                        state.stateExtension.payload, modifyState, reason) ||
+                    modifyState.phase !=
+                        vdrsuite::agent::BackendAgentNativeTimerModifyLocalPhase::completed)
+                {
+                    reason = "command_state_invalid_modify_result_evidence";
+                    return false;
+                }
+                result.resultEvidence =
+                    vdrsuite::agent::backendAgentNativeTimerModifyResultEvidence(
+                        modifyState.evidence, assignment, reason);
+                if (result.resultEvidence.empty())
+                {
+                    reason = "command_state_invalid_modify_result_evidence";
+                    return false;
+                }
+            }
+        }
         if (!backendAgentCommandValidResult(result))
         {
             reason = "command_state_invalid_result";
@@ -443,6 +532,73 @@ bool persist(const std::string& path, const LocalState& state, std::string& reas
         {
             reason = "command_state_create_result_evidence_conflict";
             return false;
+        }
+    }
+    else if (state.resultPresent &&
+        assignment.commandType == kBackendAgentNativeTimerDeleteCommandType)
+    {
+        if (!state.stateExtensionPresent)
+        {
+            if (!deleteExpiredBeforeDispatch(state))
+            {
+                reason = "command_state_invalid_delete_result_evidence";
+                return false;
+            }
+        }
+        else
+        {
+        BackendAgentNativeTimerDeleteLocalState deleteState;
+        if (!state.stateExtensionPresent ||
+            !backendAgentNativeTimerDeleteParseLocalState(
+                state.stateExtension.payload, deleteState, reason) ||
+            deleteState.phase !=
+                BackendAgentNativeTimerDeleteLocalPhase::completed)
+        {
+            reason = "command_state_invalid_delete_result_evidence";
+            return false;
+        }
+        const std::string expectedEvidence =
+            backendAgentNativeTimerDeleteResultEvidence(
+                deleteState.evidence, assignment, reason);
+        if (expectedEvidence.empty() ||
+            result.resultEvidence != expectedEvidence)
+        {
+            reason = "command_state_delete_result_evidence_conflict";
+            return false;
+        }
+        }
+    }
+
+    else if (state.resultPresent &&
+        (assignment.commandType ==
+            vdrsuite::agent::kBackendAgentNativeTimerUpdateCommandType ||
+         assignment.commandType ==
+            vdrsuite::agent::kBackendAgentNativeTimerToggleCommandType))
+    {
+        if (!state.stateExtensionPresent)
+        {
+            reason = "command_state_invalid_modify_result_evidence";
+            return false;
+        }
+        else
+        {
+            vdrsuite::agent::BackendAgentNativeTimerModifyLocalState modifyState;
+            if (!vdrsuite::agent::backendAgentNativeTimerModifyParseLocalState(
+                    state.stateExtension.payload, modifyState, reason) ||
+                modifyState.phase !=
+                    vdrsuite::agent::BackendAgentNativeTimerModifyLocalPhase::completed)
+            {
+                reason = "command_state_invalid_modify_result_evidence";
+                return false;
+            }
+            const auto expected =
+                vdrsuite::agent::backendAgentNativeTimerModifyResultEvidence(
+                    modifyState.evidence, assignment, reason);
+            if (expected.empty() || result.resultEvidence != expected)
+            {
+                reason = "command_state_modify_result_evidence_conflict";
+                return false;
+            }
         }
     }
 

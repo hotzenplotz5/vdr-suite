@@ -132,8 +132,71 @@ static void test_clear_backend_returns_to_unknown()
     assert(cache.backendIds().empty());
 }
 
+static void test_immutable_runtime_snapshot_survives_invalidation_and_update()
+{
+    SearchTimerPreviewEpgCache cache;
+    cache.updateReady("default", {make_event("1", "Amerika")});
+    auto first = cache.sharedEventsForBackend("default");
+    assert(first && first->size() == 1);
+
+    cache.markStale("default");
+    assert(!cache.sharedEventsForBackend("default"));
+    assert(first->at(0).title == "Amerika");
+
+    cache.updateReady("default", {make_event("2", "Tatort")});
+    auto second = cache.sharedEventsForBackend("default");
+    assert(second && second->at(0).title == "Tatort");
+    cache.clearBackend("default");
+    assert(!cache.sharedEventsForBackend("default"));
+    assert(first->at(0).title == "Amerika");
+    assert(second->at(0).title == "Tatort");
+}
+
+static void test_atomic_read_pairs_status_with_the_same_immutable_generation()
+{
+    SearchTimerPreviewEpgCache cache;
+    const auto missing = cache.readForBackend("home");
+    assert(missing.status == SearchTimerPreviewEpgCacheStatus::Unknown);
+    assert(!missing.events);
+
+    cache.updateReady("home", {make_event("17", "Tatort")});
+    const auto beforeChange = cache.readForBackend("home");
+    assert(beforeChange.status == SearchTimerPreviewEpgCacheStatus::Ready);
+    assert(beforeChange.events && beforeChange.events->size() == 1);
+    assert(beforeChange.events->at(0).title == "Tatort");
+    assert(!cache.readForBackend("other").events);
+
+    cache.markStale("home");
+    const auto stale = cache.readForBackend("home");
+    assert(stale.status == SearchTimerPreviewEpgCacheStatus::Stale);
+    assert(!stale.events);
+    // The prior request still owns exactly the old ready event generation.
+    assert(beforeChange.status == SearchTimerPreviewEpgCacheStatus::Ready);
+    assert(beforeChange.events->at(0).title == "Tatort");
+
+    cache.markWarming("home");
+    const auto warming = cache.readForBackend("home");
+    assert(warming.status == SearchTimerPreviewEpgCacheStatus::Warming);
+    assert(!warming.events);
+
+    cache.updateReady("home", {make_event("18", "Tagesschau")});
+    const auto afterChange = cache.readForBackend("home");
+    assert(afterChange.status == SearchTimerPreviewEpgCacheStatus::Ready);
+    assert(afterChange.events && afterChange.events->at(0).title == "Tagesschau");
+    assert(beforeChange.events->at(0).title == "Tatort");
+
+    cache.markUnavailable("home");
+    const auto unavailable = cache.readForBackend("home");
+    assert(unavailable.status == SearchTimerPreviewEpgCacheStatus::Unavailable);
+    assert(!unavailable.events);
+    assert(afterChange.events->at(0).title == "Tagesschau");
+}
+
 int main()
 {
+    test_atomic_read_pairs_status_with_the_same_immutable_generation();
+    test_immutable_runtime_snapshot_survives_invalidation_and_update();
+
     test_missing_backend_is_unknown_not_empty_ready_cache();
     test_ready_empty_cache_is_distinct_from_unknown();
     test_backend_scoped_ready_events();

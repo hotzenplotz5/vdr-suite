@@ -18,6 +18,20 @@ public:
             offset);
     }
 
+    // A provider failure is not an empty catalogue. Callers must check
+    // available() before treating items() as a successful read.
+    static SearchTimerResult unavailable(int limit, int offset)
+    {
+        SearchTimerResult result = empty(limit, offset);
+        result.available_ = false;
+        return result;
+    }
+
+    bool available() const
+    {
+        return available_;
+    }
+
     static SearchTimerResult from(
         std::vector<SearchTimer> items,
         int totalCount,
@@ -78,4 +92,5 @@ private:
     int totalCount_ = 0;
     int limit_ = 0;
     int offset_ = 0;
+    bool available_ = true;
 };

@@ -34,8 +34,8 @@ BackendAgentCommandAssignment assignment(){
  return a;
 }
 struct Transport final:IBackendAgentNativeTimerModifyTransport{
- int calls=0;bool discoverProvider(BackendAgentLocalProviderFacts& f,std::string&)override{
-  f.providerId="suitebridge:local";f.providerKind="suitebridge";f.providerInstanceEpoch="pie_1";
+ int calls=0;bool changedProvider=false;bool discoverProvider(BackendAgentLocalProviderFacts& f,std::string&)override{
+  f.providerId="suitebridge:local";f.providerKind="suitebridge";f.providerInstanceEpoch=changedProvider?"pie_changed":"pie_1";
   f.providerGeneration=1;f.capabilityRevision=1;f.available=true;
   f.capabilities={"vdr.timer.update","vdr.timer.toggle"};return true;}
  BackendAgentNativeTimerModifyTransportReply modifyTimer(
@@ -89,5 +89,49 @@ int main(){
    "fresh executor failed");
  require(backendAgentNativeTimerModifyCompleteLocalState(parsed,evidence,reason),
          "completion persist failed");
+ const auto resultEvidence =
+    backendAgentNativeTimerModifyResultEvidence(evidence,a,reason);
+ require(!resultEvidence.empty(),"MODIFY result serialization rejected");
+ BackendAgentNativeTimerModifyEvidence restoredEvidence;
+ require(backendAgentNativeTimerModifyParseResultEvidence(
+    resultEvidence,a,restoredEvidence,reason),
+    "MODIFY result evidence did not roundtrip");
+ require(restoredEvidence.dispatchStartedAt==evidence.dispatchStartedAt &&
+         restoredEvidence.localStartingPersistedAt==evidence.localStartingPersistedAt &&
+         restoredEvidence.operationId==evidence.operationId &&
+         restoredEvidence.evidenceReference==evidence.evidenceReference,
+         "MODIFY result lost immutable native dispatch identity");
+ auto forgedEvidence=resultEvidence;
+ forgedEvidence.push_back('x');
+ require(!backendAgentNativeTimerModifyParseResultEvidence(
+    forgedEvidence,a,restoredEvidence,reason),
+    "MODIFY parser accepted forged/trailing evidence");
+ // A changed local provider must fence execution before any native write,
+ // but still yield structured evidence so the daemon can finish safely.
+ BackendAgentNativeTimerModifyLocalState fencedState;
+ require(backendAgentNativeTimerModifyPrepareLocalStarting(
+    a,105,fencedState,reason),"fenced prepare failed");
+ Transport changed;changed.changedProvider=true;
+ BackendAgentNativeTimerModifyEvidence fencedEvidence;
+ BackendAgentNativeTimerModifyExecutorContext fencedContext{
+    "backend_1","agent_1","instance_1",1,106};
+ require(backendAgentNativeTimerModifyExecuteFreshStartingOnce(
+    a,fencedState,fencedContext,changed,fencedEvidence,reason) &&
+    changed.calls==0 &&
+    fencedEvidence.outcome==
+      BackendAgentNativeTimerModifyOutcomeCategory::rejectedWithoutEffect &&
+    fencedEvidence.dispatchStartedAt==0 &&
+    fencedEvidence.evidenceReference=="executor-fence:provider-changed",
+    "provider fence must reject without executor call");
+ const auto fencedResultEvidence=backendAgentNativeTimerModifyResultEvidence(
+    fencedEvidence,a,reason);
+ require(!fencedResultEvidence.empty() &&
+    backendAgentNativeTimerModifyParseResultEvidence(
+       fencedResultEvidence,a,restoredEvidence,reason) &&
+    restoredEvidence.evidenceReference=="executor-fence:provider-changed",
+    "fenced MODIFY must provide canonical durable result evidence");
+ require(!backendAgentNativeTimerModifyParseResultEvidence(
+    "",a,restoredEvidence,reason),
+    "empty MODIFY result evidence must fail closed");
  std::cout<<"native timer modify Agent contract tests passed\n";
 }

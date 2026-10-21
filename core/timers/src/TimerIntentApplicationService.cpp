@@ -60,14 +60,41 @@ TimerIntentApplicationService::TimerIntentApplicationService(
 }
 
 TimerIntentApplicationResult
+TimerIntentApplicationService::submitAndSelectPrimary(
+    const TimerIntentApplicationRequest& request)
+{
+    return submitPrimary(request, false, false);
+}
+
+TimerIntentApplicationResult
+TimerIntentApplicationService::submitAndSelectPrimaryInCurrentTransaction(
+    const TimerIntentApplicationRequest& request)
+{
+    return submitPrimary(request, false, true);
+}
+
+TimerIntentApplicationResult
 TimerIntentApplicationService::submitAndProvisionPrimary(
     const TimerIntentApplicationRequest& request)
 {
+    return submitPrimary(request, true, false);
+}
+
+TimerIntentApplicationResult
+TimerIntentApplicationService::submitPrimary(
+    const TimerIntentApplicationRequest& request,
+    bool provisionImmediately,
+    bool currentTransaction)
+{
+    if (currentTransaction && provisionImmediately)
+        return result(TimerIntentApplicationStatus::invalid);
     if (!requestValid(request))
         return result(TimerIntentApplicationStatus::invalid);
 
     TimerIntent intent;
-    const auto created = intentRepository_.create(request.intent);
+    const auto created = currentTransaction
+        ? intentRepository_.createInCurrentTransaction(request.intent)
+        : intentRepository_.create(request.intent);
     if (created.ok())
     {
         intent = created.intent;
@@ -97,8 +124,10 @@ TimerIntentApplicationService::submitAndProvisionPrimary(
         TimerIntent active = intent;
         active.state = TimerIntentState::active;
         active.updatedAt = request.activatedAt;
-        const auto activated =
-            intentRepository_.update(active, intent.intentRevision);
+        const auto activated = currentTransaction
+            ? intentRepository_.updateInCurrentTransaction(
+                active, intent.intentRevision)
+            : intentRepository_.update(active, intent.intentRevision);
         if (!activated.ok())
             return result(
                 activated.status == TimerIntentRepositoryStatus::conflict
@@ -127,7 +156,9 @@ TimerIntentApplicationService::submitAndProvisionPrimary(
         schedulingRequest.expectedIntentRevision = intent.intentRevision;
         schedulingRequest.createdAt = request.scheduledAt;
         schedulingRequest.candidates = request.candidates;
-        const auto scheduled = scheduling_.schedulePrimary(schedulingRequest);
+        const auto scheduled = currentTransaction
+            ? scheduling_.schedulePrimaryInCurrentTransaction(schedulingRequest)
+            : scheduling_.schedulePrimary(schedulingRequest);
 
         if (scheduled.status ==
                 TimerAssignmentSchedulingStatus::activePrimaryExists
@@ -169,6 +200,21 @@ TimerIntentApplicationService::submitAndProvisionPrimary(
             TimerIntentApplicationStatus::alreadyBound,
             intent,
             assignment);
+
+    if (!provisionImmediately)
+    {
+        // Public write admission requires an unconsumed, selected and
+        // revisioned Assignment. Never advance to provisioning before the
+        // atomic NativeTimerCreateAdmissionService takes ownership.
+        if (assignment.state == TimerAssignmentState::selected)
+            return result(TimerIntentApplicationStatus::assignmentSelected,
+                intent, assignment);
+        if (assignment.state == TimerAssignmentState::provisioning)
+            return result(TimerIntentApplicationStatus::alreadyProvisioning,
+                intent, assignment);
+        return result(TimerIntentApplicationStatus::assignmentConflict,
+            intent, assignment);
+    }
 
     const auto provisioned = fulfillment_.beginProvisioning(
         assignment.timerAssignmentId,

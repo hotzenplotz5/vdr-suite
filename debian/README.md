@@ -89,6 +89,66 @@ The Debian package stages systemd units under `/usr/lib/systemd/system` rather t
 
 The packaged systemd unit runs under `vdr:vdr` with `NoNewPrivileges`, `UMask=0077`, system protection and a private `StateDirectory=vdr-suite/backend-agent` (mode `0700`), located under `/var/lib/vdr-suite/backend-agent`. The experimental `debian/rules` deliberately calls `dh_installsystemd --no-enable --no-start`: **package installation must neither auto-enable nor start the Agent**. Runtime state and credentials are **not** included in the `.deb`.
 
+### After-enrollment boot activation (operator opt-in, not package auto-start)
+
+**2026-10-19 yaVDR incident:** Public-v1 EPG TimerIntent CREATE initially returned
+`503 service_unavailable` while the Backend Agent was `inactive/dead`,
+`disabled`, and its lease/provider evidence stale. A controlled manual
+Agent start restored a fresh lease, provider facts/epoch and the bounded
+real native CREATE/readback path. **This is not proof of boot reliability.**
+The intentionally disabled package default remains correct for new,
+unenrolled installations.
+
+For an **already enrolled, running Agent** only, check the exact *installed*
+unit and state before opting in to boot activation:
+
+```sh
+systemctl cat vdr-suite-backend-agent.service
+systemctl show vdr-suite-backend-agent.service -p FragmentPath -p UnitFileState -p ActiveState -p SubState -p User -p Group -p ExecStart
+systemctl is-enabled vdr-suite-backend-agent.service
+systemctl is-active vdr-suite-backend-agent.service
+```
+
+Confirm the installed unit is the reviewed `vdr:vdr` service with
+`ExecStart=/usr/sbin/vdr-suite-backend-agent --config /etc/vdr-suite/backend-agent.conf`;
+the actual config references the correct trusted HTTPS Control Plane and
+registered backend, not `example.invalid`; the existing
+`IDENTITY_PATH=/var/lib/vdr-suite/backend-agent/identity` and
+`ENROLLMENT_PATH=/var/lib/vdr-suite/backend-agent/enrollment` are valid
+for the current service account; and the daemon/Agent reports fresh,
+authenticated identity, lease, provider facts and SuiteBridge provider epoch.
+Inspect **existence and ownership only** of protected identity material;
+never print, copy, regenerate or re-enroll it. An active process alone does
+not prove that the expected backend identity and provider facts are current.
+Also check for local unit drop-ins, masked/aliased units and a duplicate
+Agent instance before changing startup policy.
+
+**Packaged post-enrollment helper (integration point for the eventual setup UI):**
+
+```sh
+sudo /usr/sbin/vdr-suite-backend-agent-autostart --check
+sudo /usr/sbin/vdr-suite-backend-agent-autostart --enable
+```
+
+The helper validates the reviewed running `vdr:vdr` unit, the configured trusted HTTPS Control Plane, expected protected identity paths, a consumed enrollment package and the existing Agent administration's **current online lease and backend-health observation**. It performs a second preflight before changing links and verifies that the service stayed active afterward. It **only** executes `systemctl enable`, never `--now`, `start`, `restart`, credential rotation, enrollment, direct SQLite commands or replay of uncertain commands. The existing `vdr-suite-backend-agent-admin --status` check still uses that utility's normal schema-initialization path; this helper does not perform or authorize a database migration. `--check` is the non-enabling readiness gate. Any missing or unexpected fact blocks the mutation. See `man 8 vdr-suite-backend-agent-autostart`.
+
+The current helper is deliberately limited to **same-host Control Plane/Agent installations**: its installed local administration status command reads the local Control Plane database. On a remote Agent host without that database, the guard fails closed; remote Agent automatic setup requires a future authenticated Control Plane readiness check. The current experimental package ships this helper but does **not** run it automatically on install or upgrade. Enrollment-package creation is not evidence that the Agent has consumed it or connected; there is no existing integrated first-run wizard to invoke this step. The eventual setup workflow must call the helper only **after successful enrollment and live readiness**, so the operator will not need to remember `systemctl enable`. Until that workflow is implemented and tested, an administrator runs the guarded step once. An already enabled service retains its boot policy across upgrades; `dh_installsystemd --no-enable --no-start` deliberately remains unchanged.
+
+`enable` installs persistent boot-start links; it **does not restart**
+the running Agent or revoke its identity. Do **not** append `--now`, restart
+VDR/daemon, modify SQLite, grant permissions or run enrollment as part of this
+boot-policy-only change. The source unit has
+`WantedBy=multi-user.target`, `After/Wants=network-online.target`,
+`Restart=on-failure`, protected persistent `StateDirectory` and the
+existing config/identity paths. Do not broaden the package's
+`dh_installsystemd --no-enable --no-start` policy to auto-enable unknown
+new installations. A later *controlled* reboot acceptance must confirm:
+service active, **same Agent identity**, fresh lease/heartbeat and backend
+generation, current provider facts, native capability/clock and matching
+SuiteBridge epoch; otherwise boot reliability remains **PENDING**.
+Never replay historical `waiting_reconciliation` native timer commands
+to prove readiness.
+
 ### Configuration and enrollment boundary
 
 The shipped `/etc/vdr-suite/backend-agent.conf` is a **template**, not an immediately functional connection:

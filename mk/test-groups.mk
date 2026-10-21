@@ -1,6 +1,14 @@
 .PHONY: test-ci-fast test-ci-frontend test-ci-packaging test-all test-vdr test-manual-real test-make-inventory
 
 CI_FAST_TESTS := \
+	test-device-live-event-hub \
+	test-device-live-http-stream \
+	test-phase69-atomic-timer-create-admission \
+	test-public-epg-event-detail \
+	test-searchtimer-create-device-admission \
+	test-searchtimer-create-durable-admission \
+	test-searchtimer-create-one-shot-dispatch \
+	test-searchtimer-create-orphan-recovery \
 	test-public-recording-identity-repository \
 	test-public-recording-collection-projection \
 	test-public-recording-collection-api \

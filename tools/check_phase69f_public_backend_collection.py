@@ -166,7 +166,7 @@ require(
     "complete public-v1 reference coverage must allow closeout/final state without a preselected route",
 )
 require(
-    "Public-v1 method/resource contracts: 9 accepted, 1 Recording R2 candidate." in matrix_guard
+    "Public-v1 method/resource contracts: 9 accepted, 2 scoped read-only candidates" in matrix_guard
     and "resource_pairs == expected_resource_pairs" in matrix_guard,
     "client matrix guard must count the Backend contract",
 )

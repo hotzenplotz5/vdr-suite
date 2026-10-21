@@ -139,6 +139,17 @@ class OpenApiDriftTests(unittest.TestCase):
         del changed["paths"]["/api/v1/recording-playback-sessions/{sessionId}/subtitles"]["post"]["requestBody"]
         self.assert_rejected(changed, reason="required POST body missing")
 
+    def test_trickplay_missing_route_is_rejected(self):
+        changed = copy.deepcopy(self.document)
+        del changed["paths"]["/api/v1/recording-playback-sessions/{sessionId}/trickplay"]
+        self.assert_rejected(changed, reason="audited path inventory changed")
+
+    def test_trickplay_missing_device_gate_is_rejected(self):
+        altered = self.security_source.replace("isPublicDeviceRecordingSessionRead",
+                                               "unmappedDeviceRead")
+        self.assert_rejected(security_source=altered,
+                             reason="Device SecurityHttpGate admission marker")
+
     def test_partial_coverage_cannot_claim_complete(self):
         changed = copy.deepcopy(self.document)
         changed["x-vdr-suite-coverage"] = "complete"

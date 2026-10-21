@@ -246,8 +246,13 @@ ApiResponse SearchTimerController::getSearchTimers(
 {
     ApiResponse response;
 
-    response.statusCode = 200;
     response.contentType = "application/json";
+    if (!result.available()) {
+        response.statusCode = 503;
+        response.body = "{\"error\":\"searchtimer data source unavailable\"}";
+        return response;
+    }
+    response.statusCode = 200;
     response.body = jsonSerializer_.serialize(result);
 
     return response;
@@ -260,6 +265,8 @@ ApiResponse SearchTimerController::searchSearchTimers(
     int limit,
     int offset)
 {
+    if (!source.available())
+        return getSearchTimers(source);
     SearchTimerResult result = searchTimerService_.list(
         source.items(),
         buildSearchTimerQuery(

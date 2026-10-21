@@ -1,8 +1,11 @@
 #include "suitebridge_native_timer_create.h"
+#include "suitebridge_native_timer_wallclock.h"
 
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <cstdio>
+#include <ctime>
 #include <limits>
 #include <sstream>
 #include <strings.h>
@@ -407,6 +410,7 @@ SuiteBridgeCommandResult SuiteBridgeNativeTimerCreateService::Handle(
   const std::vector<std::string> values = split(option);
   if (values.empty()) return genericRejection(MalformedReplyCode, "malformed");
   if (values.front() == "CAP") return capability(option);
+  if (values.front() == "CLOCK") return clockEvidence(option);
   if (values.front() == "EXEC") return execute(option);
   return genericRejection(MalformedReplyCode, "unsupported");
 }
@@ -428,6 +432,67 @@ SuiteBridgeCommandResult SuiteBridgeNativeTimerCreateService::capability(
           << NativeOperationSchema << " timer-create " << state << ' '
           << ProviderKind << ' ' << pluginInstanceEpoch_ << ' '
           << ProviderGeneration << ' ' << CapabilityRevision << ' ' << state;
+  result.payload = payload.str();
+  return result;
+}
+
+SuiteBridgeCommandResult SuiteBridgeNativeTimerCreateService::clockEvidence(
+    const char *option) const
+{
+  // Read-only VDR-local time interpretation for one bounded EPG window.
+  // No Timer, lock, Agent command, replay ledger or mutation is touched.
+  const std::vector<std::string> values = split(option);
+  std::uint64_t start = 0, stop = 0;
+  if (values.size() != 4 || values[0] != "CLOCK" || values[1] != "1" ||
+      !unsignedValue(values[2], start) || !unsignedValue(values[3], stop) ||
+      stop <= start || stop - start > 48U * 60U * 60U) {
+    return genericRejection(MalformedReplyCode, "clock-invalid-window");
+  }
+  const auto timestampStart = static_cast<std::time_t>(start);
+  const auto timestampStop = static_cast<std::time_t>(stop);
+  if (static_cast<std::uint64_t>(timestampStart) != start ||
+      static_cast<std::uint64_t>(timestampStop) != stop) {
+    return genericRejection(MalformedReplyCode, "clock-time-range");
+  }
+
+  std::tm localStart{};
+  std::tm localStop{};
+  if (!localtime_r(&timestampStart, &localStart) ||
+      !localtime_r(&timestampStop, &localStop) ||
+      localStart.tm_year + 1900 < 1970 ||
+      localStop.tm_year + 1900 > 9999) {
+    return genericRejection(MalformedReplyCode, "clock-unavailable");
+  }
+  if (!suitebridge_native_timer_wallclock::uniquelyRepresentsMinute(
+          timestampStart, localStart) ||
+      !suitebridge_native_timer_wallclock::uniquelyRepresentsMinute(
+          timestampStop, localStop))
+    return genericRejection(MalformedReplyCode, "clock-ambiguous-local-time");
+  char startDay[16]{}, startHhmm[8]{}, stopDay[16]{}, stopHhmm[8]{};
+  if (std::snprintf(startDay, sizeof(startDay), "%04d-%02d-%02d",
+          localStart.tm_year + 1900, localStart.tm_mon + 1,
+          localStart.tm_mday) != 10 ||
+      std::snprintf(stopDay, sizeof(stopDay), "%04d-%02d-%02d",
+          localStop.tm_year + 1900, localStop.tm_mon + 1,
+          localStop.tm_mday) != 10 ||
+      std::snprintf(startHhmm, sizeof(startHhmm), "%02d%02d",
+          localStart.tm_hour, localStart.tm_min) != 4 ||
+      std::snprintf(stopHhmm, sizeof(stopHhmm), "%02d%02d",
+          localStop.tm_hour, localStop.tm_min) != 4) {
+    return genericRejection(MalformedReplyCode, "clock-conversion-invalid");
+  }
+
+  SuiteBridgeCommandResult result;
+  result.handled = true;
+  result.replyCode = SuccessReplyCode;
+  std::ostringstream payload;
+  payload << "vdr-suite-ntcreate-clock/1 " << NativeOperation << ' '
+          << NativeOperationSchema << ' ' << ProviderKind << ' '
+          << pluginInstanceEpoch_ << ' ' << ProviderGeneration << ' '
+          << CapabilityRevision << ' ' << start << ' ' << stop << ' '
+          << localStart.tm_gmtoff << ' ' << localStop.tm_gmtoff << ' '
+          << startDay << ' ' << startHhmm << ' '
+          << stopDay << ' ' << stopHhmm;
   result.payload = payload.str();
   return result;
 }

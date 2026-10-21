@@ -639,3 +639,204 @@ bool backendAgentNativeTimerDeleteParseLocalState(
 }
 
 } // namespace vdrsuite::agent
+
+
+namespace vdrsuite::agent
+{
+namespace
+{
+constexpr std::size_t kMaximumDeleteResultEvidence = 4096U;
+constexpr const char* kDeleteResultEvidencePrefix = "native-timer-delete-result-evidence/1|";
+
+void appendResultField(std::string& out, const std::string& value)
+{
+    out += std::to_string(value.size()) + ":" + value + "|";
+}
+
+bool parseResultField(
+    const std::string& encoded, std::size_t& position, std::string& value)
+{
+    if (position >= encoded.size()) return false;
+    std::size_t count = 0U;
+    const std::size_t beginning = position;
+    while (position < encoded.size() && encoded[position] != ':')
+    {
+        const unsigned char character = encoded[position++];
+        if (character < '0' || character > '9') return false;
+        const auto digit = static_cast<std::size_t>(character - '0');
+        if (count > (kMaximumDeleteResultEvidence - digit) / 10U)
+            return false;
+        count = count * 10U + digit;
+    }
+    if (position == beginning || position >= encoded.size() ||
+        encoded[position] != ':' || count > kMaximumDeleteResultEvidence)
+        return false;
+    ++position;
+    if (count > encoded.size() - position) return false;
+    value = encoded.substr(position, count);
+    position += count;
+    if (position >= encoded.size() || encoded[position] != '|')
+        return false;
+    ++position;
+    return true;
+}
+
+std::string resultOutcome(
+    BackendAgentNativeTimerDeleteOutcomeCategory category)
+{
+    switch (category)
+    {
+        case BackendAgentNativeTimerDeleteOutcomeCategory::rejectedWithoutEffect:
+            return "rejected_without_effect";
+        case BackendAgentNativeTimerDeleteOutcomeCategory::acceptedUnverified:
+            return "accepted_unverified";
+        case BackendAgentNativeTimerDeleteOutcomeCategory::outcomeUnknown:
+            return "outcome_unknown";
+    }
+    return {};
+}
+
+bool parseResultOutcome(
+    const std::string& value,
+    BackendAgentNativeTimerDeleteOutcomeCategory& category)
+{
+    if (value == "rejected_without_effect")
+        category = BackendAgentNativeTimerDeleteOutcomeCategory::rejectedWithoutEffect;
+    else if (value == "accepted_unverified")
+        category = BackendAgentNativeTimerDeleteOutcomeCategory::acceptedUnverified;
+    else if (value == "outcome_unknown")
+        category = BackendAgentNativeTimerDeleteOutcomeCategory::outcomeUnknown;
+    else return false;
+    return true;
+}
+
+bool parseResultTime(const std::string& token, std::int64_t& value, bool positive)
+{
+    if (token.empty() || token.size() > 19U ||
+        (token.size() > 1 && token.front() == '0')) return false;
+    std::uint64_t parsed = 0;
+    for (const unsigned char ch : token)
+    {
+        if (ch < '0' || ch > '9') return false;
+        const auto digit = static_cast<std::uint64_t>(ch - '0');
+        if (parsed > (static_cast<std::uint64_t>(
+                std::numeric_limits<std::int64_t>::max()) - digit) / 10U)
+            return false;
+        parsed = parsed * 10U + digit;
+    }
+    if (positive && parsed == 0) return false;
+    value = static_cast<std::int64_t>(parsed);
+    return true;
+}
+
+void assignDeleteEvidenceIdentity(
+    const BackendAgentNativeTimerDeleteCommand& command,
+    BackendAgentNativeTimerDeleteEvidence& evidence)
+{
+    evidence.commandId = command.commandId;
+    evidence.requestFingerprint = command.requestFingerprint;
+    evidence.operationId = command.operationId;
+    evidence.operationRevision = command.operationRevision;
+    evidence.jobId = command.jobId;
+    evidence.attemptId = command.attemptId;
+    evidence.claimEpoch = command.claimEpoch;
+    evidence.backendId = command.backendId;
+    evidence.agentId = command.agentId;
+    evidence.agentInstanceId = command.agentInstanceId;
+    evidence.backendGeneration = command.backendGeneration;
+    evidence.providerInstanceEpoch =
+        command.localProviderSelection.providerInstanceEpoch;
+}
+} // namespace
+
+std::string backendAgentNativeTimerDeleteResultEvidence(
+    const BackendAgentNativeTimerDeleteEvidence& evidence,
+    const BackendAgentCommandAssignment& assignment,
+    std::string& reason)
+{
+    BackendAgentNativeTimerDeleteCommand command;
+    if (!backendAgentNativeTimerDeleteCommandFromAssignment(
+            assignment, command, reason) ||
+        !backendAgentNativeTimerDeleteEvidenceMatches(
+            evidence, command, reason))
+    {
+        reason = "invalid_native_timer_delete_result_evidence";
+        return {};
+    }
+
+    std::string output(kDeleteResultEvidencePrefix);
+    appendResultField(output, resultOutcome(evidence.outcome));
+    appendResultField(output, std::to_string(evidence.localStartingPersistedAt));
+    appendResultField(output, std::to_string(evidence.dispatchStartedAt));
+    appendResultField(output, std::to_string(evidence.completedAt));
+    appendResultField(output, evidence.evidenceReference);
+    if (output.size() > kMaximumDeleteResultEvidence ||
+        !backendAgentCommandSafeText(output, kMaximumDeleteResultEvidence))
+    {
+        reason = "native_timer_delete_result_evidence_too_large";
+        return {};
+    }
+    reason.clear();
+    return output;
+}
+
+bool backendAgentNativeTimerDeleteParseResultEvidence(
+    const std::string& encoded,
+    const BackendAgentCommandAssignment& assignment,
+    BackendAgentNativeTimerDeleteEvidence& evidence,
+    std::string& reason)
+{
+    const std::string prefix(kDeleteResultEvidencePrefix);
+    if (encoded.size() > kMaximumDeleteResultEvidence ||
+        encoded.compare(0U, prefix.size(), prefix) != 0 ||
+        !backendAgentCommandSafeText(encoded, kMaximumDeleteResultEvidence))
+    {
+        reason = "invalid_native_timer_delete_result_evidence";
+        return false;
+    }
+    std::size_t position = prefix.size();
+    std::vector<std::string> parts;
+    for (std::size_t i = 0; i != 5U; ++i)
+    {
+        std::string value;
+        if (!parseResultField(encoded, position, value))
+        {
+            reason = "invalid_native_timer_delete_result_evidence";
+            return false;
+        }
+        parts.push_back(std::move(value));
+    }
+    if (position != encoded.size())
+    {
+        reason = "invalid_native_timer_delete_result_evidence";
+        return false;
+    }
+
+    BackendAgentNativeTimerDeleteCommand command;
+    BackendAgentNativeTimerDeleteEvidence parsed;
+    if (!backendAgentNativeTimerDeleteCommandFromAssignment(
+            assignment, command, reason) ||
+        !parseResultOutcome(parts[0], parsed.outcome) ||
+        !parseResultTime(parts[1], parsed.localStartingPersistedAt, true) ||
+        !parseResultTime(parts[2], parsed.dispatchStartedAt, false) ||
+        !parseResultTime(parts[3], parsed.completedAt, true))
+    {
+        reason = "invalid_native_timer_delete_result_evidence";
+        return false;
+    }
+    assignDeleteEvidenceIdentity(command, parsed);
+    parsed.evidenceReference = parts[4];
+
+    std::string canonicalReason;
+    if (backendAgentNativeTimerDeleteResultEvidence(
+            parsed, assignment, canonicalReason) != encoded)
+    {
+        reason = "invalid_native_timer_delete_result_evidence";
+        return false;
+    }
+    evidence = std::move(parsed);
+    reason.clear();
+    return true;
+}
+
+} // namespace vdrsuite::agent

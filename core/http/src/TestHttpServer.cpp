@@ -1,6 +1,7 @@
 #include "TestHttpServer.h"
 
 #include "ApiRouter.h"
+#include "DeviceLiveEventHub.h"
 #include "BrowserSessionCsrfRecoveryService.h"
 #include "ContinueWatchingSecurityRequest.h"
 #include "FirstAdminClaimHttpService.h"
@@ -172,8 +173,10 @@ std::string securityDatabasePath()
 
 }
 
-TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
+TestHttpServer::TestHttpServer(ApiRouter& apiRouter,
+        std::shared_ptr<DeviceLiveEventHub> eventHub)
     : apiRouter_(apiRouter),
+      deviceEventHub_(std::move(eventHub)),
       securityDatabase_(std::make_unique<Database>())
 {
     if (!securityDatabase_->open(
@@ -1863,6 +1866,40 @@ HttpServerResponse TestHttpServer::handleRequest(
     }
 
     if (request.method == "GET" &&
+        pathWithoutQuery(request.path) == "/api/v1/events")
+    {
+        if (!gate.deviceAuthenticated ||
+            gate.authorizedBackendIds.size() != 1U ||
+            gate.deviceEventDomains.empty() || !deviceEventHub_)
+        {
+            HttpServerResponse unavailable;
+            unavailable.statusCode = 503;
+            unavailable.headers["Content-Type"] = "application/json";
+            unavailable.headers["Cache-Control"] = "no-store";
+            unavailable.body = "{\"error\":\"device_event_stream_unavailable\"}";
+            return finalizeResponse(gate.context, std::move(unavailable));
+        }
+        HttpServerResponse response;
+        response.deviceEventSubscription = deviceEventHub_->subscribe(
+            gate.authorizedBackendIds.front(), gate.deviceEventDomains);
+        if (!response.deviceEventSubscription)
+        {
+            response.statusCode = 503;
+            response.headers["Content-Type"] = "application/json";
+            response.headers["Cache-Control"] = "no-store";
+            response.body = "{\"error\":\"device_event_capacity_exhausted\"}";
+        }
+        else
+        {
+            response.statusCode = 200;
+            response.headers["Content-Type"] = "text/event-stream";
+            response.headers["Cache-Control"] = "no-store";
+            response.headers["X-Accel-Buffering"] = "no";
+        }
+        return finalizeResponse(gate.context, std::move(response));
+    }
+
+    if (request.method == "GET" &&
         pathWithoutQuery(request.path) == BrowserSessionCurrentPath)
     {
         BrowserSessionCsrfRecoveryService recovery(
@@ -1880,6 +1917,12 @@ HttpServerResponse TestHttpServer::handleRequest(
                 "/api/v1/recording-playback-sessions", 0) == 0)
         {
             apiResponse = apiRouter_.handleDeviceRecordingPlayback(
+                request.path, "", gate.context);
+        }
+        else if (pathWithoutQuery(request.path).rfind(
+                "/api/v1/live-playback-sessions/", 0) == 0)
+        {
+            apiResponse = apiRouter_.handleDeviceLivePlayback(
                 request.path, "", gate.context);
         }
         else
@@ -1909,6 +1952,12 @@ HttpServerResponse TestHttpServer::handleRequest(
             apiResponse = apiRouter_.handleDeviceRecordingPlayback(
                 request.path, request.body, gate.context);
         }
+        else if (pathWithoutQuery(request.path).rfind(
+                "/api/v1/live-playback-sessions", 0) == 0)
+        {
+            apiResponse = apiRouter_.handleDeviceLivePlayback(
+                request.path, request.body, gate.context);
+        }
         else
         {
         apiResponse =
@@ -1934,6 +1983,17 @@ HttpServerResponse TestHttpServer::handleRequest(
                     "X-VDR-Suite-Pairing-Token"));
         }
     }
+    else if (request.method == "DELETE")
+    {
+        apiResponse = apiRouter_.handleClientDelete(
+            request.path,
+            gate.context.actor.actorId,
+            gate.context.requestId,
+            gate.context.correlationId,
+            requestHeaderValue(request, "If-Match"),
+            requestHeaderValue(request, "Idempotency-Key"),
+            gate.authorizationDecision.backendId);
+    }
     else
     {
         apiResponse =
@@ -1953,6 +2013,14 @@ HttpServerResponse TestHttpServer::handleRequest(
             outcomeAccountabilityUnavailableResponse(
                 gate.context);
     }
+
+    // Fresh Device-grant/lifecycle/credential mutations revoke all active
+    // subscriptions, forcing a new SecurityHttpGate admission.
+    if (deviceEventHub_ && request.method == "POST" &&
+        apiResponse.statusCode >= 200 && apiResponse.statusCode < 300 &&
+        (pathWithoutQuery(request.path).rfind("/api/v1/devices/", 0) == 0 ||
+         pathWithoutQuery(request.path) == "/api/v1/devices"))
+        deviceEventHub_->disconnectAll();
 
     return finalizeResponse(
         gate.context,

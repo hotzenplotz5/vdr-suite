@@ -76,7 +76,17 @@ public:
     NativeTimerCreateAdmissionResult admit(
         const NativeTimerCreateAdmissionRequest& request);
 
+    // Higher-level EPG admission owns BEGIN/COMMIT/ROLLBACK and the
+    // database transaction lease. Never commits a partially-created
+    // TimerIntent/Assignment; the caller must roll back on ANY failure.
+    // No standalone mutation without an active transaction.
+    NativeTimerCreateAdmissionResult admitInCurrentTransaction(
+        const NativeTimerCreateAdmissionRequest& request);
+
 private:
+    NativeTimerCreateAdmissionResult admitImpl(
+        const NativeTimerCreateAdmissionRequest& request,
+        bool currentTransaction);
     NativeTimerCreateAdmissionResult replayIfPresent(
         const NativeTimerCreateAdmissionRequest& request,
         const std::string& requestFingerprint,

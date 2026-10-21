@@ -540,7 +540,8 @@ void DaemonRuntime::refreshEpgCacheForAllBackends(const std::string& reason)
         const EpgCacheRefreshResult result =
             backendRuntimeContext->epgCacheService->refreshBackendWindow(
                 backendRuntimeContext->backendId,
-                query);
+                query,
+                true);
 
         bool genreIndexed = false;
         if (result.stored && !epgCacheWarmupStopRequested_.load()) {

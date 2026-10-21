@@ -42,9 +42,18 @@ EXPECTED_RUNTIME_OWNERS = {
 
 EXPECTED_ROUTE_LITERALS = {
     "/api/v1/recordings",
+    "/api/v1/search/recordings",
+    "/api/v1/search/epg",
     "/api/v1/epg/now-next",
+    "/api/v1/epg/window",
+    "/api/v1/epg/event",
+    "/api/v1/epg/timer-intents",
+    "/api/v1/native-timers",
+    "/api/v1/native-timers/",
     "/api/v1/genres",
     "/api/v1/genres/recordings",
+    "/api/v1/genres/epg",
+    "/api/v1/genres/epg/events",
     "/api/v1",
     "/api/v1/capabilities",
     "/api/v1/backends",
@@ -57,6 +66,9 @@ EXPECTED_ROUTE_LITERALS = {
     "/api/v1/operations/",
     "/api/v1/timer-assignments",
     "/api/v1/timer-assignments/",
+    "/api/v1/search-timers",
+    "/api/v1/search-timers/",
+    "/api/v1/search-timers/draft-preview",
     "/api/backends",
     "/api/backends/",
     "/api/backends/default",
@@ -179,9 +191,18 @@ EXPECTED_ROUTE_LITERALS = {
 
 EXPECTED_PUBLIC_V1_ROUTE_LITERALS = {
     "/api/v1/recordings",
+    "/api/v1/search/recordings",
+    "/api/v1/search/epg",
     "/api/v1/epg/now-next",
+    "/api/v1/epg/window",
+    "/api/v1/epg/event",
+    "/api/v1/epg/timer-intents",
+    "/api/v1/native-timers",
+    "/api/v1/native-timers/",
     "/api/v1/genres",
     "/api/v1/genres/recordings",
+    "/api/v1/genres/epg",
+    "/api/v1/genres/epg/events",
     "/api/v1",
     "/api/v1/capabilities",
     "/api/v1/backends",
@@ -194,6 +215,9 @@ EXPECTED_PUBLIC_V1_ROUTE_LITERALS = {
     "/api/v1/operations/",
     "/api/v1/timer-assignments",
     "/api/v1/timer-assignments/",
+    "/api/v1/search-timers",
+    "/api/v1/search-timers/",
+    "/api/v1/search-timers/draft-preview",
 }
 
 # Phase 69.E retained pre-v1 compatibility classification.

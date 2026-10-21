@@ -200,6 +200,18 @@ test-security-device-lifecycle-administration:
 	node clients/reference-js/tests/test_public_v1_device_lifecycle_client.js
 
 
+.PHONY: test-security-native-timer-admin
+test-security-native-timer-admin:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_public_native_timer_admin_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_native_timer_admin_security
+	$(BUILD_DIR)/test_public_native_timer_admin_security
+
+test-fast: test-security-native-timer-admin
+
 test-security-authorization:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		core/security/tests/test_authorization_service.cpp \

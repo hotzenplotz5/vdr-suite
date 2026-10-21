@@ -4,6 +4,7 @@
 #include "BackendAgentCommandStateExtension.h"
 #include "BackendAgentNativeTimerDeleteExecutor.h"
 #include "BackendAgentNativeTimerDeleteLocalState.h"
+#include "BackendAgentCommandStateStore.h"
 #include "BackendAgentNativeTimerDeletePayload.h"
 
 #include <cassert>
@@ -335,6 +336,23 @@ int main()
     assert(valueFor(acceptedPersisted, "retry_classification") ==
         "reconcile_only");
     assert(valueFor(acceptedPersisted, "result_acknowledged") == "1");
+
+    // CommandStateStore must rebuild the typed DELETE result from the
+    // durable extension, exactly as it already does for CREATE.
+    vdrsuite::agent::commandstate::LocalState restoredDelete;
+    assert(vdrsuite::agent::commandstate::load(
+        path, restoredDelete, reason));
+    const auto canonicalDeleteEvidence =
+        backendAgentNativeTimerDeleteResultEvidence(
+            acceptedState.evidence, assignment, reason);
+    assert(!canonicalDeleteEvidence.empty());
+    assert(restoredDelete.result.resultEvidence == canonicalDeleteEvidence);
+    assert(vdrsuite::agent::commandstate::persist(
+        path, restoredDelete, reason));
+    restoredDelete.result.resultEvidence = "forged-result";
+    assert(!vdrsuite::agent::commandstate::persist(
+        path, restoredDelete, reason));
+    assert(reason == "command_state_delete_result_evidence_conflict");
 
     // Completed evidence is replay authority. A later reconcile never invokes
     // the executor again, even while an injected transport is still present.

@@ -240,6 +240,153 @@ void verifyRejectedWithoutEffect(
     assert(applied.operation.state ==
         MutationOperationState::failedVerified);
 }
+void verifyEvidenceFreeLegacyQuarantine(
+    MutationOperationRepository& operations,
+    NativeTimerBindingRepository& bindings)
+{
+    const auto binding = createBinding(bindings, "missing-evidence");
+    const auto payload = payloadFor(binding, NativeTimerModifyKind::update);
+    const auto operation = reserve(operations, payload, "missing-evidence", 300);
+    NativeTimerModifyDispatchService dispatch(operations, bindings);
+    NativeTimerModifyDispatchClaimRequest claim;
+    claim.operationId = operation.operationId;
+    claim.expectedOperationRevision = operation.operationRevision;
+    const auto claimed = dispatch.claim(claim, 305);
+    assert(claimed.ok());
+    assert(claimed.operation.state == MutationOperationState::dispatching);
+
+    // A persisted legacy ACK lacking evidence can only be quarantined. It
+    // cannot establish either success or verified no-effect, and it does not
+    // authorize another native dispatch.
+    const std::string reason =
+        "native-timer-modify:missing-result-evidence";
+    const auto quarantined = operations.transition(
+        operation.operationId, claimed.operation.operationRevision,
+        MutationOperationState::dispatching,
+        MutationOperationState::outcomeUnknown, reason, 310);
+    assert(quarantined.ok());
+    assert(quarantined.operation.state == MutationOperationState::outcomeUnknown);
+    assert(quarantined.operation.resultReference == reason);
+    const auto persisted = operations.findById(operation.operationId);
+    assert(persisted.ok());
+    assert(persisted.operation.state == MutationOperationState::outcomeUnknown);
+    const auto staleSuccess = operations.transition(
+        operation.operationId, claimed.operation.operationRevision,
+        MutationOperationState::outcomeUnknown,
+        MutationOperationState::succeeded, "unverified-success", 311);
+    assert(!staleSuccess.ok());
+}
+
+void verifyUncertainNoEffectReconcilesExactlyOnce(
+    MutationOperationRepository& operations,
+    NativeTimerBindingRepository& bindings)
+{
+    const auto binding = createBinding(bindings, "uncertain-no-effect");
+    const auto payload = payloadFor(binding, NativeTimerModifyKind::update);
+    const auto operation = reserve(
+        operations, payload, "uncertain-no-effect", 400);
+    NativeTimerModifyDispatchService dispatch(operations, bindings);
+    NativeTimerModifyDispatchClaimRequest request;
+    request.operationId = operation.operationId;
+    request.expectedOperationRevision = operation.operationRevision;
+    const auto claimed = dispatch.claim(request, 405);
+    assert(claimed.ok());
+
+    NativeTimerModifyExecutorOutcome outcome;
+    outcome.category = NativeTimerModifyExecutorOutcomeCategory::outcomeUnknown;
+    outcome.dispatchStartedAt = 410;
+    outcome.completedAt = 411;
+    outcome.evidenceReference = "suitebridge:ntmod:transport-outcome-unknown";
+    const auto applied = dispatch.applyOutcome(claimed.claim, outcome);
+    assert(applied.status == NativeTimerModifyDispatchOutcomeStatus::applied);
+    assert(applied.operation.state == MutationOperationState::outcomeUnknown);
+    assert(applied.expectationPresent);
+
+    const auto repeated = dispatch.applyOutcome(claimed.claim, outcome);
+    assert(repeated.status ==
+        NativeTimerModifyDispatchOutcomeStatus::alreadyApplied);
+    assert(repeated.operation.operationRevision ==
+        applied.operation.operationRevision);
+
+    NativeTimerObservation observation;
+    observation.backendId = binding.backendId;
+    observation.backendGeneration = binding.backendGeneration;
+    observation.backendNativeTimerId = binding.backendNativeTimerId;
+    observation.observedAt = 420;
+    observation.observedState = binding.observedState;
+    observation.observedFingerprint =
+        nativeTimerObservedStateFingerprint(observation.observedState);
+    assert(nativeTimerObservationValid(observation));
+    assert(observation.observedFingerprint == payload.expectedCurrentFingerprint);
+    assert(!nativeTimerObservationMatchesSpecification(
+        payload.expectedSpecification, observation.observedState));
+
+    // A fresh matching original-state readback closes the persisted unknown
+    // attempt without issuing a second native modification.
+    const auto closed = operations.transition(
+        operation.operationId, applied.operation.operationRevision,
+        MutationOperationState::outcomeUnknown,
+        MutationOperationState::failedVerified,
+        "native-timer-modify:unchanged-after-uncertain-execution", 421);
+    assert(closed.ok());
+    assert(closed.operation.state == MutationOperationState::failedVerified);
+    assert(bindings.findById(binding.nativeTimerBindingId).binding
+        .observedState.title == binding.observedState.title);
+}
+
+void verifyEventIdOnlyDriftNoEffectFence()
+{
+    // A previous RESTfulAPI null event_id was accidentally read as the
+    // following field name, "weekdays". The later EPG association must not
+    // obscure proof that all timer-writing fields are unchanged.
+    NativeTimerObservedState before = observedState(
+        specification(NativeTimerModifyKind::toggle, true));
+    before.eventId = "weekdays";
+    NativeTimerObservedState live = before;
+    live.eventId = "13546";
+    assert(nativeTimerObservedStateFingerprint(before) !=
+           nativeTimerObservedStateFingerprint(live));
+    assert(nativeTimerObservedStateSameExceptEventId(before, live));
+
+    // Title/clock/channel/flags/recording/pending changes must still fence
+    // no-effect resolution even when the EPG event identity differs.
+    live.title = "Updated managed Timer";
+    assert(!nativeTimerObservedStateSameExceptEventId(before, live));
+    live = before;
+    live.eventId = "13546";
+    live.startTime = "0945";
+    assert(!nativeTimerObservedStateSameExceptEventId(before, live));
+    live = before;
+    live.eventId = "13546";
+    live.flags = 0;
+    assert(!nativeTimerObservedStateSameExceptEventId(before, live));
+    live = before;
+    live.eventId = "13546";
+    live.recording = true;
+    assert(!nativeTimerObservedStateSameExceptEventId(before, live));
+    live = before;
+    live.eventId = "13546";
+    live.pending = true;
+    assert(!nativeTimerObservedStateSameExceptEventId(before, live));
+}
+
+void verifyPendingBacklogBeyondFirstPage(
+    MutationOperationRepository& operations,
+    NativeTimerBindingRepository& bindings)
+{
+    for (int index = 0; index < 40; ++index)
+    {
+        const std::string suffix = "backlog-" + std::to_string(index);
+        const auto binding = createBinding(bindings, suffix);
+        const auto payload = payloadFor(binding, NativeTimerModifyKind::update);
+        (void)reserve(operations, payload, suffix, 500 + index);
+    }
+    const auto pending = operations.listByActionFamilyAndStates(
+        "timer.update", {MutationOperationState::accepted}, 256);
+    assert(pending.ok());
+    assert(pending.operations.size() >= 40U);
+}
+
 } // namespace
 
 int main()
@@ -265,6 +412,10 @@ int main()
         NativeTimerModifyExecutorOutcomeCategory::outcomeUnknown,
         "toggle");
     verifyRejectedWithoutEffect(operations, bindings);
+    verifyEvidenceFreeLegacyQuarantine(operations, bindings);
+    verifyUncertainNoEffectReconcilesExactlyOnce(operations, bindings);
+    verifyEventIdOnlyDriftNoEffectFence();
+    verifyPendingBacklogBeyondFirstPage(operations, bindings);
 
     std::cout << "test_native_timer_modify_dispatch passed\n";
     return 0;
