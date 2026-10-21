@@ -258,7 +258,7 @@ function setEnsureFields(root, permission, backendId) {
   }).length;
   const deniedEnsure = setEnsureFields(
     addonRoot, 'addons.media.import', 'bedroom');
-  assert.strictEqual(await deniedEnsure.listeners.click(), undefined);
+  assert.strictEqual(await deniedEnsure.listeners.click(), false);
   assert.strictEqual(calls.filter(function(call) {
     return call.name === 'setAccountGrant';
   }).length, callsBeforeScopeDenial,
