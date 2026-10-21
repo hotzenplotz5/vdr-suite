@@ -2233,17 +2233,32 @@ public:
         }
 
         gate.protectedMutation = isProtectedMutation;
-        // Versioned Recording session creation is Device-only. Browser
-        // credentials and even user/admin grants are not Device proof.
-        // This policy does not itself create sessions or expose media bytes.
+        // Native EPG Timer CREATE accepts a verified, explicitly granted
+        // Device OR a Human administrator Browser Session. A normal Human
+        // with timers.create alone is not an administrator. Browser CSRF is
+        // checked by the shared protected-mutation gate below.
         if (isPublicEpgTimerIntentCreate)
         {
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);
-            if (!gate.deviceAuthenticated ||
-                gate.context.actor.type != ActorType::Service ||
-                !gate.context.device || !gate.context.credential ||
-                gate.context.session.has_value())
+            const bool deviceClient =
+                gate.deviceAuthenticated &&
+                gate.context.actor.type == ActorType::Service &&
+                gate.context.device.has_value() &&
+                gate.context.credential.has_value() &&
+                !gate.context.session.has_value();
+            const bool browserAdmin =
+                gate.browserAuthenticated &&
+                gate.context.actor.type == ActorType::User &&
+                gate.context.session.has_value() &&
+                std::any_of(gate.context.grants.begin(),
+                    gate.context.grants.end(),
+                    [&publicEpgTimerBackendId](const PermissionGrant& grant) {
+                        return grant.permission == "role.admin" &&
+                            (grant.backendId == "*" ||
+                             grant.backendId == publicEpgTimerBackendId);
+                    });
+            if (!deviceClient && !browserAdmin)
             {
                 AuthorizationDecision denial;
                 denial.permission = "timers.create";
@@ -2251,7 +2266,7 @@ public:
                 denial.action = "timers.create";
                 denial.reasonCode = "device_credential_required";
                 return rejectWithAudit(gate, denial, 403,
-                    "Verified Device credential required", "");
+                    "Verified Device credential or administrator session required", "");
             }
             const bool validBackend =
                 !publicEpgTimerBackendId.empty() &&
@@ -2280,7 +2295,7 @@ public:
                     return grant.permission == "timers.create" &&
                         grant.backendId == publicEpgTimerBackendId;
                 });
-            if (!exactGrant)
+            if (deviceClient && !exactGrant)
             {
                 AuthorizationDecision denial;
                 denial.permission = "timers.create";
