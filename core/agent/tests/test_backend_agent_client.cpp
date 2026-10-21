@@ -942,7 +942,14 @@ class SyntheticMediaExecutor final
 public:
     int executions = 0;
     int authorizations = 0;
+    int listings = 0;
     bool available() override { return true; }
+    bool listTrustedSourceIds(std::vector<std::string>& ids) override
+    {
+        ++listings;
+        ids = {"source_00000000001"};
+        return true;
+    }
     bool authorize(const BackendAgentCommandAssignment& value,
                    const std::string& backend,
                    std::uint64_t generation) override
@@ -1031,6 +1038,7 @@ void test_media_import_actual_agent_runtime_no_double_dispatch()
         200, "{\"heartbeatSequence\":1,\"leaseExpiresAt\":123,"
              "\"duplicate\":false}"));
     transport.responses.push_back(observationSuccess(1, 1));
+    transport.responses.push_back(success(200, "{\"outcome\":\"accepted\"}"));
     transport.responses.push_back(success(
         200, serializeBackendAgentCommandPollResponseJson(assigned)));
     transport.responses.push_back(success(200, "{}")); // receipt ack
@@ -1042,24 +1050,32 @@ void test_media_import_actual_agent_runtime_no_double_dispatch()
         assert(false);
     }
     assert(executor.authorizations == 1 && executor.executions == 1);
-    assert(transport.paths.size() == 7);
-    assert(transport.paths[4] == "/api/agent/v1/commands/poll");
-    assert(transport.paths[5] == "/api/agent/v1/commands/receipt");
-    assert(transport.paths[6] == "/api/agent/v1/commands/result");
-    assert(transport.bodies[4].find("addon.media.import") !=
+    assert(transport.paths.size() == 8);
+    assert(transport.paths[4] ==
+        "/api/agent/v1/observations/media-import-sources");
+    assert(transport.bodies[4].find("\"source_00000000001\"") !=
         std::string::npos);
-    assert(transport.bodies[6].find("reconcile_only") != std::string::npos);
+    assert(transport.bodies[4].find("/media/input") == std::string::npos);
+    assert(transport.paths[5] == "/api/agent/v1/commands/poll");
+    assert(transport.paths[6] == "/api/agent/v1/commands/receipt");
+    assert(transport.paths[7] == "/api/agent/v1/commands/result");
+    assert(transport.bodies[5].find("addon.media.import") !=
+        std::string::npos);
+    assert(transport.bodies[7].find("reconcile_only") != std::string::npos);
+    assert(executor.listings == 1);
 
     // Heartbeat reconciles the persisted result, but must not execute twice.
     transport.responses.push_back(success(
         200, "{\"heartbeatSequence\":2,\"leaseExpiresAt\":153,"
              "\"duplicate\":false}"));
     transport.responses.push_back(observationSuccess(1, 2));
+    transport.responses.push_back(success(200, "{\"outcome\":\"accepted\"}"));
     transport.responses.push_back(success(
         200, "{\"hasAssignment\":false,"
              "\"reasonCode\":\"no_command_available\"}"));
     assert(runtime.heartbeat(reason));
     assert(executor.executions == 1 && executor.authorizations == 1);
+    assert(executor.listings == 2);
     assert(transport.responses.empty());
     removeTree(root);
 }
