@@ -4658,22 +4658,22 @@ ApiResponse publicDeviceCollectionResponse(
     const PublicDeviceCollectionQuery& query,
     const std::string& requestId, const std::string& correlationId)
 {
-    std::string body = "{\\"items\\":[";
+    std::string body = "{\"items\":[";
     for (std::size_t i = 0; i < result.items.size(); ++i)
     {
         const auto& item = result.items[i];
         if (i) body += ",";
-        body += "{\\"deviceId\\":\\"" + jsonEscape(item.deviceId) +
-            "\\",\\"actorId\\":\\"" + jsonEscape(item.actorId) +
-            "\\",\\"displayName\\":\\"" + jsonEscape(item.displayName) +
-            "\\",\\"active\\":" + (item.active ? "true" : "false") +
-            ",\\"revoked\\":" + (item.revoked ? "true" : "false") + "}";
+        body += "{\"deviceId\":\"" + jsonEscape(item.deviceId) +
+            "\",\"actorId\":\"" + jsonEscape(item.actorId) +
+            "\",\"displayName\":\"" + jsonEscape(item.displayName) +
+            "\",\"active\":" + (item.active ? "true" : "false") +
+            ",\"revoked\":" + (item.revoked ? "true" : "false") + "}";
     }
-    body += "],\\"page\\":{\\"limit\\":" + std::to_string(query.limit) +
-        ",\\"hasMore\\":" + (result.hasMore ? "true" : "false") +
-        ",\\"nextCursor\\":";
+    body += "],\"page\":{\"limit\":" + std::to_string(query.limit) +
+        ",\"hasMore\":" + (result.hasMore ? "true" : "false") +
+        ",\"nextCursor\":";
     body += result.hasMore && !result.items.empty()
-        ? "\\"dv1_" + jsonEscape(result.items.back().deviceId) + "\\""
+        ? "\"dv1_" + jsonEscape(result.items.back().deviceId) + "\""
         : "null";
     body += "}}";
     ApiResponse response = jsonResponse(body, requestId, correlationId);
