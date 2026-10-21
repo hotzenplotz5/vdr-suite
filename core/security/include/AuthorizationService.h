@@ -113,8 +113,15 @@ public:
         // Add-on import is deliberately *not* implied by role.admin,
         // general permission wildcards or backend-wide grants. Only an
         // explicitly resolved permission on the exact backend qualifies.
-        if (request.permission == "addons.media.import")
+        if (request.permission.rfind("addons.", 0) == 0)
         {
+            // Grant vocabulary is strictly Core-owned. Future features
+            // remain disabled even if arbitrary grants are persisted.
+            if (request.permission != "addons.media.import")
+            {
+                decision.reasonCode = "permission_denied";
+                return decision;
+            }
             for (const PermissionGrant& grant : context.grants)
             {
                 if (grant.permission == request.permission &&
