@@ -306,6 +306,9 @@ test-ci-fast: test-media-tools-agent-dispatch
 .PHONY: build-media-tools-pinned-agent-executor-test
 build-media-tools-pinned-agent-executor-test:
 	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror \
+		addons/media-tools/tests/fake_pinned_media_import_receipt.cpp \
+		-o "$(BUILD_DIR)/addons/fake_pinned_media_import_receipt"
 	$(CXX) $(CXXFLAGS) -Werror -Icore/addons/include \
 		$(AGENT_COMMAND_DOMAIN_SRC) \
 		core/addons/src/AddonRootApproval.cpp \
