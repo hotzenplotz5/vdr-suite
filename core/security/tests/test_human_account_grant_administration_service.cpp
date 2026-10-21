@@ -28,6 +28,7 @@ struct Fixture
     SecurityPermissionGrantRepository grants;
     CredentialVerifierRepository verifiers;
     unsigned char entropyCounter = 1;
+    bool addonEnabled = false;
     HumanAccountGrantAdministrationService service;
 
     Fixture(bool secondAdmin = false, bool addonAvailable = false)
@@ -38,6 +39,7 @@ struct Fixture
           administration(database),
           grants(database),
           verifiers(database),
+          addonEnabled(addonAvailable),
           service(
               database,
               accounts,
@@ -58,9 +60,9 @@ struct Fixture
                   return std::chrono::system_clock::time_point(
                       std::chrono::seconds(1700000000));
               },
-              [addonAvailable](const std::string& permission,
-                               const std::string& backendId) {
-                  return addonAvailable &&
+              [this](const std::string& permission,
+                     const std::string& backendId) {
+                  return addonEnabled &&
                       permission == "addons.media.import" &&
                       backendId == "backend-a";
               })
@@ -434,10 +436,16 @@ int main()
             "addons.media.import", "backend-a", true);
         assert(granted.status == HumanAccountGrantAdministrationStatus::success);
         assert(hasGrant(granted.grantSet, "addons.media.import", "backend-a"));
+        assert(fixture.service.setGrant(
+            context(), "account-viewer", granted.grantSet.resourceRevision,
+            "addons.media.import", "backend-b", true).status ==
+            HumanAccountGrantAdministrationStatus::invalidGrant);
         const auto globalDenied = fixture.service.setGrant(
             context(), "account-viewer", granted.grantSet.resourceRevision,
             "addons.media.import", "*", true);
         assert(globalDenied.status == HumanAccountGrantAdministrationStatus::invalidGrant);
+        // Removing grants stays possible after provider revocation.
+        fixture.addonEnabled = false;
         const auto removed = fixture.service.setGrant(
             context(), "account-viewer", granted.grantSet.resourceRevision,
             "addons.media.import", "backend-a", false);
