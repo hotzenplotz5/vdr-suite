@@ -6,6 +6,7 @@ on:
       - work/addon-platform-registry-lifecycle
     paths:
       - 'core/addons/**'
+      - 'addons/media-tools/**'
       - 'core/security/include/AuthorizationService.h'
       - 'core/security/src/HumanAccountGrantAdministrationService.cpp'
       - 'core/security/tests/test_authorization_service.cpp'
@@ -51,6 +52,7 @@ jobs:
           make test-addon-provider-read-service
           make test-addon-provider-approval
           make test-addon-agent-dispatch-gate
+          make test-media-tools-agent-request
           make test-addon-agent-advertisement
           make test-addon-activation-intent
           make test-addon-administration-service
