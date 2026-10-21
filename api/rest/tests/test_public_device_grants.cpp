@@ -24,6 +24,24 @@ PublicDeviceGrantSetResource grantSet(const std::string& revision)
 int main()
 {
     PublicApiRuntime& runtime = PublicApiRuntime::instance();
+    runtime.resetDeviceCollectionLookup();
+    runtime.registerDeviceCollectionLookup([](const PublicDeviceCollectionRequest& q) {
+        PublicDeviceCollectionResult result;
+        assert(q.limit == 1U);
+        result.available = true;
+        result.hasMore = q.afterDeviceId.empty();
+        if (q.afterDeviceId.empty())
+            result.items.push_back(PublicDeviceCollectionItem{
+                "device_10001", "actor_device_10001", "Hisense Wohnzimmer",
+                true, false});
+        else {
+            assert(q.afterDeviceId == "device_10001");
+            result.items.push_back(PublicDeviceCollectionItem{
+                "device_10002", "actor_device_10002", "Hisense Schlafzimmer",
+                false, true});
+        }
+        return result;
+    });
     runtime.resetDeviceGrantLookup();
     runtime.resetDeviceGrantMutation();
     runtime.registerDeviceGrantLookup([](const std::string& deviceId) {
@@ -59,6 +77,40 @@ int main()
         "public-api.devices-grants-administration") != std::string::npos);
     assert(capabilities.body.find(
         "\"availability\":\"available\"") != std::string::npos);
+
+    ApiResponse firstDevices;
+    assert(runtime.tryHandleGet("/api/v1/devices?limit=1",
+        "admin_actor", "devices-page-1", "", firstDevices));
+    assert(firstDevices.statusCode == 200);
+    assert(firstDevices.body.find("\\"displayName\\":\\"Hisense Wohnzimmer\\"") !=
+        std::string::npos);
+    assert(firstDevices.body.find("\\"hasMore\\":true") != std::string::npos);
+    assert(firstDevices.body.find("\\"nextCursor\\":\\"dv1_device_10001\\"") !=
+        std::string::npos);
+    assert(firstDevices.body.find("credentialSecret") == std::string::npos);
+    ApiResponse secondDevices;
+    assert(runtime.tryHandleGet(
+        "/api/v1/devices?limit=1&cursor=dv1_device_10001",
+        "admin_actor", "devices-page-2", "", secondDevices));
+    assert(secondDevices.statusCode == 200);
+    assert(secondDevices.body.find("\\"revoked\\":true") != std::string::npos);
+    assert(secondDevices.body.find("\\"hasMore\\":false") != std::string::npos);
+    ApiResponse anonDevices;
+    assert(runtime.tryHandleGet("/api/v1/devices?limit=1",
+        "", "devices-anon", "", anonDevices));
+    assert(anonDevices.statusCode == 401);
+    ApiResponse invalidDevices;
+    assert(runtime.tryHandleGet("/api/v1/devices?limit=1&extra=yes",
+        "admin_actor", "devices-invalid", "", invalidDevices));
+    assert(invalidDevices.statusCode == 400);
+    ApiResponse badCursor;
+    assert(runtime.tryHandleGet("/api/v1/devices?cursor=../foo",
+        "admin_actor", "devices-invalid-cursor", "", badCursor));
+    assert(badCursor.statusCode == 400);
+    ApiResponse invalidMethod;
+    assert(runtime.tryHandleUnsupportedMethod(
+        "DELETE", "/api/v1/devices", "devices-method", "", invalidMethod));
+    assert(invalidMethod.statusCode == 405);
 
     ApiResponse read;
     assert(runtime.tryHandleGet(
@@ -135,5 +187,6 @@ int main()
 
     runtime.resetDeviceGrantMutation();
     runtime.resetDeviceGrantLookup();
+    runtime.resetDeviceCollectionLookup();
     return 0;
 }
