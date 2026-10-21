@@ -1036,7 +1036,11 @@ void test_media_import_actual_agent_runtime_no_double_dispatch()
     transport.responses.push_back(success(200, "{}")); // receipt ack
     transport.responses.push_back(success(200, "{}")); // result ack
 
-    assert(runtime.synchronize(reason));
+    if (!runtime.synchronize(reason))
+    {
+        std::cerr << "A6_RUNTIME_SYNCHRONIZE_FAILURE=" << reason << "\n";
+        assert(false);
+    }
     assert(executor.authorizations == 1 && executor.executions == 1);
     assert(transport.paths.size() == 7);
     assert(transport.paths[4] == "/api/agent/v1/commands/poll");
