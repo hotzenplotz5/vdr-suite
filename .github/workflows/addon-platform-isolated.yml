@@ -8,6 +8,7 @@ on:
       - 'core/addons/**'
       - 'core/daemon/include/DaemonRuntime.h'
       - 'core/daemon/src/DaemonRuntimeInitialization.cpp'
+      - 'core/daemon/src/DaemonRuntimeRecordingCache.cpp'
       - 'mk/daemon-sources.mk'
       - 'core/agent/include/BackendAgentClient.h'
       - 'core/agent/include/BackendAgentCommandClient.h'
