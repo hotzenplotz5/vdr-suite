@@ -287,7 +287,8 @@ bool parseTypes(const Value& value, std::vector<std::string>& types)
                  vdrsuite::agent::kBackendAgentRecordingMarksModifyCommandType &&
              item.stringValue !=
                  vdrsuite::agent::kBackendAgentRecordingCutCommandType &&
-             item.stringValue != kLegacyOsdInputCommandType) ||
+             item.stringValue != kLegacyOsdInputCommandType &&
+             item.stringValue != "addon.media.import") ||
             std::find(types.begin(), types.end(), item.stringValue) != types.end())
         {
             return false;
