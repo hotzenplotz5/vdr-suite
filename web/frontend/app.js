@@ -3620,6 +3620,11 @@ function renderSettingsView(data) {
     accountAdminSettings.render(panel);
   }
 
+  const deviceAdminSettings = window.VdrSuiteDeviceAdminSettings;
+  if (deviceAdminSettings && typeof deviceAdminSettings.render === 'function') {
+    deviceAdminSettings.render(panel);
+  }
+
   const remoteCard = document.createElement('article');
   remoteCard.className = 'module-placeholder settings-card settings-remote-card';
   remoteCard.appendChild(addText(
