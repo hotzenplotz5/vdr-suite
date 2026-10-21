@@ -129,7 +129,7 @@
       detail.appendChild(text('p',
         item.revoked ? 'Widerrufen – keine Rechteänderung möglich' :
         !item.active ? 'Inaktiv – keine Rechteänderung möglich' :
-        'Gekoppelt (Identität vorhanden)', 'settings-account-admin-meta'));
+        'Geräteidentität aktiv (Verbindungsstatus unbekannt)', 'settings-account-admin-meta'));
       const technical = document.createElement('details');
       technical.appendChild(text('summary', 'Gerätekennung (technisch)'));
       technical.appendChild(text('p', 'Device-ID: ' + item.deviceId));
@@ -229,10 +229,17 @@
         }
       }).catch(setError);
     }
-    return api.listBackends().then(function(items) {
+    // Listing identities must remain useful if backend discovery itself is
+    // unavailable; the grant button remains disabled without exact scopes.
+    return Promise.resolve().then(function() {
+      return api.listBackends();
+    }).then(function(items) {
       state.backends = Array.isArray(items) ? items : [];
+    }).catch(function() {
+      state.backends = [];
+    }).then(function() {
       return loadDevices(false);
-    }).catch(setError).then(function() { return card; });
+    }).then(function() { return card; });
   }
   global.VdrSuiteDeviceAdminSettings = Object.freeze({render: render});
 })(window);
