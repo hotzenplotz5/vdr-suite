@@ -985,11 +985,13 @@ void test_http_protocol_and_redaction()
     sources.body =
         "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
         "\"backendGeneration\":1,\"sourceIds\":[\"source_00000000001\"]}";
-    const auto observed = server.handleRequest(sources);
-    assert(observed.statusCode == 200);
+    const auto sourceObserved = server.handleRequest(sources);
+    assert(sourceObserved.statusCode == 200);
     std::vector<std::string> ids;
     const auto live = fixture.agentRepository.findAgentForBackend("default");
-    assert(live && mediaImportCatalog.list(*live, "default", realNow, ids));
+    const auto observedNow = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    assert(live && mediaImportCatalog.list(*live, "default", observedNow, ids));
     assert(ids == (std::vector<std::string>{"source_00000000001"}));
     sources.body =
         "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
