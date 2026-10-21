@@ -177,6 +177,19 @@ int main() {
         assert(fs::exists(f.source) && runner.probes == 0);
         ++checks;
     }
+    {
+        Fixture f;
+        FakeProcess runner;
+        const auto plan = inspectImport(f.request());
+        const auto original = f.input / "Sample-original.mp4";
+        fs::rename(f.source, original);
+        // Same extension, pathname and length, but different inode.
+        std::ofstream(f.source) << "synthetic-source-unchanged";
+        mustFail([&] { executeRemuxImport(plan, runner, [](const ImportPlan&) {}); });
+        assert(runner.probes == 0 && runner.remuxes == 0);
+        assert(fs::exists(original) && fs::exists(f.source));
+        ++checks;
+    }
     std::cout << "MEDIA_IMPORT_CPP_TEST=PASS checks=" << checks << "\n";
     return 0;
 }
