@@ -1,52 +1,18 @@
 # VDR-Suite Current State
 
-## Recording R2/R3 source integration checkpoint — 2026-10-21
+## Public-v1 Recording R2/R3 — REAL yaVDR acceptance CLOSED (2026-10-21)
 
-The current Recording action source workstream on the **only authorized
-branch `main`** implemented the R2/R3 functionality in steps
-`826adee0`, `769d5537` and `6b388c2c`. Current exact-head CI must be
-checked independently: commits and passing partial checks alone do **not**
-establish complete source acceptance, running daemon upgrade, or live
-yaVDR behavior. The previous real-VDR Recording test fixture has already
-been deleted; **no further real Recording mutation has been authorized**.
+**Exact source and installed daemon:** `13e63d277deb5c9e0230f757a8c5733f6e7b0cbb`. Installed/running SHA-256 matched `aca41b516e59375cca0cfb8d3e0c63043d1cb71d90df0282cf4b73d3b48a82f5`, service active. At this exact source SHA all four GitHub workflow runs passed (R2 Recording + Genre #165, Recording R2 Candidate #124, VDR-Suite CI #10597, VIDAA Device tracks/index/SRT #146).
 
-- **R2:** public `rec_` RENAME/DELETE requests use the existing
-  `PublicRecordingPlaybackTargetResolver`, SafeMutation preview, strong
-  operation-scoped provider `If-Match`, repeated provider revision fence,
-  existing single-dispatch controller/executor, and independent provider
-  inventory readback. DELETE requires `confirmDelete:true` and verifies
-  provider absence before retiring public identity. Unverified/unknown
-  mutation outcomes return generic Problem Details, never a public success
-  and never an automatic retry.
-- **R3:** MOVE uses only an existing exact-backend `fld1_`
-  `targetFolderId` from `VdrRecordingCacheRepository`; native client
-  `targetPath` is forbidden. The existing SafeMutation adapter translates
-  the server-resolved logical folder. A conservatively unique provider
-  readback is required before persistent `rec_` rebind through the
-  existing Identity Repository. No second folder index, identity
-  persistence or executor was introduced.
-- **Outstanding acceptance:** finish CI on exact final source commit;
-  OpenAPI/negative tests, real yaVDR test with an explicitly approved new
-  disposable Recording, and separate durable idempotency/unknown-outcome
-  review. This source checkpoint is not a blanket approval to mutate
-  production Recordings and is not a live R2/R3 closeout.
-- **Order remains unchanged:** Recording R2/R3 first, then the
-  responsibility-only ADR-0068 ApiRouter/PublicApiRuntime checkpoint,
-  then E1/E2/M1/M2/S1/P1. No general router refactoring was started.
+**Public Recording collection fixed:** ADR-0035's lightweight VDR startup snapshot intentionally omits Recordings. The flat Public-v1 route mistakenly read this snapshot and returned HTTP 200 with zero items. Commit `13e63d2` switched the flat lookup to the existing backend-scoped `VdrRecordingCacheRepository`, gated on cache state `ready`, without a new loader, index, schema, identity source, or legacy API change. On the real host, the authenticated Public-v1 collection returned **1,037** items *before* the action test and uniquely resolved the approved Brisant source.
 
+**R2/R3 hardware verification PASS:** The user explicitly approved Brisant (`/Brisant/2026-10-21.17.15.1-0.rec`, backend `default`, public ID `rec_f30ec344800ac3135114c7770e823343`, 57 MB) for RENAME → MOVE to the existing `Action` folder → DELETE. Human Account/CSRF and all three Validate/Dry-run pairs passed. Each actual RENAME, MOVE and DELETE succeeded with provider and public-identity readbacks. An initial DELETE-stage HTTP timeout occurred before a real DELETE request; read-only RESTfulAPI inventory confirmed the moved recording was still present; a subsequent expressly authorized DELETE-only invocation performed one real write and verified native absence and public-ID retirement. Final output: `API_V1_RECORDING_HW_ACCEPTANCE=PASS`, `AUTOMATIC_RETRY=DISABLED`. **The fixture is deleted. Never reuse its ID or rerun its destructive acceptance.** See [R2/R3 Real-Hardware Closeout](development/public-v1-recording-r2r3-hardware-acceptance-20261021.md).
 
-## Accepted Public API v1 router sequencing ADR (2026-10-21)
+**Safety boundary:** This closes only the bounded real-host R2/R3 actions, not crash-durable idempotency, arbitrary productive Recording deletion, or another client's runtime acceptance. Unknown outcomes after real mutation calls remain fail-closed: no blind retries.
 
-The accepted [ADR-0068](adr/ADR-0068-public-api-router-modularization-checkpoint.md) and [Strict Roadmap](planning/roadmap.md) formally reserve a **behavior-preserving `ApiRouter`/`PublicApiRuntime` modularization checkpoint only after R3**, before E1/E2/M1/M2/S1/P1. It does **not** change the current R2 priority, allow new routes/JSON/grants, create a second identity/Executor, or constitute an implemented refactor. Current work: recording-v1 R2 source and regression gates; no live destructive recording test authorized.
+## Next Public-v1 execution checkpoint — ADR-0068 router modularization
 
-## Recording Public-v1 checkpoint and delivery order (2026-10-21)
-
-**Authoritative working branch: `main`; strategy: R1 -> R2 -> R3 -> router modularization checkpoint -> E1/E2/M1/M2/S1/P1.** Avoid a general `ApiRouter`/`PublicApiRuntime` refactor until the Recording semantics have settled at R3. The later router checkpoint must only relocate responsibilities without changing URLs, JSON contracts, grants, identity ownership, or domain behavior.
-
-- **R1 source + CI COMPLETE at `dd8b3317f9347146463b3ce78636228aa2ebb84f`**: Public `rec_` resolution via existing identity/cache playback resolver; v1-only validation/dry-run; client-native fields rejected; scoped action permission and browser CSRF on validate and execute; legacy routes retained. All ten GitHub check runs green at that SHA. This is code/CI verification, **not** a new productive yaVDR hardware acceptance.
-- **R2 in progress (initial precondition-only increment):** public RENAME/DELETE real mutation is still disabled; a real `execute` must require syntactically strong `If-Match`, but parsing it does *not* substitute an authoritative recording revision. No derived cache-only ETag is accepted for a write. Unsafe client `targetPath` is rejected and MOVE is held for R3. Proper public DTO, authority/If-Match comparison, execution, verified readback, DELETE identity retirement and RENAME rebind remain open. Explicit disposable hardware fixture is required for any later live write.
-- **R3 not started:** logical public folder target, verified move and persistent `rec_` rebind. No automatic mutation retry.
-- Older dated entries below may describe earlier candidate-only or branch-specific stages; do not overgeneralize them to current source or installed host.
+The binding [ADR-0068](adr/ADR-0068-public-api-router-modularization-checkpoint.md) / [Strict Roadmap](planning/roadmap.md) sequence is R1 → R2 → R3 → **behavior-preserving `ApiRouter` / `PublicApiRuntime` responsibility extraction** → E1 → E2 → M1 → M2 → S1 → P1. Now that the bounded R2/R3 hardware proof is complete, the next task is a post-R3 route/contract inventory and the *smallest* modularization that changes **no** URLs, methods, schemas, response statuses/headers, security/grants/CSRF, ETags, identities, executors, database, legacy routes or domain semantics. Phase 70 remains not started. Device/Multiuser, MLD and Addon branches are independent.
 
 ## Operational status authority
 
