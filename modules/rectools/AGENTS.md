@@ -18,3 +18,5 @@ Inherit all requirements from [root AGENTS.md](../../AGENTS.md). These stricter 
 12. For genuine source-built C++ package staging use `make build-media-tools-cpp-deb` (distinct `~cpppreview1`, nonfunctional Suite integration) and inspect the `dpkg-deb --contents` output. The generic `build-addon-deb` remains metadata only. Do not silently install prototype packages to live root; packaging test must use isolated output directories and capacity preflight.
 
 13. The installed-module inventory is descriptive only. No change to Media Tools may infer server activation or permission from a valid package manifest; any future execution requires a reviewed core handler registry, actor authorization, backend scope and durable lifecycle.
+
+14. Media Tools implementation source is owned by `../../addons/media-tools/` after relocation; this `modules/rectools/` folder retains the inert manifest/staging contract. Do not duplicate importer code.\n
