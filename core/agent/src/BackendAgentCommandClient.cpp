@@ -19,6 +19,7 @@
 #include "BackendAgentRecordingCutTransport.h"
 #include "ISuiteBridgeLegacyOsdInputTransport.h"
 #include "LegacyOsdInputDomain.h"
+#include "MediaToolsAgentExecutor.h"
 
 #include <algorithm>
 #include <chrono>
@@ -590,6 +591,20 @@ CommandAvailability availableCommands(
                 availability.commandTypes.push_back(type);
             continue;
         }
+        if (type == vdrsuite::mediatools::kMediaImportCommandType)
+        {
+            // Availability never comes from the module manifest or config alone.
+            if (config.mediaImportExecutor)
+            {
+                try
+                {
+                    if (config.mediaImportExecutor->available())
+                        availability.commandTypes.push_back(type);
+                }
+                catch (...) {} // Lost trust removes advertisement.
+            }
+            continue;
+        }
         // An add-on manifest or COMMAND_TYPES value cannot self-advertise
         // an unregistered executor. Reserve both namespaces until the
         // reviewed Backend-Agent handler is actually connected.
@@ -656,6 +671,8 @@ bool reconcileBackendAgentCommandState(
         }
         return false;
     }
+    const bool mediaImportCommand = state.assignment.commandType ==
+        vdrsuite::mediatools::kMediaImportCommandType;
     const bool timerCreateCommand = state.assignment.commandType ==
         vdrsuite::agent::kBackendAgentNativeTimerCreateCommandType;
     const bool timerDeleteCommand = state.assignment.commandType ==
@@ -693,6 +710,67 @@ bool reconcileBackendAgentCommandState(
             return retireProtectedState(config.statePath, reason);
         reason = "local_command_generation_fenced";
         return false;
+    }
+
+    if (mediaImportCommand && !state.resultPresent)
+    {
+        // Same durable Agent inbox, receipt and result. Never re-execute after
+        // a crash that could have occurred during non-idempotent remux.
+        if (state.dispatchState != "not_started")
+        {
+            createResult(state, state.dispatchState, "outcome_unknown",
+                         "outcome_unknown", "executor_unknown", "reconcile_only",
+                         "Media import recovered after start; reconcile recording");
+            if (!persist(config.statePath, state, reason)) return false;
+            return sendResult(config, context, transport, state, reason);
+        }
+        if (!state.receiptAcknowledged &&
+            !sendReceipt(config, context, transport, state, reason))
+            return false;
+        if (state.assignment.deadline <= nowSeconds())
+        {
+            createResult(state, "not_started", "outcome_unknown", "rejected",
+                         "expired", "none", "Media import deadline expired");
+            if (!persist(config.statePath, state, reason)) return false;
+            return sendResult(config, context, transport, state, reason);
+        }
+        bool authorized = false;
+        try
+        {
+            authorized = config.mediaImportExecutor &&
+                config.mediaImportExecutor->available() &&
+                config.mediaImportExecutor->authorize(
+                    state.assignment, context.backendId, context.backendGeneration);
+        }
+        catch (...) { authorized = false; }
+        if (!authorized)
+        {
+            createResult(state, "not_started", "outcome_unknown", "rejected",
+                         "fenced", "none", "Media import trust or grant unavailable");
+            if (!persist(config.statePath, state, reason)) return false;
+            return sendResult(config, context, transport, state, reason);
+        }
+
+        // The crash fence is durably written before any external side effect.
+        state.dispatchState = "starting";
+        if (!persist(config.statePath, state, reason)) return false;
+        auto outcome = vdrsuite::mediatools::MediaImportAgentOutcome::unknown;
+        try { outcome = config.mediaImportExecutor->execute(state.assignment); }
+        catch (...) {} // Side effect unknown; do not retry.
+        if (outcome == vdrsuite::mediatools::MediaImportAgentOutcome::rejected)
+            createResult(state, "starting", "outcome_unknown", "rejected",
+                         "fenced", "none", "Media import rejected without effect");
+        else
+            createResult(
+                state,
+                outcome == vdrsuite::mediatools::MediaImportAgentOutcome::submitted
+                    ? "accepted_by_executor" : "starting",
+                "outcome_unknown", "outcome_unknown",
+                outcome == vdrsuite::mediatools::MediaImportAgentOutcome::submitted
+                    ? "none" : "executor_unknown",
+                "reconcile_only", "Media import requires recording reconciliation");
+        if (!persist(config.statePath, state, reason)) return false;
+        return sendResult(config, context, transport, state, reason);
     }
 
     if (timerCreateCommand && !state.stateExtensionPresent && !state.resultPresent)

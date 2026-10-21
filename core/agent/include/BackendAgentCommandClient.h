@@ -24,9 +24,12 @@ class ISuiteBridgeLegacyOsdInputTransport;
 inline IBackendAgentRecordingCutTransport* RecordingCutDefaultTransport = nullptr;
 }
 
+namespace vdrsuite::mediatools { class IMediaImportAgentExecutor; }
+
 struct BackendAgentCommandClientConfig
 {
     std::string statePath;
+    vdrsuite::mediatools::IMediaImportAgentExecutor* mediaImportExecutor = nullptr;
     std::vector<std::string> commandTypes;
     vdrsuite::agent::IBackendAgentNativeProbeTransport* nativeProbeTransport = nullptr;
     vdrsuite::agent::IBackendAgentNativeTimerDeleteTransport* nativeTimerDeleteTransport = nullptr;

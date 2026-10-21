@@ -6,6 +6,7 @@
 #include "BackendAgentRecordingMarksModifyPayload.h"
 #include "BackendAgentRecordingCutPayload.h"
 #include "LegacyOsdInputDomain.h"
+#include "MediaToolsAgentExecutor.h"
 
 #include <algorithm>
 #include <cctype>
@@ -50,6 +51,13 @@ bool allowed(const std::string& value, const std::vector<std::string>& values)
 
 bool validCommandPayload(const BackendAgentCommandAssignment& value)
 {
+    if (value.commandType == vdrsuite::mediatools::kMediaImportCommandType)
+    {
+        std::string sourceId;
+        return value.payloadVersion == 1 &&
+            value.verificationPolicy == "reconciliation_required" &&
+            vdrsuite::mediatools::parseMediaImportSelection(value.payload, sourceId);
+    }
     if (value.commandType == "probe.noop")
     {
         return value.payloadVersion == 1 && value.payload == "{}" &&

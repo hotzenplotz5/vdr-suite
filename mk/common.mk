@@ -7,6 +7,7 @@ CXXFLAGS := -std=c++17 -Wall -Wextra \
         -Icore/recordings/include \
         -Icore/daemon/include \
         -Icore/agent/include \
+        -Iaddons/media-tools/include \
         -Icore/vdr/include \
         -Icore/http/include \
         -Icore/operations/include \
