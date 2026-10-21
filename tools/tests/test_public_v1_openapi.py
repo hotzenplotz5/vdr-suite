@@ -19,13 +19,16 @@ class OpenApiDriftTests(unittest.TestCase):
         cls.source = (ROOT / "api/rest/src/PublicApiRuntime.cpp").read_text(encoding="utf-8")
         cls.device_source = (ROOT / "core/daemon/src/RecordingMediaHttpRuntime.cpp").read_text(encoding="utf-8")
         cls.security_source = (ROOT / "core/security/include/SecurityHttpGate.h").read_text(encoding="utf-8")
+        cls.recording_router = (ROOT / "api/rest/src/ApiRouter.cpp").read_text(encoding="utf-8")
 
-    def errors_for(self, document=None, source=None, device_source=None, security_source=None):
+    def errors_for(self, document=None, source=None, device_source=None,
+                   security_source=None, recording_router=None):
         return guard.validate(
             self.document if document is None else document,
             self.source if source is None else source,
             self.device_source if device_source is None else device_source,
             self.security_source if security_source is None else security_source,
+            self.recording_router if recording_router is None else recording_router,
         )
 
     def assert_rejected(self, document=None, source=None, reason="", device_source=None, security_source=None):
@@ -52,6 +55,29 @@ class OpenApiDriftTests(unittest.TestCase):
             1,
         )
         self.assert_rejected(source=source, reason="source route handler anchor disappeared")
+
+    def test_recording_action_route_is_audited(self):
+        changed = copy.deepcopy(self.document)
+        del changed["paths"]["/api/v1/recordings/actions/execute"]
+        self.assert_rejected(changed, reason="audited path inventory changed")
+
+    def test_recording_action_router_anchor_is_audited(self):
+        modified = self.recording_router.replace(
+            'if (path == "/api/v1/recordings/actions/execute")',
+            'if (path == "/api/v1/obsolete/actions/execute")',
+            1,
+        )
+        errors = self.errors_for(recording_router=modified)
+        self.assertTrue(any(
+            "Recording ApiRouter route handler anchor disappeared" in error
+            for error in errors
+        ), errors)
+
+    def test_recording_action_wrong_permission_scope(self):
+        changed = copy.deepcopy(self.document)
+        changed["paths"]["/api/v1/recordings/actions/validate"]["post"][
+            "x-vdr-suite-authentication"]["actorRequired"] = False
+        self.assert_rejected(changed, reason="actorRequired does not match")
 
     def test_missing_recording_browse_route(self):
         changed = copy.deepcopy(self.document)

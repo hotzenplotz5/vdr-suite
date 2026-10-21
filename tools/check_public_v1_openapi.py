@@ -17,6 +17,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 OPENAPI = ROOT / "api/openapi.json"
 RUNTIME = ROOT / "api/rest/src/PublicApiRuntime.cpp"
+RECORDING_ROUTER = ROOT / "api/rest/src/ApiRouter.cpp"
 DEVICE_RUNTIME = ROOT / "core/daemon/src/RecordingMediaHttpRuntime.cpp"
 DEVICE_GATE = ROOT / "core/security/include/SecurityHttpGate.h"
 
@@ -111,6 +112,16 @@ AUDITED = {
 # root, rather than PublicApiRuntime. Require an actual route branch AND its
 # SecurityHttpGate Device-only admission marker for every documented method.
 # The GET status and track branches use an empty body to distinguish reads.
+# ApiRouter owns these Public-v1 action handlers, not PublicApiRuntime.
+RECORDING_ACTION_AUDITED = {
+    "/api/v1/recordings/actions/validate": {
+        "post": 'if (path == "/api/v1/recordings/actions/validate")',
+    },
+    "/api/v1/recordings/actions/execute": {
+        "post": 'if (path == "/api/v1/recordings/actions/execute")',
+    },
+}
+
 DEVICE_AUDITED = {
     "/api/v1/recording-playback-sessions/capabilities": {
         "get": ('const std::string capabilityCollection = collection + "/capabilities";',
@@ -222,6 +233,7 @@ def validate(
     spec: Any, source: str,
     device_source: str | None = None,
     security_source: str | None = None,
+    recording_router_source: str | None = None,
 ) -> list[str]:
     """Return all detected contract drift without mutating a file or system."""
     errors: list[str] = []
@@ -229,6 +241,8 @@ def validate(
         device_source = DEVICE_RUNTIME.read_text(encoding="utf-8")
     if security_source is None:
         security_source = DEVICE_GATE.read_text(encoding="utf-8")
+    if recording_router_source is None:
+        recording_router_source = RECORDING_ROUTER.read_text(encoding="utf-8")
     if not isinstance(spec, dict):
         return ["OpenAPI root must be a JSON object"]
 
@@ -244,7 +258,7 @@ def validate(
     paths = spec.get("paths")
     if not isinstance(paths, dict):
         return errors + ["OpenAPI paths must be an object"]
-    expected_paths = set(AUDITED) | set(DEVICE_AUDITED)
+    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED)
     if set(paths) != expected_paths:
         missing = sorted(expected_paths - set(paths))
         extra = sorted(set(paths) - expected_paths)
@@ -268,7 +282,9 @@ def validate(
     # Registration plus cleanup are expected: cleanup alone is NOT a live route.
     if device_source.count('apiRouter.setDeviceRecordingPlaybackHandler(') != 2:
         errors.append("Device Recording playback composition handler disappeared")
-    for path, methods in {**AUDITED, **DEVICE_AUDITED}.items():
+    for path, methods in {
+        **AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED
+    }.items():
         data = paths.get(path)
         if not isinstance(data, dict):
             errors.append(f"{path}: path object absent")
@@ -279,7 +295,15 @@ def validate(
             errors.append(f"{path}: documented methods changed, expected {sorted(expected)}, got {sorted(current)}")
         for method, marker in methods.items():
             where = f"{method.upper()} {path}"
-            if path in DEVICE_AUDITED:
+            if path in RECORDING_ACTION_AUDITED:
+                if marker not in recording_router_source:
+                    errors.append(
+                        f"{where}: Recording ApiRouter route handler anchor disappeared: {marker}")
+                if 'isRecordingExecutionAction' not in security_source or (
+                    '/api/v1/recordings/actions/validate' not in security_source):
+                    errors.append(
+                        f"{where}: Recording SecurityHttpGate admission marker disappeared")
+            elif path in DEVICE_AUDITED:
                 device_marker, gate_marker = marker
                 if device_marker not in device_source:
                     errors.append(f"{where}: Device source route handler anchor disappeared: {device_marker}")
@@ -360,16 +384,18 @@ def main() -> int:
         runtime = RUNTIME.read_text(encoding="utf-8")
         device_runtime = DEVICE_RUNTIME.read_text(encoding="utf-8")
         device_gate = DEVICE_GATE.read_text(encoding="utf-8")
+        recording_router = RECORDING_ROUTER.read_text(encoding="utf-8")
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         print(f"OPENAPI_DRIFT=FAIL: cannot read source/spec: {exc}", file=sys.stderr)
         return 2
-    errors = validate(spec, runtime, device_runtime, device_gate)
+    errors = validate(
+        spec, runtime, device_runtime, device_gate, recording_router)
     if errors:
         print("OPENAPI_DRIFT=FAIL")
         for message in errors:
             print(f"- {message}")
         return 1
-    paths = {**AUDITED, **DEVICE_AUDITED}
+    paths = {**AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED}
     print(f"OPENAPI_DRIFT=PASS paths={len(paths)} methods={sum(len(v) for v in paths.values())} scope=audited-partial")
     return 0
 
