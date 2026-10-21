@@ -11,7 +11,6 @@ int main()
     const std::vector<std::string> safeRoutes = {
         "/api/recordings/actions/validate",
         "/api/vdr/recordings/actions/validate",
-        "/api/v1/recordings/actions/validate",
         "/api/recordings/actions/preview",
         "/api/vdr/recordings/actions/preview",
         "/api/searchtimers/validate",
@@ -97,6 +96,7 @@ int main()
         "/api/searchtimers/execute",
         "/api/vdr/searchtimers/execute",
         "/api/v1/recordings/actions/execute",
+        "/api/v1/recordings/actions/validate",
         "/api/searchtimers/real-test",
         "/api/vdr/searchtimers/real-test",
         "/api/epgsearch/native-fuzzy/refresh",
@@ -129,6 +129,38 @@ int main()
         assert(decision.rejection.body.find(
             expectedError) != std::string::npos);
     }
+
+    // Unlike legacy safe-POSTs, Public-v1 validation exposes a scoped
+    // recording-identity preflight and therefore requires the same grants
+    // and CSRF as execution.
+    HttpServerRequest publicValidation =
+        fixture.mutationRequest(
+            "/api/v1/recordings/actions/validate", "default");
+    publicValidation.body =
+        "{\"backendId\":\"default\",\"recordingId\":"
+        "\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"DELETE\",\"dryRun\":true}";
+    fixture.addBrowserAuthentication(publicValidation, true);
+    const auto noGrant = fixture.gate.evaluate(publicValidation);
+    assert(!noGrant.allowed);
+    assert(noGrant.rejection.statusCode == 403);
+    assert(fixture.grantRepository.ensureGrant(
+        fixture.actorId, "recordings.delete", "default"));
+    const auto authorized = fixture.gate.evaluate(publicValidation);
+    assert(authorized.allowed);
+    assert(authorized.protectedMutation);
+    assert(authorized.authorizationDecision.permission ==
+        "recordings.delete");
+    assert(authorized.authorizationDecision.backendId == "default");
+
+    HttpServerRequest foreignBackend = publicValidation;
+    foreignBackend.body =
+        "{\"backendId\":\"other\",\"recordingId\":"
+        "\"rec_0123456789abcdef0123456789abcdef\","
+        "\"action\":\"DELETE\",\"dryRun\":true}";
+    const auto foreign = fixture.gate.evaluate(foreignBackend);
+    assert(!foreign.allowed);
+    assert(foreign.rejection.statusCode == 403);
 
     const std::vector<std::string> stillUnmigrated = {
         "/api/phase62/unmapped-mutation",
