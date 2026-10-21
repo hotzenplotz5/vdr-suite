@@ -102,6 +102,16 @@ jobs:
           sudo env TMPDIR=/root "$(pwd)/.build/addons/test_addon_nonroot_snapshot"
           echo "NONROOT_ADDON_SNAPSHOT_CI=PASS"
 
+      - name: Build pinned Media Import Agent executor
+        run: make build-media-tools-pinned-agent-executor-test
+
+      - name: Run pinned Agent executor in disposable root fixture
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo env TMPDIR=/root "$(pwd)/.build/addons/test_pinned_media_import_agent_executor"
+          echo "PINNED_MEDIA_IMPORT_AGENT_CI=PASS"
+
       - name: Verify add-on permissions in existing settings UI
         shell: bash
         run: |

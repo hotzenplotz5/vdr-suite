@@ -301,3 +301,16 @@ test-media-tools-agent-dispatch:
 	"$(BUILD_DIR)/addons/test_media_tools_agent_dispatch"
 
 test-ci-fast: test-media-tools-agent-dispatch
+
+# Build-only: root-owned mock installation and /bin/true executable in CI.
+.PHONY: build-media-tools-pinned-agent-executor-test
+build-media-tools-pinned-agent-executor-test:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) $(CXXFLAGS) -Werror -Icore/addons/include \
+		$(AGENT_COMMAND_DOMAIN_SRC) \
+		core/addons/src/AddonRootApproval.cpp \
+		core/addons/src/AddonPinnedHandler.cpp \
+		core/addons/src/AddonInstallSnapshot.cpp \
+		addons/media-tools/src/PinnedMediaImportAgentExecutor.cpp \
+		addons/media-tools/tests/test_pinned_media_import_agent_executor.cpp \
+		-lcrypto -o "$(BUILD_DIR)/addons/test_pinned_media_import_agent_executor"
