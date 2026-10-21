@@ -9,6 +9,8 @@
 #include <csignal>
 #include <fcntl.h>
 #include <cstring>
+#include <iomanip>
+#include <sstream>
 #include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
@@ -49,9 +51,20 @@ std::string parseCommittedRecording(
         return {};
     const auto last = stdoutText.find('\n', pos);
     if (last == std::string::npos) return {};
-    const std::string destination =
+    const std::string field =
         stdoutText.substr(pos + marker.size(),
                           last - (pos + marker.size()));
+    std::string destination = field;
+    // C++17 ostream << std::filesystem::path uses std::quoted. Accept that
+    // precise format (including escaped quotation marks), never strip
+    // delimiters loosely or reinterpret an untrusted arbitrary pathname.
+    if (!field.empty() && field.front() == '"')
+    {
+        std::istringstream input(field);
+        if (!(input >> std::quoted(destination)) ||
+            input.peek() != std::char_traits<char>::eof())
+            return {};
+    }
     const std::filesystem::path path(destination);
     if (!safePath(path) || path.lexically_normal() != path ||
         path.extension() != ".rec")
