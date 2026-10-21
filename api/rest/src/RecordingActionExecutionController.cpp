@@ -1,6 +1,7 @@
 #include "RecordingActionExecutionController.h"
 
 #include "RecordingActionExecutionResult.h"
+#include "RestfulApiRecordingActionBackendExecutorAdapter.h"
 #include "RecordingActionExecutionResultJsonSerializer.h"
 #include "RecordingActionExecutionService.h"
 #include "RecordingActionValidationRequestParser.h"
@@ -178,6 +179,42 @@ RecordingActionRequest RecordingActionExecutionController::resolveBackendNativeI
     }
 
     return resolved;
+}
+
+RecordingActionExecutionResult RecordingActionExecutionController::previewBackend(
+    const RecordingActionRequest& request) const
+{
+    if (!request.dryRun)
+        return RecordingActionExecutionResult::failed(
+            request.type, request.recordingId, request.backendId,
+            "recording action preflight must be read-only",
+            {"provider preview must be dry-run"});
+
+    // A legacy adapter can dispatch an actual request even for dryRun.
+    // Only the audited SafeMutation provider preview is safe for Public-v1.
+    const auto adapter = backendExecutorAdapterRegistry_.findAdapter(
+        request.backendId);
+    const auto* safe = adapter.found && adapter.adapter
+        ? dynamic_cast<const RestfulApiRecordingActionBackendExecutorAdapter*>(
+            adapter.adapter.get())
+        : nullptr;
+    if (!safe || safe->config().apiMode !=
+            RestfulApiRecordingActionApiMode::SafeMutation)
+        return RecordingActionExecutionResult::failed(
+            request.type, request.recordingId, request.backendId,
+            "provider preflight unavailable",
+            {"no read-only provider preview is registered"});
+
+    const RecordingActionRequest resolved = resolveBackendNativeId(request);
+    if (backendRegistry_ != nullptr)
+    {
+        const auto lookup = backendPolicyProvider_.policyForBackend(
+            *backendRegistry_, resolved.backendId);
+        return executionService_.execute(
+            resolved, backendExecutorAdapterRegistry_, lookup.policy);
+    }
+    return executionService_.execute(
+        resolved, backendExecutorAdapterRegistry_);
 }
 
 ApiResponse RecordingActionExecutionController::execute(

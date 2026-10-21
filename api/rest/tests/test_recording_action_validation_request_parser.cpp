@@ -1,4 +1,5 @@
 #include "RecordingActionValidationRequestParser.h"
+#include "PublicRecordingActionProviderPreflight.h"
 
 #include <cassert>
 #include <iostream>
@@ -187,6 +188,54 @@ int main()
         "\"action\":\"DELETE\","
         "\"targetFolderId\":\"fld1_0123456789abcdef0123456789abcdef\"}",
         publicRequest));
+
+    // Authoritative SafeMutation provider preview counters become an opaque,
+    // operation-scoped public ETag without any backend-native path.
+    RecordingActionExecutionResult acceptedProvider;
+    acceptedProvider.upstreamHttpStatus = 200;
+    acceptedProvider.upstreamEndpoint = "/recordings/rename/preview.json";
+    acceptedProvider.upstreamResponseBody =
+        "{\"executable\":true,\"revision_recordings_state\":\"310\","
+        "\"revision_timers_state\":28}";
+    PublicRecordingActionProviderPreflight provider;
+    assert(PublicRecordingActionProviderPreflight::read(
+        acceptedProvider, provider));
+    assert(provider.recordingsState == "310");
+    assert(provider.timersState == "28");
+    RecordingActionRequest renamePreview;
+    renamePreview.backendId = "backend-a";
+    renamePreview.recordingId = "native-never-expose";
+    renamePreview.type = RecordingActionType::Rename;
+    renamePreview.parameters["newName"] = "Broadcast";
+    const std::string recPublicId =
+        "rec_0123456789abcdef0123456789abcdef";
+    const std::string publicTag =
+        PublicRecordingActionProviderPreflight::tag(
+            renamePreview, recPublicId, provider);
+    assert(publicTag.rfind("\"vsr-", 0U) == 0U);
+    assert(publicTag.find("native-never-expose") == std::string::npos);
+    assert(vdrsuite::http::publicEvaluateIfMatch(publicTag, publicTag) ==
+        vdrsuite::http::PublicEntityTagConditionResult::matched);
+    provider.recordingsState = "311";
+    assert(PublicRecordingActionProviderPreflight::tag(
+        renamePreview, recPublicId, provider) != publicTag);
+    provider.recordingsState = "310";
+    renamePreview.parameters["newName"] = "Other";
+    assert(PublicRecordingActionProviderPreflight::tag(
+        renamePreview, recPublicId, provider) != publicTag);
+    acceptedProvider.upstreamResponseBody =
+        "{\"executable\":false,\"revision_recordings_state\":310,"
+        "\"revision_timers_state\":28}";
+    assert(!PublicRecordingActionProviderPreflight::read(
+        acceptedProvider, provider));
+    acceptedProvider.upstreamResponseBody =
+        "{\"executable\":true,\"revision_recordings_state\":310,"
+        "\"revision_recordings_state\":311,\"revision_timers_state\":28}";
+    assert(!PublicRecordingActionProviderPreflight::read(
+        acceptedProvider, provider));
+    acceptedProvider.upstreamHttpStatus = 500;
+    assert(!PublicRecordingActionProviderPreflight::read(
+        acceptedProvider, provider));
 
     std::cout
         << "test_recording_action_validation_request_parser passed"

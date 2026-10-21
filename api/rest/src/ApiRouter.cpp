@@ -20,6 +20,8 @@
 #include "RecordingActionValidationRequestParser.h"
 #include "RecordingActionValidationResult.h"
 #include "RecordingActionValidationResultJsonSerializer.h"
+#include "RecordingActionExecutionController.h"
+#include "PublicRecordingActionProviderPreflight.h"
 #include "PublicResourcePreconditions.h"
 #include "RecordingPersonSearchController.h"
 #include "RestQueryParameters.h"
@@ -455,8 +457,8 @@ ApiResponse ApiRouter::handlePublicRecordingAction(
             return problem(400, "Bad Request",
                 "If-Match must be one valid strong public entity tag.");
 
-        return problem(409, "Conflict",
-            "Authoritative recording revision and mutation are not yet enabled.");
+        // Syntax is checked before resolving the public resource; authority
+        // is checked against an independent provider preview below.
     }
 
     if (!publicRecordingActionResolver_)
@@ -489,10 +491,42 @@ ApiResponse ApiRouter::handlePublicRecordingAction(
     RecordingActionValidationResultJsonSerializer serializer;
     const std::string safeValidation = serializer.serialize(validation);
 
+    std::string providerTag;
+    if (validation.valid)
+    {
+        RecordingActionRequest previewRequest = request;
+        previewRequest.dryRun = true;
+        PublicRecordingActionProviderPreflight provider;
+        if (PublicRecordingActionProviderPreflight::read(
+                recordingActionExecutionController_.previewBackend(
+                    previewRequest), provider))
+        {
+            providerTag = PublicRecordingActionProviderPreflight::tag(
+                request, publicId, provider);
+        }
+    }
+
+    // No provider-proven revision means no public write. The same preflight
+    // tag covers the exact public ID, action and public target/name. The
+    // SafeMutation adapter must also fence preview->validate->execute.
+    if (execute && !request.dryRun)
+    {
+        if (providerTag.empty())
+            return problem(409, "Conflict",
+                "Authoritative provider preflight is unavailable.");
+        if (ifMatch != providerTag)
+            return problem(412, "Precondition Failed",
+                "Recording action revision is stale.");
+        return problem(409, "Conflict",
+            "Verified public recording mutation is not yet enabled.");
+    }
+
     ApiResponse response;
     response.statusCode = 200;
     response.contentType = "application/json";
     response.headers["Cache-Control"] = "no-store";
+    if (!providerTag.empty())
+        response.headers["ETag"] = providerTag;
     if (!execute)
         response.body = safeValidation;
     else

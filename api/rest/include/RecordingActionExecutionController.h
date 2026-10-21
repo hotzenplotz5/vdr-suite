@@ -50,6 +50,11 @@ public:
     ApiResponse execute(
         const RecordingActionRequest& request);
 
+    // Run the existing adapter's read-only provider preview for a public
+    // precondition. This method never invokes a mutation or refresh callback.
+    RecordingActionExecutionResult previewBackend(
+        const RecordingActionRequest& request) const;
+
     void setAfterSuccessfulExecutionCallback(
         std::function<bool(const RecordingActionRequest&)> callback);
 
