@@ -25,7 +25,11 @@ V1 = BASE + "/api/v1"
 BACKEND = "default"
 CHANNEL = "C-1-1051-10301"
 EXCLUDED = "C-1-1051-10301:0:1792447200:2100:2145"
-JOURNAL = Path("/var/lib/vdr-suite/native-timer-hw-fresh-fixture-20261020.json")
+# The first attempt on 2026-10-21 was denied at the HTTP auth gate
+# (403 Verified Device credential required) and admitted no operation.
+# Preserve its uncertain marker untouched; use a distinct journal for the
+# intentionally authorized administrator attempt.
+JOURNAL = Path("/var/lib/vdr-suite/native-timer-hw-fresh-admin-20261021.json")
 TERMINAL_FAILURE = {"failed_verified", "outcome_unknown", "failed",
                     "failed_before_dispatch", "rejected", "cancelled", "canceled"}
 
@@ -274,7 +278,8 @@ else:
     save()
 
 auth = login()
-print("ACCEPTANCE=FRESH_FUTURE_DISPOSABLE_TIMER")
+print("ACCEPTANCE=FRESH_FUTURE_DISPOSABLE_TIMER_ADMIN")
+print("PREVIOUS_CREATE=HTTP_403_REJECTED_NO_OPERATION")
 print("OLD_RECORDING_TIMER=EXCLUDED")
 
 if "candidate" not in journal:
