@@ -31,3 +31,16 @@ is rejected before probing or remuxing; focused tests exercise this swap.
 Source bytes are never deleted by this importer. Actual agent command
 registration, durable job receipts and authoritative VDR recording-cache
 reconciliation remain missing gates. No production capability is advertised.
+
+### Immutable per-import media input
+
+After validating a planned source's identity, the offline importer now
+copies the opened bytes into a private, bounded staging snapshot on the
+destination filesystem. Both `ffprobe` and `ffmpeg` consume this
+same snapshot instead of reopening the source pathname. The copy is
+checked for length and original file identity; the snapshot is removed
+before atomic no-overwrite recording promotion. The caller-owned
+source is never deleted. Focused tests confirm that a replaced
+same-size file is rejected before probing, and that probing and
+remuxing share the same private input. This does **not** substitute
+for Core's canonical recording reconciliation and Agent job lifecycle.
