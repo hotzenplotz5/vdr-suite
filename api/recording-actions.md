@@ -1,5 +1,22 @@
 # Public API v1 — Recording Actions
 
+> **Latest runtime/hardware acceptance (2026-10-21):** At installed
+> source `13e63d277deb5c9e0230f757a8c5733f6e7b0cbb`, the Public-v1
+> flat Recording collection uses the ready backend Recording cache and
+> returned 1,037 items before testing. One explicitly approved Brisant
+> Recording passed Human Account/CSRF, RENAME/ MOVE/ DELETE Validate and
+> Dry-run, exactly one successful real execution for each action, and
+> independent native/public-ID readbacks. Final operator result:
+> `API_V1_RECORDING_HW_ACCEPTANCE=PASS`. The source is now deleted;
+> never re-use its `rec_` identity. An initial DELETE-stage timeout stopped
+> *before* a real DELETE POST, and a separate authorized DELETE-only attempt
+> later succeeded. No blind mutation retry occurred. This is bounded host
+> acceptance, not a durable crash/replay guarantee or blanket destructive
+> permission. See [Real-Hardware Closeout](../docs/development/public-v1-recording-r2r3-hardware-acceptance-20261021.md).
+>
+> All older R1/R2 source-only and transitional notes below are historical
+> and superseded for the completed bounded R2/R3 runtime acceptance.
+
 > **R2/R3 implementation source checkpoint (2026-10-21, `6b388c2c`):**
 > This newer source contract supersedes all older "R1 only / writes return
 > 409" descriptions below. Verify exact-head GitHub CI and a separately
