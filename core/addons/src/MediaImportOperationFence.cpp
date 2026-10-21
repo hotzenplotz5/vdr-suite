@@ -6,6 +6,7 @@
 #include "BackendAgentLifecycle.h"
 #include "BackendRegistryService.h"
 #include "MediaToolsAgentExecutor.h"
+#include "MediaImportRecordingEvidence.h"
 #include "MutationOperationRepository.h"
 #include "SecurityIdentityRepository.h"
 #include "SecurityPermissionGrantRepository.h"
@@ -181,7 +182,10 @@ bool MediaImportOperationFence::applyResult(
         result.agentInstanceId != assignment.agentInstanceId ||
         result.backendGeneration != assignment.backendGeneration ||
         result.completedAt < assignment.assignedAt ||
-        result.completedAt > now || !result.resultEvidence.empty())
+        result.completedAt > now ||
+        (!result.resultEvidence.empty() &&
+         !vdrsuite::mediatools::validRecordingPathEvidence(
+             result.resultEvidence)))
         return denied(reason, "media_import_result_fence_invalid");
 
     // The existing command/result journal, not the callback argument, is
