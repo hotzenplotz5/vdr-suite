@@ -424,9 +424,23 @@ public:
                 });
         const bool isPublicMediaImportCreate =
             isPost && isPublicMediaImportCollection;
+        const std::string mediaImportSourcesSuffix = "/media-import-sources";
+        const bool isPublicMediaImportSourcesResource =
+            path.compare(0, mediaImportCapabilityPrefix.size(),
+                         mediaImportCapabilityPrefix) == 0 &&
+            path.size() > mediaImportCapabilityPrefix.size() +
+                mediaImportSourcesSuffix.size() &&
+            path.compare(path.size() - mediaImportSourcesSuffix.size(),
+                         mediaImportSourcesSuffix.size(),
+                         mediaImportSourcesSuffix) == 0 &&
+            path.substr(mediaImportCapabilityPrefix.size(),
+                path.size() - mediaImportCapabilityPrefix.size() -
+                mediaImportSourcesSuffix.size()).find('/') ==
+                    std::string::npos;
         const bool isPublicBackendRead =
             request.method == "GET" &&
-            (isPublicBackendCollection || isPublicMediaImportCapabilityResource);
+            (isPublicBackendCollection || isPublicMediaImportCapabilityResource ||
+             isPublicMediaImportSourcesResource);
         const bool isPublicAccountCollection =
             path == "/api/v1/accounts";
         const std::string publicAccountPrefix =
@@ -848,6 +862,7 @@ public:
              path == "/api/v1/capabilities" ||
              isPublicBackendCollection ||
              isPublicMediaImportCapabilityResource ||
+             isPublicMediaImportSourcesResource ||
              isPublicChannelCollection ||
              isPublicEpgNowNext ||
              isPublicTimerAssignmentCollection ||

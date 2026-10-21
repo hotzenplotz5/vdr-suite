@@ -288,6 +288,30 @@ bool DaemonRuntime::initialize()
             *mediaImportGrantRepository_, *backendAgentRepository_,
             *backendAgentCommandRepository_, *backendRegistryService_,
             *backendAccessPolicy_, *mediaImportActivationIntents_);
+    mediaImportCatalog_ = std::make_unique<BackendAgentMediaImportCatalog>();
+    PublicApiRuntime::instance().registerMediaImportSourceLookup(
+        [this](const std::string& actorId, const std::string& backendId)
+        {
+            using API = PublicApiRuntime;
+            API::MediaImportSourceResult result;
+            if (!mediaImportCatalog_ || !mediaImportOperationFence_ ||
+                !backendAgentRepository_) return result;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            std::string reason;
+            if (!mediaImportOperationFence_->effectiveMediaImportCapability(
+                    actorId, backendId, now, reason))
+            {
+                result.status = API::MediaImportSourceStatus::forbidden;
+                return result;
+            }
+            const auto live = backendAgentRepository_->findAgentForBackend(backendId);
+            if (!live || !mediaImportCatalog_->list(
+                    *live, backendId, now, result.ids))
+                return result;
+            result.status = API::MediaImportSourceStatus::ok;
+            return result;
+        });
     PublicApiRuntime::instance().registerMediaImportCapabilityLookup(
         [this](const std::string& actorId, const std::string& backendId)
         {
@@ -2060,7 +2084,8 @@ bool DaemonRuntime::initialize()
         *backendAgentCommandDeliveryService_,
         *backendAgentRepository_,
         *backendAgentCredentialVerifierRepository_,
-        *backendAgentIdentityRepository_);
+        *backendAgentIdentityRepository_,
+        mediaImportCatalog_.get());
 
     auto lastVdrPoll = std::chrono::steady_clock::now();
 
