@@ -1,4 +1,5 @@
 #include "BackendAgentHttpServer.h"
+#include "BackendAgentMediaImportCatalog.h"
 #include "BackendAgentChannelObservationJson.h"
 #include "BackendAgentCommandJson.h"
 
@@ -311,13 +312,15 @@ BackendAgentHttpServer::BackendAgentHttpServer(
     BackendAgentCommandDeliveryService& commandDeliveryService,
     BackendAgentRepository& repository,
     CredentialVerifierRepository& credentialVerifierRepository,
-    SecurityIdentityRepository& identityRepository)
+    SecurityIdentityRepository& identityRepository,
+    BackendAgentMediaImportCatalog* mediaImportCatalog)
     : clientServer_(std::move(clientServer)),
       lifecycleService_(lifecycleService),
       commandDeliveryService_(commandDeliveryService),
       repository_(repository),
       credentialVerifierRepository_(credentialVerifierRepository),
-      identityRepository_(identityRepository)
+      identityRepository_(identityRepository),
+      mediaImportCatalog_(mediaImportCatalog)
 {
 }
 
@@ -608,6 +611,28 @@ HttpServerResponse BackendAgentHttpServer::handleChannelObservation(
 }
 
 
+HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
+    const HttpServerRequest& request,
+    const RequestSecurityContext& context) const
+{
+    if (!mediaImportCatalog_)
+        return errorResponse(503, "media_import_catalog_unavailable");
+    std::string backendId, instanceId;
+    std::uint64_t generation = 0;
+    std::vector<std::string> sourceIds;
+    if (!jsonString(request.body, "backendId", backendId) ||
+        !jsonString(request.body, "agentInstanceId", instanceId) ||
+        !jsonUnsigned(request.body, "backendGeneration", generation) ||
+        !jsonStringArray(request.body, "sourceIds", sourceIds))
+        return errorResponse(400, "invalid_media_import_sources_observation");
+    const auto live = repository_.findAgentForBackend(backendId);
+    if (!live || !mediaImportCatalog_->publish(
+            context, *live, backendId, instanceId, generation,
+            sourceIds, unixNow()))
+        return errorResponse(409, "media_import_sources_agent_fenced");
+    return jsonResponse(200, "{\"outcome\":\"accepted\"}");
+}
+
 HttpServerResponse BackendAgentHttpServer::handleCommandPoll(
     const HttpServerRequest& request,
     const RequestSecurityContext& context) const
@@ -696,6 +721,8 @@ HttpServerResponse BackendAgentHttpServer::handleRequest(
     if (request.path == "/api/agent/v1/observations/channels")
         return handleChannelObservation(request, context);
     if (osdObservation) return handleOsdObservation(request, context);
+    if (request.path == "/api/agent/v1/observations/media-import-sources")
+        return handleMediaImportSourceObservation(request, context);
     if (request.path == "/api/agent/v1/commands/poll") return handleCommandPoll(request, context);
     if (request.path == "/api/agent/v1/commands/receipt") return handleCommandReceipt(request, context);
     if (request.path == "/api/agent/v1/commands/result") return handleCommandResult(request, context);

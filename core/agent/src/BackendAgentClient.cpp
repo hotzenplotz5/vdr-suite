@@ -2048,6 +2048,48 @@ bool BackendAgentClientRuntime::pollCommands(
     return true;
 }
 
+bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
+    std::string& reasonCode)
+{
+    if (!config_.mediaImportExecutor) return true;
+    std::vector<std::string> ids;
+    if (!config_.mediaImportExecutor->listTrustedSourceIds(ids))
+        ids.clear(); // Withdrawal/unreadable ledger always removes listings.
+    if (ids.size() > 32U) ids.clear();
+    for (const auto& id : ids)
+        if (id.size() < 16U || id.size() > 64U ||
+            !std::all_of(id.begin(), id.end(), [](unsigned char ch) {
+                return std::isalnum(ch) || ch == '-' || ch == '_';
+            }))
+        {
+            ids.clear();
+            break;
+        }
+    std::ostringstream body;
+    body << "{\"backendId\":\"" << jsonEscape(state_.backendId)
+         << "\",\"agentInstanceId\":\"" << jsonEscape(agentInstanceId_)
+         << "\",\"backendGeneration\":" << state_.backendGeneration
+         << ",\"sourceIds\":[";
+    for (std::size_t index = 0; index < ids.size(); ++index)
+    {
+        if (index != 0U) body << ',';
+        body << '"' << ids[index] << '"';
+    }
+    body << "]}";
+    const auto response = transport_.postAuthenticated(
+        state_.agentId, state_.credentialSecret,
+        "/api/agent/v1/observations/media-import-sources", body.str());
+    if (!response.transportSucceeded || response.statusCode != 200 ||
+        response.body.find("\"outcome\":\"accepted\"") == std::string::npos)
+    {
+        reasonCode = response.errorCode.empty()
+            ? "media_import_source_observation_failed"
+            : response.errorCode;
+        return false;
+    }
+    return true;
+}
+
 bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
 {
     if (!synchronized_ || state_.backendGeneration == 0 || state_.capabilityRevision == 0)
@@ -2137,6 +2179,15 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
         return false;
     }
     publishOsdObservation();
+    // Read-only and strictly opt-in: a failure to publish inventory must
+    // never bypass the existing command receipt/grant gate, nor prevent
+    // unrelated VDR heartbeats and native commands.
+    if (config_.mediaImportExecutor)
+    {
+        std::string ignoredReason;
+        if (!publishMediaImportSourceObservation(ignoredReason))
+            log("Media Import inventory observation unavailable");
+    }
 
     // Capability discovery remains on the normal heartbeat cadence. Fast
     // interactive polls below reuse this complete snapshot instead of

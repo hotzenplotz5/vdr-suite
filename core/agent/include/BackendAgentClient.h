@@ -203,6 +203,7 @@ private:
     bool publishCapabilities(std::string& reasonCode);
     bool publishBackendHealthObservation(std::string& reasonCode);
     bool publishChannelObservation(std::string& reasonCode);
+    bool publishMediaImportSourceObservation(std::string& reasonCode);
     void publishOsdObservation();
     bool submitPendingChannelObservation(std::string& reasonCode);
     bool preparePendingChannelObservation(std::string& reasonCode);
