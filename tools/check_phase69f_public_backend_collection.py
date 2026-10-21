@@ -57,7 +57,7 @@ for token in (
     "public-api.backends-read",
     "backends-read",
 ):
-    owner = discovery if token == "public-api.backends-read" else runtime
+    owner = discovery if token in {"public-api.backends-read", "backends-read"} else runtime
     require(token in owner, "public Backend runtime drifted: " + token)
 
 response_start = runtime.find("ApiResponse publicBackendCollectionResponse(")

@@ -140,7 +140,7 @@ for token in (
 ):
     require(token in doc, "read-alias slice documentation drifted: " + token)
 
-public_runtime = read("api/rest/src/PublicApiRuntime.cpp")
+public_runtime = read("api/rest/src/PublicDiscoveryRoutes.cpp")
 require(
     r'\"deprecatedAliases\":[]' in public_runtime,
     "read-alias client cleanup must not invent server deprecation",
