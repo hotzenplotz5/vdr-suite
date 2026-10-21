@@ -30,6 +30,9 @@ REC_LEAF = re.compile(r"\d{4}-\d\d-\d\d\.\d\d\.\d\d\.[0-9-]+\.rec\Z")
 VALID_BACKEND = re.compile(r"[A-Za-z0-9._-]{1,128}\Z")
 
 
+MAX_RESPONSE_BYTES = 16_000_000
+
+
 class Stop(RuntimeError):
     pass
 
@@ -55,12 +58,17 @@ def request(origin, path, *, method="GET", body=None, headers=None):
                                  headers=custom, method=method)
     try:
         with urllib.request.urlopen(req, timeout=20) as response:
-            status, raw, result_headers = response.status, response.read(2_000_000), response.headers
+            status, raw, result_headers = (
+                response.status, response.read(MAX_RESPONSE_BYTES + 1),
+                response.headers)
     except urllib.error.HTTPError as exc:
-        status, raw, result_headers = exc.code, exc.read(2_000_000), exc.headers
+        status, raw, result_headers = (
+            exc.code, exc.read(MAX_RESPONSE_BYTES + 1), exc.headers)
     except (OSError, TimeoutError) as exc:
         raise Stop("HTTP outcome unknown; no automatic POST retry: " +
                    exc.__class__.__name__) from exc
+    if len(raw) > MAX_RESPONSE_BYTES:
+        raise Stop("HTTP response exceeds bounded JSON input size")
     try:
         data = json.loads(raw) if raw else {}
     except (ValueError, UnicodeDecodeError) as exc:
@@ -107,6 +115,40 @@ def choose_fixture(native_rows):
            int(item.get("filesize_mb") or 0) > 0,
            "Test recording must be finished and have known nonzero duration/size")
     return item
+
+
+def choose_readonly_native(native_rows, exact_path):
+    """Resolve one exact RESTfulAPI recording directory, never by title."""
+    expect(isinstance(exact_path, str) and exact_path.startswith("/") and
+           REC_LEAF.fullmatch(exact_path.rsplit("/", 1)[-1]) is not None and
+           ".." not in exact_path.split("/"),
+           "Read-only source must be an exact native .rec directory")
+    matches = [
+        row for row in native_rows
+        if row.get("relative_file_name") == exact_path or
+           row.get("file_name") == exact_path
+    ]
+    expect(len(matches) == 1,
+           "Read-only native recording directory absent or ambiguous")
+    return matches[0]
+
+
+def correlate_readonly(public_rows, native, backend):
+    """Fail closed on ambiguous read-only metadata; never send native paths."""
+    start, size = native.get("event_start_time"), native.get("filesize_mb")
+    expect(isinstance(start, int) and start > 0 and
+           isinstance(size, int) and size > 0,
+           "Read-only source lacks unique correlation metadata")
+    rows = [
+        row for row in public_rows if isinstance(row, dict) and
+        row.get("backendId") == backend and
+        check_public_id(row.get("recordingId")) and
+        str(row.get("recordedAt")) == str(start) and
+        row.get("sizeMb") == size
+    ]
+    expect(len(rows) == 1,
+           "Cannot uniquely resolve read-only source to one public rec_ ID")
+    return rows[0]
 
 
 def correlate(public_rows, native, backend):
@@ -294,12 +336,17 @@ def main():
                         help="Read-only listing of existing root fld1_ destinations")
     parser.add_argument("--execute", action="store_true",
                         help="Enable ONE confirmed RENAME -> MOVE -> DELETE sequence")
+    parser.add_argument("--read-only-native-path",
+                        help="Inspect only this exact RESTfulAPI .rec directory; no action POSTs")
     args = parser.parse_args()
     expect(VALID_BACKEND.fullmatch(args.backend) is not None,
            "Invalid backend scope")
     if args.folder_id:
         expect(FOLDER_ID.fullmatch(args.folder_id) is not None,
                "Invalid fld1_ target ID")
+    if args.read_only_native_path:
+        expect(not args.execute,
+               "Read-only native inspection cannot enable recording mutations")
     if args.execute:
         expect(bool(args.folder_id),
                "Real MOVE needs an existing --folder-id; no writes attempted")
@@ -308,6 +355,20 @@ def main():
     client = Client(suite, vdr, args.user, password)
     password = None
     native_rows = client.native()
+    if args.read_only_native_path:
+        native = choose_readonly_native(native_rows, args.read_only_native_path)
+        match = correlate_readonly(
+            client.public(args.backend), native, args.backend)
+        print("READ_ONLY_SOURCE=" + args.read_only_native_path)
+        print("PUBLIC_RECORDING_ID=" + match["recordingId"])
+        print("PUBLIC_RECORDING_TITLE=" + str(match.get("title")))
+        print("PUBLIC_DURATION_SECONDS=" + str(match.get("durationSeconds")))
+        print("PUBLIC_DURATION_KNOWN=" + str(match.get("durationKnown")))
+        print("NATIVE_DURATION_SECONDS=" + str(native.get("duration")))
+        print("NATIVE_SOURCE=" + str(native.get("file_name")))
+        print("RECORDING_ACTION_POSTS=NOT_RUN")
+        print("LIVE_MUTATIONS=NOT_RUN")
+        return
     native = choose_fixture(native_rows)
     expect(not any(r.get("name") == RENAMED for r in native_rows),
            "Potential RENAME collision with an existing Recording")

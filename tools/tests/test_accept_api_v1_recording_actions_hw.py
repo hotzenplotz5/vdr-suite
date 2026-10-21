@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Offline fail-closed tests for R2/R3 real-hardware acceptance fixture guard."""
 import datetime
+import io
 import importlib.util
 import pathlib
 import unittest
+from unittest import mock
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location(
@@ -70,6 +72,58 @@ class HardwareAcceptanceSafetyTests(unittest.TestCase):
                           [dict(after, duration=10)]):
             with self.assertRaises(hw.Stop):
                 hw.require_readback(before, inventory, "MOVE")
+
+    def test_large_native_inventory_and_overflow_fail_closed(self):
+        class Response:
+            status = 200
+            headers = {}
+
+            def __init__(self, data):
+                self.stream = io.BytesIO(data)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                self.stream.close()
+
+            def read(self, count):
+                return self.stream.read(count)
+
+        payload = ('{"recordings":[{"name":"' + "x" * 2_100_000 +
+                   '"}]}').encode()
+        with mock.patch.object(hw.urllib.request, "urlopen",
+                               return_value=Response(payload)):
+            status, data, _ = hw.request(
+                "http://127.0.0.1:8002", "/recordings.json")
+        self.assertEqual(status, 200)
+        self.assertEqual(len(data["recordings"][0]["name"]), 2_100_000)
+
+        oversized = b'{"a":"' + b"x" * hw.MAX_RESPONSE_BYTES + b'"}'
+        with mock.patch.object(hw.urllib.request, "urlopen",
+                               return_value=Response(oversized)):
+            with self.assertRaisesRegex(hw.Stop, "bounded JSON"):
+                hw.request("http://127.0.0.1:8002", "/recordings.json")
+
+    def test_readonly_exact_native_folder_and_ambiguous_correlation(self):
+        native = fixture()
+        native["relative_file_name"] = "/Brisant/2026-10-21.17.15.1-0.rec"
+        native["name"] = "Brisant"
+        found = hw.choose_readonly_native(
+            [native], "/Brisant/2026-10-21.17.15.1-0.rec")
+        self.assertIs(found, native)
+        for wrong in ("/Brisant/2026-10-20.17.15.1-0.rec",
+                      "/Brisant", "../Brisant/2026-10-21.17.15.1-0.rec"):
+            with self.assertRaises(hw.Stop):
+                hw.choose_readonly_native([native], wrong)
+        rows = public()
+        self.assertEqual(
+            hw.correlate_readonly(rows, native, "default")["recordingId"],
+            rows[0]["recordingId"])
+        with self.assertRaises(hw.Stop):
+            hw.correlate_readonly(rows * 2, native, "default")
+        with self.assertRaises(hw.Stop):
+            hw.correlate_readonly(rows, native, "wrong-backend")
 
     def test_only_local_origin_and_public_shape(self):
         for url in ("https://127.0.0.1:18080",

@@ -2,6 +2,7 @@
 #include "PublicRecordingIdentityRepository.h"
 #include "Database.h"
 
+#include <algorithm>
 #include <cassert>
 #include <string>
 #include <vector>
@@ -106,6 +107,33 @@ int main()
     assert(byTitle.valid && byTitle.items.size() == 1U);
     assert(byTitle.items[0].title == "Hobbit Spezial");
     assert(byTitle.items[0].edited);
+
+    // RESTfulAPI can report both duration=-1 and event_duration=-1.
+    // One old recording must not take down the entire flat collection.
+    VdrRecording unknown = first;
+    unknown.backendNativeId = "/private/source/legacy-unknown-duration.rec";
+    unknown.path = "/srv/vdr/video/Alt/Archiv/2020-10-09.20.15.00-0.rec";
+    unknown.title.clear(); // Path-derived presentation remains valid.
+    unknown.durationSeconds = -1;
+    unknown.recordingDurationKnown = false;
+    const auto mixed = projection.project("backend-a", {first, unknown});
+    assert(mixed.valid);
+    assert(mixed.items.size() == 2U);
+    const auto unknownItem = std::find_if(
+        mixed.items.begin(), mixed.items.end(),
+        [](const PublicRecordingReadItem& item) {
+            return item.title == "Archiv";
+        });
+    assert(unknownItem != mixed.items.end());
+    assert(unknownItem->recordingId.rfind("rec_", 0U) == 0U);
+    assert(unknownItem->durationSeconds == 0);
+    assert(!unknownItem->durationKnown);
+    assert(projection.project("backend-a", {unknown}).items[0].recordingId ==
+           unknownItem->recordingId);
+
+    // Still fail closed for contradictory authoritative metadata.
+    unknown.recordingDurationKnown = true;
+    assert(!projection.project("backend-a", {unknown}).valid);
 
     assert(!projection.project("backend-b", {first}).valid);
     assert(!projection.project("*", {first}).valid);
