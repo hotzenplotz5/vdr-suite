@@ -32,9 +32,12 @@ EXCLUDED = "C-1-1051-10301:0:1792447200:2100:2145"
 # intentionally authorized administrator attempt.
 # Explicit one-time new-fixture mode: preserve the successful first
 # hardware run and its immutable command identities in its original journal.
-NEW_TIMER_RUN = len(sys.argv) == 2 and sys.argv[1] == "--new-timer"
-if len(sys.argv) > 1 and not NEW_TIMER_RUN:
-    print("STOP=UNSUPPORTED_ARGUMENT_USE_--new-timer", flush=True)
+RUN_MODE = sys.argv[1] if len(sys.argv) == 2 else ""
+NEW_TIMER_RUN = RUN_MODE in ("--new-timer", "--continue-r2")
+CONTINUE_R2 = RUN_MODE == "--continue-r2"
+if len(sys.argv) > 2 or (len(sys.argv) == 2 and not NEW_TIMER_RUN):
+    print("STOP=UNSUPPORTED_ARGUMENT_USE_--new-timer_OR_--continue-r2",
+          flush=True)
     raise SystemExit(2)
 RUN_ID = "fresh-20261021-r2" if NEW_TIMER_RUN else "fresh-20261021-r1"
 JOURNAL = Path(
@@ -291,6 +294,30 @@ def update_no_effect_verified(opid):
     )
 
 
+def failed_verified_no_effect(opid, timer_id, title, enabled, action):
+    """Verify a terminal unsuccessful attempt without mutating VDR or SQLite."""
+    with sqlite3.connect(
+            "file:/var/lib/vdr-suite/vdr-suite.db?mode=ro", uri=True) as db:
+        db.execute("PRAGMA query_only=ON")
+        row = db.execute(
+            "SELECT o.state, o.result_reference, o.action_family, "
+            "o.expected_resource_fingerprint, b.observed_fingerprint, "
+            "b.backend_native_timer_id, b.observed_title, b.observed_enabled, "
+            "b.observed_recording, b.observed_pending "
+            "FROM mutation_operations o JOIN native_timer_bindings b "
+            "ON b.native_timer_binding_id=o.resource_id "
+            "WHERE o.operation_id=?", (opid,)
+        ).fetchone()
+    return bool(
+        row and row[0] == "failed_verified" and
+        row[1] == "native-timer-modify:unchanged-after-uncertain-execution" and
+        row[2] == action and
+        same_timer_fingerprint_except_epg_event_id(row[3], row[4]) and
+        row[5] == timer_id and row[6] == title and
+        row[7] == int(enabled) and row[8] == 0 and row[9] == 0
+    )
+
+
 def operation(stage):
     record = journal["stages"][stage]
     if record["status"] == "unknown":
@@ -423,6 +450,8 @@ def find_fixture():
     stop("CREATED_TIMER_NOT_VISIBLE_NO_CREATE_RETRY")
 
 
+if CONTINUE_R2 and not JOURNAL.exists():
+    stop("R2_JOURNAL_REQUIRED_NO_NEW_CREATE")
 if JOURNAL.exists():
     journal = json.loads(JOURNAL.read_text())
     if journal.get("backendId") != BACKEND or journal.get("channelId") != CHANNEL:
@@ -492,12 +521,25 @@ if not journal.get("updateNoEffectVerified"):
 # Never declare the fresh-fixture UPDATE a success in this case.
 toggle_title = title if journal.get("updateNoEffectVerified") else updated
 
-if "TOGGLE_OFF" not in journal["stages"]:
+# R2's first TOGGLE_OFF has durably failed_verified with proven no effect.
+# A new, separately journaled command is permitted ONLY in explicit
+# continuation mode and only for the same original disposable test timer.
+off_stage = "TOGGLE_OFF_RECOVERY" if CONTINUE_R2 else "TOGGLE_OFF"
+if CONTINUE_R2:
+    previous = journal["stages"].get("TOGGLE_OFF", {})
+    previous_id = previous.get("operationId")
+    if not previous_id or previous.get("status") != "accepted":
+        stop("R2_PRIOR_TOGGLE_NOT_DURABLY_JOURNALED")
+    if not failed_verified_no_effect(
+            previous_id, timer_id, updated, True, "timer.toggle"):
+        stop("R2_PRIOR_TOGGLE_NOT_VERIFIED_NO_EFFECT")
+    print("PRIOR_TOGGLE_OFF=FAILED_VERIFIED_NO_EFFECT_NO_REDISPATCH")
+if off_stage not in journal["stages"]:
     _, etag = valid_detail(timer_id, toggle_title, True)
-    submit("TOGGLE_OFF", "POST", path,
+    submit(off_stage, "POST", path,
            {"kind": "toggle", "enabled": False}, etag)
 else:
-    operation("TOGGLE_OFF")
+    operation(off_stage)
 print("TOGGLE_OFF=PASS")
 
 if "TOGGLE_ON" not in journal["stages"]:
@@ -528,7 +570,12 @@ for attempt in range(20):
             print("HARDWARE_ACCEPTANCE=PASS CREATE TOGGLE_OFF TOGGLE_ON DELETE; "
                   "UPDATE=FAILED_VERIFIED_NO_EFFECT (prior fixture UPDATE=PASS)")
         else:
-            print("HARDWARE_ACCEPTANCE=PASS CREATE UPDATE TOGGLE_OFF TOGGLE_ON DELETE")
+            if CONTINUE_R2:
+                print("HARDWARE_ACCEPTANCE=PASS CREATE UPDATE "
+                      "TOGGLE_OFF_RECOVERY TOGGLE_ON DELETE; "
+                      "INITIAL_TOGGLE_OFF=FAILED_VERIFIED_NO_EFFECT")
+            else:
+                print("HARDWARE_ACCEPTANCE=PASS CREATE UPDATE TOGGLE_OFF TOGGLE_ON DELETE")
         break
     if attempt != 19:
         time.sleep(2)
