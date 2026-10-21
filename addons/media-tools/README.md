@@ -181,6 +181,27 @@ fresh matching recording-cache readback can transition an operation to
 `succeeded`. The explicit `--enable-media-import` option is not allowed
 in `--once`, credential-rotation or native-probe modes.
 
+### A7.3 protected Media Import admission
+
+`POST /api/v1/backends/{backendId}/media-imports` accepts only
+`{"sourceId":"opaque_source_123456"}` and a valid
+`Idempotency-Key`. The common SecurityHttpGate requires
+authenticated backend-specific `addons.media.import` authorization,
+browser-session CSRF and audit. The Core admission service separately
+reevaluates the effective grant, agent lease/capability, enabled
+administrator intent and writable backend. It atomically reserves one
+ADR-0042 `media.import` operation with immutable payload and
+scope-specific idempotency. The daemon then invokes the *existing* system
+authority Agent assignment path and returns the same v1 Operation resource
+on retry. No source pathname, output pathname, arbitrary command body or
+new media worker queue is accepted. A failing assignment can leave an
+accepted, non-executed durable operation which the same-key caller may
+safely resubmit; terminal operations are never reassigned.
+
+A public POST is *not* proof of verified execution: the Agent needs
+separate root-owned inventory selection and explicit opt-in. Completion
+requires independent readback of the new VDR recording.
+
 ### A7.2 authenticated public API v1 capability read
 
 `GET /api/v1/backends/{backendId}/capabilities/media-import` is a
