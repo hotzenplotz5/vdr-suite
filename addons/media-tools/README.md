@@ -13,9 +13,10 @@ backend generation, capability discovery and recording reconciliation.
 Media Tools owns only the import/check/shrink implementation. Import is
 first; Check and Shrink are not available or grantable yet.
 
-Current files are inert pre-dispatch contracts and tests. No executable
-handler is registered, no service is started, and no manifest capability
-is advertised.
+The add-on now contains a real, testable pinned descriptor executor and
+protected Agent command/result integration. The production Agent still does
+not instantiate or advertise this executor; no service is started and no
+manifest capability is advertised.
 
 ## A6 work in progress
 
@@ -28,9 +29,10 @@ recording reconciliation policy. This is **not** a registered executor.
 The import plan now records the source device, inode and nanosecond modification
 time. A same-size replacement between `plan` and explicit `import`
 is rejected before probing or remuxing; focused tests exercise this swap.
-Source bytes are never deleted by this importer. Actual agent command
-registration, durable job receipts and authoritative VDR recording-cache
-reconciliation remain missing gates. No production capability is advertised.
+Source bytes are never deleted by this importer. The existing Agent command
+inbox and durable receipts are integrated in isolated tests; productive
+registration and real backend inventory/grant adapters remain gated.
+No production capability is advertised.
 
 ### Immutable per-import media input
 
@@ -68,6 +70,37 @@ mutating yaVDR; it is not yet a product-ready Media Import feature.
 
 The isolated A6 CI now also exercises `BackendAgentClientRuntime` itself with an injected synthetic executor: authenticated heartbeat, command poll, durable receipt, execution, result acknowledgement and subsequent heartbeat replay without a second dispatch. The shipped Agent still injects no Media Tools executor.
 
-The existing Agent delivery service additionally refuses Media Import receipts unless its trusted `setMediaImportReceiptFenceCheck` verifies the exact reserved operation, effective grant and claim. The daemon now installs that callback using the real MutationOperation, immutable payload, account/grant, backend and Agent-capability authorities. Durable Agent results update the *same* MutationOperation to outcome_unknown or an appropriate verified rejection via a revision-fenced transition; neither remux exit nor Agent receipt marks an import succeeded. Production execution still remains disabled because apps/agent/main.cpp does not install or advertise an executor and recording readback is not yet wired. Positive and negative tests operate exclusively on in-memory SQLite and synthetic Agent contexts.
+The existing Agent delivery service additionally refuses Media Import receipts unless its trusted `setMediaImportReceiptFenceCheck` verifies the exact reserved operation, effective grant and claim. The daemon now installs that callback using the real MutationOperation, immutable payload, account/grant, backend and Agent-capability authorities. Durable Agent results update the *same* MutationOperation to outcome_unknown or an appropriate verified rejection via a revision-fenced transition; neither remux exit nor Agent receipt marks an import succeeded. Production execution still remains disabled because apps/agent/main.cpp does not install or advertise an executor and productive backend inventory/grant adapters remain unavailable. Positive and negative tests operate exclusively on in-memory SQLite and synthetic Agent contexts.
 
 The pinned executor snapshots the trusted local source/target resolution during authorization and rejects remapped inventory selections immediately before `fexecve`; CI explicitly tests the swap after authorization as a negative case.
+
+
+### A6 authoritative recording readback (isolated)
+
+The pinned handler's bounded stdout is parsed according to the actual C++17
+`std::filesystem::path` quoted-output format. The Agent stores only a
+SHA-256 correlation digest of the committed absolute `.rec` directory,
+never the source or destination pathname, in the existing durable command
+result. The protected local Agent state stores this identity in its scoped
+version-4 Media Import representation, with compatibility for older command
+state versions. A synthetic non-writing ELF fixture exercises this output
+through the real pinned-fd execution path in CI.
+
+The daemon reuses its *existing*, read-only, coalesced native Recording cache
+refresh. Only a successful refresh that **started after** the Agent result,
+matches the backend, contains exactly one matching VDR recording with
+non-empty native identity and title, and matches the persisted command,
+operation, and immutable payload may advance the shared
+`MutationOperation` to `succeeded` by revision-fenced CAS. Empty, stale,
+unmatched, ambiguous, mismatched-generation and replay cases remain denied
+or `outcome_unknown`. An exact Agent result replay after `succeeded` can
+be acknowledged without another dispatch or state regression.
+
+A crash after native promotion but before a usable handler receipt can
+remain `outcome_unknown` and requires independent operator reconciliation;
+there is deliberately no blind import retry. Recording-cache path
+normalization differences likewise fail closed rather than invent success.
+**This is not production activation:** trusted local inventory/grant runtime
+composition, final operator/readback acceptance and effective capability API
+discovery still require further implementation and CI. No live VDR data is
+modified by hosted tests.
