@@ -63,6 +63,7 @@ jobs:
           make addon-media-import
           make test-addon-media-tools-package
           make test-addon-agent-advertisement
+          make test-media-tools-agent-dispatch
           make test-addon-activation-intent
           make test-addon-administration-service
           make test-addon-activation-catalog
