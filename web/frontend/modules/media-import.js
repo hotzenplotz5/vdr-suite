@@ -1,0 +1,335 @@
+(function (global) {
+  'use strict';
+
+  // Media Tools is a view of Core-owned capabilities and Operations, never a job queue.
+  const activeAttempts = Object.create(null);
+  const POLL_MS = 4000;
+  const MAX_AUTOMATIC_READS = 15;
+  let owner = 0;
+  let current = null;
+  let client = null;
+
+  function publicClient() {
+    if (!client) {
+      const factory = global.VdrSuitePublicV1Client;
+      if (!factory || typeof factory.createClient !== 'function') {
+        throw new Error('Public API v1 ist nicht verfügbar.');
+      }
+      client = factory.createClient({
+        baseUrl: global.location && global.location.origin ? global.location.origin : '',
+        credentials: 'same-origin'
+      });
+    }
+    return client;
+  }
+
+  function readOptions(backendId) {
+    return {backendId: backendId, credentials: 'same-origin', cache: 'no-store'};
+  }
+
+  function checkCapability(backendId) {
+    return publicClient().getMediaImportCapability(readOptions(backendId))
+      .then(function (result) {
+        return Boolean(result && result.available === true &&
+          result.backendId === backendId &&
+          result.capability === 'addons.media.import');
+      });
+  }
+
+  function makeKey() {
+    if (!global.crypto || typeof global.crypto.getRandomValues !== 'function') {
+      throw new Error('Sichere Zufallsquelle für Idempotency-Key nicht verfügbar.');
+    }
+    const bytes = new Uint8Array(16);
+    global.crypto.getRandomValues(bytes);
+    return 'media-import-' + Array.from(bytes, function (byte) {
+      return byte.toString(16).padStart(2, '0');
+    }).join('');
+  }
+
+  function element(tag, className, text) {
+    const node = global.document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  function isCurrent(view) {
+    return current === view && view.owner === owner;
+  }
+
+  function report(view, message, error) {
+    if (!isCurrent(view)) return;
+    view.message.textContent = message;
+    view.message.className = error ? 'status error' : 'status';
+  }
+
+  function clearPolling(view) {
+    if (view.timer !== null) {
+      global.clearTimeout(view.timer);
+      view.timer = null;
+    }
+  }
+
+  function deactivate() {
+    ++owner;
+    if (current) clearPolling(current);
+    current = null;
+  }
+
+  function clearSession() {
+    deactivate();
+    Object.keys(activeAttempts).forEach(function (id) {
+      delete activeAttempts[id];
+    });
+  }
+
+  function operationLabel(state) {
+    const labels = {
+      accepted: 'Angenommen – Ausführung noch nicht bestätigt.',
+      queued: 'In Warteschlange des bestehenden Backend-Agenten.',
+      dispatching: 'In Bearbeitung durch den Backend-Agenten.',
+      executed_unverified: 'Ausgeführt, VDR-Aufnahme noch nicht unabhängig bestätigt.',
+      succeeded: 'Erfolgreich – neue VDR-Aufnahme wurde unabhängig bestätigt.',
+      rejected: 'Abgelehnt.',
+      conflict: 'Konflikt, keine bestätigte Ausführung.',
+      failed_before_dispatch: 'Vor der Ausführung fehlgeschlagen.',
+      failed_verified: 'Fehlgeschlagen (verifiziert).',
+      cancelled: 'Abgebrochen.',
+      outcome_unknown: 'Ergebnis ungewiss – nicht erneut als neuen Import starten.'
+    };
+    return Object.prototype.hasOwnProperty.call(labels, state)
+      ? labels[state] : 'Unbekannter Operationszustand – bitte prüfen.';
+  }
+
+  function terminalState(state) {
+    return ['rejected', 'conflict', 'succeeded', 'failed_before_dispatch',
+      'failed_verified', 'cancelled'].includes(state);
+  }
+
+  function operationError(error) {
+    if (error && error.status === 401) return 'Anmeldung abgelaufen. Bitte erneut anmelden.';
+    if (error && error.status === 403) return 'Media-Import-Berechtigung wurde entzogen.';
+    if (error && error.status === 404) return 'Vorgang nicht sichtbar oder nicht mehr vorhanden.';
+    if (error && error.status === 503) return 'Backend oder Operationsdienst derzeit nicht erreichbar.';
+    return 'Operationsstatus derzeit nicht abrufbar. Bitte später erneut prüfen.';
+  }
+
+  function readOperation(view) {
+    if (!isCurrent(view) || !view.attempt || !view.attempt.operationId ||
+        view.reading) return Promise.resolve();
+    view.reading = true;
+    clearPolling(view);
+    return publicClient().getOperation({
+      operationId: view.attempt.operationId,
+      credentials: 'same-origin', cache: 'no-store'
+    }).then(function (response) {
+      if (!isCurrent(view)) return;
+      const operation = response && response.data;
+      if (!operation || operation.operationId !== view.attempt.operationId ||
+          operation.backendId !== view.backendId ||
+          typeof operation.state !== 'string') {
+        throw new Error('Ungültige Operationsantwort');
+      }
+      view.attempt.state = operation.state;
+      report(view, operationLabel(operation.state), false);
+      view.operationDetail.textContent =
+        'Vorgang ' + operation.operationId + ' · ' + operation.state;
+      if (!terminalState(operation.state) && view.reads < MAX_AUTOMATIC_READS) {
+        ++view.reads;
+        view.timer = global.setTimeout(function () { readOperation(view); }, POLL_MS);
+      }
+    }).catch(function (error) {
+      if (isCurrent(view)) report(view, operationError(error), true);
+    }).finally(function () {
+      view.reading = false;
+    });
+  }
+
+  function showAttempt(view) {
+    view.select.disabled = true;
+    view.startButton.disabled = true;
+    view.reloadButton.disabled = true;
+    view.operationDetail.textContent = view.attempt.operationId
+      ? 'Vorgang ' + view.attempt.operationId
+      : 'Anfrage gesendet, Antwort nicht bestätigt.';
+    view.refreshButton.hidden = false;
+    view.refreshButton.disabled = !view.attempt.operationId;
+    if (view.attempt.operationId) {
+      readOperation(view);
+    } else {
+      report(view, 'Ergebnis der Auftragsannahme ungewiss. Keine neue Anfrage erzeugen. ' +
+        'Die ursprüngliche Idempotency-Key-Zuordnung bleibt für diese Browsersitzung gesperrt.', true);
+    }
+  }
+
+  function loadSources(view) {
+    if (!isCurrent(view) || view.attempt) return Promise.resolve();
+    const generation = ++view.sourcesGeneration;
+    view.select.disabled = true;
+    view.startButton.disabled = true;
+    report(view, 'Autorisierte Importquellen werden geladen …');
+    return publicClient().getMediaImportSources(readOptions(view.backendId))
+      .then(function (response) {
+        if (!isCurrent(view) || generation !== view.sourcesGeneration) return;
+        const items = response && response.items;
+        if (!Array.isArray(items) || items.length > 32 ||
+            !items.every(function (item) {
+              return item && typeof item.sourceId === 'string' &&
+                /^[A-Za-z0-9_-]{16,64}$/.test(item.sourceId);
+            })) throw new Error('Ungültige Quellenliste');
+        view.sources = items.map(function (item) { return item.sourceId; });
+        view.select.replaceChildren();
+        const blank = element('option', '', 'Quelle auswählen');
+        blank.value = '';
+        view.select.appendChild(blank);
+        view.sources.forEach(function (sourceId, index) {
+          const option = element('option', '', 'Quelle ' + (index + 1) + ' · ' + sourceId);
+          option.value = sourceId;
+          view.select.appendChild(option);
+        });
+        view.select.value = '';
+        view.select.disabled = items.length === 0;
+        report(view, items.length ? 'Quelle auswählen und Import ausdrücklich starten.' :
+          'Keine freigegebenen Importquellen verfügbar.');
+      }).catch(function (error) {
+        if (!isCurrent(view) || generation !== view.sourcesGeneration) return;
+        const message = error && error.status === 503
+          ? 'Quellenliste abgelaufen oder Backend-Agent nicht erreichbar. Bitte aktualisieren.'
+          : error && (error.status === 401 || error.status === 403 || error.status === 404)
+            ? 'Für dieses Backend sind keine Importquellen zugänglich.'
+            : 'Quellenliste konnte nicht geladen werden. Bitte aktualisieren.';
+        report(view, message, true);
+      });
+  }
+
+  function startImport(view) {
+    if (!isCurrent(view) || view.submitting || view.attempt) return Promise.resolve();
+    const sourceId = view.select.value;
+    if (!view.sources.includes(sourceId)) return Promise.resolve();
+    view.submitting = true;
+    view.startButton.disabled = true;
+    report(view, 'Quelle und Berechtigung werden erneut geprüft …');
+    // Source observations are ephemeral: revalidate before choosing the opaque token.
+    return checkCapability(view.backendId)
+      .then(function (available) {
+        if (!isCurrent(view)) return null;
+        if (!available) throw {status: 403};
+        return publicClient().getMediaImportSources(readOptions(view.backendId));
+      }).then(function (sources) {
+        if (!isCurrent(view) || !sources) return null;
+        if (!sources.items || !sources.items.some(function (item) {
+          return item && item.sourceId === sourceId;
+        })) {
+          throw {status: 503};
+        }
+        const session = global.VdrSuiteBrowserSession;
+        if (!session || typeof session.restore !== 'function' ||
+            typeof session.csrfHeaders !== 'function') throw {status: 401};
+        return Promise.resolve(session.restore()).then(function () {
+          if (!isCurrent(view)) return null;
+          // Reserve a unique key before dispatch; a lost HTTP response is not a failure.
+          const key = makeKey();
+          view.attempt = {sourceId: sourceId, key: key, operationId: '', state: ''};
+          activeAttempts[view.backendId] = view.attempt;
+          return publicClient().submitMediaImport({
+            backendId: view.backendId, sourceId: sourceId, idempotencyKey: key,
+            credentials: 'same-origin', headers: session.csrfHeaders()
+          });
+        });
+      }).then(function (result) {
+        if (!isCurrent(view) || !result) return;
+        const operation = result.data;
+        if (!operation || typeof operation.operationId !== 'string' ||
+            !/^op_[A-Za-z0-9_-]+$/.test(operation.operationId) ||
+            operation.backendId !== view.backendId) {
+          throw new Error('Unbekannte Auftragsantwort');
+        }
+        view.attempt.operationId = operation.operationId;
+        view.attempt.state = operation.state || 'accepted';
+        showAttempt(view);
+      }).catch(function (error) {
+        if (!isCurrent(view)) return;
+        if (view.attempt) {
+          // The request may have arrived even if HTTP delivery failed.
+          showAttempt(view);
+          return;
+        }
+        const message = error && error.status === 503
+          ? 'Quellenliste veraltet oder Backend-Agent nicht verfügbar. Erneut laden.'
+          : error && (error.status === 401 || error.status === 403)
+            ? 'Keine gültige Anmeldung oder Media-Import-Berechtigung.'
+            : 'Import konnte vor dem Absenden nicht vorbereitet werden.';
+        report(view, message, true);
+      }).finally(function () {
+        view.submitting = false;
+      });
+  }
+
+  function activate(backendId, mountTarget) {
+    deactivate();
+    if (!mountTarget || typeof mountTarget.replaceChildren !== 'function') return;
+    const root = element('section', 'media-import-panel');
+    root.appendChild(element('h3', '', 'Media Tools · Import'));
+    root.appendChild(element('p', '', 'Nur durch den Backend-Agenten freigegebene Quellen. ' +
+      'Keine Dateipfade, kein automatischer Import.'));
+    const label = element('label', '', 'Importquelle');
+    const select = element('select', 'media-import-source');
+    select.disabled = true;
+    label.appendChild(select);
+    root.appendChild(label);
+    const startButton = element('button', 'media-import-start', 'Import starten');
+    startButton.type = 'button';
+    startButton.disabled = true;
+    const reloadButton = element('button', 'media-import-reload', 'Quellen aktualisieren');
+    reloadButton.type = 'button';
+    const refreshButton = element('button', 'media-import-refresh', 'Vorgang prüfen');
+    refreshButton.type = 'button';
+    refreshButton.hidden = true;
+    root.appendChild(startButton);
+    root.appendChild(reloadButton);
+    root.appendChild(refreshButton);
+    const message = element('p', 'status');
+    message.setAttribute('role', 'status');
+    message.setAttribute('aria-live', 'polite');
+    root.appendChild(message);
+    const operationDetail = element('p', 'media-import-operation');
+    root.appendChild(operationDetail);
+    mountTarget.replaceChildren(root);
+    const view = {owner: owner, backendId: backendId, root: root,
+      select: select, startButton: startButton, reloadButton: reloadButton,
+      refreshButton: refreshButton, message: message, operationDetail: operationDetail,
+      sources: [], sourcesGeneration: 0, submitting: false, reading: false,
+      reads: 0, timer: null, attempt: activeAttempts[backendId] || null};
+    current = view;
+    select.addEventListener('change', function () {
+      startButton.disabled = view.submitting || !view.sources.includes(select.value);
+    });
+    startButton.addEventListener('click', function () { return startImport(view); });
+    reloadButton.addEventListener('click', function () { return loadSources(view); });
+    refreshButton.addEventListener('click', function () { return readOperation(view); });
+    // Even an already-visible tab must recheck the live Core capability.
+    return checkCapability(backendId).then(function (available) {
+      if (!isCurrent(view)) return;
+      if (!available) {
+        report(view, 'Media Import für dieses Backend oder Konto nicht freigegeben.', true);
+        return;
+      }
+      if (view.attempt) showAttempt(view);
+      else return loadSources(view);
+    }).catch(function (error) {
+      if (isCurrent(view)) report(view, operationError(error), true);
+    });
+  }
+
+  const api = Object.freeze({
+    checkCapability: checkCapability,
+    activate: activate,
+    deactivate: deactivate,
+    clearSession: clearSession
+  });
+  global.VdrSuiteMediaImport = api;
+  if (global.VdrSuitePlatform && typeof global.VdrSuitePlatform.registerModule === 'function') {
+    global.VdrSuitePlatform.registerModule('media-import', api);
+  }
+})(window);
