@@ -12,6 +12,9 @@
 #include "SecurityPermissionGrantRepository.h"
 
 #include <utility>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 
 namespace vdrsuite::addons {
 namespace {
@@ -262,6 +265,122 @@ bool MediaImportOperationFence::applyResult(
         return true;
     }
     return denied(reason, "media_import_result_transition_failed");
+}
+
+
+namespace {
+std::int64_t sqliteUtcSeconds(const std::string& timestamp)
+{
+    if (timestamp.size() != 19) return 0;
+    std::tm parsed{};
+    std::istringstream in(timestamp);
+    in >> std::get_time(&parsed, "%Y-%m-%d %H:%M:%S");
+    if (in.fail() || in.peek() != std::char_traits<char>::eof())
+        return 0;
+    const auto unixTime = ::timegm(&parsed);
+    return unixTime > 0 ? static_cast<std::int64_t>(unixTime) : 0;
+}
+
+bool exactRecordingIdentity(
+    const std::vector<VdrRecording>& recordings,
+    const std::string& backendId, const std::string& evidence)
+{
+    std::size_t matches = 0;
+    for (const auto& recording : recordings)
+    {
+        if (recording.backendId != backendId ||
+            recording.id.empty() || recording.backendNativeId.empty() ||
+            recording.title.empty())
+            continue;
+        if (vdrsuite::mediatools::recordingPathEvidence(recording.path) ==
+            evidence)
+            ++matches;
+        if (matches > 1) return false;
+    }
+    return matches == 1;
+}
+}
+
+std::size_t MediaImportOperationFence::reconcileRecordingCache(
+    const std::string& backendId,
+    const VdrRecordingCacheStatus& cacheStatus,
+    const std::vector<VdrRecording>& recordings,
+    std::int64_t now) const
+{
+    using State = vdrsuite::operations::MutationOperationState;
+    if (backendId.empty() || backendId == "*" || cacheStatus.backendId != backendId ||
+        cacheStatus.state != "ready" || !cacheStatus.lastError.empty() ||
+        now <= 0)
+        return 0;
+    const auto refreshStarted = sqliteUtcSeconds(cacheStatus.startedAt);
+    const auto refreshFinished = sqliteUtcSeconds(cacheStatus.finishedAt);
+    if (refreshStarted <= 0 || refreshFinished < refreshStarted ||
+        refreshFinished > now)
+        return 0;
+
+    // This is a bounded read of the existing operation repository after the
+    // provider cache transaction has completed, never a worker queue.
+    const auto pending = operations_.listByActionFamilyAndStates(
+        "media.import", {State::outcomeUnknown, State::executedUnverified}, 256);
+    if (!pending.ok()) return 0;
+
+    std::size_t verified = 0;
+    static const std::string prefix = "agent.media.import:";
+    for (const auto& op : pending.operations)
+    {
+        if (op.backendId != backendId ||
+            op.resultReference.compare(0, prefix.size(), prefix) != 0)
+            continue;
+        const auto commandId = op.resultReference.substr(prefix.size());
+        if (!backendAgentCommandSafeIdentifier(commandId)) continue;
+        const auto assignment = commands_.findAssignment(commandId);
+        const auto result = commands_.resultForCommand(commandId);
+        if (!assignment || !result ||
+            assignment->commandId != result->commandId ||
+            assignment->operationId != op.operationId ||
+            assignment->backendId != backendId ||
+            assignment->backendGeneration != op.backendGeneration ||
+            assignment->commandType !=
+                vdrsuite::mediatools::kMediaImportCommandType ||
+            result->requestFingerprint != assignment->requestFingerprint ||
+            result->backendGeneration != assignment->backendGeneration ||
+            result->claimEpoch != assignment->claimEpoch ||
+            result->resultCategory != "outcome_unknown" ||
+            result->dispatchState != "accepted_by_executor" ||
+            result->verificationState != "outcome_unknown" ||
+            result->retryClassification != "reconcile_only" ||
+            !vdrsuite::mediatools::validRecordingPathEvidence(
+                result->resultEvidence) ||
+            // A cache snapshot that started before completion cannot prove
+            // this import, even if it contains an older matching directory.
+            refreshStarted <= result->completedAt)
+            continue;
+
+        const auto payload = operations_.findPayloadByOperationId(op.operationId);
+        std::string sourceId;
+        if (!payload.ok() ||
+            payload.payload.payloadType != "addon.media.import" ||
+            payload.payload.payloadVersion != 1 ||
+            payload.payload.payload != assignment->payload ||
+            !vdrsuite::mediatools::parseMediaImportSelection(
+                assignment->payload, sourceId) ||
+            op.resourceId != sourceId ||
+            op.resourceType != "MediaImportSource" ||
+            op.verificationPolicy !=
+                vdrsuite::operations::MutationOperationVerificationPolicy::
+                    reconciliationRequired ||
+            !exactRecordingIdentity(
+                recordings, backendId, result->resultEvidence))
+            continue;
+
+        // Do not reinterpret successful ffmpeg execution as a verified
+        // recording. This CAS happens ONLY after committed provider readback.
+        const auto committed = operations_.transition(
+            op.operationId, op.operationRevision, op.state,
+            State::succeeded, op.resultReference, now);
+        if (committed.ok()) ++verified;
+    }
+    return verified;
 }
 
 } // namespace vdrsuite::addons
