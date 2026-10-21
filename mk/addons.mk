@@ -32,13 +32,13 @@ test-install-staging: check-addon-contract check-addon-deb check-addon-registry
 .PHONY: addon-media-import test-addon-media-import
 addon-media-import:
 	mkdir -p "$(BUILD_DIR)/addons"
-	$(CXX) -std=c++17 -Wall -Wextra -Werror -I modules/rectools/include \
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I addons/media-tools/include \
 		addons/media-tools/src/MediaImport.cpp addons/media-tools/src/main.cpp \
 		-o "$(BUILD_DIR)/addons/vdr-suite-media-import"
 
 test-addon-media-import:
 	mkdir -p "$(BUILD_DIR)/addons"
-	$(CXX) -std=c++17 -Wall -Wextra -Werror -I modules/rectools/include \
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I addons/media-tools/include \
 		addons/media-tools/src/MediaImport.cpp addons/media-tools/tests/test_media_import.cpp \
 		-o "$(BUILD_DIR)/addons/test_media_import"
 	"$(BUILD_DIR)/addons/test_media_import"
