@@ -13,7 +13,8 @@ assert(!ui.includes('.innerHTML'), 'Device identifiers are never HTML');
 assert(!adapter.includes('credentialSecret'));
 assert(shell.includes('api/device-admin-client-api.js'));
 assert(shell.includes('settings-device-admin.js'));
-assert(app.includes('VdrSuiteDeviceAdminSettings.render(panel)'));
+assert(app.includes('deviceAdminSettings.render(panel)'));
+assert(app.includes('window.VdrSuiteDeviceAdminSettings'));
 
 class Element {
   constructor(tag) {
