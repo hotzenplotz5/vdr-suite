@@ -111,11 +111,14 @@ public:
         }
 
         // The bootstrap administrator has role.admin scoped to "*".
-        // Only native timer API v1 may use that global role for a concrete
-        // backend; other backend-scoped admin policies stay unchanged.
+        // Only explicitly identified native Timer API v1 actions may use
+        // that global role for a concrete backend. Keep ordinary legacy
+        // timers.create and other backend-scoped admin policies unchanged.
         const bool nativeTimerAdminAction =
             (request.permission == "timers.view" &&
              request.action == "native_timers.view") ||
+            (request.permission == "timers.create" &&
+             request.action == "native_timers.create") ||
             (request.permission == "timers.modify" &&
              request.action == "native_timers.modify") ||
             (request.permission == "timers.delete" &&
