@@ -268,7 +268,8 @@ HumanAccountGrantAdministrationService(
     HumanAccountAdministrationRepository& administrationRepository,
     AccountabilityEventRepository& accountabilityRepository,
     EntropySource entropySource,
-    Clock clock)
+    Clock clock,
+    AddonGrantEligibility addonEligibility)
     : database_(database),
       accountRepository_(accountRepository),
       identityRepository_(identityRepository),
@@ -285,7 +286,8 @@ HumanAccountGrantAdministrationService(
               : Clock([]
                 {
                     return std::chrono::system_clock::now();
-                }))
+                })),
+      addonEligibility_(std::move(addonEligibility))
 {
 }
 
@@ -493,7 +495,9 @@ HumanAccountGrantAdministrationService::setGrant(
         !safeText(context.correlationId, 128U, 0U) ||
         !safeText(accountId, 128U) ||
         expectedResourceRevision.empty() ||
-        !supportedGrant(permission, backendId))
+        !supportedGrant(permission, backendId) ||
+        (active && permission.rfind("addons.", 0) == 0 &&
+         (!addonEligibility_ || !addonEligibility_(permission, backendId))))
     {
         result.status =
             HumanAccountGrantAdministrationStatus::
