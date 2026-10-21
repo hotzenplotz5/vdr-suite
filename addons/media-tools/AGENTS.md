@@ -12,4 +12,4 @@ Root `../../AGENTS.md`, `../../modules/AGENTS.md`, and
 - Nothing here can self-register an executable command or grant a user right.
 - No automatic live install, VDR restart or recording mutation.
 
-- The C++17 import implementation was moved here from `modules/rectools/` without a second copy; keep its functional and security tests intact.\n
+- The C++17 import implementation was moved here from `modules/rectools/` without a second copy; keep its functional and security tests intact.
