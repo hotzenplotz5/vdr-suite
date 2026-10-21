@@ -2,6 +2,7 @@
 #include "BackendAgentCommandDelivery.h"
 #include "BackendAgentLifecycle.h"
 #include "MediaImportOperationFence.h"
+#include "MediaImportRecordingEvidence.h"
 #include "BackendAgentMediaImportAssignment.h"
 #include "MutationOperationRepository.h"
 #include "SecurityIdentityRepository.h"
@@ -323,6 +324,12 @@ int main()
     mediaOutcome.errorCategory = "none";
     mediaOutcome.retryClassification = "reconcile_only";
     mediaOutcome.boundedDiagnostics = "recording reconciliation pending";
+    const std::string nativeImportedPath =
+        "/srv/vdr/video/Imported/2026-10-21.18.00.00-0.rec";
+    mediaOutcome.resultEvidence =
+        vdrsuite::mediatools::recordingPathEvidence(nativeImportedPath);
+    assert(vdrsuite::mediatools::validRecordingPathEvidence(
+        mediaOutcome.resultEvidence));
     mediaOutcome.completedAt = 121;
     assert(backendAgentCommandValidResult(mediaOutcome));
     auto mediaApplied = service.result(
@@ -345,6 +352,49 @@ int main()
     fakeSuccess.verificationState = "verified";
     fakeSuccess.retryClassification = "none";
     assert(!coreFence.applyResult(media, fakeSuccess, 123, fenceReason));
+
+    // Provider-readback, NOT Agent exit, is the only path to succeeded.
+    VdrRecordingCacheStatus readback;
+    readback.backendId = "default";
+    readback.state = "ready";
+    readback.startedAt = "1970-01-01 00:02:04"; // after Agent result at 121
+    readback.finishedAt = "1970-01-01 00:02:06";
+    readback.totalCount = 1;
+    VdrRecording imported;
+    imported.id = "rec-imported";
+    imported.backendId = "default";
+    imported.backendNativeId = nativeImportedPath;
+    imported.path = nativeImportedPath;
+    imported.title = "Imported";
+    std::vector<VdrRecording> actualRecordings{imported};
+    auto readbackStatus = readback;
+    readbackStatus.state = "stale";
+    assert(coreFence.reconcileRecordingCache(
+        "default", readbackStatus, actualRecordings, 128) == 0);
+    readbackStatus = readback;
+    readbackStatus.startedAt = "1970-01-01 00:02:01"; // not newer
+    assert(coreFence.reconcileRecordingCache(
+        "default", readbackStatus, actualRecordings, 128) == 0);
+    auto wrongRecording = imported;
+    wrongRecording.path = "/srv/vdr/video/Other/2026-10-21.18.00.00-0.rec";
+    assert(coreFence.reconcileRecordingCache(
+        "default", readback, {wrongRecording}, 128) == 0);
+    assert(coreFence.reconcileRecordingCache(
+        "wrong-backend", readback, actualRecordings, 128) == 0);
+    assert(coreFence.reconcileRecordingCache(
+        "default", readback, {imported, imported}, 128) == 0);
+    assert(operations.findById(media.operationId).operation.state ==
+        vdrsuite::operations::MutationOperationState::outcomeUnknown);
+    assert(coreFence.reconcileRecordingCache(
+        "default", readback, actualRecordings, 128) == 1);
+    const auto reconciledOp = operations.findById(media.operationId);
+    assert(reconciledOp.ok() && reconciledOp.operation.state ==
+        vdrsuite::operations::MutationOperationState::succeeded);
+    assert(coreFence.reconcileRecordingCache(
+        "default", readback, actualRecordings, 129) == 0);
+    assert(operations.findById(media.operationId).operation.operationRevision ==
+           reconciledOp.operation.operationRevision);
+
 
     // A6: the actual Agent command reservation uses only the existing
     // persistent ADR-0042 operation + Agent command table, including replay.
