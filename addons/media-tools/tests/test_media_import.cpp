@@ -40,6 +40,7 @@ struct Fixture {
 
 struct FakeProcess : ProcessRunner {
     std::string codec{"h264\n"};
+    std::string outputDuration{"60.0\n"};
     bool failRemux = false;
     bool failIndex = false;
     fs::path probedSource;
@@ -52,14 +53,22 @@ struct FakeProcess : ProcessRunner {
         if (argv[0] == "/usr/bin/ffprobe") {
             assert(output);
             ++probes;
-            probedSource = argv.back();
+            const fs::path target = argv.back();
+            const bool duration = std::find(argv.begin(), argv.end(),
+                "format=duration") != argv.end();
+            if (target.filename() == "00001.ts") {
+                assert(fs::exists(target));
+                if (duration) return {0, outputDuration};
+                return {0, transcodes ? "h264\n" : codec};
+            }
+            probedSource = target;
             assert(probedSource.filename() == "input.mp4");
             assert(fs::exists(probedSource));
             std::ifstream in(probedSource, std::ios::binary);
             const std::string data((std::istreambuf_iterator<char>(in)),
                                    std::istreambuf_iterator<char>());
             assert(data == "synthetic-source-unchanged");
-            return {0, codec};
+            return {0, duration ? "60.0\n" : codec};
         }
         assert(!output);
         if (argv[0] == "/usr/bin/ffmpeg") {
@@ -157,7 +166,7 @@ int main() {
         assert(fs::exists(output / "00001.ts") && fs::exists(output / "index"));
         assert(fs::exists(f.source));
         assert(!fs::exists(runner.probedSource));
-        assert(runner.probes == 1 && runner.remuxes == 1 && runner.indices == 1);
+        assert(runner.probes == 4 && runner.remuxes == 1 && runner.indices == 1);
         assert(fs::path(output).extension() == ".rec");
         mustFail([&] { inspectImport(f.request()); });
         ++checks;
@@ -203,6 +212,16 @@ int main() {
         assert(fs::exists(output / "00001.ts") && fs::exists(output / "index"));
         assert(fs::exists(f.source) && runner.remuxes == 0 &&
                runner.transcodes == 1);
+        ++checks;
+    }
+    {
+        Fixture f;
+        FakeProcess runner;
+        runner.outputDuration = "25.0\n";
+        const auto plan = inspectImport(f.request());
+        mustFail([&] { executeRemuxImport(plan, runner, [](const ImportPlan&) {}); });
+        assert(runner.indices == 0 && fs::exists(f.source) &&
+               !fs::exists(f.video / "Sample"));
         ++checks;
     }
     {
