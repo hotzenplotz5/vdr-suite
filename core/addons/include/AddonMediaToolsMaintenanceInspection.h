@@ -44,7 +44,8 @@ struct MaintenanceInspectionHold {
     std::optional<vdrsuite::mediatools::MediaToolsImportRunLock> exclusive;
     bool holdsExclusiveLock() const noexcept
     {
-        return inspection.locallyQuiescent && exclusive.has_value();
+        return inspection.locallyQuiescent && exclusive.has_value() &&
+            exclusive->ownsExclusiveLock();
     }
 };
 
