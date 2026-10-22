@@ -477,6 +477,20 @@ MetadataRepository::getManualRecordingMetadata(
     return result;
 }
 
+ManualRecordingMetadataAssignment
+MetadataRepository::getManualRecordingMetadataReadOnly(
+    const std::string& backendId,
+    const std::string& resourceKey)
+{
+    // Resolve the SAME canonical cache identity as Web manual metadata,
+    // but never run metadata schema initialization or person-image lookups.
+    // No DDL, network access or provider candidate search is permitted here.
+    const std::string backend = normalizedBackendId(backendId);
+    return manualRepository().findSelectedReadOnly(
+        backend,
+        resolveResourceKey(database_, backend, resourceKey));
+}
+
 std::map<std::string, ManualRecordingMetadataAssignment>
 MetadataRepository::getManualRecordingMetadataForBackend(
     const std::string& backendId)
