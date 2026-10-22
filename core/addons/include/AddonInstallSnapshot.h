@@ -9,7 +9,7 @@ namespace vdrsuite::addons {
 // approval, captured as one move-only, non-executing snapshot. Neither
 // activation, capabilities, backend rights nor Agent authority are conveyed.
 enum class InstallSnapshotReason {
-    verifiedBytesOnly, missingOrRevokedApproval, invalidHandler
+    verifiedBytesOnly, missingOrRevokedApproval, invalidMetadata, invalidHandler
 };
 
 struct MediaToolsInstallSnapshot {
