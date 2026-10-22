@@ -168,16 +168,19 @@ jobs:
 
   packaging-regression-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Install-staging builds VDR-Suite binaries; it never runs FFmpeg.
+      # Avoid its large Ubuntu multimedia dependency chain on cold runners.
       - name: Install build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev libcrypt-dev libcurl4-openssl-dev libssl-dev ffmpeg
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends \
+            build-essential make g++ sqlite3 libsqlite3-dev libcrypt-dev libcurl4-openssl-dev libssl-dev
 
       - name: Run packaging and install staging tests
         run: make -j2 --output-sync=target test-ci-packaging
