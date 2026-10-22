@@ -540,7 +540,7 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
 
 NativeProcessRunner::NativeProcessRunner(std::chrono::seconds maximum)
     : maximum_(maximum) {
-    require(maximum_.count() >= 1 && maximum_.count() <= 540,
+    require(maximum_.count() >= 1 && maximum_.count() <= 4 * 3600,
             "invalid native media command deadline");
 }
 
