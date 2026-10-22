@@ -118,14 +118,9 @@ std::string probeCodec(ProcessRunner& runner, const fs::path& input) {
         "-show_entries", "stream=codec_name", "-of",
         "default=nw=1:nk=1", input.string()
     }, true);
-    demand(result.exitCode == 0 && result.output.size() <= 64,
+    demand(result.exitCode == 0,
            "shrink codec probe failed");
-    std::string codec = result.output;
-    while (!codec.empty() && (codec.back() == '\n' || codec.back() == '\r'))
-        codec.pop_back();
-    demand(!codec.empty() && codec.size() < 64,
-           "shrink codec missing");
-    return codec;
+    return parseProbedVideoCodec(result.output);
 }
 
 double probeDuration(ProcessRunner& runner, const fs::path& input) {
