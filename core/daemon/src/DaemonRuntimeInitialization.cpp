@@ -2125,6 +2125,19 @@ bool DaemonRuntime::initialize()
                     request.backendId, manual, *detail))
                 return result;
 
+            // The Web's canonical, separately assigned Genre belongs to the
+            // same backend-native Recording, whether or not manual metadata
+            // is selected. Read without creating/reconciling the Genre index.
+            const auto manualGenreId =
+                metadataRepository_->getManualRecordingGenreReadOnly(
+                    request.backendId, found.recording.backendNativeId);
+            if (manualGenreId.size() > 128U ||
+                std::any_of(manualGenreId.begin(), manualGenreId.end(),
+                    [](unsigned char c) {
+                        return c < 0x20U || c == 0x7fU;
+                    }))
+                return result;
+
             // Identity can be retired/rebound during multiple readonly DB
             // lookups; never expose stale manual metadata across rebinding.
             const auto bound = publicRecordingIdentities_->find(
@@ -2159,6 +2172,7 @@ bool DaemonRuntime::initialize()
             out.seriesTitle = source.seriesTitle;
             out.episodeTitle = source.episodeTitle;
             out.genreText = source.genreText;
+            out.manualGenreId = manualGenreId;
             out.releaseDate = source.releaseDate;
             out.seasonNumber = source.seasonNumber;
             out.episodeNumber = source.episodeNumber;
