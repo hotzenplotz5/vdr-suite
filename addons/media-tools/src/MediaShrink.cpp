@@ -383,8 +383,14 @@ ShrinkPlan inspectShrink(const fs::path& videoRoot,
     for (std::size_t i = 0; i < plan.segments.size(); ++i)
         demand(plan.segments[i].filename == segmentName(static_cast<unsigned>(i + 1)),
                "noncontiguous VDR TS segments");
-    demand(nonempty(recording / "index") || nonempty(recording / "index.vdr"),
-           "original VDR index missing");
+    const auto index = nonempty(recording / "index")
+        ? recording / "index" : recording / "index.vdr";
+    demand(nonempty(index), "original VDR index missing");
+    plan.sidecars.push_back(identity(index));
+    plan.sidecars.push_back(identity(recording / "info"));
+    const auto subtitles = subtitleNames(plan);
+    for (const auto& name : subtitles)
+        plan.sidecars.push_back(identity(recording / name));
     return plan;
 }
 
