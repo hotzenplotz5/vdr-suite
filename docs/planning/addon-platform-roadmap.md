@@ -56,9 +56,9 @@ or metadata-only presence may bootstrap trust.
 | --- | --- | --- | --- |
 | A1. Optional source contract | Three independent, disabled manifests, module rules, isolated source staging and .deb scaffolds | Implemented; isolated packaging/tests accepted before TVScraper removal | Build/test all three only; no implicit base install |
 | A2. Add-on inventory and discovery | Read-only core allowlist and strict metadata parsing, independent of installed VDR-Suite packaging | Metadata-only registry implemented; synthetic dpkg diagnostics added | Three add-on IDs only; no activation; default scan works without dpkg; optional ledger regression separate |
-| A2M. Manual-install registration path | Explicit safe declaration of a source-built, administrator-installed and integrity-pinned backend handler | **Partial:** root-admin issue/revoke, native combined approval/descriptor snapshot, nonroot Agent-file-access CI; no live wiring; disabled handler; no daemon trust/Agent adapter | Fixed reviewed module-to-binary mapping, version and digest, secure owner/mode checks, revocation/uninstall detection; no caller-selected executable |
+| A2M. Manual-install registration path | Explicit safe declaration of a source-built, administrator-installed and integrity-pinned backend handler | **Partial:** root-admin issue/revoke, native approval/descriptor and version-matched installed manifest snapshot, nonroot Agent-file-access CI; no automatic activation; disabled Core registry definition | Fixed reviewed module-to-binary mapping, version and digest, secure owner/mode checks, revocation/uninstall detection; no caller-selected executable |
 | A3. Core access/desired-state preview | Canonical actor/backend policy, revision-fenced SQLite intent, read-only eligibility preview | C++ isolated checks 21 + 17 + 20 accepted before TVScraper removal | No execution permit; denied by default and on any lost evidence |
-| A4. Trusted runtime provider | Common core authority over either reviewed manual-install or reviewed Debian package provenance, with fixed binary identity and healthy backend-local handler | **Partial:** disabled Core admission, pinned identity/generation, approval comparison and native combined approval/pinned-descriptor checks and unprivileged Agent-path CI; no daemon/Agent adapter | Both paths use the same registry, signed/admin-approved provenance policy and negative trust tests; neither dpkg alone nor source files confer authority |
+| A4. Trusted runtime provider | Common core authority over either reviewed manual-install or reviewed Debian package provenance, with fixed binary identity and healthy backend-local handler | **Partial:** disabled Core admission, pinned identity/generation, approval comparison, root-owned installed manifest/revocation checks and unprivileged Agent-path CI; no package-derived Core execution permit | Both paths use the same registry, signed/admin-approved provenance policy and negative trust tests; neither dpkg alone nor source files confer authority |
 | A5. Administration and operation rights | Admin enable/disable with audit/idempotency/migrations; scoped media-import grant | SQLite desired-state prototype, audited admin coordinator and admin-only three-module desired-state catalog; exact backend-scoped human import grant and Core-owned permission vocabulary, categorized grant settings, backend-exact grant eligibility callback (default denied) and negative tests; live effective provider source pending | Proper grant vocabulary, authorization, CSRF, preconditions, revocation and upgrade/removal semantics |
 | A6. Protected backend execution | Fenced command/worker, bounded resources and crash-safe durable jobs | **Partial:** non-executing canonical command/generation gate plus real Agent-poll denial of unregistered add-on command namespaces; no command adapter/executor | Agent generation and job fencing, cancellation/retry/readback, no arbitrary paths or shell |
 | A7. Public API and client UI | Entitlement-filtered discovery, safe admin surface, addon action/status | **A7.1–A7.5 isolated source implementation and canonical install staging validated; frontend owner-handoff/late-response regressions included. Not deployed.** Capability, opaque source listing, protected admission and actor-owned Operation GET reuse Core and canonical frontend. | Versioned v1 routes, grants/session/CSRF tests, actual UI composition, source expiry and uncertain-state checks; safe install staging and separately authorized host acceptance before production |
@@ -73,6 +73,22 @@ its `executable` field always remains false. A consistent local dpkg ledger
 is **not** cryptographic package provenance: dpkg's local database and MD5
 records can be changed together. Do not derive `packageTrusted` or effective
 capabilities from that diagnostic.
+
+## A2M/A4 installed-metadata binding checkpoint
+
+The Core/Agent install snapshot now requires an existing, root-controlled
+`/usr/share/vdr-suite/addons/rectools/addon.json` in addition to the
+independent administrator approval and descriptor-pinned fixed handler.
+The disabled schema-v1 manifest must match the approved module, package and
+version and may declare no entrypoint, capability, permission or dependency.
+Missing, replaced, symlinked, writable, malformed or version-mismatched
+metadata denies a fresh snapshot. Approval and metadata are re-read after
+binary hashing; the pinned executor also checks them again immediately before
+dispatch. Root-owned, nonroot-Agent and synthetic command lifecycle tests use
+disposable fixture installations. This is the same installation contract for
+source/manual staging and future Debian packaging, **not** permission or a
+release-signature substitute. Production activation, upgrade choreography,
+installed-package verification and real-host acceptance remain open.
 
 ## Recommended execution order
 
