@@ -4,6 +4,7 @@
 #include "BackendAgentCommandStateStore.h"
 #include "BackendAgentCommandJson.h"
 #include "MediaToolsAgentExecutor.h"
+#include "MediaToolsImportRunLock.h"
 #include <openssl/evp.h>
 #include <cassert>
 #include <chrono>
@@ -93,7 +94,7 @@ struct Transport final: IBackendAgentControlPlaneTransport {
     }
 };
 struct Fixture {
-    fs::path root,binary,approval,manifest,ledger,source,video,statePath;
+    fs::path root,binary,approval,manifest,runLock,ledger,source,video,statePath;
     Fixture() {
         if(::geteuid()!=0 || !std::getenv("TMPDIR") ||
            std::string(std::getenv("TMPDIR"))!="/root")
@@ -110,6 +111,7 @@ struct Fixture {
         binary=root/"usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import";
         approval=root/"etc/vdr-suite/addon-approvals/rectools.json";
         manifest=root/"usr/share/vdr-suite/addons/rectools/addon.json";
+        runLock=approval.parent_path()/vdrsuite::mediatools::kMediaImportRunLockName;
         ledger=root/"etc/vdr-suite/addon-sources/media-import.tsv";
         source=root/"media/in/movie.ts";
         video=root/"media/out";
@@ -139,6 +141,9 @@ struct Fixture {
             throw std::runtime_error("binary chmod");
         writeManifest();
         writeApproval(false);
+        {std::ofstream file(runLock,std::ios::binary|std::ios::trunc);}
+        if(::chmod(runLock.c_str(),0644)!=0)
+            throw std::runtime_error("run lock chmod");
         {std::ofstream file(source);file<<"synthetic-media-input";}
         {std::ofstream file(ledger);
          file<<"backend\tinventory_Token_0001\t"
