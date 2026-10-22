@@ -96,24 +96,40 @@ void testDurableOwnership(const Fixture& f) {
     auto actor = administrator();
     auto competitor = actor;
     competitor.actor.actorId = "different-admin";
-
     using Status = MaintenanceFenceStatus;
+
     assert(!fence1.read(actor).ownershipActive);
+    auto shared = vdrsuite::mediatools::MediaToolsImportRunLock::tryAcquire(
+        f.root.string(),
+        vdrsuite::mediatools::MediaToolsImportRunLock::Mode::sharedExecution);
+    assert(shared.has_value());
+    assert(!shared->ownsExclusiveLock());
+    assert(fence1.claimOwnership(actor, 0, *shared,
+        {"owner-with-shared-lock", "2026-10-22T07:15:00Z"}).state.status ==
+        Status::forbidden);
+    shared.reset();
+
     auto exclusive = vdrsuite::mediatools::MediaToolsImportRunLock::tryAcquire(
         f.root.string(),
         vdrsuite::mediatools::MediaToolsImportRunLock::Mode::exclusiveMaintenance);
     assert(exclusive && exclusive->ownsExclusiveLock());
     assert(fence1.claimOwnership(
-        actor, 0, *exclusive, {"owner-before-freeze", "2026-10-22T07:15:00Z"})
-           .state.status == Status::invalid);
+        actor, 1, *exclusive, {"owner-before-freeze", "2026-10-22T07:15:00Z"})
+           .state.status == Status::revisionConflict);
     assert(fence1.setFrozen(actor, true, 0,
         {"owner-freeze", "2026-10-22T07:16:00Z"}).status == Status::ok);
     assert(fence1.claimOwnership(actor, 1, *exclusive,
-        {"owner-duplicate-event", "2026-10-22T07:16:00Z"})
-           .acquired());
-    // This owner is durable across separate SQLite connection and freshly
-    // constructed Core service. It must block ANY administrator, including
-    // the original one, from invoking legacy setFrozen(false).
+        {"owner-freeze", "2026-10-22T07:16:00Z"}).state.status ==
+        Status::unavailable);
+    assert(fence1.read(actor).revision == 1 &&
+           !fence1.read(actor).ownershipActive);
+    auto claim = fence1.claimOwnership(actor, 1, *exclusive,
+        {"owner-first-claim", "2026-10-22T07:16:00Z"});
+    assert(claim.acquired() && claim.state.revision == 2);
+    assert(claim.token.size() == 32);
+
+    // The owner must persist across separate SQLite connections and freshly
+    // constructed Core service. Legacy unfreeze by ANY admin is blocked.
     const auto current = fence2.read(competitor);
     assert(current.status == Status::ok && current.frozen &&
            current.ownershipActive && current.revision == 2);
@@ -125,31 +141,57 @@ void testDurableOwnership(const Fixture& f) {
         Status::ownershipActive);
     assert(!mediaImportAdmissionUnfrozen(db1));
     assert(!mediaImportAdmissionUnfrozen(db2));
-    // An unrelated timer still works while Media Import is frozen.
-    // The exclusive lock guards the file, not the database's other families.
-
-    // Claim token is never returned by read(); a second claim cannot steal
-    // ownership, including by the same administrator.
+    assert(operations2.reserve(pending()).status ==
+           MutationOperationRepositoryStatus::maintenanceBlocked);
     assert(fence2.claimOwnership(competitor, 2, *exclusive,
         {"competing-claim", "2026-10-22T07:19:00Z"}).state.status ==
         Status::ownershipActive);
-    // The actual token is a Core-generated 128-bit lowercase hex value.
-    // A forged token or an altered administrator must never release it.
-    auto owned = fence1.read(actor);
-    assert(owned.ownershipActive && owned.revision == 2);
+    assert(fence2.releaseOwnership(competitor, 2, claim.token, *exclusive,
+        {"other-admin-release", "2026-10-22T07:20:00Z"}).status ==
+        Status::ownershipMismatch);
+    assert(fence1.releaseOwnership(actor, 2, std::string(32,'0'), *exclusive,
+        {"wrong-token-release", "2026-10-22T07:21:00Z"}).status ==
+        Status::ownershipMismatch);
+    assert(fence1.releaseOwnership(actor, 1, claim.token, *exclusive,
+        {"stale-owner-release", "2026-10-22T07:22:00Z"}).status ==
+        Status::revisionConflict);
+    assert(fence1.releaseOwnership(actor, 2, claim.token, *exclusive,
+        {"owner-first-claim", "2026-10-22T07:23:00Z"}).status ==
+        Status::unavailable);
+    assert(fence2.read(actor).ownershipActive &&
+           fence2.read(actor).revision == 2);
     assert(audit1.listAll().size() == 2);
 
-    // No time-based lease expiry is allowed. The owner survives even after
-    // the kernel lock is released, e.g. after an Agent/maintainer crash.
+    const auto released = fence1.releaseOwnership(actor, 2, claim.token,
+        *exclusive, {"owner-released", "2026-10-22T07:24:00Z"});
+    assert(released.status == Status::ok && released.frozen &&
+           !released.ownershipActive && released.revision == 3);
+    assert(fence2.read(actor).revision == 3 &&
+           !fence2.read(actor).ownershipActive);
+    assert(!mediaImportAdmissionUnfrozen(db2));
+
+    // Fresh claim before a crash: no timeout/implicit takeover is allowed.
+    auto second = fence1.claimOwnership(actor, 3, *exclusive,
+        {"owner-crash-claim", "2026-10-22T07:25:00Z"});
+    assert(second.acquired() && second.token != claim.token);
     exclusive.reset();
     assert(fence2.read(actor).ownershipActive);
-    assert(fence2.setFrozen(competitor, false, 2,
-        {"post-crash-unfreeze", "2026-10-22T07:20:00Z"}).status ==
+    assert(fence2.setFrozen(competitor, false, 4,
+        {"post-crash-unfreeze", "2026-10-22T07:26:00Z"}).status ==
         Status::ownershipActive);
-    assert(vdrsuite::mediatools::MediaToolsImportRunLock::tryAcquire(
+    assert(operations2.reserve(pending()).status ==
+           MutationOperationRepositoryStatus::maintenanceBlocked);
+    // The root lock can be acquired after process death, but it does NOT
+    // automatically authorize taking over a persistent claimed owner.
+    auto another = vdrsuite::mediatools::MediaToolsImportRunLock::tryAcquire(
         f.root.string(),
-        vdrsuite::mediatools::MediaToolsImportRunLock::Mode::exclusiveMaintenance)
-        .has_value());
+        vdrsuite::mediatools::MediaToolsImportRunLock::Mode::exclusiveMaintenance);
+    assert(another && another->ownsExclusiveLock());
+    assert(fence2.claimOwnership(competitor, 4, *another,
+        {"attempted-crash-takeover", "2026-10-22T07:27:00Z"}).state.status ==
+        Status::ownershipActive);
+    assert(!mediaImportAdmissionUnfrozen(db2));
+    assert(audit1.listAll().size() == 4);
 }
 }
 
