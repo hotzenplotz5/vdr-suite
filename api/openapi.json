@@ -10165,7 +10165,8 @@
             "type": "string",
             "enum": [
               "none",
-              "restfulapi-scraper-bridge"
+              "restfulapi-scraper-bridge",
+              "manual"
             ]
           },
           "contentKind": {
@@ -10173,6 +10174,7 @@
             "enum": [
               "unknown",
               "movie",
+              "series",
               "series-episode"
             ]
           },
@@ -10191,7 +10193,11 @@
           "providerTitle": {
             "type": "string",
             "maxLength": 1024,
-            "description": "Optional scraped title, distinct from the canonical display title at the Recording root."
+            "description": "Optional selected manual or scraped title; does not override the Recording display title."
+          },
+          "overview": {
+            "type": "string",
+            "maxLength": 4096
           },
           "originalTitle": {
             "type": "string",
@@ -10228,6 +10234,21 @@
           "providerRuntimeMinutes": {
             "type": "integer",
             "minimum": 1
+          },
+          "manualAssignmentId": {
+            "type": "string",
+            "pattern": "^mdasg_[0-9a-f]{32}$",
+            "description": "Only when source=manual: existing selected assignment identity, not an external provider ID."
+          },
+          "metadataEntityId": {
+            "type": "string",
+            "pattern": "^mdent_[0-9a-f]{32}$",
+            "description": "Only when source=manual: existing Suite metadata entity identity."
+          },
+          "manualRevision": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Only when source=manual: persisted selected assignment revision."
           }
         }
       },
