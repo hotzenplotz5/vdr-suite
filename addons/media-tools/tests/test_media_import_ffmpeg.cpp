@@ -2,6 +2,7 @@
 #include "MediaCheck.h"
 
 #include <cassert>
+#include <cerrno>
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
