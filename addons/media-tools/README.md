@@ -15,10 +15,13 @@ first. Media Check now has a source-level local-backend API v1 and Recording
 Hero integration, but is not installed or activated as a production add-on.
 Shrink is not available yet.
 
-The add-on now contains a real, testable pinned descriptor executor and
-protected Agent command/result integration. The production Agent still does
-not instantiate or advertise this executor; no service is started and no
-manifest capability is advertised.
+The add-on includes the pinned descriptor executor and protected Core/Agent
+command/results path. The production Agent executable has a **strictly explicit**
+`--enable-media-import` opt-in composition; it still requires a root-controlled
+approval, metadata, source inventory and Core authorization. Merely installing
+an add-on or setting COMMAND_TYPES cannot activate imports. No service has been
+installed or restarted as part of this implementation, and the module manifest
+remains disabled.
 
 ## M2: erster tatsächlich nutzbarer Media Check (read-only)
 
@@ -44,6 +47,15 @@ Discontinuity-Flags sowie Indexdatei-Präsenz. Die Daten werden nur
 lesend über Dateideskriptoren eingelesen. Exitstatus 0 steht für
 `ok` oder `warnings`, 1 für erkannte Strukturfehler, 2 für eine
 unvollständige/unsichere Prüfung.
+
+Both read-only Media Check modes additionally inspect relevant VDR
+sidecars (`index`, `info`, `marks`, `resume`, `.srt`, `.nfo`).
+The JSON includes `sidecarReports` and counts of unsafe/nonregular or
+obviously empty sidecars. FFprobe receives only a verified read-only TS
+descriptor on stdin, never a browser-selected recording path; it reports
+video/audio codec, resolution, channel count and container attributes
+in the bounded `ffprobe` result. The Recording Hero summarizes these
+attributes without implementing a separate scanner.
 
 **M2.1 FFmpeg-Decodierung:** Die zusätzliche Aktion `check-decode`
 verarbeitet die nummerierten TS-Segmente **als einen einzigen Stream** und
@@ -83,13 +95,14 @@ die expliziten, backend-spezifischen Wurzeln im Format
 Ohne diese Konfiguration wird die Funktion nicht angeboten.
 Die Aufnahme wird serverseitig anhand der `rec_...`-Kennung und eines
 aktuellen Backend-Snapshots erneut aufgelöst. Browserpfade werden nie
-ausgeführt. Der Prüfstatus wird aktuell nur im Daemon-Speicher gehalten,
-mit genau einer gleichzeitig laufenden Prüfung; jeder Status-Abruf
-prüft das backend-spezifische Recht `media.recording.play` erneut
-(zusätzlich zur Bindung an den ursprünglichen Akteur), sodass der
-Entzug dieses Rechts keine weiteren Berichtabrufe erlaubt. Die Anbindung an
-Remote-Agenten und dauerhafte Core-Operations fehlt noch. Bei einem
-Daemon-Neustart bleibt kein abrufbarer Prüfbericht erhalten. Es gibt
+ausgeführt. Genau eine Prüfung läuft gleichzeitig; abgeschlossene Berichte
+werden in der **bestehenden Suite-Core-SQLite-Datenbank** archiviert und
+über den Check-ID-Endpunkt nach einem Daemon-Neustart wiedergefunden.
+Eine beim Absturz laufende Prüfung wird als `incomplete` gespeichert,
+nicht als Erfolg. Jeder Status-Abruf prüft das backend-spezifische Recht
+`media.recording.play` erneut und bindet den Bericht an den ursprünglichen
+Akteur und das Backend. Die Anbindung an Remote-Agenten und die Migration
+in die Core-Operations-Jobausführung fehlen weiterhin. Es gibt
 weiterhin **keine** produktive Add-on-Aktivierung oder Paketinstallation,
 keinen automatischen Reparatur-, Lösch- oder Mailversand. Eine echte
 yaVDR-Abnahme ist ausdrücklich noch offen.
@@ -103,6 +116,36 @@ Unverändertheit. Der Hero-/Client-Vertrag wird durch
 Index-Neuerzeugung, Änderung der Aufnahme, automatische Paketinstallation
 oder Add-on-Aktivierung. Das bestehende Media-Import-Interface bleibt
 unberührt; `addon.json` bewirbt Media Check noch nicht.
+
+## Importer: source-preserving metadata and codec fallback
+
+The existing backend C++ import implementation remains the only importer.
+A root-controlled opaque source selection proceeds through the existing
+Suite API v1 and Core/Agent operation identity and verifies the recording
+via the existing VDR recording-cache reconciliation. Video in H.264, HEVC
+or MPEG-2 uses stream copy; other video codecs use bounded software
+H.264/AAC encoding with FFmpeg and fixed arguments. In both cases a private
+input snapshot and output-size limit protect the staging volume. External
+tools have an explicit deadline, and the original source file is never
+moved or deleted. Capacity preflight leaves the required free-space reserve.
+
+If an adjacent same-stem `.nfo` exists, bounded plain-XML fields
+`title`, `outline`, `plot`, `year`, and `genre` are copied into
+the resulting recording's native VDR `info` file. XML beyond the
+supported simple tags/entities is rejected rather than silently interpreted.
+An adjacent same-stem `.srt` is copied into the new recording as
+`subtitles.srt`. Original sidecars are preserved. The title directory
+is matched to the NFO title when supplied and the importer rejects duplicate
+recording titles.
+
+**Not yet production-complete:** the Agent's existing bounded assignment
+deadline (currently at most 600 seconds) also constrains software encoding;
+long transcodes, restart-safe batch scanning, automatic scheduled imports,
+language-based subtitle discovery, chapter conversion, and a reviewable
+HEVC shrink/publish operation are not enabled. The existing Suite metadata
+enrichment and artwork owners should run on canonical recording-cache
+refresh; Media Tools must not create a second scraper. There has been no
+real-VDR writing acceptance or production deployment.
 
 ## Installed handler metadata gate (A2M/A4)
 
