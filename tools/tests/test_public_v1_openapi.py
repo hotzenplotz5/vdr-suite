@@ -56,6 +56,32 @@ class OpenApiDriftTests(unittest.TestCase):
         )
         self.assert_rejected(source=source, reason="source route handler anchor disappeared")
 
+    def test_missing_post_domain_delegate_rejected(self):
+        source = self.source.replace(
+            "if (tryHandleDevicePairingPost(",
+            "if (obsoleteDevicePairingPost(",
+            1,
+        )
+        self.assert_rejected(
+            source=source, reason="cannot isolate actual GET and POST"
+        )
+
+    def test_reordered_post_domain_delegates_rejected(self):
+        start = self.source.index("bool PublicApiRuntime::tryHandlePost(")
+        end = self.source.index("bool PublicApiRuntime::tryHandleDelete(", start)
+        dispatch = self.source[start:end]
+        first = "if (tryHandleDevicePairingPost("
+        second = "if (tryHandleNativeTimerMutationPost("
+        self.assertIn(first, dispatch)
+        self.assertIn(second, dispatch)
+        altered = dispatch.replace(first, "if (TEMP_SWAP(", 1)
+        altered = altered.replace(second, first, 1)
+        altered = altered.replace("if (TEMP_SWAP(", second, 1)
+        self.assert_rejected(
+            source=self.source[:start] + altered + self.source[end:],
+            reason="cannot isolate actual GET and POST",
+        )
+
     def test_recording_action_route_is_audited(self):
         changed = copy.deepcopy(self.document)
         del changed["paths"]["/api/v1/recordings/actions/execute"]

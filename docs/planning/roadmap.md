@@ -54,7 +54,7 @@ A roadmap entry is never automatic permission to implement the next possible dif
 - **Checkpoint after R3, before E1:** Apply [ADR-0068](../adr/ADR-0068-public-api-router-modularization-checkpoint.md) to separate the existing `ApiRouter`/`PublicApiRuntime` domains without changing functionality. **No new API methods/routes, JSON schemas, permissions, identities or domain logic; no large router refactor during R1–R3.**
 - **Then:** E1 full available EPG-cache horizon via bounded deterministic continuation; E2 EPG/TimerIntent; M1 read-only metadata; M2 artwork; S1 SearchTimer mutations; P1 Resume/device playback integration.
 
-The post-R3 checkpoint is an independent source-compatibility/CI gate, **not a claim of implemented modules**. Exact work progress and CI belongs in [CURRENT](../CURRENT.md), details in the [Public-v1 coverage roadmap](public-v1-coverage-roadmap.md) and [Recording source audit](../development/public-v1-source-audit-20261021.md).
+The post-R3 checkpoint is an independent source-compatibility/CI gate: the source changes are staged in [PR #517](https://github.com/hotzenplotz5/vdr-suite/pull/517), but they are not accepted merely by existing in a branch. The exact final-head CI, merge and post-merge verification establish completion. Progress belongs in [CURRENT](../CURRENT.md) and the [ADR-0068 implementation record](../development/adr-0068-single-branch-read-dispatch-progress.md); details remain in the [Public-v1 coverage roadmap](public-v1-coverage-roadmap.md) and [Recording source audit](../development/public-v1-source-audit-20261021.md).
 
 ---
 

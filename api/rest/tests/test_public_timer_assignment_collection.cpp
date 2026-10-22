@@ -118,6 +118,8 @@ int main()
         std::string::npos);
     assert(first.headers.find("ETag") == first.headers.end());
     assert(first.headers.at("Cache-Control") == "no-store");
+    assert(first.headers.at("X-Request-ID") == "phase69d-collection-first");
+    assert(first.headers.at("X-Correlation-ID") == "phase69d-correlation");
 
     const std::string cursor = nextCursor(first.body);
     assert(!cursor.empty());
@@ -555,6 +557,7 @@ int main()
     assert(draft.body.find("searchTimerId") == std::string::npos);
     assert(draft.body.find("backendNativeId") == std::string::npos);
     assert(draft.headers.at("Cache-Control") == "no-store");
+    assert(draft.headers.at("X-Request-ID") == "draft-ok");
     for (const std::string& suffix : {
             std::string("&cursor=bad"),
             std::string("&compareTitle=1"),

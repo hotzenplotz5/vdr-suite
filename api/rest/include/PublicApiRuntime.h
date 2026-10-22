@@ -114,7 +114,7 @@ struct PublicSearchTimerCollectionRequest
 {
     std::string backendId;
     std::string afterSearchTimerId;
-    // Optional exact opaque ID for one-item read; no native rule IDs escape.
+    // Optional exact opaque ID for a single saved-rule lookup.
     std::string searchTimerId;
     std::size_t limit = 30U;
 };
@@ -1634,6 +1634,126 @@ public:
 
 private:
     PublicApiRuntime() = default;
+
+    // ADR-0068: mutation route ownership only. Auth, callback admission,
+    // revisions, idempotency and response construction remain unchanged.
+    bool tryHandleNativeTimerMutationPost(
+        const std::string& requestTarget,
+        const std::string& requestId,
+        const std::string& correlationId,
+        ApiResponse& response,
+        const std::string& body,
+        const std::string& actorRef,
+        const std::string& ifMatch,
+        const std::string& idempotencyKey,
+        const std::string& contentType,
+        const std::string& authorizedBackendId) const;
+
+    bool tryHandleDevicePairingPost(
+        const std::string& requestTarget,
+        const std::string& requestId,
+        const std::string& correlationId,
+        ApiResponse& response,
+        const std::string& body,
+        const std::string& actorRef,
+        const std::string& ifMatch,
+        const std::string& idempotencyKey,
+        const std::string& contentType,
+        const std::string& pairingToken) const;
+
+    bool tryHandleAccountCredentialSessionPost(
+        const std::string& requestTarget,
+        const std::string& requestId,
+        const std::string& correlationId,
+        ApiResponse& response,
+        const std::string& body,
+        const std::string& actorRef,
+        const std::string& ifMatch,
+        const std::string& contentType) const;
+
+    bool tryHandleDeviceAdministrationPost(
+        const std::string& requestTarget,
+        const std::string& requestId,
+        const std::string& correlationId,
+        ApiResponse& response,
+        const std::string& body,
+        const std::string& actorRef,
+        const std::string& ifMatch,
+        const std::string& idempotencyKey,
+        const std::string& contentType) const;
+
+    bool tryHandleAccountAdministrationPost(
+        const std::string& requestTarget,
+        const std::string& requestId,
+        const std::string& correlationId,
+        ApiResponse& response,
+        const std::string& body,
+        const std::string& actorRef,
+        const std::string& ifMatch,
+        const std::string& idempotencyKey,
+        const std::string& contentType) const;
+
+    bool tryHandleTimerWorkflowPost(
+        const std::string& requestTarget,
+        const std::string& requestId,
+        const std::string& correlationId,
+        ApiResponse& response,
+        const std::string& body,
+        const std::string& actorRef,
+        const std::string& ifMatch,
+        const std::string& idempotencyKey,
+        const std::string& contentType,
+        const std::string& authorizedBackendId) const;
+
+    // Human Account / Device administration GET on the established
+    // identity runtime, with unchanged revisions and Problem Details.
+    bool tryHandleIdentityAdministrationReadGet(
+        const std::string& requestTarget,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::string& ifNoneMatch,
+        ApiResponse& response) const;
+
+    // Pairing collection and item reads preserve human/pairing-token gates.
+    bool tryHandleDevicePairingReadGet(
+        const std::string& requestTarget,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::string& pairingToken,
+        ApiResponse& response) const;
+
+    // Recording, EPG/Recording search and Genre read responses use the
+    // established runtime lookup callbacks.
+    bool tryHandleBrowseReadGet(
+        const std::string& requestTarget,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::vector<std::string>& authorizedBackendIds,
+        ApiResponse& response) const;
+
+    // SearchTimer draft/resource previews, collection and TimerAssignment
+    // collection/item GET share the existing runtime callback authorities.
+    bool tryHandleSearchTimerAssignmentReadGet(
+        const std::string& requestTarget,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::string& ifNoneMatch,
+        const std::string& authorizedBackendId,
+        ApiResponse& response) const;
+
+    // Original NativeTimer collection/item GET contract; no new timer owner.
+    bool tryHandleNativeTimerReadGet(
+        const std::string& requestTarget,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::string& ifNoneMatch,
+        const std::vector<std::string>& authorizedBackendIds,
+        ApiResponse& response) const;
 
     // EPG Event, Window, Now/Next read-only orchestration on this runtime.
     bool tryHandleEpgReadGet(
