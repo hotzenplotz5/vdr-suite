@@ -242,6 +242,14 @@ bool cPluginSuiteBridge::Start(void)
                   payload.c_str());
             }
 
+            if (operation == Operation::SearchTimerCasCapability ||
+                operation == Operation::SearchTimerCasObserve ||
+                operation == Operation::SearchTimerCasExecute) {
+              // Only the private SO_PEERCRED-checked control plane carries
+              // native search identities and one-shot CAS requests.
+              return searchCasControl_.Handle(operation, payload);
+            }
+
             const auto fields = split(payload);
             if (operation == Operation::OsdInput) {
               if (fields.size() != 10) {
