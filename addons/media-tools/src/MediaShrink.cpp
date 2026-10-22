@@ -479,10 +479,12 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
     copySubtitles(current, candidate);
     invoke(runner, {"/usr/bin/vdr", "--genindex=" + candidate.string()});
     demand(nonempty(candidate / "index"), "HEVC recording index missing");
-    for (const auto& part : current.segments)
-        demand(same(identity(current.videoRoot / current.relativeRecording /
-                             part.filename), part),
-               "source recording changed during HEVC operation");
+    // Reinspect all TS/Index/Info/SRT identities after encoding. The
+    // source recording may have been enriched while FFmpeg was running.
+    const auto verified = inspectShrink(current.videoRoot,
+        current.relativeRecording, current.options);
+    demand(signature(verified) == signature(current),
+           "source recording or sidecars changed during HEVC operation");
     std::ofstream review(candidate / ".shrink-review",
                          std::ios::binary | std::ios::trunc);
     demand(static_cast<bool>(review), "cannot create shrink review evidence");
