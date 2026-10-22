@@ -217,8 +217,9 @@ bool indexAvailable(int directory)
 
 } // namespace
 
-MediaCheckReport checkRecordingTransportStream(
-    const fs::path& videoRoot, const fs::path& recordingRelative)
+MediaCheckReport checkRecordingInternal(
+    const fs::path& videoRoot, const fs::path& recordingRelative,
+    MediaCheckDecoder* decoder)
 {
     require(videoRoot.is_absolute() && videoRoot.lexically_normal() == videoRoot,
             "video root must be absolute and normalized");
@@ -250,11 +251,28 @@ MediaCheckReport checkRecordingTransportStream(
     Continuity counters;
     for (const auto& segment : segments)
         scanSegment(current.value, segment, result, counters);
+    if (decoder != nullptr)
+        result.decode = decoder->decode(current.value, segments);
     return result;
+}
+
+MediaCheckReport checkRecordingTransportStream(
+    const fs::path& videoRoot, const fs::path& recordingRelative)
+{
+    return checkRecordingInternal(videoRoot, recordingRelative, nullptr);
+}
+
+MediaCheckReport checkRecordingWithDecoder(
+    const fs::path& videoRoot, const fs::path& recordingRelative,
+    MediaCheckDecoder& decoder)
+{
+    return checkRecordingInternal(videoRoot, recordingRelative, &decoder);
 }
 
 std::string MediaCheckReport::status() const
 {
+    if (decode && decode->status == "incomplete") return "incomplete";
+    if (decode && decode->status == "errors") return "errors";
     if (syncErrors || transportErrors || adaptationErrors || trailingBytes)
         return "errors";
     if (continuityWarnings || discontinuities || !indexPresent)
@@ -277,7 +295,18 @@ std::string MediaCheckReport::json() const
         << ",\"continuityWarnings\":" << continuityWarnings
         << ",\"discontinuities\":" << discontinuities
         << ",\"indexPresent\":" << (indexPresent ? "true" : "false")
-        << ",\"analysis\":\"ts_structure_only\",\"readOnly\":true}";
+        << ",\"analysis\":"
+        << jsonString(decode ? "ts_structure_and_ffmpeg_decode" : "ts_structure_only")
+        << ",\"readOnly\":true";
+    if (decode) {
+        output << ",\"decoder\":{\"status\":" << jsonString(decode->status)
+            << ",\"exitCode\":" << decode->exitCode
+            << ",\"timedOut\":" << (decode->timedOut ? "true" : "false")
+            << ",\"streamedBytes\":" << decode->streamedBytes
+            << ",\"diagnostic\":" << jsonString(decode->diagnostic)
+            << "}";
+    }
+    output << "}";
     return output.str();
 }
 
