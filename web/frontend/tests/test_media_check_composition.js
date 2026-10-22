@@ -72,6 +72,7 @@ const api = clientFactory.createClient({
   const context = {
     window: null, console,
     VdrSuiteRecordings2Shared: {
+      text(value) { return value == null ? '' : String(value); },
       first(item, names, fallback) {
         for (const name of names) if (item && item[name]) return item[name];
         return fallback;

@@ -541,6 +541,37 @@
       });
     }
 
+
+    function requestMediaCheck(options) {
+      const value = options && typeof options === 'object' ? options : {};
+      const path = mediaImportPath(value, 'media-checks');
+      if (typeof value.recordingId !== 'string' ||
+          !/^rec_[0-9a-f]{32}$/.test(value.recordingId)) {
+        throw new Error('Media Check requires canonical recordingId');
+      }
+      if (value.mode !== 'structure' && value.mode !== 'decode') {
+        throw new Error('Media Check mode must be structure or decode');
+      }
+      const headers = Object.assign(
+        {Accept: 'application/json'}, defaultHeaders, copyHeaders(value.headers),
+        {'Content-Type': 'application/json'}
+      );
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST', headers: headers,
+        credentials: value.credentials !== undefined
+          ? value.credentials : normalized.credentials,
+        cache: 'no-store', signal: value.signal,
+        body: JSON.stringify({recordingId: value.recordingId, mode: value.mode})
+      }).then(function (response) {
+        return parseJsonBody(response).then(function (payload) {
+          if (!response.ok) {
+            throw new VdrSuitePublicClientError(path, response.status, payload, response);
+          }
+          return payload;
+        });
+      });
+    }
+
     function requestDevicePairingCreate(payload, options) {
       const requestOptions = options && typeof options === 'object' ? options : {};
       const headers = Object.assign(
@@ -1056,6 +1087,21 @@
           timerAssignmentItemPath(normalizedOptions),
           normalizedOptions
         );
+      },
+      getMediaCheckCapability(options) {
+        const value = options && typeof options === 'object' ? options : {};
+        return request(mediaImportPath(value, 'capabilities/media-check'), value);
+      },
+      submitMediaCheck(options) {
+        return requestMediaCheck(options);
+      },
+      getMediaCheckStatus(options) {
+        const value = options && typeof options === 'object' ? options : {};
+        if (typeof value.checkId !== 'string' ||
+            !/^chk_[0-9a-f]{32}$/.test(value.checkId)) {
+          throw new Error('Media Check requires opaque checkId');
+        }
+        return request(mediaImportPath(value, 'media-checks/' + value.checkId), value);
       },
       getMediaImportCapability(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
