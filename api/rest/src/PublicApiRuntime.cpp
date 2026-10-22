@@ -8459,7 +8459,16 @@ bool PublicApiRuntime::tryHandleGet(
         path.compare(0U, recordingDetailPrefix.size(),
             recordingDetailPrefix) == 0 &&
         path.find('/', recordingDetailPrefix.size()) == std::string::npos;
-    if (isRecordingDetailPath)
+    const std::size_t artworkMarker =
+        path.find("/artwork", recordingDetailPrefix.size());
+    const bool isRecordingArtworkPath =
+        path.compare(0U, recordingDetailPrefix.size(),
+            recordingDetailPrefix) == 0 &&
+        artworkMarker != std::string::npos &&
+        (artworkMarker + 8U == path.size() ||
+         (artworkMarker + 8U < path.size() &&
+          path[artworkMarker + 8U] == '/'));
+    if (isRecordingDetailPath || isRecordingArtworkPath)
     {
         if (tryHandleBrowseReadGet(
                 requestTarget, actorRef, requestId, correlationId,
