@@ -48,15 +48,17 @@ test-addon-media-import:
 .PHONY: addon-media-check test-addon-media-check
 addon-media-check:
 	mkdir -p "$(BUILD_DIR)/addons"
-	$(CXX) -std=c++17 -Wall -Wextra -Werror -I addons/media-tools/include \
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread -I addons/media-tools/include \
 		addons/media-tools/src/MediaCheck.cpp \
+		addons/media-tools/src/MediaCheckFfmpeg.cpp \
 		addons/media-tools/src/media_check_main.cpp \
 		-o "$(BUILD_DIR)/addons/vdr-suite-media-check"
 
 test-addon-media-check:
 	mkdir -p "$(BUILD_DIR)/addons"
-	$(CXX) -std=c++17 -Wall -Wextra -Werror -I addons/media-tools/include \
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread -I addons/media-tools/include \
 		addons/media-tools/src/MediaCheck.cpp \
+		addons/media-tools/src/MediaCheckFfmpeg.cpp \
 		addons/media-tools/tests/test_media_check.cpp \
 		-o "$(BUILD_DIR)/addons/test_media_check"
 	"$(BUILD_DIR)/addons/test_media_check"
