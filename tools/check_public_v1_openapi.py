@@ -213,19 +213,64 @@ def _walk_refs(value: Any):
             yield from _walk_refs(item)
 
 
+# These names and this order are the actual private POST domain dispatch chain.
+# Do not accept an anchor in an uncalled helper or an unrelated method body.
+POST_DOMAIN_HANDLERS = (
+    "NativeTimerMutation",
+    "DevicePairing",
+    "AccountCredentialSession",
+    "DeviceAdministration",
+    "AccountAdministration",
+    "TimerWorkflow",
+)
+
+
 def _handler_sections(source: str) -> dict[str, str]:
-    bounds = [
-        source.find("bool PublicApiRuntime::tryHandleGet("),
-        source.find("bool PublicApiRuntime::tryHandlePost("),
-        source.find("bool PublicApiRuntime::tryHandleDelete("),
-        source.find("bool PublicApiRuntime::tryHandleUnsupportedMethod("),
+    get_start = source.find("bool PublicApiRuntime::tryHandleGet(")
+    helper_starts = [
+        source.find(f"bool PublicApiRuntime::tryHandle{name}Post(")
+        for name in POST_DOMAIN_HANDLERS
     ]
-    if any(i < 0 for i in bounds) or not bounds[0] < bounds[1] < bounds[2] < bounds[3]:
+    post_start = source.find("bool PublicApiRuntime::tryHandlePost(")
+    delete_start = source.find("bool PublicApiRuntime::tryHandleDelete(")
+    unsupported_start = source.find(
+        "bool PublicApiRuntime::tryHandleUnsupportedMethod("
+    )
+    bounds = [get_start, *helper_starts, post_start,
+              delete_start, unsupported_start]
+    if any(i < 0 for i in bounds) or bounds != sorted(set(bounds)):
         return {}
+
+    # Verify that every helper is reached from the public dispatcher in the
+    # exact original first-match order. Merely finding source text does not
+    # prove a registered route still exists.
+    dispatch = source[post_start:delete_start]
+    expected_calls = [
+        f"if (tryHandle{name}Post(" for name in POST_DOMAIN_HANDLERS
+    ]
+    if dispatch.count("if (tryHandle") != len(expected_calls):
+        return {}
+    positions = [dispatch.find(call) for call in expected_calls]
+    if any(i < 0 for i in positions) or positions != sorted(positions):
+        return {}
+    # Each private handler must return its match result directly to the
+    # public dispatcher, never continue to a later mutation owner.
+    for offset, position in enumerate(positions):
+        following = dispatch[position:]
+        if not re.match(
+            r"if \\(tryHandle\\w+Post\\(.*?\\)\\)\\s*return true;",
+            following, re.DOTALL
+        ):
+            return {}
+        next_position = (positions[offset + 1] if
+                         offset + 1 < len(positions) else len(dispatch))
+        if "return true;" not in dispatch[position:next_position]:
+            return {}
+
     return {
-        "get": " ".join(source[bounds[0]:bounds[1]].split()),
-        "post": " ".join(source[bounds[1]:bounds[2]].split()),
-        "delete": " ".join(source[bounds[2]:bounds[3]].split()),
+        "get": " ".join(source[get_start:helper_starts[0]].split()),
+        "post": " ".join(source[helper_starts[0]:delete_start].split()),
+        "delete": " ".join(source[delete_start:unsupported_start].split()),
     }
 
 
