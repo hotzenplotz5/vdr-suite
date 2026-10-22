@@ -105,6 +105,20 @@ const api = clientFactory.createClient({
   assert(functions.mediaCheckSummary({status: 'errors', segments: 2,
     segmentReports: [{name: '00002.ts', status: 'errors'}]})
     .includes('00002.ts'));
+  const enriched = functions.mediaCheckSummary({
+    status: 'warnings', segments: 2,
+    sidecarReports: [{name: 'de.srt', status: 'warnings'}],
+    ffprobe: {status: 'ok', details: JSON.stringify({
+      streams: [{codec_type: 'video', codec_name: 'h264',
+        width: 1920, height: 1080},
+        {codec_type: 'audio', codec_name: 'aac', channels: 2}],
+      format: {format_name: 'mpegts'}
+    })}
+  });
+  assert(enriched.includes('de.srt'));
+  assert(enriched.includes('h264 1920×1080'));
+  assert(enriched.includes('aac (2 Kanäle)'));
+  assert(enriched.includes('Container: mpegts'));
   console.log('MEDIA_CHECK_API_V1_FRONTEND=PASS');
 })().catch(function(error) {
   console.error(error);

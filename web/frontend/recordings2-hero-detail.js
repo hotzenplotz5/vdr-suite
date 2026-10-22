@@ -415,6 +415,39 @@
       ' · ' + (Number.isFinite(segments) ? segments : '?') +
       ' TS-Segmente · ' + errors;
     if (broken.length) summary += ' · Betroffene Segmente: ' + broken.join(', ');
+    const sidecars = Array.isArray(report.sidecarReports)
+      ? report.sidecarReports : [];
+    const faultySidecars = sidecars.filter(function (item) {
+      return item && item.status !== 'ok';
+    }).map(function (item) { return text(item.name) + ' (' + item.status + ')'; });
+    if (faultySidecars.length)
+      summary += ' · Sidecars: ' + faultySidecars.join(', ');
+    if (report.ffprobe && report.ffprobe.status === 'ok' &&
+        typeof report.ffprobe.details === 'string') {
+      try {
+        const found = JSON.parse(report.ffprobe.details);
+        const streams = Array.isArray(found.streams) ? found.streams : [];
+        const media = streams.filter(function (item) {
+          return item && (item.codec_type === 'video' ||
+            item.codec_type === 'audio');
+        }).map(function (item) {
+          const codec = typeof item.codec_name === 'string'
+            ? item.codec_name : '?';
+          if (item.codec_type === 'video')
+            return 'Video: ' + codec + (item.width && item.height
+              ? ' ' + Number(item.width) + '×' + Number(item.height) : '');
+          return 'Audio: ' + codec + (item.channels
+            ? ' (' + Number(item.channels) + ' Kanäle)' : '');
+        });
+        if (media.length) summary += ' · ' + media.join(' · ');
+        if (found.format && typeof found.format.format_name === 'string')
+          summary += ' · Container: ' + found.format.format_name;
+      } catch (_) {
+        summary += ' · FFprobe-Bericht nicht lesbar.';
+      }
+    } else if (report.ffprobe && report.ffprobe.status !== 'ok') {
+      summary += ' · FFprobe unvollständig.';
+    }
     if (report.decoder && report.decoder.timedOut)
       summary += ' · FFmpeg-Zeitlimit erreicht.';
     if (report.decoder && report.decoder.diagnostic)
