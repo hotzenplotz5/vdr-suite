@@ -99,6 +99,10 @@ int main()
     provider.seriesTitle.clear();
     provider.episodeTitle.clear();
     provider.genreText.clear();
+    provider.releaseDate.clear();
+    provider.seasonNumber = 0;
+    provider.episodeNumber = 0;
+    provider.runtimeMinutes = 0;
     assert(PublicRecordingMetadataDetailProjection::project(
         "backend-a", publicRecording.recordingId, original,
         publicRecording)->metadataState == "partial");
