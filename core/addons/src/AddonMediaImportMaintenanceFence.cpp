@@ -2,6 +2,7 @@
 
 #include "AccountabilityEvent.h"
 #include "AccountabilityEventRepository.h"
+#include "MediaToolsImportRunLock.h"
 
 #include <sqlite3.h>
 
