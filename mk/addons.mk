@@ -43,6 +43,26 @@ test-addon-media-import:
 		-o "$(BUILD_DIR)/addons/test_media_import"
 	"$(BUILD_DIR)/addons/test_media_import"
 
+# M2: operator-only, standalone read-only TS-structure check.
+# No VDR or recording writes, no Suite API/Agent registration or package install.
+.PHONY: addon-media-check test-addon-media-check
+addon-media-check:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I addons/media-tools/include \
+		addons/media-tools/src/MediaCheck.cpp \
+		addons/media-tools/src/media_check_main.cpp \
+		-o "$(BUILD_DIR)/addons/vdr-suite-media-check"
+
+test-addon-media-check:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I addons/media-tools/include \
+		addons/media-tools/src/MediaCheck.cpp \
+		addons/media-tools/tests/test_media_check.cpp \
+		-o "$(BUILD_DIR)/addons/test_media_check"
+	"$(BUILD_DIR)/addons/test_media_check"
+
+test-ci-fast: test-addon-media-check
+
 # This package contains the C++ prototype under private libexec. It advertises
 # zero Suite capabilities and is neither installed nor started by this target.
 .PHONY: build-media-tools-cpp-deb test-addon-media-tools-package
