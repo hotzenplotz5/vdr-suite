@@ -8717,7 +8717,7 @@ bool PublicApiRuntime::tryHandleGet(
     return false;
 }
 
-bool PublicApiRuntime::tryHandlePost(
+bool PublicApiRuntime::tryHandleNativeTimerMutationPost(
     const std::string& requestTarget,
     const std::string& requestId,
     const std::string& correlationId,
@@ -8727,17 +8727,9 @@ bool PublicApiRuntime::tryHandlePost(
     const std::string& ifMatch,
     const std::string& idempotencyKey,
     const std::string& contentType,
-    const std::string& authorizedBackendId,
-    const std::string& pairingToken) const
+    const std::string& authorizedBackendId) const
 {
     const std::string path = requestPath(requestTarget);
-    std::string operationId;
-    std::string timerAssignmentId;
-    std::string accountId;
-    std::string credentialId;
-    std::string sessionId;
-    std::string pairingRequestId;
-
     std::string modifiedTimerId;
     if (publicNativeTimerModificationPath(path, modifiedTimerId))
     {
@@ -8857,6 +8849,25 @@ bool PublicApiRuntime::tryHandlePost(
         response = serviceUnavailableProblem(path, requestId, correlationId);
         return true;
     }
+
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleDevicePairingPost(
+    const std::string& requestTarget,
+    const std::string& requestId,
+    const std::string& correlationId,
+    ApiResponse& response,
+    const std::string& body,
+    const std::string& actorRef,
+    const std::string& ifMatch,
+    const std::string& idempotencyKey,
+    const std::string& contentType,
+    const std::string& pairingToken) const
+{
+    const std::string path = requestPath(requestTarget);
+    std::string pairingRequestId;
 
     const std::string issueSuffix = "/credential";
     const std::string pairingPrefix(PublicDevicePairingPrefix);
@@ -9351,6 +9362,25 @@ bool PublicApiRuntime::tryHandlePost(
         }
     }
 
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleAccountCredentialSessionPost(
+    const std::string& requestTarget,
+    const std::string& requestId,
+    const std::string& correlationId,
+    ApiResponse& response,
+    const std::string& body,
+    const std::string& actorRef,
+    const std::string& ifMatch,
+    const std::string& contentType) const
+{
+    const std::string path = requestPath(requestTarget);
+    std::string accountId;
+    std::string credentialId;
+    std::string sessionId;
+
     if (publicAccountCredentialItemPath(
             path, accountId, credentialId))
     {
@@ -9762,6 +9792,22 @@ bool PublicApiRuntime::tryHandlePost(
         return true;
     }
 
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleDeviceAdministrationPost(
+    const std::string& requestTarget,
+    const std::string& requestId,
+    const std::string& correlationId,
+    ApiResponse& response,
+    const std::string& body,
+    const std::string& actorRef,
+    const std::string& ifMatch,
+    const std::string& idempotencyKey,
+    const std::string& contentType) const
+{
+    const std::string path = requestPath(requestTarget);
     std::string rotationDeviceId;
     std::string rotationPreviousId;
     if (publicDeviceCredentialRotationPath(
@@ -10125,6 +10171,24 @@ bool PublicApiRuntime::tryHandlePost(
                 return true;
         }
     }
+
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleAccountAdministrationPost(
+    const std::string& requestTarget,
+    const std::string& requestId,
+    const std::string& correlationId,
+    ApiResponse& response,
+    const std::string& body,
+    const std::string& actorRef,
+    const std::string& ifMatch,
+    const std::string& idempotencyKey,
+    const std::string& contentType) const
+{
+    const std::string path = requestPath(requestTarget);
+    std::string accountId;
 
     if (publicAccountGrantPath(path, accountId))
     {
@@ -10729,6 +10793,25 @@ bool PublicApiRuntime::tryHandlePost(
                 return true;
         }
     }
+
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleTimerWorkflowPost(
+    const std::string& requestTarget,
+    const std::string& requestId,
+    const std::string& correlationId,
+    ApiResponse& response,
+    const std::string& body,
+    const std::string& actorRef,
+    const std::string& ifMatch,
+    const std::string& idempotencyKey,
+    const std::string& contentType,
+    const std::string& authorizedBackendId) const
+{
+    const std::string path = requestPath(requestTarget);
+    std::string timerAssignmentId;
 
     if (path == PublicSearchTimerCollectionPath)
     {
@@ -11344,6 +11427,52 @@ bool PublicApiRuntime::tryHandlePost(
                 return true;
         }
     }
+
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandlePost(
+    const std::string& requestTarget,
+    const std::string& requestId,
+    const std::string& correlationId,
+    ApiResponse& response,
+    const std::string& body,
+    const std::string& actorRef,
+    const std::string& ifMatch,
+    const std::string& idempotencyKey,
+    const std::string& contentType,
+    const std::string& authorizedBackendId,
+    const std::string& pairingToken) const
+{
+    const std::string path = requestPath(requestTarget);
+    std::string operationId;
+    std::string timerAssignmentId;
+
+    // Preserve the original first-match precedence across public POST routes.
+    if (tryHandleNativeTimerMutationPost(
+            requestTarget, requestId, correlationId, response, body, actorRef, ifMatch, idempotencyKey, contentType, authorizedBackendId))
+        return true;
+
+    if (tryHandleDevicePairingPost(
+            requestTarget, requestId, correlationId, response, body, actorRef, ifMatch, idempotencyKey, contentType, pairingToken))
+        return true;
+
+    if (tryHandleAccountCredentialSessionPost(
+            requestTarget, requestId, correlationId, response, body, actorRef, ifMatch, contentType))
+        return true;
+
+    if (tryHandleDeviceAdministrationPost(
+            requestTarget, requestId, correlationId, response, body, actorRef, ifMatch, idempotencyKey, contentType))
+        return true;
+
+    if (tryHandleAccountAdministrationPost(
+            requestTarget, requestId, correlationId, response, body, actorRef, ifMatch, idempotencyKey, contentType))
+        return true;
+
+    if (tryHandleTimerWorkflowPost(
+            requestTarget, requestId, correlationId, response, body, actorRef, ifMatch, idempotencyKey, contentType, authorizedBackendId))
+        return true;
 
     if (path == PublicAccountCollectionPath)
     {

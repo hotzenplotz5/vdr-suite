@@ -1633,6 +1633,76 @@ public:
 private:
     PublicApiRuntime() = default;
 
+    // ADR-0068: mutation route ownership only. Auth, callback admission,
+    // revisions, idempotency and response construction remain unchanged.
+    bool tryHandleNativeTimerMutationPost(
+        const std::string& requestTarget,
+        const std::string& requestId,
+        const std::string& correlationId,
+        ApiResponse& response,
+        const std::string& body,
+        const std::string& actorRef,
+        const std::string& ifMatch,
+        const std::string& idempotencyKey,
+        const std::string& contentType,
+        const std::string& authorizedBackendId) const;
+
+    bool tryHandleDevicePairingPost(
+        const std::string& requestTarget,
+        const std::string& requestId,
+        const std::string& correlationId,
+        ApiResponse& response,
+        const std::string& body,
+        const std::string& actorRef,
+        const std::string& ifMatch,
+        const std::string& idempotencyKey,
+        const std::string& contentType,
+        const std::string& pairingToken) const;
+
+    bool tryHandleAccountCredentialSessionPost(
+        const std::string& requestTarget,
+        const std::string& requestId,
+        const std::string& correlationId,
+        ApiResponse& response,
+        const std::string& body,
+        const std::string& actorRef,
+        const std::string& ifMatch,
+        const std::string& contentType) const;
+
+    bool tryHandleDeviceAdministrationPost(
+        const std::string& requestTarget,
+        const std::string& requestId,
+        const std::string& correlationId,
+        ApiResponse& response,
+        const std::string& body,
+        const std::string& actorRef,
+        const std::string& ifMatch,
+        const std::string& idempotencyKey,
+        const std::string& contentType) const;
+
+    bool tryHandleAccountAdministrationPost(
+        const std::string& requestTarget,
+        const std::string& requestId,
+        const std::string& correlationId,
+        ApiResponse& response,
+        const std::string& body,
+        const std::string& actorRef,
+        const std::string& ifMatch,
+        const std::string& idempotencyKey,
+        const std::string& contentType) const;
+
+    bool tryHandleTimerWorkflowPost(
+        const std::string& requestTarget,
+        const std::string& requestId,
+        const std::string& correlationId,
+        ApiResponse& response,
+        const std::string& body,
+        const std::string& actorRef,
+        const std::string& ifMatch,
+        const std::string& idempotencyKey,
+        const std::string& contentType,
+        const std::string& authorizedBackendId) const;
+
     // Human Account / Device administration GET on the established
     // identity runtime, with unchanged revisions and Problem Details.
     bool tryHandleIdentityAdministrationReadGet(
