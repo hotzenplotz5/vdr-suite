@@ -190,6 +190,8 @@ int main() {
             "<year>2024</year><genre>Drama</genre></movie>";
         std::ofstream(f.input / "Sample.srt") <<
             "1\n00:00:01,000 --> 00:00:02,000\nHello\n";
+        std::ofstream(f.input / "Sample.de.srt") <<
+            "1\n00:00:01,000 --> 00:00:02,000\nHallo\n";
         FakeProcess runner;
         const auto plan = inspectImport(f.request());
         assert(plan.title == "Example & Friends");
@@ -202,9 +204,12 @@ int main() {
         assert(contents.find("S Short text\n") != std::string::npos);
         assert(contents.find("Year: 2024") != std::string::npos);
         assert(contents.find("Genre: Drama") != std::string::npos);
-        assert(fs::exists(output / "subtitles.srt"));
+        assert(fs::exists(output / "00001.srt"));
+        assert(fs::exists(output / "subtitles.de.srt"));
         assert(fs::exists(f.input / "Sample.nfo") &&
-               fs::exists(f.input / "Sample.srt") && fs::exists(f.source));
+               fs::exists(f.input / "Sample.srt") &&
+               fs::exists(f.input / "Sample.de.srt") &&
+               fs::exists(f.source));
         ++checks;
     }
     {
