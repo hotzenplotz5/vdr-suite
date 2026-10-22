@@ -6,6 +6,9 @@
   const activeBatches = Object.create(null);
   const POLL_MS = 4000;
   const MAX_AUTOMATIC_READS = 15;
+  // Long-running explicitly approved imports can use the Agent's bounded
+  // 600-second execution window plus dispatch/readback headroom.
+  const MAX_BATCH_READS = 225;
   let owner = 0;
   let current = null;
   let client = null;
@@ -193,7 +196,8 @@
         view.newButton.hidden = false;
       }
       if (view.batch) advanceBatch(view, operation);
-      if (!terminalState(operation.state) && view.reads < MAX_AUTOMATIC_READS) {
+      const limit = view.batch ? MAX_BATCH_READS : MAX_AUTOMATIC_READS;
+      if (!terminalState(operation.state) && view.reads < limit) {
         ++view.reads;
         view.timer = global.setTimeout(function () { readOperation(view); }, POLL_MS);
       }
