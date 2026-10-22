@@ -10177,6 +10177,11 @@
             "type": "string",
             "maxLength": 4096
           },
+          "providerTitle": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Optional scraped title, distinct from the canonical display title at the Recording root."
+          },
           "originalTitle": {
             "type": "string",
             "maxLength": 1024
