@@ -17,6 +17,10 @@ struct HandlerDefinition {
     bool executable;
 };
 
+// The pinned CLI/receipt protocol is reviewed only for this implementation
+// version. A newer add-on package is not implicitly compatible with Core.
+inline constexpr std::string_view kMediaToolsHandlerVersion = "0.1.0";
+
 inline constexpr HandlerDefinition kMediaToolsCandidate{
     "rectools",
     "vdr-suite-addon-media-tools",
