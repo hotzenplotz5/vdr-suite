@@ -18,6 +18,46 @@ protected Agent command/result integration. The production Agent still does
 not instantiate or advertise this executor; no service is started and no
 manifest capability is advertised.
 
+## M2: erster tatsächlich nutzbarer Media Check (read-only)
+
+Der neue eigenständige C++17-Befehl `vdr-suite-media-check` prüft die
+**TS-Paketstruktur einer vorhandenen VDR-Aufnahme**, ohne sie zu verändern.
+Die zugehörige Library liegt in `include/MediaCheck.h` und
+`src/MediaCheck.cpp`, der reine Lese-CLI in
+`src/media_check_main.cpp`. Der Aufruf lautet:
+
+```text
+vdr-suite-media-check check VIDEO_ROOT RECORDING_RELATIVE
+```
+
+`VIDEO_ROOT` ist ein absoluter, vom lokalen Backend-Betreiber vorgegebener
+VDR-Video-Root; `RECORDING_RELATIVE` benennt eine darunterliegende,
+normalisierte `.rec`-Aufnahme einschließlich Titelordner. Symlink-Pfade
+und nicht zusammenhängende, fortlaufend nummerierte `00001.ts`,
+`00002.ts`, … werden abgelehnt. Das Ergebnis ist ein JSON-Objekt mit
+`status` (`ok`, `warnings`, `errors`), analysierten Paketen/Segmenten,
+TS-Synchronisationsfehlern, Transportfehler-Indikatoren, fehlerhaften
+Adaptationsfeldern, unvollständigen Paketen, PID-Kontinuitätswarnungen,
+Discontinuity-Flags sowie Indexdatei-Präsenz. Die Daten werden nur
+lesend über Dateideskriptoren eingelesen. Exitstatus 0 steht für
+`ok` oder `warnings`, 1 für erkannte Strukturfehler, 2 für eine
+unvollständige/unsichere Prüfung.
+
+**Wichtige Funktionsgrenze:** Diese erste M2-Version überprüft
+*MPEG-TS-Strukturen*, noch **nicht** die vollständige Audio-/Video-Decodierung
+mit FFprobe/FFmpeg, die VDR-Wiedergabefähigkeit oder die Unversehrtheit
+jeder einzelnen Video-Frame. Ein `ok` bedeutet nur, dass die geprüften
+TS-Strukturmerkmale keine Auffälligkeit zeigen. Der Decoder-Durchlauf und
+die Integration in API v1, Jobs und Webfrontend sind die nächsten
+M2-Teilschritte, nicht als fertig zu markieren.
+
+`make addon-media-check` kompiliert nur die CLI;
+`make test-addon-media-check` verwendet ausschließlich künstliche
+TS-Pakete und temporäre Verzeichnisse. Keine Marker, Mail, Reparatur,
+Index-Neuerzeugung, Änderung der Aufnahme, automatische Paketinstallation
+oder Add-on-Aktivierung. Das bestehende Media-Import-Interface bleibt
+unberührt; `addon.json` bewirbt Media Check noch nicht.
+
 ## Installed handler metadata gate (A2M/A4)
 
 A root-approved handler is no longer considered available from binary bytes and
