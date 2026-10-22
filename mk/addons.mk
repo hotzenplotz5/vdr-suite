@@ -43,6 +43,28 @@ test-addon-media-import:
 		-o "$(BUILD_DIR)/addons/test_media_import"
 	"$(BUILD_DIR)/addons/test_media_import"
 
+# Production source for the non-destructive HEVC review workflow.
+# Local admin invocation is explicit; no Agent/API shrink mutation is enabled.
+.PHONY: addon-media-shrink test-addon-media-shrink
+addon-media-shrink:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I addons/media-tools/include \
+		addons/media-tools/src/MediaImport.cpp \
+		addons/media-tools/src/MediaShrink.cpp \
+		addons/media-tools/src/media_shrink_main.cpp \
+		-o "$(BUILD_DIR)/addons/vdr-suite-media-shrink"
+
+test-addon-media-shrink:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I addons/media-tools/include \
+		addons/media-tools/src/MediaImport.cpp \
+		addons/media-tools/src/MediaShrink.cpp \
+		addons/media-tools/tests/test_media_shrink.cpp \
+		-o "$(BUILD_DIR)/addons/test_media_shrink"
+	"$(BUILD_DIR)/addons/test_media_shrink"
+
+test-ci-fast: test-addon-media-shrink
+
 # M2: read-only TS and FFmpeg engine, exercised via standalone CLI and
 # Suite API v1 integration on disposable fixtures; never touch real recordings.
 .PHONY: addon-media-check test-addon-media-check
