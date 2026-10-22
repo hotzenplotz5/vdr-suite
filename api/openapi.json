@@ -5738,6 +5738,236 @@
         }
       }
     },
+    "/api/v1/recordings/{recordingId}/artwork": {
+      "get": {
+        "tags": [
+          "Recording browse"
+        ],
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^rec_[0-9a-f]{32}$"
+            },
+            "description": "Suite-owned rec_ identity, never a native path"
+          },
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            },
+            "description": "Exactly one authorized backendId; no other query parameters"
+          }
+        ],
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "recordings.view@backendId; exact backend, no legacy fallback",
+          "securitySchemeDocumentation": "Same deployed credentials and permission checks as GET /api/v1/recordings."
+        },
+        "operationId": "getPublicRecordingArtwork",
+        "summary": "List cached artwork for a public Recording",
+        "description": "M2 read-only metadata: same rec_ identity, backend-scoped recordings.view and Recording artwork cache as the Web frontend. Returns empty items on missing cache artwork, never native filesystem references. Cache-Control: no-store.",
+        "responses": {
+          "200": {
+            "description": "Cached artwork references, possibly empty",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "recordingId",
+                    "backendId",
+                    "items"
+                  ],
+                  "properties": {
+                    "recordingId": {
+                      "type": "string",
+                      "pattern": "^rec_[0-9a-f]{32}$"
+                    },
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "maxItems": 64,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "artworkId",
+                          "kind",
+                          "url"
+                        ],
+                        "properties": {
+                          "artworkId": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{32}$"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "poster",
+                              "fanart",
+                              "banner",
+                              "still"
+                            ]
+                          },
+                          "url": {
+                            "type": "string",
+                            "description": "Relative authenticated Public-v1 image URL; does not contain credentials"
+                          },
+                          "width": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "height": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid rec_ ID, artwork ID or backend query"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Recording read grant denied"
+          },
+          "404": {
+            "description": "Recording or image not found"
+          },
+          "503": {
+            "description": "Backend, recording cache or artwork service unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/recordings/{recordingId}/artwork/{artworkId}": {
+      "get": {
+        "tags": [
+          "Recording browse"
+        ],
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^rec_[0-9a-f]{32}$"
+            },
+            "description": "Suite-owned rec_ identity, never a native path"
+          },
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            },
+            "description": "Exactly one authorized backendId; no other query parameters"
+          },
+          {
+            "name": "artworkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            },
+            "description": "Opaque Recording artwork ID, not a local filename or provider ID"
+          }
+        ],
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "recordings.view@backendId; exact backend, no legacy fallback",
+          "securitySchemeDocumentation": "Same deployed credentials and permission checks as GET /api/v1/recordings."
+        },
+        "operationId": "getPublicRecordingArtworkImage",
+        "summary": "Deliver binary artwork for a public Recording",
+        "description": "M2 read-only byte delivery. Authenticated and exact backend-bound recordings.view; shared VdrRecordingArtworkService verifies canonical allowed root, file size, bytes and MIME. No remote fetch, image resizing or token in URLs. Private max-age=300, nosniff.",
+        "responses": {
+          "200": {
+            "description": "Actual PNG/JPEG/WebP artwork bytes",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, max-age=300"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid rec_ ID, artwork ID or backend query"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Recording read grant denied"
+          },
+          "404": {
+            "description": "Recording or image not found"
+          },
+          "503": {
+            "description": "Backend, recording cache or artwork service unavailable"
+          }
+        }
+      }
+    },
     "/api/v1/recordings": {
       "get": {
         "tags": [
@@ -8655,6 +8885,200 @@
           },
           "503": {
             "description": "Backend/Agent/snapshot/repository unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/epg/artwork": {
+      "get": {
+        "tags": [
+          "EPG"
+        ],
+        "operationId": "getPublicEpgArtworkImage",
+        "summary": "Read cached EPG event artwork bytes through the existing EPG repository",
+        "description": "M2 read-only binary delivery. Requires exactly one backendId, authenticated epg.view@backendId, channelId and eventId. Uses the existing EPG Artwork Controller and file-access policy. No public path or URL input and no new scraper or image cache. This is the direct EPG image; TVScraper preferred/series fallback metadata images remain a separate authenticated legacy route.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "epg.view@backendId; no media.live.play-only access"
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          },
+          {
+            "name": "channelId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          {
+            "name": "eventId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Actual EPG image bytes",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, max-age=300"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid channel/event/backend identity or scope"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "No epg.view grant or image path disallowed"
+          },
+          "404": {
+            "description": "Event artwork missing"
+          },
+          "503": {
+            "description": "EPG Artwork owner or backend unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/epg/preferred-artwork": {
+      "get": {
+        "tags": [
+          "EPG"
+        ],
+        "operationId": "getPublicEpgPreferredArtworkImage",
+        "summary": "Serve preferred TVScraper or existing persisted EPG series fallback artwork",
+        "description": "M2 read-only alias for the existing EpgCacheController::getMetadataImage(backendId,channelId,eventId,preferred,0). It selects cached TVScraper preferred artwork and, if eligible, the managed series fallback via the existing controller only. No additional provider lookup or public path argument. Requires epg.view on the exact authorized backend.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "epg.view@backendId; no media.live.play-only access"
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          },
+          {
+            "name": "channelId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          {
+            "name": "eventId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Actual EPG image bytes",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, max-age=300"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid channel/event/backend identity or scope"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "No epg.view grant or image path disallowed"
+          },
+          "404": {
+            "description": "Event artwork missing"
+          },
+          "503": {
+            "description": "EPG Artwork owner or backend unavailable"
           }
         }
       }

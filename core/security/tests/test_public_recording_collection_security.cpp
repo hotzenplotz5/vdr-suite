@@ -171,6 +171,49 @@ int main()
         assert(blocked.rejection.statusCode == 400);
     }
 
+    // M2 Artwork list and binary bytes inherit the exact recordings.view
+    // grant; a different backend grant must never authorize either.
+    const std::string artwork =
+        "/api/v1/recordings/rec_0123456789abcdef0123456789abcdef/artwork";
+    for (const auto& target : {
+        artwork + "?backendId=backend-a",
+        artwork + "/0123456789abcdef0123456789abcdef?backendId=backend-a"})
+    {
+        SecurityHttpGateBrowserTestFixture allowed;
+        assert(allowed.grantRepository.ensureGrant(
+            allowed.actorId, Permission, "backend-a"));
+        const auto decision = allowed.gate.evaluate(browserGet(allowed, target));
+        assert(decision.allowed);
+        assert(decision.authorizedBackendIds ==
+            (std::vector<std::string>{"backend-a"}));
+
+        SecurityHttpGateBrowserTestFixture denied;
+        assert(denied.grantRepository.ensureGrant(
+            denied.actorId, Permission, "backend-b"));
+        const auto blocked = denied.gate.evaluate(browserGet(denied, target));
+        assert(!blocked.allowed);
+        assert(blocked.rejection.statusCode == 403);
+        assert(hasDecision(denied.accountabilityRepository,
+            "backend_scope_denied", "backend-a"));
+
+        SecurityHttpGateBrowserTestFixture unauthenticated;
+        HttpServerRequest request;
+        request.method = "GET";
+        request.path = target;
+        const auto noSession = unauthenticated.gate.evaluate(request);
+        assert(!noSession.allowed);
+        assert(noSession.rejection.statusCode == 401);
+    }
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, Permission, "backend-a"));
+        const auto duplicated = fixture.gate.evaluate(browserGet(
+            fixture, artwork + "?backendId=backend-a&backendId=backend-b"));
+        assert(!duplicated.allowed);
+        assert(duplicated.rejection.statusCode == 400);
+    }
+
     // Public-v1 Genre collections use the same recordings.view authorization.
     for (const std::string& target : {
         "/api/v1/genres?backendId=backend-a&limit=30",

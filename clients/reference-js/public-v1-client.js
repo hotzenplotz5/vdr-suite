@@ -281,6 +281,38 @@
     return '?' + params.toString();
   }
 
+  function recordingArtworkPath(options, binary) {
+    if (!options || typeof options !== 'object' ||
+        typeof options.recordingId !== 'string' ||
+        !/^rec_[0-9a-f]{32}$/.test(options.recordingId) ||
+        typeof options.backendId !== 'string' ||
+        !/^[A-Za-z0-9._-]{1,128}$/.test(options.backendId))
+      throw new Error('Artwork requires public rec_ ID and exact backendId');
+    if (binary && (typeof options.artworkId !== 'string' ||
+        !/^[0-9a-f]{32}$/.test(options.artworkId)))
+      throw new Error('Artwork requires opaque 32-hex artworkId');
+    return '/api/v1/recordings/' + options.recordingId + '/artwork' +
+      (binary ? '/' + options.artworkId : '') +
+      '?backendId=' + encodeURIComponent(options.backendId);
+  }
+
+  function epgArtworkPath(options, preferred) {
+    if (!options || typeof options !== 'object' ||
+        typeof options.backendId !== 'string' ||
+        !/^[A-Za-z0-9._-]{1,128}$/.test(options.backendId) ||
+        typeof options.channelId !== 'string' ||
+        !/^[A-Za-z0-9._:-]{1,256}$/.test(options.channelId) ||
+        typeof options.eventId !== 'string' ||
+        !/^[A-Za-z0-9._:-]{1,256}$/.test(options.eventId))
+      throw new Error('EPG artwork requires valid backend/channel/event IDs');
+    const p = new URLSearchParams();
+    p.set('backendId', options.backendId);
+    p.set('channelId', options.channelId);
+    p.set('eventId', options.eventId);
+    return '/api/v1/epg/' + (preferred ? 'preferred-artwork' : 'artwork') +
+      '?' + p.toString();
+  }
+
   // A distinct post-Phase69 VDR SearchTimer collection. Never send
   // native IDs or transfer TimerAssignment semantics to SearchTimers.
   function searchTimerCollectionQuery(query) {
@@ -520,6 +552,31 @@
       });
     }
 
+
+    function requestArtworkImage(path, options) {
+      const input = options && typeof options === 'object' ? options : {};
+      const headers = Object.assign(
+        {Accept: 'image/png, image/jpeg, image/webp'},
+        defaultHeaders, copyHeaders(input.headers));
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'GET', headers: headers,
+        credentials: input.credentials !== undefined
+          ? input.credentials : normalized.credentials,
+        cache: input.cache, signal: input.signal
+      }).then(function (response) {
+        if (!response.ok) {
+          return parseJsonBody(response).then(function (payload) {
+            throw new VdrSuitePublicClientError(path, response.status, payload, response);
+          });
+        }
+        const type = headerValue(response, 'Content-Type');
+        if (!['image/png', 'image/jpeg', 'image/webp'].includes(type))
+          throw new Error('Unexpected artwork Content-Type');
+        return response.arrayBuffer().then(function (bytes) {
+          return {contentType: type, bytes: bytes};
+        });
+      });
+    }
 
     function requestDevicePairingCreate(payload, options) {
       const requestOptions = options && typeof options === 'object' ? options : {};
@@ -1011,6 +1068,22 @@
           '/api/v1/recordings' + recordingCollectionQuery(normalizedOptions.query),
           normalizedOptions
         );
+      },
+      getRecordingArtwork(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request(recordingArtworkPath(input, false), input);
+      },
+      getRecordingArtworkImage(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return requestArtworkImage(recordingArtworkPath(input, true), input);
+      },
+      getEpgArtworkImage(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return requestArtworkImage(epgArtworkPath(input, false), input);
+      },
+      getEpgPreferredArtworkImage(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return requestArtworkImage(epgArtworkPath(input, true), input);
       },
       getChannels(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};

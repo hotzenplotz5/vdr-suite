@@ -62,6 +62,30 @@ PublicRecordingDetailResult PublicApiRuntime::lookupRecordingDetail(
     return lookup(request);
 }
 
+void PublicApiRuntime::registerRecordingArtworkLookup(
+    RecordingArtworkLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(recordingArtworkLookupMutex_);
+    recordingArtworkLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetRecordingArtworkLookup()
+{
+    std::lock_guard<std::mutex> lock(recordingArtworkLookupMutex_);
+    recordingArtworkLookup_ = {};
+}
+
+PublicRecordingArtworkResult PublicApiRuntime::lookupRecordingArtwork(
+    const PublicRecordingArtworkRequest& request) const
+{
+    RecordingArtworkLookup lookup;
+    {
+        std::lock_guard<std::mutex> lock(recordingArtworkLookupMutex_);
+        lookup = recordingArtworkLookup_;
+    }
+    return lookup ? lookup(request) : PublicRecordingArtworkResult{};
+}
+
 void PublicApiRuntime::registerSearchLookup(SearchLookup lookup)
 {
     std::lock_guard<std::mutex> lock(searchLookupMutex_);
