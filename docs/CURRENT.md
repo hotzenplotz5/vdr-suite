@@ -10,9 +10,13 @@
 
 **Safety boundary:** This closes only the bounded real-host R2/R3 actions, not crash-durable idempotency, arbitrary productive Recording deletion, or another client's runtime acceptance. Unknown outcomes after real mutation calls remain fail-closed: no blind retries.
 
-## Next Public-v1 execution checkpoint — ADR-0068 router modularization
+## Post-R3 Public-v1 execution checkpoint — ADR-0068 router modularization
 
-The binding [ADR-0068](adr/ADR-0068-public-api-router-modularization-checkpoint.md) / [Strict Roadmap](planning/roadmap.md) sequence is R1 → R2 → R3 → **behavior-preserving `ApiRouter` / `PublicApiRuntime` responsibility extraction** → E1 → E2 → M1 → M2 → S1 → P1. Now that the bounded R2/R3 hardware proof is complete, the next task is a post-R3 route/contract inventory and the *smallest* modularization that changes **no** URLs, methods, schemas, response statuses/headers, security/grants/CSRF, ETags, identities, executors, database, legacy routes or domain semantics. Phase 70 remains not started. Device/Multiuser, MLD and Addon branches are independent.
+The binding [ADR-0068](adr/ADR-0068-public-api-router-modularization-checkpoint.md) / [Strict Roadmap](planning/roadmap.md) sequence remains R1 → R2 → R3 → **behavior-preserving `ApiRouter` / `PublicApiRuntime` modularization** → E1 → E2 → M1 → M2 → S1 → P1. The bounded R2/R3 hardware proof is complete and is **not** to be repeated for this source refactor.
+
+The ADR-0068 source implementation is assembled through **one branch / [PR #517](https://github.com/hotzenplotz5/vdr-suite/pull/517)**: GET domain dispatch, ordered POST domain dispatch, callback lifecycle separation, source-guard adaptation and a [Public-v1/Legacy method contract reconciliation](development/adr-0068-public-legacy-contract-reconciliation.md). The original route bodies, callback slots, security gates, headers, permissions, identity, persistence, executor and legacy routes have no intended functional change. See the [single-branch implementation record](development/adr-0068-single-branch-read-dispatch-progress.md) for exact provenance and outstanding gates.
+
+**Acceptance rule:** The checkpoint is complete only after the exact final PR head passes required full CI, PR #517 is merged without overwriting parallel `main` work, and the resulting `main` / post-merge CI is verified. This paragraph does not imply that those final gates have already passed. **E1 and Phase 70 have not started.** Device/Multiuser, MLD and Addon workstreams are independent.
 
 ## Operational status authority
 
