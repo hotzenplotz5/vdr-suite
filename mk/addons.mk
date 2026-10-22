@@ -43,6 +43,21 @@ test-addon-media-import:
 		-o "$(BUILD_DIR)/addons/test_media_import"
 	"$(BUILD_DIR)/addons/test_media_import"
 
+# Isolated real-media smoke: FFmpeg/FFprobe are real; VDR index is a
+# synthetic fixture. No live VDR files or installed service are accessed.
+.PHONY: test-addon-media-import-ffmpeg
+test-addon-media-import-ffmpeg:
+	test -x /usr/bin/ffmpeg
+	test -x /usr/bin/ffprobe
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
+		-I addons/media-tools/include \
+		addons/media-tools/src/MediaImport.cpp \
+		addons/media-tools/src/MediaCheck.cpp \
+		addons/media-tools/tests/test_media_import_ffmpeg.cpp \
+		-o "$(BUILD_DIR)/addons/test_media_import_ffmpeg"
+	"$(BUILD_DIR)/addons/test_media_import_ffmpeg"
+
 # Production source for the non-destructive HEVC review workflow.
 # Local admin invocation is explicit; no Agent/API shrink mutation is enabled.
 .PHONY: addon-media-shrink test-addon-media-shrink
