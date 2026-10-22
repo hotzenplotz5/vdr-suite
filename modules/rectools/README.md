@@ -46,6 +46,19 @@ lock, and an exclusive try-lock alone is **not** permission to change files.
 The source/manual installation and final Ubuntu package release paths
 must share this contract without automatically enabling the module.
 
+## M2 Media Check – erste read-only Funktion
+
+Unter `addons/media-tools/` liegt jetzt ein eigenständiger
+`vdr-suite-media-check`-Quellstand. Er analysiert vorhandene,
+fortlaufend benannte VDR-TS-Segmente ausschließlich lesend und meldet
+Paket-Synchronisations-, TEI-/Adaptations- und
+Kontinuitätsauffälligkeiten als JSON. `make addon-media-check` und
+`make test-addon-media-check` gehören zum getrennten Funktions-/Testpfad.
+Diese erste M2-Stufe führt noch keinen FFmpeg-Decoder-Scan durch und
+wird weder über die öffentliche API noch im produktiven Webfrontend
+angeboten. Das `addon.json`-Manifest bleibt absichtlich deaktiviert;
+Paketierung und Freischaltung erst nach der produktiven Anbindung.
+
 ## C++ import prototype (not a live deployment)
 
 Source implementation: `../../addons/media-tools/include/MediaImport.h`, `../../addons/media-tools/src/MediaImport.cpp`, `../../addons/media-tools/src/main.cpp`. Focused tests: `../../addons/media-tools/tests/test_media_import.cpp`. Build and test independently from the daemon via `make addon-media-import test-addon-media-import`. Build output: `.build/addons/vdr-suite-media-import`; this binary is **not installed** by `make install`, `stage-addon` or `build-addon-deb`.
