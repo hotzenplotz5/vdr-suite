@@ -112,6 +112,13 @@ void inspectPacket(const unsigned char* p,
             ++report.discontinuities;
             discontinuity = true;
         }
+        // Adaptation-only packets must fill all 184 bytes following the
+        // TS header: length byte plus exactly 183 adaptation bytes.
+        if (control == 2 && size != 183) {
+            ++report.adaptationErrors;
+            counters.last[pid] = -1;
+            return;
+        }
         // A payload-bearing packet must leave at least one byte for payload.
         if (control == 3 && size >= 183) {
             ++report.adaptationErrors;
