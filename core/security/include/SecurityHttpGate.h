@@ -718,9 +718,18 @@ public:
         const bool isPublicAccountSessionMutation =
             isPost &&
             isPublicAccountSessionItemResource;
+        const std::string publicRecordingItemPrefix =
+            "/api/v1/recordings/";
+        const bool isPublicRecordingDetail =
+            path.compare(0U, publicRecordingItemPrefix.size(),
+                publicRecordingItemPrefix) == 0 &&
+            path.size() > publicRecordingItemPrefix.size() &&
+            path.find('/', publicRecordingItemPrefix.size()) ==
+                std::string::npos;
         const bool isPublicRecordingRead =
             request.method == "GET" &&
             (path == "/api/v1/recordings" ||
+             isPublicRecordingDetail ||
              path == "/api/v1/genres" ||
              path == "/api/v1/genres/recordings" ||
              path == "/api/v1/search/recordings");
@@ -879,6 +888,7 @@ public:
              isPublicBackendCollection ||
              isPublicChannelCollection ||
              isPublicEpgNowNext ||
+             isPublicRecordingDetail ||
              path == "/api/v1/native-timers" ||
              isPublicNativeTimerItem ||
              path == "/api/v1/events" ||

@@ -5662,6 +5662,82 @@
         }
       }
     },
+    "/api/v1/recordings/{recordingId}": {
+      "get": {
+        "tags": [
+          "Recording browse"
+        ],
+        "operationId": "getPublicRecordingDetail",
+        "summary": "Read existing VDR/EPG/scraper metadata for an authorized public Recording",
+        "description": "M1 read-only detail reuses the durable rec_ identity and warmed backend-scoped Recording cache. Requires recordings.view@backendId on one backend. Absent or partial metadata is explicit. No VDR native path, scraper ID, external URL or artwork. Cache-Control: no-store; no detail ETag before an authoritative metadata revision exists.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "recordings.view@backendId; exact backend, no legacy fallback",
+          "securitySchemeDocumentation": "Same deployed credentials and permission checks as GET /api/v1/recordings."
+        },
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^rec_[0-9a-f]{32}$"
+            },
+            "description": "Suite-owned rec_ identity, never a native path"
+          },
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            },
+            "description": "Exactly one authorized backendId; no other query parameters"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recording detail and metadata availability",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicRecordingDetail"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid rec_ ID or backend query"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Recordings grant denied"
+          },
+          "404": {
+            "description": "Recording ID absent or retired"
+          },
+          "503": {
+            "description": "Backend/cache unavailable or inconsistent metadata projection"
+          }
+        }
+      }
+    },
     "/api/v1/recordings": {
       "get": {
         "tags": [
@@ -10068,6 +10144,136 @@
             "type": "boolean"
           }
         }
+      },
+      "PublicRecordingMetadataDetail": {
+        "type": "object",
+        "required": [
+          "state",
+          "source",
+          "contentKind"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "absent",
+              "partial",
+              "available"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "none",
+              "restfulapi-scraper-bridge",
+              "manual"
+            ]
+          },
+          "contentKind": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "movie",
+              "series",
+              "series-episode"
+            ]
+          },
+          "epgTitle": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "subtitle": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "epgDescription": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "providerTitle": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Optional selected manual or scraped title; does not override the Recording display title."
+          },
+          "overview": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "originalTitle": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "tagline": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "seriesTitle": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "episodeTitle": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "genreText": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "manualGenreId": {
+            "type": "string",
+            "maxLength": 128,
+            "description": "Optional canonical Genre ID explicitly selected in the existing Web Genre index; independent of a manual metadata assignment."
+          },
+          "releaseDate": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "seasonNumber": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "episodeNumber": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "providerRuntimeMinutes": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "manualAssignmentId": {
+            "type": "string",
+            "pattern": "^mdasg_[0-9a-f]{32}$",
+            "description": "Only when source=manual: existing selected assignment identity, not an external provider ID."
+          },
+          "metadataEntityId": {
+            "type": "string",
+            "pattern": "^mdent_[0-9a-f]{32}$",
+            "description": "Only when source=manual: existing Suite metadata entity identity."
+          },
+          "manualRevision": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Only when source=manual: persisted selected assignment revision."
+          }
+        }
+      },
+      "PublicRecordingDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PublicRecordingItem"
+          },
+          {
+            "type": "object",
+            "required": [
+              "metadata"
+            ],
+            "properties": {
+              "metadata": {
+                "$ref": "#/components/schemas/PublicRecordingMetadataDetail"
+              }
+            }
+          }
+        ]
       },
       "PublicRecordingItem": {
         "type": "object",

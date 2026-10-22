@@ -37,6 +37,31 @@ PublicRecordingCollectionResult PublicApiRuntime::lookupRecordingCollection(
 }
 
 
+void PublicApiRuntime::registerRecordingDetailLookup(
+    RecordingDetailLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(recordingDetailLookupMutex_);
+    recordingDetailLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetRecordingDetailLookup()
+{
+    std::lock_guard<std::mutex> lock(recordingDetailLookupMutex_);
+    recordingDetailLookup_ = {};
+}
+
+PublicRecordingDetailResult PublicApiRuntime::lookupRecordingDetail(
+    const PublicRecordingDetailRequest& request) const
+{
+    RecordingDetailLookup lookup;
+    {
+        std::lock_guard<std::mutex> lock(recordingDetailLookupMutex_);
+        lookup = recordingDetailLookup_;
+    }
+    if (!lookup) return {};
+    return lookup(request);
+}
+
 void PublicApiRuntime::registerSearchLookup(SearchLookup lookup)
 {
     std::lock_guard<std::mutex> lock(searchLookupMutex_);

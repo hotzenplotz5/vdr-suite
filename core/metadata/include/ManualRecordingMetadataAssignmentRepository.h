@@ -90,10 +90,20 @@ public:
         const std::string& backendId,
         const std::string& resourceKey) const;
 
+    // Public-v1 read path: never create/upgrade the metadata schema merely
+    // because a Recording is inspected. Missing schema behaves as no selection.
+    ManualRecordingMetadataAssignment findSelectedReadOnly(
+        const std::string& backendId,
+        const std::string& resourceKey) const;
+
 private:
     Database& database_;
     mutable std::recursive_mutex mutex_;
     mutable bool schemaReady_ = false;
 
     bool ensureSchemaLocked() const;
+    ManualRecordingMetadataAssignment findSelectedImpl(
+        const std::string& backendId,
+        const std::string& resourceKey,
+        bool initializeSchema) const;
 };

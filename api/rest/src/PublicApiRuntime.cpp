@@ -6472,6 +6472,182 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
     ApiResponse& response) const
 {
     const std::string path = requestPath(requestTarget);
+    // M1: one backend-scoped public rec_ detail, with no native path or
+    // provider-specific artwork URL exposed. Reuse the Recording grant gate,
+    // the daemon's existing rec_ resolver and the warmed Recording cache.
+    const std::string recordingPrefix =
+        std::string(PublicRecordingCollectionPath) + "/";
+    if (path.size() > recordingPrefix.size() &&
+        path.compare(0U, recordingPrefix.size(), recordingPrefix) == 0 &&
+        path.find('/', recordingPrefix.size()) == std::string::npos)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        const std::string recordingId = path.substr(recordingPrefix.size());
+        const bool validId = recordingId.size() == 36U &&
+            recordingId.compare(0U, 4U, "rec_") == 0 &&
+            std::all_of(recordingId.begin() + 4, recordingId.end(),
+                [](unsigned char c) {
+                    return (c >= '0' && c <= '9') ||
+                           (c >= 'a' && c <= 'f');
+                });
+        if (!validId || authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front().empty() ||
+            authorizedBackendIds.front() == "*" ||
+            requestQueryString(requestTarget) !=
+                "backendId=" + authorizedBackendIds.front())
+        {
+            response = invalidRequestProblem(path,
+                "A valid public Recording ID and one authorized backendId "
+                "query parameter are required.", requestId, correlationId);
+            return true;
+        }
+
+        const auto found = lookupRecordingDetail(
+            {authorizedBackendIds.front(), recordingId});
+        switch (found.status)
+        {
+            case PublicRecordingDetailStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicRecordingDetailStatus::invalid:
+                response = invalidRequestProblem(path,
+                    "The Recording detail request is invalid.",
+                    requestId, correlationId);
+                return true;
+            case PublicRecordingDetailStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+            case PublicRecordingDetailStatus::ok:
+                break;
+        }
+
+        const auto& item = found.item;
+        const auto& recording = item.recording;
+        const auto validMetadataId = [](const std::string& id,
+            const std::string& prefix) {
+            return id.size() == prefix.size() + 32U &&
+                id.compare(0, prefix.size(), prefix) == 0 &&
+                std::all_of(id.begin() + prefix.size(), id.end(),
+                    [](unsigned char c) {
+                        return (c >= '0' && c <= '9') ||
+                               (c >= 'a' && c <= 'f');
+                    });
+        };
+        const bool validManualSource =
+            item.metadataSource == "manual"
+                ? (item.metadataState == "available" &&
+                   validMetadataId(item.manualAssignmentId, "mdasg_") &&
+                   validMetadataId(item.metadataEntityId, "mdent_") &&
+                   item.manualRevision > 0)
+                : (item.manualAssignmentId.empty() &&
+                   item.metadataEntityId.empty() &&
+                   item.manualRevision == 0);
+        const bool validResponse =
+            recording.backendId == authorizedBackendIds.front() &&
+            recording.recordingId == recordingId &&
+            !recording.title.empty() &&
+            recording.durationSeconds >= 0 &&
+            recording.sizeMb >= 0 &&
+            recording.description.size() <= 2048U &&
+            (item.metadataState == "absent" ||
+             item.metadataState == "partial" ||
+             item.metadataState == "available") &&
+            (item.metadataSource == "none" ||
+             item.metadataSource == "restfulapi-scraper-bridge" ||
+             item.metadataSource == "manual") &&
+            validManualSource &&
+            (item.contentKind == "unknown" ||
+             item.contentKind == "movie" ||
+             item.contentKind == "series" ||
+             item.contentKind == "series-episode") &&
+            item.epgTitle.size() <= 1024U &&
+            item.subtitle.size() <= 1024U &&
+            item.epgDescription.size() <= 4096U &&
+            item.providerTitle.size() <= 1024U &&
+            item.overview.size() <= 4096U &&
+            item.originalTitle.size() <= 1024U &&
+            item.tagline.size() <= 1024U &&
+            item.seriesTitle.size() <= 1024U &&
+            item.episodeTitle.size() <= 1024U &&
+            item.genreText.size() <= 1024U &&
+            item.manualGenreId.size() <= 128U &&
+            std::none_of(item.manualGenreId.begin(),
+                item.manualGenreId.end(), [](unsigned char c) {
+                    return c < 0x20U || c == 0x7fU;
+                }) &&
+            item.releaseDate.size() <= 32U &&
+            item.seasonNumber >= 0 && item.episodeNumber >= 0 &&
+            item.providerRuntimeMinutes >= 0;
+        if (!validResponse)
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        std::string body =
+            "{\"recordingId\":\"" + jsonEscape(recording.recordingId) +
+            "\",\"backendId\":\"" + jsonEscape(recording.backendId) +
+            "\",\"title\":\"" + jsonEscape(recording.title) +
+            "\",\"recordedAt\":\"" + jsonEscape(recording.recordedAt) +
+            "\",\"durationSeconds\":" +
+                std::to_string(recording.durationSeconds) +
+            ",\"durationKnown\":" +
+                std::string(recording.durationKnown ? "true" : "false") +
+            ",\"edited\":" +
+                std::string(recording.edited ? "true" : "false") +
+            ",\"description\":\"" + jsonEscape(recording.description) +
+            "\",\"sizeMb\":" + std::to_string(recording.sizeMb) +
+            ",\"metadata\":{\"state\":\"" + item.metadataState +
+            "\",\"source\":\"" + item.metadataSource +
+            "\",\"contentKind\":\"" + item.contentKind + "\"";
+        const auto appendText = [&body](
+            const char* key, const std::string& value) {
+            if (!value.empty())
+                body += ",\"" + std::string(key) + "\":\"" +
+                    jsonEscape(value) + "\"";
+        };
+        appendText("epgTitle", item.epgTitle);
+        appendText("subtitle", item.subtitle);
+        appendText("epgDescription", item.epgDescription);
+        appendText("providerTitle", item.providerTitle);
+        appendText("overview", item.overview);
+        appendText("originalTitle", item.originalTitle);
+        appendText("tagline", item.tagline);
+        appendText("seriesTitle", item.seriesTitle);
+        appendText("episodeTitle", item.episodeTitle);
+        appendText("genreText", item.genreText);
+        appendText("manualGenreId", item.manualGenreId);
+        appendText("releaseDate", item.releaseDate);
+        if (item.seasonNumber > 0)
+            body += ",\"seasonNumber\":" +
+                std::to_string(item.seasonNumber);
+        if (item.episodeNumber > 0)
+            body += ",\"episodeNumber\":" +
+                std::to_string(item.episodeNumber);
+        if (item.providerRuntimeMinutes > 0)
+            body += ",\"providerRuntimeMinutes\":" +
+                std::to_string(item.providerRuntimeMinutes);
+        if (item.metadataSource == "manual")
+        {
+            body += ",\"manualAssignmentId\":\"" +
+                jsonEscape(item.manualAssignmentId) +
+                "\",\"metadataEntityId\":\"" +
+                jsonEscape(item.metadataEntityId) +
+                "\",\"manualRevision\":" +
+                std::to_string(item.manualRevision);
+        }
+        body += "}}";
+        response = jsonResponse(body, requestId, correlationId);
+        response.headers["Cache-Control"] = "no-store";
+        return true;
+    }
+
     if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath)
     {
         if (actorRef.empty())
@@ -8155,6 +8331,22 @@ bool PublicApiRuntime::tryHandleGet(
             return true;
     }
 
+    const std::string recordingDetailPrefix =
+        std::string(PublicRecordingCollectionPath) + "/";
+    const bool isRecordingDetailPath =
+        path.size() > recordingDetailPrefix.size() &&
+        path.compare(0U, recordingDetailPrefix.size(),
+            recordingDetailPrefix) == 0 &&
+        path.find('/', recordingDetailPrefix.size()) == std::string::npos;
+    if (isRecordingDetailPath)
+    {
+        if (tryHandleBrowseReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                authorizedBackendIds, response))
+            return true;
+    }
+
+    // Preserve the independently audited Public-v1 collection branch.
     if (path == PublicRecordingCollectionPath)
     {
         if (tryHandleBrowseReadGet(
