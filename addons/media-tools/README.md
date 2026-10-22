@@ -45,6 +45,17 @@ sequence must explicitly coordinate disable, drain, revoke, install,
 review, and optional re-approval before real activation. Product activation
 and full installer/upgrade handling remain separate acceptance steps.
 
+## A4 preflight for later package maintenance (read-only)
+
+Core now exposes an internal read-only maintenance inspection that checks
+the canonical per-backend administrative disabled intent and the real durable
+`media.import` operations. Accepted, queued, dispatching,
+executed-unverified and outcome-unknown operations block a locally quiescent
+diagnostic result; missing state or a saturated operation query also blocks it.
+This does not drain the Agent, prevent new admissions, serialize an installer,
+audit a package transaction or prove signed Debian provenance. **No package
+install, upgrade, uninstall or source/recording modification is performed.**
+
 ## A6 work in progress
 
 The optional importer is a single C++17 implementation under this directory,
