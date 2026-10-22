@@ -344,7 +344,8 @@
     params.set('compareSummary',query.compareSummary ? '1' : '0');
     if (tolerance !== 0) params.set('tolerance',String(tolerance));
     if (query.limit !== undefined) params.set('limit',String(query.limit));
-    return '?' + params.toString();
+    // Preserve spaces as percent-encoded bytes, never form-urlencoded '+'.
+    return '?' + params.toString().replace(/\+/g, '%20');
   }
 
   function timerAssignmentCollectionQuery(query) {
