@@ -197,6 +197,33 @@ int main() {
     }
     {
         Fixture fixture;
+        FakeProcess runner;
+        const auto plan = inspectShrink(fixture.video, fixture.relative());
+        const auto candidate = stageShrink(plan, runner,
+            [](const ShrinkPlan&) {});
+        std::ofstream(fixture.recording / "info", std::ios::app) <<
+            "D Metadata changed after review\n";
+        reject([&] { publishShrinkCandidate(plan, candidate, runner); });
+        assert(fs::exists(candidate / ".shrink-review"));
+        assert(fs::exists(fixture.recording / "00001.ts"));
+        assert(!fs::exists(fixture.video / "Sample_HEVC"));
+        ++checks;
+    }
+    {
+        Fixture fixture;
+        FakeProcess runner;
+        const auto plan = inspectShrink(fixture.video, fixture.relative());
+        const auto candidate = stageShrink(plan, runner,
+            [](const ShrinkPlan&) {});
+        std::ofstream(fixture.recording / "de.srt", std::ios::app) <<
+            "2\n00:00:03,000 --> 00:00:04,000\nWelt\n";
+        reject([&] { publishShrinkCandidate(plan, candidate, runner); });
+        assert(fs::exists(candidate / ".shrink-review"));
+        assert(!fs::exists(fixture.video / "Sample_HEVC"));
+        ++checks;
+    }
+    {
+        Fixture fixture;
         fs::remove(fixture.recording / "00001.ts");
         fs::create_symlink(fixture.recording / "info",
                            fixture.recording / "00001.ts");
