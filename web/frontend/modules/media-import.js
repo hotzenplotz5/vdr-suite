@@ -119,6 +119,65 @@
     return 'Operationsstatus derzeit nicht abrufbar. Bitte später erneut prüfen.';
   }
 
+  // The browser coordinates only an explicitly requested sequence. Core owns
+  // each durable Operation; unknown outcomes must never start a second import.
+  function stopBatch(view, reason) {
+    if (!isCurrent(view) || !view.batch) return;
+    const completed = view.batch.completed;
+    delete activeBatches[view.backendId];
+    view.batch = null;
+    view.batchStopButton.hidden = true;
+    view.batchButton.disabled = true;
+    if (reason) report(view, 'Mehrfachimport nach ' + completed +
+      ' bestätigten Aufnahmen angehalten: ' + reason, true);
+  }
+
+  function advanceBatch(view, operation) {
+    const batch = view.batch;
+    if (!batch || batch.waiting !== operation.operationId) return;
+    if (operation.state !== 'succeeded') {
+      if (operation.state === 'outcome_unknown' || terminalState(operation.state))
+        stopBatch(view, 'Operation ' + operation.state + '. Kein Folgeimport.');
+      return;
+    }
+    batch.waiting = '';
+    ++batch.completed;
+    batch.remaining.shift();
+    if (!batch.remaining.length) {
+      const done = batch.completed;
+      stopBatch(view);
+      report(view, done + ' Aufnahmen unabhängig bestätigt. Mehrfachimport abgeschlossen.');
+      return;
+    }
+    view.timer = global.setTimeout(function () {
+      if (!isCurrent(view) || activeBatches[view.backendId] !== batch ||
+          !view.attempt || view.attempt.operationId !== operation.operationId ||
+          view.attempt.state !== 'succeeded') return;
+      delete activeAttempts[view.backendId];
+      view.attempt = null;
+      view.reads = 0;
+      view.newButton.hidden = true;
+      view.refreshButton.hidden = true;
+      view.select.value = batch.remaining[0];
+      report(view, batch.completed + ' von ' + batch.total +
+        ' bestätigt. Nächste Quelle wird geprüft …');
+      startImport(view);
+    }, 0);
+  }
+
+  function startBatch(view) {
+    if (!isCurrent(view) || view.batch || view.attempt ||
+        view.submitting || view.sources.length < 2) return;
+    const ids = view.sources.slice();
+    const batch = {remaining: ids, total: ids.length, completed: 0, waiting: ''};
+    view.batch = batch;
+    activeBatches[view.backendId] = batch;
+    view.batchButton.disabled = true;
+    view.batchStopButton.hidden = false;
+    view.select.value = ids[0];
+    return startImport(view);
+  }
+
   function readOperation(view) {
     if (!isCurrent(view) || !view.attempt || !view.attempt.operationId ||
         view.reading) return Promise.resolve();
