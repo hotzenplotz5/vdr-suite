@@ -31,6 +31,9 @@ struct ShrinkPlan {
     fs::path videoRoot;
     fs::path relativeRecording;
     std::vector<ShrinkSegment> segments;
+    // Immutable evidence for native index, info and existing SRT sidecars.
+    // Publication must reject sidecar edits made after review staging.
+    std::vector<ShrinkSegment> sidecars;
     std::uint64_t totalBytes = 0;
     ShrinkOptions options;
 };
