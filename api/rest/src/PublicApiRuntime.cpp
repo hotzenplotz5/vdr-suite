@@ -8468,7 +8468,14 @@ bool PublicApiRuntime::tryHandleGet(
         (artworkMarker + 8U == path.size() ||
          (artworkMarker + 8U < path.size() &&
           path[artworkMarker + 8U] == '/'));
-    if (isRecordingDetailPath || isRecordingArtworkPath)
+    if (isRecordingArtworkPath)
+    {
+        if (tryHandleBrowseReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                authorizedBackendIds, response))
+            return true;
+    }
+    if (isRecordingDetailPath)
     {
         if (tryHandleBrowseReadGet(
                 requestTarget, actorRef, requestId, correlationId,
