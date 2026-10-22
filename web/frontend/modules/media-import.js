@@ -200,9 +200,16 @@
       if (!terminalState(operation.state) && view.reads < limit) {
         ++view.reads;
         view.timer = global.setTimeout(function () { readOperation(view); }, POLL_MS);
+      } else if (!terminalState(operation.state) && view.batch) {
+        stopBatch(view, 'Automatische Statusabfrage beendet. ' +
+          'Aktuellen Core-Vorgang manuell prüfen; kein weiterer Import startet.');
       }
     }).catch(function (error) {
-      if (isCurrent(view)) report(view, operationError(error), true);
+      if (isCurrent(view)) {
+        if (view.batch)
+          stopBatch(view, 'Operationsstatus nicht abrufbar. Kein Folgeimport.');
+        else report(view, operationError(error), true);
+      }
     }).finally(function () {
       view.reading = false;
       const batch = view.batch;
