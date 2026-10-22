@@ -202,6 +202,131 @@ void assertActionsAndCapabilities()
         SearchTimerNativeCasStatus::unavailable);
     assert(native.attempts == before);
 }
+
+struct StatefulNative final : ISearchTimerNativeCasProvider
+{
+    // This is an isolated model of the required epgsearch-owner lock, NOT
+    // a production epgsearch provider. It uses native numeric ID 0.
+    std::string generation = kGen;
+    std::string revision = kRevision;
+    std::string ruleText = "identical rule";
+    bool exists = true;
+    bool active = false;
+    bool dropReceiptAfterWrite = false;
+    int writes = 0;
+
+    bool supportsAtomicGenerationCasV1() const override { return true; }
+
+    void recreateWithIdenticalContent()
+    {
+        // Same native ID, revision and settings: only a persistent native
+        // generation distinguishes the new rule from the deleted one.
+        exists = true;
+        generation = "sg_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+        revision = kRevision;
+        ruleText = "identical rule";
+    }
+
+    SearchTimerNativeCasReply compareAndWrite(
+        const SearchTimerNativeCasRequest& req) override
+    {
+        SearchTimerNativeCasReply reply;
+        reply.atomicCompareAndWrite = true;
+        reply.confirmedGeneration = generation;
+        if (!exists || req.nativeId != "0")
+        {
+            reply.status = SearchTimerNativeCasStatus::notFound;
+            reply.noWriteAttested = true;
+            return reply;
+        }
+        if (req.expectedGeneration != generation)
+        {
+            reply.status = SearchTimerNativeCasStatus::staleGeneration;
+            reply.noWriteAttested = true;
+            return reply;
+        }
+        if (req.expectedRevision != revision)
+        {
+            reply.status = SearchTimerNativeCasStatus::staleRevision;
+            reply.noWriteAttested = true;
+            return reply;
+        }
+        ++writes;
+        if (req.action == SearchTimerNativeCasAction::remove)
+            exists = false;
+        else
+        {
+            if (req.action == SearchTimerNativeCasAction::update)
+                ruleText = req.changePayload;
+            else
+                active = req.action == SearchTimerNativeCasAction::activate;
+            revision = kNewRevision;
+            reply.resultingRevision = revision;
+        }
+        reply.status = SearchTimerNativeCasStatus::applied;
+        if (dropReceiptAfterWrite)
+            throw std::runtime_error("native applied, transport reply lost");
+        return reply;
+    }
+};
+
+void assertSameNumericIdAndIdenticalRuleReuse()
+{
+    StatefulNative native;
+    auto req = request();
+    native.recreateWithIdenticalContent();
+    const SearchTimerNativeCasAction actions[] = {
+        SearchTimerNativeCasAction::update,
+        SearchTimerNativeCasAction::activate,
+        SearchTimerNativeCasAction::deactivate,
+        SearchTimerNativeCasAction::remove,
+    };
+    for (const auto action : actions)
+    {
+        req.action = action;
+        req.changePayload = action == SearchTimerNativeCasAction::update
+            ? "replacement settings" : "";
+        assert(SearchTimerNativeCasContract::invokeOnce(req, native) ==
+            SearchTimerNativeCasStatus::staleGeneration);
+        assert(native.writes == 0);
+        assert(native.exists);
+        assert(native.ruleText == "identical rule");
+        assert(!native.active);
+    }
+}
+
+void assertNativeStaleRevisionAndLostAppliedReceipt()
+{
+    StatefulNative native;
+    auto req = request();
+    assert(SearchTimerNativeCasContract::invokeOnce(req, native) ==
+        SearchTimerNativeCasStatus::applied);
+    assert(native.writes == 1);
+    assert(native.active);
+
+    // Even a second attempt with the same native generation cannot
+    // silently apply against a revised rule.
+    assert(SearchTimerNativeCasContract::invokeOnce(req, native) ==
+        SearchTimerNativeCasStatus::staleRevision);
+    assert(native.writes == 1);
+
+    // An independent native/OSD edit also invalidates an old revision.
+    req.expectedRevision = kNewRevision;
+    native.revision = "sr_ffffffffffffffffffffffffffffffff";
+    assert(SearchTimerNativeCasContract::invokeOnce(req, native) ==
+        SearchTimerNativeCasStatus::staleRevision);
+    assert(native.writes == 1);
+
+    StatefulNative lostReply;
+    lostReply.dropReceiptAfterWrite = true;
+    req = request();
+    assert(SearchTimerNativeCasContract::invokeOnce(req, lostReply) ==
+        SearchTimerNativeCasStatus::outcomeUnknown);
+    // The attempted native write may have succeeded: no automatic retry.
+    assert(lostReply.writes == 1);
+    assert(lostReply.active);
+}
+
 } // namespace
 
 int main()
@@ -209,5 +334,7 @@ int main()
     assertNoUnsafeDispatch();
     assertNativeCasAttestation();
     assertActionsAndCapabilities();
+    assertSameNumericIdAndIdenticalRuleReuse();
+    assertNativeStaleRevisionAndLostAppliedReceipt();
     std::cout << "SearchTimer native generation CAS contract: PASS (mock only)\n";
 }
