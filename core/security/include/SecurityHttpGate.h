@@ -821,9 +821,19 @@ public:
                 ? jsonStringValue(request.body, "backendId") : std::string();
         const bool isPublicSearchTimerCreate =
             isPost && path == publicSearchTimerCollection;
+        // Exactly one non-reserved segment: detail GET uses the collection's
+        // independent Device+searchtimers.view permission, never EPG grants.
+        const bool isPublicSearchTimerDetailResource =
+            path.size() > publicSearchTimerPreviewPrefix.size() &&
+            path.compare(0U, publicSearchTimerPreviewPrefix.size(),
+                publicSearchTimerPreviewPrefix) == 0 &&
+            path.find('/', publicSearchTimerPreviewPrefix.size()) ==
+                std::string::npos &&
+            !isPublicSearchTimerDraftPreview;
         const bool isPublicSearchTimerRead =
             request.method == "GET" &&
             (path == publicSearchTimerCollection ||
+                isPublicSearchTimerDetailResource ||
                 isPublicSearchTimerPreviewResource ||
                 isPublicSearchTimerDraftPreview);
         const std::string publicSearchTimerBackendId =
