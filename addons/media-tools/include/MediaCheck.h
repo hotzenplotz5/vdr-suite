@@ -2,11 +2,33 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <optional>
+#include <vector>
 #include <string>
 
 namespace vdrsuite::mediatools {
 
 // Standalone, backend-local read-only MPEG-TS structural check.
+struct MediaDecodeResult {
+    // 'ok' means FFmpeg decoded every supplied segment without a reported
+    // error. 'errors' means FFmpeg reported a decode failure; 'incomplete'
+    // means timeout, unavailable decoder or source changed during inspection.
+    std::string status = "incomplete";
+    int exitCode = -1;
+    bool timedOut = false;
+    std::uint64_t streamedBytes = 0;
+    std::string diagnostic; // bounded stderr excerpt, not a log file
+};
+
+class MediaCheckDecoder {
+public:
+    virtual ~MediaCheckDecoder() = default;
+    virtual MediaDecodeResult decode(
+        int recordingDirectoryFd,
+        const std::vector<std::string>& orderedTsSegments) = 0;
+};
+
+
 // This is NOT a public HTTP path or a recording decoder / repair service.
 // The owning backend must supply the configured video root, not the actor.
 struct MediaCheckReport {
@@ -21,6 +43,7 @@ struct MediaCheckReport {
     std::uint64_t continuityWarnings = 0;
     std::uint64_t discontinuities = 0;
     bool indexPresent = false;
+    std::optional<MediaDecodeResult> decode;
     std::string status() const;
     std::string json() const;
 };
@@ -31,5 +54,13 @@ struct MediaCheckReport {
 MediaCheckReport checkRecordingTransportStream(
     const std::filesystem::path& videoRoot,
     const std::filesystem::path& recordingRelative);
+
+// Same read-only TS checks, followed by a single sequential decoding pass.
+// Decoder receives only a vetted directory descriptor and segment names;
+// it must never write a file, alter the recording or invoke a shell.
+MediaCheckReport checkRecordingWithDecoder(
+    const std::filesystem::path& videoRoot,
+    const std::filesystem::path& recordingRelative,
+    MediaCheckDecoder& decoder);
 
 } // namespace vdrsuite::mediatools
