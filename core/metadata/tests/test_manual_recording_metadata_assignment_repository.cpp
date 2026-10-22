@@ -45,6 +45,10 @@ int main()
     assert(database.open(":memory:"));
 
     ManualRecordingMetadataAssignmentRepository repository(database);
+    // M1 public read must not initialize a missing manual metadata schema.
+    assert(!repository.findSelectedReadOnly(
+        "living-room", "recording-cache-key-1").found);
+    assert(!database.tableExists("suite_metadata_manual_assignment_values"));
     assert(repository.ensureSchema());
     assert(repository.ensureSchema());
     assert(database.tableExists("suite_metadata_manual_assignment_values"));
@@ -79,6 +83,14 @@ int main()
         "living-room", "recording-cache-key-1");
     assert(loaded.found);
     assert(loaded.metadataAssignmentId == first.metadataAssignmentId);
+    const auto publicRead = repository.findSelectedReadOnly(
+        "living-room", "recording-cache-key-1");
+    assert(publicRead.found);
+    assert(publicRead.relationshipLocked);
+    assert(publicRead.metadataEntityId == first.metadataEntityId);
+    assert(publicRead.metadataAssignmentId == first.metadataAssignmentId);
+    assert(!repository.findSelectedReadOnly(
+        "other-backend", "recording-cache-key-1").found);
     assert(loaded.actorRef == "user:test-admin");
 
     {
@@ -147,6 +159,8 @@ int main()
     assert(withdrawn.metadataAssignmentId == second.metadataAssignmentId);
     assert(!withdrawn.relationshipLocked);
     assert(!repository.findSelected(
+        "living-room", "recording-cache-key-1").found);
+    assert(!repository.findSelectedReadOnly(
         "living-room", "recording-cache-key-1").found);
     assert(scalarInt(
         database,
