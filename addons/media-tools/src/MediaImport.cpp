@@ -459,6 +459,15 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
     require(created != nullptr, "cannot create private staging directory");
     StageCleanup stage{fs::path(created)};
     require(::chmod(stage.path.c_str(), 0700) == 0, "staging permissions failed");
+    // VDR's --genindex expects an actual recording directory. Keep the
+    // canonical timestamped .rec leaf hidden inside the private staging
+    // parent until every media/index verification has succeeded.
+    const auto leaf = recordingLeaf();
+    const auto stagedRecording = stage.path / leaf;
+    require(fs::create_directory(stagedRecording),
+            "cannot create private VDR recording directory");
+    require(::chmod(stagedRecording.c_str(), 0700) == 0,
+            "cannot protect private VDR recording directory");
 
     // The reserve accounts for this complete source snapshot plus remux.
     const auto stagedSource =
@@ -503,7 +512,7 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
         const std::string currentTitle = safeTitle(metadata.title.empty() ?
             plan.sourceFile.stem().string() : metadata.title);
         require(currentTitle == plan.title, "NFO title changed during import");
-        std::ofstream info(stage.path / "info", std::ios::binary | std::ios::trunc);
+        std::ofstream info(stagedRecording / "info", std::ios::binary | std::ios::trunc);
         require(static_cast<bool>(info), "cannot create VDR metadata");
         info << "T " << plan.title << "\n";
         info << "S " << (metadata.shortText.empty() ?
@@ -521,9 +530,9 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
         info.flush();
         require(static_cast<bool>(info), "metadata write failed");
     }
-    stageOptionalSubtitle(plan.sourceFile, stage.path);
+    stageOptionalSubtitle(plan.sourceFile, stagedRecording);
 
-    const auto output = stage.path / "00001.ts";
+    const auto output = stagedRecording / "00001.ts";
     // FFmpeg may otherwise consume all free space on badly behaved inputs.
     // Its -fs threshold is additionally checked before publishing: hitting
     // the threshold can return exit 0 with a truncated transport stream.
@@ -571,8 +580,8 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
             (encodedVideo.output == expectedCodec + "\n" ||
              encodedVideo.output == expectedCodec + "\r\n"),
             "import output video codec verification failed");
-    runRequired(runner, {"/usr/bin/vdr", "--genindex=" + stage.path.string()});
-    require(nonemptyRegular(stage.path / "index"), "VDR index missing or empty");
+    runRequired(runner, {"/usr/bin/vdr", "--genindex=" + stagedRecording.string()});
+    require(nonemptyRegular(stagedRecording / "index"), "VDR index missing or empty");
     require(same(before, signature(plan.sourceFile)), "source changed during media processing");
     require(fs::remove(stagedSource), "cannot remove private source snapshot");
     require(!containsRecording(plan.titleDirectory), "duplicate appeared before commit");
@@ -582,13 +591,14 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
     }
     require(!fs::is_symlink(fs::symlink_status(plan.titleDirectory)) &&
             fs::is_directory(plan.titleDirectory), "title directory changed");
-    const auto destination = plan.titleDirectory / recordingLeaf();
+    const auto destination = plan.titleDirectory / leaf;
     require(!fs::exists(destination), "destination recording already exists");
-    // Atomic no-replace promotion; no source deletion and no rename-overwrite.
-    const long rc = ::syscall(SYS_renameat2, AT_FDCWD, stage.path.c_str(),
-                              AT_FDCWD, destination.c_str(), RENAME_NOREPLACE);
+    // Atomic no-replace promotion of the canonical .rec only; the private
+    // parent and source snapshot never become part of a visible recording.
+    const long rc = ::syscall(SYS_renameat2, AT_FDCWD,
+                              stagedRecording.c_str(), AT_FDCWD,
+                              destination.c_str(), RENAME_NOREPLACE);
     require(rc == 0, "atomic non-overwriting recording promotion failed");
-    stage.path.clear();
     return destination;
 }
 
