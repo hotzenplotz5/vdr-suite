@@ -10219,6 +10219,11 @@
             "type": "string",
             "maxLength": 1024
           },
+          "manualGenreId": {
+            "type": "string",
+            "maxLength": 128,
+            "description": "Optional canonical Genre ID explicitly selected in the existing Web Genre index; independent of a manual metadata assignment."
+          },
           "releaseDate": {
             "type": "string",
             "maxLength": 32
