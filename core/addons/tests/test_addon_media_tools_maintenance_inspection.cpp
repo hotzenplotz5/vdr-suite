@@ -1,5 +1,6 @@
 #include "AddonMediaToolsMaintenanceInspection.h"
 #include "AddonMediaImportMaintenanceFence.h"
+#include "AddonMediaImportMaintenanceRead.h"
 #include "MediaToolsImportRunLock.h"
 #include "AccountabilityEventRepository.h"
 
@@ -82,7 +83,6 @@ MutationOperation pending() {
     return op;
 }
 
-}
 void testDurableOwnership(const Fixture& f) {
     const auto dbFile = (f.root / "maintenance-owner.sqlite").string();
     Database db1, db2;
