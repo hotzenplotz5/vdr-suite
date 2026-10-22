@@ -62,7 +62,11 @@ with the same key fails as a conflict.
 **Safety change (2026-10-22):** the Public-v1 JSON body must include
 `"active":false` explicitly. Missing `active` or `"active":true`
 returns **HTTP 422 before durable admission/provider write**. The daemon
-callback independently rejects active requests. This deliberately makes
+callback independently rejects active requests. The durable CREATE dispatcher
+also refuses **previously accepted but still queued active CREATE operations**
+before contacting the provider, to prevent pre-upgrade jobs from bypassing
+the rule; these historical jobs remain in the operation journal for explicit
+operator review instead of being silently rewritten or retried. This makes
 Public-v1 CREATE an inactive **staging** operation: epgsearch must not
 schedule recordings from the rule until a separately authorized, generation-
 fenced activation path exists. Existing legacy/browser integrations remain
