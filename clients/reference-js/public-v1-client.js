@@ -309,6 +309,19 @@
     return '?' + params.toString();
   }
 
+  function searchTimerDetailPath(options) {
+    if (!options || typeof options !== 'object' || Array.isArray(options))
+      throw new Error('SearchTimer detail options must be an object');
+    if (typeof options.searchTimerId !== 'string' ||
+        !/^st_[0-9a-f]{32}$/.test(options.searchTimerId))
+      throw new Error('SearchTimer ID must be opaque st_ followed by 32 hex digits');
+    if (typeof options.backendId !== 'string' ||
+        !/^[A-Za-z0-9._-]{1,128}$/.test(options.backendId))
+      throw new Error('SearchTimer backendId must be canonical');
+    return '/api/v1/search-timers/' + options.searchTimerId +
+      '?backend=' + encodeURIComponent(options.backendId);
+  }
+
   function timerAssignmentCollectionQuery(query) {
     if (!query || typeof query !== 'object' || Array.isArray(query)) {
       throw new Error('TimerAssignment collection query must be an object');
@@ -1022,6 +1035,10 @@
           '/api/v1/search-timers' + searchTimerCollectionQuery(normalizedOptions.query),
           normalizedOptions
         );
+      },
+      getSearchTimer(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return request(searchTimerDetailPath(normalizedOptions), normalizedOptions);
       },
       getTimerAssignments(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
