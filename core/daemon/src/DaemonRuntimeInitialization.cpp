@@ -1489,6 +1489,31 @@ bool DaemonRuntime::initialize()
                 if (candidates[i - 1U].searchTimerId ==
                     candidates[i].searchTimerId)
                     return result;
+            // Reuse this one authoritative, identity-reconciled snapshot
+            // for a single saved SearchTimer lookup. A missing ID is not an
+            // empty catalogue error, but must never resolve another rule.
+            if (!request.searchTimerId.empty())
+            {
+                if (!request.afterSearchTimerId.empty() ||
+                    request.limit != 1U)
+                {
+                    result.status = PublicSearchTimerCollectionStatus::invalid;
+                    return result;
+                }
+                const auto match = std::lower_bound(
+                    candidates.begin(), candidates.end(),
+                    request.searchTimerId,
+                    [](const PublicSearchTimerCollectionItem& item,
+                       const std::string& id)
+                    {
+                        return item.searchTimerId < id;
+                    });
+                if (match != candidates.end() &&
+                    match->searchTimerId == request.searchTimerId)
+                    result.items.push_back(*match);
+                result.status = PublicSearchTimerCollectionStatus::ok;
+                return result;
+            }
             const auto begin = std::upper_bound(
                 candidates.begin(), candidates.end(),
                 request.afterSearchTimerId,
