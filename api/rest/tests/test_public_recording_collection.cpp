@@ -382,6 +382,106 @@ int main()
         std::string::npos);
     assert(cutSearch.body.find("/srv/vdr/video") == std::string::npos);
 
+    // M1 detail: exact public rec_ identity and backend, no native VDR paths
+    // or provider artwork URL. The collection contract remains unchanged.
+    runtime.registerRecordingDetailLookup(
+        [](const PublicRecordingDetailRequest& request) {
+            PublicRecordingDetailResult result;
+            if (request.backendId == "backend-down")
+                return result;
+            if (request.recordingId !=
+                "rec_00000000000000000000000000000001") {
+                result.status = PublicRecordingDetailStatus::notFound;
+                return result;
+            }
+            result.status = PublicRecordingDetailStatus::ok;
+            result.item.recording = recording(
+                "rec_00000000000000000000000000000001");
+            result.item.metadataState = "available";
+            result.item.metadataSource = "restfulapi-scraper-bridge";
+            result.item.contentKind = "series-episode";
+            result.item.subtitle = "VDR: Untertitel";
+            result.item.epgTitle = "EPG";
+            result.item.epgDescription = "EPG description";
+            result.item.originalTitle = "Original";
+            result.item.seriesTitle = "Series";
+            result.item.episodeTitle = "Episode";
+            result.item.genreText = "Drama";
+            result.item.seasonNumber = 3;
+            result.item.episodeNumber = 7;
+            return result;
+        });
+
+    const std::string detailPath =
+        "/api/v1/recordings/rec_00000000000000000000000000000001"
+        "?backendId=backend-a";
+    ApiResponse detail;
+    assert(runtime.tryHandleGet(detailPath, "actor:tv", "meta-detail",
+        "", detail, "", "", {"backend-a"}));
+    assert(detail.statusCode == 200);
+    assert(detail.body.find("\"metadata\":{\"state\":\"available\"") !=
+        std::string::npos);
+    assert(detail.body.find("\"seasonNumber\":3") != std::string::npos);
+    assert(detail.body.find("\"episodeNumber\":7") != std::string::npos);
+    assert(detail.body.find("\"subtitle\":\"VDR: Untertitel\"") !=
+        std::string::npos);
+    assert(detail.body.find("\"recordingId\":"
+        "\"rec_00000000000000000000000000000001\"") !=
+        std::string::npos);
+    assert(detail.body.find("backendNativeId") == std::string::npos);
+    assert(detail.body.find("recordingPath") == std::string::npos);
+    assert(detail.body.find("/private") == std::string::npos);
+    assert(detail.body.find("poster.jpg") == std::string::npos);
+    assert(detail.headers.at("Cache-Control") == "no-store");
+
+    ApiResponse malformed;
+    assert(runtime.tryHandleGet(
+        "/api/v1/recordings/rec_bad?backendId=backend-a",
+        "actor:tv", "meta-malformed", "", malformed, "", "",
+        {"backend-a"}));
+    assert(malformed.statusCode == 400);
+    ApiResponse duplicateQuery;
+    assert(runtime.tryHandleGet(detailPath + "&backendId=backend-a",
+        "actor:tv", "meta-duplicate", "", duplicateQuery, "", "",
+        {"backend-a"}));
+    assert(duplicateQuery.statusCode == 400);
+    ApiResponse crossBackend;
+    assert(runtime.tryHandleGet(detailPath,
+        "actor:tv", "meta-backend", "", crossBackend, "", "",
+        {"backend-b"}));
+    assert(crossBackend.statusCode == 400);
+    ApiResponse unauthenticatedDetail;
+    assert(runtime.tryHandleGet(detailPath, "", "meta-unauth", "",
+        unauthenticatedDetail, "", "", {"backend-a"}));
+    assert(unauthenticatedDetail.statusCode == 401);
+    ApiResponse missingDetail;
+    assert(runtime.tryHandleGet(
+        "/api/v1/recordings/rec_ffffffffffffffffffffffffffffffff"
+        "?backendId=backend-a", "actor:tv", "meta-not-found", "",
+        missingDetail, "", "", {"backend-a"}));
+    assert(missingDetail.statusCode == 404);
+    ApiResponse unavailableDetail;
+    assert(runtime.tryHandleGet(
+        "/api/v1/recordings/rec_00000000000000000000000000000001"
+        "?backendId=backend-down", "actor:tv", "meta-down", "",
+        unavailableDetail, "", "", {"backend-down"}));
+    assert(unavailableDetail.statusCode == 503);
+
+    runtime.registerRecordingDetailLookup(
+        [](const PublicRecordingDetailRequest&) {
+            PublicRecordingDetailResult invalid;
+            invalid.status = PublicRecordingDetailStatus::ok;
+            invalid.item.recording =
+                recording("rec_00000000000000000000000000000001");
+            invalid.item.recording.backendId = "backend-b";
+            return invalid;
+        });
+    ApiResponse badSource;
+    assert(runtime.tryHandleGet(detailPath, "actor:tv", "meta-bad-source",
+        "", badSource, "", "", {"backend-a"}));
+    assert(badSource.statusCode == 503);
+    runtime.resetRecordingDetailLookup();
+
     runtime.resetSearchLookup();
     return 0;
 }
