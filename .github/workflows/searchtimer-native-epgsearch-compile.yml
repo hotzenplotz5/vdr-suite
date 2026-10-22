@@ -60,6 +60,11 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/test_epgsearch_native_delete_cas.py" \
             --source "$RUNNER_TEMP/epgsearch"
 
+      - name: Exercise UPDATE TOGGLE DELETE native CAS mutation cycle (isolated mocks)
+        run: |
+          python3 "$GITHUB_WORKSPACE/tools/test_epgsearch_native_mutation_cycle.py" \
+            --source "$RUNNER_TEMP/epgsearch"
+
       - name: Compile epgsearch native plugin only (no install or runtime)
         run: |
           make -C "$RUNNER_TEMP/epgsearch" \
