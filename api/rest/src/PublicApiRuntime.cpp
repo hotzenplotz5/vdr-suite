@@ -5880,59 +5880,6 @@ PublicGenreCollectionResult PublicApiRuntime::lookupGenreCollection(
     return lookup ? lookup(request) : PublicGenreCollectionResult{};
 }
 
-void PublicApiRuntime::registerNativeTimersLookup(
-    NativeTimersLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(nativeTimersLookupMutex_);
-    nativeTimersLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetNativeTimersLookup()
-{
-    std::lock_guard<std::mutex> lock(nativeTimersLookupMutex_);
-    nativeTimersLookup_ = {};
-}
-
-bool PublicApiRuntime::nativeTimersLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(nativeTimersLookupMutex_);
-    return static_cast<bool>(nativeTimersLookup_);
-}
-
-PublicNativeTimersResult PublicApiRuntime::lookupNativeTimers(
-    const PublicNativeTimersRequest& request) const
-{
-    NativeTimersLookup lookup;
-    {
-        std::lock_guard<std::mutex> lock(nativeTimersLookupMutex_);
-        lookup = nativeTimersLookup_;
-    }
-    return lookup ? lookup(request) : PublicNativeTimersResult{};
-}
-
-void PublicApiRuntime::registerNativeTimerDetailLookup(NativeTimerDetailLookup cb)
-{
-    std::lock_guard<std::mutex> lock(nativeTimerDetailMutex_);
-    nativeTimerDetailLookup_ = std::move(cb);
-}
-
-void PublicApiRuntime::resetNativeTimerDetailLookup()
-{
-    std::lock_guard<std::mutex> lock(nativeTimerDetailMutex_);
-    nativeTimerDetailLookup_ = {};
-}
-
-PublicNativeTimerDetailResult PublicApiRuntime::lookupNativeTimerDetail(
-    const PublicNativeTimerDetailRequest& request) const
-{
-    NativeTimerDetailLookup cb;
-    {
-        std::lock_guard<std::mutex> lock(nativeTimerDetailMutex_);
-        cb = nativeTimerDetailLookup_;
-    }
-    return cb ? cb(request) : PublicNativeTimerDetailResult{};
-}
-
 PublicTimerAssignmentLookupResult
 PublicApiRuntime::lookupTimerAssignment(
     const std::string& timerAssignmentId,
@@ -6573,6 +6520,182 @@ bool PublicApiRuntime::tryHandleEpgReadGet(
                     path, requestId, correlationId);
                 return true;
         }
+    }
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleNativeTimerReadGet(
+    const std::string& requestTarget,
+    const std::string& actorRef,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::string& ifNoneMatch,
+    const std::vector<std::string>& authorizedBackendIds,
+    ApiResponse& response) const
+{
+    const std::string path = requestPath(requestTarget);
+    std::string nativeTimerId;
+    if (publicNativeTimerItemPath(path, nativeTimerId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (authorizedBackendIds.size() != 1U ||
+            requestQueryString(requestTarget) !=
+                "backendId=" + authorizedBackendIds.front())
+        {
+            response = invalidRequestProblem(path,
+                "Exactly one authorized backendId required.",
+                requestId, correlationId);
+            return true;
+        }
+
+        const auto found = lookupNativeTimerDetail(
+            {authorizedBackendIds.front(), nativeTimerId});
+        if (found.status == PublicNativeTimerDetailStatus::notFound)
+        {
+            response = notFoundProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (found.status != PublicNativeTimerDetailStatus::ok ||
+            found.backendId != authorizedBackendIds.front() ||
+            found.timer.id != nativeTimerId ||
+            found.timer.channelId.size() > 512U ||
+            found.timer.title.size() > 2048U ||
+            found.resourceRevision.size() > 512U ||
+            (found.ownership != "unbound" && found.ownership != "managed" &&
+             found.ownership != "adopted" && found.ownership != "external") ||
+            (found.bindingState != "binding_required" &&
+             found.bindingState != "verified" &&
+             found.bindingState != "adoption_required") ||
+            (found.resourceRevision.empty() !=
+                (found.bindingState == "binding_required")))
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        const std::string tag = found.resourceRevision.empty()
+            ? std::string()
+            : vdrsuite::http::publicStrongEntityTag(found.resourceRevision);
+        if (!ifNoneMatch.empty())
+        {
+            if (tag.empty())
+            {
+                response = invalidRequestProblem(path,
+                    "Unbound Timer has no ETag.", requestId, correlationId);
+                return true;
+            }
+            const auto condition =
+                vdrsuite::http::publicEvaluateIfNoneMatch(ifNoneMatch, tag);
+            if (condition ==
+                vdrsuite::http::PublicEntityTagConditionResult::malformed)
+            {
+                response = invalidRequestProblem(path,
+                    "Invalid If-None-Match.", requestId, correlationId);
+                return true;
+            }
+            if (condition ==
+                vdrsuite::http::PublicEntityTagConditionResult::matched)
+            {
+                response.statusCode = 304;
+                response.contentType = "application/json; charset=utf-8";
+                addPublicSuccessHeaders(response, requestId, correlationId);
+                response.headers["ETag"] = tag;
+                return true;
+            }
+        }
+        const auto& t = found.timer;
+        response = jsonResponse(
+            "{\"backendId\":\"" + jsonEscape(found.backendId) +
+            "\",\"timerId\":\"" + jsonEscape(t.id) +
+            "\",\"channelId\":\"" + jsonEscape(t.channelId) +
+            "\",\"channelName\":\"" + jsonEscape(t.channelName) +
+            "\",\"title\":\"" + jsonEscape(t.title) +
+            "\",\"day\":\"" + jsonEscape(t.day) +
+            "\",\"weekdays\":\"" + jsonEscape(t.weekdays) +
+            "\",\"startTime\":\"" + jsonEscape(t.startTime) +
+            "\",\"endTime\":\"" + jsonEscape(t.endTime) +
+            "\",\"enabled\":" + (t.enabled ? "true" : "false") +
+            ",\"recording\":" + (t.recording ? "true" : "false") +
+            ",\"pending\":" + (t.pending ? "true" : "false") +
+            ",\"ownership\":\"" + jsonEscape(found.ownership) +
+            "\",\"bindingState\":\"" + jsonEscape(found.bindingState) +
+            "\",\"links\":{\"self\":\"" + jsonEscape(requestTarget) + "\"}}",
+            requestId, correlationId);
+        if (!tag.empty()) response.headers["ETag"] = tag;
+        return true;
+    }
+
+    if (path == PublicNativeTimersPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicNativeTimersQuery query;
+        if (!parsePublicNativeTimersQuery(requestTarget, query) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != query.backendId)
+        {
+            response = invalidRequestProblem(path,
+                "One authorized backendId and bounded page are required.",
+                requestId, correlationId);
+            return true;
+        }
+        const PublicNativeTimersResult result = lookupNativeTimers(
+            {query.backendId, query.offset, query.limit});
+        if (result.status == PublicNativeTimersStatus::invalid)
+        {
+            response = invalidRequestProblem(path,
+                "Invalid native timer snapshot query.",
+                requestId, correlationId);
+            return true;
+        }
+        if (result.status != PublicNativeTimersStatus::ok ||
+            result.timers.size() > query.limit)
+        {
+            response = serviceUnavailableProblem(path,requestId,correlationId);
+            return true;
+        }
+        std::string body = "{\"backendId\":\"" +
+            jsonEscape(query.backendId) + "\",\"items\":[";
+        for (std::size_t i = 0U; i < result.timers.size(); ++i)
+        {
+            const auto& t = result.timers[i];
+            if (t.id.empty() || t.id.size() > 512U ||
+                t.title.size() > 2048U || t.channelId.size() > 512U)
+            {
+                response = serviceUnavailableProblem(
+                    path,requestId,correlationId);
+                return true;
+            }
+            if (i != 0U) body += ",";
+            body += "{\"timerId\":\"" + jsonEscape(t.id) +
+                "\",\"channelId\":\"" + jsonEscape(t.channelId) +
+                "\",\"channelName\":\"" + jsonEscape(t.channelName) +
+                "\",\"title\":\"" + jsonEscape(t.title) +
+                "\",\"day\":\"" + jsonEscape(t.day) +
+                "\",\"weekdays\":\"" + jsonEscape(t.weekdays) +
+                "\",\"startTime\":\"" + jsonEscape(t.startTime) +
+                "\",\"endTime\":\"" + jsonEscape(t.endTime) +
+                "\",\"enabled\":" + (t.enabled ? "true" : "false") +
+                ",\"recording\":" + (t.recording ? "true" : "false") +
+                ",\"pending\":" + (t.pending ? "true" : "false") + "}";
+        }
+        body += "],\"page\":{\"limit\":" +
+            std::to_string(query.limit) + ",\"offset\":" +
+            std::to_string(query.offset) + ",\"hasMore\":" +
+            (result.hasMore ? "true" : "false") +
+            ",\"nextOffset\":" +
+            (result.hasMore ?
+                std::to_string(query.offset + result.timers.size()) :
+                "null") + "},\"meta\":{\"partial\":false}}";
+        response = jsonResponse(body,requestId,correlationId);
+        return true;
     }
 
     return false;
@@ -8128,164 +8251,18 @@ bool PublicApiRuntime::tryHandleGet(
     std::string nativeTimerId;
     if (publicNativeTimerItemPath(path, nativeTimerId))
     {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(path, requestId, correlationId);
+        if (tryHandleNativeTimerReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendIds, response))
             return true;
-        }
-        if (authorizedBackendIds.size() != 1U ||
-            requestQueryString(requestTarget) !=
-                "backendId=" + authorizedBackendIds.front())
-        {
-            response = invalidRequestProblem(path,
-                "Exactly one authorized backendId required.",
-                requestId, correlationId);
-            return true;
-        }
-
-        const auto found = lookupNativeTimerDetail(
-            {authorizedBackendIds.front(), nativeTimerId});
-        if (found.status == PublicNativeTimerDetailStatus::notFound)
-        {
-            response = notFoundProblem(path, requestId, correlationId);
-            return true;
-        }
-        if (found.status != PublicNativeTimerDetailStatus::ok ||
-            found.backendId != authorizedBackendIds.front() ||
-            found.timer.id != nativeTimerId ||
-            found.timer.channelId.size() > 512U ||
-            found.timer.title.size() > 2048U ||
-            found.resourceRevision.size() > 512U ||
-            (found.ownership != "unbound" && found.ownership != "managed" &&
-             found.ownership != "adopted" && found.ownership != "external") ||
-            (found.bindingState != "binding_required" &&
-             found.bindingState != "verified" &&
-             found.bindingState != "adoption_required") ||
-            (found.resourceRevision.empty() !=
-                (found.bindingState == "binding_required")))
-        {
-            response = serviceUnavailableProblem(path, requestId, correlationId);
-            return true;
-        }
-        const std::string tag = found.resourceRevision.empty()
-            ? std::string()
-            : vdrsuite::http::publicStrongEntityTag(found.resourceRevision);
-        if (!ifNoneMatch.empty())
-        {
-            if (tag.empty())
-            {
-                response = invalidRequestProblem(path,
-                    "Unbound Timer has no ETag.", requestId, correlationId);
-                return true;
-            }
-            const auto condition =
-                vdrsuite::http::publicEvaluateIfNoneMatch(ifNoneMatch, tag);
-            if (condition ==
-                vdrsuite::http::PublicEntityTagConditionResult::malformed)
-            {
-                response = invalidRequestProblem(path,
-                    "Invalid If-None-Match.", requestId, correlationId);
-                return true;
-            }
-            if (condition ==
-                vdrsuite::http::PublicEntityTagConditionResult::matched)
-            {
-                response.statusCode = 304;
-                response.contentType = "application/json; charset=utf-8";
-                addPublicSuccessHeaders(response, requestId, correlationId);
-                response.headers["ETag"] = tag;
-                return true;
-            }
-        }
-        const auto& t = found.timer;
-        response = jsonResponse(
-            "{\"backendId\":\"" + jsonEscape(found.backendId) +
-            "\",\"timerId\":\"" + jsonEscape(t.id) +
-            "\",\"channelId\":\"" + jsonEscape(t.channelId) +
-            "\",\"channelName\":\"" + jsonEscape(t.channelName) +
-            "\",\"title\":\"" + jsonEscape(t.title) +
-            "\",\"day\":\"" + jsonEscape(t.day) +
-            "\",\"weekdays\":\"" + jsonEscape(t.weekdays) +
-            "\",\"startTime\":\"" + jsonEscape(t.startTime) +
-            "\",\"endTime\":\"" + jsonEscape(t.endTime) +
-            "\",\"enabled\":" + (t.enabled ? "true" : "false") +
-            ",\"recording\":" + (t.recording ? "true" : "false") +
-            ",\"pending\":" + (t.pending ? "true" : "false") +
-            ",\"ownership\":\"" + jsonEscape(found.ownership) +
-            "\",\"bindingState\":\"" + jsonEscape(found.bindingState) +
-            "\",\"links\":{\"self\":\"" + jsonEscape(requestTarget) + "\"}}",
-            requestId, correlationId);
-        if (!tag.empty()) response.headers["ETag"] = tag;
-        return true;
     }
 
     if (path == PublicNativeTimersPath)
     {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(path, requestId, correlationId);
+        if (tryHandleNativeTimerReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendIds, response))
             return true;
-        }
-        PublicNativeTimersQuery query;
-        if (!parsePublicNativeTimersQuery(requestTarget, query) ||
-            authorizedBackendIds.size() != 1U ||
-            authorizedBackendIds.front() != query.backendId)
-        {
-            response = invalidRequestProblem(path,
-                "One authorized backendId and bounded page are required.",
-                requestId, correlationId);
-            return true;
-        }
-        const PublicNativeTimersResult result = lookupNativeTimers(
-            {query.backendId, query.offset, query.limit});
-        if (result.status == PublicNativeTimersStatus::invalid)
-        {
-            response = invalidRequestProblem(path,
-                "Invalid native timer snapshot query.",
-                requestId, correlationId);
-            return true;
-        }
-        if (result.status != PublicNativeTimersStatus::ok ||
-            result.timers.size() > query.limit)
-        {
-            response = serviceUnavailableProblem(path,requestId,correlationId);
-            return true;
-        }
-        std::string body = "{\"backendId\":\"" +
-            jsonEscape(query.backendId) + "\",\"items\":[";
-        for (std::size_t i = 0U; i < result.timers.size(); ++i)
-        {
-            const auto& t = result.timers[i];
-            if (t.id.empty() || t.id.size() > 512U ||
-                t.title.size() > 2048U || t.channelId.size() > 512U)
-            {
-                response = serviceUnavailableProblem(
-                    path,requestId,correlationId);
-                return true;
-            }
-            if (i != 0U) body += ",";
-            body += "{\"timerId\":\"" + jsonEscape(t.id) +
-                "\",\"channelId\":\"" + jsonEscape(t.channelId) +
-                "\",\"channelName\":\"" + jsonEscape(t.channelName) +
-                "\",\"title\":\"" + jsonEscape(t.title) +
-                "\",\"day\":\"" + jsonEscape(t.day) +
-                "\",\"weekdays\":\"" + jsonEscape(t.weekdays) +
-                "\",\"startTime\":\"" + jsonEscape(t.startTime) +
-                "\",\"endTime\":\"" + jsonEscape(t.endTime) +
-                "\",\"enabled\":" + (t.enabled ? "true" : "false") +
-                ",\"recording\":" + (t.recording ? "true" : "false") +
-                ",\"pending\":" + (t.pending ? "true" : "false") + "}";
-        }
-        body += "],\"page\":{\"limit\":" +
-            std::to_string(query.limit) + ",\"offset\":" +
-            std::to_string(query.offset) + ",\"hasMore\":" +
-            (result.hasMore ? "true" : "false") +
-            ",\"nextOffset\":" +
-            (result.hasMore ?
-                std::to_string(query.offset + result.timers.size()) :
-                "null") + "},\"meta\":{\"partial\":false}}";
-        response = jsonResponse(body,requestId,correlationId);
-        return true;
     }
 
     if (path == PublicEpgEventDetailPath)

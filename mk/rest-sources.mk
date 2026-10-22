@@ -3,7 +3,8 @@ REST_PUBLIC_API_SRC := \
         api/rest/src/PublicDiscoveryRoutes.cpp \
         api/rest/src/PublicBackendLookupRuntime.cpp \
         api/rest/src/PublicChannelLookupRuntime.cpp \
-        api/rest/src/PublicEpgReadLookupRuntime.cpp
+        api/rest/src/PublicEpgReadLookupRuntime.cpp \
+        api/rest/src/PublicTimerReadLookupRuntime.cpp
 
 REST_DASHBOARD_SRC := \
         core/recordings/src/JobRepository.cpp \
