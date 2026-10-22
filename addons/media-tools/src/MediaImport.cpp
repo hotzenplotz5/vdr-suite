@@ -497,17 +497,19 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
         "-i", stagedSource.string(), "-map", "0:v:0", "-map", "0:a?",
         "-sn"
     };
-    if (copyVideo) {
-        encode.insert(encode.end(), {"-c", "copy"});
-    } else {
-        // Unsupported source codecs are converted to VDR-compatible H.264.
-        // The separate HEVC shrink operation never runs in this path.
+    if (copyVideo)
+        encode.insert(encode.end(), {"-c:v", "copy"});
+    else {
         encode.insert(encode.end(), {
             "-c:v", "libx264", "-preset", "medium", "-crf", "23",
-            "-pix_fmt", "yuv420p", "-threads", "2",
-            "-c:a", "aac", "-b:a", "192k"
+            "-pix_fmt", "yuv420p", "-threads", "2"
         });
     }
+    // Compatible video does not imply compatible audio in an MKV/WebM.
+    if (copyAudio)
+        encode.insert(encode.end(), {"-c:a", "copy"});
+    else
+        encode.insert(encode.end(), {"-c:a", "aac", "-b:a", "192k"});
     encode.insert(encode.end(), {
         "-fs", std::to_string(outputLimit), "-f", "mpegts",
         "-y", output.string()
