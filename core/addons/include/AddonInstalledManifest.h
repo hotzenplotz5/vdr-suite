@@ -1,5 +1,7 @@
 #pragma once
 
+#include "AddonHandlerRegistry.h"
+
 #include <cerrno>
 #include <cctype>
 #include <cstddef>
@@ -220,7 +222,8 @@ inline bool installedMediaToolsManifestMatches(
     const std::string& trustedRoot, const std::string& approvedVersion)
 {
     using namespace installed_manifest_detail;
-    if (!validVersion(approvedVersion)) return false;
+    if (!validVersion(approvedVersion) ||
+        approvedVersion != kMediaToolsHandlerVersion) return false;
     std::string raw;
     if (!readManifest(trustedRoot, raw)) return false;
     std::map<std::string, Field> fields;
