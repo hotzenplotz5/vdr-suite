@@ -43,7 +43,15 @@ struct MediaCheckSegmentReport {
     std::string status() const;
 };
 
-// This is NOT a public HTTP path or a recording decoder / repair service.
+// Sidecars are diagnosed read-only by the same recording descriptor used for
+// TS segments. Missing optional files do not count as errors.
+struct MediaSidecarReport {
+    std::string name;
+    std::string status;
+    std::uint64_t bytes = 0;
+};
+
+ // This is NOT a public HTTP path or a recording decoder / repair service.
 // The owning backend must supply the configured video root, not the actor.
 struct MediaCheckReport {
     std::string recording;
@@ -57,6 +65,9 @@ struct MediaCheckReport {
     std::uint64_t continuityWarnings = 0;
     std::uint64_t discontinuities = 0;
     bool indexPresent = false;
+    std::uint64_t sidecarErrors = 0;
+    std::uint64_t sidecarWarnings = 0;
+    std::vector<MediaSidecarReport> sidecarReports;
     std::vector<MediaCheckSegmentReport> segmentReports;
     std::optional<MediaDecodeResult> decode;
     std::string status() const;

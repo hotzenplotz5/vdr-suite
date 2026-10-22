@@ -215,6 +215,71 @@ bool indexAvailable(int directory)
     return false;
 }
 
+bool isRelevantSidecar(const std::string& name)
+{
+    if (name == "index" || name == "index.vdr" ||
+        name == "info" || name == "info.vdr" ||
+        name == "marks" || name == "marks.vdr" ||
+        name == "resume" || name == "resume.vdr")
+        return true;
+    const auto extension = fs::path(name).extension().string();
+    return extension == ".srt" || extension == ".nfo";
+}
+
+// Classify actual on-disk sidecars, not names supplied by an API user.
+// lstat-equivalent fstatat never follows a link outside the .rec directory.
+void scanSidecars(int directory, MediaCheckReport& report)
+{
+    Fd listingFd(::openat(directory, ".", O_RDONLY | O_DIRECTORY |
+                          O_NOFOLLOW | O_CLOEXEC));
+    require(listingFd.value >= 0, "cannot list recording sidecars");
+    DIR* raw = ::fdopendir(listingFd.value);
+    require(raw != nullptr, "cannot scan recording sidecars");
+    listingFd.value = -1;
+    std::vector<MediaSidecarReport> found;
+    errno = 0;
+    while (struct dirent* entry = ::readdir(raw)) {
+        const std::string name(entry->d_name);
+        if (name != "." && name != ".." && isRelevantSidecar(name)) {
+            if (found.size() >= 64) {
+                ::closedir(raw);
+                throw std::runtime_error("too many recording sidecars");
+            }
+            struct stat status{};
+            MediaSidecarReport sidecar;
+            sidecar.name = name;
+            if (::fstatat(directory, name.c_str(), &status,
+                          AT_SYMLINK_NOFOLLOW) != 0 ||
+                !S_ISREG(status.st_mode) || status.st_size < 0) {
+                sidecar.status = "errors";
+                ++report.sidecarErrors;
+            } else {
+                sidecar.bytes = static_cast<std::uint64_t>(status.st_size);
+                const bool requiredContent = name == "index" ||
+                    name == "index.vdr" || name == "info" ||
+                    name == "info.vdr" ||
+                    fs::path(name).extension() == ".srt";
+                if (requiredContent && sidecar.bytes == 0) {
+                    sidecar.status = "warnings";
+                    ++report.sidecarWarnings;
+                } else {
+                    sidecar.status = "ok";
+                }
+            }
+            found.push_back(std::move(sidecar));
+        }
+        errno = 0;
+    }
+    const int listError = errno;
+    ::closedir(raw);
+    require(listError == 0, "cannot finish scanning sidecars");
+    std::sort(found.begin(), found.end(),
+        [](const MediaSidecarReport& a, const MediaSidecarReport& b) {
+            return a.name < b.name;
+        });
+    report.sidecarReports = std::move(found);
+}
+
 } // namespace
 
 MediaCheckReport checkRecordingInternal(
@@ -248,6 +313,7 @@ MediaCheckReport checkRecordingInternal(
     result.recording = recordingRelative.generic_string();
     result.segments = segments.size();
     result.indexPresent = indexAvailable(current.value);
+    scanSidecars(current.value, result);
     Continuity counters;
     for (const auto& segment : segments) {
         MediaCheckSegmentReport detail;
@@ -295,9 +361,11 @@ std::string MediaCheckReport::status() const
 {
     if (decode && decode->status == "incomplete") return "incomplete";
     if (decode && decode->status == "errors") return "errors";
-    if (syncErrors || transportErrors || adaptationErrors || trailingBytes)
+    if (syncErrors || transportErrors || adaptationErrors || trailingBytes ||
+        sidecarErrors)
         return "errors";
-    if (continuityWarnings || discontinuities || !indexPresent)
+    if (continuityWarnings || discontinuities || !indexPresent ||
+        sidecarWarnings)
         return "warnings";
     return "ok";
 }
@@ -317,6 +385,8 @@ std::string MediaCheckReport::json() const
         << ",\"continuityWarnings\":" << continuityWarnings
         << ",\"discontinuities\":" << discontinuities
         << ",\"indexPresent\":" << (indexPresent ? "true" : "false")
+        << ",\"sidecarErrors\":" << sidecarErrors
+        << ",\"sidecarWarnings\":" << sidecarWarnings
         << ",\"analysis\":"
         << jsonString(decode ? "ts_structure_and_ffmpeg_decode" : "ts_structure_only")
         << ",\"readOnly\":true";
@@ -335,6 +405,14 @@ std::string MediaCheckReport::json() const
             << ",\"continuityWarnings\":" << segment.continuityWarnings
             << ",\"discontinuities\":" << segment.discontinuities
             << "}";
+    }
+    output << "],\"sidecarReports\":[";
+    for (std::size_t index = 0; index < sidecarReports.size(); ++index) {
+        const auto& sidecar = sidecarReports[index];
+        if (index != 0) output << ",";
+        output << "{\"name\":" << jsonString(sidecar.name)
+            << ",\"status\":" << jsonString(sidecar.status)
+            << ",\"bytes\":" << sidecar.bytes << "}";
     }
     output << "]";
     if (decode) {

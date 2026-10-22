@@ -168,6 +168,38 @@ int main(int argc, char* argv[])
                result.segmentReports[1].packets == 2);
         assert(json.find("segmentReports") != std::string::npos);
         assert(f.bytes("00001.ts") == contents && f.entries() == inventory);
+        assert(result.sidecarErrors == 0 && result.sidecarWarnings == 0 &&
+               result.sidecarReports.size() == 1 &&
+               result.sidecarReports[0].name == "index" &&
+               result.sidecarReports[0].status == "ok");
+        ++cases;
+    }
+    {
+        Fixture f;
+        std::ofstream(f.rec / "info") << "T Synthetic recording\\n";
+        std::ofstream(f.rec / "de.srt") << "1\\n00:00:01,000 --> 00:00:02,000\\nHallo\\n";
+        const auto original = f.entries();
+        const auto report = checkRecordingTransportStream(f.video, f.relative());
+        assert(report.status() == "ok" &&
+               report.sidecarErrors == 0 && report.sidecarWarnings == 0 &&
+               report.sidecarReports.size() == 3);
+        assert(report.json().find("\"sidecarReports\"") != std::string::npos);
+        assert(f.entries() == original);
+        ++cases;
+    }
+    {
+        Fixture f;
+        fs::create_symlink(f.rec / "index", f.rec / "info");
+        const auto report = checkRecordingTransportStream(f.video, f.relative());
+        assert(report.status() == "errors" && report.sidecarErrors == 1);
+        assert(report.json().find("\"sidecarErrors\":1") != std::string::npos);
+        ++cases;
+    }
+    {
+        Fixture f;
+        std::ofstream(f.rec / "de.srt");
+        const auto report = checkRecordingTransportStream(f.video, f.relative());
+        assert(report.status() == "warnings" && report.sidecarWarnings == 1);
         ++cases;
     }
     {
