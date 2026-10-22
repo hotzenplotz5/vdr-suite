@@ -483,6 +483,69 @@ int main()
     assert(runtime.tryHandleGet(detailPath, "actor:tv", "meta-bad-source",
         "", badSource, "", "", {"backend-a"}));
     assert(badSource.statusCode == 503);
+    runtime.registerRecordingDetailLookup(
+        [](const PublicRecordingDetailRequest&) {
+            PublicRecordingDetailResult selected;
+            selected.status = PublicRecordingDetailStatus::ok;
+            selected.item.recording =
+                recording("rec_00000000000000000000000000000001");
+            selected.item.metadataState = "available";
+            selected.item.metadataSource = "manual";
+            selected.item.contentKind = "series-episode";
+            selected.item.providerTitle = "Manual episode";
+            selected.item.overview = "Manually selected synopsis";
+            selected.item.seasonNumber = 2;
+            selected.item.episodeNumber = 5;
+            selected.item.manualAssignmentId =
+                "mdasg_" + std::string(32, 'a');
+            selected.item.metadataEntityId =
+                "mdent_" + std::string(32, 'b');
+            selected.item.manualRevision = 4;
+            return selected;
+        });
+    ApiResponse manualDetail;
+    assert(runtime.tryHandleGet(detailPath, "actor:tv", "meta-manual",
+        "", manualDetail, "", "", {"backend-a"}));
+    assert(manualDetail.statusCode == 200);
+    assert(manualDetail.body.find("\"source\":\"manual\"") !=
+        std::string::npos);
+    assert(manualDetail.body.find("\"providerTitle\":\"Manual episode\"") !=
+        std::string::npos);
+    assert(manualDetail.body.find("\"overview\":\"Manually selected synopsis\"") !=
+        std::string::npos);
+    assert(manualDetail.body.find("\"manualRevision\":4") !=
+        std::string::npos);
+    assert(manualDetail.body.find("\"manualAssignmentId\":\"mdasg_") !=
+        std::string::npos);
+    assert(manualDetail.body.find("\"metadataEntityId\":\"mdent_") !=
+        std::string::npos);
+    assert(manualDetail.body.find("resourceKey") == std::string::npos);
+    assert(manualDetail.body.find("externalId") == std::string::npos);
+    assert(manualDetail.body.find("actorRef") == std::string::npos);
+    assert(manualDetail.headers.at("Cache-Control") == "no-store");
+
+    // Fail closed on selected records with malformed provenance rather
+    // than returning arbitrary untrusted strings in the public contract.
+    runtime.registerRecordingDetailLookup(
+        [](const PublicRecordingDetailRequest&) {
+            PublicRecordingDetailResult malformedManual;
+            malformedManual.status = PublicRecordingDetailStatus::ok;
+            malformedManual.item.recording =
+                recording("rec_00000000000000000000000000000001");
+            malformedManual.item.metadataState = "available";
+            malformedManual.item.metadataSource = "manual";
+            malformedManual.item.contentKind = "movie";
+            malformedManual.item.providerTitle = "Invalid assignment";
+            malformedManual.item.manualAssignmentId = "mdasg_bad";
+            malformedManual.item.metadataEntityId =
+                "mdent_" + std::string(32, 'b');
+            malformedManual.item.manualRevision = 4;
+            return malformedManual;
+        });
+    ApiResponse rejectedManual;
+    assert(runtime.tryHandleGet(detailPath, "actor:tv", "meta-invalid-manual",
+        "", rejectedManual, "", "", {"backend-a"}));
+    assert(rejectedManual.statusCode == 503);
     runtime.resetRecordingDetailLookup();
 
     runtime.resetSearchLookup();
