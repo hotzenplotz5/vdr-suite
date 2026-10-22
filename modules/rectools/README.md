@@ -30,6 +30,22 @@ See [module rules](AGENTS.md), [ADR-0068](../../docs/adr/ADR-0068-optional-addon
 
 To build a distinct, **inactive** metadata-only `.deb` from sources, use the explicit `make build-addon-deb MODULE=rectools OUTPUT_DIR=/isolated/output ADDON_MAINTAINER='Name <valid@example.org>'` target from the repository root. This does not install or enable any runtime functionality.
 
+## Agent drain boundary (not packaged or activated)
+
+For a future authorized Media Import runtime, the source-built pinned Agent
+requires a separate protected root-owned, empty file at
+`/etc/vdr-suite/addon-approvals/rectools.import-running.lock`.
+It must be staged by a trusted administrator independently of the inert
+`addon.json`. The Agent cannot create or repair this lock. A missing,
+unsafe or exclusively held lock disables Media Import capability discovery
+and execution. The handler inherits a shared kernel lock through its
+execution lifetime so a later package maintenance owner can attempt an
+exclusive lock only after stopping new admissions and draining durable jobs.
+No installer or package maintainer hook currently creates or acquires this
+lock, and an exclusive try-lock alone is **not** permission to change files.
+The source/manual installation and final Ubuntu package release paths
+must share this contract without automatically enabling the module.
+
 ## C++ import prototype (not a live deployment)
 
 Source implementation: `../../addons/media-tools/include/MediaImport.h`, `../../addons/media-tools/src/MediaImport.cpp`, `../../addons/media-tools/src/main.cpp`. Focused tests: `../../addons/media-tools/tests/test_media_import.cpp`. Build and test independently from the daemon via `make addon-media-import test-addon-media-import`. Build output: `.build/addons/vdr-suite-media-import`; this binary is **not installed** by `make install`, `stage-addon` or `build-addon-deb`.
