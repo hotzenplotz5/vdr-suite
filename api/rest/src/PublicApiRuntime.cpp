@@ -6019,42 +6019,6 @@ PublicNativeTimerDetailResult PublicApiRuntime::lookupNativeTimerDetail(
     return cb ? cb(request) : PublicNativeTimerDetailResult{};
 }
 
-void PublicApiRuntime::registerChannelCollectionLookup(
-    ChannelCollectionLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(
-        channelCollectionLookupMutex_);
-    channelCollectionLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetChannelCollectionLookup()
-{
-    std::lock_guard<std::mutex> lock(
-        channelCollectionLookupMutex_);
-    channelCollectionLookup_ = {};
-}
-
-bool PublicApiRuntime::channelCollectionLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        channelCollectionLookupMutex_);
-    return static_cast<bool>(channelCollectionLookup_);
-}
-
-PublicChannelCollectionResult
-PublicApiRuntime::lookupChannelCollection(
-    const PublicChannelCollectionRequest& request) const
-{
-    ChannelCollectionLookup lookup;
-    {
-        std::lock_guard<std::mutex> lock(
-            channelCollectionLookupMutex_);
-        lookup = channelCollectionLookup_;
-    }
-    if (!lookup) return {};
-    return lookup(request);
-}
-
 PublicTimerAssignmentLookupResult
 PublicApiRuntime::lookupTimerAssignment(
     const std::string& timerAssignmentId,
@@ -6232,6 +6196,219 @@ bool PublicApiRuntime::tryHandleBackendCollectionGet(
             }
 
             case PublicBackendCollectionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleChannelCollectionGet(
+    const std::string& requestTarget,
+    const std::string& actorRef,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::vector<std::string>& authorizedBackendIds,
+    ApiResponse& response) const
+{
+    const std::string path = requestPath(requestTarget);
+    if (path == PublicChannelCollectionPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        if (authorizedBackendIds.empty() ||
+            authorizedBackendIds.size() > PublicChannelMaximumSources)
+        {
+            response = invalidRequestProblem(
+                path,
+                "One or more authorized backendId scopes are required.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        std::vector<std::string> normalizedBackends = authorizedBackendIds;
+        std::sort(normalizedBackends.begin(), normalizedBackends.end());
+        if (std::adjacent_find(
+                normalizedBackends.begin(),
+                normalizedBackends.end()) != normalizedBackends.end())
+        {
+            response = invalidRequestProblem(
+                path,
+                "Duplicate backendId scopes are not allowed.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        PublicChannelCollectionQuery query;
+        if (!parsePublicChannelCollectionQuery(requestTarget, query) ||
+            query.backendCount != normalizedBackends.size())
+        {
+            response = invalidRequestProblem(
+                path,
+                "The Channel collection query is invalid.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        const std::string backendScope =
+            normalizedPublicChannelBackendScope(normalizedBackends);
+        std::string afterBackendId;
+        std::string afterChannelId;
+        if (!query.cursor.empty())
+        {
+            const PublicChannelCursorDecodeStatus cursorStatus =
+                decodePublicChannelCursor(
+                    query.cursor,
+                    backendScope,
+                    afterBackendId,
+                    afterChannelId);
+            if (cursorStatus == PublicChannelCursorDecodeStatus::scopeMismatch)
+            {
+                response = cursorExpiredProblem(
+                    path, requestId, correlationId);
+                return true;
+            }
+            if (cursorStatus != PublicChannelCursorDecodeStatus::ok)
+            {
+                response = invalidRequestProblem(
+                    path,
+                    "The collection cursor is invalid for this ordering.",
+                    requestId,
+                    correlationId);
+                return true;
+            }
+        }
+
+        PublicChannelCollectionRequest request;
+        request.backendIds = normalizedBackends;
+        request.afterBackendId = afterBackendId;
+        request.afterChannelId = afterChannelId;
+        request.relativeToChannelId = query.relativeToChannelId;
+        request.direction = query.direction;
+        request.limit = query.limit;
+
+        const PublicChannelCollectionResult page =
+            lookupChannelCollection(request);
+
+        switch (page.status)
+        {
+            case PublicChannelCollectionStatus::ok:
+            {
+                if (page.channels.size() > query.limit ||
+                    (page.hasMore &&
+                     page.channels.size() != query.limit) ||
+                    page.sources.size() != normalizedBackends.size())
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+
+                if (!query.relativeToChannelId.empty() &&
+                    (page.channels.size() != 1U || page.hasMore ||
+                     page.channels.front().channelId ==
+                         query.relativeToChannelId ||
+                     page.channels.front().channelNumber <= 0))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                bool usefulSource = false;
+                for (std::size_t index = 0U;
+                     index < page.sources.size();
+                     ++index)
+                {
+                    const PublicChannelCollectionSource& source =
+                        page.sources[index];
+                    const bool validState =
+                        source.state == "ok" ||
+                        source.state == "unavailable";
+                    const bool validCode =
+                        (source.state == "ok" && source.code.empty()) ||
+                        (source.state == "unavailable" &&
+                         source.code == "backend_unavailable");
+                    if (source.backendId != normalizedBackends[index] ||
+                        !validState ||
+                        !validCode)
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    usefulSource =
+                        usefulSource || source.state == "ok";
+                }
+                if (!usefulSource)
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+
+                std::string previousBackend = afterBackendId;
+                std::string previousChannel = afterChannelId;
+                for (const PublicChannelCollectionItem& channel :
+                     page.channels)
+                {
+                    if (channel.backendId.empty() ||
+                        channel.channelId.empty() ||
+                        !std::binary_search(
+                            normalizedBackends.begin(),
+                            normalizedBackends.end(),
+                            channel.backendId) ||
+                        (!previousBackend.empty() &&
+                         (channel.backendId < previousBackend ||
+                          (channel.backendId == previousBackend &&
+                           channel.channelId <= previousChannel))))
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    previousBackend = channel.backendId;
+                    previousChannel = channel.channelId;
+                }
+
+                response = publicChannelCollectionResponse(
+                    page,
+                    query,
+                    normalizedBackends,
+                    backendScope,
+                    requestId,
+                    correlationId);
+                return true;
+            }
+
+            case PublicChannelCollectionStatus::invalid:
+                response = invalidRequestProblem(
+                    path,
+                    "The Channel collection request is invalid.",
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicChannelCollectionStatus::notFound:
+                response = notFoundProblem(
+                    path, requestId, correlationId);
+                return true;
+
+            case PublicChannelCollectionStatus::allSourcesUnavailable:
+                response = backendUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+
+            case PublicChannelCollectionStatus::unavailable:
                 response = serviceUnavailableProblem(
                     path, requestId, correlationId);
                 return true;
@@ -8186,203 +8363,10 @@ bool PublicApiRuntime::tryHandleGet(
 
     if (path == PublicChannelCollectionPath)
     {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(
-                path, requestId, correlationId);
+        if (tryHandleChannelCollectionGet(
+                requestTarget, actorRef, requestId, correlationId,
+                authorizedBackendIds, response))
             return true;
-        }
-
-        if (authorizedBackendIds.empty() ||
-            authorizedBackendIds.size() > PublicChannelMaximumSources)
-        {
-            response = invalidRequestProblem(
-                path,
-                "One or more authorized backendId scopes are required.",
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        std::vector<std::string> normalizedBackends = authorizedBackendIds;
-        std::sort(normalizedBackends.begin(), normalizedBackends.end());
-        if (std::adjacent_find(
-                normalizedBackends.begin(),
-                normalizedBackends.end()) != normalizedBackends.end())
-        {
-            response = invalidRequestProblem(
-                path,
-                "Duplicate backendId scopes are not allowed.",
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        PublicChannelCollectionQuery query;
-        if (!parsePublicChannelCollectionQuery(requestTarget, query) ||
-            query.backendCount != normalizedBackends.size())
-        {
-            response = invalidRequestProblem(
-                path,
-                "The Channel collection query is invalid.",
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        const std::string backendScope =
-            normalizedPublicChannelBackendScope(normalizedBackends);
-        std::string afterBackendId;
-        std::string afterChannelId;
-        if (!query.cursor.empty())
-        {
-            const PublicChannelCursorDecodeStatus cursorStatus =
-                decodePublicChannelCursor(
-                    query.cursor,
-                    backendScope,
-                    afterBackendId,
-                    afterChannelId);
-            if (cursorStatus == PublicChannelCursorDecodeStatus::scopeMismatch)
-            {
-                response = cursorExpiredProblem(
-                    path, requestId, correlationId);
-                return true;
-            }
-            if (cursorStatus != PublicChannelCursorDecodeStatus::ok)
-            {
-                response = invalidRequestProblem(
-                    path,
-                    "The collection cursor is invalid for this ordering.",
-                    requestId,
-                    correlationId);
-                return true;
-            }
-        }
-
-        PublicChannelCollectionRequest request;
-        request.backendIds = normalizedBackends;
-        request.afterBackendId = afterBackendId;
-        request.afterChannelId = afterChannelId;
-        request.relativeToChannelId = query.relativeToChannelId;
-        request.direction = query.direction;
-        request.limit = query.limit;
-
-        const PublicChannelCollectionResult page =
-            lookupChannelCollection(request);
-
-        switch (page.status)
-        {
-            case PublicChannelCollectionStatus::ok:
-            {
-                if (page.channels.size() > query.limit ||
-                    (page.hasMore &&
-                     page.channels.size() != query.limit) ||
-                    page.sources.size() != normalizedBackends.size())
-                {
-                    response = serviceUnavailableProblem(
-                        path, requestId, correlationId);
-                    return true;
-                }
-
-                if (!query.relativeToChannelId.empty() &&
-                    (page.channels.size() != 1U || page.hasMore ||
-                     page.channels.front().channelId ==
-                         query.relativeToChannelId ||
-                     page.channels.front().channelNumber <= 0))
-                {
-                    response = serviceUnavailableProblem(
-                        path, requestId, correlationId);
-                    return true;
-                }
-                bool usefulSource = false;
-                for (std::size_t index = 0U;
-                     index < page.sources.size();
-                     ++index)
-                {
-                    const PublicChannelCollectionSource& source =
-                        page.sources[index];
-                    const bool validState =
-                        source.state == "ok" ||
-                        source.state == "unavailable";
-                    const bool validCode =
-                        (source.state == "ok" && source.code.empty()) ||
-                        (source.state == "unavailable" &&
-                         source.code == "backend_unavailable");
-                    if (source.backendId != normalizedBackends[index] ||
-                        !validState ||
-                        !validCode)
-                    {
-                        response = serviceUnavailableProblem(
-                            path, requestId, correlationId);
-                        return true;
-                    }
-                    usefulSource =
-                        usefulSource || source.state == "ok";
-                }
-                if (!usefulSource)
-                {
-                    response = serviceUnavailableProblem(
-                        path, requestId, correlationId);
-                    return true;
-                }
-
-                std::string previousBackend = afterBackendId;
-                std::string previousChannel = afterChannelId;
-                for (const PublicChannelCollectionItem& channel :
-                     page.channels)
-                {
-                    if (channel.backendId.empty() ||
-                        channel.channelId.empty() ||
-                        !std::binary_search(
-                            normalizedBackends.begin(),
-                            normalizedBackends.end(),
-                            channel.backendId) ||
-                        (!previousBackend.empty() &&
-                         (channel.backendId < previousBackend ||
-                          (channel.backendId == previousBackend &&
-                           channel.channelId <= previousChannel))))
-                    {
-                        response = serviceUnavailableProblem(
-                            path, requestId, correlationId);
-                        return true;
-                    }
-                    previousBackend = channel.backendId;
-                    previousChannel = channel.channelId;
-                }
-
-                response = publicChannelCollectionResponse(
-                    page,
-                    query,
-                    normalizedBackends,
-                    backendScope,
-                    requestId,
-                    correlationId);
-                return true;
-            }
-
-            case PublicChannelCollectionStatus::invalid:
-                response = invalidRequestProblem(
-                    path,
-                    "The Channel collection request is invalid.",
-                    requestId,
-                    correlationId);
-                return true;
-
-            case PublicChannelCollectionStatus::notFound:
-                response = notFoundProblem(
-                    path, requestId, correlationId);
-                return true;
-
-            case PublicChannelCollectionStatus::allSourcesUnavailable:
-                response = backendUnavailableProblem(
-                    path, requestId, correlationId);
-                return true;
-
-            case PublicChannelCollectionStatus::unavailable:
-                response = serviceUnavailableProblem(
-                    path, requestId, correlationId);
-                return true;
-        }
     }
 
     if (path == PublicSearchTimerDraftPreviewPath)
