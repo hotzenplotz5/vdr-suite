@@ -47,7 +47,7 @@ AUDITED = {
     "/api/v1/epg/timer-intents": {"post": "if (path == PublicEpgTimerIntentPath)"},
     "/api/v1/timer-assignments": {"get": "if (path == PublicTimerAssignmentCollectionPath)"},
     "/api/v1/search-timers": {"get": "if (path == PublicSearchTimerCollectionPath)", "post": "if (path == PublicSearchTimerCollectionPath)"},
-    "/api/v1/search-timers/{searchTimerId}": {"get": "if (publicSearchTimerDetailPath(path, detailSearchTimerId))"},
+    "/api/v1/search-timers/{searchTimerId}": {"get": "if (publicSearchTimerDetailPath(path, savedSearchTimerId))"},
     "/api/v1/search-timers/draft-preview": {"get": "if (path == PublicSearchTimerDraftPreviewPath)"},
     "/api/v1/search-timers/{searchTimerId}/preview": {"get": "if (publicSearchTimerPreviewPath(path, previewSearchTimerId))"},
     "/api/v1/timer-assignments/{timerAssignmentId}": {
@@ -313,6 +313,16 @@ def validate(
     section = _handler_sections(source)
     if not section:
         errors.append("cannot isolate actual GET and POST C++ handler bodies")
+    # ADR-0068: the public dispatcher must *reach* the dedicated read owner,
+    # and that owner must still contain the scoped SearchTimer detail branch.
+    owner_start = source.find(
+        "bool PublicApiRuntime::tryHandleSearchTimerAssignmentReadGet("
+    )
+    dispatcher_start = source.find("bool PublicApiRuntime::tryHandleGet(")
+    if (owner_start < 0 or dispatcher_start <= owner_start or
+            'if (publicSearchTimerDetailPath(path, detailSearchTimerId))' not in
+            source[owner_start:dispatcher_start]):
+        errors.append("SearchTimer detail modular read owner missing")
     schemas = spec.get("components", {}).get("schemas", {}) if isinstance(spec.get("components"), dict) else {}
     if not isinstance(schemas, dict):
         schemas = {}
