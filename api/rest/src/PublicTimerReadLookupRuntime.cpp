@@ -58,3 +58,139 @@ PublicNativeTimerDetailResult PublicApiRuntime::lookupNativeTimerDetail(
     return cb ? cb(request) : PublicNativeTimerDetailResult{};
 }
 
+
+// TimerAssignment and SearchTimer read-only callbacks retain their
+// original lock and executor-free invocation semantics.
+void PublicApiRuntime::registerTimerAssignmentLookup(
+    TimerAssignmentLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(
+        timerAssignmentLookupMutex_);
+    timerAssignmentLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetTimerAssignmentLookup()
+{
+    std::lock_guard<std::mutex> lock(
+        timerAssignmentLookupMutex_);
+    timerAssignmentLookup_ = TimerAssignmentLookup{};
+}
+
+bool PublicApiRuntime::timerAssignmentLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        timerAssignmentLookupMutex_);
+    return static_cast<bool>(timerAssignmentLookup_);
+}
+
+void PublicApiRuntime::registerTimerAssignmentCollectionLookup(
+    TimerAssignmentCollectionLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(
+        timerAssignmentCollectionLookupMutex_);
+    timerAssignmentCollectionLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetTimerAssignmentCollectionLookup()
+{
+    std::lock_guard<std::mutex> lock(
+        timerAssignmentCollectionLookupMutex_);
+    timerAssignmentCollectionLookup_ = {};
+}
+
+bool PublicApiRuntime::timerAssignmentCollectionLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(
+        timerAssignmentCollectionLookupMutex_);
+    return static_cast<bool>(timerAssignmentCollectionLookup_);
+}
+
+PublicTimerAssignmentCollectionResult
+PublicApiRuntime::lookupTimerAssignmentCollection(
+    const PublicTimerAssignmentCollectionRequest& request) const
+{
+    TimerAssignmentCollectionLookup lookup;
+    {
+        std::lock_guard<std::mutex> lock(
+            timerAssignmentCollectionLookupMutex_);
+        lookup = timerAssignmentCollectionLookup_;
+    }
+    if (!lookup) return {};
+    return lookup(request);
+}
+
+void PublicApiRuntime::registerSearchTimerCollectionLookup(
+    SearchTimerCollectionLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(searchTimerCollectionLookupMutex_);
+    searchTimerCollectionLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetSearchTimerCollectionLookup()
+{
+    std::lock_guard<std::mutex> lock(searchTimerCollectionLookupMutex_);
+    searchTimerCollectionLookup_ = {};
+}
+
+bool PublicApiRuntime::searchTimerCollectionLookupConfigured() const
+{
+    std::lock_guard<std::mutex> lock(searchTimerCollectionLookupMutex_);
+    return static_cast<bool>(searchTimerCollectionLookup_);
+}
+
+PublicSearchTimerCollectionResult PublicApiRuntime::lookupSearchTimerCollection(
+    const PublicSearchTimerCollectionRequest& request) const
+{
+    SearchTimerCollectionLookup callback;
+    {
+        std::lock_guard<std::mutex> lock(searchTimerCollectionLookupMutex_);
+        callback = searchTimerCollectionLookup_;
+    }
+    return callback ? callback(request) : PublicSearchTimerCollectionResult{};
+}
+
+void PublicApiRuntime::registerSearchTimerPreviewLookup(
+    SearchTimerPreviewLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(searchTimerPreviewLookupMutex_);
+    searchTimerPreviewLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetSearchTimerPreviewLookup()
+{
+    std::lock_guard<std::mutex> lock(searchTimerPreviewLookupMutex_);
+    searchTimerPreviewLookup_ = {};
+}
+
+PublicSearchTimerPreviewResult PublicApiRuntime::lookupSearchTimerPreview(
+    const PublicSearchTimerPreviewRequest& request) const
+{
+    SearchTimerPreviewLookup callback;
+    {
+        std::lock_guard<std::mutex> lock(searchTimerPreviewLookupMutex_);
+        callback = searchTimerPreviewLookup_;
+    }
+    return callback ? callback(request) : PublicSearchTimerPreviewResult{};
+}
+
+PublicTimerAssignmentLookupResult
+PublicApiRuntime::lookupTimerAssignment(
+    const std::string& timerAssignmentId,
+    const std::string& backendId) const
+{
+    TimerAssignmentLookup lookup;
+
+    {
+        std::lock_guard<std::mutex> lock(
+            timerAssignmentLookupMutex_);
+        lookup = timerAssignmentLookup_;
+    }
+
+    if (!lookup)
+    {
+        return {};
+    }
+
+    return lookup(timerAssignmentId, backendId);
+}
+

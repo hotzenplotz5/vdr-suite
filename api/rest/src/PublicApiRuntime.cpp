@@ -5065,28 +5065,6 @@ bool PublicApiRuntime::operationLookupConfigured() const
     return static_cast<bool>(operationLookup_);
 }
 
-void PublicApiRuntime::registerTimerAssignmentLookup(
-    TimerAssignmentLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(
-        timerAssignmentLookupMutex_);
-    timerAssignmentLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetTimerAssignmentLookup()
-{
-    std::lock_guard<std::mutex> lock(
-        timerAssignmentLookupMutex_);
-    timerAssignmentLookup_ = TimerAssignmentLookup{};
-}
-
-bool PublicApiRuntime::timerAssignmentLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        timerAssignmentLookupMutex_);
-    return static_cast<bool>(timerAssignmentLookup_);
-}
-
 void PublicApiRuntime::registerDevicePairingCreate(
     DevicePairingCreate create)
 {
@@ -5286,72 +5264,6 @@ bool PublicApiRuntime::timerCreateAdmissionConfigured() const
     return static_cast<bool>(timerCreateAdmission_);
 }
 
-void PublicApiRuntime::registerTimerAssignmentCollectionLookup(
-    TimerAssignmentCollectionLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(
-        timerAssignmentCollectionLookupMutex_);
-    timerAssignmentCollectionLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetTimerAssignmentCollectionLookup()
-{
-    std::lock_guard<std::mutex> lock(
-        timerAssignmentCollectionLookupMutex_);
-    timerAssignmentCollectionLookup_ = {};
-}
-
-bool PublicApiRuntime::timerAssignmentCollectionLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        timerAssignmentCollectionLookupMutex_);
-    return static_cast<bool>(timerAssignmentCollectionLookup_);
-}
-
-PublicTimerAssignmentCollectionResult
-PublicApiRuntime::lookupTimerAssignmentCollection(
-    const PublicTimerAssignmentCollectionRequest& request) const
-{
-    TimerAssignmentCollectionLookup lookup;
-    {
-        std::lock_guard<std::mutex> lock(
-            timerAssignmentCollectionLookupMutex_);
-        lookup = timerAssignmentCollectionLookup_;
-    }
-    if (!lookup) return {};
-    return lookup(request);
-}
-
-void PublicApiRuntime::registerSearchTimerCollectionLookup(
-    SearchTimerCollectionLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(searchTimerCollectionLookupMutex_);
-    searchTimerCollectionLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetSearchTimerCollectionLookup()
-{
-    std::lock_guard<std::mutex> lock(searchTimerCollectionLookupMutex_);
-    searchTimerCollectionLookup_ = {};
-}
-
-bool PublicApiRuntime::searchTimerCollectionLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(searchTimerCollectionLookupMutex_);
-    return static_cast<bool>(searchTimerCollectionLookup_);
-}
-
-PublicSearchTimerCollectionResult PublicApiRuntime::lookupSearchTimerCollection(
-    const PublicSearchTimerCollectionRequest& request) const
-{
-    SearchTimerCollectionLookup callback;
-    {
-        std::lock_guard<std::mutex> lock(searchTimerCollectionLookupMutex_);
-        callback = searchTimerCollectionLookup_;
-    }
-    return callback ? callback(request) : PublicSearchTimerCollectionResult{};
-}
-
 void PublicApiRuntime::registerSearchTimerCreate(SearchTimerCreate handler)
 {
     std::lock_guard<std::mutex> lock(searchTimerCreateMutex_);
@@ -5361,30 +5273,6 @@ void PublicApiRuntime::resetSearchTimerCreate()
 {
     std::lock_guard<std::mutex> lock(searchTimerCreateMutex_);
     searchTimerCreate_ = {};
-}
-
-void PublicApiRuntime::registerSearchTimerPreviewLookup(
-    SearchTimerPreviewLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(searchTimerPreviewLookupMutex_);
-    searchTimerPreviewLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetSearchTimerPreviewLookup()
-{
-    std::lock_guard<std::mutex> lock(searchTimerPreviewLookupMutex_);
-    searchTimerPreviewLookup_ = {};
-}
-
-PublicSearchTimerPreviewResult PublicApiRuntime::lookupSearchTimerPreview(
-    const PublicSearchTimerPreviewRequest& request) const
-{
-    SearchTimerPreviewLookup callback;
-    {
-        std::lock_guard<std::mutex> lock(searchTimerPreviewLookupMutex_);
-        callback = searchTimerPreviewLookup_;
-    }
-    return callback ? callback(request) : PublicSearchTimerPreviewResult{};
 }
 
 void PublicApiRuntime::registerAccountCollectionLookup(
@@ -5878,27 +5766,6 @@ PublicGenreCollectionResult PublicApiRuntime::lookupGenreCollection(
         lookup = genreCollectionLookup_;
     }
     return lookup ? lookup(request) : PublicGenreCollectionResult{};
-}
-
-PublicTimerAssignmentLookupResult
-PublicApiRuntime::lookupTimerAssignment(
-    const std::string& timerAssignmentId,
-    const std::string& backendId) const
-{
-    TimerAssignmentLookup lookup;
-
-    {
-        std::lock_guard<std::mutex> lock(
-            timerAssignmentLookupMutex_);
-        lookup = timerAssignmentLookup_;
-    }
-
-    if (!lookup)
-    {
-        return {};
-    }
-
-    return lookup(timerAssignmentId, backendId);
 }
 
 PublicOperationLookupResult PublicApiRuntime::lookupOperation(
@@ -6696,6 +6563,441 @@ bool PublicApiRuntime::tryHandleNativeTimerReadGet(
                 "null") + "},\"meta\":{\"partial\":false}}";
         response = jsonResponse(body,requestId,correlationId);
         return true;
+    }
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleSearchTimerAssignmentReadGet(
+    const std::string& requestTarget,
+    const std::string& actorRef,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::string& ifNoneMatch,
+    const std::string& authorizedBackendId,
+    ApiResponse& response) const
+{
+    const std::string path = requestPath(requestTarget);
+    if (path == PublicSearchTimerDraftPreviewPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicSearchTimerPreviewRequest draft;
+        if (!parsePublicSearchTimerDraftPreviewQuery(
+                requestTarget, authorizedBackendId, draft))
+        {
+            response = invalidRequestProblem(path,
+                "Unsupported or invalid SearchTimer draft preview options.",
+                requestId, correlationId);
+            return true;
+        }
+        const auto preview = lookupSearchTimerPreview(draft);
+        if (preview.status != PublicSearchTimerPreviewStatus::ok ||
+            preview.backendId != authorizedBackendId ||
+            !preview.searchTimerId.empty() ||
+            preview.totalCount < 0 ||
+            preview.items.size() > draft.limit ||
+            static_cast<std::size_t>(preview.totalCount) <
+                preview.items.size())
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        std::string body = "{\"backendId\":\"" +
+            jsonEscape(preview.backendId) +
+            "\",\"totalCount\":" + std::to_string(preview.totalCount) +
+            ",\"items\":[";
+        for (std::size_t i = 0U; i < preview.items.size(); ++i)
+        {
+            const auto& event = preview.items[i];
+            if (event.title.empty() || event.title.size() > 1024U ||
+                event.subtitle.size() > 2048U ||
+                event.channelId.size() > 256U ||
+                event.startTime.size() > 64U ||
+                event.endTime.size() > 64U)
+            {
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+            }
+            if (i) body += ",";
+            body += "{\"title\":\"" + jsonEscape(event.title) +
+                "\",\"subtitle\":\"" + jsonEscape(event.subtitle) +
+                "\",\"channelId\":\"" + jsonEscape(event.channelId) +
+                "\",\"startTime\":\"" + jsonEscape(event.startTime) +
+                "\",\"endTime\":\"" + jsonEscape(event.endTime) + "\"}";
+        }
+        body += "],\"meta\":{\"partial\":false,\"epgInput\":\"ready\","
+            "\"evaluation\":\"epg-match-only\"}}";
+        response = jsonResponse(body, requestId, correlationId);
+        return true;
+    }
+
+    std::string previewSearchTimerId;
+    if (publicSearchTimerPreviewPath(path, previewSearchTimerId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (!validPublicSearchTimerId(previewSearchTimerId) ||
+            authorizedBackendId.empty())
+        {
+            response = invalidRequestProblem(path,
+                "A valid SearchTimer and authorized backend are required.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicSearchTimerCollectionQuery query;
+        if (!parsePublicSearchTimerCollectionQuery(
+                requestTarget, authorizedBackendId, query) ||
+            !query.cursor.empty())
+        {
+            response = invalidRequestProblem(path,
+                "Invalid SearchTimer preview query.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicSearchTimerPreviewRequest request;
+        request.backendId = authorizedBackendId;
+        request.searchTimerId = previewSearchTimerId;
+        request.limit = query.limit;
+        const auto preview = lookupSearchTimerPreview(request);
+        if (preview.status == PublicSearchTimerPreviewStatus::notFound)
+        {
+            response = notFoundProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (preview.status != PublicSearchTimerPreviewStatus::ok ||
+            preview.backendId != authorizedBackendId ||
+            preview.searchTimerId != previewSearchTimerId ||
+            preview.totalCount < 0 ||
+            preview.items.size() > query.limit ||
+            static_cast<std::size_t>(preview.totalCount) <
+                preview.items.size())
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        std::string body = "{\"backendId\":\"" +
+            jsonEscape(preview.backendId) +
+            "\",\"searchTimerId\":\"" +
+            jsonEscape(preview.searchTimerId) +
+            "\",\"totalCount\":" + std::to_string(preview.totalCount) +
+            ",\"items\":[";
+        for (std::size_t i = 0U; i < preview.items.size(); ++i)
+        {
+            const auto& event = preview.items[i];
+            if (event.title.empty() || event.title.size() > 1024U ||
+                event.subtitle.size() > 2048U ||
+                event.channelId.size() > 256U ||
+                event.startTime.size() > 64U ||
+                event.endTime.size() > 64U)
+            {
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+            }
+            if (i) body += ",";
+            body += "{\"title\":\"" + jsonEscape(event.title) +
+                "\",\"subtitle\":\"" + jsonEscape(event.subtitle) +
+                "\",\"channelId\":\"" + jsonEscape(event.channelId) +
+                "\",\"startTime\":\"" + jsonEscape(event.startTime) +
+                "\",\"endTime\":\"" + jsonEscape(event.endTime) + "\"}";
+        }
+        body += "],\"meta\":{\"partial\":false,\"epgInput\":\"ready\"}}";
+        response = jsonResponse(body, requestId, correlationId);
+        return true;
+    }
+
+    if (path == PublicSearchTimerCollectionPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (authorizedBackendId.empty())
+        {
+            response = invalidRequestProblem(path,
+                "An authorized backend scope is required.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicSearchTimerCollectionQuery query;
+        if (!parsePublicSearchTimerCollectionQuery(
+                requestTarget, authorizedBackendId, query))
+        {
+            response = invalidRequestProblem(path,
+                "The SearchTimer collection query is invalid.",
+                requestId, correlationId);
+            return true;
+        }
+        std::string afterId;
+        if (!query.cursor.empty() &&
+            !decodePublicSearchTimerCursor(
+                query.cursor, authorizedBackendId, afterId))
+        {
+            response = invalidRequestProblem(path,
+                "The SearchTimer cursor is invalid for this backend.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicSearchTimerCollectionRequest request;
+        request.backendId = authorizedBackendId;
+        request.afterSearchTimerId = afterId;
+        request.limit = query.limit;
+        const PublicSearchTimerCollectionResult page =
+            lookupSearchTimerCollection(request);
+        switch (page.status)
+        {
+            case PublicSearchTimerCollectionStatus::ok:
+            {
+                if (page.items.size() > query.limit ||
+                    (page.hasMore && page.items.size() != query.limit))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                std::string previous = afterId;
+                for (const auto& item : page.items)
+                {
+                    if (!validPublicSearchTimerId(item.searchTimerId) ||
+                        item.backendId != authorizedBackendId ||
+                        (!previous.empty() && item.searchTimerId <= previous) ||
+                        item.name.empty() || item.query.empty() ||
+                        item.name.size() > 1024U || item.query.size() > 1024U ||
+                        (item.state != "active" && item.state != "inactive" &&
+                            item.state != "unknown"))
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    previous = item.searchTimerId;
+                }
+                response = publicSearchTimerCollectionResponse(
+                    page, query, authorizedBackendId, requestId, correlationId);
+                return true;
+            }
+            case PublicSearchTimerCollectionStatus::invalid:
+                response = invalidRequestProblem(path,
+                    "The SearchTimer request is invalid.",
+                    requestId, correlationId);
+                return true;
+            case PublicSearchTimerCollectionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    if (path == PublicTimerAssignmentCollectionPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        if (authorizedBackendId.empty())
+        {
+            response = invalidRequestProblem(
+                path,
+                "An authorized backend scope is required.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        PublicTimerAssignmentCollectionQuery query;
+        if (!parsePublicTimerAssignmentCollectionQuery(
+                requestTarget, query))
+        {
+            response = invalidRequestProblem(
+                path,
+                "The TimerAssignment collection query is invalid.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        std::string afterTimerAssignmentId;
+        if (!query.cursor.empty() &&
+            !decodePublicTimerAssignmentCursor(
+                query.cursor,
+                authorizedBackendId,
+                afterTimerAssignmentId))
+        {
+            response = invalidRequestProblem(
+                path,
+                "The collection cursor is invalid for this backend or ordering.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        PublicTimerAssignmentCollectionRequest request;
+        request.backendId = authorizedBackendId;
+        request.afterTimerAssignmentId = afterTimerAssignmentId;
+        request.limit = query.limit;
+
+        const PublicTimerAssignmentCollectionResult page =
+            lookupTimerAssignmentCollection(request);
+
+        switch (page.status)
+        {
+            case PublicTimerAssignmentCollectionStatus::ok:
+            {
+                if (page.assignments.size() > query.limit ||
+                    (page.hasMore &&
+                     page.assignments.size() != query.limit))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+
+                std::string previous = afterTimerAssignmentId;
+                for (const PublicTimerAssignmentCollectionItem&
+                     assignment : page.assignments)
+                {
+                    if (assignment.timerAssignmentId.empty() ||
+                        assignment.backendId != authorizedBackendId ||
+                        (!previous.empty() &&
+                         assignment.timerAssignmentId <= previous))
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    if (assignment.plannedPresent &&
+                        (assignment.plannedTitle.size() > 1024U ||
+                         assignment.plannedDay.size() > 160U ||
+                         assignment.plannedWeekdays.size() != 7U ||
+                         assignment.plannedStartTime.empty() ||
+                         assignment.plannedStartTime.size() > 4U ||
+                         assignment.plannedEndTime.empty() ||
+                         assignment.plannedEndTime.size() > 4U))
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    previous = assignment.timerAssignmentId;
+                }
+
+                response =
+                    publicTimerAssignmentCollectionResponse(
+                        page,
+                        query,
+                        authorizedBackendId,
+                        requestId,
+                        correlationId);
+                return true;
+            }
+
+            case PublicTimerAssignmentCollectionStatus::invalid:
+                response = invalidRequestProblem(
+                    path,
+                    "The TimerAssignment collection request is invalid.",
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerAssignmentCollectionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    std::string timerAssignmentId;
+
+    if (publicTimerAssignmentPath(
+            path,
+            timerAssignmentId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (authorizedBackendId.empty())
+        {
+            response = invalidRequestProblem(
+                path,
+                "An authorized backend scope is required.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        const PublicTimerAssignmentLookupResult found =
+            lookupTimerAssignment(
+                timerAssignmentId,
+                authorizedBackendId);
+
+        switch (found.status)
+        {
+            case PublicTimerAssignmentLookupStatus::ok:
+                if (found.assignment.timerAssignmentId !=
+                        timerAssignmentId ||
+                    found.assignment.backendId !=
+                        authorizedBackendId ||
+                    found.assignment.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path,
+                        requestId,
+                        correlationId);
+                }
+                else
+                {
+                    response =
+                        publicTimerAssignmentResponse(
+                            found.assignment,
+                            path,
+                            requestId,
+                            correlationId,
+                            ifNoneMatch);
+                }
+                return true;
+
+            case PublicTimerAssignmentLookupStatus::invalid:
+                response = invalidRequestProblem(
+                    path,
+                    "The TimerAssignment identifier is invalid.",
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerAssignmentLookupStatus::notFound:
+                response = notFoundProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerAssignmentLookupStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+        }
     }
 
     return false;
@@ -8299,424 +8601,46 @@ bool PublicApiRuntime::tryHandleGet(
 
     if (path == PublicSearchTimerDraftPreviewPath)
     {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(path, requestId, correlationId);
+        if (tryHandleSearchTimerAssignmentReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendId, response))
             return true;
-        }
-        PublicSearchTimerPreviewRequest draft;
-        if (!parsePublicSearchTimerDraftPreviewQuery(
-                requestTarget, authorizedBackendId, draft))
-        {
-            response = invalidRequestProblem(path,
-                "Unsupported or invalid SearchTimer draft preview options.",
-                requestId, correlationId);
-            return true;
-        }
-        const auto preview = lookupSearchTimerPreview(draft);
-        if (preview.status != PublicSearchTimerPreviewStatus::ok ||
-            preview.backendId != authorizedBackendId ||
-            !preview.searchTimerId.empty() ||
-            preview.totalCount < 0 ||
-            preview.items.size() > draft.limit ||
-            static_cast<std::size_t>(preview.totalCount) <
-                preview.items.size())
-        {
-            response = serviceUnavailableProblem(
-                path, requestId, correlationId);
-            return true;
-        }
-        std::string body = "{\"backendId\":\"" +
-            jsonEscape(preview.backendId) +
-            "\",\"totalCount\":" + std::to_string(preview.totalCount) +
-            ",\"items\":[";
-        for (std::size_t i = 0U; i < preview.items.size(); ++i)
-        {
-            const auto& event = preview.items[i];
-            if (event.title.empty() || event.title.size() > 1024U ||
-                event.subtitle.size() > 2048U ||
-                event.channelId.size() > 256U ||
-                event.startTime.size() > 64U ||
-                event.endTime.size() > 64U)
-            {
-                response = serviceUnavailableProblem(
-                    path, requestId, correlationId);
-                return true;
-            }
-            if (i) body += ",";
-            body += "{\"title\":\"" + jsonEscape(event.title) +
-                "\",\"subtitle\":\"" + jsonEscape(event.subtitle) +
-                "\",\"channelId\":\"" + jsonEscape(event.channelId) +
-                "\",\"startTime\":\"" + jsonEscape(event.startTime) +
-                "\",\"endTime\":\"" + jsonEscape(event.endTime) + "\"}";
-        }
-        body += "],\"meta\":{\"partial\":false,\"epgInput\":\"ready\","
-            "\"evaluation\":\"epg-match-only\"}}";
-        response = jsonResponse(body, requestId, correlationId);
-        return true;
     }
 
     std::string previewSearchTimerId;
     if (publicSearchTimerPreviewPath(path, previewSearchTimerId))
     {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(path, requestId, correlationId);
+        if (tryHandleSearchTimerAssignmentReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendId, response))
             return true;
-        }
-        if (!validPublicSearchTimerId(previewSearchTimerId) ||
-            authorizedBackendId.empty())
-        {
-            response = invalidRequestProblem(path,
-                "A valid SearchTimer and authorized backend are required.",
-                requestId, correlationId);
-            return true;
-        }
-        PublicSearchTimerCollectionQuery query;
-        if (!parsePublicSearchTimerCollectionQuery(
-                requestTarget, authorizedBackendId, query) ||
-            !query.cursor.empty())
-        {
-            response = invalidRequestProblem(path,
-                "Invalid SearchTimer preview query.",
-                requestId, correlationId);
-            return true;
-        }
-        PublicSearchTimerPreviewRequest request;
-        request.backendId = authorizedBackendId;
-        request.searchTimerId = previewSearchTimerId;
-        request.limit = query.limit;
-        const auto preview = lookupSearchTimerPreview(request);
-        if (preview.status == PublicSearchTimerPreviewStatus::notFound)
-        {
-            response = notFoundProblem(path, requestId, correlationId);
-            return true;
-        }
-        if (preview.status != PublicSearchTimerPreviewStatus::ok ||
-            preview.backendId != authorizedBackendId ||
-            preview.searchTimerId != previewSearchTimerId ||
-            preview.totalCount < 0 ||
-            preview.items.size() > query.limit ||
-            static_cast<std::size_t>(preview.totalCount) <
-                preview.items.size())
-        {
-            response = serviceUnavailableProblem(
-                path, requestId, correlationId);
-            return true;
-        }
-        std::string body = "{\"backendId\":\"" +
-            jsonEscape(preview.backendId) +
-            "\",\"searchTimerId\":\"" +
-            jsonEscape(preview.searchTimerId) +
-            "\",\"totalCount\":" + std::to_string(preview.totalCount) +
-            ",\"items\":[";
-        for (std::size_t i = 0U; i < preview.items.size(); ++i)
-        {
-            const auto& event = preview.items[i];
-            if (event.title.empty() || event.title.size() > 1024U ||
-                event.subtitle.size() > 2048U ||
-                event.channelId.size() > 256U ||
-                event.startTime.size() > 64U ||
-                event.endTime.size() > 64U)
-            {
-                response = serviceUnavailableProblem(
-                    path, requestId, correlationId);
-                return true;
-            }
-            if (i) body += ",";
-            body += "{\"title\":\"" + jsonEscape(event.title) +
-                "\",\"subtitle\":\"" + jsonEscape(event.subtitle) +
-                "\",\"channelId\":\"" + jsonEscape(event.channelId) +
-                "\",\"startTime\":\"" + jsonEscape(event.startTime) +
-                "\",\"endTime\":\"" + jsonEscape(event.endTime) + "\"}";
-        }
-        body += "],\"meta\":{\"partial\":false,\"epgInput\":\"ready\"}}";
-        response = jsonResponse(body, requestId, correlationId);
-        return true;
     }
 
     if (path == PublicSearchTimerCollectionPath)
     {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(path, requestId, correlationId);
+        if (tryHandleSearchTimerAssignmentReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendId, response))
             return true;
-        }
-        if (authorizedBackendId.empty())
-        {
-            response = invalidRequestProblem(path,
-                "An authorized backend scope is required.",
-                requestId, correlationId);
-            return true;
-        }
-        PublicSearchTimerCollectionQuery query;
-        if (!parsePublicSearchTimerCollectionQuery(
-                requestTarget, authorizedBackendId, query))
-        {
-            response = invalidRequestProblem(path,
-                "The SearchTimer collection query is invalid.",
-                requestId, correlationId);
-            return true;
-        }
-        std::string afterId;
-        if (!query.cursor.empty() &&
-            !decodePublicSearchTimerCursor(
-                query.cursor, authorizedBackendId, afterId))
-        {
-            response = invalidRequestProblem(path,
-                "The SearchTimer cursor is invalid for this backend.",
-                requestId, correlationId);
-            return true;
-        }
-        PublicSearchTimerCollectionRequest request;
-        request.backendId = authorizedBackendId;
-        request.afterSearchTimerId = afterId;
-        request.limit = query.limit;
-        const PublicSearchTimerCollectionResult page =
-            lookupSearchTimerCollection(request);
-        switch (page.status)
-        {
-            case PublicSearchTimerCollectionStatus::ok:
-            {
-                if (page.items.size() > query.limit ||
-                    (page.hasMore && page.items.size() != query.limit))
-                {
-                    response = serviceUnavailableProblem(
-                        path, requestId, correlationId);
-                    return true;
-                }
-                std::string previous = afterId;
-                for (const auto& item : page.items)
-                {
-                    if (!validPublicSearchTimerId(item.searchTimerId) ||
-                        item.backendId != authorizedBackendId ||
-                        (!previous.empty() && item.searchTimerId <= previous) ||
-                        item.name.empty() || item.query.empty() ||
-                        item.name.size() > 1024U || item.query.size() > 1024U ||
-                        (item.state != "active" && item.state != "inactive" &&
-                            item.state != "unknown"))
-                    {
-                        response = serviceUnavailableProblem(
-                            path, requestId, correlationId);
-                        return true;
-                    }
-                    previous = item.searchTimerId;
-                }
-                response = publicSearchTimerCollectionResponse(
-                    page, query, authorizedBackendId, requestId, correlationId);
-                return true;
-            }
-            case PublicSearchTimerCollectionStatus::invalid:
-                response = invalidRequestProblem(path,
-                    "The SearchTimer request is invalid.",
-                    requestId, correlationId);
-                return true;
-            case PublicSearchTimerCollectionStatus::unavailable:
-                response = serviceUnavailableProblem(
-                    path, requestId, correlationId);
-                return true;
-        }
     }
 
     if (path == PublicTimerAssignmentCollectionPath)
     {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(
-                path, requestId, correlationId);
+        if (tryHandleSearchTimerAssignmentReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendId, response))
             return true;
-        }
-
-        if (authorizedBackendId.empty())
-        {
-            response = invalidRequestProblem(
-                path,
-                "An authorized backend scope is required.",
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        PublicTimerAssignmentCollectionQuery query;
-        if (!parsePublicTimerAssignmentCollectionQuery(
-                requestTarget, query))
-        {
-            response = invalidRequestProblem(
-                path,
-                "The TimerAssignment collection query is invalid.",
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        std::string afterTimerAssignmentId;
-        if (!query.cursor.empty() &&
-            !decodePublicTimerAssignmentCursor(
-                query.cursor,
-                authorizedBackendId,
-                afterTimerAssignmentId))
-        {
-            response = invalidRequestProblem(
-                path,
-                "The collection cursor is invalid for this backend or ordering.",
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        PublicTimerAssignmentCollectionRequest request;
-        request.backendId = authorizedBackendId;
-        request.afterTimerAssignmentId = afterTimerAssignmentId;
-        request.limit = query.limit;
-
-        const PublicTimerAssignmentCollectionResult page =
-            lookupTimerAssignmentCollection(request);
-
-        switch (page.status)
-        {
-            case PublicTimerAssignmentCollectionStatus::ok:
-            {
-                if (page.assignments.size() > query.limit ||
-                    (page.hasMore &&
-                     page.assignments.size() != query.limit))
-                {
-                    response = serviceUnavailableProblem(
-                        path, requestId, correlationId);
-                    return true;
-                }
-
-                std::string previous = afterTimerAssignmentId;
-                for (const PublicTimerAssignmentCollectionItem&
-                     assignment : page.assignments)
-                {
-                    if (assignment.timerAssignmentId.empty() ||
-                        assignment.backendId != authorizedBackendId ||
-                        (!previous.empty() &&
-                         assignment.timerAssignmentId <= previous))
-                    {
-                        response = serviceUnavailableProblem(
-                            path, requestId, correlationId);
-                        return true;
-                    }
-                    if (assignment.plannedPresent &&
-                        (assignment.plannedTitle.size() > 1024U ||
-                         assignment.plannedDay.size() > 160U ||
-                         assignment.plannedWeekdays.size() != 7U ||
-                         assignment.plannedStartTime.empty() ||
-                         assignment.plannedStartTime.size() > 4U ||
-                         assignment.plannedEndTime.empty() ||
-                         assignment.plannedEndTime.size() > 4U))
-                    {
-                        response = serviceUnavailableProblem(
-                            path, requestId, correlationId);
-                        return true;
-                    }
-                    previous = assignment.timerAssignmentId;
-                }
-
-                response =
-                    publicTimerAssignmentCollectionResponse(
-                        page,
-                        query,
-                        authorizedBackendId,
-                        requestId,
-                        correlationId);
-                return true;
-            }
-
-            case PublicTimerAssignmentCollectionStatus::invalid:
-                response = invalidRequestProblem(
-                    path,
-                    "The TimerAssignment collection request is invalid.",
-                    requestId,
-                    correlationId);
-                return true;
-
-            case PublicTimerAssignmentCollectionStatus::unavailable:
-                response = serviceUnavailableProblem(
-                    path, requestId, correlationId);
-                return true;
-        }
     }
 
     std::string timerAssignmentId;
-
     if (publicTimerAssignmentPath(
             path,
             timerAssignmentId))
     {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(
-                path,
-                requestId,
-                correlationId);
+        if (tryHandleSearchTimerAssignmentReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendId, response))
             return true;
-        }
-
-        if (authorizedBackendId.empty())
-        {
-            response = invalidRequestProblem(
-                path,
-                "An authorized backend scope is required.",
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        const PublicTimerAssignmentLookupResult found =
-            lookupTimerAssignment(
-                timerAssignmentId,
-                authorizedBackendId);
-
-        switch (found.status)
-        {
-            case PublicTimerAssignmentLookupStatus::ok:
-                if (found.assignment.timerAssignmentId !=
-                        timerAssignmentId ||
-                    found.assignment.backendId !=
-                        authorizedBackendId ||
-                    found.assignment.resourceRevision.empty())
-                {
-                    response = serviceUnavailableProblem(
-                        path,
-                        requestId,
-                        correlationId);
-                }
-                else
-                {
-                    response =
-                        publicTimerAssignmentResponse(
-                            found.assignment,
-                            path,
-                            requestId,
-                            correlationId,
-                            ifNoneMatch);
-                }
-                return true;
-
-            case PublicTimerAssignmentLookupStatus::invalid:
-                response = invalidRequestProblem(
-                    path,
-                    "The TimerAssignment identifier is invalid.",
-                    requestId,
-                    correlationId);
-                return true;
-
-            case PublicTimerAssignmentLookupStatus::notFound:
-                response = notFoundProblem(
-                    path,
-                    requestId,
-                    correlationId);
-                return true;
-
-            case PublicTimerAssignmentLookupStatus::unavailable:
-                response = serviceUnavailableProblem(
-                    path,
-                    requestId,
-                    correlationId);
-                return true;
-        }
     }
 
     if (path == PublicEpgTimerIntentPath)

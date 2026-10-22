@@ -1633,6 +1633,17 @@ public:
 private:
     PublicApiRuntime() = default;
 
+    // SearchTimer draft/resource previews, collection and TimerAssignment
+    // collection/item GET share the existing runtime callback authorities.
+    bool tryHandleSearchTimerAssignmentReadGet(
+        const std::string& requestTarget,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::string& ifNoneMatch,
+        const std::string& authorizedBackendId,
+        ApiResponse& response) const;
+
     // Original NativeTimer collection/item GET contract; no new timer owner.
     bool tryHandleNativeTimerReadGet(
         const std::string& requestTarget,
