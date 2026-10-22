@@ -161,6 +161,30 @@ Agent reconciliation across backends, validate the package/signature
 provenance, and handle rollback safely. None of these later package
 actions is activated by this checkpoint.
 
+## A4 combined global maintenance inspection checkpoint
+
+The internal `AddonMediaToolsMaintenanceInspection` now combines an
+exclusive, fixed-inode Media Import handler-lock probe with one coherent
+SQLite `BEGIN IMMEDIATE` snapshot of the actual Core freeze, all stored
+`rectools` desired-state rows, all unresolved `media.import` Operations
+(without the earlier 256-result ceiling), Agent command assignment states,
+missing persisted Agent results and remaining Media Import capability
+advertisements. Missing schemas/unsafe lock/unknown Agent states all
+deny. Root fixture CI exercises the genuine activation, operations, audit
+and freeze repositories plus **synthetic Agent schema rows** matching the
+actual Agent command owner. The separate server-side
+`MediaImportOperationFence` also now rejects frozen imports at final
+receipt/capability revalidation, not only at new reservation time.
+
+This diagnostic **does not** grant an install token, retain the lock after
+returning, prove that every runtime Agent owns the same state file, revoke
+current actor grants, validate Debian/PPA release provenance, or perform a
+rollback-safe package transaction. A future authorized maintenance owner
+must acquire and HOLD exclusive locks, ensure a durable freeze throughout
+the update, bind all database/Agent identities, independently validate
+signatures, and explicitly manage rollback/unfreeze. This is not a live
+host acceptance or package-installation release.
+
 ## Recommended execution order
 
 1. Finish A2's **no-dpkg default** and rejection regressions, using only
