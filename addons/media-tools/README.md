@@ -72,6 +72,35 @@ is exposed. The read-only no-unresolved-import inspection, stopped Agent,
 independently reviewed replacement bytes, package provenance and explicit
 host approval remain necessary before any real package maintenance.
 
+## A4 Agent child-lifetime drain fence (isolated source)
+
+The fixed root-controlled
+`/etc/vdr-suite/addon-approvals/rectools.import-running.lock` is a separate,
+persistent, empty, root-owned and non-writable-by-others **run-lock inode**.
+Before opting in, a source/manual or future Debian installation must
+independently stage it under the same reviewed installation root; neither
+the Agent nor a package action creates it on demand. Missing, symlinked,
+writable, replaced or otherwise unsafe lock evidence denies Media Import.
+
+A pinned Media Import executor holds a **shared advisory Linux flock**
+from BEFORE its final administrator/manifest/authorization/source rechecks,
+through `fork`, and across the imported executable's `fexecve` (including
+its ffmpeg descendants). The unprivileged Agent retains its own shared FD
+while waiting; the child explicitly inherits the lock FD even if its Agent
+parent crashes. A future maintenance owner must obtain and **hold** an
+exclusive lock on this exact protected inode throughout all changes to the
+approved binary and its associated metadata, but only AFTER globally freezing
+new imports, explicitly disabling the addon for all affected backends,
+draining canonical `MutationOperation` and durable Agent assignments,
+and independently verifying package provenance. An exclusive try-lock
+without those other checks is NOT a safety proof or an update permit.
+
+Disposable root-controlled CI fixtures exercise missing/writable/contended
+locks, the real unprivileged Agent, and an ELF child that retains the kernel
+lock after exec. No installer or package hooks currently acquire this lock;
+the release maintenance protocol and full host-specific acceptance remain
+unimplemented. No VDR data or actual recordings are modified by these tests.
+
 ## A6 work in progress
 
 The optional importer is a single C++17 implementation under this directory,
