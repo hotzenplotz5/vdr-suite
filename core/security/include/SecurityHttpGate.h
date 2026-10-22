@@ -726,10 +726,20 @@ public:
             path.size() > publicRecordingItemPrefix.size() &&
             path.find('/', publicRecordingItemPrefix.size()) ==
                 std::string::npos;
+        const std::size_t artworkSlash =
+            path.find("/artwork", publicRecordingItemPrefix.size());
+        const bool isPublicRecordingArtwork =
+            path.compare(0U, publicRecordingItemPrefix.size(),
+                publicRecordingItemPrefix) == 0 &&
+            artworkSlash != std::string::npos &&
+            (artworkSlash + 8U == path.size() ||
+             (artworkSlash + 8U < path.size() &&
+              path[artworkSlash + 8U] == '/'));
         const bool isPublicRecordingRead =
             request.method == "GET" &&
             (path == "/api/v1/recordings" ||
              isPublicRecordingDetail ||
+             isPublicRecordingArtwork ||
              path == "/api/v1/genres" ||
              path == "/api/v1/genres/recordings" ||
              path == "/api/v1/search/recordings");
@@ -889,6 +899,7 @@ public:
              isPublicChannelCollection ||
              isPublicEpgNowNext ||
              isPublicRecordingDetail ||
+             isPublicRecordingArtwork ||
              path == "/api/v1/native-timers" ||
              isPublicNativeTimerItem ||
              path == "/api/v1/events" ||

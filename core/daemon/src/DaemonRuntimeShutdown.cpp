@@ -55,6 +55,8 @@ void DaemonRuntime::shutdown()
 
     httpListener_.reset();
     httpServer_.reset();
+    PublicApiRuntime::instance().resetRecordingArtworkLookup();
+    recordingArtworkService_.reset();
     apiRouter_.reset();
     ManualRecordingMetadataApiRuntime::instance().reset();
     PublicApiRuntime::instance().resetTimerCreateAdmission();

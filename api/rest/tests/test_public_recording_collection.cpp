@@ -556,6 +556,72 @@ int main()
     assert(rejectedManual.statusCode == 503);
     runtime.resetRecordingDetailLookup();
 
+    // M2: Recording -> scoped artwork reference -> actual binary response.
+    const std::string artworkPath =
+        "/api/v1/recordings/rec_00000000000000000000000000000001/artwork";
+    const std::string opaqueArtworkId(32, 'a');
+    runtime.registerRecordingArtworkLookup(
+        [&opaqueArtworkId](const PublicRecordingArtworkRequest& request) {
+            PublicRecordingArtworkResult out;
+            if (request.backendId == "backend-down")
+                return out;
+            if (request.recordingId !=
+                "rec_00000000000000000000000000000001")
+            {
+                out.status = PublicRecordingArtworkStatus::notFound;
+                return out;
+            }
+            if (!request.artworkId.empty() &&
+                request.artworkId != opaqueArtworkId)
+            {
+                out.status = PublicRecordingArtworkStatus::notFound;
+                return out;
+            }
+            out.status = PublicRecordingArtworkStatus::ok;
+            out.items.push_back({opaqueArtworkId, "poster", 640, 960});
+            if (!request.artworkId.empty())
+            {
+                out.contentType = "image/png";
+                out.content = "PNGbytes";
+            }
+            return out;
+        });
+    ApiResponse artList;
+    assert(runtime.tryHandleGet(artworkPath + "?backendId=backend-a",
+        "actor:tv", "art-list", "", artList, "", "", {"backend-a"}));
+    assert(artList.statusCode == 200);
+    assert(artList.body.find("poster") != std::string::npos);
+    assert(artList.body.find("/artwork/" + opaqueArtworkId +
+        "?backendId=backend-a") != std::string::npos);
+    assert(artList.body.find("recordingPath") == std::string::npos);
+    ApiResponse artBytes;
+    assert(runtime.tryHandleGet(artworkPath + "/" + opaqueArtworkId +
+        "?backendId=backend-a", "actor:tv", "art-bytes", "",
+        artBytes, "", "", {"backend-a"}));
+    assert(artBytes.statusCode == 200);
+    assert(artBytes.contentType == "image/png");
+    assert(artBytes.body == "PNGbytes");
+    assert(artBytes.headers.at("Cache-Control") == "private, max-age=300");
+    assert(artBytes.headers.at("X-Content-Type-Options") == "nosniff");
+    ApiResponse artWrongBackend;
+    assert(runtime.tryHandleGet(artworkPath + "?backendId=backend-a",
+        "actor:tv", "art-cross", "", artWrongBackend, "", "",
+        {"backend-b"}));
+    assert(artWrongBackend.statusCode == 400);
+    ApiResponse artAnonymous;
+    assert(runtime.tryHandleGet(artworkPath + "?backendId=backend-a",
+        "", "art-anon", "", artAnonymous, "", "", {"backend-a"}));
+    assert(artAnonymous.statusCode == 401);
+    ApiResponse artMissing;
+    assert(runtime.tryHandleGet(artworkPath + "/" + std::string(32, 'b') +
+        "?backendId=backend-a", "actor:tv", "art-missing", "",
+        artMissing, "", "", {"backend-a"}));
+    assert(artMissing.statusCode == 404);
+    ApiResponse artBadId;
+    assert(runtime.tryHandleGet(artworkPath + "/%2e%2e?backendId=backend-a",
+        "actor:tv", "art-bad", "", artBadId, "", "", {"backend-a"}));
+    assert(artBadId.statusCode == 400);
+    runtime.resetRecordingArtworkLookup();
     runtime.resetSearchLookup();
     return 0;
 }
