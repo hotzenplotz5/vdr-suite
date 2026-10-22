@@ -54,9 +54,14 @@ fortlaufend benannte VDR-TS-Segmente ausschließlich lesend und meldet
 Paket-Synchronisations-, TEI-/Adaptations- und
 Kontinuitätsauffälligkeiten als JSON. `make addon-media-check` und
 `make test-addon-media-check` gehören zum getrennten Funktions-/Testpfad.
-Diese erste M2-Stufe führt noch keinen FFmpeg-Decoder-Scan durch und
-wird weder über die öffentliche API noch im produktiven Webfrontend
-angeboten. Das `addon.json`-Manifest bleibt absichtlich deaktiviert;
+M2.1 ergänzt nun `vdr-suite-media-check check-decode VIDEO_ROOT
+RECORDING_RELATIVE`: Die TS-Segmente werden als durchgehender Stream
+mit einem festgelegten `/usr/bin/ffmpeg` softwaredecodiert und nach
+maximal 900 Sekunden abgebrochen. Der JSON-Bericht unterscheidet
+Decoderfehler und unvollständige Prüfungen. Das Tool liest ausschließlich
+die Aufnahme und schreibt keine Ergebnisse, Logs oder Marker hinein.
+Die öffentliche API und das produktive Webfrontend sind noch nicht
+angeschlossen. Das `addon.json`-Manifest bleibt absichtlich deaktiviert;
 Paketierung und Freischaltung erst nach der produktiven Anbindung.
 
 ## C++ import prototype (not a live deployment)
