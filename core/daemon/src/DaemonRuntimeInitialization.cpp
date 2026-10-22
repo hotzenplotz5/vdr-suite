@@ -1401,6 +1401,72 @@ bool DaemonRuntime::initialize()
             if (!access.allowed || !backend || !backend->online)
                 return result;
 
+            // Idempotent replay MUST be evaluated against the ORIGINAL
+            // immutable request before observing a potentially changed
+            // native revision. Never claim a second CAS because the first
+            // request rotated sr_ or deleted its public identity.
+            std::string family = "searchtimer.native-cas.";
+            switch (request.action)
+            {
+                case PublicSearchTimerNativeAction::update:
+                    family += "update"; break;
+                case PublicSearchTimerNativeAction::activate:
+                    family += "activate"; break;
+                case PublicSearchTimerNativeAction::deactivate:
+                    family += "deactivate"; break;
+                case PublicSearchTimerNativeAction::remove:
+                    family += "delete"; break;
+            }
+            const auto existing =
+                mutationOperationRepository_->findByIdempotencyScope(
+                    request.actorRef, request.backendId, "SearchTimer",
+                    request.publicSearchTimerId, family,
+                    request.idempotencyKey);
+            if (existing.status ==
+                    vdrsuite::operations::MutationOperationRepositoryStatus::ok)
+            {
+                const auto payload =
+                    mutationOperationRepository_->findPayloadByOperationId(
+                        existing.operation.operationId);
+                const std::string expectedTail =
+                    std::to_string(request.query.size()) + ":" +
+                    request.query + "|";
+                const bool identical =
+                    existing.operation.expectedRevision == request.ifMatch &&
+                    existing.operation.actionFamily == family &&
+                    existing.operation.actorId == request.actorRef &&
+                    existing.operation.backendId == request.backendId &&
+                    payload.ok() &&
+                    payload.payload.payloadType == "searchtimer.native-cas" &&
+                    payload.payload.payloadVersion == 1U &&
+                    payload.payload.payloadFingerprint ==
+                        existing.operation.requestFingerprint &&
+                    payload.payload.payload.size() >= expectedTail.size() &&
+                    payload.payload.payload.compare(
+                        payload.payload.payload.size() - expectedTail.size(),
+                        expectedTail.size(), expectedTail) == 0;
+                if (!identical)
+                {
+                    result.status =
+                        PublicSearchTimerNativeMutationStatus::conflict;
+                    return result;
+                }
+                result.status = PublicSearchTimerNativeMutationStatus::replayed;
+                result.operation.operationId =
+                    existing.operation.operationId;
+                result.operation.state =
+                    vdrsuite::operations::mutationOperationStateName(
+                        existing.operation.state);
+                result.operation.backendId =
+                    existing.operation.backendId;
+                result.operation.resourceRevision =
+                    existing.operation.operationRevision;
+                return result;
+            }
+            if (existing.status !=
+                    vdrsuite::operations::MutationOperationRepositoryStatus::notFound)
+                return result;
+
             const std::int64_t now =
                 std::chrono::duration_cast<std::chrono::seconds>(
                     std::chrono::system_clock::now().time_since_epoch())
