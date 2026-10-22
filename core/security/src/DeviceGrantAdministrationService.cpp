@@ -128,11 +128,17 @@ bool DeviceGrantAdministrationService::supportedGrant(
         permission == "timers.delete" ||
         permission == "searchtimers.view" ||
         permission == "searchtimers.create" ||
+        permission == "searchtimers.modify" ||
+        permission == "searchtimers.execute" ||
+        permission == "searchtimers.delete" ||
         permission == "media.live.play" ||
         permission == "media.recording.play";
     // Native Timer CREATE, MODIFY and DELETE require a concrete backend.
     // Human grant vocabulary may allow '*', but Device mutation may not.
     if ((permission == "searchtimers.create" ||
+         permission == "searchtimers.modify" ||
+         permission == "searchtimers.execute" ||
+         permission == "searchtimers.delete" ||
          permission == "timers.create" ||
          permission == "timers.modify" ||
          permission == "timers.delete") &&
