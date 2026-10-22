@@ -1,0 +1,60 @@
+From: VDR-Suite S1 SearchTimer native persistence verification
+Subject: [PATCH 13/13] epgsearch: validate file flush and directory durability
+Upstream-base: 0118b4129c3601c04c7483f2fd04b604d4a2a980
+Apply-after: 0001-0012 in filename order
+
+VDR cSafeFile::Close() invokes fflush() and fsync() but does not check
+their return codes. This can acknowledge native generation/revision
+metadata as durable despite I/O errors. Make a checked flush and file
+fsync before Close(), then sync the parent directory after the successful
+rename. Never set native durable metadata flags if any check fails.
+A provider CAS encountering such an error reports outcome_unknown and
+never automatically retries. The existing non-native template writes are
+unchanged; an unsupported filesystem refuses native CAS durability.
+
+diff --git a/epgsearchext.c b/epgsearchext.c
+--- a/epgsearchext.c
++++ b/epgsearchext.c
+@@ -25,3 +25,5 @@
+ #include <set>
+ #include <stdio.h>
+ #include <string.h>
++#include <fcntl.h>
++#include <unistd.h>
+@@ -1699,5 +1699,34 @@
+-        if (!f.Close())
+-            result = false;
++        // VDR cSafeFile::Close() flushes and fsyncs but does not check
++        // those two return values. An unchecked I/O error is not a
++        // durable CAS success, even if rename() subsequently works.
++        if (this == &SearchExts && result &&
++            (fflush(f) != 0 || fsync(fileno(f)) != 0))
++            result = false;
++        const bool closed = f.Close();
++        if (!closed)
++            result = false;
++        if (this == &SearchExts && result) {
++            // After the temp-file rename, make the directory entry durable
++            // before attesting success. Otherwise a crash could restore
++            // the previous epgsearch.conf with the old native identities.
++            std::string parent = fileName ? fileName : "";
++            const size_t slash = parent.find_last_of('/');
++            if (slash == std::string::npos)
++                parent = ".";
++            else if (slash == 0)
++                parent = "/";
++            else
++                parent.resize(slash);
++            const int parentFd = open(parent.c_str(), O_RDONLY);
++            if (parentFd < 0)
++                result = false;
++            else {
++                if (fsync(parentFd) != 0)
++                    result = false;
++                if (close(parentFd) != 0)
++                    result = false;
++            }
++        }
+     } else
+         result = false;
+     if (result && this == &SearchExts)
