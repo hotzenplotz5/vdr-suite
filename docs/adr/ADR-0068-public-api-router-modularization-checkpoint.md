@@ -2,14 +2,16 @@
 
 ## Status
 
-**Accepted architecture and execution-order decision. Implementation deliberately deferred.**
+**Accepted architecture and execution-order decision. Source implementation tracked by PR #517; completion requires final CI and merge.**
 
 Date: 2026-10-21
 
 Decision authority: approved Public API v1 development sequence for `main`.
 
-This ADR **does not** mark the refactoring implemented, certify a runtime deployment,
-authorize unrelated API development or reopen completed Phase 69.
+This ADR by itself **does not** certify an implemented/merged refactoring, a runtime deployment,
+authorize unrelated API development or reopen completed Phase 69. See
+[the single-branch implementation record](../development/adr-0068-single-branch-read-dispatch-progress.md)
+and [the contract reconciliation](../development/adr-0068-public-legacy-contract-reconciliation.md).
 
 ## Context
 

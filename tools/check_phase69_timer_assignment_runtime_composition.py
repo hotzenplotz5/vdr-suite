@@ -7,6 +7,8 @@ ROOT = Path(__file__).resolve().parents[1]
 paths = {
     "public_h": ROOT / "api/rest/include/PublicApiRuntime.h",
     "public_cpp": ROOT / "api/rest/src/PublicApiRuntime.cpp",
+    "public_read_cpp": ROOT / "api/rest/src/PublicTimerReadLookupRuntime.cpp",
+    "rest_sources": ROOT / "mk/rest-sources.mk",
     "daemon_h": ROOT / "core/daemon/include/DaemonRuntime.h",
     "daemon_init": ROOT / "core/daemon/src/DaemonRuntimeInitialization.cpp",
     "daemon_shutdown": ROOT / "core/daemon/src/DaemonRuntimeShutdown.cpp",
@@ -32,11 +34,13 @@ required = {
         "timerAssignmentLookupConfigured",
         "lookupTimerAssignment",
     ],
-    "public_cpp": [
+    "public_read_cpp": [
         "PublicApiRuntime::registerTimerAssignmentLookup",
         "PublicApiRuntime::resetTimerAssignmentLookup",
         "PublicApiRuntime::lookupTimerAssignment",
+        "timerAssignmentLookupMutex_",
     ],
+    "rest_sources": ["api/rest/src/PublicTimerReadLookupRuntime.cpp"],
     "daemon_h": [
         "TimerAssignmentReadService.h",
         "TimerAssignmentRepository.h",
@@ -81,6 +85,7 @@ for label, tokens in required.items():
 for path in [
     "api/rest/include/PublicApiRuntime.h",
     "api/rest/src/PublicApiRuntime.cpp",
+    "api/rest/src/PublicTimerReadLookupRuntime.cpp",
     "api/rest/tests/test_public_timer_assignment_lookup.cpp",
     "core/daemon/include/DaemonRuntime.h",
     "core/daemon/src/DaemonRuntimeInitialization.cpp",

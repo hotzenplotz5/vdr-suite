@@ -47,11 +47,18 @@ int main()
     assert(ok.statusCode == 200);
     assert(ok.body.find("Tagesschau") != std::string::npos);
     assert(ok.body.find("resourceRevision") == std::string::npos);
+    assert(ok.headers.at("Cache-Control") == "no-store");
+    assert(ok.headers.at("X-Request-ID") == "request");
+    assert(ok.headers.at("X-Correlation-ID") == "correlation");
     const std::string tag = ok.headers.at("ETag");
     assert(tag == vdrsuite::http::publicStrongEntityTag(
         "native-timer-binding/1:bind:3:8"));
     const auto cached = get(uri, tag);
     assert(cached.statusCode == 304 && cached.body.empty());
+    assert(cached.headers.at("ETag") == tag);
+    assert(cached.headers.at("Cache-Control") == "no-store");
+    assert(cached.headers.at("X-Request-ID") == "request");
+    assert(cached.headers.at("X-Correlation-ID") == "correlation");
     assert(get(uri, "invalid").statusCode == 400);
     assert(get(uri, "", "").statusCode == 401);
     assert(get(uri, "", "viewer", "").statusCode == 400);

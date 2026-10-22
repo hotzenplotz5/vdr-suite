@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FILES = {
     "runtime_h": ROOT / "api/rest/include/PublicApiRuntime.h",
     "runtime_cpp": ROOT / "api/rest/src/PublicApiRuntime.cpp",
+    "identity_lifecycle": ROOT / "api/rest/src/PublicIdentityAdmissionLifecycle.cpp",
     "discovery_cpp": ROOT / "api/rest/src/PublicDiscoveryRoutes.cpp",
     "daemon_h": ROOT / "core/daemon/include/DaemonRuntime.h",
     "daemon_cpp": ROOT / "core/daemon/src/DaemonRuntimeInitialization.cpp",
@@ -82,7 +83,10 @@ def main():
         "accountCollectionLookupConfigured()",
         "public-api.accounts-read",
     ):
-        require("discovery_cpp" if marker == "public-api.accounts-read" else "runtime_cpp", marker)
+        owner = ("discovery_cpp" if marker == "public-api.accounts-read" else
+                 "identity_lifecycle" if marker == "accountCollectionLookupConfigured()" else
+                 "runtime_cpp")
+        require(owner, marker)
 
     for forbidden in ("sqlite3", "HumanAccountRepository"):
         forbid("runtime_h", forbidden)
