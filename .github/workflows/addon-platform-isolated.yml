@@ -142,7 +142,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           sudo apt-get update
-          sudo apt-get install -y libcurl4-openssl-dev libssl-dev
+          sudo apt-get install -y libcurl4-openssl-dev libssl-dev ffmpeg
 
       - name: Run targeted installed registry and Core provider tests
         shell: bash
@@ -168,6 +168,7 @@ jobs:
             test ! -e "modules/rectools/$name"
           done
           make test-addon-media-import
+          make test-addon-media-import-ffmpeg
           make addon-media-import
           make test-addon-media-shrink
           make addon-media-shrink
