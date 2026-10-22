@@ -19,6 +19,7 @@ const backend = 'local';
 const id = 'rec_' + 'a'.repeat(32);
 const checkId = 'chk_' + 'b'.repeat(32);
 const requests = [];
+let ambiguousRecordings = false;
 function response(status, payload) {
   return {status, ok: status >= 200 && status < 300,
     headers: {get() {return null;}},
@@ -37,11 +38,19 @@ const api = clientFactory.createClient({
     if (url.endsWith('/media-checks'))
       return Promise.resolve(response(202, {checkId, backendId: backend,
         state: 'running'}));
-    if (url.startsWith('/api/v1/recordings?'))
-      return Promise.resolve(response(200, {items: [{
+    if (url.startsWith('/api/v1/recordings?')) {
+      const items = [{
         recordingId: id, backendId: backend, recordedAt: '2026-10-22T10:00:00Z',
         title: 'Beispiel'
-      }], page: {hasMore: false}}));
+      }];
+      if (ambiguousRecordings) items.push({
+        recordingId: 'rec_' + 'c'.repeat(32), backendId: backend,
+        recordedAt: '2026-10-22T10:00:00Z', title: 'Anderer Titel'
+      });
+      return Promise.resolve(response(200, {
+        items, page: {hasMore: false}
+      }));
+    }
     throw Error('Unexpected URL ' + url);
   }, credentials: 'same-origin'
 });
@@ -79,6 +88,19 @@ const api = clientFactory.createClient({
   const resolved = await functions.resolveMediaCheckIdentity(
     api, {title: 'Beispiel', startTime: '2026-10-22T10:00:00Z'}, backend);
   assert.strictEqual(resolved, id);
+  const normalizedTitle = await functions.resolveMediaCheckIdentity(
+    api, {title: 'Beispiel (Metadaten)', startTime: '2026-10-22T10:00:00Z'},
+    backend);
+  assert.strictEqual(normalizedTitle, id);
+  ambiguousRecordings = true;
+  const exactTitle = await functions.resolveMediaCheckIdentity(
+    api, {title: 'Beispiel', startTime: '2026-10-22T10:00:00Z'}, backend);
+  assert.strictEqual(exactTitle, id);
+  await assert.rejects(function () {
+    return functions.resolveMediaCheckIdentity(api, {
+      title: 'Kein Treffer', startTime: '2026-10-22T10:00:00Z'
+    }, backend);
+  });
   assert(functions.mediaCheckSummary({status: 'errors', segments: 2,
     segmentReports: [{name: '00002.ts', status: 'errors'}]})
     .includes('00002.ts'));

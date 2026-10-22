@@ -365,13 +365,15 @@
         cache: 'no-store'}).then(function (response) {
         if (!response || !Array.isArray(response.items) || !response.page)
           throw new Error('Ungültige Antwort der Aufnahme-API.');
+        // Legacy Recordings 2 can display a decoded or metadata-enriched
+        // title. Preserve a unique timestamp fallback instead of rejecting
+        // the same recording merely because its public title differs.
         matches = matches.concat(response.items.filter(function (item) {
           return item && item.backendId === backendId &&
-            item.recordedAt === recordedAt &&
-            (!expectedTitle || item.title === expectedTitle);
+            item.recordedAt === recordedAt;
         }));
-        if (matches.length > 1) throw new Error(
-          'Mehrere Aufnahmen passen zur Auswahl; keine Prüfung gestartet.');
+        if (matches.length > 100) throw new Error(
+          'Zu viele Aufnahmen mit gleichem Aufnahmezeitpunkt.');
         if (response.page.hasMore) {
           if (!/^rc1_[a-f0-9]+$/.test(response.page.nextCursor || '') ||
               response.page.nextCursor === cursor)
@@ -379,10 +381,14 @@
           cursor = response.page.nextCursor;
           return page();
         }
-        if (matches.length !== 1 ||
-            !/^rec_[0-9a-f]{32}$/.test(matches[0].recordingId))
+        const byTitle = expectedTitle ? matches.filter(function (item) {
+          return item.title === expectedTitle;
+        }) : [];
+        const candidates = byTitle.length ? byTitle : matches;
+        if (candidates.length !== 1 ||
+            !/^rec_[0-9a-f]{32}$/.test(candidates[0].recordingId))
           throw new Error('Kanonische Aufnahme-ID nicht eindeutig gefunden.');
-        return matches[0].recordingId;
+        return candidates[0].recordingId;
       });
     }
     return page();
@@ -472,7 +478,7 @@
           const checkId = created.checkId;
           let reads = 0;
           function poll() {
-            if (!panel.parentNode || reads++ >= 500) {
+            if (root.isConnected === false || !panel.parentNode || reads++ >= 500) {
               status.textContent = 'Statusabfrage beendet. Serverprüfung kann weiterlaufen.';
               return;
             }
