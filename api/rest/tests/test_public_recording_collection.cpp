@@ -403,6 +403,7 @@ int main()
             result.item.subtitle = "VDR: Untertitel";
             result.item.epgTitle = "EPG";
             result.item.epgDescription = "EPG description";
+            result.item.providerTitle = "Scraped title";
             result.item.originalTitle = "Original";
             result.item.seriesTitle = "Series";
             result.item.episodeTitle = "Episode";
@@ -422,6 +423,8 @@ int main()
     assert(detail.body.find("\"metadata\":{\"state\":\"available\"") !=
         std::string::npos);
     assert(detail.body.find("\"seasonNumber\":3") != std::string::npos);
+    assert(detail.body.find("\"providerTitle\":\"Scraped title\"") !=
+        std::string::npos);
     assert(detail.body.find("\"episodeNumber\":7") != std::string::npos);
     assert(detail.body.find("\"subtitle\":\"VDR: Untertitel\"") !=
         std::string::npos);
