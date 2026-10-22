@@ -10724,6 +10724,115 @@ bool PublicApiRuntime::tryHandleTimerWorkflowPost(
 {
     const std::string path = requestPath(requestTarget);
     std::string timerAssignmentId;
+    std::string mutationSearchId;
+    if (publicSearchTimerNativeSubresourcePath(
+            path, "/mutations", mutationSearchId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (authorizedBackendId.empty() ||
+            requestTarget != path + "?backend=" + authorizedBackendId)
+        {
+            response = invalidRequestProblem(path,
+                "Exactly one authorized backend is required.",
+                requestId, correlationId);
+            return true;
+        }
+        if (!applicationJsonContentType(contentType))
+        {
+            response = problemResponse(415, "unsupported_media_type",
+                "Unsupported media type", "JSON required.",
+                path, requestId, correlationId);
+            return true;
+        }
+        if (body.empty() || body.size() > 1024U ||
+            !JsonSyntaxValidator(body).valid())
+        {
+            response = invalidRequestProblem(path,
+                "Invalid SearchTimer mutation JSON.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicSearchTimerNativeMutationRequest request;
+        if (!parsePublicSearchTimerNativeMutationBody(body, request))
+        {
+            response = problemResponse(422, "validation_error",
+                "Validation failed", "Invalid guarded SearchTimer mutation.",
+                path, requestId, correlationId);
+            return true;
+        }
+        if (!publicIdempotencyKeyValid(idempotencyKey) ||
+            ifMatch.size() != 37U || ifMatch.front() != '"' ||
+            ifMatch.back() != '"' ||
+            ifMatch.compare(1U, 3U, "sr_") != 0)
+        {
+            response = invalidRequestProblem(path,
+                "Valid Idempotency-Key and quoted native revision If-Match required.",
+                requestId, correlationId);
+            return true;
+        }
+        request.actorRef = actorRef;
+        request.backendId = authorizedBackendId;
+        request.publicSearchTimerId = mutationSearchId;
+        request.idempotencyKey = idempotencyKey;
+        request.ifMatch = ifMatch.substr(1U, ifMatch.size() - 2U);
+        SearchTimerNativeMutation handler;
+        {
+            std::lock_guard<std::mutex> lock(searchTimerNativeMutationMutex_);
+            handler = searchTimerNativeMutation_;
+        }
+        if (!handler)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        const auto outcome = handler(request);
+        switch (outcome.status)
+        {
+            case PublicSearchTimerNativeMutationStatus::accepted:
+            case PublicSearchTimerNativeMutationStatus::replayed:
+            {
+                const auto& op = outcome.operation;
+                if (op.operationId.empty() || op.state.empty() ||
+                    op.backendId != authorizedBackendId ||
+                    op.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                const std::string operationPath =
+                    std::string(PublicOperationPrefix) + op.operationId;
+                response = publicOperationResponse(
+                    op, operationPath, requestId, correlationId, "");
+                response.statusCode = 202;
+                response.headers["Location"] = operationPath;
+                response.headers["Cache-Control"] = "no-store";
+                return true;
+            }
+            case PublicSearchTimerNativeMutationStatus::invalid:
+                response = problemResponse(422, "validation_error",
+                    "Validation failed", "Guarded mutation invalid.",
+                    path, requestId, correlationId);
+                return true;
+            case PublicSearchTimerNativeMutationStatus::conflict:
+                response = problemResponse(409, "version_conflict",
+                    "Conflict", "Native revision or mutation conflict.",
+                    path, requestId, correlationId);
+                return true;
+            case PublicSearchTimerNativeMutationStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicSearchTimerNativeMutationStatus::unavailable:
+                response = serviceUnavailableProblem(path, requestId, correlationId);
+                return true;
+        }
+        response = serviceUnavailableProblem(path, requestId, correlationId);
+        return true;
+    }
 
     if (path == PublicSearchTimerCollectionPath)
     {
