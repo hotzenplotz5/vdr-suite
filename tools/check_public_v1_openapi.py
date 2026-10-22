@@ -50,6 +50,8 @@ AUDITED = {
     "/api/v1/search-timers": {"get": "if (path == PublicSearchTimerCollectionPath)", "post": "if (path == PublicSearchTimerCollectionPath)"},
     "/api/v1/search-timers/draft-preview": {"get": "if (path == PublicSearchTimerDraftPreviewPath)"},
     "/api/v1/search-timers/{searchTimerId}/preview": {"get": "if (publicSearchTimerPreviewPath(path, previewSearchTimerId))"},
+    "/api/v1/search-timers/{searchTimerId}/version": {"get": "if (publicSearchTimerNativeSubresourcePath("},
+    "/api/v1/search-timers/{searchTimerId}/mutations": {"post": "if (publicSearchTimerNativeSubresourcePath("},
     "/api/v1/timer-assignments/{timerAssignmentId}": {
         "get": "if (publicTimerAssignmentPath(",
         "post": "if (publicTimerAssignmentPath(",
@@ -175,6 +177,7 @@ NO_ACTOR = {
 }
 
 IF_MATCH = {
+    ("post", "/api/v1/search-timers/{searchTimerId}/mutations"),
     ("post", "/api/v1/native-timers/{timerId}/modifications"),
     ("delete", "/api/v1/native-timers/{timerId}"),
     ("post", "/api/v1/epg/timer-intents"),
@@ -195,6 +198,7 @@ IDEMPOTENCY = {
     ("delete", "/api/v1/native-timers/{timerId}"),
     ("post", "/api/v1/epg/timer-intents"),
     ("post", "/api/v1/search-timers"),
+    ("post", "/api/v1/search-timers/{searchTimerId}/mutations"),
     ("post", "/api/v1/accounts"),
     ("post", "/api/v1/timer-assignments/{timerAssignmentId}"),
 }
