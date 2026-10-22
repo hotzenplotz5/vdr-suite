@@ -93,7 +93,9 @@ struct FakeProcess final : ProcessRunner {
             if (failIndex) return {1, ""};
             assert(args.size() == 2 && args[1].rfind("--genindex=", 0) == 0);
             const fs::path folder(args[1].substr(11));
-            assert(fs::exists(folder / "info"));
+            assert(folder.extension() == ".rec");
+            assert(fs::exists(folder / "00001.ts") &&
+                   fs::exists(folder / "info"));
             std::ofstream(folder / "index") << "hevc-index";
             return {0, ""};
         }

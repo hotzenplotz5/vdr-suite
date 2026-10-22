@@ -105,7 +105,11 @@ struct FakeProcess : ProcessRunner {
             if (failIndex) return {1, ""};
             const std::string param = argv[1];
             assert(param.rfind("--genindex=", 0) == 0);
-            std::ofstream(fs::path(param.substr(11)) / "index") << "synthetic index";
+            const auto recording = fs::path(param.substr(11));
+            assert(recording.extension() == ".rec");
+            assert(fs::exists(recording / "00001.ts") &&
+                   fs::exists(recording / "info"));
+            std::ofstream(recording / "index") << "synthetic index";
             return {0, ""};
         }
         throw std::runtime_error("unexpected native process");
