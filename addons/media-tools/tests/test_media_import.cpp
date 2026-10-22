@@ -101,6 +101,13 @@ void mustFail(F&& f) {
 int main() {
     int checks = 0;
     {
+        // An unresponsive external tool must not hang the import indefinitely.
+        NativeProcessRunner runner(std::chrono::seconds(1));
+        const auto result = runner.run({"/bin/sleep", "5"}, false);
+        assert(result.exitCode != 0);
+        ++checks;
+    }
+    {
         Fixture f;
         const auto plan = inspectImport(f.request());
         assert(plan.title == "Sample" && plan.sourceBytes > 0);

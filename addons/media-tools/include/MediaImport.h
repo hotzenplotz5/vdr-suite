@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -43,7 +44,11 @@ struct ProcessRunner {
 
 class NativeProcessRunner final : public ProcessRunner {
 public:
+    explicit NativeProcessRunner(
+        std::chrono::seconds maximum = std::chrono::seconds(540));
     ProcessResult run(const std::vector<std::string>& argv, bool captureOutput) override;
+private:
+    std::chrono::seconds maximum_;
 };
 
 ImportPlan inspectImport(const ImportRequest& request);

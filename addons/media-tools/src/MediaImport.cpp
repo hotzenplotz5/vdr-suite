@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <poll.h>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -502,18 +503,29 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
     return destination;
 }
 
-ProcessResult NativeProcessRunner::run(const std::vector<std::string>& args, bool captureOutput) {
+NativeProcessRunner::NativeProcessRunner(std::chrono::seconds maximum)
+    : maximum_(maximum) {
+    require(maximum_.count() >= 1 && maximum_.count() <= 540,
+            "invalid native media command deadline");
+}
+
+ProcessResult NativeProcessRunner::run(const std::vector<std::string>& args,
+                                       bool captureOutput) {
     require(!args.empty() && !args[0].empty() && args[0][0] == '/',
             "absolute external command required");
     int pipefd[2]{-1, -1};
-    if (captureOutput) require(::pipe2(pipefd, O_CLOEXEC) == 0, "pipe failed");
-    const auto pid = ::fork();
+    if (captureOutput)
+        require(::pipe2(pipefd, O_CLOEXEC | O_NONBLOCK) == 0,
+                "media command pipe failed");
+    const pid_t pid = ::fork();
     if (pid < 0) {
         if (captureOutput) { ::close(pipefd[0]); ::close(pipefd[1]); }
         throw std::runtime_error("fork failed");
     }
     if (pid == 0) {
-        const int nullfd = ::open("/dev/null", O_RDWR);
+        // The child remains in the Agent handler's process group: the
+        // canonical Agent deadline can terminate it even if this parent dies.
+        const int nullfd = ::open("/dev/null", O_RDWR | O_CLOEXEC);
         if (nullfd < 0) _exit(127);
         ::dup2(nullfd, STDIN_FILENO);
         ::dup2(nullfd, STDERR_FILENO);
@@ -526,34 +538,58 @@ ProcessResult NativeProcessRunner::run(const std::vector<std::string>& args, boo
         }
         ::close(nullfd);
         std::vector<char*> argv;
-        for (const auto& arg : args) argv.push_back(const_cast<char*>(arg.c_str()));
+        for (const auto& arg : args)
+            argv.push_back(const_cast<char*>(arg.c_str()));
         argv.push_back(nullptr);
         ::execv(argv[0], argv.data());
         _exit(127);
     }
+    if (captureOutput) ::close(pipefd[1]);
     ProcessResult result;
-    if (captureOutput) {
-        ::close(pipefd[1]);
-        std::array<char, 256> chunk{};
-        while (true) {
-            const ssize_t bytes = ::read(pipefd[0], chunk.data(), chunk.size());
-            if (bytes == 0) break;
-            if (bytes < 0) {
-                if (errno == EINTR) continue;
-                break;
-            }
-            if (result.output.size() + static_cast<std::size_t>(bytes) <= kMaxProcessOutput)
-                result.output.append(chunk.data(), static_cast<std::size_t>(bytes));
-            else
-                result.output = "probe-output-too-long";
-        }
-        ::close(pipefd[0]);
-    }
     int status = 0;
-    while (::waitpid(pid, &status, 0) < 0) {
-        if (errno != EINTR) throw std::runtime_error("waitpid failed");
+    bool exited = false;
+    bool eof = !captureOutput;
+    bool failed = false;
+    const auto limit = std::chrono::steady_clock::now() + maximum_;
+    while (!exited || !eof) {
+        if (!exited) {
+            const pid_t waited = ::waitpid(pid, &status, WNOHANG);
+            if (waited == pid) exited = true;
+            else if (waited < 0 && errno != EINTR) { failed = true; break; }
+        }
+        if (captureOutput && !eof) {
+            std::array<char, 512> buffer{};
+            while (true) {
+                const ssize_t count = ::read(pipefd[0], buffer.data(), buffer.size());
+                if (count > 0) {
+                    if (result.output.size() +
+                        static_cast<std::size_t>(count) <= kMaxProcessOutput)
+                        result.output.append(buffer.data(), static_cast<std::size_t>(count));
+                    else failed = true;
+                } else if (count == 0) {
+                    eof = true;
+                    break;
+                } else if (errno == EINTR) continue;
+                else if (errno == EAGAIN || errno == EWOULDBLOCK) break;
+                else { failed = true; break; }
+            }
+        }
+        if (failed || std::chrono::steady_clock::now() >= limit) {
+            failed = true;
+            break;
+        }
+        if (exited && eof) break;
+        struct pollfd readFd{
+            captureOutput && !eof ? pipefd[0] : -1, POLLIN, 0};
+        (void)::poll(&readFd, 1, 25);
     }
-    result.exitCode = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+    if (!exited) {
+        (void)::kill(pid, SIGKILL);
+        while (::waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
+    }
+    if (captureOutput) ::close(pipefd[0]);
+    result.exitCode = !failed && WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+    if (failed) result.output = "external media command failed or timed out";
     return result;
 }
 
