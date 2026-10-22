@@ -408,6 +408,9 @@ int main()
             result.item.seriesTitle = "Series";
             result.item.episodeTitle = "Episode";
             result.item.genreText = "Drama";
+            // A manual Genre assignment may exist without a selected
+            // manual metadata entity.
+            result.item.manualGenreId = "film.drama";
             result.item.seasonNumber = 3;
             result.item.episodeNumber = 7;
             return result;
@@ -426,6 +429,8 @@ int main()
     assert(detail.body.find("\"providerTitle\":\"Scraped title\"") !=
         std::string::npos);
     assert(detail.body.find("\"episodeNumber\":7") != std::string::npos);
+    assert(detail.body.find("\"manualGenreId\":\"film.drama\"") !=
+        std::string::npos);
     assert(detail.body.find("\"subtitle\":\"VDR: Untertitel\"") !=
         std::string::npos);
     assert(detail.body.find("\"recordingId\":"
@@ -494,6 +499,7 @@ int main()
             selected.item.contentKind = "series-episode";
             selected.item.providerTitle = "Manual episode";
             selected.item.overview = "Manually selected synopsis";
+            selected.item.manualGenreId = "film.documentary";
             selected.item.seasonNumber = 2;
             selected.item.episodeNumber = 5;
             selected.item.manualAssignmentId =
@@ -514,6 +520,8 @@ int main()
     assert(manualDetail.body.find("\"overview\":\"Manually selected synopsis\"") !=
         std::string::npos);
     assert(manualDetail.body.find("\"manualRevision\":4") !=
+        std::string::npos);
+    assert(manualDetail.body.find("\"manualGenreId\":\"film.documentary\"") !=
         std::string::npos);
     assert(manualDetail.body.find("\"manualAssignmentId\":\"mdasg_") !=
         std::string::npos);
