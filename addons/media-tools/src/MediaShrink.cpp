@@ -594,6 +594,10 @@ fs::path publishShrinkCandidate(const ShrinkPlan& plan,
         fs::remove(destinationParent, error);
         throw std::runtime_error("HEVC candidate cannot be exposed to VDR");
     }
+    // The private candidate parent should now be empty; a non-empty or
+    // unexpectedly replaced parent is never recursively removed.
+    std::error_code cleanupError;
+    fs::remove(privateParent, cleanupError);
     return destination;
 }
 
