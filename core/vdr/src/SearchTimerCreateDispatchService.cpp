@@ -134,6 +134,13 @@ SearchTimerCreateDispatchResult SearchTimerCreateDispatchService::dispatchOnce(
             operation.expectedResourceFingerprint)
         return result(SearchTimerCreateDispatchStatus::unavailable, operation);
 
+    // Previously admitted Public-v1 CREATE operations can survive daemon
+    // upgrades. Never let a queued pre-staging active payload bypass the
+    // new explicit-inactive HTTP and daemon admission contract. Keep the
+    // durable operation intact for audit; do not touch the provider.
+    if (payload.active)
+        return result(SearchTimerCreateDispatchStatus::denied, operation);
+
     const SearchTimerCreateRequest command = commandFor(operation, payload);
     std::unordered_set<std::string> existingIds;
     // Before dispatch, get an authoritative, unpaged backend snapshot.
