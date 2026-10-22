@@ -144,7 +144,9 @@ int main() {
         auto request = f.request();
         fs::rename(f.source, f.input / "Sample.webm");
         request.sourceFile = f.input / "Sample.webm";
-        mustFail([&] { inspectImport(request); });
+        const auto accepted = inspectImport(request);
+        assert(accepted.sourceFile == request.sourceFile &&
+               accepted.title == "Sample");
         ++checks;
     }
     {
