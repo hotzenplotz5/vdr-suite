@@ -38,14 +38,20 @@ public:
     MediaToolsImportRunLock(const MediaToolsImportRunLock&) = delete;
     MediaToolsImportRunLock& operator=(const MediaToolsImportRunLock&) = delete;
     MediaToolsImportRunLock(MediaToolsImportRunLock&& other) noexcept
-        : fd_(std::exchange(other.fd_, -1)) {}
+        : fd_(std::exchange(other.fd_, -1)), mode_(other.mode_) {}
     MediaToolsImportRunLock& operator=(MediaToolsImportRunLock&& other) noexcept
     {
         if (this != &other) {
             if (fd_ >= 0) ::close(fd_);
             fd_ = std::exchange(other.fd_, -1);
+            mode_ = other.mode_;
         }
         return *this;
+    }
+
+    bool ownsExclusiveLock() const noexcept
+    {
+        return fd_ >= 0 && mode_ == Mode::exclusiveMaintenance;
     }
 
     static std::optional<MediaToolsImportRunLock> tryAcquire(
@@ -89,7 +95,7 @@ public:
             before.st_ino != named.st_ino ||
             !safeDirectory(directory.fd))
             return std::nullopt;
-        return MediaToolsImportRunLock(std::exchange(guard.fd, -1));
+        return MediaToolsImportRunLock(std::exchange(guard.fd, -1), mode);
     }
 
     // Child-only: retain the shared open-file-description lock through
@@ -104,8 +110,10 @@ public:
     }
 
 private:
-    explicit MediaToolsImportRunLock(int fd) : fd_(fd) {}
+    explicit MediaToolsImportRunLock(int fd, Mode mode)
+        : fd_(fd), mode_(mode) {}
     int fd_ = -1;
+    Mode mode_ = Mode::sharedExecution;
 };
 
 } // namespace vdrsuite::mediatools
