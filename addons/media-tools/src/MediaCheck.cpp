@@ -373,6 +373,9 @@ std::string MediaCheckReport::status() const
     if (syncErrors || transportErrors || adaptationErrors || trailingBytes ||
         sidecarErrors)
         return "errors";
+    // Probe failures are an incomplete analysis, never verified "ok".
+    // Preserve positive structural error findings over probe unavailability.
+    if (ffprobe && ffprobe->status != "ok") return "incomplete";
     if (continuityWarnings || discontinuities || !indexPresent ||
         sidecarWarnings)
         return "warnings";
