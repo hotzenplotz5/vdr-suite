@@ -60,6 +60,29 @@ Before exposing Public-v1 modifications:
    classified error; **never fall back to the legacy unversioned endpoint**
    or silently turn 503 into an empty inventory.
 
+## Versioned native CAS policy seam (mock-only)
+
+`core/vdr/include/SearchTimerNativeCasContract.h` and its matching
+implementation now define a non-HTTP native provider interface and an
+explicit fail-closed entry point for UPDATE / ACTIVATE / DEACTIVATE /
+DELETE. The interface requires a *native* `supportsAtomicGenerationCasV1`
+capability and an atomic reply carrying the same immutable rule generation
+and an authoritative new revision (or exact removal). It rejects malformed
+public IDs, numeric IDs, generations, revisions, durable-operation claims,
+operator confirmation and backend authorization **before any provider call**.
+A native transport exception or an unproven post-write acknowledgement is
+classified as `outcomeUnknown` and is never retried within the call.
+
+**This is an internal protocol prerequisite only**, tested with a fake
+provider. It is not bound to a public endpoint, is not backed by a native
+CAS-capable epgsearch provider and does not prove persistent idempotency by
+itself. The calling runtime must first verify a durable operation CAS,
+its actor and payload fingerprint, and the epgsearch plugin itself must
+supply the atomic generation/revision proof. Old SVDRP `EDIS`/`MODS`/
+`DELS`, RESTfulAPI numeric-ID writes and the older epgsearch Services
+interface **must never** implement or advertise this interface. Public-v1
+mutation routes remain closed pending Issue #518.
+
 ## Required regression matrix
 
 - Native ID `0` deleted/reused for a distinct and an **identical** rule.
