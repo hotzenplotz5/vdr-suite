@@ -55,6 +55,7 @@ let allow = true;
 let sourcesStatus = 200;
 let state = 'dispatching';
 let submitMode = 'accepted';
+let delayedSubmit = null;
 let operationReads = 0;
 let submits = 0;
 let counter = 0;
@@ -85,6 +86,12 @@ function transport(url, options) {
   }
   if (path.endsWith('/media-imports')) {
     ++submits;
+    if (submitMode === 'deferred') {
+      return new Promise(function (resolve, reject) {
+        assert.strictEqual(delayedSubmit, null, 'only one outstanding import POST');
+        delayedSubmit = {resolve, reject};
+      });
+    }
     if (submitMode === 'uncertain') return Promise.reject(new Error('lost response'));
     if (submitMode === 'expired') return Promise.resolve(reply(422, {detail: 'Selection expired'}));
     if (submitMode === 'denied') return Promise.resolve(reply(403, {detail: 'Permission denied'}));
@@ -273,6 +280,87 @@ function publishHomeResume() {}
   await settle();
   assert(findClass(mount, 'status').textContent.includes('abgelaufen'));
   assert.strictEqual(findClass(mount, 'media-import-start').disabled, true);
+
+  // A pending POST must survive a real production tab/owner replacement.
+  sourcesStatus = 200;
+  submitMode = 'deferred';
+  await findClass(mount, 'media-import-reload').listeners.click();
+  await settle();
+  select = findClass(mount, 'media-import-source');
+  select.value = SOURCE;
+  select.listeners.change();
+  const acceptedResult = findClass(mount, 'media-import-start').listeners.click();
+  await settle();
+  assert(delayedSubmit, 'POST must have reached the transport');
+  const acceptedPostCount = submits;
+  context.selectModule('overview');
+  context.selectModule('media-import');
+  await settle();
+  assert(findClass(mount, 'status').textContent.includes('läuft'));
+  assert.strictEqual(findClass(mount, 'media-import-start').disabled, true);
+  delayedSubmit.resolve(reply(202, {
+    operationId: OP, backendId: 'backend-a', state: 'dispatching'
+  }, {'Location': '/api/v1/operations/' + OP}));
+  delayedSubmit = null;
+  await acceptedResult;
+  await settle();
+  assert.strictEqual(submits, acceptedPostCount, 'owner handoff must not repost');
+  assert(findClass(mount, 'media-import-operation').textContent.includes(OP),
+    'late accepted POST must reconcile into the currently mounted owner');
+  assert.strictEqual(findClass(mount, 'media-import-refresh').disabled, false);
+  assert.strictEqual(findClass(mount, 'media-import-new').hidden, false);
+  await findClass(mount, 'media-import-new').listeners.click();
+  await settle();
+
+  // A definite HTTP denial after the same handoff must release the stale lock.
+  select = findClass(mount, 'media-import-source');
+  select.value = SOURCE;
+  select.listeners.change();
+  const deniedResult = findClass(mount, 'media-import-start').listeners.click();
+  await settle();
+  assert(delayedSubmit);
+  context.selectModule('overview');
+  context.selectModule('media-import');
+  await settle();
+  delayedSubmit.resolve(reply(422, {detail: 'Selection expired'}));
+  delayedSubmit = null;
+  await deniedResult;
+  await settle();
+  assert(findClass(mount, 'status').textContent.includes('abgelaufen'));
+  assert.strictEqual(findClass(mount, 'media-import-reload').disabled, false);
+  assert.strictEqual(findClass(mount, 'media-import-refresh').hidden, true);
+  assert.strictEqual(findClass(mount, 'media-import-operation').textContent, '');
+
+  // An indeterminate POST remains blocked after handoff (never auto-retry).
+  await findClass(mount, 'media-import-reload').listeners.click();
+  await settle();
+  select = findClass(mount, 'media-import-source');
+  select.value = SOURCE;
+  select.listeners.change();
+  const uncertainResult = findClass(mount, 'media-import-start').listeners.click();
+  await settle();
+  assert(delayedSubmit);
+  const uncertainPostCount = submits;
+  context.selectModule('overview');
+  context.selectModule('media-import');
+  await settle();
+  delayedSubmit.reject(new Error('lost acceptance response'));
+  delayedSubmit = null;
+  await uncertainResult;
+  await settle();
+  assert(findClass(mount, 'status').textContent.includes('ungewiss'));
+  await findClass(mount, 'media-import-start').listeners.click();
+  assert.strictEqual(submits, uncertainPostCount);
+  assert.strictEqual(findClass(mount, 'media-import-new').hidden, true);
+
+  // A logout wipes the shared attempt; a late old response may not resurrect it.
+  context.resetMediaImportVisibility(true);
+  assert.strictEqual(tab.hidden, true);
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  assert.strictEqual(findClass(mount, 'media-import-operation').textContent, '');
+
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
   console.error(error);
