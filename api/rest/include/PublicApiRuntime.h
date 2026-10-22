@@ -1633,6 +1633,16 @@ public:
 private:
     PublicApiRuntime() = default;
 
+    // Human Account / Device administration GET on the established
+    // identity runtime, with unchanged revisions and Problem Details.
+    bool tryHandleIdentityAdministrationReadGet(
+        const std::string& requestTarget,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::string& ifNoneMatch,
+        ApiResponse& response) const;
+
     // Pairing collection and item reads preserve human/pairing-token gates.
     bool tryHandleDevicePairingReadGet(
         const std::string& requestTarget,

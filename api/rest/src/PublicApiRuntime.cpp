@@ -7694,119 +7694,15 @@ bool PublicApiRuntime::tryHandleDevicePairingReadGet(
     return false;
 }
 
-bool PublicApiRuntime::tryHandleGet(
+bool PublicApiRuntime::tryHandleIdentityAdministrationReadGet(
     const std::string& requestTarget,
     const std::string& actorRef,
     const std::string& requestId,
     const std::string& correlationId,
-    ApiResponse& response,
     const std::string& ifNoneMatch,
-    const std::string& authorizedBackendId,
-    const std::vector<std::string>& authorizedBackendIds,
-    const std::string& pairingToken) const
+    ApiResponse& response) const
 {
     const std::string path = requestPath(requestTarget);
-
-    if (path == "/api/v1")
-    {
-        response = jsonResponse(
-            vdrsuite::public_api::discoveryGetBody(
-                *this, path, !actorRef.empty()),
-            requestId, correlationId);
-        return true;
-    }
-
-    if (path == "/api/v1/capabilities")
-    {
-        response = jsonResponse(
-            vdrsuite::public_api::discoveryGetBody(
-                *this, path, !actorRef.empty()),
-            requestId, correlationId);
-        return true;
-    }
-
-    if (path == PublicDevicePairingCollectionPath)
-    {
-        if (tryHandleDevicePairingReadGet(
-                requestTarget, actorRef, requestId, correlationId,
-                ifNoneMatch, pairingToken, response))
-            return true;
-    }
-
-    std::string pairingRequestId;
-    if (publicDevicePairingPath(
-            path,
-            pairingRequestId))
-    {
-        if (tryHandleDevicePairingReadGet(
-                requestTarget, actorRef, requestId, correlationId,
-                ifNoneMatch, pairingToken, response))
-            return true;
-    }
-
-    std::string operationId;
-    if (publicOperationPath(path, operationId))
-    {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(
-                path,
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        const PublicOperationLookupResult found =
-            lookupOperation(operationId, actorRef);
-
-        switch (found.status)
-        {
-            case PublicOperationLookupStatus::ok:
-                if (found.operation.operationId != operationId ||
-                    found.operation.state.empty() ||
-                    found.operation.backendId.empty() ||
-                    found.operation.resourceRevision.empty())
-                {
-                    response = serviceUnavailableProblem(
-                        path,
-                        requestId,
-                        correlationId);
-                }
-                else
-                {
-                    response = publicOperationResponse(
-                        found.operation,
-                        path,
-                        requestId,
-                        correlationId,
-                        ifNoneMatch);
-                }
-                return true;
-
-            case PublicOperationLookupStatus::invalid:
-                response = invalidRequestProblem(
-                    path,
-                    "The operation identifier is invalid.",
-                    requestId,
-                    correlationId);
-                return true;
-
-            case PublicOperationLookupStatus::notFound:
-                response = notFoundProblem(
-                    path,
-                    requestId,
-                    correlationId);
-                return true;
-
-            case PublicOperationLookupStatus::unavailable:
-                response = serviceUnavailableProblem(
-                    path,
-                    requestId,
-                    correlationId);
-                return true;
-        }
-    }
-
     std::string accountId;
     std::string credentialId;
     std::string sessionId;
@@ -8383,14 +8279,6 @@ bool PublicApiRuntime::tryHandleGet(
         }
     }
 
-    if (path == PublicBackendCollectionPath)
-    {
-        if (tryHandleBackendCollectionGet(
-                requestTarget, actorRef, requestId, correlationId,
-                authorizedBackendIds, response))
-            return true;
-    }
-
     if (path == PublicAccountCollectionPath)
     {
         if (actorRef.empty())
@@ -8479,6 +8367,212 @@ bool PublicApiRuntime::tryHandleGet(
         }
     }
 
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleGet(
+    const std::string& requestTarget,
+    const std::string& actorRef,
+    const std::string& requestId,
+    const std::string& correlationId,
+    ApiResponse& response,
+    const std::string& ifNoneMatch,
+    const std::string& authorizedBackendId,
+    const std::vector<std::string>& authorizedBackendIds,
+    const std::string& pairingToken) const
+{
+    const std::string path = requestPath(requestTarget);
+
+    if (path == "/api/v1")
+    {
+        response = jsonResponse(
+            vdrsuite::public_api::discoveryGetBody(
+                *this, path, !actorRef.empty()),
+            requestId, correlationId);
+        return true;
+    }
+
+    if (path == "/api/v1/capabilities")
+    {
+        response = jsonResponse(
+            vdrsuite::public_api::discoveryGetBody(
+                *this, path, !actorRef.empty()),
+            requestId, correlationId);
+        return true;
+    }
+
+    if (path == PublicDevicePairingCollectionPath)
+    {
+        if (tryHandleDevicePairingReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, pairingToken, response))
+            return true;
+    }
+
+    std::string pairingRequestId;
+    if (publicDevicePairingPath(
+            path,
+            pairingRequestId))
+    {
+        if (tryHandleDevicePairingReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, pairingToken, response))
+            return true;
+    }
+
+    std::string operationId;
+    if (publicOperationPath(path, operationId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        const PublicOperationLookupResult found =
+            lookupOperation(operationId, actorRef);
+
+        switch (found.status)
+        {
+            case PublicOperationLookupStatus::ok:
+                if (found.operation.operationId != operationId ||
+                    found.operation.state.empty() ||
+                    found.operation.backendId.empty() ||
+                    found.operation.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path,
+                        requestId,
+                        correlationId);
+                }
+                else
+                {
+                    response = publicOperationResponse(
+                        found.operation,
+                        path,
+                        requestId,
+                        correlationId,
+                        ifNoneMatch);
+                }
+                return true;
+
+            case PublicOperationLookupStatus::invalid:
+                response = invalidRequestProblem(
+                    path,
+                    "The operation identifier is invalid.",
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicOperationLookupStatus::notFound:
+                response = notFoundProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicOperationLookupStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+        }
+    }
+
+    std::string accountId;
+    std::string credentialId;
+    std::string sessionId;
+
+    if (publicAccountCredentialItemPath(
+            path, accountId, credentialId))
+    {
+        if (tryHandleIdentityAdministrationReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, response))
+            return true;
+    }
+
+    if (publicAccountSessionItemPath(
+            path, accountId, sessionId))
+    {
+        if (tryHandleIdentityAdministrationReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, response))
+            return true;
+    }
+
+    if (publicAccountCredentialPath(path, accountId))
+    {
+        if (tryHandleIdentityAdministrationReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, response))
+            return true;
+    }
+
+    if (publicAccountSessionPath(path, accountId))
+    {
+        if (tryHandleIdentityAdministrationReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, response))
+            return true;
+    }
+
+    std::string lifecycleDeviceId;
+    std::string lifecycleCredentialId;
+    if (publicDeviceLifecyclePath(
+            path, lifecycleDeviceId, lifecycleCredentialId))
+    {
+        if (tryHandleIdentityAdministrationReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, response))
+            return true;
+    }
+
+    std::string deviceGrantDeviceId;
+    if (publicDeviceGrantPath(path, deviceGrantDeviceId))
+    {
+        if (tryHandleIdentityAdministrationReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, response))
+            return true;
+    }
+
+    if (publicAccountGrantPath(path, accountId))
+    {
+        if (tryHandleIdentityAdministrationReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, response))
+            return true;
+    }
+
+    if (publicAccountPath(path, accountId))
+    {
+        if (tryHandleIdentityAdministrationReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, response))
+            return true;
+    }
+
+    if (path == PublicBackendCollectionPath)
+    {
+        if (tryHandleBackendCollectionGet(
+                requestTarget, actorRef, requestId, correlationId,
+                authorizedBackendIds, response))
+            return true;
+    }
+
+    if (path == PublicAccountCollectionPath)
+    {
+        if (tryHandleIdentityAdministrationReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, response))
+            return true;
+    }
 
     if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath)
     {
