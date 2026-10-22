@@ -114,6 +114,8 @@ struct PublicSearchTimerCollectionRequest
 {
     std::string backendId;
     std::string afterSearchTimerId;
+    // Optional exact opaque ID for one-item read; no native rule IDs escape.
+    std::string searchTimerId;
     std::size_t limit = 30U;
 };
 
