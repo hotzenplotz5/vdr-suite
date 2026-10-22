@@ -20,7 +20,9 @@ from build_deb import validate_maintainer
 EXTRA_BUDGET = 64 * 1024 * 1024
 
 
-def build(root: Path, executable: str, output_dir: str, maintainer: str) -> Path:
+def build(root: Path, executable: str, output_dir: str, maintainer: str,
+          shrink_binary: str | None = None,
+          check_binary: str | None = None) -> Path:
     manifest = validate_all(root)["rectools"]
     maintainer = validate_maintainer(maintainer)
     output, _ = validate_stage_root(output_dir, "/usr")
@@ -33,6 +35,24 @@ def build(root: Path, executable: str, output_dir: str, maintainer: str) -> Path
     with binary.open("rb") as handle:
         if handle.read(4) != b"\x7fELF":
             raise ContractError("media-import executable is not ELF")
+    extras = []
+    for expected, requested in (
+        ("vdr-suite-media-shrink", shrink_binary),
+        ("vdr-suite-media-check", check_binary),
+    ):
+        if requested is None:
+            continue
+        candidate = Path(requested)
+        if (not candidate.is_absolute() or candidate.name != expected
+                or candidate.is_symlink() or not candidate.is_file()
+                or not os.access(candidate, os.X_OK)
+                or candidate.stat().st_size < 4
+                or candidate.stat().st_size > 16 * 1024 * 1024):
+            raise ContractError(f"invalid extra media tools binary: {expected}")
+        with candidate.open("rb") as handle:
+            if handle.read(4) != b"\\x7fELF":
+                raise ContractError(f"extra media tools binary is not ELF: {expected}")
+        extras.append(candidate)
     if not shutil.which("dpkg-deb") or not shutil.which("dpkg"):
         raise ContractError("dpkg and dpkg-deb are required")
     try:
@@ -63,9 +83,10 @@ def build(root: Path, executable: str, output_dir: str, maintainer: str) -> Path
         stage(root, "rectools", str(package_root))
         libexec = package_root / "usr/libexec/vdr-suite/addons/rectools"
         libexec.mkdir(parents=True)
-        payload = libexec / binary.name
-        shutil.copyfile(binary, payload)
-        payload.chmod(0o755)
+        for source in [binary, *extras]:
+            payload = libexec / source.name
+            shutil.copyfile(source, payload)
+            payload.chmod(0o755)
         control = package_root / "DEBIAN"
         control.mkdir()
         (control / "control").write_text(
@@ -76,8 +97,8 @@ def build(root: Path, executable: str, output_dir: str, maintainer: str) -> Path
             'Priority: optional\n'
             f'Maintainer: {maintainer}\n'
             'Depends: ffmpeg, vdr\n'
-            'Description: Inactive VDR-Suite Media Tools C++ import preview\n'
-            ' Standalone media remux import CLI, not connected to VDR-Suite.\n'
+            'Description: Inactive VDR-Suite Media Tools C++ workers\n'
+            ' Source-built import, read-only check and HEVC review CLI payloads.\n'
             ' No service, rights, jobs, API or activation is provided.\n',
             encoding="utf-8",
         )
@@ -105,11 +126,14 @@ def build(root: Path, executable: str, output_dir: str, maintainer: str) -> Path
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", required=True)
+    parser.add_argument("--shrink-binary")
+    parser.add_argument("--check-binary")
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--maintainer", default="")
     args = parser.parse_args(argv)
     try:
-        result = build(ROOT, args.binary, args.output_dir, args.maintainer)
+        result = build(ROOT, args.binary, args.output_dir, args.maintainer,
+                       args.shrink_binary, args.check_binary)
         print("MEDIA_TOOLS_CPP_PACKAGE=PASS path=" + str(result))
     except (ContractError, OSError) as exc:
         print("MEDIA_TOOLS_CPP_PACKAGE=FAIL " + str(exc), file=sys.stderr)
