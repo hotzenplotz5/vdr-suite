@@ -82,9 +82,11 @@ independent administrator approval and descriptor-pinned fixed handler.
 The disabled schema-v1 manifest must match the approved module, package and
 version and may declare no entrypoint, capability, permission or dependency.
 Missing, replaced, symlinked, writable, malformed or version-mismatched
-metadata denies a fresh snapshot. Approval and metadata are re-read after
-binary hashing; the pinned executor also checks them again immediately before
-dispatch. Root-owned, nonroot-Agent and synthetic command lifecycle tests use
+metadata denies a fresh snapshot. A compiled, reviewed handler protocol
+version (`0.1.0`) also rejects unreviewed binary upgrades even when their
+manifest and administrator approval agree. Approval and metadata are re-read
+after binary hashing; the pinned executor also checks them again immediately
+before dispatch. Root-owned, nonroot-Agent and synthetic command lifecycle tests use
 disposable fixture installations. This is the same installation contract for
 source/manual staging and future Debian packaging, **not** permission or a
 release-signature substitute. Production activation, upgrade choreography,
