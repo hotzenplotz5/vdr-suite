@@ -260,6 +260,7 @@ struct PublicRecordingDetailItem
     std::string epgTitle;
     std::string subtitle;
     std::string epgDescription;
+    std::string providerTitle;
     std::string originalTitle;
     std::string tagline;
     std::string seriesTitle;
