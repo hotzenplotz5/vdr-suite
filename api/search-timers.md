@@ -66,7 +66,11 @@ callback independently rejects active requests. This deliberately makes
 Public-v1 CREATE an inactive **staging** operation: epgsearch must not
 schedule recordings from the rule until a separately authorized, generation-
 fenced activation path exists. Existing legacy/browser integrations remain
-separate and unchanged. A Device/TV client should present the read-only
+separate and unchanged. See `docs/development/public-v1-searchtimer-native-generation-fence.md` for
+why MODIFY, ACTIVATE, DEACTIVATE and DELETE cannot safely use native numeric IDs
+alone, and the required provider generation/CAS contract.
+
+A Device/TV client should present the read-only
 `draft-preview` first, prominently show `totalCount`, and require a human
 confirmation. That count is **EPG text matches**, not the final number of
 recordings. The JavaScript reference client enforces explicit preview
