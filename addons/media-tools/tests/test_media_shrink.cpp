@@ -52,7 +52,7 @@ struct Fixture {
 
 struct FakeProcess final : ProcessRunner {
     bool rejectHardware = false, failEncode = false, failIndex = false;
-    bool badDuration = false;
+    bool badDuration = false, badHeight = false;
     int hardwareCalls = 0, softwareCalls = 0;
     int indexes = 0;
     ProcessResult run(const std::vector<std::string>& args, bool captured) override {
@@ -68,7 +68,7 @@ struct FakeProcess final : ProcessRunner {
             if (contains("format=duration"))
                 return {0, isOutput && badDuration ? "10.0\n" : "60.0\n"};
             if (contains("stream=height"))
-                return {0, "1080\n"};
+                return {0, badHeight ? "1080\n720\n" : "1080\n1080\n"};
             throw std::runtime_error("unexpected FFprobe request");
         }
         assert(!captured);
@@ -162,6 +162,15 @@ int main() {
         assert(fs::exists(staged / "00001.ts"));
         assert(runner.hardwareCalls == 1 && runner.softwareCalls == 1);
         assert(fixture.input().size() == plan.totalBytes);
+        ++checks;
+    }
+    {
+        Fixture fixture;
+        FakeProcess runner;
+        runner.badHeight = true;
+        const auto plan = inspectShrink(fixture.video, fixture.relative());
+        reject([&] { stageShrink(plan, runner, [](const ShrinkPlan&) {}); });
+        assert(fixture.input().size() == 32768);
         ++checks;
     }
     {
