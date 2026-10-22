@@ -8,6 +8,7 @@ Only an independent administrator-approved SHA-256 may be supplied.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import os
 import re
@@ -91,6 +92,7 @@ def issue(root: Path, module: str, version: str, approved_sha256: str,
         if (not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or
                 info.st_mode & 0o022):
             raise IssueError("unsafe-approval-parent")
+        fcntl.flock(held, fcntl.LOCK_EX)
         document = {
             "schemaVersion": 1,
             "id": "rectools",
@@ -135,6 +137,155 @@ def issue(root: Path, module: str, version: str, approved_sha256: str,
 
 
 
+
+def rotate(root: Path, module: str, version: str, expected_sha256: str,
+           approved_sha256: str, origin: str,
+           allow_live_root: bool = False) -> Path:
+    """CAS-rotate an existing *active* root approval, never resurrect a revoke.
+
+    Upgrades to a different handler interface version or install origin must
+    be separately reviewed, not inferred from a new package's self-report.
+    An approval does not activate Media Tools or prove Debian provenance.
+    """
+    if os.geteuid() != 0:
+        raise IssueError("root-administrator-required")
+    if not root.is_absolute() or "." in root.parts or ".." in root.parts:
+        raise IssueError("unsafe-root")
+    if root == Path("/") and not allow_live_root:
+        raise IssueError("live-root-requires-explicit-confirmation")
+    if module != "rectools":
+        raise IssueError("no-reviewed-handler")
+    if version != "0.1.0" or not _VERSION.fullmatch(version):
+        raise IssueError("unreviewed-handler-version")
+    if (not isinstance(expected_sha256, str) or
+            not _SHA.fullmatch(expected_sha256) or
+            not isinstance(approved_sha256, str) or
+            not _SHA.fullmatch(approved_sha256) or
+            expected_sha256 == approved_sha256):
+        raise IssueError("invalid-approval-rotation-digests")
+    if origin not in ("manual", "debian"):
+        raise IssueError("invalid-origin")
+    try:
+        manifest = validate_directory(
+            root / "usr/share/vdr-suite/addons/rectools", "rectools")
+    except (ContractError, OSError, UnicodeError, ValueError) as exc:
+        raise IssueError("invalid-installed-metadata") from exc
+    if (manifest["version"] != version or
+            manifest["package"] != "vdr-suite-addon-media-tools"):
+        raise IssueError("approval-metadata-mismatch")
+    candidate = examine_binary(root, module, approved_sha256)
+    if not candidate["consistent"]:
+        raise IssueError("binary-" + candidate["reason"])
+
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    held = os.open("/", flags)
+    temporary = ""
+    try:
+        for part in (*root.parts[1:], *APPROVAL_PATH.split("/")[:-1]):
+            parent = os.fstat(held)
+            if (not stat.S_ISDIR(parent.st_mode) or parent.st_uid != 0 or
+                    parent.st_mode & 0o022):
+                raise IssueError("unsafe-approval-parent")
+            child = os.open(part, flags, dir_fd=held)
+            os.close(held)
+            held = child
+        parent = os.fstat(held)
+        if (not stat.S_ISDIR(parent.st_mode) or parent.st_uid != 0 or
+                parent.st_mode & 0o022):
+            raise IssueError("unsafe-approval-parent")
+        # This also serializes rotations with issue/revoke by this issuer.
+        fcntl.flock(held, fcntl.LOCK_EX)
+        name = APPROVAL_PATH.rsplit("/", 1)[-1]
+        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                     dir_fd=held)
+        with os.fdopen(fd, "rb") as source:
+            before = os.fstat(source.fileno())
+            if (not stat.S_ISREG(before.st_mode) or before.st_uid != 0 or
+                    before.st_mode & 0o022 or before.st_nlink != 1 or
+                    not 0 < before.st_size <= 4096):
+                raise IssueError("unsafe-approval-record")
+            raw = source.read(4097)
+            after = os.fstat(source.fileno())
+            if (len(raw) != before.st_size or
+                    (before.st_dev, before.st_ino, before.st_uid,
+                     before.st_mode, before.st_nlink, before.st_size,
+                     before.st_mtime_ns, before.st_ctime_ns) !=
+                    (after.st_dev, after.st_ino, after.st_uid,
+                     after.st_mode, after.st_nlink, after.st_size,
+                     after.st_mtime_ns, after.st_ctime_ns)):
+                raise IssueError("approval-record-changed")
+
+        def unique(pairs):
+            values = {}
+            for key, value in pairs:
+                if key in values:
+                    raise IssueError("duplicate-approval-key")
+                values[key] = value
+            return values
+
+        record = json.loads(raw.decode("utf-8"), object_pairs_hook=unique)
+        if (not isinstance(record, dict) or
+                set(record) != {
+                    "schemaVersion", "id", "package", "version",
+                    "sha256", "origin", "state",
+                } or type(record["schemaVersion"]) is not int or
+                record["schemaVersion"] != 1 or
+                record["id"] != "rectools" or
+                record["package"] != "vdr-suite-addon-media-tools" or
+                record["version"] != version or
+                record["origin"] != origin or
+                not isinstance(record["sha256"], str) or
+                not _SHA.fullmatch(record["sha256"]) or
+                record["state"] not in ("approved", "revoked")):
+            raise IssueError("invalid-approval-record")
+        if record["state"] != "approved":
+            raise IssueError("approval-revoked")
+        if record["sha256"] != expected_sha256:
+            raise IssueError("stale-approval-rotation")
+
+        record["sha256"] = approved_sha256
+        payload = (json.dumps(record, sort_keys=True,
+                              separators=(",", ":")) + "\n").encode()
+        temporary = ".rectools-rotate-" + uuid.uuid4().hex + ".tmp"
+        temp_fd = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY |
+                          os.O_NOFOLLOW, 0o600, dir_fd=held)
+        try:
+            os.fchmod(temp_fd, 0o644)
+            with os.fdopen(temp_fd, "wb") as target:
+                target.write(payload)
+                target.flush()
+                os.fsync(target.fileno())
+            current = os.stat(name, dir_fd=held, follow_symlinks=False)
+            if (current.st_dev, current.st_ino, current.st_uid,
+                    current.st_mode, current.st_nlink, current.st_size,
+                    current.st_mtime_ns, current.st_ctime_ns) != (
+                    before.st_dev, before.st_ino, before.st_uid,
+                    before.st_mode, before.st_nlink, before.st_size,
+                    before.st_mtime_ns, before.st_ctime_ns):
+                raise IssueError("approval-record-changed")
+            # No implicit activation; a swapped package/binary can only
+            # proceed with its own independently approved new SHA.
+            os.replace(temporary, name, src_dir_fd=held, dst_dir_fd=held)
+            temporary = ""
+            os.fsync(held)
+        finally:
+            if temporary:
+                os.unlink(temporary, dir_fd=held)
+                temporary = ""
+        return root / APPROVAL_PATH
+    except (OSError, ValueError, UnicodeError, TypeError) as exc:
+        if isinstance(exc, IssueError):
+            raise
+        raise IssueError("approval-rotation-failed") from exc
+    finally:
+        if temporary:
+            try:
+                os.unlink(temporary, dir_fd=held)
+            except OSError:
+                pass
+        os.close(held)
+
+
 def revoke(root: Path, module: str, allow_live_root: bool = False) -> Path:
     """Atomically mark an existing admin approval revoked, even if binary is gone."""
     if os.geteuid() != 0:
@@ -162,6 +313,7 @@ def revoke(root: Path, module: str, allow_live_root: bool = False) -> Path:
         if (not stat.S_ISDIR(parent.st_mode) or parent.st_uid != 0 or
                 parent.st_mode & 0o022):
             raise IssueError("unsafe-approval-parent")
+        fcntl.flock(held, fcntl.LOCK_EX)
         name = APPROVAL_PATH.rsplit("/", 1)[-1]
         fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=held)
         with os.fdopen(fd, "rb") as source:
@@ -245,10 +397,12 @@ def revoke(root: Path, module: str, allow_live_root: bool = False) -> Path:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("issue", "revoke"))
+    parser.add_argument("command", choices=("issue", "rotate", "revoke"))
     parser.add_argument("--root", required=True)
     parser.add_argument("--module", required=True)
     parser.add_argument("--version", default="")
+    parser.add_argument("--expected-sha256", default="",
+                        help="Current approved SHA-256 required for CAS rotation")
     parser.add_argument("--approved-sha256", default="",
                         help="Independently reviewed expected digest, NOT generated from installed file")
     parser.add_argument("--origin", choices=("manual", "debian"), default="")
@@ -260,6 +414,11 @@ def main(argv=None) -> int:
             location = issue(Path(args.root), args.module, args.version,
                              args.approved_sha256, args.origin, args.allow_live_root)
             print("ADDON_ADMIN_APPROVAL_ISSUED=" + str(location))
+        elif args.command == "rotate":
+            location = rotate(Path(args.root), args.module, args.version,
+                              args.expected_sha256, args.approved_sha256,
+                              args.origin, args.allow_live_root)
+            print("ADDON_ADMIN_APPROVAL_ROTATED=" + str(location))
         else:
             location = revoke(Path(args.root), args.module, args.allow_live_root)
             print("ADDON_ADMIN_APPROVAL_REVOKED=" + str(location))
