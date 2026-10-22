@@ -267,6 +267,8 @@ int main()
                 "st_00000000000000000000000000000003"};
             for (const auto& id : ids)
             {
+                if (!request.searchTimerId.empty() &&
+                    id != request.searchTimerId) continue;
                 if (!request.afterSearchTimerId.empty() &&
                     id <= request.afterSearchTimerId) continue;
                 if (page.items.size() >= request.limit)
@@ -303,6 +305,54 @@ int main()
     assert(searchSecond.body.find("st_00000000000000000000000000000003") !=
         std::string::npos);
     assert(searchSecond.body.find("\"hasMore\":false") != std::string::npos);
+    // A single read must use the same opaque identity and permission as
+    // list, not an EPG-preview permission or a provider-native numeric ID.
+    const std::string savedRule =
+        "/api/v1/search-timers/st_00000000000000000000000000000002";
+    ApiResponse savedDetail;
+    assert(runtime.tryHandleGet(savedRule + "?backend=one",
+        "actor:test", "st-detail", "", savedDetail, "", "one"));
+    assert(savedDetail.statusCode == 200);
+    assert(savedDetail.body.find(
+        "\"searchTimerId\":\"st_00000000000000000000000000000002\"") !=
+        std::string::npos);
+    assert(savedDetail.body.find("\"name\":\"Terra X\"") !=
+        std::string::npos);
+    assert(savedDetail.body.find("backendNativeId") == std::string::npos);
+    assert(savedDetail.body.find("\"partial\":false") != std::string::npos);
+    ApiResponse missingDetail;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search-timers/st_00000000000000000000000000000009?backend=one",
+        "actor:test", "st-missing", "", missingDetail, "", "one"));
+    assert(missingDetail.statusCode == 404);
+    ApiResponse offlineDetail;
+    assert(runtime.tryHandleGet(savedRule + "?backend=offline",
+        "actor:test", "st-offline", "", offlineDetail, "", "offline"));
+    assert(offlineDetail.statusCode == 503);
+    ApiResponse anonymousDetail;
+    assert(runtime.tryHandleGet(savedRule + "?backend=one",
+        "", "st-anon", "", anonymousDetail, "", "one"));
+    assert(anonymousDetail.statusCode == 401);
+    for (const std::string& suffix : {
+             std::string("?backend=other"), std::string("?backend=one&limit=1"),
+             std::string("?backend=one&cursor=invalid"),
+             std::string("?backend=one&backend=one")})
+    {
+        ApiResponse rejected;
+        assert(runtime.tryHandleGet(savedRule + suffix,
+            "actor:test", "st-invalid-detail", "", rejected, "", "one"));
+        assert(rejected.statusCode == 400);
+    }
+    ApiResponse malformedDetail;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search-timers/0?backend=one",
+        "actor:test", "st-bad-id", "", malformedDetail, "", "one"));
+    assert(malformedDetail.statusCode == 400);
+    ApiResponse writeDetail;
+    assert(runtime.tryHandleUnsupportedMethod("PATCH", savedRule + "?backend=one",
+        "st-write-blocked", "", writeDetail));
+    assert(writeDetail.statusCode == 405);
+
     ApiResponse searchCrossBackend;
     assert(runtime.tryHandleGet(
         "/api/v1/search-timers?backend=two&cursor=" + searchCursor,
