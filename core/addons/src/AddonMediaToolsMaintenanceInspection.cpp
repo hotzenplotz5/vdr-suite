@@ -66,11 +66,18 @@ MaintenanceInspectionResult AddonMediaToolsMaintenanceInspection::inspect(
     if (!transaction.active())
         return {false, Reason::storageUnavailable, 0};
 
-    const auto revision = scalar(database_,
-        "SELECT CASE WHEN frozen=1 AND revision>0 THEN revision ELSE -1 END "
-        "FROM addon_media_import_maintenance WHERE module_id='rectools';");
-    if (!revision || *revision <= 0)
+    const auto frozen = scalar(database_,
+        "SELECT COUNT(*) FROM addon_media_import_maintenance "
+        "WHERE module_id='rectools' AND frozen=1 AND revision>0;");
+    if (!frozen)
+        return {false, Reason::storageUnavailable, 0};
+    if (*frozen != 1)
         return {false, Reason::globalFreezeRequired, 0};
+    const auto revision = scalar(database_,
+        "SELECT revision FROM addon_media_import_maintenance "
+        "WHERE module_id='rectools' AND frozen=1;");
+    if (!revision || *revision <= 0)
+        return {false, Reason::storageUnavailable, 0};
 
     // Inspect all recorded backends, never just a caller-supplied backend
     // that could hide an enabled row elsewhere. Require at least one
