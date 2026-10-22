@@ -54,6 +54,7 @@ test-addon-media-import-ffmpeg:
 		-I addons/media-tools/include \
 		addons/media-tools/src/MediaImport.cpp \
 		addons/media-tools/src/MediaCheck.cpp \
+		addons/media-tools/src/MediaShrink.cpp \
 		addons/media-tools/tests/test_media_import_ffmpeg.cpp \
 		-o "$(BUILD_DIR)/addons/test_media_import_ffmpeg"
 	"$(BUILD_DIR)/addons/test_media_import_ffmpeg"
