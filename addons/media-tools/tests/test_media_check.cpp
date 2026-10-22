@@ -9,6 +9,7 @@
 #include <chrono>
 #include <cstring>
 #include <thread>
+#include <sys/wait.h>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -309,6 +310,39 @@ int main(int argc, char* argv[])
                result.decode->status == "incomplete" &&
                result.decode->exitCode == 127);
         ++cases;
+    }
+    if (::access("/usr/bin/ffmpeg", X_OK) == 0) {
+        // Real FFmpeg integration on disposable, generated sample media.
+        // This never reads or writes a genuine VDR recording.
+        Fixture f;
+        fs::remove(f.rec / "00002.ts");
+        const std::string generated = (f.rec / "00001.ts").string();
+        const pid_t child = ::fork();
+        assert(child >= 0);
+        if (child == 0) {
+            ::execl("/usr/bin/ffmpeg", "ffmpeg", "-hide_banner", "-nostdin",
+                    "-loglevel", "error", "-f", "lavfi", "-i",
+                    "testsrc2=size=64x64:rate=8", "-frames:v", "8",
+                    "-c:v", "mpeg2video", "-f", "mpegts", "-y",
+                    generated.c_str(), static_cast<char*>(nullptr));
+            ::_exit(127);
+        }
+        int status = 0;
+        assert(::waitpid(child, &status, 0) == child &&
+               WIFEXITED(status) && WEXITSTATUS(status) == 0);
+        const auto original = f.bytes("00001.ts");
+        vdrsuite::mediatools::FfmpegMediaCheckDecoder decoder(
+            std::chrono::seconds(20));
+        auto result = vdrsuite::mediatools::checkRecordingWithDecoder(
+            f.video, f.relative(), decoder);
+        assert(result.decode && result.decode->status == "ok" &&
+               result.decode->exitCode == 0 &&
+               result.decode->streamedBytes == original.size());
+        assert(f.bytes("00001.ts") == original);
+        ++cases;
+        std::cout << "MEDIA_CHECK_REAL_FFMPEG_DECODE=PASS\n";
+    } else {
+        std::cout << "MEDIA_CHECK_REAL_FFMPEG_DECODE=SKIP_NO_FFMPEG\n";
     }
     std::cout << "MEDIA_CHECK_READ_ONLY_CPP_TEST=PASS cases=" << cases << "\n";
     return 0;
