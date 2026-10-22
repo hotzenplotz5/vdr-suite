@@ -342,6 +342,10 @@ std::vector<std::string> ffmpegArguments(
         args.insert(args.end(), {"-c:v", "libx265", "-preset", "medium",
                                  "-crf", "27", "-threads", "2"}); break;
     }
+    // VDR's HEVC indexer requires independently decodable frames at
+    // predictable intervals. Default x265 GOPs may contain a single IDR
+    // over short captures, leaving VDR unable to build a valid index.
+    args.insert(args.end(), {"-g", "50"});
     if (plan.options.nightMode)
         args.insert(args.end(), {"-c:a", "aac", "-b:a", "192k",
                                  "-ac", "2", "-af", "loudnorm"});
