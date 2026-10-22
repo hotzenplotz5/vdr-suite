@@ -353,13 +353,35 @@ function publishHomeResume() {}
   assert.strictEqual(submits, uncertainPostCount);
   assert.strictEqual(findClass(mount, 'media-import-new').hidden, true);
 
-  // A logout wipes the shared attempt; a late old response may not resurrect it.
+  // Logout drops the unknown attempt and revokes its in-memory association.
   context.resetMediaImportVisibility(true);
   assert.strictEqual(tab.hidden, true);
   assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
   context.selectModule('media-import');
   await settle();
   assert.strictEqual(findClass(mount, 'media-import-operation').textContent, '');
+
+  // A late accepted response from a previous authenticated view must not leak
+  // an operation across the logout boundary or resurrect the old attempt.
+  select = findClass(mount, 'media-import-source');
+  select.value = SOURCE;
+  select.listeners.change();
+  const logoutResult = findClass(mount, 'media-import-start').listeners.click();
+  await settle();
+  assert(delayedSubmit, 'logout fixture must have an outstanding POST');
+  context.resetMediaImportVisibility(true);
+  delayedSubmit.resolve(reply(202, {
+    operationId: OP, backendId: 'backend-a', state: 'dispatching'
+  }));
+  delayedSubmit = null;
+  await logoutResult;
+  await settle();
+  assert.strictEqual(tab.hidden, true);
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  assert.strictEqual(findClass(mount, 'media-import-operation').textContent, '');
+  assert.strictEqual(findClass(mount, 'media-import-start').disabled, true);
 
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
