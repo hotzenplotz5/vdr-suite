@@ -2729,6 +2729,12 @@ public:
             requestToAuthorize.action = "searchtimers.create";
             requestToAuthorize.backendId = publicSearchTimerBackendId;
         }
+        else if (isPublicSearchTimerMutation)
+        {
+            requestToAuthorize.permission = searchMutationPermission;
+            requestToAuthorize.action = searchMutationPermission;
+            requestToAuthorize.backendId = publicSearchTimerBackendId;
+        }
         else if (isPublicEpgTimerIntentCreate)
         {
             requestToAuthorize.permission = "timers.create";
