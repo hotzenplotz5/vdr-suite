@@ -246,6 +246,17 @@ SearchTimerState mapState(const std::string& objectText)
 
 } // namespace
 
+bool RestfulApiSearchTimerMapper::completeCatalogue(
+    const std::string& json, std::size_t parsedCount)
+{
+    const int count = getIntField(json, "count", -1);
+    const int total = getIntField(json, "total", -1);
+    const std::string array = getArrayField(json, "searchtimers");
+    return count >= 0 && total == count &&
+        static_cast<std::size_t>(count) == parsedCount &&
+        splitTopLevelObjects(array).size() == parsedCount;
+}
+
 std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
     const std::string& backendId,
     const std::string& json)
