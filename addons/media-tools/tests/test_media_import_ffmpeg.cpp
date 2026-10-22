@@ -208,7 +208,7 @@ int main() {
            convertedCheck.syncErrors == 0 &&
            convertedCheck.transportErrors == 0);
     std::cout << "MEDIA_IMPORT_REAL_CODEC_FALLBACK=PASS"
-              << " video=h264 audio=aac source_preserved=YES\\n";
+              << " video=h264 audio=aac source_preserved=YES\n";
 
     std::cout << "MEDIA_SHRINK_REAL_FFMPEG_SMOKE=PASS"
               << " original_preserved=YES candidate_published_new=YES"
