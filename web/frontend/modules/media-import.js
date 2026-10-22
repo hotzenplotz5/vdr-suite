@@ -3,6 +3,7 @@
 
   // Media Tools is a view of Core-owned capabilities and Operations, never a job queue.
   const activeAttempts = Object.create(null);
+  const activeBatches = Object.create(null);
   const POLL_MS = 4000;
   const MAX_AUTOMATIC_READS = 15;
   let owner = 0;
@@ -81,6 +82,9 @@
     deactivate();
     Object.keys(activeAttempts).forEach(function (id) {
       delete activeAttempts[id];
+    });
+    Object.keys(activeBatches).forEach(function (id) {
+      delete activeBatches[id];
     });
   }
 
