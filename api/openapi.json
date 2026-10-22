@@ -1049,7 +1049,7 @@
                   },
                   "active": {
                     "const": false,
-                    "description": "Explicit inactive staging only. Public-v1 activation is not authorized until the native provider supports generation-fenced mutation."
+                    "description": "Explicit inactive staging only. Activation requires a separate, confirmed /api/v1/search-timers/{searchTimerId}/mutations request, a strong native revision If-Match, the searchtimers.execute Device/backend grant, and compatible generation-fenced epgsearch CAS. An unpatched provider fails closed."
                   },
                   "mode": {
                     "type": "integer",
