@@ -340,6 +340,18 @@ int main(int argc, char* argv[])
     }
     {
         Fixture f;
+        vdrsuite::mediatools::FfprobeMediaCheckProber missing(
+            std::chrono::seconds(2), "/usr/bin/vdr-suite-no-ffprobe");
+        const auto result = vdrsuite::mediatools::checkRecordingWithProber(
+            f.video, f.relative(), missing);
+        assert(result.status() == "incomplete" && result.ffprobe &&
+               result.ffprobe->status == "incomplete");
+        assert(result.json().find("\"status\":\"incomplete\"") !=
+               std::string::npos);
+        ++cases;
+    }
+    {
+        Fixture f;
         const auto original = f.bytes("00001.ts");
         const auto entries = f.entries();
         vdrsuite::mediatools::FfmpegMediaCheckDecoder decoder(
