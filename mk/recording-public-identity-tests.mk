@@ -113,6 +113,11 @@ test-public-recording-metadata-detail-projection:
 		-o $(BUILD_DIR)/test_public_recording_metadata_detail_projection
 	$(BUILD_DIR)/test_public_recording_metadata_detail_projection
 
+# The existing R2 focused CI and CI_FAST_TESTS already invoke this target.
+# Reach the M1 projection regression without editing shared test-group files.
+test-public-recording-collection-projection: \
+	test-public-recording-metadata-detail-projection
+
 # M1 tests deliberately reuse the existing public Recording route and grant
 # fixtures, rather than creating a parallel HTTP or security harness.
 test-fast: test-public-recording-metadata-detail-projection \
