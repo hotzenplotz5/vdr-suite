@@ -128,6 +128,8 @@
     view.batch = null;
     view.batchStopButton.hidden = true;
     view.batchButton.disabled = true;
+    view.newButton.hidden = !view.attempt ||
+      !terminalState(view.attempt.state);
     if (reason) report(view, 'Mehrfachimport nach ' + completed +
       ' bestätigten Aufnahmen angehalten: ' + reason, true);
   }
@@ -149,20 +151,9 @@
       report(view, done + ' Aufnahmen unabhängig bestätigt. Mehrfachimport abgeschlossen.');
       return;
     }
-    view.timer = global.setTimeout(function () {
-      if (!isCurrent(view) || activeBatches[view.backendId] !== batch ||
-          !view.attempt || view.attempt.operationId !== operation.operationId ||
-          view.attempt.state !== 'succeeded') return;
-      delete activeAttempts[view.backendId];
-      view.attempt = null;
-      view.reads = 0;
-      view.newButton.hidden = true;
-      view.refreshButton.hidden = true;
-      view.select.value = batch.remaining[0];
-      report(view, batch.completed + ' von ' + batch.total +
-        ' bestätigt. Nächste Quelle wird geprüft …');
-      startImport(view);
-    }, 0);
+    // A navigation away from the tab cannot lose an already authorized
+    // sequence: the pending next step remains in this session's batch state.
+    batch.resumeNext = true;
   }
 
   function startBatch(view) {
@@ -210,6 +201,20 @@
       if (isCurrent(view)) report(view, operationError(error), true);
     }).finally(function () {
       view.reading = false;
+      const batch = view.batch;
+      if (!isCurrent(view) || !batch || !batch.resumeNext ||
+          !view.attempt || view.attempt.state !== 'succeeded')
+        return;
+      batch.resumeNext = false;
+      delete activeAttempts[view.backendId];
+      view.attempt = null;
+      view.reads = 0;
+      view.refreshButton.hidden = true;
+      view.newButton.hidden = true;
+      view.select.value = batch.remaining[0];
+      report(view, batch.completed + ' von ' + batch.total +
+        ' bestätigt. Nächste Quelle wird geprüft …');
+      return startImport(view);
     });
   }
 
