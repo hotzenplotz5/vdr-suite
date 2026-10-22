@@ -2,8 +2,10 @@
 
 #include "AddonActivationIntentRepository.h"
 #include "MutationOperationRepository.h"
+#include "MediaToolsImportRunLock.h"
 
 #include <cstdint>
+#include <optional>
 #include <string>
 
 namespace vdrsuite::addons {
@@ -32,6 +34,20 @@ struct MaintenanceInspectionResult {
     std::int64_t globalFreezeRevision = 0;
 };
 
+// A move-only, diagnostic lock hold. Keeps the SAME verified exclusive
+// flock inode while a future trusted coordinator performs its further
+// independent checks. It is NOT a maintenance permit, does not freeze
+// administrators or SQLite after the snapshot, and expires on destruction.
+// No API route, package action or source modification may be driven from it.
+struct MaintenanceInspectionHold {
+    MaintenanceInspectionResult inspection;
+    std::optional<vdrsuite::mediatools::MediaToolsImportRunLock> exclusive;
+    bool holdsExclusiveLock() const noexcept
+    {
+        return inspection.locallyQuiescent && exclusive.has_value();
+    }
+};
+
 // One Core SQLite authority, one global fixed Media Tools lock, no API route,
 // no package edits. A future installer must hold its own exclusive lock over
 // the entire separately approved transaction, NOT use this snapshot as permit.
@@ -44,6 +60,14 @@ public:
         : database_(database), intents_(intents), operations_(operations) {}
 
     MaintenanceInspectionResult inspect(
+        const RequestSecurityContext& actor,
+        const std::string& trustedRoot) const;
+
+    // Retains the exclusive lock on a successful diagnostic, enabling a
+    // separate coordination phase to prove child exclusion throughout its
+    // lifetime. The SQLite freeze/Agent snapshot MUST be independently
+    // revalidated; this method cannot authorize a package operation.
+    MaintenanceInspectionHold inspectAndHold(
         const RequestSecurityContext& actor,
         const std::string& trustedRoot) const;
 private:
