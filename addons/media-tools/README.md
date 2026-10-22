@@ -56,6 +56,22 @@ This does not drain the Agent, prevent new admissions, serialize an installer,
 audit a package transaction or prove signed Debian provenance. **No package
 install, upgrade, uninstall or source/recording modification is performed.**
 
+## A4 global reservation freeze (Core source only)
+
+The global Core-owned `AddonMediaImportMaintenanceFence` now records
+administrator-audited, revision-fenced freeze/unfreeze state in the same
+SQLite file as the existing durable import operation store. New
+`media.import` reservations are checked *inside* the operation insert
+transaction, across every backend; unrelated timer operations are unaffected.
+The default remains the normal disabled Add-on contract. Missing schema
+denies new imports, and previous exact operation replays are still readable.
+
+This does **not** stop an already executing Agent process, grant an update,
+install a package, or reconcile an unknown result. No public management route
+is exposed. The read-only no-unresolved-import inspection, stopped Agent,
+independently reviewed replacement bytes, package provenance and explicit
+host approval remain necessary before any real package maintenance.
+
 ## A6 work in progress
 
 The optional importer is a single C++17 implementation under this directory,
