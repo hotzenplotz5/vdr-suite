@@ -30,13 +30,21 @@ class CppPackageTests(unittest.TestCase):
             # Controlled layout test fixture, not a runnable importer.
             shutil.copyfile("/usr/bin/true", binary)
             binary.chmod(0o755)
+            shrink = Path(folder) / "vdr-suite-media-shrink"
+            check = Path(folder) / "vdr-suite-media-check"
+            for extra in (shrink, check):
+                shutil.copyfile("/usr/bin/true", extra)
+                extra.chmod(0o755)
             built = builder.build(addon.ROOT, str(binary), folder,
-                                  "Test Builder <builder@example.org>")
+                                  "Test Builder <builder@example.org>",
+                                  str(shrink), str(check))
             self.assertIn("~cpppreview1_", built.name)
             control = subprocess.check_output(["dpkg-deb", "--field", str(built)], text=True)
             self.assertIn("Depends: ffmpeg, vdr", control)
             listing = subprocess.check_output(["dpkg-deb", "--contents", str(built)], text=True)
             self.assertIn("usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import", listing)
+            self.assertIn("usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-shrink", listing)
+            self.assertIn("usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-check", listing)
             self.assertIn("usr/share/vdr-suite/addons/rectools/AGENTS.md", listing)
             self.assertNotIn("/etc/", listing)
             self.assertNotIn("/lib/systemd/", listing)
