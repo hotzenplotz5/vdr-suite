@@ -199,6 +199,28 @@ test-addon-maintenance-read:
 
 test-ci-fast: test-addon-maintenance-read
 
+# Core-owned global Media Import reservation fence. The same SQLite write
+# transaction owns the freeze and the creation of every media.import operation.
+# No host package maintenance, worker execution or live activation.
+.PHONY: test-addon-maintenance-freeze
+test-addon-maintenance-freeze:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
+		-I core/addons/include -I core/security/include \
+		-I core/vdr/include -I core/sqlite/include \
+		-I core/operations/include \
+		core/sqlite/src/Database.cpp \
+		core/security/src/AccountabilityEventRepository.cpp \
+		core/addons/src/AddonAccessPolicy.cpp \
+		core/addons/src/AddonMediaImportMaintenanceFence.cpp \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/addons/tests/test_addon_media_import_maintenance_fence.cpp \
+		-lsqlite3 -o "$(BUILD_DIR)/addons/test_addon_maintenance_freeze"
+	"$(BUILD_DIR)/addons/test_addon_maintenance_freeze"
+
+test-ci-fast: test-addon-maintenance-freeze
+
 # Admin-only desired-state inventory. Effective/active capabilities remain empty.
 .PHONY: test-addon-activation-catalog
 test-addon-activation-catalog:
