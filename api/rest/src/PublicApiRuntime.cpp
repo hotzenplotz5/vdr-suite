@@ -5387,42 +5387,6 @@ PublicSearchTimerPreviewResult PublicApiRuntime::lookupSearchTimerPreview(
     return callback ? callback(request) : PublicSearchTimerPreviewResult{};
 }
 
-void PublicApiRuntime::registerBackendCollectionLookup(
-    BackendCollectionLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(
-        backendCollectionLookupMutex_);
-    backendCollectionLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetBackendCollectionLookup()
-{
-    std::lock_guard<std::mutex> lock(
-        backendCollectionLookupMutex_);
-    backendCollectionLookup_ = {};
-}
-
-bool PublicApiRuntime::backendCollectionLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        backendCollectionLookupMutex_);
-    return static_cast<bool>(backendCollectionLookup_);
-}
-
-PublicBackendCollectionResult
-PublicApiRuntime::lookupBackendCollection(
-    const PublicBackendCollectionRequest& request) const
-{
-    BackendCollectionLookup lookup;
-    {
-        std::lock_guard<std::mutex> lock(
-            backendCollectionLookupMutex_);
-        lookup = backendCollectionLookup_;
-    }
-    if (!lookup) return {};
-    return lookup(request);
-}
-
 void PublicApiRuntime::registerAccountCollectionLookup(
     AccountCollectionLookup lookup)
 {
@@ -6130,6 +6094,151 @@ PublicOperationLookupResult PublicApiRuntime::lookupOperation(
     }
 
     return lookup(operationId, actorRef);
+}
+
+bool PublicApiRuntime::tryHandleBackendCollectionGet(
+    const std::string& requestTarget,
+    const std::string& actorRef,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::vector<std::string>& authorizedBackendIds,
+    ApiResponse& response) const
+{
+    const std::string path = requestPath(requestTarget);
+    if (path == PublicBackendCollectionPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        std::vector<std::string> normalizedScopes =
+            authorizedBackendIds;
+        std::sort(normalizedScopes.begin(), normalizedScopes.end());
+        if (std::adjacent_find(
+                normalizedScopes.begin(),
+                normalizedScopes.end()) != normalizedScopes.end())
+        {
+            response = invalidRequestProblem(
+                path,
+                "Duplicate authorized backend scopes are not allowed.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        PublicBackendCollectionQuery query;
+        if (!parsePublicBackendCollectionQuery(
+                requestTarget,
+                query))
+        {
+            response = invalidRequestProblem(
+                path,
+                "The Backend collection query is invalid.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        const std::string authorizationScope =
+            normalizedPublicBackendAuthorizationScope(
+                normalizedScopes);
+
+        std::string afterBackendId;
+        if (!query.cursor.empty())
+        {
+            const PublicBackendCursorDecodeStatus cursorStatus =
+                decodePublicBackendCursor(
+                    query.cursor,
+                    authorizationScope,
+                    afterBackendId);
+            if (cursorStatus ==
+                PublicBackendCursorDecodeStatus::scopeMismatch)
+            {
+                response = cursorExpiredProblem(
+                    path, requestId, correlationId);
+                return true;
+            }
+            if (cursorStatus !=
+                PublicBackendCursorDecodeStatus::ok)
+            {
+                response = invalidRequestProblem(
+                    path,
+                    "The collection cursor is invalid for this authorization scope.",
+                    requestId,
+                    correlationId);
+                return true;
+            }
+        }
+
+        PublicBackendCollectionRequest request;
+        request.authorizedBackendIds = normalizedScopes;
+        request.afterBackendId = afterBackendId;
+        request.limit = query.limit;
+
+        const PublicBackendCollectionResult page =
+            lookupBackendCollection(request);
+
+        switch (page.status)
+        {
+            case PublicBackendCollectionStatus::ok:
+            {
+                if (page.backends.size() > query.limit ||
+                    (page.hasMore &&
+                     page.backends.size() != query.limit))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+
+                const bool wildcard =
+                    std::binary_search(
+                        normalizedScopes.begin(),
+                        normalizedScopes.end(),
+                        std::string("*"));
+                std::string previousBackend = afterBackendId;
+                for (const PublicBackendCollectionItem& backend :
+                     page.backends)
+                {
+                    const bool authorized =
+                        wildcard ||
+                        std::binary_search(
+                            normalizedScopes.begin(),
+                            normalizedScopes.end(),
+                            backend.backendId);
+                    if (backend.backendId.empty() ||
+                        backend.name.empty() ||
+                        !authorized ||
+                        (!previousBackend.empty() &&
+                         backend.backendId <= previousBackend))
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    previousBackend = backend.backendId;
+                }
+
+                response = publicBackendCollectionResponse(
+                    page,
+                    query,
+                    authorizationScope,
+                    requestId,
+                    correlationId);
+                return true;
+            }
+
+            case PublicBackendCollectionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    return false;
 }
 
 bool PublicApiRuntime::tryHandleGet(
@@ -7163,138 +7272,11 @@ bool PublicApiRuntime::tryHandleGet(
         }
     }
 
-    if (path == PublicBackendCollectionPath)
-    {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(
-                path, requestId, correlationId);
-            return true;
-        }
-
-        std::vector<std::string> normalizedScopes =
-            authorizedBackendIds;
-        std::sort(normalizedScopes.begin(), normalizedScopes.end());
-        if (std::adjacent_find(
-                normalizedScopes.begin(),
-                normalizedScopes.end()) != normalizedScopes.end())
-        {
-            response = invalidRequestProblem(
-                path,
-                "Duplicate authorized backend scopes are not allowed.",
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        PublicBackendCollectionQuery query;
-        if (!parsePublicBackendCollectionQuery(
-                requestTarget,
-                query))
-        {
-            response = invalidRequestProblem(
-                path,
-                "The Backend collection query is invalid.",
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        const std::string authorizationScope =
-            normalizedPublicBackendAuthorizationScope(
-                normalizedScopes);
-
-        std::string afterBackendId;
-        if (!query.cursor.empty())
-        {
-            const PublicBackendCursorDecodeStatus cursorStatus =
-                decodePublicBackendCursor(
-                    query.cursor,
-                    authorizationScope,
-                    afterBackendId);
-            if (cursorStatus ==
-                PublicBackendCursorDecodeStatus::scopeMismatch)
-            {
-                response = cursorExpiredProblem(
-                    path, requestId, correlationId);
-                return true;
-            }
-            if (cursorStatus !=
-                PublicBackendCursorDecodeStatus::ok)
-            {
-                response = invalidRequestProblem(
-                    path,
-                    "The collection cursor is invalid for this authorization scope.",
-                    requestId,
-                    correlationId);
-                return true;
-            }
-        }
-
-        PublicBackendCollectionRequest request;
-        request.authorizedBackendIds = normalizedScopes;
-        request.afterBackendId = afterBackendId;
-        request.limit = query.limit;
-
-        const PublicBackendCollectionResult page =
-            lookupBackendCollection(request);
-
-        switch (page.status)
-        {
-            case PublicBackendCollectionStatus::ok:
-            {
-                if (page.backends.size() > query.limit ||
-                    (page.hasMore &&
-                     page.backends.size() != query.limit))
-                {
-                    response = serviceUnavailableProblem(
-                        path, requestId, correlationId);
-                    return true;
-                }
-
-                const bool wildcard =
-                    std::binary_search(
-                        normalizedScopes.begin(),
-                        normalizedScopes.end(),
-                        std::string("*"));
-                std::string previousBackend = afterBackendId;
-                for (const PublicBackendCollectionItem& backend :
-                     page.backends)
-                {
-                    const bool authorized =
-                        wildcard ||
-                        std::binary_search(
-                            normalizedScopes.begin(),
-                            normalizedScopes.end(),
-                            backend.backendId);
-                    if (backend.backendId.empty() ||
-                        backend.name.empty() ||
-                        !authorized ||
-                        (!previousBackend.empty() &&
-                         backend.backendId <= previousBackend))
-                    {
-                        response = serviceUnavailableProblem(
-                            path, requestId, correlationId);
-                        return true;
-                    }
-                    previousBackend = backend.backendId;
-                }
-
-                response = publicBackendCollectionResponse(
-                    page,
-                    query,
-                    authorizationScope,
-                    requestId,
-                    correlationId);
-                return true;
-            }
-
-            case PublicBackendCollectionStatus::unavailable:
-                response = serviceUnavailableProblem(
-                    path, requestId, correlationId);
-                return true;
-        }
-    }
+    if (path == PublicBackendCollectionPath &&
+        tryHandleBackendCollectionGet(
+            requestTarget, actorRef, requestId, correlationId,
+            authorizedBackendIds, response))
+        return true;
 
     if (path == PublicAccountCollectionPath)
     {

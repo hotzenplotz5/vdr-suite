@@ -1633,6 +1633,15 @@ public:
 private:
     PublicApiRuntime() = default;
 
+    // Backend read admission and paging remain on this runtime instance.
+    bool tryHandleBackendCollectionGet(
+        const std::string& requestTarget,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::vector<std::string>& authorizedBackendIds,
+        ApiResponse& response) const;
+
     PublicOperationLookupResult lookupOperation(
         const std::string& operationId,
         const std::string& actorRef) const;

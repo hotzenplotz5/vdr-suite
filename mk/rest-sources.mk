@@ -1,6 +1,7 @@
 REST_PUBLIC_API_SRC := \
         api/rest/src/PublicApiRuntime.cpp \
-        api/rest/src/PublicDiscoveryRoutes.cpp
+        api/rest/src/PublicDiscoveryRoutes.cpp \
+        api/rest/src/PublicBackendLookupRuntime.cpp
 
 REST_DASHBOARD_SRC := \
         core/recordings/src/JobRepository.cpp \

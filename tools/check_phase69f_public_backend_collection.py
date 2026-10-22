@@ -16,6 +16,7 @@ def require(condition: bool, message: str) -> None:
 runtime_h = read("api/rest/include/PublicApiRuntime.h")
 runtime = read("api/rest/src/PublicApiRuntime.cpp")
 discovery = read("api/rest/src/PublicDiscoveryRoutes.cpp")
+backend_lookup = read("api/rest/src/PublicBackendLookupRuntime.cpp")
 security = read("core/security/include/SecurityHttpGate.h")
 daemon = read("core/daemon/src/DaemonRuntimeInitialization.cpp")
 shutdown = read("core/daemon/src/DaemonRuntimeShutdown.cpp")
@@ -57,7 +58,9 @@ for token in (
     "public-api.backends-read",
     "backends-read",
 ):
-    owner = discovery if token in {"public-api.backends-read", "backends-read"} else runtime
+    owner = (backend_lookup if token == "registerBackendCollectionLookup"
+             else discovery if token in {"public-api.backends-read", "backends-read"}
+             else runtime)
     require(token in owner, "public Backend runtime drifted: " + token)
 
 response_start = runtime.find("ApiResponse publicBackendCollectionResponse(")
