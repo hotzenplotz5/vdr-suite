@@ -6,8 +6,10 @@
 #include "ContinueWatchingSecurityRequest.h"
 #include "FirstAdminClaimHttpService.h"
 #include "SecurityConfiguration.h"
+#include "RestQueryParameters.h"
 #include "SeriesArtworkSettingsSecurityRequest.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdlib>
 #include <fstream>
@@ -1863,6 +1865,60 @@ HttpServerResponse TestHttpServer::handleRequest(
     if (!gate.allowed)
     {
         return gate.rejection;
+    }
+
+    // M2: serve the existing EPG Artwork repository through the same
+    // exact-backend epg.view SecurityHttpGate used for EPG detail.
+    // No new provider, arbitrary path or URL input can reach this callback.
+    if (request.method == "GET" &&
+        pathWithoutQuery(request.path) == "/api/v1/epg/artwork")
+    {
+        const auto queryAt = request.path.find('?');
+        const RestQueryParameters query = RestQueryParameters::parse(
+            queryAt == std::string::npos ? std::string() :
+                request.path.substr(queryAt + 1U));
+        const std::string backend = query.get("backendId");
+        const std::string channel = query.get("channelId");
+        const std::string event = query.get("eventId");
+        const auto validIdentity = [](const std::string& value) {
+            return !value.empty() && value.size() <= 256U &&
+                std::all_of(value.begin(), value.end(),
+                    [](unsigned char ch) {
+                        return (ch >= 'A' && ch <= 'Z') ||
+                               (ch >= 'a' && ch <= 'z') ||
+                               (ch >= '0' && ch <= '9') ||
+                               ch == '-' || ch == '_' || ch == '.' ||
+                               ch == ':';
+                    });
+        };
+        ApiResponse response;
+        if (gate.authorizedBackendIds.size() != 1U ||
+            backend != gate.authorizedBackendIds.front() ||
+            !validIdentity(channel) || !validIdentity(event))
+        {
+            response.statusCode = 400;
+            response.contentType = "application/json";
+            response.body = "{\"error\":\"invalid_epg_artwork_scope\"}";
+        }
+        else
+        {
+            response = apiRouter_.getEpgArtwork(backend, channel, event);
+            if (response.statusCode == 200 &&
+                response.contentType != "image/png" &&
+                response.contentType != "image/jpeg" &&
+                response.contentType != "image/webp")
+            {
+                response.statusCode = 503;
+                response.contentType = "application/json";
+                response.body = "{\"error\":\"invalid_epg_artwork_type\"}";
+            }
+        }
+        response.headers["Cache-Control"] = response.statusCode == 200
+            ? "private, max-age=300" : "no-store";
+        response.headers["X-Content-Type-Options"] = "nosniff";
+        return finalizeResponse(gate.context,
+            mapApiResponse(response.statusCode, response.contentType,
+                response.body, response.headers));
     }
 
     if (request.method == "GET" &&
