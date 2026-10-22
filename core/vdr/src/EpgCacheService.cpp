@@ -272,14 +272,27 @@ std::vector<VdrEvent> EpgCacheService::findWindowForBackend(
     const std::string& channelId,
     const std::string& fromTime,
     const std::string& untilTime,
-    int eventLimit) const
+    int eventLimit,
+    const std::string& afterStartTime,
+    const std::string& afterEventId) const
 {
     return readRepository_->findWindowForBackend(
-        backendId,
-        channelId,
-        fromTime,
-        untilTime,
-        eventLimit);
+        backendId, channelId, fromTime, untilTime, eventLimit,
+        afterStartTime, afterEventId);
+}
+
+bool EpgCacheService::hasWindowCursorAnchorForBackend(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& fromTime,
+    const std::string& untilTime,
+    const std::string& startTime,
+    const std::string& cacheEventId) const
+{
+    return readRepository_ &&
+        readRepository_->hasWindowCursorAnchorForBackend(
+            backendId, channelId, fromTime, untilTime,
+            startTime, cacheEventId);
 }
 
 bool EpgCacheService::deleteExpiredForBackend(

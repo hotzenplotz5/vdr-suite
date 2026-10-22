@@ -117,6 +117,8 @@ constexpr const char* PublicEpgNowNextPath =
     "/api/v1/epg/now-next";
 constexpr const char* PublicEpgWindowPath =
     "/api/v1/epg/window";
+constexpr const char* PublicEpgWindowCursorPrefix = "ew1_";
+constexpr const char* PublicEpgWindowCursorVersion = "epg-window/1|";
 constexpr const char* PublicNativeTimersPath =
     "/api/v1/native-timers";
 constexpr std::size_t PublicChannelDefaultLimit = 50U;
@@ -1326,15 +1328,17 @@ struct PublicEpgWindowQuery
     std::string fromTime;
     std::string untilTime;
     std::size_t limit = 192U;
+    std::string cursor;
 };
 
 bool parsePublicEpgWindowQuery(
     const std::string& target, PublicEpgWindowQuery& query)
 {
     const std::string raw = requestQueryString(target);
-    if (raw.empty() || raw.size() > 720U) return false;
+    if (raw.empty() || raw.size() > 2048U) return false;
     bool backendSeen = false, channelSeen = false;
     bool fromSeen = false, untilSeen = false, limitSeen = false;
+    bool cursorSeen = false;
     std::size_t position = 0U;
     while (position < raw.size())
     {
@@ -1369,6 +1373,12 @@ bool parsePublicEpgWindowQuery(
             if (!decimalSize(value, query.limit) ||
                 query.limit == 0U || query.limit > 192U) return false;
         }
+        else if (key == "cursor" && !cursorSeen)
+        {
+            cursorSeen = true;
+            if (value.empty() || value.size() > 1900U) return false;
+            query.cursor = value;
+        }
         else return false;
         if (end == std::string::npos) break;
         position = end + 1U;
@@ -1398,7 +1408,9 @@ bool parsePublicEpgWindowQuery(
     {
         const auto from = std::stoll(query.fromTime);
         const auto until = std::stoll(query.untilTime);
-        return until > from && until - from <= 43200LL;
+        // E1: bound response size via limit and an ordered keyset, not
+        // artificially by a 12-hour time horizon.
+        return until > from;
     }
     catch (...) { return false; }
 }
@@ -2006,6 +2018,59 @@ PublicChannelCursorDecodeStatus decodePublicChannelCursor(
         return PublicChannelCursorDecodeStatus::scopeMismatch;
 
     return PublicChannelCursorDecodeStatus::ok;
+}
+
+std::string publicEpgWindowCursor(
+    const PublicEpgWindowQuery& query,
+    const PublicEpgWindowResult& result)
+{
+    if (!result.hasMore || result.nextStartTime.empty() ||
+        result.nextCacheEventId.empty() ||
+        result.nextCacheEventId.size() > 512U) return {};
+    std::string payload(PublicEpgWindowCursorVersion);
+    appendCursorField(payload, query.backendId);
+    appendCursorField(payload, query.channelId);
+    appendCursorField(payload, query.fromTime);
+    appendCursorField(payload, query.untilTime);
+    appendCursorField(payload, result.nextStartTime);
+    appendCursorField(payload, result.nextCacheEventId);
+    return std::string(PublicEpgWindowCursorPrefix) + hexEncode(payload);
+}
+
+bool decodePublicEpgWindowCursor(
+    const PublicEpgWindowQuery& query,
+    std::string& afterStartTime,
+    std::string& afterEventId)
+{
+    const std::string prefix(PublicEpgWindowCursorPrefix);
+    if (query.cursor.size() <= prefix.size() ||
+        query.cursor.compare(0U, prefix.size(), prefix) != 0)
+        return false;
+    std::string payload;
+    if (!hexDecode(query.cursor.substr(prefix.size()), payload))
+        return false;
+    const std::string version(PublicEpgWindowCursorVersion);
+    if (payload.compare(0U, version.size(), version) != 0)
+        return false;
+    std::size_t position = version.size();
+    std::string backendId, channelId, fromTime, untilTime;
+    if (!readCursorField(payload, position, backendId) ||
+        !readCursorField(payload, position, channelId) ||
+        !readCursorField(payload, position, fromTime) ||
+        !readCursorField(payload, position, untilTime) ||
+        !readCursorField(payload, position, afterStartTime) ||
+        !readCursorField(payload, position, afterEventId) ||
+        position != payload.size() ||
+        backendId != query.backendId || channelId != query.channelId ||
+        fromTime != query.fromTime || untilTime != query.untilTime ||
+        afterStartTime.size() < 10U || afterStartTime.size() > 12U ||
+        !std::all_of(afterStartTime.begin(), afterStartTime.end(),
+            [](unsigned char ch) { return ch >= '0' && ch <= '9'; }) ||
+        afterStartTime < query.fromTime ||
+        afterStartTime >= query.untilTime ||
+        afterEventId.empty() || afterEventId.size() > 512U)
+        return false;
+    return true;
 }
 
 enum class PublicRecordingCursorDecodeStatus
@@ -5614,13 +5679,23 @@ bool PublicApiRuntime::tryHandleEpgReadGet(
             authorizedBackendIds.front() != query.backendId)
         {
             response = invalidRequestProblem(path,
-                "One authorized backendId, channelId and bounded 12-hour time window are required.",
+                "One authorized backendId, channelId and valid EPG time range are required.",
+                requestId, correlationId);
+            return true;
+        }
+        std::string afterStartTime, afterCacheEventId;
+        if (!query.cursor.empty() &&
+            !decodePublicEpgWindowCursor(
+                query, afterStartTime, afterCacheEventId))
+        {
+            response = invalidRequestProblem(path,
+                "The EPG window cursor is invalid or its scope changed.",
                 requestId, correlationId);
             return true;
         }
         const PublicEpgWindowRequest request{
             query.backendId, query.channelId, query.fromTime,
-            query.untilTime, query.limit
+            query.untilTime, query.limit, afterStartTime, afterCacheEventId
         };
         const PublicEpgWindowResult found = lookupEpgWindow(request);
         switch (found.status)
@@ -5661,9 +5736,20 @@ bool PublicApiRuntime::tryHandleEpgReadGet(
                             jsonEscape(event.eventId) + "\"";
                     body += "}";
                 }
+                const std::string nextCursor =
+                    publicEpgWindowCursor(query, found);
+                if (found.hasMore && nextCursor.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
                 body += "],\"page\":{\"limit\":" +
                     std::to_string(query.limit) +
                     ",\"hasMore\":" + (found.hasMore ? "true" : "false") +
+                    ",\"nextCursor\":" +
+                    (nextCursor.empty() ? std::string("null") :
+                        "\"" + jsonEscape(nextCursor) + "\"") +
                     "},\"meta\":{\"partial\":false}}";
                 response = jsonResponse(body, requestId, correlationId);
                 return true;

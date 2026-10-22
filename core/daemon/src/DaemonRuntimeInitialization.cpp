@@ -3484,7 +3484,9 @@ bool DaemonRuntime::initialize()
             if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
                 !epgCacheServiceRegistry_ ||
                 request.backendId.empty() || request.channelId.empty() ||
-                request.limit == 0U || request.limit > 192U)
+                request.limit == 0U || request.limit > 192U ||
+                (request.afterStartTime.empty() !=
+                 request.afterCacheEventId.empty()))
             {
                 result.status = PublicEpgNowNextStatus::invalid;
                 return result;
@@ -3511,11 +3513,28 @@ bool DaemonRuntime::initialize()
             }
             EpgCacheService* service =
                 epgCacheServiceRegistry_->findService(request.backendId);
-            if (service == nullptr) return result;
+            if (service == nullptr ||
+                !service->getStatusForBackend(request.backendId).ready)
+                return result;
+            if (!request.afterStartTime.empty() &&
+                !service->hasWindowCursorAnchorForBackend(
+                    request.backendId, request.channelId,
+                    request.fromTime, request.untilTime,
+                    request.afterStartTime, request.afterCacheEventId))
+            {
+                result.status = PublicEpgNowNextStatus::invalid;
+                return result;
+            }
             const auto events = service->findWindowForBackend(
                 request.backendId, request.channelId, request.fromTime,
-                request.untilTime, static_cast<int>(request.limit + 1U));
+                request.untilTime, static_cast<int>(request.limit + 1U),
+                request.afterStartTime, request.afterCacheEventId);
             result.hasMore = events.size() > request.limit;
+            if (result.hasMore)
+            {
+                result.nextStartTime = events[request.limit - 1U].startTime;
+                result.nextCacheEventId = events[request.limit - 1U].id;
+            }
             for (std::size_t i = 0U;
                  i < events.size() && i < request.limit; ++i)
             {
