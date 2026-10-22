@@ -121,7 +121,8 @@ int main() {
         "/usr/bin/ffmpeg", "-nostdin", "-hide_banner", "-v", "error",
         "-f", "lavfi", "-i", "testsrc2=size=160x90:rate=25",
         "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000",
-        "-t", "3", "-c:v", "libx264", "-preset", "ultrafast",
+        "-t", "6", "-c:v", "libx264", "-preset", "ultrafast",
+        "-g", "25", "-keyint_min", "25",
         "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k",
         "-y", fixture.source.string()
     }, false);
