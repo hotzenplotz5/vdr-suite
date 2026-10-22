@@ -2132,6 +2132,7 @@ bool DaemonRuntime::initialize()
             out.epgTitle = source.epgTitle;
             out.subtitle = source.subtitle;
             out.epgDescription = source.epgDescription;
+            out.providerTitle = source.providerTitle;
             out.originalTitle = source.originalTitle;
             out.tagline = source.tagline;
             out.seriesTitle = source.seriesTitle;
