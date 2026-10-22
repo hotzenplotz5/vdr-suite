@@ -242,6 +242,49 @@ struct PublicRecordingCollectionResult
     bool hasMore = false;
 };
 
+// M1: one public rec_ detail under an exact recordings.view backend grant.
+// The daemon owns the cache and public-ID resolution; HTTP never receives
+// a native Recording path or any provider artwork cache reference.
+struct PublicRecordingDetailRequest
+{
+    std::string backendId;
+    std::string recordingId;
+};
+
+enum class PublicRecordingDetailStatus { ok, invalid, notFound, unavailable };
+
+struct PublicRecordingDetailItem
+{
+    PublicRecordingCollectionItem recording;
+    std::string metadataState;
+    std::string metadataSource;
+    std::string contentKind;
+    std::string epgTitle;
+    std::string subtitle;
+    std::string epgDescription;
+    std::string providerTitle;
+    std::string overview;
+    std::string originalTitle;
+    std::string tagline;
+    std::string seriesTitle;
+    std::string episodeTitle;
+    std::string genreText;
+    std::string manualGenreId;
+    std::string releaseDate;
+    int seasonNumber = 0;
+    int episodeNumber = 0;
+    int providerRuntimeMinutes = 0;
+    std::string manualAssignmentId;
+    std::string metadataEntityId;
+    int manualRevision = 0;
+};
+
+struct PublicRecordingDetailResult
+{
+    PublicRecordingDetailStatus status = PublicRecordingDetailStatus::unavailable;
+    PublicRecordingDetailItem item;
+};
+
 enum class PublicSearchStatus { ok, unavailable };
 struct PublicSearchRequest {
     std::string backendId, query;
@@ -420,6 +463,9 @@ struct PublicEpgWindowRequest
     std::string fromTime;
     std::string untilTime;
     std::size_t limit = 192U;
+    // Private cache keyset, decoded from a scope- and window-bound cursor.
+    std::string afterStartTime;
+    std::string afterCacheEventId;
 };
 
 struct PublicEpgWindowResult
@@ -427,6 +473,9 @@ struct PublicEpgWindowResult
     PublicEpgNowNextStatus status = PublicEpgNowNextStatus::unavailable;
     std::vector<PublicEpgNowNextItem> events;
     bool hasMore = false;
+    // These values identify the last cache row, not a native source EventID.
+    std::string nextStartTime;
+    std::string nextCacheEventId;
 };
 
 // Read-only, exact source-provenanced EPG airing; no Timer CREATE authority.
@@ -1228,6 +1277,10 @@ public:
         std::function<PublicRecordingCollectionResult(
             const PublicRecordingCollectionRequest& request)>;
 
+    using RecordingDetailLookup =
+        std::function<PublicRecordingDetailResult(
+            const PublicRecordingDetailRequest&)>;
+
     using SearchLookup =
         std::function<PublicSearchResult(const PublicSearchRequest&)>;
 
@@ -1412,6 +1465,11 @@ public:
     bool recordingCollectionLookupConfigured() const;
     PublicRecordingCollectionResult lookupRecordingCollection(
         const PublicRecordingCollectionRequest& request) const;
+
+    void registerRecordingDetailLookup(RecordingDetailLookup lookup);
+    void resetRecordingDetailLookup();
+    PublicRecordingDetailResult lookupRecordingDetail(
+        const PublicRecordingDetailRequest& request) const;
 
     void registerSearchLookup(SearchLookup lookup);
     void resetSearchLookup();
@@ -1807,6 +1865,9 @@ private:
 
     mutable std::mutex recordingCollectionLookupMutex_;
     RecordingCollectionLookup recordingCollectionLookup_;
+
+    mutable std::mutex recordingDetailLookupMutex_;
+    RecordingDetailLookup recordingDetailLookup_;
 
     mutable std::mutex searchLookupMutex_;
     SearchLookup searchLookup_;
