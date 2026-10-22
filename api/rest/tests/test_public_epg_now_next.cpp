@@ -214,11 +214,11 @@ int main()
             return result;
         });
     const auto extractCursor = [](const std::string& body) {
-        const std::string key = "\\\"nextCursor\\\":\\\"";
+        const std::string key = "\"nextCursor\":\"";
         const auto start = body.find(key);
         if (start == std::string::npos) return std::string();
         const auto from = start + key.size();
-        const auto finish = body.find('\\\"', from);
+        const auto finish = body.find('\"', from);
         return finish == std::string::npos ?
             std::string() : body.substr(from, finish - from);
     };
@@ -227,7 +227,7 @@ int main()
     assert(page1.body.find("Programme-0") != std::string::npos);
     assert(page1.body.find("Programme-1") != std::string::npos);
     assert(page1.body.find("Programme-2") == std::string::npos);
-    assert(page1.body.find("\\\"hasMore\\\":true") != std::string::npos);
+    assert(page1.body.find("\"hasMore\":true") != std::string::npos);
     const std::string cursor1 = extractCursor(page1.body);
     assert(cursor1.rfind("ew1_", 0U) == 0U);
     assert(read(longWindow + "&cursor=" + cursor1, "", {"home"})
@@ -261,8 +261,8 @@ int main()
                             "actor", {"home"});
     assert(page3.statusCode == 200);
     assert(page3.body.find("Programme-4") != std::string::npos);
-    assert(page3.body.find("\\\"hasMore\\\":false") != std::string::npos);
-    assert(page3.body.find("\\\"nextCursor\\\":null") != std::string::npos);
+    assert(page3.body.find("\"hasMore\":false") != std::string::npos);
+    assert(page3.body.find("\"nextCursor\":null") != std::string::npos);
     // A window with no events remains valid when the cache is ready.
     runtime.registerEpgWindowLookup(
         [](const PublicEpgWindowRequest&) {
@@ -272,7 +272,7 @@ int main()
         });
     assert(read(longWindow, "actor", {"home"}).statusCode == 200);
     assert(read(longWindow, "actor", {"home"}).body.find(
-        "\\\"items\\\":[]") != std::string::npos);
+        "\"items\":[]") != std::string::npos);
     runtime.registerEpgWindowLookup(
         [](const PublicEpgWindowRequest& request) {
             PublicEpgWindowResult r;
