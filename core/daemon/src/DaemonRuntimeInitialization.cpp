@@ -63,6 +63,32 @@
 #include <utility>
 #include <vector>
 
+namespace
+{
+class SearchTimerCurrentBackendGeneration final :
+    public ISearchTimerBackendGenerationAuthority
+{
+public:
+    SearchTimerCurrentBackendGeneration(
+        BackendAgentRepository& agents, std::int64_t now)
+        : agents_(agents), now_(now) {}
+
+    std::optional<std::uint64_t> currentGeneration(
+        const std::string& backendId) const override
+    {
+        const auto agent = agents_.findAgentForBackend(backendId);
+        if (!agent || agent->revoked || agent->incompatible ||
+            agent->backendGeneration == 0U ||
+            agent->leaseExpiresAt <= now_)
+            return std::nullopt;
+        return agent->backendGeneration;
+    }
+private:
+    BackendAgentRepository& agents_;
+    std::int64_t now_;
+};
+} // namespace
+
 bool DaemonRuntime::initialize()
 {
     std::cout << "vdr-suite-daemon runtime initializing" << std::endl;
