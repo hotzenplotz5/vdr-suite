@@ -370,6 +370,30 @@ void runRequired(ProcessRunner& runner, const std::vector<std::string>& argv) {
 
 } // namespace
 
+std::string parseProbedVideoCodec(const std::string& output) {
+    require(!output.empty() && output.size() <= 4096,
+            "invalid video codec probe length");
+    std::istringstream lines(output);
+    std::string uniqueCodec;
+    std::string token;
+    std::size_t count = 0;
+    while (std::getline(lines, token)) {
+        if (!token.empty() && token.back() == '\r') token.pop_back();
+        if (token.empty()) continue;
+        require(token.size() <= 64 &&
+                std::all_of(token.begin(), token.end(), [](unsigned char c) {
+                    return std::islower(c) || std::isdigit(c) || c == '_';
+                }), "invalid video codec from ffprobe");
+        if (!uniqueCodec.empty())
+            require(token == uniqueCodec,
+                    "inconsistent video codec streams from ffprobe");
+        else uniqueCodec = token;
+        require(++count <= 64, "too many video codec entries");
+    }
+    require(!uniqueCodec.empty(), "missing video codec from ffprobe");
+    return uniqueCodec;
+}
+
 ImportPlan inspectImport(const ImportRequest& request) {
     const auto sourceRoot = checkedRoot(request.sourceRoot);
     const auto videoRoot = checkedRoot(request.videoRoot);
@@ -479,13 +503,7 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
         stagedSource.string()
     }, true);
     require(probe.exitCode == 0, "ffprobe failed");
-    std::string codec = probe.output;
-    while (!codec.empty() && (codec.back() == '\n' || codec.back() == '\r'))
-        codec.pop_back();
-    require(!codec.empty() && codec.size() <= 64 &&
-            std::all_of(codec.begin(), codec.end(), [](unsigned char ch) {
-                return std::islower(ch) || std::isdigit(ch) || ch == '_';
-            }), "invalid video codec from ffprobe");
+    const std::string codec = parseProbedVideoCodec(probe.output);
     const bool copyVideo = codec == "h264" || codec == "hevc" ||
                            codec == "mpeg2video";
     const double inputDuration = probeDuration(runner, stagedSource);
@@ -577,8 +595,7 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
     }, true);
     const std::string expectedCodec = copyVideo ? codec : "h264";
     require(encodedVideo.exitCode == 0 &&
-            (encodedVideo.output == expectedCodec + "\n" ||
-             encodedVideo.output == expectedCodec + "\r\n"),
+            parseProbedVideoCodec(encodedVideo.output) == expectedCodec,
             "import output video codec verification failed");
     runRequired(runner, {"/usr/bin/vdr", "--genindex=" + stagedRecording.string()});
     require(nonemptyRegular(stagedRecording / "index"), "VDR index missing or empty");
