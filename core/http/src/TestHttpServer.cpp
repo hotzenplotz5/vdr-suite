@@ -1870,8 +1870,12 @@ HttpServerResponse TestHttpServer::handleRequest(
     // M2: serve the existing EPG Artwork repository through the same
     // exact-backend epg.view SecurityHttpGate used for EPG detail.
     // No new provider, arbitrary path or URL input can reach this callback.
+    const bool isEpgDirectArtwork =
+        pathWithoutQuery(request.path) == "/api/v1/epg/artwork";
+    const bool isEpgPreferredArtwork =
+        pathWithoutQuery(request.path) == "/api/v1/epg/preferred-artwork";
     if (request.method == "GET" &&
-        pathWithoutQuery(request.path) == "/api/v1/epg/artwork")
+        (isEpgDirectArtwork || isEpgPreferredArtwork))
     {
         const auto queryAt = request.path.find('?');
         const RestQueryParameters query = RestQueryParameters::parse(
@@ -1902,7 +1906,9 @@ HttpServerResponse TestHttpServer::handleRequest(
         }
         else
         {
-            response = apiRouter_.getEpgArtwork(backend, channel, event);
+            response = isEpgPreferredArtwork
+                ? apiRouter_.getEpgPreferredArtwork(backend, channel, event)
+                : apiRouter_.getEpgArtwork(backend, channel, event);
             if (response.statusCode == 200 &&
                 response.contentType != "image/png" &&
                 response.contentType != "image/jpeg" &&

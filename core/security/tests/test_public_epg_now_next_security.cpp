@@ -45,28 +45,33 @@ int main()
     // different backend or live-playback-only grant.
     const std::string artwork =
         "/api/v1/epg/artwork?backendId=home&channelId=S19.2E-1-100&eventId=81234";
+    const std::string preferredArtwork =
+        "/api/v1/epg/preferred-artwork?backendId=home&channelId=S19.2E-1-100&eventId=81234";
+    for (const auto& path : {artwork, preferredArtwork})
     {
         SecurityHttpGateBrowserTestFixture fixture;
         assert(fixture.grantRepository.ensureGrant(
             fixture.actorId, "epg.view", "home"));
-        const auto allowed = fixture.gate.evaluate(browserRead(fixture, artwork));
+        const auto allowed = fixture.gate.evaluate(browserRead(fixture, path));
         assert(allowed.allowed);
         assert(allowed.authorizedBackendIds ==
             std::vector<std::string>{"home"});
     }
-    for (const auto& permission : {"media.live.play", "channels.view"}) {
-        SecurityHttpGateBrowserTestFixture fixture;
-        assert(fixture.grantRepository.ensureGrant(
-            fixture.actorId, permission, "home"));
-        const auto denied = fixture.gate.evaluate(browserRead(fixture, artwork));
-        assert(!denied.allowed);
-        assert(denied.rejection.statusCode == 403);
+    for (const auto& path : {artwork, preferredArtwork}) {
+        for (const auto& permission : {"media.live.play", "channels.view"}) {
+            SecurityHttpGateBrowserTestFixture fixture;
+            assert(fixture.grantRepository.ensureGrant(
+                fixture.actorId, permission, "home"));
+            const auto denied = fixture.gate.evaluate(browserRead(fixture, path));
+            assert(!denied.allowed);
+            assert(denied.rejection.statusCode == 403);
+        }
     }
     {
         SecurityHttpGateBrowserTestFixture fixture;
         assert(fixture.grantRepository.ensureGrant(
             fixture.actorId, "epg.view", "other"));
-        const auto denied = fixture.gate.evaluate(browserRead(fixture, artwork));
+        const auto denied = fixture.gate.evaluate(browserRead(fixture, preferredArtwork));
         assert(!denied.allowed);
         assert(denied.rejection.statusCode == 403);
     }

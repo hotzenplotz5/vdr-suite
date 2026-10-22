@@ -752,6 +752,7 @@ public:
             path == "/api/v1/epg/window" ||
             path == "/api/v1/epg/event" ||
             path == "/api/v1/epg/artwork" ||
+            path == "/api/v1/epg/preferred-artwork" ||
             path == "/api/v1/search/epg";
         const std::string nativeTimerItemPrefix = "/api/v1/native-timers/";
         const bool isPublicNativeTimerItem =
