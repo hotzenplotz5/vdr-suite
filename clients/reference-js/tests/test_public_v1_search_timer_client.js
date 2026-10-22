@@ -41,6 +41,21 @@ async function run() {
   assert.equal(calls[0].options.cache,'no-store');
   assert.equal(calls[0].options.headers.Authorization,
     'VDR-Suite-Device test-credential');
+  const detailId='st_'+'1'.repeat(32);
+  const detail=await client.getSearchTimer({backendId:'home',searchTimerId:detailId});
+  assert.equal(detail.items[0].searchTimerId,detailId);
+  assert.equal(calls.at(-1).url,
+    'https://suite.example/api/v1/search-timers/'+detailId+'?backend=home');
+  assert.equal(calls.at(-1).options.method,'GET');
+  const beforeDetailErrors=calls.length;
+  for(const bad of [
+    {backendId:'home',searchTimerId:'0'},
+    {backendId:'other/host',searchTimerId:detailId},
+    {backendId:'home',searchTimerId:detailId+'/preview'},
+    {backendId:'home'},
+    {searchTimerId:detailId}
+  ]) assert.throws(()=>client.getSearchTimer(bad));
+  assert.equal(calls.length,beforeDetailErrors);
   const before=calls.length;
   for(const query of [{},{backendId:'bad/scope'},{backendId:'home',limit:31},
     {backendId:'home',limit:0},{backendId:'home',offset:1},
