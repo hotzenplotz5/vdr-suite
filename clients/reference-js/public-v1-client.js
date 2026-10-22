@@ -624,56 +624,6 @@
       });
     }
 
-    function requestRevisioned(path, options) {
-      const requestOptions = options && typeof options === 'object' ? options : {};
-      if (requestOptions.ifNoneMatch !== undefined
-          && (typeof requestOptions.ifNoneMatch !== 'string'
-              || requestOptions.ifNoneMatch === '')) {
-        throw new Error('ifNoneMatch must be a non-empty string');
-      }
-
-      const headers = Object.assign(
-        {Accept: 'application/json'},
-        defaultHeaders,
-        copyHeaders(requestOptions.headers)
-      );
-      if (requestOptions.ifNoneMatch !== undefined) {
-        headers['If-None-Match'] = requestOptions.ifNoneMatch;
-      }
-
-      return fetchImpl(buildUrl(baseUrl, path), {
-        method: 'GET',
-        headers: headers,
-        credentials: requestOptions.credentials !== undefined
-          ? requestOptions.credentials
-          : normalized.credentials,
-        cache: requestOptions.cache,
-        signal: requestOptions.signal
-      }).then(function (response) {
-        const entityTag = headerValue(response, 'ETag');
-        if (response.status === 304) {
-          return {
-            status: 304,
-            etag: entityTag,
-            data: null
-          };
-        }
-
-        return parseJsonBody(response).then(function (payload) {
-          if (!response.ok) {
-            throw new VdrSuitePublicClientError(path, response.status, payload, response);
-          }
-          return {
-            status: response.status,
-            etag: entityTag,
-            data: payload
-          };
-        });
-      });
-    }
-
-
-
     function requestInactiveSearchTimerCreate(options) {
       const o = options && typeof options === 'object' ? options : {};
       const allowed = new Set(['backendId','name','query','active','mode',
@@ -727,6 +677,56 @@
         });
       });
     }
+
+    function requestRevisioned(path, options) {
+      const requestOptions = options && typeof options === 'object' ? options : {};
+      if (requestOptions.ifNoneMatch !== undefined
+          && (typeof requestOptions.ifNoneMatch !== 'string'
+              || requestOptions.ifNoneMatch === '')) {
+        throw new Error('ifNoneMatch must be a non-empty string');
+      }
+
+      const headers = Object.assign(
+        {Accept: 'application/json'},
+        defaultHeaders,
+        copyHeaders(requestOptions.headers)
+      );
+      if (requestOptions.ifNoneMatch !== undefined) {
+        headers['If-None-Match'] = requestOptions.ifNoneMatch;
+      }
+
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'GET',
+        headers: headers,
+        credentials: requestOptions.credentials !== undefined
+          ? requestOptions.credentials
+          : normalized.credentials,
+        cache: requestOptions.cache,
+        signal: requestOptions.signal
+      }).then(function (response) {
+        const entityTag = headerValue(response, 'ETag');
+        if (response.status === 304) {
+          return {
+            status: 304,
+            etag: entityTag,
+            data: null
+          };
+        }
+
+        return parseJsonBody(response).then(function (payload) {
+          if (!response.ok) {
+            throw new VdrSuitePublicClientError(path, response.status, payload, response);
+          }
+          return {
+            status: response.status,
+            etag: entityTag,
+            data: payload
+          };
+        });
+      });
+    }
+
+
 
     function requestAccountCreate(payload, options) {
       const requestOptions = options && typeof options === 'object' ? options : {};
