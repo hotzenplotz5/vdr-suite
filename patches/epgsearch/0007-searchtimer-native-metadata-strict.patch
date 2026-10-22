@@ -61,10 +61,14 @@ diff --git a/epgsearchext.c b/epgsearchext.c
 +                                         fileName, line);
 +                    }
                      continue;
-@@ -1576,1 +1576,2 @@
+@@ -1574,5 +1574,6 @@
+                     cSearchExt* search = new cSearchExt;
+                     if (search->Parse(buffer)) {
 -                        if (this == &SearchExts && !pendingGeneration.empty()) {
 +                        if (this == &SearchExts && !invalidNativeMetadata &&
 +                            !pendingGeneration.empty()) {
+                             bool duplicate =
+                                 !seenGenerations.insert(pendingGeneration).second;
 @@ -1586,3 +1586,6 @@
                                      old->nativeGeneration.clear();
                                      old->nativeGenerationDurable = false;
