@@ -27,6 +27,7 @@
 #include "RecordingArtworkHttpServer.h"
 #include "PublicResourcePreconditions.h"
 #include "PublicRecordingCollectionProjection.h"
+#include "PublicRecordingMetadataDetailProjection.h"
 #include "PublicRecordingPlaybackTargetResolver.h"
 #include "PublicRecordingActionReadback.h"
 #include "RestfulApiRecordingMapper.h"
@@ -2051,6 +2052,96 @@ bool DaemonRuntime::initialize()
                 result.recordings.push_back(std::move(view));
             }
             result.status = PublicRecordingCollectionStatus::ok;
+            return result;
+        });
+
+    // M1: the same warmed backend cache + persistent rec_ mapping as the
+    // Public-v1 Recording collection. Never select by a user-supplied VDR
+    // filename or route through a private metadata endpoint.
+    PublicApiRuntime::instance().registerRecordingDetailLookup(
+        [this](const PublicRecordingDetailRequest& request)
+        {
+            PublicRecordingDetailResult result;
+            if (request.backendId.empty() || request.backendId == "*" ||
+                request.recordingId.size() != 36U)
+            {
+                result.status = PublicRecordingDetailStatus::invalid;
+                return result;
+            }
+
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                !vdrRecordingCacheRepository_ || !publicRecordingIdentities_)
+                return result;
+
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled ||
+                !backend->online ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(
+                    request.backendId) ||
+                vdrRecordingCacheRepository_->statusForBackend(
+                    request.backendId).state != "ready")
+                return result;
+
+            PublicRecordingPlaybackTargetResolver resolver(
+                *publicRecordingIdentities_,
+                *vdrRecordingCacheRepository_);
+            const auto found = resolver.resolve(
+                request.backendId, request.recordingId);
+            if (found.status == PublicRecordingPlaybackTargetStatus::invalidRequest)
+            {
+                result.status = PublicRecordingDetailStatus::invalid;
+                return result;
+            }
+            if (found.status != PublicRecordingPlaybackTargetStatus::ready)
+            {
+                result.status = PublicRecordingDetailStatus::notFound;
+                return result;
+            }
+
+            // Reuse the existing Recording presentation, including path-
+            // derived display name, edited flag and capped synopsis.
+            PublicRecordingCollectionProjection projector(
+                *publicRecordingIdentities_);
+            const auto displayed = projector.project(
+                request.backendId, {found.recording});
+            if (!displayed.valid || displayed.items.size() != 1U ||
+                displayed.items.front().recordingId != request.recordingId)
+                return result;
+
+            const auto detail = PublicRecordingMetadataDetailProjection::project(
+                request.backendId, request.recordingId,
+                found.recording, displayed.items.front());
+            if (!detail)
+                return result;
+
+            const auto& source = *detail;
+            auto& out = result.item;
+            out.recording.recordingId = source.recording.recordingId;
+            out.recording.backendId = source.recording.backendId;
+            out.recording.title = source.recording.title;
+            out.recording.recordedAt = source.recording.recordedAt;
+            out.recording.durationSeconds = source.recording.durationSeconds;
+            out.recording.durationKnown = source.recording.durationKnown;
+            out.recording.edited = source.recording.edited;
+            out.recording.description = source.recording.description;
+            out.recording.sizeMb = source.recording.sizeMb;
+            out.metadataState = source.metadataState;
+            out.metadataSource = source.metadataSource;
+            out.contentKind = source.contentKind;
+            out.epgTitle = source.epgTitle;
+            out.subtitle = source.subtitle;
+            out.epgDescription = source.epgDescription;
+            out.originalTitle = source.originalTitle;
+            out.tagline = source.tagline;
+            out.seriesTitle = source.seriesTitle;
+            out.episodeTitle = source.episodeTitle;
+            out.genreText = source.genreText;
+            out.releaseDate = source.releaseDate;
+            out.seasonNumber = source.seasonNumber;
+            out.episodeNumber = source.episodeNumber;
+            out.providerRuntimeMinutes = source.providerRuntimeMinutes;
+            result.status = PublicRecordingDetailStatus::ok;
             return result;
         });
 
