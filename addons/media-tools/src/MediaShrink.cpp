@@ -259,9 +259,18 @@ std::vector<std::string> subtitleNames(const ShrinkPlan& plan) {
 }
 
 void copySubtitles(const ShrinkPlan& plan, const fs::path& destination) {
-    for (const auto& name : subtitleNames(plan))
-        copySidecarFile(plan.videoRoot / plan.relativeRecording / name,
-                        destination / name, 8 * 1024 * 1024);
+    std::uint64_t total = 0;
+    for (const auto& name : subtitleNames(plan)) {
+        const auto source = plan.videoRoot / plan.relativeRecording / name;
+        struct stat file{};
+        demand(::lstat(source.c_str(), &file) == 0 &&
+               S_ISREG(file.st_mode) && file.st_size > 0 &&
+               file.st_size <= 8 * 1024 * 1024 &&
+               static_cast<std::uint64_t>(file.st_size) <= 16 * MiB - total,
+               "total shrink subtitle size exceeds staging budget");
+        total += static_cast<std::uint64_t>(file.st_size);
+        copySidecarFile(source, destination / name, 8 * 1024 * 1024);
+    }
 }
 
 std::string signature(const ShrinkPlan& plan) {
@@ -380,6 +389,9 @@ void requireShrinkCapacity(const ShrinkPlan& plan)
     struct statvfs fsInfo{};
     demand(::statvfs(plan.videoRoot.c_str(), &fsInfo) == 0 &&
            fsInfo.f_frsize > 0, "cannot inspect shrink destination capacity");
+    demand((fsInfo.f_flag & ST_RDONLY) == 0 &&
+           ::access(plan.videoRoot.c_str(), W_OK | X_OK) == 0,
+           "shrink destination is not writable by the media worker");
     const std::uint64_t block = fsInfo.f_frsize;
     demand(fsInfo.f_blocks <= UINT64_MAX / block &&
            fsInfo.f_bavail <= UINT64_MAX / block,

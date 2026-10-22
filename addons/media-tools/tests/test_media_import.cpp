@@ -232,6 +232,21 @@ int main() {
     }
     {
         Fixture f;
+        for (const auto& lang : {"de", "en", "fr"}) {
+            const auto subtitle = f.input / (std::string("Sample.") + lang + ".srt");
+            std::ofstream(subtitle).close();
+            fs::resize_file(subtitle, 8 * 1024 * 1024);
+        }
+        FakeProcess runner;
+        const auto plan = inspectImport(f.request());
+        mustFail([&] { executeRemuxImport(plan, runner,
+            [](const ImportPlan&) {}); });
+        assert(fs::exists(f.source) && runner.remuxes == 0 &&
+               !fs::exists(f.video / "Sample"));
+        ++checks;
+    }
+    {
+        Fixture f;
         FakeProcess runner;
         runner.codec = "vp9\n";
         auto plan = inspectImport(f.request());

@@ -330,9 +330,13 @@ void stageOptionalSubtitle(const fs::path& sourceFile,
     }
     std::sort(discovered.begin(), discovered.end(),
         [](const auto& a, const auto& b) { return a.first < b.first; });
+    std::uint64_t totalSubtitleBytes = 0;
     for (const auto& file : discovered) {
         const auto data = readOptionalSidecar(file.first, 8 * kMiB);
         require(data && !data->empty(), "missing or empty SRT sidecar");
+        require(data->size() <= 16 * kMiB - totalSubtitleBytes,
+                "total SRT sidecar size exceeds staging budget");
+        totalSubtitleBytes += data->size();
         std::ofstream output(stage / file.second,
                              std::ios::binary | std::ios::trunc);
         require(static_cast<bool>(output), "cannot stage SRT sidecar");
@@ -405,6 +409,9 @@ ImportPlan inspectImport(const ImportRequest& request) {
 void requireProductionCapacity(const ImportPlan& plan) {
     struct statvfs st{};
     require(::statvfs(plan.videoRoot.c_str(), &st) == 0, "destination capacity is unavailable");
+    require((st.f_flag & ST_RDONLY) == 0 &&
+            ::access(plan.videoRoot.c_str(), W_OK | X_OK) == 0,
+            "destination is not writable by the media worker");
     const auto block = static_cast<std::uint64_t>(st.f_frsize);
     require(block != 0 && st.f_blocks <= UINT64_MAX / block &&
             st.f_bavail <= UINT64_MAX / block, "capacity overflow");
