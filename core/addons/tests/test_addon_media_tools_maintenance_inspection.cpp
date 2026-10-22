@@ -9,6 +9,8 @@
 #include <fstream>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <vector>
@@ -182,5 +184,44 @@ int main() {
         vdrsuite::mediatools::MediaToolsImportRunLock::Mode::exclusiveMaintenance)
             .has_value());
     assert(audit.listAll().size() == 1);
+
+    // A retained inspection MUST keep the same kernel lock until its
+    // move-only owner exits, even after ownership changes C++ objects.
+    static_assert(!std::is_copy_constructible<MaintenanceInspectionHold>::value,
+                  "the maintenance lock may not be duplicated by copying");
+    auto held = inspection.inspectAndHold(actor, f.root.string());
+    assert(held.holdsExclusiveLock());
+    assert(held.inspection.reason == R::locallyQuiescentSnapshot);
+    assert(!vdrsuite::mediatools::MediaToolsImportRunLock::tryAcquire(
+        f.root.string(),
+        vdrsuite::mediatools::MediaToolsImportRunLock::Mode::sharedExecution)
+            .has_value());
+    assert(inspect().reason == R::runLockUnavailable);
+    auto transferred = std::move(held);
+    assert(!held.holdsExclusiveLock());
+    assert(transferred.holdsExclusiveLock());
+    assert(!vdrsuite::mediatools::MediaToolsImportRunLock::tryAcquire(
+        f.root.string(),
+        vdrsuite::mediatools::MediaToolsImportRunLock::Mode::exclusiveMaintenance)
+            .has_value());
+    transferred.exclusive.reset();
+    assert(!transferred.holdsExclusiveLock());
+    assert(inspect().locallyQuiescent);
+
+    // A failed inspection may not leak or return a usable retained lock.
+    assert(db.execute("INSERT INTO backend_agent_command_capabilities "
+                      "VALUES ('addon.media.import');"));
+    auto rejectedHold = inspection.inspectAndHold(actor, f.root.string());
+    assert(!rejectedHold.holdsExclusiveLock());
+    assert(!rejectedHold.exclusive.has_value());
+    assert(rejectedHold.inspection.reason ==
+           R::agentCapabilityStillAdvertised);
+    assert(vdrsuite::mediatools::MediaToolsImportRunLock::tryAcquire(
+        f.root.string(),
+        vdrsuite::mediatools::MediaToolsImportRunLock::Mode::exclusiveMaintenance)
+            .has_value());
+    assert(db.execute("DELETE FROM backend_agent_command_capabilities;"));
+
     std::cout << "ADDON_GLOBAL_MAINTENANCE_INSPECTION=PASS\n";
+    std::cout << "ADDON_MAINTENANCE_EXCLUSIVE_HOLD=PASS\n";
 }
