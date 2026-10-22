@@ -1633,6 +1633,16 @@ public:
 private:
     PublicApiRuntime() = default;
 
+    // EPG Event, Window, Now/Next read-only orchestration on this runtime.
+    bool tryHandleEpgReadGet(
+        const std::string& requestTarget,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::string& ifNoneMatch,
+        const std::vector<std::string>& authorizedBackendIds,
+        ApiResponse& response) const;
+
     // The Channel GET path retains its existing parse, scope and cursor logic.
     bool tryHandleChannelCollectionGet(
         const std::string& requestTarget,

@@ -47,8 +47,22 @@ int main()
     assert(ok.body.find("backendGeneration") == std::string::npos);
     assert(ok.headers.count("ETag") == 1U);
     assert(ok.headers.at("Cache-Control") == "no-store");
+    assert(ok.headers.at("X-Request-ID") == "request-id");
+    assert(ok.headers.at("X-Correlation-ID") == "corr-id");
     const auto cached = read(path, "actor", {"home"}, ok.headers.at("ETag"));
     assert(cached.statusCode == 304 && cached.body.empty());
+    assert(cached.headers.at("ETag") == ok.headers.at("ETag"));
+    assert(cached.headers.at("Cache-Control") == "no-store");
+    assert(cached.headers.at("X-Request-ID") == "request-id");
+    assert(cached.headers.at("X-Correlation-ID") == "corr-id");
+
+    ApiResponse headNotAllowed;
+    assert(rt.tryHandleUnsupportedMethod(
+        "HEAD", "/api/v1/epg/event", "request-id", "corr-id",
+        headNotAllowed));
+    assert(headNotAllowed.statusCode == 405);
+    assert(headNotAllowed.headers.at("Allow") == "GET");
+    assert(headNotAllowed.headers.at("X-Request-ID") == "request-id");
     assert(read(path, "actor", {"home"}, "W/\"bad").statusCode == 400);
     assert(calls == 3);
     rt.registerEpgEventDetailLookup([](const PublicEpgEventDetailRequest& q) {

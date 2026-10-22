@@ -85,10 +85,18 @@ class OpenApiDriftTests(unittest.TestCase):
         self.assert_rejected(changed, reason="audited path inventory changed")
 
     def test_missing_epg_handler(self):
-        changed_source = self.source.replace(
-            "if (path == PublicEpgNowNextPath)",
-            "if (path == ObsoleteEpgNowNextPath)",
-            1,
+        # ADR-0068 keeps audited route markers in tryHandleGet while the
+        # actual EPG body lives in the private tryHandleEpgReadGet helper.
+        # Mutate the dispatcher, not the identical marker in that helper.
+        start = self.source.index("bool PublicApiRuntime::tryHandleGet(")
+        end = self.source.index("bool PublicApiRuntime::tryHandlePost(", start)
+        dispatch = self.source[start:end]
+        marker = "if (path == PublicEpgNowNextPath)"
+        self.assertIn(marker, dispatch)
+        changed_source = (
+            self.source[:start] +
+            dispatch.replace(marker, "if (path == ObsoleteEpgNowNextPath)", 1) +
+            self.source[end:]
         )
         self.assert_rejected(source=changed_source, reason="source route handler anchor disappeared")
 
