@@ -148,6 +148,82 @@ int main()
     }
 
     {
+        // M2.2 GET capability and result belong to the existing backend
+        // discovery scope. The read-only media check needs no new grant type.
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "media.recording.play", "backend-a"));
+        HttpServerRequest request = browserGet(fixture);
+        request.path = "/api/v1/backends/backend-a/capabilities/media-check";
+        const auto capability = fixture.gate.evaluate(request);
+        assert(capability.allowed && !capability.protectedMutation);
+        assert(capability.authorizedBackendIds ==
+            (std::vector<std::string>{"backend-a"}));
+
+        request.path = "/api/v1/backends/backend-a/media-checks/"
+            "chk_0123456789abcdef0123456789abcdef";
+        const auto status = fixture.gate.evaluate(request);
+        assert(status.allowed && !status.protectedMutation);
+        assert(status.authorizedBackendIds ==
+            (std::vector<std::string>{"backend-a"}));
+
+        HttpServerRequest anonymous;
+        anonymous.method = "GET";
+        anonymous.path = request.path;
+        assert(fixture.gate.evaluate(anonymous).rejection.statusCode == 401);
+    }
+
+    {
+        // The real HTTP gate must authorize the read-only check with the
+        // same backend recording permission and CSRF requirement as playback.
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "media.recording.play", "backend-a"));
+        HttpServerRequest request;
+        request.method = "POST";
+        request.path = "/api/v1/backends/backend-a/media-checks";
+        request.body = "{\"recordingId\":"
+            "\"rec_0123456789abcdef0123456789abcdef\","
+            "\"mode\":\"structure\"}";
+        request.headers["Content-Type"] = "application/json";
+        fixture.addBrowserAuthentication(request, true);
+        const auto decision = fixture.gate.evaluate(request);
+        assert(decision.allowed && decision.protectedMutation);
+        assert(decision.authorizationDecision.permission ==
+            "media.recording.play");
+        assert(decision.authorizationDecision.action ==
+            "media.recording.check");
+        assert(decision.authorizationDecision.backendId == "backend-a");
+
+        fixture.addBrowserAuthentication(request, false);
+        request.headers.erase("X-CSRF-Token");
+        const auto csrf = fixture.gate.evaluate(request);
+        assert(!csrf.allowed && csrf.rejection.statusCode == 403);
+
+        HttpServerRequest anonymous;
+        anonymous.method = "POST";
+        anonymous.path = request.path;
+        anonymous.body = request.body;
+        const auto unauthenticated = fixture.gate.evaluate(anonymous);
+        assert(!unauthenticated.allowed);
+        assert(unauthenticated.rejection.statusCode == 401);
+    }
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        HttpServerRequest request;
+        request.method = "POST";
+        request.path = "/api/v1/backends/backend-a/media-checks";
+        request.body = "{\"recordingId\":"
+            "\"rec_0123456789abcdef0123456789abcdef\","
+            "\"mode\":\"structure\"}";
+        request.headers["Content-Type"] = "application/json";
+        fixture.addBrowserAuthentication(request, true);
+        const auto missingGrant = fixture.gate.evaluate(request);
+        assert(!missingGrant.allowed && missingGrant.rejection.statusCode == 403);
+    }
+
+    {
         SecurityHttpGateBrowserTestFixture fixture;
         HttpServerRequest anonymous;
         anonymous.method = "GET";
