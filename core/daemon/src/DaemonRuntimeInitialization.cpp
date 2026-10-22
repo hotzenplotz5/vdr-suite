@@ -1394,7 +1394,8 @@ bool DaemonRuntime::initialize()
             try
             {
                 const unsigned long raw = std::stoul(*native);
-                if (raw > static_cast<unsigned long>(2147483647L))
+                if (raw > static_cast<unsigned long>(2147483647L) ||
+                    std::to_string(raw) != *native)
                     return result;
                 numericId = static_cast<int>(raw);
             }
@@ -1558,12 +1559,13 @@ bool DaemonRuntime::initialize()
                 runtime->backendId, *runtime->providerLocalControlTransport);
             const auto seen = provider.observeRule(
                 request.backendId, numericId);
-            if (!seen.available || !seen.durable) return result;
+            if (!seen.available) return result;
             if (!seen.found)
             {
                 result.status = PublicSearchTimerNativeMutationStatus::notFound;
                 return result;
             }
+            if (!seen.durable) return result;
             if (seen.revision != request.ifMatch)
             {
                 result.status = PublicSearchTimerNativeMutationStatus::conflict;
