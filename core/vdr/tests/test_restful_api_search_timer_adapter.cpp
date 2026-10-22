@@ -107,6 +107,15 @@ int main()
     httpClient.setResponse(incomplete);
     assert(!adapter.list(SearchTimerQuery::all()).available());
 
+    incomplete.body = "{\"searchtimers\":[null],\"count\":0,\"total\":0}";
+    httpClient.setResponse(incomplete);
+    assert(!adapter.list(SearchTimerQuery::all()).available());
+
+    incomplete.body = "{\"searchtimers\":[{\"id\":1,"
+        "\"search\":\"valid\"},],\"count\":1,\"total\":1}";
+    httpClient.setResponse(incomplete);
+    assert(!adapter.list(SearchTimerQuery::all()).available());
+
     HttpResponse unavailableResponse;
     unavailableResponse.statusCode = 503;
     httpClient.setResponse(unavailableResponse);
