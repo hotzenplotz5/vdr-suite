@@ -32,10 +32,18 @@ The combined snapshot revalidates administrator approval after hashing, and
 the pinned Agent executor revalidates the installed manifest at dispatch.
 The recognized handler interface is fixed at reviewed version `0.1.0`;
 a newer installed binary/manifest does not gain execution compatibility by
-self-reporting a matching version to an approval. Root-owned and unprivileged
-isolated CI fixtures cover removal, tampering, unreviewed versions and unsafe
-metadata. Product activation and full installer/upgrade handling remain
-separate acceptance steps.
+self-reporting a matching version to an approval. A privileged,
+administrator-invoked `admin_approval_issuer.py rotate` command can
+atomically exchange one active **same-version** approval for another, but
+only when the exact old SHA-256 is supplied and the replacement binary matches
+a separate approved digest. The record is never overwritten by `issue`,
+and `rotate` cannot reverse `revoke`. Root-owned disposable CI fixtures
+test CLI rotation, stale expectations, replay, missing binary, missing
+metadata, and persistent denial after uninstall/reinstall. No Debian
+maintainer script invokes this command; a future package upgrade/remove
+sequence must explicitly coordinate disable, drain, revoke, install,
+review, and optional re-approval before real activation. Product activation
+and full installer/upgrade handling remain separate acceptance steps.
 
 ## A6 work in progress
 
