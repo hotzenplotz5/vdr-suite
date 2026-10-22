@@ -178,6 +178,27 @@ test-addon-administration-service:
 
 test-ci-fast: test-addon-administration-service
 
+# Read-only Media Tools maintenance diagnostic using the real durable
+# activation and MutationOperation repositories. No package action or lock.
+.PHONY: test-addon-maintenance-read
+test-addon-maintenance-read:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
+		-I core/addons/include -I core/security/include \
+		-I core/vdr/include -I core/sqlite/include \
+		-I core/operations/include \
+		core/sqlite/src/Database.cpp \
+		core/addons/src/AddonAccessPolicy.cpp \
+		core/addons/src/AddonActivationIntentRepository.cpp \
+		core/addons/src/AddonMediaToolsMaintenanceReadService.cpp \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/addons/tests/test_addon_media_tools_maintenance_read_service.cpp \
+		-lsqlite3 -o "$(BUILD_DIR)/addons/test_addon_maintenance_read"
+	"$(BUILD_DIR)/addons/test_addon_maintenance_read"
+
+test-ci-fast: test-addon-maintenance-read
+
 # Admin-only desired-state inventory. Effective/active capabilities remain empty.
 .PHONY: test-addon-activation-catalog
 test-addon-activation-catalog:
