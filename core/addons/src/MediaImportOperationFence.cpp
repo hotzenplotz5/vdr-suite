@@ -7,6 +7,8 @@
 #include "BackendAgentLifecycle.h"
 #include "BackendRegistryService.h"
 #include "MediaToolsAgentExecutor.h"
+#include "Database.h"
+#include <sqlite3.h>
 #include "MediaImportRecordingEvidence.h"
 #include "MutationOperationRepository.h"
 #include "SecurityIdentityRepository.h"
@@ -29,6 +31,32 @@ bool exactReceipt(const BackendAgentCommandAssignment& a,
         r.agentId == a.agentId && r.agentInstanceId == a.agentInstanceId &&
         r.backendGeneration == a.backendGeneration &&
         r.receiptCategory == "accepted";
+}
+
+// This read is an additional necessary execution/capability gate. The
+// reservation store and the Core receipt checker must observe the SAME
+// durable global freeze, including across separate daemon connections.
+// Missing/malformed schema or a locked SQLite authority fail closed.
+bool importAdmissionUnfrozen(
+    const vdrsuite::operations::MutationOperationRepository& operations)
+{
+    const Database* database = operations.databaseIdentity();
+    if (database == nullptr || !database->isOpen()) return false;
+    auto lease = const_cast<Database*>(database)->acquireTransactionLease();
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(database->handle(),
+            "SELECT frozen FROM addon_media_import_maintenance "
+            "WHERE module_id='rectools';", -1, &statement, nullptr) != SQLITE_OK)
+        return false;
+    const int first = sqlite3_step(statement);
+    bool allowed = false;
+    if (first == SQLITE_DONE)
+        allowed = true; // schema exists; default is not frozen
+    else if (first == SQLITE_ROW && sqlite3_column_type(statement, 0) ==
+             SQLITE_INTEGER && sqlite3_column_int(statement, 0) == 0)
+        allowed = sqlite3_step(statement) == SQLITE_DONE;
+    sqlite3_finalize(statement);
+    return allowed;
 }
 
 bool denied(std::string& reason, const char* code)
@@ -103,6 +131,9 @@ bool MediaImportOperationFence::actorBackendAllowed(
         backendRegistry_, backendId);
     if (!backend.backendFound || !backend.allowed || backend.readOnly)
         return denied(reason, "media_import_backend_unavailable");
+
+    if (!importAdmissionUnfrozen(operations_))
+        return denied(reason, "media_import_maintenance_frozen");
 
     // A previously issued per-actor grant must never revive a disabled
     // add-on. Reuse the one audited per-backend desired-state repository.
