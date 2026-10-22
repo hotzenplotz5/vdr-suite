@@ -6575,6 +6575,11 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
             item.seriesTitle.size() <= 1024U &&
             item.episodeTitle.size() <= 1024U &&
             item.genreText.size() <= 1024U &&
+            item.manualGenreId.size() <= 128U &&
+            std::none_of(item.manualGenreId.begin(),
+                item.manualGenreId.end(), [](unsigned char c) {
+                    return c < 0x20U || c == 0x7fU;
+                }) &&
             item.releaseDate.size() <= 32U &&
             item.seasonNumber >= 0 && item.episodeNumber >= 0 &&
             item.providerRuntimeMinutes >= 0;
@@ -6617,6 +6622,7 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
         appendText("seriesTitle", item.seriesTitle);
         appendText("episodeTitle", item.episodeTitle);
         appendText("genreText", item.genreText);
+        appendText("manualGenreId", item.manualGenreId);
         appendText("releaseDate", item.releaseDate);
         if (item.seasonNumber > 0)
             body += ",\"seasonNumber\":" +
