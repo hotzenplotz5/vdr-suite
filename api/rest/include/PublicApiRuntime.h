@@ -1633,6 +1633,16 @@ public:
 private:
     PublicApiRuntime() = default;
 
+    // Pairing collection and item reads preserve human/pairing-token gates.
+    bool tryHandleDevicePairingReadGet(
+        const std::string& requestTarget,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::string& ifNoneMatch,
+        const std::string& pairingToken,
+        ApiResponse& response) const;
+
     // Recording, EPG/Recording search and Genre read responses use the
     // established runtime lookup callbacks.
     bool tryHandleBrowseReadGet(

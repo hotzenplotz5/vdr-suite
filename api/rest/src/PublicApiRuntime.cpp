@@ -7320,37 +7320,16 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
     return false;
 }
 
-bool PublicApiRuntime::tryHandleGet(
+bool PublicApiRuntime::tryHandleDevicePairingReadGet(
     const std::string& requestTarget,
     const std::string& actorRef,
     const std::string& requestId,
     const std::string& correlationId,
-    ApiResponse& response,
     const std::string& ifNoneMatch,
-    const std::string& authorizedBackendId,
-    const std::vector<std::string>& authorizedBackendIds,
-    const std::string& pairingToken) const
+    const std::string& pairingToken,
+    ApiResponse& response) const
 {
     const std::string path = requestPath(requestTarget);
-
-    if (path == "/api/v1")
-    {
-        response = jsonResponse(
-            vdrsuite::public_api::discoveryGetBody(
-                *this, path, !actorRef.empty()),
-            requestId, correlationId);
-        return true;
-    }
-
-    if (path == "/api/v1/capabilities")
-    {
-        response = jsonResponse(
-            vdrsuite::public_api::discoveryGetBody(
-                *this, path, !actorRef.empty()),
-            requestId, correlationId);
-        return true;
-    }
-
     if (path == PublicDevicePairingCollectionPath)
     {
         if (actorRef.empty())
@@ -7710,6 +7689,59 @@ bool PublicApiRuntime::tryHandleGet(
                     correlationId);
                 return true;
         }
+    }
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleGet(
+    const std::string& requestTarget,
+    const std::string& actorRef,
+    const std::string& requestId,
+    const std::string& correlationId,
+    ApiResponse& response,
+    const std::string& ifNoneMatch,
+    const std::string& authorizedBackendId,
+    const std::vector<std::string>& authorizedBackendIds,
+    const std::string& pairingToken) const
+{
+    const std::string path = requestPath(requestTarget);
+
+    if (path == "/api/v1")
+    {
+        response = jsonResponse(
+            vdrsuite::public_api::discoveryGetBody(
+                *this, path, !actorRef.empty()),
+            requestId, correlationId);
+        return true;
+    }
+
+    if (path == "/api/v1/capabilities")
+    {
+        response = jsonResponse(
+            vdrsuite::public_api::discoveryGetBody(
+                *this, path, !actorRef.empty()),
+            requestId, correlationId);
+        return true;
+    }
+
+    if (path == PublicDevicePairingCollectionPath)
+    {
+        if (tryHandleDevicePairingReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, pairingToken, response))
+            return true;
+    }
+
+    std::string pairingRequestId;
+    if (publicDevicePairingPath(
+            path,
+            pairingRequestId))
+    {
+        if (tryHandleDevicePairingReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, pairingToken, response))
+            return true;
     }
 
     std::string operationId;
