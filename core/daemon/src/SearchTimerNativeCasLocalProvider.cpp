@@ -51,6 +51,63 @@ std::vector<std::string> tokens(const std::string& input) {
 }
 }
 
+static int hexDigit(char c)
+{
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    return -1;
+}
+
+static bool decodeHex(const std::string& encoded, std::string& out)
+{
+    out.clear();
+    if (encoded == "-") return true;
+    if (encoded.empty() || encoded.size() > 32768U ||
+        (encoded.size() % 2U) != 0U) return false;
+    out.reserve(encoded.size() / 2U);
+    for (std::size_t i = 0; i < encoded.size(); i += 2U)
+    {
+        const int high = hexDigit(encoded[i]);
+        const int low = hexDigit(encoded[i + 1U]);
+        if (high < 0 || low < 0) return false;
+        out.push_back(static_cast<char>((high << 4) | low));
+    }
+    return true;
+}
+
+SearchTimerNativeCasLocalObservation
+SearchTimerNativeCasLocalProvider::observeRule(
+    const std::string& backendId, int nativeId)
+{
+    SearchTimerNativeCasLocalObservation out;
+    if (backendId != localBackendId_ || nativeId < 0) return out;
+    const auto response = transport_.observeSearchTimerCas(nativeId);
+    if (!response.transportSucceeded() || response.replyCode != 900)
+        return out;
+    const auto parts = tokens(response.payload);
+    if (parts.size() != 7U || parts[0] != "s1cas-observe/1" ||
+        parts[1] != std::to_string(nativeId) ||
+        (parts[2] != "0" && parts[2] != "1") ||
+        (parts[3] != "0" && parts[3] != "1"))
+        return out;
+    out.available = true;
+    out.found = parts[2] == "1";
+    out.durable = out.found && parts[3] == "1";
+    if (out.durable)
+    {
+        if (parts[4].size() != 35U ||
+            parts[4].compare(0U, 3U, "sg_") != 0 ||
+            parts[5].size() != 35U ||
+            parts[5].compare(0U, 3U, "sr_") != 0 ||
+            !decodeHex(parts[6], out.settings) ||
+            out.settings.empty())
+            return {};
+        out.generation = parts[4];
+        out.revision = parts[5];
+    }
+    return out;
+}
+
 SearchTimerNativeCasLocalProvider::SearchTimerNativeCasLocalProvider(
         std::string localBackendId,
         vdrsuite::agent::SuiteBridgeLocalControlTransport& transport)
