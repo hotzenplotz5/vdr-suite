@@ -1297,6 +1297,62 @@ bool DaemonRuntime::initialize()
             return result;
         });
 
+    PublicApiRuntime::instance().registerSearchTimerNativeVersionLookup(
+        [this](const PublicSearchTimerNativeVersionRequest& request)
+        {
+            PublicSearchTimerNativeVersionResult result;
+            if (!config_.suiteBridge().enabled ||
+                request.backendId != config_.suiteBridge().backendId ||
+                !publicSearchTimerIdentities_ || !backendRegistryService_)
+                return result;
+
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend || !backend->online) return result;
+
+            const auto native = publicSearchTimerIdentities_->
+                resolveActiveNativeId(
+                    request.backendId, request.publicSearchTimerId);
+            if (!native)
+            {
+                result.status = PublicSearchTimerNativeVersionStatus::notFound;
+                return result;
+            }
+            int numericId = -1;
+            try
+            {
+                const unsigned long raw = std::stoul(*native);
+                if (raw > static_cast<unsigned long>(2147483647L))
+                    return result;
+                numericId = static_cast<int>(raw);
+            }
+            catch (...) { return result; }
+            for (const auto& candidate : backendRuntimeContexts_)
+            {
+                if (!candidate || candidate->backendId != request.backendId ||
+                    !candidate->providerLocalControlTransport ||
+                    !candidate->suiteBridgeAgentRuntime)
+                    continue;
+                SearchTimerNativeCasLocalProvider provider(
+                    candidate->backendId,
+                    *candidate->providerLocalControlTransport);
+                const auto seen = provider.observeRule(
+                    request.backendId, numericId);
+                if (!seen.available) return result;
+                if (!seen.found)
+                {
+                    result.status =
+                        PublicSearchTimerNativeVersionStatus::notFound;
+                    return result;
+                }
+                if (!seen.durable) return result;
+                result.status = PublicSearchTimerNativeVersionStatus::ok;
+                result.revision = seen.revision;
+                return result;
+            }
+            return result;
+        });
+
     PublicApiRuntime::instance().registerSearchTimerCreate(
         [this](const PublicSearchTimerCreateRequest& request)
         {
