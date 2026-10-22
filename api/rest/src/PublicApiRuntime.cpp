@@ -2838,6 +2838,76 @@ bool parsePublicNativeTimerModifyBody(
     return true;
 }
 
+bool publicSearchTimerNativeSubresourcePath(
+    const std::string& path, const char* suffix, std::string& id)
+{
+    const std::string prefix(PublicSearchTimerResourcePrefix);
+    const std::string tail(suffix);
+    if (path.size() != prefix.size() + 35U + tail.size() ||
+        path.compare(0U, prefix.size(), prefix) != 0 ||
+        path.compare(path.size() - tail.size(), tail.size(), tail) != 0)
+        return false;
+    id = path.substr(prefix.size(), 35U);
+    return validPublicSearchTimerId(id);
+}
+
+bool parsePublicSearchTimerNativeMutationBody(
+    const std::string& input, PublicSearchTimerNativeMutationRequest& out)
+{
+    std::size_t pos = 0U;
+    std::vector<std::string> seen;
+    std::string action;
+    skipAccountMutationWhitespace(input, pos);
+    if (pos >= input.size() || input[pos++] != '{') return false;
+    while (true)
+    {
+        skipAccountMutationWhitespace(input, pos);
+        if (pos < input.size() && input[pos] == '}') { ++pos; break; }
+        std::string key;
+        if (!parseAccountMutationJsonString(input, pos, key) ||
+            std::find(seen.begin(), seen.end(), key) != seen.end())
+            return false;
+        seen.push_back(key);
+        skipAccountMutationWhitespace(input, pos);
+        if (pos >= input.size() || input[pos++] != ':') return false;
+        skipAccountMutationWhitespace(input, pos);
+        if (key == "action" || key == "query")
+        {
+            std::string val;
+            if (!parseAccountMutationJsonString(input, pos, val)) return false;
+            if (key == "action") action = std::move(val);
+            else out.query = std::move(val);
+        }
+        else if (key == "confirmed")
+        {
+            if (input.compare(pos, 4U, "true") != 0) return false;
+            pos += 4U;
+            out.confirmed = true;
+        }
+        else return false;
+        skipAccountMutationWhitespace(input, pos);
+        if (pos >= input.size()) return false;
+        if (input[pos] == '}') { ++pos; break; }
+        if (input[pos++] != ',') return false;
+    }
+    skipAccountMutationWhitespace(input, pos);
+    if (pos != input.size() || !out.confirmed ||
+        std::find(seen.begin(), seen.end(), "action") == seen.end())
+        return false;
+    if (action == "update")
+        out.action = PublicSearchTimerNativeAction::update;
+    else if (action == "activate")
+        out.action = PublicSearchTimerNativeAction::activate;
+    else if (action == "deactivate")
+        out.action = PublicSearchTimerNativeAction::deactivate;
+    else if (action == "delete")
+        out.action = PublicSearchTimerNativeAction::remove;
+    else return false;
+    return out.action == PublicSearchTimerNativeAction::update
+        ? !out.query.empty() && out.query.size() <= 200U
+        : out.query.empty();
+}
+
 bool parsePublicSearchTimerCreateBody(
     const std::string& input, PublicSearchTimerCreateRequest& out)
 {
