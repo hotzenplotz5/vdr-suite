@@ -7272,11 +7272,13 @@ bool PublicApiRuntime::tryHandleGet(
         }
     }
 
-    if (path == PublicBackendCollectionPath &&
-        tryHandleBackendCollectionGet(
-            requestTarget, actorRef, requestId, correlationId,
-            authorizedBackendIds, response))
-        return true;
+    if (path == PublicBackendCollectionPath)
+    {
+        if (tryHandleBackendCollectionGet(
+                requestTarget, actorRef, requestId, correlationId,
+                authorizedBackendIds, response))
+            return true;
+    }
 
     if (path == PublicAccountCollectionPath)
     {
