@@ -5651,6 +5651,82 @@
         }
       }
     },
+    "/api/v1/recordings/{recordingId}": {
+      "get": {
+        "tags": [
+          "Recording browse"
+        ],
+        "operationId": "getPublicRecordingDetail",
+        "summary": "Read existing VDR/EPG/scraper metadata for an authorized public Recording",
+        "description": "M1 read-only detail reuses the durable rec_ identity and warmed backend-scoped Recording cache. Requires recordings.view@backendId on one backend. Absent or partial metadata is explicit. No VDR native path, scraper ID, external URL or artwork. Cache-Control: no-store; no detail ETag before an authoritative metadata revision exists.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "recordings.view@backendId; exact backend, no legacy fallback",
+          "securitySchemeDocumentation": "Same deployed credentials and permission checks as GET /api/v1/recordings."
+        },
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^rec_[0-9a-f]{32}$"
+            },
+            "description": "Suite-owned rec_ identity, never a native path"
+          },
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            },
+            "description": "Exactly one authorized backendId; no other query parameters"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recording detail and metadata availability",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicRecordingDetail"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid rec_ ID or backend query"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Recordings grant denied"
+          },
+          "404": {
+            "description": "Recording ID absent or retired"
+          },
+          "503": {
+            "description": "Backend/cache unavailable or inconsistent metadata projection"
+          }
+        }
+      }
+    },
     "/api/v1/recordings": {
       "get": {
         "tags": [
@@ -10057,6 +10133,105 @@
             "type": "boolean"
           }
         }
+      },
+      "PublicRecordingMetadataDetail": {
+        "type": "object",
+        "required": [
+          "state",
+          "source",
+          "contentKind"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "absent",
+              "partial",
+              "available"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "none",
+              "restfulapi-scraper-bridge"
+            ]
+          },
+          "contentKind": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "movie",
+              "series-episode"
+            ]
+          },
+          "epgTitle": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "subtitle": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "epgDescription": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "originalTitle": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "tagline": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "seriesTitle": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "episodeTitle": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "genreText": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "releaseDate": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "seasonNumber": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "episodeNumber": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "providerRuntimeMinutes": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "PublicRecordingDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PublicRecordingItem"
+          },
+          {
+            "type": "object",
+            "required": [
+              "metadata"
+            ],
+            "properties": {
+              "metadata": {
+                "$ref": "#/components/schemas/PublicRecordingMetadataDetail"
+              }
+            }
+          }
+        ]
       },
       "PublicRecordingItem": {
         "type": "object",
