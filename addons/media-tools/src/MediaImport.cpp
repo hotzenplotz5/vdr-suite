@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -196,6 +197,119 @@ void stageVerifiedSource(const ImportPlan& plan, const Signature& expected,
     require(::fsync(output.fd) == 0, "cannot sync source snapshot");
 }
 
+
+std::optional<std::string> readOptionalSidecar(const fs::path& file,
+                                               std::size_t maxBytes) {
+    // The adjacent sidecar is never taken from a browser or an Agent payload.
+    // Absence is fine, but a symlink, special file or oversized sidecar is not.
+    if (!fs::exists(fs::symlink_status(file))) return std::nullopt;
+    FdGuard input(::open(file.c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
+    require(input.fd >= 0, "cannot open trusted adjacent sidecar");
+    struct stat before{}, after{};
+    require(::fstat(input.fd, &before) == 0 && S_ISREG(before.st_mode) &&
+            before.st_size >= 0 &&
+            static_cast<std::uint64_t>(before.st_size) <= maxBytes,
+            "invalid sidecar type or size");
+    std::string content;
+    content.reserve(static_cast<std::size_t>(before.st_size));
+    std::array<char, 8192> bytes{};
+    while (true) {
+        const ssize_t amount = ::read(input.fd, bytes.data(), bytes.size());
+        if (amount < 0 && errno == EINTR) continue;
+        require(amount >= 0 && content.size() +
+                static_cast<std::size_t>(amount) <= maxBytes,
+                "sidecar changed or grew beyond limit");
+        if (amount == 0) break;
+        content.append(bytes.data(), static_cast<std::size_t>(amount));
+    }
+    require(::fstat(input.fd, &after) == 0 &&
+            same({before.st_dev, before.st_ino, before.st_size,
+                  before.st_mtim.tv_sec, before.st_mtim.tv_nsec},
+                 {after.st_dev, after.st_ino, after.st_size,
+                  after.st_mtim.tv_sec, after.st_mtim.tv_nsec}),
+            "sidecar changed during reading");
+    return content;
+}
+
+std::string xmlText(const std::string& xml, const std::string& name) {
+    const std::string open = "<" + name + ">";
+    const std::string close = "</" + name + ">";
+    const auto first = xml.find(open);
+    if (first == std::string::npos) return {};
+    const auto start = first + open.size();
+    const auto end = xml.find(close, start);
+    require(end != std::string::npos && end - start <= 4096,
+            "malformed or excessively long NFO field");
+    std::string raw = xml.substr(start, end - start);
+    require(raw.find('<') == std::string::npos,
+            "nested markup in NFO field is unsupported");
+    std::string result;
+    for (std::size_t i = 0; i < raw.size();) {
+        if (raw[i] != '&') {
+            const unsigned char ch = static_cast<unsigned char>(raw[i++]);
+            result.push_back(ch < 32 || ch == 127 ? ' ' : static_cast<char>(ch));
+            continue;
+        }
+        bool matched = false;
+        for (const auto& entity : {
+                std::pair<const char*, char>{"&amp;", '&'},
+                {"&lt;", '<'}, {"&gt;", '>'}, {"&quot;", '"'},
+                {"&apos;", '\''}}) {
+            const std::string value(entity.first);
+            if (raw.compare(i, value.size(), value) == 0) {
+                result.push_back(entity.second);
+                i += value.size();
+                matched = true;
+                break;
+            }
+        }
+        require(matched, "unsupported NFO entity");
+    }
+    const auto firstCharacter = result.find_first_not_of(' ');
+    if (firstCharacter == std::string::npos) return {};
+    const auto lastCharacter = result.find_last_not_of(' ');
+    return result.substr(firstCharacter, lastCharacter - firstCharacter + 1);
+}
+
+struct ImportMetadata {
+    std::string title, shortText, description, year, genre;
+};
+
+ImportMetadata adjacentMetadata(const fs::path& sourceFile) {
+    ImportMetadata metadata;
+    fs::path file = sourceFile;
+    file.replace_extension(".nfo");
+    const auto nfo = readOptionalSidecar(file, 65536);
+    if (!nfo) return metadata;
+    metadata.title = xmlText(*nfo, "title");
+    metadata.shortText = xmlText(*nfo, "outline");
+    metadata.description = xmlText(*nfo, "plot");
+    metadata.year = xmlText(*nfo, "year");
+    metadata.genre = xmlText(*nfo, "genre");
+    if (!metadata.year.empty()) {
+        require(metadata.year.size() == 4 &&
+                std::all_of(metadata.year.begin(), metadata.year.end(),
+                    [](unsigned char ch) { return std::isdigit(ch); }),
+                "invalid year in NFO");
+    }
+    return metadata;
+}
+
+void stageOptionalSubtitle(const fs::path& sourceFile,
+                           const fs::path& stage) {
+    fs::path subtitle = sourceFile;
+    subtitle.replace_extension(".srt");
+    const auto data = readOptionalSidecar(subtitle, 8 * kMiB);
+    if (!data) return;
+    require(!data->empty(), "empty SRT sidecar");
+    std::ofstream output(stage / "subtitles.srt",
+                         std::ios::binary | std::ios::trunc);
+    require(static_cast<bool>(output), "cannot stage SRT sidecar");
+    output.write(data->data(), static_cast<std::streamsize>(data->size()));
+    output.flush();
+    require(static_cast<bool>(output), "cannot write SRT sidecar");
+}
+
 void runRequired(ProcessRunner& runner, const std::vector<std::string>& argv) {
     const auto result = runner.run(argv, false);
     require(result.exitCode == 0, "external media command failed");
@@ -226,7 +340,9 @@ ImportPlan inspectImport(const ImportRequest& request) {
             extension == ".mov" || extension == ".avi" || extension == ".webm" ||
             extension == ".m4v",
             "unsupported source extension");
-    const auto title = safeTitle(resolved.stem().string());
+    const auto metadata = adjacentMetadata(resolved);
+    const auto title = safeTitle(metadata.title.empty() ?
+        resolved.stem().string() : metadata.title);
     const auto folder = videoRoot / title;
     require(!containsRecording(folder), "target already has a VDR recording");
     return {sourceRoot, videoRoot, resolved, folder, title,
@@ -309,13 +425,31 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
                            codec == "mpeg2video";
 
     {
+        // VDR's native info sidecar is the only recording metadata writer.
+        // NFO stays next to its original media source; no shadow DB exists.
+        const auto metadata = adjacentMetadata(plan.sourceFile);
+        const std::string currentTitle = safeTitle(metadata.title.empty() ?
+            plan.sourceFile.stem().string() : metadata.title);
+        require(currentTitle == plan.title, "NFO title changed during import");
         std::ofstream info(stage.path / "info", std::ios::binary | std::ios::trunc);
         require(static_cast<bool>(info), "cannot create VDR metadata");
         info << "T " << plan.title << "\n";
-        info << "S Imported via VDR-Suite Media Tools\n";
+        info << "S " << (metadata.shortText.empty() ?
+            "Imported via VDR-Suite Media Tools" : metadata.shortText) << "\n";
+        std::string description = metadata.description;
+        if (!metadata.year.empty()) {
+            if (!description.empty()) description += " | ";
+            description += "Year: " + metadata.year;
+        }
+        if (!metadata.genre.empty()) {
+            if (!description.empty()) description += " | ";
+            description += "Genre: " + metadata.genre;
+        }
+        if (!description.empty()) info << "D " << description << "\n";
         info.flush();
         require(static_cast<bool>(info), "metadata write failed");
     }
+    stageOptionalSubtitle(plan.sourceFile, stage.path);
 
     const auto output = stage.path / "00001.ts";
     // FFmpeg may otherwise consume all free space on badly behaved inputs.

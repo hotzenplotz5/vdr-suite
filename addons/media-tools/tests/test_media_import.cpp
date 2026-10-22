@@ -155,6 +155,38 @@ int main() {
     }
     {
         Fixture f;
+        std::ofstream(f.input / "Sample.nfo") <<
+            "<movie><title>Example &amp; Friends</title>"
+            "<outline>Short text</outline><plot>A longer description.</plot>"
+            "<year>2024</year><genre>Drama</genre></movie>";
+        std::ofstream(f.input / "Sample.srt") <<
+            "1\n00:00:01,000 --> 00:00:02,000\nHello\n";
+        FakeProcess runner;
+        const auto plan = inspectImport(f.request());
+        assert(plan.title == "Example & Friends");
+        const auto output = executeRemuxImport(
+            plan, runner, [](const ImportPlan&) {});
+        std::ifstream info(output / "info");
+        const std::string contents((std::istreambuf_iterator<char>(info)),
+                                    std::istreambuf_iterator<char>());
+        assert(contents.find("T Example & Friends\n") != std::string::npos);
+        assert(contents.find("S Short text\n") != std::string::npos);
+        assert(contents.find("Year: 2024") != std::string::npos);
+        assert(contents.find("Genre: Drama") != std::string::npos);
+        assert(fs::exists(output / "subtitles.srt"));
+        assert(fs::exists(f.input / "Sample.nfo") &&
+               fs::exists(f.input / "Sample.srt") && fs::exists(f.source));
+        ++checks;
+    }
+    {
+        Fixture f;
+        fs::create_symlink(f.source, f.input / "Sample.nfo");
+        mustFail([&] { inspectImport(f.request()); });
+        assert(fs::exists(f.source));
+        ++checks;
+    }
+    {
+        Fixture f;
         FakeProcess runner;
         runner.codec = "vp9\n";
         auto plan = inspectImport(f.request());
