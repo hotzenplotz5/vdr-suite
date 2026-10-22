@@ -55,6 +55,12 @@ let allow = true;
 let sourcesStatus = 200;
 let state = 'dispatching';
 let submitMode = 'accepted';
+let batchSources = null;
+let batchOperations = [];
+const BATCH_OP_A = 'op_' + 'd'.repeat(32);
+const BATCH_OP_B = 'op_' + 'e'.repeat(32);
+const SOURCE_B = 'source_987654321012345';
+let batchState = 'dispatching';
 let delayedSubmit = null;
 let operationReads = 0;
 let submits = 0;
@@ -81,11 +87,20 @@ function transport(url, options) {
   }
   if (path.endsWith('/media-import-sources')) {
     return Promise.resolve(sourcesStatus === 200
-      ? reply(200, {items: [{sourceId: SOURCE}], meta: {partial: false}})
+      ? reply(200, {items: (batchSources || [SOURCE]).map(function (id) {
+        return {sourceId: id};
+      }), meta: {partial: false}})
       : reply(sourcesStatus, {detail: 'Source unavailable'}));
   }
   if (path.endsWith('/media-imports')) {
     ++submits;
+    if (submitMode === 'batch') {
+      const operationId = batchOperations.length === 0 ? BATCH_OP_A : BATCH_OP_B;
+      batchOperations.push(operationId);
+      return Promise.resolve(reply(202, {
+        operationId, backendId: 'backend-a', state: 'dispatching'
+      }));
+    }
     if (submitMode === 'deferred') {
       return new Promise(function (resolve, reject) {
         assert.strictEqual(delayedSubmit, null, 'only one outstanding import POST');
@@ -97,6 +112,14 @@ function transport(url, options) {
     if (submitMode === 'denied') return Promise.resolve(reply(403, {detail: 'Permission denied'}));
     return Promise.resolve(reply(202, {operationId: OP, backendId: 'backend-a',
       state: 'dispatching'}, {'Location': '/api/v1/operations/' + OP}));
+  }
+  if (path === '/api/v1/operations/' + BATCH_OP_A ||
+      path === '/api/v1/operations/' + BATCH_OP_B) {
+    ++operationReads;
+    return Promise.resolve(reply(200, {
+      operationId: path.split('/').pop(), backendId: 'backend-a',
+      state: batchState
+    }));
   }
   if (path === '/api/v1/operations/' + OP) {
     ++operationReads;
