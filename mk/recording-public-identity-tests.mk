@@ -105,3 +105,16 @@ test-public-device-playback-registry:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_public_device_playback_registry
 	$(BUILD_DIR)/test_public_device_playback_registry
+
+.PHONY: test-public-recording-metadata-detail-projection
+test-public-recording-metadata-detail-projection:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/recordings/tests/test_public_recording_metadata_detail_projection.cpp \
+		-o $(BUILD_DIR)/test_public_recording_metadata_detail_projection
+	$(BUILD_DIR)/test_public_recording_metadata_detail_projection
+
+# M1 tests deliberately reuse the existing public Recording route and grant
+# fixtures, rather than creating a parallel HTTP or security harness.
+test-fast: test-public-recording-metadata-detail-projection \
+	test-public-recording-collection-api \
+	test-public-recording-collection-security
