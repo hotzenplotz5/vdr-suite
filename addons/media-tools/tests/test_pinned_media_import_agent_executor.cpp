@@ -206,6 +206,11 @@ int main()
     assert(!executor.authorize(a, "backend", 19));
     fixture.writeManifest();
     assert(executor.available());
+    assert(executor.authorize(a, "backend", 19));
+    fs::remove(fixture.manifest);
+    assert(executor.execute(a) == MediaImportAgentOutcome::rejected);
+    fixture.writeManifest();
+    assert(executor.available());
 
     assert(executor.authorize(a, "backend", 19));
     fixture.writeApproval(true);
