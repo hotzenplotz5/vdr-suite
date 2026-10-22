@@ -465,22 +465,21 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
     demand(std::fabs(finalDuration - originalDuration) <=
            std::max(4.0, originalDuration * 0.02),
            "HEVC output duration differs from original");
-    copyInfo(current, stage.path / "info");
-    copySubtitles(current, stage.path);
-    invoke(runner, {"/usr/bin/vdr", "--genindex=" + stage.path.string()});
-    demand(nonempty(stage.path / "index"), "HEVC recording index missing");
+    copyInfo(current, candidate / "info");
+    copySubtitles(current, candidate);
+    invoke(runner, {"/usr/bin/vdr", "--genindex=" + candidate.string()});
+    demand(nonempty(candidate / "index"), "HEVC recording index missing");
     for (const auto& part : current.segments)
         demand(same(identity(current.videoRoot / current.relativeRecording /
                              part.filename), part),
                "source recording changed during HEVC operation");
-    std::ofstream review(stage.path / ".shrink-review",
+    std::ofstream review(candidate / ".shrink-review",
                          std::ios::binary | std::ios::trunc);
     demand(static_cast<bool>(review), "cannot create shrink review evidence");
     review << signature(current);
     review.flush();
     demand(static_cast<bool>(review), "cannot finish shrink review evidence");
     demand(fs::remove(source), "cannot remove private TS snapshot");
-    const fs::path candidate = stage.path;
     stage.path.clear();
     return candidate;
 }
