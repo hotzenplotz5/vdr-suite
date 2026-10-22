@@ -3,6 +3,7 @@
 #include "AddonRootApproval.h"
 #include "AddonInstalledManifest.h"
 #include "MediaImportRecordingEvidence.h"
+#include "MediaToolsImportRunLock.h"
 
 #include <algorithm>
 #include <cerrno>
@@ -80,7 +81,7 @@ std::string parseCommittedRecording(
 
 MediaImportAgentOutcome runPinned(
     int fd, const LocalMediaImportSource& source, std::int64_t deadline,
-    std::string& recordingEvidence)
+    MediaToolsImportRunLock& runLock, std::string& recordingEvidence)
 {
     recordingEvidence.clear();
     if (fd < 0 || !safePath(source.sourceRoot) ||
@@ -124,7 +125,9 @@ MediaImportAgentOutcome runPinned(
     if (pid == 0)
     {
         ::close(capture[0]);
-        if (::setsid() < 0) ::_exit(127);
+        // This shared kernel lock must live for the *handler* lifetime,
+        // including ffmpeg descendants if the Agent parent crashes.
+        if (!runLock.inheritInExecChild() || ::setsid() < 0) ::_exit(127);
         const int devnull = ::open("/dev/null", O_WRONLY | O_CLOEXEC);
         if (devnull < 0 ||
             ::dup2(capture[1], STDOUT_FILENO) < 0 ||
@@ -206,7 +209,9 @@ bool PinnedMediaImportAgentExecutor::available()
     // This read never authorizes execution. A fresh pinned read at authorize()
     // and a root-owned approval recheck at execute() are still required.
     return !backendId_.empty() && generation_ != 0 &&
-        vdrsuite::addons::inspectMediaToolsInstallSnapshot(root_).bytesVerified();
+        vdrsuite::addons::inspectMediaToolsInstallSnapshot(root_).bytesVerified() &&
+        MediaToolsImportRunLock::tryAcquire(
+            root_, MediaToolsImportRunLock::Mode::sharedExecution).has_value();
 }
 
 bool PinnedMediaImportAgentExecutor::authorize(
@@ -268,6 +273,12 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
     pendingSource_ = {};
     pendingSourceValid_ = false;
     if (!matching) return MediaImportAgentOutcome::rejected;
+    // Grab the kernel lock BEFORE rechecking installed approval, metadata,
+    // and source identity. An exclusive maintainer cannot replace anything
+    // until this handler and its descendants have stopped.
+    auto runLock = MediaToolsImportRunLock::tryAcquire(
+        root_, MediaToolsImportRunLock::Mode::sharedExecution);
+    if (!runLock) return MediaImportAgentOutcome::rejected;
     const auto approval = vdrsuite::addons::readRootMediaToolsApproval(root_);
     if (!approval.approved() || approval.sha256 != snapshot->approvedSha256 ||
         approval.version != snapshot->approvedVersion ||
@@ -294,7 +305,7 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
         return MediaImportAgentOutcome::rejected;
 
     return runPinned(snapshot->pinnedBinary.get(), local, assignment.deadline,
-                     recordingEvidence_);
+                     *runLock, recordingEvidence_);
 }
 
 std::string PinnedMediaImportAgentExecutor::takeRecordingEvidence()
