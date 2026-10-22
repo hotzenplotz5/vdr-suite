@@ -301,6 +301,32 @@ bool samePayload(
         && left.payloadFingerprint == right.payloadFingerprint;
 }
 
+// The global Media Tools maintenance gate is read in the SAME write
+// transaction as admission. A separately checked UI/HTTP flag cannot protect
+// against a competing process reserving an operation between the two reads.
+enum class AdmissionGate { permitted, frozen, unavailable };
+AdmissionGate mediaImportAdmissionGate(Database& database)
+{
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(database.handle(),
+            "SELECT frozen FROM addon_media_import_maintenance "
+            "WHERE module_id='rectools';", -1, &statement, nullptr) != SQLITE_OK)
+        return AdmissionGate::unavailable;
+    const int step = sqlite3_step(statement);
+    AdmissionGate result = AdmissionGate::unavailable;
+    if (step == SQLITE_DONE)
+        result = AdmissionGate::permitted; // no admin freeze has been set
+    else if (step == SQLITE_ROW)
+    {
+        const int frozen = sqlite3_column_int(statement, 0);
+        const int tail = sqlite3_step(statement);
+        if (tail == SQLITE_DONE && (frozen == 0 || frozen == 1))
+            result = frozen ? AdmissionGate::frozen : AdmissionGate::permitted;
+    }
+    sqlite3_finalize(statement);
+    return result;
+}
+
 bool insertOperation(Database& database, const MutationOperation& durable)
 {
     sqlite3_stmt* statement = nullptr;
@@ -428,6 +454,15 @@ MutationOperationRepositoryResult reserveInCurrentTransactionInternal(
             MutationOperationRepositoryStatus::idempotencyConflict, existing);
     }
 
+    if (operation.actionFamily == "media.import")
+    {
+        const AdmissionGate gate = mediaImportAdmissionGate(database);
+        if (gate == AdmissionGate::frozen)
+            return statusResult(MutationOperationRepositoryStatus::maintenanceBlocked);
+        if (gate != AdmissionGate::permitted)
+            return statusResult(MutationOperationRepositoryStatus::storageError);
+    }
+
     if (!insertOperation(database, durable)
         || (payload != nullptr && !insertPayload(database, *payload)))
     {
@@ -506,6 +541,15 @@ bool MutationOperationRepository::ensureSchema()
             "payload_fingerprint TEXT NOT NULL,"
             "CHECK(payload_version>0),"
             "FOREIGN KEY(operation_id) REFERENCES mutation_operations(operation_id) ON DELETE CASCADE"
+            ");"))
+        return false;
+
+    if (!database_.execute(
+            "CREATE TABLE IF NOT EXISTS addon_media_import_maintenance ("
+            "module_id TEXT PRIMARY KEY CHECK(module_id='rectools'),"
+            "frozen INTEGER NOT NULL CHECK(frozen IN (0,1)),"
+            "revision INTEGER NOT NULL CHECK(revision>=1),"
+            "updated_by_actor_id TEXT NOT NULL"
             ");"))
         return false;
 
