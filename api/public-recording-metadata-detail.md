@@ -46,10 +46,10 @@ container adds detail without repeating the collection:
 ```
 
 The metadata object always provides `state` (`absent`, `partial`,
-`available`), `source` (`none` or
-`restfulapi-scraper-bridge`) and `contentKind` (`unknown`, `movie`,
+`available`), `source` (`none`, `restfulapi-scraper-bridge` or
+`manual`) and `contentKind` (`unknown`, `movie`, `series`,
 `series-episode`). Additional nonempty fields may include `epgTitle`,
-`subtitle`, `epgDescription`, `providerTitle`, `originalTitle`, `tagline`,
+`subtitle`, `epgDescription`, `providerTitle`, `overview`, `originalTitle`, `tagline`,
 `seriesTitle`, `episodeTitle`, `genreText`, `releaseDate`; positive
 fields may include `seasonNumber`, `episodeNumber` and
 `providerRuntimeMinutes`. An absent metadata state returns HTTP 200 with
@@ -71,8 +71,10 @@ and request/correlation response handling are reused.
 
 ## Acceptance and integration boundary
 
-M1 work branch: `work/public-v1-m1-metadata-20261022`, based on verified
-`main` commit `6c05493ad53c82e19fef4a2bc70e09bc1603e0c8`.
+M1 work branch: `work/public-v1-m1-metadata-20261022`, originally based on
+`6c05493ad53c82e19fef4a2bc70e09bc1603e0c8`, with E1 main
+`ea7acfec7dd1b1f20aa49a479e3ca4a48bab0418` integrated in
+M1-only merge commit `0dcb2d9c0283a2bc2fca7a253b8342fdc729a4c1`.
 This branch is an isolated parallel development allowance, **not** permission
 to merge before the strict E1 → E2 → M1 sequence.
 
@@ -83,8 +85,9 @@ and backend scope, public response schema, malformed inputs, missing identities,
 permission denials, and source inconsistencies. CI is distinct from actual
 yaVDR/device acceptance.
 
-Before integration, recheck `main` and open E1/S1 PRs: #519, #514, #516
-change `api/openapi.json` and shared `PublicApiRuntime` and daemon files.
+Before integration, recheck `main` and open S1 PRs #514/#516; E1 PR #519
+has already merged. Shared `api/openapi.json`, `PublicApiRuntime` and daemon
+files require final-head integration review.
 Review/reconcile only the M1 hunks, preserve other work, rerun the final-head
 tests, and do not merge automatically.
 
@@ -96,7 +99,7 @@ tests, and do not merge automatically.
 | Recording ID, backend scope and deleted/moved source | Same persisted `rec_` identity, cache and rebind evidence, independently authorized `recordings.view` | Implemented; playback still requires playable media ID |
 | Native EPG title/subtitle/description | Bounded native `metadata.*` fields; duplicate description omitted when identical to collection excerpt | Implemented |
 | Scraper source, provider title, series/episode, genre text, dates | Bounded existing `VdrRecordingMetadata` values, only when known provider source is present | Implemented; no new provider or artwork URL |
-| Manual locked metadata assignment | Web `MetadataRepository` reads `ManualRecordingMetadataAssignmentRepository`, keyed by backend + canonical recording resource key | **Still missing in Public-v1**: must reuse its actual mapping, active relationship/revision and read-only service without exposing private `resourceKey`, external ID, actor or poster path |
+| Manual locked metadata assignment | Web `MetadataRepository` reads `ManualRecordingMetadataAssignmentRepository`, keyed by backend + canonical recording resource key | Implemented on the M1 branch: same read-only source, active target binding, `mdasg_`/`mdent_` and revision; no private resource keys, provider IDs or image paths |
 | Manual genre selection / series hierarchy overrides | Web `GenreIndexRepository` and `RecordingSeriesHierarchyOverrideRepository` | **Not projected in detail yet**; separate focused read integration required |
 | Artwork and image cache | Web poster/image references and M2 public-artwork work | Out of scope for M1 |
 
@@ -106,12 +109,15 @@ provide the exact authorized backend/`rec_` binding. Do not expose it directly
 or introduce a second identity or metadata database.
 
 A selected manual metadata assignment already owns Suite opaque `mdent_`,
-`mdasg_`, and `mdtgt_` identities with a revision. Before providing these
-to clients, the next M1 slice must verify the existing active backend-target
-binding and that its read path has no write/DDL side effects; the old Web JSON
-also embeds backend-native keys and image URLs, so it cannot be reused as
-Public-v1 JSON. The current detail contract intentionally makes no false claim
-that manual assignments or manually selected genre are included.
+`mdasg_`, and `mdtgt_` identities with a revision. The M1 detail read uses
+`MetadataRepository::getManualRecordingMetadataReadOnly`, which does not create
+metadata schemas or materialize portraits. It requires an active backend-target
+binding, selected locked relationship, valid IDs and positive revision. Manual
+selection wins over automatically scraped provider fields, but does not rewrite
+the public Recording title or native EPG fields. The HTTP metadata object
+emits `manualAssignmentId`, `metadataEntityId` and `manualRevision` **only** for
+`source=manual`. Backend-native keys, provider/external IDs, actor and image
+references are withheld. Manual genre assignment remains a separate gap.
 
 Competitor baseline: Kodi/Plex metadata detail and provenance behavior has
 **not been verified in this branch**; this implementation prioritizes actual
@@ -120,8 +126,8 @@ fields. No migration or installed-device parity is claimed from hosted CI.
 
 Recommended remaining M1 slices:
 
-- M1.2: verify read-only existing manual assignment lookup and its Web/key
-  parity; project safe assignment title, revision and existing opaque identity.
+- M1.2: source implementation complete; validate exact-head CI and compare
+  manual assignment Web/authorized Public-v1 responses on controlled fixtures.
 - M1.3: integrate canonical genre and optional series-hierarchy overrides
   only through the existing server repositories, with backend/security parity.
 - M1.4: targeted authorization, malformed-data, manual-override and Web
