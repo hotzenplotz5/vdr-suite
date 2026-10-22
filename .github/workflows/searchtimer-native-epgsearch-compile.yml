@@ -44,7 +44,8 @@ jobs:
             0007-searchtimer-native-metadata-strict.patch \
             0008-searchtimer-osd-stale-pointer-guard.patch \
             0009-searchtimer-osd-actions-retired-guard.patch \
-            0010-searchtimer-native-catalogue-clean-fence.patch
+            0010-searchtimer-native-catalogue-clean-fence.patch \
+            0011-searchtimer-osd-retired-edit-and-timers.patch
           do
             patch_file="$GITHUB_WORKSPACE/patches/epgsearch/$patch_name"
             test -s "$patch_file"
