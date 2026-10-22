@@ -422,8 +422,15 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
     CleanStage stage{fs::path(made)};
     demand(::chmod(stage.path.c_str(), 0700) == 0,
            "cannot protect shrink candidate");
+    const fs::path candidate = stage.path /
+        current.relativeRecording.filename();
+    demand(candidate.extension() == ".rec" &&
+           fs::create_directory(candidate),
+           "cannot create staged VDR recording");
+    demand(::chmod(candidate.c_str(), 0700) == 0,
+           "cannot protect staged recording");
     const auto source = stage.path / "input.ts";
-    const auto output = stage.path / "00001.ts";
+    const auto output = candidate / "00001.ts";
     copySegments(current, source);
     const auto codec = probeCodec(runner, source);
     demand(codec != "hevc", "recording already contains HEVC video");
