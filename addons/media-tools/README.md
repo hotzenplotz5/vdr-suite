@@ -18,6 +18,22 @@ protected Agent command/result integration. The production Agent still does
 not instantiate or advertise this executor; no service is started and no
 manifest capability is advertised.
 
+## Installed handler metadata gate (A2M/A4)
+
+A root-approved handler is no longer considered available from binary bytes and
+an approval JSON alone. Its separate installed
+`/usr/share/vdr-suite/addons/rectools/addon.json` must also be root-owned,
+free of writable/symlinked parents and exactly match the approved module,
+package and version. The current schema-v1 manifest must remain a disabled
+scaffold with empty executable, permission and capability declarations.
+Source/manual installations and eventual Debian packages use this same fixed
+path; neither dpkg presence nor the manifest itself grants authorization.
+The combined snapshot revalidates administrator approval after hashing, and
+the pinned Agent executor revalidates the installed manifest at dispatch.
+Root-owned and unprivileged isolated CI fixtures cover removal, tampering and
+unsafe metadata. Product activation and full installer/upgrade handling remain
+separate acceptance steps.
+
 ## A6 work in progress
 
 The optional importer is a single C++17 implementation under this directory,
