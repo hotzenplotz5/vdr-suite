@@ -185,6 +185,7 @@ jobs:
           sudo env TMPDIR=/root "$(pwd)/.build/addons/test_addon_global_maintenance_inspection"
           echo "ADDON_GLOBAL_MAINTENANCE_INSPECTION_CI=PASS"
           echo "ADDON_MAINTENANCE_EXCLUSIVE_HOLD_CI=PASS"
+          echo "ADDON_MAINTENANCE_OWNER_PERSISTENCE_CI=PASS"
           make test-addon-activation-catalog
           make test-addon-access-policy
           make test-security-authorization
