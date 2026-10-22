@@ -3,12 +3,13 @@
 #include "AddonAccessPolicy.h"
 #include "Database.h"
 #include "MutationOperationRepository.h"
-#include "MediaToolsImportRunLock.h"
 
 #include <cstdint>
 #include <string>
 
 class AccountabilityEventRepository;
+
+namespace vdrsuite::mediatools { class MediaToolsImportRunLock; }
 
 namespace vdrsuite::addons {
 
