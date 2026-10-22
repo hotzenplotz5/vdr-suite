@@ -566,7 +566,8 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
     else {
         encode.insert(encode.end(), {
             "-c:v", "libx264", "-preset", "medium", "-crf", "23",
-            "-pix_fmt", "yuv420p", "-threads", "2"
+            "-pix_fmt", "yuv420p", "-threads", "2",
+            "-g", "50"
         });
     }
     // Compatible video does not imply compatible audio in an MKV/WebM.
