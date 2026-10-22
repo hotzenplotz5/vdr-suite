@@ -258,7 +258,7 @@ def _handler_sections(source: str) -> dict[str, str]:
     for offset, position in enumerate(positions):
         following = dispatch[position:]
         if not re.match(
-            r"if \\(tryHandle\\w+Post\\(.*?\\)\\)\\s*return true;",
+            r"if \(tryHandle\w+Post\(.*?\)\)\s*return true;",
             following, re.DOTALL
         ):
             return {}
