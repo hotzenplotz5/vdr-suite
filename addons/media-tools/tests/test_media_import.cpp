@@ -88,6 +88,8 @@ struct FakeProcess : ProcessRunner {
             if (encodeVideo) {
                 ++transcodes;
                 assert(std::find(argv.begin(), argv.end(), "yuv420p") != argv.end());
+                assert(std::find(argv.begin(), argv.end(), "-g") != argv.end());
+                assert(std::find(argv.begin(), argv.end(), "50") != argv.end());
             } else {
                 ++remuxes;
                 assert(std::find(argv.begin(), argv.end(), "copy") != argv.end());
