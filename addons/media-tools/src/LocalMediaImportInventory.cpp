@@ -6,6 +6,10 @@
 #include <algorithm>
 #include <cerrno>
 #include <cctype>
+#include <chrono>
+#include <cstdint>
+#include <filesystem>
+#include <iomanip>
 #include <fcntl.h>
 #include <set>
 #include <sstream>
@@ -106,6 +110,156 @@ bool fields(const std::string& line, std::array<std::string, 5>& columns)
     }
     return true;
 }
+
+struct IndexedSource {
+    std::string id;
+    LocalMediaImportSource source;
+};
+
+LocalMediaImportSource toSource(const ImportPlan& plan) {
+    LocalMediaImportSource source;
+    source.sourceRoot = plan.sourceRoot;
+    source.videoRoot = plan.videoRoot;
+    source.sourceFile = plan.sourceFile;
+    source.sourceDevice = plan.sourceDevice;
+    source.sourceInode = plan.sourceInode;
+    source.sourceBytes = plan.sourceBytes;
+    source.sourceMtimeSeconds = plan.sourceMtimeSeconds;
+    source.sourceMtimeNanoseconds = plan.sourceMtimeNanoseconds;
+    return source;
+}
+
+// Deterministic opaque observation ID, not an authorization token. Core still
+// checks the actor's grant, approved provider and the exact source snapshot.
+std::string scannedId(const std::string& prefix, const ImportPlan& plan) {
+    std::ostringstream identity;
+    identity << prefix << '\n' << plan.sourceFile.generic_string() << '\n'
+        << plan.sourceDevice << ':' << plan.sourceInode << ':'
+        << plan.sourceBytes << ':' << plan.sourceMtimeSeconds << ':'
+        << plan.sourceMtimeNanoseconds;
+    const std::string input = identity.str();
+    auto fnv = [](const std::string& value, std::uint64_t seed) {
+        std::uint64_t hash = seed;
+        for (unsigned char ch : value) {
+            hash ^= ch;
+            hash *= UINT64_C(1099511628211);
+        }
+        return hash;
+    };
+    std::string inverse(input.rbegin(), input.rend());
+    std::ostringstream result;
+    result << "scan_" << std::hex << std::setfill('0') << std::setw(16)
+        << fnv(input, UINT64_C(14695981039346656037)) << std::setw(16)
+        << fnv(inverse, UINT64_C(7809847782465536322));
+    return result.str();
+}
+
+bool validConfiguredRoot(const std::filesystem::path& root) {
+    namespace fs = std::filesystem;
+    if (!root.is_absolute() || root.lexically_normal() != root) return false;
+    fs::path part;
+    for (const auto& item : root) {
+        part /= item;
+        std::error_code error;
+        if (fs::is_symlink(fs::symlink_status(part, error)) || error)
+            return false;
+    }
+    return fs::is_directory(root);
+}
+
+bool scanDirectory(const std::array<std::string, 5>& entry,
+                   std::vector<IndexedSource>& found)
+{
+    namespace fs = std::filesystem;
+    const fs::path sourceRoot(entry[2]), videoRoot(entry[3]);
+    if (!validConfiguredRoot(sourceRoot) || !validConfiguredRoot(videoRoot))
+        return false;
+    // All candidates are scanned read-only. One subdirectory of depth is
+    // enough for the prior Rectools import convention, with a hard work cap.
+    std::vector<fs::path> paths;
+    std::size_t entries = 0;
+    const auto addFiles = [&](const fs::path& root, bool descend) {
+        for (const auto& item : fs::directory_iterator(root)) {
+            if (++entries > 4096) return false;
+            if (fs::is_symlink(item.symlink_status())) continue;
+            if (item.is_regular_file()) paths.push_back(item.path());
+            else if (descend && item.is_directory()) {
+                for (const auto& nested : fs::directory_iterator(item.path())) {
+                    if (++entries > 4096) return false;
+                    if (!fs::is_symlink(nested.symlink_status()) &&
+                        nested.is_regular_file())
+                        paths.push_back(nested.path());
+                }
+            }
+        }
+        return true;
+    };
+    if (!addFiles(sourceRoot, true)) return false;
+    std::sort(paths.begin(), paths.end());
+    const auto now = fs::file_time_type::clock::now();
+    for (const auto& path : paths) {
+        // Do not hand a partially uploaded source to an unattended importer.
+        // Every selection is re-inspected at dispatch and actual execution.
+        if (now - fs::last_write_time(path) < std::chrono::minutes(2))
+            continue;
+        try {
+            const auto plan = inspectImport({sourceRoot, videoRoot, path});
+            found.push_back({scannedId(entry[1], plan), toSource(plan)});
+            if (found.size() > 256) return false;
+        } catch (...) {
+            // Source disappeared, unsupported format, symlinked parent or
+            // title already imported: not an executable selection.
+        }
+    }
+    return true;
+}
+
+bool inventorySources(const fs::path& root, const std::string& backendId,
+                      std::vector<IndexedSource>& sources)
+{
+    sources.clear();
+    std::string content;
+    if (!readInventory(root, content)) return false;
+    std::istringstream input(content);
+    std::set<std::pair<std::string, std::string>> seenRows;
+    std::string line;
+    std::size_t rows = 0;
+    try {
+        while (std::getline(input, line)) {
+            if (++rows > 128 || line.empty() || line.back() == '\r')
+                return false;
+            std::array<std::string, 5> entry{};
+            if (!fields(line, entry) ||
+                !inventoryIdentifier(entry[0], 1) ||
+                !inventoryIdentifier(entry[1], 16) ||
+                !seenRows.emplace(entry[0], entry[1]).second)
+                return false;
+            if (entry[0] != backendId) continue;
+            if (entry[4] == "*") {
+                if (!scanDirectory(entry, sources)) return false;
+            } else {
+                try {
+                    const auto plan = inspectImport({
+                        entry[2], entry[3], entry[4]});
+                    sources.push_back({entry[1], toSource(plan)});
+                } catch (...) {
+                    // Explicitly listed source is missing or already imported.
+                }
+            }
+        }
+    } catch (...) { return false; }
+    std::sort(sources.begin(), sources.end(), [](const IndexedSource& a,
+                                                  const IndexedSource& b) {
+        return a.id < b.id;
+    });
+    for (std::size_t index = 1; index < sources.size(); ++index)
+        if (sources[index].id == sources[index - 1].id) return false;
+    // The backend catalog accepts a maximum of 32 currently visible IDs.
+    // A larger scanned directory is delivered in bounded future batches as
+    // previously imported titles disappear from inspectImport candidates.
+    if (sources.size() > 32U) sources.resize(32U);
+    return true;
+}
 } // namespace
 
 RootOwnedMediaImportInventory::RootOwnedMediaImportInventory(
@@ -113,6 +267,7 @@ RootOwnedMediaImportInventory::RootOwnedMediaImportInventory(
     : installRoot_(std::move(installRoot))
 {
 }
+
 
 bool RootOwnedMediaImportInventory::resolve(
     const std::string& backendId, const std::string& sourceId,
@@ -122,128 +277,33 @@ bool RootOwnedMediaImportInventory::resolve(
     if (!inventoryIdentifier(backendId, 1) ||
         !inventoryIdentifier(sourceId, 16))
         return false;
-    std::string content;
-    if (!readInventory(installRoot_, content)) return false;
-
-    std::istringstream input(content);
-    std::set<std::pair<std::string, std::string>> seen;
-    LocalMediaImportSource selected;
-    bool found = false;
-    std::string line;
-    std::size_t rows = 0;
-    while (std::getline(input, line))
-    {
-        if (++rows > 128 || line.empty() || line.back() == '\r')
-            return false;
-        std::array<std::string, 5> values{};
-        if (!fields(line, values) ||
-            !inventoryIdentifier(values[0], 1) ||
-            !inventoryIdentifier(values[1], 16) ||
-            !seen.emplace(values[0], values[1]).second)
-            return false;
-        if (values[0] != backendId || values[1] != sourceId)
-            continue;
-
-        // Reuse the existing importer preflight: strict paths, symlink
-        // exclusion, source inode/mtime/size, disjoint roots and valid media.
-        // No operation on the target and no handler execution occurs here.
-        try
-        {
-            const auto plan = inspectImport({
-                values[2], values[3], values[4]});
-            selected.sourceRoot = plan.sourceRoot;
-            selected.videoRoot = plan.videoRoot;
-            selected.sourceFile = plan.sourceFile;
-            selected.sourceDevice = plan.sourceDevice;
-            selected.sourceInode = plan.sourceInode;
-            selected.sourceBytes = plan.sourceBytes;
-            selected.sourceMtimeSeconds = plan.sourceMtimeSeconds;
-            selected.sourceMtimeNanoseconds = plan.sourceMtimeNanoseconds;
-            found = true;
-        }
-        catch (...) { return false; }
-    }
-    if (!found) return false;
-    output = std::move(selected);
+    std::vector<IndexedSource> sources;
+    if (!inventorySources(installRoot_, backendId, sources)) return false;
+    const auto selected = std::find_if(sources.begin(), sources.end(),
+        [&](const IndexedSource& source) { return source.id == sourceId; });
+    if (selected == sources.end()) return false;
+    output = selected->source;
     return true;
 }
-
-} // namespace vdrsuite::mediatools
-
-namespace vdrsuite::mediatools {
 
 bool RootOwnedMediaImportInventory::hasTrustedSource(
     const std::string& backendId)
 {
     if (!inventoryIdentifier(backendId, 1)) return false;
-    std::string content;
-    if (!readInventory(installRoot_, content)) return false;
-    std::istringstream input(content);
-    std::set<std::pair<std::string, std::string>> unique;
-    std::string line;
-    bool found = false;
-    std::size_t count = 0;
-    while (std::getline(input, line))
-    {
-        if (++count > 128 || line.empty() || line.back() == '\r')
-            return false;
-        std::array<std::string, 5> fieldsOnDisk{};
-        if (!fields(line, fieldsOnDisk) ||
-            !inventoryIdentifier(fieldsOnDisk[0], 1) ||
-            !inventoryIdentifier(fieldsOnDisk[1], 16) ||
-            !unique.emplace(fieldsOnDisk[0], fieldsOnDisk[1]).second)
-            return false;
-        if (fieldsOnDisk[0] != backendId) continue;
-        try {
-            (void)inspectImport({
-                fieldsOnDisk[2], fieldsOnDisk[3], fieldsOnDisk[4]});
-            found = true;
-        } catch (...) {
-            // A stale source must not become executable merely because its
-            // mapping remains in the root-owned ledger.
-            continue;
-        }
-    }
-    return found;
+    std::vector<IndexedSource> sources;
+    return inventorySources(installRoot_, backendId, sources) &&
+           !sources.empty();
 }
-
-} // namespace vdrsuite::mediatools
-
-namespace vdrsuite::mediatools {
 
 bool RootOwnedMediaImportInventory::listTrustedSourceIds(
     const std::string& backendId, std::vector<std::string>& sourceIds)
 {
     sourceIds.clear();
     if (!inventoryIdentifier(backendId, 1)) return false;
-    std::string content;
-    if (!readInventory(installRoot_, content)) return false;
-    std::istringstream input(content);
-    std::set<std::pair<std::string, std::string>> seen;
-    std::string line;
-    std::size_t count = 0;
-    std::vector<std::string> fresh;
-    while (std::getline(input, line))
-    {
-        if (++count > 128 || line.empty() || line.back() == '\r')
-            return false;
-        std::array<std::string, 5> columns{};
-        if (!fields(line, columns) ||
-            !inventoryIdentifier(columns[0], 1) ||
-            !inventoryIdentifier(columns[1], 16) ||
-            !seen.emplace(columns[0], columns[1]).second)
-            return false;
-        if (columns[0] != backendId) continue;
-        try {
-            (void)inspectImport({columns[2], columns[3], columns[4]});
-            fresh.push_back(columns[1]);
-            if (fresh.size() > 32U) return false;
-        } catch (...) {
-            // Disappearances are omitted; a malformed ledger invalidates all.
-        }
-    }
-    std::sort(fresh.begin(), fresh.end());
-    sourceIds = std::move(fresh);
+    std::vector<IndexedSource> sources;
+    if (!inventorySources(installRoot_, backendId, sources)) return false;
+    for (const auto& source : sources)
+        sourceIds.push_back(source.id);
     return true;
 }
 } // namespace vdrsuite::mediatools

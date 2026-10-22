@@ -19,6 +19,9 @@ public:
     // Capability discovery: a protected ledger with at least one currently
     // inspectable source for this backend, without producing any side effect.
     bool hasTrustedSource(const std::string& backendId);
+    // A root-owned TSV row ending in '*' opts in a bounded, read-only
+    // one-level directory scan; only unchanged, aged candidates are exposed.
+    // Discovery does not enqueue jobs or weaken Core authorization.
     // Fail closed: opaque IDs only, no paths or partial trusted inventory.
     bool listTrustedSourceIds(const std::string& backendId,
                               std::vector<std::string>& sourceIds);

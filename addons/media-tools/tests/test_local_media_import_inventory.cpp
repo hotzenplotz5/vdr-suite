@@ -1,6 +1,7 @@
 #include "LocalMediaImportInventory.h"
 
 #include <cassert>
+#include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -126,6 +127,34 @@ int main()
     assert(!inventory.resolve("backend", Key, selected));
     fs::remove(fixture.source);
     fs::rename(fixture.source.string() + ".saved", fixture.source);
+
+    // One root-owned directory directive discovers both direct and nested
+    // stable sources, without a client-supplied filesystem path.
+    fs::create_directories(fixture.root / "media/input/subfolder");
+    const auto newFile = fixture.root / "media/input/subfolder/new_movie.webm";
+    { std::ofstream out(newFile); out << "webm payload"; }
+    fs::last_write_time(newFile,
+        fs::file_time_type::clock::now() - std::chrono::minutes(10));
+    fs::last_write_time(fixture.source,
+        fs::file_time_type::clock::now() - std::chrono::minutes(10));
+    fixture.write(std::string("backend\t") + Key + "\t" +
+        (fixture.root / "media/input").string() + "\t" +
+        fixture.destination.string() + "\t*\n");
+    assert(inventory.listTrustedSourceIds("backend", ids));
+    assert(ids.size() == 2);
+    assert(ids[0].rfind("scan_", 0) == 0 &&
+           ids[1].rfind("scan_", 0) == 0);
+    LocalMediaImportSource scanned;
+    assert(inventory.resolve("backend", ids[0], scanned));
+    assert(scanned.sourceFile == fixture.source ||
+           scanned.sourceFile == newFile);
+    const auto previous = ids;
+    assert(inventory.listTrustedSourceIds("backend", ids) && ids == previous);
+    fs::last_write_time(newFile, fs::file_time_type::clock::now());
+    assert(inventory.listTrustedSourceIds("backend", ids) && ids.size() == 1);
+    assert(!inventory.resolve("backend", previous[0], scanned) ||
+           scanned.sourceFile == fixture.source);
+    fixture.write();
 
     // Root-owned inventory is readable by the real unprivileged Agent uid.
     const passwd* nobody = ::getpwnam("nobody");
