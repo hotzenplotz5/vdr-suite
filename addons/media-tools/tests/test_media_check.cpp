@@ -277,6 +277,28 @@ int main(int argc, char* argv[])
     }
     {
         Fixture f;
+        Packet malformed = packet(2);
+        malformed[3] = 0x20 | 2; // adaptation only, no payload
+        malformed[4] = 1; // leaves 182 bytes unaccounted for
+        f.write("00002.ts", {malformed});
+        const auto result = checkRecordingTransportStream(f.video, f.relative());
+        assert(result.status() == "errors" && result.adaptationErrors == 1);
+        assert(result.segmentReports[1].adaptationErrors == 1);
+        ++cases;
+    }
+    {
+        Fixture f;
+        Packet valid = packet(2);
+        valid[3] = 0x20 | 2;
+        valid[4] = 183; // adaptation field occupies the entire packet
+        f.write("00002.ts", {valid});
+        const auto result = checkRecordingTransportStream(f.video, f.relative());
+        assert(result.status() == "ok" && result.adaptationErrors == 0);
+        assert(result.continuityWarnings == 0);
+        ++cases;
+    }
+    {
+        Fixture f;
         fs::rename(f.rec / "00002.ts", f.rec / "00003.ts");
         throws([&] { checkRecordingTransportStream(f.video, f.relative()); });
         ++cases;
