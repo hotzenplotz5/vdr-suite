@@ -93,7 +93,7 @@ struct Transport final: IBackendAgentControlPlaneTransport {
     }
 };
 struct Fixture {
-    fs::path root,binary,approval,ledger,source,video,statePath;
+    fs::path root,binary,approval,manifest,ledger,source,video,statePath;
     Fixture() {
         if(::geteuid()!=0 || !std::getenv("TMPDIR") ||
            std::string(std::getenv("TMPDIR"))!="/root")
@@ -109,12 +109,14 @@ struct Fixture {
         root=name.data();
         binary=root/"usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import";
         approval=root/"etc/vdr-suite/addon-approvals/rectools.json";
+        manifest=root/"usr/share/vdr-suite/addons/rectools/addon.json";
         ledger=root/"etc/vdr-suite/addon-sources/media-import.tsv";
         source=root/"media/in/movie.ts";
         video=root/"media/out";
         statePath=root/"state/command.state";
         fs::create_directories(binary.parent_path());
         fs::create_directories(approval.parent_path());
+        fs::create_directories(manifest.parent_path());
         fs::create_directories(ledger.parent_path());
         fs::create_directories(source.parent_path());
         fs::create_directories(video);
@@ -123,7 +125,10 @@ struct Fixture {
             "usr/libexec/vdr-suite", "usr/libexec/vdr-suite/addons",
             "usr/libexec/vdr-suite/addons/rectools", "etc",
             "etc/vdr-suite","etc/vdr-suite/addon-approvals",
-            "etc/vdr-suite/addon-sources", "media", "media/in", "media/out",
+            "etc/vdr-suite/addon-sources", "usr/share",
+            "usr/share/vdr-suite", "usr/share/vdr-suite/addons",
+            "usr/share/vdr-suite/addons/rectools",
+            "media", "media/in", "media/out",
             "state"})
             if(::chmod((root/sub).c_str(),0755)!=0)
                 throw std::runtime_error("fixture mkdir mode");
@@ -132,6 +137,7 @@ struct Fixture {
         fs::copy_file("/bin/true",binary);
         if(::chmod(binary.c_str(),0755)!=0)
             throw std::runtime_error("binary chmod");
+        writeManifest();
         writeApproval(false);
         {std::ofstream file(source);file<<"synthetic-media-input";}
         {std::ofstream file(ledger);
@@ -155,6 +161,17 @@ struct Fixture {
         std::string reason;
         if(!commandstate::persist(statePath.string(),state,reason))
             throw std::runtime_error(reason);
+    }
+    void writeManifest() {
+        std::ofstream out(manifest, std::ios::trunc);
+        out << "{\"schemaVersion\":1,\"id\":\"rectools\",\"version\":\"0.1.0\","
+               "\"package\":\"vdr-suite-addon-media-tools\",\"state\":\"scaffold\","
+               "\"displayName\":\"Media Tools\",\"description\":\"Inactive\","
+               "\"entrypoints\":[],\"capabilities\":[],\"permissions\":[],"
+               "\"dependencies\":[]}\n";
+        out.close();
+        if (::chmod(manifest.c_str(),0644)!=0)
+            throw std::runtime_error("manifest chmod");
     }
     void writeApproval(bool revoked) {
         {std::ofstream out(approval);
@@ -310,6 +327,11 @@ int main() {
     assert(::chmod(f.ledger.c_str(),0666)==0);
     assert(!runtime.available());
     assert(::chmod(f.ledger.c_str(),0644)==0);
+    assert(runtime.available());
+    fs::remove(f.manifest);
+    assert(!runtime.available());
+    assert(discoverBackendAgentCommandAvailability(config).commandTypes.empty());
+    f.writeManifest();
     assert(runtime.available());
 
     assert(runtime.authorize(a,"backend",19));
