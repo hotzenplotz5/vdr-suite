@@ -8568,6 +8568,16 @@ bool PublicApiRuntime::tryHandleGet(
             return true;
     }
 
+    std::string versionSearchTimerId;
+    if (publicSearchTimerNativeSubresourcePath(
+            path, "/version", versionSearchTimerId))
+    {
+        if (tryHandleSearchTimerAssignmentReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendId, response))
+            return true;
+    }
+
     if (path == PublicSearchTimerDraftPreviewPath)
     {
         if (tryHandleSearchTimerAssignmentReadGet(
