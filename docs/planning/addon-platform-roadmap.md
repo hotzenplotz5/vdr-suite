@@ -207,6 +207,37 @@ bytes under that ownership, then handle rollback safely. Lock inode
 replacement, privilege, host runtime and real Debian maintenance hooks
 remain unaccepted.
 
+## A4 durable exclusive maintenance owner checkpoint
+
+An additive `addon_media_import_maintenance_owners` SQLite table now
+records a *single global* Core-controlled maintenance owner independently
+from the existing frozen-admission revision row. Once the fixed module is
+globally frozen, a resolved administrator may acquire durable ownership
+only with the **currently held exclusive root-controlled handler lock**
+and exact optimistic freeze revision. The private Core method generates
+a fresh 128-bit opaque token from the OS CSPRNG, increments the shared
+revision and commits the owner plus an Accountability event in the same
+`BEGIN IMMEDIATE` transaction. It returns that token once to the
+authorized coordinator, never through `read()` or the public API.
+
+While ownership exists, **all** legacy `setFrozen` calls, including
+attempted unfreeze by another administrator or the original owner,
+are denied; another claim also fails. Release requires the original
+administrator, token, exact revision and a still-held exclusive kernel
+lock. It is separately audited and **leaves the global freeze active**.
+A failed audit must roll back both owner and revision changes.
+Crashes do not automatically clear the owner, even after a kernel lock
+is released; there is deliberately no timeout, implicit steal, automatic
+recovery, package hook or live maintenance activation. The isolated
+root fixture checks cross-connection behavior, owner mismatch, replay,
+audit rollback, clean release and persistent crash denial.
+
+This is **not** the Ubuntu package transaction yet: obtaining and holding
+the lock while applying exact signed artifacts, validating Agent/DB
+identity after restart, implementing a safe audited recovery of an
+abandoned owner and rollback under that ownership are still required.
+No VDR service or real recording is touched.
+
 ## Recommended execution order
 
 1. Finish A2's **no-dpkg default** and rejection regressions, using only
