@@ -48,6 +48,11 @@ public:
         const std::string& backendId,
         const std::string& resourceKey);
 
+    // Public-v1 read: reuse the selected canonical Genre without DDL.
+    std::string getManualRecordingGenreReadOnly(
+        const std::string& backendId,
+        const std::string& resourceKey);
+
     bool setManualRecordingGenre(
         const std::string& backendId,
         const std::string& resourceKey,
