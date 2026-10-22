@@ -8228,6 +8228,17 @@ bool PublicApiRuntime::tryHandleGet(
             return true;
     }
 
+    // This route is handled by the SearchTimerAssignment read owner, not
+    // by the legacy GET path. Keep the reachability precondition explicit.
+    std::string savedSearchTimerId;
+    if (publicSearchTimerDetailPath(path, savedSearchTimerId))
+    {
+        if (tryHandleSearchTimerAssignmentReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendId, response))
+            return true;
+    }
+
     std::string previewSearchTimerId;
     if (publicSearchTimerPreviewPath(path, previewSearchTimerId))
     {
