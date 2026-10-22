@@ -90,6 +90,23 @@ int main()
     httpClient.setResponse(malformedResponse);
     assert(!adapter.list(SearchTimerQuery::all()).available());
 
+    // A 200 with a truncated catalogue must NOT be treated as an empty
+    // authoritative snapshot; that could retire live public identities.
+    HttpResponse incomplete;
+    incomplete.statusCode = 200;
+    incomplete.body = "{\"searchtimers\":[],\"count\":0,\"total\":1}";
+    httpClient.setResponse(incomplete);
+    assert(!adapter.list(SearchTimerQuery::all()).available());
+
+    incomplete.body = "{\"searchtimers\":[{\"id\":-1,"
+        "\"search\":\"invalid\"}],\"count\":1,\"total\":1}";
+    httpClient.setResponse(incomplete);
+    assert(!adapter.list(SearchTimerQuery::all()).available());
+
+    incomplete.body = "{\"searchtimers\":[],\"count\":1,\"total\":1}";
+    httpClient.setResponse(incomplete);
+    assert(!adapter.list(SearchTimerQuery::all()).available());
+
     HttpResponse unavailableResponse;
     unavailableResponse.statusCode = 503;
     httpClient.setResponse(unavailableResponse);
