@@ -6,6 +6,8 @@ No live VDR-Suite installation or system paths are changed.
 import hashlib
 import json
 import os
+import subprocess
+import sys
 import stat
 import tempfile
 import unittest
@@ -110,6 +112,43 @@ class RootOwnedApprovalAcceptance(unittest.TestCase):
             rotate(self.root, "rectools", "0.1.0", old,
                    replacement, "manual")
         self.assertEqual(self.approval.read_bytes(), revoked_bytes)
+
+    def test_cli_rotation_is_explicit_and_reproducible(self):
+        old = self.document["sha256"]
+        self.handler.write_bytes(b"rotated by cli fixture\n")
+        replacement = hashlib.sha256(self.handler.read_bytes()).hexdigest()
+        command = [
+            sys.executable,
+            str(Path(__file__).with_name("admin_approval_issuer.py")),
+            "rotate", "--root", str(self.root), "--module", "rectools",
+            "--version", "0.1.0", "--expected-sha256", old,
+            "--approved-sha256", replacement, "--origin", "manual",
+        ]
+        result = subprocess.run(command, capture_output=True, text=True,
+                                check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("ADDON_ADMIN_APPROVAL_ROTATED=", result.stdout)
+        self.assertTrue(examine(self.root, "rectools")["consistent"])
+        replay = subprocess.run(command, capture_output=True, text=True,
+                                check=False)
+        self.assertEqual(replay.returncode, 2)
+        self.assertIn("stale-approval-rotation", replay.stderr)
+        self.assertEqual(json.loads(self.approval.read_text())["sha256"],
+                         replacement)
+
+    def test_revocation_persists_through_exact_binary_reinstallation(self):
+        old = self.document["sha256"]
+        self.assertEqual(revoke(self.root, "rectools"), self.approval)
+        revoked = self.approval.read_bytes()
+        original = self.handler.read_bytes()
+        self.handler.unlink()
+        self.handler.write_bytes(original)
+        self.handler.chmod(0o700)
+        self.assertEqual(hashlib.sha256(self.handler.read_bytes()).hexdigest(), old)
+        self.assertEqual(examine(self.root, "rectools")["reason"], "approval-revoked")
+        with self.assertRaises(IssueError):
+            issue(self.root, "rectools", "0.1.0", old, "manual")
+        self.assertEqual(self.approval.read_bytes(), revoked)
 
     def test_rotation_requires_secure_manifest_and_root_approval(self):
         old = self.document["sha256"]
