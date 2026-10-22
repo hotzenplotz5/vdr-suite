@@ -624,6 +624,63 @@
       });
     }
 
+    function nativeSearchTimerPath(options, suffix) {
+      const o = options && typeof options === 'object' ? options : {};
+      if (typeof o.backendId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(o.backendId) ||
+          typeof o.searchTimerId !== 'string' ||
+          !/^st_[0-9a-f]{32}$/.test(o.searchTimerId))
+        throw new Error('canonical public SearchTimer ID and backendId required');
+      return '/api/v1/search-timers/' + o.searchTimerId + '/' + suffix +
+        '?backend=' + encodeURIComponent(o.backendId);
+    }
+
+    function nativeSearchTimerMutation(options) {
+      const o = options && typeof options === 'object' ? options : {};
+      const allowed = new Set(['backendId','searchTimerId','action','query',
+        'confirmed','previewAcknowledged','ifMatch','idempotencyKey',
+        'headers','credentials','signal']);
+      Object.keys(o).forEach(function (key) {
+        if (!allowed.has(key))
+          throw new Error('unsupported native SearchTimer mutation option: ' + key);
+      });
+      const path = nativeSearchTimerPath(o, 'mutations');
+      if (!['update','activate','deactivate','delete'].includes(o.action) ||
+          o.confirmed !== true ||
+          typeof o.ifMatch !== 'string' ||
+          !/^"sr_[0-9a-f]{32}"$/.test(o.ifMatch) ||
+          typeof o.idempotencyKey !== 'string' ||
+          !/^[A-Za-z0-9._:-]{1,160}$/.test(o.idempotencyKey))
+        throw new Error('guarded SearchTimer mutation confirmation, revision and idempotency key required');
+      if (o.action === 'activate' && o.previewAcknowledged !== true)
+        throw new Error('activation requires explicit fresh EPG preview acknowledgement');
+      if (o.action === 'update') {
+        if (typeof o.query !== 'string' || o.query.length === 0 ||
+            o.query.length > 200 || /[:\x00-\x1f\x7f]/.test(o.query))
+          throw new Error('unsupported inactive SearchTimer update query');
+      } else if (o.query !== undefined) {
+        throw new Error('query is allowed only for an inactive update');
+      }
+      const headers = Object.assign({Accept:'application/json'},
+        defaultHeaders,copyHeaders(o.headers));
+      headers['Content-Type'] = 'application/json';
+      headers['If-Match'] = o.ifMatch;
+      headers['Idempotency-Key'] = o.idempotencyKey;
+      const payload = {action:o.action,confirmed:true};
+      if (o.action === 'update') payload.query = o.query;
+      return fetchImpl(buildUrl(baseUrl,path), {
+        method:'POST',headers,
+        credentials:o.credentials !== undefined ? o.credentials : normalized.credentials,
+        signal:o.signal,body:JSON.stringify(payload)
+      }).then(function (response) {
+        const location = headerValue(response,'Location');
+        return parseJsonBody(response).then(function (data) {
+          if (!response.ok) throw new VdrSuitePublicClientError(path,response.status,data,response);
+          return {status:response.status,location,data};
+        });
+      });
+    }
+
     function requestInactiveSearchTimerCreate(options) {
       const o = options && typeof options === 'object' ? options : {};
       const allowed = new Set(['backendId','name','query','active','mode',
@@ -1126,6 +1183,13 @@
       },
       createInactiveSearchTimer(options) {
         return requestInactiveSearchTimerCreate(options);
+      },
+      getSearchTimerVersion(options) {
+        const o = options && typeof options === 'object' ? options : {};
+        return request(nativeSearchTimerPath(o,'version'), o);
+      },
+      mutateSearchTimer(options) {
+        return nativeSearchTimerMutation(options);
       },
       getTimerAssignments(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
