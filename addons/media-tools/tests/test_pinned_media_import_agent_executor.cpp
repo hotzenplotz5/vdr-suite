@@ -1,5 +1,6 @@
 #include "PinnedMediaImportAgentExecutor.h"
 #include "MediaImportRecordingEvidence.h"
+#include "MediaToolsImportRunLock.h"
 
 #include <openssl/evp.h>
 
@@ -58,7 +59,7 @@ std::string sha256(const fs::path& path)
 }
 
 struct Fixture {
-    fs::path root, binary, approval, manifest;
+    fs::path root, binary, approval, manifest, runLock;
     explicit Fixture(const char* fixtureBinary = "/bin/true")
     {
         if (::geteuid() != 0 || !std::getenv("TMPDIR") ||
@@ -76,6 +77,7 @@ struct Fixture {
         binary = root / "usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import";
         approval = root / "etc/vdr-suite/addon-approvals/rectools.json";
         manifest = root / "usr/share/vdr-suite/addons/rectools/addon.json";
+        runLock = approval.parent_path() / kMediaImportRunLockName;
         fs::create_directories(binary.parent_path());
         fs::create_directories(approval.parent_path());
         fs::create_directories(manifest.parent_path());
@@ -94,6 +96,14 @@ struct Fixture {
             throw std::runtime_error("chmod binary");
         writeManifest();
         writeApproval(false);
+        writeRunLock();
+    }
+    void writeRunLock()
+    {
+        std::ofstream file(runLock, std::ios::trunc | std::ios::binary);
+        file.close();
+        if (::chmod(runLock.c_str(), 0644) != 0)
+            throw std::runtime_error("chmod run lock");
     }
     void writeManifest()
     {
@@ -200,6 +210,24 @@ int main()
     assert(executor.execute(a) == MediaImportAgentOutcome::submitted);
     assert(executor.execute(a) == MediaImportAgentOutcome::rejected);
     assert(grants.checks >= 2);
+
+    fs::remove(fixture.runLock);
+    assert(!executor.available());
+    assert(executor.authorize(a, "backend", 19));
+    assert(executor.execute(a) == MediaImportAgentOutcome::rejected);
+    fixture.writeRunLock();
+    assert(::chmod(fixture.runLock.c_str(), 0666) == 0);
+    assert(!executor.available());
+    assert(::chmod(fixture.runLock.c_str(), 0644) == 0);
+    auto exclusive = MediaToolsImportRunLock::tryAcquire(
+        fixture.root.string(),
+        MediaToolsImportRunLock::Mode::exclusiveMaintenance);
+    assert(exclusive.has_value());
+    assert(!executor.available());
+    assert(executor.authorize(a, "backend", 19));
+    assert(executor.execute(a) == MediaImportAgentOutcome::rejected);
+    exclusive.reset();
+    assert(executor.available());
 
     fs::remove(fixture.manifest);
     assert(!executor.available());
