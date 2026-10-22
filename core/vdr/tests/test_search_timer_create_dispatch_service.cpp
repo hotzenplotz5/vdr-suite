@@ -101,11 +101,15 @@ struct Rig
     Executor executor;
     Source source;
     std::string id;
-    Rig() : storage(database), admission(storage), dispatch(storage)
+    explicit Rig(bool historicalActive = false)
+        : storage(database), admission(storage), dispatch(storage)
     {
         assert(database.open(":memory:"));
         assert(storage.ensureSchema());
-        const auto made = admission.admit(input());
+        // Simulate durable active CREATE accepted before inactive-only API v1.
+        auto admissionRequest = input();
+        admissionRequest.payload.active = historicalActive;
+        const auto made = admission.admit(admissionRequest);
         assert(made.status == SearchTimerCreateAdmissionStatus::prepared);
         id = made.operation.operationId;
         source.finalItems.push_back(
@@ -177,6 +181,24 @@ void assertGuards()
     assert(r.executor.creates == 0);
     assert(r.storage.findById(r.id).operation.state ==
         MutationOperationState::accepted);
+}
+
+void assertHistoricalActivePayloadNeverDispatches()
+{
+    Rig old(true);
+    const auto denied = old.dispatch.dispatchOnce(
+        old.request(), old.executor, old.source);
+    assert(denied.status == SearchTimerCreateDispatchStatus::denied);
+    assert(old.executor.creates == 0);
+    assert(old.source.reads == 0);
+    // No automatic recovery/redispatch of the prior active mutation.
+    assert(old.storage.findById(old.id).operation.state ==
+        MutationOperationState::accepted);
+    const auto again = old.dispatch.dispatchOnce(
+        old.request(), old.executor, old.source);
+    assert(again.status == SearchTimerCreateDispatchStatus::denied);
+    assert(old.executor.creates == 0);
+    assert(old.source.reads == 0);
 }
 
 void assertAmbiguousOutcomeNeverRetries()
@@ -268,6 +290,7 @@ int main()
 {
     assertHappyPathAndNoRetry();
     assertGuards();
+    assertHistoricalActivePayloadNeverDispatches();
     assertAmbiguousOutcomeNeverRetries();
     assertReadbackAndPreexistingIdentity();
     std::cout << "SearchTimer CREATE one-shot dispatch: PASS (mock only)\n";
