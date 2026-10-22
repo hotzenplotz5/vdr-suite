@@ -202,6 +202,14 @@ int main() {
     }, true);
     assert(convertedCodec.exitCode == 0 &&
            parseProbedVideoCodec(convertedCodec.output) == "h264");
+    const auto convertedAudio = runner.tools.run({
+        "/usr/bin/ffprobe", "-v", "error", "-select_streams", "a:0",
+        "-show_entries", "stream=codec_name",
+        "-of", "default=nw=1:nk=1",
+        (converted / "00001.ts").string()
+    }, true);
+    assert(convertedAudio.exitCode == 0 &&
+           parseProbedVideoCodec(convertedAudio.output) == "aac");
     const auto convertedCheck = checkRecordingTransportStream(
         fixture.video, converted.lexically_relative(fixture.video));
     assert(convertedCheck.segments == 1 && convertedCheck.packets > 0 &&
