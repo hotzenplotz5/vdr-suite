@@ -281,6 +281,10 @@ std::string signature(const ShrinkPlan& plan) {
         raw << segment.filename << ':' << segment.device << ':'
             << segment.inode << ':' << segment.bytes << ':'
             << segment.seconds << ':' << segment.nanoseconds << '\n';
+    for (const auto& sidecar : plan.sidecars)
+        raw << "sidecar:" << sidecar.filename << ':' << sidecar.device << ':'
+            << sidecar.inode << ':' << sidecar.bytes << ':'
+            << sidecar.seconds << ':' << sidecar.nanoseconds << '\n';
     std::uint64_t hash = UINT64_C(14695981039346656037);
     for (unsigned char ch : raw.str()) {
         hash ^= ch;
