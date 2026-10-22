@@ -153,8 +153,12 @@ std::vector<std::string> listSegments(int directory)
     std::sort(segments.begin(), segments.end());
     require(!segments.empty(), "recording has no numbered TS segments");
     for (std::size_t i = 0; i < segments.size(); ++i) {
-        char expected[9]{};
-        std::snprintf(expected, sizeof(expected), "%05zu.ts", i + 1);
+        char expected[] = "00000.ts";
+        std::size_t sequence = i + 1; // bounded by kMaxSegments
+        for (int digit = 4; digit >= 0; --digit) {
+            expected[digit] = static_cast<char>('0' + sequence % 10);
+            sequence /= 10;
+        }
         require(segments[i] == expected, "recording TS segment sequence has a gap");
     }
     return segments;
