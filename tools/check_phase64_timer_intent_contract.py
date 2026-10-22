@@ -370,6 +370,8 @@ reviewed_runtime_files = {
     Path("core/daemon/tests/test_native_timer_create_readback_reconciliation.cpp"),
     Path("api/rest/include/PublicApiRuntime.h"),
     Path("api/rest/src/PublicApiRuntime.cpp"),
+    # ADR-0068: reviewed byte-exact relocation of read-only lookup methods.
+    Path("api/rest/src/PublicTimerReadLookupRuntime.cpp"),
     Path("api/rest/tests/test_public_timer_assignment_lookup.cpp"),
     Path("api/rest/tests/test_public_timer_assignment_resource.cpp"),
     Path("api/rest/tests/test_public_timer_assignment_collection.cpp"),
@@ -393,6 +395,32 @@ for marker in [
             "Phase-69.C productive Timer CREATE guard missing reviewed "
             "TimerAssignment consumer marker: " + marker
         )
+
+# Retain an explicit read-only fence for the newly reviewed lookup owner.
+timer_read_source = (ROOT / "api/rest/src/PublicTimerReadLookupRuntime.cpp")
+if not timer_read_source.is_file():
+    raise SystemExit("missing reviewed ADR-0068 Timer read lookup source")
+timer_read = timer_read_source.read_text(encoding="utf-8")
+for marker in (
+    "PublicApiRuntime::registerTimerAssignmentLookup(",
+    "PublicApiRuntime::resetTimerAssignmentLookup()",
+    "PublicApiRuntime::lookupTimerAssignment(",
+    "timerAssignmentLookupMutex_",
+    "PublicApiRuntime::registerTimerAssignmentCollectionLookup(",
+    "PublicApiRuntime::registerSearchTimerCollectionLookup(",
+    "PublicApiRuntime::registerSearchTimerPreviewLookup(",
+):
+    if marker not in timer_read:
+        raise SystemExit("ADR-0068 Timer read lifecycle marker lost: " + marker)
+for forbidden in (
+    "NativeTimerCreateAdmissionService",
+    "NativeTimerModifyAdmission",
+    "NativeTimerDeleteAdmission",
+    "SearchTimerCreate(",
+    "TimerIntentRepository",
+):
+    if forbidden in timer_read:
+        raise SystemExit("ADR-0068 Timer lookup owner gained mutation authority: " + forbidden)
 
 for reviewed in reviewed_runtime_files:
     if not (ROOT / reviewed).is_file():

@@ -1649,7 +1649,6 @@ private:
         const std::string& actorRef,
         const std::string& requestId,
         const std::string& correlationId,
-        const std::string& ifNoneMatch,
         const std::string& pairingToken,
         ApiResponse& response) const;
 

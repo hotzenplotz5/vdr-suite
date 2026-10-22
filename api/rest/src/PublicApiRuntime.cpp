@@ -7325,7 +7325,6 @@ bool PublicApiRuntime::tryHandleDevicePairingReadGet(
     const std::string& actorRef,
     const std::string& requestId,
     const std::string& correlationId,
-    const std::string& ifNoneMatch,
     const std::string& pairingToken,
     ApiResponse& response) const
 {
@@ -8406,7 +8405,7 @@ bool PublicApiRuntime::tryHandleGet(
     {
         if (tryHandleDevicePairingReadGet(
                 requestTarget, actorRef, requestId, correlationId,
-                ifNoneMatch, pairingToken, response))
+                pairingToken, response))
             return true;
     }
 
@@ -8417,7 +8416,7 @@ bool PublicApiRuntime::tryHandleGet(
     {
         if (tryHandleDevicePairingReadGet(
                 requestTarget, actorRef, requestId, correlationId,
-                ifNoneMatch, pairingToken, response))
+                pairingToken, response))
             return true;
     }
 
