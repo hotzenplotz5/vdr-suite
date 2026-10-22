@@ -983,7 +983,15 @@ ManualRecordingMetadataAssignmentRepository::findSelectedImpl(
         return result;
 
     sqlite3_stmt* statement = nullptr;
-    const char* sql =
+    const std::string activeBinding = initializeSchema
+        ? std::string{}
+        : "JOIN suite_metadata_target_bindings b "
+          "ON b.metadata_target_id=v.metadata_target_id "
+          "AND b.backend_id=v.backend_id "
+          "AND b.resource_key=v.resource_key "
+          "AND b.target_type='recording' "
+          "AND b.lifecycle_state='active' ";
+    const std::string sql =
         "SELECT v.backend_id,v.resource_key,v.metadata_target_id,v.metadata_assignment_id,"
         "a.metadata_entity_id,v.provider_id,v.external_namespace,v.external_id,v.media_type,"
         "v.title,v.original_title,v.overview,v.release_date,v.poster_reference,"
@@ -991,10 +999,11 @@ ManualRecordingMetadataAssignmentRepository::findSelectedImpl(
         "v.cast_complete "
         "FROM suite_metadata_manual_assignment_values v "
         "JOIN suite_metadata_assignments a "
-        "ON a.metadata_assignment_id=v.metadata_assignment_id "
+        "ON a.metadata_assignment_id=v.metadata_assignment_id " +
+        activeBinding +
         "WHERE v.backend_id=? AND v.resource_key=? "
         "AND a.assignment_state='selected' AND a.manual_assignment=1 LIMIT 1;";
-    if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK)
+    if (sqlite3_prepare_v2(database_.handle(), sql.c_str(), -1, &statement, nullptr) != SQLITE_OK)
         return result;
     if (bindText(statement, 1, backendId) &&
         bindText(statement, 2, resourceKey) &&
