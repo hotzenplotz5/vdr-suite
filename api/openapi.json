@@ -193,10 +193,10 @@
         ],
         "operationId": "createEpgTimerIntent",
         "summary": "Admit a one-shot TimerIntent for an exact EPG airing",
-        "description": "Device-only, exact backend timers.create authorization. The server independently resolves the EPG event, matches the source-provenanced strong ETag and verifies native identity, backend generation, expiration and independent backend write policy. This API is fail-closed (503) until the durable observation and submit services are installed. 202 means a durable operation was accepted/replayed, not that a native VDR timer exists. It is NOT POST /timer-assignments/{id}; no SearchTimer and no caller-controlled schedule. Never silently retry unknown outcomes.",
+        "description": "A paired Device needs an exact timers.create@backendId grant. An authenticated administrator Browser Session with matching role.admin@backendId (or role.admin@*) and valid CSRF may also use this route; an ordinary Human with only timers.create cannot. The server independently resolves the native EPG event and strong ETag, verifies backend generation, native CLOCK/preview evidence and the independent backend write policy. Unavailable or unverified evidence fails closed (503). HTTP 202 means durable Operation accepted/replayed, not native timer success. This is not TimerAssignment POST or SearchTimer CREATE. Never blindly retry unknown outcomes.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
-          "authorization": "Verified paired Device credential with exact timers.create@backendId grant; Browser sessions are not allowed; independent backend write-policy check"
+          "authorization": "Verified paired Device credential with exact timers.create@backendId grant OR authenticated administrator Browser Session with role.admin@backendId (or role.admin@*) and CSRF; independent backend write-policy check"
         },
         "parameters": [
           {
@@ -295,7 +295,7 @@
             "description": "Unauthenticated actor"
           },
           "403": {
-            "description": "Device credential/grant missing or backend write policy denies"
+            "description": "Missing Device credential/grant, browser administrator authority or CSRF, or backend write-policy denial"
           },
           "404": {
             "description": "No matching authoritative EPG event"
