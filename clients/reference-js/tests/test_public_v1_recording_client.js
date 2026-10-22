@@ -79,6 +79,14 @@ async function run() {
   assert(artworkCalls[1].url.endsWith('/artwork/' + artId +
     '?backendId=backend-a'));
   assert(!artworkCalls[1].url.includes('device-secret'));
+  const epg = await artClient.getEpgArtworkImage({
+    backendId: 'backend-a', channelId: 'S19.2E-1-100',
+    eventId: '81234'
+  });
+  assert.strictEqual(epg.contentType, 'image/png');
+  assert(requests[requests.length - 1].url.includes('/api/v1/epg/artwork?'));
+  assert.strictEqual(requests[requests.length - 1].options.headers.Authorization,
+    'Bearer device-secret');
   const priorImage = requests.length;
   for (const invalid of [
     {recordingId: 'rec_bad', backendId: 'backend-a'},

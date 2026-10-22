@@ -8888,6 +8888,103 @@
           }
         }
       }
+    },
+    "/api/v1/epg/artwork": {
+      "get": {
+        "tags": [
+          "EPG"
+        ],
+        "operationId": "getPublicEpgArtworkImage",
+        "summary": "Read cached EPG event artwork bytes through the existing EPG repository",
+        "description": "M2 read-only binary delivery. Requires exactly one backendId, authenticated epg.view@backendId, channelId and eventId. Uses the existing EPG Artwork Controller and file-access policy. No public path or URL input and no new scraper or image cache. This is the direct EPG image; TVScraper preferred/series fallback metadata images remain a separate authenticated legacy route.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "epg.view@backendId; no media.live.play-only access"
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          },
+          {
+            "name": "channelId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          {
+            "name": "eventId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Actual EPG image bytes",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, max-age=300"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid channel/event/backend identity or scope"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "No epg.view grant or image path disallowed"
+          },
+          "404": {
+            "description": "Event artwork missing"
+          },
+          "503": {
+            "description": "EPG Artwork owner or backend unavailable"
+          }
+        }
+      }
     }
   },
   "components": {

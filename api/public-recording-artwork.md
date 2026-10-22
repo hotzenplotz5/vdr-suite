@@ -15,7 +15,12 @@ credential) and an explicit `recordings.view` grant on the exact backend.
    returns existing poster, fanart, banner and still references, if available.
 3. `GET /api/v1/recordings/{recordingId}/artwork/{artworkId}?backendId=backend-a`
    returns actual PNG, JPEG or WebP bytes through the same security gate.
-4. If artwork is absent, the list returns `items: []`. If the Recording
+4. Existing EPG events also have a direct, authenticated Artwork byte
+   endpoint: `GET /api/v1/epg/artwork?backendId=backend-a&channelId=...&eventId=...`.
+   This delegates to the current EPG Artwork repository, not a new provider.
+   The response uses the same image MIME types and private cache policy,
+   with `epg.view` required (a Live-only grant does not authorize it).
+5. If artwork is absent, the list returns `items: []`. If the Recording
    or an individually requested image no longer exists, treat HTTP 404
    as a missing image and render a placeholder rather than constructing
    native VDR paths or remote provider queries.
@@ -77,7 +82,8 @@ missing `recordings.view`, 404 absent/retired Recording or image,
 | Local allowed-root/signature/size checks | Same `VdrRecordingArtworkService` |
 | Poster, fanart, still, banner assets | Listed and binary delivered where present |
 | Optional Web home-preview variant | Deliberately not exposed yet; original bytes only |
-| EPG-specific and series/fallback artwork | Not yet projected from their existing owners |
+| EPG cached direct artwork | `GET /api/v1/epg/artwork?backendId=...&channelId=...&eventId=...` uses the existing EPG image owner with an exact `epg.view` grant |
+| TVScraper series/EPG fallback metadata images | Still on the existing authenticated metadata image route; not yet projected to Public v1 |
 
 Kodi and Plex support artwork-based media presentation; their exact
 current provider/fallback semantics were not verified in this slice.

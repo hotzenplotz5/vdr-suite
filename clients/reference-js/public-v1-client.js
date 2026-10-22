@@ -296,6 +296,22 @@
       '?backendId=' + encodeURIComponent(options.backendId);
   }
 
+  function epgArtworkPath(options) {
+    if (!options || typeof options !== 'object' ||
+        typeof options.backendId !== 'string' ||
+        !/^[A-Za-z0-9._-]{1,128}$/.test(options.backendId) ||
+        typeof options.channelId !== 'string' ||
+        !/^[A-Za-z0-9._:-]{1,256}$/.test(options.channelId) ||
+        typeof options.eventId !== 'string' ||
+        !/^[A-Za-z0-9._:-]{1,256}$/.test(options.eventId))
+      throw new Error('EPG artwork requires valid backend/channel/event IDs');
+    const p = new URLSearchParams();
+    p.set('backendId', options.backendId);
+    p.set('channelId', options.channelId);
+    p.set('eventId', options.eventId);
+    return '/api/v1/epg/artwork?' + p.toString();
+  }
+
   // A distinct post-Phase69 VDR SearchTimer collection. Never send
   // native IDs or transfer TimerAssignment semantics to SearchTimers.
   function searchTimerCollectionQuery(query) {
@@ -1059,6 +1075,10 @@
       getRecordingArtworkImage(options) {
         const input = options && typeof options === 'object' ? options : {};
         return requestArtworkImage(recordingArtworkPath(input, true), input);
+      },
+      getEpgArtworkImage(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return requestArtworkImage(epgArtworkPath(input), input);
       },
       getChannels(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
