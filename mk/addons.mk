@@ -104,9 +104,11 @@ test-ci-fast: test-addon-media-check test-addon-media-check-api
 # This package contains the C++ prototype under private libexec. It advertises
 # zero Suite capabilities and is neither installed nor started by this target.
 .PHONY: build-media-tools-cpp-deb test-addon-media-tools-package
-build-media-tools-cpp-deb: addon-media-import test-addon-media-import
+build-media-tools-cpp-deb: addon-media-import addon-media-shrink addon-media-check
 	python3 tools/addons/build_media_tools_cpp_deb.py \
 		--binary "$(BUILD_DIR)/addons/vdr-suite-media-import" \
+		--shrink-binary "$(BUILD_DIR)/addons/vdr-suite-media-shrink" \
+		--check-binary "$(BUILD_DIR)/addons/vdr-suite-media-check" \
 		--output-dir "$(OUTPUT_DIR)" --maintainer "$(ADDON_MAINTAINER)"
 
 test-addon-media-tools-package:
