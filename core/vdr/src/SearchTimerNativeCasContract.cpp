@@ -51,14 +51,12 @@ bool nativeId(const std::string& id)
     return parsed <= static_cast<unsigned long long>(INT_MAX);
 }
 
-bool valid(const SearchTimerNativeCasRequest& request)
+bool validNativeEvidenceShape(const SearchTimerNativeCasRequest& request)
 {
     if (!backend(request.backendId) ||
-        !lowerHex(request.operationId, "op_", 32U) ||
         !lowerHex(request.publicSearchTimerId, "st_", 32U) ||
         !lowerHex(request.expectedGeneration, "sg_", 32U) ||
         !lowerHex(request.expectedRevision, "sr_", 32U) ||
-        !lowerHex(request.requestFingerprint, "sha256:", 64U) ||
         !nativeId(request.nativeId) ||
         request.changePayload.size() > 8192U)
         return false;
@@ -74,7 +72,19 @@ bool valid(const SearchTimerNativeCasRequest& request)
     }
     return false;
 }
+bool valid(const SearchTimerNativeCasRequest& request)
+{
+    return validNativeEvidenceShape(request) &&
+        lowerHex(request.operationId, "op_", 32U) &&
+        lowerHex(request.requestFingerprint, "sha256:", 64U);
+}
 } // namespace
+
+bool SearchTimerNativeCasContract::validNativeEvidence(
+    const SearchTimerNativeCasRequest& request)
+{
+    return validNativeEvidenceShape(request);
+}
 
 SearchTimerNativeCasStatus SearchTimerNativeCasContract::invokeOnce(
     const SearchTimerNativeCasRequest& request,

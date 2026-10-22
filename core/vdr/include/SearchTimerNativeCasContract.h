@@ -73,6 +73,11 @@ public:
 class SearchTimerNativeCasContract final
 {
 public:
+    // Pre-admission shape check. The operation ID/fingerprint are verified
+    // separately after immutable operation reservation.
+    static bool validNativeEvidence(
+        const SearchTimerNativeCasRequest& request);
+
     // One attempted native write *after* a durable operation CAS has been
     // claimed by the caller. This does not persist idempotency itself.
     // Missing native capability, invalid fence or authorization => 0 calls.

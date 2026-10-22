@@ -1,3 +1,21 @@
+# Immutable offline-native-CAS admission, no HTTP/native writer.
+.PHONY: test-searchtimer-native-cas-durable-admission
+test-searchtimer-native-cas-durable-admission:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/SearchTimerNativeCasContract.cpp \
+		core/vdr/src/SearchTimerNativeCasDispatchService.cpp \
+		core/vdr/src/SearchTimerNativeCasAdmissionService.cpp \
+		core/vdr/tests/test_search_timer_native_cas_admission_service.cpp \
+		$(LDFLAGS) -o $(BUILD_DIR)/test_search_timer_native_cas_admission_service
+	$(BUILD_DIR)/test_search_timer_native_cas_admission_service
+
+test-phase: test-searchtimer-native-cas-durable-admission
+test-fast: test-searchtimer-native-cas-durable-admission
+
 
 # One-shot durable SearchTimer native-CAS gate; offline mock provider only.
 .PHONY: test-searchtimer-native-cas-durable-dispatch

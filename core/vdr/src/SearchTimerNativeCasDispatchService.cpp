@@ -77,12 +77,8 @@ std::string serializeSearchTimerNativeCasEvidence(
     const SearchTimerNativeCasRequest& request)
 {
     const char* action = actionName(request.action);
-    if (!action || request.backendId.empty() ||
-        request.publicSearchTimerId.empty() ||
-        request.nativeId.empty() ||
-        request.expectedGeneration.empty() ||
-        request.expectedRevision.empty() ||
-        request.changePayload.size() > 8192U)
+    if (!action ||
+        !SearchTimerNativeCasContract::validNativeEvidence(request))
         return {};
     std::string data = "searchtimer-native-cas-evidence/1|";
     addField(data, action);
