@@ -394,7 +394,7 @@
     const root = element('section', 'media-import-panel');
     root.appendChild(element('h3', '', 'Media Tools · Import'));
     root.appendChild(element('p', '', 'Nur durch den Backend-Agenten freigegebene Quellen. ' +
-      'Keine Dateipfade, kein automatischer Import.'));
+      'Keine Dateipfade. Mehrfachimport arbeitet nur bei geöffnetem Browser; kein Nachtlauf.'));
     const label = element('label', '', 'Importquelle');
     const select = element('select', 'media-import-source');
     select.disabled = true;
@@ -409,6 +409,16 @@
     refreshButton.type = 'button';
     refreshButton.hidden = true;
     root.appendChild(startButton);
+    const batchButton = element('button', 'media-import-batch',
+      'Alle freigegebenen Quellen nacheinander importieren');
+    batchButton.type = 'button';
+    batchButton.disabled = true;
+    root.appendChild(batchButton);
+    const batchStopButton = element('button', 'media-import-batch-stop',
+      'Nach aktuellem Auftrag anhalten');
+    batchStopButton.type = 'button';
+    batchStopButton.hidden = true;
+    root.appendChild(batchStopButton);
     root.appendChild(reloadButton);
     root.appendChild(refreshButton);
     const newButton = element('button', 'media-import-new', 'Neuen Import vorbereiten');
@@ -424,6 +434,8 @@
     mountTarget.replaceChildren(root);
     const view = {owner: owner, backendId: backendId, root: root,
       select: select, startButton: startButton, reloadButton: reloadButton,
+      batchButton: batchButton, batchStopButton: batchStopButton,
+      batch: activeBatches[backendId] || null,
       refreshButton: refreshButton, newButton: newButton,
       message: message, operationDetail: operationDetail,
       sources: [], sourcesGeneration: 0, submitting: false, reading: false,
@@ -433,10 +445,14 @@
       startButton.disabled = view.submitting || !view.sources.includes(select.value);
     });
     startButton.addEventListener('click', function () { return startImport(view); });
+    batchButton.addEventListener('click', function () { return startBatch(view); });
+    batchStopButton.addEventListener('click', function () {
+      stopBatch(view, 'Aktuelle Core-Operation bleibt unverändert.');
+    });
     reloadButton.addEventListener('click', function () { return loadSources(view); });
     refreshButton.addEventListener('click', function () { return readOperation(view); });
     newButton.addEventListener('click', function () {
-      if (!isCurrent(view) || !view.attempt ||
+      if (!isCurrent(view) || view.batch || !view.attempt ||
           !terminalState(view.attempt.state) || view.reading) return;
       clearPolling(view);
       delete activeAttempts[backendId];
