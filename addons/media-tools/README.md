@@ -102,6 +102,27 @@ lock after exec. No installer or package hooks currently acquire this lock;
 the release maintenance protocol and full host-specific acceptance remain
 unimplemented. No VDR data or actual recordings are modified by these tests.
 
+## A4 global Core/Agent quiescence inspection (diagnostic)
+
+A Core-only, admin-gated `AddonMediaToolsMaintenanceInspection` now
+combines the global frozen-admissions revision, all backend activation
+intents, all unresolved Media Import Operations, Agent assignments and
+acknowledged results, residual Agent capability advertisements and the
+root-owned exclusive handler lock. It refuses a positive diagnostic if a
+state table is unavailable, an import is uncertain, an assignment has not
+completed, an Agent still advertises the command, or another process
+holds the shared execution lock. The source-only test uses disposable
+root fixtures and a synthetic schema compatible with actual Agent rows.
+The server also rechecks the durable freeze when an already assigned Agent
+command seeks receipt authorization.
+
+**Still not a maintenance permit.** The inspection releases the exclusive
+lock immediately; no installer is coupled to it and a competing admin
+could otherwise unfreeze. A final authorized package owner must hold
+locks through the whole transaction, attest exact Agent state/database
+identity, review release provenance and provide safe rollback. None of
+this is enabled on a live host.
+
 ## A6 work in progress
 
 The optional importer is a single C++17 implementation under this directory,
