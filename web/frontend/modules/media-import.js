@@ -198,9 +198,10 @@
       report(view, operationLabel(operation.state), false);
       view.operationDetail.textContent =
         'Vorgang ' + operation.operationId + ' · ' + operation.state;
-      if (terminalState(operation.state)) {
+      if (terminalState(operation.state) && !view.batch) {
         view.newButton.hidden = false;
       }
+      if (view.batch) advanceBatch(view, operation);
       if (!terminalState(operation.state) && view.reads < MAX_AUTOMATIC_READS) {
         ++view.reads;
         view.timer = global.setTimeout(function () { readOperation(view); }, POLL_MS);
@@ -230,7 +231,8 @@
         : 'Anfrage gesendet, Antwort nicht bestätigt.';
     view.refreshButton.hidden = false;
     view.refreshButton.disabled = !view.attempt.operationId;
-    view.newButton.hidden = !terminalState(view.attempt.state);
+    view.newButton.hidden = Boolean(view.batch) || !terminalState(view.attempt.state);
+    view.batchStopButton.hidden = !view.batch;
     if (view.attempt.operationId) {
       readOperation(view);
     } else if (view.attempt.pending) {
@@ -268,7 +270,8 @@
         });
         view.select.value = '';
         view.select.disabled = items.length === 0;
-        report(view, items.length ? 'Quelle auswählen und Import ausdrücklich starten.' :
+        view.batchButton.disabled = items.length < 2;
+        report(view, items.length ? 'Quelle auswählen oder mehrere nacheinander importieren.' :
           'Keine freigegebenen Importquellen verfügbar.');
       }).catch(function (error) {
         if (!isCurrent(view) || generation !== view.sourcesGeneration) return;
@@ -283,8 +286,11 @@
 
   function startImport(view) {
     if (!isCurrent(view) || view.submitting || view.attempt) return Promise.resolve();
-    const sourceId = view.select.value;
-    if (!view.sources.includes(sourceId)) return Promise.resolve();
+    const sourceId = view.batch ? view.batch.remaining[0] : view.select.value;
+    if (!view.sources.includes(sourceId)) {
+      if (view.batch) stopBatch(view, 'Quellauswahl nicht mehr verfügbar.');
+      return Promise.resolve();
+    }
     view.submitting = true;
     view.startButton.disabled = true;
     report(view, 'Quelle und Berechtigung werden erneut geprüft …');
@@ -329,6 +335,7 @@
         view.attempt.state = operation.state || 'accepted';
         view.attempt.pending = false;
         const target = currentAttemptView(view, view.attempt);
+        if (target && target.batch) target.batch.waiting = operation.operationId;
         if (target) showAttempt(target);
       }).catch(function (error) {
         const attempt = view.attempt;
@@ -358,10 +365,13 @@
                   : error.status === 404
                     ? 'Backend nicht verfügbar oder nicht zugänglich.'
                     : 'Import-Anfrage wurde vom Server zurückgewiesen.';
+            if (target && target.batch) stopBatch(target, detail);
             if (target) report(target, detail, true);
             return;
           }
           // Network errors and 5xx can occur after durable operation reservation.
+          if (target && target.batch)
+            stopBatch(target, 'Auftragsannahme ungewiss. Keine Folgeimporte.');
           if (target) showAttempt(target);
           return;
         }
@@ -371,6 +381,7 @@
           : error && (error.status === 401 || error.status === 403)
             ? 'Keine gültige Anmeldung oder Media-Import-Berechtigung.'
             : 'Import konnte vor dem Absenden nicht vorbereitet werden.';
+        if (view.batch) stopBatch(view, message);
         report(view, message, true);
       }).finally(function () {
         view.submitting = false;
