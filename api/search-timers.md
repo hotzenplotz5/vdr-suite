@@ -10,6 +10,24 @@ The current implemented version is **Public API v1**, not v2.
 - `backend` is mandatory, length 1–128, characters A-Z, a-z, 0-9, dot, underscore, hyphen. Unknown/duplicate query fields and invalid/mismatched cursors yield 400.
 - Pages are limited to 1–30 items (default 30), ordered by the **server-owned stable opaque** `searchTimerId`. `st1_` cursors bind the backend. Only a bounded page is returned to the TV. The provider itself currently exposes `/searchtimers.json` as a catalogue: each page request performs one read on only that backend; **no backend fanout or retries**.
 - `items` contain only `searchTimerId`, `backendId`, `name`, `query` and `state` (`active`, `inactive`, or `unknown`). No native IDs, provider payload, recording directory, or settings used for editing are exposed.
+**Saved rule detail (read-only):**
+
+`GET /api/v1/search-timers/{searchTimerId}?backend=<backendId>`
+
+- Uses the **same** complete authoritative epgsearch catalogue and opaque
+  Public-v1 identity reconciliation as the list. Requires a verified paired
+  Device with independent `searchtimers.view@backend`; an EPG grant is **not**
+  required just to read name, query and active state. No Browser fallback.
+- Exactly one canonical `backend` query field is supported, with no cursor,
+  limit, aliases or extra parameters. ID must match `st_[0-9a-f]{32}`.
+- 200 returns `{searchTimerId,backendId,name,query,state,meta:{partial:false}}`;
+  404 means the opaque ID is not present after successful reconciliation;
+  503 means a complete provider snapshot cannot be trusted or obtained.
+  Old retired IDs never select a newly reused native rule.
+- It exposes no native ID, provider internals, recording options, revision
+  token or write capability. `PATCH`/`PUT`/`DELETE` remain unavailable;
+  the native rule-generation CAS prerequisite is unchanged.
+
 - IDs are persisted under `public_search_timer_identity`; the native mapping is internal and does not make these TimerAssignments. A **complete and successful** native SearchTimer catalogue read reconciles the backend's active mappings in one SQLite transaction. Disappeared native IDs are retired, and retired public IDs are permanently reserved. Backend errors or malformed/incomplete provider responses do not retire anything. A reused native ID therefore gets a fresh public ID **once its earlier absence has been observed**.
 - To migrate legacy identity rows that have no verified rule signature, the **first successful catalogue read rotates those legacy public IDs**, even for a still-present rule. Changes in observable rule settings also conservatively rotate the ID; a pure active/inactive toggle does not. An old ID can no longer select another rule through the saved-rule preview. Consumers must refresh cards and discard old IDs after migration/change.
 - **Residual ambiguity:** epgsearch has no immutable rule-generation identifier. A delete and recreate of an identically configured rule, both between two catalogue reads, cannot be distinguished by native ID and observed settings alone. This mitigation must **not** be treated as sufficient authorization for future public UPDATE/DELETE; those operations require authoritative generation attestation or an equivalent fail-closed identity fence.
