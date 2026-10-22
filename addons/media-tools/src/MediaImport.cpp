@@ -443,6 +443,21 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
     const bool copyVideo = codec == "h264" || codec == "hevc" ||
                            codec == "mpeg2video";
     const double inputDuration = probeDuration(runner, stagedSource);
+    const auto audio = runner.run({
+        "/usr/bin/ffprobe", "-v", "error", "-select_streams", "a",
+        "-show_entries", "stream=codec_name",
+        "-of", "default=nw=1:nk=1", stagedSource.string()
+    }, true);
+    require(audio.exitCode == 0 && audio.output.size() <= 2048,
+            "cannot inspect source audio codecs");
+    bool copyAudio = true;
+    std::istringstream streams(audio.output);
+    for (std::string name; std::getline(streams, name);) {
+        if (!name.empty() && name.back() == '\r') name.pop_back();
+        if (!name.empty() && name != "aac" && name != "ac3" &&
+            name != "eac3" && name != "mp2")
+            copyAudio = false;
+    }
 
     {
         // VDR's native info sidecar is the only recording metadata writer.
