@@ -1,4 +1,5 @@
 #include "MediaImport.h"
+#include "MediaImportScheduleWindow.h"
 
 #include <cassert>
 #include <algorithm>
@@ -120,6 +121,23 @@ void mustFail(F&& f) {
 
 int main() {
     int checks = 0;
+    {
+        using vdrsuite::mediatools::MediaImportScheduleWindow;
+        const auto night = MediaImportScheduleWindow::parse("23:00-04:00");
+        assert(night && night->contains(23 * 60) &&
+               night->contains(3 * 60 + 59) &&
+               !night->contains(4 * 60) &&
+               !night->contains(22 * 60 + 59));
+        const auto day = MediaImportScheduleWindow::parse("01:00-05:00");
+        assert(day && day->contains(60) && day->contains(299) &&
+               !day->contains(300) && !day->contains(0));
+        for (const auto& malformed : {"24:00-05:00", "02:60-04:00",
+                 "01:00-01:00", "1:00-05:00", "01:00/05:00",
+                 "01:00-xx:00", ""}) {
+            assert(!MediaImportScheduleWindow::parse(malformed));
+        }
+        ++checks;
+    }
     {
         // An unresponsive external tool must not hang the import indefinitely.
         NativeProcessRunner runner(std::chrono::seconds(1));

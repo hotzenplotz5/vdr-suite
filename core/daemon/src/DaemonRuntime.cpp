@@ -10,6 +10,7 @@
 #include "LiveRemoteApiRuntime.h"
 #include "RecordingMediaHttpRuntime.h"
 #include "PublicApiRuntime.h"
+#include "MediaImportScheduleWindow.h"
 #include "SeriesArtworkSettingsApiRuntime.h"
 
 #include <chrono>
@@ -157,21 +158,10 @@ void DaemonRuntime::pollScheduledMediaImport()
         return;
     const std::string actor(actorEnv), backend(backendEnv), window(windowEnv);
     if (actor.empty() || actor.size() > 128 ||
-        backend.empty() || backend.size() > 128 ||
-        window.size() != 11 || window[2] != ':' || window[5] != '-' ||
-        window[8] != ':') return;
-    for (const int index : {0,1,3,4,6,7,9,10})
-        if (window[index] < '0' || window[index] > '9') return;
-    const auto minutes = [&](std::size_t offset) {
-        const int hour = (window[offset] - '0') * 10 +
-                         (window[offset + 1] - '0');
-        const int minute = (window[offset + 3] - '0') * 10 +
-                           (window[offset + 4] - '0');
-        if (hour > 23 || minute > 59) return -1;
-        return hour * 60 + minute;
-    };
-    const int begin = minutes(0), finish = minutes(6);
-    if (begin < 0 || finish < 0 || begin == finish) return;
+        backend.empty() || backend.size() > 128) return;
+    const auto configured =
+        vdrsuite::mediatools::MediaImportScheduleWindow::parse(window);
+    if (!configured) return;
     const auto now = std::chrono::system_clock::now();
     const auto unixSeconds = std::chrono::duration_cast<std::chrono::seconds>(
         now.time_since_epoch()).count();
@@ -179,10 +169,7 @@ void DaemonRuntime::pollScheduledMediaImport()
     std::tm local{};
     if (!::localtime_r(&localSeconds, &local)) return;
     const int clockMinutes = local.tm_hour * 60 + local.tm_min;
-    const bool inWindow = begin < finish
-        ? clockMinutes >= begin && clockMinutes < finish
-        : clockMinutes >= begin || clockMinutes < finish;
-    if (!inWindow) return;
+    if (!configured->contains(clockMinutes)) return;
 
     // A configured human-account ID is not a scheduler credential. Only a
     // provisioned Service identity with independently managed Core grants
