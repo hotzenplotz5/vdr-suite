@@ -49,9 +49,13 @@ Example artwork list response (illustrative IDs):
 Image responses include `Content-Type: image/jpeg`, `image/png` or
 `image/webp`, `X-Content-Type-Options: nosniff` and
 `Cache-Control: private, max-age=300`. The list is `no-store`.
-Only indexed, safe-root, bounded files whose signatures match their formats
-can be delivered. No provider credentials, absolute paths, filesystem
-references or arbitrary client-supplied URLs are returned or followed.
+Recording images use the existing indexed, allowed-root, size-bounded
+loader with image signature checks. EPG images reuse the existing
+allowed-root, extension/MIME and size policy; that EPG policy does not
+currently inspect image signatures. No provider credentials, absolute
+paths, filesystem references or arbitrary client-supplied URLs are
+returned or followed. Duplicate or unknown EPG artwork query keys
+are rejected rather than silently overriding an identity.
 
 The relative image URL is **not** a bearer token; every image GET needs
 normal authentication. Device clients must request bytes with their
@@ -94,10 +98,12 @@ missing `recordings.view`, 404 absent/retired Recording or image,
 Kodi and Plex support artwork-based media presentation; their exact
 current provider/fallback semantics were not verified in this slice.
 The already working VDR-Suite Web remains the functional baseline.
-A successful source CI is not evidence of real yaVDR, Kodi,
-Android TV or Hisense VIDAA hardware acceptance. M2 remains incomplete
-until existing series/EPG/fallback owners are assessed and integrated
-as appropriate; do not introduce a new scraper or cache merely for parity.
+The existing Recording, EPG and series-fallback delivery owners have
+been reused for these read-only Public-v1 routes. This is source-level
+M2 delivery and contract coverage, not evidence of physical yaVDR,
+Kodi, Android TV or Hisense VIDAA client acceptance. Additional
+person/gallery image APIs and client UI integration are separate scope;
+do not introduce a new scraper or cache merely for parity.
 
 See `api/openapi.json` for HTTP schemas. This work is on the
 post-Phase-69 API v1 roadmap; Phase 70 is not started.
