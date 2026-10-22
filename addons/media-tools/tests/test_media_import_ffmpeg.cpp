@@ -1,5 +1,6 @@
 #include "MediaImport.h"
 #include "MediaCheck.h"
+#include "MediaShrink.h"
 
 #include <cassert>
 #include <cerrno>
@@ -146,6 +147,35 @@ int main() {
     assert(report.syncErrors == 0 && report.transportErrors == 0);
     assert(report.trailingBytes == 0);
     assert(report.status() != "errors");
+
+    // Exercise the same real FFmpeg/FFprobe and real or simulated VDR index
+    // against the committed disposable .rec. The original MUST remain intact.
+    const auto originalRecordingSize = fs::file_size(recording / "00001.ts");
+    const auto originalIndexSize = fs::file_size(recording / "index");
+    const auto shrinkPlan = inspectShrink(
+        fixture.video, recording.lexically_relative(fixture.video));
+    const auto candidate = stageShrink(
+        shrinkPlan, runner, [](const ShrinkPlan&) {});
+    assert(candidate.extension() == ".rec");
+    assert(fs::is_regular_file(candidate / "index"));
+    assert(fs::is_regular_file(candidate / "00001.ts"));
+    assert(fs::file_size(candidate / "00001.ts") < originalRecordingSize);
+    assert(fs::file_size(recording / "00001.ts") == originalRecordingSize);
+    assert(fs::file_size(recording / "index") == originalIndexSize);
+    const auto published = publishShrinkCandidate(
+        shrinkPlan, candidate, runner);
+    assert(published.extension() == ".rec");
+    assert(fs::exists(published / "00001.ts") &&
+           fs::exists(recording / "00001.ts"));
+    const auto shrinkingResult = checkRecordingTransportStream(
+        fixture.video, published.lexically_relative(fixture.video));
+    assert(shrinkingResult.segments == 1 &&
+           shrinkingResult.packets > 0 &&
+           shrinkingResult.syncErrors == 0 &&
+           shrinkingResult.transportErrors == 0);
+    std::cout << "MEDIA_SHRINK_REAL_FFMPEG_SMOKE=PASS"
+              << " original_preserved=YES candidate_published_new=YES"
+              << " hevc_packets=" << shrinkingResult.packets << "\n";
     std::cout << "MEDIA_IMPORT_REAL_FFMPEG_SMOKE=PASS"
               << " ts_packets=" << report.packets
               << " source_preserved=YES vdr_index="
