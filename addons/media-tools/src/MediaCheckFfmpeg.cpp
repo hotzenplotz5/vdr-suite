@@ -277,4 +277,118 @@ MediaDecodeResult FfmpegMediaCheckDecoder::decode(
     return result;
 }
 
+
+FfprobeMediaCheckProber::FfprobeMediaCheckProber(
+    std::chrono::seconds deadline, std::string trustedExecutable)
+    : deadline_(deadline), executable_(std::move(trustedExecutable))
+{
+    if (deadline.count() < 1 || deadline.count() > 60 ||
+        executable_.empty() || executable_[0] != '/')
+        throw std::invalid_argument("invalid internal FFprobe configuration");
+}
+
+MediaProbeResult FfprobeMediaCheckProber::probe(
+    int directory, const std::vector<std::string>& segments)
+{
+    MediaProbeResult result;
+    if (directory < 0 || segments.empty() ||
+        segments.front() != "00001.ts") {
+        result.diagnostic = "invalid recording source for FFprobe";
+        return result;
+    }
+    // The process only receives a pinned read-only descriptor on stdin.
+    // Neither API IDs nor backend recording paths appear in its arguments.
+    Fd input(::openat(directory, "00001.ts",
+        O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
+    struct stat before{}, after{};
+    if (input.fd < 0 || ::fstat(input.fd, &before) != 0 ||
+        !S_ISREG(before.st_mode) || before.st_size <= 0) {
+        result.diagnostic = "first TS segment unavailable";
+        return result;
+    }
+    int pipefd[2]{-1, -1};
+    if (::pipe2(pipefd, O_CLOEXEC) != 0) {
+        result.diagnostic = "cannot capture FFprobe report";
+        return result;
+    }
+    Fd readOutput(pipefd[0]), writeOutput(pipefd[1]);
+    const pid_t child = ::fork();
+    if (child < 0) {
+        result.diagnostic = "cannot start FFprobe";
+        return result;
+    }
+    if (child == 0) {
+        if (::setsid() < 0 ||
+            ::dup2(input.fd, STDIN_FILENO) < 0 ||
+            ::dup2(writeOutput.fd, STDOUT_FILENO) < 0) ::_exit(127);
+        const int nullfd = ::open("/dev/null", O_WRONLY | O_CLOEXEC);
+        if (nullfd < 0 || ::dup2(nullfd, STDERR_FILENO) < 0) ::_exit(127);
+        ::close(nullfd);
+        const char* const argv[] = {
+            executable_.c_str(), "-v", "error", "-probesize", "1048576",
+            "-analyzeduration", "5000000", "-show_entries",
+            "stream=index,codec_type,codec_name,profile,width,height,sample_rate,channels:"
+            "format=format_name,duration", "-of", "json", "-i", "pipe:0", nullptr
+        };
+        ::execv(executable_.c_str(), const_cast<char* const*>(argv));
+        ::_exit(127);
+    }
+    writeOutput = Fd();
+    const int flags = ::fcntl(readOutput.fd, F_GETFL);
+    if (flags >= 0) ::fcntl(readOutput.fd, F_SETFL, flags | O_NONBLOCK);
+    bool exited = false, closed = false, overflow = false, timedOut = false;
+    int status = 0;
+    const auto end = std::chrono::steady_clock::now() + deadline_;
+    while (!(exited && closed)) {
+        if (!exited) {
+            const pid_t wait = ::waitpid(child, &status, WNOHANG);
+            if (wait == child) exited = true;
+            else if (wait < 0 && errno != EINTR) break;
+        }
+        if (std::chrono::steady_clock::now() >= end) {
+            timedOut = true;
+            break;
+        }
+        struct pollfd fd{closed ? -1 : readOutput.fd, POLLIN, 0};
+        const int polled = ::poll(&fd, 1, 40);
+        if (polled < 0 && errno == EINTR) continue;
+        if (polled < 0) break;
+        if (!closed && (fd.revents & (POLLIN | POLLHUP | POLLERR))) {
+            std::array<char, 1024> buffer{};
+            while (true) {
+                const ssize_t count = ::read(readOutput.fd, buffer.data(), buffer.size());
+                if (count > 0) {
+                    if (result.details.size() +
+                        static_cast<std::size_t>(count) <= 16384)
+                        result.details.append(buffer.data(), static_cast<std::size_t>(count));
+                    else overflow = true;
+                } else if (count == 0) {
+                    closed = true;
+                    break;
+                } else if (errno == EINTR) continue;
+                else if (errno == EAGAIN || errno == EWOULDBLOCK) break;
+                else { closed = true; break; }
+            }
+        }
+    }
+    if (!exited) {
+        ::kill(-child, SIGKILL);
+        ::kill(child, SIGKILL);
+        while (::waitpid(child, &status, 0) < 0 && errno == EINTR) {}
+    }
+    const bool stable = ::fstat(input.fd, &after) == 0 &&
+        unchanged(before, after);
+    if (timedOut) result.diagnostic = "FFprobe deadline exceeded";
+    else if (overflow) result.diagnostic = "FFprobe report exceeds bounded size";
+    else if (!stable) result.diagnostic = "recording changed during FFprobe";
+    else if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+        result.diagnostic = "FFprobe could not inspect TS stream";
+    else if (result.details.find("\"streams\"") == std::string::npos ||
+             result.details.find('{') == std::string::npos)
+        result.diagnostic = "FFprobe returned an invalid stream report";
+    else result.status = "ok";
+    if (result.status != "ok") result.details.clear();
+    return result;
+}
+
 } // namespace vdrsuite::mediatools

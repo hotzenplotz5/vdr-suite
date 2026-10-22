@@ -108,13 +108,14 @@ public:
                 std::string serialized;
                 try {
                     vdrsuite::mediatools::MediaCheckReport report;
+                    vdrsuite::mediatools::FfprobeMediaCheckProber prober;
                     if (mode == "decode") {
                         vdrsuite::mediatools::FfmpegMediaCheckDecoder decoder;
-                        report = vdrsuite::mediatools::checkRecordingWithDecoder(
-                            videoRoot, relative, decoder);
+                        report = vdrsuite::mediatools::checkRecordingWithProber(
+                            videoRoot, relative, prober, &decoder);
                     } else {
-                        report = vdrsuite::mediatools::checkRecordingTransportStream(
-                            videoRoot, relative);
+                        report = vdrsuite::mediatools::checkRecordingWithProber(
+                            videoRoot, relative, prober);
                     }
                     // Public reports expose the opaque identity, never a path.
                     report.recording = publicId;

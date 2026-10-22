@@ -25,4 +25,18 @@ private:
     std::string executable_;
 };
 
+// First pinned TS segment on stdin, bounded JSON on stdout, no output files.
+class FfprobeMediaCheckProber final : public MediaCheckProber {
+public:
+    explicit FfprobeMediaCheckProber(
+        std::chrono::seconds deadline = std::chrono::seconds(20),
+        std::string trustedExecutable = "/usr/bin/ffprobe");
+    MediaProbeResult probe(
+        int recordingDirectoryFd,
+        const std::vector<std::string>& orderedTsSegments) override;
+private:
+    std::chrono::seconds deadline_;
+    std::string executable_;
+};
+
 } // namespace vdrsuite::mediatools

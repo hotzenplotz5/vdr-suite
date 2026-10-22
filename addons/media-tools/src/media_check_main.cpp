@@ -20,13 +20,14 @@ int main(int argc, char* argv[])
     }
     try {
         vdrsuite::mediatools::MediaCheckReport report;
+        vdrsuite::mediatools::FfprobeMediaCheckProber prober;
         if (std::string(argv[1]) == "check-decode") {
             vdrsuite::mediatools::FfmpegMediaCheckDecoder decoder;
-            report = vdrsuite::mediatools::checkRecordingWithDecoder(
-                argv[2], argv[3], decoder);
+            report = vdrsuite::mediatools::checkRecordingWithProber(
+                argv[2], argv[3], prober, &decoder);
         } else {
-            report = vdrsuite::mediatools::checkRecordingTransportStream(
-                argv[2], argv[3]);
+            report = vdrsuite::mediatools::checkRecordingWithProber(
+                argv[2], argv[3], prober);
         }
         std::cout << report.json() << '\n';
         if (report.status() == "incomplete") return 2;

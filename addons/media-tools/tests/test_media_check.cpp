@@ -143,6 +143,25 @@ int fakeFfmpeg(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
+    if (argc > 1 && std::string(argv[1]) == "-v") {
+        // The test binary acts as the exact FFprobe child, receiving only
+        // an inherited descriptor on stdin, never a real recording path.
+        std::string input;
+        char bytes[1024];
+        while (true) {
+            const ssize_t got = ::read(STDIN_FILENO, bytes, sizeof bytes);
+            if (got == 0) break;
+            if (got < 0 && errno == EINTR) continue;
+            if (got < 0) return 80;
+            input.append(bytes, static_cast<std::size_t>(got));
+            if (input.size() > 4096) return 81;
+        }
+        if (input.size() < 188 || input[0] != 'G') return 82;
+        std::cout << "{\"streams\":[{\"index\":0,\"codec_type\":\"video\","
+                     "\"codec_name\":\"mpeg2video\"}],\"format\":"
+                     "{\"format_name\":\"mpegts\"}}";
+        return 0;
+    }
     if (argc > 1 && std::string(argv[1]) == "-hide_banner")
         return fakeFfmpeg(argc, argv);
 
@@ -302,6 +321,21 @@ int main(int argc, char* argv[])
         f.write("00002.ts", {nullPacket});
         auto r = checkRecordingTransportStream(f.video, f.relative());
         assert(r.status() == "ok" && r.continuityWarnings == 0);
+        ++cases;
+    }
+    {
+        Fixture f;
+        const auto original = f.bytes("00001.ts");
+        const auto entries = f.entries();
+        vdrsuite::mediatools::FfprobeMediaCheckProber prober(
+            std::chrono::seconds(5), "/proc/self/exe");
+        const auto report = vdrsuite::mediatools::checkRecordingWithProber(
+            f.video, f.relative(), prober);
+        assert(report.status() == "ok" && report.ffprobe &&
+               report.ffprobe->status == "ok" &&
+               report.ffprobe->details.find("mpeg2video") != std::string::npos);
+        assert(report.json().find("\"ffprobe\"") != std::string::npos);
+        assert(f.bytes("00001.ts") == original && f.entries() == entries);
         ++cases;
     }
     {

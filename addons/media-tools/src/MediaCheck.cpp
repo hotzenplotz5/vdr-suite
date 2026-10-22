@@ -284,7 +284,7 @@ void scanSidecars(int directory, MediaCheckReport& report)
 
 MediaCheckReport checkRecordingInternal(
     const fs::path& videoRoot, const fs::path& recordingRelative,
-    MediaCheckDecoder* decoder)
+    MediaCheckDecoder* decoder, MediaCheckProber* prober)
 {
     require(videoRoot.is_absolute() && videoRoot.lexically_normal() == videoRoot,
             "video root must be absolute and normalized");
@@ -330,6 +330,8 @@ MediaCheckReport checkRecordingInternal(
         detail.discontinuities = result.discontinuities - before.discontinuities;
         result.segmentReports.push_back(std::move(detail));
     }
+    if (prober != nullptr)
+        result.ffprobe = prober->probe(current.value, segments);
     if (decoder != nullptr)
         result.decode = decoder->decode(current.value, segments);
     return result;
@@ -338,14 +340,21 @@ MediaCheckReport checkRecordingInternal(
 MediaCheckReport checkRecordingTransportStream(
     const fs::path& videoRoot, const fs::path& recordingRelative)
 {
-    return checkRecordingInternal(videoRoot, recordingRelative, nullptr);
+    return checkRecordingInternal(videoRoot, recordingRelative, nullptr, nullptr);
 }
 
 MediaCheckReport checkRecordingWithDecoder(
     const fs::path& videoRoot, const fs::path& recordingRelative,
     MediaCheckDecoder& decoder)
 {
-    return checkRecordingInternal(videoRoot, recordingRelative, &decoder);
+    return checkRecordingInternal(videoRoot, recordingRelative, &decoder, nullptr);
+}
+
+MediaCheckReport checkRecordingWithProber(
+    const fs::path& videoRoot, const fs::path& recordingRelative,
+    MediaCheckProber& prober, MediaCheckDecoder* decoder)
+{
+    return checkRecordingInternal(videoRoot, recordingRelative, decoder, &prober);
 }
 
 std::string MediaCheckSegmentReport::status() const
@@ -421,6 +430,12 @@ std::string MediaCheckReport::json() const
             << ",\"timedOut\":" << (decode->timedOut ? "true" : "false")
             << ",\"streamedBytes\":" << decode->streamedBytes
             << ",\"diagnostic\":" << jsonString(decode->diagnostic)
+            << "}";
+    }
+    if (ffprobe) {
+        output << ",\"ffprobe\":{\"status\":" << jsonString(ffprobe->status)
+            << ",\"details\":" << jsonString(ffprobe->details)
+            << ",\"diagnostic\":" << jsonString(ffprobe->diagnostic)
             << "}";
     }
     output << "}";

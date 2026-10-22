@@ -20,6 +20,20 @@ struct MediaDecodeResult {
     std::string diagnostic; // bounded stderr excerpt, not a log file
 };
 
+struct MediaProbeResult {
+    std::string status = "incomplete";
+    std::string details; // bounded FFprobe JSON string, never a filesystem path
+    std::string diagnostic;
+};
+
+class MediaCheckProber {
+public:
+    virtual ~MediaCheckProber() = default;
+    virtual MediaProbeResult probe(
+        int recordingDirectoryFd,
+        const std::vector<std::string>& orderedTsSegments) = 0;
+};
+
 class MediaCheckDecoder {
 public:
     virtual ~MediaCheckDecoder() = default;
@@ -70,6 +84,7 @@ struct MediaCheckReport {
     std::vector<MediaSidecarReport> sidecarReports;
     std::vector<MediaCheckSegmentReport> segmentReports;
     std::optional<MediaDecodeResult> decode;
+    std::optional<MediaProbeResult> ffprobe;
     std::string status() const;
     std::string json() const;
 };
@@ -88,5 +103,13 @@ MediaCheckReport checkRecordingWithDecoder(
     const std::filesystem::path& videoRoot,
     const std::filesystem::path& recordingRelative,
     MediaCheckDecoder& decoder);
+
+// Both public check modes can collect FFprobe stream and container metadata
+// without exposing a recording path to the subprocess.
+MediaCheckReport checkRecordingWithProber(
+    const std::filesystem::path& videoRoot,
+    const std::filesystem::path& recordingRelative,
+    MediaCheckProber& prober,
+    MediaCheckDecoder* decoder = nullptr);
 
 } // namespace vdrsuite::mediatools
