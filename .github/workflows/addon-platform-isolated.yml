@@ -161,6 +161,7 @@ jobs:
           make test-addon-media-import
           make addon-media-import
           make test-addon-media-check
+          make test-addon-media-check-api
           make addon-media-check
           echo "MEDIA_CHECK_M2_READ_ONLY_CI=PASS"
           make test-addon-media-tools-package

@@ -43,8 +43,8 @@ test-addon-media-import:
 		-o "$(BUILD_DIR)/addons/test_media_import"
 	"$(BUILD_DIR)/addons/test_media_import"
 
-# M2: operator-only, standalone read-only TS-structure check.
-# No VDR or recording writes, no Suite API/Agent registration or package install.
+# M2: read-only TS and FFmpeg engine, exercised via standalone CLI and
+# Suite API v1 integration on disposable fixtures; never touch real recordings.
 .PHONY: addon-media-check test-addon-media-check
 addon-media-check:
 	mkdir -p "$(BUILD_DIR)/addons"
@@ -63,7 +63,20 @@ test-addon-media-check:
 		-o "$(BUILD_DIR)/addons/test_media_check"
 	"$(BUILD_DIR)/addons/test_media_check"
 
-test-ci-fast: test-addon-media-check
+# Actual opaque Public API request -> local backend worker -> TS report.
+.PHONY: test-addon-media-check-api
+test-addon-media-check-api:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
+		-I addons/media-tools/include -I api/rest/include \
+		-I core/daemon/include \
+		addons/media-tools/src/MediaCheck.cpp \
+		addons/media-tools/src/MediaCheckFfmpeg.cpp \
+		addons/media-tools/tests/test_media_check_api.cpp \
+		-o "$(BUILD_DIR)/addons/test_media_check_api"
+	"$(BUILD_DIR)/addons/test_media_check_api"
+
+test-ci-fast: test-addon-media-check test-addon-media-check-api
 
 # This package contains the C++ prototype under private libexec. It advertises
 # zero Suite capabilities and is neither installed nor started by this target.
