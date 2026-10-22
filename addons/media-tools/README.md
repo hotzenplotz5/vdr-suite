@@ -123,6 +123,24 @@ locks through the whole transaction, attest exact Agent state/database
 identity, review release provenance and provide safe rollback. None of
 this is enabled on a live host.
 
+## A4 retained exclusive inspection handle (not installation)
+
+The global Core/Agent maintenance inspector also has an optional
+`inspectAndHold()` diagnostic. On success, the move-only result keeps
+the *same root-owned* exclusive Media Import lock across C++ ownership
+handoffs, rather than dropping it at the end of the snapshot. A moved-from,
+released or shared lock cannot count as an exclusive hold. Root CI verifies
+that concurrent imports cannot acquire their shared lock while the handle
+remains held. Failures never return a usable hold.
+
+This diagnostic does not freeze future administrator writes, and its
+positive snapshot can become stale. It deliberately offers no package
+operation, automatic unfreeze, handler replacement, rollback, runtime
+activation or public API. The eventual Ubuntu maintainer must hold its
+own exclusive maintenance lease through the independently authorized
+upgrade/remove process and recheck Core and Agent state under durable
+maintenance ownership.
+
 ## A6 work in progress
 
 The optional importer is a single C++17 implementation under this directory,
