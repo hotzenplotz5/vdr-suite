@@ -19,7 +19,11 @@ async function run() {
     headers:{Authorization:'VDR-Suite-Device test-credential'},
     fetch(url,options) {
       calls.push({url,options});
-      return Promise.resolve(response(status,status===200?{
+      return Promise.resolve(response(status,status===200 &&
+        url.includes('/api/v1/search-timers/st_') ? {
+        searchTimerId:'st_'+'1'.repeat(32),backendId:'home',
+        name:'Doku',query:'Doku',state:'inactive',meta:{partial:false}
+      }:status===200?{
         items:[{searchTimerId:'st_'+'1'.repeat(32),backendId:'home',
           name:'Doku',query:'Doku',state:'active'}],
         page:{limit:30,nextCursor:null,hasMore:false},meta:{partial:false}
@@ -43,7 +47,9 @@ async function run() {
     'VDR-Suite-Device test-credential');
   const detailId='st_'+'1'.repeat(32);
   const detail=await client.getSearchTimer({backendId:'home',searchTimerId:detailId});
-  assert.equal(detail.items[0].searchTimerId,detailId);
+  assert.equal(detail.searchTimerId,detailId);
+  assert.equal(detail.state,'inactive');
+  assert.equal(detail.meta.partial,false);
   assert.equal(calls.at(-1).url,
     'https://suite.example/api/v1/search-timers/'+detailId+'?backend=home');
   assert.equal(calls.at(-1).options.method,'GET');
