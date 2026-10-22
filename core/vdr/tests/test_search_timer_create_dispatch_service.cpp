@@ -192,11 +192,14 @@ void assertHistoricalActivePayloadNeverDispatches()
     assert(old.executor.creates == 0);
     assert(old.source.reads == 0);
     // No automatic recovery/redispatch of the prior active mutation.
-    assert(old.storage.findById(old.id).operation.state ==
-        MutationOperationState::accepted);
+    const auto stored = old.storage.findById(old.id);
+    assert(stored.operation.state ==
+        MutationOperationState::failedBeforeDispatch);
+    assert(stored.operation.resultReference ==
+        "searchtimer-active-create-disallowed");
     const auto again = old.dispatch.dispatchOnce(
         old.request(), old.executor, old.source);
-    assert(again.status == SearchTimerCreateDispatchStatus::denied);
+    assert(again.status == SearchTimerCreateDispatchStatus::conflict);
     assert(old.executor.creates == 0);
     assert(old.source.reads == 0);
 }
