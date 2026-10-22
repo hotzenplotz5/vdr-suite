@@ -58,13 +58,14 @@ struct Fixture {
         if (::chmod(manifest.c_str(), 0644) != 0)
             throw std::runtime_error("manifest chmod failed");
     }
-    void write(const std::string& state, const std::string& digest) {
+    void write(const std::string& state, const std::string& digest,
+               const std::string& version = "0.1.0") {
         std::ofstream out(approval, std::ios::trunc | std::ios::binary);
         out << "{\"id\":\"rectools\",\"origin\":\"manual\","
                "\"package\":\"vdr-suite-addon-media-tools\","
                "\"schemaVersion\":1,\"sha256\":\""
             << digest << "\",\"state\":\"" << state
-            << "\",\"version\":\"0.1.0\"}\n";
+            << "\",\"version\":\"" << version << "\"}\n";
         out.close();
         if (::chmod(approval.c_str(), 0644) != 0)
             throw std::runtime_error("approval chmod failed");
@@ -99,6 +100,10 @@ int main()
            InstallSnapshotReason::invalidMetadata);
     fixture.writeManifest("0.2.0");
     assert(!inspectMediaToolsInstallSnapshot(fixture.root.string()).bytesVerified());
+    fixture.writeManifest("0.2.0");
+    fixture.write("approved", Digest, "0.2.0");
+    assert(!inspectMediaToolsInstallSnapshot(fixture.root.string()).bytesVerified());
+    fixture.write("approved", Digest);
     fixture.writeManifest("0.1.0", "[\"addons.media.import\"]");
     assert(!inspectMediaToolsInstallSnapshot(fixture.root.string()).bytesVerified());
     fixture.writeManifest();
