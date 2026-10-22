@@ -27,8 +27,8 @@ def extract_service(source: str) -> str:
 
 
 def extract_clean_catalogue(source: str) -> str:
-    begin = source.index("static bool NativeCasCatalogueClean()\\n{")
-    end = source.index("\\n}\\n\\nbool cPluginEpgsearch::Service", begin) + 2
+    begin = source.index("static bool NativeCasCatalogueClean()\n{")
+    end = source.index("\n}\n\nbool cPluginEpgsearch::Service", begin) + 2
     return source[begin:end]
 
 
