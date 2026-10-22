@@ -40,6 +40,12 @@
 .recordings2-hero-actions button{min-height:3rem;padding:.66rem 1.15rem;border:1px solid rgba(255,255,255,.25);border-radius:999px;background:rgba(15,18,23,.64);color:#f8fafc;font-weight:850;box-shadow:0 .35rem 1.25rem rgba(0,0,0,.14);backdrop-filter:blur(14px)}
 .recordings2-hero-actions button.primary{border-color:#b9d8ff;background:#b9d8ff;color:#10203a}
 .recordings2-hero-actions button:hover,.recordings2-hero-actions button:focus-visible{transform:translateY(-1px);border-color:#b9d8ff;outline:none}
+.recordings2-media-check{display:grid;gap:.65rem;max-width:52rem;padding:1rem;border:1px solid rgba(185,216,255,.32);border-radius:.8rem;background:rgba(10,13,18,.68)}
+.recordings2-media-check[hidden]{display:none!important}
+.recordings2-media-check h4{margin:0;font-size:1.1rem}
+.recordings2-media-check select,.recordings2-media-check button{min-height:2.6rem;padding:.5rem .85rem;border:1px solid rgba(185,216,255,.4);border-radius:.5rem;background:#182031;color:#f8fafc}
+.recordings2-media-check-status{line-height:1.5;overflow-wrap:anywhere}
+.recordings2-media-check-report{max-height:18rem;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.78rem}
 .recordings2-hero-cast{display:flex;gap:1rem;overflow-x:auto;padding:.2rem 0 .4rem;scrollbar-width:thin}
 .recordings2-hero-page button.recordings2-hero-person{display:grid;grid-template-columns:2.8rem minmax(0,1fr);gap:.58rem;align-items:center;flex:0 0 auto;min-width:10.5rem;min-height:0;padding:.18rem .35rem .18rem .18rem;border:1px solid rgba(255,255,255,.08);border-radius:.75rem;background:transparent;color:inherit;text-align:left;box-shadow:none;appearance:none}
 .recordings2-hero-page button.recordings2-hero-person:hover{border-color:rgba(255,255,255,.18);background:rgba(0,0,0,.2);box-shadow:none}
@@ -328,6 +334,199 @@
     }, 0);
   }
 
+
+  // M2.3: existing Recording Hero owns the Media Check control and report.
+  // The web client never submits a recording path or starts local FFmpeg.
+  function mediaCheckClient() {
+    const factory = global.VdrSuitePublicV1Client;
+    if (!factory || typeof factory.createClient !== 'function') return null;
+    return factory.createClient({
+      baseUrl: global.location && global.location.origin ? global.location.origin : '',
+      credentials: 'same-origin'
+    });
+  }
+
+  function resolveMediaCheckIdentity(client, recording, backendId) {
+    const direct = text(recording && recording.recordingId);
+    if (/^rec_[0-9a-f]{32}$/.test(direct)) return Promise.resolve(direct);
+    const recordedAt = text(shared.first(recording, ['startTime', 'recordedAt'], ''));
+    if (!recordedAt) return Promise.reject(
+      new Error('Für diese Aufnahme ist keine eindeutige Aufnahme-ID verfügbar.'));
+    const expectedTitle = text(recording && recording.title);
+    let cursor = '';
+    let matches = [];
+    let pageCount = 0;
+    function page() {
+      if (++pageCount > 20) throw new Error(
+        'Die Aufnahmenliste ist zu groß; eindeutige Zuordnung nicht möglich.');
+      const query = {backendId: backendId, limit: 100};
+      if (cursor) query.cursor = cursor;
+      return client.getRecordings({query: query, credentials: 'same-origin',
+        cache: 'no-store'}).then(function (response) {
+        if (!response || !Array.isArray(response.items) || !response.page)
+          throw new Error('Ungültige Antwort der Aufnahme-API.');
+        matches = matches.concat(response.items.filter(function (item) {
+          return item && item.backendId === backendId &&
+            item.recordedAt === recordedAt &&
+            (!expectedTitle || item.title === expectedTitle);
+        }));
+        if (matches.length > 1) throw new Error(
+          'Mehrere Aufnahmen passen zur Auswahl; keine Prüfung gestartet.');
+        if (response.page.hasMore) {
+          if (!/^rc1_[a-f0-9]+$/.test(response.page.nextCursor || '') ||
+              response.page.nextCursor === cursor)
+            throw new Error('Ungültiger Aufnahme-Seitencursor.');
+          cursor = response.page.nextCursor;
+          return page();
+        }
+        if (matches.length !== 1 ||
+            !/^rec_[0-9a-f]{32}$/.test(matches[0].recordingId))
+          throw new Error('Kanonische Aufnahme-ID nicht eindeutig gefunden.');
+        return matches[0].recordingId;
+      });
+    }
+    return page();
+  }
+
+  function mediaCheckSummary(report) {
+    if (!report || typeof report !== 'object')
+      return 'Unvollständiger Prüfbericht.';
+    const label = {ok: 'In Ordnung', warnings: 'Warnungen',
+      errors: 'Fehler', incomplete: 'Prüfung unvollständig'};
+    const state = label[report.status] || 'Unbekanntes Ergebnis';
+    const segments = Number(report.segments);
+    const errors = ['syncErrors', 'transportErrors', 'adaptationErrors',
+      'trailingBytes', 'continuityWarnings'].map(function (field) {
+      return field + ': ' + Number(report[field] || 0);
+    }).join(' · ');
+    const broken = (Array.isArray(report.segmentReports)
+      ? report.segmentReports : []).filter(function (item) {
+        return item && item.status !== 'ok';
+      }).map(function (item) { return text(item.name) + ' (' + item.status + ')'; });
+    let summary = state + ' · ' +
+      (report.analysis === 'ts_structure_and_ffmpeg_decode'
+        ? 'FFmpeg-Decodierung' : 'TS-Struktur') +
+      ' · ' + (Number.isFinite(segments) ? segments : '?') +
+      ' TS-Segmente · ' + errors;
+    if (broken.length) summary += ' · Betroffene Segmente: ' + broken.join(', ');
+    if (report.decoder && report.decoder.timedOut)
+      summary += ' · FFmpeg-Zeitlimit erreicht.';
+    if (report.decoder && report.decoder.diagnostic)
+      summary += ' · FFmpeg: ' + text(report.decoder.diagnostic);
+    return summary;
+  }
+
+  function renderMediaCheck(root, copy, recording, backendId, actions) {
+    const client = mediaCheckClient();
+    if (!client || !/^[-A-Za-z0-9._]{1,128}$/.test(text(backendId))) return;
+    client.getMediaCheckCapability({
+      backendId: backendId, credentials: 'same-origin', cache: 'no-store'
+    }).then(function (capability) {
+      if (!capability || capability.available !== true ||
+          capability.backendId !== backendId ||
+          capability.capability !== 'addons.media.check' ||
+          !actions.parentNode) return;
+      const action = makeButton('Aufnahme prüfen', function () {
+        panel.hidden = false;
+        if (typeof panel.scrollIntoView === 'function')
+          panel.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+      });
+      action.className = 'recordings2-media-check-action';
+      const panel = shared.node('section', 'recordings2-media-check');
+      panel.hidden = true;
+      const heading = shared.node('h4', '', 'Aufnahme prüfen');
+      const selector = global.document.createElement('select');
+      selector.setAttribute('aria-label', 'Prüfumfang');
+      const structure = global.document.createElement('option');
+      structure.value = 'structure';
+      structure.textContent = 'Schnelle TS-Prüfung';
+      selector.appendChild(structure);
+      const decode = global.document.createElement('option');
+      decode.value = 'decode';
+      decode.textContent = 'Vollständige FFmpeg-Prüfung';
+      selector.appendChild(decode);
+      const launch = makeButton('Prüfung starten', function () {
+        launch.disabled = true;
+        selector.disabled = true;
+        status.textContent = 'Aufnahme wird zugeordnet …';
+        output.textContent = '';
+        Promise.resolve().then(function () {
+          return resolveMediaCheckIdentity(client, recording, backendId);
+        }).then(function (recordingId) {
+          const session = global.VdrSuiteBrowserSession;
+          if (!session || typeof session.restore !== 'function' ||
+              typeof session.csrfHeaders !== 'function')
+            throw new Error('Anmeldung erforderlich.');
+          return Promise.resolve(session.restore()).then(function () {
+            return client.submitMediaCheck({
+              backendId: backendId, recordingId: recordingId,
+              mode: selector.value, headers: session.csrfHeaders(),
+              credentials: 'same-origin'
+            });
+          });
+        }).then(function (created) {
+          if (!created || !/^chk_[0-9a-f]{32}$/.test(created.checkId) ||
+              created.backendId !== backendId ||
+              created.state !== 'running')
+            throw new Error('Unbekannte Media-Check-Antwort.');
+          const checkId = created.checkId;
+          let reads = 0;
+          function poll() {
+            if (!panel.parentNode || reads++ >= 500) {
+              status.textContent = 'Statusabfrage beendet. Serverprüfung kann weiterlaufen.';
+              return;
+            }
+            return client.getMediaCheckStatus({
+              backendId: backendId, checkId: checkId,
+              credentials: 'same-origin', cache: 'no-store'
+            }).then(function (result) {
+              if (!result || result.checkId !== checkId ||
+                  result.backendId !== backendId)
+                throw new Error('Unbekannter Prüfstatus.');
+              if (result.state === 'running') {
+                status.textContent = 'Aufnahmeprüfung läuft …';
+                global.setTimeout(poll, 2000);
+                return;
+              }
+              if (result.state !== 'completed' || !result.report)
+                throw new Error('Prüfbericht unvollständig.');
+              status.textContent = mediaCheckSummary(result.report);
+              output.textContent = JSON.stringify(result.report, null, 2);
+              launch.disabled = false;
+              selector.disabled = false;
+            }).catch(function (error) {
+              status.textContent = 'Statusabfrage fehlgeschlagen: ' +
+                text(error && error.message ? error.message : error);
+            });
+          }
+          status.textContent = 'Aufnahmeprüfung läuft …';
+          return poll();
+        }).catch(function (error) {
+          status.textContent = 'Prüfung nicht gestartet: ' +
+            text(error && error.message ? error.message : error);
+          launch.disabled = false;
+          selector.disabled = false;
+        });
+      });
+      const status = shared.node('p', 'recordings2-media-check-status', 'Prüfumfang auswählen.');
+      status.setAttribute('role', 'status');
+      const details = global.document.createElement('details');
+      const summary = shared.node('summary', '', 'Technischer Prüfbericht (JSON)');
+      const output = shared.node('pre', 'recordings2-media-check-report');
+      details.appendChild(summary);
+      details.appendChild(output);
+      panel.appendChild(heading);
+      panel.appendChild(selector);
+      panel.appendChild(launch);
+      panel.appendChild(status);
+      panel.appendChild(details);
+      actions.appendChild(action);
+      copy.appendChild(panel);
+    }).catch(function () {
+      // Absent or disabled Media Tools must not disrupt the Recording Hero.
+    });
+  }
+
   function renderHeroActions(root, copy, recording, backendId, metadata) {
     if (!copy || copy.querySelector('.recordings2-hero-actions')) return;
     const actions = shared.node('div', 'recordings2-hero-actions');
@@ -353,6 +552,7 @@
       showMode(root, 'actions', '.recordings2-actions');
     }));
     copy.appendChild(actions);
+    renderMediaCheck(root, copy, recording, backendId, actions);
   }
 
   function releaseDate(metadata) {
@@ -744,6 +944,8 @@
       matchingGenre,
       trailerIdentity,
       validYoutubeVideoId,
+      resolveMediaCheckIdentity,
+      mediaCheckSummary,
       placeTrailerAfterRelated
     })
   });
