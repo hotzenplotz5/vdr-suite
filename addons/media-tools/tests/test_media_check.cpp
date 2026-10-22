@@ -159,6 +159,14 @@ int main(int argc, char* argv[])
         assert(json.find("\"status\":\"ok\"") != std::string::npos);
         assert(json.find("\"readOnly\":true") != std::string::npos);
         assert(json.find("\"analysis\":\"ts_structure_only\"") != std::string::npos);
+        assert(result.segmentReports.size() == 2);
+        assert(result.segmentReports[0].name == "00001.ts" &&
+               result.segmentReports[0].status() == "ok" &&
+               result.segmentReports[0].packets == 2);
+        assert(result.segmentReports[1].name == "00002.ts" &&
+               result.segmentReports[1].status() == "ok" &&
+               result.segmentReports[1].packets == 2);
+        assert(json.find("segmentReports") != std::string::npos);
         assert(f.bytes("00001.ts") == contents && f.entries() == inventory);
         ++cases;
     }
@@ -174,6 +182,10 @@ int main(int argc, char* argv[])
         f.write("00002.ts", {packet(7)});
         auto r = checkRecordingTransportStream(f.video, f.relative());
         assert(r.status() == "warnings" && r.continuityWarnings == 1);
+        assert(r.segmentReports.size() == 2 &&
+               r.segmentReports[0].status() == "ok" &&
+               r.segmentReports[1].status() == "warnings" &&
+               r.segmentReports[1].continuityWarnings == 1);
         ++cases;
     }
     {
@@ -201,6 +213,13 @@ int main(int argc, char* argv[])
         assert(r.status() == "errors" && r.syncErrors == 1 &&
                r.transportErrors == 1 && r.adaptationErrors == 1 &&
                r.trailingBytes == 1 && r.packets == 5);
+        assert(r.segmentReports.size() == 2 &&
+               r.segmentReports[0].status() == "ok" &&
+               r.segmentReports[1].status() == "errors" &&
+               r.segmentReports[1].syncErrors == 1 &&
+               r.segmentReports[1].transportErrors == 1 &&
+               r.segmentReports[1].adaptationErrors == 1 &&
+               r.segmentReports[1].trailingBytes == 1);
         const auto before = f.bytes("00002.ts");
         assert(f.bytes("00002.ts") == before);
         ++cases;

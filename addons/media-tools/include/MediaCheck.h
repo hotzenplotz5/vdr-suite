@@ -29,6 +29,20 @@ public:
 };
 
 
+// Numbered TS segment diagnostics, without exposing recording paths.
+struct MediaCheckSegmentReport {
+    std::string name;
+    std::uint64_t bytes = 0;
+    std::uint64_t packets = 0;
+    std::uint64_t syncErrors = 0;
+    std::uint64_t transportErrors = 0;
+    std::uint64_t adaptationErrors = 0;
+    std::uint64_t trailingBytes = 0;
+    std::uint64_t continuityWarnings = 0;
+    std::uint64_t discontinuities = 0;
+    std::string status() const;
+};
+
 // This is NOT a public HTTP path or a recording decoder / repair service.
 // The owning backend must supply the configured video root, not the actor.
 struct MediaCheckReport {
@@ -43,6 +57,7 @@ struct MediaCheckReport {
     std::uint64_t continuityWarnings = 0;
     std::uint64_t discontinuities = 0;
     bool indexPresent = false;
+    std::vector<MediaCheckSegmentReport> segmentReports;
     std::optional<MediaDecodeResult> decode;
     std::string status() const;
     std::string json() const;

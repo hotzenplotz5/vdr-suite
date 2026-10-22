@@ -249,8 +249,21 @@ MediaCheckReport checkRecordingInternal(
     result.segments = segments.size();
     result.indexPresent = indexAvailable(current.value);
     Continuity counters;
-    for (const auto& segment : segments)
+    for (const auto& segment : segments) {
+        MediaCheckSegmentReport detail;
+        detail.name = segment;
+        const auto before = result;
         scanSegment(current.value, segment, result, counters);
+        detail.bytes = result.bytes - before.bytes;
+        detail.packets = result.packets - before.packets;
+        detail.syncErrors = result.syncErrors - before.syncErrors;
+        detail.transportErrors = result.transportErrors - before.transportErrors;
+        detail.adaptationErrors = result.adaptationErrors - before.adaptationErrors;
+        detail.trailingBytes = result.trailingBytes - before.trailingBytes;
+        detail.continuityWarnings = result.continuityWarnings - before.continuityWarnings;
+        detail.discontinuities = result.discontinuities - before.discontinuities;
+        result.segmentReports.push_back(std::move(detail));
+    }
     if (decoder != nullptr)
         result.decode = decoder->decode(current.value, segments);
     return result;
@@ -267,6 +280,15 @@ MediaCheckReport checkRecordingWithDecoder(
     MediaCheckDecoder& decoder)
 {
     return checkRecordingInternal(videoRoot, recordingRelative, &decoder);
+}
+
+std::string MediaCheckSegmentReport::status() const
+{
+    if (syncErrors || transportErrors || adaptationErrors || trailingBytes)
+        return "errors";
+    if (continuityWarnings || discontinuities)
+        return "warnings";
+    return "ok";
 }
 
 std::string MediaCheckReport::status() const
@@ -298,6 +320,23 @@ std::string MediaCheckReport::json() const
         << ",\"analysis\":"
         << jsonString(decode ? "ts_structure_and_ffmpeg_decode" : "ts_structure_only")
         << ",\"readOnly\":true";
+    output << ",\"segmentReports\":[";
+    for (std::size_t index = 0; index < segmentReports.size(); ++index) {
+        const auto& segment = segmentReports[index];
+        if (index != 0) output << ",";
+        output << "{\"name\":" << jsonString(segment.name)
+            << ",\"status\":" << jsonString(segment.status())
+            << ",\"bytes\":" << segment.bytes
+            << ",\"packets\":" << segment.packets
+            << ",\"syncErrors\":" << segment.syncErrors
+            << ",\"transportErrors\":" << segment.transportErrors
+            << ",\"adaptationErrors\":" << segment.adaptationErrors
+            << ",\"trailingBytes\":" << segment.trailingBytes
+            << ",\"continuityWarnings\":" << segment.continuityWarnings
+            << ",\"discontinuities\":" << segment.discontinuities
+            << "}";
+    }
+    output << "]";
     if (decode) {
         output << ",\"decoder\":{\"status\":" << jsonString(decode->status)
             << ",\"exitCode\":" << decode->exitCode
