@@ -242,10 +242,8 @@ DAEMON_SRC := \
 
 DAEMON_SRC += $(SECURITY_SRC)
 DAEMON_SRC += $(AGENT_CONTROL_PLANE_SRC)
-# The source-integrated native CAS provider uses the existing local Agent
-# control-plane client. This does not enable any Public-v1 mutation route.
-DAEMON_SRC += $(AGENT_LOCAL_CONTROL_TRANSPORT_SRC)
-DAEMON_SRC += $(AGENT_HANDSHAKE_SRC)
+# Both the local Agent transport and SuiteBridge handshake are included via
+# AGENT_SRC in the daemon link command; do not link them a second time here.
 DAEMON_SRC += $(METADATA_PLATFORM_SRC)
 DAEMON_SRC += $(MANUAL_RECORDING_METADATA_SRC)
 DAEMON_SRC += core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp
