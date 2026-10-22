@@ -134,12 +134,21 @@ SearchTimerCreateDispatchResult SearchTimerCreateDispatchService::dispatchOnce(
             operation.expectedResourceFingerprint)
         return result(SearchTimerCreateDispatchStatus::unavailable, operation);
 
-    // Previously admitted Public-v1 CREATE operations can survive daemon
-    // upgrades. Never let a queued pre-staging active payload bypass the
-    // new explicit-inactive HTTP and daemon admission contract. Keep the
-    // durable operation intact for audit; do not touch the provider.
+    // Previously admitted active CREATE operations can survive daemon
+    // upgrades. Reject them durably BEFORE contacting the provider, so
+    // the old operation cannot be left accepted for later execution.
     if (payload.active)
-        return result(SearchTimerCreateDispatchStatus::denied, operation);
+    {
+        const auto blocked = operations_.transition(
+            operation.operationId, operation.operationRevision,
+            MutationOperationState::accepted,
+            MutationOperationState::failedBeforeDispatch,
+            "searchtimer-active-create-disallowed", request.now);
+        return blocked.status == MutationOperationRepositoryStatus::ok
+            ? result(SearchTimerCreateDispatchStatus::denied,
+                blocked.operation)
+            : result(SearchTimerCreateDispatchStatus::unavailable, operation);
+    }
 
     const SearchTimerCreateRequest command = commandFor(operation, payload);
     std::unordered_set<std::string> existingIds;
