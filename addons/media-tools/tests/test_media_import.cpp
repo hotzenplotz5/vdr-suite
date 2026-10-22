@@ -80,16 +80,21 @@ struct FakeProcess : ProcessRunner {
             assert(input != argv.end() && (input + 1) != argv.end());
             assert(fs::path(*(input + 1)) == probedSource);
             assert(std::find(argv.begin(), argv.end(), "-fs") != argv.end());
-            if (std::find(argv.begin(), argv.end(), "libx264") != argv.end()) {
+            const bool encodeVideo =
+                std::find(argv.begin(), argv.end(), "libx264") != argv.end();
+            const bool encodeAudio =
+                std::find(argv.begin(), argv.end(), "aac") != argv.end();
+            if (encodeVideo) {
                 ++transcodes;
-                assert(std::find(argv.begin(), argv.end(), "aac") != argv.end());
                 assert(std::find(argv.begin(), argv.end(), "yuv420p") != argv.end());
             } else {
                 ++remuxes;
                 assert(std::find(argv.begin(), argv.end(), "copy") != argv.end());
             }
-            if (std::find(argv.begin(), argv.end(), "aac") != argv.end())
-                ++aacAudio;
+            // Track selection is independent: a VP9/AAC input needs only
+            // video encoding; H.264/Opus needs only AAC conversion.
+            if (encodeAudio) ++aacAudio;
+            else assert(std::find(argv.begin(), argv.end(), "copy") != argv.end());
             if (failRemux) return {1, ""};
             std::ofstream(argv.back()) << "synthetic ts bytes";
             return {0, ""};
