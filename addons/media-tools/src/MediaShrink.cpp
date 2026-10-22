@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cerrno>
 #include <cmath>
 #include <cstdlib>
@@ -146,12 +147,29 @@ unsigned probeHeight(ProcessRunner& runner, const fs::path& input) {
         "-show_entries", "stream=height", "-of", "default=nw=1:nk=1",
         input.string()
     }, true);
-    demand(result.exitCode == 0 && result.output.size() <= 16,
-           "shrink height probe failed");
+    demand(result.exitCode == 0 && !result.output.empty() &&
+           result.output.size() <= 1024, "shrink height probe failed");
+    std::istringstream input(result.output);
+    std::string token;
     unsigned height = 0;
-    try { height = static_cast<unsigned>(std::stoul(result.output)); }
-    catch (...) { throw std::runtime_error("invalid source height"); }
-    demand(height > 0 && height <= 16384, "invalid source height");
+    unsigned entries = 0;
+    while (std::getline(input, token)) {
+        if (!token.empty() && token.back() == '\r') token.pop_back();
+        if (token.empty()) continue;
+        demand(token.size() <= 5 && std::all_of(token.begin(), token.end(),
+            [](unsigned char ch) { return std::isdigit(ch); }),
+            "invalid source height");
+        unsigned observed = 0;
+        try { observed = static_cast<unsigned>(std::stoul(token)); }
+        catch (...) { throw std::runtime_error("invalid source height"); }
+        demand(observed > 0 && observed <= 16384,
+               "invalid source height");
+        if (height != 0)
+            demand(height == observed, "inconsistent source video heights");
+        else height = observed;
+        demand(++entries <= 64, "too many height entries");
+    }
+    demand(height != 0, "missing source height");
     return height;
 }
 
