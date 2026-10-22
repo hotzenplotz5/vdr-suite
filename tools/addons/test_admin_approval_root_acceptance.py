@@ -13,7 +13,7 @@ from pathlib import Path
 
 from addon_contract import ROOT, stage
 from admin_approval_evidence import APPROVAL_PATH, examine
-from admin_approval_issuer import issue, revoke, IssueError
+from admin_approval_issuer import issue, rotate, revoke, IssueError
 from manual_handler_evidence import HANDLER
 
 
@@ -60,6 +60,86 @@ class RootOwnedApprovalAcceptance(unittest.TestCase):
             issue(self.root, "rectools", "0.1.0",
                   self.document["sha256"], "manual")
         self.assertEqual(self.approval.read_bytes(), published)
+
+    def test_rotation_requires_exact_old_hash_and_independent_new_bytes(self):
+        old = self.document["sha256"]
+        self.handler.write_bytes(b"reviewed replacement fixture bytes\n")
+        replacement = hashlib.sha256(self.handler.read_bytes()).hexdigest()
+        before = self.approval.read_bytes()
+        with self.assertRaisesRegex(IssueError, "invalid-approval-rotation-digests"):
+            rotate(self.root, "rectools", "0.1.0", old, old, "manual")
+        with self.assertRaises(IssueError):
+            rotate(self.root, "rectools", "0.1.0", old, "0" * 64, "manual")
+        with self.assertRaisesRegex(IssueError, "stale-approval-rotation"):
+            rotate(self.root, "rectools", "0.1.0", "a" * 64,
+                   replacement, "manual")
+        self.assertEqual(self.approval.read_bytes(), before)
+        self.assertEqual(rotate(self.root, "rectools", "0.1.0",
+                                old, replacement, "manual"), self.approval)
+        self.assertEqual(json.loads(self.approval.read_text())["sha256"],
+                         replacement)
+        self.assertEqual(stat.S_IMODE(self.approval.stat().st_mode), 0o644)
+        self.assertTrue(examine(self.root, "rectools")["consistent"])
+        published = self.approval.read_bytes()
+        with self.assertRaisesRegex(IssueError, "stale-approval-rotation"):
+            rotate(self.root, "rectools", "0.1.0", old,
+                   replacement, "manual")
+        self.assertEqual(self.approval.read_bytes(), published)
+
+    def test_rotation_fails_closed_on_revoke_missing_and_unsafe_input(self):
+        old = self.document["sha256"]
+        self.handler.write_bytes(b"replacement for revoked fixture\n")
+        replacement = hashlib.sha256(self.handler.read_bytes()).hexdigest()
+        with self.assertRaisesRegex(IssueError, "live-root-requires-explicit-confirmation"):
+            rotate(Path("/"), "rectools", "0.1.0", old,
+                   replacement, "manual")
+        with self.assertRaisesRegex(IssueError, "unreviewed-handler-version"):
+            rotate(self.root, "rectools", "0.2.0", old,
+                   replacement, "manual")
+        with self.assertRaisesRegex(IssueError, "invalid-approval-record"):
+            rotate(self.root, "rectools", "0.1.0", old,
+                   replacement, "debian")
+        self.approval.unlink()
+        with self.assertRaises(IssueError):
+            rotate(self.root, "rectools", "0.1.0", old,
+                   replacement, "manual")
+        self.write()
+        self.assertEqual(revoke(self.root, "rectools"), self.approval)
+        revoked_bytes = self.approval.read_bytes()
+        with self.assertRaisesRegex(IssueError, "approval-revoked"):
+            rotate(self.root, "rectools", "0.1.0", old,
+                   replacement, "manual")
+        self.assertEqual(self.approval.read_bytes(), revoked_bytes)
+
+    def test_rotation_requires_secure_manifest_and_root_approval(self):
+        old = self.document["sha256"]
+        self.handler.write_bytes(b"second reviewed replacement\n")
+        replacement = hashlib.sha256(self.handler.read_bytes()).hexdigest()
+        manifest = self.root / "usr/share/vdr-suite/addons/rectools/addon.json"
+        manifest.unlink()
+        with self.assertRaisesRegex(IssueError, "invalid-installed-metadata"):
+            rotate(self.root, "rectools", "0.1.0", old,
+                   replacement, "manual")
+        stage_root = self.root / "usr/share/vdr-suite/addons/rectools"
+        # Use only the exact disposable fixture: no live paths.
+        from addon_contract import FILES
+        for filename in FILES:
+            source = ROOT / "modules/rectools" / filename
+            target = stage_root / filename
+            if not target.exists():
+                target.write_bytes(source.read_bytes())
+                target.chmod(0o644)
+        self.approval.chmod(0o666)
+        with self.assertRaisesRegex(IssueError, "unsafe-approval-record"):
+            rotate(self.root, "rectools", "0.1.0", old,
+                   replacement, "manual")
+        self.approval.chmod(0o600)
+        before = self.approval.read_bytes()
+        self.handler.unlink()
+        with self.assertRaises(IssueError):
+            rotate(self.root, "rectools", "0.1.0", old,
+                   replacement, "manual")
+        self.assertEqual(self.approval.read_bytes(), before)
 
     def test_admin_issuer_rejects_unapproved_digest(self):
         self.approval.unlink()
