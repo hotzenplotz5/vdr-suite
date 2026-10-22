@@ -164,7 +164,8 @@ int main()
     assert(manualDetail->overview == "Manual synopsis");
     assert(manualDetail->seasonNumber == 2 && manualDetail->episodeNumber == 5);
     assert(manualDetail->recording.title == "VDR title");
-    assert(manualDetail->subtitle == original.metadata.native.shortText);
+    // Projection keeps native subtitle but applies its 1024-byte UTF-8 bound.
+    assert(manualDetail->subtitle == std::string(1023, 'x'));
     assert(manualDetail->manualRevision == 4);
     assert(manualDetail->manualAssignmentId == manual.metadataAssignmentId);
     assert(manualDetail->metadataEntityId == manual.metadataEntityId);
