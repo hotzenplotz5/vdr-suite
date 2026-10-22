@@ -1,6 +1,8 @@
 #pragma once
 
 #include "PublicRecordingCollectionProjection.h"
+#include "ManualRecordingMetadataAssignmentRepository.h"
+#include "MetadataIdentity.h"
 #include "VdrRecording.h"
 
 #include <algorithm>
@@ -22,6 +24,7 @@ struct PublicRecordingMetadataDetail
     std::string subtitle;
     std::string epgDescription;
     std::string providerTitle;
+    std::string overview;
     std::string originalTitle;
     std::string tagline;
     std::string seriesTitle;
@@ -31,6 +34,9 @@ struct PublicRecordingMetadataDetail
     int seasonNumber = 0;
     int episodeNumber = 0;
     int providerRuntimeMinutes = 0;
+    std::string manualAssignmentId;
+    std::string metadataEntityId;
+    int manualRevision = 0;
 };
 
 // Caller supplies the public item obtained from the existing collection
@@ -86,6 +92,7 @@ public:
         if (hasProvider)
         {
             item.providerTitle = bounded(provider.title, 1024U);
+            item.overview = bounded(provider.overview, 4096U);
             item.originalTitle = bounded(provider.originalTitle, 1024U);
             item.tagline = bounded(provider.tagline, 1024U);
             item.seriesTitle = bounded(provider.seriesTitle, 1024U);
@@ -96,6 +103,9 @@ public:
             item.episodeNumber = std::max(0, provider.episodeNumber);
             item.providerRuntimeMinutes = std::max(0, provider.runtimeMinutes);
         }
+
+        if (item.overview == publicItem.description)
+            item.overview.clear();
 
         const bool hasNative = native.hasText();
         const bool hasUsefulProvider = hasProvider &&
@@ -109,6 +119,54 @@ public:
             : (hasNative || hasProvider ? "partial" : "absent");
 
         return item;
+    }
+
+    // Existing Web-selected assignment takes precedence over automatically
+    // scraped provider fields. Call ONLY with an assignment returned from the
+    // existing backend/cache-key scoped, active-binding read-only repository.
+    // Invalid/stale identity evidence fails closed instead of leaking raw IDs.
+    static bool applyManualAssignment(
+        const std::string& authorizedBackendId,
+        const ManualRecordingMetadataAssignment& manual,
+        PublicRecordingMetadataDetail& item)
+    {
+        if (!manual.found) return true;
+        if (manual.backendId != authorizedBackendId ||
+            !manual.relationshipLocked || manual.revision <= 0 ||
+            !MetadataAssignmentId::isValidValue(manual.metadataAssignmentId) ||
+            !MetadataEntityId::isValidValue(manual.metadataEntityId) ||
+            !MetadataTargetId::isValidValue(manual.metadataTargetId) ||
+            (manual.mediaType != "movie" && manual.mediaType != "series" &&
+             manual.mediaType != "episode") ||
+            manual.title.empty() || manual.title.size() > 4096U ||
+            manual.seasonNumber < 0 || manual.episodeNumber < 0)
+            return false;
+
+        // Do not expose the manual repository's resourceKey, provider IDs,
+        // external IDs, image paths, people or editing actor identity.
+        item.metadataState = "available";
+        item.metadataSource = "manual";
+        item.contentKind = manual.mediaType == "episode"
+            ? "series-episode" : manual.mediaType;
+        item.manualAssignmentId = manual.metadataAssignmentId;
+        item.metadataEntityId = manual.metadataEntityId;
+        item.manualRevision = manual.revision;
+        item.providerTitle = bounded(manual.title, 1024U);
+        item.originalTitle = bounded(manual.originalTitle, 1024U);
+        item.overview = bounded(manual.overview, 4096U);
+        if (item.overview == item.recording.description)
+            item.overview.clear();
+        item.releaseDate = bounded(manual.releaseDate, 32U);
+        item.seasonNumber = manual.seasonNumber;
+        item.episodeNumber = manual.episodeNumber;
+        item.seriesTitle = manual.mediaType == "series"
+            ? item.providerTitle : "";
+        item.episodeTitle = manual.mediaType == "episode"
+            ? item.providerTitle : "";
+        item.genreText.clear();
+        item.tagline.clear();
+        item.providerRuntimeMinutes = 0;
+        return true;
     }
 
 private:
