@@ -223,7 +223,8 @@ ImportPlan inspectImport(const ImportRequest& request) {
     std::transform(extension.begin(), extension.end(), extension.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     require(extension == ".mkv" || extension == ".mp4" || extension == ".ts" ||
-            extension == ".mov" || extension == ".avi",
+            extension == ".mov" || extension == ".avi" || extension == ".webm" ||
+            extension == ".m4v",
             "unsupported source extension");
     const auto title = safeTitle(resolved.stem().string());
     const auto folder = videoRoot / title;
@@ -245,11 +246,15 @@ void requireProductionCapacity(const ImportPlan& plan) {
     const auto total = st.f_blocks * block;
     const auto available = st.f_bavail * block;
     const auto reserve = std::max(4 * kGiB, total / 100 * 15);
-    require(plan.sourceBytes <= (UINT64_MAX - 64 * kMiB) / 2,
+    // One unchanged source snapshot and an output capped at twice the
+    // source size plus 16 MiB. Keep extra filesystem reserve independent
+    // of whether stream copy or software encoding is chosen.
+    require(plan.sourceBytes <=
+            (static_cast<std::uint64_t>(INT64_MAX) - 64 * kMiB) / 3,
             "source too large for bounded preflight");
-    const auto budget = static_cast<std::uint64_t>(plan.sourceBytes) * 2 + 64 * kMiB;
+    const auto budget = static_cast<std::uint64_t>(plan.sourceBytes) * 3 + 64 * kMiB;
     require(available >= reserve && available - reserve >= budget,
-            "insufficient capacity for source-copy remux and reserve");
+            "insufficient capacity for import staging and reserve");
 }
 
 fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
@@ -293,9 +298,15 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
         stagedSource.string()
     }, true);
     require(probe.exitCode == 0, "ffprobe failed");
-    const auto codec = probe.output;
-    require(codec == "h264\n" || codec == "hevc\n" || codec == "mpeg2video\n",
-            "video codec requires explicit later re-encode support");
+    std::string codec = probe.output;
+    while (!codec.empty() && (codec.back() == '\n' || codec.back() == '\r'))
+        codec.pop_back();
+    require(!codec.empty() && codec.size() <= 64 &&
+            std::all_of(codec.begin(), codec.end(), [](unsigned char ch) {
+                return std::islower(ch) || std::isdigit(ch) || ch == '_';
+            }), "invalid video codec from ffprobe");
+    const bool copyVideo = codec == "h264" || codec == "hevc" ||
+                           codec == "mpeg2video";
 
     {
         std::ofstream info(stage.path / "info", std::ios::binary | std::ios::trunc);
@@ -307,11 +318,35 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
     }
 
     const auto output = stage.path / "00001.ts";
-    runRequired(runner, {"/usr/bin/ffmpeg", "-nostdin", "-hide_banner", "-v", "error",
-                        "-i", stagedSource.string(), "-map", "0:v:0",
-                        "-map", "0:a?", "-c", "copy", "-f", "mpegts",
-                        "-y", output.string()});
-    require(nonemptyRegular(output), "remux output missing or empty");
+    // FFmpeg may otherwise consume all free space on badly behaved inputs.
+    // Its -fs threshold is additionally checked before publishing: hitting
+    // the threshold can return exit 0 with a truncated transport stream.
+    const auto outputLimit = static_cast<std::uint64_t>(plan.sourceBytes) * 2 +
+                             16 * kMiB;
+    std::vector<std::string> encode = {
+        "/usr/bin/ffmpeg", "-nostdin", "-hide_banner", "-v", "error",
+        "-i", stagedSource.string(), "-map", "0:v:0", "-map", "0:a?",
+        "-sn"
+    };
+    if (copyVideo) {
+        encode.insert(encode.end(), {"-c", "copy"});
+    } else {
+        // Unsupported source codecs are converted to VDR-compatible H.264.
+        // The separate HEVC shrink operation never runs in this path.
+        encode.insert(encode.end(), {
+            "-c:v", "libx264", "-preset", "medium", "-crf", "23",
+            "-pix_fmt", "yuv420p", "-threads", "2",
+            "-c:a", "aac", "-b:a", "192k"
+        });
+    }
+    encode.insert(encode.end(), {
+        "-fs", std::to_string(outputLimit), "-f", "mpegts",
+        "-y", output.string()
+    });
+    runRequired(runner, encode);
+    require(nonemptyRegular(output), "import output missing or empty");
+    require(fs::file_size(output) < outputLimit,
+            "import output reached size limit; incomplete recording rejected");
     runRequired(runner, {"/usr/bin/vdr", "--genindex=" + stage.path.string()});
     require(nonemptyRegular(stage.path / "index"), "VDR index missing or empty");
     require(same(before, signature(plan.sourceFile)), "source changed during media processing");

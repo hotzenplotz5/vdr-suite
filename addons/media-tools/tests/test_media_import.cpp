@@ -45,6 +45,7 @@ struct FakeProcess : ProcessRunner {
     fs::path probedSource;
     int probes = 0;
     int remuxes = 0;
+    int transcodes = 0;
     int indices = 0;
     ProcessResult run(const std::vector<std::string>& argv, bool output) override {
         assert(!argv.empty());
@@ -65,7 +66,15 @@ struct FakeProcess : ProcessRunner {
             const auto input = std::find(argv.begin(), argv.end(), "-i");
             assert(input != argv.end() && (input + 1) != argv.end());
             assert(fs::path(*(input + 1)) == probedSource);
-            ++remuxes;
+            assert(std::find(argv.begin(), argv.end(), "-fs") != argv.end());
+            if (std::find(argv.begin(), argv.end(), "libx264") != argv.end()) {
+                ++transcodes;
+                assert(std::find(argv.begin(), argv.end(), "aac") != argv.end());
+                assert(std::find(argv.begin(), argv.end(), "yuv420p") != argv.end());
+            } else {
+                ++remuxes;
+                assert(std::find(argv.begin(), argv.end(), "copy") != argv.end());
+            }
             if (failRemux) return {1, ""};
             std::ofstream(argv.back()) << "synthetic ts bytes";
             return {0, ""};
@@ -149,8 +158,10 @@ int main() {
         FakeProcess runner;
         runner.codec = "vp9\n";
         auto plan = inspectImport(f.request());
-        mustFail([&] { executeRemuxImport(plan, runner, [](const ImportPlan&) {}); });
-        assert(fs::exists(f.source) && runner.remuxes == 0);
+        const auto output = executeRemuxImport(plan, runner, [](const ImportPlan&) {});
+        assert(fs::exists(output / "00001.ts") && fs::exists(output / "index"));
+        assert(fs::exists(f.source) && runner.remuxes == 0 &&
+               runner.transcodes == 1);
         ++checks;
     }
     {
