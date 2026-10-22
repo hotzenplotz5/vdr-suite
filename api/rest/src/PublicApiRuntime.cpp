@@ -6505,6 +6505,7 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
                     });
         };
         if (!validHexId(recordingId, "rec_") ||
+            (artworkMarker + 8U < path.size() && artworkId.empty()) ||
             (!artworkId.empty() && !validHexId(artworkId, "")) ||
             authorizedBackendIds.size() != 1U ||
             authorizedBackendIds.front().empty() ||
