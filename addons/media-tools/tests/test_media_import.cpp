@@ -64,7 +64,7 @@ struct FakeProcess : ProcessRunner {
             if (target.filename() == "00001.ts") {
                 assert(fs::exists(target));
                 if (duration) return {0, outputDuration};
-                return {0, transcodes ? "h264\n" : codec};
+                return {0, transcodes ? "h264\nh264\n" : codec + codec};
             }
             probedSource = target;
             assert(probedSource.filename() == "input.mp4");
@@ -125,6 +125,14 @@ void mustFail(F&& f) {
 
 int main() {
     int checks = 0;
+    {
+        assert(parseProbedVideoCodec("h264\nh264\n") == "h264");
+        assert(parseProbedVideoCodec("hevc\r\n\r\nhevc\n") == "hevc");
+        mustFail([] { parseProbedVideoCodec("h264\nhevc\n"); });
+        mustFail([] { parseProbedVideoCodec(""); });
+        mustFail([] { parseProbedVideoCodec("h264\n../bad\n"); });
+        ++checks;
+    }
     {
         using vdrsuite::mediatools::MediaImportScheduleWindow;
         const auto night = MediaImportScheduleWindow::parse("23:00-04:00");

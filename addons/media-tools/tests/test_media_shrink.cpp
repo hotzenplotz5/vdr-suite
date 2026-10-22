@@ -64,7 +64,7 @@ struct FakeProcess final : ProcessRunner {
             assert(captured);
             const bool isOutput = args.back().find("00001.ts") != std::string::npos;
             if (contains("stream=codec_name"))
-                return {0, isOutput ? "hevc\n" : "h264\n"};
+                return {0, isOutput ? "hevc\nhevc\n" : "h264\nh264\n"};
             if (contains("format=duration"))
                 return {0, isOutput && badDuration ? "10.0\n" : "60.0\n"};
             if (contains("stream=height"))
