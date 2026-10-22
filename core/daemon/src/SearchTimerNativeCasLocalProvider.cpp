@@ -115,6 +115,42 @@ SearchTimerNativeCasLocalProvider::SearchTimerNativeCasLocalProvider(
 {
 }
 
+bool SearchTimerNativeCasLocalProvider::buildInactiveQueryUpdate(
+    const SearchTimerNativeCasLocalObservation& original,
+    int nativeId, const std::string& query, std::string& candidate)
+{
+    candidate.clear();
+    // epgsearch's legacy 59-field form uses colon delimiters. For Public-v1
+    // update, preserve all settings except the search term (field 2). Do NOT
+    // manufacture a default SearchExt; that would drop native rule options.
+    if (!original.available || !original.found || !original.durable ||
+        nativeId < 0 || query.empty() || query.size() > 200U ||
+        original.settings.empty() || original.settings.size() > 8192U)
+        return false;
+    for (unsigned char c : query)
+        if (c < 0x20U || c == 0x7fU || c == ':') return false;
+    std::vector<std::string> fields;
+    std::size_t begin = 0;
+    while (begin <= original.settings.size() && fields.size() <= 59U)
+    {
+        const auto end = original.settings.find(':', begin);
+        fields.push_back(original.settings.substr(begin,
+            end == std::string::npos ? std::string::npos : end - begin));
+        if (end == std::string::npos) break;
+        begin = end + 1U;
+    }
+    if (fields.size() != 59U || fields[0] != std::to_string(nativeId) ||
+        fields[15] != "0") return false;  // field 16: useAsSearchTimer
+    fields[1] = query;
+    for (std::size_t i = 0; i < fields.size(); ++i)
+    {
+        if (i != 0U) candidate.push_back(':');
+        candidate += fields[i];
+    }
+    if (candidate.size() > 8192U) { candidate.clear(); return false; }
+    return true;
+}
+
 bool SearchTimerNativeCasLocalProvider::supportsAtomicGenerationCasV1() const
 {
     if (localBackendId_.empty()) return false;
