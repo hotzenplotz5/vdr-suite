@@ -214,7 +214,7 @@ bool scanDirectory(const std::array<std::string, 5>& entry,
     return true;
 }
 
-bool inventorySources(const fs::path& root, const std::string& backendId,
+bool inventorySources(const std::filesystem::path& root, const std::string& backendId,
                       std::vector<IndexedSource>& sources)
 {
     sources.clear();
