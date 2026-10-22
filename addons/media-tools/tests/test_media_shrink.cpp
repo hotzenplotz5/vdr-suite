@@ -33,6 +33,8 @@ struct Fixture {
             std::string(32768, 'X');
         std::ofstream(recording / "index") << "native-index";
         std::ofstream(recording / "info") << "T Sample\nD Description\n";
+        std::ofstream(recording / "de.srt") <<
+            "1\n00:00:01,000 --> 00:00:02,000\nHallo\n";
     }
     ~Fixture() {
         std::error_code error;
@@ -127,14 +129,17 @@ int main() {
         assert(fs::exists(stage / "00001.ts") &&
                fs::exists(stage / "index") &&
                fs::exists(stage / "info") &&
+               fs::exists(stage / "de.srt") &&
                fs::exists(stage / ".shrink-review") &&
                !fs::exists(stage / "input.ts"));
         assert(fixture.input() == original && runner.softwareCalls == 1);
         const auto published = publishShrinkCandidate(plan, stage, runner);
         assert(fs::exists(published / "00001.ts") &&
                fs::exists(published / "index") &&
+               fs::exists(published / "de.srt") &&
                fixture.input() == original &&
-               fs::exists(fixture.recording / "info"));
+               fs::exists(fixture.recording / "info") &&
+               fs::exists(fixture.recording / "de.srt"));
         assert(published.string().find("_HEVC") != std::string::npos);
         reject([&] { publishShrinkCandidate(plan, stage, runner); });
         ++checks;
