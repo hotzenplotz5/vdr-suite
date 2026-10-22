@@ -84,9 +84,17 @@ version and may declare no entrypoint, capability, permission or dependency.
 Missing, replaced, symlinked, writable, malformed or version-mismatched
 metadata denies a fresh snapshot. A compiled, reviewed handler protocol
 version (`0.1.0`) also rejects unreviewed binary upgrades even when their
-manifest and administrator approval agree. Approval and metadata are re-read
-after binary hashing; the pinned executor also checks them again immediately
-before dispatch. Root-owned, nonroot-Agent and synthetic command lifecycle tests use
+manifest and administrator approval agree. For a separately reviewed
+same-version binary replacement, the root-only approval issuer now supports
+an explicit conditional `rotate`: it checks the old approved SHA-256,
+matches the new independently approved digest against the installed binary,
+takes a directory lock and atomically publishes the new root-owned record.
+A revoked record cannot be rotated back to approved, and reinstalling the
+old executable cannot resurrect a revoked approval. This is an isolated
+operator lifecycle primitive, **not** a package maintainer hook or automatic
+upgrade. Approval and metadata are re-read after binary hashing; the pinned
+executor also checks them again immediately before dispatch.
+Root-owned, nonroot-Agent and synthetic command lifecycle tests use
 disposable fixture installations. This is the same installation contract for
 source/manual staging and future Debian packaging, **not** permission or a
 release-signature substitute. Production activation, upgrade choreography,
