@@ -91,6 +91,19 @@ int main()
     assert(publicRead.metadataAssignmentId == first.metadataAssignmentId);
     assert(!repository.findSelectedReadOnly(
         "other-backend", "recording-cache-key-1").found);
+    // A selected row alone is insufficient for Public-v1: the exact
+    // backend-target binding must still exist and be active.
+    assert(database.execute("SAVEPOINT m1_read_binding;"));
+    assert(database.execute(
+        "DELETE FROM suite_metadata_target_bindings "
+        "WHERE backend_id='living-room' "
+        "AND resource_key='recording-cache-key-1';"));
+    assert(!repository.findSelectedReadOnly(
+        "living-room", "recording-cache-key-1").found);
+    assert(database.execute("ROLLBACK TO SAVEPOINT m1_read_binding;"));
+    assert(database.execute("RELEASE SAVEPOINT m1_read_binding;"));
+    assert(repository.findSelectedReadOnly(
+        "living-room", "recording-cache-key-1").found);
     assert(loaded.actorRef == "user:test-admin");
 
     {
