@@ -1739,6 +1739,20 @@ bool validPublicSearchTimerId(const std::string& id)
             });
 }
 
+// One resource segment, excluding draft preview and nested preview paths.
+bool publicSearchTimerDetailPath(
+    const std::string& path, std::string& searchTimerId)
+{
+    const std::string prefix(PublicSearchTimerResourcePrefix);
+    if (path.size() <= prefix.size() ||
+        path.compare(0U, prefix.size(), prefix) != 0 ||
+        path == PublicSearchTimerDraftPreviewPath ||
+        path.find('/', prefix.size()) != std::string::npos)
+        return false;
+    searchTimerId = path.substr(prefix.size());
+    return true;
+}
+
 bool publicSearchTimerPreviewPath(
     const std::string& path, std::string& searchTimerId)
 {
@@ -8458,6 +8472,71 @@ bool PublicApiRuntime::tryHandleGet(
         return true;
     }
 
+    std::string detailSearchTimerId;
+    if (publicSearchTimerDetailPath(path, detailSearchTimerId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (!validPublicSearchTimerId(detailSearchTimerId) ||
+            authorizedBackendId.empty() ||
+            requestTarget != path + "?backend=" + authorizedBackendId)
+        {
+            response = invalidRequestProblem(path,
+                "An exact SearchTimer ID and authorized backend are required.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicSearchTimerCollectionRequest request;
+        request.backendId = authorizedBackendId;
+        request.searchTimerId = detailSearchTimerId;
+        request.limit = 1U;
+        const PublicSearchTimerCollectionResult detail =
+            lookupSearchTimerCollection(request);
+        if (detail.status == PublicSearchTimerCollectionStatus::invalid)
+        {
+            response = invalidRequestProblem(path,
+                "Invalid SearchTimer detail request.",
+                requestId, correlationId);
+            return true;
+        }
+        if (detail.status != PublicSearchTimerCollectionStatus::ok ||
+            detail.hasMore || detail.items.size() > 1U)
+        {
+            response = serviceUnavailableProblem(path, requestId,
+                correlationId);
+            return true;
+        }
+        if (detail.items.empty())
+        {
+            response = notFoundProblem(path, requestId, correlationId);
+            return true;
+        }
+        const auto& item = detail.items.front();
+        if (item.searchTimerId != detailSearchTimerId ||
+            item.backendId != authorizedBackendId ||
+            item.name.empty() || item.query.empty() ||
+            item.name.size() > 1024U || item.query.size() > 1024U ||
+            (item.state != "active" && item.state != "inactive" &&
+             item.state != "unknown"))
+        {
+            response = serviceUnavailableProblem(path, requestId,
+                correlationId);
+            return true;
+        }
+        const std::string body = "{\"searchTimerId\":\"" +
+            jsonEscape(item.searchTimerId) + "\",\"backendId\":\"" +
+            jsonEscape(item.backendId) + "\",\"name\":\"" +
+            jsonEscape(item.name) + "\",\"query\":\"" +
+            jsonEscape(item.query) + "\",\"state\":\"" +
+            jsonEscape(item.state) +
+            "\",\"meta\":{\"partial\":false}}";
+        response = jsonResponse(body, requestId, correlationId);
+        return true;
+    }
+
     if (path == PublicSearchTimerCollectionPath)
     {
         if (actorRef.empty())
@@ -11414,6 +11493,7 @@ bool PublicApiRuntime::tryHandlePost(
         path == PublicTimerAssignmentCollectionPath ||
         path == PublicSearchTimerCollectionPath ||
         path == PublicSearchTimerDraftPreviewPath ||
+        publicSearchTimerDetailPath(path, timerAssignmentId) ||
         publicSearchTimerPreviewPath(path, timerAssignmentId) ||
         publicOperationPath(path, operationId))
     {
@@ -11728,6 +11808,7 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
         path == PublicTimerAssignmentCollectionPath ||
         path == PublicSearchTimerCollectionPath ||
         path == PublicSearchTimerDraftPreviewPath ||
+        publicSearchTimerDetailPath(path, timerAssignmentId) ||
         publicSearchTimerPreviewPath(path, timerAssignmentId) ||
         publicOperationPath(path, operationId))
     {
