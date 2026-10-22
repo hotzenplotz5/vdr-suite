@@ -418,6 +418,9 @@ struct PublicEpgWindowRequest
     std::string fromTime;
     std::string untilTime;
     std::size_t limit = 192U;
+    // Private cache keyset, decoded from a scope- and window-bound cursor.
+    std::string afterStartTime;
+    std::string afterCacheEventId;
 };
 
 struct PublicEpgWindowResult
@@ -425,6 +428,9 @@ struct PublicEpgWindowResult
     PublicEpgNowNextStatus status = PublicEpgNowNextStatus::unavailable;
     std::vector<PublicEpgNowNextItem> events;
     bool hasMore = false;
+    // These values identify the last cache row, not a native source EventID.
+    std::string nextStartTime;
+    std::string nextCacheEventId;
 };
 
 // Read-only, exact source-provenanced EPG airing; no Timer CREATE authority.
