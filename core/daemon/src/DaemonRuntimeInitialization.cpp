@@ -1379,6 +1379,178 @@ bool DaemonRuntime::initialize()
             return result;
         });
 
+    PublicApiRuntime::instance().registerSearchTimerNativeMutation(
+        [this](const PublicSearchTimerNativeMutationRequest& request)
+        {
+            PublicSearchTimerNativeMutationResult result;
+            if (request.actorRef.empty() || request.backendId.empty() ||
+                request.publicSearchTimerId.empty() || !request.confirmed ||
+                request.ifMatch.size() != 35U ||
+                request.ifMatch.compare(0U, 3U, "sr_") != 0 ||
+                !config_.suiteBridge().enabled ||
+                request.backendId != config_.suiteBridge().backendId ||
+                !mutationOperationRepository_ || !publicSearchTimerIdentities_ ||
+                !backendRegistryService_ || !backendAccessPolicy_ ||
+                !backendAgentRepository_)
+                return result;
+
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            const auto access = backendAccessPolicy_->canWriteToBackend(
+                *backendRegistryService_, request.backendId);
+            if (!access.allowed || !backend || !backend->online)
+                return result;
+
+            const std::int64_t now =
+                std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::system_clock::now().time_since_epoch())
+                    .count();
+            SearchTimerCurrentBackendGeneration generations(
+                *backendAgentRepository_, now);
+            const auto liveGeneration =
+                generations.currentGeneration(request.backendId);
+            if (!liveGeneration.has_value()) return result;
+
+            const auto nativeId = publicSearchTimerIdentities_->
+                resolveActiveNativeId(
+                    request.backendId, request.publicSearchTimerId);
+            if (!nativeId)
+            {
+                result.status = PublicSearchTimerNativeMutationStatus::notFound;
+                return result;
+            }
+            int numericId = -1;
+            try
+            {
+                const unsigned long value = std::stoul(*nativeId);
+                if (value > static_cast<unsigned long>(2147483647L) ||
+                    std::to_string(value) != *nativeId)
+                    return result;
+                numericId = static_cast<int>(value);
+            }
+            catch (...) { return result; }
+
+            BackendRuntimeContext* runtime = nullptr;
+            for (const auto& candidate : backendRuntimeContexts_)
+            {
+                if (candidate && candidate->backendId == request.backendId &&
+                    candidate->providerLocalControlTransport &&
+                    candidate->suiteBridgeAgentRuntime)
+                {
+                    runtime = candidate.get();
+                    break;
+                }
+            }
+            if (!runtime) return result;
+
+            SearchTimerNativeCasLocalProvider provider(
+                runtime->backendId, *runtime->providerLocalControlTransport);
+            const auto seen = provider.observeRule(
+                request.backendId, numericId);
+            if (!seen.available || !seen.durable) return result;
+            if (!seen.found)
+            {
+                result.status = PublicSearchTimerNativeMutationStatus::notFound;
+                return result;
+            }
+            if (seen.revision != request.ifMatch)
+            {
+                result.status = PublicSearchTimerNativeMutationStatus::conflict;
+                return result;
+            }
+
+            SearchTimerNativeCasAdmissionRequest admissionInput;
+            admissionInput.actorId = request.actorRef;
+            admissionInput.backendGeneration = *liveGeneration;
+            admissionInput.idempotencyKey = request.idempotencyKey;
+            admissionInput.requestedAt = now;
+            admissionInput.native.backendId = request.backendId;
+            admissionInput.native.publicSearchTimerId =
+                request.publicSearchTimerId;
+            admissionInput.native.nativeId = *nativeId;
+            admissionInput.native.expectedGeneration = seen.generation;
+            admissionInput.native.expectedRevision = seen.revision;
+            switch (request.action)
+            {
+                case PublicSearchTimerNativeAction::update:
+                    admissionInput.native.action =
+                        SearchTimerNativeCasAction::update;
+                    if (!SearchTimerNativeCasLocalProvider::
+                        buildInactiveQueryUpdate(seen, numericId,
+                            request.query, admissionInput.native.changePayload))
+                    {
+                        result.status =
+                            PublicSearchTimerNativeMutationStatus::invalid;
+                        return result;
+                    }
+                    break;
+                case PublicSearchTimerNativeAction::activate:
+                    admissionInput.native.action =
+                        SearchTimerNativeCasAction::activate;
+                    break;
+                case PublicSearchTimerNativeAction::deactivate:
+                    admissionInput.native.action =
+                        SearchTimerNativeCasAction::deactivate;
+                    break;
+                case PublicSearchTimerNativeAction::remove:
+                    admissionInput.native.action =
+                        SearchTimerNativeCasAction::remove;
+                    break;
+            }
+
+            SearchTimerNativeCasAdmissionService admission(
+                *mutationOperationRepository_);
+            const auto admitted = admission.admit(admissionInput);
+            switch (admitted.status)
+            {
+                case SearchTimerNativeCasAdmissionStatus::invalid:
+                    result.status =
+                        PublicSearchTimerNativeMutationStatus::invalid;
+                    return result;
+                case SearchTimerNativeCasAdmissionStatus::idempotencyConflict:
+                case SearchTimerNativeCasAdmissionStatus::operationConflict:
+                    result.status =
+                        PublicSearchTimerNativeMutationStatus::conflict;
+                    return result;
+                case SearchTimerNativeCasAdmissionStatus::prepared:
+                case SearchTimerNativeCasAdmissionStatus::replayed:
+                    break;
+                default:
+                    return result;
+            }
+
+            auto operation = admitted.operation;
+            if (operation.state ==
+                    vdrsuite::operations::MutationOperationState::accepted &&
+                operation.backendGeneration == *liveGeneration)
+            {
+                SearchTimerNativeCasDispatchService dispatch(
+                    *mutationOperationRepository_, generations);
+                SearchTimerNativeCasDispatchRequest command;
+                command.operationId = operation.operationId;
+                command.actorId = request.actorRef;
+                command.backendGeneration = operation.backendGeneration;
+                command.now = now;
+                command.backendWriteAuthorized = access.allowed;
+                command.operatorConfirmed = request.confirmed;
+                command.native = admissionInput.native;
+                const auto invoked = dispatch.dispatchOnce(command, provider);
+                if (!invoked.operation.operationId.empty())
+                    operation = invoked.operation;
+            }
+            result.status = admitted.status ==
+                    SearchTimerNativeCasAdmissionStatus::prepared
+                ? PublicSearchTimerNativeMutationStatus::accepted
+                : PublicSearchTimerNativeMutationStatus::replayed;
+            result.operation.operationId = operation.operationId;
+            result.operation.state =
+                vdrsuite::operations::mutationOperationStateName(
+                    operation.state);
+            result.operation.backendId = operation.backendId;
+            result.operation.resourceRevision = operation.operationRevision;
+            return result;
+        });
+
     PublicApiRuntime::instance().registerSearchTimerCreate(
         [this](const PublicSearchTimerCreateRequest& request)
         {
