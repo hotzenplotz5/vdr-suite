@@ -6457,6 +6457,7 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
             item.epgTitle.size() <= 1024U &&
             item.subtitle.size() <= 1024U &&
             item.epgDescription.size() <= 4096U &&
+            item.providerTitle.size() <= 1024U &&
             item.originalTitle.size() <= 1024U &&
             item.tagline.size() <= 1024U &&
             item.seriesTitle.size() <= 1024U &&
@@ -6497,6 +6498,7 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
         appendText("epgTitle", item.epgTitle);
         appendText("subtitle", item.subtitle);
         appendText("epgDescription", item.epgDescription);
+        appendText("providerTitle", item.providerTitle);
         appendText("originalTitle", item.originalTitle);
         appendText("tagline", item.tagline);
         appendText("seriesTitle", item.seriesTitle);
