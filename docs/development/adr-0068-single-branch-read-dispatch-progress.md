@@ -13,3 +13,14 @@ This is the review log of the ongoing checkpoint, **not a claim of completed ADR
 - The exact original bodies were source-compared after the sixth implementation commit and all six inspected blocks matched, byte-for-byte. This is static source parity evidence, **not** a substitute for C++ compilation and CI.
 
 **Remaining checkpoint scope:** POST/DELETE domain-dispatch segmentation where safe; callback/admission lifecycle ownership of Account and Device; final Public-v1/legacy route, method, security and contract matrices; relevant source/CI validation at the final single-branch head. E1 is not started. No productive yaVDR install or R2/R3 hardware replay.
+
+## Subsequent POST and callback ownership checkpoint (2026-10-22)
+
+- Existing branch/PR continued without branch stacking; sequential fast-forward commits after `f62d691`.
+- Domain POST delegation introduced in `9b4ebf8`: six private POST methods in original match order, central dispatcher reduced from 2,666 to approximately 81 lines. No route body change; no extra mutation owner.
+- OpenAPI route source guard strengthened for delegated method bodies and first-match order in `d032d5f`, with missing/reordered delegation negative tests.
+- Callback lifecycle extracted to `PublicIdentityAdmissionLifecycle.cpp` and included by `REST_PUBLIC_API_SRC` in `768f9e2`, preserving byte-exact callback bodies. NativeTimer DELETE remains the only Public-v1 DELETE handled here.
+- Older OpenAPI and P2 architecture path guards re-pointed/fixed in `21d6ac5`; the older CI snapshots from moving source lines are not release evidence. Full CI at the **final** head is still required.
+- [Audited Public-v1 method/Legacy isolation matrix](adr-0068-public-legacy-contract-reconciliation.md) documents the OpenAPI partial inventory and the unmodified `ApiRouter` legacy POST families.
+
+**Outstanding:** full final-head CI, source/test/security review of remaining guard failures, metadata/status closeout, main divergence inspection and careful merge. E1 remains blocked until complete. No yaVDR modifications.
