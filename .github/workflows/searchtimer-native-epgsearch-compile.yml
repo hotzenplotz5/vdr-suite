@@ -51,6 +51,11 @@ jobs:
           git -C "$RUNNER_TEMP/epgsearch" diff --check
           grep -Fq 'Epgsearch-searchtimer-observe-v1.1' "$RUNNER_TEMP/epgsearch/epgsearch.c"
 
+      - name: Execute actual native DELETE CAS service body with isolated threaded mocks
+        run: |
+          python3 "$GITHUB_WORKSPACE/tools/test_epgsearch_native_delete_cas.py" \
+            --source "$RUNNER_TEMP/epgsearch"
+
       - name: Compile epgsearch native plugin only (no install or runtime)
         run: |
           make -C "$RUNNER_TEMP/epgsearch" \
