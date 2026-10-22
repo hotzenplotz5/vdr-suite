@@ -2086,7 +2086,7 @@ bool DaemonRuntime::initialize()
             PublicRecordingPlaybackTargetResolver resolver(
                 *publicRecordingIdentities_,
                 *vdrRecordingCacheRepository_);
-            const auto found = resolver.resolve(
+            const auto found = resolver.resolveForRead(
                 request.backendId, request.recordingId);
             if (found.status == PublicRecordingPlaybackTargetStatus::invalidRequest)
             {
