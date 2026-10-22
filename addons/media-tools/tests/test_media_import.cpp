@@ -40,6 +40,7 @@ struct Fixture {
 
 struct FakeProcess : ProcessRunner {
     std::string codec{"h264\n"};
+    std::string audioCodec{"aac\n"};
     std::string outputDuration{"60.0\n"};
     bool failRemux = false;
     bool failIndex = false;
@@ -56,6 +57,8 @@ struct FakeProcess : ProcessRunner {
             const fs::path target = argv.back();
             const bool duration = std::find(argv.begin(), argv.end(),
                 "format=duration") != argv.end();
+            if (std::find(argv.begin(), argv.end(), "a") != argv.end())
+                return {0, audioCodec};
             if (target.filename() == "00001.ts") {
                 assert(fs::exists(target));
                 if (duration) return {0, outputDuration};
@@ -166,7 +169,7 @@ int main() {
         assert(fs::exists(output / "00001.ts") && fs::exists(output / "index"));
         assert(fs::exists(f.source));
         assert(!fs::exists(runner.probedSource));
-        assert(runner.probes == 4 && runner.remuxes == 1 && runner.indices == 1);
+        assert(runner.probes == 5 && runner.remuxes == 1 && runner.indices == 1);
         assert(fs::path(output).extension() == ".rec");
         mustFail([&] { inspectImport(f.request()); });
         ++checks;
