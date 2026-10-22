@@ -66,6 +66,11 @@ public:
     virtual ~ISearchTimerNativeCasProvider() = default;
     // Explicit provider feature negotiation. No legacy fallback.
     virtual bool supportsAtomicGenerationCasV1() const = 0;
+    // Opt-in only for implementations that already performed a separate
+    // authoritative native readback of the exact generation/revision or
+    // same-generation absence before returning applied. Mocks and legacy
+    // providers default to unverified; they cannot close the Operation.
+    virtual bool providesVerifiedReadbackV1() const { return false; }
     virtual SearchTimerNativeCasReply compareAndWrite(
         const SearchTimerNativeCasRequest& request) = 0;
 };
