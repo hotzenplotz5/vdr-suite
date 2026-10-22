@@ -58,7 +58,7 @@ std::string sha256(const fs::path& path)
 }
 
 struct Fixture {
-    fs::path root, binary, approval;
+    fs::path root, binary, approval, manifest;
     explicit Fixture(const char* fixtureBinary = "/bin/true")
     {
         if (::geteuid() != 0 || !std::getenv("TMPDIR") ||
@@ -75,12 +75,16 @@ struct Fixture {
         root = name.data();
         binary = root / "usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import";
         approval = root / "etc/vdr-suite/addon-approvals/rectools.json";
+        manifest = root / "usr/share/vdr-suite/addons/rectools/addon.json";
         fs::create_directories(binary.parent_path());
         fs::create_directories(approval.parent_path());
+        fs::create_directories(manifest.parent_path());
         for (const char* dir : {"", "usr", "usr/libexec",
             "usr/libexec/vdr-suite", "usr/libexec/vdr-suite/addons",
             "usr/libexec/vdr-suite/addons/rectools", "etc",
-            "etc/vdr-suite", "etc/vdr-suite/addon-approvals"})
+            "etc/vdr-suite", "etc/vdr-suite/addon-approvals",
+            "usr/share", "usr/share/vdr-suite", "usr/share/vdr-suite/addons",
+            "usr/share/vdr-suite/addons/rectools"})
             if (::chmod((root / dir).c_str(), 0755) != 0)
                 throw std::runtime_error("chmod directory");
         // Real executable bytes, deliberately NOT a Media Import binary.
@@ -88,7 +92,20 @@ struct Fixture {
         fs::copy_file(fixtureBinary, binary);
         if (::chmod(binary.c_str(), 0755) != 0)
             throw std::runtime_error("chmod binary");
+        writeManifest();
         writeApproval(false);
+    }
+    void writeManifest()
+    {
+        std::ofstream out(manifest, std::ios::trunc);
+        out << "{\"schemaVersion\":1,\"id\":\"rectools\",\"version\":\"0.1.0\","
+               "\"package\":\"vdr-suite-addon-media-tools\",\"state\":\"scaffold\","
+               "\"displayName\":\"Media Tools\",\"description\":\"Inactive\","
+               "\"entrypoints\":[],\"capabilities\":[],\"permissions\":[],"
+               "\"dependencies\":[]}\n";
+        out.close();
+        if (::chmod(manifest.c_str(), 0644) != 0)
+            throw std::runtime_error("chmod manifest");
     }
     void writeApproval(bool revoked)
     {
@@ -183,6 +200,12 @@ int main()
     assert(executor.execute(a) == MediaImportAgentOutcome::submitted);
     assert(executor.execute(a) == MediaImportAgentOutcome::rejected);
     assert(grants.checks >= 2);
+
+    fs::remove(fixture.manifest);
+    assert(!executor.available());
+    assert(!executor.authorize(a, "backend", 19));
+    fixture.writeManifest();
+    assert(executor.available());
 
     assert(executor.authorize(a, "backend", 19));
     fixture.writeApproval(true);
