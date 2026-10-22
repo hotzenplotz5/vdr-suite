@@ -4,12 +4,14 @@
 #include <array>
 #include <cerrno>
 #include <cmath>
+#include <cstdlib>
 #include <cstdint>
 #include <cstdio>
 #include <ctime>
 #include <fcntl.h>
 #include <fstream>
 #include <iomanip>
+#include <iterator>
 #include <limits>
 #include <sstream>
 #include <stdexcept>
@@ -419,9 +421,9 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
     demand(std::fabs(finalDuration - originalDuration) <=
            std::max(4.0, originalDuration * 0.02),
            "HEVC output duration differs from original");
+    copyInfo(current, stage.path / "info");
     invoke(runner, {"/usr/bin/vdr", "--genindex=" + stage.path.string()});
     demand(nonempty(stage.path / "index"), "HEVC recording index missing");
-    copyInfo(current, stage.path / "info");
     for (const auto& part : current.segments)
         demand(same(identity(current.videoRoot / current.relativeRecording /
                              part.filename), part),
@@ -451,10 +453,18 @@ fs::path publishShrinkCandidate(const ShrinkPlan& plan,
            "invalid shrink review location");
     prohibitSymlinks(candidate);
     demand(fs::is_directory(candidate), "shrink review candidate missing");
-    std::ifstream evidence(candidate / ".shrink-review", std::ios::binary);
-    demand(static_cast<bool>(evidence), "shrink review evidence missing");
-    const std::string saved((std::istreambuf_iterator<char>(evidence)),
-                            std::istreambuf_iterator<char>());
+    Descriptor evidence(::open((candidate / ".shrink-review").c_str(),
+         O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK));
+    struct stat evidenceStat{};
+    demand(evidence.fd >= 0 && ::fstat(evidence.fd, &evidenceStat) == 0 &&
+           S_ISREG(evidenceStat.st_mode) &&
+           evidenceStat.st_size > 0 && evidenceStat.st_size <= 128,
+           "shrink review evidence missing or unsafe");
+    std::array<char, 128> bytes{};
+    const ssize_t length = ::read(evidence.fd, bytes.data(), bytes.size());
+    demand(length == evidenceStat.st_size,
+           "shrink review evidence changed");
+    const std::string saved(bytes.data(), static_cast<std::size_t>(length));
     demand(saved == signature(checked), "candidate belongs to a different recording");
     demand(nonempty(candidate / "00001.ts") &&
            nonempty(candidate / "index") && nonempty(candidate / "info"),
