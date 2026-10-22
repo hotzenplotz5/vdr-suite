@@ -787,6 +787,12 @@ static void test_epg_window_keyset_multi_day_and_stale_cursor()
     assert(repo.upsertEventsForBackend("remote", {
         make_event("foreign", "ch", "another-backend",
                    "1791651600", "1791655200")}));
+    // The Legacy/Web EPG cache-window owner uses this same bounded service
+    // query. Paging must preserve its titles, identity, order and timing.
+    const auto webCacheReference =
+        repo.findWindowForBackend("home", "ch", from, until, 20);
+    assert(webCacheReference.size() == 6U);
+    std::size_t referenceIndex = 0U;
     std::vector<std::string> collected;
     std::string afterStart, afterId;
     for (int page = 0; page < 8; ++page)
@@ -795,7 +801,17 @@ static void test_epg_window_keyset_multi_day_and_stale_cursor()
             "home", "ch", from, until, 2, afterStart, afterId);
         assert(rows.size() <= 2U);
         if (rows.empty()) break;
-        for (const auto& row : rows) collected.push_back(row.id);
+        for (const auto& row : rows)
+        {
+            assert(referenceIndex < webCacheReference.size());
+            const auto& reference = webCacheReference[referenceIndex++];
+            assert(row.id == reference.id);
+            assert(row.title == reference.title);
+            assert(row.subtitle == reference.subtitle);
+            assert(row.startTime == reference.startTime);
+            assert(row.endTime == reference.endTime);
+            collected.push_back(row.id);
+        }
         afterStart = rows.back().startTime;
         afterId = rows.back().id;
         assert(repo.hasWindowCursorAnchorForBackend(
@@ -807,6 +823,7 @@ static void test_epg_window_keyset_multi_day_and_stale_cursor()
     }
     assert((collected == std::vector<std::string>{
         "a", "b", "c", "d", "e", "f"}));
+    assert(referenceIndex == webCacheReference.size());
     assert(repo.findWindowForBackend(
         "home", "ch", from, until, 2, afterStart, afterId).empty());
     assert(repo.findWindowForBackend(
