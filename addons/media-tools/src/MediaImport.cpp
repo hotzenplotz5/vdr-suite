@@ -17,6 +17,7 @@
 #include <memory>
 #include <poll.h>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <thread>
