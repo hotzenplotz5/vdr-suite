@@ -84,7 +84,10 @@ Ohne diese Konfiguration wird die Funktion nicht angeboten.
 Die Aufnahme wird serverseitig anhand der `rec_...`-Kennung und eines
 aktuellen Backend-Snapshots erneut aufgelöst. Browserpfade werden nie
 ausgeführt. Der Prüfstatus wird aktuell nur im Daemon-Speicher gehalten,
-mit genau einer gleichzeitig laufenden Prüfung; die Anbindung an
+mit genau einer gleichzeitig laufenden Prüfung; jeder Status-Abruf
+prüft das backend-spezifische Recht `media.recording.play` erneut
+(zusätzlich zur Bindung an den ursprünglichen Akteur), sodass der
+Entzug dieses Rechts keine weiteren Berichtabrufe erlaubt. Die Anbindung an
 Remote-Agenten und dauerhafte Core-Operations fehlt noch. Bei einem
 Daemon-Neustart bleibt kein abrufbarer Prüfbericht erhalten. Es gibt
 weiterhin **keine** produktive Add-on-Aktivierung oder Paketinstallation,

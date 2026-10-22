@@ -483,8 +483,7 @@ public:
             request.method == "GET" &&
             (isPublicBackendCollection || isPublicMediaImportCapabilityResource ||
              isPublicMediaImportSourcesResource ||
-             isPublicMediaCheckCapabilityResource ||
-             isPublicMediaCheckStatusResource);
+             isPublicMediaCheckCapabilityResource);
         const bool isPublicAccountCollection =
             path == "/api/v1/accounts";
         const std::string publicAccountPrefix =
@@ -1394,6 +1393,48 @@ public:
 
             gate.authorizedBackendIds =
                 std::move(discoveryScopes);
+            gate.allowed = true;
+            return gate;
+        }
+
+        // M2 report reads require the same effective backend grant as the
+        // POST that starts a check. Discovery visibility alone is insufficient
+        // after permission revocation.
+        if (request.method == "GET" && isPublicMediaCheckStatusResource)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+
+            AuthorizationRequest checkRead;
+            checkRead.permission = "media.recording.play";
+            checkRead.backendId = publicMediaCheckBackendId;
+            checkRead.action = "media.recording.check.read";
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(gate.context, checkRead);
+            if (!appendDecisionEvent(gate.context, decision, ""))
+            {
+                gate.rejection = errorResponse(
+                    503, "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+            if (!decision.allowed)
+            {
+                const int statusCode =
+                    decision.reasonCode == "invalid_backend_scope"
+                        ? 400
+                        : (authenticationFailure(decision) ? 401 : 403);
+                gate.rejection = errorResponse(
+                    statusCode, decision.reasonCode,
+                    messageForReason(decision.reasonCode),
+                    gate.context, authenticationFailure(decision),
+                    gate.publicApiV1);
+                return gate;
+            }
+
+            gate.authorizationDecision = decision;
+            gate.authorizedBackendIds = {publicMediaCheckBackendId};
             gate.allowed = true;
             return gate;
         }

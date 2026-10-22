@@ -164,6 +164,11 @@ int main()
             "chk_0123456789abcdef0123456789abcdef";
         const auto status = fixture.gate.evaluate(request);
         assert(status.allowed && !status.protectedMutation);
+        assert(status.authorizationDecision.permission ==
+            "media.recording.play");
+        assert(status.authorizationDecision.action ==
+            "media.recording.check.read");
+        assert(status.authorizationDecision.backendId == "backend-a");
         assert(status.authorizedBackendIds ==
             (std::vector<std::string>{"backend-a"}));
 
@@ -171,6 +176,27 @@ int main()
         anonymous.method = "GET";
         anonymous.path = request.path;
         assert(fixture.gate.evaluate(anonymous).rejection.statusCode == 401);
+    }
+
+    {
+        // Generic discovery rights or playback rights for another backend
+        // must not expose a saved Media Check report.
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "channels.view", "backend-a"));
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "media.recording.play", "backend-b"));
+        HttpServerRequest request = browserGet(fixture);
+        request.path = "/api/v1/backends/backend-a/media-checks/"
+            "chk_0123456789abcdef0123456789abcdef";
+        const auto denied = fixture.gate.evaluate(request);
+        assert(!denied.allowed && denied.rejection.statusCode == 403);
+
+        request.path = "/api/v1/backends/backend-b/media-checks/"
+            "chk_0123456789abcdef0123456789abcdef";
+        const auto allowed = fixture.gate.evaluate(request);
+        assert(allowed.allowed && !allowed.protectedMutation);
+        assert(allowed.authorizationDecision.backendId == "backend-b");
     }
 
     {
