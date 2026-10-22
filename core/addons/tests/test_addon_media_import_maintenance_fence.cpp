@@ -3,6 +3,11 @@
 #include "MutationOperation.h"
 
 #include <cassert>
+#include <cstdlib>
+#include <filesystem>
+#include <stdexcept>
+#include <vector>
+#include <unistd.h>
 #include <iostream>
 #include <string>
 
@@ -61,6 +66,45 @@ MutationOperationPayload payload(const MutationOperation& op)
     return value;
 }
 
+void checkAcrossConnections()
+{
+    const char* temp = std::getenv("TMPDIR");
+    if (!temp || !*temp)
+        throw std::runtime_error("isolated TMPDIR required");
+    namespace fs = std::filesystem;
+    std::string pattern = (fs::path(temp) /
+                           "vdr-addon-maintenance-XXXXXX").string();
+    std::vector<char> writable(pattern.begin(), pattern.end());
+    writable.push_back('\0');
+    const char* created = ::mkdtemp(writable.data());
+    if (!created) throw std::runtime_error("isolated test directory unavailable");
+    const fs::path folder(created);
+    const auto name = (folder / "state.sqlite").string();
+    {
+        Database db1, db2;
+        assert(db1.open(name) && db2.open(name));
+        MutationOperationRepository repo1(db1), repo2(db2);
+        AccountabilityEventRepository audit(db1);
+        assert(repo1.ensureSchema() && audit.ensureSchema());
+        AddonMediaImportMaintenanceFence gate(db1, repo1, audit);
+        const auto actor = admin();
+        assert(gate.setFrozen(actor, true, 0,
+               {"event-external-freeze", "2026-10-22T07:02:00Z"}).status ==
+               MaintenanceFenceStatus::ok);
+        // The second SQLite connection never constructs a fence owner;
+        // its normal operation reservation must still enforce the lock.
+        const auto blocked = operation("external", "media.import", "backend-b");
+        assert(repo2.reserveWithPayload(blocked, payload(blocked)).status ==
+               MutationOperationRepositoryStatus::maintenanceBlocked);
+        assert(gate.setFrozen(actor, false, 1,
+               {"event-external-unfreeze", "2026-10-22T07:03:00Z"}).status ==
+               MaintenanceFenceStatus::ok);
+        assert(repo2.reserveWithPayload(blocked, payload(blocked)).ok());
+    }
+    std::error_code error;
+    fs::remove_all(folder, error);
+    assert(!error);
+}
 } // namespace
 
 int main()
@@ -156,5 +200,6 @@ int main()
            MaintenanceFenceStatus::forbidden);
     assert(audit.listAll().size() == 2);
 
+    checkAcrossConnections();
     std::cout << "ADDON_MEDIA_IMPORT_MAINTENANCE_FREEZE=PASS\n";
 }
