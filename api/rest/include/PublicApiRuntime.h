@@ -267,6 +267,7 @@ struct PublicRecordingDetailItem
     std::string seriesTitle;
     std::string episodeTitle;
     std::string genreText;
+    std::string manualGenreId;
     std::string releaseDate;
     int seasonNumber = 0;
     int episodeNumber = 0;
