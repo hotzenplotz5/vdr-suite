@@ -166,12 +166,40 @@ size and VDR index must pass before review, and publication uses an
 atomic no-replace rename. The review/publish binaries remain outside
 the standard daemon and Agent mutation/API composition.
 
+### Administrator-opted unattended imports (source integration)
+
+The **existing daemon event loop** can now evaluate a single backend's
+Agent-published sources once a minute during a configured local-time window.
+The root-managed `/etc/default/vdr-suite-daemon` can opt in using all three
+non-secret values below; their absence or an invalid window keeps automatic
+imports disabled:
+
+```ini
+VDR_SUITE_MEDIA_IMPORT_AUTO_ACTOR=existing_service_actor_id
+VDR_SUITE_MEDIA_IMPORT_AUTO_BACKEND=existing_backend_id
+VDR_SUITE_MEDIA_IMPORT_AUTO_WINDOW=01:00-05:00
+```
+
+The actor must already exist as an active **Service** identity, hold the
+backend-specific `addons.media.import` grant, and pass all current Core
+activation, Agent capability and backend write fences. The administrator
+must separately authorize the Agent's local inventory and writable staging
+path. Configuring the three values does not create a service identity,
+grant privileges or enable an add-on. There is no new queue: scheduling
+calls the same Core admission/assignment used by API v1. At most one
+source is submitted per minute after consulting the existing durable
+`media.import` Operations. A running or ambiguous operation blocks the
+next one. Stable idempotency keys prevent retries and duplicate imports
+across daemon restarts; a failed source requires manual review. Windows
+may cross midnight (for example `23:00-04:00`). There is no browser
+toggle or automatic production deployment yet.
+
 **Not yet production-complete:** the Agent's 600-second assignment
-deadline limits long imported video transcodes. Daemon-owned scheduled
-imports and restart-safe automatic batches, external subtitle search or
-playback language preference, VDR-compatible chapter conversion, remote
-Media Check, and shrink through authorized API v1/Core Operations remain
-open. The existing Suite recording-cache enrichment and artwork owners
+deadline limits long imported video transcodes. Unattended scheduling is
+implemented in source but has not been accepted on a real VDR host.
+External subtitle search or playback language preference, VDR-compatible
+chapter conversion, remote Media Check, and shrink through authorized API
+v1/Core Operations remain open. The existing Suite recording-cache enrichment and artwork owners
 must remain the only metadata/scraper architecture. A host acceptance
 using real VDR recordings has not been authorized or performed. The
 default backend-agent systemd unit also denies writes outside its own

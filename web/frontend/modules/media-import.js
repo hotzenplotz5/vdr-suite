@@ -410,7 +410,7 @@
     const root = element('section', 'media-import-panel');
     root.appendChild(element('h3', '', 'Media Tools · Import'));
     root.appendChild(element('p', '', 'Nur durch den Backend-Agenten freigegebene Quellen. ' +
-      'Keine Dateipfade. Mehrfachimport arbeitet nur bei geöffnetem Browser; kein Nachtlauf.'));
+      'Keine Dateipfade. Mehrfachimport im geöffneten Browser; unbeaufsichtigte Nachtläufe nur nach gesonderter Server-Freigabe.'));
     const label = element('label', '', 'Importquelle');
     const select = element('select', 'media-import-source');
     select.disabled = true;

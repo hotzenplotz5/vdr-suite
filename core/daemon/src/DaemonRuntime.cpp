@@ -15,6 +15,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <ctime>
+#include <exception>
 #include <iostream>
 
 std::atomic<bool> DaemonRuntime::shutdownRequested_(false);
@@ -119,7 +120,14 @@ int DaemonRuntime::run()
             const auto now = std::chrono::steady_clock::now();
             if (now - lastMediaImportPoll >= std::chrono::minutes(1)) {
                 lastMediaImportPoll = now;
-                pollScheduledMediaImport();
+                try {
+                    pollScheduledMediaImport();
+                } catch (...) {
+                    // A failed optional automation can never terminate the
+                    // daemon's HTTP / recording service.
+                    std::cerr << "Media Import automation failed closed"
+                              << std::endl;
+                }
             }
             const bool externalHint = externalVdrChangeHint_.exchange(false);
 
