@@ -1,5 +1,6 @@
 #include "BackendAgentMediaImportRuntime.h"
 #include "AddonInstallSnapshot.h"
+#include "MediaToolsImportRunLock.h"
 #include <utility>
 namespace vdrsuite::agent {
 
@@ -21,7 +22,10 @@ bool BackendAgentMediaImportRuntime::available()
             context.credentialSecret.empty() ||
             context.backendGeneration == 0 ||
             !vdrsuite::addons::inspectMediaToolsInstallSnapshot(
-                trustedRoot_).bytesVerified())
+                trustedRoot_).bytesVerified() ||
+            !vdrsuite::mediatools::MediaToolsImportRunLock::tryAcquire(
+                trustedRoot_,
+                vdrsuite::mediatools::MediaToolsImportRunLock::Mode::sharedExecution))
             return false;
         return inventory_.hasTrustedSource(backendId_);
     } catch (...) { return false; }
