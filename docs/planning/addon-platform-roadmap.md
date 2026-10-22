@@ -100,6 +100,24 @@ source/manual staging and future Debian packaging, **not** permission or a
 release-signature substitute. Production activation, upgrade choreography,
 installed-package verification and real-host acceptance remain open.
 
+## A4 read-only package maintenance admission checkpoint
+
+The new `AddonMediaToolsMaintenanceReadService` queries the **existing**
+Core `AddonActivationIntentRepository` and `MutationOperationRepository`
+for one exact backend. It denies a maintenance snapshot unless an
+administrator explicitly disabled the module with a durable revision and
+no `media.import` operation remains in `accepted`, `queued`,
+`dispatching`, `executed_unverified` or `outcome_unknown`.
+Missing schemas and saturated operation listings deny as well; an unknown
+outcome is never silently considered resolved. Isolated tests use real
+in-memory SQLite and exercise cross-backend scoping and large listings.
+This is **diagnostic only**: it is not an exclusive admission/Agent drain
+lease, does not stop new work, and cannot authorize package updates,
+uninstalls or re-activation. Before any genuine release workflow, Core
+must coordinate a durable no-new-admission fence, already executing
+Agent commands, authenticated effective rights, all relevant backends,
+package provenance, rollback and audited administrator intent.
+
 ## Recommended execution order
 
 1. Finish A2's **no-dpkg default** and rejection regressions, using only
