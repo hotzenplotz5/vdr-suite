@@ -37,7 +37,8 @@ jobs:
           for patch_name in \
             0001-searchtimer-owner-lock-legacy-writers.patch \
             0002-searchtimer-native-generation-observe.patch \
-            0003-searchtimer-native-revision-observe-v11.patch
+            0003-searchtimer-native-revision-observe-v11.patch \
+            0004-searchtimer-native-toggle-cas.patch
           do
             patch_file="$GITHUB_WORKSPACE/patches/epgsearch/$patch_name"
             test -s "$patch_file"
