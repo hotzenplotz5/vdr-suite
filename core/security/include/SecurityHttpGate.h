@@ -437,10 +437,54 @@ public:
                 path.size() - mediaImportCapabilityPrefix.size() -
                 mediaImportSourcesSuffix.size()).find('/') ==
                     std::string::npos;
+        const std::string mediaCheckBase = "/api/v1/backends/";
+        const std::string mediaCheckCapabilitySuffix =
+            "/capabilities/media-check";
+        const std::string mediaCheckCollectionSuffix = "/media-checks";
+        std::string publicMediaCheckBackendId;
+        bool isPublicMediaCheckCapabilityResource = false;
+        bool isPublicMediaCheckCollection = false;
+        bool isPublicMediaCheckStatusResource = false;
+        if (path.compare(0, mediaCheckBase.size(), mediaCheckBase) == 0) {
+            const std::size_t split = path.find('/', mediaCheckBase.size());
+            if (split != std::string::npos) {
+                const std::string candidate = path.substr(
+                    mediaCheckBase.size(), split - mediaCheckBase.size());
+                const std::string tail = path.substr(split);
+                const bool valid = !candidate.empty() &&
+                    candidate.size() <= 128 &&
+                    candidate != "." && candidate != ".." &&
+                    candidate != "*" &&
+                    std::all_of(candidate.begin(), candidate.end(),
+                        [](unsigned char ch) {
+                            return std::isalnum(ch) || ch == '-' ||
+                                ch == '_' || ch == '.';
+                        });
+                if (valid) {
+                    isPublicMediaCheckCapabilityResource =
+                        tail == mediaCheckCapabilitySuffix;
+                    isPublicMediaCheckCollection =
+                        tail == mediaCheckCollectionSuffix;
+                    isPublicMediaCheckStatusResource =
+                        tail.compare(0, mediaCheckCollectionSuffix.size() + 1,
+                            mediaCheckCollectionSuffix + "/") == 0 &&
+                        tail.find('/', mediaCheckCollectionSuffix.size() + 1)
+                            == std::string::npos;
+                    if (isPublicMediaCheckCapabilityResource ||
+                        isPublicMediaCheckCollection ||
+                        isPublicMediaCheckStatusResource)
+                        publicMediaCheckBackendId = candidate;
+                }
+            }
+        }
+        const bool isPublicMediaCheckCreate =
+            isPost && isPublicMediaCheckCollection;
         const bool isPublicBackendRead =
             request.method == "GET" &&
             (isPublicBackendCollection || isPublicMediaImportCapabilityResource ||
-             isPublicMediaImportSourcesResource);
+             isPublicMediaImportSourcesResource ||
+             isPublicMediaCheckCapabilityResource ||
+             isPublicMediaCheckStatusResource);
         const bool isPublicAccountCollection =
             path == "/api/v1/accounts";
         const std::string publicAccountPrefix =
@@ -891,6 +935,7 @@ public:
             isPublicAccountSessionMutation ||
             isPublicTimerAssignmentCreate ||
             isPublicMediaImportCreate ||
+            isPublicMediaCheckCreate ||
             isPublicDeviceRecordingSessionCreate ||
             isPublicDeviceRecordingSessionStop ||
             isPublicDeviceRecordingSubtitleSelection || isTimerUpdateAction ||
@@ -1909,6 +1954,12 @@ public:
             requestToAuthorize.permission = "addons.media.import";
             requestToAuthorize.action = "media.import";
             requestToAuthorize.backendId = publicMediaImportBackendId;
+        }
+        else if (isPublicMediaCheckCreate)
+        {
+            requestToAuthorize.permission = "media.recording.play";
+            requestToAuthorize.action = "media.recording.check";
+            requestToAuthorize.backendId = publicMediaCheckBackendId;
         }
         else if (isTimerCreateAction ||
                  isPublicTimerAssignmentCreate)
