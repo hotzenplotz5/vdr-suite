@@ -51,6 +51,11 @@ private:
     std::chrono::seconds maximum_;
 };
 
+// FFprobe on MPEG-TS can repeat one stream under stream/program entries.
+// Accept only one consistent, strictly checked video codec token, even if
+// repeated; never take the first value if later entries disagree.
+std::string parseProbedVideoCodec(const std::string& text);
+
 ImportPlan inspectImport(const ImportRequest& request);
 
 // Import is intentionally a separate call. Preflight is supplied by the
