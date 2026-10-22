@@ -1,4 +1,4 @@
-# Public-v1 VDR SearchTimers: Device read, preview and confirmed CREATE
+# Public-v1 VDR SearchTimers: Device read, preview and inactive CREATE staging
 
 The current implemented version is **Public API v1**, not v2.
 
@@ -58,6 +58,20 @@ This is an API/CI slice. Real Hisense hardware and production yaVDR deployment a
 backend, `SearchTimer/new`, `searchtimer.create`, and the request key;
 a SHA-256 payload fingerprint enforces byte-stable replays. A changed payload
 with the same key fails as a conflict.
+
+**Safety change (2026-10-22):** the Public-v1 JSON body must include
+`"active":false` explicitly. Missing `active` or `"active":true`
+returns **HTTP 422 before durable admission/provider write**. The daemon
+callback independently rejects active requests. This deliberately makes
+Public-v1 CREATE an inactive **staging** operation: epgsearch must not
+schedule recordings from the rule until a separately authorized, generation-
+fenced activation path exists. Existing legacy/browser integrations remain
+separate and unchanged. A Device/TV client should present the read-only
+`draft-preview` first, prominently show `totalCount`, and require a human
+confirmation. That count is **EPG text matches**, not the final number of
+recordings. The JavaScript reference client enforces explicit preview
+acknowledgement before sending the inactive CREATE, but the backend does
+not claim that a GET preview was executed beforehand.
 
 After exact Device HTTP authorization and backend write/online/Agent-generation
 checks, `DaemonRuntime` invokes this existing admission service and, only
