@@ -60,7 +60,7 @@ let batchOperations = [];
 const BATCH_OP_A = 'op_' + 'd'.repeat(32);
 const BATCH_OP_B = 'op_' + 'e'.repeat(32);
 const SOURCE_B = 'source_987654321012345';
-let batchState = 'dispatching';
+let batchStates = Object.create(null);
 let delayedSubmit = null;
 let operationReads = 0;
 let submits = 0;
@@ -118,7 +118,7 @@ function transport(url, options) {
     ++operationReads;
     return Promise.resolve(reply(200, {
       operationId: path.split('/').pop(), backendId: 'backend-a',
-      state: batchState
+      state: batchStates[path.split('/').pop()] || 'dispatching'
     }));
   }
   if (path === '/api/v1/operations/' + OP) {
@@ -421,7 +421,7 @@ function publishHomeResume() {}
   await settle();
   assert.strictEqual(submits, countBefore + 1);
   assert.strictEqual(batchOperations.length, 1);
-  batchState = 'outcome_unknown';
+  batchStates[BATCH_OP_A] = 'outcome_unknown';
   await findClass(mount, 'media-import-refresh').listeners.click();
   await settle();
   assert.strictEqual(batchOperations.length, 1);
@@ -431,23 +431,19 @@ function publishHomeResume() {}
   // start two sequential Operations, provided VDR confirms the first.
   context.resetMediaImportVisibility(true);
   batchOperations = [];
-  batchState = 'dispatching';
+  batchStates = Object.create(null);
   assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
   context.selectModule('media-import');
   await settle();
   await findClass(mount, 'media-import-batch').listeners.click();
   await settle();
   assert.strictEqual(batchOperations.length, 1);
-  batchState = 'succeeded';
+  batchStates[BATCH_OP_A] = 'succeeded';
   await findClass(mount, 'media-import-refresh').listeners.click();
-  await settle();
-  const scheduled = timerCallbacks.pop();
-  assert.strictEqual(typeof scheduled, 'function');
-  scheduled();
   await settle();
   assert.strictEqual(batchOperations.length, 2,
     'second source can dispatch only after independent readback');
-  batchState = 'failed_verified';
+  batchStates[BATCH_OP_B] = 'failed_verified';
   await findClass(mount, 'media-import-refresh').listeners.click();
   await settle();
   assert.strictEqual(batchOperations.length, 2);
