@@ -48,6 +48,26 @@ previews. No installed VDR path is touched. TVScraper metadata continues
 through the native SuiteBridge/Core provider integration (ADR-0036);
 existing installations are not modified by this source-only change.
 
+## Root-owned handler approval lifecycle checkpoint
+
+For the fixed Media Tools handler, an independently approved root record
+may be created once with `tools/addons/admin_approval_issuer.py issue`,
+or atomically marked revoked with `revoke`. A new, **same-version**
+reviewed handler binary may be approved using the explicit root-only
+`rotate` operation. It requires both the *expected existing* SHA-256
+and the independently approved replacement SHA-256, verifies the installed
+candidate binary and matching inert metadata, and refuses a stale, missing,
+unsafe, mismatched-origin or revoked record. Issue/rotate/revoke serialize
+their own writes on the root-owned approval directory; the replacement
+record is fsynced and atomically published. Reinstalling identical bytes
+does not undo a previous revocation.
+
+These operations are **not** automatic package maintainer hooks, do not
+enable the add-on, and do not attest upstream Debian/PPA signatures. Real
+package upgrade/removal choreography, active-job draining, release signing,
+backend authority and host-specific testing remain separate acceptance
+requirements. Routine diagnostics still require no dpkg ledger.
+
 ## What must still be implemented before activation
 
 1. **Trust**: signed/admin-installed `dpkg` package provenance, compatible
