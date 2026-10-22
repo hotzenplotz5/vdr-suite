@@ -621,6 +621,13 @@ int main()
     assert(runtime.tryHandleGet(artworkPath + "/%2e%2e?backendId=backend-a",
         "actor:tv", "art-bad", "", artBadId, "", "", {"backend-a"}));
     assert(artBadId.statusCode == 400);
+    // An empty asset segment must not alias the collection route and emit
+    // broken /artwork//<id> URLs.
+    ApiResponse artEmptyAsset;
+    assert(runtime.tryHandleGet(artworkPath + "/?backendId=backend-a",
+        "actor:tv", "art-empty", "", artEmptyAsset, "", "",
+        {"backend-a"}));
+    assert(artEmptyAsset.statusCode == 400);
     runtime.resetRecordingArtworkLookup();
     runtime.resetSearchLookup();
     return 0;
