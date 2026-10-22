@@ -1,3 +1,16 @@
+# Provider-native CAS protocol is a mock-only prerequisite. Never
+# substitute a legacy numeric-ID RESTfulAPI/SVDRP writer here.
+.PHONY: test-searchtimer-native-cas-contract
+test-searchtimer-native-cas-contract:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerNativeCasContract.cpp \
+		core/vdr/tests/test_search_timer_native_cas_contract.cpp \
+		-o $(BUILD_DIR)/test_search_timer_native_cas_contract
+	$(BUILD_DIR)/test_search_timer_native_cas_contract
+
+test-phase: test-searchtimer-native-cas-contract
+test-fast: test-searchtimer-native-cas-contract
+
 .PHONY: test-public-epg-timer-intent-admission
 
 test-public-epg-timer-intent-admission:
