@@ -49,7 +49,7 @@ The metadata object always provides `state` (`absent`, `partial`,
 `available`), `source` (`none` or
 `restfulapi-scraper-bridge`) and `contentKind` (`unknown`, `movie`,
 `series-episode`). Additional nonempty fields may include `epgTitle`,
-`subtitle`, `epgDescription`, `originalTitle`, `tagline`,
+`subtitle`, `epgDescription`, `providerTitle`, `originalTitle`, `tagline`,
 `seriesTitle`, `episodeTitle`, `genreText`, `releaseDate`; positive
 fields may include `seasonNumber`, `episodeNumber` and
 `providerRuntimeMinutes`. An absent metadata state returns HTTP 200 with
@@ -87,3 +87,43 @@ Before integration, recheck `main` and open E1/S1 PRs: #519, #514, #516
 change `api/openapi.json` and shared `PublicApiRuntime` and daemon files.
 Review/reconcile only the M1 hunks, preserve other work, rerun the final-head
 tests, and do not merge automatically.
+
+## M1 parity and remaining read-model gaps (isolated development)
+
+| Existing Web/backend fact | Public-v1 detail projection | M1 disposition |
+| --- | --- | --- |
+| Recording display name and edited cut marker | Same `PublicRecordingCollectionProjection` / `PublicRecordingDisplayName` | Implemented, including path-derived title when native title/media ID is missing |
+| Recording ID, backend scope and deleted/moved source | Same persisted `rec_` identity, cache and rebind evidence, independently authorized `recordings.view` | Implemented; playback still requires playable media ID |
+| Native EPG title/subtitle/description | Bounded native `metadata.*` fields; duplicate description omitted when identical to collection excerpt | Implemented |
+| Scraper source, provider title, series/episode, genre text, dates | Bounded existing `VdrRecordingMetadata` values, only when known provider source is present | Implemented; no new provider or artwork URL |
+| Manual locked metadata assignment | Web `MetadataRepository` reads `ManualRecordingMetadataAssignmentRepository`, keyed by backend + canonical recording resource key | **Still missing in Public-v1**: must reuse its actual mapping, active relationship/revision and read-only service without exposing private `resourceKey`, external ID, actor or poster path |
+| Manual genre selection / series hierarchy overrides | Web `GenreIndexRepository` and `RecordingSeriesHierarchyOverrideRepository` | **Not projected in detail yet**; separate focused read integration required |
+| Artwork and image cache | Web poster/image references and M2 public-artwork work | Out of scope for M1 |
+
+The legacy `MetadataRepository::getMetadataForRecording(int)` is **not** a
+suitable public ID resolver: its integer legacy recording identity does not
+provide the exact authorized backend/`rec_` binding. Do not expose it directly
+or introduce a second identity or metadata database.
+
+A selected manual metadata assignment already owns Suite opaque `mdent_`,
+`mdasg_`, and `mdtgt_` identities with a revision. Before providing these
+to clients, the next M1 slice must verify the existing active backend-target
+binding and that its read path has no write/DDL side effects; the old Web JSON
+also embeds backend-native keys and image URLs, so it cannot be reused as
+Public-v1 JSON. The current detail contract intentionally makes no false claim
+that manual assignments or manually selected genre are included.
+
+Competitor baseline: Kodi/Plex metadata detail and provenance behavior has
+**not been verified in this branch**; this implementation prioritizes actual
+VDR-Suite Web parity and explicit availability over speculative competitor
+fields. No migration or installed-device parity is claimed from hosted CI.
+
+Recommended remaining M1 slices:
+
+- M1.2: verify read-only existing manual assignment lookup and its Web/key
+  parity; project safe assignment title, revision and existing opaque identity.
+- M1.3: integrate canonical genre and optional series-hierarchy overrides
+  only through the existing server repositories, with backend/security parity.
+- M1.4: targeted authorization, malformed-data, manual-override and Web
+  comparisons; prepare E1/E2/S1 merge reconciliation without merging them.
+
