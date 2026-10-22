@@ -2829,14 +2829,14 @@ bool parsePublicSearchTimerCreateBody(
     }
     skipAccountMutationWhitespace(input,pos);
     if (pos != input.size()) return false;
-    for (const char* required : {"name","query","mode","compareTitle",
-         "compareSubtitle","compareSummary","confirmed"})
+    for (const char* required : {"name","query","active","mode",
+         "compareTitle","compareSubtitle","compareSummary","confirmed"})
         if (std::find(seen.begin(),seen.end(),required) == seen.end())
             return false;
     // epgsearch /searchtimers represents the rule name by its "search"
     // field. Its backend readback maps name = query; a different title
     // cannot round-trip or be verified as a successful native CREATE.
-    return out.name == out.query &&
+    return !out.active && out.name == out.query &&
         !out.name.empty() && out.name.size() <= 240U &&
         out.query.size() >= 2U && out.query.size() <= 240U &&
         (out.mode == 0 || out.mode == 1 || out.mode == 2 ||
