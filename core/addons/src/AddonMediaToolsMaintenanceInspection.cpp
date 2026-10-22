@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <utility>
 
 namespace vdrsuite::addons {
 namespace {
@@ -43,13 +44,23 @@ std::optional<std::int64_t> scalar(Database& database, const char* sql)
 MaintenanceInspectionResult AddonMediaToolsMaintenanceInspection::inspect(
     const RequestSecurityContext& actor, const std::string& trustedRoot) const
 {
+    return inspectAndHold(actor, trustedRoot).inspection;
+}
+
+MaintenanceInspectionHold AddonMediaToolsMaintenanceInspection::inspectAndHold(
+    const RequestSecurityContext& actor, const std::string& trustedRoot) const
+{
     using Reason = MaintenanceInspectionReason;
+    const auto deny = [](Reason reason, std::int64_t revision = 0)
+        -> MaintenanceInspectionHold {
+        return {{false, reason, revision}, std::nullopt};
+    };
     if (actor.actor.type != ActorType::User ||
         !canInspectInventory(actor).allowed)
-        return {false, Reason::forbidden, 0};
+        return deny(Reason::forbidden, 0);
     if (intents_.databaseIdentity() != &database_ ||
         operations_.databaseIdentity() != &database_)
-        return {false, Reason::incompatibleDatabases, 0};
+        return deny(Reason::incompatibleDatabases, 0);
 
     // Never follow the path chosen by package metadata or an HTTP request.
     // This path is supplied by the trusted Core install owner only.
@@ -59,25 +70,25 @@ MaintenanceInspectionResult AddonMediaToolsMaintenanceInspection::inspect(
         trustedRoot,
         vdrsuite::mediatools::MediaToolsImportRunLock::Mode::exclusiveMaintenance);
     if (!exclusive)
-        return {false, Reason::runLockUnavailable, 0};
+        return deny(Reason::runLockUnavailable, 0);
 
     auto lease = database_.acquireTransactionLease();
     ReadTransaction transaction(database_);
     if (!transaction.active())
-        return {false, Reason::storageUnavailable, 0};
+        return deny(Reason::storageUnavailable, 0);
 
     const auto frozen = scalar(database_,
         "SELECT COUNT(*) FROM addon_media_import_maintenance "
         "WHERE module_id='rectools' AND frozen=1 AND revision>0;");
     if (!frozen)
-        return {false, Reason::storageUnavailable, 0};
+        return deny(Reason::storageUnavailable, 0);
     if (*frozen != 1)
-        return {false, Reason::globalFreezeRequired, 0};
+        return deny(Reason::globalFreezeRequired, 0);
     const auto revision = scalar(database_,
         "SELECT revision FROM addon_media_import_maintenance "
         "WHERE module_id='rectools' AND frozen=1;");
     if (!revision || *revision <= 0)
-        return {false, Reason::storageUnavailable, 0};
+        return deny(Reason::storageUnavailable, 0);
 
     // Inspect all recorded backends, never just a caller-supplied backend
     // that could hide an enabled row elsewhere. Require at least one
@@ -90,11 +101,11 @@ MaintenanceInspectionResult AddonMediaToolsMaintenanceInspection::inspect(
         "WHERE module_id='rectools' AND "
         "(desired_enabled<>0 OR revision<=0);");
     if (!disabled || !enabled)
-        return {false, Reason::storageUnavailable, *revision};
+        return deny(Reason::storageUnavailable, *revision);
     if (*enabled != 0)
-        return {false, Reason::activationStillEnabled, *revision};
+        return deny(Reason::activationStillEnabled, *revision);
     if (*disabled == 0)
-        return {false, Reason::auditedDisableMissing, *revision};
+        return deny(Reason::auditedDisableMissing, *revision);
 
     // This exact action-family query is unbounded: a globally saturated
     // 256-item listing must not hide an unresolved backend's import.
@@ -104,9 +115,9 @@ MaintenanceInspectionResult AddonMediaToolsMaintenanceInspection::inspect(
         "'rejected','conflict','succeeded','failed_before_dispatch',"
         "'failed_verified','cancelled');");
     if (!unresolved)
-        return {false, Reason::storageUnavailable, *revision};
+        return deny(Reason::storageUnavailable, *revision);
     if (*unresolved != 0)
-        return {false, Reason::operationsUnresolved, *revision};
+        return deny(Reason::operationsUnresolved, *revision);
 
     // Durable Agent assignments are an INDEPENDENT authority from operations.
     // Expired or waiting-reconciliation commands are NOT proof of a drained
@@ -115,9 +126,9 @@ MaintenanceInspectionResult AddonMediaToolsMaintenanceInspection::inspect(
         "SELECT COUNT(*) FROM backend_agent_commands "
         "WHERE command_type='addon.media.import' AND state<>'completed';");
     if (!pendingCommands)
-        return {false, Reason::storageUnavailable, *revision};
+        return deny(Reason::storageUnavailable, *revision);
     if (*pendingCommands != 0)
-        return {false, Reason::agentCommandsUnresolved, *revision};
+        return deny(Reason::agentCommandsUnresolved, *revision);
 
     const auto missingResults = scalar(database_,
         "SELECT COUNT(*) FROM backend_agent_commands AS c "
@@ -126,9 +137,9 @@ MaintenanceInspectionResult AddonMediaToolsMaintenanceInspection::inspect(
         "WHERE c.command_type='addon.media.import' "
         "AND c.state='completed' AND r.command_id IS NULL;");
     if (!missingResults)
-        return {false, Reason::storageUnavailable, *revision};
+        return deny(Reason::storageUnavailable, *revision);
     if (*missingResults != 0)
-        return {false, Reason::agentResultsMissing, *revision};
+        return deny(Reason::agentResultsMissing, *revision);
 
     // An Agent that still publishes this optional executor may immediately
     // re-enter it on new dispatch. Require its advertised capability removed
@@ -137,11 +148,15 @@ MaintenanceInspectionResult AddonMediaToolsMaintenanceInspection::inspect(
         "SELECT COUNT(*) FROM backend_agent_command_capabilities "
         "WHERE command_type='addon.media.import';");
     if (!advertised)
-        return {false, Reason::storageUnavailable, *revision};
+        return deny(Reason::storageUnavailable, *revision);
     if (*advertised != 0)
-        return {false, Reason::agentCapabilityStillAdvertised, *revision};
+        return deny(Reason::agentCapabilityStillAdvertised, *revision);
 
-    return {true, Reason::locallyQuiescentSnapshot, *revision};
+    // Unlike inspect(), the successful result retains the EXACT protected
+    // inode lock until the move-only hold is destroyed. This only proves
+    // worker exclusion while held, not stable SQL authority or package trust.
+    return {{true, Reason::locallyQuiescentSnapshot, *revision},
+            std::move(exclusive)};
 }
 
 } // namespace vdrsuite::addons
