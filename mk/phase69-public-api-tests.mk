@@ -10,7 +10,7 @@ test-searchtimer-native-cas-durable-admission:
 		core/vdr/src/SearchTimerNativeCasDispatchService.cpp \
 		core/vdr/src/SearchTimerNativeCasAdmissionService.cpp \
 		core/vdr/tests/test_search_timer_native_cas_admission_service.cpp \
-		$(LDFLAGS) -o $(BUILD_DIR)/test_search_timer_native_cas_admission_service
+		$(LDFLAGS) -lcrypto -o $(BUILD_DIR)/test_search_timer_native_cas_admission_service
 	$(BUILD_DIR)/test_search_timer_native_cas_admission_service
 
 test-phase: test-searchtimer-native-cas-durable-admission
@@ -28,7 +28,7 @@ test-searchtimer-native-cas-durable-dispatch:
 		core/vdr/src/SearchTimerNativeCasContract.cpp \
 		core/vdr/src/SearchTimerNativeCasDispatchService.cpp \
 		core/vdr/tests/test_search_timer_native_cas_dispatch_service.cpp \
-		$(LDFLAGS) -o $(BUILD_DIR)/test_search_timer_native_cas_dispatch_service
+		$(LDFLAGS) -lcrypto -o $(BUILD_DIR)/test_search_timer_native_cas_dispatch_service
 	$(BUILD_DIR)/test_search_timer_native_cas_dispatch_service
 
 test-phase: test-searchtimer-native-cas-durable-dispatch
