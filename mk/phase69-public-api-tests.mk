@@ -411,6 +411,10 @@ test-phase69d-public-timer-assignment-collection:
 	$(BUILD_DIR)/test_public_timer_assignment_collection_security
 	python3 tools/check_phase69d_timer_assignment_collection.py
 
+# SearchTimer inactive-create HTTP regression is included in this compiled
+# Public-v1 collection test. Never rely on an unrun test for write safety.
+test-fast: test-phase69d-public-timer-assignment-collection
+
 .PHONY: test-phase69d-public-channel-collection
 
 test-phase69d-public-channel-collection:
