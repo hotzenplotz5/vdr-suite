@@ -406,6 +406,53 @@ function publishHomeResume() {}
   assert.strictEqual(findClass(mount, 'media-import-operation').textContent, '');
   assert.strictEqual(findClass(mount, 'media-import-start').disabled, true);
 
+
+  // User-style batch click submits only the first source. Unknown outcomes
+  // must never generate a follow-on POST.
+  submitMode = 'batch';
+  batchSources = [SOURCE, SOURCE_B];
+  context.selectModule('overview');
+  context.selectModule('media-import');
+  await settle();
+  const batchButton = findClass(mount, 'media-import-batch');
+  assert(batchButton && !batchButton.disabled);
+  const countBefore = submits;
+  await batchButton.listeners.click();
+  await settle();
+  assert.strictEqual(submits, countBefore + 1);
+  assert.strictEqual(batchOperations.length, 1);
+  batchState = 'outcome_unknown';
+  await findClass(mount, 'media-import-refresh').listeners.click();
+  await settle();
+  assert.strictEqual(batchOperations.length, 1);
+  assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, true);
+
+  // Logout clears in-session batch authority. A new deliberate click can
+  // start two sequential Operations, provided VDR confirms the first.
+  context.resetMediaImportVisibility(true);
+  batchOperations = [];
+  batchState = 'dispatching';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  await findClass(mount, 'media-import-batch').listeners.click();
+  await settle();
+  assert.strictEqual(batchOperations.length, 1);
+  batchState = 'succeeded';
+  await findClass(mount, 'media-import-refresh').listeners.click();
+  await settle();
+  const scheduled = timerCallbacks.pop();
+  assert.strictEqual(typeof scheduled, 'function');
+  scheduled();
+  await settle();
+  assert.strictEqual(batchOperations.length, 2,
+    'second source can dispatch only after independent readback');
+  batchState = 'failed_verified';
+  await findClass(mount, 'media-import-refresh').listeners.click();
+  await settle();
+  assert.strictEqual(batchOperations.length, 2);
+  assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, true);
+
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
   console.error(error);
