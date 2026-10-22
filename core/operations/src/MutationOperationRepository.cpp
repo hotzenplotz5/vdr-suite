@@ -553,6 +553,18 @@ bool MutationOperationRepository::ensureSchema()
             ");"))
         return false;
 
+    // Additive, durable owner record. Legacy existing freeze rows are kept
+    // intact. Neither package scripts nor an Agent may create an owner.
+    // Loss of the holder must not silently unfreeze the Media Import gate.
+    if (!database_.execute(
+            "CREATE TABLE IF NOT EXISTS addon_media_import_maintenance_owners ("
+            "module_id TEXT PRIMARY KEY CHECK(module_id='rectools'),"
+            "owner_actor_id TEXT NOT NULL CHECK(length(owner_actor_id)>0),"
+            "owner_token TEXT NOT NULL CHECK(length(owner_token)=32),"
+            "claimed_revision INTEGER NOT NULL CHECK(claimed_revision>0)"
+            ");"))
+        return false;
+
     return database_.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_mutation_operations_idempotency_scope "
         "ON mutation_operations(actor_id,backend_id,resource_type,resource_id,action_family,idempotency_key);"
