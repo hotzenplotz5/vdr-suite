@@ -26,6 +26,12 @@ def extract_service(source: str) -> str:
     return body
 
 
+def extract_clean_catalogue(source: str) -> str:
+    begin = source.index("static bool NativeCasCatalogueClean()\\n{")
+    end = source.index("\\n}\\n\\nbool cPluginEpgsearch::Service", begin) + 2
+    return source[begin:end]
+
+
 def extract_abi(source: str) -> str:
     start = source.index("enum eEpgsearchNativeDeleteCasStatus {")
     struct = source.index("struct Epgsearch_searchtimer_delete_cas_v1_0 {", start)
@@ -67,6 +73,13 @@ struct cSearchExts {
         for (auto* p : entries)
             if (p->ID == id) return p;
         return nullptr;
+    }
+    cSearchExt* First() { return entries.empty() ? nullptr : entries.front(); }
+    cSearchExt* Next(cSearchExt* p) {
+        auto pos = std::find(entries.begin(), entries.end(), p);
+        if (pos == entries.end()) return nullptr;
+        ++pos;
+        return pos == entries.end() ? nullptr : *pos;
     }
     void Del(cSearchExt* rule, bool release) {
         assert(!release);
@@ -150,6 +163,22 @@ int main() {
     assert(missingRevision.status == endcsUnavailable && missingRevision.noWriteAttested);
     old->nativeRevisionDurable = true;
 
+    // The native cSafeFile writer rewrites every rule, not just target ID 3.
+    // An unrelated dirty/incompletely migrated rule must fence the whole CAS.
+    cSearchExt* other = add(13, 'e', '5');
+    other->currentText = "unsaved legacy edit";
+    auto otherDirty = request(3, 'a', '1');
+    assert(otherDirty.status == endcsUnpersistedChange && otherDirty.noWriteAttested);
+    assert(SearchExts.saves == 0 && SearchExts.entries.size() == 2);
+    other->currentText = "identical";
+    other->nativeGenerationDurable = false;
+    auto otherNotDurable = request(3, 'a', '1');
+    assert(otherNotDurable.status == endcsUnpersistedChange &&
+           otherNotDurable.noWriteAttested);
+    assert(SearchExts.saves == 0);
+    other->nativeGenerationDurable = true;
+    SearchExts.entries.pop_back();
+
     auto applied = request(3, 'a', '1');
     assert(applied.status == endcsApplied && !applied.noWriteAttested);
     assert(applied.confirmedDeletedGeneration == old->nativeGeneration);
@@ -207,7 +236,8 @@ def main():
     header = (args.source / "services.h").read_text()
     body = extract_service(cpp)
     abi = extract_abi(header)
-    source = (HARNESS_HEADER + "\n" + abi +
+    clean_catalogue = extract_clean_catalogue(cpp)
+    source = (HARNESS_HEADER + "\n" + abi + "\n" + clean_catalogue +
               "\nbool Dispatch(const char* Id, void* Data) {\n" + body +
               "    return false;\n}\n" + HARNESS_TESTS)
     with tempfile.TemporaryDirectory(prefix="s1-native-cas-") as dirname:
@@ -218,7 +248,8 @@ def main():
                         str(work / "harness")], check=True)
         subprocess.run([str(work / "harness")], check=True)
     print("PASS: extracted real native DELETE-CAS body (stale ID/revision, "
-          "duplicate ID+content, concurrency, failed save, retained pointers)")
+          "duplicate ID+content, concurrent callers, dirty unrelated rules, "
+          "failed save, retained pointers)")
 
 
 if __name__ == "__main__":
