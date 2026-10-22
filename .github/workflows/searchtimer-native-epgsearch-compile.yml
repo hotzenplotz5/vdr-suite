@@ -5,6 +5,9 @@ on:
     paths:
       - 'patches/epgsearch/**'
       - '.github/workflows/searchtimer-native-epgsearch-compile.yml'
+      - 'vdr-plugin-suite-bridge/suitebridge_epgsearch_native_cas*'
+      - 'vdr-plugin-suite-bridge/Makefile'
+      - 'tools/check_epgsearch_service_abi.py'
   workflow_dispatch:
 
 permissions:
@@ -66,6 +69,18 @@ jobs:
         run: |
           python3 "$GITHUB_WORKSPACE/tools/test_epgsearch_native_mutation_cycle.py" \
             --source "$RUNNER_TEMP/epgsearch"
+
+      - name: Check pinned native epgsearch service ABI against SuiteBridge
+        run: |
+          python3 "$GITHUB_WORKSPACE/tools/check_epgsearch_service_abi.py" \
+            --source "$RUNNER_TEMP/epgsearch" \
+            --bridge "$GITHUB_WORKSPACE/vdr-plugin-suite-bridge/suitebridge_epgsearch_native_cas.h"
+
+      - name: Compile SuiteBridge native epgsearch provider adapter in isolation
+        run: |
+          make -C "$GITHUB_WORKSPACE/vdr-plugin-suite-bridge" \
+            suitebridge_epgsearch_native_cas.o
+          test -s "$GITHUB_WORKSPACE/vdr-plugin-suite-bridge/suitebridge_epgsearch_native_cas.o"
 
       - name: Compile epgsearch native plugin only (no install or runtime)
         run: |
