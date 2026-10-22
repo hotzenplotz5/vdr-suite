@@ -11,7 +11,9 @@ Manifest and metadata-only packaging remain under `modules/rectools/`.
 Suite Core owns accounts, grants, command reservation, durable operations,
 backend generation, capability discovery and recording reconciliation.
 Media Tools owns only the import/check/shrink implementation. Import is
-first; Check and Shrink are not available or grantable yet.
+first. Media Check now has a source-level local-backend API v1 and Recording
+Hero integration, but is not installed or activated as a production add-on.
+Shrink is not available yet.
 
 The add-on now contains a real, testable pinned descriptor executor and
 protected Agent command/result integration. The production Agent still does
@@ -64,14 +66,37 @@ vdr-suite-media-check check-decode VIDEO_ROOT RECORDING_RELATIVE
 Dies ist eine vollständige Software-Decodierprobe über alle vorhandenen
 TS-Segmente – nicht der Nachweis garantiert störungsfreier Wiedergabe
 auf jedem Client. Die separat getestete `check`-Aktion bleibt ein
-schneller reiner Struktur-Scan. Es gibt weiterhin **keine** produktive
-API-v1-/Agent-/Webfrontend-Registrierung, keine Rechtefreigabe und keine
-Paketinstallation. Der nächste Produkt-Schritt ist die sichtbare
-Backend-/Webfrontend-Anbindung statt weiterer A4-Architektur.
+schneller reiner Struktur-Scan. **M2.2/M2.3 Entwicklungsstand:** Die Versioned API kann per
+`POST /api/v1/backends/{backendId}/media-checks` einen reinen Lesecheck
+mit den Feldern `recordingId` (Suite-eigene `rec_...`-Kennung) und
+`mode` (`structure` oder `decode`) starten. Das Ergebnis ist unter
+`GET /api/v1/backends/{backendId}/media-checks/{checkId}` abrufbar.
+`GET /api/v1/backends/{backendId}/capabilities/media-check` gibt die
+lokale Verfügbarkeit zurück. Der bestehende Recordings-2-Hero zeigt
+`Aufnahme prüfen` und das Prüfergebnis an.
+
+**Wichtige Grenzen:** Diese Entwicklungsversion arbeitet ausschließlich
+auf serverlokal vorhandenen VDR-Videoverzeichnissen. Die
+Daemon-Umgebungsvariable `VDR_SUITE_MEDIA_CHECK_VIDEO_ROOTS` enthält
+die expliziten, backend-spezifischen Wurzeln im Format
+`backendId=/ABSOLUTER/VIDEO_ROOT` (mehrere Einträge mit Semikolon).
+Ohne diese Konfiguration wird die Funktion nicht angeboten.
+Die Aufnahme wird serverseitig anhand der `rec_...`-Kennung und eines
+aktuellen Backend-Snapshots erneut aufgelöst. Browserpfade werden nie
+ausgeführt. Der Prüfstatus wird aktuell nur im Daemon-Speicher gehalten,
+mit genau einer gleichzeitig laufenden Prüfung; die Anbindung an
+Remote-Agenten und dauerhafte Core-Operations fehlt noch. Bei einem
+Daemon-Neustart bleibt kein abrufbarer Prüfbericht erhalten. Es gibt
+weiterhin **keine** produktive Add-on-Aktivierung oder Paketinstallation,
+keinen automatischen Reparatur-, Lösch- oder Mailversand. Eine echte
+yaVDR-Abnahme ist ausdrücklich noch offen.
 
 `make addon-media-check` kompiliert nur die CLI;
-`make test-addon-media-check` verwendet ausschließlich künstliche
-TS-Pakete und temporäre Verzeichnisse. Keine Marker, Mail, Reparatur,
+`make test-addon-media-check` und
+`make test-addon-media-check-api` verwenden ausschließlich künstliche
+TS-Pakete und temporäre Verzeichnisse und prüfen die Aufnahmen auf
+Unverändertheit. Der Hero-/Client-Vertrag wird durch
+`web/frontend/tests/test_media_check_composition.js` geprüft. Keine Marker, Mail, Reparatur,
 Index-Neuerzeugung, Änderung der Aufnahme, automatische Paketinstallation
 oder Add-on-Aktivierung. Das bestehende Media-Import-Interface bleibt
 unberührt; `addon.json` bewirbt Media Check noch nicht.
