@@ -48,6 +48,7 @@ struct FakeProcess : ProcessRunner {
     int probes = 0;
     int remuxes = 0;
     int transcodes = 0;
+    int aacAudio = 0;
     int indices = 0;
     ProcessResult run(const std::vector<std::string>& argv, bool output) override {
         assert(!argv.empty());
@@ -87,6 +88,8 @@ struct FakeProcess : ProcessRunner {
                 ++remuxes;
                 assert(std::find(argv.begin(), argv.end(), "copy") != argv.end());
             }
+            if (std::find(argv.begin(), argv.end(), "aac") != argv.end())
+                ++aacAudio;
             if (failRemux) return {1, ""};
             std::ofstream(argv.back()) << "synthetic ts bytes";
             return {0, ""};
@@ -204,6 +207,17 @@ int main() {
         fs::create_symlink(f.source, f.input / "Sample.nfo");
         mustFail([&] { inspectImport(f.request()); });
         assert(fs::exists(f.source));
+        ++checks;
+    }
+    {
+        Fixture f;
+        FakeProcess runner;
+        runner.audioCodec = "opus\n";
+        const auto output = executeRemuxImport(
+            inspectImport(f.request()), runner, [](const ImportPlan&) {});
+        assert(fs::exists(output / "index") &&
+               runner.remuxes == 1 && runner.transcodes == 0 &&
+               runner.aacAudio == 1 && fs::exists(f.source));
         ++checks;
     }
     {
