@@ -125,7 +125,7 @@ struct cSearchExts {
         for (auto* p : entries) {
             if (p->lastPersistedText != p->ToText()) {
                 p->nativeRevision = std::string("sr_") +
-                    std::string(32, char('a' + (saves % 6)));
+                    std::string(32, char('c' + (saves % 3)));
             }
             p->lastPersistedText = p->ToText();
             p->nativeGenerationDurable = true;
