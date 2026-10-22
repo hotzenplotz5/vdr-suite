@@ -12,6 +12,7 @@
 #include <grp.h>
 #include <pwd.h>
 #include <sys/wait.h>
+#include <thread>
 #include <stdexcept>
 #include <string>
 #include <sys/stat.h>
@@ -274,6 +275,42 @@ int main()
     a.requestFingerprint = backendAgentCommandFingerprint(a);
     assert(!executor.authorize(a, "backend", 19));
     assert(executor.execute(a) == MediaImportAgentOutcome::rejected);
+
+    // A worker that survives its Agent parent must retain the kernel lock
+    // through exec. This separate synthetic /bin/sleep process never opens
+    // or mutates any media or VDR recording.
+    int ready[2] = {-1, -1};
+    assert(::pipe(ready) == 0);
+    const pid_t detached = ::fork();
+    assert(detached >= 0);
+    if (detached == 0) {
+        ::close(ready[0]);
+        auto inherited = MediaToolsImportRunLock::tryAcquire(
+            fixture.root.string(),
+            MediaToolsImportRunLock::Mode::sharedExecution);
+        if (!inherited || !inherited->inheritInExecChild())
+            ::_exit(8);
+        const char marker = 'R';
+        if (::write(ready[1], &marker, 1) != 1)
+            ::_exit(9);
+        ::close(ready[1]);
+        ::execl("/bin/sleep", "sleep", "1", static_cast<char*>(nullptr));
+        ::_exit(10);
+    }
+    ::close(ready[1]);
+    char marker = '\0';
+    assert(::read(ready[0], &marker, 1) == 1 && marker == 'R');
+    ::close(ready[0]);
+    std::this_thread::sleep_for(std::chrono::milliseconds(120));
+    assert(!MediaToolsImportRunLock::tryAcquire(
+        fixture.root.string(),
+        MediaToolsImportRunLock::Mode::exclusiveMaintenance).has_value());
+    int detachedStatus = 0;
+    assert(::waitpid(detached, &detachedStatus, 0) == detached);
+    assert(WIFEXITED(detachedStatus) && WEXITSTATUS(detachedStatus) == 0);
+    assert(MediaToolsImportRunLock::tryAcquire(
+        fixture.root.string(),
+        MediaToolsImportRunLock::Mode::exclusiveMaintenance).has_value());
 
     // The normal Agent process runs unprivileged. Prove that the same
     // root-owned approval and pinned executable work after dropping every
