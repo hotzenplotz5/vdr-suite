@@ -169,6 +169,8 @@ jobs:
           done
           make test-addon-media-import
           make addon-media-import
+          make test-addon-media-shrink
+          make addon-media-shrink
           make test-addon-media-check
           make test-addon-media-check-api
           make addon-media-check
