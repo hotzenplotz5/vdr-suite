@@ -142,7 +142,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           sudo apt-get update
-          sudo apt-get install -y libcurl4-openssl-dev libssl-dev ffmpeg
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libcurl4-openssl-dev libssl-dev ffmpeg vdr
 
       - name: Run targeted installed registry and Core provider tests
         shell: bash
@@ -169,6 +169,7 @@ jobs:
           done
           make test-addon-media-import
           make test-addon-media-import-ffmpeg
+          MEDIA_TOOLS_TEST_REAL_VDR=1 make test-addon-media-import-ffmpeg
           make addon-media-import
           make test-addon-media-shrink
           make addon-media-shrink
