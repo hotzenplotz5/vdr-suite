@@ -2,6 +2,8 @@
 #include "MediaCheckFfmpeg.h"
 
 #include <array>
+#include <algorithm>
+#include <cerrno>
 #include <cassert>
 #include <cstdlib>
 #include <chrono>
