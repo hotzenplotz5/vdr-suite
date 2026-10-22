@@ -1296,6 +1296,14 @@ bool DaemonRuntime::initialize()
         [this](const PublicSearchTimerCreateRequest& request)
         {
             PublicSearchTimerCreateResult result;
+            // Defense in depth: never admit an active SearchTimer even if a
+            // caller bypasses the public JSON parser. Activation needs its
+            // own generation-fenced workflow and explicit recording preview.
+            if (request.active)
+            {
+                result.status = PublicSearchTimerCreateStatus::invalid;
+                return result;
+            }
             if (!mutationOperationRepository_ || !backendRegistryService_ ||
                 !backendAccessPolicy_ || !backendAgentRepository_)
                 return result;
