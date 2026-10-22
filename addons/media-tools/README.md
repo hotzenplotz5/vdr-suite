@@ -141,6 +141,29 @@ own exclusive maintenance lease through the independently authorized
 upgrade/remove process and recheck Core and Agent state under durable
 maintenance ownership.
 
+## A4 durable ownership of a frozen maintenance window
+
+The Core-owned global Media Import admission freeze now has a *separate*
+additive SQLite maintenance-owner record. It may be claimed only by a
+resolved administrator who already holds the exclusive fixed handler
+lock and supplies the exact frozen revision. Core creates an unpredictable
+128-bit ownership token, atomically audits the claim and increments the
+freeze revision. As long as that record exists, even the original
+administrator cannot unfreeze via the legacy API; another administrator
+cannot acquire a replacement owner. Releasing ownership requires the
+same actor, token, exact revision, exclusive lock and a successful audit,
+and leaves admissions **frozen** until a separate intentional unfreeze.
+If the owner crashes, its durable claim remains after the kernel lock
+disappears, preventing silent takeover. There is no auto-expiry.
+
+This is source-only coordination, **not** permission to install or
+remove `.deb` files. A future authorized package transaction must
+preserve the same exclusive handle, confirm current agent and database
+state and signed package provenance, manage safe rollback, and define
+a separate audited root recovery for abandoned owners before deploying.
+The module remains disabled, with no live install, public endpoint or
+implicit permission grant.
+
 ## A6 work in progress
 
 The optional importer is a single C++17 implementation under this directory,
