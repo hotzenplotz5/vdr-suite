@@ -1878,9 +1878,33 @@ HttpServerResponse TestHttpServer::handleRequest(
         (isEpgDirectArtwork || isEpgPreferredArtwork))
     {
         const auto queryAt = request.path.find('?');
-        const RestQueryParameters query = RestQueryParameters::parse(
-            queryAt == std::string::npos ? std::string() :
-                request.path.substr(queryAt + 1U));
+        const std::string rawQuery = queryAt == std::string::npos
+            ? std::string() : request.path.substr(queryAt + 1U);
+        const RestQueryParameters query = RestQueryParameters::parse(rawQuery);
+        // RestQueryParameters intentionally collapses duplicates for legacy
+        // callers. Public-v1 artwork must not accept ambiguous identities.
+        std::size_t backendCount = 0U;
+        std::size_t channelCount = 0U;
+        std::size_t eventCount = 0U;
+        bool canonicalQueryKeys = true;
+        for (std::size_t start = 0U; start < rawQuery.size();)
+        {
+            const std::size_t end = rawQuery.find('&', start);
+            const std::string item = rawQuery.substr(start,
+                end == std::string::npos ? std::string::npos : end - start);
+            const std::size_t equals = item.find('=');
+            const std::string key = item.substr(0, equals);
+            if (equals == std::string::npos)
+                canonicalQueryKeys = false;
+            else if (key == "backendId") ++backendCount;
+            else if (key == "channelId") ++channelCount;
+            else if (key == "eventId") ++eventCount;
+            else canonicalQueryKeys = false;
+            if (end == std::string::npos) break;
+            start = end + 1U;
+        }
+        const bool exactQuery = canonicalQueryKeys &&
+            backendCount == 1U && channelCount == 1U && eventCount == 1U;
         const std::string backend = query.get("backendId");
         const std::string channel = query.get("channelId");
         const std::string event = query.get("eventId");
@@ -1896,7 +1920,8 @@ HttpServerResponse TestHttpServer::handleRequest(
                     });
         };
         ApiResponse response;
-        if (gate.authorizedBackendIds.size() != 1U ||
+        if (!exactQuery ||
+            gate.authorizedBackendIds.size() != 1U ||
             backend != gate.authorizedBackendIds.front() ||
             !validIdentity(channel) || !validIdentity(event))
         {
