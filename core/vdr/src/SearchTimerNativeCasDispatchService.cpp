@@ -1,11 +1,13 @@
 #include "SearchTimerNativeCasDispatchService.h"
 
 #include "MutationOperationRepository.h"
+#include "SearchTimerCreateDeviceAdmissionService.h"
 
 #include <openssl/sha.h>
 
 #include <array>
 #include <cstddef>
+#include <optional>
 #include <string>
 
 namespace
@@ -112,7 +114,9 @@ std::string searchTimerNativeCasEvidenceFingerprint(
 }
 
 SearchTimerNativeCasDispatchService::SearchTimerNativeCasDispatchService(
-    MutationOperationRepository& operations) : operations_(operations)
+    MutationOperationRepository& operations,
+    const ISearchTimerBackendGenerationAuthority& generations)
+    : operations_(operations), generations_(generations)
 {
 }
 
@@ -152,6 +156,19 @@ SearchTimerNativeCasDispatchService::dispatchOnce(
         payload.payload.payload == "" ||
         payload.payload.payload != serialized ||
         payload.payload.payloadFingerprint != fingerprint)
+        return result(SearchTimerNativeCasDispatchStatus::unavailable,
+            operation);
+
+    // The durable generation alone is not evidence that this is still the
+    // same backend instance. Revalidate against the server-owned authority
+    // before claiming a one-shot operation. Native CAS must still protect
+    // against races that occur after this read.
+    std::optional<std::uint64_t> liveGeneration;
+    try { liveGeneration = generations_.currentGeneration(operation.backendId); }
+    catch (...) { return result(SearchTimerNativeCasDispatchStatus::unavailable,
+        operation); }
+    if (!liveGeneration.has_value() ||
+        *liveGeneration != operation.backendGeneration)
         return result(SearchTimerNativeCasDispatchStatus::unavailable,
             operation);
 

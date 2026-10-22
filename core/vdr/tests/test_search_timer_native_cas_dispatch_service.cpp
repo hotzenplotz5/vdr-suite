@@ -1,9 +1,11 @@
 #include "Database.h"
 #include "MutationOperationRepository.h"
 #include "SearchTimerNativeCasDispatchService.h"
+#include "SearchTimerCreateDeviceAdmissionService.h"
 
 #include <cassert>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <string>
 
@@ -46,15 +48,27 @@ struct Provider final : ISearchTimerNativeCasProvider
     }
 };
 
+struct Generation final : ISearchTimerBackendGenerationAuthority
+{
+    std::optional<std::uint64_t> live = 9U;
+    std::optional<std::uint64_t> currentGeneration(
+        const std::string& backend) const override
+    {
+        assert(backend == "default");
+        return live;
+    }
+};
+
 struct Fixture
 {
     Database database;
     MutationOperationRepository operations;
+    Generation generation;
     SearchTimerNativeCasDispatchService dispatch;
     SearchTimerNativeCasDispatchRequest req;
     Provider provider;
 
-    Fixture() : operations(database), dispatch(operations)
+    Fixture() : operations(database), dispatch(operations, generation)
     {
         assert(database.open(":memory:"));
         assert(operations.ensureSchema());
@@ -165,6 +179,24 @@ void assertImmutableEvidenceAndActorScope()
     assert(r.state() == MutationOperationState::accepted);
 }
 
+void assertBackendGenerationRevalidation()
+{
+    Fixture replaced;
+    replaced.generation.live = 10U;
+    assert(replaced.dispatch.dispatchOnce(
+        replaced.req, replaced.provider).status ==
+        SearchTimerNativeCasDispatchStatus::unavailable);
+    assert(replaced.provider.writes == 0);
+    assert(replaced.state() == MutationOperationState::accepted);
+
+    Fixture offline;
+    offline.generation.live.reset();
+    assert(offline.dispatch.dispatchOnce(offline.req, offline.provider).status ==
+        SearchTimerNativeCasDispatchStatus::unavailable);
+    assert(offline.provider.writes == 0);
+    assert(offline.state() == MutationOperationState::accepted);
+}
+
 void assertCapabilityAndNegativeAttestation()
 {
     Fixture missing;
@@ -211,6 +243,7 @@ int main()
 {
     assertOneShotAndReadbackFence();
     assertImmutableEvidenceAndActorScope();
+    assertBackendGenerationRevalidation();
     assertCapabilityAndNegativeAttestation();
     assertLostReceiptDoesNotRepeat();
     std::cout << "SearchTimer native CAS durable dispatch: PASS (mock only)\n";

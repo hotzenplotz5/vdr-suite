@@ -7,6 +7,7 @@
 #include <string>
 
 namespace vdrsuite::operations { class MutationOperationRepository; }
+class ISearchTimerBackendGenerationAuthority;
 
 // Internal, OFFLINE-ONLY until epgsearch has an audited native CAS writer.
 // This service does not expose routes or perform readback/completion.
@@ -53,11 +54,13 @@ class SearchTimerNativeCasDispatchService final
 {
 public:
     explicit SearchTimerNativeCasDispatchService(
-        vdrsuite::operations::MutationOperationRepository& operations);
+        vdrsuite::operations::MutationOperationRepository& operations,
+        const ISearchTimerBackendGenerationAuthority& generations);
 
     SearchTimerNativeCasDispatchResult dispatchOnce(
         const SearchTimerNativeCasDispatchRequest& request,
         ISearchTimerNativeCasProvider& provider);
 private:
     vdrsuite::operations::MutationOperationRepository& operations_;
+    const ISearchTimerBackendGenerationAuthority& generations_;
 };
