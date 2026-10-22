@@ -118,6 +118,29 @@ must coordinate a durable no-new-admission fence, already executing
 Agent commands, authenticated effective rights, all relevant backends,
 package provenance, rollback and audited administrator intent.
 
+## A4 durable global Media Import reservation freeze (isolated)
+
+The Core `AddonMediaImportMaintenanceFence` persists a **global** freeze
+for the fixed `rectools` Media Import action in the *same* SQLite
+authority as ADR-0042 operations. A global administrator changes its state
+only through a revision-fenced, audited SQLite write transaction. The
+canonical `MutationOperationRepository` now checks the freeze inside
+the SAME `BEGIN IMMEDIATE` transaction used for new `media.import`
+reservations, across all backends and independent SQLite connections.
+New imports cannot slip between a separate preflight read and their
+reservation; an existing exact idempotent replay remains readable.
+Uninitialized/missing gate schema fails closed for Media Import, while
+unrelated timer operations keep their original semantics. An explicit,
+audited revision-fenced unfreeze changes only the reservation gate, never
+administrator desired-enabled state or executable permissions.
+
+This is **not** an authorized package upgrade, exclusive Agent child drain,
+or a live maintenance command. The earlier read-only diagnostic must
+still show explicitly disabled activation and zero unresolved operations;
+in-flight Agent work, complete multi-backend readiness and trusted package
+provenance must be checked separately. No public API or startup activation
+is added in this slice.
+
 ## Recommended execution order
 
 1. Finish A2's **no-dpkg default** and rejection regressions, using only
