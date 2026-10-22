@@ -80,8 +80,31 @@ struct NativeFfmpegWithSyntheticVdrIndex final : ProcessRunner {
             !fs::is_regular_file(recording / "info"))
             throw std::runtime_error("VDR recording structure invalid");
         const char* realVdr = std::getenv("MEDIA_TOOLS_TEST_REAL_VDR");
-        if (realVdr && std::string(realVdr) == "1")
-            return tools.run(command, capture);
+        if (realVdr && std::string(realVdr) == "1") {
+            const auto result = tools.run(command, capture);
+            if (result.exitCode != 0) {
+                std::cerr << "REAL_VDR_INDEX=FAILED exit="
+                          << result.exitCode << " retry_diagnostic=START\n";
+                // CI fixture only: re-run with native stderr attached to
+                // Actions console. No shell or access to installed recordings.
+                const pid_t pid = ::fork();
+                if (pid == 0) {
+                    ::alarm(15);
+                    ::dup2(STDOUT_FILENO, STDERR_FILENO);
+                    std::vector<char*> argv;
+                    for (const auto& arg : command)
+                        argv.push_back(const_cast<char*>(arg.c_str()));
+                    argv.push_back(nullptr);
+                    ::execv(argv[0], argv.data());
+                    _exit(127);
+                }
+                if (pid > 0) {
+                    int status = 0;
+                    while (::waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
+                }
+            }
+            return result;
+        }
         // Synthetic fallback must never count as actual VDR index proof.
         std::ofstream index(recording / "index", std::ios::binary);
         index << "TEST_ONLY_SYNTHETIC_INDEX";
