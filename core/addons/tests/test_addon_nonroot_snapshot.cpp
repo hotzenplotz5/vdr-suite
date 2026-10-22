@@ -19,7 +19,7 @@ constexpr const char* Digest =
     "a0711fa9587ab14350cbfb43a45f97bf4157e0378c85fc22cf5cdded3e6779cc";
 
 struct Fixture {
-    fs::path root, approval, handler;
+    fs::path root, approval, handler, manifest;
     Fixture() {
         if (::geteuid() != 0 || std::getenv("TMPDIR") == nullptr ||
             std::string(std::getenv("TMPDIR")) != "/root")
@@ -36,14 +36,19 @@ struct Fixture {
         root = created;
         handler = root / "usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import";
         approval = root / "etc/vdr-suite/addon-approvals/rectools.json";
+        manifest = root / "usr/share/vdr-suite/addons/rectools/addon.json";
         fs::create_directories(handler.parent_path());
         fs::create_directories(approval.parent_path());
+        fs::create_directories(manifest.parent_path());
 
         // Only exact, new fixture paths are chmodded. Never the OS tree.
         for (const char* part : {"", "usr", "usr/libexec",
                 "usr/libexec/vdr-suite", "usr/libexec/vdr-suite/addons",
                 "usr/libexec/vdr-suite/addons/rectools",
-                "etc", "etc/vdr-suite", "etc/vdr-suite/addon-approvals"}) {
+                "etc", "etc/vdr-suite", "etc/vdr-suite/addon-approvals",
+                "usr/share", "usr/share/vdr-suite",
+                "usr/share/vdr-suite/addons",
+                "usr/share/vdr-suite/addons/rectools"}) {
             if (::chmod((root / part).c_str(), 0755) != 0)
                 throw std::runtime_error("fixture directory chmod failed");
         }
@@ -59,7 +64,16 @@ struct Fixture {
                  << Digest << "\",\"state\":\"approved\","
                     "\"version\":\"0.1.0\"}\n";
         }
-        if (::chmod(handler.c_str(), 0755) != 0 ||
+        {
+            std::ofstream file(manifest, std::ios::binary);
+            file << "{\"schemaVersion\":1,\"id\":\"rectools\",\"version\":\"0.1.0\","
+                    "\"package\":\"vdr-suite-addon-media-tools\",\"state\":\"scaffold\","
+                    "\"displayName\":\"Media Tools\",\"description\":\"Inactive\","
+                    "\"entrypoints\":[],\"capabilities\":[],\"permissions\":[],"
+                    "\"dependencies\":[]}\n";
+        }
+        if (::chmod(manifest.c_str(), 0644) != 0 ||
+            ::chmod(handler.c_str(), 0755) != 0 ||
             ::chmod(approval.c_str(), 0644) != 0)
             throw std::runtime_error("fixture file chmod failed");
     }
