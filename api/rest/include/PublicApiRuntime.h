@@ -1633,6 +1633,16 @@ public:
 private:
     PublicApiRuntime() = default;
 
+    // Recording, EPG/Recording search and Genre read responses use the
+    // established runtime lookup callbacks.
+    bool tryHandleBrowseReadGet(
+        const std::string& requestTarget,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::vector<std::string>& authorizedBackendIds,
+        ApiResponse& response) const;
+
     // SearchTimer draft/resource previews, collection and TimerAssignment
     // collection/item GET share the existing runtime callback authorities.
     bool tryHandleSearchTimerAssignmentReadGet(
