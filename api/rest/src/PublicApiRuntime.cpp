@@ -1335,7 +1335,7 @@ bool parsePublicEpgWindowQuery(
     const std::string& target, PublicEpgWindowQuery& query)
 {
     const std::string raw = requestQueryString(target);
-    if (raw.empty() || raw.size() > 2048U) return false;
+    if (raw.empty() || raw.size() > 3000U) return false;
     bool backendSeen = false, channelSeen = false;
     bool fromSeen = false, untilSeen = false, limitSeen = false;
     bool cursorSeen = false;
@@ -1376,7 +1376,7 @@ bool parsePublicEpgWindowQuery(
         else if (key == "cursor" && !cursorSeen)
         {
             cursorSeen = true;
-            if (value.empty() || value.size() > 1900U) return false;
+            if (value.empty() || value.size() > 2600U) return false;
             query.cursor = value;
         }
         else return false;
@@ -2066,7 +2066,8 @@ bool decodePublicEpgWindowCursor(
         afterStartTime.size() < 10U || afterStartTime.size() > 12U ||
         !std::all_of(afterStartTime.begin(), afterStartTime.end(),
             [](unsigned char ch) { return ch >= '0' && ch <= '9'; }) ||
-        afterStartTime < query.fromTime ||
+        // Overlapping events can start before fromTime yet end inside
+        // the requested window; they remain valid continuation anchors.
         afterStartTime >= query.untilTime ||
         afterEventId.empty() || afterEventId.size() > 512U)
         return false;

@@ -83,12 +83,12 @@
           "EPG"
         ],
         "operationId": "getPublicEpgWindow",
-        "summary": "Read bounded cached EPG events for a backend and channel",
+        "summary": "Page the full available cached EPG window for one backend/channel",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "epg.view@backendId OR media.live.play@backendId; exact backend scope"
         },
-        "description": "12-hour maximum per request, up to 192 real events. Device/backend auth: epg.view OR media.live.play on the same backend. No live provider fallback or fabricated programmes. A successful response may have hasMore=true; clients must not represent truncated pages as complete.",
+        "description": "A bounded 1–192 events per page from the existing cache over any valid requested time range, including multiple days. page.nextCursor continues strictly after the last cache key for the SAME backend, channel, fromTime and untilTime; page.hasMore=false finishes the traversal. Native eventId is exposed only with source provenance. A stale/deleted anchor or malformed/different-scope cursor is rejected; refreshes during traversal may require restarting from page one for a consistent snapshot. Device/backend auth: epg.view OR media.live.play on the same backend. No provider fallback or fabricated programmes. Legacy 12-hour calls remain valid.",
         "parameters": [
           {
             "name": "backendId",
@@ -127,7 +127,7 @@
             "name": "untilTime",
             "in": "query",
             "required": true,
-            "description": "Exclusive Unix seconds; strictly later than fromTime, at most 43200 seconds",
+            "description": "Exclusive Unix seconds; strictly later than fromTime. Result size remains bounded by limit regardless of range.",
             "schema": {
               "type": "string",
               "pattern": "^[1-9][0-9]{9,11}$"
@@ -144,11 +144,22 @@
               "maximum": 192,
               "default": 192
             }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque ew1_ continuation from page.nextCursor; bound to backendId, channelId, fromTime and untilTime. Do not alter or reuse with another window.",
+            "schema": {
+              "type": "string",
+              "minLength": 5,
+              "maxLength": 2600
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Backend-scoped events, page {limit,hasMore}, meta {partial:false}",
+            "description": "Backend-scoped events and page {limit,hasMore,nextCursor}; null nextCursor at the last page, meta {partial:false}",
             "content": {
               "application/json": {
                 "schema": {
@@ -158,7 +169,7 @@
             }
           },
           "400": {
-            "description": "Invalid or duplicate arguments or wrong backend scope"
+            "description": "Invalid/duplicate arguments, wrong backend scope, or malformed/stale/mismatched EPG cursor"
           },
           "401": {
             "description": "Unauthenticated"
