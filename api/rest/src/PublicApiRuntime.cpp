@@ -117,6 +117,8 @@ constexpr const char* PublicEpgNowNextPath =
     "/api/v1/epg/now-next";
 constexpr const char* PublicEpgWindowPath =
     "/api/v1/epg/window";
+constexpr const char* PublicEpgWindowCursorPrefix = "ew1_";
+constexpr const char* PublicEpgWindowCursorVersion = "epg-window/1|";
 constexpr const char* PublicNativeTimersPath =
     "/api/v1/native-timers";
 constexpr std::size_t PublicChannelDefaultLimit = 50U;
@@ -1326,15 +1328,17 @@ struct PublicEpgWindowQuery
     std::string fromTime;
     std::string untilTime;
     std::size_t limit = 192U;
+    std::string cursor;
 };
 
 bool parsePublicEpgWindowQuery(
     const std::string& target, PublicEpgWindowQuery& query)
 {
     const std::string raw = requestQueryString(target);
-    if (raw.empty() || raw.size() > 720U) return false;
+    if (raw.empty() || raw.size() > 5000U) return false;
     bool backendSeen = false, channelSeen = false;
     bool fromSeen = false, untilSeen = false, limitSeen = false;
+    bool cursorSeen = false;
     std::size_t position = 0U;
     while (position < raw.size())
     {
@@ -1369,6 +1373,12 @@ bool parsePublicEpgWindowQuery(
             if (!decimalSize(value, query.limit) ||
                 query.limit == 0U || query.limit > 192U) return false;
         }
+        else if (key == "cursor" && !cursorSeen)
+        {
+            cursorSeen = true;
+            if (value.empty() || value.size() > 4200U) return false;
+            query.cursor = value;
+        }
         else return false;
         if (end == std::string::npos) break;
         position = end + 1U;
@@ -1398,7 +1408,9 @@ bool parsePublicEpgWindowQuery(
     {
         const auto from = std::stoll(query.fromTime);
         const auto until = std::stoll(query.untilTime);
-        return until > from && until - from <= 43200LL;
+        // E1: bound response size via limit and an ordered keyset, not
+        // artificially by a 12-hour time horizon.
+        return until > from;
     }
     catch (...) { return false; }
 }
@@ -2020,6 +2032,62 @@ PublicChannelCursorDecodeStatus decodePublicChannelCursor(
         return PublicChannelCursorDecodeStatus::scopeMismatch;
 
     return PublicChannelCursorDecodeStatus::ok;
+}
+
+std::string publicEpgWindowCursor(
+    const PublicEpgWindowQuery& query,
+    const PublicEpgWindowResult& result)
+{
+    if (!result.hasMore || result.nextStartTime.empty() ||
+        result.nextCacheEventId.empty() ||
+        // Legacy cache-only IDs include channel, time and title. A 512-byte
+        // cap could make a legitimate continuation fail despite a small page.
+        result.nextCacheEventId.size() > 1500U) return {};
+    std::string payload(PublicEpgWindowCursorVersion);
+    appendCursorField(payload, query.backendId);
+    appendCursorField(payload, query.channelId);
+    appendCursorField(payload, query.fromTime);
+    appendCursorField(payload, query.untilTime);
+    appendCursorField(payload, result.nextStartTime);
+    appendCursorField(payload, result.nextCacheEventId);
+    return std::string(PublicEpgWindowCursorPrefix) + hexEncode(payload);
+}
+
+bool decodePublicEpgWindowCursor(
+    const PublicEpgWindowQuery& query,
+    std::string& afterStartTime,
+    std::string& afterEventId)
+{
+    const std::string prefix(PublicEpgWindowCursorPrefix);
+    if (query.cursor.size() <= prefix.size() ||
+        query.cursor.compare(0U, prefix.size(), prefix) != 0)
+        return false;
+    std::string payload;
+    if (!hexDecode(query.cursor.substr(prefix.size()), payload))
+        return false;
+    const std::string version(PublicEpgWindowCursorVersion);
+    if (payload.compare(0U, version.size(), version) != 0)
+        return false;
+    std::size_t position = version.size();
+    std::string backendId, channelId, fromTime, untilTime;
+    if (!readCursorField(payload, position, backendId) ||
+        !readCursorField(payload, position, channelId) ||
+        !readCursorField(payload, position, fromTime) ||
+        !readCursorField(payload, position, untilTime) ||
+        !readCursorField(payload, position, afterStartTime) ||
+        !readCursorField(payload, position, afterEventId) ||
+        position != payload.size() ||
+        backendId != query.backendId || channelId != query.channelId ||
+        fromTime != query.fromTime || untilTime != query.untilTime ||
+        afterStartTime.size() < 10U || afterStartTime.size() > 12U ||
+        !std::all_of(afterStartTime.begin(), afterStartTime.end(),
+            [](unsigned char ch) { return ch >= '0' && ch <= '9'; }) ||
+        // Overlapping events can start before fromTime yet end inside
+        // the requested window; they remain valid continuation anchors.
+        afterStartTime >= query.untilTime ||
+        afterEventId.empty() || afterEventId.size() > 1500U)
+        return false;
+    return true;
 }
 
 enum class PublicRecordingCursorDecodeStatus
@@ -5628,13 +5696,23 @@ bool PublicApiRuntime::tryHandleEpgReadGet(
             authorizedBackendIds.front() != query.backendId)
         {
             response = invalidRequestProblem(path,
-                "One authorized backendId, channelId and bounded 12-hour time window are required.",
+                "One authorized backendId, channelId and valid EPG time range are required.",
+                requestId, correlationId);
+            return true;
+        }
+        std::string afterStartTime, afterCacheEventId;
+        if (!query.cursor.empty() &&
+            !decodePublicEpgWindowCursor(
+                query, afterStartTime, afterCacheEventId))
+        {
+            response = invalidRequestProblem(path,
+                "The EPG window cursor is invalid or its scope changed.",
                 requestId, correlationId);
             return true;
         }
         const PublicEpgWindowRequest request{
             query.backendId, query.channelId, query.fromTime,
-            query.untilTime, query.limit
+            query.untilTime, query.limit, afterStartTime, afterCacheEventId
         };
         const PublicEpgWindowResult found = lookupEpgWindow(request);
         switch (found.status)
@@ -5675,9 +5753,20 @@ bool PublicApiRuntime::tryHandleEpgReadGet(
                             jsonEscape(event.eventId) + "\"";
                     body += "}";
                 }
+                const std::string nextCursor =
+                    publicEpgWindowCursor(query, found);
+                if (found.hasMore && nextCursor.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
                 body += "],\"page\":{\"limit\":" +
                     std::to_string(query.limit) +
                     ",\"hasMore\":" + (found.hasMore ? "true" : "false") +
+                    ",\"nextCursor\":" +
+                    (nextCursor.empty() ? std::string("null") :
+                        "\"" + jsonEscape(nextCursor) + "\"") +
                     "},\"meta\":{\"partial\":false}}";
                 response = jsonResponse(body, requestId, correlationId);
                 return true;
@@ -6462,6 +6551,182 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
     ApiResponse& response) const
 {
     const std::string path = requestPath(requestTarget);
+    // M1: one backend-scoped public rec_ detail, with no native path or
+    // provider-specific artwork URL exposed. Reuse the Recording grant gate,
+    // the daemon's existing rec_ resolver and the warmed Recording cache.
+    const std::string recordingPrefix =
+        std::string(PublicRecordingCollectionPath) + "/";
+    if (path.size() > recordingPrefix.size() &&
+        path.compare(0U, recordingPrefix.size(), recordingPrefix) == 0 &&
+        path.find('/', recordingPrefix.size()) == std::string::npos)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        const std::string recordingId = path.substr(recordingPrefix.size());
+        const bool validId = recordingId.size() == 36U &&
+            recordingId.compare(0U, 4U, "rec_") == 0 &&
+            std::all_of(recordingId.begin() + 4, recordingId.end(),
+                [](unsigned char c) {
+                    return (c >= '0' && c <= '9') ||
+                           (c >= 'a' && c <= 'f');
+                });
+        if (!validId || authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front().empty() ||
+            authorizedBackendIds.front() == "*" ||
+            requestQueryString(requestTarget) !=
+                "backendId=" + authorizedBackendIds.front())
+        {
+            response = invalidRequestProblem(path,
+                "A valid public Recording ID and one authorized backendId "
+                "query parameter are required.", requestId, correlationId);
+            return true;
+        }
+
+        const auto found = lookupRecordingDetail(
+            {authorizedBackendIds.front(), recordingId});
+        switch (found.status)
+        {
+            case PublicRecordingDetailStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicRecordingDetailStatus::invalid:
+                response = invalidRequestProblem(path,
+                    "The Recording detail request is invalid.",
+                    requestId, correlationId);
+                return true;
+            case PublicRecordingDetailStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+            case PublicRecordingDetailStatus::ok:
+                break;
+        }
+
+        const auto& item = found.item;
+        const auto& recording = item.recording;
+        const auto validMetadataId = [](const std::string& id,
+            const std::string& prefix) {
+            return id.size() == prefix.size() + 32U &&
+                id.compare(0, prefix.size(), prefix) == 0 &&
+                std::all_of(id.begin() + prefix.size(), id.end(),
+                    [](unsigned char c) {
+                        return (c >= '0' && c <= '9') ||
+                               (c >= 'a' && c <= 'f');
+                    });
+        };
+        const bool validManualSource =
+            item.metadataSource == "manual"
+                ? (item.metadataState == "available" &&
+                   validMetadataId(item.manualAssignmentId, "mdasg_") &&
+                   validMetadataId(item.metadataEntityId, "mdent_") &&
+                   item.manualRevision > 0)
+                : (item.manualAssignmentId.empty() &&
+                   item.metadataEntityId.empty() &&
+                   item.manualRevision == 0);
+        const bool validResponse =
+            recording.backendId == authorizedBackendIds.front() &&
+            recording.recordingId == recordingId &&
+            !recording.title.empty() &&
+            recording.durationSeconds >= 0 &&
+            recording.sizeMb >= 0 &&
+            recording.description.size() <= 2048U &&
+            (item.metadataState == "absent" ||
+             item.metadataState == "partial" ||
+             item.metadataState == "available") &&
+            (item.metadataSource == "none" ||
+             item.metadataSource == "restfulapi-scraper-bridge" ||
+             item.metadataSource == "manual") &&
+            validManualSource &&
+            (item.contentKind == "unknown" ||
+             item.contentKind == "movie" ||
+             item.contentKind == "series" ||
+             item.contentKind == "series-episode") &&
+            item.epgTitle.size() <= 1024U &&
+            item.subtitle.size() <= 1024U &&
+            item.epgDescription.size() <= 4096U &&
+            item.providerTitle.size() <= 1024U &&
+            item.overview.size() <= 4096U &&
+            item.originalTitle.size() <= 1024U &&
+            item.tagline.size() <= 1024U &&
+            item.seriesTitle.size() <= 1024U &&
+            item.episodeTitle.size() <= 1024U &&
+            item.genreText.size() <= 1024U &&
+            item.manualGenreId.size() <= 128U &&
+            std::none_of(item.manualGenreId.begin(),
+                item.manualGenreId.end(), [](unsigned char c) {
+                    return c < 0x20U || c == 0x7fU;
+                }) &&
+            item.releaseDate.size() <= 32U &&
+            item.seasonNumber >= 0 && item.episodeNumber >= 0 &&
+            item.providerRuntimeMinutes >= 0;
+        if (!validResponse)
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        std::string body =
+            "{\"recordingId\":\"" + jsonEscape(recording.recordingId) +
+            "\",\"backendId\":\"" + jsonEscape(recording.backendId) +
+            "\",\"title\":\"" + jsonEscape(recording.title) +
+            "\",\"recordedAt\":\"" + jsonEscape(recording.recordedAt) +
+            "\",\"durationSeconds\":" +
+                std::to_string(recording.durationSeconds) +
+            ",\"durationKnown\":" +
+                std::string(recording.durationKnown ? "true" : "false") +
+            ",\"edited\":" +
+                std::string(recording.edited ? "true" : "false") +
+            ",\"description\":\"" + jsonEscape(recording.description) +
+            "\",\"sizeMb\":" + std::to_string(recording.sizeMb) +
+            ",\"metadata\":{\"state\":\"" + item.metadataState +
+            "\",\"source\":\"" + item.metadataSource +
+            "\",\"contentKind\":\"" + item.contentKind + "\"";
+        const auto appendText = [&body](
+            const char* key, const std::string& value) {
+            if (!value.empty())
+                body += ",\"" + std::string(key) + "\":\"" +
+                    jsonEscape(value) + "\"";
+        };
+        appendText("epgTitle", item.epgTitle);
+        appendText("subtitle", item.subtitle);
+        appendText("epgDescription", item.epgDescription);
+        appendText("providerTitle", item.providerTitle);
+        appendText("overview", item.overview);
+        appendText("originalTitle", item.originalTitle);
+        appendText("tagline", item.tagline);
+        appendText("seriesTitle", item.seriesTitle);
+        appendText("episodeTitle", item.episodeTitle);
+        appendText("genreText", item.genreText);
+        appendText("manualGenreId", item.manualGenreId);
+        appendText("releaseDate", item.releaseDate);
+        if (item.seasonNumber > 0)
+            body += ",\"seasonNumber\":" +
+                std::to_string(item.seasonNumber);
+        if (item.episodeNumber > 0)
+            body += ",\"episodeNumber\":" +
+                std::to_string(item.episodeNumber);
+        if (item.providerRuntimeMinutes > 0)
+            body += ",\"providerRuntimeMinutes\":" +
+                std::to_string(item.providerRuntimeMinutes);
+        if (item.metadataSource == "manual")
+        {
+            body += ",\"manualAssignmentId\":\"" +
+                jsonEscape(item.manualAssignmentId) +
+                "\",\"metadataEntityId\":\"" +
+                jsonEscape(item.metadataEntityId) +
+                "\",\"manualRevision\":" +
+                std::to_string(item.manualRevision);
+        }
+        body += "}}";
+        response = jsonResponse(body, requestId, correlationId);
+        response.headers["Cache-Control"] = "no-store";
+        return true;
+    }
+
     if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath)
     {
         if (actorRef.empty())
@@ -8145,6 +8410,22 @@ bool PublicApiRuntime::tryHandleGet(
             return true;
     }
 
+    const std::string recordingDetailPrefix =
+        std::string(PublicRecordingCollectionPath) + "/";
+    const bool isRecordingDetailPath =
+        path.size() > recordingDetailPrefix.size() &&
+        path.compare(0U, recordingDetailPrefix.size(),
+            recordingDetailPrefix) == 0 &&
+        path.find('/', recordingDetailPrefix.size()) == std::string::npos;
+    if (isRecordingDetailPath)
+    {
+        if (tryHandleBrowseReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                authorizedBackendIds, response))
+            return true;
+    }
+
+    // Preserve the independently audited Public-v1 collection branch.
     if (path == PublicRecordingCollectionPath)
     {
         if (tryHandleBrowseReadGet(

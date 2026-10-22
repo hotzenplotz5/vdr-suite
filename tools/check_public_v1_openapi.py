@@ -30,6 +30,7 @@ AUDITED = {
     "/api/v1/backends": {"get": "if (path == PublicBackendCollectionPath)"},
     "/api/v1/channels": {"get": "if (path == PublicChannelCollectionPath)"},
     "/api/v1/recordings": {"get": "if (path == PublicRecordingCollectionPath)"},
+    "/api/v1/recordings/{recordingId}": {"get": "if (isRecordingDetailPath)"},
     "/api/v1/search/recordings": {"get": "if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath)"},
     "/api/v1/search/epg": {"get": "if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath)"},
     "/api/v1/genres": {"get": "if (path == PublicGenreCollectionPath || path == PublicGenreRecordingPath)"},

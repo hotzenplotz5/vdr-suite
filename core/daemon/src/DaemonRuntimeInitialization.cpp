@@ -27,6 +27,7 @@
 #include "RecordingArtworkHttpServer.h"
 #include "PublicResourcePreconditions.h"
 #include "PublicRecordingCollectionProjection.h"
+#include "PublicRecordingMetadataDetailProjection.h"
 #include "PublicRecordingPlaybackTargetResolver.h"
 #include "PublicRecordingActionReadback.h"
 #include "RestfulApiRecordingMapper.h"
@@ -2079,6 +2080,135 @@ bool DaemonRuntime::initialize()
             return result;
         });
 
+    // M1: the same warmed backend cache + persistent rec_ mapping as the
+    // Public-v1 Recording collection. Never select by a user-supplied VDR
+    // filename or route through a private metadata endpoint.
+    PublicApiRuntime::instance().registerRecordingDetailLookup(
+        [this](const PublicRecordingDetailRequest& request)
+        {
+            PublicRecordingDetailResult result;
+            if (request.backendId.empty() || request.backendId == "*" ||
+                request.recordingId.size() != 36U)
+            {
+                result.status = PublicRecordingDetailStatus::invalid;
+                return result;
+            }
+
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                !vdrRecordingCacheRepository_ || !publicRecordingIdentities_)
+                return result;
+
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled ||
+                !backend->online ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(
+                    request.backendId) ||
+                vdrRecordingCacheRepository_->statusForBackend(
+                    request.backendId).state != "ready")
+                return result;
+
+            PublicRecordingPlaybackTargetResolver resolver(
+                *publicRecordingIdentities_,
+                *vdrRecordingCacheRepository_);
+            const auto found = resolver.resolveForRead(
+                request.backendId, request.recordingId);
+            if (found.status == PublicRecordingPlaybackTargetStatus::invalidRequest)
+            {
+                result.status = PublicRecordingDetailStatus::invalid;
+                return result;
+            }
+            if (found.status != PublicRecordingPlaybackTargetStatus::ready)
+            {
+                result.status = PublicRecordingDetailStatus::notFound;
+                return result;
+            }
+
+            // Reuse the existing Recording presentation, including path-
+            // derived display name, edited flag and capped synopsis.
+            PublicRecordingCollectionProjection projector(
+                *publicRecordingIdentities_);
+            const auto displayed = projector.project(
+                request.backendId, {found.recording});
+            if (!displayed.valid || displayed.items.size() != 1U ||
+                displayed.items.front().recordingId != request.recordingId)
+                return result;
+
+            auto detail = PublicRecordingMetadataDetailProjection::project(
+                request.backendId, request.recordingId,
+                found.recording, displayed.items.front());
+            if (!detail || !metadataRepository_)
+                return result;
+
+            // Reuse the Web manual assignment and canonical cache-key
+            // resolution. This lookup performs no metadata schema creation,
+            // scraper fetch, mutation or portrait materialization.
+            const auto manual =
+                metadataRepository_->getManualRecordingMetadataReadOnly(
+                    request.backendId, found.recording.backendNativeId);
+            if (!PublicRecordingMetadataDetailProjection::applyManualAssignment(
+                    request.backendId, manual, *detail))
+                return result;
+
+            // The Web's canonical, separately assigned Genre belongs to the
+            // same backend-native Recording, whether or not manual metadata
+            // is selected. Read without creating/reconciling the Genre index.
+            const auto manualGenreId =
+                metadataRepository_->getManualRecordingGenreReadOnly(
+                    request.backendId, found.recording.backendNativeId);
+            if (manualGenreId.size() > 128U ||
+                std::any_of(manualGenreId.begin(), manualGenreId.end(),
+                    [](unsigned char c) {
+                        return c < 0x20U || c == 0x7fU;
+                    }))
+                return result;
+
+            // Identity can be retired/rebound during multiple readonly DB
+            // lookups; never expose stale manual metadata across rebinding.
+            const auto bound = publicRecordingIdentities_->find(
+                request.backendId, found.recording.backendNativeId);
+            if (!bound || *bound != request.recordingId)
+            {
+                result.status = PublicRecordingDetailStatus::notFound;
+                return result;
+            }
+
+            const auto& source = *detail;
+            auto& out = result.item;
+            out.recording.recordingId = source.recording.recordingId;
+            out.recording.backendId = source.recording.backendId;
+            out.recording.title = source.recording.title;
+            out.recording.recordedAt = source.recording.recordedAt;
+            out.recording.durationSeconds = source.recording.durationSeconds;
+            out.recording.durationKnown = source.recording.durationKnown;
+            out.recording.edited = source.recording.edited;
+            out.recording.description = source.recording.description;
+            out.recording.sizeMb = source.recording.sizeMb;
+            out.metadataState = source.metadataState;
+            out.metadataSource = source.metadataSource;
+            out.contentKind = source.contentKind;
+            out.epgTitle = source.epgTitle;
+            out.subtitle = source.subtitle;
+            out.epgDescription = source.epgDescription;
+            out.providerTitle = source.providerTitle;
+            out.overview = source.overview;
+            out.originalTitle = source.originalTitle;
+            out.tagline = source.tagline;
+            out.seriesTitle = source.seriesTitle;
+            out.episodeTitle = source.episodeTitle;
+            out.genreText = source.genreText;
+            out.manualGenreId = manualGenreId;
+            out.releaseDate = source.releaseDate;
+            out.seasonNumber = source.seasonNumber;
+            out.episodeNumber = source.episodeNumber;
+            out.providerRuntimeMinutes = source.providerRuntimeMinutes;
+            out.manualAssignmentId = source.manualAssignmentId;
+            out.metadataEntityId = source.metadataEntityId;
+            out.manualRevision = source.manualRevision;
+            result.status = PublicRecordingDetailStatus::ok;
+            return result;
+        });
+
     // Same Suite Genre index as the Web frontend; Public-v1 only projects
     // authorized, paginated and opaque-ID read models.
     PublicApiRuntime::instance().registerGenreCollectionLookup(
@@ -3509,7 +3639,9 @@ bool DaemonRuntime::initialize()
             if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
                 !epgCacheServiceRegistry_ ||
                 request.backendId.empty() || request.channelId.empty() ||
-                request.limit == 0U || request.limit > 192U)
+                request.limit == 0U || request.limit > 192U ||
+                (request.afterStartTime.empty() !=
+                 request.afterCacheEventId.empty()))
             {
                 result.status = PublicEpgNowNextStatus::invalid;
                 return result;
@@ -3536,11 +3668,28 @@ bool DaemonRuntime::initialize()
             }
             EpgCacheService* service =
                 epgCacheServiceRegistry_->findService(request.backendId);
-            if (service == nullptr) return result;
+            if (service == nullptr ||
+                !service->getStatusForBackend(request.backendId).ready)
+                return result;
+            if (!request.afterStartTime.empty() &&
+                !service->hasWindowCursorAnchorForBackend(
+                    request.backendId, request.channelId,
+                    request.fromTime, request.untilTime,
+                    request.afterStartTime, request.afterCacheEventId))
+            {
+                result.status = PublicEpgNowNextStatus::invalid;
+                return result;
+            }
             const auto events = service->findWindowForBackend(
                 request.backendId, request.channelId, request.fromTime,
-                request.untilTime, static_cast<int>(request.limit + 1U));
+                request.untilTime, static_cast<int>(request.limit + 1U),
+                request.afterStartTime, request.afterCacheEventId);
             result.hasMore = events.size() > request.limit;
+            if (result.hasMore)
+            {
+                result.nextStartTime = events[request.limit - 1U].startTime;
+                result.nextCacheEventId = events[request.limit - 1U].id;
+            }
             for (std::size_t i = 0U;
                  i < events.size() && i < request.limit; ++i)
             {

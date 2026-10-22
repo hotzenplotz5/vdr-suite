@@ -172,6 +172,35 @@ RecordingGenreIdentity resolveRecordingGenreIdentity(
     return identity;
 }
 
+// Shared SELECT for the existing Web lookup and the schema-nonmutating
+// Public-v1 read. Backend and canonical cache identity are resolved by
+// their respective callers; no genre metadata is rewritten here.
+std::string readManualGenreSelection(
+    Database& database, const std::string& backendId,
+    const std::string& canonicalResourceKey)
+{
+    const std::string targetId = GenreIndexRepository::stableTargetId(
+        "recording", backendId, canonicalResourceKey);
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT genre_id FROM suite_metadata_genre_assignments "
+        "WHERE metadata_target_id=? "
+        "AND provider_id='manual-recording-genre' "
+        "AND source_kind='recording-manual-genre' "
+        "AND assignment_state IN('active','unknown','conflict') "
+        "ORDER BY ordinal LIMIT 1;";
+    if (sqlite3_prepare_v2(
+            database.handle(), sql, -1, &statement, nullptr) != SQLITE_OK)
+        return {};
+
+    sqlite3_bind_text(statement, 1, targetId.c_str(), -1, SQLITE_TRANSIENT);
+    std::string genreId;
+    if (sqlite3_step(statement) == SQLITE_ROW)
+        genreId = columnText(statement, 0);
+    sqlite3_finalize(statement);
+    return genreId;
+}
+
 bool localProfilePath(const std::string& path)
 {
     if (path.empty()) return false;
@@ -477,6 +506,20 @@ MetadataRepository::getManualRecordingMetadata(
     return result;
 }
 
+ManualRecordingMetadataAssignment
+MetadataRepository::getManualRecordingMetadataReadOnly(
+    const std::string& backendId,
+    const std::string& resourceKey)
+{
+    // Resolve the SAME canonical cache identity as Web manual metadata,
+    // but never run metadata schema initialization or person-image lookups.
+    // No DDL, network access or provider candidate search is permitted here.
+    const std::string backend = normalizedBackendId(backendId);
+    return manualRepository().findSelectedReadOnly(
+        backend,
+        resolveResourceKey(database_, backend, resourceKey));
+}
+
 std::map<std::string, ManualRecordingMetadataAssignment>
 MetadataRepository::getManualRecordingMetadataForBackend(
     const std::string& backendId)
@@ -588,48 +631,27 @@ std::string MetadataRepository::getManualRecordingGenre(
     const RecordingGenreIdentity identity =
         resolveRecordingGenreIdentity(database_, backend, resourceKey);
     if (!identity.found || !genreRepository().ensureSchema())
-    {
         return {};
-    }
 
-    const std::string targetId =
-        GenreIndexRepository::stableTargetId(
-            "recording",
-            backend,
-            identity.resourceKey);
+    return readManualGenreSelection(
+        database_, backend, identity.resourceKey);
+}
 
-    sqlite3_stmt* statement = nullptr;
-    const char* sql =
-        "SELECT genre_id FROM suite_metadata_genre_assignments "
-        "WHERE metadata_target_id=? "
-        "AND provider_id='manual-recording-genre' "
-        "AND source_kind='recording-manual-genre' "
-        "AND assignment_state IN('active','unknown','conflict') "
-        "ORDER BY ordinal LIMIT 1;";
-    if (sqlite3_prepare_v2(
-            database_.handle(),
-            sql,
-            -1,
-            &statement,
-            nullptr) != SQLITE_OK)
-    {
+std::string MetadataRepository::getManualRecordingGenreReadOnly(
+    const std::string& backendId,
+    const std::string& resourceKey)
+{
+    const std::string backend = normalizedBackendId(backendId);
+    const RecordingGenreIdentity identity =
+        resolveRecordingGenreIdentity(database_, backend, resourceKey);
+    // Unlike the existing Web method, never initialize/upgrade the Genre
+    // index merely because a Recording detail is read.
+    if (!identity.found ||
+        !database_.tableExists("suite_metadata_genre_assignments"))
         return {};
-    }
 
-    sqlite3_bind_text(
-        statement,
-        1,
-        targetId.c_str(),
-        -1,
-        SQLITE_TRANSIENT);
-
-    std::string genreId;
-    if (sqlite3_step(statement) == SQLITE_ROW)
-    {
-        genreId = columnText(statement, 0);
-    }
-    sqlite3_finalize(statement);
-    return genreId;
+    return readManualGenreSelection(
+        database_, backend, identity.resourceKey);
 }
 
 bool MetadataRepository::setManualRecordingGenre(

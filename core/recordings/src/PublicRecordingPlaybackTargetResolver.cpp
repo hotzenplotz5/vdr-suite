@@ -29,6 +29,16 @@ PublicRecordingPlaybackTargetResolver::PublicRecordingPlaybackTargetResolver(
 PublicRecordingPlaybackTargetResult PublicRecordingPlaybackTargetResolver::resolve(
     const std::string& authorizedBackendId,
     const std::string& publicRecordingId) const {
+    auto result = resolveForRead(authorizedBackendId, publicRecordingId);
+    if (result.status == PublicRecordingPlaybackTargetStatus::ready &&
+        (result.recording.id.empty() || result.recording.title.empty()))
+        return {PublicRecordingPlaybackTargetStatus::notFound, {}};
+    return result;
+}
+
+PublicRecordingPlaybackTargetResult PublicRecordingPlaybackTargetResolver::resolveForRead(
+    const std::string& authorizedBackendId,
+    const std::string& publicRecordingId) const {
     if (!validBackendId(authorizedBackendId) ||
         !validRecordingId(publicRecordingId))
         return {PublicRecordingPlaybackTargetStatus::invalidRequest,{}};
@@ -37,13 +47,13 @@ PublicRecordingPlaybackTargetResult PublicRecordingPlaybackTargetResolver::resol
         authorizedBackendId,publicRecordingId);
     if (!native) return {PublicRecordingPlaybackTargetStatus::notFound,{}};
 
-    // Public ID maps to backendNativeId, NOT the old media service's
-    // VdrRecording::id. Only use its id after a fresh scoped cache lookup.
+    // A public ID maps to backendNativeId, never the media-service id.
+    // Read-only detail permits an empty media id/title; playback does not.
+    // In all cases require a fresh scoped cache entry before readout.
     VdrRecording record;
     if (!cache_.findByBackendNativeId(authorizedBackendId,*native,record) ||
         record.backendId!=authorizedBackendId ||
-        record.backendNativeId!=*native ||
-        record.id.empty() || record.title.empty())
+        record.backendNativeId!=*native)
         return {PublicRecordingPlaybackTargetStatus::notFound,{}};
 
     // Reject a binding that moved/deleted during the lookup.

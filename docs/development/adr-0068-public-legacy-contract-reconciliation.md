@@ -1,6 +1,6 @@
 # ADR-0068 — Public-v1 and legacy source-contract reconciliation
 
-Status: **ADR-0068 review candidate; not a completed checkpoint until the final-head full CI and merge gates pass.**
+Status: **ADR-0068 source closeout accepted — PR #517 merged 2026-10-22, four CI tracks SUCCESS at PR head and merge head.** This is a partial audit of 60 declared OpenAPI method/path entries, not exhaustive route, schema or runtime coverage.
 Single implementation branch: `work/adr0068-router-modularization-20261022`. Single PR: [#517](https://github.com/hotzenplotz5/vdr-suite/pull/517).
 
 ## Provenance and boundaries
@@ -107,3 +107,7 @@ The legacy `ApiRouter::handleGet` paths are likewise unchanged. Browser-only `/a
 5. **Release** — run the complete final-head CI graph at PR #517, verify the precise branch and changing `main` heads, merge only with no outstanding required failures, then verify actual post-merge `main` and CI. E1 starts only after this checkpoint.
 
 This matrix is a **source/API contract review aid**, not a substitute for golden HTTP responses, negative security tests, CI, or hardware deployment evidence.
+
+## Post-merge provenance and audit limits (2026-10-22)
+
+[PR #517](https://github.com/hotzenplotz5/vdr-suite/pull/517), final head [`867f43b67`](https://github.com/hotzenplotz5/vdr-suite/commit/867f43b67e88f6b9c904db5b98e99ce1b79ff784), merge [`6c05493ad`](https://github.com/hotzenplotz5/vdr-suite/commit/6c05493ad53c82e19fef4a2bc70e09bc1603e0c8), exact CI links in [CURRENT](../CURRENT.md#adr-0068-closeout--merged-and-source-ci-accepted-2026-10-22). The pre-merge release-gate list above is retained as historical review evidence; its CI and merge steps have passed. This method/path inventory is **not** an assertion that OpenAPI exhaustively enumerates all runtime routes, error/JSON schemas or their execution. No new live yaVDR installation or hardware acceptance is claimed.
