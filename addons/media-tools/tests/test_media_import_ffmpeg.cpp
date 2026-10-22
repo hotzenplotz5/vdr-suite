@@ -173,6 +173,43 @@ int main() {
            shrinkingResult.packets > 0 &&
            shrinkingResult.syncErrors == 0 &&
            shrinkingResult.transportErrors == 0);
+    // A separate unsupported VP9/Opus source must be transcoded through
+    // the same real importer into VDR-readable H.264/AAC without deletion.
+    const fs::path legacySource = fixture.input / "LegacyCodec.webm";
+    const auto generatedLegacy = runner.tools.run({
+        "/usr/bin/ffmpeg", "-nostdin", "-hide_banner", "-v", "error",
+        "-f", "lavfi", "-i", "testsrc2=size=160x90:rate=25",
+        "-f", "lavfi", "-i", "sine=frequency=660:sample_rate=48000",
+        "-t", "6", "-c:v", "libvpx-vp9", "-deadline", "realtime",
+        "-cpu-used", "8", "-b:v", "350k", "-c:a", "libopus",
+        "-b:a", "64k", "-y", legacySource.string()
+    }, false);
+    assert(generatedLegacy.exitCode == 0 && fs::is_regular_file(legacySource));
+    const auto legacyLength = fs::file_size(legacySource);
+    const auto legacyPlan = inspectImport({
+        fixture.input, fixture.video, legacySource
+    });
+    const auto converted = executeRemuxImport(
+        legacyPlan, runner, [](const ImportPlan&) {});
+    assert(fs::exists(converted / "index") &&
+           fs::exists(converted / "00001.ts") &&
+           fs::file_size(legacySource) == legacyLength);
+    const auto convertedCodec = runner.tools.run({
+        "/usr/bin/ffprobe", "-v", "error", "-select_streams", "v:0",
+        "-show_entries", "stream=codec_name",
+        "-of", "default=nw=1:nk=1",
+        (converted / "00001.ts").string()
+    }, true);
+    assert(convertedCodec.exitCode == 0 &&
+           parseProbedVideoCodec(convertedCodec.output) == "h264");
+    const auto convertedCheck = checkRecordingTransportStream(
+        fixture.video, converted.lexically_relative(fixture.video));
+    assert(convertedCheck.segments == 1 && convertedCheck.packets > 0 &&
+           convertedCheck.syncErrors == 0 &&
+           convertedCheck.transportErrors == 0);
+    std::cout << "MEDIA_IMPORT_REAL_CODEC_FALLBACK=PASS"
+              << " video=h264 audio=aac source_preserved=YES\\n";
+
     std::cout << "MEDIA_SHRINK_REAL_FFMPEG_SMOKE=PASS"
               << " original_preserved=YES candidate_published_new=YES"
               << " hevc_packets=" << shrinkingResult.packets << "\n";
