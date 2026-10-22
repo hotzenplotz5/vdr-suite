@@ -15,12 +15,15 @@ unchanged; an unsupported filesystem refuses native CAS durability.
 diff --git a/epgsearchext.c b/epgsearchext.c
 --- a/epgsearchext.c
 +++ b/epgsearchext.c
-@@ -25,3 +25,5 @@
+@@ -24,6 +24,8 @@
+ #include <vector>
  #include <set>
  #include <stdio.h>
  #include <string.h>
 +#include <fcntl.h>
 +#include <unistd.h>
+ #include "epgsearchext.h"
+ #include "epgsearchcfg.h"
 @@ -1699,5 +1699,34 @@
 -        if (!f.Close())
 -            result = false;
