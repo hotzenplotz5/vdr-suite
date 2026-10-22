@@ -149,18 +149,29 @@
     });
   }
 
+  function currentAttemptView(view, attempt) {
+    if (isCurrent(view) && view.attempt === attempt) return view;
+    if (current && isCurrent(current) && current.backendId === view.backendId &&
+        current.attempt === attempt) return current;
+    return null;
+  }
+
   function showAttempt(view) {
     view.select.disabled = true;
     view.startButton.disabled = true;
     view.reloadButton.disabled = true;
     view.operationDetail.textContent = view.attempt.operationId
       ? 'Vorgang ' + view.attempt.operationId
-      : 'Anfrage gesendet, Antwort nicht bestätigt.';
+      : view.attempt.pending
+        ? 'Import-Anfrage übermittelt, Serverantwort steht noch aus.'
+        : 'Anfrage gesendet, Antwort nicht bestätigt.';
     view.refreshButton.hidden = false;
     view.refreshButton.disabled = !view.attempt.operationId;
     view.newButton.hidden = !terminalState(view.attempt.state);
     if (view.attempt.operationId) {
       readOperation(view);
+    } else if (view.attempt.pending) {
+      report(view, 'Import-Anfrage läuft. Bis zur Serverantwort keinen weiteren Import starten.');
     } else {
       report(view, 'Ergebnis der Auftragsannahme ungewiss. Keine neue Anfrage erzeugen. ' +
         'Die ursprüngliche Idempotency-Key-Zuordnung bleibt für diese Browsersitzung gesperrt.', true);
@@ -234,7 +245,8 @@
           if (!isCurrent(view)) return null;
           // Reserve a unique key before dispatch; a lost HTTP response is not a failure.
           const key = makeKey();
-          view.attempt = {sourceId: sourceId, key: key, operationId: '', state: ''};
+          view.attempt = {sourceId: sourceId, key: key, operationId: '',
+            state: '', pending: true};
           activeAttempts[view.backendId] = view.attempt;
           return publicClient().submitMediaImport({
             backendId: view.backendId, sourceId: sourceId, idempotencyKey: key,
@@ -252,18 +264,28 @@
         }
         view.attempt.operationId = operation.operationId;
         view.attempt.state = operation.state || 'accepted';
-        if (isCurrent(view)) showAttempt(view);
+        view.attempt.pending = false;
+        const target = currentAttemptView(view, view.attempt);
+        if (target) showAttempt(target);
       }).catch(function (error) {
-        if (!isCurrent(view)) return;
-        if (view.attempt) {
+        const attempt = view.attempt;
+        if (attempt && activeAttempts[view.backendId] === attempt) {
+          const target = currentAttemptView(view, attempt);
+          attempt.pending = false;
           // A validated HTTP 4xx is a definite rejection before admission.
           // Timeouts, 5xx, invalid 202 responses and 409 are NOT proof of failure.
           if (error && [400, 401, 403, 404, 422].includes(error.status)) {
             delete activeAttempts[view.backendId];
             view.attempt = null;
-            view.reloadButton.disabled = false;
-            view.select.disabled = true;
-            view.startButton.disabled = true;
+            if (target) {
+              target.attempt = null;
+              target.reloadButton.disabled = false;
+              target.select.disabled = true;
+              target.startButton.disabled = true;
+              target.refreshButton.hidden = true;
+              target.newButton.hidden = true;
+              target.operationDetail.textContent = '';
+            }
             const detail = error.status === 422
               ? 'Ausgewählte Importquelle ungültig oder abgelaufen. Quellen aktualisieren.'
               : error.status === 403
@@ -273,13 +295,14 @@
                   : error.status === 404
                     ? 'Backend nicht verfügbar oder nicht zugänglich.'
                     : 'Import-Anfrage wurde vom Server zurückgewiesen.';
-            report(view, detail, true);
+            if (target) report(target, detail, true);
             return;
           }
           // Network errors and 5xx can occur after durable operation reservation.
-          showAttempt(view);
+          if (target) showAttempt(target);
           return;
         }
+        if (!isCurrent(view)) return;
         const message = error && error.status === 503
           ? 'Quellenliste veraltet oder Backend-Agent nicht verfügbar. Erneut laden.'
           : error && (error.status === 401 || error.status === 403)
