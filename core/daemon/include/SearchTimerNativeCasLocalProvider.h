@@ -25,6 +25,9 @@ public:
         vdrsuite::agent::SuiteBridgeLocalControlTransport& transport);
 
     bool supportsAtomicGenerationCasV1() const override;
+    // SuiteBridge applied_verified was returned only after the separate
+    // epgsearch Service(observe-v1.1) readback, never from a write ACK.
+    bool providesVerifiedReadbackV1() const override { return true; }
     SearchTimerNativeCasLocalObservation observeRule(
         const std::string& backendId, int nativeId);
 
