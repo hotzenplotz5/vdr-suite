@@ -861,20 +861,35 @@ public:
                     return (c >= '0' && c <= '9') ||
                         (c >= 'a' && c <= 'f');
                 });
+        const bool searchMutationEndpoint =
+            searchMutationActionItem &&
+            searchMutationRest.size() == 45U &&
+            searchMutationRest.compare(35U, 10U, "/mutations") == 0;
+        const bool searchVersionEndpoint =
+            searchMutationActionItem &&
+            searchMutationRest.size() == 43U &&
+            searchMutationRest.compare(35U, 8U, "/version") == 0;
         const bool isPublicSearchTimerMutation =
             ((request.method == "PATCH" || request.method == "DELETE") &&
                 searchMutationItem) ||
             (isPost && searchMutationActionItem &&
-                (searchMutationActivate || searchMutationDeactivate));
+                (searchMutationActivate || searchMutationDeactivate ||
+                 searchMutationEndpoint));
+        const std::string searchMutationAction =
+            searchMutationEndpoint
+                ? jsonStringValue(request.body, "action") : std::string();
         const std::string searchMutationPermission =
-            request.method == "DELETE" ? "searchtimers.delete" :
-            searchMutationActivate ? "searchtimers.execute" :
+            request.method == "DELETE" ||
+            searchMutationAction == "delete" ? "searchtimers.delete" :
+            searchMutationActivate ||
+            searchMutationAction == "activate" ? "searchtimers.execute" :
             "searchtimers.modify";
         const bool isPublicSearchTimerRead =
             request.method == "GET" &&
             (path == publicSearchTimerCollection ||
                 isPublicSearchTimerPreviewResource ||
-                isPublicSearchTimerDraftPreview);
+                isPublicSearchTimerDraftPreview ||
+                searchVersionEndpoint);
         const std::string publicSearchTimerBackendId =
             queryStringValue(request.path, "backend");
         const std::string publicTimerAssignmentCollection =
@@ -937,6 +952,7 @@ public:
               !isPublicSearchTimerCreate) ||
              isPublicSearchTimerPreviewResource ||
              isPublicSearchTimerDraftPreview ||
+             searchVersionEndpoint ||
              isPublicOperationResource ||
              isPublicAccountCredentialResource ||
              isPublicAccountSessionResource);
