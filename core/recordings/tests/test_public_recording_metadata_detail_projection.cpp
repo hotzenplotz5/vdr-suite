@@ -53,8 +53,17 @@ int main()
     assert(result->epgTitle == "Native Event");
     assert(result->epgDescription == "Native synopsis");
 
+    // Only transmit native description separately if it adds information
+    // beyond the existing collection's preferred description.
+    publicRecording.description = "Native synopsis";
+    result = PublicRecordingMetadataDetailProjection::project(
+        "backend-a", publicRecording.recordingId, original, publicRecording);
+    assert(result && result->epgDescription.empty());
+    publicRecording.description = "Synopsis";
+
     auto& provider = original.metadata.provider;
     provider.source = VdrRecordingMetadataSource::RestfulApiScraperBridge;
+    provider.title = "Explicit provider title";
     provider.contentKind = VdrRecordingContentKind::SeriesEpisode;
     provider.seriesTitle = "Series";
     provider.episodeTitle = "Episode";
@@ -81,6 +90,7 @@ int main()
     assert(result->providerRuntimeMinutes == 52);
     assert(result->genreText == "Documentary");
     assert(result->originalTitle == "Original");
+    assert(result->providerTitle == "Explicit provider title");
 
     // Unknown / incomplete provider claims must not fabricate details.
     provider.title.clear();
@@ -92,6 +102,22 @@ int main()
     assert(PublicRecordingMetadataDetailProjection::project(
         "backend-a", publicRecording.recordingId, original,
         publicRecording)->metadataState == "partial");
+
+    // A legacy source claiming no provider must not leak orphaned values.
+    provider.source = VdrRecordingMetadataSource::None;
+    provider.contentKind = VdrRecordingContentKind::Movie;
+    provider.title = "Untrusted orphan title";
+    provider.originalTitle = "Untrusted orphan original";
+    provider.seasonNumber = 9;
+    result = PublicRecordingMetadataDetailProjection::project(
+        "backend-a", publicRecording.recordingId, original, publicRecording);
+    assert(result && result->metadataSource == "none");
+    assert(result->contentKind == "unknown");
+    assert(result->metadataState == "partial");
+    assert(result->providerTitle.empty());
+    assert(result->originalTitle.empty());
+    assert(result->seasonNumber == 0);
+    provider.source = VdrRecordingMetadataSource::RestfulApiScraperBridge;
 
     // UTF-8-safe bounded text, including a truncated multibyte boundary.
     original.metadata.native.shortText =
