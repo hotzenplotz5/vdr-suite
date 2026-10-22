@@ -7,6 +7,10 @@ DAEMON_SRC := \
         core/vdr/src/SearchTimerCreateOperationPayload.cpp \
         core/vdr/src/SearchTimerCreateAdmissionService.cpp \
         core/vdr/src/SearchTimerCreateDispatchService.cpp \
+        core/vdr/src/SearchTimerNativeCasContract.cpp \
+        core/vdr/src/SearchTimerNativeCasAdmissionService.cpp \
+        core/vdr/src/SearchTimerNativeCasDispatchService.cpp \
+        core/daemon/src/SearchTimerNativeCasLocalProvider.cpp \
         core/timers/src/TimerIntent.cpp \
         core/timers/src/TimerIntentRepository.cpp \
         core/timers/src/TimerAssignment.cpp \
@@ -238,6 +242,10 @@ DAEMON_SRC := \
 
 DAEMON_SRC += $(SECURITY_SRC)
 DAEMON_SRC += $(AGENT_CONTROL_PLANE_SRC)
+# The source-integrated native CAS provider uses the existing local Agent
+# control-plane client. This does not enable any Public-v1 mutation route.
+DAEMON_SRC += $(AGENT_LOCAL_CONTROL_TRANSPORT_SRC)
+DAEMON_SRC += $(AGENT_HANDSHAKE_SRC)
 DAEMON_SRC += $(METADATA_PLATFORM_SRC)
 DAEMON_SRC += $(MANUAL_RECORDING_METADATA_SRC)
 DAEMON_SRC += core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp
