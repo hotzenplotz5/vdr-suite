@@ -979,7 +979,7 @@
         ],
         "operationId": "createSearchTimer",
         "summary": "Create one backend SearchTimer from a paired Device",
-        "description": "A verified Device with independent searchtimers.create@backend grant may submit one confirmed, durable and idempotent SearchTimer CREATE. Backend must be online and writable with live Agent generation. One-shot provider dispatch and exact native-ID readback; HTTP 202 is an Operation, never a promise of recording. An ambiguous result must not be automatically retried. The native RESTfulAPI mapping uses the search text as the rule name; name must equal query or HTTP 422.",
+        "description": "A verified Device with independent searchtimers.create@backend grant may submit one confirmed, durable and idempotent SearchTimer CREATE, but only with explicitly inactive state (active=false). Missing active or active=true returns HTTP 422; public activation/edit/delete remain disabled pending provider generation attestation. Backend must be online and writable with live Agent generation. One-shot provider dispatch and exact native-ID readback; HTTP 202 is an Operation, never a promise of recording. An ambiguous result must not be automatically retried. The native RESTfulAPI mapping uses the search text as the rule name; name must equal query or HTTP 422.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "verified Device and exact searchtimers.create@backend; no Browser/legacy fallback"
@@ -1015,6 +1015,7 @@
                 "required": [
                   "name",
                   "query",
+                  "active",
                   "confirmed",
                   "mode",
                   "compareTitle",
@@ -1036,8 +1037,8 @@
                     "const": true
                   },
                   "active": {
-                    "type": "boolean",
-                    "default": true
+                    "const": false,
+                    "description": "Explicit inactive staging only. Public-v1 activation is not authorized until the native provider supports generation-fenced mutation."
                   },
                   "mode": {
                     "type": "integer",
