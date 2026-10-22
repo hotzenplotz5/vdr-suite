@@ -80,7 +80,8 @@ persistent, empty, root-owned and non-writable-by-others **run-lock inode**.
 Before opting in, a source/manual or future Debian installation must
 independently stage it under the same reviewed installation root; neither
 the Agent nor a package action creates it on demand. Missing, symlinked,
-writable, replaced or otherwise unsafe lock evidence denies Media Import.
+writable, replaced or otherwise unsafe lock evidence denies Media Import
+at both Agent capability discovery and actual handler dispatch.
 
 A pinned Media Import executor holds a **shared advisory Linux flock**
 from BEFORE its final administrator/manifest/authorization/source rechecks,
