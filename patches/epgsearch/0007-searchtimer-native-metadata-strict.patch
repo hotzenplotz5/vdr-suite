@@ -76,9 +76,12 @@ diff --git a/epgsearchext.c b/epgsearchext.c
 +                                    old->nativeRevisionDurable = false;
 +                                    old->lastPersistedText.clear();
                                      duplicate = true;
-@@ -1616,2 +1616,5 @@
+@@ -1614,5 +1614,8 @@
+                     }
+                 }
                  pendingGeneration.clear();
                  pendingRevision.clear();
 +                generationMarkerSeen = false;
 +                revisionMarkerSeen = false;
 +                invalidNativeMetadata = false;
+             }
