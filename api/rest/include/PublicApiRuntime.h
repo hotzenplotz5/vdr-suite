@@ -327,6 +327,30 @@ struct PublicRecordingDetailResult
     PublicRecordingDetailItem item;
 };
 
+// M2: Read-only Recording artwork, projected from the existing cache.
+// Public consumers never see native paths, provider IDs or credentials.
+struct PublicRecordingArtworkRequest
+{
+    std::string backendId;
+    std::string recordingId;
+    std::string artworkId; // empty for list, opaque asset ID for image bytes
+};
+enum class PublicRecordingArtworkStatus { ok, invalid, notFound, unavailable };
+struct PublicRecordingArtworkItem
+{
+    std::string artworkId;
+    std::string kind;
+    int width = 0;
+    int height = 0;
+};
+struct PublicRecordingArtworkResult
+{
+    PublicRecordingArtworkStatus status = PublicRecordingArtworkStatus::unavailable;
+    std::vector<PublicRecordingArtworkItem> items;
+    std::string contentType;
+    std::string content;
+};
+
 enum class PublicSearchStatus { ok, unavailable };
 struct PublicSearchRequest {
     std::string backendId, query;
@@ -1330,6 +1354,10 @@ public:
         std::function<PublicRecordingDetailResult(
             const PublicRecordingDetailRequest&)>;
 
+    using RecordingArtworkLookup =
+        std::function<PublicRecordingArtworkResult(
+            const PublicRecordingArtworkRequest&)>;
+
     using SearchLookup =
         std::function<PublicSearchResult(const PublicSearchRequest&)>;
 
@@ -1525,6 +1553,11 @@ public:
     void resetRecordingDetailLookup();
     PublicRecordingDetailResult lookupRecordingDetail(
         const PublicRecordingDetailRequest& request) const;
+
+    void registerRecordingArtworkLookup(RecordingArtworkLookup lookup);
+    void resetRecordingArtworkLookup();
+    PublicRecordingArtworkResult lookupRecordingArtwork(
+        const PublicRecordingArtworkRequest& request) const;
 
     void registerSearchLookup(SearchLookup lookup);
     void resetSearchLookup();
@@ -1928,6 +1961,9 @@ private:
 
     mutable std::mutex recordingDetailLookupMutex_;
     RecordingDetailLookup recordingDetailLookup_;
+
+    mutable std::mutex recordingArtworkLookupMutex_;
+    RecordingArtworkLookup recordingArtworkLookup_;
 
     mutable std::mutex searchLookupMutex_;
     SearchLookup searchLookup_;

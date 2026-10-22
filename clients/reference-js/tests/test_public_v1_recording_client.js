@@ -37,6 +37,72 @@ async function run() {
   assert.strictEqual(requests[0].options.headers.Authorization, 'Bearer device-secret');
   assert.strictEqual(requests[0].options.method, 'GET');
 
+  const recId = 'rec_0123456789abcdef0123456789abcdef';
+  const artId = 'fedcba9876543210fedcba9876543210';
+  const artClient = api.createClient({
+    baseUrl: 'https://suite.example',
+    headers: {Authorization: 'Bearer device-secret'},
+    fetch(url, options) {
+      requests.push({url, options});
+      if (url.endsWith('/artwork?backendId=backend-a')) {
+        return Promise.resolve(response(200, {
+          recordingId: recId, backendId: 'backend-a',
+          items: [{kind: 'poster', artworkId: artId,
+            url: '/api/v1/recordings/' + recId + '/artwork/' + artId +
+              '?backendId=backend-a'}]
+        }));
+      }
+      return Promise.resolve({
+        ok: true, status: 200,
+        headers: {get(name) { return name === 'Content-Type' ? 'image/png' : null; }},
+        arrayBuffer() { return Promise.resolve(Uint8Array.from([137,80,78,71]).buffer); }
+      });
+    }
+  });
+  const artworks = await artClient.getRecordingArtwork({
+    recordingId: recId, backendId: 'backend-a'
+  });
+  assert.strictEqual(artworks.items[0].artworkId, artId);
+  const image = await artClient.getRecordingArtworkImage({
+    recordingId: recId, artworkId: artId, backendId: 'backend-a'
+  });
+  assert.strictEqual(image.contentType, 'image/png');
+  assert.deepStrictEqual(Array.from(new Uint8Array(image.bytes)), [137,80,78,71]);
+  const artworkCalls = requests.slice(1);
+  assert.strictEqual(artworkCalls.length, 2);
+  assert.strictEqual(artworkCalls[0].options.headers.Authorization,
+    'Bearer device-secret');
+  assert.strictEqual(artworkCalls[1].options.headers.Authorization,
+    'Bearer device-secret');
+  assert.strictEqual(artworkCalls[1].options.headers.Accept,
+    'image/png, image/jpeg, image/webp');
+  assert(artworkCalls[1].url.endsWith('/artwork/' + artId +
+    '?backendId=backend-a'));
+  assert(!artworkCalls[1].url.includes('device-secret'));
+  const epg = await artClient.getEpgArtworkImage({
+    backendId: 'backend-a', channelId: 'S19.2E-1-100',
+    eventId: '81234'
+  });
+  assert.strictEqual(epg.contentType, 'image/png');
+  assert(requests[requests.length - 1].url.includes('/api/v1/epg/artwork?'));
+  assert.strictEqual(requests[requests.length - 1].options.headers.Authorization,
+    'Bearer device-secret');
+  const preferred = await artClient.getEpgPreferredArtworkImage({
+    backendId: 'backend-a', channelId: 'S19.2E-1-100',
+    eventId: '81234'
+  });
+  assert.strictEqual(preferred.contentType, 'image/png');
+  assert(requests[requests.length - 1].url.includes('/api/v1/epg/preferred-artwork?'));
+  assert.strictEqual(requests[requests.length - 1].options.headers.Authorization,
+    'Bearer device-secret');
+  const priorImage = requests.length;
+  for (const invalid of [
+    {recordingId: 'rec_bad', backendId: 'backend-a'},
+    {recordingId: recId, backendId: '../bad'},
+    {recordingId: recId, backendId: 'backend-a', artworkId: '../bad'}
+  ]) assert.throws(() => artClient.getRecordingArtworkImage(invalid));
+  assert.strictEqual(requests.length, priorImage);
+
   const prior = requests.length;
   for (const query of [{}, {backendId: 'backend-a', limit: 0},
     {backendId: 'backend-a', limit: 101},

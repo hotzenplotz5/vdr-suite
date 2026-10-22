@@ -25,6 +25,7 @@
 #include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "RecordingArtworkHttpServer.h"
+#include "VdrRecordingArtworkIdentity.h"
 #include "PublicResourcePreconditions.h"
 #include "PublicRecordingCollectionProjection.h"
 #include "PublicRecordingMetadataDetailProjection.h"
@@ -4446,10 +4447,115 @@ bool DaemonRuntime::initialize()
     std::cout << "API router runtime initialized" << std::endl;
     std::cout << "SearchTimer preview EPG cache runtime initialized" << std::endl;
 
+    // One artwork loader shared with the existing Web artwork wrapper.
+    recordingArtworkService_ = std::make_shared<VdrRecordingArtworkService>(
+        *vdrRecordingCacheRepository_, config_.recordingArtworkRoots());
+    PublicApiRuntime::instance().registerRecordingArtworkLookup(
+        [this](const PublicRecordingArtworkRequest& request)
+        {
+            PublicRecordingArtworkResult result;
+            if (request.backendId.empty() || request.backendId == "*" ||
+                request.recordingId.size() != 36U)
+            {
+                result.status = PublicRecordingArtworkStatus::invalid;
+                return result;
+            }
+            if (!backendRegistryService_ || !vdrSnapshotReadService_ ||
+                !publicRecordingIdentities_ || !vdrRecordingCacheRepository_ ||
+                !recordingArtworkService_)
+                return result;
+            const auto backend =
+                backendRegistryService_->getBackend(request.backendId);
+            if (!backend.has_value() || !backend->enabled || !backend->online ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(
+                    request.backendId) ||
+                vdrRecordingCacheRepository_->statusForBackend(
+                    request.backendId).state != "ready")
+                return result;
+            PublicRecordingPlaybackTargetResolver resolver(
+                *publicRecordingIdentities_, *vdrRecordingCacheRepository_);
+            const auto found = resolver.resolveForRead(
+                request.backendId, request.recordingId);
+            if (found.status == PublicRecordingPlaybackTargetStatus::invalidRequest)
+            {
+                result.status = PublicRecordingArtworkStatus::invalid;
+                return result;
+            }
+            if (found.status != PublicRecordingPlaybackTargetStatus::ready)
+            {
+                result.status = PublicRecordingArtworkStatus::notFound;
+                return result;
+            }
+            for (const VdrRecordingArtworkRef& artwork :
+                 found.recording.metadata.artwork)
+            {
+                if (!artwork.isValid())
+                    continue;
+                const auto id = VdrRecordingArtworkIdentity::assetId(
+                    found.recording, artwork);
+                if (id.empty())
+                    continue;
+                if (!request.artworkId.empty() && request.artworkId != id)
+                    continue;
+                PublicRecordingArtworkItem item;
+                item.artworkId = id;
+                switch (artwork.kind)
+                {
+                    case VdrRecordingArtworkKind::Poster: item.kind = "poster"; break;
+                    case VdrRecordingArtworkKind::Fanart: item.kind = "fanart"; break;
+                    case VdrRecordingArtworkKind::Banner: item.kind = "banner"; break;
+                    case VdrRecordingArtworkKind::Still: item.kind = "still"; break;
+                }
+                item.width = artwork.width;
+                item.height = artwork.height;
+                result.items.push_back(std::move(item));
+                if (!request.artworkId.empty())
+                    break;
+            }
+            const auto bound = publicRecordingIdentities_->find(
+                request.backendId, found.recording.backendNativeId);
+            if (!bound || *bound != request.recordingId)
+            {
+                result.status = PublicRecordingArtworkStatus::notFound;
+                return result;
+            }
+            if (!request.artworkId.empty())
+            {
+                if (result.items.empty())
+                {
+                    result.status = PublicRecordingArtworkStatus::notFound;
+                    return result;
+                }
+                const auto selected = std::find_if(
+                    found.recording.metadata.artwork.begin(),
+                    found.recording.metadata.artwork.end(),
+                    [&request, &found](const VdrRecordingArtworkRef& artwork) {
+                        return artwork.isValid() &&
+                            VdrRecordingArtworkIdentity::assetId(
+                                found.recording, artwork) == request.artworkId;
+                    });
+                if (selected == found.recording.metadata.artwork.end())
+                {
+                    result.status = PublicRecordingArtworkStatus::notFound;
+                    return result;
+                }
+                const auto image = recordingArtworkService_->loadPath(
+                    VdrRecordingArtworkIdentity::publicUrl(
+                        found.recording, *selected));
+                if (!image.found())
+                {
+                    result.status = PublicRecordingArtworkStatus::notFound;
+                    return result;
+                }
+                result.contentType = image.contentType;
+                result.content = image.content;
+            }
+            result.status = PublicRecordingArtworkStatus::ok;
+            return result;
+        });
     auto clientHttpServer = std::make_unique<RecordingArtworkHttpServer>(
         std::make_unique<TestHttpServer>(*apiRouter_, deviceLiveEventHub_),
-        *vdrRecordingCacheRepository_,
-        config_.recordingArtworkRoots());
+        recordingArtworkService_);
     httpServer_ = std::make_unique<BackendAgentHttpServer>(
         std::move(clientHttpServer),
         *backendAgentLifecycleService_,

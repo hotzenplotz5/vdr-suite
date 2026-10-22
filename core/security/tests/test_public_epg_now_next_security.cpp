@@ -41,6 +41,41 @@ int main()
             assert(!genre.protectedMutation);
         }
     }
+    // M2 EPG image bytes follow the strict EPG detail grant, never a
+    // different backend or live-playback-only grant.
+    const std::string artwork =
+        "/api/v1/epg/artwork?backendId=home&channelId=S19.2E-1-100&eventId=81234";
+    const std::string preferredArtwork =
+        "/api/v1/epg/preferred-artwork?backendId=home&channelId=S19.2E-1-100&eventId=81234";
+    for (const auto& path : {artwork, preferredArtwork})
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "epg.view", "home"));
+        const auto allowed = fixture.gate.evaluate(browserRead(fixture, path));
+        assert(allowed.allowed);
+        assert(allowed.authorizedBackendIds ==
+            std::vector<std::string>{"home"});
+    }
+    for (const auto& path : {artwork, preferredArtwork}) {
+        for (const auto& permission : {"media.live.play", "channels.view"}) {
+            SecurityHttpGateBrowserTestFixture fixture;
+            assert(fixture.grantRepository.ensureGrant(
+                fixture.actorId, permission, "home"));
+            const auto denied = fixture.gate.evaluate(browserRead(fixture, path));
+            assert(!denied.allowed);
+            assert(denied.rejection.statusCode == 403);
+        }
+    }
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "epg.view", "other"));
+        const auto denied = fixture.gate.evaluate(browserRead(fixture, preferredArtwork));
+        assert(!denied.allowed);
+        assert(denied.rejection.statusCode == 403);
+    }
+
     // A Live-TV permission includes the public TV guide on the SAME
     // backend. EPG-only actors remain legal; channel list alone is not.
     const std::string Detail =

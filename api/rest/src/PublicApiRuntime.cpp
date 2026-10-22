@@ -6618,6 +6618,128 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
     ApiResponse& response) const
 {
     const std::string path = requestPath(requestTarget);
+    // M2: Backend-scoped image metadata and actual bytes, behind the
+    // same recordings.view gate as Recording detail.
+    const std::string artworkPrefix =
+        std::string(PublicRecordingCollectionPath) + "/";
+    const std::size_t artworkMarker =
+        path.find("/artwork", artworkPrefix.size());
+    if (path.compare(0U, artworkPrefix.size(), artworkPrefix) == 0 &&
+        artworkMarker != std::string::npos &&
+        (artworkMarker + 8U == path.size() ||
+         (artworkMarker + 8U < path.size() &&
+          path[artworkMarker + 8U] == '/')))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        const std::string recordingId = path.substr(
+            artworkPrefix.size(), artworkMarker - artworkPrefix.size());
+        const std::string artworkId = artworkMarker + 8U == path.size()
+            ? std::string()
+            : path.substr(artworkMarker + 9U);
+        const auto validHexId = [](const std::string& id,
+                                    const std::string& prefix) {
+            return id.size() == prefix.size() + 32U &&
+                id.compare(0U, prefix.size(), prefix) == 0 &&
+                std::all_of(id.begin() + prefix.size(), id.end(),
+                    [](unsigned char c) {
+                        return (c >= '0' && c <= '9') ||
+                               (c >= 'a' && c <= 'f');
+                    });
+        };
+        if (!validHexId(recordingId, "rec_") ||
+            (artworkMarker + 8U < path.size() && artworkId.empty()) ||
+            (!artworkId.empty() && !validHexId(artworkId, "")) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front().empty() ||
+            authorizedBackendIds.front() == "*" ||
+            requestQueryString(requestTarget) !=
+                "backendId=" + authorizedBackendIds.front())
+        {
+            response = invalidRequestProblem(path,
+                "Valid Recording/artwork IDs and one authorized backendId "
+                "are required.", requestId, correlationId);
+            return true;
+        }
+        const auto found = lookupRecordingArtwork(
+            {authorizedBackendIds.front(), recordingId, artworkId});
+        switch (found.status)
+        {
+            case PublicRecordingArtworkStatus::invalid:
+                response = invalidRequestProblem(path,
+                    "Invalid Recording artwork request.",
+                    requestId, correlationId);
+                return true;
+            case PublicRecordingArtworkStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicRecordingArtworkStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+            case PublicRecordingArtworkStatus::ok:
+                break;
+        }
+        if (!artworkId.empty())
+        {
+            if ((found.contentType != "image/jpeg" &&
+                 found.contentType != "image/png" &&
+                 found.contentType != "image/webp") ||
+                found.content.empty())
+            {
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+            }
+            response.statusCode = 200;
+            response.contentType = found.contentType;
+            response.body = found.content;
+            response.headers["Cache-Control"] = "private, max-age=300";
+            response.headers["X-Content-Type-Options"] = "nosniff";
+            return true;
+        }
+        if (found.items.size() > 64U)
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        std::string body = "{\"recordingId\":\"" +
+            jsonEscape(recordingId) + "\",\"backendId\":\"" +
+            jsonEscape(authorizedBackendIds.front()) +
+            "\",\"items\":[";
+        bool first = true;
+        for (const auto& artwork : found.items)
+        {
+            if (!validHexId(artwork.artworkId, "") ||
+                (artwork.kind != "poster" && artwork.kind != "fanart" &&
+                 artwork.kind != "still" && artwork.kind != "banner") ||
+                artwork.width < 0 || artwork.height < 0)
+            {
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+            }
+            if (!first) body += ",";
+            first = false;
+            body += "{\"artworkId\":\"" + artwork.artworkId +
+                "\",\"kind\":\"" + artwork.kind +
+                "\",\"url\":\"" + path + "/" + artwork.artworkId +
+                "?backendId=" + jsonEscape(authorizedBackendIds.front()) + "\"";
+            if (artwork.width > 0 && artwork.height > 0)
+                body += ",\"width\":" + std::to_string(artwork.width) +
+                    ",\"height\":" + std::to_string(artwork.height);
+            body += "}";
+        }
+        body += "]}";
+        response = jsonResponse(body, requestId, correlationId);
+        response.headers["Cache-Control"] = "no-store";
+        return true;
+    }
+
     // M1: one backend-scoped public rec_ detail, with no native path or
     // provider-specific artwork URL exposed. Reuse the Recording grant gate,
     // the daemon's existing rec_ resolver and the warmed Recording cache.
@@ -8484,6 +8606,22 @@ bool PublicApiRuntime::tryHandleGet(
         path.compare(0U, recordingDetailPrefix.size(),
             recordingDetailPrefix) == 0 &&
         path.find('/', recordingDetailPrefix.size()) == std::string::npos;
+    const std::size_t artworkMarker =
+        path.find("/artwork", recordingDetailPrefix.size());
+    const bool isRecordingArtworkPath =
+        path.compare(0U, recordingDetailPrefix.size(),
+            recordingDetailPrefix) == 0 &&
+        artworkMarker != std::string::npos &&
+        (artworkMarker + 8U == path.size() ||
+         (artworkMarker + 8U < path.size() &&
+          path[artworkMarker + 8U] == '/'));
+    if (isRecordingArtworkPath)
+    {
+        if (tryHandleBrowseReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                authorizedBackendIds, response))
+            return true;
+    }
     if (isRecordingDetailPath)
     {
         if (tryHandleBrowseReadGet(
