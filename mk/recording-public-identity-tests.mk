@@ -109,6 +109,7 @@ test-public-device-playback-registry:
 .PHONY: test-public-recording-metadata-detail-projection
 test-public-recording-metadata-detail-projection:
 	$(BUILD_CXX) $(CXXFLAGS) \
+		core/metadata/src/MetadataIdentity.cpp \
 		core/recordings/tests/test_public_recording_metadata_detail_projection.cpp \
 		-o $(BUILD_DIR)/test_public_recording_metadata_detail_projection
 	$(BUILD_DIR)/test_public_recording_metadata_detail_projection
