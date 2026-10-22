@@ -206,7 +206,8 @@ test-ci-fast: test-addon-maintenance-read
 test-addon-maintenance-freeze:
 	mkdir -p "$(BUILD_DIR)/addons"
 	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
-		-I core/addons/include -I core/security/include \
+		-I core/addons/include -I addons/media-tools/include \
+		-I core/security/include \
 		-I core/vdr/include -I core/sqlite/include \
 		-I core/operations/include \
 		core/sqlite/src/Database.cpp \
