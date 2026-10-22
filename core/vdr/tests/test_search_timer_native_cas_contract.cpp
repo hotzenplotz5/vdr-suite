@@ -60,6 +60,7 @@ struct FakeNative : ISearchTimerNativeCasProvider
         reply.confirmedGeneration = kGen;
         reply.resultingRevision = kNewRevision;
         reply.atomicCompareAndWrite = true;
+        reply.noWriteAttested = false;
     }
 };
 
@@ -124,9 +125,14 @@ void assertNativeCasAttestation()
     // replacement rule. The provider alone decides under its rule lock.
     native.reply.status = SearchTimerNativeCasStatus::staleGeneration;
     native.reply.confirmedGeneration = "sg_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+    native.reply.resultingRevision.clear();
+    // The negative status by itself does not prove zero native mutation.
+    assert(SearchTimerNativeCasContract::invokeOnce(req, native) ==
+        SearchTimerNativeCasStatus::outcomeUnknown);
+    native.reply.noWriteAttested = true;
     assert(SearchTimerNativeCasContract::invokeOnce(req, native) ==
         SearchTimerNativeCasStatus::staleGeneration);
-    assert(native.attempts == 2);
+    assert(native.attempts == 3);
 
     native.reply.status = SearchTimerNativeCasStatus::staleRevision;
     assert(SearchTimerNativeCasContract::invokeOnce(req, native) ==
@@ -134,7 +140,15 @@ void assertNativeCasAttestation()
     native.reply.status = SearchTimerNativeCasStatus::notFound;
     assert(SearchTimerNativeCasContract::invokeOnce(req, native) ==
         SearchTimerNativeCasStatus::notFound);
+    // Contradictory no-write attestation carrying a resulting revision.
+    native.reply.resultingRevision = kNewRevision;
+    assert(SearchTimerNativeCasContract::invokeOnce(req, native) ==
+        SearchTimerNativeCasStatus::outcomeUnknown);
 
+    native.success();
+    native.reply.noWriteAttested = true;
+    assert(SearchTimerNativeCasContract::invokeOnce(req, native) ==
+        SearchTimerNativeCasStatus::outcomeUnknown);
     native.success();
     native.reply.confirmedGeneration =
         "sg_ffffffffffffffffffffffffffffffff";

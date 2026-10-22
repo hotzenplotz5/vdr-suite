@@ -55,6 +55,9 @@ struct SearchTimerNativeCasReply
     std::string confirmedGeneration;
     std::string resultingRevision;
     bool atomicCompareAndWrite = false;
+    // Negative native CAS results require an explicit zero-write attestation
+    // under the SAME epgsearch-owned rule lock as the comparison.
+    bool noWriteAttested = false;
 };
 
 class ISearchTimerNativeCasProvider

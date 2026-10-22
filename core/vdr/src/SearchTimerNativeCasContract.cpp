@@ -121,7 +121,8 @@ SearchTimerNativeCasStatus SearchTimerNativeCasContract::invokeOnce(
     switch (reply.status)
     {
         case SearchTimerNativeCasStatus::applied:
-            if (reply.confirmedGeneration != request.expectedGeneration)
+            if (reply.noWriteAttested ||
+                reply.confirmedGeneration != request.expectedGeneration)
                 return SearchTimerNativeCasStatus::outcomeUnknown;
             if (request.action != SearchTimerNativeCasAction::remove &&
                 (!lowerHex(reply.resultingRevision, "sr_", 32U) ||
@@ -134,8 +135,10 @@ SearchTimerNativeCasStatus SearchTimerNativeCasContract::invokeOnce(
         case SearchTimerNativeCasStatus::staleGeneration:
         case SearchTimerNativeCasStatus::staleRevision:
         case SearchTimerNativeCasStatus::notFound:
-            // The provider must attest that no write occurred under its
-            // own lock when returning a negative CAS result.
+            // A negative status without proof of zero native writes under
+            // the same lock as the comparison is an ambiguous outcome.
+            if (!reply.noWriteAttested || !reply.resultingRevision.empty())
+                return SearchTimerNativeCasStatus::outcomeUnknown;
             return reply.status;
         case SearchTimerNativeCasStatus::unsupported:
         case SearchTimerNativeCasStatus::unavailable:
