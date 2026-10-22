@@ -10,6 +10,8 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <sys/wait.h>
+#include <signal.h>
 #include <unistd.h>
 
 namespace fs = std::filesystem;
@@ -44,8 +46,29 @@ struct NativeFfmpegWithSyntheticVdrIndex final : ProcessRunner {
     int indexRequests = 0;
     ProcessResult run(const std::vector<std::string>& command, bool capture) override {
         assert(!command.empty());
-        if (command[0] != "/usr/bin/vdr")
-            return tools.run(command, capture);
+        if (command[0] != "/usr/bin/vdr") {
+            const auto result = tools.run(command, capture);
+            if (result.exitCode != 0 && command[0] == "/usr/bin/ffmpeg") {
+                // Test fixture only: re-run failed FFmpeg against our own
+                // disposable file, printing bounded diagnostic stderr.
+                const pid_t pid = ::fork();
+                if (pid == 0) {
+                    ::alarm(15);
+                    ::dup2(STDOUT_FILENO, STDERR_FILENO);
+                    std::vector<char*> argv;
+                    for (const auto& arg : command)
+                        argv.push_back(const_cast<char*>(arg.c_str()));
+                    argv.push_back(nullptr);
+                    ::execv(argv[0], argv.data());
+                    _exit(127);
+                }
+                if (pid > 0) {
+                    int status = 0;
+                    while (::waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
+                }
+            }
+            return result;
+        }
         ++indexRequests;
         if (capture || command.size() != 2 ||
             command[1].rfind("--genindex=", 0) != 0)
