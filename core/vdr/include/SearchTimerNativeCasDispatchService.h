@@ -13,6 +13,7 @@ class ISearchTimerBackendGenerationAuthority;
 // This service does not expose routes or perform readback/completion.
 enum class SearchTimerNativeCasDispatchStatus
 {
+    succeededVerified,
     dispatchedUnverified,
     failedVerified,
     outcomeUnknown,
