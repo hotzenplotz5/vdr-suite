@@ -471,6 +471,30 @@ fs::path publishShrinkCandidate(const ShrinkPlan& plan,
            "unverified HEVC candidate files");
     demand(probeCodec(runner, candidate / "00001.ts") == "hevc",
            "published candidate is not HEVC");
+    struct stat folder{};
+    demand(::lstat(candidate.c_str(), &folder) == 0 &&
+           S_ISDIR(folder.st_mode) && folder.st_uid == ::geteuid() &&
+           (folder.st_mode & 0077) == 0,
+           "unprotected shrink review directory");
+    const std::vector<std::string> expectedFiles = {
+        ".shrink-review", "00001.ts", "index", "info"
+    };
+    std::size_t seen = 0;
+    for (const auto& entry : fs::directory_iterator(candidate)) {
+        const auto filename = entry.path().filename().string();
+        demand(std::find(expectedFiles.begin(), expectedFiles.end(),
+                         filename) != expectedFiles.end() &&
+               fs::is_regular_file(entry.symlink_status()),
+               "shrink candidate has unexpected or unsafe contents");
+        ++seen;
+    }
+    demand(seen == expectedFiles.size(),
+           "shrink candidate is incomplete");
+    struct stat originalDirectory{};
+    const auto originalPath = checked.videoRoot / checked.relativeRecording;
+    demand(::lstat(originalPath.c_str(), &originalDirectory) == 0 &&
+           S_ISDIR(originalDirectory.st_mode),
+           "original ownership unavailable");
     const auto title = checked.relativeRecording.parent_path();
     demand(!title.empty(), "shrink recording requires a title directory");
     const auto destinationParent =
@@ -478,18 +502,42 @@ fs::path publishShrinkCandidate(const ShrinkPlan& plan,
     demand(!fs::exists(destinationParent), "shrink target title already exists");
     demand(fs::create_directory(destinationParent),
            "cannot create new HEVC title directory");
+    demand(::chmod(destinationParent.c_str(), 0700) == 0,
+           "cannot protect unpublished HEVC title");
     const auto destination = destinationParent / checked.relativeRecording.filename();
-    // Commit by non-replacing rename only. Neither TS nor index of the
-    // original recording is ever renamed or deleted by this operation.
+    // Commit privately and never replace anything. New files remain hidden
+    // under the 0700 title until VDR ownership and readable modes are set.
     const long moved = ::syscall(SYS_renameat2, AT_FDCWD, candidate.c_str(),
-                                  AT_FDCWD, destination.c_str(), RENAME_NOREPLACE);
+                                 AT_FDCWD, destination.c_str(), RENAME_NOREPLACE);
     if (moved != 0) {
         std::error_code error;
-        fs::remove(destinationParent, error); // empty newly created directory
+        fs::remove(destinationParent, error);
         throw std::runtime_error("cannot publish HEVC without overwrite");
     }
-    std::error_code error;
-    fs::remove(destination / ".shrink-review", error);
+    bool ready = true;
+    for (const auto& name : {"00001.ts", "index", "info"}) {
+        const auto file = destination / name;
+        ready = ready && ::chown(file.c_str(), originalDirectory.st_uid,
+                                 originalDirectory.st_gid) == 0 &&
+                ::chmod(file.c_str(), 0644) == 0;
+    }
+    const auto receipt = destination / ".shrink-review";
+    ready = ready && ::unlink(receipt.c_str()) == 0 &&
+            ::chown(destination.c_str(), originalDirectory.st_uid,
+                    originalDirectory.st_gid) == 0 &&
+            ::chmod(destination.c_str(), 0755) == 0 &&
+            ::chown(destinationParent.c_str(), originalDirectory.st_uid,
+                    originalDirectory.st_gid) == 0 &&
+            ::chmod(destinationParent.c_str(), 0755) == 0;
+    if (!ready) {
+        // A permissions failure is never "success". Keep the original
+        // recording untouched and return a private candidate if possible.
+        (void)::syscall(SYS_renameat2, AT_FDCWD, destination.c_str(),
+                        AT_FDCWD, candidate.c_str(), RENAME_NOREPLACE);
+        std::error_code error;
+        fs::remove(destinationParent, error);
+        throw std::runtime_error("HEVC candidate cannot be exposed to VDR");
+    }
     return destination;
 }
 
