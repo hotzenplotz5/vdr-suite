@@ -130,6 +130,68 @@ int main()
         "backend-a", publicRecording.recordingId, original, publicRecording);
     assert(result && result->subtitle == std::string(1023, 'x'));
 
+    // M1.2 existing manual assignment wins over scraper metadata, but
+    // native EPG and public Recording title/identity stay unchanged.
+    ManualRecordingMetadataAssignment manual;
+    manual.found = true;
+    manual.backendId = "backend-a";
+    manual.resourceKey = "/private/source/key/not-public";
+    manual.metadataAssignmentId = "mdasg_" + std::string(32, 'a');
+    manual.metadataEntityId = "mdent_" + std::string(32, 'b');
+    manual.metadataTargetId = "mdtgt_" + std::string(32, 'c');
+    manual.relationshipLocked = true;
+    manual.revision = 4;
+    manual.mediaType = "episode";
+    manual.title = "Manual Episode";
+    manual.originalTitle = "Manuell Original";
+    manual.overview = "Manual synopsis";
+    manual.releaseDate = "2025-03-09";
+    manual.seasonNumber = 2;
+    manual.episodeNumber = 5;
+    manual.posterReference = "/srv/private/untrusted-manual-poster.png";
+    manual.providerId = "secret-provider";
+    manual.externalId = "secret-remote-id";
+    auto manualDetail = PublicRecordingMetadataDetailProjection::project(
+        "backend-a", publicRecording.recordingId, original, publicRecording);
+    assert(manualDetail.has_value());
+    assert(PublicRecordingMetadataDetailProjection::applyManualAssignment(
+        "backend-a", manual, *manualDetail));
+    assert(manualDetail->metadataSource == "manual");
+    assert(manualDetail->metadataState == "available");
+    assert(manualDetail->contentKind == "series-episode");
+    assert(manualDetail->providerTitle == "Manual Episode");
+    assert(manualDetail->originalTitle == "Manuell Original");
+    assert(manualDetail->overview == "Manual synopsis");
+    assert(manualDetail->seasonNumber == 2 && manualDetail->episodeNumber == 5);
+    assert(manualDetail->recording.title == "VDR title");
+    assert(manualDetail->subtitle == original.metadata.native.shortText);
+    assert(manualDetail->manualRevision == 4);
+    assert(manualDetail->manualAssignmentId == manual.metadataAssignmentId);
+    assert(manualDetail->metadataEntityId == manual.metadataEntityId);
+    assert(manualDetail->tagline.empty());
+    assert(manualDetail->genreText.empty());
+    assert(manualDetail->providerRuntimeMinutes == 0);
+    auto wrongManual = manual;
+    wrongManual.backendId = "backend-b";
+    assert(!PublicRecordingMetadataDetailProjection::applyManualAssignment(
+        "backend-a", wrongManual, *manualDetail));
+    wrongManual = manual;
+    wrongManual.metadataAssignmentId = "mdasg_invalid";
+    assert(!PublicRecordingMetadataDetailProjection::applyManualAssignment(
+        "backend-a", wrongManual, *manualDetail));
+    wrongManual = manual;
+    wrongManual.relationshipLocked = false;
+    assert(!PublicRecordingMetadataDetailProjection::applyManualAssignment(
+        "backend-a", wrongManual, *manualDetail));
+    wrongManual = manual;
+    wrongManual.revision = 0;
+    assert(!PublicRecordingMetadataDetailProjection::applyManualAssignment(
+        "backend-a", wrongManual, *manualDetail));
+    wrongManual = manual;
+    wrongManual.found = false;
+    assert(PublicRecordingMetadataDetailProjection::applyManualAssignment(
+        "backend-a", wrongManual, *manualDetail));
+
     // Source provenance, public identity and exact backend scope are strict.
     assert(!PublicRecordingMetadataDetailProjection::project(
         "backend-b", publicRecording.recordingId, original, publicRecording));
