@@ -44,6 +44,7 @@ on:
       - 'mk/backend-agent-runtime.mk'
       - 'mk/common.mk'
       - 'addons/media-tools/**'
+      - 'modules/rectools/**'
       - 'core/security/include/AuthorizationService.h'
       - 'core/security/src/HumanAccountGrantAdministrationService.cpp'
       - 'core/security/tests/test_authorization_service.cpp'
