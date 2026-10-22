@@ -2109,11 +2109,31 @@ bool DaemonRuntime::initialize()
                 displayed.items.front().recordingId != request.recordingId)
                 return result;
 
-            const auto detail = PublicRecordingMetadataDetailProjection::project(
+            auto detail = PublicRecordingMetadataDetailProjection::project(
                 request.backendId, request.recordingId,
                 found.recording, displayed.items.front());
-            if (!detail)
+            if (!detail || !metadataRepository_)
                 return result;
+
+            // Reuse the Web manual assignment and canonical cache-key
+            // resolution. This lookup performs no metadata schema creation,
+            // scraper fetch, mutation or portrait materialization.
+            const auto manual =
+                metadataRepository_->getManualRecordingMetadataReadOnly(
+                    request.backendId, found.recording.backendNativeId);
+            if (!PublicRecordingMetadataDetailProjection::applyManualAssignment(
+                    request.backendId, manual, *detail))
+                return result;
+
+            // Identity can be retired/rebound during multiple readonly DB
+            // lookups; never expose stale manual metadata across rebinding.
+            const auto bound = publicRecordingIdentities_->find(
+                request.backendId, found.recording.backendNativeId);
+            if (!bound || *bound != request.recordingId)
+            {
+                result.status = PublicRecordingDetailStatus::notFound;
+                return result;
+            }
 
             const auto& source = *detail;
             auto& out = result.item;
@@ -2133,6 +2153,7 @@ bool DaemonRuntime::initialize()
             out.subtitle = source.subtitle;
             out.epgDescription = source.epgDescription;
             out.providerTitle = source.providerTitle;
+            out.overview = source.overview;
             out.originalTitle = source.originalTitle;
             out.tagline = source.tagline;
             out.seriesTitle = source.seriesTitle;
@@ -2142,6 +2163,9 @@ bool DaemonRuntime::initialize()
             out.seasonNumber = source.seasonNumber;
             out.episodeNumber = source.episodeNumber;
             out.providerRuntimeMinutes = source.providerRuntimeMinutes;
+            out.manualAssignmentId = source.manualAssignmentId;
+            out.metadataEntityId = source.metadataEntityId;
+            out.manualRevision = source.manualRevision;
             result.status = PublicRecordingDetailStatus::ok;
             return result;
         });
