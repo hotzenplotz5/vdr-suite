@@ -950,10 +950,34 @@ ManualRecordingMetadataAssignmentRepository::findSelected(
     const std::string& rawBackendId,
     const std::string& resourceKey) const
 {
+    return findSelectedImpl(rawBackendId, resourceKey, true);
+}
+
+ManualRecordingMetadataAssignment
+ManualRecordingMetadataAssignmentRepository::findSelectedReadOnly(
+    const std::string& rawBackendId,
+    const std::string& resourceKey) const
+{
+    return findSelectedImpl(rawBackendId, resourceKey, false);
+}
+
+ManualRecordingMetadataAssignment
+ManualRecordingMetadataAssignmentRepository::findSelectedImpl(
+    const std::string& rawBackendId,
+    const std::string& resourceKey,
+    const bool initializeSchema) const
+{
     std::lock_guard<std::recursive_mutex> lock(mutex_);
     ManualRecordingMetadataAssignment result;
     const std::string backendId = rawBackendId.empty() ? "default" : rawBackendId;
-    if (!ensureSchemaLocked() ||
+    // The public read path must never execute CREATE/ALTER/INSERT on first
+    // access. Schema creation is owned by existing install/mutation paths.
+    const bool schemaAvailable = initializeSchema
+        ? ensureSchemaLocked()
+        : (database_.tableExists("suite_metadata_manual_assignment_values") &&
+           database_.tableExists("suite_metadata_assignments") &&
+           database_.tableExists("suite_metadata_target_bindings"));
+    if (!schemaAvailable ||
         !boundedText(backendId, 128U) ||
         !boundedText(resourceKey, 4096U, false))
         return result;
