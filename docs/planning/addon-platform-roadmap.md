@@ -141,6 +141,26 @@ in-flight Agent work, complete multi-backend readiness and trusted package
 provenance must be checked separately. No public API or startup activation
 is added in this slice.
 
+## A4 Agent child-lifetime drain lock checkpoint
+
+A fixed, root-controlled
+`/etc/vdr-suite/addon-approvals/rectools.import-running.lock` inode
+complements the global Core SQLite admission freeze and read-only durable
+operations inspection. Media Import now refuses to run if this protected
+lock inode is missing or unsafe. The pinned Agent executor holds its shared
+`flock` throughout approval revalidation and into the handler's `fexecve`
+lifetime, including descendants, so an Agent crash cannot silently free the
+advisory execution lock while its handler still lives. Disposable CI fixture
+tests include an exec'd non-recording child and a blocked exclusive
+maintenance acquisition. This change is source-only: the production install
+has no automatic lock creation and the default-disabled module remains
+unchanged. A future package/source upgrade owner must explicitly stage,
+lock and hold the exact inode while it performs a separately approved
+transaction, plus freeze new operations, await authoritative job and
+Agent reconciliation across backends, validate the package/signature
+provenance, and handle rollback safely. None of these later package
+actions is activated by this checkpoint.
+
 ## Recommended execution order
 
 1. Finish A2's **no-dpkg default** and rejection regressions, using only
