@@ -43,13 +43,31 @@ lesend über Dateideskriptoren eingelesen. Exitstatus 0 steht für
 `ok` oder `warnings`, 1 für erkannte Strukturfehler, 2 für eine
 unvollständige/unsichere Prüfung.
 
-**Wichtige Funktionsgrenze:** Diese erste M2-Version überprüft
-*MPEG-TS-Strukturen*, noch **nicht** die vollständige Audio-/Video-Decodierung
-mit FFprobe/FFmpeg, die VDR-Wiedergabefähigkeit oder die Unversehrtheit
-jeder einzelnen Video-Frame. Ein `ok` bedeutet nur, dass die geprüften
-TS-Strukturmerkmale keine Auffälligkeit zeigen. Der Decoder-Durchlauf und
-die Integration in API v1, Jobs und Webfrontend sind die nächsten
-M2-Teilschritte, nicht als fertig zu markieren.
+**M2.1 FFmpeg-Decodierung:** Die zusätzliche Aktion `check-decode`
+verarbeitet die nummerierten TS-Segmente **als einen einzigen Stream** und
+decodiert Video/Audio in den FFmpeg-`null`-Muxer, ohne Output-Dateien
+anzulegen. Nur ein festes, nicht vom API-Nutzer auswählbares
+`/usr/bin/ffmpeg` wird gestartet; die Eingabe kommt ausschließlich
+über eine Pipe aus bereits geprüften, nur lesend geöffneten Segmenten.
+FFmpeg wird mit `-xerror -err_detect explode` ausgeführt und nach
+maximal 900 Sekunden beendet. Der JSON-Bericht enthält zusätzlich
+`decoder.status` (`ok`, `errors`, `incomplete`),
+`exitCode`, `timedOut`, `streamedBytes` sowie begrenzte Diagnosezeilen.
+Timeouts und fehlendes FFmpeg sind **unvollständige Prüfungen**, keine
+erfolgreich geprüften Aufnahmen. CLI-Exitstatus 0 = keine harten
+Fehler, 1 = dekodierte/strukturelle Fehler, 2 = unvollständig/unsicher.
+
+```text
+vdr-suite-media-check check-decode VIDEO_ROOT RECORDING_RELATIVE
+```
+
+Dies ist eine vollständige Software-Decodierprobe über alle vorhandenen
+TS-Segmente – nicht der Nachweis garantiert störungsfreier Wiedergabe
+auf jedem Client. Die separat getestete `check`-Aktion bleibt ein
+schneller reiner Struktur-Scan. Es gibt weiterhin **keine** produktive
+API-v1-/Agent-/Webfrontend-Registrierung, keine Rechtefreigabe und keine
+Paketinstallation. Der nächste Produkt-Schritt ist die sichtbare
+Backend-/Webfrontend-Anbindung statt weiterer A4-Architektur.
 
 `make addon-media-check` kompiliert nur die CLI;
 `make test-addon-media-check` verwendet ausschließlich künstliche
