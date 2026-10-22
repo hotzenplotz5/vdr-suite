@@ -21,6 +21,7 @@ struct PublicRecordingMetadataDetail
     std::string epgTitle;
     std::string subtitle;
     std::string epgDescription;
+    std::string providerTitle;
     std::string originalTitle;
     std::string tagline;
     std::string seriesTitle;
@@ -66,27 +67,43 @@ public:
 
         PublicRecordingMetadataDetail item;
         item.recording = publicItem;
-        item.metadataSource = vdrRecordingMetadataSourceName(provider.source);
-        item.contentKind = vdrRecordingContentKindName(provider.contentKind);
+        const bool hasProvider = provider.hasData();
+        item.metadataSource = hasProvider
+            ? vdrRecordingMetadataSourceName(provider.source) : "none";
+        item.contentKind = hasProvider
+            ? vdrRecordingContentKindName(provider.contentKind) : "unknown";
         item.epgTitle = bounded(native.eventTitle, 1024U);
         item.subtitle = bounded(native.shortText, 1024U);
         item.epgDescription = bounded(native.description, 4096U);
-        item.originalTitle = bounded(provider.originalTitle, 1024U);
-        item.tagline = bounded(provider.tagline, 1024U);
-        item.seriesTitle = bounded(provider.seriesTitle, 1024U);
-        item.episodeTitle = bounded(provider.episodeTitle, 1024U);
-        item.genreText = bounded(provider.genreText, 1024U);
-        item.releaseDate = bounded(provider.releaseDate, 32U);
-        item.seasonNumber = std::max(0, provider.seasonNumber);
-        item.episodeNumber = std::max(0, provider.episodeNumber);
-        item.providerRuntimeMinutes = std::max(0, provider.runtimeMinutes);
+        // Do not send an identical description twice. If VDR's longer
+        // description contains more than the collection's 2048-byte excerpt,
+        // keep the additional detail as epgDescription.
+        if (item.epgDescription == publicItem.description)
+            item.epgDescription.clear();
+
+        // Provider fields are untrusted unless a known source actually claims
+        // them. This also prevents source=none from emitting orphaned values.
+        if (hasProvider)
+        {
+            item.providerTitle = bounded(provider.title, 1024U);
+            item.originalTitle = bounded(provider.originalTitle, 1024U);
+            item.tagline = bounded(provider.tagline, 1024U);
+            item.seriesTitle = bounded(provider.seriesTitle, 1024U);
+            item.episodeTitle = bounded(provider.episodeTitle, 1024U);
+            item.genreText = bounded(provider.genreText, 1024U);
+            item.releaseDate = bounded(provider.releaseDate, 32U);
+            item.seasonNumber = std::max(0, provider.seasonNumber);
+            item.episodeNumber = std::max(0, provider.episodeNumber);
+            item.providerRuntimeMinutes = std::max(0, provider.runtimeMinutes);
+        }
 
         const bool hasNative = native.hasText();
-        const bool hasProvider = provider.hasData();
-        const bool hasUsefulProvider =
-            !provider.title.empty() || !provider.originalTitle.empty() ||
-            !provider.overview.empty() || !provider.seriesTitle.empty() ||
-            !provider.episodeTitle.empty() || !provider.genreText.empty();
+        const bool hasUsefulProvider = hasProvider &&
+            (!item.providerTitle.empty() || !item.originalTitle.empty() ||
+             !provider.overview.empty() || !item.seriesTitle.empty() ||
+             !item.episodeTitle.empty() || !item.genreText.empty() ||
+             !item.releaseDate.empty() || item.seasonNumber > 0 ||
+             item.episodeNumber > 0 || item.providerRuntimeMinutes > 0);
         item.metadataState = hasProvider && hasUsefulProvider
             ? "available"
             : (hasNative || hasProvider ? "partial" : "absent");
