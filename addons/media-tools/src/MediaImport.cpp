@@ -300,17 +300,46 @@ ImportMetadata adjacentMetadata(const fs::path& sourceFile) {
 
 void stageOptionalSubtitle(const fs::path& sourceFile,
                            const fs::path& stage) {
-    fs::path subtitle = sourceFile;
-    subtitle.replace_extension(".srt");
-    const auto data = readOptionalSidecar(subtitle, 8 * kMiB);
-    if (!data) return;
-    require(!data->empty(), "empty SRT sidecar");
-    std::ofstream output(stage / "subtitles.srt",
-                         std::ios::binary | std::ios::trunc);
-    require(static_cast<bool>(output), "cannot stage SRT sidecar");
-    output.write(data->data(), static_cast<std::streamsize>(data->size()));
-    output.flush();
-    require(static_cast<bool>(output), "cannot write SRT sidecar");
+    const auto stem = sourceFile.stem().string();
+    const auto prefix = stem + ".";
+    std::vector<std::pair<fs::path, std::string>> discovered;
+    std::size_t inspected = 0;
+    for (const auto& entry : fs::directory_iterator(sourceFile.parent_path())) {
+        require(++inspected <= 4096, "too many adjacent source files");
+        const std::string name = entry.path().filename().string();
+        std::string destination;
+        if (name == prefix + "srt") {
+            // The existing Suite Sidecar reader gives 00001.srt precedence.
+            destination = "00001.srt";
+        } else if (name.size() > prefix.size() + 4 &&
+                   name.compare(0, prefix.size(), prefix) == 0 &&
+                   name.compare(name.size() - 4, 4, ".srt") == 0) {
+            const auto language = name.substr(
+                prefix.size(), name.size() - prefix.size() - 4);
+            if (language.size() < 2 || language.size() > 12 ||
+                !std::all_of(language.begin(), language.end(),
+                    [](unsigned char ch) {
+                        return std::isalnum(ch) || ch == '-';
+                    })) continue;
+            destination = "subtitles." + language + ".srt";
+        } else continue;
+        require(!fs::is_symlink(entry.symlink_status()) &&
+                entry.is_regular_file(), "unsafe adjacent SRT sidecar");
+        require(discovered.size() < 16, "too many adjacent SRT sidecars");
+        discovered.emplace_back(entry.path(), destination);
+    }
+    std::sort(discovered.begin(), discovered.end(),
+        [](const auto& a, const auto& b) { return a.first < b.first; });
+    for (const auto& file : discovered) {
+        const auto data = readOptionalSidecar(file.first, 8 * kMiB);
+        require(data && !data->empty(), "missing or empty SRT sidecar");
+        std::ofstream output(stage / file.second,
+                             std::ios::binary | std::ios::trunc);
+        require(static_cast<bool>(output), "cannot stage SRT sidecar");
+        output.write(data->data(), static_cast<std::streamsize>(data->size()));
+        output.flush();
+        require(static_cast<bool>(output), "cannot write SRT sidecar");
+    }
 }
 
 double probeDuration(ProcessRunner& runner, const fs::path& file) {
