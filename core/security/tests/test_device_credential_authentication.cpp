@@ -339,6 +339,32 @@ int main()
         assert(searchGranted.authorizationDecision.action ==
             "searchtimers.view");
 
+        // Saved rule detail shares searchtimers.view, but not the
+        // independent epg.view requirement of a programme preview.
+        const std::string savedDetail =
+            "/api/v1/search-timers/"
+            "st_00000000000000000000000000000001?backend=default";
+        const auto detailGranted = fixture.evaluate(
+            savedDetail, fixture.validAuthorization());
+        assert(detailGranted.allowed);
+        assert(detailGranted.deviceAuthenticated);
+        assert(detailGranted.authorizationDecision.permission ==
+            "searchtimers.view");
+        const auto detailWrongBackend = fixture.evaluate(
+            "/api/v1/search-timers/"
+            "st_00000000000000000000000000000001?backend=foreign",
+            fixture.validAuthorization());
+        assert(!detailWrongBackend.allowed);
+        assert(detailWrongBackend.rejection.statusCode == 403);
+        assert(fixture.grants.revokeGrant(
+            ActorId, "searchtimers.view", "default"));
+        const auto detailRevoked = fixture.evaluate(
+            savedDetail, fixture.validAuthorization());
+        assert(!detailRevoked.allowed);
+        assert(detailRevoked.rejection.statusCode == 403);
+        assert(fixture.grants.ensureGrant(
+            ActorId, "searchtimers.view", "default"));
+
         // Saved SearchTimer EPG preview also needs the independent EPG
         // permission. A SearchTimer list grant alone is insufficient.
         const std::string savedPreview =
