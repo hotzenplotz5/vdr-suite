@@ -561,6 +561,12 @@ test-phase69f-public-v1-timer-assignment-collection-reference-client:
 	python3 tools/check_phase69f_public_v1_timer_assignment_collection_reference_client.py
 
 
+.PHONY: test-public-v1-searchtimer-safe-client
+test-public-v1-searchtimer-safe-client:
+	node clients/reference-js/tests/test_public_v1_search_timer_client.js
+
+test-fast: test-public-v1-searchtimer-safe-client
+
 .PHONY: test-phase69f-public-v1-timer-assignment-item-reference-client
 
 test-phase69f-public-v1-timer-assignment-item-reference-client:
