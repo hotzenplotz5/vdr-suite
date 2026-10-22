@@ -256,6 +256,8 @@ int main(int argc, char** argv)
             "'media_provider_stream_leases','media_access_grants',"
             "'backend_media_transcode_settings','device_media_verified_paths',"
             "'epg_events','public_search_timer_identity',"
+            "'public_search_timer_identity_signature',"
+            "'public_search_timer_identity_retired',"
             "'epgsearch_native_fuzzy_capability_probes',"
             "'vdr_recording_cache','public_recording_identity',"
             "'recording_series_hierarchy_overrides','epg_event_artwork',"
@@ -282,7 +284,7 @@ int main(int argc, char** argv)
             "'vdr_recording_native_metadata','vdr_recording_native_text_list',"
             "'vdr_recording_native_person','vdr_recording_native_artwork',"
             "'vdr_recording_native_metadata_migration',"
-            "'embedded_backend_lifecycle'))=58 "
+            "'embedded_backend_lifecycle'))=60 "
             "THEN 1 ELSE 0 END;")) {
             std::cerr << "P7_RUNTIME_SQLITE_INTEGRITY=FAIL\n";
             return 7;
