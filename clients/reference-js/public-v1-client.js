@@ -673,6 +673,60 @@
 
 
 
+    function requestInactiveSearchTimerCreate(options) {
+      const o = options && typeof options === 'object' ? options : {};
+      const allowed = new Set(['backendId','name','query','active','mode',
+        'tolerance','compareTitle','compareSubtitle','compareSummary',
+        'idempotencyKey','previewAcknowledged','confirmed','headers',
+        'credentials','signal']);
+      Object.keys(o).forEach(function (key) {
+        if (!allowed.has(key)) throw new Error('unsupported SearchTimer staging field: ' + key);
+      });
+      if (typeof o.backendId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(o.backendId) ||
+          typeof o.query !== 'string' || o.query.length < 2 ||
+          o.query.length > 240 || o.name !== o.query ||
+          o.active !== false || o.confirmed !== true ||
+          o.previewAcknowledged !== true ||
+          ![0,1,2,3,5].includes(o.mode) ||
+          typeof o.compareTitle !== 'boolean' ||
+          typeof o.compareSubtitle !== 'boolean' ||
+          typeof o.compareSummary !== 'boolean' ||
+          !(o.compareTitle || o.compareSubtitle || o.compareSummary) ||
+          typeof o.idempotencyKey !== 'string' ||
+          !/^[A-Za-z0-9._:-]{1,160}$/.test(o.idempotencyKey))
+        throw new Error('SearchTimer staging requires explicit inactive state, EPG preview acknowledgement and confirmation');
+      const tolerance = o.tolerance === undefined ? 0 : o.tolerance;
+      if (!Number.isInteger(tolerance) || tolerance < 0 ||
+          tolerance > 3 || (o.mode !== 5 && tolerance !== 0))
+        throw new Error('invalid SearchTimer staging tolerance');
+      const path = '/api/v1/search-timers?backend=' + encodeURIComponent(o.backendId);
+      const headers = Object.assign({Accept:'application/json'}, defaultHeaders,
+        copyHeaders(o.headers));
+      if (headers['If-Match'] !== undefined || headers['if-match'] !== undefined)
+        throw new Error('SearchTimer CREATE cannot have If-Match');
+      headers['Content-Type'] = 'application/json';
+      headers['Idempotency-Key'] = o.idempotencyKey;
+      const payload = {
+        name:o.name,query:o.query,active:false,confirmed:true,
+        mode:o.mode,tolerance:tolerance,
+        compareTitle:o.compareTitle,compareSubtitle:o.compareSubtitle,
+        compareSummary:o.compareSummary
+      };
+      return fetchImpl(buildUrl(baseUrl,path), {
+        method:'POST', headers,
+        credentials:o.credentials !== undefined ? o.credentials : normalized.credentials,
+        signal:o.signal,
+        body:JSON.stringify(payload)
+      }).then(function (response) {
+        const location = headerValue(response,'Location');
+        return parseJsonBody(response).then(function (data) {
+          if (!response.ok) throw new VdrSuitePublicClientError(path,response.status,data,response);
+          return {status:response.status,location,data};
+        });
+      });
+    }
+
     function requestAccountCreate(payload, options) {
       const requestOptions = options && typeof options === 'object' ? options : {};
       if (typeof requestOptions.idempotencyKey !== 'string'
@@ -1060,6 +1114,17 @@
           '/api/v1/search-timers' + searchTimerCollectionQuery(normalizedOptions.query),
           normalizedOptions
         );
+      },
+      previewSearchTimerDraft(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return request(
+          '/api/v1/search-timers/draft-preview' +
+          searchTimerDraftPreviewQuery(normalizedOptions.query),
+          normalizedOptions
+        );
+      },
+      createInactiveSearchTimer(options) {
+        return requestInactiveSearchTimerCreate(options);
       },
       getTimerAssignments(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
