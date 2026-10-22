@@ -1,6 +1,7 @@
 #include "PinnedMediaImportAgentExecutor.h"
 
 #include "AddonRootApproval.h"
+#include "AddonInstalledManifest.h"
 #include "MediaImportRecordingEvidence.h"
 
 #include <algorithm>
@@ -271,6 +272,8 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
     if (!approval.approved() || approval.sha256 != snapshot->approvedSha256 ||
         approval.version != snapshot->approvedVersion ||
         approval.origin != snapshot->origin ||
+        !vdrsuite::addons::installedMediaToolsManifestMatches(
+            root_, snapshot->approvedVersion) ||
         !authorization_.granted(assignment))
         return MediaImportAgentOutcome::rejected;
 
