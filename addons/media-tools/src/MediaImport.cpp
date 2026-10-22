@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdlib>
 #include <array>
 #include <cerrno>
@@ -311,6 +312,23 @@ void stageOptionalSubtitle(const fs::path& sourceFile,
     require(static_cast<bool>(output), "cannot write SRT sidecar");
 }
 
+double probeDuration(ProcessRunner& runner, const fs::path& file) {
+    const auto result = runner.run({
+        "/usr/bin/ffprobe", "-v", "error", "-show_entries",
+        "format=duration", "-of", "default=nw=1:nk=1", file.string()
+    }, true);
+    require(result.exitCode == 0 && result.output.size() < 64,
+            "cannot verify media duration");
+    std::size_t used = 0;
+    double seconds = 0;
+    try { seconds = std::stod(result.output, &used); }
+    catch (...) { throw std::runtime_error("invalid media duration"); }
+    require(used > 0 && result.output.find_first_not_of(" \r\n\t", used) ==
+            std::string::npos && std::isfinite(seconds) && seconds > 0.0,
+            "invalid media duration");
+    return seconds;
+}
+
 void runRequired(ProcessRunner& runner, const std::vector<std::string>& argv) {
     const auto result = runner.run(argv, false);
     require(result.exitCode == 0, "external media command failed");
@@ -424,6 +442,7 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
             }), "invalid video codec from ffprobe");
     const bool copyVideo = codec == "h264" || codec == "hevc" ||
                            codec == "mpeg2video";
+    const double inputDuration = probeDuration(runner, stagedSource);
 
     {
         // VDR's native info sidecar is the only recording metadata writer.
@@ -482,6 +501,22 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
     require(nonemptyRegular(output), "import output missing or empty");
     require(fs::file_size(output) < outputLimit,
             "import output reached size limit; incomplete recording rejected");
+    // FFmpeg can exit 0 after writing a partial TS. Compare independently
+    // probed output duration before generating a VDR index or publishing.
+    const double outputDuration = probeDuration(runner, output);
+    require(std::fabs(inputDuration - outputDuration) <=
+            std::max(4.0, inputDuration * 0.02),
+            "import duration differs from source; incomplete output rejected");
+    const auto encodedVideo = runner.run({
+        "/usr/bin/ffprobe", "-v", "error", "-select_streams", "v:0",
+        "-show_entries", "stream=codec_name",
+        "-of", "default=nw=1:nk=1", output.string()
+    }, true);
+    const std::string expectedCodec = copyVideo ? codec : "h264";
+    require(encodedVideo.exitCode == 0 &&
+            (encodedVideo.output == expectedCodec + "\n" ||
+             encodedVideo.output == expectedCodec + "\r\n"),
+            "import output video codec verification failed");
     runRequired(runner, {"/usr/bin/vdr", "--genindex=" + stage.path.string()});
     require(nonemptyRegular(stage.path / "index"), "VDR index missing or empty");
     require(same(before, signature(plan.sourceFile)), "source changed during media processing");
