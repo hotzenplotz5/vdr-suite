@@ -153,7 +153,7 @@
             "schema": {
               "type": "string",
               "minLength": 5,
-              "maxLength": 2600
+              "maxLength": 4200
             }
           }
         ],

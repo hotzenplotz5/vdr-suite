@@ -296,6 +296,44 @@ int main()
         read(longWindow, "actor", {"home"}).body);
     assert(read(longWindow + "&cursor=" + staleCursor,
         "actor", {"home"}).statusCode == 400);
+
+    // Repository fallback keys for EPG without a native EventID contain the
+    // programme title. They can exceed 512 bytes and must remain pageable.
+    const std::string legacyCacheKey =
+        "S19.2E-1-100:1791565200:" + std::string(850U, 'L');
+    runtime.registerEpgWindowLookup(
+        [&](const PublicEpgWindowRequest& request) {
+            PublicEpgWindowResult result;
+            result.status = PublicEpgNowNextStatus::ok;
+            if (!request.afterCacheEventId.empty())
+            {
+                assert(request.afterCacheEventId == legacyCacheKey);
+                return result;
+            }
+            for (int i = 0; i < 2; ++i)
+            {
+                PublicEpgNowNextItem event;
+                event.channelId = request.channelId;
+                event.title = "Legacy-no-native-ID";
+                event.startTime = "1791565200";
+                event.endTime = "1791568800";
+                event.durationSeconds = 3600;
+                result.events.push_back(event);
+            }
+            result.hasMore = true;
+            result.nextStartTime = "1791565200";
+            result.nextCacheEventId = legacyCacheKey;
+            return result;
+        });
+    const auto longCursorResponse = read(longWindow, "actor", {"home"});
+    assert(longCursorResponse.statusCode == 200);
+    const auto longCursor = extractCursor(longCursorResponse.body);
+    assert(longCursor.size() > 1024U);
+    const auto longCursorFinal = read(
+        longWindow + "&cursor=" + longCursor, "actor", {"home"});
+    assert(longCursorFinal.statusCode == 200);
+    assert(longCursorFinal.body.find("\"hasMore\":false") !=
+        std::string::npos);
     runtime.resetEpgWindowLookup();
 
     // Real VDR timer snapshot resources must expose native data only.

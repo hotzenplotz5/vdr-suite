@@ -1335,7 +1335,7 @@ bool parsePublicEpgWindowQuery(
     const std::string& target, PublicEpgWindowQuery& query)
 {
     const std::string raw = requestQueryString(target);
-    if (raw.empty() || raw.size() > 3000U) return false;
+    if (raw.empty() || raw.size() > 5000U) return false;
     bool backendSeen = false, channelSeen = false;
     bool fromSeen = false, untilSeen = false, limitSeen = false;
     bool cursorSeen = false;
@@ -1376,7 +1376,7 @@ bool parsePublicEpgWindowQuery(
         else if (key == "cursor" && !cursorSeen)
         {
             cursorSeen = true;
-            if (value.empty() || value.size() > 2600U) return false;
+            if (value.empty() || value.size() > 4200U) return false;
             query.cursor = value;
         }
         else return false;
@@ -2026,7 +2026,9 @@ std::string publicEpgWindowCursor(
 {
     if (!result.hasMore || result.nextStartTime.empty() ||
         result.nextCacheEventId.empty() ||
-        result.nextCacheEventId.size() > 512U) return {};
+        // Legacy cache-only IDs include channel, time and title. A 512-byte
+        // cap could make a legitimate continuation fail despite a small page.
+        result.nextCacheEventId.size() > 1500U) return {};
     std::string payload(PublicEpgWindowCursorVersion);
     appendCursorField(payload, query.backendId);
     appendCursorField(payload, query.channelId);
@@ -2069,7 +2071,7 @@ bool decodePublicEpgWindowCursor(
         // Overlapping events can start before fromTime yet end inside
         // the requested window; they remain valid continuation anchors.
         afterStartTime >= query.untilTime ||
-        afterEventId.empty() || afterEventId.size() > 512U)
+        afterEventId.empty() || afterEventId.size() > 1500U)
         return false;
     return true;
 }
