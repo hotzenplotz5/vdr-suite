@@ -8208,7 +8208,16 @@ bool PublicApiRuntime::tryHandleGet(
         path.compare(0U, recordingDetailPrefix.size(),
             recordingDetailPrefix) == 0 &&
         path.find('/', recordingDetailPrefix.size()) == std::string::npos;
-    if (path == PublicRecordingCollectionPath || isRecordingDetailPath)
+    if (isRecordingDetailPath)
+    {
+        if (tryHandleBrowseReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                authorizedBackendIds, response))
+            return true;
+    }
+
+    // Preserve the independently audited Public-v1 collection branch.
+    if (path == PublicRecordingCollectionPath)
     {
         if (tryHandleBrowseReadGet(
                 requestTarget, actorRef, requestId, correlationId,
