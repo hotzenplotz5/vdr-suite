@@ -178,10 +178,11 @@ write-policy and generation invariants against regression.
 ## Public-v1 SearchTimer CREATE (Device)
 
 `POST /api/v1/search-timers?backend=<id>` accepts JSON
-`{"name":"Terra X","query":"Terra X","confirmed":true,"mode":1,"compareTitle":true,"compareSubtitle":false,"compareSummary":false}`
-with mandatory `Idempotency-Key` and application/json. Only
-`active` (default true) and `tolerance` (default zero)
-are optional; unknown/duplicate fields are rejected. Exact backend-scoped
+`{"name":"Terra X","query":"Terra X","active":false,"confirmed":true,"mode":1,"compareTitle":true,"compareSubtitle":false,"compareSummary":false}`
+with mandatory `Idempotency-Key` and application/json. `active:false`
+MUST be explicit; omitted `active` or `active:true` returns 422 before
+dispatch. `tolerance` (default zero) is optional; unknown/duplicate
+fields are rejected. Exact backend-scoped
 `searchtimers.create` Device grant, verified credential,
 server-owned online writable backend and fresh Backend Agent generation
 are mandatory. The existing immutable SQLite admission and one-shot
@@ -206,3 +207,13 @@ Public-v1 therefore requires `name == query` at admission (otherwise HTTP
 422), so an exact native result can be verified. VIDAA presents one combined
 search/name field. It does not claim independent rule labels supported by the
 native epgsearch backend or invent a second mapping authority.
+
+## One final real-VDR API-v1 acceptance
+
+Do not treat independent GitHub mocks, existing hardware checks of older
+commits, or a drafted native provider as a complete API-v1 release. Finish
+runtime authorization, versioned native CAS transport and exact-generation
+readback first. The **single** final, operator-approved real-host acceptance
+session for all Public-v1 domains is specified in
+[`docs/development/public-v1-final-hardware-acceptance.md`](../docs/development/public-v1-final-hardware-acceptance.md).
+No separate recurring SearchTimer hardware test slices.
