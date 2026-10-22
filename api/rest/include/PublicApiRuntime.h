@@ -1633,6 +1633,15 @@ public:
 private:
     PublicApiRuntime() = default;
 
+    // The Channel GET path retains its existing parse, scope and cursor logic.
+    bool tryHandleChannelCollectionGet(
+        const std::string& requestTarget,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::vector<std::string>& authorizedBackendIds,
+        ApiResponse& response) const;
+
     // Backend read admission and paging remain on this runtime instance.
     bool tryHandleBackendCollectionGet(
         const std::string& requestTarget,
