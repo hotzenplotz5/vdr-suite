@@ -437,6 +437,9 @@ RuntimeConfig::RuntimeConfig()
       recordingArtworkRoots_(parseArtworkRoots(
           environmentOrEmpty(
               "VDR_SUITE_RECORDING_ARTWORK_ROOTS"))),
+      mediaCheckVideoRoots_(parseArtworkRoots(
+          environmentOrEmpty(
+              "VDR_SUITE_MEDIA_CHECK_VIDEO_ROOTS"))),
       suiteBridge_(parseSuiteBridgeConfig()),
       seriesArtworkFallback_(parseSeriesArtworkFallbackConfig())
 {
@@ -475,6 +478,11 @@ int RuntimeConfig::httpListenPort() const
 const std::map<std::string, std::string>& RuntimeConfig::recordingArtworkRoots() const
 {
     return recordingArtworkRoots_;
+}
+
+const std::map<std::string, std::string>& RuntimeConfig::mediaCheckVideoRoots() const
+{
+    return mediaCheckVideoRoots_;
 }
 
 const RuntimeSuiteBridgeConfig& RuntimeConfig::suiteBridge() const

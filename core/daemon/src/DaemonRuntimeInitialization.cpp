@@ -2074,6 +2074,55 @@ bool DaemonRuntime::initialize()
     std::cout << "API router runtime initialized" << std::endl;
     std::cout << "SearchTimer preview EPG cache runtime initialized" << std::endl;
 
+    // M2.2: local-only Media Check using live canonical recording identity.
+    // Backend-mounted video roots must be explicitly configured; remote
+    // Agent execution is not advertised by this implementation.
+    mediaCheckRuntime_ = std::make_unique<DaemonMediaCheckRuntime>(
+        config_.mediaCheckVideoRoots(),
+        [this](const std::string& backend, const std::string& publicId)
+            -> std::optional<std::filesystem::path>
+        {
+            if (!publicRecordingIdentities_ || !vdrSnapshotReadService_ ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(backend))
+                return std::nullopt;
+            const auto native =
+                publicRecordingIdentities_->findNativeForPublicId(
+                    backend, publicId);
+            if (!native) return std::nullopt;
+            for (const VdrRecording& recording :
+                vdrSnapshotReadService_->getRecordingsForBackend(backend))
+            {
+                if (recording.backendId == backend &&
+                    recording.backendNativeId == *native &&
+                    !recording.path.empty())
+                    return std::filesystem::path(recording.path);
+            }
+            return std::nullopt;
+        },
+        [this](const std::string& backend)
+        {
+            if (!backendRegistryService_ || !vdrSnapshotReadService_)
+                return false;
+            const auto selected = backendRegistryService_->getBackend(backend);
+            return selected && selected->enabled && selected->online &&
+                vdrSnapshotReadService_->hasSnapshotForBackend(backend);
+        });
+    MediaCheckApiRuntime::instance().registerHandlers(
+        [this](const std::string& actor, const std::string& backend,
+               const std::string& recording, const std::string& mode)
+        {
+            return mediaCheckRuntime_->start(actor, backend, recording, mode);
+        },
+        [this](const std::string& actor, const std::string& backend,
+               const std::string& checkId)
+        {
+            return mediaCheckRuntime_->status(actor, backend, checkId);
+        },
+        [this](const std::string& backend)
+        {
+            return mediaCheckRuntime_->capability(backend);
+        });
+
     auto clientHttpServer = std::make_unique<RecordingArtworkHttpServer>(
         std::make_unique<TestHttpServer>(*apiRouter_),
         *vdrRecordingCacheRepository_,

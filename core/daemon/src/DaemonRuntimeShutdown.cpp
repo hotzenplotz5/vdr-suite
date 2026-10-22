@@ -56,6 +56,8 @@ void DaemonRuntime::shutdown()
     httpListener_.reset();
     httpServer_.reset();
     apiRouter_.reset();
+    MediaCheckApiRuntime::instance().registerHandlers({}, {}, {});
+    mediaCheckRuntime_.reset();
     ManualRecordingMetadataApiRuntime::instance().reset();
     PublicApiRuntime::instance().resetTimerCreateAdmission();
     PublicApiRuntime::instance().resetBackendCollectionLookup();

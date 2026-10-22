@@ -50,6 +50,7 @@ public:
     const std::string& httpListenHost() const;
     int httpListenPort() const;
     const std::map<std::string, std::string>& recordingArtworkRoots() const;
+    const std::map<std::string, std::string>& mediaCheckVideoRoots() const;
     const RuntimeSuiteBridgeConfig& suiteBridge() const;
     const RuntimeSeriesArtworkFallbackConfig& seriesArtworkFallback() const;
 
@@ -61,6 +62,7 @@ private:
     std::string httpListenHost_;
     int httpListenPort_;
     std::map<std::string, std::string> recordingArtworkRoots_;
+    std::map<std::string, std::string> mediaCheckVideoRoots_;
     RuntimeSuiteBridgeConfig suiteBridge_;
     RuntimeSeriesArtworkFallbackConfig seriesArtworkFallback_;
 };

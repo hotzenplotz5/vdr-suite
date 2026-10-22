@@ -42,6 +42,8 @@ DAEMON_SRC := \
         core/recordings/src/JobDashboardService.cpp \
         core/recordings/src/RecordingRepository.cpp \
         core/recordings/src/PublicRecordingIdentityRepository.cpp \
+        addons/media-tools/src/MediaCheck.cpp \
+        addons/media-tools/src/MediaCheckFfmpeg.cpp \
         core/recordings/src/PublicRecordingPlaybackTargetResolver.cpp \
         core/recordings/src/PublicRecordingDevicePlaybackAdmission.cpp \
         core/recordings/src/PublicRecordingCollectionProjection.cpp \

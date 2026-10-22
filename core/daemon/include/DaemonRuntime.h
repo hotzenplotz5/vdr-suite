@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ApiRouter.h"
+#include "DaemonMediaCheckRuntime.h"
 #include "RecordingCacheRefreshQueue.h"
 #include "RecordingPresentationChangeQueue.h"
 #include "BackendAccessPolicy.h"
@@ -388,6 +389,7 @@ private:
     std::unique_ptr<ApiRouter> apiRouter_;
     std::unique_ptr<IHttpServer> httpServer_;
     std::unique_ptr<SimpleHttpListener> httpListener_;
+    std::unique_ptr<DaemonMediaCheckRuntime> mediaCheckRuntime_;
 
     static std::atomic<bool> shutdownRequested_;
 };
