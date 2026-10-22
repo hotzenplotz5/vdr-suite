@@ -56,6 +56,7 @@
 #include "NativeTimerBindingRepository.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <csignal>
 #include <iostream>
@@ -65,6 +66,51 @@
 
 namespace
 {
+bool searchCasReplayMatches(
+    const std::string& canonical,
+    const std::string& action,
+    const std::string& backendId,
+    const std::string& publicId,
+    const std::string& revision,
+    const std::string& query)
+{
+    constexpr const char* prefix = "searchtimer-native-cas-evidence/1|";
+    std::size_t pos = std::char_traits<char>::length(prefix);
+    if (canonical.compare(0U, pos, prefix) != 0) return false;
+    std::array<std::string, 7> fields;
+    for (auto& field : fields)
+    {
+        if (pos >= canonical.size()) return false;
+        std::size_t size = 0U;
+        const auto start = pos;
+        while (pos < canonical.size() && canonical[pos] >= '0' &&
+               canonical[pos] <= '9')
+        {
+            const std::size_t digit =
+                static_cast<std::size_t>(canonical[pos++] - '0');
+            if (size > (16384U - digit) / 10U) return false;
+            size = size * 10U + digit;
+        }
+        if (pos == start || pos >= canonical.size() ||
+            canonical[pos++] != ':' || size >= canonical.size() - pos)
+            return false;
+        field = canonical.substr(pos, size);
+        pos += size;
+        if (canonical[pos++] != '|') return false;
+    }
+    if (pos != canonical.size() || fields[0] != action ||
+        fields[1] != backendId || fields[2] != publicId ||
+        fields[5] != revision)
+        return false;
+    if (action != "update") return fields[6].empty() && query.empty();
+    const auto first = fields[6].find(':');
+    if (first == std::string::npos || fields[6].substr(0U, first) != fields[3])
+        return false;
+    const auto second = fields[6].find(':', first + 1U);
+    return second != std::string::npos &&
+        fields[6].substr(first + 1U, second - first - 1U) == query;
+}
+
 class SearchTimerCurrentBackendGeneration final :
     public ISearchTimerBackendGenerationAuthority
 {
@@ -1428,9 +1474,6 @@ bool DaemonRuntime::initialize()
                 const auto payload =
                     mutationOperationRepository_->findPayloadByOperationId(
                         existing.operation.operationId);
-                const std::string expectedTail =
-                    std::to_string(request.query.size()) + ":" +
-                    request.query + "|";
                 const bool identical =
                     existing.operation.expectedRevision == request.ifMatch &&
                     existing.operation.actionFamily == family &&
@@ -1441,10 +1484,12 @@ bool DaemonRuntime::initialize()
                     payload.payload.payloadVersion == 1U &&
                     payload.payload.payloadFingerprint ==
                         existing.operation.requestFingerprint &&
-                    payload.payload.payload.size() >= expectedTail.size() &&
-                    payload.payload.payload.compare(
-                        payload.payload.payload.size() - expectedTail.size(),
-                        expectedTail.size(), expectedTail) == 0;
+                    searchCasReplayMatches(
+                        payload.payload.payload,
+                        family.substr(std::string(
+                            "searchtimer.native-cas.").size()),
+                        request.backendId, request.publicSearchTimerId,
+                        request.ifMatch, request.query);
                 if (!identical)
                 {
                     result.status =
