@@ -1,4 +1,5 @@
 #include "AddonMediaImportMaintenanceFence.h"
+#include "AddonMediaImportMaintenanceRead.h"
 #include "AccountabilityEventRepository.h"
 #include "MutationOperation.h"
 
@@ -96,9 +97,11 @@ void checkAcrossConnections()
         const auto blocked = operation("external", "media.import", "backend-b");
         assert(repo2.reserveWithPayload(blocked, payload(blocked)).status ==
                MutationOperationRepositoryStatus::maintenanceBlocked);
+        assert(!mediaImportAdmissionUnfrozen(db2));
         assert(gate.setFrozen(actor, false, 1,
                {"event-external-unfreeze", "2026-10-22T07:03:00Z"}).status ==
                MaintenanceFenceStatus::ok);
+        assert(mediaImportAdmissionUnfrozen(db2));
         assert(repo2.reserveWithPayload(blocked, payload(blocked)).ok());
     }
     std::error_code error;
@@ -118,11 +121,13 @@ int main()
 
     // Missing schema is not interpreted as an absent (unfrozen) record.
     assert(service.read(actor).status == MaintenanceFenceStatus::unavailable);
+    assert(!mediaImportAdmissionUnfrozen(db));
     assert(operations.ensureSchema());
     assert(audit.ensureSchema());
     auto state = service.read(actor);
     assert(state.status == MaintenanceFenceStatus::ok &&
            !state.frozen && state.revision == 0);
+    assert(mediaImportAdmissionUnfrozen(db));
 
     auto foreign = actor;
     foreign.grants.clear();
@@ -148,6 +153,7 @@ int main()
            state.frozen && state.revision == 1);
     assert(audit.listAll().size() == 1 &&
            audit.listAll()[0].action == "addons.maintenance.freeze");
+    assert(!mediaImportAdmissionUnfrozen(db));
     // Reading and using the same canonical operation id is not a new write:
     // existing idempotent replay is still queryable while frozen.
     assert(operations.reserveWithPayload(first, firstPayload).status ==
@@ -184,6 +190,7 @@ int main()
            MaintenanceFenceStatus::ok);
     assert(!reopened.read(actor).frozen &&
            reopened.read(actor).revision == 2);
+    assert(mediaImportAdmissionUnfrozen(db));
     assert(audit.listAll().size() == 2 &&
            audit.listAll()[1].action == "addons.maintenance.unfreeze");
     assert(operations.reserveWithPayload(second, payload(second)).ok());
