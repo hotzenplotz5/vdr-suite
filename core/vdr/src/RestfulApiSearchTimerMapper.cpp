@@ -251,10 +251,38 @@ bool RestfulApiSearchTimerMapper::completeCatalogue(
 {
     const int count = getIntField(json, "count", -1);
     const int total = getIntField(json, "total", -1);
+    if (count < 0 || count != total ||
+        static_cast<std::size_t>(count) != parsedCount)
+        return false;
+
+    // Do not silently discard array values other than objects, unclosed
+    // objects, missing separators or a trailing comma. The mapper is
+    // intentionally permissive for general reads; lifecycle retirement
+    // requires a much stricter, complete source inventory.
     const std::string array = getArrayField(json, "searchtimers");
-    return count >= 0 && total == count &&
-        static_cast<std::size_t>(count) == parsedCount &&
-        splitTopLevelObjects(array).size() == parsedCount;
+    if (array.size() < 2U || array.front() != '[' ||
+        array.back() != ']') return false;
+    std::size_t pos = 1U, objects = 0U;
+    bool afterComma = false;
+    for (;;)
+    {
+        pos = skipWhitespace(array, pos);
+        if (pos >= array.size()) return false;
+        if (array[pos] == ']')
+            return !afterComma && pos + 1U == array.size() &&
+                objects == parsedCount;
+        if (array[pos] != '{') return false;
+        const std::size_t close = findMatching(array, pos, '{', '}');
+        if (close == std::string::npos) return false;
+        ++objects;
+        pos = skipWhitespace(array, close + 1U);
+        if (pos >= array.size()) return false;
+        if (array[pos] == ']')
+            return pos + 1U == array.size() && objects == parsedCount;
+        if (array[pos] != ',') return false;
+        ++pos;
+        afterComma = true;
+    }
 }
 
 std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
