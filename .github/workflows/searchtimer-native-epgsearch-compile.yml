@@ -41,7 +41,8 @@ jobs:
             0004-searchtimer-native-toggle-cas.patch \
             0005-searchtimer-native-inactive-update-cas.patch \
             0006-searchtimer-native-delete-cas.patch \
-            0007-searchtimer-native-metadata-strict.patch
+            0007-searchtimer-native-metadata-strict.patch \
+            0008-searchtimer-osd-stale-pointer-guard.patch
           do
             patch_file="$GITHUB_WORKSPACE/patches/epgsearch/$patch_name"
             test -s "$patch_file"
