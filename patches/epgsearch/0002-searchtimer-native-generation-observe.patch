@@ -91,11 +91,12 @@ diff --git a/epgsearchext.c b/epgsearchext.c
      *search = 0;
      useTime = false;
      startTime = 0000;
-@@ -1467,24 +1505,54 @@
+@@ -1467,24 +1505,56 @@
          if (f) {
              int line = 0;
              char buffer[MAXPARSEBUFFER];
 +            std::string pendingGeneration;
++            std::set<std::string> seenGenerations;
              result = true;
              while (fgets(buffer, sizeof(buffer), f) != NULL) {
                  line++;
@@ -120,7 +121,8 @@ diff --git a/epgsearchext.c b/epgsearchext.c
 -                    if (search->Parse(buffer))
 +                    if (search->Parse(buffer)) {
 +                        if (this == &SearchExts && !pendingGeneration.empty()) {
-+                            bool duplicate = false;
++                            bool duplicate =
++                                !seenGenerations.insert(pendingGeneration).second;
 +                            for (cSearchExt *old = First(); old; old = Next(old))
 +                                if (old->nativeGeneration == pendingGeneration) {
 +                                    // An imported collision invalidates both identities.
