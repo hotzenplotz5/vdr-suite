@@ -1,0 +1,56 @@
+name: SearchTimer native epgsearch source compile
+
+on:
+  pull_request:
+    paths:
+      - 'patches/epgsearch/**'
+      - '.github/workflows/searchtimer-native-epgsearch-compile.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  epgsearch-native-source-compile:
+    name: Apply pinned native patches and compile epgsearch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install isolated native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config git patch vdr-dev libpcre2-dev
+
+      - name: Checkout exact epgsearch upstream
+        env:
+          UPSTREAM_SHA: 0118b4129c3601c04c7483f2fd04b604d4a2a980
+        run: |
+          git clone --quiet https://github.com/vdr-projects/vdr-plugin-epgsearch.git "$RUNNER_TEMP/epgsearch"
+          git -C "$RUNNER_TEMP/epgsearch" checkout --quiet --detach "$UPSTREAM_SHA"
+          test "$(git -C "$RUNNER_TEMP/epgsearch" rev-parse HEAD)" = "$UPSTREAM_SHA"
+
+      - name: Check and apply patch series strictly in order
+        run: |
+          for patch_name in \
+            0001-searchtimer-owner-lock-legacy-writers.patch \
+            0002-searchtimer-native-generation-observe.patch \
+            0003-searchtimer-native-revision-observe-v11.patch
+          do
+            patch_file="$GITHUB_WORKSPACE/patches/epgsearch/$patch_name"
+            test -s "$patch_file"
+            git -C "$RUNNER_TEMP/epgsearch" apply --check "$patch_file"
+            git -C "$RUNNER_TEMP/epgsearch" apply "$patch_file"
+          done
+          git -C "$RUNNER_TEMP/epgsearch" diff --check
+          grep -Fq 'Epgsearch-searchtimer-observe-v1.1' "$RUNNER_TEMP/epgsearch/epgsearch.c"
+
+      - name: Compile epgsearch native plugin only (no install or runtime)
+        run: |
+          make -C "$RUNNER_TEMP/epgsearch" \
+            AUTOCONFIG=0 WITHOUT_EPGSEARCHONLY=1 \
+            WITHOUT_CONFLICTCHECKONLY=1 WITHOUT_QUICKSEARCH=1 \
+            -j2 libvdr-epgsearch.so
+          test -s "$RUNNER_TEMP/epgsearch/libvdr-epgsearch.so"
