@@ -83,7 +83,17 @@ public:
         const std::string& channelId,
         const std::string& fromTime,
         const std::string& untilTime,
-        int eventLimit) const;
+        int eventLimit,
+        const std::string& afterStartTime = {},
+        const std::string& afterEventId = {}) const;
+
+    bool hasWindowCursorAnchorForBackend(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& fromTime,
+        const std::string& untilTime,
+        const std::string& startTime,
+        const std::string& cacheEventId) const;
 
     // Exact source-provenanced event from the same read-repository as
     // window display; no independent source of EPG truth.

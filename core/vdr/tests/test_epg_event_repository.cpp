@@ -762,8 +762,85 @@ static void test_exact_native_epg_event_read_respects_source_provenance()
         "remote", "ch-A", "real-81234").has_value());
 }
 
+
+static void test_epg_window_keyset_multi_day_and_stale_cursor()
+{
+    const std::string filename =
+        "/tmp/vdr-suite-epg-keyset-pagination-test.db";
+    std::remove(filename.c_str());
+    Database db;
+    assert(db.open(filename));
+    EpgEventRepository repo(db);
+    assert(repo.ensureSchema());
+    const std::string from = "1791565200", until = "1791997200";
+    const std::vector<VdrEvent> source = {
+        make_event("a", "ch", "overlap", "1791565100", "1791568800"),
+        make_event("b", "ch", "first", "1791565200", "1791568800"),
+        make_event("c", "ch", "same-start", "1791565200", "1791568800"),
+        make_event("d", "ch", "day-two", "1791651600", "1791655200"),
+        make_event("e", "ch", "day-three", "1791738000", "1791741600"),
+        make_event("f", "ch", "day-four", "1791824400", "1791828000"),
+        make_event("z", "other-channel", "foreign-channel",
+                   "1791651600", "1791655200")
+    };
+    assert(repo.upsertEventsForBackend("home", source));
+    assert(repo.upsertEventsForBackend("remote", {
+        make_event("foreign", "ch", "another-backend",
+                   "1791651600", "1791655200")}));
+    // The Legacy/Web EPG cache-window owner uses this same bounded service
+    // query. Paging must preserve its titles, identity, order and timing.
+    const auto webCacheReference =
+        repo.findWindowForBackend("home", "ch", from, until, 20);
+    assert(webCacheReference.size() == 6U);
+    std::size_t referenceIndex = 0U;
+    std::vector<std::string> collected;
+    std::string afterStart, afterId;
+    for (int page = 0; page < 8; ++page)
+    {
+        const auto rows = repo.findWindowForBackend(
+            "home", "ch", from, until, 2, afterStart, afterId);
+        assert(rows.size() <= 2U);
+        if (rows.empty()) break;
+        for (const auto& row : rows)
+        {
+            assert(referenceIndex < webCacheReference.size());
+            const auto& reference = webCacheReference[referenceIndex++];
+            assert(row.id == reference.id);
+            assert(row.title == reference.title);
+            assert(row.subtitle == reference.subtitle);
+            assert(row.startTime == reference.startTime);
+            assert(row.endTime == reference.endTime);
+            collected.push_back(row.id);
+        }
+        afterStart = rows.back().startTime;
+        afterId = rows.back().id;
+        assert(repo.hasWindowCursorAnchorForBackend(
+            "home", "ch", from, until, afterStart, afterId));
+        assert(!repo.hasWindowCursorAnchorForBackend(
+            "remote", "ch", from, until, afterStart, afterId));
+        assert(!repo.hasWindowCursorAnchorForBackend(
+            "home", "other-channel", from, until, afterStart, afterId));
+    }
+    assert((collected == std::vector<std::string>{
+        "a", "b", "c", "d", "e", "f"}));
+    assert(referenceIndex == webCacheReference.size());
+    assert(repo.findWindowForBackend(
+        "home", "ch", from, until, 2, afterStart, afterId).empty());
+    assert(repo.findWindowForBackend(
+        "home", "ch", "1791900000", until, 2).empty());
+    assert(!repo.hasWindowCursorAnchorForBackend(
+        "home", "ch", "1791900000", until, afterStart, afterId));
+    assert(db.execute(
+        "DELETE FROM epg_events WHERE backend_id='home' "
+        "AND channel_id='ch' AND event_id='f';"));
+    assert(!repo.hasWindowCursorAnchorForBackend(
+        "home", "ch", from, until, afterStart, afterId));
+    std::remove(filename.c_str());
+}
+
 int main()
 {
+    test_epg_window_keyset_multi_day_and_stale_cursor();
     test_exact_native_epg_event_read_respects_source_provenance();
     test_event_id_source_evidence_is_durable_and_fail_closed();
     test_integer_window_uses_end_epoch_index();

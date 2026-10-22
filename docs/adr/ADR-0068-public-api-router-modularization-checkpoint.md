@@ -2,16 +2,22 @@
 
 ## Status
 
-**Accepted architecture and execution-order decision. Source implementation tracked by PR #517; completion requires final CI and merge.**
+**CLOSED — behavior-preserving source refactor merged in [PR #517](https://github.com/hotzenplotz5/vdr-suite/pull/517) on 2026-10-22 with exact-head and post-merge CI SUCCESS.**
 
 Date: 2026-10-21
 
 Decision authority: approved Public API v1 development sequence for `main`.
 
-This ADR by itself **does not** certify an implemented/merged refactoring, a runtime deployment,
-authorize unrelated API development or reopen completed Phase 69. See
+The implementation/merge proof is recorded below. ADR-0068 certifies source modularization and CI, **not** a productive daemon deployment, new hardware acceptance, complete OpenAPI conformance, unrelated API development or reopening Phase 69. See
 [the single-branch implementation record](../development/adr-0068-single-branch-read-dispatch-progress.md)
 and [the contract reconciliation](../development/adr-0068-public-legacy-contract-reconciliation.md).
+
+## Implementation closeout (2026-10-22)
+
+- Single branch `work/adr0068-router-modularization-20261022`; final PR-head [`867f43b67`](https://github.com/hotzenplotz5/vdr-suite/commit/867f43b67e88f6b9c904db5b98e99ce1b79ff784); merge [`6c05493ad`](https://github.com/hotzenplotz5/vdr-suite/commit/6c05493ad53c82e19fef4a2bc70e09bc1603e0c8) into `main`.
+- All four required PR-head checks and all four post-merge checks passed; [CI links and contract scope](../CURRENT.md#adr-0068-closeout--merged-and-source-ci-accepted-2026-10-22).
+- Existing GET domain routing, ordered POST domain routing, callback/admission lifecycle and source guards were extracted without intended contract changes. The [60 OpenAPI-declared method/path contract entries](../development/adr-0068-public-legacy-contract-reconciliation.md) are an audited **partial** inventory, not exhaustive coverage.
+- No installed daemon or hardware acceptance is inferred. E1 begins **after this closeout** as independent functional work; Phase 70 remains unstarted.
 
 ## Context
 
