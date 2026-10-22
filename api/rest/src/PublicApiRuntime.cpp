@@ -5880,92 +5880,6 @@ PublicGenreCollectionResult PublicApiRuntime::lookupGenreCollection(
     return lookup ? lookup(request) : PublicGenreCollectionResult{};
 }
 
-void PublicApiRuntime::registerEpgNowNextLookup(
-    EpgNowNextLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(epgNowNextLookupMutex_);
-    epgNowNextLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetEpgNowNextLookup()
-{
-    std::lock_guard<std::mutex> lock(epgNowNextLookupMutex_);
-    epgNowNextLookup_ = {};
-}
-
-bool PublicApiRuntime::epgNowNextLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(epgNowNextLookupMutex_);
-    return static_cast<bool>(epgNowNextLookup_);
-}
-
-PublicEpgNowNextResult PublicApiRuntime::lookupEpgNowNext(
-    const PublicEpgNowNextRequest& request) const
-{
-    EpgNowNextLookup lookup;
-    {
-        std::lock_guard<std::mutex> lock(epgNowNextLookupMutex_);
-        lookup = epgNowNextLookup_;
-    }
-    return lookup ? lookup(request) : PublicEpgNowNextResult{};
-}
-
-void PublicApiRuntime::registerEpgWindowLookup(
-    EpgWindowLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(epgWindowLookupMutex_);
-    epgWindowLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetEpgWindowLookup()
-{
-    std::lock_guard<std::mutex> lock(epgWindowLookupMutex_);
-    epgWindowLookup_ = {};
-}
-
-bool PublicApiRuntime::epgWindowLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(epgWindowLookupMutex_);
-    return static_cast<bool>(epgWindowLookup_);
-}
-
-PublicEpgWindowResult PublicApiRuntime::lookupEpgWindow(
-    const PublicEpgWindowRequest& request) const
-{
-    EpgWindowLookup lookup;
-    {
-        std::lock_guard<std::mutex> lock(epgWindowLookupMutex_);
-        lookup = epgWindowLookup_;
-    }
-    return lookup ? lookup(request) : PublicEpgWindowResult{};
-}
-
-void PublicApiRuntime::registerEpgEventDetailLookup(EpgEventDetailLookup callback)
-{
-    std::lock_guard<std::mutex> lock(epgEventDetailMutex_);
-    epgEventDetailLookup_ = std::move(callback);
-}
-void PublicApiRuntime::resetEpgEventDetailLookup()
-{
-    std::lock_guard<std::mutex> lock(epgEventDetailMutex_);
-    epgEventDetailLookup_ = {};
-}
-bool PublicApiRuntime::epgEventDetailLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(epgEventDetailMutex_);
-    return static_cast<bool>(epgEventDetailLookup_);
-}
-PublicEpgEventDetailResult PublicApiRuntime::lookupEpgEventDetail(
-    const PublicEpgEventDetailRequest& request) const
-{
-    EpgEventDetailLookup callback;
-    {
-        std::lock_guard<std::mutex> lock(epgEventDetailMutex_);
-        callback = epgEventDetailLookup_;
-    }
-    return callback ? callback(request) : PublicEpgEventDetailResult{};
-}
-
 void PublicApiRuntime::registerNativeTimersLookup(
     NativeTimersLookup lookup)
 {
@@ -6409,6 +6323,252 @@ bool PublicApiRuntime::tryHandleChannelCollectionGet(
                 return true;
 
             case PublicChannelCollectionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleEpgReadGet(
+    const std::string& requestTarget,
+    const std::string& actorRef,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::string& ifNoneMatch,
+    const std::vector<std::string>& authorizedBackendIds,
+    ApiResponse& response) const
+{
+    const std::string path = requestPath(requestTarget);
+    if (path == PublicEpgEventDetailPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicEpgEventDetailQuery q;
+        if (!parsePublicEpgEventDetailQuery(requestTarget, q) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != q.backendId)
+        {
+            response = invalidRequestProblem(path,
+                "Exact authorized EPG backend/channel/native event required.",
+                requestId, correlationId);
+            return true;
+        }
+        const auto found = lookupEpgEventDetail(
+            {q.backendId, q.channelId, q.eventId});
+        if (found.status == PublicEpgNowNextStatus::notFound)
+        {
+            response = notFoundProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (found.status != PublicEpgNowNextStatus::ok ||
+            found.backendId != q.backendId ||
+            found.channelId != q.channelId ||
+            found.eventId != q.eventId ||
+            found.title.empty() || found.title.size() > 512U ||
+            found.subtitle.size() > 512U ||
+            found.description.size() > 1536U ||
+            found.startTime.empty() || found.startTime.size() > 20U ||
+            found.endTime.empty() || found.endTime.size() > 20U ||
+            found.durationSeconds < 0 || found.resourceRevision.empty() ||
+            found.resourceRevision.size() > 90U)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        const std::string tag = vdrsuite::http::publicStrongEntityTag(
+            found.resourceRevision);
+        const auto condition = vdrsuite::http::publicEvaluateIfNoneMatch(
+            ifNoneMatch, tag);
+        if (condition == vdrsuite::http::PublicEntityTagConditionResult::malformed)
+        {
+            response = invalidRequestProblem(path, "Invalid If-None-Match.",
+                requestId, correlationId);
+            return true;
+        }
+        if (condition == vdrsuite::http::PublicEntityTagConditionResult::matched)
+        {
+            response.statusCode = 304;
+            response.contentType = "application/json; charset=utf-8";
+            addPublicSuccessHeaders(response, requestId, correlationId);
+        }
+        else
+        {
+            std::string body = "{\"backendId\":\"" + jsonEscape(found.backendId) +
+                "\",\"channelId\":\"" + jsonEscape(found.channelId) +
+                "\",\"eventId\":\"" + jsonEscape(found.eventId) +
+                "\",\"title\":\"" + jsonEscape(found.title) +
+                "\",\"subtitle\":\"" + jsonEscape(found.subtitle) +
+                "\",\"description\":\"" + jsonEscape(found.description) +
+                "\",\"startTime\":\"" + jsonEscape(found.startTime) +
+                "\",\"endTime\":\"" + jsonEscape(found.endTime) +
+                "\",\"durationSeconds\":" +
+                std::to_string(found.durationSeconds) + "}";
+            response = jsonResponse(body, requestId, correlationId);
+        }
+        response.headers["ETag"] = tag;
+        response.headers["Cache-Control"] = "no-store";
+        return true;
+    }
+
+    if (path == PublicEpgWindowPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicEpgWindowQuery query;
+        if (!parsePublicEpgWindowQuery(requestTarget, query) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != query.backendId)
+        {
+            response = invalidRequestProblem(path,
+                "One authorized backendId, channelId and bounded 12-hour time window are required.",
+                requestId, correlationId);
+            return true;
+        }
+        const PublicEpgWindowRequest request{
+            query.backendId, query.channelId, query.fromTime,
+            query.untilTime, query.limit
+        };
+        const PublicEpgWindowResult found = lookupEpgWindow(request);
+        switch (found.status)
+        {
+            case PublicEpgNowNextStatus::ok:
+            {
+                if (found.events.size() > query.limit)
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                std::string body = "{\"backendId\":\"" +
+                    jsonEscape(query.backendId) + "\",\"channelId\":\"" +
+                    jsonEscape(query.channelId) + "\",\"items\":[";
+                for (std::size_t i = 0U; i < found.events.size(); ++i)
+                {
+                    const auto& event = found.events[i];
+                    if (event.channelId != query.channelId ||
+                        event.title.empty() || event.startTime.empty() ||
+                        event.endTime.empty() || event.durationSeconds < 0)
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    if (i > 0U) body += ",";
+                    body += "{\"channelId\":\"" +
+                        jsonEscape(event.channelId) + "\",\"title\":\"" +
+                        jsonEscape(event.title) + "\",\"subtitle\":\"" +
+                        jsonEscape(event.subtitle) + "\",\"startTime\":\"" +
+                        jsonEscape(event.startTime) + "\",\"endTime\":\"" +
+                        jsonEscape(event.endTime) + "\",\"durationSeconds\":" +
+                        std::to_string(event.durationSeconds);
+                    if (!event.eventId.empty() &&
+                        event.eventId.size() <= 160U)
+                        body += ",\"eventId\":\"" +
+                            jsonEscape(event.eventId) + "\"";
+                    body += "}";
+                }
+                body += "],\"page\":{\"limit\":" +
+                    std::to_string(query.limit) +
+                    ",\"hasMore\":" + (found.hasMore ? "true" : "false") +
+                    "},\"meta\":{\"partial\":false}}";
+                response = jsonResponse(body, requestId, correlationId);
+                return true;
+            }
+            case PublicEpgNowNextStatus::invalid:
+                response = invalidRequestProblem(path,
+                    "Invalid EPG window request.",
+                    requestId, correlationId);
+                return true;
+            case PublicEpgNowNextStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicEpgNowNextStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    if (path == PublicEpgNowNextPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        PublicEpgNowNextQuery query;
+        if (!parsePublicEpgNowNextQuery(requestTarget, query) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != query.backendId)
+        {
+            response = invalidRequestProblem(
+                path, "An authorized backendId, channelId and fromTime are required.",
+                requestId, correlationId);
+            return true;
+        }
+        const PublicEpgNowNextRequest request{
+            query.backendId, query.channelId, query.fromTime, query.limit
+        };
+        const PublicEpgNowNextResult found = lookupEpgNowNext(request);
+        switch (found.status)
+        {
+            case PublicEpgNowNextStatus::ok:
+            {
+                if (found.events.size() > query.limit)
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                std::string body = "{\"backendId\":\"" +
+                    jsonEscape(query.backendId) + "\",\"channelId\":\"" +
+                    jsonEscape(query.channelId) + "\",\"items\":[";
+                for (std::size_t index = 0U; index < found.events.size(); ++index)
+                {
+                    const PublicEpgNowNextItem& event = found.events[index];
+                    if (event.channelId != query.channelId ||
+                        event.title.empty() ||
+                        event.startTime.empty() || event.endTime.empty() ||
+                        event.durationSeconds < 0)
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    if (index > 0U) body += ",";
+                    body += "{\"channelId\":\"" +
+                        jsonEscape(event.channelId) + "\",\"title\":\"" +
+                        jsonEscape(event.title) + "\",\"subtitle\":\"" +
+                        jsonEscape(event.subtitle) + "\",\"startTime\":\"" +
+                        jsonEscape(event.startTime) + "\",\"endTime\":\"" +
+                        jsonEscape(event.endTime) + "\",\"durationSeconds\":" +
+                        std::to_string(event.durationSeconds) + "}";
+                }
+                body += "],\"page\":{\"limit\":" +
+                    std::to_string(query.limit) +
+                    ",\"hasMore\":false},\"meta\":{\"partial\":false}}";
+                response = jsonResponse(body, requestId, correlationId);
+                return true;
+            }
+            case PublicEpgNowNextStatus::invalid:
+                response = invalidRequestProblem(
+                    path, "Invalid EPG request.",
+                    requestId, correlationId);
+                return true;
+            case PublicEpgNowNextStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicEpgNowNextStatus::unavailable:
                 response = serviceUnavailableProblem(
                     path, requestId, correlationId);
                 return true;
@@ -8130,235 +8290,26 @@ bool PublicApiRuntime::tryHandleGet(
 
     if (path == PublicEpgEventDetailPath)
     {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(path, requestId, correlationId);
+        if (tryHandleEpgReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendIds, response))
             return true;
-        }
-        PublicEpgEventDetailQuery q;
-        if (!parsePublicEpgEventDetailQuery(requestTarget, q) ||
-            authorizedBackendIds.size() != 1U ||
-            authorizedBackendIds.front() != q.backendId)
-        {
-            response = invalidRequestProblem(path,
-                "Exact authorized EPG backend/channel/native event required.",
-                requestId, correlationId);
-            return true;
-        }
-        const auto found = lookupEpgEventDetail(
-            {q.backendId, q.channelId, q.eventId});
-        if (found.status == PublicEpgNowNextStatus::notFound)
-        {
-            response = notFoundProblem(path, requestId, correlationId);
-            return true;
-        }
-        if (found.status != PublicEpgNowNextStatus::ok ||
-            found.backendId != q.backendId ||
-            found.channelId != q.channelId ||
-            found.eventId != q.eventId ||
-            found.title.empty() || found.title.size() > 512U ||
-            found.subtitle.size() > 512U ||
-            found.description.size() > 1536U ||
-            found.startTime.empty() || found.startTime.size() > 20U ||
-            found.endTime.empty() || found.endTime.size() > 20U ||
-            found.durationSeconds < 0 || found.resourceRevision.empty() ||
-            found.resourceRevision.size() > 90U)
-        {
-            response = serviceUnavailableProblem(path, requestId, correlationId);
-            return true;
-        }
-        const std::string tag = vdrsuite::http::publicStrongEntityTag(
-            found.resourceRevision);
-        const auto condition = vdrsuite::http::publicEvaluateIfNoneMatch(
-            ifNoneMatch, tag);
-        if (condition == vdrsuite::http::PublicEntityTagConditionResult::malformed)
-        {
-            response = invalidRequestProblem(path, "Invalid If-None-Match.",
-                requestId, correlationId);
-            return true;
-        }
-        if (condition == vdrsuite::http::PublicEntityTagConditionResult::matched)
-        {
-            response.statusCode = 304;
-            response.contentType = "application/json; charset=utf-8";
-            addPublicSuccessHeaders(response, requestId, correlationId);
-        }
-        else
-        {
-            std::string body = "{\"backendId\":\"" + jsonEscape(found.backendId) +
-                "\",\"channelId\":\"" + jsonEscape(found.channelId) +
-                "\",\"eventId\":\"" + jsonEscape(found.eventId) +
-                "\",\"title\":\"" + jsonEscape(found.title) +
-                "\",\"subtitle\":\"" + jsonEscape(found.subtitle) +
-                "\",\"description\":\"" + jsonEscape(found.description) +
-                "\",\"startTime\":\"" + jsonEscape(found.startTime) +
-                "\",\"endTime\":\"" + jsonEscape(found.endTime) +
-                "\",\"durationSeconds\":" +
-                std::to_string(found.durationSeconds) + "}";
-            response = jsonResponse(body, requestId, correlationId);
-        }
-        response.headers["ETag"] = tag;
-        response.headers["Cache-Control"] = "no-store";
-        return true;
     }
 
     if (path == PublicEpgWindowPath)
     {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(path, requestId, correlationId);
+        if (tryHandleEpgReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendIds, response))
             return true;
-        }
-        PublicEpgWindowQuery query;
-        if (!parsePublicEpgWindowQuery(requestTarget, query) ||
-            authorizedBackendIds.size() != 1U ||
-            authorizedBackendIds.front() != query.backendId)
-        {
-            response = invalidRequestProblem(path,
-                "One authorized backendId, channelId and bounded 12-hour time window are required.",
-                requestId, correlationId);
-            return true;
-        }
-        const PublicEpgWindowRequest request{
-            query.backendId, query.channelId, query.fromTime,
-            query.untilTime, query.limit
-        };
-        const PublicEpgWindowResult found = lookupEpgWindow(request);
-        switch (found.status)
-        {
-            case PublicEpgNowNextStatus::ok:
-            {
-                if (found.events.size() > query.limit)
-                {
-                    response = serviceUnavailableProblem(
-                        path, requestId, correlationId);
-                    return true;
-                }
-                std::string body = "{\"backendId\":\"" +
-                    jsonEscape(query.backendId) + "\",\"channelId\":\"" +
-                    jsonEscape(query.channelId) + "\",\"items\":[";
-                for (std::size_t i = 0U; i < found.events.size(); ++i)
-                {
-                    const auto& event = found.events[i];
-                    if (event.channelId != query.channelId ||
-                        event.title.empty() || event.startTime.empty() ||
-                        event.endTime.empty() || event.durationSeconds < 0)
-                    {
-                        response = serviceUnavailableProblem(
-                            path, requestId, correlationId);
-                        return true;
-                    }
-                    if (i > 0U) body += ",";
-                    body += "{\"channelId\":\"" +
-                        jsonEscape(event.channelId) + "\",\"title\":\"" +
-                        jsonEscape(event.title) + "\",\"subtitle\":\"" +
-                        jsonEscape(event.subtitle) + "\",\"startTime\":\"" +
-                        jsonEscape(event.startTime) + "\",\"endTime\":\"" +
-                        jsonEscape(event.endTime) + "\",\"durationSeconds\":" +
-                        std::to_string(event.durationSeconds);
-                    if (!event.eventId.empty() &&
-                        event.eventId.size() <= 160U)
-                        body += ",\"eventId\":\"" +
-                            jsonEscape(event.eventId) + "\"";
-                    body += "}";
-                }
-                body += "],\"page\":{\"limit\":" +
-                    std::to_string(query.limit) +
-                    ",\"hasMore\":" + (found.hasMore ? "true" : "false") +
-                    "},\"meta\":{\"partial\":false}}";
-                response = jsonResponse(body, requestId, correlationId);
-                return true;
-            }
-            case PublicEpgNowNextStatus::invalid:
-                response = invalidRequestProblem(path,
-                    "Invalid EPG window request.",
-                    requestId, correlationId);
-                return true;
-            case PublicEpgNowNextStatus::notFound:
-                response = notFoundProblem(path, requestId, correlationId);
-                return true;
-            case PublicEpgNowNextStatus::unavailable:
-                response = serviceUnavailableProblem(
-                    path, requestId, correlationId);
-                return true;
-        }
     }
 
     if (path == PublicEpgNowNextPath)
     {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(
-                path, requestId, correlationId);
+        if (tryHandleEpgReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendIds, response))
             return true;
-        }
-        PublicEpgNowNextQuery query;
-        if (!parsePublicEpgNowNextQuery(requestTarget, query) ||
-            authorizedBackendIds.size() != 1U ||
-            authorizedBackendIds.front() != query.backendId)
-        {
-            response = invalidRequestProblem(
-                path, "An authorized backendId, channelId and fromTime are required.",
-                requestId, correlationId);
-            return true;
-        }
-        const PublicEpgNowNextRequest request{
-            query.backendId, query.channelId, query.fromTime, query.limit
-        };
-        const PublicEpgNowNextResult found = lookupEpgNowNext(request);
-        switch (found.status)
-        {
-            case PublicEpgNowNextStatus::ok:
-            {
-                if (found.events.size() > query.limit)
-                {
-                    response = serviceUnavailableProblem(
-                        path, requestId, correlationId);
-                    return true;
-                }
-                std::string body = "{\"backendId\":\"" +
-                    jsonEscape(query.backendId) + "\",\"channelId\":\"" +
-                    jsonEscape(query.channelId) + "\",\"items\":[";
-                for (std::size_t index = 0U; index < found.events.size(); ++index)
-                {
-                    const PublicEpgNowNextItem& event = found.events[index];
-                    if (event.channelId != query.channelId ||
-                        event.title.empty() ||
-                        event.startTime.empty() || event.endTime.empty() ||
-                        event.durationSeconds < 0)
-                    {
-                        response = serviceUnavailableProblem(
-                            path, requestId, correlationId);
-                        return true;
-                    }
-                    if (index > 0U) body += ",";
-                    body += "{\"channelId\":\"" +
-                        jsonEscape(event.channelId) + "\",\"title\":\"" +
-                        jsonEscape(event.title) + "\",\"subtitle\":\"" +
-                        jsonEscape(event.subtitle) + "\",\"startTime\":\"" +
-                        jsonEscape(event.startTime) + "\",\"endTime\":\"" +
-                        jsonEscape(event.endTime) + "\",\"durationSeconds\":" +
-                        std::to_string(event.durationSeconds) + "}";
-                }
-                body += "],\"page\":{\"limit\":" +
-                    std::to_string(query.limit) +
-                    ",\"hasMore\":false},\"meta\":{\"partial\":false}}";
-                response = jsonResponse(body, requestId, correlationId);
-                return true;
-            }
-            case PublicEpgNowNextStatus::invalid:
-                response = invalidRequestProblem(
-                    path, "Invalid EPG request.",
-                    requestId, correlationId);
-                return true;
-            case PublicEpgNowNextStatus::notFound:
-                response = notFoundProblem(path, requestId, correlationId);
-                return true;
-            case PublicEpgNowNextStatus::unavailable:
-                response = serviceUnavailableProblem(
-                    path, requestId, correlationId);
-                return true;
-        }
     }
 
     if (path == PublicChannelCollectionPath)
