@@ -47,6 +47,7 @@ AUDITED = {
     "/api/v1/epg/timer-intents": {"post": "if (path == PublicEpgTimerIntentPath)"},
     "/api/v1/timer-assignments": {"get": "if (path == PublicTimerAssignmentCollectionPath)"},
     "/api/v1/search-timers": {"get": "if (path == PublicSearchTimerCollectionPath)", "post": "if (path == PublicSearchTimerCollectionPath)"},
+    "/api/v1/search-timers/{searchTimerId}": {"get": "if (publicSearchTimerDetailPath(path, detailSearchTimerId))"},
     "/api/v1/search-timers/draft-preview": {"get": "if (path == PublicSearchTimerDraftPreviewPath)"},
     "/api/v1/search-timers/{searchTimerId}/preview": {"get": "if (publicSearchTimerPreviewPath(path, previewSearchTimerId))"},
     "/api/v1/timer-assignments/{timerAssignmentId}": {
