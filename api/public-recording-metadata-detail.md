@@ -100,7 +100,7 @@ tests, and do not merge automatically.
 | Native EPG title/subtitle/description | Bounded native `metadata.*` fields; duplicate description omitted when identical to collection excerpt | Implemented |
 | Scraper source, provider title, series/episode, genre text, dates | Bounded existing `VdrRecordingMetadata` values, only when known provider source is present | Implemented; no new provider or artwork URL |
 | Manual locked metadata assignment | Web `MetadataRepository` reads `ManualRecordingMetadataAssignmentRepository`, keyed by backend + canonical recording resource key | Implemented on the M1 branch: same read-only source, active target binding, `mdasg_`/`mdent_` and revision; no private resource keys, provider IDs or image paths |
-| Manual genre selection / series hierarchy overrides | Web `GenreIndexRepository` and `RecordingSeriesHierarchyOverrideRepository` | **Not projected in detail yet**; separate focused read integration required |
+| Manual genre selection / series hierarchy overrides | Web `GenreIndexRepository` and `RecordingSeriesHierarchyOverrideRepository` | Selected canonical `manualGenreId` projected read-only; optional series hierarchy override remains outside the detail contract |
 | Artwork and image cache | Web poster/image references and M2 public-artwork work | Out of scope for M1 |
 
 The legacy `MetadataRepository::getMetadataForRecording(int)` is **not** a
@@ -117,7 +117,10 @@ selection wins over automatically scraped provider fields, but does not rewrite
 the public Recording title or native EPG fields. The HTTP metadata object
 emits `manualAssignmentId`, `metadataEntityId` and `manualRevision` **only** for
 `source=manual`. Backend-native keys, provider/external IDs, actor and image
-references are withheld. Manual genre assignment remains a separate gap.
+references are withheld. The existing selected manual genre also appears as optional `manualGenreId`,
+independent of whether manual metadata is selected. It reuses the Web Genre
+index and its canonical backend/cache key, without indexing writes. Broader
+Genre evidence and series hierarchy presentation overrides remain separate.
 
 Competitor baseline: Kodi/Plex metadata detail and provenance behavior has
 **not been verified in this branch**; this implementation prioritizes actual
@@ -128,8 +131,10 @@ Recommended remaining M1 slices:
 
 - M1.2: source implementation complete; validate exact-head CI and compare
   manual assignment Web/authorized Public-v1 responses on controlled fixtures.
-- M1.3: integrate canonical genre and optional series-hierarchy overrides
-  only through the existing server repositories, with backend/security parity.
+- M1.3: selected canonical manual Genre ID is projected; complete final-head
+  source CI and verify controlled Web/Public-v1 Genre parity. General provider
+  Genre evidence and series-hierarchy overrides require a separately scoped
+  read-model decision.
 - M1.4: targeted authorization, malformed-data, manual-override and Web
   comparisons; prepare E1/E2/S1 merge reconciliation without merging them.
 
