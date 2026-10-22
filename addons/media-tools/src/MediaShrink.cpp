@@ -149,11 +149,11 @@ unsigned probeHeight(ProcessRunner& runner, const fs::path& input) {
     }, true);
     demand(result.exitCode == 0 && !result.output.empty() &&
            result.output.size() <= 1024, "shrink height probe failed");
-    std::istringstream input(result.output);
+    std::istringstream heightValues(result.output);
     std::string token;
     unsigned height = 0;
     unsigned entries = 0;
-    while (std::getline(input, token)) {
+    while (std::getline(heightValues, token)) {
         if (!token.empty() && token.back() == '\r') token.pop_back();
         if (token.empty()) continue;
         demand(token.size() <= 5 && std::all_of(token.begin(), token.end(),
