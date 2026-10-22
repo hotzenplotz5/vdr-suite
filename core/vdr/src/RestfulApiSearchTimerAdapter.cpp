@@ -48,6 +48,10 @@ SearchTimerResult RestfulApiSearchTimerAdapter::list(
             backendId_,
             response.body);
 
+    if (!RestfulApiSearchTimerMapper::completeCatalogue(
+            response.body, timers.size()))
+        return SearchTimerResult::unavailable(query.limit(), query.offset());
+
     SearchTimerService service;
     return service.list(
         timers,

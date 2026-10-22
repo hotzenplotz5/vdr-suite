@@ -1,3 +1,17 @@
+.PHONY: test-public-searchtimer-identity-lifecycle
+
+test-public-searchtimer-identity-lifecycle: CXXFLAGS += -Icore/vdr/include
+test-public-searchtimer-identity-lifecycle:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/PublicSearchTimerIdentityRepository.cpp \
+		core/vdr/tests/test_public_search_timer_identity_lifecycle.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_search_timer_identity_lifecycle
+	$(BUILD_DIR)/test_public_search_timer_identity_lifecycle
+
+test-fast: test-public-searchtimer-identity-lifecycle
+
 .PHONY: test-public-recording-identity-repository
 
 test-public-recording-identity-repository:

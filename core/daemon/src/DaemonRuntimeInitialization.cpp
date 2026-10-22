@@ -1447,9 +1447,19 @@ bool DaemonRuntime::initialize()
             // cross-backend fanout. Only bounded safe projections leave v1.
             const SearchTimerResult source = adapter->list(
                 SearchTimerQuery::byBackend(request.backendId));
-            if (!source.available()) return result;
+            if (!source.available() ||
+                source.totalCount() != source.returnedCount()) return result;
+            // The provider catalogue is complete and validated before this
+            // atomic identity reconciliation. A real empty snapshot retires
+            // stale mappings; an outage or malformed catalogue never does.
+            const auto publicIds = publicSearchTimerIdentities_
+                ->reconcileAuthoritativeSnapshot(request.backendId,
+                    source.items());
+            if (!publicIds || publicIds->size() != source.items().size())
+                return result;
 
             std::vector<PublicSearchTimerCollectionItem> candidates;
+            std::size_t identityIndex = 0U;
             for (const SearchTimer& timer : source.items())
             {
                 if (timer.backendId() != request.backendId ||
@@ -1458,12 +1468,8 @@ bool DaemonRuntime::initialize()
                     timer.name().size() > 1024U ||
                     timer.query().size() > 1024U)
                     return result;
-                const auto publicId =
-                    publicSearchTimerIdentities_->resolveOrCreate(
-                        request.backendId, timer.backendNativeId());
-                if (!publicId) return result;
                 PublicSearchTimerCollectionItem item;
-                item.searchTimerId = *publicId;
+                item.searchTimerId = (*publicIds)[identityIndex++];
                 item.backendId = request.backendId;
                 item.name = timer.name();
                 item.query = timer.query();
@@ -1565,8 +1571,16 @@ bool DaemonRuntime::initialize()
             if (!adapter) return result;
             const auto catalogue = adapter->list(
                 SearchTimerQuery::byBackend(request.backendId));
-            if (!catalogue.available()) return result;
+            if (!catalogue.available() ||
+                catalogue.totalCount() != catalogue.returnedCount())
+                return result;
+            const auto publicIds = publicSearchTimerIdentities_
+                ->reconcileAuthoritativeSnapshot(request.backendId,
+                    catalogue.items());
+            if (!publicIds || publicIds->size() != catalogue.items().size())
+                return result;
 
+            std::size_t identityIndex = 0U;
             for (const auto& timer : catalogue.items())
             {
                 if (timer.backendId() != request.backendId ||
@@ -1575,16 +1589,13 @@ bool DaemonRuntime::initialize()
                     timer.name().size() > 1024U ||
                     timer.query().size() > 1024U)
                     return result;
-                const auto publicId =
-                    publicSearchTimerIdentities_->resolveOrCreate(
-                        request.backendId, timer.backendNativeId());
-                if (!publicId) return result;
-                if (*publicId != request.searchTimerId) continue;
+                const std::string& publicId = (*publicIds)[identityIndex++];
+                if (publicId != request.searchTimerId) continue;
 
                 SearchTimerPreviewService service;
                 const auto preview = service.preview(
                     timer, *events, static_cast<int>(request.limit), 0);
-                result.searchTimerId = *publicId;
+                result.searchTimerId = publicId;
                 result.backendId = request.backendId;
                 result.totalCount = preview.totalCount();
                 for (const auto& match : preview.searchResult().matches())
