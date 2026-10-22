@@ -323,76 +323,8 @@ bool DaemonRuntime::initialize()
                 actorId, backendId, now, reason);
         });
     PublicApiRuntime::instance().registerMediaImportAdmission(
-        [this](const PublicMediaImportAdmissionRequest& request)
-        {
-            PublicMediaImportAdmissionResult result;
-            if (!mediaImportOperationFence_ ||
-                !mutationOperationRepository_ ||
-                !backendAgentCommandRepository_ ||
-                !backendAgentRepository_) return result;
-            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
-                std::chrono::system_clock::now().time_since_epoch()).count();
-            vdrsuite::addons::MediaImportOperationAdmissionService service(
-                *mutationOperationRepository_, *backendAgentRepository_,
-                *mediaImportOperationFence_);
-            vdrsuite::addons::MediaImportOperationAdmissionRequest input;
-            input.actorId = request.actorRef;
-            input.backendId = request.backendId;
-            input.sourceId = request.sourceId;
-            input.idempotencyKey = request.idempotencyKey;
-            input.now = now;
-            const auto accepted = service.admit(input);
-            using Status = vdrsuite::addons::MediaImportOperationAdmissionStatus;
-            switch (accepted.status)
-            {
-                case Status::accepted:
-                case Status::replayed: break;
-                case Status::invalid:
-                    result.status = PublicMediaImportAdmissionStatus::invalid;
-                    return result;
-                case Status::forbidden:
-                    result.status = PublicMediaImportAdmissionStatus::forbidden;
-                    return result;
-                case Status::idempotencyConflict:
-                    result.status = PublicMediaImportAdmissionStatus::idempotencyConflict;
-                    return result;
-                case Status::conflict:
-                    result.status = PublicMediaImportAdmissionStatus::conflict;
-                    return result;
-                case Status::unavailable: return result;
-            }
-            auto durable = accepted.operation;
-            using State = vdrsuite::operations::MutationOperationState;
-            // The first caller and a replay both drive the SAME operation
-            // through the existing Agent command table. A prior terminal
-            // result must never be submitted again.
-            if (durable.state == State::accepted ||
-                durable.state == State::dispatching)
-            {
-                RequestSecurityContext system;
-                system.authenticationState = AuthenticationState::Authenticated;
-                system.actor = {"media_import_admission", ActorType::System,
-                                "Media Import admission", true};
-                vdrsuite::agent::BackendAgentMediaImportAssignmentService assigner(
-                    *mutationOperationRepository_, *backendAgentCommandRepository_,
-                    *backendAgentRepository_, *mediaImportOperationFence_);
-                const auto assigned = assigner.assign(
-                    system, durable.operationId, now);
-                if (!assigned.accepted) return result;
-                const auto current =
-                    mutationOperationRepository_->findById(durable.operationId);
-                if (!current.ok()) return result;
-                durable = current.operation;
-            }
-            result.status = accepted.status == Status::accepted
-                ? PublicMediaImportAdmissionStatus::accepted
-                : PublicMediaImportAdmissionStatus::replayed;
-            result.operation.operationId = durable.operationId;
-            result.operation.backendId = durable.backendId;
-            result.operation.state =
-                vdrsuite::operations::mutationOperationStateName(durable.state);
-            result.operation.resourceRevision = durable.operationRevision;
-            return result;
+        [this](const PublicMediaImportAdmissionRequest& request) {
+            return admitMediaImport(request);
         });
     backendAgentCommandDeliveryService_->setMediaImportReceiptFenceCheck(
         [this](const BackendAgentCommandAssignment& assignment,
@@ -2207,4 +2139,77 @@ bool DaemonRuntime::initialize()
     initialized_ = true;
 
     return true;
+}
+
+PublicMediaImportAdmissionResult DaemonRuntime::admitMediaImport(
+    const PublicMediaImportAdmissionRequest& request)
+{
+            PublicMediaImportAdmissionResult result;
+            if (!mediaImportOperationFence_ ||
+                !mutationOperationRepository_ ||
+                !backendAgentCommandRepository_ ||
+                !backendAgentRepository_) return result;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            vdrsuite::addons::MediaImportOperationAdmissionService service(
+                *mutationOperationRepository_, *backendAgentRepository_,
+                *mediaImportOperationFence_);
+            vdrsuite::addons::MediaImportOperationAdmissionRequest input;
+            input.actorId = request.actorRef;
+            input.backendId = request.backendId;
+            input.sourceId = request.sourceId;
+            input.idempotencyKey = request.idempotencyKey;
+            input.now = now;
+            const auto accepted = service.admit(input);
+            using Status = vdrsuite::addons::MediaImportOperationAdmissionStatus;
+            switch (accepted.status)
+            {
+                case Status::accepted:
+                case Status::replayed: break;
+                case Status::invalid:
+                    result.status = PublicMediaImportAdmissionStatus::invalid;
+                    return result;
+                case Status::forbidden:
+                    result.status = PublicMediaImportAdmissionStatus::forbidden;
+                    return result;
+                case Status::idempotencyConflict:
+                    result.status = PublicMediaImportAdmissionStatus::idempotencyConflict;
+                    return result;
+                case Status::conflict:
+                    result.status = PublicMediaImportAdmissionStatus::conflict;
+                    return result;
+                case Status::unavailable: return result;
+            }
+            auto durable = accepted.operation;
+            using State = vdrsuite::operations::MutationOperationState;
+            // The first caller and a replay both drive the SAME operation
+            // through the existing Agent command table. A prior terminal
+            // result must never be submitted again.
+            if (durable.state == State::accepted ||
+                durable.state == State::dispatching)
+            {
+                RequestSecurityContext system;
+                system.authenticationState = AuthenticationState::Authenticated;
+                system.actor = {"media_import_admission", ActorType::System,
+                                "Media Import admission", true};
+                vdrsuite::agent::BackendAgentMediaImportAssignmentService assigner(
+                    *mutationOperationRepository_, *backendAgentCommandRepository_,
+                    *backendAgentRepository_, *mediaImportOperationFence_);
+                const auto assigned = assigner.assign(
+                    system, durable.operationId, now);
+                if (!assigned.accepted) return result;
+                const auto current =
+                    mutationOperationRepository_->findById(durable.operationId);
+                if (!current.ok()) return result;
+                durable = current.operation;
+            }
+            result.status = accepted.status == Status::accepted
+                ? PublicMediaImportAdmissionStatus::accepted
+                : PublicMediaImportAdmissionStatus::replayed;
+            result.operation.operationId = durable.operationId;
+            result.operation.backendId = durable.backendId;
+            result.operation.state =
+                vdrsuite::operations::mutationOperationStateName(durable.state);
+            result.operation.resourceRevision = durable.operationRevision;
+            return result;
 }

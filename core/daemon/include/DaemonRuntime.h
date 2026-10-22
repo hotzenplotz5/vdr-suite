@@ -172,6 +172,9 @@
 #include <string>
 #include <vector>
 
+struct PublicMediaImportAdmissionRequest;
+struct PublicMediaImportAdmissionResult;
+
 class DaemonRuntime
 {
 public:
@@ -184,6 +187,9 @@ public:
 private:
     static void handleSignal(int signalNumber);
     void pollVdrAndUpdateChangeFeed();
+    void pollScheduledMediaImport();
+    PublicMediaImportAdmissionResult admitMediaImport(
+        const PublicMediaImportAdmissionRequest& request);
     void startEpgCacheWarmupWorker();
     void stopEpgCacheWarmupWorker();
     void runEpgCacheWarmupWorker();
