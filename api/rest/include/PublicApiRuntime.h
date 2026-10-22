@@ -261,6 +261,7 @@ struct PublicRecordingDetailItem
     std::string subtitle;
     std::string epgDescription;
     std::string providerTitle;
+    std::string overview;
     std::string originalTitle;
     std::string tagline;
     std::string seriesTitle;
@@ -270,6 +271,9 @@ struct PublicRecordingDetailItem
     int seasonNumber = 0;
     int episodeNumber = 0;
     int providerRuntimeMinutes = 0;
+    std::string manualAssignmentId;
+    std::string metadataEntityId;
+    int manualRevision = 0;
 };
 
 struct PublicRecordingDetailResult
