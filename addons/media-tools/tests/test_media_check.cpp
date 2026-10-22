@@ -1,8 +1,12 @@
 #include "MediaCheck.h"
+#include "MediaCheckFfmpeg.h"
 
 #include <array>
 #include <cassert>
 #include <cstdlib>
+#include <chrono>
+#include <cstring>
+#include <thread>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -91,10 +95,54 @@ void throws(F&& callback)
     assert(thrown);
 }
 
+// Deterministic executable fixture: launched by FfmpegMediaCheckDecoder
+// through fork/exec, with the exact FFmpeg argument contract and stdin data.
+// No external binary installation and no file writes in the test.
+int fakeFfmpeg(int argc, char* argv[])
+{
+    bool inputPipe = false, nullOutput = false;
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg(argv[i]);
+        if (arg == "-i" && i + 1 < argc && std::string(argv[i+1]) == "pipe:0")
+            inputPipe = true;
+        if (arg == "-f" && i + 1 < argc && std::string(argv[i+1]) == "null")
+            nullOutput = true;
+        if (arg.find(".rec") != std::string::npos ||
+            arg.find(".ts") != std::string::npos)
+            return 55; // FFmpeg must never receive recording paths.
+    }
+    if (!inputPipe || !nullOutput) return 56;
+
+    std::string bytes;
+    std::array<char, 1024> chunk{};
+    while (true) {
+        const ssize_t n = ::read(STDIN_FILENO, chunk.data(), chunk.size());
+        if (n == 0) break;
+        if (n < 0 && errno == EINTR) continue;
+        if (n < 0) return 57;
+        bytes.append(chunk.data(), static_cast<std::size_t>(n));
+        if (bytes.size() > 4096) return 58;
+    }
+    if (bytes.find("M2_FORCE_STALL") != std::string::npos) {
+        std::this_thread::sleep_for(std::chrono::seconds(5));
+        return 0;
+    }
+    if (bytes.find("M2_FORCE_FAIL") != std::string::npos) {
+        constexpr char message[] = "synthetic FFmpeg decoder error\n";
+        (void)::write(STDERR_FILENO, message, sizeof(message) - 1);
+        return 7;
+    }
+    if (bytes.size() != 4 * 188) return 59;
+    return 0;
+}
+
 } // namespace
 
-int main()
+int main(int argc, char* argv[])
 {
+    if (argc > 1 && std::string(argv[1]) == "-hide_banner")
+        return fakeFfmpeg(argc, argv);
+
     int cases = 0;
     {
         Fixture f;
@@ -200,6 +248,64 @@ int main()
         f.write("00002.ts", {nullPacket});
         auto r = checkRecordingTransportStream(f.video, f.relative());
         assert(r.status() == "ok" && r.continuityWarnings == 0);
+        ++cases;
+    }
+    {
+        Fixture f;
+        const auto original = f.bytes("00001.ts");
+        const auto entries = f.entries();
+        vdrsuite::mediatools::FfmpegMediaCheckDecoder decoder(
+            std::chrono::seconds(5), "/proc/self/exe");
+        const auto result = vdrsuite::mediatools::checkRecordingWithDecoder(
+            f.video, f.relative(), decoder);
+        assert(result.status() == "ok" && result.decode.has_value() &&
+               result.decode->status == "ok" &&
+               result.decode->exitCode == 0 &&
+               result.decode->streamedBytes == 4 * 188);
+        assert(result.json().find("\"analysis\":\"ts_structure_and_ffmpeg_decode\"") !=
+               std::string::npos);
+        assert(f.bytes("00001.ts") == original && f.entries() == entries);
+        ++cases;
+    }
+    {
+        Fixture f;
+        Packet broken = packet(2);
+        constexpr char marker[] = "M2_FORCE_FAIL";
+        std::copy(marker, marker + sizeof(marker) - 1, broken.begin() + 20);
+        f.write("00002.ts", {broken});
+        vdrsuite::mediatools::FfmpegMediaCheckDecoder decoder(
+            std::chrono::seconds(5), "/proc/self/exe");
+        const auto result = vdrsuite::mediatools::checkRecordingWithDecoder(
+            f.video, f.relative(), decoder);
+        assert(result.status() == "errors" && result.decode &&
+               result.decode->exitCode == 7 &&
+               result.decode->diagnostic.find("synthetic FFmpeg decoder error") !=
+                   std::string::npos);
+        ++cases;
+    }
+    {
+        Fixture f;
+        Packet stalled = packet(2);
+        constexpr char marker[] = "M2_FORCE_STALL";
+        std::copy(marker, marker + sizeof(marker) - 1, stalled.begin() + 20);
+        f.write("00002.ts", {stalled});
+        vdrsuite::mediatools::FfmpegMediaCheckDecoder decoder(
+            std::chrono::seconds(1), "/proc/self/exe");
+        const auto result = vdrsuite::mediatools::checkRecordingWithDecoder(
+            f.video, f.relative(), decoder);
+        assert(result.status() == "incomplete" && result.decode &&
+               result.decode->timedOut);
+        ++cases;
+    }
+    {
+        Fixture f;
+        vdrsuite::mediatools::FfmpegMediaCheckDecoder decoder(
+            std::chrono::seconds(2), "/usr/bin/vdr-suite-ffmpeg-no-such-binary");
+        const auto result = vdrsuite::mediatools::checkRecordingWithDecoder(
+            f.video, f.relative(), decoder);
+        assert(result.status() == "incomplete" && result.decode &&
+               result.decode->status == "incomplete" &&
+               result.decode->exitCode == 127);
         ++cases;
     }
     std::cout << "MEDIA_CHECK_READ_ONLY_CPP_TEST=PASS cases=" << cases << "\n";
