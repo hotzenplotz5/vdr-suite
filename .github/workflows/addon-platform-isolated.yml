@@ -66,6 +66,7 @@ on:
       - 'mk/mu9-account-admin-ui.mk'
       - 'addons/media-tools/README.md'
       - 'docs/planning/addon-platform-roadmap.md'
+      - 'docs/development/addon-installed-registry-contract.md'
       - '.github/workflows/addon-platform-isolated.yml'
   workflow_dispatch:
 
@@ -258,3 +259,4 @@ jobs:
           sudo env TMPDIR=/root PYTHONDONTWRITEBYTECODE=1 \
             python3 -m unittest discover -s tools/addons \
             -p 'test_admin_approval_root_acceptance.py'
+          echo "ADDON_APPROVAL_LIFECYCLE_CI=PASS"
