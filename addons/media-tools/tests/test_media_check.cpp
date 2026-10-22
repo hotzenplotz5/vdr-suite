@@ -291,6 +291,7 @@ int main(int argc, char* argv[])
         Packet valid = packet(2);
         valid[3] = 0x20 | 2;
         valid[4] = 183; // adaptation field occupies the entire packet
+        valid[5] = 0; // adaptation flags: no discontinuity indicated
         f.write("00002.ts", {valid});
         const auto result = checkRecordingTransportStream(f.video, f.relative());
         assert(result.status() == "ok" && result.adaptationErrors == 0);
