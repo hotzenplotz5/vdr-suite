@@ -490,12 +490,20 @@ fs::path publishShrinkCandidate(const ShrinkPlan& plan,
     const auto checked = inspectShrink(plan.videoRoot,
         plan.relativeRecording, plan.options);
     demand(signature(checked) == signature(plan), "original recording changed");
+    const auto privateParent = candidate.parent_path();
     demand(candidate.is_absolute() &&
            candidate.lexically_normal() == candidate &&
-           candidate.parent_path() == checked.videoRoot &&
-           candidate.filename().string().rfind(".vdr-suite-shrink-", 0) == 0,
+           privateParent.parent_path() == checked.videoRoot &&
+           privateParent.filename().string().rfind(".vdr-suite-shrink-", 0) == 0 &&
+           candidate.filename() == checked.relativeRecording.filename() &&
+           candidate.extension() == ".rec",
            "invalid shrink review location");
     prohibitSymlinks(candidate);
+    struct stat parent{};
+    demand(::lstat(privateParent.c_str(), &parent) == 0 &&
+           S_ISDIR(parent.st_mode) && parent.st_uid == ::geteuid() &&
+           (parent.st_mode & 0077) == 0,
+           "unprotected shrink review parent");
     demand(fs::is_directory(candidate), "shrink review candidate missing");
     Descriptor evidence(::open((candidate / ".shrink-review").c_str(),
          O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK));
