@@ -154,6 +154,7 @@ public:
             if (offset_ < input_.size() && input_[offset_] == '}') break;
             if (!consume(',')) return false;
             skip();
+            if (offset_ >= input_.size() || input_[offset_] == '}') return false;
         }
         if (!consume('}')) return false;
         skip();
@@ -233,7 +234,8 @@ inline bool installedMediaToolsManifestMatches(
     const auto textField = [&](const char* key) {
         const auto it = fields.find(key);
         return it != fields.end() && it->second.kind == Field::Kind::string &&
-               !it->second.text.empty() && it->second.text.size() <= 300;
+               !it->second.text.empty() && it->second.text.size() <= 300 &&
+               it->second.text.find_first_of("\r\n\t") == std::string::npos;
     };
     if (!equals("schemaVersion", Field::Kind::number, "1") ||
         !equals("id", Field::Kind::string, "rectools") ||
