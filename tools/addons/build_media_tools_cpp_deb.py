@@ -50,7 +50,7 @@ def build(root: Path, executable: str, output_dir: str, maintainer: str,
                 or candidate.stat().st_size > 16 * 1024 * 1024):
             raise ContractError(f"invalid extra media tools binary: {expected}")
         with candidate.open("rb") as handle:
-            if handle.read(4) != b"\\x7fELF":
+            if handle.read(4) != b"\x7fELF":
                 raise ContractError(f"extra media tools binary is not ELF: {expected}")
         extras.append(candidate)
     if not shutil.which("dpkg-deb") or not shutil.which("dpkg"):
