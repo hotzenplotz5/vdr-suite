@@ -92,10 +92,11 @@ async function run() {
   });
   assert.equal(staged.data.operationId,'op_'+'1'.repeat(32));
   status=503;
+  const beforeError = calls.length;
   await assert.rejects(client.getSearchTimers({query:{backendId:'home'}}),
     error=>api.isClientError(error) && error.status===503 &&
       error.code==='service_unavailable');
-  assert.equal(calls.length,before+1);
+  assert.equal(calls.length,beforeError+1);
   console.log('test_public_v1_search_timer_client passed');
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});
