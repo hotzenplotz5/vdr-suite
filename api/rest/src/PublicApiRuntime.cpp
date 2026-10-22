@@ -6528,6 +6528,25 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
 
         const auto& item = found.item;
         const auto& recording = item.recording;
+        const auto validMetadataId = [](const std::string& id,
+            const std::string& prefix) {
+            return id.size() == prefix.size() + 32U &&
+                id.compare(0, prefix.size(), prefix) == 0 &&
+                std::all_of(id.begin() + prefix.size(), id.end(),
+                    [](unsigned char c) {
+                        return (c >= '0' && c <= '9') ||
+                               (c >= 'a' && c <= 'f');
+                    });
+        };
+        const bool validManualSource =
+            item.metadataSource == "manual"
+                ? (item.metadataState == "available" &&
+                   validMetadataId(item.manualAssignmentId, "mdasg_") &&
+                   validMetadataId(item.metadataEntityId, "mdent_") &&
+                   item.manualRevision > 0)
+                : (item.manualAssignmentId.empty() &&
+                   item.metadataEntityId.empty() &&
+                   item.manualRevision == 0);
         const bool validResponse =
             recording.backendId == authorizedBackendIds.front() &&
             recording.recordingId == recordingId &&
@@ -6539,14 +6558,18 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
              item.metadataState == "partial" ||
              item.metadataState == "available") &&
             (item.metadataSource == "none" ||
-             item.metadataSource == "restfulapi-scraper-bridge") &&
+             item.metadataSource == "restfulapi-scraper-bridge" ||
+             item.metadataSource == "manual") &&
+            validManualSource &&
             (item.contentKind == "unknown" ||
              item.contentKind == "movie" ||
+             item.contentKind == "series" ||
              item.contentKind == "series-episode") &&
             item.epgTitle.size() <= 1024U &&
             item.subtitle.size() <= 1024U &&
             item.epgDescription.size() <= 4096U &&
             item.providerTitle.size() <= 1024U &&
+            item.overview.size() <= 4096U &&
             item.originalTitle.size() <= 1024U &&
             item.tagline.size() <= 1024U &&
             item.seriesTitle.size() <= 1024U &&
@@ -6588,6 +6611,7 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
         appendText("subtitle", item.subtitle);
         appendText("epgDescription", item.epgDescription);
         appendText("providerTitle", item.providerTitle);
+        appendText("overview", item.overview);
         appendText("originalTitle", item.originalTitle);
         appendText("tagline", item.tagline);
         appendText("seriesTitle", item.seriesTitle);
@@ -6603,6 +6627,15 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
         if (item.providerRuntimeMinutes > 0)
             body += ",\"providerRuntimeMinutes\":" +
                 std::to_string(item.providerRuntimeMinutes);
+        if (item.metadataSource == "manual")
+        {
+            body += ",\"manualAssignmentId\":\"" +
+                jsonEscape(item.manualAssignmentId) +
+                "\",\"metadataEntityId\":\"" +
+                jsonEscape(item.metadataEntityId) +
+                "\",\"manualRevision\":" +
+                std::to_string(item.manualRevision);
+        }
         body += "}}";
         response = jsonResponse(body, requestId, correlationId);
         response.headers["Cache-Control"] = "no-store";
