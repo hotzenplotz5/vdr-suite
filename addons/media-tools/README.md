@@ -30,8 +30,11 @@ Source/manual installations and eventual Debian packages use this same fixed
 path; neither dpkg presence nor the manifest itself grants authorization.
 The combined snapshot revalidates administrator approval after hashing, and
 the pinned Agent executor revalidates the installed manifest at dispatch.
-Root-owned and unprivileged isolated CI fixtures cover removal, tampering and
-unsafe metadata. Product activation and full installer/upgrade handling remain
+The recognized handler interface is fixed at reviewed version `0.1.0`;
+a newer installed binary/manifest does not gain execution compatibility by
+self-reporting a matching version to an approval. Root-owned and unprivileged
+isolated CI fixtures cover removal, tampering, unreviewed versions and unsafe
+metadata. Product activation and full installer/upgrade handling remain
 separate acceptance steps.
 
 ## A6 work in progress
