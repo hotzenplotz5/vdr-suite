@@ -5196,6 +5196,32 @@ bool PublicApiRuntime::timerCreateAdmissionConfigured() const
     return static_cast<bool>(timerCreateAdmission_);
 }
 
+void PublicApiRuntime::registerSearchTimerNativeVersionLookup(
+    SearchTimerNativeVersionLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(searchTimerNativeVersionMutex_);
+    searchTimerNativeVersion_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetSearchTimerNativeVersionLookup()
+{
+    std::lock_guard<std::mutex> lock(searchTimerNativeVersionMutex_);
+    searchTimerNativeVersion_ = {};
+}
+
+void PublicApiRuntime::registerSearchTimerNativeMutation(
+    SearchTimerNativeMutation handler)
+{
+    std::lock_guard<std::mutex> lock(searchTimerNativeMutationMutex_);
+    searchTimerNativeMutation_ = std::move(handler);
+}
+
+void PublicApiRuntime::resetSearchTimerNativeMutation()
+{
+    std::lock_guard<std::mutex> lock(searchTimerNativeMutationMutex_);
+    searchTimerNativeMutation_ = {};
+}
+
 void PublicApiRuntime::registerSearchTimerCreate(SearchTimerCreate handler)
 {
     std::lock_guard<std::mutex> lock(searchTimerCreateMutex_);
