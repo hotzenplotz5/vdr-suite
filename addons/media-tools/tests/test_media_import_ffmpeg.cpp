@@ -55,7 +55,10 @@ struct NativeFfmpegWithSyntheticVdrIndex final : ProcessRunner {
             !fs::is_regular_file(recording / "00001.ts") ||
             !fs::is_regular_file(recording / "info"))
             throw std::runtime_error("VDR recording structure invalid");
-        // This is only a simulation: do NOT claim a valid VDR binary index.
+        const char* realVdr = std::getenv("MEDIA_TOOLS_TEST_REAL_VDR");
+        if (realVdr && std::string(realVdr) == "1")
+            return tools.run(command, capture);
+        // Synthetic fallback must never count as actual VDR index proof.
         std::ofstream index(recording / "index", std::ios::binary);
         index << "TEST_ONLY_SYNTHETIC_INDEX";
         if (!index) throw std::runtime_error("index fixture creation failed");
@@ -85,6 +88,8 @@ int main() {
     const auto recording = executeRemuxImport(
         plan, runner, [](const ImportPlan&) {});
     assert(runner.indexRequests == 1 && recording.extension() == ".rec");
+    assert(fs::is_regular_file(recording / "index") &&
+           fs::file_size(recording / "index") > 0);
     assert(fs::file_size(fixture.source) == originalBytes);
     assert(fs::is_regular_file(recording / "00001.ts"));
     const auto report = checkRecordingTransportStream(
@@ -95,5 +100,9 @@ int main() {
     assert(report.status() != "errors");
     std::cout << "MEDIA_IMPORT_REAL_FFMPEG_SMOKE=PASS"
               << " ts_packets=" << report.packets
-              << " source_preserved=YES vdr_index=SIMULATED\n";
+              << " source_preserved=YES vdr_index="
+              << (std::getenv("MEDIA_TOOLS_TEST_REAL_VDR") &&
+                  std::string(std::getenv("MEDIA_TOOLS_TEST_REAL_VDR")) == "1"
+                  ? "REAL" : "SIMULATED")
+              << "\n";
 }
