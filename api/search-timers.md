@@ -1,4 +1,4 @@
-# Public-v1 VDR SearchTimers: Device read, preview and inactive CREATE staging
+# Public-v1 VDR SearchTimers: read, preview, inactive CREATE and native CAS management
 
 The current implemented version is **Public API v1**, not v2.
 
@@ -12,14 +12,14 @@ The current implemented version is **Public API v1**, not v2.
 - `items` contain only `searchTimerId`, `backendId`, `name`, `query` and `state` (`active`, `inactive`, or `unknown`). No native IDs, provider payload, recording directory, or settings used for editing are exposed.
 - IDs are persisted under `public_search_timer_identity`; the native mapping is internal and does not make these TimerAssignments. A **complete and successful** native SearchTimer catalogue read reconciles the backend's active mappings in one SQLite transaction. Disappeared native IDs are retired, and retired public IDs are permanently reserved. Backend errors or malformed/incomplete provider responses do not retire anything. A reused native ID therefore gets a fresh public ID **once its earlier absence has been observed**.
 - To migrate legacy identity rows that have no verified rule signature, the **first successful catalogue read rotates those legacy public IDs**, even for a still-present rule. Changes in observable rule settings also conservatively rotate the ID; a pure active/inactive toggle does not. An old ID can no longer select another rule through the saved-rule preview. Consumers must refresh cards and discard old IDs after migration/change.
-- **Residual ambiguity:** epgsearch has no immutable rule-generation identifier. A delete and recreate of an identically configured rule, both between two catalogue reads, cannot be distinguished by native ID and observed settings alone. This mitigation must **not** be treated as sufficient authorization for future public UPDATE/DELETE; those operations require authoritative generation attestation or an equivalent fail-closed identity fence.
+- **Identity boundary:** the public catalogue's signature-based ID reconciliation alone cannot detect an identically configured native rule deleted and recreated between reads. Public-v1 mutations therefore require the **patched native epgsearch per-rule generation and revision CAS** under the plugin's lock; an ordinary/older provider is rejected. The catalogue heuristic must never authorize a write.
 - A genuinely empty provider list is HTTP 200 with `items: []`. An unavailable provider, unavailable runtime, or identity failure is HTTP 503, not an empty successful response. Missing/invalid Device credentials yield 401 or 403, unauthorized backend 403; all use the Public-v1 Problem model.
-- No lossless readback is guaranteed for full epgsearch option sets. This GET is read-only; saved-rule and draft-preview GETs and a separate confirmed CREATE POST are described below. Edit, activation/deactivation and DELETE are not exposed.
+- The collection GET deliberately does not expose the complete epgsearch option set. Guarded native query-only UPDATE of an inactive rule preserves the full existing settings in the provider; separate version and mutation endpoints are documented below. Unrestricted settings editing is not exposed.
 - Public response is `no-store`. On permission revocation a client must clear stale SearchTimer cards, not keep displaying a successful prior list.
 
 See `api/openapi.json`, `docs/planning/timer-searchtimer-parity.md` (VIDAA repository), and `docs/client-integration-playbook.md` (VIDAA repository).
 
-This is an API/CI slice. Real Hisense hardware and production yaVDR deployment are separate gates.
+Source CI and package builds are required for the exact integration commit; the single combined real-VDR acceptance is separately gated by `docs/development/public-v1-final-hardware-acceptance.md`.
 
 ## Preview for an existing saved rule (read-only)
 
@@ -38,7 +38,7 @@ This is an API/CI slice. Real Hisense hardware and production yaVDR deployment a
 - The `backend` parameter must match the Device backend authorization;
   `limit` is 1..30. Unknown, repeated, cursor and offset parameters fail.
   Response is no-store.
-- This previews **existing** rules only, not a new-rule form. CREATE is a separately authorized POST; DELETE, full blacklist/duplicate evaluation, lossless edit and native VDR Timer mutation are not provided by this preview.
+- This previews **existing** rules only, not a new-rule form. CREATE and version-fenced mutations use separate routes and authorization; this read-only preview does not evaluate full blacklist/duplicate policy, allow lossless settings editing or mutate native VDR Timers.
 
 ## Draft preview of a new rule (Device, read-only)
 
@@ -70,7 +70,7 @@ the rule; these historical jobs move atomically to the terminal
 instead of being silently rewritten or retried. This makes
 Public-v1 CREATE an inactive **staging** operation: epgsearch must not
 schedule recordings from the rule until a separately authorized, generation-
-fenced activation path exists. Existing legacy/browser integrations remain
+fenced activation is explicitly requested through the native CAS mutation endpoint. Existing legacy/browser integrations remain
 separate and unchanged. See `docs/development/public-v1-searchtimer-native-generation-fence.md` for
 why MODIFY, ACTIVATE, DEACTIVATE and DELETE cannot safely use native numeric IDs
 alone, and the required provider generation/CAS contract.
@@ -95,8 +95,10 @@ tolerance and comparison flags. Ambiguous provider results become
 endpoint is `GET /api/v1/operations/{operationId}`.
 
 This path uses the existing backend-specific RESTfulAPI adapter; it does not
-enable device legacy API methods, full searchtimer edit/delete, arbitrary
-native VDR Timer creation, or exact future recording prediction. A confirmed
+enable Device access to legacy APIs, unrestricted SearchTimer settings
+editing, arbitrary native VDR Timer creation, or exact future recording
+prediction. Native UPDATE/TOGGLE/DELETE use only the separately authorized
+version-fenced SuiteBridge/epgsearch CAS route described below. A confirmed
 CREATE requests an epgsearch rule; any automated recording effects depend on
 the backend epgsearch configuration and are **not** proven by HTTP 202.
 
@@ -130,7 +132,7 @@ Even one matching row plus a second conflicting row with the same ID yields
 `outcome_unknown` and never triggers a second POST. Duplicate native IDs in
 the preflight inventory stop dispatch before any provider write.
 
-### Dormant crash/orphan recovery (no public mutation)
+### Dormant CREATE crash/orphan recovery (repository-only)
 
 `SearchTimerCreateRecoveryService::markOrphanedUnknown` is a separate,
 repository-only recovery primitive for a future supervising runtime. It does

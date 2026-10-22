@@ -13,75 +13,69 @@ That mitigates **observed** native-ID reuse; it does **not** establish the
 identity of a native rule that was removed and recreated identically
 *between* two successful reads.
 
-## Current safe Public-v1 write boundary
+## Implemented Public-v1 safety boundary (source; hardware acceptance pending)
 
-- `POST /api/v1/search-timers` requires `active:false` **explicitly**
-  and `confirmed:true`. Any omitted `active` or `active:true` is 422
-  before durable admission. The productive callback also checks.
-- A successful `202` represents a durable one-shot **CREATE** operation,
-  not automatic activation and not a recording forecast.
-- `GET /api/v1/search-timers/draft-preview` is bounded read-only EPG
-  matching. The reported `totalCount` counts matched EPG events, not
-  eligible VDR recordings after epgsearch repeat rules, channel filtering,
-  history, availability, and recording policy.
-- Reference clients should perform the draft preview and require explicit
-  acknowledgement before inactive staging.
-- Public-v1 `UPDATE`, `ACTIVATE`, `DEACTIVATE`, and `DELETE` remain
-  **closed**. They must not be implemented by passing only a public ID through
-  `PublicSearchTimerIdentityRepository` to a native ID and then calling
-  the legacy RESTfulAPI write. A fingerprint, timestamp, two separate GETs,
-  or SQLite lock is **not** an atomic native generation proof.
+- `POST /api/v1/search-timers?backend=<id>` requires explicit `active:false`,
+  `confirmed:true`, a scoped Device `searchtimers.create` grant, and a
+  durable, idempotent single-attempt CREATE. Missing or active state is 422.
+  Historical queued active CREATE operations fail before dispatch.
+- `GET /api/v1/search-timers/{searchTimerId}/version?backend=<id>`
+  reads a native durable `sr_` revision as a strong ETag, only for the
+  exact authorized Device/backend. The native `sg_` generation and numeric
+  epgsearch ID remain private.
+- `POST /api/v1/search-timers/{searchTimerId}/mutations?backend=<id>`
+  accepts confirmed `update`, `activate`, `deactivate` and `delete`,
+  strong quoted `If-Match`, `Idempotency-Key` and the independently
+  granted action permission: `searchtimers.modify`, `searchtimers.execute`,
+  or `searchtimers.delete` on that backend.
+- UPDATE changes only the query of an **inactive** rule. The local native
+  payload builder retains the full existing epgsearch settings; unsupported
+  legacy encoding is rejected rather than guessed.
+- The JS reference client asks for explicit fresh draft-preview acknowledgement
+  before ACTIVATE. Preview counts matched EPG events, **not** recordings.
+  The HTTP server requires explicit confirmation but does not claim to prove
+  the user saw a preview; do not advertise preview as server-enforced.
+- All mutations fail closed without the specifically patched native epgsearch
+  capability, matching SuiteBridge ABI, online writable backend and fresh
+  Agent generation. No legacy RESTfulAPI or SVDRP mutation fallback exists
+  for this versioned management path.
 
-## Required provider capability for safe mutations
+## Native generation, exactly-once and readback contract
 
-Before exposing Public-v1 modifications:
+The pinned epgsearch patch series provides persisted per-rule generation and
+revision metadata. Each CAS Service compares these values while holding the
+native rule lock, then performs at most one durable native change. Deletion and
+recreation rotate generation even when the numeric native ID is reused.
 
-1. Establish an **immutable per-rule generation/nonce** that changes on
-   deletion and recreation, including after daemon/plugin restart and native
-   numeric-ID reuse. It must not derive from the mutable search text.
-2. Provide native atomic `UPDATE`/`TOGGLE`/`DELETE` semantics that
-   compare this generation at the same serialization point as the write.
-   A read-then-RESTfulAPI-POST is vulnerable to the time-of-check/time-of-use
-   race, even if the rule is re-read immediately.
-3. Bind actor, exact backend ID, backend generation, public rule ID,
-   native rule generation, full expected revision/ETag, action family, and
-   request fingerprint to one durable idempotent MutationOperation.
-   Native write must be single-attempt; after ambiguous transport outcomes,
-   do not guess success or automatically retry.
-4. For activation, require an explicit operator decision after a fresh,
-   bounded preview. Document that preview is EPG-only and not guaranteed
-   to equal the final number of recordings. Apply a separate activation grant,
-   keep it distinct from `searchtimers.create` and `searchtimers.view`.
-5. After write, require authoritative exact-generation readback (or verified
-   absence for deletion). Persist the completed operation and invalidate
-   old public identities where appropriate.
-6. On missing generation support, offline backend, malformed inventories,
-   stale revisions or mismatched generations: fail closed with an explicit
-   classified error; **never fall back to the legacy unversioned endpoint**
-   or silently turn 503 into an empty inventory.
+The daemon first resolves the *public* opaque ID to an active backend-bound
+binding and obtains the native generation/revision via the protected local
+Agent/SuiteBridge control plane. It persists an immutable request fingerprint
+and operation in the existing SQLite `MutationOperationRepository`, claims
+`accepted -> dispatching` exactly once and sends only one CAS invocation.
+A replay, even after the rule has changed or disappeared, returns the original
+operation and does not send another native write.
 
-## Versioned native CAS policy seam (mock-only)
+SuiteBridge separately calls the native locked `observe-v1.1` Service after
+the CAS acknowledgement. Only exact generation plus resulting revision, or
+the verified absence of the deleted generation, may return
+`applied_verified`. The durable state becomes `succeeded` only after that
+proof. Attested no-write revision/generation mismatch becomes
+`failed_verified`; transport loss, uncertain persistence, malformed
+readback or inability to finish the operation remains `outcome_unknown` or
+the appropriate unverified state. **Never retry the provider write** for an
+unknown outcome.
 
-`core/vdr/include/SearchTimerNativeCasContract.h` and its matching
-implementation now define a non-HTTP native provider interface and an
-explicit fail-closed entry point for UPDATE / ACTIVATE / DEACTIVATE /
-DELETE. The interface requires a *native* `supportsAtomicGenerationCasV1`
-capability and an atomic reply carrying the same immutable rule generation
-and an authoritative new revision (or exact removal). It rejects malformed
-public IDs, numeric IDs, generations, revisions, durable-operation claims,
-operator confirmation and backend authorization **before any provider call**.
-A native transport exception or an unproven post-write acknowledgement is
-classified as `outcomeUnknown` and is never retried within the call.
+The public catalogue still uses conservative signature-based IDs for read
+reconciliation; it cannot independently prove identity through a
+same-ID identical delete/recreate between reads. That observation is not a
+mutation authorization source. Only the native generation-fenced CAS is.
 
-**This is an internal protocol prerequisite only**, tested with a fake
-provider. It is not bound to a public endpoint, is not backed by a native
-CAS-capable epgsearch provider and does not prove persistent idempotency by
-itself. The calling runtime must first verify a durable operation CAS,
-its actor and payload fingerprint, and the epgsearch plugin itself must
-supply the atomic generation/revision proof. Old SVDRP `EDIS`/`MODS`/
-`DELS`, RESTfulAPI numeric-ID writes and the older epgsearch Services
-interface **must never** implement or advertise this interface. Public-v1
-mutation routes remain closed pending Issue #518.
+The native source-compile CI, SuiteBridge/daemon package builds, ABI guard and
+HTTP/SQLite security regression must all pass on the *same* release HEAD.
+The real VDR was **not** modified by this S1 source work. Real end-to-end
+authorization, restart, persistence, rollback and negative-race acceptance
+remain deferred until **all API-v1 components** have been integrated, under
+the single checklist `docs/development/public-v1-final-hardware-acceptance.md`.
 
 ## Required regression matrix
 
