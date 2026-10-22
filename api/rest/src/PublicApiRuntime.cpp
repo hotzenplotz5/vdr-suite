@@ -6134,6 +6134,56 @@ bool PublicApiRuntime::tryHandleSearchTimerAssignmentReadGet(
     ApiResponse& response) const
 {
     const std::string path = requestPath(requestTarget);
+    std::string versionSearchId;
+    if (publicSearchTimerNativeSubresourcePath(
+            path, "/version", versionSearchId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (authorizedBackendId.empty() ||
+            requestTarget != path + "?backend=" + authorizedBackendId)
+        {
+            response = invalidRequestProblem(path,
+                "Exactly one authorized backend is required.",
+                requestId, correlationId);
+            return true;
+        }
+        SearchTimerNativeVersionLookup lookup;
+        {
+            std::lock_guard<std::mutex> lock(searchTimerNativeVersionMutex_);
+            lookup = searchTimerNativeVersion_;
+        }
+        if (!lookup)
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        PublicSearchTimerNativeVersionRequest request;
+        request.backendId = authorizedBackendId;
+        request.publicSearchTimerId = versionSearchId;
+        const auto observed = lookup(request);
+        if (observed.status == PublicSearchTimerNativeVersionStatus::notFound)
+            response = notFoundProblem(path, requestId, correlationId);
+        else if (observed.status != PublicSearchTimerNativeVersionStatus::ok ||
+                 observed.revision.size() != 35U ||
+                 observed.revision.compare(0U, 3U, "sr_") != 0)
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+        else
+        {
+            response = jsonResponse(
+                "{\"searchTimerId\":\"" + jsonEscape(versionSearchId) +
+                "\",\"backendId\":\"" + jsonEscape(authorizedBackendId) +
+                "\",\"revision\":\"" + jsonEscape(observed.revision) +
+                "\"}", requestId, correlationId);
+            response.headers["ETag"] = "\"" + observed.revision + "\"";
+            response.headers["Cache-Control"] = "no-store";
+        }
+        return true;
+    }
     if (path == PublicSearchTimerDraftPreviewPath)
     {
         if (actorRef.empty())
