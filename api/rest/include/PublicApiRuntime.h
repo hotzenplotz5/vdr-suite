@@ -136,7 +136,9 @@ struct PublicSearchTimerCreateRequest
     std::string idempotencyKey;
     std::string name;
     std::string query;
-    bool active = true;
+    // Safe creation staging: public-v1 rules are created inactive only.
+    // Activation requires a separately fenced, future mutation workflow.
+    bool active = false;
     int mode = 0;
     int tolerance = 0;
     bool compareTitle = true;
