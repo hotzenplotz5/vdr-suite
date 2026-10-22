@@ -185,6 +185,28 @@ the update, bind all database/Agent identities, independently validate
 signatures, and explicitly manage rollback/unfreeze. This is not a live
 host acceptance or package-installation release.
 
+## A4 retained exclusive maintenance diagnostic (source only)
+
+`AddonMediaToolsMaintenanceInspection::inspectAndHold()` now returns a
+move-only diagnostic object that retains the same verified **exclusive**
+`rectools.import-running.lock` kernel lock after the global Core/Agent
+quiescence snapshot returns. Its `holdsExclusiveLock()` proof is false
+after move-from, after release, and for a non-exclusive lock mode.
+`inspect()` keeps its old point-in-time contract and releases the lock
+immediately. Root-controlled CI checks held-lock contention, transfer,
+release, denied diagnostics and absence of leaked locks; no package
+files or media are changed.
+
+**No maintainer operation is authorized by this result.** Administrator
+intent, global SQLite freeze, Agent command evidence and package provenance
+can change after the snapshot, even while the handler inode remains locked.
+Before an actual Ubuntu `.deb` upgrade/removal a separately designed
+package transaction must own the lock for its *whole* lifetime, serialize
+freeze ownership and revalidate current durable state and trusted release
+bytes under that ownership, then handle rollback safely. Lock inode
+replacement, privilege, host runtime and real Debian maintenance hooks
+remain unaccepted.
+
 ## Recommended execution order
 
 1. Finish A2's **no-dpkg default** and rejection regressions, using only
