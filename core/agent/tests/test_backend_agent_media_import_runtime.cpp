@@ -309,6 +309,26 @@ int main() {
     assert(runtime.available());
     assert(discoverBackendAgentCommandAvailability(config).commandTypes.size()==1);
 
+    fs::remove(f.runLock);
+    assert(!runtime.available());
+    assert(discoverBackendAgentCommandAvailability(config).commandTypes.empty());
+    {std::ofstream lockFile(f.runLock,std::ios::trunc|std::ios::binary);}
+    assert(::chmod(f.runLock.c_str(),0644)==0);
+    const fs::path savedLock=f.runLock.string()+".original";
+    fs::rename(f.runLock,savedLock);
+    fs::create_symlink(savedLock.filename(),f.runLock);
+    assert(!runtime.available());
+    fs::remove(f.runLock);
+    fs::rename(savedLock,f.runLock);
+    auto exclusive=vdrsuite::mediatools::MediaToolsImportRunLock::tryAcquire(
+        f.root.string(),
+        vdrsuite::mediatools::MediaToolsImportRunLock::Mode::exclusiveMaintenance);
+    assert(exclusive.has_value());
+    assert(!runtime.available());
+    assert(discoverBackendAgentCommandAvailability(config).commandTypes.empty());
+    exclusive.reset();
+    assert(runtime.available());
+
     const auto a=command();
     assert(runtime.authorize(a,"backend",19));
     transport.allowed=false;
