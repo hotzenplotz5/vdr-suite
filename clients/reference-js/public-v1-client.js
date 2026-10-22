@@ -296,7 +296,7 @@
       '?backendId=' + encodeURIComponent(options.backendId);
   }
 
-  function epgArtworkPath(options) {
+  function epgArtworkPath(options, preferred) {
     if (!options || typeof options !== 'object' ||
         typeof options.backendId !== 'string' ||
         !/^[A-Za-z0-9._-]{1,128}$/.test(options.backendId) ||
@@ -309,7 +309,8 @@
     p.set('backendId', options.backendId);
     p.set('channelId', options.channelId);
     p.set('eventId', options.eventId);
-    return '/api/v1/epg/artwork?' + p.toString();
+    return '/api/v1/epg/' + (preferred ? 'preferred-artwork' : 'artwork') +
+      '?' + p.toString();
   }
 
   // A distinct post-Phase69 VDR SearchTimer collection. Never send
@@ -1078,7 +1079,11 @@
       },
       getEpgArtworkImage(options) {
         const input = options && typeof options === 'object' ? options : {};
-        return requestArtworkImage(epgArtworkPath(input), input);
+        return requestArtworkImage(epgArtworkPath(input, false), input);
+      },
+      getEpgPreferredArtworkImage(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return requestArtworkImage(epgArtworkPath(input, true), input);
       },
       getChannels(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
