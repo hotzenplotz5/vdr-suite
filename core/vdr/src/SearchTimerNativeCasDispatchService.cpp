@@ -227,5 +227,29 @@ SearchTimerNativeCasDispatchService::dispatchOnce(
     if (!finished.ok())
         return result(SearchTimerNativeCasDispatchStatus::outcomeUnknown,
             claimed.operation, native);
+
+    if (native == SearchTimerNativeCasStatus::applied)
+    {
+        bool providerReadback = false;
+        try { providerReadback = provider.providesVerifiedReadbackV1(); }
+        catch (...) { providerReadback = false; }
+        if (providerReadback)
+        {
+            // The local provider only reports applied_verified after a
+            // distinct native locked observe-v1.1 readback. Close the same
+            // durable operation, never dispatch a second native mutation.
+            const auto closed = operations_.transition(
+                finished.operation.operationId,
+                finished.operation.operationRevision,
+                MutationOperationState::executedUnverified,
+                MutationOperationState::succeeded,
+                "", req.now);
+            if (!closed.ok())
+                return result(SearchTimerNativeCasDispatchStatus::outcomeUnknown,
+                    finished.operation, native);
+            return result(SearchTimerNativeCasDispatchStatus::succeededVerified,
+                closed.operation, native);
+        }
+    }
     return result(status, finished.operation, native);
 }
