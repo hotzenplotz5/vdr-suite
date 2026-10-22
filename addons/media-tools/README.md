@@ -133,19 +133,50 @@ If an adjacent same-stem `.nfo` exists, bounded plain-XML fields
 `title`, `outline`, `plot`, `year`, and `genre` are copied into
 the resulting recording's native VDR `info` file. XML beyond the
 supported simple tags/entities is rejected rather than silently interpreted.
-An adjacent same-stem `.srt` is copied into the new recording as
-`subtitles.srt`. Original sidecars are preserved. The title directory
-is matched to the NFO title when supplied and the importer rejects duplicate
-recording titles.
+An adjacent same-stem `.srt` is preserved as `00001.srt`, the
+existing Suite subtitle reader's preferred sidecar. Language-tagged
+companions such as `Movie.de.srt` and `Movie.en-US.srt` are also copied
+as bounded `subtitles.de.srt` or `subtitles.en-US.srt`. Originals remain
+untouched; all sidecars together have a 16 MiB staging budget. Compatible
+video/audio tracks remain stream copy; incompatible video is encoded as
+H.264, incompatible audio as AAC. The title directory is matched to the NFO
+title when supplied and duplicate recordings are rejected.
 
-**Not yet production-complete:** the Agent's existing bounded assignment
-deadline (currently at most 600 seconds) also constrains software encoding;
-long transcodes, restart-safe batch scanning, automatic scheduled imports,
-language-based subtitle discovery, chapter conversion, and a reviewable
-HEVC shrink/publish operation are not enabled. The existing Suite metadata
-enrichment and artwork owners should run on canonical recording-cache
-refresh; Media Tools must not create a second scraper. There has been no
-real-VDR writing acceptance or production deployment.
+An explicitly selected browser **Mehrfachimport** can now submit currently
+authorized source IDs sequentially through separate durable Core Operations.
+It advances only after canonical `succeeded` readback, never after an
+ambiguous Agent result, and stops if its bounded status polling ends. This
+is a foreground browser feature, **not** an unattended daemon scheduler.
+
+### HEVC shrink: offline review workflow only
+
+`make addon-media-shrink test-addon-media-shrink` builds the real C++
+converter and its isolated source-preservation tests. A backend-local
+administrator can inspect `vdr-suite-media-shrink plan VIDEO_ROOT RELATIVE.rec`
+without writing, explicitly stage a private HEVC candidate with
+`stage VIDEO_ROOT RELATIVE.rec --confirm-staging` and separately publish
+as a **new** recording with
+`publish VIDEO_ROOT RELATIVE.rec CANDIDATE --confirm-new-recording`.
+Existing TS segments, the VDR index and native `info` sidecar are
+validated; the original recording is never replaced or deleted. Optional
+`--max-height=720`, `--night-mode`, and
+`--encoder=software|vaapi|qsv|nvenc` affect staging only. Hardware
+failure can fall back to software. FFprobe duration/codec, smaller output
+size and VDR index must pass before review, and publication uses an
+atomic no-replace rename. The review/publish binaries remain outside
+the standard daemon and Agent mutation/API composition.
+
+**Not yet production-complete:** the Agent's 600-second assignment
+deadline limits long imported video transcodes. Daemon-owned scheduled
+imports and restart-safe automatic batches, external subtitle search or
+playback language preference, VDR-compatible chapter conversion, remote
+Media Check, and shrink through authorized API v1/Core Operations remain
+open. The existing Suite recording-cache enrichment and artwork owners
+must remain the only metadata/scraper architecture. A host acceptance
+using real VDR recordings has not been authorized or performed. The
+default backend-agent systemd unit also denies writes outside its own
+state directory; administrative activation requires a separately approved
+write-path policy, not a permissive package default.
 
 ## Installed handler metadata gate (A2M/A4)
 
