@@ -221,6 +221,27 @@ test-addon-maintenance-freeze:
 
 test-ci-fast: test-addon-maintenance-freeze
 
+# Global cross-backend source-only maintenance DIAGNOSTIC. Synthetic Agent
+# command rows, real Core SQLite owners, root-only isolated lock fixture.
+# Never grants a package install, updates live state, or opens an API route.
+.PHONY: build-addon-global-maintenance-inspection-test
+build-addon-global-maintenance-inspection-test:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
+		-I core/addons/include -I addons/media-tools/include \
+		-I core/security/include -I core/vdr/include \
+		-I core/sqlite/include -I core/operations/include \
+		core/sqlite/src/Database.cpp \
+		core/security/src/AccountabilityEventRepository.cpp \
+		core/addons/src/AddonAccessPolicy.cpp \
+		core/addons/src/AddonActivationIntentRepository.cpp \
+		core/addons/src/AddonMediaImportMaintenanceFence.cpp \
+		core/addons/src/AddonMediaToolsMaintenanceInspection.cpp \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/addons/tests/test_addon_media_tools_maintenance_inspection.cpp \
+		-lsqlite3 -o "$(BUILD_DIR)/addons/test_addon_global_maintenance_inspection"
+
 # Admin-only desired-state inventory. Effective/active capabilities remain empty.
 .PHONY: test-addon-activation-catalog
 test-addon-activation-catalog:
