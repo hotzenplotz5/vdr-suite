@@ -75,6 +75,7 @@ struct FakeProcess final : ProcessRunner {
         if (args.front() == "/usr/bin/ffmpeg") {
             assert(contains("0:v:0"));
             assert(contains("-fs"));
+            assert(contains("-g") && contains("50"));
             const bool hw = contains("hevc_vaapi") || contains("hevc_qsv") ||
                 contains("hevc_nvenc");
             if (hw) ++hardwareCalls;
