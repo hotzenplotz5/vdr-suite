@@ -35,6 +35,10 @@ public:
     ManualRecordingMetadataAssignment getManualRecordingMetadata(
         const std::string& backendId,
         const std::string& resourceKey);
+    // Public API detail must not initialize schemas or materialize portraits.
+    ManualRecordingMetadataAssignment getManualRecordingMetadataReadOnly(
+        const std::string& backendId,
+        const std::string& resourceKey);
 
     std::map<std::string, ManualRecordingMetadataAssignment>
     getManualRecordingMetadataForBackend(
