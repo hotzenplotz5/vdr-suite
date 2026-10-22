@@ -152,6 +152,48 @@ struct PublicSearchTimerCreateResult
     PublicOperationResource operation;
 };
 
+enum class PublicSearchTimerNativeAction
+{
+    update, activate, deactivate, remove
+};
+enum class PublicSearchTimerNativeVersionStatus
+{
+    ok, notFound, unavailable
+};
+struct PublicSearchTimerNativeVersionRequest
+{
+    std::string backendId;
+    std::string publicSearchTimerId;
+};
+struct PublicSearchTimerNativeVersionResult
+{
+    PublicSearchTimerNativeVersionStatus status =
+        PublicSearchTimerNativeVersionStatus::unavailable;
+    std::string revision;
+};
+enum class PublicSearchTimerNativeMutationStatus
+{
+    accepted, replayed, invalid, conflict, notFound, unavailable
+};
+struct PublicSearchTimerNativeMutationRequest
+{
+    PublicSearchTimerNativeAction action =
+        PublicSearchTimerNativeAction::update;
+    std::string actorRef;
+    std::string backendId;
+    std::string publicSearchTimerId;
+    std::string ifMatch;
+    std::string idempotencyKey;
+    std::string query;
+    bool confirmed = false;
+};
+struct PublicSearchTimerNativeMutationResult
+{
+    PublicSearchTimerNativeMutationStatus status =
+        PublicSearchTimerNativeMutationStatus::unavailable;
+    PublicOperationResource operation;
+};
+
 // Read-only, bounded projection from Suite's existing SearchTimer preview.
 enum class PublicSearchTimerPreviewStatus { ok, notFound, unavailable };
 
@@ -1269,6 +1311,13 @@ public:
         std::function<PublicSearchTimerCreateResult(
             const PublicSearchTimerCreateRequest& request)>;
 
+    using SearchTimerNativeVersionLookup =
+        std::function<PublicSearchTimerNativeVersionResult(
+            const PublicSearchTimerNativeVersionRequest&)>;
+    using SearchTimerNativeMutation =
+        std::function<PublicSearchTimerNativeMutationResult(
+            const PublicSearchTimerNativeMutationRequest&)>;
+
     using SearchTimerPreviewLookup =
         std::function<PublicSearchTimerPreviewResult(
             const PublicSearchTimerPreviewRequest& request)>;
@@ -1454,6 +1503,12 @@ public:
 
     void registerSearchTimerCreate(SearchTimerCreate handler);
     void resetSearchTimerCreate();
+
+    void registerSearchTimerNativeVersionLookup(
+        SearchTimerNativeVersionLookup lookup);
+    void resetSearchTimerNativeVersionLookup();
+    void registerSearchTimerNativeMutation(SearchTimerNativeMutation handler);
+    void resetSearchTimerNativeMutation();
 
     void registerSearchTimerPreviewLookup(SearchTimerPreviewLookup lookup);
     void resetSearchTimerPreviewLookup();
@@ -1859,6 +1914,11 @@ private:
 
     mutable std::mutex searchTimerCreateMutex_;
     SearchTimerCreate searchTimerCreate_;
+
+    mutable std::mutex searchTimerNativeVersionMutex_;
+    SearchTimerNativeVersionLookup searchTimerNativeVersion_;
+    mutable std::mutex searchTimerNativeMutationMutex_;
+    SearchTimerNativeMutation searchTimerNativeMutation_;
 
     mutable std::mutex searchTimerPreviewLookupMutex_;
     SearchTimerPreviewLookup searchTimerPreviewLookup_;
