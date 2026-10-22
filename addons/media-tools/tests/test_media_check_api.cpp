@@ -1,5 +1,6 @@
 #include "DaemonMediaCheckRuntime.h"
 #include "MediaCheckApiRuntime.h"
+#include "Database.h"
 
 #include <array>
 #include <cassert>
@@ -130,6 +131,8 @@ std::string checkId(const std::string& body)
 int main()
 {
     Fixture fixture;
+    Database database;
+    assert(database.open((fixture.home / "suite.sqlite").string()));
     DaemonMediaCheckRuntime runtime(
         {{kBackend, fixture.video.string()}},
         [&fixture](const std::string& backend, const std::string& id)
@@ -140,7 +143,8 @@ int main()
         },
         [](const std::string& backend) {
             return backend == kBackend;
-        });
+        }, database);
+    assert(runtime.ensurePersistence());
 
     MediaCheckApiRuntime::instance().registerHandlers(
         [&runtime](const std::string& actor, const std::string& backend,
@@ -211,6 +215,25 @@ int main()
     assert(result.body.find(kPublicId) != std::string::npos);
     assert(result.body.find(fixture.video.string()) == std::string::npos);
     assert(result.body.find("\"readOnly\":true") != std::string::npos);
+    assert(fixture.unchanged());
+
+    // A second runtime sees the completed result through Suite's durable
+    // SQLite read model rather than the first runtime's in-memory job.
+    DaemonMediaCheckRuntime restarted(
+        {{kBackend, fixture.video.string()}},
+        [&fixture](const std::string& backend, const std::string& id)
+            -> std::optional<fs::path> {
+            if (backend == kBackend && id == kPublicId)
+                return fixture.recording;
+            return std::nullopt;
+        },
+        [](const std::string& backend) {
+            return backend == kBackend;
+        }, database);
+    assert(restarted.ensurePersistence());
+    assert(restarted.status("actor-a", "local", id).body == result.body);
+    assert(restarted.status("actor-b", "local", id).statusCode == 404);
+    assert(restarted.status("actor-a", "other", id).statusCode == 404);
     assert(fixture.unchanged());
 
     api.registerHandlers({}, {}, {});

@@ -69,11 +69,12 @@ test-addon-media-check-api:
 	mkdir -p "$(BUILD_DIR)/addons"
 	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
 		-I addons/media-tools/include -I api/rest/include \
-		-I core/daemon/include \
+		-I core/daemon/include -I core/sqlite/include \
+		core/sqlite/src/Database.cpp \
 		addons/media-tools/src/MediaCheck.cpp \
 		addons/media-tools/src/MediaCheckFfmpeg.cpp \
 		addons/media-tools/tests/test_media_check_api.cpp \
-		-o "$(BUILD_DIR)/addons/test_media_check_api"
+		-lsqlite3 -o "$(BUILD_DIR)/addons/test_media_check_api"
 	"$(BUILD_DIR)/addons/test_media_check_api"
 
 test-ci-fast: test-addon-media-check test-addon-media-check-api

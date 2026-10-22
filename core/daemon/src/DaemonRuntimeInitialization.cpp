@@ -2106,7 +2106,13 @@ bool DaemonRuntime::initialize()
             const auto selected = backendRegistryService_->getBackend(backend);
             return selected && selected->enabled && selected->online &&
                 vdrSnapshotReadService_->hasSnapshotForBackend(backend);
-        });
+        },
+        database_);
+    if (!mediaCheckRuntime_->ensurePersistence()) {
+        std::cerr << "failed to initialize Media Check report persistence"
+                  << std::endl;
+        return false;
+    }
     MediaCheckApiRuntime::instance().registerHandlers(
         [this](const std::string& actor, const std::string& backend,
                const std::string& recording, const std::string& mode)
