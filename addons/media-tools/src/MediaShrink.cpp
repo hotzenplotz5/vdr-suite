@@ -204,12 +204,12 @@ void copySegments(const ShrinkPlan& plan, const fs::path& file) {
            "shrink snapshot is incomplete");
 }
 
-void copyInfo(const ShrinkPlan& plan, const fs::path& destination) {
-    const fs::path original = plan.videoRoot / plan.relativeRecording / "info";
+void copySidecarFile(const fs::path& original,
+                     const fs::path& destination, std::int64_t maxBytes) {
     Descriptor source(::open(original.c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
     struct stat st{};
     demand(source.fd >= 0 && ::fstat(source.fd, &st) == 0 &&
-           S_ISREG(st.st_mode) && st.st_size > 0 && st.st_size <= 1024 * 1024,
+           S_ISREG(st.st_mode) && st.st_size > 0 && st.st_size <= maxBytes,
            "native VDR info sidecar missing or unsafe");
     Descriptor output(::open(destination.c_str(), O_WRONLY | O_EXCL |
                              O_CREAT | O_NOFOLLOW | O_CLOEXEC, 0600));
@@ -237,6 +237,31 @@ void copyInfo(const ShrinkPlan& plan, const fs::path& destination) {
            after.st_mtim.tv_sec == st.st_mtim.tv_sec &&
            after.st_mtim.tv_nsec == st.st_mtim.tv_nsec,
            "info sidecar changed during shrink");
+}
+
+void copyInfo(const ShrinkPlan& plan, const fs::path& destination) {
+    copySidecarFile(plan.videoRoot / plan.relativeRecording / "info",
+                    destination, 1024 * 1024);
+}
+
+std::vector<std::string> subtitleNames(const ShrinkPlan& plan) {
+    std::vector<std::string> found;
+    for (const auto& item : fs::directory_iterator(
+            plan.videoRoot / plan.relativeRecording)) {
+        if (item.path().extension() != ".srt") continue;
+        demand(found.size() < 16, "too many recording subtitle sidecars");
+        demand(fs::is_regular_file(item.symlink_status()),
+               "unsafe recording subtitle sidecar");
+        found.push_back(item.path().filename().string());
+    }
+    std::sort(found.begin(), found.end());
+    return found;
+}
+
+void copySubtitles(const ShrinkPlan& plan, const fs::path& destination) {
+    for (const auto& name : subtitleNames(plan))
+        copySidecarFile(plan.videoRoot / plan.relativeRecording / name,
+                        destination / name, 8 * 1024 * 1024);
 }
 
 std::string signature(const ShrinkPlan& plan) {
@@ -422,6 +447,7 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
            std::max(4.0, originalDuration * 0.02),
            "HEVC output duration differs from original");
     copyInfo(current, stage.path / "info");
+    copySubtitles(current, stage.path);
     invoke(runner, {"/usr/bin/vdr", "--genindex=" + stage.path.string()});
     demand(nonempty(stage.path / "index"), "HEVC recording index missing");
     for (const auto& part : current.segments)
@@ -476,9 +502,12 @@ fs::path publishShrinkCandidate(const ShrinkPlan& plan,
            S_ISDIR(folder.st_mode) && folder.st_uid == ::geteuid() &&
            (folder.st_mode & 0077) == 0,
            "unprotected shrink review directory");
-    const std::vector<std::string> expectedFiles = {
+    std::vector<std::string> expectedFiles = {
         ".shrink-review", "00001.ts", "index", "info"
     };
+    const auto subtitleFiles = subtitleNames(checked);
+    expectedFiles.insert(expectedFiles.end(),
+                         subtitleFiles.begin(), subtitleFiles.end());
     std::size_t seen = 0;
     for (const auto& entry : fs::directory_iterator(candidate)) {
         const auto filename = entry.path().filename().string();
@@ -515,7 +544,8 @@ fs::path publishShrinkCandidate(const ShrinkPlan& plan,
         throw std::runtime_error("cannot publish HEVC without overwrite");
     }
     bool ready = true;
-    for (const auto& name : {"00001.ts", "index", "info"}) {
+    for (const auto& name : expectedFiles) {
+        if (name == ".shrink-review") continue;
         const auto file = destination / name;
         ready = ready && ::chown(file.c_str(), originalDirectory.st_uid,
                                  originalDirectory.st_gid) == 0 &&
