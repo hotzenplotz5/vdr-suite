@@ -177,6 +177,7 @@ jobs:
           make test-phase63-command-delivery-runtime
           make test-addon-activation-intent
           make test-addon-administration-service
+          make test-addon-maintenance-read
           make test-addon-activation-catalog
           make test-addon-access-policy
           make test-security-authorization
