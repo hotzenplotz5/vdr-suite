@@ -2688,10 +2688,48 @@ bool DaemonRuntime::initialize()
             ",\"revision\":" + std::to_string(result.intent.revision) + "}";
         return response;
     };
+    auto addonActivationLookup = [this](
+        const RequestSecurityContext& actor, const std::string& requestPath)
+        -> ApiResponse
+    {
+        ApiResponse response;
+        response.contentType = "application/json";
+        std::string backendId;
+        if (!vdrsuite::addons::parseActivationHttpBackendQuery(
+                requestPath, backendId))
+        {
+            response.statusCode = 422;
+            response.body = "{\"error\":\"invalid_backend_id\"}";
+            return response;
+        }
+        if (!mediaImportActivationIntents_)
+        {
+            response.statusCode = 503;
+            response.body = "{\"error\":\"activation_unavailable\"}";
+            return response;
+        }
+        const auto current = mediaImportActivationIntents_->read(
+            actor, "rectools", backendId);
+        if (current.status != vdrsuite::addons::IntentStatus::ok)
+        {
+            response.statusCode =
+                current.status == vdrsuite::addons::IntentStatus::forbidden
+                    ? 403 : 503;
+            response.body = "{\"error\":\"activation_read_unavailable\"}";
+            return response;
+        }
+        response.statusCode = 200;
+        response.body = std::string("{\"moduleId\":\"rectools\",\"backendId\":\"") +
+            backendId + "\",\"desiredEnabled\":" +
+            (current.intent.desiredEnabled ? "true" : "false") +
+            ",\"revision\":" + std::to_string(current.intent.revision) + "}";
+        return response;
+    };
     auto clientHttpServer = std::make_unique<RecordingArtworkHttpServer>(
         std::make_unique<TestHttpServer>(
             *apiRouter_, std::move(addonGrantEligibility),
-            std::move(addonActivationMutation)),
+            std::move(addonActivationMutation),
+            std::move(addonActivationLookup)),
         *vdrRecordingCacheRepository_,
         config_.recordingArtworkRoots());
     auto agentHttpServer = std::make_unique<BackendAgentHttpServer>(

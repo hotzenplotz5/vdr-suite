@@ -110,6 +110,9 @@ public:
             path != "/api/security/browser-sessions/current";
         const bool isAddonActivationMutation =
             isPost && path == "/api/v1/addons/rectools/activation";
+        const bool isAddonActivationRead =
+            request.method == "GET" &&
+            path == "/api/v1/addons/rectools/activation";
         const bool isRemoteAction = isPost && path == "/api/vdr/remote/actions";
         const bool isTimerCreateAction = isPost && path == "/api/vdr/timers/actions/create";
         const bool isTimerUpdateAction = isPost && path == "/api/vdr/timers/actions/update";
@@ -993,6 +996,38 @@ public:
             isLegacyOsdViewerAttach ||
             isLegacyOsdViewerDetach;
 
+        if (isAddonActivationRead)
+        {
+            if (!gate.browserAuthenticated ||
+                gate.context.actor.type != ActorType::User ||
+                !gate.context.session.has_value())
+            {
+                if (!gate.context.authenticated()) return rejectAuthentication(gate);
+                AuthorizationDecision denial;
+                denial.permission = "role.admin";
+                denial.backendId = "*";
+                denial.action = "addons.intent.read";
+                denial.reasonCode = "browser_session_required";
+                return rejectWithAudit(gate, denial, 403,
+                    "An administrator Browser Session is required", "");
+            }
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(
+                    gate.context, {"role.admin", "*", "addons.intent.read"});
+            if (!decision.allowed)
+                return rejectWithAudit(gate, decision, 403,
+                    "Administrator permission is required", "");
+            if (!appendDecisionEvent(gate.context, decision, ""))
+            {
+                gate.rejection = errorResponse(503, "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+            gate.authorizationDecision = decision;
+            gate.allowed = true;
+            return gate;
+        }
         if (isHbbtvDiscoveryRead || isHbbtvPresentationRead ||
             isHbbtvMediaRead)
         {

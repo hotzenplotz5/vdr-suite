@@ -51,11 +51,14 @@ class TestHttpServer : public IHttpServer, public IEpgArtworkHttpProvider
 public:
     using AddonActivationMutation = std::function<ApiResponse(
         const RequestSecurityContext&, const std::string&)>;
+    using AddonActivationLookup = std::function<ApiResponse(
+        const RequestSecurityContext&, const std::string&)>;
     explicit TestHttpServer(
         ApiRouter& apiRouter,
         HumanAccountGrantAdministrationService::AddonGrantEligibility
             addonGrantEligibility = {},
-        AddonActivationMutation addonActivationMutation = {});
+        AddonActivationMutation addonActivationMutation = {},
+        AddonActivationLookup addonActivationLookup = {});
     ~TestHttpServer() override;
 
     HttpServerResponse handleRequest(
@@ -86,6 +89,7 @@ public:
 private:
     ApiRouter& apiRouter_;
     AddonActivationMutation addonActivationMutation_;
+    AddonActivationLookup addonActivationLookup_;
     std::unique_ptr<Database> securityDatabase_;
     std::unique_ptr<AccountabilityEventRepository>
         accountabilityEventRepository_;

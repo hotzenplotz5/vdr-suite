@@ -33,4 +33,15 @@ inline bool parseActivationHttpMutation(
     out = {backend, match[2].str() == "true", revision};
     return true;
 }
+// Exact read query, no duplicate params, path decoding or wildcard backend.
+inline bool parseActivationHttpBackendQuery(
+    const std::string& path, std::string& backendId)
+{
+    static const std::regex canonical(
+        R"ACT(^/api/v1/addons/rectools/activation\?backendId=([a-zA-Z0-9_.:-]{1,128})$)ACT");
+    std::smatch match;
+    if (!std::regex_match(path, match, canonical)) return false;
+    backendId = match[1].str();
+    return backendId != "." && backendId != "..";
+}
 } // namespace vdrsuite::addons

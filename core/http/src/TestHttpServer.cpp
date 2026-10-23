@@ -176,9 +176,11 @@ TestHttpServer::TestHttpServer(
     ApiRouter& apiRouter,
     HumanAccountGrantAdministrationService::AddonGrantEligibility
         addonGrantEligibility,
-    AddonActivationMutation addonActivationMutation)
+    AddonActivationMutation addonActivationMutation,
+    AddonActivationLookup addonActivationLookup)
     : apiRouter_(apiRouter),
       addonActivationMutation_(std::move(addonActivationMutation)),
+      addonActivationLookup_(std::move(addonActivationLookup)),
       securityDatabase_(std::make_unique<Database>())
 {
     if (!securityDatabase_->open(
@@ -1884,7 +1886,15 @@ HttpServerResponse TestHttpServer::handleRequest(
 
     if (request.method == "GET")
     {
-        if (pathWithoutQuery(request.path).rfind(
+        if (pathWithoutQuery(request.path) ==
+                "/api/v1/addons/rectools/activation")
+        {
+            apiResponse = addonActivationLookup_
+                ? addonActivationLookup_(gate.context, request.path)
+                : ApiResponse{503, "application/json",
+                      "{\"error\":\"addon_activation_unavailable\"}"};
+        }
+        else if (pathWithoutQuery(request.path).rfind(
                 "/api/v1/recording-playback-sessions", 0) == 0)
         {
             apiResponse = apiRouter_.handleDeviceRecordingPlayback(

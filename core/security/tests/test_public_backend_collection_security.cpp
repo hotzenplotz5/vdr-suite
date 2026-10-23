@@ -98,6 +98,24 @@ int main()
     }
 
     {
+        // Readback is restricted to a global administrator Browser Session.
+        SecurityHttpGateBrowserTestFixture fixture;
+        HttpServerRequest get;
+        get.method = "GET";
+        get.path = "/api/v1/addons/rectools/activation?backendId=backend-a";
+        fixture.addBrowserAuthentication(get, false);
+        assert(fixture.gate.evaluate(get).rejection.statusCode == 403);
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "role.admin", "*"));
+        const auto allowed = fixture.gate.evaluate(get);
+        assert(allowed.allowed && !allowed.protectedMutation);
+        assert(allowed.authorizationDecision.action == "addons.intent.read");
+        HttpServerRequest anonymous;
+        anonymous.method = "GET";
+        anonymous.path = get.path;
+        assert(fixture.gate.evaluate(anonymous).rejection.statusCode == 401);
+    }
+    {
         // Admin add-on activation MUST require a Browser Session, CSRF and
         // explicit global role.admin. No caller-provided trusted evidence.
         SecurityHttpGateBrowserTestFixture fixture;

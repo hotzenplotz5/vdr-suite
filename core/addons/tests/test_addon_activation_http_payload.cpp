@@ -10,6 +10,14 @@ int main() {
     assert(parseActivationHttpMutation(
         R"( { "backendId" : "backend-b", "desiredEnabled" : false, "expectedRevision" : 143 } )",request));
     assert(!request.enabled && request.expectedRevision==143);
+    std::string backend;
+    assert(parseActivationHttpBackendQuery(
+        "/api/v1/addons/rectools/activation?backendId=backend:a", backend));
+    assert(backend=="backend:a");
+    assert(!parseActivationHttpBackendQuery(
+        "/api/v1/addons/rectools/activation?backendId=../etc", backend));
+    assert(!parseActivationHttpBackendQuery(
+        "/api/v1/addons/rectools/activation?backendId=backend-a&backendId=other", backend));
     for(const char* invalid : {
         R"({"backendId":"../etc","desiredEnabled":true,"expectedRevision":0})",
         R"({"backendId":"*","desiredEnabled":true,"expectedRevision":0})",
