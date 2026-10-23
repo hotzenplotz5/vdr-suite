@@ -368,11 +368,22 @@ int main()
         const HttpRequest preview =
             builder.buildSafeMovePreviewRequest(config, payload);
         assert(preview.body.find(
-            "\\"target_file\\":\\"/media/mld-recordings/Archive/"
-            "Mission#3A_Impossible/2026-05-24.20.13.8-0.rec\\"") !=
+            "\"target_file\":\"/media/mld-recordings/Archive/"
+            "Mission#3A_Impossible/2026-05-24.20.13.8-0.rec\"") !=
             std::string::npos);
-        assert(preview.body.find("\\"target_file\\":\\"/srv/vdr/video/") ==
+        assert(preview.body.find("\"target_file\":\"/srv/vdr/video/") ==
                std::string::npos);
+
+        // Keep a folder with an old yaVDR mount-like name under an MLD root.
+        // The explicit backend root must never strip that folder automatically.
+        payload.parameters["targetPath"] =
+            "Recordings_on_yavdr(nfs)/Documentary";
+        const HttpRequest mldNamedFolder =
+            builder.buildSafeMovePreviewRequest(config, payload);
+        assert(mldNamedFolder.body.find(
+            "/media/mld-recordings/Recordings_on_yavdr(nfs)/Documentary/"
+            "Mission#3A_Impossible/2026-05-24.20.13.8-0.rec") !=
+            std::string::npos);
 
         // A mismatched native source must not reach even the preview route.
         SequenceHttpClient blockedClient(std::vector<HttpResponse>{});
