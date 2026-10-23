@@ -2101,7 +2101,8 @@ bool DaemonRuntime::initialize()
             const auto selected = backendRegistryService_->getBackend(backend);
             return selected && selected->enabled && selected->online &&
                 vdrSnapshotReadService_->hasSnapshotForBackend(backend);
-        });
+        },
+        mediaShrinkReviewRepository_.get());
     MediaShrinkPlanApiRuntime::instance().registerHandlers(
         [this](const std::string& actor, const std::string& backend,
                const std::string& recording)
@@ -2111,6 +2112,11 @@ bool DaemonRuntime::initialize()
         [this](const std::string& backend)
         {
             return mediaShrinkPlanRuntime_->capability(backend);
+        },
+        [this](const std::string& actor, const std::string& backend,
+               const std::string& review)
+        {
+            return mediaShrinkPlanRuntime_->reviewStatus(actor, backend, review);
         });
 
     auto clientHttpServer = std::make_unique<RecordingArtworkHttpServer>(
