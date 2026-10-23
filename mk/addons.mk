@@ -132,6 +132,28 @@ test-addon-media-shrink-core-review:
 
 test-ci-fast: test-addon-media-shrink-core-review
 
+# Reserve immutable HEVC stage/publish Operations using the canonical
+# Core repository. Disposable in-memory SQLite; no recording files touched.
+.PHONY: test-addon-media-shrink-core-admission
+test-addon-media-shrink-core-admission:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
+		-I addons/media-tools/include -I core/agent/include \
+		-I core/sqlite/include -I core/operations/include \
+		-I core/addons/include \
+		core/sqlite/src/Database.cpp \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/addons/src/MediaShrinkReviewRepository.cpp \
+		core/addons/src/MediaShrinkOperationAdmission.cpp \
+		core/addons/tests/test_media_shrink_operation_admission.cpp \
+		-lsqlite3 -o "$(BUILD_DIR)/addons/test_media_shrink_operation_admission"
+	"$(BUILD_DIR)/addons/test_media_shrink_operation_admission"
+
+test-ci-fast: test-addon-media-shrink-core-admission
+
+
 # Validate the structural HEVC command boundary before any Agent runtime is
 # allowed to consider this command type. No filesystem or command execution.
 .PHONY: test-addon-media-shrink-command-fence
