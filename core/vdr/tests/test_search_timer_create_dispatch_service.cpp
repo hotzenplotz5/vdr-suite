@@ -95,6 +95,7 @@ public:
     mutable int reads = 0;
     Generation* generation = nullptr;
     bool restartDuringBaseline = false;
+    bool restartDuringReadback = false;
     std::vector<SearchTimer> initial;
     std::vector<SearchTimer> finalItems;
     bool failBefore = false;
@@ -104,6 +105,8 @@ public:
         ++reads;
         assert(q.backendId() == "default");
         if (reads == 1 && restartDuringBaseline && generation)
+            generation->live = 10U;
+        if (reads == 2 && restartDuringReadback && generation)
             generation->live = 10U;
         if ((reads == 1 && failBefore) || (reads > 1 && failAfter))
             return SearchTimerResult::unavailable(0,0);
@@ -227,6 +230,20 @@ void assertBackendRestartCannotDispatch()
     assert(restarted.source.reads == 1);
     assert(restarted.storage.findById(restarted.id).operation.state ==
         MutationOperationState::accepted);
+
+    Rig duringReadback;
+    duringReadback.source.restartDuringReadback = true;
+    const auto uncertain = duringReadback.dispatch.dispatchOnce(
+        duringReadback.request(), duringReadback.executor, duringReadback.source);
+    assert(uncertain.status == SearchTimerCreateDispatchStatus::outcomeUnknown);
+    assert(duringReadback.executor.creates == 1);
+    assert(duringReadback.source.reads == 2);
+    assert(duringReadback.storage.findById(duringReadback.id).operation.state ==
+        MutationOperationState::outcomeUnknown);
+    assert(duringReadback.dispatch.dispatchOnce(
+        duringReadback.request(), duringReadback.executor,
+        duringReadback.source).status == SearchTimerCreateDispatchStatus::conflict);
+    assert(duringReadback.executor.creates == 1);
 
     Rig missing;
     missing.generation.live.reset();
