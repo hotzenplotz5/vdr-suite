@@ -598,6 +598,56 @@ class RunnerTests(unittest.TestCase):
             self.assertIn("RECORDINGS        PASS",summary)
             self.assertNotIn("RECORDINGS        SKIP",summary)
 
+    def test_permission_inventory_never_prints_secrets_and_covers_existing_devices(self):
+        from inspect_existing_access import inspect
+        import io
+        from contextlib import redirect_stdout
+        seen = []
+        class FakeClient:
+            def expect(self,path):
+                seen.append(path)
+                if path.startswith("/api/v1/accounts?"):
+                    return {"items":[{"accountId":"accountA","displayName":"Admin",
+                                      "active":True}]},{}
+                if path == "/api/v1/accounts/accountA/grants":
+                    return {"items":[{"permission":"role.admin","backendId":"*",
+                                      "credentialSecret":"MUST_NOT_LEAK"}]},{}
+                if path.startswith("/api/v1/devices?"):
+                    return {"items":[{"deviceId":"devA","displayName":"yaVDR Timer Hardwaretest",
+                                      "active":True,"revoked":False},
+                                     {"deviceId":"devB","displayName":"Hisense VIDAA TV",
+                                      "active":True,"revoked":False},
+                                     {"deviceId":"devC","displayName":"Revoked",
+                                      "active":False,"revoked":True}]},{}
+                if path == "/api/v1/devices/devA/grants":
+                    return {"items":[{"permission":"timers.view","backendId":"default"},
+                                     {"permission":"searchtimers.view","backendId":"default"},
+                                     {"permission":"media.recording.play","backendId":"default"}]},{}
+                if path == "/api/v1/devices/devB/grants":
+                    return {"items":[]},{}
+                raise AssertionError(path)
+        capture=io.StringIO()
+        with redirect_stdout(capture):
+            inspect(FakeClient())
+        output=capture.getvalue()
+        self.assertNotIn("MUST_NOT_LEAK",output)
+        self.assertIn("yaVDR Timer Hardwaretest",output)
+        self.assertIn("searchtimers.view@default: grant vorhanden",output)
+        self.assertIn("Hisense VIDAA TV",output)
+        self.assertNotIn("devA",output)
+        self.assertNotIn("accountA",output)
+        self.assertEqual(len(seen),6)
+
+    def test_permission_inventory_rejects_credential_shaped_grants(self):
+        from inspect_existing_access import grant_summary, safe_resource_id
+        self.assertEqual(grant_summary({"items":[{"permission":"timers.view",
+                        "backendId":"default","credentialSecret":"invisible"}]}),
+                         [("timers.view","default")])
+        with self.assertRaises(Problem):
+            grant_summary({"items":[{"permission":"bad\\nsecret","backendId":"*"}]})
+        with self.assertRaises(Blocked):
+            safe_resource_id("../escape")
+
 
 if __name__ == "__main__":
     unittest.main()

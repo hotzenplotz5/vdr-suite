@@ -38,6 +38,12 @@ Alternativ nimmt `--config /pfad/zur/bestehenden-credential-datei.json` eine aus
 
 Das bestehende Public-v1-Auth-Schema ist VDR-Suite-Device (opaque ID und Secret). Credentials gehören nie in Git, Shell-Befehle oder Logs. Fehlende Device-Grants, andere Benutzer/Accounts oder Administrator-Identitäten werden nicht automatisch eingerichtet; Tests dafür bleiben BLOCKED. Nur ein echter gekoppelter Device mit Backend-Grants kann devicegebundene Leseverträge erfolgreich prüfen.
 
+## Bestehende Identitäten ohne neue Kopplung prüfen
+
+Der vorhandene Human-Admin-Account `vdr-suite` kann bereits `GET /api/v1/accounts` und `GET /api/v1/devices` benutzen. Ein bestehendes Device ist dabei nicht automatisch vom Runner authentifizierbar: dessen einmalig ausgegebenes Credential-Secret gehört weiterhin ausschließlich dem Device. Statt auf Verdacht weitere Testgeräte anzulegen, kann der Root-Operator über `python3 tools/api-v1-acceptance/inspect_existing_access.py --admin-user vdr-suite` die **bestehenden** Account-/Device-Grants lesen. Der Bericht zeigt nur bereinigte Namen, Status und Permission@Scope; IDs und Secrets werden nicht ausgegeben. Nur temporärer Browser-Session-Login/Logout nutzen POST. Alle weiteren HTTP-Anfragen sind GET. Es werden keine Paare/Grants/Accounts/Timer erzeugt.
+
+Beim echten yaVDR-Read-only-Lauf vom 2026-10-23 wurden 4 Devices festgestellt (2 aktiv: `yaVDR Timer Hardwaretest`, `Hisense VIDAA TV`; 2 widerrufen) und 4 Human Accounts. Der Anzeigename eines Human Accounts entspricht nicht zwingend dem Login-Namen `vdr-suite`; die Authentifizierungszuordnung darf nicht aus dem DisplayName geraten werden. Nächster Schritt ist ausschließlich die bestehenden Grant-Sätze festzustellen und zu klären, ob ein gültiges, vom Testoperator ausdrücklich ausgewähltes Device-Credential existiert. Die serverseitigen Einwegverifier können das Secret nicht rekonstruieren.
+
 ## Output und Exitcodes
 
 Das Ausgabeverzeichnis ist ~/vdr-suite-api-v1-results/ mit 0700. Dateien: last-summary.txt, last-errors.log, last-results.json, last-full.log sowie runs/UTC-TIMESTAMP/{summary.txt,errors.log,results.json,full.log} (0600). Nach jedem einzelnen Testfall wird atomar ein Snapshot persistiert; auch ein Abbruch bewahrt frühere Ergebnisse. Query-Werte, öffentliche Objekt-IDs, Media-URLs und Zugangsdaten werden nicht in Protokolle übernommen. Fehlerdaten enthalten sichere Routenstruktur, Kategorie, erwarteten/aktuellen HTTP-Status, erwartete Struktur und gegebenenfalls bereinigte Correlation-/Operation-ID.
