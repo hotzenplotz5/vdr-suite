@@ -72,6 +72,10 @@ Request **no** credential files, session tokens, database backups, unrestricted 
 5. Define native service units/init hooks with explicit least-privilege users, persistent data and secret policy; do not reuse the Ubuntu Agent `User=vdr` or implicit-root daemon service blindly.
 6. Only then build one target image, check VDR ABI/linkage and run read-only capability/RESTfulAPI tests. Controlled mutations, clean upgrade and public API tests remain MLD.1C/D gates.
 
+## Latest cross-distribution evidence (2026-10-23)
+
+Pit's MLD VDR 2.8.3 responded to native, read-only `PLUG suitebridge VPATH 1` with `900 /data/tv`. This updates the earlier *candidate/unverified* discovery status for that command **only**: the Suite daemon's use of the reply, package ABI/provenance, private socket permissions, and mutations are not verified on MLD. The separate five-second `/recordings.json` timeout persists, and Pit reports periodic VDR restarts with an unspecified dump while rebuilding MLD packages. Those restarts block further native package acceptance. See [complete evidence and opt-in HTTP diagnostic contract](mld66-pit-vpath-http-crash-evidence-20261023.md).
+
 ## Validation record
 
 - Read-only GitHub inspection of the named source files and branch/ref confirms the source contracts above.
