@@ -3,6 +3,9 @@
 No VDR connection is opened. Mock responses never establish real-VDR evidence.
 """
 import argparse
+import threading
+import http.server
+import urllib.parse
 import json
 from pathlib import Path
 import sys
@@ -14,6 +17,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools/api-v1-accep
 from runner import Acceptance, Blocked, ConfigError, HttpClient, Problem, load_config
 from runner import origin_ok, safe_path, validate
 from cases import collection, no_private_paths, REQUIRED_ROUTES
+from cases import root, backends, recordings, recording_detail, metadata
+from cases import artwork_list, artwork_bytes, continue_watching, resume_progress
 
 
 class RunnerTests(unittest.TestCase):
@@ -135,6 +140,91 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual((Path(p) / "last-errors.log").stat().st_mode & 0o077, 0)
             a.record("c.fail", "SECURITY", "FAIL", "permission check violated")
             self.assertEqual(a.persist(), "FAIL")
+
+    def test_real_loopback_http_fixture_recording_to_p1_chain(self):
+        """End-to-end real HTTP GET fixture, zero writes, no productive hardware."""
+        rid = "rec_" + "1" * 32
+        artid = "2" * 32
+        arturl = "/api/v1/recordings/" + rid + "/artwork/" + artid
+        seen_methods = []
+
+        class Fixture(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+            def do_POST(self):
+                seen_methods.append("POST")
+                self.send_response(405)
+                self.end_headers()
+
+            def do_GET(self):
+                seen_methods.append("GET")
+                if self.headers.get("Authorization") != "VDR-Suite-Device id.secret":
+                    self.send_response(401)
+                    self.end_headers()
+                    return
+                path = urllib.parse.urlsplit(self.path).path
+                if path == "/api/v1":
+                    data = {"apiVersion": "v1", "serverVersion": "git-source",
+                            "authentication": {"authenticated": True}}
+                elif path == "/api/v1/backends":
+                    data = {"items": [{"backendId": "default"}]}
+                elif path == "/api/v1/recordings":
+                    data = {"items": [{"recordingId": rid}]}
+                elif path == "/api/v1/recordings/" + rid:
+                    data = {"recordingId": rid, "metadata": {"series": None}}
+                elif path == "/api/v1/recordings/" + rid + "/artwork":
+                    data = {"recordingId": rid, "items": [
+                        {"artworkId": artid, "url": arturl, "kind": "poster"}]}
+                elif path == arturl:
+                    data = None
+                elif path.endswith("/continue-watching"):
+                    data = {"items": [], "backendId": "default", "limit": 50}
+                elif path.endswith("/progress"):
+                    data = {"recordingId": rid, "backendId": "default",
+                            "hasProgress": False, "positionSeconds": 0,
+                            "revision": 0}
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+                    return
+                payload = (b"\xff\xd8\xff\x00picture" if data is None
+                           else json.dumps(data).encode("utf-8"))
+                self.send_response(200)
+                self.send_header("Content-Type", "image/jpeg" if data is None
+                                 else "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+        server = http.server.HTTPServer(("127.0.0.1", 0), Fixture)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                cfg = {"device": {"credentialId": "id", "credentialSecret": "secret"}}
+                a = Acceptance(argparse.Namespace(
+                    profile="readonly", backend="default",
+                    origin="http://127.0.0.1:" + str(server.server_port),
+                    output_dir=Path(tmp), approval_file=None), cfg)
+                root(a)
+                backends(a)
+                recordings(a)
+                recording_detail(a)
+                metadata(a)
+                artwork_list(a)
+                artwork_bytes(a)
+                continue_watching(a)
+                resume_progress(a)
+                self.assertEqual(a.context["recording"], rid)
+                self.assertTrue(seen_methods)
+                self.assertEqual(set(seen_methods), {"GET"})
+                self.assertNotIn("secret", (Path(tmp) / "last-errors.log").read_text()
+                                 if (Path(tmp) / "last-errors.log").exists() else "")
+        finally:
+            server.shutdown()
+            thread.join(timeout=5)
+            server.server_close()
 
     def test_coverage_anchored_to_real_contract(self):
         path = Path(__file__).resolve().parents[1] / "api/openapi.json"
