@@ -1398,6 +1398,11 @@
     video.addEventListener('playing', function () {
       if (destroyed || playbackFailed || recovering) return;
       if (sourceMode === 'broadcast') {
+        // A deliberate pause may last longer than the stall threshold.
+        // Restart the observation window when playback resumes.
+        if (Date.now() - lastProgressAt >= LIVE_STALL_THRESHOLD_MS) {
+          lastProgressAt = Date.now();
+        }
         noteFrameProgress();
         armStallCheck();
       }
