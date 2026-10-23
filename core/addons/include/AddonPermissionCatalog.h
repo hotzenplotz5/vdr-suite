@@ -18,7 +18,7 @@ struct AddonPermissionDefinition {
 inline constexpr std::array<AddonPermissionDefinition, 3> kAddonPermissions{{
     {"rectools", "addons.media.import", "addons.media.import", true},
     {"rectools", "addons.media.check", "addons.media.check", false},
-    {"rectools", "addons.media.shrink", "addons.media.shrink", false},
+    {"rectools", "addons.media.shrink", "addons.media.shrink", true},
 }};
 
 struct AddonPermissionView {
