@@ -37,8 +37,8 @@ Verified in source on the pinned main baseline
   JavaScript throttling can delay these checks; it cannot be prevented.
 - Unexpected Live failures use at most three delayed retries (1/2/4 seconds)
   and preserve server-owned `replacesSessionId` STOP-old-before-OPEN-new
-  semantics. The budget is reset by actual video-time progress, not merely a
-  successful HTTP response. Errors indicating unsupported playback or denied
+  semantics. The budget is reset only after 60 seconds of sustained video-time
+  progress, not a single decoded frame or a successful HTTP response. Errors indicating unsupported playback or denied
   authority fail closed. Manual stop, page close, HbbTV switch and channel
   handoff cancel retries. Late MSE callbacks are generation-fenced.
 - `pagehide.persisted` no longer STOPs the live session. A real close keeps
@@ -54,7 +54,7 @@ Verified in source on the pinned main baseline
 ## Regression and acceptance matrix
 
 The `test_live_tv_eof_recovery.js` regression tests unexpected MSE EOF,
-truthful status, BFCache suspension, sequential `replacesSessionId`,
+truthful status, BFCache suspension and resumed-tab grace, sequential `replacesSessionId`,
 cleanup of an old reader, explicit stop and bounded failed retries.
 It is included in `test-ci-frontend` through the existing MSE test target.
 
