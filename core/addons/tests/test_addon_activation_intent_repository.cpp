@@ -177,6 +177,16 @@ int main()
         {"rectools", "backend-lease", true, 2},
         isolatedBackend, isolatedEvidence).status ==
            IntentStatus::revisionConflict);
+    // Malformed stored TEXT must not compare equal to a live Agent prefix.
+    assert(f.database.execute(
+        "UPDATE addon_activation_agent_bindings SET agent_id="
+        "CAST(X'6167656e742d61006576696c' AS TEXT) "
+        "WHERE module_id='rectools' AND backend_id='backend-lease';"));
+    const auto corrupted = store.read(actor, "rectools", "backend-lease");
+    assert(corrupted.status == IntentStatus::ok &&
+           corrupted.intent.desiredEnabled &&
+           corrupted.intent.backendGeneration == 0 &&
+           corrupted.intent.agentId.empty());
     assert(store.update(actor,
         {"rectools", "backend-lease", false, 3},
         {}, {}).status == IntentStatus::ok);
