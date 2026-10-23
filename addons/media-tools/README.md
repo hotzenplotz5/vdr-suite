@@ -29,6 +29,59 @@ an add-on or setting COMMAND_TYPES cannot activate imports. No service has been
 installed or restarted as part of this implementation, and the module manifest
 remains disabled.
 
+## Host installation and activation (Slice 4)
+
+The source-controlled installer is
+[`tools/addons/install_media_tools.sh`](../../tools/addons/install_media_tools.sh).
+It is a **first installation**, not a blind upgrade of an installed add-on.
+It builds a fresh sealed Suite runtime stage, creates the three Media Tools
+executables as the separately packaged `~cpppreview1` payload, installs it
+using dpkg, verifies the canonical install-runtime deployment, binds a
+separately reviewed SHA-256 to *both* the local Agent approval and the
+backend-specific Core approval, configures a fixed root-owned source inventory
+and maintenance lock, and enables both protected import and HEVC stage/publish
+in the local backend-agent service override. It restarts only the Suite daemon
+and Backend Agent, never VDR or recording mutations.
+
+The command takes **five positional arguments**, in order: the **exact
+already CI-tested commit SHA**, an **independently reviewed handler SHA-256**
+(not simply copied from the binary being installed), the configured backend ID,
+a canonical absolute read-accessible source directory, and a canonical
+absolute writable VDR video directory. Execute it as a regular account with
+sudo privileges, from a clean checkout of
+`work/addon-platform-registry-lifecycle`. Example shape:
+
+```bash
+bash tools/addons/install_media_tools.sh \
+  "$TESTED_COMMIT_SHA" "$INDEPENDENTLY_APPROVED_HANDLER_SHA256" \
+  "$BACKEND_ID" "$SOURCE_ROOT" "$VIDEO_ROOT"
+```
+
+**Main integration gate:** the installer fetches current `main` and refuses
+any checkout that does not contain its exact commit, even if the add-on branch
+passed isolated CI. As of the initial Slice 4 installer commit, the add-on
+branch and `main` are divergent; PR #531 documents the integration conflict.
+Do not bypass that guard or install an older Suite runtime over `main`.
+
+Host prerequisites are a configured/enrolled and running Backend Agent with
+a real HTTPS control-plane URL, matching backend ID, standard Suite systemd
+units, development dependencies, an existing readable SQLite state database
+at the canonical path, adequate capacity and no previously installed Media
+Tools package or approval state. The installer refuses upgrades, custom
+database paths and already provisioned state until their migration and
+maintenance choreography are separately audited. It takes a quiesced SQLite
+backup before changing the installed runtime and prints its location.
+
+**Installation does not silently confer authority:** an authenticated global
+administrator must still enable the backend's desired state by the
+CSRF-protected activation API (GET readback revision, POST CAS with that
+revision) and grant `addons.media.import` and `addons.media.shrink` to
+the appropriate actor and backend. A backend Agent must publish a recent
+matching approved handler observation. No operation is ready without all
+these independent gates. A real host acceptance must prove read-only Check,
+explicit test-media Import, and staged HEVC review/publish, preserving the
+original. Until then, the package/runtime is **not** declared production-accepted.
+
 ## Core-owned A2M/A4 activation (Slice 3 implementation)
 
 The Core checks an authenticated backend Agent's recent, lease-bound
