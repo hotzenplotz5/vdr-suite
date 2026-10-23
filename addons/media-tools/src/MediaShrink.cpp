@@ -420,6 +420,17 @@ std::vector<std::string> ffmpegArguments(
 
 } // namespace
 
+std::string shrinkSourceFingerprint(const ShrinkPlan& plan)
+{
+    const std::string value = signature(plan);
+    const std::string prefix = "VDR-SUITE-SHRINK/1\n";
+    demand(value.compare(0, prefix.size(), prefix) == 0 &&
+           value.size() == prefix.size() + 17 &&
+           value.back() == '\n',
+           "invalid shrink source snapshot fingerprint");
+    return "shrink_v1_" + value.substr(prefix.size(), 16);
+}
+
 ShrinkPlan inspectShrink(const fs::path& videoRoot,
                          const fs::path& relative, const ShrinkOptions& options)
 {
