@@ -320,8 +320,22 @@ bool DaemonRuntime::initialize()
             return mediaShrinkOperationFence_->check(
                 assignment, receipt, now, reason);
         });
-    // Result reconciliation is separate and still defaults to DENY.
-    // A valid receipt does not prove a staged or published VDR recording.
+    backendAgentCommandDeliveryService_->setMediaShrinkResultApply(
+        [this](const BackendAgentCommandAssignment& assignment,
+               const BackendAgentCommandResult& result,
+               std::string& reason)
+        {
+            if (!mediaShrinkOperationFence_) {
+                reason = "media_shrink_operation_fence_unavailable";
+                return false;
+            }
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            return mediaShrinkOperationFence_->applyResult(
+                assignment, result, now, reason);
+        });
+    // This records the unverified outcome only. Separate private-candidate
+    // and VDR Recording readback are still mandatory for success.
     mediaImportCatalog_ = std::make_unique<BackendAgentMediaImportCatalog>();
     PublicApiRuntime::instance().registerMediaImportSourceLookup(
         [this](const std::string& actorId, const std::string& backendId)
