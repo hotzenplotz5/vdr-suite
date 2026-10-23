@@ -277,6 +277,20 @@ SearchTimerCreateDispatchResult SearchTimerCreateDispatchService::dispatchOnce(
     }
     if (!verified) return unknown(unverified.operation);
 
+    // A matching post-POST inventory is not proof from the original backend
+    // when its Agent generation changed during the request/readback. Preserve
+    // uncertainty; never certify success on a successor backend.
+    try
+    {
+        const auto live = generations_.currentGeneration(operation.backendId);
+        if (!live || *live != operation.backendGeneration)
+            return unknown(unverified.operation);
+    }
+    catch (...)
+    {
+        return unknown(unverified.operation);
+    }
+
     const auto completed = operations_.transition(
         operation.operationId, unverified.operation.operationRevision,
         MutationOperationState::executedUnverified,
