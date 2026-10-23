@@ -1014,6 +1014,35 @@
     }
 
 
+    function playbackAccountAdminPath(input) {
+      if (!input || typeof input.deviceId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(input.deviceId))
+        throw new Error('Exact Device ID required');
+      return '/api/v1/devices/' + input.deviceId + '/playback-account';
+    }
+
+    function setPlaybackAccountForDevice(input) {
+      const path = playbackAccountAdminPath(input);
+      if (typeof input.accountId !== 'string' ||
+          !/^[A-Za-z0-9._-]{0,128}$/.test(input.accountId) ||
+          !Number.isSafeInteger(input.expectedRevision) ||
+          input.expectedRevision < 0)
+        throw new Error('Explicit accountId and current binding revision required');
+      const headers = Object.assign({Accept: 'application/json'}, defaultHeaders,
+        copyHeaders(input.headers), {'Content-Type':'application/json'});
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method:'POST', headers,
+        credentials:input.credentials !== undefined ? input.credentials : normalized.credentials,
+        signal:input.signal,
+        body:JSON.stringify({accountId:input.accountId,
+          expectedRevision:input.expectedRevision})
+      }).then(response => parseJsonBody(response).then(data => {
+        if (!response.ok)
+          throw new VdrSuitePublicClientError(path,response.status,data,response);
+        return data;
+      }));
+    }
+
     function recordingPlaybackSessionId(input) {
       if (!input || typeof input !== 'object' ||
           typeof input.sessionId !== 'string' ||
@@ -1406,6 +1435,12 @@
           {active: false},
           normalizedOptions
         );
+      },
+      getDevicePlaybackAccount(options) {
+        return request(playbackAccountAdminPath(options), options);
+      },
+      setDevicePlaybackAccount(options) {
+        return setPlaybackAccountForDevice(options);
       },
       createRecordingPlaybackSession(options) {
         return startDeviceRecordingPlayback(options);
