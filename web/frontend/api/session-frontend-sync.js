@@ -117,6 +117,7 @@
   const RECORDING_LIVENESS_PROBE_TIMEOUT_MS = 3000;
   const RECORDING_LIVENESS_PROBE_PATH = '/api/vdr/health';
   const LIVE_STALL_CHECK_MS = 5000;
+  const LIVE_STOP_SETTLE_MS = 5000;
   const LIVE_STALL_THRESHOLD_MS = 20000;
   const LIVE_RECOVERY_STABLE_MS = 60000;
   const LIVE_RECOVERY_BACKOFF_MS = [1000, 2000, 4000];
@@ -1034,13 +1035,29 @@
       armStallCheck();
     }
 
+    function waitForBoundedStop(stopPromise) {
+      // A lost control response must not keep a foreground resume pending
+      // forever. The eventual new-session request still server-fences A.
+      return new Promise(function (resolve) {
+        let settled = false;
+        const timer = global.setTimeout(done, LIVE_STOP_SETTLE_MS);
+        function done() {
+          if (settled) return;
+          settled = true;
+          if (typeof global.clearTimeout === 'function') global.clearTimeout(timer);
+          resolve();
+        }
+        Promise.resolve(stopPromise).then(done, done);
+      });
+    }
+
     function resumed() {
       if (destroyed || sourceMode !== 'broadcast') return;
       if (global.document && global.document.visibilityState === 'hidden') return;
       if (resumeRecoveryPending && !resumeRecoveryInFlight) {
         resumeRecoveryInFlight = true;
         const token = recoveryEpoch;
-        Promise.resolve(resumeStopPromise).then(function () {
+        waitForBoundedStop(resumeStopPromise).then(function () {
           if (destroyed || sourceMode !== 'broadcast' || token !== recoveryEpoch) return;
           resumeRecoveryPending = false;
           resumeRecoveryInFlight = false;
