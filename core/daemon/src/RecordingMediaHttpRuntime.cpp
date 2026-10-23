@@ -5,6 +5,7 @@
 #include "BackendAgentLifecycle.h"
 #include "BackendAgentLiveProviderRuntime.h"
 #include "Database.h"
+#include "ContinueWatchingApiRuntime.h"
 #include "DeviceMediaProfileRepository.h"
 #include "DeviceMediaProfileQuery.h"
 #include "IHttpServer.h"
@@ -202,6 +203,71 @@ int runRecordingMediaHttpRuntime(
                     "\",\"verifiedPathCount\":" +
                     std::to_string(stored->verifiedPaths.size()) + "}";
                 return status;
+            }
+            // P1: extend the EXISTING Device playback owner. Every read and
+            // mutation resolves the current public rec_ identity through the
+            // same admission/grant/backend gates as MediaSession CREATE.
+            // Without an explicit Human<->Device binding, the Service actor
+            // receives only its OWN progress, never a guessed Human account.
+            const std::string progressPath = collection + "/progress";
+            if (target == progressPath ||
+                target.rfind(progressPath + "?", 0) == 0) {
+                std::string backendId;
+                std::string publicRecordingId;
+                PublicRecordingProgressRequest progress;
+                if (body.empty()) {
+                    const std::size_t question = target.find('?');
+                    if (question == std::string::npos)
+                        return error(400, "recording_progress_query_required");
+                    const std::string query = target.substr(question + 1U);
+                    unsigned count = 0U;
+                    for (std::size_t start = 0; start < query.size();) {
+                        const auto end = query.find('&', start);
+                        const auto pair = query.substr(start,
+                            end == std::string::npos ? std::string::npos : end - start);
+                        const auto equals = pair.find('=');
+                        if (equals == std::string::npos || ++count > 2U)
+                            return error(400, "recording_progress_query_invalid");
+                        const std::string key = pair.substr(0, equals);
+                        const std::string value = pair.substr(equals + 1U);
+                        if (key == "backendId" && backendId.empty())
+                            backendId = value;
+                        else if (key == "recordingId" && publicRecordingId.empty())
+                            publicRecordingId = value;
+                        else return error(400, "recording_progress_query_invalid");
+                        if (end == std::string::npos) break;
+                        start = end + 1U;
+                    }
+                    if (count != 2U || backendId.empty() || publicRecordingId.empty())
+                        return error(400, "recording_progress_query_invalid");
+                } else {
+                    if (target != progressPath)
+                        return error(400, "recording_progress_query_invalid");
+                    progress = ContinueWatchingApiRuntime::parsePublicProgressRequest(body);
+                    if (!progress.valid)
+                        return error(400, "recording_progress_payload_invalid");
+                    backendId = progress.backendId;
+                    publicRecordingId = progress.recordingId;
+                }
+                const auto allowed = admission.admit(
+                    verifiedDevice, backendId, publicRecordingId);
+                using Status = PublicRecordingDevicePlaybackAdmissionStatus;
+                if (allowed.status == Status::unauthenticated)
+                    return error(401, "unauthorized");
+                if (allowed.status == Status::forbidden)
+                    return error(403, "forbidden");
+                if (allowed.status == Status::invalidRequest)
+                    return error(400, "invalid_recording_id");
+                if (allowed.status == Status::notFound)
+                    return error(404, "recording_not_found");
+                if (allowed.status != Status::ready)
+                    return error(503, "recording_backend_unavailable");
+                const std::string actorId = verifiedDevice.actor.actorId;
+                return body.empty()
+                    ? ContinueWatchingApiRuntime::instance().publicProgressGet(
+                        actorId, allowed.recording, publicRecordingId)
+                    : ContinueWatchingApiRuntime::instance().publicProgressUpdate(
+                        actorId, allowed.recording, publicRecordingId, progress);
             }
             if (target == collection) {
                 const auto request = RecordingMediaSessionRequestParser().parse(body);
