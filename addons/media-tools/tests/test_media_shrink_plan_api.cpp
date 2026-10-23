@@ -1,5 +1,8 @@
 #include "DaemonMediaShrinkPlanRuntime.h"
 #include "MediaShrinkPlanApiRuntime.h"
+#include "Database.h"
+#include "MutationOperationRepository.h"
+#include "MediaShrinkReviewRepository.h"
 
 #include <cassert>
 #include <filesystem>
@@ -12,6 +15,7 @@
 
 namespace fs = std::filesystem;
 constexpr const char* kRecordingId = "rec_0123456789abcdef0123456789abcdef";
+constexpr const char* kReviewId = "shk_0123456789abcdef0123456789abcdef";
 
 int main() {
     const auto sample = (fs::temp_directory_path() /
@@ -42,6 +46,45 @@ int main() {
         before.assign(std::istreambuf_iterator<char>(in),
                       std::istreambuf_iterator<char>());
     }
+    Database database;
+    assert(database.open((home / "suite.sqlite").string()));
+    vdrsuite::operations::MutationOperationRepository operations(database);
+    assert(operations.ensureSchema());
+    vdrsuite::addons::MediaShrinkReviewRepository reviews(database, operations);
+    assert(reviews.ensureSchema());
+    using namespace vdrsuite::operations;
+    MutationOperation stage;
+    stage.operationId = "op_shrink_stage";
+    stage.idempotencyKey = "shrink_stage_once";
+    stage.actorId = "actor-a";
+    stage.backendId = "local";
+    stage.backendGeneration = 1;
+    stage.resourceType = "Recording";
+    stage.resourceId = kRecordingId;
+    stage.actionFamily = "media.shrink.stage";
+    stage.expectedRevision = "rec-rev-1";
+    stage.expectedResourceFingerprint = "source_fingerprint_1";
+    stage.requestFingerprint = "request_stage_1";
+    stage.requestedAt = 100;
+    stage.deadline = 1000;
+    stage.updatedAt = 100;
+    stage.verificationPolicy =
+        MutationOperationVerificationPolicy::readbackRequired;
+    assert(operations.reserve(stage).ok());
+    assert(operations.transition(stage.operationId, "1",
+        MutationOperationState::accepted, MutationOperationState::queued,
+        "", 110).ok());
+    assert(operations.transition(stage.operationId, "2",
+        MutationOperationState::queued, MutationOperationState::dispatching,
+        "", 120).ok());
+    assert(operations.transition(stage.operationId, "3",
+        MutationOperationState::dispatching,
+        MutationOperationState::executedUnverified,
+        "agent_evidence", 130).ok());
+    assert(operations.transition(stage.operationId, "4",
+        MutationOperationState::executedUnverified,
+        MutationOperationState::succeeded, kReviewId, 140).ok());
+    assert(reviews.registerStaged(kReviewId, stage.operationId).ok());
     DaemonMediaShrinkPlanRuntime runtime(
         {{"local", root.string()}},
         [&](const std::string& backend, const std::string& id)
@@ -50,7 +93,8 @@ int main() {
                 return recording;
             return std::nullopt;
         },
-        [](const std::string& backend) {return backend == "local";});
+        [](const std::string& backend) {return backend == "local";},
+        &reviews);
     auto& api = MediaShrinkPlanApiRuntime::instance();
     api.registerHandlers(
         [&](const std::string& actor, const std::string& backend,
@@ -59,6 +103,10 @@ int main() {
         },
         [&](const std::string& backend) {
             return runtime.capability(backend);
+        },
+        [&](const std::string& actor, const std::string& backend,
+            const std::string& id) {
+            return runtime.reviewStatus(actor, backend, id);
         });
     auto post = [&](const std::string& body, const std::string& actor,
                     const std::string& scope) {
@@ -99,6 +147,43 @@ int main() {
     assert(reply.body.find("\"segments\":1") != std::string::npos);
     assert(reply.body.find(home.string()) == std::string::npos);
     assert(reply.body.find("2026-10-22.12.00.1-0.rec") == std::string::npos);
+
+    auto readReview = [&](const std::string& actor,
+                          const std::string& scope, const std::string& id) {
+        ApiResponse response;
+        assert(api.tryHandleGet(
+            "/api/v1/backends/local/media-shrink-reviews/" + id,
+            actor, scope, {}, response));
+        return response;
+    };
+    assert(readReview("", "local", kReviewId).statusCode == 401);
+    assert(readReview("actor-b", "local", kReviewId).statusCode == 404);
+    assert(readReview("actor-a", "elsewhere", kReviewId).statusCode == 404);
+    assert(readReview("actor-a", "local", "../../etc/passwd").statusCode == 404);
+    const auto staged = readReview("actor-a", "local", kReviewId);
+    assert(staged.statusCode == 200);
+    assert(staged.body.find("\"state\":\"staged\"") != std::string::npos);
+    assert(staged.body.find("\"revision\":1") != std::string::npos);
+    assert(staged.body.find("\"publishAvailable\":false") != std::string::npos);
+    assert(staged.body.find(home.string()) == std::string::npos);
+    assert(staged.body.find("source_fingerprint") == std::string::npos);
+    MutationOperation publish = stage;
+    publish.operationId = "op_shrink_publish";
+    publish.idempotencyKey = "shrink_publish_once";
+    publish.resourceType = "MediaShrinkReview";
+    publish.resourceId = kReviewId;
+    publish.expectedRevision = "1";
+    publish.actionFamily = "media.shrink.publish";
+    publish.requestFingerprint = "request_publish_1";
+    publish.verificationPolicy =
+        MutationOperationVerificationPolicy::reconciliationRequired;
+    assert(operations.reserve(publish).ok());
+    assert(reviews.claimPublication(
+        "actor-a", "local", kReviewId, 1, publish.operationId).ok());
+    const auto publishing = readReview("actor-a", "local", kReviewId);
+    assert(publishing.statusCode == 200);
+    assert(publishing.body.find("\"state\":\"publishing\"") != std::string::npos);
+    assert(publishing.body.find("\"revision\":2") != std::string::npos);
 
     std::set<std::string> names;
     for (const auto& item : fs::directory_iterator(recording))
