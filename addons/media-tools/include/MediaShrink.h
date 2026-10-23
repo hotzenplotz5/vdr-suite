@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -55,6 +56,19 @@ void requireShrinkCapacity(const ShrinkPlan& plan);
 fs::path stageShrink(
     const ShrinkPlan& plan, ProcessRunner& runner,
     const std::function<void(const ShrinkPlan&)>& capacityPreflight);
+
+// Durable, opaque Agent-to-Core review binding kept INSIDE the private
+// candidate until publication. This is NOT a mutation credential and is
+// never exposed in browser payloads or placed in the public VDR recording.
+struct ShrinkReviewBinding {
+    std::string reviewId, stageOperationId, actorId, backendId, recordingId;
+    std::string sourceFingerprint;
+    std::uint64_t backendGeneration = 0;
+};
+void writeShrinkReviewBinding(
+    const fs::path& candidateDirectory, const ShrinkReviewBinding& binding);
+std::optional<ShrinkReviewBinding> readShrinkReviewBinding(
+    const fs::path& candidateDirectory);
 
 // Independent read-only verification on a fresh source snapshot. Can be
 // used by Core reconciliation without publishing or changing original files.
