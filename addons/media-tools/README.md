@@ -217,7 +217,19 @@ Core Operation and payload, never authorization. A configured
 `COMMAND_TYPES` entry **cannot advertise or execute** either command
 without a trusted Agent executor. Tests cover forged paths, malformed
 options, stale backend generations, request/operation mismatches and
-terminal publication replay. No command is yet assigned or executed.
+terminal publication replay.
+
+The existing durable Agent command inbox can now invoke an explicitly
+injected `IMediaShrinkAgentExecutor` for stage or publish; the shipped
+binary deliberately **injects none**. Command availability is derived
+from the executor's live reviewed trust decision, not the manifest or
+`COMMAND_TYPES`. The Agent persists a `starting` crash fence before
+calling an executor. A recovered attempt is reported as
+`outcome_unknown/reconcile_only`, never rerun. Even a returned opaque
+`shk_...` ID is **not** proof that VDR has accepted a recording; Core
+must independently validate the correct operation and readback. The
+Agent runtime regression uses a synthetic executor and makes no media
+changes.
 
 **Not productive execution yet:** there is no Agent-authorized stage/publish
 handler, opaque candidate-to-file binding, dedicated effective shrink grant,
