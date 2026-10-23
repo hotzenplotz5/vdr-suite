@@ -14,11 +14,14 @@ from pathlib import Path
 import re
 import sqlite3
 import subprocess
+import time
 import sys
 import urllib.parse
 
 DEVICE_DEFAULT = "Hisense VIDAA TV"
-AUDIT_BOUND = 500
+# Use one bounded-in-time SQL aggregate, not an arbitrary 500-event history
+# sample. Query cancellation protects the running daemon's SQLite database.
+QUERY_BUDGET_SECONDS = 6.0
 PERMISSIONS = (
     "channels.view", "epg.view", "recordings.view", "timers.view",
     "searchtimers.view", "media.live.play", "media.recording.play",
@@ -116,35 +119,60 @@ def inspect(conn, name, minutes=30, *, current=None):
     print("WINDOW_MINUTES:", minutes)
     print("PERSISTENCE: READ_ONLY")
     print("CREDENTIAL_ACCESS: NONE")
-    rows = list(conn.execute(
-        "SELECT occurred_at, permission, backend_id, event_type,"
-        "decision, authentication_state, actor_type, outcome "
+    start_seconds = int(start.timestamp())
+    end_seconds = int((now + dt.timedelta(minutes=1)).timestamp())
+    placeholders = ",".join("?" for _ in PERMISSIONS)
+    # strftime normalizes Z / +00:00 and timezone-offset variants before the
+    # UTC range comparison. Aggregation happens in SQLite: neither raw audit
+    # events nor their identifiers enter process logs or unbounded memory.
+    sql = (
+        "SELECT permission, COUNT(*), "
+        "MAX(CAST(strftime('%s', occurred_at) AS INTEGER)) "
         "FROM accountability_events "
         "WHERE device_id=? AND actor_id=? "
-        "ORDER BY rowid DESC LIMIT ?", (device_id, actor_id, AUDIT_BOUND)))
-    observed = []
-    for occurred, permission, scope, typ, decision, auth, actor, outcome in rows:
-        instant = parse_iso(occurred)
-        if instant is None or instant < start or instant > now + dt.timedelta(minutes=1):
-            continue
-        if (typ != "authorization.allowed" or decision != "allowed"
-                or outcome != "dispatch_authorized"
-                or auth != "authenticated" or actor != "service"):
-            continue
-        if permission not in PERMISSIONS or scope != "default":
-            continue
-        observed.append((instant, permission))
-    counts = {p: sum(x[1] == p for x in observed) for p in PERMISSIONS}
+        "AND event_type='authorization.allowed' "
+        "AND decision='allowed' "
+        "AND authentication_state='authenticated' "
+        "AND actor_type='service' "
+        "AND outcome='dispatch_authorized' "
+        "AND backend_id='default' "
+        "AND permission IN (" + placeholders + ") "
+        "AND CAST(strftime('%s', occurred_at) AS INTEGER) BETWEEN ? AND ? "
+        "GROUP BY permission"
+    )
+    deadline = time.monotonic() + QUERY_BUDGET_SECONDS
+    def stop_long_query():
+        return int(time.monotonic() >= deadline)
+    # Abort rather than monopolize the live DB on unexpectedly large audits.
+    # Reset the progress callback before returning this connection to caller.
+    try:
+        conn.set_progress_handler(stop_long_query, 2000)
+        aggregate = list(conn.execute(
+            sql, (device_id, actor_id, *PERMISSIONS,
+                  start_seconds, end_seconds)))
+    except sqlite3.Error as error:
+        raise AuditBlocked("complete time-window audit query could not finish "
+                           "within safety budget (" + type(error).__name__ + ")") from error
+    finally:
+        conn.set_progress_handler(None, 0)
+    counts = {p: 0 for p in PERMISSIONS}
+    latest_seconds = None
+    for permission, count, last in aggregate:
+        if permission not in counts or not isinstance(count, int) or count < 0:
+            raise AuditBlocked("invalid aggregate audit count")
+        counts[permission] = count
+        if last is not None:
+            latest_seconds = max(last, latest_seconds) if latest_seconds is not None else last
     for p in PERMISSIONS:
         print(p + "@default:", counts[p], "allowed Device authorization event(s)")
     print("LAST_ALLOWED_DEVICE_GATE_UTC:",
-          max(x[0] for x in observed).isoformat() if observed else "NOT_OBSERVED")
+          dt.datetime.fromtimestamp(latest_seconds, UTC).isoformat()
+          if latest_seconds is not None else "NOT_OBSERVED")
     print("DEVICE_AUTHENTICATED_GATE:",
-          "PASS" if observed else "NOT_VERIFIED")
+          "PASS" if any(counts.values()) else "NOT_VERIFIED")
+    print("AUDIT_WINDOW: FULL_QUERY (subject to existing event retention)")
     print("HTTP_RESPONSE_AND_VDR_OUTCOME: NOT_VERIFIED_BY_AUDIT")
-    if len(rows) == AUDIT_BOUND:
-        print("AUDIT_WINDOW: PARTIAL (500-event scan bound)")
-    return bool(observed)
+    return any(counts.values())
 
 
 def main(argv=None):

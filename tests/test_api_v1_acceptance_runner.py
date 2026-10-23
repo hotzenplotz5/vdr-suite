@@ -719,6 +719,63 @@ class RunnerTests(unittest.TestCase):
             with self.assertRaises(AuditBlocked):
                 open_ro(str(link))
 
+    def test_device_historical_audit_counts_all_events_beyond_500(self):
+        from inspect_device_auth_audit import inspect
+        import sqlite3
+        import datetime as dt
+        import io
+        from contextlib import redirect_stdout
+        c=sqlite3.connect(":memory:")
+        c.execute("CREATE TABLE security_devices (device_id TEXT,actor_id TEXT,display_name TEXT,active INT,revoked_at TEXT)")
+        c.execute("CREATE TABLE accountability_events (occurred_at TEXT,permission TEXT,backend_id TEXT,event_type TEXT,decision TEXT,authentication_state TEXT,actor_type TEXT,outcome TEXT,device_id TEXT,actor_id TEXT)")
+        c.execute("INSERT INTO security_devices VALUES (?,?,?,?,?)",
+                  ("device1","actor1","Hisense VIDAA TV",1,""))
+        now=dt.datetime(2026,10,23,18,0,tzinfo=dt.timezone.utc)
+        valid=("2026-10-22T20:00:00Z","recordings.view","default",
+               "authorization.allowed","allowed","authenticated","service",
+               "dispatch_authorized","device1","actor1")
+        invalid_actor=("2026-10-22T20:00:00Z","timers.view","default",
+                       "authorization.allowed","allowed","authenticated",
+                       "user","dispatch_authorized","device1","actor1")
+        stale=("2026-10-15T20:00:00+00:00","epg.view","default",
+               "authorization.allowed","allowed","authenticated","service",
+               "dispatch_authorized","device1","actor1")
+        c.executemany("INSERT INTO accountability_events VALUES (?,?,?,?,?,?,?,?,?,?)",
+                      [valid]*650+[invalid_actor]*3+[stale]*4)
+        output=io.StringIO()
+        with redirect_stdout(output):
+            self.assertTrue(inspect(c,"Hisense VIDAA TV",10080,current=now))
+        printed=output.getvalue()
+        self.assertIn("recordings.view@default: 650",printed)
+        self.assertIn("timers.view@default: 0",printed)
+        self.assertIn("epg.view@default: 0",printed)
+        self.assertIn("AUDIT_WINDOW: FULL_QUERY",printed)
+        self.assertNotIn("PARTIAL",printed)
+        self.assertNotIn("device1",printed)
+        c.close()
+
+    def test_device_historical_audit_normalizes_utc_offsets(self):
+        from inspect_device_auth_audit import inspect
+        import sqlite3
+        import datetime as dt
+        import io
+        from contextlib import redirect_stdout
+        c=sqlite3.connect(":memory:")
+        c.execute("CREATE TABLE security_devices (device_id TEXT,actor_id TEXT,display_name TEXT,active INT,revoked_at TEXT)")
+        c.execute("CREATE TABLE accountability_events (occurred_at TEXT,permission TEXT,backend_id TEXT,event_type TEXT,decision TEXT,authentication_state TEXT,actor_type TEXT,outcome TEXT,device_id TEXT,actor_id TEXT)")
+        c.execute("INSERT INTO security_devices VALUES (?,?,?,?,?)",("a","b","TV",1,""))
+        c.execute("INSERT INTO accountability_events VALUES (?,?,?,?,?,?,?,?,?,?)",
+                  ("2026-10-23T18:00:00+02:00","searchtimers.view","default",
+                   "authorization.allowed","allowed","authenticated","service",
+                   "dispatch_authorized","a","b"))
+        now=dt.datetime(2026,10,23,16,5,tzinfo=dt.timezone.utc)
+        result=io.StringIO()
+        with redirect_stdout(result):
+            self.assertTrue(inspect(c,"TV",30,current=now))
+        self.assertIn("searchtimers.view@default: 1",result.getvalue())
+        self.assertIn("2026-10-23T16:00:00+00:00",result.getvalue())
+        c.close()
+
 
 if __name__ == "__main__":
     unittest.main()
