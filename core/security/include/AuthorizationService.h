@@ -110,14 +110,15 @@ public:
             return decision;
         }
 
-        // Add-on import is deliberately *not* implied by role.admin,
+        // Add-on media mutations are deliberately *not* implied by role.admin,
         // general permission wildcards or backend-wide grants. Only an
         // explicitly resolved permission on the exact backend qualifies.
         if (request.permission.rfind("addons.", 0) == 0)
         {
             // Grant vocabulary is strictly Core-owned. Future features
             // remain disabled even if arbitrary grants are persisted.
-            if (request.permission != "addons.media.import")
+            if (request.permission != "addons.media.import" &&
+                request.permission != "addons.media.shrink")
             {
                 decision.reasonCode = "permission_denied";
                 return decision;
@@ -184,6 +185,7 @@ private:
         const std::string& permission)
     {
         return permission == "addons.media.import" ||
+            permission == "addons.media.shrink" ||
             permission == "remote.control" ||
             permission == "timers.create" ||
             permission == "timers.modify" ||
