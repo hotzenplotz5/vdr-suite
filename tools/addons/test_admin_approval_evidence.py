@@ -85,7 +85,8 @@ class ApprovalEvidenceTests(unittest.TestCase):
             return SimpleNamespace(
                 st_uid=0, st_mode=actual.st_mode & ~0o022,
                 st_dev=actual.st_dev, st_ino=actual.st_ino,
-                st_size=actual.st_size, st_mtime_ns=actual.st_mtime_ns,
+                st_nlink=actual.st_nlink, st_size=actual.st_size,
+                st_mtime_ns=actual.st_mtime_ns,
                 st_ctime_ns=actual.st_ctime_ns,
             )
 

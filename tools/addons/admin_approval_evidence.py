@@ -47,18 +47,22 @@ def examine(root: Path, module: str) -> dict:
                 parent.st_mode & 0o022):
             return denied("unsafe-approval-parent")
         fd = os.open(APPROVAL_PATH.rsplit("/", 1)[-1],
-                     os.O_RDONLY | os.O_NOFOLLOW, dir_fd=held)
+                     os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK |
+                     os.O_CLOEXEC, dir_fd=held)
         with os.fdopen(fd, "rb") as file:
             first = os.fstat(file.fileno())
             if (not stat.S_ISREG(first.st_mode) or first.st_uid != 0 or
-                    first.st_mode & 0o022 or not 0 < first.st_size <= 4096):
+                    first.st_mode & 0o022 or first.st_nlink != 1 or
+                    not 0 < first.st_size <= 4096):
                 return denied("unsafe-approval-record")
             raw = file.read(4097)
             final = os.fstat(file.fileno())
             if (len(raw) != first.st_size or
-                    (first.st_dev, first.st_ino, first.st_size, first.st_mtime_ns,
+                    (first.st_dev, first.st_ino, first.st_uid, first.st_mode,
+                     first.st_nlink, first.st_size, first.st_mtime_ns,
                      first.st_ctime_ns) !=
-                    (final.st_dev, final.st_ino, final.st_size, final.st_mtime_ns,
+                    (final.st_dev, final.st_ino, final.st_uid, final.st_mode,
+                     final.st_nlink, final.st_size, final.st_mtime_ns,
                      final.st_ctime_ns)):
                 return denied("approval-record-changed")
         def unique(pairs):

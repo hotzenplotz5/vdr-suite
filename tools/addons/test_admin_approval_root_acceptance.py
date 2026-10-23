@@ -225,6 +225,20 @@ class RootOwnedApprovalAcceptance(unittest.TestCase):
             issue(self.root, "rectools", "0.1.0", "0" * 64, "manual")
         self.assertFalse(self.approval.exists())
 
+    def test_root_approval_record_rejects_hardlinks_and_fifo(self):
+        linked = self.approval.parent / "rectools-extra-link.json"
+        os.link(self.approval, linked)
+        try:
+            self.assertEqual(examine(self.root, "rectools")["reason"],
+                             "unsafe-approval-record")
+        finally:
+            linked.unlink()
+        self.assertTrue(examine(self.root, "rectools")["consistent"])
+        self.approval.unlink()
+        os.mkfifo(self.approval, 0o600)
+        self.assertEqual(examine(self.root, "rectools")["reason"],
+                         "unsafe-approval-record")
+
     def test_admin_issuer_refuses_live_root(self):
         with self.assertRaisesRegex(IssueError, "live-root-requires-explicit-confirmation"):
             issue(Path("/"), "rectools", "0.1.0",
