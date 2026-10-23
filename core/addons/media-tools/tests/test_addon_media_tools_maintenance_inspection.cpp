@@ -198,6 +198,36 @@ void testDurableOwnership(const Fixture& f) {
     assert(audit1.listAll().size() == 4);
 }
 
+void testClosedStdioRunLockSurvivesExec(const Fixture& fixture) {
+    using Lock = vdrsuite::mediatools::MediaToolsImportRunLock;
+    const pid_t child = ::fork();
+    assert(child >= 0);
+    if (child == 0) {
+        // Test an Agent whose supervisor closed all three stdio streams.
+        // A kernel-lock FD reusing one of them would be overwritten by
+        // normal child redirection and silently release the shared flock.
+        ::close(STDIN_FILENO);
+        ::close(STDOUT_FILENO);
+        ::close(STDERR_FILENO);
+        auto shared = Lock::tryAcquire(
+            fixture.root.string(), Lock::Mode::sharedExecution);
+        if (!shared || shared->borrowedDescriptorForChild() < 3)
+            ::_exit(91);
+        if (!shared->inheritInExecChild()) ::_exit(92);
+        const std::string procFd =
+            "/proc/self/fd/" +
+            std::to_string(shared->borrowedDescriptorForChild());
+        ::execl("/usr/bin/test", "test", "-e", procFd.c_str(),
+                static_cast<char*>(nullptr));
+        ::_exit(93);
+    }
+    int status = 0;
+    pid_t waited;
+    do { waited = ::waitpid(child, &status, 0); }
+    while (waited < 0 && errno == EINTR);
+    assert(waited == child && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+}
+
 void testOrphanedHevcChildRetainsLock(const Fixture& fixture) {
     using Lock = vdrsuite::mediatools::MediaToolsImportRunLock;
     const fs::path marker = fixture.root / "hevc-child-started.marker";
@@ -454,6 +484,7 @@ int main() {
             .has_value());
     assert(db.execute("DELETE FROM backend_agent_command_capabilities;"));
 
+    testClosedStdioRunLockSurvivesExec(f);
     testOrphanedHevcChildRetainsLock(f);
     testDurableOwnership(f);
     std::cout << "ADDON_MAINTENANCE_OWNER_PERSISTENCE=PASS\n";

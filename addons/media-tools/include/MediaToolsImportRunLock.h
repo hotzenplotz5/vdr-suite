@@ -82,6 +82,17 @@ public:
                             O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
         if (file < 0) return std::nullopt;
         Fd guard(file);
+        // The shared OFD lock MUST survive execv in the actual writing
+        // child. Descriptor 0/1/2 may be overwritten by the Agent's stdio
+        // redirections before exec, especially when a supervisor launched
+        // the Agent with standard streams closed. Normalize to fd >= 3
+        // BEFORE flock; duplication refers to the same open description.
+        if (guard.fd < STDERR_FILENO + 1) {
+            const int safe = ::fcntl(guard.fd, F_DUPFD_CLOEXEC, 3);
+            if (safe < 3) return std::nullopt;
+            guard = Fd(safe);
+            file = guard.fd;
+        }
         struct stat before{}, after{}, named{};
         if (::fstat(file, &before) != 0 ||
             !S_ISREG(before.st_mode) || before.st_uid != 0 ||
