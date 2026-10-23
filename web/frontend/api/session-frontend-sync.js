@@ -506,7 +506,8 @@
     mediaPath,
     onFailure,
     autoPlay,
-    forwardBufferBackpressure
+    forwardBufferBackpressure,
+    isLiveBroadcast
   ) {
     if (!supportsContinuousFmp4Mse()) return null;
 
@@ -642,6 +643,13 @@
       }).then(function (result) {
         if (destroyed || !result) return;
         if (result.done) {
+          // Broadcast Live-TV has no natural EOF. Ending MSE without signalling
+          // failure leaves its last frame frozen and the status falsely "läuft".
+          // Completed recordings and finite HbbTV media still end normally.
+          if (isLiveBroadcast) {
+            fail(new Error('Live-TV-Verbindung unerwartet beendet (HTTP-Stream EOF).'));
+            return;
+          }
           return appendAvailableMedia().then(function () {
             if (mediaSource.readyState === 'open' && sourceBuffer && !sourceBuffer.updating) {
               try { mediaSource.endOfStream(); } catch (error) {}
@@ -978,7 +986,8 @@
         mediaPath,
         onFailure,
         shouldAutoPlay,
-        forwardBufferBackpressure
+        forwardBufferBackpressure,
+        sourceMode === 'broadcast'
       );
 
       let playRequest = null;
@@ -1082,7 +1091,9 @@
       return promise;
     }
 
-    function pageHide() {
+    function pageHide(event) {
+      // pagehide with persisted=true is BFCache, not a permanent close.
+      if (event && event.persisted) return;
       if (!destroyed && sourceMode === 'broadcast') stopActive(true);
     }
 
