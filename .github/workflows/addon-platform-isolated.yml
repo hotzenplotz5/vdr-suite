@@ -88,6 +88,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  media-tools-trust-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify backend lease and independent Core approval fixtures
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo "TESTED_SHA=$(git rev-parse HEAD)"
+          make test-addon-media-import-catalog
+          sudo env TMPDIR=/root PYTHONDONTWRITEBYTECODE=1 \
+            python3 -m unittest discover -s tools/addons \
+            -p 'test_admin_approval_root_acceptance.py'
+          echo "MEDIA_TOOLS_CORE_TRUST_CI=PASS"
+
   frontend-regression-test:
     runs-on: ubuntu-latest
     timeout-minutes: 12
