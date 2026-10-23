@@ -2,6 +2,7 @@
 
 #include "DashboardController.h"
 
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -12,6 +13,19 @@ class Database;
 class RecentlyWatchedRepository;
 class RecentlyWatchedService;
 class VdrRecordingCacheRepository;
+struct VdrRecording;
+
+// Parsed but not authorized; the caller must verify the live Device credential,
+// exact backend play grant and public rec_ identity before any persistence access.
+struct PublicRecordingProgressRequest
+{
+    std::string backendId;
+    std::string recordingId;
+    std::string operationId;
+    int positionSeconds = -1;
+    std::int64_t expectedRevision = -1;
+    bool valid = false;
+};
 
 class ContinueWatchingApiRuntime
 {
@@ -20,6 +34,17 @@ public:
 
     bool configure(Database& database, VdrRecordingCacheRepository& recordings);
     void reset();
+
+    static PublicRecordingProgressRequest parsePublicProgressRequest(const std::string& body);
+    ApiResponse publicProgressGet(
+        const std::string& actorId,
+        const VdrRecording& admittedRecording,
+        const std::string& publicRecordingId) const;
+    ApiResponse publicProgressUpdate(
+        const std::string& actorId,
+        const VdrRecording& admittedRecording,
+        const std::string& publicRecordingId,
+        const PublicRecordingProgressRequest& request) const;
 
     bool tryHandlePost(
         const std::string& requestTarget,
