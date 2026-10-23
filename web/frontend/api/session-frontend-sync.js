@@ -1482,6 +1482,13 @@
         false
       );
     });
+    // Retain PR #289's protection: HTMLMediaElement.ended must never
+    // implicitly STOP a Live session. For non-MSE fallback it is nonetheless
+    // evidence of an unexpected broadcast end and belongs in fenced recovery.
+    video.addEventListener('ended', function () {
+      if (destroyed || playbackFailed || recovering || sourceMode !== 'broadcast') return;
+      failPlayback(new Error('Live-TV-Wiedergabe wurde unerwartet beendet.'));
+    });
     video.addEventListener('error', function () {
       if (destroyed || playbackFailed || recovering) return;
       const mediaError = video.error;
