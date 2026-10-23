@@ -42,6 +42,17 @@ public:
     std::optional<LocalMediaShrinkReview> find(
         const std::string& reviewId) const;
 
+    // Persist a one-shot stage start BEFORE any FFmpeg/process mutation.
+    // A restarted Agent must not silently retry the same Core operation.
+    // The durable record includes the canonical actor/backend/recording,
+    // generation and source fingerprint for offline forensic readback.
+    bool claimStageOnce(const std::string& operationId,
+                        const std::string& actorId,
+                        const std::string& backendId,
+                        const std::string& recordingId,
+                        const std::string& sourceFingerprint,
+                        std::uint64_t backendGeneration);
+
     // Persist the irreversible start fence BEFORE publishShrinkCandidate.
     // A crash or uncertain result MUST be reconciled, never re-executed.
     bool claimOnce(const std::string& reviewId,
