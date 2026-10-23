@@ -941,26 +941,26 @@ class RunnerTests(unittest.TestCase):
         import io
         from contextlib import redirect_stdout
         db=sqlite3.connect(":memory:")
-        db.execute("CREATE TABLE mutation_operations (operation_id TEXT,backend_id TEXT,state TEXT,resource_type TEXT)")
+        db.execute("CREATE TABLE mutation_operations (operation_id TEXT,backend_id TEXT,state TEXT,resource_type TEXT,action_family TEXT)")
         db.execute("CREATE TABLE backend_agent_command_reservations (operation_id TEXT,backend_id TEXT,command_id TEXT)")
-        db.execute("CREATE TABLE backend_agent_commands (operation_id TEXT,backend_id TEXT,command_id TEXT,state TEXT)")
+        db.execute("CREATE TABLE backend_agent_commands (operation_id TEXT,backend_id TEXT,command_id TEXT,state TEXT,command_type TEXT)")
         db.execute("CREATE TABLE backend_agent_command_receipts (command_id TEXT)")
-        db.execute("CREATE TABLE backend_agent_command_results (command_id TEXT,result_category TEXT,verification_state TEXT,dispatch_state TEXT)")
-        db.executemany("INSERT INTO mutation_operations VALUES (?,?,?,?)",[
-            ("secret_op1","default","outcome_unknown","SearchTimer"),
-            ("secret_op2","default","outcome_unknown","TimerAssignment"),
-            ("secret_op3","default","succeeded","TimerAssignment"),
-            ("secret_op4","other","outcome_unknown","sensitive_other")])
+        db.execute("CREATE TABLE backend_agent_command_results (command_id TEXT,result_category TEXT,verification_state TEXT,dispatch_state TEXT,error_category TEXT)")
+        db.executemany("INSERT INTO mutation_operations VALUES (?,?,?,?,?)",[
+            ("secret_op1","default","outcome_unknown","SearchTimer","searchtimer.native-cas.delete"),
+            ("secret_op2","default","outcome_unknown","TimerAssignment","timer.create"),
+            ("secret_op3","default","succeeded","TimerAssignment","timer.create"),
+            ("secret_op4","other","outcome_unknown","sensitive_other","sensitive_family")])
         db.execute("INSERT INTO backend_agent_command_reservations VALUES (?,?,?)",
                    ("secret_op1","default","secret_command"))
-        db.executemany("INSERT INTO backend_agent_commands VALUES (?,?,?,?)",[
-            ("secret_op1","default","secret_command","waiting_reconciliation"),
-            ("secret_op1","default","secret_command2","completed"),
-            ("secret_op4","other","secret_command3","waiting_reconciliation")])
+        db.executemany("INSERT INTO backend_agent_commands VALUES (?,?,?,?,?)",[
+            ("secret_op1","default","secret_command","waiting_reconciliation","timer.delete"),
+            ("secret_op1","default","secret_command2","completed","timer.delete"),
+            ("secret_op4","other","secret_command3","waiting_reconciliation","private-command-type")])
         db.execute("INSERT INTO backend_agent_command_receipts VALUES (?)",("secret_command",))
-        db.executemany("INSERT INTO backend_agent_command_results VALUES (?,?,?,?)",[
-            ("secret_command","outcome_unknown","outcome_unknown","accepted_by_executor"),
-            ("secret_command2","outcome_unknown","outcome_unknown","accepted_by_executor")])
+        db.executemany("INSERT INTO backend_agent_command_results VALUES (?,?,?,?,?)",[
+            ("secret_command","outcome_unknown","outcome_unknown","accepted_by_executor","executor_unknown"),
+            ("secret_command2","outcome_unknown","outcome_unknown","accepted_by_executor","executor_unknown")])
         out=io.StringIO()
         with redirect_stdout(out):
             result=inspect(db,"default")
@@ -975,6 +975,7 @@ class RunnerTests(unittest.TestCase):
         self.assertIn("MISSING_COMMAND_EVIDENCE_IS_NOT_PROOF_OF_NO_DISPATCH",out.getvalue())
         self.assertIn("CHAIN resource=TimerAssignment command=no_command dispatch=no_result",out.getvalue())
         self.assertIn("CHAIN resource=SearchTimer command=waiting_reconciliation dispatch=accepted_by_executor",out.getvalue())
+        self.assertIn("action=searchtimer.native-cas.delete command_type=timer.delete error=executor_unknown",out.getvalue())
         self.assertIn("CHAIN_GROUP_COUNTS_MAY_OVERLAP_IF_MULTIPLE_COMMANDS: TRUE",out.getvalue())
         for secret in ("secret_op","secret_command"):
             self.assertNotIn(secret,out.getvalue())
@@ -995,24 +996,24 @@ class RunnerTests(unittest.TestCase):
         import io
         from contextlib import redirect_stdout
         db=sqlite3.connect(":memory:")
-        db.execute("CREATE TABLE mutation_operations (operation_id TEXT,backend_id TEXT,state TEXT,resource_type TEXT)")
+        db.execute("CREATE TABLE mutation_operations (operation_id TEXT,backend_id TEXT,state TEXT,resource_type TEXT,action_family TEXT)")
         db.execute("CREATE TABLE backend_agent_command_reservations (operation_id TEXT,backend_id TEXT,command_id TEXT)")
-        db.execute("CREATE TABLE backend_agent_commands (operation_id TEXT,backend_id TEXT,command_id TEXT,state TEXT)")
+        db.execute("CREATE TABLE backend_agent_commands (operation_id TEXT,backend_id TEXT,command_id TEXT,state TEXT,command_type TEXT)")
         db.execute("CREATE TABLE backend_agent_command_receipts (command_id TEXT)")
-        db.execute("CREATE TABLE backend_agent_command_results (command_id TEXT,result_category TEXT,verification_state TEXT,dispatch_state TEXT)")
-        db.execute("INSERT INTO mutation_operations VALUES (?,?,?,?)",
-                   ("secret-id","default","outcome_unknown","PRIVATE_RESOURCE_NAME"))
-        db.execute("INSERT INTO backend_agent_commands VALUES (?,?,?,?)",
-                   ("secret-id","default","private-command-id","SENSITIVE-COMMAND"))
-        db.execute("INSERT INTO backend_agent_command_results VALUES (?,?,?,?)",
-                   ("private-command-id","SENSITIVE-RESULT","SENSITIVE-VERIFY","SENSITIVE-DISPATCH"))
+        db.execute("CREATE TABLE backend_agent_command_results (command_id TEXT,result_category TEXT,verification_state TEXT,dispatch_state TEXT,error_category TEXT)")
+        db.execute("INSERT INTO mutation_operations VALUES (?,?,?,?,?)",
+                   ("secret-id","default","outcome_unknown","PRIVATE_RESOURCE_NAME","SECRET_ACTION"))
+        db.execute("INSERT INTO backend_agent_commands VALUES (?,?,?,?,?)",
+                   ("secret-id","default","private-command-id","SENSITIVE-COMMAND","SECRET_COMMAND_TYPE"))
+        db.execute("INSERT INTO backend_agent_command_results VALUES (?,?,?,?,?)",
+                   ("private-command-id","SENSITIVE-RESULT","SENSITIVE-VERIFY","SENSITIVE-DISPATCH","SECRET_ERROR"))
         capture=io.StringIO()
         with redirect_stdout(capture):
             values=inspect(db)
         output=capture.getvalue()
         self.assertEqual(values["OUTCOME_UNKNOWN_OPERATIONS"],1)
         self.assertIn("CHAIN resource=other command=other dispatch=other verification=other result=other",output)
-        for secret in ("secret-id","private-command-id","PRIVATE_RESOURCE_NAME","SENSITIVE-"):
+        for secret in ("secret-id","private-command-id","PRIVATE_RESOURCE_NAME","SENSITIVE-","SECRET_ACTION","SECRET_COMMAND_TYPE","SECRET_ERROR"):
             self.assertNotIn(secret,output)
         db.close()
 

@@ -15,12 +15,12 @@ import time
 from inspect_device_auth_audit import AuditBlocked, daemon_database_path, open_ro
 
 REQUIRED = {
-    "mutation_operations": ("operation_id","backend_id","state","resource_type"),
+    "mutation_operations": ("operation_id","backend_id","state","resource_type","action_family"),
     "backend_agent_command_reservations": ("operation_id","backend_id","command_id"),
-    "backend_agent_commands": ("operation_id","backend_id","command_id","state"),
+    "backend_agent_commands": ("operation_id","backend_id","command_id","state","command_type"),
     "backend_agent_command_receipts": ("command_id",),
     "backend_agent_command_results": (
-        "command_id","result_category","verification_state","dispatch_state"),
+        "command_id","result_category","verification_state","dispatch_state","error_category"),
 }
 BUDGET=6.0
 RESOURCES=("TimerAssignment","NativeTimerBinding","SearchTimer")
@@ -28,6 +28,18 @@ COMMAND_STATES=("assigned","received","completed","expired","waiting_reconciliat
 DISPATCH_STATES=("not_started","starting","accepted_by_executor","effect_reported")
 VERIFY_STATES=("verified","outcome_unknown")
 RESULT_STATES=("rejected","outcome_unknown","succeeded")
+ACTION_FAMILIES=(
+    "timer.create","timer.update","timer.toggle","timer.delete",
+    "searchtimer.create",
+    "searchtimer.native-cas.update","searchtimer.native-cas.activate",
+    "searchtimer.native-cas.deactivate","searchtimer.native-cas.delete",
+)
+COMMAND_TYPES=(
+    "timer.create","timer.update","timer.toggle","timer.delete",
+    "vdr.timer.create","vdr.timer.update","vdr.timer.modify",
+    "vdr.timer.toggle","vdr.timer.delete",
+)
+ERROR_CATEGORIES=("none","fenced","expired","unsupported","executor_unknown")
 
 
 def safe_class(label, known, *, absent):
@@ -126,6 +138,26 @@ def inspect(conn, backend="default"):
                 WHEN x.result_category IN
                     ('rejected','outcome_unknown','succeeded')
                   THEN x.result_category ELSE 'other' END,
+              CASE
+                WHEN o.action_family IN
+                   ('timer.create','timer.update','timer.toggle','timer.delete',
+                    'searchtimer.create','searchtimer.native-cas.update',
+                    'searchtimer.native-cas.activate',
+                    'searchtimer.native-cas.deactivate',
+                    'searchtimer.native-cas.delete')
+                THEN o.action_family ELSE 'other' END,
+              CASE
+                WHEN c.command_id IS NULL THEN 'no_command'
+                WHEN c.command_type IN
+                   ('timer.create','timer.update','timer.toggle','timer.delete',
+                    'vdr.timer.create','vdr.timer.update','vdr.timer.modify',
+                    'vdr.timer.toggle','vdr.timer.delete')
+                THEN c.command_type ELSE 'other' END,
+              CASE
+                WHEN x.command_id IS NULL THEN 'no_result'
+                WHEN x.error_category IN
+                   ('none','fenced','expired','unsupported','executor_unknown')
+                THEN x.error_category ELSE 'other' END,
               COUNT(DISTINCT o.operation_id)
             FROM mutation_operations o
             LEFT JOIN backend_agent_commands c
@@ -133,10 +165,10 @@ def inspect(conn, backend="default"):
             LEFT JOIN backend_agent_command_results x
               ON x.command_id=c.command_id
             WHERE o.backend_id=? AND o.state='outcome_unknown'
-            GROUP BY 1,2,3,4,5 ORDER BY 1,2,3,4,5
+            GROUP BY 1,2,3,4,5,6,7,8 ORDER BY 1,2,3,4,5,6,7,8
         """,(backend,)))
         if (len(groups)>int(results[0])*10+1 or any(
-              len(row)!=6 or not isinstance(row[5],int) or row[5]<0
+              len(row)!=9 or not isinstance(row[8],int) or row[8]<0
               for row in groups)):
             raise AuditBlocked("invalid bounded command group evidence")
     except sqlite3.Error as error:
@@ -159,7 +191,7 @@ def inspect(conn, backend="default"):
     for name,value in zip(names,results):
         print(name+":",value)
     print("=== OUTCOME_UNKNOWN_COMMAND_CHAIN_BY_RESOURCE ===")
-    for resource, command, dispatch, verification, result, count in groups:
+    for resource, command, dispatch, verification, result, action, cmd_type, error, count in groups:
         # SQL CASE values are hardcoded above, but retain a second check
         # against unexpected types/source differences before publication.
         fields=(
@@ -172,8 +204,13 @@ def inspect(conn, backend="default"):
               if verification!="no_result" else "no_result",
             safe_class(result,RESULT_STATES,absent="no_result")
               if result!="no_result" else "no_result",
+            safe_class(action,ACTION_FAMILIES,absent="other"),
+            safe_class(cmd_type,COMMAND_TYPES,absent="no_command")
+              if cmd_type!="no_command" else "no_command",
+            safe_class(error,ERROR_CATEGORIES,absent="no_result")
+              if error!="no_result" else "no_result",
         )
-        print("CHAIN resource={} command={} dispatch={} verification={} result={} operation_count={}".format(*fields,count))
+        print("CHAIN resource={} command={} dispatch={} verification={} result={} action={} command_type={} error={} operation_count={}".format(*fields,count))
     print("CHAIN_GROUP_COUNTS_MAY_OVERLAP_IF_MULTIPLE_COMMANDS: TRUE")
     print("COUNT_UNIT: DISTINCT_OPERATION")
     print("MISSING_COMMAND_EVIDENCE_IS_NOT_PROOF_OF_NO_DISPATCH: TRUE")
