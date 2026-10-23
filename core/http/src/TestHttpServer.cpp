@@ -1892,7 +1892,7 @@ HttpServerResponse TestHttpServer::handleRequest(
             apiResponse = addonActivationLookup_
                 ? addonActivationLookup_(gate.context, request.path)
                 : ApiResponse{503, "application/json",
-                      "{\"error\":\"addon_activation_unavailable\"}"};
+                      "{\"error\":\"addon_activation_unavailable\"}", {}};
         }
         else if (pathWithoutQuery(request.path).rfind(
                 "/api/v1/recording-playback-sessions", 0) == 0)
@@ -1929,7 +1929,7 @@ HttpServerResponse TestHttpServer::handleRequest(
             apiResponse = addonActivationMutation_
                 ? addonActivationMutation_(gate.context, request.body)
                 : ApiResponse{503, "application/json",
-                      "{\"error\":\"addon_activation_unavailable\"}"};
+                      "{\"error\":\"addon_activation_unavailable\"}", {}};
         }
         else if (pathWithoutQuery(request.path).rfind(
                 "/api/v1/recording-playback-sessions", 0) == 0)

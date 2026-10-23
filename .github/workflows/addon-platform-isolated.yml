@@ -106,6 +106,10 @@ jobs:
           make build-addon-root-approval-test
           make test-addon-core-approval-daemon-compile
           make test-phase69f-public-backend-collection
+          export TMPDIR="$RUNNER_TEMP"
+          make test-addon-activation-intent
+          make test-addon-administration-service
+          make test-addon-activation-catalog
           sudo env TMPDIR=/root "$(pwd)/.build/addons/test_addon_root_approval"
           sudo env TMPDIR=/root PYTHONDONTWRITEBYTECODE=1 \
             python3 -m unittest discover -s tools/addons \
