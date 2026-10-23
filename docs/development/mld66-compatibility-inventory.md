@@ -72,6 +72,10 @@ Request **no** credential files, session tokens, database backups, unrestricted 
 5. Define native service units/init hooks with explicit least-privilege users, persistent data and secret policy; do not reuse the Ubuntu Agent `User=vdr` or implicit-root daemon service blindly.
 6. Only then build one target image, check VDR ABI/linkage and run read-only capability/RESTfulAPI tests. Controlled mutations, clean upgrade and public API tests remain MLD.1C/D gates.
 
+## Additional controlled-test distinction and package crash boundary
+
+The maintainer subsequently measured `recordings.html?start=0&limit=1` twice at HTTP 200 (0.012861s, 0.001116s). The failing `recordings.json` query was unbounded; **different pagination means JSON metadata overhead is not yet isolated**. Check a *single*, timed `recordings.json?start=0&limit=1` only if the VDR stays stable. The reported VDR restarts only appear when the full VDR-Suite is installed; SuiteBridge-only runs without them at present. Package hooks, unit/service activation and later daemon/plugin interaction are not yet distinguished. No root cause or SuiteBridge blame is established. [Exact evidence](mld66-pit-vpath-http-crash-evidence-20261023.md).
+
 ## Updated RESTfulAPI runtime facts (2026-10-23)
 
 The MLD maintainer supplied exact declared RESTfulAPI `SRCREV=79f9bd26370a08d6c5186c19cefa300c569045ea` from `yavdr/vdr-plugin-restfulapi` `master`; the pinned-source ambiguity is resolved, but installed ELF and patch provenance remains open. Full `/recordings.json` failed after **30.002754 seconds** without response bytes, whereas `/info.json` returned HTTP 200 in **0.001798 seconds**. The provider is responsive on a simple endpoint; full recording read remains blocked. Exact source analysis points to shared VDR recording read lock, per-recording metadata/scraper and filesystem work, and delayed JSON serialization. See [latest evidence](mld66-pit-vpath-http-crash-evidence-20261023.md). Do not globally raise Suite's HTTP timeout to hide this.
