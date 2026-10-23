@@ -380,8 +380,20 @@ void verifyLateVerifiedRejectionAfterEvidenceFreeQuarantine(
     uncertain.dispatchStartedAt = 610;
     assert(dispatch.applyOutcome(claimed.claim, uncertain).status ==
         NativeTimerModifyDispatchOutcomeStatus::operationStateConflict);
-    assert(operations.findById(operation.operationId).operation.state ==
-        MutationOperationState::outcomeUnknown);
+    const auto stillUnknown = operations.findById(operation.operationId);
+    assert(stillUnknown.ok());
+    assert(stillUnknown.operation.state == MutationOperationState::outcomeUnknown);
+    assert(stillUnknown.operation.operationRevision ==
+        quarantined.operation.operationRevision);
+    assert(stillUnknown.operation.resultReference ==
+        "native-timer-modify:missing-result-evidence");
+
+    // Even a typed rejection cannot close an unknown attempt if the Agent
+    // indicates that native dispatch might have started.
+    auto startedRejection = rejected;
+    startedRejection.dispatchStartedAt = 610;
+    assert(dispatch.applyOutcome(claimed.claim, startedRejection).status ==
+        NativeTimerModifyDispatchOutcomeStatus::invalid);
 
     const auto resolved = dispatch.applyOutcome(claimed.claim, rejected);
     assert(resolved.status == NativeTimerModifyDispatchOutcomeStatus::applied);
