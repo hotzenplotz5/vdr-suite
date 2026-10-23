@@ -124,7 +124,9 @@ int main() {
     changed.command.payloadVersion = 2;
     assert(changed.inspect() == Status::invalidAssignment);
     changed = f;
-    changed.payload.payloadFingerprint = "different";
+    changed.payload.payloadFingerprint = "another_immutable_payload_fingerprint";
+    assert(changed.inspect() == Status::candidateOnly);
+    changed.payload.payloadFingerprint.clear();
     assert(changed.inspect() == Status::payloadMismatch);
 
     assert(vdrsuite::mediatools::validShrinkReviewEvidence(
