@@ -595,6 +595,7 @@ test-media-tools-effective-authorization:
 		$(AGENT_COMMAND_JSON_SRC) \
 		$(AGENT_COMMAND_CLIENT_SRC) \
 		core/agent/src/BackendAgentMediaImportAuthorization.cpp \
+		core/agent/src/BackendAgentMediaShrinkAuthorization.cpp \
 		core/agent/tests/test_backend_agent_media_import_authorization.cpp \
 		-lcrypto -o "$(BUILD_DIR)/addons/test_backend_agent_media_import_authorization"
 	"$(BUILD_DIR)/addons/test_backend_agent_media_import_authorization"
