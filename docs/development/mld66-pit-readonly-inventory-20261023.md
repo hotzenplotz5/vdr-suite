@@ -16,9 +16,9 @@
 | Suite HTTP port `18080` | No listener reported | Expected if the Suite daemon has **not yet been installed**; not a defect in the Suite daemon |
 | RESTfulAPI HTTP `8002` | `LISTEN 0.0.0.0:8002` | **Network policy/security gate OPEN:** bound to every IPv4 interface; network reachability may still depend on firewall. Private RESTfulAPI includes write routes and must not be treated as an authenticated Suite API |
 | SVDRP `6419` | `LISTEN 0.0.0.0:6419` | **Network ACL review OPEN:** VDR SVDRP access must be checked against `svdrphosts.conf`/network filters; listener alone does not imply remote command authorization |
-| RESTfulAPI recordings | `GET http://127.0.0.1:8002/recordings.json` timed out after 5002 ms, no bytes | **Open functional blocker** for Suite's recording provider. Persists after Pit updated RESTfulAPI git revision (version label unchanged) |
+| RESTfulAPI recordings | Initial 5s timeout, later **30.002754s with 0 bytes / HTTP 000** | **Open functional blocker** for Suite's recording provider; `/info.json` independently returned 200 in 0.001798s |
 | RESTfulAPI change-state | Earlier `GET /change-state.json` returned 404; no post-update probe reported | Remains **UNVERIFIED after plugin update**, not automatically fixed by same-version newer git |
-| RESTfulAPI exact revision | Pit says new git revision installed, version still `0.2.6.6` | Need immutable new RESTfulAPI `SRCREV` and recipe provenance to assess fixes |
+| RESTfulAPI exact revision | Declared recipe `SRCREV=79f9bd26370a08d6c5186c19cefa300c569045ea`, source `yavdr/vdr-plugin-restfulapi` `master` | Source revision identified; effective binary/patch provenance still open |
 
 ## Source-grounded constraints
 
@@ -45,6 +45,6 @@ Pit now confirms RESTfulAPI `SRC_URI` points to `yavdr/vdr-plugin-restfulapi` `m
 
 ## Acceptance status
 
-**MLD.1A** runtime inventory and SuiteBridge read-only `CAPS` response: **reported PASS**. **MLD.1B** standalone native Suite build/install: **NOT TESTED**. RESTfulAPI recording reads: **FAIL at 5s**. `/change-state` after update: **OPEN**. Native write acceptance, FFmpeg-backed features, network isolation and independent non-root Suite services: **OPEN**.
+**MLD.1A** runtime inventory and SuiteBridge read-only `CAPS` and `VPATH 1` responses: **reported PASS**. **MLD.1B** standalone native Suite build/install: **NOT TESTED**. RESTfulAPI recording reads: **FAIL at 30s**. `/change-state` after update: **OPEN**. Native write acceptance, FFmpeg-backed features, network isolation and independent non-root Suite services: **OPEN**.
 
 Keep the user's productive yaVDR server untouched and maintain the authorized MLD branch in isolation.
