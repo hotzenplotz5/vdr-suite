@@ -286,6 +286,46 @@ void copySubtitles(const ShrinkPlan& plan, const fs::path& destination) {
     }
 }
 
+void requireMatchingSidecar(const fs::path& original, const fs::path& staged) {
+    Descriptor left(::open(original.c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
+    Descriptor right(::open(staged.c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
+    struct stat a{}, b{}, afterA{}, afterB{};
+    demand(left.fd >= 0 && right.fd >= 0 &&
+           ::fstat(left.fd, &a) == 0 && ::fstat(right.fd, &b) == 0 &&
+           S_ISREG(a.st_mode) && S_ISREG(b.st_mode) &&
+           a.st_size > 0 && a.st_size == b.st_size &&
+           a.st_size <= 8 * 1024 * 1024,
+           "shrink candidate sidecar is missing or changed");
+    std::array<char, 4096> source{}, candidate{};
+    std::uint64_t offset = 0;
+    while (offset < static_cast<std::uint64_t>(a.st_size)) {
+        const auto size = static_cast<std::size_t>(
+            std::min<std::uint64_t>(source.size(),
+                static_cast<std::uint64_t>(a.st_size) - offset));
+        const ssize_t n = ::pread(left.fd, source.data(), size,
+                                  static_cast<off_t>(offset));
+        const ssize_t m = ::pread(right.fd, candidate.data(), size,
+                                  static_cast<off_t>(offset));
+        demand(n == static_cast<ssize_t>(size) &&
+               m == static_cast<ssize_t>(size) &&
+               std::equal(source.begin(), source.begin() + size,
+                          candidate.begin()),
+               "shrink candidate sidecar differs from original");
+        offset += size;
+    }
+    demand(::fstat(left.fd, &afterA) == 0 &&
+           ::fstat(right.fd, &afterB) == 0 &&
+           a.st_dev == afterA.st_dev && a.st_ino == afterA.st_ino &&
+           a.st_size == afterA.st_size &&
+           a.st_mtim.tv_sec == afterA.st_mtim.tv_sec &&
+           a.st_mtim.tv_nsec == afterA.st_mtim.tv_nsec &&
+           b.st_dev == afterB.st_dev && b.st_ino == afterB.st_ino &&
+           b.st_size == afterB.st_size &&
+           b.st_mtim.tv_sec == afterB.st_mtim.tv_sec &&
+           b.st_mtim.tv_nsec == afterB.st_mtim.tv_nsec,
+           "shrink sidecar changed during publication verification");
+}
+
 std::string signature(const ShrinkPlan& plan) {
     std::ostringstream raw;
     raw << plan.videoRoot << '\n' << plan.relativeRecording << '\n'
@@ -563,6 +603,12 @@ fs::path publishShrinkCandidate(const ShrinkPlan& plan,
     const auto subtitleFiles = subtitleNames(checked);
     expectedFiles.insert(expectedFiles.end(),
                          subtitleFiles.begin(), subtitleFiles.end());
+    // Reject modifications to previously staged metadata/subtitles before
+    // exposing a new recording. The original files remain read-only.
+    const auto originalSidecars = checked.videoRoot / checked.relativeRecording;
+    requireMatchingSidecar(originalSidecars / "info", candidate / "info");
+    for (const auto& name : subtitleFiles)
+        requireMatchingSidecar(originalSidecars / name, candidate / name);
     std::size_t seen = 0;
     for (const auto& entry : fs::directory_iterator(candidate)) {
         const auto filename = entry.path().filename().string();
