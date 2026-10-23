@@ -189,7 +189,7 @@ MediaShrinkAdmissionResult MediaShrinkOperationAdmissionService::stage(
     if (requestFingerprint.size() > 512) return out(Status::invalid);
     const auto proposed = newOperation(
         req.actorId, req.backendId, req.idempotencyKey, generation,
-        "Recording", req.recordingId, "media.shrink.stage", "",
+        "Recording", req.recordingId, "media.shrink.stage", "source-v1",
         req.sourceFingerprint, requestFingerprint,
         MutationOperationVerificationPolicy::readbackRequired, req.now);
     if (!mutationOperationIdCanonical(proposed.operationId))
