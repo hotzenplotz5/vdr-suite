@@ -54,6 +54,8 @@ struct Fixture {
 struct FakeProcess final : ProcessRunner {
     bool rejectHardware = false, failEncode = false, failIndex = false;
     bool badDuration = false, badHeight = false;
+    bool discontinuousSourceTimestamps = false;
+    bool divergingLiveSourceDuration = false;
     bool incompatibleAudio = false;
     int hardwareCalls = 0, softwareCalls = 0;
     int indexes = 0;
@@ -73,6 +75,13 @@ struct FakeProcess final : ProcessRunner {
                 return {0, isOutput ? "hevc\nhevc\n" : "h264\nh264\n"};
             }
             if (contains("format=duration")) {
+                // The read-only concat: URL must represent the same TS
+                // byte stream probed in the private Stage snapshot.
+                if (args.back().rfind("concat:", 0) == 0) {
+                    assert(args.back().find("00001.ts|") != std::string::npos);
+                    assert(args.back().find("00002.ts") != std::string::npos);
+                    return {0, divergingLiveSourceDuration ? "17.0\n" : "60.0\n"};
+                }
                 if (isOutput && badDuration) return {0, "10.0\n"};
                 const fs::path inspected(args.back());
                 // Multiple VDR segments each describe part of the 60-second
@@ -80,9 +89,9 @@ struct FakeProcess final : ProcessRunner {
                 if (inspected.filename() == "00001.ts" &&
                     !isOutput &&
                     fs::exists(inspected.parent_path() / "00002.ts"))
-                    return {0, "30.0\n"};
+                    return {0, discontinuousSourceTimestamps ? "45.0\n" : "30.0\n"};
                 if (inspected.filename() == "00002.ts")
-                    return {0, "30.0\n"};
+                    return {0, discontinuousSourceTimestamps ? "45.0\n" : "30.0\n"};
                 return {0, "60.0\n"};
             }
             if (contains("stream=height"))
@@ -515,6 +524,44 @@ int main() {
         runner.badDuration = true;
         reject([&] { publishShrinkCandidate(plan, candidate, runner); });
         assert(fs::exists(fixture.recording / "00001.ts") &&
+               fs::exists(fixture.recording / "00002.ts") &&
+               !fs::exists(fixture.video / "Sample_HEVC"));
+        ++checks;
+    }
+
+    {
+        Fixture fixture;
+        std::ofstream(fixture.recording / "00002.ts", std::ios::binary)
+            << std::string(32768, 'X');
+        const auto plan = inspectShrink(fixture.video, fixture.relative());
+        FakeProcess runner;
+        runner.discontinuousSourceTimestamps = true;
+        const auto candidate = stageShrink(plan, runner,
+            [](const ShrinkPlan&) {});
+        // 45+45 != 60 seconds; addition of segment durations would deny
+        // this candidate despite the complete read-only source probe.
+        assert(verifyShrinkCandidate(plan, candidate, runner) > 0);
+        const auto published = publishShrinkCandidate(plan, candidate, runner);
+        assert(fs::exists(published / "00001.ts") &&
+               fs::exists(fixture.recording / "00001.ts") &&
+               fs::exists(fixture.recording / "00002.ts"));
+        ++checks;
+    }
+    {
+        Fixture fixture;
+        std::ofstream(fixture.recording / "00002.ts", std::ios::binary)
+            << std::string(32768, 'X');
+        const auto plan = inspectShrink(fixture.video, fixture.relative());
+        FakeProcess runner;
+        const auto candidate = stageShrink(plan, runner,
+            [](const ShrinkPlan&) {});
+        // The live concatenated source and staged marker now disagree.
+        // Both review and publish must deny without changing originals.
+        runner.divergingLiveSourceDuration = true;
+        reject([&] { verifyShrinkCandidate(plan, candidate, runner); });
+        reject([&] { publishShrinkCandidate(plan, candidate, runner); });
+        assert(fs::exists(candidate / "00001.ts") &&
+               fs::exists(fixture.recording / "00001.ts") &&
                fs::exists(fixture.recording / "00002.ts") &&
                !fs::exists(fixture.video / "Sample_HEVC"));
         ++checks;
