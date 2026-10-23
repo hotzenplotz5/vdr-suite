@@ -84,6 +84,19 @@ Alle Kästchen dieses Abschnitts müssen vor dem ersten realen VDR-Mutationstest
 - [ ] Alle Pflichtfälle und CI für den **exakten** End-HEAD sind grün; offene Einschränkungen werden als explizite Release-Blocker oder bewusst ausgeschlossen dokumentiert.
 - [ ] Abschlussprotokoll mit Entscheidung: **Freigabe** / **Blockiert**, verantwortlicher Review und Datum. Erst dann PR-Review/Merge/Release gemäß ausdrücklicher Freigabe.
 
+## Vorläufige reale yaVDR-Teilnachweise – keine Endabnahme (23.10.2026)
+
+Diese Tabelle dokumentiert bereits vorhandene **produktive Read-only-Evidenz**, ohne die offene Endabnahme-Matrix unten vorzeitig abzuhaken. **Die Phase 0-/Mutation-/TV-Voraussetzungen bleiben offen.** Eine historische Autorisierungsentscheidung und ein gegenwärtiger fachlicher API-Lese-PASS sind unterschiedliche Ebenen.
+
+| Ebene | Exakte Herkunft | Ergebnis | Was dadurch *nicht* nachgewiesen ist |
+| --- | --- | --- | --- |
+| REAL-VDR / Human-Browser-GET | Installierter Daemon `git-68f6d05f0ed6`, Admin-Session Login `vdr-suite`, Backend `default`, Runner `08a651e63e4ba8672793c673c81f5597a416197a`, 23.10.2026 16:39–16:40 UTC | **30 PASS / 0 FAIL / 7 SKIP / 17 BLOCKED**, INCOMPLETE; Discovery, EPG, Recording-GET und Artwork-Binary real ausgeführt | Sämtliche 17 BLOCKED- und 7 SKIP-Fälle, kontrollierte Mutationen, Device-MediaSession-/TV-Ende-zu-Ende, finale Candidate-Identität |
+| REAL-VDR / historisches Device-SecurityGate | Sieben-Tage-Accountability-Audit auf der echten yaVDR-SQLite; `Hisense VIDAA TV` mit verifiziertem Service-Actor, Backend `default`, letztes `authorization.allowed` **2026-10-21T22:21:09Z** | Historische `allowed`-Entscheidungen: `channels.view` ≥35, `epg.view` ≥87, `recordings.view` ≥236, `timers.view` ≥23, `searchtimers.view` ≥14, `media.live.play` ≥19, `media.recording.play` ≥31. **Untergrenzen:** vorheriger Collector las nur die letzten 500 Device-Events und meldete `AUDIT_WINDOW=PARTIAL`. | HTTP-Rückgabecode, VDR-Readback, realer Stream, Bild/Ton, gespeicherter Resume, derzeit verfügbare TV-Verbindung oder der exakte Daemon-Build zum historischen Zeitpunkt |
+| REAL-VDR / historisches Timer-Device-SecurityGate | Gleiches Audit, vorhandenes aktives `yaVDR Timer Hardwaretest`, Backend `default`, letztes `allowed` **2026-10-20T13:38:58Z** | `epg.view=16`, `timers.view=35` erlaubte historische Gate-Ereignisse, kein Partial-Hinweis | Timer-/Operation-Abschluss oder schreibende Pfade |
+| CI / Audit-Helfer | PR #526, Commit `eea2cbe7029751b04e669078c9e29d3c48612bfb`, [Runner-CI #39994128018](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39994128018) | 41 Python-Tests PASS; verbesserte Audit-Abfrage aggregiert über das gesamte noch erhaltene UTC-Zeitfenster (SQL `COUNT`, 6-Sekunden-Query-Limit). Kein Gerät muss dafür eingeschaltet sein. | Neuer REAL-VDR-Nachweis des erweiterten sieben-Tage-Zählers; installierte Produktänderung; vollumfängliche API-v1-Endabnahme |
+
+**Abhängigkeit ohne TV-Zugriff:** Für einen weiteren vollständigen Device-Ende-zu-Ende-Lauf fehlen im yaVDR-Runner ein ausdrücklich ausgewähltes vorhandenes Device-Credential bzw. ein aktuell ausführender Device-Client sowie für Playback/Resume autorisierte Test-Sessions/Medien und deren Readback. Der lokale SQLite-Audit kann ausschließlich Gate-Evidenz belegen und darf diese Blocker **nicht** als PASS markieren. Aktuell sind keine neuen Accounts, Geräte, Grants, Credential-Rotationen, Daemon-Installationen oder Produktiv-Mutationen genehmigt bzw. durchgeführt. Die ursprüngliche historische Hisense-Auswertung soll nur einmal mit dem korrigierten Collector vollständig nachgelesen werden; der gesamte Hardware-Runner muss deswegen nicht erneut laufen.
+
 ## Eine zentrale Ergebnis-Matrix – erst am Tag der Endabnahme ausfüllen
 
 | Bereich | Implementierung vorhanden | Exakte Source-CI | Realer VDR | Entscheidung / Beleg |
