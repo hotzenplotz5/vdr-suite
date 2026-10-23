@@ -172,7 +172,10 @@ std::string securityDatabasePath()
 
 }
 
-TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
+TestHttpServer::TestHttpServer(
+    ApiRouter& apiRouter,
+    HumanAccountGrantAdministrationService::AddonGrantEligibility
+        addonGrantEligibility)
     : apiRouter_(apiRouter),
       securityDatabase_(std::make_unique<Database>())
 {
@@ -407,7 +410,8 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             *securityIdentityRepository_,
             *securityPermissionGrantRepository_,
             *humanAccountAdministrationRepository_,
-            *accountabilityEventRepository_);
+            *accountabilityEventRepository_,
+            {}, {}, std::move(addonGrantEligibility));
 
     deviceGrantAdministrationService_ =
         std::make_unique<DeviceGrantAdministrationService>(
