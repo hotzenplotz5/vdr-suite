@@ -169,6 +169,16 @@ source identity, the staged metadata/subtitle bytes and retained HEVC
 space savings before an atomic no-replace rename. The review/publish binaries remain outside
 the standard daemon and Agent mutation/API composition.
 
+The new `MediaShrinkOperationSelection.h` is a **non-executing**
+path-free request shape for the eventual Core/API-v1 bridge. It only
+checks opaque `rec_...` recording IDs, `shk_...` review IDs and supported
+options; it neither resolves identifiers nor grants permissions, creates
+candidates or enables a route. Core must independently bind a candidate
+to the actor/backend/source operation, persist its lifecycle and require
+separate authorization for staging and publication. Browser filesystem
+paths remain forbidden. Its invalid-shape regressions run in the existing
+`test-addon-media-shrink` target. No new media mutation is exposed.
+
 ### Administrator-opted unattended imports (source integration)
 
 The **existing daemon event loop** can now evaluate a single backend's
