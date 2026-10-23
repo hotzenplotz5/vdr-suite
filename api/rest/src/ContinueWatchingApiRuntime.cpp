@@ -783,6 +783,38 @@ bool ContinueWatchingApiRuntime::tryHandlePost(
         return true;
     }
 
+    // P1 Browser CAS handshake: reveal only the current actor's revision
+    // for the exact existing internal Recording. The native key never leaves
+    // Suite. A zero-position tombstone must remain observable so stale
+    // checkpoints cannot resurrect it.
+    if (operation == "revision") {
+        const std::string requestedId=parser.stringValue("recordingId");
+        if (requestedId.empty() || requestedId.size()>512U) {
+            response=errorResponse(400,"continue_watching_recording_required");
+            return true;
+        }
+        const auto current=recordings_->findAllForBackend(backendId);
+        const VdrRecording* recording=findRecording(current,backendId,requestedId);
+        if (!recording || recording->backendNativeId.empty()) {
+            response=errorResponse(404,"continue_watching_recording_not_found");
+            return true;
+        }
+        const auto states=repository_->findForActorBackend(actorRef,backendId);
+        std::int64_t revision=0;
+        for (const auto& state:states) {
+            if (state.backendNativeId==recording->backendNativeId &&
+                state.revision>0) {
+                revision=state.revision;
+                break;
+            }
+        }
+        response.statusCode=200;
+        response.contentType="application/json";
+        response.headers["Cache-Control"]="no-store";
+        response.body="{\"revision\":"+std::to_string(revision)+"}";
+        return true;
+    }
+
     if (operation == "list") {
         const auto items = service_->list(actorRef, backendId);
         const auto currentRecordings = recordings_->findAllForBackend(backendId);
