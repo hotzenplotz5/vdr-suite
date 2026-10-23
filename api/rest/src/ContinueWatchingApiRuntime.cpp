@@ -80,7 +80,9 @@ public:
                 if (position_ >= text_.size() || !std::isdigit(static_cast<unsigned char>(text_[position_]))) return false;
                 long long value = 0;
                 while (position_ < text_.size() && std::isdigit(static_cast<unsigned char>(text_[position_]))) {
-                    value = value * 10 + (text_[position_] - '0'); ++position_;
+                    const int digit = text_[position_] - '0';
+                    if (value > (LLONG_MAX - digit) / 10) return false;
+                    value = value * 10 + digit; ++position_;
                 }
                 if (!numbers_.emplace(key, negative ? -value : value).second) return false;
             }
@@ -90,6 +92,17 @@ public:
             skip();
         }
         return false;
+    }
+
+    bool exactPublicProgressFields() const
+    {
+        return strings_.size() == 3U && numbers_.size() == 2U &&
+            bools_.empty() &&
+            strings_.count("backendId") == 1U &&
+            strings_.count("recordingId") == 1U &&
+            strings_.count("operationId") == 1U &&
+            numbers_.count("positionSeconds") == 1U &&
+            numbers_.count("expectedRevision") == 1U;
     }
 
     std::string stringValue(const std::string& key) const
@@ -531,6 +544,135 @@ void ContinueWatchingApiRuntime::reset()
     service_.reset();
     repository_.reset();
     recordings_ = nullptr;
+}
+
+
+PublicRecordingProgressRequest ContinueWatchingApiRuntime::parsePublicProgressRequest(
+    const std::string& body)
+{
+    PublicRecordingProgressRequest result;
+    if (body.size() > 2048U) return result;
+    Parser parser(body);
+    if (!parser.parse() || !parser.exactPublicProgressFields()) return result;
+    result.backendId = parser.stringValue("backendId");
+    result.recordingId = parser.stringValue("recordingId");
+    result.operationId = parser.stringValue("operationId");
+    const long long position = parser.numberValue("positionSeconds", -1);
+    const long long revision = parser.numberValue("expectedRevision", -1);
+    if (result.backendId.empty() || result.recordingId.empty() ||
+        result.operationId.empty() || result.operationId.size() > 128U ||
+        position < 0 || position > INT_MAX || revision < 0)
+        return result;
+    for (unsigned char ch : result.operationId) {
+        if (ch < 0x21U || ch > 0x7eU) return result;
+    }
+    result.positionSeconds = static_cast<int>(position);
+    result.expectedRevision = revision;
+    result.valid = true;
+    return result;
+}
+
+ApiResponse ContinueWatchingApiRuntime::publicProgressGet(
+    const std::string& actorId,
+    const VdrRecording& admittedRecording,
+    const std::string& publicRecordingId) const
+{
+    if (actorId.empty() || admittedRecording.id.empty() ||
+        admittedRecording.backendNativeId.empty() ||
+        publicRecordingId.rfind("rec_", 0) != 0)
+        return errorResponse(400, "recording_progress_invalid_scope");
+    const std::string backendId = admittedRecording.backendId.empty()
+        ? "default" : admittedRecording.backendId;
+
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!repository_) return errorResponse(503, "recording_progress_unavailable");
+    const auto states = repository_->findForActorBackend(actorId, backendId);
+    std::int64_t revision = 0;
+    int position = 0;
+    for (const auto& state : states) {
+        if (state.recordingId == admittedRecording.id &&
+            state.backendNativeId == admittedRecording.backendNativeId) {
+            revision = state.revision;
+            position = state.positionSeconds;
+            break;
+        }
+    }
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.headers["Cache-Control"] = "no-store";
+    response.headers["X-Content-Type-Options"] = "nosniff";
+    response.body = "{\"backendId\":\"" + jsonEscape(backendId) +
+        "\",\"recordingId\":\"" + jsonEscape(publicRecordingId) +
+        "\",\"hasProgress\":" + (position > 0 ? "true" : "false") +
+        ",\"positionSeconds\":" + std::to_string(position) +
+        ",\"revision\":" + std::to_string(revision) +
+        ",\"durationSeconds\":";
+    if (admittedRecording.recordingDurationKnown &&
+        admittedRecording.durationSeconds > 0)
+        response.body += std::to_string(admittedRecording.durationSeconds);
+    else response.body += "null";
+    // Actual start-at support belongs to the selected MediaSession profile.
+    response.body += ",\"resumeSupport\":\"profile_dependent\"}";
+    return response;
+}
+
+ApiResponse ContinueWatchingApiRuntime::publicProgressUpdate(
+    const std::string& actorId,
+    const VdrRecording& admittedRecording,
+    const std::string& publicRecordingId,
+    const PublicRecordingProgressRequest& request) const
+{
+    if (!request.valid || actorId.empty() ||
+        admittedRecording.id.empty() || admittedRecording.backendNativeId.empty() ||
+        publicRecordingId != request.recordingId ||
+        publicRecordingId.rfind("rec_", 0) != 0)
+        return errorResponse(400, "recording_progress_invalid_request");
+    const std::string backendId = admittedRecording.backendId.empty()
+        ? "default" : admittedRecording.backendId;
+    if (request.backendId != backendId)
+        return errorResponse(400, "recording_progress_backend_mismatch");
+
+    // A client reports the last *observed* playback position. Neither wall
+    // time nor an issued MediaSession is playback evidence. Exact completion
+    // clears Resume without inventing a near-end threshold.
+    int position = request.positionSeconds;
+    if (admittedRecording.recordingDurationKnown &&
+        admittedRecording.durationSeconds > 0 &&
+        position >= admittedRecording.durationSeconds)
+        position = 0;
+
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!repository_) return errorResponse(503, "recording_progress_unavailable");
+    const auto mutation = repository_->updateConditional(
+        actorId, backendId, admittedRecording.id,
+        admittedRecording.backendNativeId, position,
+        request.operationId, request.expectedRevision);
+    if (mutation.status == ContinueWatchingMutationStatus::conflict) {
+        ApiResponse response = errorResponse(409, "recording_progress_revision_conflict");
+        response.body = "{\"error\":{\"code\":\"recording_progress_revision_conflict\"},"
+            "\"currentRevision\":" + std::to_string(mutation.revision) + "}";
+        return response;
+    }
+    if (mutation.status == ContinueWatchingMutationStatus::invalid)
+        return errorResponse(400, "recording_progress_invalid_request");
+    if (mutation.status == ContinueWatchingMutationStatus::unavailable)
+        return errorResponse(503, "recording_progress_unavailable");
+
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.headers["Cache-Control"] = "no-store";
+    response.headers["X-Content-Type-Options"] = "nosniff";
+    response.body = "{\"backendId\":\"" + jsonEscape(backendId) +
+        "\",\"recordingId\":\"" + jsonEscape(publicRecordingId) +
+        "\",\"positionSeconds\":" + std::to_string(position) +
+        ",\"hasProgress\":" + (position > 0 ? "true" : "false") +
+        ",\"revision\":" + std::to_string(mutation.revision) +
+        ",\"replayed\":" +
+        (mutation.status == ContinueWatchingMutationStatus::replayed
+             ? "true" : "false") + "}";
+    return response;
 }
 
 bool ContinueWatchingApiRuntime::tryHandlePost(
