@@ -107,6 +107,13 @@ int main() {
     assert(links.read("device-tv").binding.revision==3);
     assert(!audit.listAll().empty());
 
+    // Administrator grant revocation between HTTP admission and the
+    // transaction is rechecked; no stale admin may relink this Device.
+    assert(grants.revokeGrant("actor-admin","devices.grants.modify","*"));
+    assert(links.set("actor-admin","device-tv","account-alice",3,
+        "revoked-admin").status==DevicePlaybackAccountStatus::invalid);
+    assert(links.read("device-tv").binding.revision==3);
+
     assert(identities.revokeDevice("device-tv"));
     assert(links.resolve(tv,"default").status==DevicePlaybackActorStatus::forbidden);
     assert(links.read("device-tv").status==DevicePlaybackAccountStatus::notFound);
