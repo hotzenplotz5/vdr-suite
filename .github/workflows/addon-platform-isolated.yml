@@ -101,6 +101,18 @@ jobs:
         run: |
           set -Eeuo pipefail
           echo "TESTED_SHA=$(git rev-parse HEAD)"
+          # Never ship an unparseable installer; negative provenance cases
+          # must stop before touching any package or installed service.
+          bash -n tools/addons/install_media_tools.sh
+          bash tools/addons/install_media_tools.sh --help
+          if bash tools/addons/install_media_tools.sh \
+              0000000000000000000000000000000000000000 \
+              aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+              default /tmp /tmp; then
+            echo "installer unexpectedly accepted a wrong checkout SHA" >&2
+            exit 1
+          fi
+          echo "MEDIA_TOOLS_INSTALLER_FAIL_CLOSED=PASS"
           make test-addon-media-import-catalog
           make test-addon-activation-http-payload
           make build-addon-root-approval-test
