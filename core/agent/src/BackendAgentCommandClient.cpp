@@ -20,6 +20,7 @@
 #include "ISuiteBridgeLegacyOsdInputTransport.h"
 #include "LegacyOsdInputDomain.h"
 #include "MediaToolsAgentExecutor.h"
+#include "MediaShrinkAgentExecutor.h"
 #include "MediaImportRecordingEvidence.h"
 
 #include <algorithm>
@@ -606,6 +607,22 @@ CommandAvailability availableCommands(
             }
             continue;
         }
+        if (type == vdrsuite::mediatools::kMediaShrinkStageCommandType ||
+            type == vdrsuite::mediatools::kMediaShrinkPublishCommandType)
+        {
+            // The shipped Agent has no HEVC executor. Config alone is not
+            // enough to publish either mutating command capability.
+            if (config.mediaShrinkExecutor)
+            {
+                try
+                {
+                    if (config.mediaShrinkExecutor->available(type))
+                        availability.commandTypes.push_back(type);
+                }
+                catch (...) {} // Fail closed on trust/provenance errors.
+            }
+            continue;
+        }
         // An add-on manifest or COMMAND_TYPES value cannot self-advertise
         // an unregistered executor. Reserve both namespaces until the
         // reviewed Backend-Agent handler is actually connected.
@@ -674,6 +691,11 @@ bool reconcileBackendAgentCommandState(
     }
     const bool mediaImportCommand = state.assignment.commandType ==
         vdrsuite::mediatools::kMediaImportCommandType;
+    const bool mediaShrinkCommand =
+        state.assignment.commandType ==
+            vdrsuite::mediatools::kMediaShrinkStageCommandType ||
+        state.assignment.commandType ==
+            vdrsuite::mediatools::kMediaShrinkPublishCommandType;
     const bool timerCreateCommand = state.assignment.commandType ==
         vdrsuite::agent::kBackendAgentNativeTimerCreateCommandType;
     const bool timerDeleteCommand = state.assignment.commandType ==
@@ -780,6 +802,76 @@ bool reconcileBackendAgentCommandState(
                     state.result.resultEvidence = evidence;
             }
             catch (...) {} // No readback proof, never report verification.
+        }
+        if (!persist(config.statePath, state, reason)) return false;
+        return sendResult(config, context, transport, state, reason);
+    }
+
+    if (mediaShrinkCommand && !state.resultPresent)
+    {
+        // A crash after the durable start fence may have left a candidate
+        // or a published recording. Never attempt this command a second time.
+        if (state.dispatchState != "not_started")
+        {
+            createResult(state, state.dispatchState, "outcome_unknown",
+                         "outcome_unknown", "executor_unknown", "reconcile_only",
+                         "HEVC worker recovered after start; reconcile only");
+            if (!persist(config.statePath, state, reason)) return false;
+            return sendResult(config, context, transport, state, reason);
+        }
+        if (!state.receiptAcknowledged &&
+            !sendReceipt(config, context, transport, state, reason))
+            return false;
+        if (state.assignment.deadline <= nowSeconds())
+        {
+            createResult(state, "not_started", "outcome_unknown", "rejected",
+                         "expired", "none", "HEVC command deadline expired");
+            if (!persist(config.statePath, state, reason)) return false;
+            return sendResult(config, context, transport, state, reason);
+        }
+        bool authorized = false;
+        try
+        {
+            authorized = config.mediaShrinkExecutor &&
+                config.mediaShrinkExecutor->available(state.assignment.commandType) &&
+                config.mediaShrinkExecutor->authorize(
+                    state.assignment, context.backendId, context.backendGeneration);
+        }
+        catch (...) { authorized = false; }
+        if (!authorized)
+        {
+            createResult(state, "not_started", "outcome_unknown", "rejected",
+                         "fenced", "none", "HEVC trust or grant unavailable");
+            if (!persist(config.statePath, state, reason)) return false;
+            return sendResult(config, context, transport, state, reason);
+        }
+
+        state.dispatchState = "starting";
+        if (!persist(config.statePath, state, reason)) return false;
+        auto outcome = vdrsuite::mediatools::MediaShrinkAgentOutcome::unknown;
+        try { outcome = config.mediaShrinkExecutor->execute(state.assignment); }
+        catch (...) {} // Unknown side effect; no blind retry.
+        if (outcome == vdrsuite::mediatools::MediaShrinkAgentOutcome::rejected)
+        {
+            createResult(state, "starting", "outcome_unknown", "rejected",
+                         "fenced", "none", "HEVC rejected without effect");
+        }
+        else
+        {
+            std::string evidence;
+            if (outcome == vdrsuite::mediatools::MediaShrinkAgentOutcome::submitted)
+            {
+                try { evidence = config.mediaShrinkExecutor->takeReviewId(); }
+                catch (...) {}
+            }
+            const bool reviewBound = vdrsuite::mediatools::validShrinkReviewEvidence(
+                state.assignment, evidence);
+            createResult(state, reviewBound ? "accepted_by_executor" : "starting",
+                         "outcome_unknown", "outcome_unknown",
+                         reviewBound ? "none" : "executor_unknown",
+                         "reconcile_only", "HEVC requires Core reconciliation");
+            if (reviewBound)
+                state.result.resultEvidence = evidence;
         }
         if (!persist(config.statePath, state, reason)) return false;
         return sendResult(config, context, transport, state, reason);
