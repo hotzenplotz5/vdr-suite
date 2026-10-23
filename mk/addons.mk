@@ -129,12 +129,12 @@ test-addon-media-shrink-plan-api:
 	mkdir -p "$(BUILD_DIR)/addons"
 	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
 		-I addons/media-tools/include -I api/rest/include \
-		-I core/daemon/include -I core/addons/include \
+		-I core/daemon/include -I core/addons/include -I core/addons/media-tools/include \
 		-I core/sqlite/include -I core/operations/include \
 		core/sqlite/src/Database.cpp \
 		core/operations/src/MutationOperation.cpp \
 		core/operations/src/MutationOperationRepository.cpp \
-		core/addons/src/MediaShrinkReviewRepository.cpp \
+		core/addons/media-tools/src/MediaShrinkReviewRepository.cpp \
 		addons/media-tools/src/MediaImport.cpp \
 		addons/media-tools/src/MediaShrink.cpp \
 		addons/media-tools/tests/test_media_shrink_plan_api.cpp \
@@ -152,12 +152,12 @@ test-addon-media-shrink-core-review:
 	mkdir -p "$(BUILD_DIR)/addons"
 	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
 		-I core/sqlite/include -I core/operations/include \
-		-I core/addons/include \
+		-I core/addons/include -I core/addons/media-tools/include \
 		core/sqlite/src/Database.cpp \
 		core/operations/src/MutationOperation.cpp \
 		core/operations/src/MutationOperationRepository.cpp \
-		core/addons/src/MediaShrinkReviewRepository.cpp \
-		core/addons/tests/test_media_shrink_review_repository.cpp \
+		core/addons/media-tools/src/MediaShrinkReviewRepository.cpp \
+		core/addons/media-tools/tests/test_media_shrink_review_repository.cpp \
 		-lsqlite3 -o "$(BUILD_DIR)/addons/test_media_shrink_review_repository"
 	"$(BUILD_DIR)/addons/test_media_shrink_review_repository"
 
@@ -171,14 +171,14 @@ test-addon-media-shrink-core-admission:
 	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
 		-I addons/media-tools/include -I core/agent/include \
 		-I core/sqlite/include -I core/operations/include \
-		-I core/addons/include \
+		-I core/addons/include -I core/addons/media-tools/include \
 		core/sqlite/src/Database.cpp \
 		core/operations/src/MutationOperation.cpp \
 		core/operations/src/MutationOperationIdentity.cpp \
 		core/operations/src/MutationOperationRepository.cpp \
-		core/addons/src/MediaShrinkReviewRepository.cpp \
-		core/addons/src/MediaShrinkOperationAdmission.cpp \
-		core/addons/tests/test_media_shrink_operation_admission.cpp \
+		core/addons/media-tools/src/MediaShrinkReviewRepository.cpp \
+		core/addons/media-tools/src/MediaShrinkOperationAdmission.cpp \
+		core/addons/media-tools/tests/test_media_shrink_operation_admission.cpp \
 		-lsqlite3 -o "$(BUILD_DIR)/addons/test_media_shrink_operation_admission"
 	"$(BUILD_DIR)/addons/test_media_shrink_operation_admission"
 
@@ -191,9 +191,9 @@ test-ci-fast: test-addon-media-shrink-core-admission
 test-addon-media-shrink-command-fence:
 	mkdir -p "$(BUILD_DIR)/addons"
 	$(CXX) -std=c++17 -Wall -Wextra -Werror \
-		-I addons/media-tools/include -I core/addons/include \
+		-I addons/media-tools/include -I core/addons/include -I core/addons/media-tools/include \
 		-I core/agent/include -I core/operations/include \
-		core/addons/tests/test_media_shrink_command_fence.cpp \
+		core/addons/media-tools/tests/test_media_shrink_command_fence.cpp \
 		-o "$(BUILD_DIR)/addons/test_media_shrink_command_fence"
 	"$(BUILD_DIR)/addons/test_media_shrink_command_fence"
 
@@ -256,7 +256,7 @@ test-install-staging: test-addon-media-tools-package
 test-addon-access-policy:
 	mkdir -p "$(BUILD_DIR)/addons"
 	$(CXX) -std=c++17 -Wall -Wextra -Werror \
-		-I core/addons/include -I core/security/include -I core/vdr/include \
+		-I core/addons/include -I core/addons/media-tools/include -I core/security/include -I core/vdr/include \
 		core/addons/src/AddonAccessPolicy.cpp \
 		core/addons/tests/test_addon_access_policy.cpp \
 		-o "$(BUILD_DIR)/addons/test_addon_access_policy"
@@ -269,7 +269,7 @@ test-ci-fast: test-addon-access-policy
 test-addon-activation-intent:
 	mkdir -p "$(BUILD_DIR)/addons"
 	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
-		-I core/addons/include -I core/security/include \
+		-I core/addons/include -I core/addons/media-tools/include -I core/security/include \
 		-I core/vdr/include -I core/sqlite/include \
 		core/sqlite/src/Database.cpp \
 		core/addons/src/AddonAccessPolicy.cpp \
@@ -286,7 +286,7 @@ test-ci-fast: test-addon-activation-intent
 test-addon-admission-preview:
 	mkdir -p "$(BUILD_DIR)/addons"
 	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
-		-I core/addons/include -I core/security/include \
+		-I core/addons/include -I core/addons/media-tools/include -I core/security/include \
 		-I core/vdr/include -I core/sqlite/include \
 		core/sqlite/src/Database.cpp \
 		core/addons/src/AddonAccessPolicy.cpp \
@@ -302,7 +302,7 @@ test-ci-fast: test-addon-admission-preview
 .PHONY: test-addon-handler-registry
 test-addon-handler-registry:
 	mkdir -p "$(BUILD_DIR)/addons"
-	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include \
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include -I core/addons/media-tools/include \
 		core/addons/tests/test_addon_handler_registry.cpp \
 		-o "$(BUILD_DIR)/addons/test_addon_handler_registry"
 	"$(BUILD_DIR)/addons/test_addon_handler_registry"
@@ -313,7 +313,7 @@ test-ci-fast: test-addon-handler-registry
 .PHONY: test-addon-provider-admission
 test-addon-provider-admission:
 	mkdir -p "$(BUILD_DIR)/addons"
-	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include \
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include -I core/addons/media-tools/include \
 		core/addons/tests/test_addon_provider_admission.cpp \
 		-o "$(BUILD_DIR)/addons/test_addon_provider_admission"
 	"$(BUILD_DIR)/addons/test_addon_provider_admission"
@@ -324,7 +324,7 @@ test-ci-fast: test-addon-provider-admission
 .PHONY: test-addon-provider-binding
 test-addon-provider-binding:
 	mkdir -p "$(BUILD_DIR)/addons"
-	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include \
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include -I core/addons/media-tools/include \
 		core/addons/tests/test_addon_provider_binding.cpp \
 		-o "$(BUILD_DIR)/addons/test_addon_provider_binding"
 	"$(BUILD_DIR)/addons/test_addon_provider_binding"
@@ -336,7 +336,7 @@ test-ci-fast: test-addon-provider-binding
 test-addon-provider-read-service:
 	mkdir -p "$(BUILD_DIR)/addons"
 	$(CXX) -std=c++17 -Wall -Wextra -Werror \
-		-I core/addons/include -I core/security/include -I core/vdr/include \
+		-I core/addons/include -I core/addons/media-tools/include -I core/security/include -I core/vdr/include \
 		core/addons/tests/test_addon_provider_read_service.cpp \
 		-o "$(BUILD_DIR)/addons/test_addon_provider_read_service"
 	"$(BUILD_DIR)/addons/test_addon_provider_read_service"
@@ -347,7 +347,7 @@ test-ci-fast: test-addon-provider-read-service
 .PHONY: test-addon-provider-approval
 test-addon-provider-approval:
 	mkdir -p "$(BUILD_DIR)/addons"
-	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include \
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include -I core/addons/media-tools/include \
 		core/addons/tests/test_addon_provider_approval.cpp \
 		-o "$(BUILD_DIR)/addons/test_addon_provider_approval"
 	"$(BUILD_DIR)/addons/test_addon_provider_approval"
@@ -359,7 +359,7 @@ test-ci-fast: test-addon-provider-approval
 test-addon-administration-service:
 	mkdir -p "$(BUILD_DIR)/addons"
 	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
-		-I core/addons/include -I core/security/include \
+		-I core/addons/include -I core/addons/media-tools/include -I core/security/include \
 		-I core/vdr/include -I core/sqlite/include \
 		core/sqlite/src/Database.cpp \
 		core/security/src/AccountabilityEventRepository.cpp \
@@ -378,16 +378,16 @@ test-ci-fast: test-addon-administration-service
 test-addon-maintenance-read:
 	mkdir -p "$(BUILD_DIR)/addons"
 	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
-		-I core/addons/include -I core/security/include \
+		-I core/addons/include -I core/addons/media-tools/include -I core/security/include \
 		-I core/vdr/include -I core/sqlite/include \
 		-I core/operations/include \
 		core/sqlite/src/Database.cpp \
 		core/addons/src/AddonAccessPolicy.cpp \
 		core/addons/src/AddonActivationIntentRepository.cpp \
-		core/addons/src/AddonMediaToolsMaintenanceReadService.cpp \
+		core/addons/media-tools/src/AddonMediaToolsMaintenanceReadService.cpp \
 		core/operations/src/MutationOperation.cpp \
 		core/operations/src/MutationOperationRepository.cpp \
-		core/addons/tests/test_addon_media_tools_maintenance_read_service.cpp \
+		core/addons/media-tools/tests/test_addon_media_tools_maintenance_read_service.cpp \
 		-lsqlite3 -o "$(BUILD_DIR)/addons/test_addon_maintenance_read"
 	"$(BUILD_DIR)/addons/test_addon_maintenance_read"
 
@@ -400,17 +400,17 @@ test-ci-fast: test-addon-maintenance-read
 test-addon-maintenance-freeze:
 	mkdir -p "$(BUILD_DIR)/addons"
 	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
-		-I core/addons/include -I addons/media-tools/include \
+		-I core/addons/include -I core/addons/media-tools/include -I addons/media-tools/include \
 		-I core/security/include \
 		-I core/vdr/include -I core/sqlite/include \
 		-I core/operations/include \
 		core/sqlite/src/Database.cpp \
 		core/security/src/AccountabilityEventRepository.cpp \
 		core/addons/src/AddonAccessPolicy.cpp \
-		core/addons/src/AddonMediaImportMaintenanceFence.cpp \
+		core/addons/media-tools/src/AddonMediaImportMaintenanceFence.cpp \
 		core/operations/src/MutationOperation.cpp \
 		core/operations/src/MutationOperationRepository.cpp \
-		core/addons/tests/test_addon_media_import_maintenance_fence.cpp \
+		core/addons/media-tools/tests/test_addon_media_import_maintenance_fence.cpp \
 		-lsqlite3 -o "$(BUILD_DIR)/addons/test_addon_maintenance_freeze"
 	"$(BUILD_DIR)/addons/test_addon_maintenance_freeze"
 
@@ -423,18 +423,18 @@ test-ci-fast: test-addon-maintenance-freeze
 build-addon-global-maintenance-inspection-test:
 	mkdir -p "$(BUILD_DIR)/addons"
 	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
-		-I core/addons/include -I addons/media-tools/include \
+		-I core/addons/include -I core/addons/media-tools/include -I addons/media-tools/include \
 		-I core/security/include -I core/vdr/include \
 		-I core/sqlite/include -I core/operations/include \
 		core/sqlite/src/Database.cpp \
 		core/security/src/AccountabilityEventRepository.cpp \
 		core/addons/src/AddonAccessPolicy.cpp \
 		core/addons/src/AddonActivationIntentRepository.cpp \
-		core/addons/src/AddonMediaImportMaintenanceFence.cpp \
-		core/addons/src/AddonMediaToolsMaintenanceInspection.cpp \
+		core/addons/media-tools/src/AddonMediaImportMaintenanceFence.cpp \
+		core/addons/media-tools/src/AddonMediaToolsMaintenanceInspection.cpp \
 		core/operations/src/MutationOperation.cpp \
 		core/operations/src/MutationOperationRepository.cpp \
-		core/addons/tests/test_addon_media_tools_maintenance_inspection.cpp \
+		core/addons/media-tools/tests/test_addon_media_tools_maintenance_inspection.cpp \
 		-lsqlite3 -o "$(BUILD_DIR)/addons/test_addon_global_maintenance_inspection"
 
 # Admin-only desired-state inventory. Effective/active capabilities remain empty.
@@ -442,7 +442,7 @@ build-addon-global-maintenance-inspection-test:
 test-addon-activation-catalog:
 	mkdir -p "$(BUILD_DIR)/addons"
 	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
-		-I core/addons/include -I core/security/include \
+		-I core/addons/include -I core/addons/media-tools/include -I core/security/include \
 		-I core/vdr/include -I core/sqlite/include \
 		core/sqlite/src/Database.cpp \
 		core/addons/src/AddonAccessPolicy.cpp \
@@ -459,7 +459,7 @@ test-ci-fast: test-addon-activation-catalog
 test-addon-agent-dispatch-gate:
 	mkdir -p "$(BUILD_DIR)/addons"
 	$(CXX) -std=c++17 -Wall -Wextra -Werror \
-		-I core/addons/include -I core/agent/include -I core/operations/include \
+		-I core/addons/include -I core/addons/media-tools/include -I core/agent/include -I core/operations/include \
 		core/addons/tests/test_addon_agent_dispatch_gate.cpp \
 		-o "$(BUILD_DIR)/addons/test_addon_agent_dispatch_gate"
 	"$(BUILD_DIR)/addons/test_addon_agent_dispatch_gate"
@@ -470,7 +470,7 @@ test-ci-fast: test-addon-agent-dispatch-gate
 .PHONY: build-addon-pinned-handler-test
 build-addon-pinned-handler-test:
 	mkdir -p "$(BUILD_DIR)/addons"
-	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include \
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include -I core/addons/media-tools/include \
 		core/addons/src/AddonPinnedHandler.cpp \
 		core/addons/tests/test_addon_pinned_handler.cpp -lcrypto \
 		-o "$(BUILD_DIR)/addons/test_addon_pinned_handler"
@@ -479,7 +479,7 @@ build-addon-pinned-handler-test:
 .PHONY: build-addon-root-approval-test
 build-addon-root-approval-test:
 	mkdir -p "$(BUILD_DIR)/addons"
-	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include \
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include -I core/addons/media-tools/include \
 		core/addons/src/AddonRootApproval.cpp \
 		core/addons/src/AddonPinnedHandler.cpp \
 		core/addons/src/AddonInstallSnapshot.cpp \
@@ -490,7 +490,7 @@ build-addon-root-approval-test:
 .PHONY: build-addon-nonroot-snapshot-test
 build-addon-nonroot-snapshot-test:
 	mkdir -p "$(BUILD_DIR)/addons"
-	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include \
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include -I core/addons/media-tools/include \
 		core/addons/src/AddonRootApproval.cpp \
 		core/addons/src/AddonPinnedHandler.cpp \
 		core/addons/src/AddonInstallSnapshot.cpp \
@@ -513,7 +513,7 @@ test-addon-agent-advertisement:
 .PHONY: test-addon-permission-catalog
 test-addon-permission-catalog:
 	mkdir -p "$(BUILD_DIR)/addons"
-	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include \
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -I core/addons/include -I core/addons/media-tools/include \
 		core/addons/tests/test_addon_permission_catalog.cpp \
 		-o "$(BUILD_DIR)/addons/test_addon_permission_catalog"
 	"$(BUILD_DIR)/addons/test_addon_permission_catalog"
@@ -568,7 +568,7 @@ build-media-tools-pinned-agent-executor-test:
 	$(CXX) -std=c++17 -Wall -Wextra -Werror \
 		addons/media-tools/tests/fake_pinned_media_import_receipt.cpp \
 		-o "$(BUILD_DIR)/addons/fake_pinned_media_import_receipt"
-	$(CXX) $(CXXFLAGS) -Werror -Icore/addons/include \
+	$(CXX) $(CXXFLAGS) -Werror -Icore/addons/include -I core/addons/media-tools/include \
 		$(AGENT_COMMAND_DOMAIN_SRC) \
 		core/addons/src/AddonRootApproval.cpp \
 		core/addons/src/AddonPinnedHandler.cpp \
@@ -582,7 +582,7 @@ build-media-tools-pinned-agent-executor-test:
 .PHONY: build-media-tools-local-inventory-test
 build-media-tools-local-inventory-test:
 	mkdir -p "$(BUILD_DIR)/addons"
-	$(CXX) $(CXXFLAGS) -Werror -Icore/addons/include \
+	$(CXX) $(CXXFLAGS) -Werror -Icore/addons/include -I core/addons/media-tools/include \
 		addons/media-tools/src/MediaImport.cpp \
 		addons/media-tools/src/LocalMediaImportInventory.cpp \
 		addons/media-tools/tests/test_local_media_import_inventory.cpp \

@@ -1,5 +1,10 @@
 # Core Add-on access decisions
 
+## Source ownership
+
+Shared Suite Core add-on platform services (registry, policy, provider trust, administration and desired state) remain in `core/addons/{include,src,tests}`. **Media-Tools-specific Core adapters** for import/shrink admission, operation fences, reviews and maintenance live under [`media-tools/`](media-tools/README.md). This directory is Suite Core, not an installable add-on. The independent media processors and add-on tests are in `addons/media-tools/`; manifest/packaging metadata remains under `modules/rectools/`.
+
+
 This is an internal C++17 source-only policy component, not an optional
 module and not a public C++ ABI.
 

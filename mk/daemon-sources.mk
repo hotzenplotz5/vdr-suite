@@ -5,11 +5,11 @@ DAEMON_SRC := \
         core/operations/src/MutationOperationRepository.cpp \
         core/addons/src/AddonAccessPolicy.cpp \
         core/addons/src/AddonActivationIntentRepository.cpp \
-        core/addons/src/MediaImportOperationFence.cpp \
-        core/addons/src/MediaShrinkOperationFence.cpp \
-        core/addons/src/MediaShrinkOperationAdmission.cpp \
-        core/addons/src/MediaImportOperationAdmission.cpp \
-        core/addons/src/MediaShrinkReviewRepository.cpp \
+        core/addons/media-tools/src/MediaImportOperationFence.cpp \
+        core/addons/media-tools/src/MediaShrinkOperationFence.cpp \
+        core/addons/media-tools/src/MediaShrinkOperationAdmission.cpp \
+        core/addons/media-tools/src/MediaImportOperationAdmission.cpp \
+        core/addons/media-tools/src/MediaShrinkReviewRepository.cpp \
         core/agent/src/BackendAgentMediaImportAssignment.cpp \
         core/agent/src/BackendAgentMediaShrinkAssignment.cpp \
         core/operations/src/MutationOperationReadService.cpp \

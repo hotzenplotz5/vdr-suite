@@ -8,6 +8,11 @@ The existing C++17 importer is maintained here under `include/`, `src/`
 and `tests/` (moved, not copied, from the legacy source layout).
 Manifest and metadata-only packaging remain under `modules/rectools/`.
 
+Media-Tools-specific Core authorization, reviews and maintenance adapters live at
+`core/addons/media-tools/{include,src,tests}`; generic add-on platform services
+remain at `core/addons/{include,src,tests}`. Neither directory is the optional
+addon worker or a separately packaged module.
+
 Suite Core owns accounts, grants, command reservation, durable operations,
 backend generation, capability discovery and recording reconciliation.
 Media Tools owns only import, strictly read-only check and non-destructive
