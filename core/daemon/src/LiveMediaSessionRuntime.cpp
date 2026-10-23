@@ -9,6 +9,7 @@
 #include <cerrno>
 #include <chrono>
 #include <filesystem>
+#include <iostream>
 #include <sys/wait.h>
 #include <utility>
 
@@ -390,8 +391,23 @@ std::size_t LiveMediaSessionRuntime::reapInactive(int idleTimeoutSeconds)
         if (waited == pid) {
             reasonCode = "live_worker_exited";
             workerExited = true;
+            // Persisted terminalReason is intentionally stable for clients;
+            // the one-shot exit detail is kept in daemon logs for correlation
+            // with the workspace FFmpeg log and HTTP writer terminal event.
+            std::cerr << "live_worker_terminal session_id="
+                      << candidate.sessionId << " pid=" << pid;
+            if (WIFEXITED(status))
+                std::cerr << " exit_code=" << WEXITSTATUS(status);
+            else if (WIFSIGNALED(status))
+                std::cerr << " signal=" << WTERMSIG(status);
+            else
+                std::cerr << " wait_status=" << status;
+            std::cerr << std::endl;
         }
         else if (waited < 0 && errno != EINTR) {
+            std::cerr << "live_worker_terminal session_id="
+                      << candidate.sessionId << " pid=" << pid
+                      << " reason=waitpid_error errno=" << errno << std::endl;
             reasonCode = "live_worker_wait_failed";
         }
 
