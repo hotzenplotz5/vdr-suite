@@ -51,6 +51,14 @@ bool DaemonRuntime::initialize()
     mutationOperationReadService_ =
         std::make_unique<vdrsuite::operations::MutationOperationReadService>(
             *mutationOperationRepository_);
+    mediaShrinkReviewRepository_ =
+        std::make_unique<vdrsuite::addons::MediaShrinkReviewRepository>(
+            database_, *mutationOperationRepository_);
+    if (!mediaShrinkReviewRepository_->ensureSchema()) {
+        std::cerr << "failed to initialize HEVC review binding schema"
+                  << std::endl;
+        return false;
+    }
 
     std::cout
         << "mutation operation read runtime initialized"
