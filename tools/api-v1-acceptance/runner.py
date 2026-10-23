@@ -374,8 +374,12 @@ class Acceptance:
                                ",".join(k for k in requires if self.context.get(k) is None),
                                required=required)
         try:
-            task()
-            return self.record(ident, area, "PASS", required=required)
+            evidence = task()
+            observed = (evidence if isinstance(evidence, str) and
+                        re.fullmatch(r"[A-Za-z0-9 _.+:/-]{1,100}", evidence)
+                        else "")
+            return self.record(ident, area, "PASS", observed=observed,
+                               required=required)
         except Skip as e:
             return self.record(ident, area, "SKIP", e.detail, method=e.method,
                                path=e.path, required=required)
