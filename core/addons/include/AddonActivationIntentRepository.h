@@ -82,6 +82,7 @@ private:
     // Execution fence may read desired admin intent as one necessary condition;
     // it cannot turn this intent into executable authority by itself.
     friend class MediaImportOperationFence;
+    friend class MediaShrinkOperationFence;
 
     IntentResult readForAdmission(const std::string& moduleId,
                                   const std::string& backendId) const;
