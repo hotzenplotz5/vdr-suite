@@ -28,6 +28,7 @@ Externe Datei: ~/.config/vdr-suite/api-v1-acceptance.json. JSON-Objekt, Dateirec
 | device.credentialId und device.credentialSecret | Vorhandenes gepaartes Device-Credential |
 | origin, backend | Optionaler Origin / genehmigter Backend |
 | deniedBackend | Nachweislich nicht berechtigter Backend für Negative-Test |
+| existingOperationId | Bereits vorhandene eigene öffentliche `op_`-ID für autorisierten Operation-GET; niemals neu erzeugen |
 | mediaProfile.appVersion, mediaProfile.firmwareVersion, mediaProfile.playerVersion, mediaProfile.engine | Tatsächliches Device/Player-Profil |
 
 Das bestehende Public-v1-Auth-Schema ist VDR-Suite-Device (opaque ID und Secret). Credentials gehören nie in Git, Shell-Befehle oder Logs. Fehlende Device-Grants, andere Benutzer/Accounts oder Administrator-Identitäten werden nicht automatisch eingerichtet; Tests dafür bleiben BLOCKED. Nur ein echter gekoppelter Device mit Backend-Grants kann devicegebundene Leseverträge erfolgreich prüfen.
@@ -42,7 +43,7 @@ Die installierte Build-Version wird gegen Git-HEAD geprüft, wenn serverVersion 
 
 ## Abdeckung und noch offene Real-Hardware-Gates
 
-Safe GET-Prüfketten umfassen Discovery, Capabilities, negative Authentifizierung, Backend-Grant-Isolation (mit geeignetem deniedBackend), Channels → EPG Now/Next/Window + Cursor, native Timer und Assignments, SearchTimer Liste/Detail/Revision/Preview/Draft-Preview, Recording Liste/Ordner/Detail/Metadaten/Genre/Artwork **einschließlich echter Bildbytes**, sowie P1 Media-Profil, Continue Watching und Resume Progress. Maximal kleine begrenzte Seiten werden abgefragt. Fehlende Testobjekte blockieren abhängige Prüfungen.
+Safe GET-Prüfketten umfassen Discovery, Capabilities, negative Authentifizierung, Backend-Grant-Isolation (mit geeignetem deniedBackend), Channels → EPG Now/Next/Window + Cursor, native Timer/Detail und Assignments samt optionalem Existing-Operation-Read, SearchTimer Liste/Detail/Revision/Preview/Draft-Preview, Recording Liste/Ordner/Detail/Metadaten/Genre/Artwork **einschließlich echter Bildbytes**, sowie P1 Media-Profil, Continue Watching und Resume Progress. Maximal kleine begrenzte Seiten werden abgefragt. Fehlende Testobjekte blockieren abhängige Prüfungen.
 
 Die zentrale Hardwarematrix erfordert zusätzlich Human-/Admin-/Browser-CSRF- und Grant-Fälle, Geräte-Eigentum/Fremdbenutzer, Provider-Fehler, Agent-/Plugin-Versionen, produktives Readback, Retry/Recovery, native Gen-/Revision-Races, TimerIntent- und SearchTimer-Mutationen, Recording RENAME/MOVE/DELETE, Playback-Session und Resume-Write, Neustartpersistenz und reale Clientkette. OpenAPI bezeichnet sich selbst als partielle Referenz; auch ein vollständiger Offline-Lauf kann diese Lücken nicht schließen. Legacy-/api-Tests werden niemals als Public-v1-PASS importiert.
 
