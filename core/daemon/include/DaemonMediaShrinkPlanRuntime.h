@@ -2,6 +2,7 @@
 
 #include "MediaShrink.h"
 #include "MediaShrinkPlanApiRuntime.h"
+#include "MediaShrinkReviewRepository.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -22,9 +23,10 @@ public:
 
     DaemonMediaShrinkPlanRuntime(
         std::map<std::string, std::string> roots,
-        ResolveRecording resolve, BackendAvailable available)
+        ResolveRecording resolve, BackendAvailable available,
+        vdrsuite::addons::MediaShrinkReviewRepository* reviews = nullptr)
         : roots_(std::move(roots)), resolve_(std::move(resolve)),
-          available_(std::move(available)) {}
+          available_(std::move(available)), reviews_(reviews) {}
 
     ApiResponse capability(const std::string& backend) const {
         const bool ready = roots_.count(backend) && available_ &&
@@ -83,8 +85,41 @@ public:
         }
     }
 
+    ApiResponse reviewStatus(const std::string& actor,
+                             const std::string& backend,
+                             const std::string& reviewId) const {
+        if (!reviews_) return MediaShrinkPlanApiRuntime::problem(
+            503, "Media Shrink review unavailable.");
+        const auto result = reviews_->find(actor, backend, reviewId);
+        if (result.status ==
+            vdrsuite::addons::MediaShrinkReviewStatus::notFound ||
+            result.status ==
+            vdrsuite::addons::MediaShrinkReviewStatus::invalid)
+            return MediaShrinkPlanApiRuntime::problem(
+                404, "Resource not found.");
+        if (!result.ok())
+            return MediaShrinkPlanApiRuntime::problem(
+                503, "Media Shrink review unavailable.");
+        const auto& review = result.review;
+        if (!review.publishedRecordingId.empty() &&
+            !vdrsuite::mediatools::shrinkOpaqueId(
+                review.publishedRecordingId, "rec_"))
+            return MediaShrinkPlanApiRuntime::problem(
+                503, "Media Shrink review unavailable.");
+        return MediaShrinkPlanApiRuntime::json(200,
+            "{\"backendId\":\"" + backend +
+            "\",\"reviewId\":\"" + review.reviewId +
+            "\",\"recordingId\":\"" + review.recordingId +
+            "\",\"state\":\"" + review.state +
+            "\",\"revision\":" + std::to_string(review.revision) +
+            ",\"readOnly\":true,\"publishAvailable\":false,"
+            "\"publishedRecordingId\":\"" +
+            review.publishedRecordingId + "\"}");
+    }
+
 private:
     const std::map<std::string, std::string> roots_;
     const ResolveRecording resolve_;
     const BackendAvailable available_;
+    vdrsuite::addons::MediaShrinkReviewRepository* reviews_ = nullptr;
 };
