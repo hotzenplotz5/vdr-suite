@@ -823,6 +823,72 @@ class RunnerTests(unittest.TestCase):
             inventory(conn,"../invalid")
         conn.close()
 
+    def test_timer_operation_consistency_links_and_24h_age(self):
+        from inspect_timer_operation_consistency import correlate
+        import sqlite3
+        import io
+        from contextlib import redirect_stdout
+        db=sqlite3.connect(":memory:")
+        db.execute("CREATE TABLE timer_assignments (timer_assignment_id TEXT,native_timer_binding_id TEXT,backend_generation INTEGER,state TEXT,backend_id TEXT,updated_at INTEGER)")
+        db.execute("CREATE TABLE native_timer_bindings (native_timer_binding_id TEXT,timer_assignment_id TEXT,backend_generation INTEGER,ownership TEXT,backend_id TEXT,last_verified_operation_id TEXT,missing_since INTEGER,drift_state TEXT)")
+        db.execute("CREATE TABLE mutation_operations (operation_id TEXT,backend_id TEXT,state TEXT,updated_at INTEGER,deadline INTEGER)")
+        db.executemany("INSERT INTO timer_assignments VALUES (?,?,?,?,?,?)",[
+            ("assignment-secret","bind-secret",1,"bound","default",100),
+            ("assignment-pending","",1,"provisioning","default",100),
+            ("assignment-other","",1,"provisioning","other",100)])
+        db.execute("INSERT INTO native_timer_bindings VALUES (?,?,?,?,?,?,?,?)",
+                   ("bind-secret","assignment-secret",1,"managed","default","op-done",0,"none"))
+        db.executemany("INSERT INTO mutation_operations VALUES (?,?,?,?,?)",[
+            ("op-done","default","succeeded",100,200),
+            ("op-unknown","default","outcome_unknown",100,200),
+            ("op-other","other","outcome_unknown",100,200)])
+        output=io.StringIO()
+        with redirect_stdout(output):
+            values=correlate(db,"default",now=200000)
+        self.assertEqual(values["BOUND_ASSIGNMENTS"],1)
+        self.assertEqual(values["BOUND_ASSIGNMENTS_WITHOUT_MATCHING_MANAGED_BINDING"],0)
+        self.assertEqual(values["MANAGED_BINDINGS_WITHOUT_RECIPROCAL_BOUND_ASSIGNMENT"],0)
+        self.assertEqual(values["PROVISIONING_UPDATED_OVER_24H_AGO"],1)
+        self.assertEqual(values["OUTCOME_UNKNOWN_OPERATIONS"],1)
+        self.assertEqual(values["OUTCOME_UNKNOWN_PAST_DECLARED_DEADLINE"],1)
+        self.assertEqual(values["MANAGED_BINDINGS_WITHOUT_SUCCEEDED_VERIFICATION_OPERATION"],0)
+        self.assertIn("BOUND_RELATIONSHIP: CONSISTENT_PERSISTED_LINKS",output.getvalue())
+        for secret in ("assignment-secret","bind-secret","op-unknown"):
+            self.assertNotIn(secret,output.getvalue())
+        db.close()
+
+    def test_timer_operation_consistency_detects_broken_reciprocity_without_ids(self):
+        from inspect_timer_operation_consistency import correlate
+        import sqlite3
+        import io
+        from contextlib import redirect_stdout
+        db=sqlite3.connect(":memory:")
+        db.execute("CREATE TABLE timer_assignments (timer_assignment_id TEXT,native_timer_binding_id TEXT,backend_generation INTEGER,state TEXT,backend_id TEXT,updated_at INTEGER)")
+        db.execute("CREATE TABLE native_timer_bindings (native_timer_binding_id TEXT,timer_assignment_id TEXT,backend_generation INTEGER,ownership TEXT,backend_id TEXT,last_verified_operation_id TEXT,missing_since INTEGER,drift_state TEXT)")
+        db.execute("CREATE TABLE mutation_operations (operation_id TEXT,backend_id TEXT,state TEXT,updated_at INTEGER,deadline INTEGER)")
+        db.execute("INSERT INTO timer_assignments VALUES (?,?,?,?,?,?)",
+                   ("assignment1","binding_missing",1,"bound","default",100))
+        db.execute("INSERT INTO native_timer_bindings VALUES (?,?,?,?,?,?,?,?)",
+                   ("binding_another","assignment1",2,"managed","default","operation_absent",0,"none"))
+        output=io.StringIO()
+        with redirect_stdout(output):
+            values=correlate(db,"default",now=200000)
+        self.assertEqual(values["BOUND_ASSIGNMENTS_WITHOUT_MATCHING_MANAGED_BINDING"],1)
+        self.assertEqual(values["MANAGED_BINDINGS_WITHOUT_RECIPROCAL_BOUND_ASSIGNMENT"],1)
+        self.assertEqual(values["MANAGED_BINDINGS_WITHOUT_SUCCEEDED_VERIFICATION_OPERATION"],1)
+        self.assertIn("BOUND_RELATIONSHIP: NEEDS_INVESTIGATION",output.getvalue())
+        self.assertNotIn("binding_missing",output.getvalue())
+        db.close()
+
+    def test_timer_operation_consistency_requires_all_canonical_tables(self):
+        from inspect_timer_operation_consistency import correlate
+        from inspect_device_auth_audit import AuditBlocked
+        import sqlite3
+        db=sqlite3.connect(":memory:")
+        with self.assertRaises(AuditBlocked):
+            correlate(db)
+        db.close()
+
 
 if __name__ == "__main__":
     unittest.main()
