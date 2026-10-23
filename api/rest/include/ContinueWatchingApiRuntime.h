@@ -1,11 +1,13 @@
 #pragma once
 
 #include "DashboardController.h"
+#include "ContinueWatching.h"
 
 #include <cstdint>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <vector>
 
 class ContinueWatchingRepository;
 class ContinueWatchingService;
@@ -37,6 +39,8 @@ public:
     void reset();
 
     static PublicRecordingProgressRequest parsePublicProgressRequest(const std::string& body);
+    std::vector<ContinueWatchingItem> publicCandidates(
+        const std::string& actorId, const std::string& backendId) const;
     ApiResponse publicProgressGet(
         const std::string& actorId,
         const VdrRecording& admittedRecording,
