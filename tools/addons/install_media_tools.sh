@@ -52,10 +52,10 @@ for path in /etc/vdr-suite/addon-approvals/rectools.json \
   [ ! -e "$path" ] && [ ! -L "$path" ] || stop "pre-existing Media Tools state: $path"
 done
 [ -f /var/lib/vdr-suite/vdr-suite.db ] || stop "unknown active database location"
-[ "$(dpkg-query -W -f='Status: ' vdr-suite-addon-media-tools 2>/dev/null || true)" != 'Status: ' ] || true
 dpkg -s vdr-suite-addon-media-tools 2>/dev/null | grep -Fq 'Status: install ok installed' && stop "existing installed package needs separate update procedure"
 sudo -u vdr test -r "$SOURCE" && sudo -u vdr test -w "$VIDEO" || stop "vdr media access denied"
 # The first write is allowed only if every affected FS retains 4 GiB / 15%.
+resource_preflight() {
 python3 - "$HOME" <<'PY' || stop "resource preflight"
 import os, shutil, sys
 checks = [(sys.argv[1], 8*1024**3), ('/usr', 1024**3), ('/var', 2*1024**3)]
@@ -73,6 +73,8 @@ for path, budget in grouped.values():
 print('RESOURCE_PREFLIGHT=' + ('PASS' if ok else 'FAIL'))
 raise SystemExit(0 if ok else 1)
 PY
+}
+resource_preflight
 sudo -v || stop "sudo authentication failed"
 WORK=$(mktemp -d "$HOME/vdr-suite-media-tools.XXXXXXXX") || stop "unable to create work directory"
 mkdir -m 0700 "$WORK/build" "$WORK/tmp" "$WORK/packages" "$WORK/backup"
@@ -88,6 +90,7 @@ PACKAGE=$(find "$WORK/packages" -maxdepth 1 -name 'vdr-suite-addon-media-tools_*
 [ "$(dpkg-deb -f "$PACKAGE" Version)" = '0.1.0~cpppreview1' ] || stop "unexpected module version"
 [ "$(dpkg-deb -f "$PACKAGE" Architecture)" = "$(dpkg --print-architecture)" ] || stop "wrong architecture"
 dpkg-deb --contents "$PACKAGE" || stop "package contents unreadable"
+resource_preflight || stop "insufficient capacity after build"
 # A live database backup must happen with the daemon stopped.
 RESTART=0
 recover() {
@@ -147,6 +150,7 @@ sudo systemctl start vdr-suite-daemon vdr-suite-backend-agent || stop "Suite res
 systemctl is-active --quiet vdr-suite-daemon && systemctl is-active --quiet vdr-suite-backend-agent || stop "Suite/Agent failed to start"
 sudo make check-install-runtime-deployment RUNTIME_STAGE="$WORK/stage" LIVE_ROOT=/ || stop "installed runtime drift"
 RESTART=0
+resource_preflight || stop "post-install reserve insufficient"
 echo "MEDIA_TOOLS_INSTALL=PASS"
 echo "DATABASE_BACKUP=$WORK/backup/vdr-suite.db"
 echo 'IMPORT_AND_SHRINK_AGENT_OPT_IN=YES'
