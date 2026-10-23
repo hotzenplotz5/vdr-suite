@@ -647,6 +647,10 @@
         encoder.appendChild(option);
       });
       encoderLabel.appendChild(encoder);
+      const fallbackNotice = shared.node('p', 'recordings2-media-check-status',
+        'GPU-Encoder sind optional. Bei Hardwarefehler wird automatisch ' +
+        'Software (x265) verwendet.');
+      fallbackNotice.hidden = capability.encoderFallbackToSoftware !== true;
       const heightLabel = shared.node('label', '', ' Auf 720p begrenzen');
       const height = shared.node('input');
       height.type = 'checkbox';
@@ -853,8 +857,8 @@
         });
       }
 
-      controls.append(encoderLabel, heightLabel, nightLabel, stage,
-        refreshStage, candidate, publish, refreshPublish);
+      controls.append(encoderLabel, fallbackNotice, heightLabel, nightLabel,
+        stage, refreshStage, candidate, publish, refreshPublish);
       panel.appendChild(shared.node('h4', '', 'HEVC-Speicherplatzoptimierung'));
       panel.appendChild(launch);
       panel.appendChild(status);

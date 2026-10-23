@@ -30,6 +30,8 @@ public:
         : roots_(std::move(roots)), resolve_(std::move(resolve)),
           available_(std::move(available)), reviews_(reviews) {}
 
+    // Encoder names denote valid requests, not guaranteed GPU hardware.
+    // The Agent falls back to software after a hardware failure.
     ApiResponse capability(const std::string& backend,
                            bool authorizedStage = false) const {
         const bool ready = roots_.count(backend) && available_ &&
@@ -39,7 +41,8 @@ public:
             "\",\"capability\":\"addons.media.shrink\",\"available\":" +
             (ready && authorizedStage ? "true" : "false") + ","
             "\"planningAvailable\":" + (ready ? "true" : "false") +
-            ",\"encoders\":[\"software\"]}");
+            ",\"encoders\":[\"software\",\"vaapi\",\"qsv\",\"nvenc\"]," +
+             "\"encoderFallbackToSoftware\":true}");
     }
 
     ApiResponse plan(const std::string& /*actor*/, const std::string& backend,

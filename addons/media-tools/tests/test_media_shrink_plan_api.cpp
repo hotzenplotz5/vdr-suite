@@ -136,6 +136,11 @@ int main() {
            std::string::npos);
     assert(capability.body.find("\"available\":false") !=
            std::string::npos);
+    assert(capability.body.find(
+        "\"encoders\":[\"software\",\"vaapi\",\"qsv\",\"nvenc\"]") !=
+        std::string::npos);
+    assert(capability.body.find("\"encoderFallbackToSoftware\":true") !=
+           std::string::npos);
     assert(api.tryHandleGet(
         "/api/v1/backends/local/capabilities/media-shrink",
         "actor-a", "other", {}, capability));
