@@ -44,6 +44,8 @@ DAEMON_SRC := \
         core/recordings/src/PublicRecordingIdentityRepository.cpp \
         addons/media-tools/src/MediaCheck.cpp \
         addons/media-tools/src/MediaCheckFfmpeg.cpp \
+        addons/media-tools/src/MediaImport.cpp \
+        addons/media-tools/src/MediaShrink.cpp \
         core/recordings/src/PublicRecordingPlaybackTargetResolver.cpp \
         core/recordings/src/PublicRecordingDevicePlaybackAdmission.cpp \
         core/recordings/src/PublicRecordingCollectionProjection.cpp \
