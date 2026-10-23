@@ -6,13 +6,21 @@ if [ "$#" -eq 1 ] && { [ "$1" = "--help" ] || [ "$1" = "-h" ]; }; then
   echo 'Usage: install_media_tools.sh EXPECTED_COMMIT REVIEWED_HANDLER_SHA256 BACKEND_ID SOURCE_ROOT VIDEO_ROOT'
   exit 0
 fi
-if [ "$#" -ne 5 ]; then
-  echo 'Usage: install_media_tools.sh EXPECTED_COMMIT REVIEWED_HANDLER_SHA256 BACKEND_ID SOURCE_ROOT VIDEO_ROOT' >&2
+if [ "$#" -ne 5 ] && [ "$#" -ne 6 ]; then
+  echo 'Usage: install_media_tools.sh COMMIT (--prepare|REVIEWED_SHA256) BACKEND SOURCE_ROOT VIDEO_ROOT [PREPARED_WORKDIR]' >&2
   exit 2
 fi
 SHA=$1; APPROVED=$2; BACKEND=$3; SOURCE=$4; VIDEO=$5
+PREPARED_WORKDIR=
+if [ "$#" -eq 6 ]; then PREPARED_WORKDIR=$6; fi
+MODE=install
+if [ "$APPROVED" = --prepare ]; then MODE=prepare; fi
 [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || stop "commit SHA invalid"
-[[ "$APPROVED" =~ ^[0-9a-f]{64}$ ]] || stop "independent approved handler SHA-256 required"
+if [ "$MODE" = install ]; then
+  [[ "$APPROVED" =~ ^[0-9a-f]{64}$ ]] || stop "independent approved handler SHA-256 required"
+else
+  [ -z "$PREPARED_WORKDIR" ] || stop "prepare cannot reuse an existing build"
+fi
 [[ "$BACKEND" =~ ^[A-Za-z0-9_.:-]{1,128}$ ]] && [ "$BACKEND" != . ] && [ "$BACKEND" != .. ] || stop "backend invalid"
 [ "$(id -u)" -ne 0 ] || stop "run as an ordinary user with sudo"
 ROOT=$(cd "$(dirname "$0")/../.." && pwd -P) || stop "checkout absent"
@@ -79,22 +87,45 @@ raise SystemExit(0 if ok else 1)
 PY
 }
 resource_preflight
-sudo -v || stop "sudo authentication failed"
-WORK=$(mktemp -d "$HOME/vdr-suite-media-tools.XXXXXXXX") || stop "unable to create work directory"
-mkdir -m 0700 "$WORK/build" "$WORK/tmp" "$WORK/packages" "$WORK/backup"
-export TMPDIR="$WORK/tmp"
+if [ "$MODE" = install ]; then sudo -v || stop "sudo authentication failed"; fi
+if [ -n "$PREPARED_WORKDIR" ]; then
+  WORK=$PREPARED_WORKDIR
+  [[ "$WORK" = /* ]] && [ ! -L "$WORK" ] && [ "$(realpath -m "$WORK")" = "$WORK" ] || stop "unsafe prepared workdir"
+  [ -f "$WORK/candidate.txt" ] && [ -f "$WORK/stage/.vdr-suite-install-runtime-manifest.json" ] || stop "prepared build missing"
+  [ "$(sed -n '1p' "$WORK/candidate.txt")" = "$SHA" ] || stop "prepared build SHA differs"
+else
+  WORK=$(mktemp -d "$HOME/vdr-suite-media-tools.XXXXXXXX") || stop "unable to create work directory"
+  mkdir -m 0700 "$WORK/build" "$WORK/tmp" "$WORK/packages"
+  export TMPDIR="$WORK/tmp"
+  make -j2 stage-install-runtime BUILD_DIR="$WORK/build" RUNTIME_STAGE="$WORK/stage" || stop "Suite build failed"
+  make -j2 build-media-tools-cpp-deb BUILD_DIR="$WORK/build" OUTPUT_DIR="$WORK/packages" ADDON_MAINTAINER='Local VDR operator <local@vdr-suite.invalid>' || stop "Media Tools build failed"
+fi
 echo "TESTED_SHA=$SHA"
 echo "WORKDIR=$WORK"
-make -j2 stage-install-runtime BUILD_DIR="$WORK/build" RUNTIME_STAGE="$WORK/stage" || stop "Suite build failed"
-make -j2 build-media-tools-cpp-deb BUILD_DIR="$WORK/build" OUTPUT_DIR="$WORK/packages" ADDON_MAINTAINER='Local VDR operator <local@vdr-suite.invalid>' || stop "Media Tools build failed"
 BINARY="$WORK/build/addons/vdr-suite-media-import"
-[ -x "$BINARY" ] && [ "$(sha256sum "$BINARY" | cut -d' ' -f1)" = "$APPROVED" ] || stop "handler digest mismatched independent approval"
+[ -x "$BINARY" ] || stop "missing handler binary"
+DIGEST=$(sha256sum "$BINARY" | cut -d' ' -f1)
+if [ "$MODE" = install ]; then
+  [ "$DIGEST" = "$APPROVED" ] || stop "handler digest mismatched independent approval"
+  if [ -n "$PREPARED_WORKDIR" ]; then
+    [ "$(sed -n '2p' "$WORK/candidate.txt")" = "$APPROVED" ] || stop "prepared handler changed"
+  fi
+fi
 PACKAGE=$(find "$WORK/packages" -maxdepth 1 -name 'vdr-suite-addon-media-tools_*.deb' -type f -print)
 [ -f "$PACKAGE" ] && [ "$(dpkg-deb -f "$PACKAGE" Package)" = vdr-suite-addon-media-tools ] || stop "invalid add-on package"
 [ "$(dpkg-deb -f "$PACKAGE" Version)" = '0.1.0~cpppreview1' ] || stop "unexpected module version"
 [ "$(dpkg-deb -f "$PACKAGE" Architecture)" = "$(dpkg --print-architecture)" ] || stop "wrong architecture"
 dpkg-deb --contents "$PACKAGE" || stop "package contents unreadable"
+if [ "$MODE" = prepare ]; then
+  printf '%s\n%s\n' "$SHA" "$DIGEST" > "$WORK/candidate.txt"
+  echo "MEDIA_TOOLS_PREPARED=YES"
+  echo "WORKDIR=$WORK"
+  echo "REVIEW_HANDLER_SHA256=$DIGEST"
+  echo 'INSTALL_REQUIRES_INDEPENDENT_APPROVAL=YES'
+  exit 0
+fi
 resource_preflight || stop "insufficient capacity after build"
+mkdir -m 0700 "$WORK/backup" || stop "backup directory already present"
 # A live database backup must happen with the daemon stopped.
 RESTART=0
 recover() {
