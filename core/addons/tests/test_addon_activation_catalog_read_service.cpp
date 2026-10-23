@@ -73,6 +73,9 @@ int main()
     evidence.moduleId = "rectools";
     evidence.packageName = "vdr-suite-addon-media-tools";
     evidence.backendId = "backend-a";
+    evidence.agentId = "agent-a";
+    evidence.agentInstanceId = "instance-a";
+    evidence.backendGeneration = 19;
     evidence.installed = evidence.manifestValid = evidence.packageTrusted =
         evidence.versionCompatible = evidence.handlerRegistered =
         evidence.handlerHealthy = true;
