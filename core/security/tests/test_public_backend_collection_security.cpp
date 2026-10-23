@@ -250,6 +250,47 @@ int main()
     }
 
     {
+        // HEVC planning is read-only but still authenticated, backend-scoped,
+        // CSRF protected and audited. It never grants stage/publish rights.
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "media.recording.play", "backend-a"));
+        HttpServerRequest request = browserGet(fixture);
+        request.path = "/api/v1/backends/backend-a/capabilities/media-shrink";
+        const auto capability = fixture.gate.evaluate(request);
+        assert(capability.allowed && !capability.protectedMutation);
+        request.path = "/api/v1/backends/backend-a/media-shrink-plans";
+        request.method = "POST";
+        request.body = "{\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\"}";
+        request.headers["Content-Type"] = "application/json";
+        fixture.addBrowserAuthentication(request, true);
+        const auto plan = fixture.gate.evaluate(request);
+        assert(plan.allowed && plan.protectedMutation);
+        assert(plan.authorizationDecision.permission == "media.recording.play");
+        assert(plan.authorizationDecision.action ==
+            "media.recording.shrink.plan");
+        assert(plan.authorizationDecision.backendId == "backend-a");
+        fixture.addBrowserAuthentication(request, false);
+        request.headers.erase("X-CSRF-Token");
+        assert(fixture.gate.evaluate(request).rejection.statusCode == 403);
+        HttpServerRequest anonymous;
+        anonymous.method = "POST";
+        anonymous.path = request.path;
+        anonymous.body = request.body;
+        assert(fixture.gate.evaluate(anonymous).rejection.statusCode == 401);
+    }
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        HttpServerRequest request;
+        request.method = "POST";
+        request.path = "/api/v1/backends/backend-a/media-shrink-plans";
+        request.body = "{\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\"}";
+        request.headers["Content-Type"] = "application/json";
+        fixture.addBrowserAuthentication(request, true);
+        assert(fixture.gate.evaluate(request).rejection.statusCode == 403);
+    }
+
+    {
         SecurityHttpGateBrowserTestFixture fixture;
         HttpServerRequest anonymous;
         anonymous.method = "GET";
