@@ -118,6 +118,51 @@ public:
         } catch (...) { return std::nullopt; }
     }
 
+    // INTERNAL trusted Core -> authenticated Agent resolution only. Never
+    // attach these native filesystem coordinates to Public API responses or
+    // command assignment payloads. Reuses the canonical public-recording
+    // identity and live snapshot; a stale fingerprint refuses dispatch.
+    struct TrustedRecordingPaths {
+        std::filesystem::path videoRoot;
+        std::filesystem::path relativeRecording;
+    };
+    std::optional<TrustedRecordingPaths> trustedSourcePaths(
+        const std::string& backend, const std::string& recordingId,
+        const std::string& expectedFingerprint) const {
+        if (!vdrsuite::mediatools::shrinkOpaqueId(recordingId, "rec_") ||
+            expectedFingerprint.size() != 26 ||
+            !available_ || !available_(backend) || !resolve_)
+            return std::nullopt;
+        const auto root = roots_.find(backend);
+        if (root == roots_.end()) return std::nullopt;
+        const auto recording = resolve_(backend, recordingId);
+        if (!recording) return std::nullopt;
+        namespace fs = std::filesystem;
+        const fs::path videoRoot(root->second), absolute(*recording);
+        if (!videoRoot.is_absolute() ||
+            videoRoot.lexically_normal() != videoRoot ||
+            !absolute.is_absolute() ||
+            absolute.lexically_normal() != absolute)
+            return std::nullopt;
+        const fs::path relative = absolute.lexically_relative(videoRoot);
+        if (relative.empty() || relative.is_absolute() ||
+            relative.extension() != ".rec" ||
+            relative.lexically_normal() != relative ||
+            relative.parent_path().empty() ||
+            std::any_of(relative.begin(), relative.end(),
+                [](const fs::path& part) {
+                    return part == "." || part == "..";
+                }))
+            return std::nullopt;
+        try {
+            const auto plan = vdrsuite::mediatools::inspectShrink(
+                videoRoot, relative);
+            if (vdrsuite::mediatools::shrinkSourceFingerprint(plan) !=
+                expectedFingerprint) return std::nullopt;
+            return TrustedRecordingPaths{videoRoot, relative};
+        } catch (...) { return std::nullopt; }
+    }
+
     ApiResponse reviewStatus(const std::string& actor,
                              const std::string& backend,
                              const std::string& reviewId) const {
