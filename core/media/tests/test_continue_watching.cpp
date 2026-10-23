@@ -225,5 +225,28 @@ int main()
     assert(statesAfterRestart[0].positionSeconds == 40);
     assert(statesAfterRestart[0].revision == 4);
 
+    // A safe public Recording index renumber reuses its resolved native
+    // recording identity and retains the *same* revision fence.
+    const auto rebound = afterRestart.updateConditional(
+        "device-1", "default", "r2-renumbered", "/recordings/r2.rec",
+        55, "cas-renumber", 4);
+    assert(rebound.status == ContinueWatchingMutationStatus::applied);
+    assert(rebound.revision == 5);
+    const auto reboundStates = afterRestart.findForActorBackend("device-1", "default");
+    assert(reboundStates.size() == 1);
+    assert(reboundStates[0].recordingId == "r2-renumbered");
+    assert(reboundStates[0].positionSeconds == 55);
+    assert(reboundStates[0].revision == 5);
+    assert(afterRestart.updateConditional(
+        "device-1", "default", "r2-renumbered", "/recordings/r2.rec",
+        500, "cas-stale-before-renumber", 4
+    ).status == ContinueWatchingMutationStatus::conflict);
+    // The same internal identifier must not silently rebind to a different
+    // native Recording, even with the expected revision.
+    assert(afterRestart.updateConditional(
+        "device-1", "default", "r2-renumbered", "/other/recording.rec",
+        300, "cas-wrong-native", 5
+    ).status == ContinueWatchingMutationStatus::conflict);
+
     return 0;
 }
