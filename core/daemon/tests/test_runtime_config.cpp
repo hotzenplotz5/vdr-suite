@@ -48,11 +48,14 @@ int main()
 {
     unsetenv("VDR_SUITE_DATABASE_PATH");
     unsetenv("VDR_SUITE_RECORDING_ARTWORK_ROOTS");
+    unsetenv("VDR_SUITE_RECORDING_VIDEO_ROOTS");
     clearRuntimeEnvironment();
 
     RuntimeConfig defaultConfig;
     assert(defaultConfig.databasePath() == "/tmp/vdr-suite-test.db");
     assert(defaultConfig.recordingArtworkRoots().empty());
+    assert(defaultConfig.recordingVideoRoots().empty());
+    assert(!defaultConfig.recordingVideoRootsSpecified());
     assert(!defaultConfig.suiteBridge().enabled);
     assert(defaultConfig.suiteBridge().backendId == "default");
     assert(defaultConfig.suiteBridge().host == "127.0.0.1");
@@ -94,6 +97,10 @@ int main()
     setenv(
         "VDR_SUITE_RECORDING_ARTWORK_ROOTS",
         "default=/srv/tvscraper;wohnhaus2=/mnt/secondary artwork",
+        1);
+    setenv(
+        "VDR_SUITE_RECORDING_VIDEO_ROOTS",
+        "default=/srv/recordings;wohnhaus2=/media/MLD video/../video",
         1);
     setenv("VDR_SUITE_SUITE_BRIDGE_ENABLED", "YES", 1);
     setenv("VDR_SUITE_SUITE_BRIDGE_BACKEND_ID", "wohnhaus2", 1);
@@ -157,6 +164,12 @@ int main()
            "/srv/tvscraper");
     assert(overriddenConfig.recordingArtworkRoots().at("wohnhaus2") ==
            "/mnt/secondary artwork");
+    assert(overriddenConfig.recordingVideoRootsSpecified());
+    assert(overriddenConfig.recordingVideoRoots().size() == 2);
+    assert(overriddenConfig.recordingVideoRoots().at("default") ==
+           "/srv/recordings");
+    assert(overriddenConfig.recordingVideoRoots().at("wohnhaus2") ==
+           "/media/video");
     assert(overriddenConfig.suiteBridge().enabled);
     assert(overriddenConfig.suiteBridge().backendId == "wohnhaus2");
     assert(overriddenConfig.suiteBridge().host == "127.0.0.2");
@@ -211,6 +224,30 @@ int main()
     RuntimeConfig invalidBackendArtworkConfig;
     assert(invalidBackendArtworkConfig.recordingArtworkRoots().empty());
 
+    setenv(
+        "VDR_SUITE_RECORDING_VIDEO_ROOTS",
+        "default=/srv/recordings;default=/srv/another",
+        1);
+    RuntimeConfig duplicateRecordingRoots;
+    assert(duplicateRecordingRoots.recordingVideoRootsSpecified());
+    assert(duplicateRecordingRoots.recordingVideoRoots().empty());
+
+    setenv("VDR_SUITE_RECORDING_VIDEO_ROOTS", "default=relative/video", 1);
+    RuntimeConfig relativeRecordingRoot;
+    assert(relativeRecordingRoot.recordingVideoRootsSpecified());
+    assert(relativeRecordingRoot.recordingVideoRoots().empty());
+
+    setenv("VDR_SUITE_RECORDING_VIDEO_ROOTS", "default=/", 1);
+    RuntimeConfig filesystemRecordingRoot;
+    assert(filesystemRecordingRoot.recordingVideoRootsSpecified());
+    assert(filesystemRecordingRoot.recordingVideoRoots().empty());
+
+    setenv("VDR_SUITE_RECORDING_VIDEO_ROOTS", "default=/srv/recordings;other=bad", 1);
+    RuntimeConfig partiallyInvalidRecordingRoots;
+    assert(partiallyInvalidRecordingRoots.recordingVideoRootsSpecified());
+    assert(partiallyInvalidRecordingRoots.recordingVideoRoots().empty());
+
+    unsetenv("VDR_SUITE_RECORDING_VIDEO_ROOTS");
     setenv("VDR_SUITE_SUITE_BRIDGE_ENABLED", "invalid", 1);
     setenv("VDR_SUITE_SUITE_BRIDGE_BACKEND_ID", "invalid backend", 1);
     setenv("VDR_SUITE_SUITE_BRIDGE_HOST", std::string(300, 'x').c_str(), 1);
@@ -305,12 +342,15 @@ int main()
 
     setenv("VDR_SUITE_DATABASE_PATH", "", 1);
     setenv("VDR_SUITE_RECORDING_ARTWORK_ROOTS", "", 1);
+    setenv("VDR_SUITE_RECORDING_VIDEO_ROOTS", "", 1);
     clearRuntimeEnvironment();
 
     RuntimeConfig emptyOverrideConfig;
     assert(emptyOverrideConfig.databasePath() ==
            "/tmp/vdr-suite-test.db");
     assert(emptyOverrideConfig.recordingArtworkRoots().empty());
+    assert(emptyOverrideConfig.recordingVideoRoots().empty());
+    assert(!emptyOverrideConfig.recordingVideoRootsSpecified());
     assert(!emptyOverrideConfig.suiteBridge().enabled);
     assert(!emptyOverrideConfig.seriesArtworkFallback().enabled);
     assert(emptyOverrideConfig.seriesArtworkFallback().sourceRoots ==
@@ -321,6 +361,7 @@ int main()
 
     unsetenv("VDR_SUITE_DATABASE_PATH");
     unsetenv("VDR_SUITE_RECORDING_ARTWORK_ROOTS");
+    unsetenv("VDR_SUITE_RECORDING_VIDEO_ROOTS");
     clearRuntimeEnvironment();
 
     return 0;
