@@ -8646,107 +8646,6 @@ bool PublicApiRuntime::tryHandleIdentityAdministrationReadGet(
         }
     }
 
-    std::string sourceBackendId;
-    if (publicMediaImportSourcesPath(path, sourceBackendId))
-    {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(path, requestId, correlationId);
-            return true;
-        }
-        const bool scoped =
-            authorizedBackendId == sourceBackendId ||
-            authorizedBackendId == "*" ||
-            std::find(authorizedBackendIds.begin(), authorizedBackendIds.end(),
-                      sourceBackendId) != authorizedBackendIds.end() ||
-            std::find(authorizedBackendIds.begin(), authorizedBackendIds.end(),
-                      std::string("*")) != authorizedBackendIds.end();
-        if (!scoped)
-        {
-            response = notFoundProblem(path, requestId, correlationId);
-            return true;
-        }
-        if (requestTarget != path)
-        {
-            response = invalidRequestProblem(
-                path, "Media Import source listing accepts no query parameters.",
-                requestId, correlationId);
-            return true;
-        }
-        const auto r = lookupMediaImportSources(actorRef, sourceBackendId);
-        if (r.status == MediaImportSourceStatus::forbidden)
-        {
-            response = problemResponse(403, "permission_denied", "Forbidden",
-                "Media Import source listing is not authorized.",
-                path, requestId, correlationId);
-            return true;
-        }
-        if (r.status != MediaImportSourceStatus::ok || r.ids.size() > 32U)
-        {
-            response = serviceUnavailableProblem(path, requestId, correlationId);
-            return true;
-        }
-        std::string body = "{\"items\":[";
-        std::string previous;
-        for (const auto& id : r.ids)
-        {
-            if (id.size() < 16U || id.size() > 64U ||
-                !std::all_of(id.begin(), id.end(), [](unsigned char ch) {
-                    return std::isalnum(ch) || ch == '-' || ch == '_';
-                }) || (!previous.empty() && id <= previous))
-            {
-                response = serviceUnavailableProblem(path, requestId, correlationId);
-                return true;
-            }
-            if (!previous.empty()) body += ",";
-            body += "{\"sourceId\":\"" + id + "\"}";
-            previous = id;
-        }
-        body += "],\"meta\":{\"partial\":false},\"links\":{\"self\":\"" +
-            jsonEscape(path) + "\"}}";
-        response = jsonResponse(body, requestId, correlationId);
-        return true;
-    }
-
-    // A7.2: capability discovery is a live read, not activation or dispatch.
-    std::string mediaCapabilityBackendId;
-    if (publicMediaImportCapabilityPath(path, mediaCapabilityBackendId))
-    {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(path, requestId, correlationId);
-            return true;
-        }
-        const bool scoped =
-            authorizedBackendId == mediaCapabilityBackendId ||
-            authorizedBackendId == "*" ||
-            std::find(authorizedBackendIds.begin(), authorizedBackendIds.end(),
-                      mediaCapabilityBackendId) != authorizedBackendIds.end() ||
-            std::find(authorizedBackendIds.begin(), authorizedBackendIds.end(),
-                      std::string("*")) != authorizedBackendIds.end();
-        if (!scoped)
-        {
-            response = notFoundProblem(path, requestId, correlationId);
-            return true;
-        }
-        if (!requestQueryString(requestTarget).empty())
-        {
-            response = invalidRequestProblem(path,
-                "Media Import capability discovery accepts no query parameters.",
-                requestId, correlationId);
-            return true;
-        }
-        const bool available = lookupMediaImportCapability(
-            actorRef, mediaCapabilityBackendId);
-        response = jsonResponse(
-            "{\"backendId\":\"" + jsonEscape(mediaCapabilityBackendId) +
-            "\",\"capability\":\"addons.media.import\",\"available\":" +
-            std::string(available ? "true" : "false") +
-            ",\"links\":{\"self\":\"" + jsonEscape(path) + "\"}}",
-            requestId, correlationId);
-        return true;
-    }
-
     if (path == PublicAccountCollectionPath)
     {
         if (actorRef.empty())
@@ -8851,6 +8750,108 @@ bool PublicApiRuntime::tryHandleGet(
     const std::string& pairingToken) const
 {
     const std::string path = requestPath(requestTarget);
+
+    std::string sourceBackendId;
+    if (publicMediaImportSourcesPath(path, sourceBackendId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        const bool scoped =
+            authorizedBackendId == sourceBackendId ||
+            authorizedBackendId == "*" ||
+            std::find(authorizedBackendIds.begin(), authorizedBackendIds.end(),
+                      sourceBackendId) != authorizedBackendIds.end() ||
+            std::find(authorizedBackendIds.begin(), authorizedBackendIds.end(),
+                      std::string("*")) != authorizedBackendIds.end();
+        if (!scoped)
+        {
+            response = notFoundProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (requestTarget != path)
+        {
+            response = invalidRequestProblem(
+                path, "Media Import source listing accepts no query parameters.",
+                requestId, correlationId);
+            return true;
+        }
+        const auto r = lookupMediaImportSources(actorRef, sourceBackendId);
+        if (r.status == MediaImportSourceStatus::forbidden)
+        {
+            response = problemResponse(403, "permission_denied", "Forbidden",
+                "Media Import source listing is not authorized.",
+                path, requestId, correlationId);
+            return true;
+        }
+        if (r.status != MediaImportSourceStatus::ok || r.ids.size() > 32U)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        std::string body = "{\"items\":[";
+        std::string previous;
+        for (const auto& id : r.ids)
+        {
+            if (id.size() < 16U || id.size() > 64U ||
+                !std::all_of(id.begin(), id.end(), [](unsigned char ch) {
+                    return std::isalnum(ch) || ch == '-' || ch == '_';
+                }) || (!previous.empty() && id <= previous))
+            {
+                response = serviceUnavailableProblem(path, requestId, correlationId);
+                return true;
+            }
+            if (!previous.empty()) body += ",";
+            body += "{\"sourceId\":\"" + id + "\"}";
+            previous = id;
+        }
+        body += "],\"meta\":{\"partial\":false},\"links\":{\"self\":\"" +
+            jsonEscape(path) + "\"}}";
+        response = jsonResponse(body, requestId, correlationId);
+        return true;
+    }
+
+    // A7.2: capability discovery is a live read, not activation or dispatch.
+    std::string mediaCapabilityBackendId;
+    if (publicMediaImportCapabilityPath(path, mediaCapabilityBackendId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        const bool scoped =
+            authorizedBackendId == mediaCapabilityBackendId ||
+            authorizedBackendId == "*" ||
+            std::find(authorizedBackendIds.begin(), authorizedBackendIds.end(),
+                      mediaCapabilityBackendId) != authorizedBackendIds.end() ||
+            std::find(authorizedBackendIds.begin(), authorizedBackendIds.end(),
+                      std::string("*")) != authorizedBackendIds.end();
+        if (!scoped)
+        {
+            response = notFoundProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (!requestQueryString(requestTarget).empty())
+        {
+            response = invalidRequestProblem(path,
+                "Media Import capability discovery accepts no query parameters.",
+                requestId, correlationId);
+            return true;
+        }
+        const bool available = lookupMediaImportCapability(
+            actorRef, mediaCapabilityBackendId);
+        response = jsonResponse(
+            "{\"backendId\":\"" + jsonEscape(mediaCapabilityBackendId) +
+            "\",\"capability\":\"addons.media.import\",\"available\":" +
+            std::string(available ? "true" : "false") +
+            ",\"links\":{\"self\":\"" + jsonEscape(path) + "\"}}",
+            requestId, correlationId);
+        return true;
+    }
+
 
     if (path == "/api/v1")
     {
@@ -9406,135 +9407,7 @@ bool PublicApiRuntime::tryHandleDevicePairingPost(
     const std::string& pairingToken) const
 {
     const std::string path = requestPath(requestTarget);
-    std::string mediaCapabilityBackendId;
     std::string pairingRequestId;
-
-    std::string mediaImportBackend;
-    if (publicMediaImportCollectionPath(path, mediaImportBackend))
-    {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(path, requestId, correlationId);
-            return true;
-        }
-        // The backend scope is independently authorized by SecurityHttpGate.
-        if (authorizedBackendId != mediaImportBackend)
-        {
-            response = notFoundProblem(path, requestId, correlationId);
-            return true;
-        }
-        if (requestTarget != path)
-        {
-            response = invalidRequestProblem(path,
-                "Media Import accepts no query parameters.",
-                requestId, correlationId);
-            return true;
-        }
-        if (!applicationJsonContentType(contentType))
-        {
-            response = problemResponse(415, "unsupported_media_type",
-                "Unsupported media type",
-                "Media Import requires Content-Type application/json.",
-                path, requestId, correlationId);
-            return true;
-        }
-        if (body.size() > 256U)
-        {
-            response = invalidRequestProblem(path,
-                "Media Import body is too large.",
-                requestId, correlationId);
-            return true;
-        }
-        JsonSyntaxValidator validator(body);
-        if (!validator.valid())
-        {
-            response = invalidRequestProblem(path,
-                "Invalid Media Import JSON.", requestId, correlationId);
-            return true;
-        }
-        std::string sourceId;
-        if (!parseMediaImportAdmissionBody(body, sourceId))
-        {
-            response = problemResponse(422, "validation_error",
-                "Validation failed",
-                "Exactly one opaque sourceId string is required.",
-                path, requestId, correlationId);
-            return true;
-        }
-        if (!publicIdempotencyKeyValid(idempotencyKey))
-        {
-            response = invalidRequestProblem(path,
-                "A valid Idempotency-Key is required.",
-                requestId, correlationId);
-            return true;
-        }
-        MediaImportAdmission admit;
-        {
-            std::lock_guard<std::mutex> lock(mediaImportAdmissionMutex_);
-            admit = mediaImportAdmission_;
-        }
-        if (!admit)
-        {
-            response = serviceUnavailableProblem(path, requestId, correlationId);
-            return true;
-        }
-        PublicMediaImportAdmissionRequest input;
-        input.actorRef = actorRef;
-        input.backendId = mediaImportBackend;
-        input.sourceId = sourceId;
-        input.idempotencyKey = idempotencyKey;
-        const auto result = admit(input);
-        switch (result.status)
-        {
-            case PublicMediaImportAdmissionStatus::accepted:
-            case PublicMediaImportAdmissionStatus::replayed:
-                if (result.operation.operationId.empty() ||
-                    result.operation.state.empty() ||
-                    result.operation.backendId != mediaImportBackend ||
-                    result.operation.resourceRevision.empty())
-                {
-                    response = serviceUnavailableProblem(
-                        path, requestId, correlationId);
-                    return true;
-                }
-                {
-                    const std::string operationPath =
-                        std::string(PublicOperationPrefix) +
-                        result.operation.operationId;
-                    response = publicOperationResponse(
-                        result.operation, operationPath,
-                        requestId, correlationId, "");
-                    response.statusCode = 202;
-                    response.headers["Location"] = operationPath;
-                    return true;
-                }
-            case PublicMediaImportAdmissionStatus::invalid:
-                response = problemResponse(422, "validation_error",
-                    "Validation failed", "Invalid Media Import selection.",
-                    path, requestId, correlationId);
-                return true;
-            case PublicMediaImportAdmissionStatus::forbidden:
-                response = problemResponse(403, "permission_denied",
-                    "Forbidden", "Media Import is not authorized.",
-                    path, requestId, correlationId);
-                return true;
-            case PublicMediaImportAdmissionStatus::idempotencyConflict:
-                response = problemResponse(409, "idempotency_conflict",
-                    "Idempotency conflict",
-                    "The key conflicts with an existing Media Import operation.",
-                    path, requestId, correlationId);
-                return true;
-            case PublicMediaImportAdmissionStatus::conflict:
-                response = problemResponse(409, "operation_conflict",
-                    "Operation conflict", "Media Import operation conflict.",
-                    path, requestId, correlationId);
-                return true;
-            case PublicMediaImportAdmissionStatus::unavailable:
-                response = serviceUnavailableProblem(
-                    path, requestId, correlationId);
-                return true;
-        }
-    }
 
     const std::string issueSuffix = "/credential";
     const std::string pairingPrefix(PublicDevicePairingPrefix);
@@ -12224,6 +12097,135 @@ bool PublicApiRuntime::tryHandlePost(
     const std::string path = requestPath(requestTarget);
     std::string operationId;
     std::string timerAssignmentId;
+    std::string mediaCapabilityBackendId;
+
+    std::string mediaImportBackend;
+    if (publicMediaImportCollectionPath(path, mediaImportBackend))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        // The backend scope is independently authorized by SecurityHttpGate.
+        if (authorizedBackendId != mediaImportBackend)
+        {
+            response = notFoundProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (requestTarget != path)
+        {
+            response = invalidRequestProblem(path,
+                "Media Import accepts no query parameters.",
+                requestId, correlationId);
+            return true;
+        }
+        if (!applicationJsonContentType(contentType))
+        {
+            response = problemResponse(415, "unsupported_media_type",
+                "Unsupported media type",
+                "Media Import requires Content-Type application/json.",
+                path, requestId, correlationId);
+            return true;
+        }
+        if (body.size() > 256U)
+        {
+            response = invalidRequestProblem(path,
+                "Media Import body is too large.",
+                requestId, correlationId);
+            return true;
+        }
+        JsonSyntaxValidator validator(body);
+        if (!validator.valid())
+        {
+            response = invalidRequestProblem(path,
+                "Invalid Media Import JSON.", requestId, correlationId);
+            return true;
+        }
+        std::string sourceId;
+        if (!parseMediaImportAdmissionBody(body, sourceId))
+        {
+            response = problemResponse(422, "validation_error",
+                "Validation failed",
+                "Exactly one opaque sourceId string is required.",
+                path, requestId, correlationId);
+            return true;
+        }
+        if (!publicIdempotencyKeyValid(idempotencyKey))
+        {
+            response = invalidRequestProblem(path,
+                "A valid Idempotency-Key is required.",
+                requestId, correlationId);
+            return true;
+        }
+        MediaImportAdmission admit;
+        {
+            std::lock_guard<std::mutex> lock(mediaImportAdmissionMutex_);
+            admit = mediaImportAdmission_;
+        }
+        if (!admit)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicMediaImportAdmissionRequest input;
+        input.actorRef = actorRef;
+        input.backendId = mediaImportBackend;
+        input.sourceId = sourceId;
+        input.idempotencyKey = idempotencyKey;
+        const auto result = admit(input);
+        switch (result.status)
+        {
+            case PublicMediaImportAdmissionStatus::accepted:
+            case PublicMediaImportAdmissionStatus::replayed:
+                if (result.operation.operationId.empty() ||
+                    result.operation.state.empty() ||
+                    result.operation.backendId != mediaImportBackend ||
+                    result.operation.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                {
+                    const std::string operationPath =
+                        std::string(PublicOperationPrefix) +
+                        result.operation.operationId;
+                    response = publicOperationResponse(
+                        result.operation, operationPath,
+                        requestId, correlationId, "");
+                    response.statusCode = 202;
+                    response.headers["Location"] = operationPath;
+                    return true;
+                }
+            case PublicMediaImportAdmissionStatus::invalid:
+                response = problemResponse(422, "validation_error",
+                    "Validation failed", "Invalid Media Import selection.",
+                    path, requestId, correlationId);
+                return true;
+            case PublicMediaImportAdmissionStatus::forbidden:
+                response = problemResponse(403, "permission_denied",
+                    "Forbidden", "Media Import is not authorized.",
+                    path, requestId, correlationId);
+                return true;
+            case PublicMediaImportAdmissionStatus::idempotencyConflict:
+                response = problemResponse(409, "idempotency_conflict",
+                    "Idempotency conflict",
+                    "The key conflicts with an existing Media Import operation.",
+                    path, requestId, correlationId);
+                return true;
+            case PublicMediaImportAdmissionStatus::conflict:
+                response = problemResponse(409, "operation_conflict",
+                    "Operation conflict", "Media Import operation conflict.",
+                    path, requestId, correlationId);
+                return true;
+            case PublicMediaImportAdmissionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
 
     // Preserve the original first-match precedence across public POST routes.
     if (tryHandleNativeTimerMutationPost(
