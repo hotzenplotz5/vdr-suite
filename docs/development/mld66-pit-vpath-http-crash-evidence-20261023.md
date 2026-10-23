@@ -79,6 +79,22 @@ The first line reveals RESTfulAPI's actually configured `eimgs:` value; the seco
 
 Pit clarified that the VDR starts restarting about four minutes **after VDR-Suite installation**, while **SuiteBridge-only** runs are stable. The daemon can cause private `/recordings.json` calls; if such a request drives a loop inside a VDR plugin, it could indirectly contribute to instability, but **we have no correlation of the crash stack/timing to those calls yet**. A userspace core dump logged by kernel is not necessarily a kernel panic. Capture sanitized `journalctl -b -u vdr -u vdr-suite-daemon --no-pager` around the first fault and any available user-space core backtrace before assigning root cause. Do not re-install the full suite on Pit's stable host merely to reproduce.
 
+## 2026-10-23 late evening — empty EPG image root independently confirmed by Pit
+
+Pit reports *at runtime* four RESTfulAPI startup lines, from distinct VDR process instances:
+
+```text
+restfulapi: Used settings: port: 8002, ip: 0.0.0.0, eimgs: , cimgs: , webapp: , headers: activated
+```
+
+Likewise `RESTful-API Settings` lines show **`eimgs:` empty**, not merely an absent guessed pathname. `ls -ld /var/cache/vdr/epgimages` returns **No such file or directory**. The reported `/var/cache/vdr` contains `cam.data`, `epg.data` and `plugins/`; plugin cache contains `restfulapi/`, `skindesigner/`, `tvscraper/`. The MLD TVScraper-specific cache is not the RESTfulAPI EPG artwork root and must not be conflated with it.
+
+This **confirms the missing setting, the prerequisite for the source-confirmed indefinite loop**, on the affected host. The condition that a recording's TVScraper media reaches `cleanImagePath()` is still to be established by a call trace, and an on-device patched RESTfulAPI JSON PASS has **not** been obtained. No missing generic JSON runtime or mandatory EPG-image plugin has been established. There is no reason to install arbitrary plugins or create fake cache directories as the permanent solution.
+
+**Fix approach:** use the staged [source patch candidate](../../packaging/mld66/patches/0001-restfulapi-guard-empty-epg-image-root.patch) to make empty EPG artwork configuration safe. Validate its application against the exact upstream commit and then native MLD package build / runtime separately. The source patch is not yet deployed. Keep the official MLD recipe `SRCREV` unchanged until a verified patch-delivery strategy is agreed.
+
+**Crash correlation remains OPEN.** Pit says repeated VDR restarts arise ~4 minutes after full Suite installation, while SuiteBridge-only is stable. A daemon-triggered RESTfulAPI recording request may exercise the proven loop, but no watchdog/core/kernel signature has been supplied that proves it causes the restarts. A log line in kernel facilities is not itself proof of a kernel panic. Require the first original fault/watcher reason before assigning root cause or claiming stability.
+
 ## Independent recording-read blocker
 
 ```text
