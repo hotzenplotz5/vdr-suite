@@ -63,7 +63,8 @@ struct Fixture
               [this](const std::string& permission,
                      const std::string& backendId) {
                   return addonEnabled &&
-                      permission == "addons.media.import" &&
+                      (permission == "addons.media.import" ||
+                       permission == "addons.media.shrink") &&
                       backendId == "backend-a";
               })
     {
@@ -159,6 +160,10 @@ int main()
         "addons.media.import", "backend-a"));
     assert(!HumanAccountGrantAdministrationService::supportedGrant(
         "addons.media.import", "*"));
+    assert(HumanAccountGrantAdministrationService::supportedGrant(
+        "addons.media.shrink", "backend-a"));
+    assert(!HumanAccountGrantAdministrationService::supportedGrant(
+        "addons.media.shrink", "*"));
     assert(!HumanAccountGrantAdministrationService::supportedGrant(
         "addons.media.import", "../unsafe"));
 
@@ -451,6 +456,23 @@ int main()
             "addons.media.import", "backend-a", false);
         assert(removed.status == HumanAccountGrantAdministrationStatus::success);
         assert(!hasGrant(removed.grantSet, "addons.media.import", "backend-a"));
+    }
+
+    {
+        // HEVC remains a separate, explicit grant even if import is enabled.
+        Fixture fixture(false, true);
+        const auto before = fixture.service.read("account-viewer");
+        assert(before.status == HumanAccountGrantAdministrationStatus::success);
+        const auto enabled = fixture.service.setGrant(
+            context(), "account-viewer", before.grantSet.resourceRevision,
+            "addons.media.shrink", "backend-a", true);
+        assert(enabled.status == HumanAccountGrantAdministrationStatus::success);
+        assert(hasGrant(enabled.grantSet, "addons.media.shrink", "backend-a"));
+        assert(!hasGrant(enabled.grantSet, "addons.media.import", "backend-a"));
+        assert(fixture.service.setGrant(
+            context(), "account-viewer", enabled.grantSet.resourceRevision,
+            "addons.media.shrink", "*", true).status ==
+            HumanAccountGrantAdministrationStatus::invalidGrant);
     }
 
     return 0;
