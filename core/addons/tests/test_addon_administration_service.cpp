@@ -174,6 +174,22 @@ int main()
     assert(audit.listAll().size() == 1);
     assert(intents.read(actor, "rectools", "backend-a").intent.revision == 1);
 
+    // Even a trusted injection site may return an incomplete Agent lease.
+    // Such evidence cannot bind enable to a live generation or process.
+    auto missingLease = forged;
+    missingLease.agentInstanceId.clear();
+    AddonAdministrationService malformedLease(intents, audit,
+        [&](const std::string&, const std::string&)
+            -> std::optional<AddonAdministrationService::TrustedActivationSnapshot> {
+            return AddonAdministrationService::TrustedActivationSnapshot{
+                writable, missingLease};
+        });
+    assert(malformedLease.setDesiredState(
+        actor, {"rectools", "backend-a", true, 1}, {}, {},
+        {"event-missing-lease", "2026-10-20T10:04:00Z"}).status ==
+        IntentStatus::ineligible);
+    assert(audit.listAll().size() == 1);
+
     // The adapter must provide BOTH the backend decision and provider facts.
     // Caller-forged optimistic values are ignored on enable.
     int trustedReads = 0;
