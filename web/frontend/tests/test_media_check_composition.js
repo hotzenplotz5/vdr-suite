@@ -8,6 +8,7 @@ const hero = fs.readFileSync('web/frontend/recordings2-hero-detail.js', 'utf8');
 const packaging = fs.readFileSync('mk/recordings2.mk', 'utf8');
 assert(hero.includes("makeButton('Aufnahme prüfen'"));
 assert(hero.includes("makeButton('HEVC-Vorprüfung'"));
+assert(hero.includes('fallbackNotice.hidden = capability.encoderFallbackToSoftware !== true'));
 assert(hero.includes("renderMediaShrinkPlan(root, copy, recording, backendId, actions);"));
 assert(hero.includes("client.submitMediaShrinkPlan({"));
 assert(hero.includes('renderMediaCheck(root, copy, recording, backendId, actions);'));
@@ -62,7 +63,9 @@ const api = clientFactory.createClient({
     if (url.endsWith('/capabilities/media-shrink'))
       return Promise.resolve(response(200, {
         backendId: backend, capability: 'addons.media.shrink',
-        planningAvailable: true, available: false
+        planningAvailable: true, available: false,
+        encoders: ['software', 'vaapi', 'qsv', 'nvenc'],
+        encoderFallbackToSoftware: true
       }));
     if (url.endsWith('/media-shrink-plans'))
       return Promise.resolve(response(200, {
@@ -115,6 +118,9 @@ const api = clientFactory.createClient({
     await api.getMediaShrinkCapability({backendId: backend});
   assert.strictEqual(shrinkCapability.planningAvailable, true);
   assert.strictEqual(shrinkCapability.available, false);
+  assert.deepStrictEqual(shrinkCapability.encoders,
+    ['software', 'vaapi', 'qsv', 'nvenc']);
+  assert.strictEqual(shrinkCapability.encoderFallbackToSoftware, true);
   assert.throws(() => api.submitMediaShrinkPlan({
     backendId: backend, recordingId: '/tmp/bad.rec'
   }));
@@ -174,6 +180,19 @@ const api = clientFactory.createClient({
   assert.strictEqual(stageRequest.options.body, JSON.stringify({
     recordingId: id, encoder: 'software', maxHeight: 720, nightMode: true
   }));
+  // All user-facing choices use the same canonical, path-free API shape.
+  // This is client-contract coverage, not proof of GPU availability.
+  for (const codec of ['vaapi', 'qsv', 'nvenc']) {
+    await api.submitMediaShrinkStage({
+      backendId: backend, recordingId: id, encoder: codec,
+      maxHeight: 720, nightMode: false, idempotencyKey: mutationKey
+    });
+    const command = requests[requests.length - 1];
+    assert(command.url.endsWith('/media-shrink-stages'));
+    assert.deepStrictEqual(JSON.parse(command.options.body), {
+      recordingId: id, encoder: codec, maxHeight: 720, nightMode: false
+    });
+  }
   assert.throws(() => api.getMediaShrinkOperation({
     backendId: backend, operationId: '/tmp/operation'
   }));
