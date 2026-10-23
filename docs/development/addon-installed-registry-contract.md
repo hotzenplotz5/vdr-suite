@@ -68,6 +68,33 @@ package upgrade/removal choreography, active-job draining, release signing,
 backend authority and host-specific testing remain separate acceptance
 requirements. Routine diagnostics still require no dpkg ledger.
 
+## A2M/A4 administrator intent and independent runtime gate
+
+An explicit backend-scoped root approval under
+`/etc/vdr-suite/addon-approvals/rectools.<backendId>.json` is now
+matched with a fresh authenticated backend Agent observation (origin,
+version, SHA-256, exact instance/generation/lease). Core does **not**
+open remote binaries as local files and never adopts the Agent's digest as
+its expected value. Issuance/rotation/revocation of these Core-only
+expectations use the root-owned issuer in explicit backend scope; the
+historical unscoped record remains backend-local installation evidence,
+not a Core authorization fallback.
+
+The daemon's administrator Browser Session API has an audited, CSRF-protected
+`POST /api/v1/addons/rectools/activation` and a protected
+`GET /api/v1/addons/rectools/activation?backendId=...` for the CAS
+revision/desired-state readback. Only global administrators may mutate
+intent; neither caller-provided runtime fields nor installed metadata create
+trust. Enables are bound to current Agent identity/instance/generation.
+The import and HEVC-shrink operation fences independently recheck current
+backend-specific Core approval and Agent evidence at admission and command
+receipt. Revocation or a stale Agent observation denies new work.
+
+This is source-level activation wiring, **not** package lifecycle acceptance,
+a live host install or an authorization to run workloads on real recordings.
+Full host-specific end-to-end acceptance and the remaining fail-closed
+packaging/handler policies still apply.
+
 ## What must still be implemented before activation
 
 1. **Trust**: signed/admin-installed `dpkg` package provenance, compatible

@@ -122,7 +122,7 @@ but remain readable and explicitly disableable. The new binding is NOT
 proof of installation provenance or package trust; only independently
 approved provider evidence may create a productive enable.
 
-### A2M/A4 remote-backend trust gap (still open)
+### A2M/A4 remote-backend trust gap (now guarded in Core, acceptance pending)
 
 The installed snapshot from `inspectMediaToolsInstallSnapshot("/")` is a
 **local filesystem observation only**. Core must NOT treat a binary

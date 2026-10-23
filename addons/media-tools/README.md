@@ -29,6 +29,51 @@ an add-on or setting COMMAND_TYPES cannot activate imports. No service has been
 installed or restarted as part of this implementation, and the module manifest
 remains disabled.
 
+## Core-owned A2M/A4 activation (Slice 3 implementation)
+
+The Core checks an authenticated backend Agent's recent, lease-bound
+installation observation against an **independently approved, backend-scoped**
+root-owned expected record on the **Core host**:
+
+`/etc/vdr-suite/addon-approvals/rectools.<backendId>.json`
+
+Its expected SHA-256 must be independently reviewed; neither `addon.json`,
+`dpkg` metadata nor an Agent-reported digest approves itself. The Core
+record can be issued/rotated through `tools/addons/admin_approval_issuer.py`
+with `--core-expected-only --backend-id BACKEND_ID`, and revoked with
+`revoke --backend-id BACKEND_ID`. Issuance on the actual host additionally
+requires the issuer's explicit `--allow-live-root` confirmation and
+administrator privileges. **Do not run live-root issuance or install/restart
+any services as part of a source/CI test.**
+
+The authenticated administrator Browser Session API now exposes:
+
+- `GET /api/v1/addons/rectools/activation?backendId=BACKEND_ID`:
+  current persisted `desiredEnabled` and CAS `revision`. Global
+  `role.admin@*` plus a valid browser session are mandatory.
+- `POST /api/v1/addons/rectools/activation` with strict JSON:
+  `{"backendId":"BACKEND_ID","desiredEnabled":true,"expectedRevision":0}`
+  or the matching `false` disable. The first update uses revision 0; all
+  later updates must use the latest read revision. The request requires a
+  global administrator Browser Session, CSRF token and normal Suite request/
+  correlation identifiers. A stale revision returns 409. Successful changes
+  are CAS/audit-atomic in the canonical Suite Core database.
+
+Enabling requires a writable backend, a live exact Agent
+identity/instance/generation, an advertised Media Import command capability
+and the currently matched Core/Agent handler identity. Disabling remains
+available even if the handler disappears or the approval is revoked. The
+existing import and HEVC-shrink Core fences independently recheck trust on
+discovery/reservation and at the Agent receipt. An approval record, a saved
+`desiredEnabled` bit or a granted permission **alone** cannot start work;
+the Agent executable remains explicitly opted in.
+
+These endpoints do **not** install code, load a plugin, start a service,
+disable maintenance locks or make unverified remote execution safe.
+`AddonHandlerRegistry::kMediaToolsCandidate.executable` and metadata-only
+manifests remain fail-closed. Full end-to-end and real-host acceptance is the
+separate remaining Slice 4, not proven by source-level activation tests.
+
 ## M2: erster tatsächlich nutzbarer Media Check (read-only)
 
 Der neue eigenständige C++17-Befehl `vdr-suite-media-check` prüft die
