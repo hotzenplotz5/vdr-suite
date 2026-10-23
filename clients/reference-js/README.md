@@ -73,3 +73,19 @@ cross-Device shared history; it cannot read a Browser Human Account's saved
 Continue Watching position. Device credentials are provided by the caller,
 never synthesized by the library. The browser uses its original CSRF-protected
 legacy route unchanged; the new route does not accept a browser session.
+
+
+### Explicit Playback MediaSession resume
+
+\`createRecordingPlaybackSession({backendId, recordingId, capabilities,
+startPositionSeconds, headers})\` uses the existing Public-v1 Device Recording
+Session CREATE operation. The caller must supply *actual measured* codec,
+container and protocol capabilities. A positive \`startPositionSeconds\` is
+optional and is only attempted after the user explicitly requests resume;
+the server may reject unsuitable profiles with 409 or out-of-range positions
+with 422. Only index-ready HLS profiles currently provide positive start-at.
+Read the returned \`mediaSession.playback.resume\` before claiming resume worked.
+Use \`getRecordingPlaybackSession({sessionId,headers})\` and
+\`stopRecordingPlaybackSession({sessionId,backendId,headers})\`; the latter
+uses the current owned-device STOP contract. Media grant delivery remains
+the existing guarded gateway, never private /api/media routes.
