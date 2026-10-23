@@ -3735,6 +3735,189 @@
         }
       }
     },
+    "/api/v1/devices/{deviceId}/playback-account": {
+      "get": {
+        "tags": [
+          "Device administration"
+        ],
+        "operationId": "getDevicePlaybackAccountBinding",
+        "summary": "Read explicit Device-to-Human playback association",
+        "description": "Only administrator Browser Sessions, audited by the existing SecurityHttpGate. No Device credential, password or playback history is returned. An absent association has revision zero and accountId null.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Browser Human administrator with devices.grants.view@* on GET or devices.grants.modify@* on POST. POST additionally requires current Browser Session CSRF proof. Device credentials/automatic Pairing approval cannot associate Human Account playback."
+        },
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current explicit association and CAS revision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "deviceId",
+                    "accountId",
+                    "revision"
+                  ],
+                  "properties": {
+                    "deviceId": {
+                      "type": "string"
+                    },
+                    "accountId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Explicitly assigned Human Account, never inferred from approver."
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid body, revision, Device ID or unexpected fields."
+          },
+          "401": {
+            "description": "No authenticated Browser Session."
+          },
+          "403": {
+            "description": "Not a Browser administrator or missing permission / CSRF."
+          },
+          "404": {
+            "description": "Device or account absent, revoked, or inactive."
+          },
+          "409": {
+            "description": "Stale Device-to-Account binding revision."
+          },
+          "503": {
+            "description": "Persistent identity, security or accountability unavailable."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Device administration"
+        ],
+        "operationId": "setDevicePlaybackAccountBinding",
+        "summary": "Assign or explicitly unlink a playback Account from a paired Device",
+        "description": "Administrator browser-only CSRF-protected mutation, audited atomically. Pairing approval never implies an account. Device receives only intersection of its live play grant, the selected active Human Account's live play grant, and exact Recording admission. Revoke and grant changes are checked on every progress call.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Browser Human administrator with devices.grants.view@* on GET or devices.grants.modify@* on POST. POST additionally requires current Browser Session CSRF proof. Device credentials/automatic Pairing approval cannot associate Human Account playback."
+        },
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "accountId",
+                  "expectedRevision"
+                ],
+                "properties": {
+                  "accountId": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "description": "Explicit Human Account ID; empty string unlinks the Device and preserves a revision tombstone."
+                  },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Explicit assignment committed with new revision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "deviceId",
+                    "accountId",
+                    "revision"
+                  ],
+                  "properties": {
+                    "deviceId": {
+                      "type": "string"
+                    },
+                    "accountId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Explicitly assigned Human Account, never inferred from approver."
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid body, revision, Device ID or unexpected fields."
+          },
+          "401": {
+            "description": "No authenticated Browser Session."
+          },
+          "403": {
+            "description": "Not a Browser administrator or missing permission / CSRF."
+          },
+          "404": {
+            "description": "Device or account absent, revoked, or inactive."
+          },
+          "409": {
+            "description": "Stale Device-to-Account binding revision."
+          },
+          "503": {
+            "description": "Persistent identity, security or accountability unavailable."
+          }
+        }
+      }
+    },
     "/api/v1/devices/{deviceId}/grants": {
       "get": {
         "tags": [
