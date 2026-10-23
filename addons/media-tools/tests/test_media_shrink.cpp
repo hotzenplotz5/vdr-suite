@@ -234,6 +234,32 @@ int main() {
     }
     {
         Fixture fixture;
+        FakeProcess runner;
+        const auto plan = inspectShrink(fixture.video, fixture.relative());
+        const auto candidate = stageShrink(plan, runner,
+            [](const ShrinkPlan&) {});
+        std::ofstream(candidate / "info", std::ios::binary | std::ios::trunc)
+            << "T Tampered\\nD Changed\\n";
+        reject([&] { publishShrinkCandidate(plan, candidate, runner); });
+        assert(fs::exists(candidate) && fs::exists(fixture.recording / "info"));
+        assert(!fs::exists(fixture.video / "Sample_HEVC"));
+        ++checks;
+    }
+    {
+        Fixture fixture;
+        FakeProcess runner;
+        const auto plan = inspectShrink(fixture.video, fixture.relative());
+        const auto candidate = stageShrink(plan, runner,
+            [](const ShrinkPlan&) {});
+        std::ofstream(candidate / "de.srt", std::ios::binary | std::ios::trunc)
+            << "1\\n00:00:01,000 --> 00:00:02,000\\nHullo\\n";
+        reject([&] { publishShrinkCandidate(plan, candidate, runner); });
+        assert(fs::exists(candidate) && fs::exists(fixture.recording / "de.srt"));
+        assert(!fs::exists(fixture.video / "Sample_HEVC"));
+        ++checks;
+    }
+    {
+        Fixture fixture;
         fs::remove(fixture.recording / "00001.ts");
         fs::create_symlink(fixture.recording / "info",
                            fixture.recording / "00001.ts");
