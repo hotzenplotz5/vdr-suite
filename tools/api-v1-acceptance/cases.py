@@ -146,14 +146,31 @@ def source_contract_tests(a):
               "S1 revision contract missing")
     a.require("/api/v1/recording-playback-sessions/progress" in paths,
               "P1 resume contract missing")
+    # Execute the existing source-vs-runtime-route auditor, not a new competing schema.
+    audit = ROOT / "tools/check_public_v1_openapi.py"
+    if not audit.is_file():
+        raise Blocked("existing Public-v1 OpenAPI drift checker missing")
+    try:
+        r = subprocess.run([sys.executable, str(audit)], cwd=str(ROOT),
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                           check=False, timeout=25)
+    except (OSError, subprocess.SubprocessError):
+        raise Problem("contract_audit_failed", "OpenAPI drift audit could not run")
+    a.require(r.returncode == 0, "authoritative OpenAPI drift auditor failed")
 
 
 def root(a):
     d = get(a, V1)
     a.require(d.get("apiVersion") == "v1", "incorrect API major",
               path=V1, shape="apiVersion=v1")
-    a.runtime_version = str(d.get("serverVersion", "unavailable"))[:96]
+    reported = d.get("serverVersion", "unavailable")
+    a.runtime_version = (reported if isinstance(reported, str) and
+                         re.fullmatch(r"[A-Za-z0-9_.+:-]{1,96}", reported)
+                         else "invalid/unverifiable")
     a.context["root"] = d
+    if "device" in a.cfg:
+        a.require(d.get("authentication", {}).get("authenticated") is True,
+                  "paired Device did not authenticate at public root", path=V1)
 
 
 def runtime_match(a):
@@ -246,18 +263,20 @@ def epg_window(a):
     d = a.get_json(path)[0]
     items = collection(d, path, 3)
     a.require(no_private_paths(d), "private path in EPG response", path=path)
-    first_ids = [(x.get("eventId"), x.get("startTime")) for x in items]
-    a.require(len(first_ids) == len(set(map(str, first_ids))),
-              "duplicate first-page EPG identities", path=path)
+    first_ids = {str(x["eventId"]) for x in items if isinstance(x, dict)
+                 and x.get("eventId")}
+    a.require(len(first_ids) == sum(bool(x.get("eventId")) for x in items),
+              "duplicate authoritative EPG event IDs", path=path)
     page = d.get("page", {})
     cursor = page.get("nextCursor") if isinstance(page, dict) else None
     if cursor:
         p2 = path + "&" + urlencode({"cursor": cursor})
         nxt = a.get_json(p2)[0]
         nxt_items = collection(nxt, p2, 3)
-        next_ids = [(x.get("eventId"), x.get("startTime")) for x in nxt_items]
-        a.require(not set(map(str, first_ids)).intersection(map(str, next_ids)),
-                  "EPG cursor returned duplicate event", path=p2)
+        next_ids = {str(x["eventId"]) for x in nxt_items if isinstance(x, dict)
+                    and x.get("eventId")}
+        a.require(not first_ids.intersection(next_ids),
+                  "EPG cursor repeated an authoritative event ID", path=p2)
     if not items:
         raise Blocked("EPG is empty in bounded selected window")
 
@@ -287,9 +306,11 @@ def timer_detail(a):
 def native_timers(a):
     d = get(a, V1 + "/native-timers", backendId=a.backend, limit=5)
     a.require(isinstance(d, dict), "native timer response must be object")
-    items = d.get("items", [])
+    items = d.get("items")
     a.require(isinstance(items, list) and len(items) <= 5,
-              "native timer collection not bounded")
+              "native timer items collection missing or unbounded",
+              path=V1 + "/native-timers", shape="items: array (max 5)")
+    a.require(no_private_paths(d), "native timer leaked private filesystem path")
 
 
 def searchtimers(a):
@@ -457,6 +478,65 @@ def search_recordings(a):
     collection(data, path, 3)
 
 
+def status_negative(a, path, allowed):
+    require_device(a)
+    status, _, _ = a.client.get(path)
+    if status in (401, 403, 503):
+        kind = ("authentication_failed" if status == 401 else
+                "permission_denied" if status == 403 else "provider_unavailable")
+        raise Blocked("negative read prerequisite not available", kind=kind,
+                      path=path, actual=status)
+    a.require(status in allowed, "negative request returned wrong HTTP status",
+              path=path, expected="/".join(map(str, allowed)), actual=status)
+
+
+def epg_invalid_range(a):
+    now_s = int(time.time())
+    path = endpoint(V1 + "/epg/window", backendId=a.backend,
+                    channelId=a.context["channel"], fromTime=now_s + 3600,
+                    untilTime=now_s, limit=1)
+    status_negative(a, path, (400,))
+
+
+def epg_cursor_scope(a):
+    # Invalid fabricated cursor is GET only; backend/view grant remains enforced.
+    now_s = int(time.time())
+    path = endpoint(V1 + "/epg/window", backendId=a.backend,
+                    channelId=a.context["channel"], fromTime=now_s,
+                    untilTime=now_s + 60, limit=1, cursor="invalid-v1-cursor")
+    status_negative(a, path, (400,))
+
+
+def recording_bad_public_id(a):
+    path = endpoint(V1 + "/recordings/rec_bad", backendId=a.backend)
+    status_negative(a, path, (400,))
+
+
+def artwork_unknown(a):
+    # Syntactically valid but absent; never needs an actual image fixture.
+    ident = "f" * 32
+    path = endpoint(V1 + "/recordings/" + a.context["recording"] +
+                    "/artwork/" + ident, backendId=a.backend)
+    status_negative(a, path, (404,))
+
+
+def searchtimer_bad_public_id(a):
+    path = endpoint(V1 + "/search-timers/st_bad", backend=a.backend)
+    status_negative(a, path, (400,))
+
+
+def account_admin_read(a):
+    # Admin/Human GET cannot be authenticated with a Device grant alone.
+    # The current configured identity is a paired Device, not a fabricated
+    # Browser Session. Explicitly hold the matrix item open.
+    raise Blocked("admin Browser Session/Human Account context not configured; "
+                  "no guessed cookies, CSRF or privilege elevation")
+
+
+def foreign_device_ownership(a):
+    raise Blocked("separately authorized foreign Device and owned test session "
+                  "are not provided; cannot assert ownership isolation")
+
 def controlled_gate(a):
     approval = a.args.approval_file
     if not approval:
@@ -507,10 +587,16 @@ def run_cases(a):
             requires=("root",))
     a.check("security.backend-isolation", "SECURITY", lambda: isolation(a),
             requires=("backend",))
+    a.check("security.account-admin-read", "SECURITY", lambda: account_admin_read(a))
+    a.check("security.foreign-device-ownership", "SECURITY", lambda: foreign_device_ownership(a))
     # All reads depend on an authoritative selected backend.
     a.check("epg.channels", "EPG", lambda: channels(a), requires=("backend",))
     a.check("epg.now-next", "EPG", lambda: now_next(a), requires=("channel",))
     a.check("epg.bounded-cursor", "EPG", lambda: epg_window(a), requires=("channel",))
+    a.check("epg.reject-invalid-window", "EPG", lambda: epg_invalid_range(a),
+            requires=("channel",))
+    a.check("epg.reject-invalid-cursor", "EPG", lambda: epg_cursor_scope(a),
+            requires=("channel",))
     a.check("timer.assignments", "TIMER READ", lambda: timer_assignments(a),
             requires=("backend",))
     a.check("timer.assignment-detail", "TIMER READ", lambda: timer_detail(a),
@@ -527,12 +613,16 @@ def run_cases(a):
             requires=("searchtimer",))
     a.check("searchtimer.draft-preview", "SEARCHTIMER", lambda: draft_preview(a),
             requires=("backend",))
+    a.check("searchtimer.reject-bad-id", "SEARCHTIMER", lambda: searchtimer_bad_public_id(a),
+            requires=("backend",))
     a.check("recording.collection", "RECORDINGS", lambda: recordings(a),
             requires=("backend",))
     a.check("recording.folders", "RECORDINGS", lambda: folders(a),
             requires=("backend",))
     a.check("recording.detail", "RECORDINGS", lambda: recording_detail(a),
             requires=("recording",))
+    a.check("recording.reject-bad-id", "RECORDINGS", lambda: recording_bad_public_id(a),
+            requires=("backend",))
     a.check("recording.metadata", "METADATA", lambda: metadata(a),
             requires=("recording_detail",))
     a.check("recording.genres", "METADATA", lambda: genre(a),
@@ -541,6 +631,8 @@ def run_cases(a):
             requires=("recording",))
     a.check("recording.artwork-binary", "ARTWORK", lambda: artwork_bytes(a),
             requires=("artwork_url",))
+    a.check("recording.artwork-not-found", "ARTWORK", lambda: artwork_unknown(a),
+            requires=("recording",))
     a.check("search.recordings", "INTEGRATION", lambda: search_recordings(a),
             requires=("backend",))
     a.check("playback.profile", "PLAYBACK", lambda: playback_capabilities(a),
@@ -549,12 +641,14 @@ def run_cases(a):
             requires=("backend",))
     a.check("resume.progress", "RESUME", lambda: resume_progress(a),
             requires=("recording",))
-    a.record("playback.session-write", "PLAYBACK", "SKIP",
-             "safe readonly profile forbids MediaSession create/stop",
-             required=False)
-    a.record("timer.intent-write", "TIMER WRITE", "SKIP",
-             "safe readonly profile forbids TimerIntent and native writes",
-             required=False)
+    for ident, area in (
+        ("playback.session-write", "PLAYBACK"), ("resume.progress-write", "RESUME"),
+        ("timer.intent-create", "TIMER WRITE"), ("timer.native-mutations", "TIMER WRITE"),
+        ("searchtimer.mutations", "SEARCHTIMER"), ("recording.actions", "RECORDINGS"),
+        ("security.credential-and-grant-mutations", "SECURITY")):
+        a.record(ident, area, "SKIP",
+                 "profile forbids productive writes; no HTTP mutation attempted",
+                 required=False)
     if a.args.profile == "controlled":
         a.check("controlled.approval", "INTEGRATION", lambda: controlled_gate(a))
         for name in ("recording.actions", "timer.intent", "native-timer.mutations",
