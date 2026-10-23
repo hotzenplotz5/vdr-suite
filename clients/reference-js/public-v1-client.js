@@ -542,6 +542,34 @@
     }
 
 
+    function requestMediaShrinkPlan(options) {
+      const value = options && typeof options === 'object' ? options : {};
+      const path = mediaImportPath(value, 'media-shrink-plans');
+      if (typeof value.recordingId !== 'string' ||
+          !/^rec_[0-9a-f]{32}$/.test(value.recordingId)) {
+        throw new Error('HEVC plan requires canonical recordingId');
+      }
+      const headers = Object.assign(
+        {Accept: 'application/json'}, defaultHeaders, copyHeaders(value.headers),
+        {'Content-Type': 'application/json'}
+      );
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST', headers: headers,
+        credentials: value.credentials !== undefined
+          ? value.credentials : normalized.credentials,
+        cache: 'no-store', signal: value.signal,
+        body: JSON.stringify({recordingId: value.recordingId})
+      }).then(function (response) {
+        return parseJsonBody(response).then(function (payload) {
+          if (!response.ok) {
+            throw new VdrSuitePublicClientError(
+              path, response.status, payload, response);
+          }
+          return payload;
+        });
+      });
+    }
+
     function requestMediaCheck(options) {
       const value = options && typeof options === 'object' ? options : {};
       const path = mediaImportPath(value, 'media-checks');
@@ -1087,6 +1115,13 @@
           timerAssignmentItemPath(normalizedOptions),
           normalizedOptions
         );
+      },
+      getMediaShrinkCapability(options) {
+        const value = options && typeof options === 'object' ? options : {};
+        return request(mediaImportPath(value, 'capabilities/media-shrink'), value);
+      },
+      submitMediaShrinkPlan(options) {
+        return requestMediaShrinkPlan(options);
       },
       getMediaCheckCapability(options) {
         const value = options && typeof options === 'object' ? options : {};
