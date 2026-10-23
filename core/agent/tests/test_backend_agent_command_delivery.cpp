@@ -278,6 +278,14 @@ int main()
     assert(sqlCount(snapshot.handle(),
         "SELECT count(*) FROM pragma_foreign_key_check;") == 0);
 
+    // The historical Timer MODIFY scenario above deliberately advanced the
+    // live Agent to instance inst_new / generation 8. Start a fresh, valid
+    // instance-7 fixture before exercising the independent Media Tools gates;
+    // otherwise the generic Agent identity check denies the receipt first.
+    assert(db.execute(
+        "UPDATE backend_agents SET agent_instance_id='inst_test',"
+        "backend_generation=7 WHERE agent_id='agt_test';"));
+
     // A6: even a valid reserved add-on command and Agent receipt cannot
     // bypass the server-side operation/grant authority. In this fixture the
     // sole positive authorization is explicitly injected by trusted code.
