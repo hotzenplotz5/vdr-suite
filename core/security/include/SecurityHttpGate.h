@@ -447,6 +447,7 @@ public:
         bool isPublicMediaCheckStatusResource = false;
         bool isPublicMediaShrinkCapabilityResource = false;
         bool isPublicMediaShrinkPlanCollection = false;
+        bool isPublicMediaShrinkReviewResource = false;
         std::string publicMediaShrinkBackendId;
         if (path.compare(0, mediaCheckBase.size(), mediaCheckBase) == 0) {
             const std::size_t split = path.find('/', mediaCheckBase.size());
@@ -481,8 +482,14 @@ public:
                         tail == "/capabilities/media-shrink";
                     isPublicMediaShrinkPlanCollection =
                         tail == "/media-shrink-plans";
+                    const std::string reviewPrefix = "/media-shrink-reviews/";
+                    isPublicMediaShrinkReviewResource =
+                        tail.compare(0, reviewPrefix.size(), reviewPrefix) == 0 &&
+                        tail.size() > reviewPrefix.size() &&
+                        tail.find('/', reviewPrefix.size()) == std::string::npos;
                     if (isPublicMediaShrinkCapabilityResource ||
-                        isPublicMediaShrinkPlanCollection)
+                        isPublicMediaShrinkPlanCollection ||
+                        isPublicMediaShrinkReviewResource)
                         publicMediaShrinkBackendId = candidate;
                 }
             }
@@ -1414,15 +1421,20 @@ public:
         // M2 report reads require the same effective backend grant as the
         // POST that starts a check. Discovery visibility alone is insufficient
         // after permission revocation.
-        if (request.method == "GET" && isPublicMediaCheckStatusResource)
+        if (request.method == "GET" &&
+            (isPublicMediaCheckStatusResource ||
+             isPublicMediaShrinkReviewResource))
         {
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);
 
             AuthorizationRequest checkRead;
             checkRead.permission = "media.recording.play";
-            checkRead.backendId = publicMediaCheckBackendId;
-            checkRead.action = "media.recording.check.read";
+            checkRead.backendId = isPublicMediaShrinkReviewResource
+                ? publicMediaShrinkBackendId : publicMediaCheckBackendId;
+            checkRead.action = isPublicMediaShrinkReviewResource
+                ? "media.recording.shrink.review.read"
+                : "media.recording.check.read";
             const AuthorizationDecision decision =
                 authorizationService_.authorize(gate.context, checkRead);
             if (!appendDecisionEvent(gate.context, decision, ""))
@@ -1448,7 +1460,7 @@ public:
             }
 
             gate.authorizationDecision = decision;
-            gate.authorizedBackendIds = {publicMediaCheckBackendId};
+            gate.authorizedBackendIds = {checkRead.backendId};
             gate.allowed = true;
             return gate;
         }
