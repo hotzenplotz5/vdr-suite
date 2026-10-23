@@ -150,6 +150,10 @@ int main() {
         req.nightMode = false;
         assert(inspectOpaqueShrinkSelection(req) ==
                ShrinkSelectionStatus::candidateOnly);
+        req.action = static_cast<ShrinkRequestAction>(99);
+        assert(inspectOpaqueShrinkSelection(req) ==
+               ShrinkSelectionStatus::invalidOptions);
+        req.action = ShrinkRequestAction::publish;
         req.candidateId = "/tmp/evil.rec";
         assert(inspectOpaqueShrinkSelection(req) ==
                ShrinkSelectionStatus::invalidCandidateId);
