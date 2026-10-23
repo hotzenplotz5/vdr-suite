@@ -513,6 +513,21 @@ public:
             request.method == "GET" && isPublicDeviceGrantResource;
         const bool isPublicDeviceGrantMutation =
             isPost && isPublicDeviceGrantResource;
+        const std::string playbackAccountSuffix = "/playback-account";
+        const bool isPublicDevicePlaybackAccountResource =
+            path.compare(0U, publicDeviceGrantPrefix.size(),
+                         publicDeviceGrantPrefix) == 0 &&
+            path.size() > publicDeviceGrantPrefix.size() +
+                          playbackAccountSuffix.size() &&
+            path.compare(path.size() - playbackAccountSuffix.size(),
+                         playbackAccountSuffix.size(),
+                         playbackAccountSuffix) == 0 &&
+            path.find('/', publicDeviceGrantPrefix.size()) ==
+                path.size() - playbackAccountSuffix.size();
+        const bool isPublicDevicePlaybackAccountRead =
+            request.method == "GET" && isPublicDevicePlaybackAccountResource;
+        const bool isPublicDevicePlaybackAccountMutation =
+            isPost && isPublicDevicePlaybackAccountResource;
 
         const bool isPublicAccountGrantRead =
             request.method == "GET" &&
@@ -1002,6 +1017,7 @@ public:
             isPublicAccountMutation ||
             isPublicAccountGrantMutation ||
             isPublicDeviceGrantMutation ||
+            isPublicDevicePlaybackAccountMutation ||
             isPublicDeviceLifecycleMutation ||
             isPublicDeviceCredentialRotation ||
             isPublicAccountCredentialMutation ||
@@ -1251,7 +1267,23 @@ public:
             return gate;
         }
 
-        if (isPublicDeviceGrantRead || isPublicDeviceCollectionRead)
+        if (isPublicDevicePlaybackAccountRead &&
+            (!gate.browserAuthenticated ||
+             gate.context.actor.type != ActorType::User ||
+             !gate.context.session.has_value()))
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            AuthorizationDecision denial;
+            denial.permission = "devices.grants.view";
+            denial.backendId = "*";
+            denial.action = "devices.playback_account.view";
+            denial.reasonCode = "browser_session_required";
+            return rejectWithAudit(gate, denial, 403,
+                "Administrator Browser Session required", "");
+        }
+        if (isPublicDeviceGrantRead || isPublicDeviceCollectionRead ||
+            isPublicDevicePlaybackAccountRead)
         {
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);
@@ -2518,6 +2550,21 @@ public:
                     "Exact backend SearchTimer mutation grant required", "");
             }
         }
+        if (isPublicDevicePlaybackAccountMutation &&
+            (!gate.browserAuthenticated ||
+             gate.context.actor.type != ActorType::User ||
+             !gate.context.session.has_value()))
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            AuthorizationDecision denial;
+            denial.permission = "devices.grants.modify";
+            denial.backendId = "*";
+            denial.action = "devices.playback_account.bind";
+            denial.reasonCode = "browser_session_required";
+            return rejectWithAudit(gate, denial, 403,
+                "Administrator Browser Session required", "");
+        }
         if ((isPublicDeviceRecordingSessionCreate ||
              isPublicDeviceRecordingProgressUpdate ||
              isPublicDeviceRecordingSessionStop ||
@@ -2636,6 +2683,12 @@ public:
                 isPublicDeviceLifecycleCredential
                     ? "devices.credentials.revoke" : "devices.revoke";
             requestToAuthorize.action = requestToAuthorize.permission;
+        }
+        else if (isPublicDevicePlaybackAccountMutation)
+        {
+            requestToAuthorize.backendId = "*";
+            requestToAuthorize.permission = "devices.grants.modify";
+            requestToAuthorize.action = "devices.playback_account.bind";
         }
         else if (isPublicDeviceGrantMutation)
         {
