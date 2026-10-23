@@ -411,7 +411,9 @@ TestHttpServer::TestHttpServer(
             *securityPermissionGrantRepository_,
             *humanAccountAdministrationRepository_,
             *accountabilityEventRepository_,
-            {}, {}, std::move(addonGrantEligibility));
+            HumanAccountGrantAdministrationService::EntropySource{},
+            HumanAccountGrantAdministrationService::Clock{},
+            std::move(addonGrantEligibility));
 
     deviceGrantAdministrationService_ =
         std::make_unique<DeviceGrantAdministrationService>(

@@ -55,6 +55,12 @@ class Node {
   scrollIntoView() {}
 }
 const api = {
+  getMediaCheckCapability() {
+    // This fixture tests HEVC, but the production Hero also composes
+    // Media Check and must be able to ask about its availability.
+    return Promise.resolve({backendId, capability: 'addons.media.check',
+      available: false});
+  },
   getMediaShrinkCapability() {return Promise.resolve({
     backendId, capability: 'addons.media.shrink', planningAvailable: true,
     available: true, encoders: ['software', 'vaapi', 'qsv', 'nvenc'],
