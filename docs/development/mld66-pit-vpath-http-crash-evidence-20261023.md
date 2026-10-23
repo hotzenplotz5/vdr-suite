@@ -23,7 +23,7 @@ Pit has now independently reported:
 
 **Source inspection at this immutable revision:** `recordings.cpp` `showRecordings()` holds `LOCK_RECORDINGS_READ` through list traversal. `JsonRecordingList::addRecording()` performs `Scraper2VdrService::getMedia(recording, ...)`, `stat()`, `recording->NumFrames()` (through `VdrExtension::RecordingLengthInSeconds()`), and `recording->FileSizeMB()`. `JsonRecordingList::finish()` serializes the assembled vector, so 0 client bytes at 30 seconds does **not** prove that processing never started. The VDR lock/list traversal, JSON metadata enrichment, filesystem and scraper service may be involved, but no individual call is yet proved to block.
 
-**Focused next comparison, only on a stable test host:** `--recordings-html-sample` sends exactly one `GET /recordings.html?start=0&limit=1` (10s); unlike JSON, the HTML list only prints a recording name and skips metadata enrichment. Then, separately and only if safe, the previously available `--recordings-sample` sends one 30s limited JSON request. Both formats still touch the shared VDR recording lock/list; the limit does **not** avoid traversal.
+**Focused next comparison, only on a stable test host:** `--recordings-html-sample` sends exactly one `GET /recordings.html?start=0&limit=1` (10s); unlike JSON, the HTML list only prints a recording name and skips metadata enrichment. Then, separately and only if safe, the available `--recordings-sample` sends one **10s** limited JSON request. Both formats still touch the shared VDR recording lock/list; the limit does **not** avoid traversal.
 
 - HTML fast, JSON slow: focus on JSON per-recording scraper, index/file-size and serializing paths.
 - Both slow: focus on recording lock acquisition, shared listing and underlying VDR/provider response flow.
@@ -33,6 +33,20 @@ Pit has now independently reported:
 No change to Suite timeout, no plugin reload, no selective disabling of TVScraper and no native write commands are warranted from these measurements alone.
 
 [Exact pinned source](https://github.com/yavdr/vdr-plugin-restfulapi/tree/79f9bd26370a08d6c5186c19cefa300c569045ea).
+
+## 22:14 CEST update — HTML success and installation-scoped VDR restarts
+
+Pit now reports two successful `GET /recordings.html?start=0&limit=1` calls: HTTP 200 in **0.012861s** and **0.001116s**. These are requests for *one* recording; the timed-out JSON request was an **unlimited full-list** request. The difference is therefore **not yet controlled for pagination**: this result proves the HTML single-item read can succeed quickly, but does not prove that TVScraper, JSON serialization, filesystem metadata or the full catalog is the bottleneck.
+
+**Next discriminating test, only while the VDR is stable:** make *one* read-only `GET /recordings.json?start=0&limit=1` with a **10-second** deadline (or run `sh tools/mld66-readonly-http-probe.sh --recordings-sample`). Response body discarded; no repeat/full-list fallback.
+
+- Limited JSON fast: suspect full-catalog scaling/work, compare catalog size/metadata on the source side before any more host tests.
+- Limited JSON slow: focus on **per-recording JSON enrichment** (TVScraper's service, `stat()`, index/length/size, serialization); no individual cause proven.
+- The very fast HTML result makes a permanently blocked VDR recording-list lock less likely *at the moment of those tests*, but does not rule out intermittent contention.
+
+Pit additionally clarifies that the reported VDR restarts occur **only when he installs VDR-Suite**. Currently **only SuiteBridge is enabled**, and he reports this baseline without those restarts. Do not equate this with proof that the Suite daemon itself crashes VDR: possible origins include package install/postinst hooks, systemd service actions/dependencies, process interaction, or a VDR crash after the extra components start. We still lack **the exact timing relative to package installation versus service startup**, an exit reason, and the first relevant log/core trace.
+
+Ask Pit for the first redacted VDR failure around Suite installation and whether restarts happen **during installation only or periodically afterward**; do not request another install on the production system, do not advise disabling the known-good SuiteBridge plugin, and do not infer a patchable culprit.
 
 ## Independent recording-read blocker
 
@@ -52,7 +66,7 @@ sh tools/mld66-readonly-http-probe.sh --metadata
 # One lightweight HTML recording list sample, max 10 seconds:
 sh tools/mld66-readonly-http-probe.sh --recordings-html-sample
 
-# If still needed and safe: one limited JSON recording request, max 30 seconds:
+# If still needed and safe: one limited JSON recording request, max 10 seconds:
 sh tools/mld66-readonly-http-probe.sh --recordings-sample
 ```
 
@@ -69,6 +83,7 @@ Next evidence should be limited to the **sanitized** first fault, timestamp, pro
 ## Release gates
 
 - **Reported PASS:** read-only `VPATH 1` returned `900 /data/tv` on MLD VDR 2.8.3.
-- **OPEN:** recordings read beyond five seconds; post-update change-state result; effective RESTfulAPI build provenance.
-- **BLOCKED:** native MLD Suite package/functional acceptance while periodic VDR restarts persist.
+- **Reported PASS:** single-item HTML recordings read twice in 0.012861s / 0.001116s.
+- **OPEN:** one-item JSON versus full-list JSON, post-update change-state result, effective RESTfulAPI build provenance.
+- **BLOCKED:** native MLD Suite package/functional acceptance: restarts are reported only with VDR-Suite installed, not with SuiteBridge alone; exact trigger unknown.
 - **UNCHANGED:** Ubuntu/yaVDR defaults, explicit mutation gates, MLD package `SRCREV`, Draft PR #525, and `main`.
