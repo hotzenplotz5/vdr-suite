@@ -50,4 +50,11 @@ struct HandlerDescriptorResult {
 HandlerDescriptorResult inspectPinnedMediaToolsHandler(
     const std::string& root, const std::string& independentlyApprovedSha256);
 
+// Re-hash the SAME descriptor held by the backend executor immediately
+// before fexecve, after acquiring the shared maintenance lock. Reopening
+// the installed path would lose the exact binary identity we authorized.
+// No execution, provenance grant or permission is conferred by this check.
+bool pinnedMediaToolsHandlerBytesCurrent(
+    int pinnedFd, const std::string& independentlyApprovedSha256);
+
 } // namespace vdrsuite::addons
