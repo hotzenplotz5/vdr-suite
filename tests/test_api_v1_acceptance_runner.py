@@ -889,6 +889,52 @@ class RunnerTests(unittest.TestCase):
             correlate(db)
         db.close()
 
+    def test_persisted_timer_anomaly_flags_are_nonadditive_and_no_id_leaks(self):
+        from inspect_persisted_timer_anomalies import classify
+        import sqlite3
+        import io
+        from contextlib import redirect_stdout
+        db=sqlite3.connect(":memory:")
+        db.execute("CREATE TABLE timer_assignments (timer_assignment_id TEXT,backend_id TEXT,backend_generation INT,state TEXT,updated_at INT,native_timer_binding_id TEXT)")
+        db.execute("CREATE TABLE native_timer_bindings (native_timer_binding_id TEXT,timer_assignment_id TEXT,backend_id TEXT,backend_generation INT,ownership TEXT,last_verified_operation_id TEXT,missing_since INT,drift_state TEXT)")
+        db.execute("CREATE TABLE mutation_operations (backend_id TEXT,state TEXT,updated_at INT,deadline INT,resource_type TEXT,verification_policy TEXT)")
+        db.executemany("INSERT INTO timer_assignments VALUES (?,?,?,?,?,?)",[
+            ("timer-secret-1","default",2,"bound",100,"binding-secret-1"),
+            ("timer-secret-2","default",2,"bound",100,"binding-secret-2"),
+            ("timer-secret-3","default",2,"provisioning",100,""),
+            ("other","other",2,"provisioning",100,"")])
+        db.executemany("INSERT INTO native_timer_bindings VALUES (?,?,?,?,?,?,?,?)",[
+            ("binding-secret-1","timer-secret-1","default",2,"managed","op-success",0,"none"),
+            ("binding-secret-2","timer-secret-2","default",2,"managed","",20,"external_delete")])
+        db.executemany("INSERT INTO mutation_operations VALUES (?,?,?,?,?,?)",[
+            ("default","outcome_unknown",100,300,"NativeTimer","readback_required"),
+            ("default","outcome_unknown",100,0,"private-other-identifier","reconciliation_required"),
+            ("other","outcome_unknown",100,0,"Recording","none")])
+        out=io.StringIO()
+        with redirect_stdout(out):
+            v=classify(db,"default",now=1000000)
+        self.assertEqual(v["bound_factors"],(2,1,1,1))
+        self.assertEqual(v["provisioning"],(1,1,0,0))
+        self.assertEqual(v["unknown"],(2,2,1,1))
+        self.assertEqual(v["resources"]["NativeTimer"],1)
+        self.assertEqual(v["resources"]["other"],1)
+        self.assertEqual(v["drift"]["external_delete"],1)
+        text=out.getvalue()
+        self.assertIn("BOUND_DRIFT_EXTERNAL_DELETE: 1",text)
+        self.assertIn("DISPATCH_DEADLINE_IS_NOT_RECONCILIATION_DEADLINE: TRUE",text)
+        for sensitive in ("timer-secret","binding-secret","private-other-identifier","op-success"):
+            self.assertNotIn(sensitive,text)
+        db.close()
+
+    def test_persisted_timer_anomaly_missing_schema_fail_closed(self):
+        from inspect_persisted_timer_anomalies import classify
+        from inspect_device_auth_audit import AuditBlocked
+        import sqlite3
+        db=sqlite3.connect(":memory:")
+        with self.assertRaises(AuditBlocked):
+            classify(db)
+        db.close()
+
 
 if __name__ == "__main__":
     unittest.main()
