@@ -191,6 +191,13 @@ opaque `rec_...` identifier; it resolves the path server-side and calls
 actor, backend-specific `media.recording.play`, CSRF and accountability.
 `GET .../capabilities/media-shrink` exposes `planningAvailable` but
 deliberately reports `available:false`: no shrink write action is enabled.
+`GET /api/v1/backends/{backendId}/media-shrink-reviews/{reviewId}`
+reads a persisted `shk_...` candidate's `staged`, `publishing` or
+`published` status. Every read rechecks the effective backend-specific
+`media.recording.play` grant, audits the decision and reads only the
+requesting actor's own Core review row. No staging path, agent credential or
+source fingerprint is returned; the response says `publishAvailable:false`
+until the separately authorized publishing pipeline is implemented.
 
 Core `MediaShrinkReviewRepository` stores an actor/backend-scoped review
 binding in the **existing SQLite authority**, not a second job queue.
@@ -202,6 +209,15 @@ A succeeded canonical publish Operation with new opaque recording ID is
 necessary to mark the review published. The daemon initializes this schema
 alongside the existing Operations store; disposable tests cover optimistic
 revisions, cross-actor isolation and database restart.
+
+The canonical Agent wire parser now recognizes exact, version-1 path-free
+`addon.media.shrink.stage` and `addon.media.shrink.publish` payloads.
+`MediaShrinkCommandFence.h` only assesses consistency with the immutable
+Core Operation and payload, never authorization. A configured
+`COMMAND_TYPES` entry **cannot advertise or execute** either command
+without a trusted Agent executor. Tests cover forged paths, malformed
+options, stale backend generations, request/operation mismatches and
+terminal publication replay. No command is yet assigned or executed.
 
 **Not productive execution yet:** there is no Agent-authorized stage/publish
 handler, opaque candidate-to-file binding, dedicated effective shrink grant,
