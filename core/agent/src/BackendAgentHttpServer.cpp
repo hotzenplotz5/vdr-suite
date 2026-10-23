@@ -646,6 +646,39 @@ HttpServerResponse BackendAgentHttpServer::handleCommandPoll(
     return jsonResponse(200, serializeBackendAgentCommandPollResponseJson(result));
 }
 
+void BackendAgentHttpServer::setMediaShrinkAuthorityLookup(
+    MediaShrinkAuthorityLookup lookup)
+{
+    mediaShrinkAuthorityLookup_ = std::move(lookup);
+}
+
+HttpServerResponse BackendAgentHttpServer::handleMediaShrinkAuthority(
+    const HttpServerRequest& request,
+    const RequestSecurityContext& context) const
+{
+    if (!mediaShrinkAuthorityLookup_)
+        return errorResponse(503, "media_shrink_authority_unavailable");
+    BackendAgentCommandReceipt receipt;
+    std::string reason;
+    if (!parseBackendAgentCommandReceiptJson(request.body, receipt, reason))
+        return errorResponse(400, "media_shrink_authority_receipt_invalid");
+    // The transport's existing durable receipt gate rechecks live Core
+    // authorization at this exact point. First-time receipt ACK cannot
+    // mint a path-bearing authority; only a fully replayed ACK may.
+    const auto result = commandDeliveryService_.receipt(
+        context, receipt, unixNow());
+    if (!result.accepted || !result.replayed || result.dropResponse)
+        return errorResponse(409, "media_shrink_authority_not_replayed");
+    try {
+        const auto body = mediaShrinkAuthorityLookup_(context, receipt);
+        if (body.empty() || body.size() > 10000)
+            return errorResponse(409, "media_shrink_authority_denied");
+        return jsonResponse(200, body);
+    } catch (...) {
+        return errorResponse(409, "media_shrink_authority_denied");
+    }
+}
+
 HttpServerResponse BackendAgentHttpServer::handleCommandReceipt(
     const HttpServerRequest& request,
     const RequestSecurityContext& context) const
@@ -724,6 +757,8 @@ HttpServerResponse BackendAgentHttpServer::handleRequest(
     if (request.path == "/api/agent/v1/observations/media-import-sources")
         return handleMediaImportSourceObservation(request, context);
     if (request.path == "/api/agent/v1/commands/poll") return handleCommandPoll(request, context);
+    if (request.path == "/api/agent/v1/media-shrink/authority")
+        return handleMediaShrinkAuthority(request, context);
     if (request.path == "/api/agent/v1/commands/receipt") return handleCommandReceipt(request, context);
     if (request.path == "/api/agent/v1/commands/result") return handleCommandResult(request, context);
     return errorResponse(404, "agent_route_not_found");
