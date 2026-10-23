@@ -13,6 +13,7 @@ const listeners = {};
 let timerSequence = 0;
 let sessionSequence = 0;
 let failCreates = 0;
+let denyNextStream = false;
 let fakeNow = 1000000;
 class TestDate extends Date {
   static now() {return fakeNow;}
@@ -100,6 +101,10 @@ const window = {
   },
   fetch(path) {
     assert.ok(/^\/api\/media\/sessions\/live-\d+\/live\/stream\.mp4$/.test(path));
+    if (denyNextStream) {
+      denyNextStream = false;
+      return Promise.resolve({ok: false, status: 403});
+    }
     const reader = {
       delivered: false, cancelled: false,
       read() {
@@ -257,7 +262,23 @@ function dispatch(name, event) {(listeners[name] || []).slice().forEach(fn => fn
     item.sessionId === ended.sessionId()).length, 0,
     'ended must not trigger the old implicit STOP regression');
   ended.destroy();
-  console.log('Live-TV EOF/AbortError/ended, BFCache, resumed-tab stall, ownership and retry budget: PASS');
+
+  // Authorization failure on the media GET must never create more sessions.
+  denyNextStream = true;
+  const denied = window.VdrSuiteRecordings2Playback.createLivePanel(
+    {id: 'C-1-1051-10301'}, 'default', {}
+  );
+  const startsBeforeDenied = requests.filter(item => !item.operation).length;
+  await denied.start();
+  await flush();
+  assert.ok(denied.element.children[1].textContent.includes('Live-TV beendet'));
+  assert.strictEqual(requests.filter(item => !item.operation).length, startsBeforeDenied + 1,
+    'HTTP 403 must not issue another recovery session');
+  assert.strictEqual(Array.from(pendingTimers.values()).filter(timer =>
+    [1000, 2000, 4000].includes(timer.delay)).length, 0,
+    'revoked media credential must never schedule automatic recovery');
+  denied.destroy();
+  console.log('Live-TV EOF/AbortError/ended/HTTP 403, BFCache, resumed-tab stall and ownership: PASS');
 })().catch(error => {console.error(error); process.exitCode = 1;});
 
 function runPendingTimers() {
