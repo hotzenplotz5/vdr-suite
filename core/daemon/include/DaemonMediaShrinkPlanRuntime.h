@@ -1,6 +1,7 @@
 #pragma once
 
 #include "MediaShrink.h"
+#include "MediaShrinkOperationSelection.h"
 #include "MediaShrinkPlanApiRuntime.h"
 #include "MediaShrinkReviewRepository.h"
 
