@@ -1,4 +1,5 @@
 #include "MediaShrink.h"
+#include "MediaShrinkOperationSelection.h"
 
 #include <algorithm>
 #include <cassert>
@@ -119,6 +120,41 @@ void reject(F callback) {
 
 int main() {
     int checks = 0;
+    {
+        OpaqueShrinkSelection req;
+        req.recordingId = "rec_0123456789abcdef0123456789abcdef";
+        assert(inspectOpaqueShrinkSelection(req) ==
+               ShrinkSelectionStatus::candidateOnly);
+        req.action = ShrinkRequestAction::stage;
+        req.encoder = "vaapi";
+        req.maxHeight = 720;
+        req.nightMode = true;
+        assert(inspectOpaqueShrinkSelection(req) ==
+               ShrinkSelectionStatus::candidateOnly);
+        req.recordingId = "../../etc/passwd";
+        assert(inspectOpaqueShrinkSelection(req) ==
+               ShrinkSelectionStatus::invalidRecordingId);
+        req.recordingId = "rec_0123456789abcdef0123456789abcdef";
+        req.maxHeight = 200;
+        assert(inspectOpaqueShrinkSelection(req) ==
+               ShrinkSelectionStatus::invalidOptions);
+        req.maxHeight = 720;
+        req.action = ShrinkRequestAction::publish;
+        assert(inspectOpaqueShrinkSelection(req) ==
+               ShrinkSelectionStatus::invalidCandidateId);
+        req.candidateId = "shk_abcdef0123456789abcdef0123456789";
+        assert(inspectOpaqueShrinkSelection(req) ==
+               ShrinkSelectionStatus::invalidOptions);
+        req.encoder = "software";
+        req.maxHeight = 0;
+        req.nightMode = false;
+        assert(inspectOpaqueShrinkSelection(req) ==
+               ShrinkSelectionStatus::candidateOnly);
+        req.candidateId = "/tmp/evil.rec";
+        assert(inspectOpaqueShrinkSelection(req) ==
+               ShrinkSelectionStatus::invalidCandidateId);
+        ++checks;
+    }
     {
         Fixture fixture;
         const auto plan = inspectShrink(fixture.video, fixture.relative());
