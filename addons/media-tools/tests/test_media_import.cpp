@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <cstdlib>
+#include <fcntl.h>
 #include <unistd.h>
 
 using namespace vdrsuite::mediatools;
@@ -127,6 +128,27 @@ void mustFail(F&& f) {
 
 int main() {
     int checks = 0;
+    {
+        // Native FFmpeg/VDR children must retain the exact borrowed
+        // maintenance lock FD after execv, even though it starts CLOEXEC.
+        // No shell, media mutation or privileged fixture is needed.
+        const int protectedFd = ::open("/dev/null", O_RDONLY | O_CLOEXEC);
+        assert(protectedFd >= 3);
+        NativeProcessRunner runner(std::chrono::seconds(3));
+        const std::string fdPath =
+            "/proc/self/fd/" + std::to_string(protectedFd);
+        const auto probe = std::vector<std::string>{
+            "/usr/bin/test", "-e", fdPath};
+        assert(runner.run(probe, false).exitCode != 0);
+        runner.bindMaintenanceLockFd(protectedFd);
+        assert(runner.run(probe, false).exitCode == 0);
+        runner.bindMaintenanceLockFd(1000000);
+        assert(runner.run(probe, false).exitCode == 127);
+        runner.bindMaintenanceLockFd(-1);
+        assert(runner.run(probe, false).exitCode != 0);
+        assert(::close(protectedFd) == 0);
+        ++checks;
+    }
     {
         assert(parseProbedVideoCodec("h264\nh264\n") == "h264");
         assert(parseProbedVideoCodec("hevc\r\n\r\nhevc\n") == "hevc");

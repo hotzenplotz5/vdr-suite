@@ -1,6 +1,7 @@
 #pragma once
 
 #include "LocalMediaShrinkAgentExecutor.h"
+#include "MediaImport.h"
 #include "MediaToolsImportRunLock.h"
 
 #include <mutex>
