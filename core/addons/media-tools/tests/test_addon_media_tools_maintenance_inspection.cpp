@@ -378,6 +378,10 @@ int main() {
     evidence.moduleId="rectools";
     evidence.packageName="vdr-suite-addon-media-tools";
     evidence.backendId="backend-b";
+    // Valid Agent facts ensure the following refusal tests the freeze itself.
+    evidence.agentId="maintenance-agent";
+    evidence.agentInstanceId="maintenance-instance";
+    evidence.backendGeneration=1;
     evidence.installed=evidence.manifestValid=evidence.packageTrusted=true;
     evidence.versionCompatible=evidence.handlerRegistered=
         evidence.handlerHealthy=true;

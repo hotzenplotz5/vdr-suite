@@ -137,6 +137,9 @@ int main()
     trusted.moduleId = "rectools";
     trusted.packageName = "vdr-suite-addon-media-tools";
     trusted.backendId = "backend-a";
+    trusted.agentId = "maintenance-agent";
+    trusted.agentInstanceId = "maintenance-instance";
+    trusted.backendGeneration = 19;
     trusted.installed = trusted.manifestValid = trusted.packageTrusted = true;
     trusted.versionCompatible = trusted.handlerRegistered =
         trusted.handlerHealthy = true;
