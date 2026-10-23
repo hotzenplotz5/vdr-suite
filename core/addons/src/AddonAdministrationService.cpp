@@ -62,7 +62,7 @@ IntentResult AddonAdministrationService::setDesiredState(
         !validUtcTimestamp(context.occurredAt))
     {
         return {IntentStatus::forbidden,
-                {mutation.moduleId, mutation.backendId, false, 0, 0, {}, {}}};
+                {mutation.moduleId, mutation.backendId, false, 0, 0, {}, {}, {}}};
     }
 
     // Never accept caller-provided RuntimeEvidence as trusted activation.
@@ -73,18 +73,18 @@ IntentResult AddonAdministrationService::setDesiredState(
     if (mutation.desiredEnabled) {
         if (!trustedProviderRead_)
             return {IntentStatus::ineligible,
-                    {mutation.moduleId, mutation.backendId, false, 0, 0, {}, {}}};
+                    {mutation.moduleId, mutation.backendId, false, 0, 0, {}, {}, {}}};
         std::optional<TrustedActivationSnapshot> verified;
         try {
             verified = trustedProviderRead_(mutation.moduleId,
                                             mutation.backendId);
         } catch (...) {
             return {IntentStatus::ineligible,
-                    {mutation.moduleId, mutation.backendId, false, 0, 0, {}, {}}};
+                    {mutation.moduleId, mutation.backendId, false, 0, 0, {}, {}, {}}};
         }
         if (!verified)
             return {IntentStatus::ineligible,
-                    {mutation.moduleId, mutation.backendId, false, 0, 0, {}, {}}};
+                    {mutation.moduleId, mutation.backendId, false, 0, 0, {}, {}, {}}};
         trustedBackend = std::move(verified->backend);
         trustedEvidence = std::move(verified->provider);
     }
