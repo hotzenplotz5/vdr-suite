@@ -31,6 +31,8 @@ Verified in source on the pinned main baseline
 
 - MSE now distinguishes continuous Live EOF from legitimate completed
   recording/HbbTV media EOF. Live EOF enters an owner recovery path.
+  For the native-video fallback, an unexpected `ended` event also enters
+  controlled recovery without reintroducing the implicit STOP fixed by PR #289.
 - A browser owner uses a 20-second no-frame-progress liveness threshold with
   five-second checks. A hidden tab whose video time stops progressing
   closes its native owner instead of creating replacement workers or growing
