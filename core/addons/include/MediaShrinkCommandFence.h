@@ -75,7 +75,7 @@ inline MediaShrinkCommandFenceResult inspectMediaShrinkCommandFence(
                      MutationOperationVerificationPolicy::reconciliationRequired) ||
         assignment.verificationPolicy !=
             (stage ? "readback_required" : "reconciliation_required") ||
-        (stage ? operation.expectedRevision.empty() :
+        (stage ? operation.expectedRevision != "source-v1" :
                  operation.expectedRevision !=
                      std::to_string(selected.expectedReviewRevision)))
         return Decision::operationMismatch;
