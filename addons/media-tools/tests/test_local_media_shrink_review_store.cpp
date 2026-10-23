@@ -45,8 +45,8 @@ int main() {
     original.actorId = "actor-a";
     original.backendId = "backend-a";
     original.recordingId = "rec_0123456789abcdef0123456789abcdef";
-    original.stageOperationId = "op_stage-a";
-    original.sourceFingerprint = "source-fingerprint-123";
+    original.stageOperationId = "op_" + std::string(32, 'a');
+    original.sourceFingerprint = "shrink_v1_0123456789abcdef";
     original.backendGeneration = 7;
     original.videoRoot = root;
     original.relativeRecording = fs::path("Example") / candidate.filename();
