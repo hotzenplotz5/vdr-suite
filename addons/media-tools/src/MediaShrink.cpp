@@ -162,37 +162,37 @@ double probeDuration(ProcessRunner& runner, const fs::path& input) {
 }
 
 
- // Probe exactly the same byte-concatenated TS stream used for Stage, without
- // writing a second snapshot or modifying the live VDR recording. Individual
- // segment durations cannot be added: PTS/PCR may jump at VDR file boundaries.
- double probeLiveOriginalDuration(ProcessRunner& runner, const ShrinkPlan& plan) {
-     const fs::path recording = plan.videoRoot / plan.relativeRecording;
-     demand(!plan.segments.empty(), "missing shrink source segments");
-     std::string sourceUrl = "concat:";
-     for (const auto& segment : plan.segments) {
-         const fs::path file = recording / segment.filename;
-         demand(same(identity(file), segment),
-                "source segment changed before duration readback");
-         if (plan.segments.size() == 1) continue;
-         const auto name = file.string();
-         // FFmpeg's concat: protocol separates URLs with '|'. Never let a
-         // recording name introduce another component or another protocol.
-         demand(name.find('|') == std::string::npos &&
-                name.find('\\n') == std::string::npos &&
-                name.find('\\r') == std::string::npos &&
-                sourceUrl.size() + name.size() + 1 <= 32768,
-                "unsafe multi-segment FFprobe source path");
-         if (sourceUrl.size() > 7) sourceUrl += '|';
-         sourceUrl += name;
-     }
-     const double duration = plan.segments.size() == 1
-         ? probeDuration(runner, recording / plan.segments.front().filename)
-         : probeDuration(runner, fs::path(sourceUrl));
-     for (const auto& segment : plan.segments)
-         demand(same(identity(recording / segment.filename), segment),
-                "source segment changed during duration readback");
-     return duration;
- }
+// Probe exactly the same byte-concatenated TS stream used for Stage, without
+// writing a second snapshot or modifying the live VDR recording. Individual
+// segment durations cannot be added: PTS/PCR may jump at VDR file boundaries.
+double probeLiveOriginalDuration(ProcessRunner& runner, const ShrinkPlan& plan) {
+    const fs::path recording = plan.videoRoot / plan.relativeRecording;
+    demand(!plan.segments.empty(), "missing shrink source segments");
+    std::string sourceUrl = "concat:";
+    for (const auto& segment : plan.segments) {
+        const fs::path file = recording / segment.filename;
+        demand(same(identity(file), segment),
+               "source segment changed before duration readback");
+        if (plan.segments.size() == 1) continue;
+        const auto name = file.string();
+        // FFmpeg's concat: protocol separates URLs with '|'. Never let a
+        // recording name introduce another component or another protocol.
+        demand(name.find('|') == std::string::npos &&
+               name.find('\n') == std::string::npos &&
+               name.find('\r') == std::string::npos &&
+               sourceUrl.size() + name.size() + 1 <= 32768,
+               "unsafe multi-segment FFprobe source path");
+        if (sourceUrl.size() > 7) sourceUrl += '|';
+        sourceUrl += name;
+    }
+    const double duration = plan.segments.size() == 1
+        ? probeDuration(runner, recording / plan.segments.front().filename)
+        : probeDuration(runner, fs::path(sourceUrl));
+    for (const auto& segment : plan.segments)
+        demand(same(identity(recording / segment.filename), segment),
+               "source segment changed during duration readback");
+    return duration;
+}
 
 unsigned probeHeight(ProcessRunner& runner, const fs::path& input) {
     const auto result = runner.run({
