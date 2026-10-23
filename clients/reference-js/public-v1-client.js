@@ -1120,6 +1120,15 @@
         const value = options && typeof options === 'object' ? options : {};
         return request(mediaImportPath(value, 'capabilities/media-shrink'), value);
       },
+      getMediaShrinkReview(options) {
+        const value = options && typeof options === 'object' ? options : {};
+        if (typeof value.reviewId !== 'string' ||
+            !/^shk_[0-9a-f]{32}$/.test(value.reviewId)) {
+          throw new Error('HEVC review requires opaque reviewId');
+        }
+        return request(mediaImportPath(value,
+          'media-shrink-reviews/' + value.reviewId), value);
+      },
       submitMediaShrinkPlan(options) {
         return requestMediaShrinkPlan(options);
       },
