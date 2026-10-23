@@ -260,9 +260,8 @@
     let mediaObserver = null;
     const boundMedia = [];
     const revisionState = {revision: null, loading: null, blocked: false};
-    // Snapshot once at playback-owner admission. This also fences a browser
-    // session that has not yet emitted its first five-second checkpoint.
-    loadRevision(revisionState, backendId, recordingId(recording));
+    // Do not emit a progress read for a prewarmed session that has not
+    // entered actual playback; acquire the baseline on active admission.
 
     function snapshotActive(snapshot) {
       const state = snapshot && text(snapshot.state);
@@ -391,6 +390,7 @@
         if (historyObserved) syncHistory(false, true);
       }
       if (active) {
+        loadRevision(revisionState, backendId, recordingId(recording));
         ensureInitialHistory();
         ensureSampling();
       } else stopSampling();
