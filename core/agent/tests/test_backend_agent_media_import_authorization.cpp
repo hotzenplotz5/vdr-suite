@@ -1,4 +1,6 @@
 #include "BackendAgentMediaImportAuthorization.h"
+#include "BackendAgentMediaShrinkAuthorization.h"
+#include "MediaShrinkAgentCommand.h"
 #include "BackendAgentClient.h"
 #include "BackendAgentCommandStateStore.h"
 #include "MediaToolsAgentExecutor.h"
@@ -102,4 +104,36 @@ int main() {
     f.state.receipt.reasonCode="forged";f.persist();assert(!auth.granted(a));
     f.state.receipt.reasonCode="durably_recorded";f.persist();
     assert(auth.granted(a));
+    // HEVC has a separate live Core receipt revalidation; the same durable
+    // Agent journal cannot turn a stale grant into mutation authority.
+    f.state.assignment.commandType =
+        vdrsuite::mediatools::kMediaShrinkStageCommandType;
+    f.state.assignment.payload =
+        R"({"recordingId":"rec_0123456789abcdef0123456789abcdef","encoder":"software","maxHeight":0,"nightMode":false})";
+    f.state.assignment.verificationPolicy = "readback_required";
+    f.state.assignment.requestFingerprint =
+        backendAgentCommandFingerprint(f.state.assignment);
+    f.state.receipt.requestFingerprint =
+        f.state.assignment.requestFingerprint;
+    f.persist();
+    ReceiptRevalidatingMediaShrinkAuthorization shrinkAuth(
+        f.path.string(), t, [&]{ return ctx; });
+    assert(shrinkAuth.granted(f.state.assignment));
+    t.allowed=false; assert(!shrinkAuth.granted(f.state.assignment));
+    t.allowed=true;
+    f.state.assignment.commandType =
+        vdrsuite::mediatools::kMediaShrinkPublishCommandType;
+    f.state.assignment.payload =
+        R"({"reviewId":"shk_0123456789abcdef0123456789abcdef","revision":1})";
+    f.state.assignment.verificationPolicy = "reconciliation_required";
+    f.state.assignment.requestFingerprint =
+        backendAgentCommandFingerprint(f.state.assignment);
+    f.state.receipt.requestFingerprint =
+        f.state.assignment.requestFingerprint;
+    f.persist();
+    assert(shrinkAuth.granted(f.state.assignment));
+    f.state.dispatchState = "starting"; f.persist();
+    assert(shrinkAuth.granted(f.state.assignment));
+    f.state.resultPresent = true; f.persist();
+    assert(!shrinkAuth.granted(f.state.assignment));
 }
