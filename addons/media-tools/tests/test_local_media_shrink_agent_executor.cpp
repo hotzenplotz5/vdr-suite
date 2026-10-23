@@ -163,6 +163,27 @@ int main() {
     assert(executor.takeReviewId().empty());
     assert(store.find(id));
     assert(executor.execute(stage) == MediaShrinkAgentOutcome::rejected);
+    // A new executor process can re-authorize the same assignment but may
+    // never transcode it again, even if the assignment's attempt changed.
+    LocalMediaShrinkReviewStore reopened(state);
+    LocalMediaShrinkAgentExecutor restarted(
+        reopened,
+        [&](const std::string&) { return available; },
+        [&](const BackendAgentCommandAssignment& a)
+            -> std::optional<LocalMediaShrinkAuthority> {
+            if (!allowed) return std::nullopt;
+            return LocalMediaShrinkAuthority{
+                "actor-a", "backend-a", a.operationId, kRecording,
+                fingerprint, 7, root, relative
+            };
+        },
+        [&]() -> ProcessRunner& { return process; });
+    auto replay = stage;
+    replay.attemptId = "attempt-after-restart";
+    assert(restarted.authorize(replay, "backend-a", 7));
+    assert(restarted.execute(replay) == MediaShrinkAgentOutcome::unknown);
+    assert(process.transcodes == 1);
+    assert(restarted.takeReviewId().empty());
 
     auto publish = stage;
     publish.operationId = "op_publish-a";
@@ -185,5 +206,5 @@ int main() {
     assert(!executor.authorize(publish, "backend-a", 7));
     assert(authorizeCalls >= 4);
     std::cout << "HEVC_AGENT_STAGE_PUBLISH=PASS "
-              << "RECONCILIATION_REQUIRED=YES ORIGINAL_PRESERVED=YES\n";
+              << "STAGE_CRASH_REPLAY_FENCED=YES RECONCILIATION_REQUIRED=YES ORIGINAL_PRESERVED=YES\n";
 }
