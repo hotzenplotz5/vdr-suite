@@ -61,6 +61,9 @@ RuntimeEvidence trustedEvidence()
     e.moduleId = "rectools";
     e.packageName = "vdr-suite-addon-media-tools";
     e.backendId = "backend-a";
+    e.agentId = "agent-a";
+    e.agentInstanceId = "instance-a";
+    e.backendGeneration = 19;
     e.installed = true;
     e.manifestValid = true;
     e.packageTrusted = true;
@@ -134,6 +137,67 @@ int main()
     auto committed = store.update(actor, enable, b, evidence);
     assert(committed.status == IntentStatus::ok);
     assert(committed.intent.desiredEnabled && committed.intent.revision == 1);
+    ++checks;
+
+    assert(committed.intent.backendGeneration == 19 &&
+           committed.intent.agentId == "agent-a" &&
+           committed.intent.agentInstanceId == "instance-a");
+    auto persistedLease = store.read(actor, "rectools", "backend-a");
+    assert(persistedLease.intent.backendGeneration == 19 &&
+           persistedLease.intent.agentInstanceId == "instance-a");
+
+    // A separate backend cannot inherit a prior Agent enrollment or an
+    // unbound legacy desired-enable row. Explicit reapproval at a new lease
+    // must produce another audited/CAS revision, not an exact-state no-op.
+    auto isolatedBackend = backend();
+    isolatedBackend.backendId = "backend-lease";
+    auto isolatedEvidence = trustedEvidence();
+    isolatedEvidence.backendId = "backend-lease";
+    auto originalLease = store.update(actor,
+        {"rectools", "backend-lease", true, 0},
+        isolatedBackend, isolatedEvidence);
+    assert(originalLease.status == IntentStatus::ok &&
+           originalLease.intent.revision == 1 &&
+           originalLease.intent.backendGeneration == 19);
+    isolatedEvidence.backendGeneration = 20;
+    auto enrolledAgain = store.update(actor,
+        {"rectools", "backend-lease", true, 1},
+        isolatedBackend, isolatedEvidence);
+    assert(enrolledAgain.status == IntentStatus::ok &&
+           enrolledAgain.intent.revision == 2 &&
+           enrolledAgain.intent.backendGeneration == 20);
+    isolatedEvidence.agentInstanceId = "new-instance";
+    auto newInstance = store.update(actor,
+        {"rectools", "backend-lease", true, 2},
+        isolatedBackend, isolatedEvidence);
+    assert(newInstance.status == IntentStatus::ok &&
+           newInstance.intent.revision == 3 &&
+           newInstance.intent.agentInstanceId == "new-instance");
+    assert(store.update(actor,
+        {"rectools", "backend-lease", true, 2},
+        isolatedBackend, isolatedEvidence).status ==
+           IntentStatus::revisionConflict);
+    assert(store.update(actor,
+        {"rectools", "backend-lease", false, 3},
+        {}, {}).status == IntentStatus::ok);
+    const auto disabledLease = store.read(
+        actor, "rectools", "backend-lease");
+    assert(!disabledLease.intent.desiredEnabled &&
+           disabledLease.intent.backendGeneration == 0 &&
+           disabledLease.intent.agentId.empty());
+
+    assert(f.database.execute(
+        "INSERT INTO addon_activation_intents "
+        "(module_id,backend_id,desired_enabled,revision,updated_by_actor_id) "
+        "VALUES ('rectools','legacy-backend',1,5,'old-admin');"));
+    const auto legacy = store.read(actor, "rectools", "legacy-backend");
+    assert(legacy.status == IntentStatus::ok &&
+           legacy.intent.desiredEnabled && legacy.intent.revision == 5 &&
+           legacy.intent.backendGeneration == 0 &&
+           legacy.intent.agentId.empty());
+    assert(store.update(actor,
+        {"rectools", "legacy-backend", false, 5},
+        {}, {}).status == IntentStatus::ok);
     ++checks;
 
     // A current-revision repeated intent is a durable no-op, not a second
