@@ -110,6 +110,18 @@ test-addon-media-shrink-agent-executor:
 
 test-ci-fast: test-addon-media-shrink-agent-executor
 
+# Public HEVC mutation contract, no durable reservation and no VDR IO.
+.PHONY: test-addon-media-shrink-mutation-api
+test-addon-media-shrink-mutation-api:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
+		-I addons/media-tools/include -I api/rest/include \
+		addons/media-tools/tests/test_media_shrink_mutation_api.cpp \
+		-o "$(BUILD_DIR)/addons/test_media_shrink_mutation_api"
+	"$(BUILD_DIR)/addons/test_media_shrink_mutation_api"
+
+test-ci-fast: test-addon-media-shrink-mutation-api
+
 .PHONY: test-addon-media-shrink-plan-api
 test-addon-media-shrink-plan-api:
 	mkdir -p "$(BUILD_DIR)/addons"
