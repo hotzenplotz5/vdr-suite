@@ -1,8 +1,15 @@
 # Media Tools (Rectools) – optional VDR-Suite add-on
 
-**State:** C++ standalone import prototype and inactive add-on package scaffold. **No import, checking or shrink action is wired into Suite or enabled for clients.**
+**State (2026-10-23):** Import, read-only Check and non-destructive HEVC
+Shrink have C++ implementations and source-integrated Core/API/Agent paths.
+Media Check works at source level for configured local backends; Import and
+Shrink require explicit Agent opt-in, authorized operations and approved
+backend activation. The manifest remains disabled. Real host acceptance
+and trusted administrative enablement are outstanding.
 
-Manifest/staging location: `modules/rectools/`; implementation: `addons/media-tools/`; prospective binary package: `vdr-suite-addon-media-tools`. The legacy Rectools repository is the audited functional reference, **not** the implementation engine: the new importer is C++17 and does not call the Rectools Bash CLI. Integration will require a protected Suite/backend-local execution adapter; no shell access from browser or VDR plugin.
+Manifest/staging location: `modules/rectools/`; implementation: `addons/media-tools/`; prospective binary package: `vdr-suite-addon-media-tools`. The legacy Rectools repository is the audited functional reference, **not** the implementation engine: the new importer is C++17 and does not call the Rectools Bash CLI. Protected backend-local Agent execution exists in source. Neither the
+browser nor the VDR plugin can submit arbitrary filesystem paths or execute
+shell commands.
 
 ## Allowed scope
 
@@ -60,15 +67,22 @@ mit einem festgelegten `/usr/bin/ffmpeg` softwaredecodiert und nach
 maximal 900 Sekunden abgebrochen. Der JSON-Bericht unterscheidet
 Decoderfehler und unvollständige Prüfungen. Das Tool liest ausschließlich
 die Aufnahme und schreibt keine Ergebnisse, Logs oder Marker hinein.
-Die öffentliche API und das produktive Webfrontend sind noch nicht
-angeschlossen. Das `addon.json`-Manifest bleibt absichtlich deaktiviert;
-Paketierung und Freischaltung erst nach der produktiven Anbindung.
+API v1, lokaler Daemon-Report und Recording-Hero-Anzeige sind im
+Quellstand verbunden; Build, produktive Installation und echter Backend-Test
+bleiben voneinander getrennte Abnahmen. Das `addon.json`-Manifest bleibt
+absichtlich deaktiviert, bis die Freigabe erfolgt.
 
 ## C++ import prototype (not a live deployment)
 
 Source implementation: `../../addons/media-tools/include/MediaImport.h`, `../../addons/media-tools/src/MediaImport.cpp`, `../../addons/media-tools/src/main.cpp`. Focused tests: `../../addons/media-tools/tests/test_media_import.cpp`. Build and test independently from the daemon via `make addon-media-import test-addon-media-import`. Build output: `.build/addons/vdr-suite-media-import`; this binary is **not installed** by `make install`, `stage-addon` or `build-addon-deb`.
 
-This first slice implements an offline `plan` and an explicit `import ... --confirm-writes` for a **single** input, using allowlisted caller-supplied source/video roots. Backend policy and user authentication have not yet been connected; **do not invoke the write command against your installed VDR video tree**. The C++ process uses fixed `/usr/bin/ffprobe`, `/usr/bin/ffmpeg`, `/usr/bin/vdr` executable paths through `execv` (no shell) only for the write path. It accepts native-compatible `h264`, `hevc` or `mpeg2video` input, performs remux-only TS creation and requires an index before atomic no-replace promotion. It never removes or renames the source; no repair, re-encode, external subtitle search or TVScraper call is allowed. It does not emit a Suite cache refresh, operation ID or progress event, so it is **not production-ready**.
+This first slice implements an offline `plan` and an explicit `import ... --confirm-writes` for a **single** input, using allowlisted caller-supplied source/video roots. Core Operation, backend-scoped grant and Agent dispatch are now integrated
+in source behind explicit opt-in. The standalone CLI remains a development
+tool: **do not invoke its write command against your installed VDR video tree**. The C++ process uses fixed `/usr/bin/ffprobe`, `/usr/bin/ffmpeg`, `/usr/bin/vdr` executable paths through `execv` (no shell) only for the write path. It accepts native-compatible `h264`, `hevc` or `mpeg2video` input;
+compatible streams are remuxed, other supported inputs use bounded encoding,
+and a VDR index is verified before atomic no-replace promotion. It never removes or renames the source; no repair, re-encode, external subtitle search or TVScraper call is allowed. The Core/Agent integration has durable Operations and independent VDR
+recording-cache reconciliation. End-to-end host validation remains mandatory
+before production use.
 
 Legacy feature inventory and security analysis: [C++ import audit](../../docs/development/rectools-cpp-import-audit.md).
 
@@ -77,3 +91,20 @@ Legacy feature inventory and security analysis: [C++ import audit](../../docs/de
 `make build-media-tools-cpp-deb OUTPUT_DIR=/isolated/output ADDON_MAINTAINER='Name <valid@example.org>'` compiles and tests the standalone C++ engine, then creates an architecture-specific `~cpppreview1` Debian package using its source-produced executable. The package owns `/usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import` plus the common manifest/docs. It advertises no runtime capability, installs no service and does not connect to the daemon. **Do not install this development prototype on the live yaVDR.** The ordinary `build-addon-deb MODULE=rectools` remains the earlier, metadata-only `~scaffold1` package.
 
 The installed catalog recognizes this module metadata only through the [read-only registry](../../docs/development/addon-installed-registry-contract.md). Installation and C++ binaries do **not** activate it, grant privileges or expose API operations.
+
+## HEVC source integration and remaining release gate
+
+The Agent supports explicit `--enable-media-shrink --media-shrink-state-dir
+ABSOLUTE`. The Recording Hero presents read-only planning, supported
+software/VAAPI/QSV/NVENC selections, height limits and Night Mode. Authorized
+staging creates a private candidate; a separately confirmed Publish creates
+an additional VDR recording after independent cache reconciliation. The
+original recording is never deleted or replaced. Hardware encoder failure
+may fall back to x265; availability depends on the actual Agent hardware.
+
+The existing `AddonAdministrationService` still refuses **enable** without
+a trusted Core provider. A source-defined executor or HTTP grant eligibility
+alone cannot satisfy this gate. Trusted administrative activation, live
+Daemon/Agent integration, packaging/install contracts and real-host
+acceptance remain required. No repair or other excluded Rectools function
+may be added.
