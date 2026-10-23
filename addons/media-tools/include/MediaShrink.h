@@ -44,6 +44,10 @@ ShrinkPlan inspectShrink(
     const fs::path& videoRoot, const fs::path& relativeRecording,
     const ShrinkOptions& options = {});
 
+// Stable, path-free identity of the inspected source snapshot and sidecars.
+// Recomputed at each Core/Agent mutation boundary, never supplied by HTTP.
+std::string shrinkSourceFingerprint(const ShrinkPlan& plan);
+
 void requireShrinkCapacity(const ShrinkPlan& plan);
 
 // The first explicit write action only creates a private review candidate.
