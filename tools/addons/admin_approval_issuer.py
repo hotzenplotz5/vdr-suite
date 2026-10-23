@@ -23,7 +23,7 @@ from manual_handler_evidence import examine as examine_binary
 
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
 _VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
-_BACKEND_ID = re.compile(r"[a-zA-Z0-9_.-]{1,128}\Z")
+_BACKEND_ID = re.compile(r"[a-zA-Z0-9_.:-]{1,128}\Z")
 
 def approval_path(backend_id: str = "") -> str:
     if not backend_id:

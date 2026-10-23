@@ -129,6 +129,9 @@ class RootOwnedApprovalAcceptance(unittest.TestCase):
                                core_expected_only=True, backend_id="backend-a"), first)
         self.assertFalse(self.approval.exists())
         self.assertFalse(second.exists())
+        colon = issue(self.root, "rectools", "0.1.0", "a" * 64, "manual",
+                      core_expected_only=True, backend_id="backend:third")
+        self.assertEqual(colon.name, "rectools.backend:third.json")
         self.assertEqual(issue(self.root, "rectools", "0.1.0", "b" * 64, "debian",
                                core_expected_only=True, backend_id="backend-b"), second)
         self.assertEqual(rotate(self.root, "rectools", "0.1.0",

@@ -109,7 +109,8 @@ bool validBackendId(const std::string& backendId)
         backendId == "." || backendId == "..") return false;
     for (const unsigned char c : backendId)
         if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-              (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.'))
+              (c >= '0' && c <= '9') || c == '-' || c == '_' ||
+              c == '.' || c == ':'))
             return false;
     return true;
 }

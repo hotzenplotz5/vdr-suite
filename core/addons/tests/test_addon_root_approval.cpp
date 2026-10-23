@@ -91,6 +91,11 @@ int main()
     assert(readRootMediaToolsApproval(fixture.root.string(), "backend-a").approved());
     assert(readRootMediaToolsApproval(fixture.root.string(), "backend-b").status ==
            RootApprovalStatus::missing);
+    // Backend IDs with colon are valid in the canonical Agent lifecycle.
+    const auto colon = fixture.approval.parent_path() / "rectools.backend:third.json";
+    fs::copy_file(fixture.approval, colon);
+    assert(readRootMediaToolsApproval(fixture.root.string(), "backend:third").approved());
+    fs::remove(colon);
     assert(readRootMediaToolsApproval(fixture.root.string(), "../escape").status ==
            RootApprovalStatus::invalidRoot);
     fs::remove(scoped);
