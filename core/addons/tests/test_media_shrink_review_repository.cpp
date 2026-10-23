@@ -115,6 +115,8 @@ int main()
     assert(reviews.completePublication("actor-a","backend-a",
         reviewId, 2).status == MediaShrinkReviewStatus::conflict);
     succeed(operations, "op-publish", newRecordingId);
+    assert(reviews.claimPublication("actor-a","backend-a",reviewId,
+        1,"op-publish").status == MediaShrinkReviewStatus::conflict);
     const auto completed = reviews.completePublication(
         "actor-a","backend-a",reviewId, 2);
     assert(completed.ok() && completed.review.state == "published" &&
@@ -183,6 +185,8 @@ int main()
         assert(reviews3.completePublication("actor-a","backend-a",reviewId,
             2).status == MediaShrinkReviewStatus::conflict);
         succeed(operations3,"op-restart-publish",newRecordingId);
+        assert(reviews3.claimPublication("actor-a","backend-a",reviewId,
+            1,"op-restart-publish").status == MediaShrinkReviewStatus::conflict);
         const auto completed = reviews3.completePublication(
             "actor-a","backend-a",reviewId,2);
         assert(completed.ok() && completed.review.state == "published" &&
