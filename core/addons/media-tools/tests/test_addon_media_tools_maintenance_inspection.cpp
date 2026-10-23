@@ -382,6 +382,7 @@ int main() {
     evidence.agentId="maintenance-agent";
     evidence.agentInstanceId="maintenance-instance";
     evidence.backendGeneration=1;
+    evidence.approvedHandlerSha256=std::string(64, 'a');
     evidence.installed=evidence.manifestValid=evidence.packageTrusted=true;
     evidence.versionCompatible=evidence.handlerRegistered=
         evidence.handlerHealthy=true;
