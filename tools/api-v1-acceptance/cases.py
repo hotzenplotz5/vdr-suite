@@ -566,80 +566,79 @@ def run_cases(a):
     a.check("source.v1-contract", "CONTRACT", lambda: source_contract_tests(a),
             requires=("spec",))
     a.check("source.runner-regressions", "CONTRACT", lambda: offline_unit(a))
-    if a.args.profile == "offline":
-        a.record("hardware.reads", "INTEGRATION", "SKIP",
-                 "offline profile deliberately does not contact a daemon",
-                 required=False)
-        a.record("hardware.mutations", "TIMER WRITE", "SKIP",
-                 "offline profile forbids all hardware writes", required=False)
-        return
+    def hardware(ident, area, task, *, requires=(), required=True):
+        if a.args.profile == "offline":
+            return a.record(ident, area, "SKIP",
+                            "offline profile intentionally does not contact any daemon",
+                            required=False)
+        return a.check(ident, area, task, requires=requires, required=required)
 
-    a.check("discovery.root", "DISCOVERY", lambda: root(a))
-    a.check("preflight.source-runtime", "INTEGRATION", lambda: runtime_match(a),
+    hardware("discovery.root", "DISCOVERY", lambda: root(a))
+    hardware("preflight.source-runtime", "INTEGRATION", lambda: runtime_match(a),
             requires=("root",))
-    a.check("discovery.capabilities", "DISCOVERY", lambda: discovery(a),
+    hardware("discovery.capabilities", "DISCOVERY", lambda: discovery(a),
             requires=("root",))
-    a.check("security.unauthenticated", "SECURITY", lambda: missing_auth(a),
+    hardware("security.unauthenticated", "SECURITY", lambda: missing_auth(a),
             requires=("root",))
-    a.check("security.invalid-credential", "SECURITY", lambda: invalid_auth(a),
+    hardware("security.invalid-credential", "SECURITY", lambda: invalid_auth(a),
             requires=("root",))
-    a.check("backends.authorized", "BACKENDS", lambda: backends(a),
+    hardware("backends.authorized", "BACKENDS", lambda: backends(a),
             requires=("root",))
-    a.check("security.backend-isolation", "SECURITY", lambda: isolation(a),
+    hardware("security.backend-isolation", "SECURITY", lambda: isolation(a),
             requires=("backend",))
-    a.check("security.account-admin-read", "SECURITY", lambda: account_admin_read(a))
-    a.check("security.foreign-device-ownership", "SECURITY", lambda: foreign_device_ownership(a))
+    hardware("security.account-admin-read", "SECURITY", lambda: account_admin_read(a))
+    hardware("security.foreign-device-ownership", "SECURITY", lambda: foreign_device_ownership(a))
     # All reads depend on an authoritative selected backend.
-    a.check("epg.channels", "EPG", lambda: channels(a), requires=("backend",))
-    a.check("epg.now-next", "EPG", lambda: now_next(a), requires=("channel",))
-    a.check("epg.bounded-cursor", "EPG", lambda: epg_window(a), requires=("channel",))
-    a.check("epg.reject-invalid-window", "EPG", lambda: epg_invalid_range(a),
+    hardware("epg.channels", "EPG", lambda: channels(a), requires=("backend",))
+    hardware("epg.now-next", "EPG", lambda: now_next(a), requires=("channel",))
+    hardware("epg.bounded-cursor", "EPG", lambda: epg_window(a), requires=("channel",))
+    hardware("epg.reject-invalid-window", "EPG", lambda: epg_invalid_range(a),
             requires=("channel",))
-    a.check("epg.reject-invalid-cursor", "EPG", lambda: epg_cursor_scope(a),
+    hardware("epg.reject-invalid-cursor", "EPG", lambda: epg_cursor_scope(a),
             requires=("channel",))
-    a.check("timer.assignments", "TIMER READ", lambda: timer_assignments(a),
+    hardware("timer.assignments", "TIMER READ", lambda: timer_assignments(a),
             requires=("backend",))
-    a.check("timer.assignment-detail", "TIMER READ", lambda: timer_detail(a),
+    hardware("timer.assignment-detail", "TIMER READ", lambda: timer_detail(a),
             requires=("backend",))
-    a.check("timer.native", "TIMER READ", lambda: native_timers(a),
+    hardware("timer.native", "TIMER READ", lambda: native_timers(a),
             requires=("backend",))
-    a.check("searchtimer.list", "SEARCHTIMER", lambda: searchtimers(a),
+    hardware("searchtimer.list", "SEARCHTIMER", lambda: searchtimers(a),
             requires=("backend",))
-    a.check("searchtimer.detail", "SEARCHTIMER", lambda: search_detail(a),
+    hardware("searchtimer.detail", "SEARCHTIMER", lambda: search_detail(a),
             requires=("searchtimer",))
-    a.check("searchtimer.version", "SEARCHTIMER", lambda: search_version(a),
+    hardware("searchtimer.version", "SEARCHTIMER", lambda: search_version(a),
             requires=("searchtimer",))
-    a.check("searchtimer.preview", "SEARCHTIMER", lambda: search_preview(a),
+    hardware("searchtimer.preview", "SEARCHTIMER", lambda: search_preview(a),
             requires=("searchtimer",))
-    a.check("searchtimer.draft-preview", "SEARCHTIMER", lambda: draft_preview(a),
+    hardware("searchtimer.draft-preview", "SEARCHTIMER", lambda: draft_preview(a),
             requires=("backend",))
-    a.check("searchtimer.reject-bad-id", "SEARCHTIMER", lambda: searchtimer_bad_public_id(a),
+    hardware("searchtimer.reject-bad-id", "SEARCHTIMER", lambda: searchtimer_bad_public_id(a),
             requires=("backend",))
-    a.check("recording.collection", "RECORDINGS", lambda: recordings(a),
+    hardware("recording.collection", "RECORDINGS", lambda: recordings(a),
             requires=("backend",))
-    a.check("recording.folders", "RECORDINGS", lambda: folders(a),
+    hardware("recording.folders", "RECORDINGS", lambda: folders(a),
             requires=("backend",))
-    a.check("recording.detail", "RECORDINGS", lambda: recording_detail(a),
+    hardware("recording.detail", "RECORDINGS", lambda: recording_detail(a),
             requires=("recording",))
-    a.check("recording.reject-bad-id", "RECORDINGS", lambda: recording_bad_public_id(a),
+    hardware("recording.reject-bad-id", "RECORDINGS", lambda: recording_bad_public_id(a),
             requires=("backend",))
-    a.check("recording.metadata", "METADATA", lambda: metadata(a),
+    hardware("recording.metadata", "METADATA", lambda: metadata(a),
             requires=("recording_detail",))
-    a.check("recording.genres", "METADATA", lambda: genre(a),
+    hardware("recording.genres", "METADATA", lambda: genre(a),
             requires=("backend",))
-    a.check("recording.artwork-list", "ARTWORK", lambda: artwork_list(a),
+    hardware("recording.artwork-list", "ARTWORK", lambda: artwork_list(a),
             requires=("recording",))
-    a.check("recording.artwork-binary", "ARTWORK", lambda: artwork_bytes(a),
+    hardware("recording.artwork-binary", "ARTWORK", lambda: artwork_bytes(a),
             requires=("artwork_url",))
-    a.check("recording.artwork-not-found", "ARTWORK", lambda: artwork_unknown(a),
+    hardware("recording.artwork-not-found", "ARTWORK", lambda: artwork_unknown(a),
             requires=("recording",))
-    a.check("search.recordings", "INTEGRATION", lambda: search_recordings(a),
+    hardware("search.recordings", "INTEGRATION", lambda: search_recordings(a),
             requires=("backend",))
-    a.check("playback.profile", "PLAYBACK", lambda: playback_capabilities(a),
+    hardware("playback.profile", "PLAYBACK", lambda: playback_capabilities(a),
             requires=("backend",))
-    a.check("resume.continue-watching", "RESUME", lambda: continue_watching(a),
+    hardware("resume.continue-watching", "RESUME", lambda: continue_watching(a),
             requires=("backend",))
-    a.check("resume.progress", "RESUME", lambda: resume_progress(a),
+    hardware("resume.progress", "RESUME", lambda: resume_progress(a),
             requires=("recording",))
     for ident, area in (
         ("playback.session-write", "PLAYBACK"), ("resume.progress-write", "RESUME"),
@@ -650,7 +649,7 @@ def run_cases(a):
                  "profile forbids productive writes; no HTTP mutation attempted",
                  required=False)
     if a.args.profile == "controlled":
-        a.check("controlled.approval", "INTEGRATION", lambda: controlled_gate(a))
+        hardware("controlled.approval", "INTEGRATION", lambda: controlled_gate(a))
         for name in ("recording.actions", "timer.intent", "native-timer.mutations",
                      "searchtimer.cas-mutations", "playback.session-and-progress",
                      "security.grant-changes"):
