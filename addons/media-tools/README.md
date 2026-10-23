@@ -161,9 +161,12 @@ Existing TS segments, the VDR index and native `info` sidecar are
 validated; the original recording is never replaced or deleted. Optional
 `--max-height=720`, `--night-mode`, and
 `--encoder=software|vaapi|qsv|nvenc` affect staging only. Hardware
-failure can fall back to software. FFprobe duration/codec, smaller output
-size and VDR index must pass before review, and publication uses an
-atomic no-replace rename. The review/publish binaries remain outside
+failure can fall back to software. Compatible AAC/AC3/E-AC3/MP2 audio
+is preserved by stream copy; incompatible audio is encoded to AAC (and
+night mode deliberately uses AAC). FFprobe duration/codec, smaller output
+size and VDR index must pass before review. Publication rechecks the
+source identity, the staged metadata/subtitle bytes and retained HEVC
+space savings before an atomic no-replace rename. The review/publish binaries remain outside
 the standard daemon and Agent mutation/API composition.
 
 ### Administrator-opted unattended imports (source integration)
