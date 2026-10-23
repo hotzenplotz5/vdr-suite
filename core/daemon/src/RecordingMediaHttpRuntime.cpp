@@ -2,6 +2,9 @@
 
 #include "ApiRouter.h"
 #include "AuthorizationService.h"
+#include "DevicePlaybackAccountBindingService.h"
+#include "HumanAccountRepository.h"
+#include "AccountabilityEventRepository.h"
 #include "BackendAgentCommandDelivery.h"
 #include "BackendAgentLifecycle.h"
 #include "BackendAgentLiveProviderRuntime.h"
@@ -149,6 +152,17 @@ int runRecordingMediaHttpRuntime(
         });
     PublicDevicePlaybackRegistry deviceSessions(
         mediaSessionRepository, securityIdentities, securityGrants);
+    HumanAccountRepository playbackAccounts(database);
+    AccountabilityEventRepository playbackAudit(database);
+    DevicePlaybackAccountBindingService playbackBinding(
+        database, securityIdentities, playbackAccounts, securityGrants,
+        playbackAudit);
+    if (!playbackAccounts.ensureSchema() ||
+        !playbackAudit.ensureSchema() ||
+        !playbackBinding.ensureSchema()) {
+        std::cerr << "Device Playback account identity unavailable" << std::endl;
+        return 1;
+    }
 
     MediaAccessGrantAuthenticator mediaAccessGrantAuthenticator(
         mediaSessionRepository,
@@ -243,9 +257,15 @@ int runRecordingMediaHttpRuntime(
                     return error(403, "forbidden");
                 if (recordingCache.statusForBackend(backendId).state != "ready")
                     return error(503, "recording_backend_unavailable");
+                const auto actor = playbackBinding.resolve(
+                    verifiedDevice, backendId);
+                if (actor.status == DevicePlaybackActorStatus::forbidden)
+                    return error(403, "recording_progress_context_forbidden");
+                if (actor.status == DevicePlaybackActorStatus::unavailable)
+                    return error(503, "recording_progress_context_unavailable");
                 const auto entries =
                     ContinueWatchingApiRuntime::instance().publicCandidates(
-                        verifiedDevice.actor.actorId, backendId);
+                        actor.actorId, backendId);
                 ApiResponse response;
                 response.statusCode = 200;
                 response.contentType = "application/json";
@@ -348,7 +368,13 @@ int runRecordingMediaHttpRuntime(
                         owned->resourceId != allowed.recording.id)
                         return error(409, "recording_progress_session_not_owned");
                 }
-                const std::string actorId = verifiedDevice.actor.actorId;
+                const auto playbackActor = playbackBinding.resolve(
+                    verifiedDevice, backendId);
+                if (playbackActor.status == DevicePlaybackActorStatus::forbidden)
+                    return error(403, "recording_progress_context_forbidden");
+                if (playbackActor.status == DevicePlaybackActorStatus::unavailable)
+                    return error(503, "recording_progress_context_unavailable");
+                const std::string actorId = playbackActor.actorId;
                 return body.empty()
                     ? ContinueWatchingApiRuntime::instance().publicProgressGet(
                         actorId, allowed.recording, publicRecordingId)
