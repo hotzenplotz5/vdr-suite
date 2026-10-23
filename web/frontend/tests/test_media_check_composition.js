@@ -22,6 +22,8 @@ const backend = 'local';
 const id = 'rec_' + 'a'.repeat(32);
 const checkId = 'chk_' + 'b'.repeat(32);
 const shrinkReviewId = 'shk_' + 'c'.repeat(32);
+const shrinkOperationId = 'op_' + 'd'.repeat(32);
+const shrinkPublishOperationId = 'op_' + 'e'.repeat(32);
 const requests = [];
 let ambiguousRecordings = false;
 function response(status, payload) {
@@ -32,6 +34,26 @@ function response(status, payload) {
 const api = clientFactory.createClient({
   fetch(url, options) {
     requests.push({url, options});
+    if (url.endsWith('/media-shrink-stages'))
+      return Promise.resolve(response(202, {
+        operationId: shrinkOperationId, backendId: backend, state: 'dispatching'
+      }));
+    if (url.endsWith('/media-shrink-publications'))
+      return Promise.resolve(response(202, {
+        operationId: shrinkPublishOperationId, backendId: backend,
+        state: 'dispatching'
+      }));
+    if (url.endsWith('/media-shrink-operations/' + shrinkOperationId))
+      return Promise.resolve(response(200, {
+        operationId: shrinkOperationId, backendId: backend,
+        action: 'stage', state: 'succeeded', resultReconciled: true,
+        reviewId: shrinkReviewId
+      }));
+    if (url.endsWith('/media-shrink-operations/' + shrinkPublishOperationId))
+      return Promise.resolve(response(200, {
+        operationId: shrinkPublishOperationId, backendId: backend,
+        action: 'publish', state: 'dispatching', resultReconciled: false
+      }));
     if (url.endsWith('/media-shrink-reviews/' + shrinkReviewId))
       return Promise.resolve(response(200, {
         backendId: backend, recordingId: id, reviewId: shrinkReviewId,
@@ -120,6 +142,68 @@ const api = clientFactory.createClient({
   const reviewRequest = requests[requests.length - 1];
   assert(reviewRequest.url.endsWith('/media-shrink-reviews/' + shrinkReviewId));
   assert.notStrictEqual(reviewRequest.options.method, 'POST');
+  // Production v1 client: opaque Stage -> Operation -> Review -> explicit
+  // Publish -> independent Operation. Never allow a client-supplied path.
+  const mutationKey = 'hevc-' + '01234567';
+  assert.throws(() => api.submitMediaShrinkStage({
+    backendId: backend, recordingId: '/srv/vdr/malicious.rec',
+    encoder: 'software', maxHeight: 720, nightMode: false,
+    idempotencyKey: mutationKey
+  }));
+  assert.throws(() => api.submitMediaShrinkStage({
+    backendId: backend, recordingId: id,
+    encoder: 'unsafe;rm', maxHeight: 720, nightMode: false,
+    idempotencyKey: mutationKey
+  }));
+  assert.throws(() => api.submitMediaShrinkStage({
+    backendId: backend, recordingId: id,
+    encoder: 'software', maxHeight: 720, nightMode: false,
+    idempotencyKey: ''
+  }));
+  const stageResult = await api.submitMediaShrinkStage({
+    backendId: backend, recordingId: id, encoder: 'software',
+    maxHeight: 720, nightMode: true, idempotencyKey: mutationKey,
+    headers: {'X-CSRF-Token': 'stage-csrf'}
+  });
+  assert.strictEqual(stageResult.operationId, shrinkOperationId);
+  const stageRequest = requests[requests.length - 1];
+  assert.strictEqual(stageRequest.options.method, 'POST');
+  assert(stageRequest.url.endsWith('/media-shrink-stages'));
+  assert.strictEqual(stageRequest.options.headers['Idempotency-Key'], mutationKey);
+  assert.strictEqual(stageRequest.options.headers['X-CSRF-Token'], 'stage-csrf');
+  assert.strictEqual(stageRequest.options.body, JSON.stringify({
+    recordingId: id, encoder: 'software', maxHeight: 720, nightMode: true
+  }));
+  assert.throws(() => api.getMediaShrinkOperation({
+    backendId: backend, operationId: '/tmp/operation'
+  }));
+  const stageStatus = await api.getMediaShrinkOperation({
+    backendId: backend, operationId: shrinkOperationId
+  });
+  assert.strictEqual(stageStatus.resultReconciled, true);
+  assert.strictEqual(stageStatus.reviewId, shrinkReviewId);
+  assert.throws(() => api.submitMediaShrinkPublish({
+    backendId: backend, reviewId: shrinkReviewId,
+    revision: 2, idempotencyKey: mutationKey
+  }));
+  assert.throws(() => api.submitMediaShrinkPublish({
+    backendId: backend, reviewId: '/tmp/candidate.rec',
+    revision: 1, idempotencyKey: mutationKey
+  }));
+  const publishResult = await api.submitMediaShrinkPublish({
+    backendId: backend, reviewId: shrinkReviewId, revision: 1,
+    idempotencyKey: 'hevc-publish-1234'
+  });
+  assert.strictEqual(publishResult.operationId, shrinkPublishOperationId);
+  const publishRequest = requests[requests.length - 1];
+  assert(publishRequest.url.endsWith('/media-shrink-publications'));
+  assert.strictEqual(publishRequest.options.body,
+    JSON.stringify({reviewId: shrinkReviewId, revision: 1}));
+  const publishStatus = await api.getMediaShrinkOperation({
+    backendId: backend, operationId: shrinkPublishOperationId
+  });
+  assert.strictEqual(publishStatus.resultReconciled, false);
+
   const context = {
     window: null, console,
     VdrSuiteRecordings2Shared: {
@@ -170,7 +254,13 @@ const api = clientFactory.createClient({
   assert(enriched.includes('h264 1920×1080'));
   assert(enriched.includes('aac (2 Kanäle)'));
   assert(enriched.includes('Container: mpegts'));
-  console.log('MEDIA_CHECK_API_V1_FRONTEND=PASS');
+  assert(hero.includes("client.submitMediaShrinkStage({"));
+  assert(hero.includes("client.submitMediaShrinkPublish({"));
+  assert(hero.includes("client.getMediaShrinkOperation({"));
+  assert(hero.includes("global.confirm("));
+  assert(hero.includes("remember('stage', {key: key, operationId: ''})"));
+  assert(hero.includes("remember('publish', {key: key, operationId: ''})"));
+  console.log('MEDIA_CHECK_API_V1_FRONTEND=PASS HEVC_STAGE_PUBLISH_CLIENT=PASS');
 })().catch(function(error) {
   console.error(error);
   process.exitCode = 1;
