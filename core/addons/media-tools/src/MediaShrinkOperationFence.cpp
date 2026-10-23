@@ -334,6 +334,13 @@ bool MediaShrinkOperationFence::check(
     if (activation.status != IntentStatus::ok ||
         !activation.intent.desiredEnabled || activation.intent.revision <= 0)
         return deny(reason, "media_shrink_activation_disabled");
+    // Receipt must honor the same exact administrator-approved Agent lease
+    // already required by effectiveCapability (not only desiredEnabled).
+    if (activation.intent.backendGeneration == 0 ||
+        activation.intent.backendGeneration != agent->backendGeneration ||
+        activation.intent.agentId != agent->agentId ||
+        activation.intent.agentInstanceId != agent->agentInstanceId)
+        return deny(reason, "media_shrink_activation_agent_stale");
 
     // A successful command reservation is not a durable execution grant.
     // Re-evaluate the exact Core-approved backend provider at receipt.
