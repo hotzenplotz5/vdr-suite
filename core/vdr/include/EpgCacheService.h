@@ -7,11 +7,13 @@
 
 #include <cstddef>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 class EpgArtworkEnrichmentService;
+class SearchTimerPreviewEpgCache;
 
 struct EpgCacheRefreshResult
 {
@@ -53,11 +55,13 @@ public:
         EpgEventRepository& repository,
         VdrService& vdrService,
         EpgArtworkEnrichmentService* artworkEnrichmentService = nullptr,
-        EpgEventRepository* readRepository = nullptr);
+        EpgEventRepository* readRepository = nullptr,
+        SearchTimerPreviewEpgCache* searchTimerPreviewEpgCache = nullptr);
 
     EpgCacheRefreshResult refreshBackendWindow(
         const std::string& backendId,
-        const VdrEventQuery& query);
+        const VdrEventQuery& query,
+        bool publishSearchTimerPreview = false);
 
     EpgCacheStatus getStatusForBackend(
         const std::string& backendId) const;
@@ -79,7 +83,31 @@ public:
         const std::string& channelId,
         const std::string& fromTime,
         const std::string& untilTime,
-        int eventLimit) const;
+        int eventLimit,
+        const std::string& afterStartTime = {},
+        const std::string& afterEventId = {}) const;
+
+    bool hasWindowCursorAnchorForBackend(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& fromTime,
+        const std::string& untilTime,
+        const std::string& startTime,
+        const std::string& cacheEventId) const;
+
+    // Exact source-provenanced event from the same read-repository as
+    // window display; no independent source of EPG truth.
+    std::optional<VdrEvent> findSourceEventForBackend(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& nativeEventId) const;
+
+    // A nonempty returned EPG cache key does not prove a real source ID.
+    // Expose only the read-repository's durable, exact provenance evidence.
+    bool hasSourceEventIdForBackend(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& eventId) const;
 
     bool deleteExpiredForBackend(
         const std::string& backendId,
@@ -117,6 +145,7 @@ private:
     EpgEventRepository* readRepository_;
     VdrService& vdrService_;
     EpgArtworkEnrichmentService* artworkEnrichmentService_;
+    SearchTimerPreviewEpgCache* searchTimerPreviewEpgCache_;
     mutable std::mutex statusMutex_;
     std::unordered_map<std::string, RefreshMetadata> refreshMetadataByBackend_;
 

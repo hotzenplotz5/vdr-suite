@@ -7,32 +7,10 @@
 #include "BackendAgentNativeTimerDeletePayload.h"
 #include "Database.h"
 
-#include <sqlite3.h>
-
-#include <optional>
 #include <string>
 
 namespace
 {
-bool bindText(sqlite3_stmt* statement, int index, const std::string& value)
-{
-    return sqlite3_bind_text(
-               statement, index, value.c_str(), -1, SQLITE_TRANSIENT) == SQLITE_OK;
-}
-
-bool bindInt(sqlite3_stmt* statement, int index, std::int64_t value)
-{
-    return sqlite3_bind_int64(statement, index, value) == SQLITE_OK;
-}
-
-std::string text(sqlite3_stmt* statement, int column)
-{
-    const unsigned char* value = sqlite3_column_text(statement, column);
-    return value
-        ? std::string(reinterpret_cast<const char*>(value))
-        : std::string();
-}
-
 bool requestValid(
     const RequestSecurityContext& context,
     const vdrsuite::agent::BackendAgentNativeTimerDeleteAssignmentRequest& request,
@@ -108,6 +86,8 @@ bool requestMatches(
 
 } // namespace
 
+// Schema repair must never revoke an Agent's just-advertised native DELETE
+// capability: command polling persists the live provider/instance fence.
 bool BackendAgentCommandRepository::ensureNativeTimerDeleteAssignmentSchema()
 {
     auto transactionLease = database_.acquireTransactionLease();
@@ -119,14 +99,8 @@ bool BackendAgentCommandRepository::ensureNativeTimerDeleteAssignmentSchema()
             "backend_agent_commands(backend_id,operation_id) "
             "WHERE command_type='vdr.timer.delete';") &&
         database_.execute(
-            "DELETE FROM backend_agent_command_capabilities "
-            "WHERE command_type='vdr.timer.delete';") &&
-        database_.execute(
-            "CREATE TRIGGER IF NOT EXISTS "
-            "trg_backend_agent_timer_delete_dormant_capability "
-            "BEFORE INSERT ON backend_agent_command_capabilities "
-            "WHEN NEW.command_type='vdr.timer.delete' "
-            "BEGIN SELECT RAISE(IGNORE); END;");
+            "DROP TRIGGER IF EXISTS "
+            "trg_backend_agent_timer_delete_dormant_capability;");
     if (!ok || !database_.execute("COMMIT;"))
     {
         database_.execute("ROLLBACK;");

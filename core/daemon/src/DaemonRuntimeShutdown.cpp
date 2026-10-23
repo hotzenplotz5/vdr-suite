@@ -55,6 +55,8 @@ void DaemonRuntime::shutdown()
 
     httpListener_.reset();
     httpServer_.reset();
+    PublicApiRuntime::instance().resetRecordingArtworkLookup();
+    recordingArtworkService_.reset();
     apiRouter_.reset();
     MediaCheckApiRuntime::instance().registerHandlers({}, {}, {});
     mediaCheckRuntime_.reset();
@@ -62,10 +64,21 @@ void DaemonRuntime::shutdown()
     mediaShrinkPlanRuntime_.reset();
     ManualRecordingMetadataApiRuntime::instance().reset();
     PublicApiRuntime::instance().resetTimerCreateAdmission();
+    PublicApiRuntime::instance().resetNativeTimersLookup();
+    PublicApiRuntime::instance().resetEpgTimerIntentSubmit();
+    PublicApiRuntime::instance().resetEpgTimerIntentReplayLookup();
+    PublicApiRuntime::instance().resetEpgTimerIntentObservationLookup();
+    PublicApiRuntime::instance().resetEpgEventDetailLookup();
+    PublicApiRuntime::instance().resetEpgWindowLookup();
     PublicApiRuntime::instance().resetBackendCollectionLookup();
     PublicApiRuntime::instance().resetChannelCollectionLookup();
     PublicApiRuntime::instance().resetRecordingCollectionLookup();
+    PublicApiRuntime::instance().resetEpgGenreLookup();
     PublicApiRuntime::instance().resetTimerAssignmentCollectionLookup();
+    PublicApiRuntime::instance().resetSearchTimerCreate();
+    PublicApiRuntime::instance().resetSearchTimerNativeVersionLookup();
+    PublicApiRuntime::instance().resetSearchTimerNativeMutation();
+    PublicApiRuntime::instance().resetSearchTimerCollectionLookup();
     PublicApiRuntime::instance().resetTimerAssignmentLookup();
     PublicApiRuntime::instance().resetOperationLookup();
     resetDaemonLegacyOsdRuntime();

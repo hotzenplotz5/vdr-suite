@@ -25,6 +25,16 @@ test-suite-bridge-handshake-missing-plugin:
 		-o $(BUILD_DIR)/test_suite_bridge_handshake_missing_plugin
 	$(BUILD_DIR)/test_suite_bridge_handshake_missing_plugin
 
+test-suite-bridge-video-directory-discovery:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/agent/include \
+		core/agent/tests/test_suite_bridge_video_directory_discovery.cpp \
+		-o $(BUILD_DIR)/test_suite_bridge_video_directory_discovery
+	$(BUILD_DIR)/test_suite_bridge_video_directory_discovery
+	python3 tools/check_suitebridge_video_directory_wiring.py
+
+test-ci-fast: test-suite-bridge-video-directory-discovery test-suite-bridge-svdrp-transport
+test-fast: test-suite-bridge-video-directory-discovery
+
 test-suite-bridge-svdrp-transport-boundary:
 	python3 tools/check_suite_bridge_svdrp_transport_boundary.py
 

@@ -4,12 +4,14 @@
 #include "Database.h"
 #include "GenreIndexRepository.h"
 #include "GlobalSearchRepository.h"
+#include "PublicSearchTimerIdentityRepository.h"
 #include "SecurityIdentityRepository.h"
 #include "HumanAccountRepository.h"
 #include "CredentialVerifierRepository.h"
 #include "MutationOperationRepository.h"
 #include "TimerIntentRepository.h"
 #include "TimerAssignmentRepository.h"
+#include "EpgTimerIntentAdmissionRepository.h"
 #include "DevicePairingRequestRepository.h"
 #include "VdrChannelCacheRepository.h"
 #include "BrowserSessionCredentialRepository.h"
@@ -17,6 +19,7 @@
 #include "RecentlyWatched.h"
 #include "MediaSessionRepository.h"
 #include "MediaTranscodeBackendSettingsRepository.h"
+#include "DeviceMediaProfileRepository.h"
 #include "EpgEventRepository.h"
 #include "EpgSearchNativeFuzzyCapabilityRepository.h"
 #include "VdrRecordingCacheRepository.h"
@@ -106,6 +109,7 @@ int main(int argc, char** argv)
             return 5;
         }
         GlobalSearchRepository globalSearch(database);
+        PublicSearchTimerIdentityRepository searchTimerIds(database);
         if (!globalSearch.ensureSchema()) {
             std::cerr << "P7_GLOBAL_SEARCH_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
             return 6;
@@ -116,6 +120,7 @@ int main(int argc, char** argv)
         vdrsuite::operations::MutationOperationRepository operations(database);
         vdrsuite::timers::TimerIntentRepository intents(database);
         vdrsuite::timers::TimerAssignmentRepository assignments(database);
+        vdrsuite::public_epg_timer::EpgTimerIntentAdmissionRepository epgAdmissions(database);
         DevicePairingRequestRepository pairing(database);
         VdrChannelCacheRepository channels(database);
         BrowserSessionCredentialRepository browserSessions(database);
@@ -123,6 +128,7 @@ int main(int argc, char** argv)
         RecentlyWatchedRepository recentlyWatched(database);
         MediaSessionRepository mediaSessions(database);
         MediaTranscodeBackendSettingsRepository transcodeSettings(database);
+        DeviceMediaProfileRepository mediaProfiles(database);
         EpgEventRepository epgEvents(database);
         EpgSearchNativeFuzzyCapabilityRepository fuzzyCapability(database);
         VdrRecordingCacheRepository recordingCache(database);
@@ -153,7 +159,8 @@ int main(int argc, char** argv)
             std::cerr << "P7_OPERATIONS_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
             return 9;
         }
-        if (!intents.ensureSchema() || !assignments.ensureSchema()) {
+        if (!intents.ensureSchema() || !assignments.ensureSchema() ||
+            !epgAdmissions.ensureSchema()) {
             std::cerr << "P7_TIMERS_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
             return 10;
         }
@@ -173,11 +180,13 @@ int main(int argc, char** argv)
             std::cerr << "P7_PLAYBACK_STATE_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
             return 14;
         }
-        if (!mediaSessions.ensureSchema() || !transcodeSettings.ensureSchema()) {
+        if (!mediaSessions.ensureSchema() || !transcodeSettings.ensureSchema() ||
+            !mediaProfiles.ensureSchema()) {
             std::cerr << "P7_MEDIA_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
             return 15;
         }
-        if (!epgEvents.ensureSchema() || !fuzzyCapability.ensureSchema()) {
+        if (!epgEvents.ensureSchema() || !fuzzyCapability.ensureSchema() ||
+            !searchTimerIds.ensureSchema()) {
             std::cerr << "P7_EPG_RUNTIME_SCHEMA=FAIL pass=" << pass << "\n";
             return 16;
         }
@@ -245,7 +254,10 @@ int main(int argc, char** argv)
             "'security_browser_session_credentials','continue_watching_state',"
             "'recently_watched_state','media_sessions','media_routes',"
             "'media_provider_stream_leases','media_access_grants',"
-            "'backend_media_transcode_settings','epg_events',"
+            "'backend_media_transcode_settings','device_media_verified_paths',"
+            "'epg_events','public_search_timer_identity',"
+            "'public_search_timer_identity_signature',"
+            "'public_search_timer_identity_retired',"
             "'epgsearch_native_fuzzy_capability_probes',"
             "'vdr_recording_cache','public_recording_identity',"
             "'recording_series_hierarchy_overrides','epg_event_artwork',"
@@ -261,7 +273,8 @@ int main(int argc, char** argv)
             "'suite_metadata_manual_assignment_withdrawals',"
             "'suite_metadata_person_values',"
             "'suite_metadata_recording_person_relations',"
-            "'native_timer_bindings','backend_agent_enrollments',"
+            "'native_timer_bindings','epg_timer_intent_admissions',"
+            "'backend_agent_enrollments',"
             "'backend_agents','backend_agent_credential_rotations',"
             "'backend_agent_capabilities','backend_agent_observation_receipts',"
             "'backend_runtime_generations',"
@@ -271,7 +284,7 @@ int main(int argc, char** argv)
             "'vdr_recording_native_metadata','vdr_recording_native_text_list',"
             "'vdr_recording_native_person','vdr_recording_native_artwork',"
             "'vdr_recording_native_metadata_migration',"
-            "'embedded_backend_lifecycle'))=55 "
+            "'embedded_backend_lifecycle'))=60 "
             "THEN 1 ELSE 0 END;")) {
             std::cerr << "P7_RUNTIME_SQLITE_INTEGRITY=FAIL\n";
             return 7;

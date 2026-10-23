@@ -6,6 +6,12 @@ This is the canonical operational entry point for every new VDR-Suite chat.
 
 **Do not use this file as a second copy of active PR tips or transient CI state.** Volatile operational truth belongs only in [Current State](CURRENT.md), and live GitHub state must still be re-read before any action.
 
+For the completed Public-v1 Recording R1/R2/R3 scope, read the
+[2026-10-21 real-yaVDR closeout](development/public-v1-recording-r2r3-hardware-acceptance-20261021.md).
+The ADR-0068 router checkpoint and R1–P1 source sequence are **already completed/merged**. P1 PR #524 was merged at `052350714f5b5904a969158925cb05d8f39aed78`; the Public API v1 Unified Acceptance Runner PR #526 was merged at `096a04ad0e6a4eb2555292929d1373df549780bc`. **Current next action: Public API v1 Integrationsabschluss** against actual runtime composition and the [one central hardware matrix](development/public-v1-final-hardware-acceptance.md), not a new slice or repeated Brisant fixture. A source-merged runner is not accepted real-VDR hardware evidence. The SearchTimer CREATE RESTfulAPI/non-native-CAS restriction and Browser↔Device/VIDAA playback remain open; historical `outcome_unknown` writes must not be repeated.
+Actual branch/PR and deployed state must still be checked live; other Device,
+Multiuser, MLD and Addon workstreams remain separate.
+
 Root-level `AGENTS.md` is binding. In particular, once the user has authorized a bounded workstream, continue it without voluntary handoff or artificial stopping until the requested end state is reached. Status reports are progress updates, not stopping points. Surface-scoped validation governs iterative documentation/frontend/runtime work; unrelated queued/running CI does not block already-approved progress. A genuinely external dependency is a blocked wait state, not project completion: exhaust all independent approved work and re-read relevant repository/CI state before reporting it. If a relevant CI result is required for the next already-authorized gate, re-read that run before ending the working response rather than returning a stale queued/in-progress snapshot.
 
 ## Mandatory reading order

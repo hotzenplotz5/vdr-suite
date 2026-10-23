@@ -3667,6 +3667,12 @@ function renderSettingsView(data) {
 
   appendSettingsLanguageCard(panel);
 
+  // Paired TVs/Apps are distinct from Human browser sessions. Show first.
+  const deviceAdminSettings = window.VdrSuiteDeviceAdminSettings;
+  if (deviceAdminSettings && typeof deviceAdminSettings.render === 'function') {
+    deviceAdminSettings.render(panel);
+  }
+
   const addonsSettings = window.VdrSuiteAddonSettings;
   if (addonsSettings && typeof addonsSettings.render === 'function') {
     addonsSettings.render(panel, selectedBackendId);

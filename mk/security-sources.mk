@@ -26,6 +26,7 @@ SECURITY_SERVICE_SRC := \
 	core/security/src/BrowserSessionRetentionService.cpp \
 	core/security/src/DevicePairingRequestService.cpp \
 	core/security/src/DeviceGrantAdministrationService.cpp \
+	core/security/src/DevicePlaybackAccountBindingService.cpp \
 	core/security/src/DeviceLifecycleAdministrationService.cpp \
 	core/security/src/DeviceCredentialRotationService.cpp \
 	core/security/src/FirstAdminBootstrapIssuanceService.cpp \
@@ -104,7 +105,7 @@ test-security-device-pairing-request:
 		-o $(BUILD_DIR)/test_device_pairing_request_service
 	$(BUILD_DIR)/test_device_pairing_request_service
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_device_pairing.cpp \
 		-o $(BUILD_DIR)/test_public_device_pairing
 	$(BUILD_DIR)/test_public_device_pairing
@@ -131,6 +132,27 @@ test-security-device-authentication:
 	$(BUILD_DIR)/test_device_credential_authentication
 
 
+.PHONY: test-p1-device-playback-account-binding
+test-p1-device-playback-account-binding:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_REPOSITORY_SRC) \
+		core/security/src/DevicePlaybackAccountBindingService.cpp \
+		core/security/tests/test_device_playback_account_binding_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_device_playback_account_binding
+	$(BUILD_DIR)/test_device_playback_account_binding
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_p1_playback_account_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_p1_playback_account_security
+	$(BUILD_DIR)/test_p1_playback_account_security
+
+test-ci-fast: test-p1-device-playback-account-binding
+test-vdr: test-p1-device-playback-account-binding
+
 test-security-device-grant-administration:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
@@ -140,7 +162,7 @@ test-security-device-grant-administration:
 		-o $(BUILD_DIR)/test_device_grant_administration
 	$(BUILD_DIR)/test_device_grant_administration
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_device_grants.cpp \
 		-o $(BUILD_DIR)/test_public_device_grants
 	$(BUILD_DIR)/test_public_device_grants
@@ -163,7 +185,7 @@ test-security-device-credential-rotation:
 		-o $(BUILD_DIR)/test_device_credential_rotation
 	$(BUILD_DIR)/test_device_credential_rotation
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_device_credential_rotation.cpp \
 		-o $(BUILD_DIR)/test_public_device_credential_rotation
 	$(BUILD_DIR)/test_public_device_credential_rotation
@@ -186,7 +208,7 @@ test-security-device-lifecycle-administration:
 		-o $(BUILD_DIR)/test_device_lifecycle_administration
 	$(BUILD_DIR)/test_device_lifecycle_administration
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_device_lifecycle.cpp \
 		-o $(BUILD_DIR)/test_public_device_lifecycle
 	$(BUILD_DIR)/test_public_device_lifecycle
@@ -199,6 +221,18 @@ test-security-device-lifecycle-administration:
 	$(BUILD_DIR)/test_public_device_lifecycle_security
 	node clients/reference-js/tests/test_public_v1_device_lifecycle_client.js
 
+
+.PHONY: test-security-native-timer-admin
+test-security-native-timer-admin:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_public_native_timer_admin_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_public_native_timer_admin_security
+	$(BUILD_DIR)/test_public_native_timer_admin_security
+
+test-fast: test-security-native-timer-admin
 
 test-security-authorization:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -382,7 +416,7 @@ test-security-human-account-grant-administration:
 
 test-security-public-account-collection:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_account_collection.cpp \
 		-o $(BUILD_DIR)/test_public_account_collection
 	$(BUILD_DIR)/test_public_account_collection
@@ -404,7 +438,7 @@ test-security-public-account-collection:
 
 test-security-public-account-grants:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_account_grants.cpp \
 		-o $(BUILD_DIR)/test_public_account_grants
 	$(BUILD_DIR)/test_public_account_grants
@@ -459,7 +493,7 @@ test-security-human-account-session-administration:
 
 test-security-public-account-security-metadata: test-security-human-account-credential-session-read
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_account_security_metadata.cpp \
 		-o $(BUILD_DIR)/test_public_account_security_metadata
 	$(BUILD_DIR)/test_public_account_security_metadata
@@ -476,7 +510,7 @@ test-security-public-account-security-metadata: test-security-human-account-cred
 
 test-security-public-account-session-revoke: test-security-human-account-session-administration
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_account_session_revoke.cpp \
 		-o $(BUILD_DIR)/test_public_account_session_revoke
 	$(BUILD_DIR)/test_public_account_session_revoke
@@ -493,7 +527,7 @@ test-security-public-account-session-revoke: test-security-human-account-session
 
 test-security-public-account-credential-revoke: test-security-human-account-credential-administration
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_account_credential_revoke.cpp \
 		-o $(BUILD_DIR)/test_public_account_credential_revoke
 	$(BUILD_DIR)/test_public_account_credential_revoke

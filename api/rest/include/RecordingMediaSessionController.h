@@ -11,6 +11,8 @@
 #include <string>
 #include <vector>
 
+struct DeviceMediaCapabilityProfile;
+struct DeviceMediaProfileKey;
 class MediaSessionIssuanceService;
 class MediaSessionRepository;
 class RecordingDirectSourceRegistry;
@@ -53,7 +55,9 @@ public:
         const std::string& publicRecordingId,
         const std::string& externalMediaPrefix,
         const std::string& cookiePrefix,
-        std::string& activatedSessionId) const;
+        std::string& activatedSessionId,
+        const DeviceMediaCapabilityProfile* storedVerifiedProfile = nullptr,
+        const DeviceMediaProfileKey* authenticatedPlayer = nullptr) const;
 
     std::size_t reapInactiveSessions(int idleTimeoutSeconds) const;
 
@@ -65,7 +69,9 @@ private:
         const std::string& publicRecordingId,
         const std::string& externalMediaPrefix,
         const std::string& cookiePrefix,
-        std::string* activatedSessionId) const;
+        std::string* activatedSessionId,
+        const DeviceMediaCapabilityProfile* storedVerifiedProfile,
+        const DeviceMediaProfileKey* authenticatedPlayer) const;
 
     struct CachedSourceDescriptor
     {

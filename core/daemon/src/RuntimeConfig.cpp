@@ -283,6 +283,35 @@ std::map<std::string, std::string> parseArtworkRoots(
     return roots;
 }
 
+// Recording mutation roots are explicitly opt-in per backend. Unlike artwork
+// roots, these must never admit the filesystem root or malformed control bytes.
+std::map<std::string, std::string> parseRecordingVideoRoots(
+    const std::string& value)
+{
+    if (value.empty())
+    {
+        return {};
+    }
+
+    auto roots = parseArtworkRoots(value);
+    if (roots.empty())
+    {
+        return {};
+    }
+
+    for (auto& entry : roots)
+    {
+        const std::string& path = entry.second;
+        if (!isUsableAbsolutePath(path) ||
+            path.find_first_of("\r\n") != std::string::npos)
+        {
+            return {};
+        }
+        entry.second = std::filesystem::path(path).lexically_normal().string();
+    }
+    return roots;
+}
+
 RuntimeSuiteBridgeConfig parseSuiteBridgeConfig()
 {
     RuntimeSuiteBridgeConfig value;
@@ -437,6 +466,11 @@ RuntimeConfig::RuntimeConfig()
       recordingArtworkRoots_(parseArtworkRoots(
           environmentOrEmpty(
               "VDR_SUITE_RECORDING_ARTWORK_ROOTS"))),
+      recordingVideoRoots_(parseRecordingVideoRoots(
+          environmentOrEmpty(
+              "VDR_SUITE_RECORDING_VIDEO_ROOTS"))),
+      recordingVideoRootsSpecified_(!environmentOrEmpty(
+          "VDR_SUITE_RECORDING_VIDEO_ROOTS").empty()),
       mediaCheckVideoRoots_(parseArtworkRoots(
           environmentOrEmpty(
               "VDR_SUITE_MEDIA_CHECK_VIDEO_ROOTS"))),
@@ -478,6 +512,16 @@ int RuntimeConfig::httpListenPort() const
 const std::map<std::string, std::string>& RuntimeConfig::recordingArtworkRoots() const
 {
     return recordingArtworkRoots_;
+}
+
+const std::map<std::string, std::string>& RuntimeConfig::recordingVideoRoots() const
+{
+    return recordingVideoRoots_;
+}
+
+bool RuntimeConfig::recordingVideoRootsSpecified() const
+{
+    return recordingVideoRootsSpecified_;
 }
 
 const std::map<std::string, std::string>& RuntimeConfig::mediaCheckVideoRoots() const

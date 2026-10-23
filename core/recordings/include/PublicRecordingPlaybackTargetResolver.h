@@ -5,9 +5,10 @@
 class PublicRecordingIdentityRepository;
 class VdrRecordingCacheRepository;
 
-// INTERNAL helper only. Caller MUST have authenticated and authorized the
-// actor for media.recording.play on this exact backend before calling.
-// Result is VDR-native; never serialize it into a Public-v1 response.
+// INTERNAL helper only. Callers must authenticate and authorize the
+// actor for the exact backend: media.recording.play for resolve(), and
+// recordings.view for resolveForRead(). Neither result may be serialized
+// directly to a Public-v1 response; always apply the bounded projection.
 enum class PublicRecordingPlaybackTargetStatus { invalidRequest, notFound, ready };
 
 struct PublicRecordingPlaybackTargetResult {
@@ -22,6 +23,11 @@ public:
         const PublicRecordingIdentityRepository& identities,
         const VdrRecordingCacheRepository& cache);
     PublicRecordingPlaybackTargetResult resolve(
+        const std::string& authorizedBackendId,
+        const std::string& publicRecordingId) const;
+    // Read-only metadata accepts current recordings that cannot be played:
+    // no media-service ID or native title is needed for display projection.
+    PublicRecordingPlaybackTargetResult resolveForRead(
         const std::string& authorizedBackendId,
         const std::string& publicRecordingId) const;
 private:

@@ -1,5 +1,12 @@
 REST_PUBLIC_API_SRC := \
-        api/rest/src/PublicApiRuntime.cpp
+        api/rest/src/PublicApiRuntime.cpp \
+        api/rest/src/PublicDiscoveryRoutes.cpp \
+        api/rest/src/PublicBackendLookupRuntime.cpp \
+        api/rest/src/PublicChannelLookupRuntime.cpp \
+        api/rest/src/PublicEpgReadLookupRuntime.cpp \
+        api/rest/src/PublicTimerReadLookupRuntime.cpp \
+        api/rest/src/PublicBrowseReadLookupRuntime.cpp \
+        api/rest/src/PublicIdentityAdmissionLifecycle.cpp
 
 REST_DASHBOARD_SRC := \
         core/recordings/src/JobRepository.cpp \
@@ -102,4 +109,5 @@ REST_ROUTER_SRC := \
         core/vdr/src/MockVdrTimerActionExecutor.cpp \
         api/rest/src/VdrTimerActionRequestParser.cpp \
         api/rest/src/SearchTimerAutomationPreviewController.cpp \
-        api/rest/src/ApiRouter.cpp
+        api/rest/src/ApiRouter.cpp \
+        api/rest/src/ApiRouterPublicRecordingActions.cpp

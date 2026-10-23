@@ -60,7 +60,7 @@ Latest accepted ADRs at the end of the sequence:
 - [ADR-0065: Human Account, Profile and Device Identity Boundary](ADR-0065-human-account-profile-device-identity-boundary.md)
 - [ADR-0066: Unclaimed Server, First-Admin Bootstrap and Local Recovery](ADR-0066-unclaimed-server-first-admin-bootstrap-recovery.md)
 - [ADR-0067: Human Account and Backend Access Administration](ADR-0067-human-account-backend-access-administration.md)
-- [ADR-0068: Optional Add-on Boundary and Source Packaging](ADR-0068-optional-addons-and-source-packaging.md)
+- [ADR-0068: Public API Router Modularization Checkpoint After Recording R3](ADR-0068-public-api-router-modularization-checkpoint.md)
 
 Next available canonical ADR:
 
@@ -162,7 +162,7 @@ Rules:
 - [ADR-0065: Human Account, Profile and Device Identity Boundary](ADR-0065-human-account-profile-device-identity-boundary.md)
 - [ADR-0066: Unclaimed Server, First-Admin Bootstrap and Local Recovery](ADR-0066-unclaimed-server-first-admin-bootstrap-recovery.md)
 - [ADR-0067: Human Account and Backend Access Administration](ADR-0067-human-account-backend-access-administration.md)
-- [ADR-0068: Optional Add-on Boundary and Source Packaging](ADR-0068-optional-addons-and-source-packaging.md)
+- [ADR-0068: Public API Router Modularization Checkpoint After Recording R3](ADR-0068-public-api-router-modularization-checkpoint.md)
 
 ---
 

@@ -110,6 +110,19 @@ public:
             return decision;
         }
 
+        // The bootstrap administrator has role.admin scoped to "*".
+        // Only explicitly identified native Timer API v1 actions may use
+        // that global role for a concrete backend. Keep ordinary legacy
+        // timers.create and other backend-scoped admin policies unchanged.
+        const bool nativeTimerAdminAction =
+            (request.permission == "timers.view" &&
+             request.action == "native_timers.view") ||
+            (request.permission == "timers.create" &&
+             request.action == "native_timers.create") ||
+            (request.permission == "timers.modify" &&
+             request.action == "native_timers.modify") ||
+            (request.permission == "timers.delete" &&
+             request.action == "native_timers.delete");
         // Add-on media mutations are deliberately *not* implied by role.admin,
         // general permission wildcards or backend-wide grants. Only an
         // explicitly resolved permission on the exact backend qualifies.
@@ -142,12 +155,14 @@ public:
         for (const PermissionGrant& grant : context.grants)
         {
             if (grant.permission != "role.admin" ||
-                !adminRoleGrants(request.permission))
+                (!adminRoleGrants(request.permission) &&
+                 !nativeTimerAdminAction))
             {
                 continue;
             }
             permissionPresent = true;
-            if (grant.backendId == request.backendId)
+            if (grant.backendId == request.backendId ||
+                (nativeTimerAdminAction && grant.backendId == "*"))
             {
                 decision.allowed = true;
                 decision.reasonCode = "role_permission_granted";

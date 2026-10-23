@@ -2,6 +2,8 @@
 #include "BackendAgentCommandDelivery.h"
 #include "BackendAgentLifecycle.h"
 #include "BackendAgentNativeTimerCreate.h"
+#include "BackendAgentNativeTimerModify.h"
+#include "BackendAgentNativeTimerDelete.h"
 #include "BackendAgentRecordingCut.h"
 #include "BackendAgentRecordingMarksModify.h"
 #include "Database.h"
@@ -11,6 +13,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -82,7 +85,7 @@ void usage()
            "--recording-cut-provider-ownership-status | "
            "--set-native-probe-owner | --clear-native-probe-owner | "
            "--set-live-owner | --clear-live-owner | "
-           "--set-timer-create-owner | --clear-timer-owner | "
+           "--set-timer-create-owner | --set-timer-crud-owner | --clear-timer-owner | "
            "--set-recording-marks-owner | --clear-recording-marks-owner | "
            "--set-recording-cut-owner | --clear-recording-cut-owner | "
            "--enqueue-probe | --enqueue-native-probe [--deadline-seconds N] | "
@@ -112,6 +115,7 @@ int main(int argc, char** argv)
         SetLiveOwner,
         ClearLiveOwner,
         SetTimerCreateOwner,
+        SetTimerCrudOwner,
         ClearTimerOwner,
         SetRecordingMarksOwner,
         ClearRecordingMarksOwner,
@@ -152,6 +156,8 @@ int main(int argc, char** argv)
             action = action == Action::None ? Action::ClearLiveOwner : Action::None;
         else if (argument == "--set-timer-create-owner")
             action = action == Action::None ? Action::SetTimerCreateOwner : Action::None;
+        else if (argument == "--set-timer-crud-owner")
+            action = action == Action::None ? Action::SetTimerCrudOwner : Action::None;
         else if (argument == "--clear-timer-owner")
             action = action == Action::None ? Action::ClearTimerOwner : Action::None;
         else if (argument == "--set-recording-marks-owner")
@@ -279,11 +285,13 @@ int main(int argc, char** argv)
     if (action == Action::SetNativeProbeOwner ||
         action == Action::SetLiveOwner ||
         action == Action::SetTimerCreateOwner ||
+        action == Action::SetTimerCrudOwner ||
         action == Action::SetRecordingMarksOwner ||
         action == Action::SetRecordingCutOwner)
     {
         const bool live = action == Action::SetLiveOwner;
-        const bool timerCreate = action == Action::SetTimerCreateOwner;
+        const bool timerCrud = action == Action::SetTimerCrudOwner;
+        const bool timerCreate = action == Action::SetTimerCreateOwner || timerCrud;
         const bool recordingMarks = action == Action::SetRecordingMarksOwner;
         const bool recordingCut = action == Action::SetRecordingCutOwner;
         const std::string authorityDomain = recordingCut
@@ -317,12 +325,21 @@ int main(int argc, char** argv)
 
         vdrsuite::agent::BackendAgentLocalProviderOwnership ownership;
         std::string reason;
+        // Explicit operator opt-in: never turn observed capabilities into
+        // ownership automatically. Preserve CREATE when authorizing CRUD.
+        const std::vector<std::string> capabilities = timerCrud
+            ? std::vector<std::string>{
+                vdrsuite::agent::kBackendAgentNativeTimerCreateCapability,
+                vdrsuite::agent::kBackendAgentNativeTimerUpdateCapability,
+                vdrsuite::agent::kBackendAgentNativeTimerToggleCapability,
+                vdrsuite::agent::kBackendAgentNativeTimerDeleteCapability}
+            : std::vector<std::string>{capability};
         if (!commands.setLocalProviderOwnership(
                 backendId,
                 authorityDomain,
                 providerId,
                 providerKind,
-                {capability},
+                capabilities,
                 now,
                 ownership,
                 reason))

@@ -1,0 +1,25 @@
+From: VDR-Suite S1 deferred SearchTimer lifetime cleanup
+Subject: [PATCH 12/12] epgsearch: reclaim retired CAS rules before global shutdown
+Upstream-base: 0118b4129c3601c04c7483f2fd04b604d4a2a980
+Apply-after: 0001-0011 in filename order
+
+Native DELETE retains detached cSearchExt allocations so cached OSD readers
+cannot use freed memory while the plugin is running. Those objects contain
+category allocations released by ~cSearchExt which references global
+SearchExtCats. Avoid relying on unspecified cross-translation-unit static
+destruction order: reclaim the retired rule list in the plugin destructor,
+after native worker threads are joined but while category registries still
+exist. The static empty list destructor is then harmless.
+
+diff --git a/epgsearch.c b/epgsearch.c
+--- a/epgsearch.c
++++ b/epgsearch.c
+@@ -96,4 +96,8 @@
+     cSearchTimerThread::Exit();
+     cSwitchTimerThread::Exit();
+     cConflictCheckThread::Exit();
++    // Retired CAS rules are kept alive for legacy OSD/search readers. Free
++    // them only once the plugin's worker threads have stopped and before
++    // global category registries are destructed at process shutdown.
++    retiredNativeCasSearches.Clear();
+     free(ConfigDir);

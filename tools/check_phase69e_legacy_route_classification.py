@@ -37,7 +37,23 @@ require(len(LEGACY_ALIAS_GROUPS) == 27, "same-handler alias group count drifted"
 require(len({r for g in LEGACY_ALIAS_GROUPS for r in g["routes"]}) == 54, "legacy alias member count drifted")
 require(len(LEGACY_TRANSITION_ROUTE_LITERALS) == 64, "standalone transition route count drifted")
 require(not EXPECTED_DEPRECATED_LEGACY_ALIASES, "this slice must not classify a legacy alias as deprecated")
-require("/api/v1/search-timers" not in EXPECTED_PUBLIC_V1_ROUTE_LITERALS, "SearchTimer must not be promoted just to create a successor")
+# Phase 69.E originally forbade inventing a SearchTimer successor. A
+# separately audited post-69 read-only Device contract now exists, but does
+# NOT classify the legacy Web SearchTimer aliases as deprecated/equivalent.
+require("/api/v1/search-timers" in EXPECTED_PUBLIC_V1_ROUTE_LITERALS,
+        "new SearchTimer read route missing from canonical audited inventory")
+runtime_for_search_timers = read("api/rest/src/PublicApiRuntime.cpp")
+search_timers_security = read("core/security/include/SecurityHttpGate.h")
+require('PublicSearchTimerCollectionPath =\n    "/api/v1/search-timers"' in runtime_for_search_timers and
+        "if (path == PublicSearchTimerCollectionPath)" in runtime_for_search_timers and
+        "lookupSearchTimerCollection(request)" in runtime_for_search_timers,
+        "new read-only SearchTimer resource must have an actual scoped GET implementation")
+require('isPublicSearchTimerRead' in search_timers_security and
+        'read.permission = "searchtimers.view";' in search_timers_security and
+        'gate.deviceAuthenticated' in search_timers_security,
+        "SearchTimer GET must preserve independent verified Device grant admission")
+require(all(group["publicV1Successor"] is None for group in LEGACY_ALIAS_GROUPS),
+        "new SearchTimer GET must not silently promote pre-v1 browser aliases")
 require("/api/vdr/channels" in LEGACY_TRANSITION_ROUTE_LITERALS, "legacy channels must remain transition surface")
 
 cache = {}
@@ -54,7 +70,7 @@ for group in LEGACY_ALIAS_GROUPS:
     )
     require(same_branch, f'{group["id"]} is no longer a proven same-handler alias pair')
 
-public_runtime = read("api/rest/src/PublicApiRuntime.cpp")
+public_runtime = read("api/rest/src/PublicDiscoveryRoutes.cpp")
 require(r'\"deprecatedAliases\":[]' in public_runtime, "public capabilities must keep deprecatedAliases empty")
 
 client_api = read("web/frontend/api/client-api.js")

@@ -375,7 +375,9 @@ int main()
         queuedRefreshController.executeBody(dryRunBody);
 
     assert(dryRunResponse.statusCode == 200);
-    assert(dryRunResponse.body.find("\"success\":true") != std::string::npos);
+    assert(dryRunResponse.body.find("dry-run backend execution skipped") != std::string::npos);
+    assert(dryRunResponse.body.find("dry-run only") != std::string::npos);
+    assert(dryRunResponse.body.find("\"success\":false") != std::string::npos);
     assert(dryRunResponse.body.find("\"snapshotRefreshed\":false") != std::string::npos);
     assert(queuedRefreshCount.load() == 1);
 

@@ -39,8 +39,7 @@ backend-agent-enrollment:
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
 		core/vdr/src/BackendRegistryService.cpp \
-		$(AGENT_CONTROL_PLANE_DOMAIN_SRC) \
-		$(filter-out core/agent/src/BackendAgentOsdObservation.cpp,$(AGENT_CLIENT_SRC)) \
+		$(sort $(AGENT_CONTROL_PLANE_DOMAIN_SRC) $(filter-out core/agent/src/BackendAgentOsdObservation.cpp,$(AGENT_CLIENT_SRC))) \
 		apps/tools/backend_agent_enrollment_create.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/vdr-suite-backend-agent-enroll

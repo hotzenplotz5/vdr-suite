@@ -23,6 +23,12 @@ RecordingActionValidationController::RecordingActionValidationController(
 {
 }
 
+RecordingActionValidationResult RecordingActionValidationController::validateResult(
+    const RecordingActionRequest& request) const
+{
+    return validationService_.validate(request);
+}
+
 ApiResponse RecordingActionValidationController::validate(
     const RecordingActionRequest& request)
 {
@@ -32,7 +38,7 @@ ApiResponse RecordingActionValidationController::validate(
     response.contentType = "application/json";
     response.body =
         jsonSerializer_.serialize(
-            validationService_.validate(request));
+            validateResult(request));
 
     return response;
 }

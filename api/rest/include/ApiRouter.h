@@ -24,6 +24,7 @@
 #include "VdrSnapshotReadService.h"
 
 #include <functional>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -96,19 +97,16 @@ public:
             return snapshotReadService_.getEventsForBackend(backendId);
         }
 
-        const SearchTimerPreviewEpgCacheStatus status =
-            searchTimerPreviewEpgCache_->statusForBackend(backendId);
-
+        // Do not sample cache readiness and its event generation in
+        // separate locks: an EPG change can invalidate between the two.
+        const auto read =
+            searchTimerPreviewEpgCache_->readForBackend(backendId);
         SearchTimerPreviewEpgInputContext::setCacheStatus(
-            status,
-            backendId);
+            read.status, backendId);
 
-        const std::vector<VdrEvent>* cachedEvents =
-            searchTimerPreviewEpgCache_->eventsForBackend(backendId);
-
-        if (cachedEvents != nullptr)
+        if (read.events)
         {
-            return *cachedEvents;
+            return *read.events;
         }
 
         return snapshotReadService_.getEventsForBackend(backendId);
@@ -131,6 +129,22 @@ public:
             const std::string& requestTarget,
             const std::string& body,
             const RequestSecurityContext& verifiedDevice)>;
+
+    using PublicRecordingActionResolver =
+        std::function<bool(const std::string&, const std::string&, VdrRecording&)>;
+
+    void setPublicRecordingActionResolver(PublicRecordingActionResolver resolver)
+    {
+        publicRecordingActionResolver_ = std::move(resolver);
+    }
+
+    using PublicRecordingFolderResolver =
+        std::function<bool(const std::string&, const std::string&, std::string&)>;
+
+    void setPublicRecordingFolderResolver(PublicRecordingFolderResolver resolver)
+    {
+        publicRecordingFolderResolver_ = std::move(resolver);
+    }
 
     ApiRouter(
         DashboardController& dashboardController,
@@ -197,6 +211,26 @@ public:
         return response;
     }
 
+    void setDeviceLivePlaybackHandler(DeviceRecordingPlaybackHandler handler)
+    {
+        deviceLivePlaybackHandler_ = std::move(handler);
+    }
+
+    ApiResponse handleDeviceLivePlayback(
+        const std::string& requestTarget,
+        const std::string& body,
+        const RequestSecurityContext& verifiedDevice)
+    {
+        if (deviceLivePlaybackHandler_)
+            return deviceLivePlaybackHandler_(
+                requestTarget, body, verifiedDevice);
+        ApiResponse response;
+        response.statusCode = 503;
+        response.headers["Cache-Control"] = "no-store";
+        response.body = "{\"error\":{\"code\":\"device_live_unavailable\"}}";
+        return response;
+    }
+
     ApiResponse getEpgArtwork(
         const std::string& backendId,
         const std::string& channelId,
@@ -217,12 +251,34 @@ public:
             eventId);
     }
 
+    // M2: the existing EPG metadata owner selects primary TVScraper
+    // preferred artwork and the persisted managed series fallback.
+    ApiResponse getEpgPreferredArtwork(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& eventId) const
+    {
+        if (epgCacheController_ == nullptr)
+        {
+            ApiResponse response;
+            response.statusCode = 503;
+            response.contentType = "application/json";
+            response.body = "{\"error\":\"epg metadata artwork unavailable\"}";
+            return response;
+        }
+        return epgCacheController_->getMetadataImage(
+            backendId, channelId, eventId, "preferred", 0);
+    }
+
     ApiResponse handleGet(
         const std::string& path);
 
     ApiResponse handlePost(
         const std::string& path,
-        const std::string& body);
+        const std::string& body,
+        const std::string& ifMatch = "",
+        const std::string& requestId = "",
+        const std::string& correlationId = "");
 
     ApiResponse handleClientGet(
         const std::string& requestTarget,
@@ -356,6 +412,24 @@ public:
         }
 
         return handleGet(requestTarget);
+    }
+
+    ApiResponse handleClientDelete(
+        const std::string& target,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::string& ifMatch,
+        const std::string& idempotencyKey,
+        const std::string& backendId)
+    {
+        ApiResponse response;
+        if (PublicApiRuntime::instance().tryHandleDelete(
+                target, actorRef, requestId, correlationId,
+                ifMatch, idempotencyKey, backendId, response))
+            return response;
+        return handleClientUnsupportedMethod(
+            "DELETE", target, requestId, correlationId);
     }
 
     ApiResponse handleClientUnsupportedMethod(
@@ -533,10 +607,20 @@ public:
             return response;
         }
 
-        return handlePost(requestTarget, body);
+        return handlePost(requestTarget, body, ifMatch,
+                          requestRef, correlationRef);
     }
 
 private:
+    ApiResponse handlePublicRecordingAction(
+        const std::string& body, bool execute,
+        const std::string& ifMatch,
+        const std::string& requestId,
+        const std::string& correlationId);
+
+    PublicRecordingActionResolver publicRecordingActionResolver_;
+    PublicRecordingFolderResolver publicRecordingFolderResolver_;
+    std::mutex publicRecordingWriteMutex_;
     DashboardController& dashboardController_;
     JobsController& jobsController_;
     RecordingsController& recordingsController_;
@@ -569,4 +653,5 @@ private:
     VdrRecordingFolderController* vdrRecordingFolderController_;
     RecordingMediaSessionHandler recordingMediaSessionHandler_;
     DeviceRecordingPlaybackHandler deviceRecordingPlaybackHandler_;
+    DeviceRecordingPlaybackHandler deviceLivePlaybackHandler_;
 };

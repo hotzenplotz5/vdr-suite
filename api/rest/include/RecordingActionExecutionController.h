@@ -50,6 +50,16 @@ public:
     ApiResponse execute(
         const RecordingActionRequest& request);
 
+    // Same legacy execution service and adapter, but typed for sanitized
+    // Public-v1 response and verified readback handling.
+    RecordingActionExecutionResult executeResult(
+        const RecordingActionRequest& request);
+
+    // Run the existing adapter's read-only provider preview for a public
+    // precondition. This method never invokes a mutation or refresh callback.
+    RecordingActionExecutionResult previewBackend(
+        const RecordingActionRequest& request) const;
+
     void setAfterSuccessfulExecutionCallback(
         std::function<bool(const RecordingActionRequest&)> callback);
 

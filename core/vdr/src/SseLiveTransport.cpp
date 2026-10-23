@@ -1,4 +1,5 @@
 #include "SseLiveTransport.h"
+#include "DeviceLiveEventHub.h"
 
 #include <sstream>
 
@@ -14,6 +15,8 @@ void SseLiveTransport::publish(
         << "\n";
 
     frames_.push_back(frame.str());
+    if (deviceLiveEventHub_)
+        deviceLiveEventHub_->publish(event);
 }
 
 const std::vector<std::string>& SseLiveTransport::frames() const

@@ -9,6 +9,7 @@ paths = {
     "preconditions_test": ROOT / "core/http/tests/test_public_resource_preconditions.cpp",
     "public_h": ROOT / "api/rest/include/PublicApiRuntime.h",
     "public_cpp": ROOT / "api/rest/src/PublicApiRuntime.cpp",
+    "discovery_cpp": ROOT / "api/rest/src/PublicDiscoveryRoutes.cpp",
     "router": ROOT / "api/rest/include/ApiRouter.h",
     "http": ROOT / "core/http/src/TestHttpServer.cpp",
     "security": ROOT / "core/security/include/SecurityHttpGate.h",
@@ -66,9 +67,9 @@ required = {
         '"unsupported_media_type"',
         "response.statusCode = 202",
         'response.headers["Location"] = operationPath',
-        "public-api.timer-create-admission",
         '"GET, POST"',
     ],
+    "discovery_cpp": ["public-api.timer-create-admission"],
     "router": [
         "ifMatch",
         "idempotencyKey",

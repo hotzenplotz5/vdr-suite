@@ -8,6 +8,7 @@
 #include "SecurityPermissionGrantRepository.h"
 
 #include <crypt.h>
+#include <algorithm>
 #include <cassert>
 #include <string>
 
@@ -81,6 +82,35 @@ int main()
         "channels.view", "default"));
     assert(DeviceGrantAdministrationService::supportedGrant(
         "media.live.play", "default"));
+    assert(DeviceGrantAdministrationService::supportedGrant(
+        "recordings.view", "default"));
+    assert(DeviceGrantAdministrationService::supportedGrant(
+        "epg.view", "default"));
+    assert(DeviceGrantAdministrationService::supportedGrant(
+        "searchtimers.view", "default"));
+    assert(DeviceGrantAdministrationService::supportedGrant(
+        "searchtimers.create", "default"));
+    assert(DeviceGrantAdministrationService::supportedGrant(
+        "timers.create", "default"));
+    for (const std::string& permission : {"timers.modify", "timers.delete"})
+    {
+        assert(DeviceGrantAdministrationService::supportedGrant(
+            permission, "default"));
+        assert(!DeviceGrantAdministrationService::supportedGrant(
+            permission, "*"));
+        assert(!DeviceGrantAdministrationService::supportedGrant(
+            permission, "."));
+        assert(!DeviceGrantAdministrationService::supportedGrant(
+            permission, ".."));
+        assert(!DeviceGrantAdministrationService::supportedGrant(
+            permission, ""));
+    }
+    assert(!DeviceGrantAdministrationService::supportedGrant(
+        "timers.create", "*"));
+    assert(!DeviceGrantAdministrationService::supportedGrant(
+        "timers.create", "."));
+    assert(!DeviceGrantAdministrationService::supportedGrant(
+        "searchtimers.create", "*"));
     assert(!DeviceGrantAdministrationService::supportedGrant(
         "role.admin", "*"));
     assert(!DeviceGrantAdministrationService::supportedGrant(
@@ -161,6 +191,104 @@ int main()
     assert(actorGrants.available);
     assert(actorGrants.grants.size() == 1U);
     assert(actorGrants.grants.front().permission == "media.live.play");
+
+    // Native Device MODIFY and DELETE are individually administrator-granted,
+    // always exact-backend scoped, visible after authentication, revocable.
+    for (const std::string& permission : {"timers.modify", "timers.delete"})
+    {
+        Fixture modifyGrants;
+        const auto initial = modifyGrants.service.read(DeviceId);
+        assert(initial.status == DeviceGrantAdministrationStatus::ok);
+        assert(modifyGrants.service.setGrant(
+            admin(), DeviceId, initial.grantSet.revision,
+            permission, "*", true).status ==
+                DeviceGrantAdministrationStatus::invalid);
+        const auto permitted = modifyGrants.service.setGrant(
+            admin(), DeviceId, initial.grantSet.revision,
+            permission, "default", true);
+        assert(permitted.status == DeviceGrantAdministrationStatus::ok);
+        DeviceCredentialAuthenticator authenticator(
+            modifyGrants.verifiers, modifyGrants.identities,
+            modifyGrants.grants);
+        const auto actor = authenticator.authenticate(
+            authHeaders, "native-modify-delete-grant", "");
+        assert(actor.authenticated());
+        assert(actor.grants.size() == 1U);
+        assert(actor.grants.front().permission == permission);
+        assert(actor.grants.front().backendId == "default");
+        const auto revoked = modifyGrants.service.setGrant(
+            admin(), DeviceId, permitted.grantSet.revision,
+            permission, "default", false);
+        assert(revoked.status == DeviceGrantAdministrationStatus::ok);
+        assert(revoked.grantSet.grants.empty());
+    }
+
+    // Native one-shot Timer CREATE can be issued by the real administrator
+    // service and subsequently authenticated for exactly that backend.
+    {
+        Fixture nativeTimerGrants;
+        const auto initial = nativeTimerGrants.service.read(DeviceId);
+        assert(initial.status == DeviceGrantAdministrationStatus::ok);
+        const auto deniedWildcard = nativeTimerGrants.service.setGrant(
+            admin(), DeviceId, initial.grantSet.revision,
+            "timers.create", "*", true);
+        assert(deniedWildcard.status == DeviceGrantAdministrationStatus::invalid);
+        const auto permitted = nativeTimerGrants.service.setGrant(
+            admin(), DeviceId, initial.grantSet.revision,
+            "timers.create", "default", true);
+        assert(permitted.status == DeviceGrantAdministrationStatus::ok);
+        assert(permitted.grantSet.grants.size() == 1U);
+        DeviceCredentialAuthenticator nativeTimerAuth(
+            nativeTimerGrants.verifiers, nativeTimerGrants.identities,
+            nativeTimerGrants.grants);
+        const auto actor = nativeTimerAuth.authenticate(
+            authHeaders, "native-timer-device-grant", "");
+        assert(actor.authenticated());
+        assert(actor.grants.size() == 1U);
+        assert(actor.grants[0].permission == "timers.create");
+        assert(actor.grants[0].backendId == "default");
+        const auto revoked = nativeTimerGrants.service.setGrant(
+            admin(), DeviceId, permitted.grantSet.revision,
+            "timers.create", "default", false);
+        assert(revoked.status == DeviceGrantAdministrationStatus::ok);
+        assert(revoked.grantSet.grants.empty());
+        const auto afterRevocation = nativeTimerAuth.authenticate(
+            authHeaders, "native-timer-device-grant-revoked", "");
+        assert(afterRevocation.authenticated());
+        assert(afterRevocation.grants.empty());
+    }
+
+    // Public-v1 search permissions are independently assignable to a Device.
+    {
+        Fixture searchGrants;
+        const auto empty = searchGrants.service.read(DeviceId);
+        assert(empty.status == DeviceGrantAdministrationStatus::ok);
+        const auto recording = searchGrants.service.setGrant(
+            admin(), DeviceId, empty.grantSet.revision,
+            "recordings.view", "default", true);
+        assert(recording.status == DeviceGrantAdministrationStatus::ok);
+        const auto epg = searchGrants.service.setGrant(
+            admin(), DeviceId, recording.grantSet.revision,
+            "epg.view", "default", true);
+        assert(epg.status == DeviceGrantAdministrationStatus::ok);
+        assert(epg.grantSet.grants.size() == 2U);
+        DeviceCredentialAuthenticator searchAuth(
+            searchGrants.verifiers, searchGrants.identities, searchGrants.grants);
+        const auto authenticated = searchAuth.authenticate(
+            authHeaders, "mu10e-search-grants", "");
+        assert(authenticated.authenticated());
+        assert(authenticated.grants.size() == 2U);
+        assert(std::any_of(authenticated.grants.begin(),
+            authenticated.grants.end(), [](const PermissionGrant& grant) {
+                return grant.permission == "recordings.view" &&
+                    grant.backendId == "default";
+            }));
+        assert(std::any_of(authenticated.grants.begin(),
+            authenticated.grants.end(), [](const PermissionGrant& grant) {
+                return grant.permission == "epg.view" &&
+                    grant.backendId == "default";
+            }));
+    }
 
     // A failed accountability insert must roll back a successful grant
     // SQL statement in the same write transaction.

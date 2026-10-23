@@ -27,15 +27,30 @@ SearchTimerResult RestfulApiSearchTimerAdapter::list(
     HttpResponse response = httpClient_.execute(request);
 
     if (response.statusCode != 200) {
-        return SearchTimerResult::empty(
+        // Do not turn a provider rejection or outage into a genuine
+        // empty SearchTimer list. A Public-v1 client must fail closed.
+        return SearchTimerResult::unavailable(
             query.limit(),
             query.offset());
     }
+
+    const auto field = response.body.find("\"searchtimers\"");
+    const auto colon = field == std::string::npos
+        ? std::string::npos : response.body.find(':', field + 14U);
+    const auto array = colon == std::string::npos
+        ? std::string::npos : response.body.find_first_not_of(
+            " \t\r\n", colon + 1U);
+    if (array == std::string::npos || response.body[array] != '[')
+        return SearchTimerResult::unavailable(query.limit(), query.offset());
 
     std::vector<SearchTimer> timers =
         RestfulApiSearchTimerMapper::parseSearchTimers(
             backendId_,
             response.body);
+
+    if (!RestfulApiSearchTimerMapper::completeCatalogue(
+            response.body, timers.size()))
+        return SearchTimerResult::unavailable(query.limit(), query.offset());
 
     SearchTimerService service;
     return service.list(

@@ -172,7 +172,7 @@ require(
     "Phase-69 kickoff must link the second 69.F slice",
 )
 
-public_runtime = read("api/rest/src/PublicApiRuntime.cpp")
+public_runtime = read("api/rest/src/PublicDiscoveryRoutes.cpp")
 require(
     r'\"deprecatedAliases\":[]' in public_runtime,
     "SearchTimer client cleanup must not invent server deprecation",

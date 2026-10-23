@@ -5,6 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 FILES = {
     "runtime": ROOT / "api/rest/src/PublicApiRuntime.cpp",
+    "discovery": ROOT / "api/rest/src/PublicDiscoveryRoutes.cpp",
     "runtime_test": ROOT / "api/rest/tests/test_public_api_contract_runtime.cpp",
     "api_response": ROOT / "api/rest/include/DashboardController.h",
     "http": ROOT / "core/http/src/TestHttpServer.cpp",
@@ -29,7 +30,7 @@ def require(text, token, label):
     if token not in text:
         raise SystemExit(f"missing {label}: {token}")
 
-runtime = read("runtime")
+runtime = read("runtime") + "\n" + read("discovery")
 for token in (
     "compatibilityPolicy",
     "responseEvolution",

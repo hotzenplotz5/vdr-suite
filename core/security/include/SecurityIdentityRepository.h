@@ -2,8 +2,10 @@
 
 #include "SecurityIdentity.h"
 
+#include <cstddef>
 #include <optional>
 #include <string>
+#include <vector>
 
 class Database;
 
@@ -71,6 +73,10 @@ public:
         const std::string& actorId) const;
     std::optional<StoredDeviceIdentity> findDevice(
         const std::string& deviceId) const;
+    // Ordered, bounded administrator catalogue; no credentials or secrets.
+    // nullopt means the SQLite query failed, not an empty catalogue.
+    std::optional<std::vector<StoredDeviceIdentity>> listDevices(
+        const std::string& afterDeviceId, std::size_t limit) const;
     std::optional<StoredSessionIdentity> findSession(
         const std::string& sessionId) const;
     std::optional<StoredCredentialIdentity> findCredential(

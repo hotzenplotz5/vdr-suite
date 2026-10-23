@@ -15,6 +15,7 @@
 #include "DeviceCredentialVerifierRepository.h"
 #include "DeviceCredentialAuthenticator.h"
 #include "DeviceGrantAdministrationService.h"
+#include "DevicePlaybackAccountBindingService.h"
 #include "DeviceLifecycleAdministrationService.h"
 #include "DeviceCredentialRotationService.h"
 #include "DevicePairingRequestService.h"
@@ -43,8 +44,11 @@
 #include "SecurityPermissionGrantRepository.h"
 
 #include <map>
+#include <vector>
 #include <memory>
 #include <functional>
+
+class DeviceLiveEventHub;
 
 class TestHttpServer : public IHttpServer, public IEpgArtworkHttpProvider
 {
@@ -53,12 +57,20 @@ public:
         const RequestSecurityContext&, const std::string&)>;
     using AddonActivationLookup = std::function<ApiResponse(
         const RequestSecurityContext&, const std::string&)>;
+
     explicit TestHttpServer(
         ApiRouter& apiRouter,
+        std::shared_ptr<DeviceLiveEventHub> eventHub = nullptr,
         HumanAccountGrantAdministrationService::AddonGrantEligibility
             addonGrantEligibility = {},
         AddonActivationMutation addonActivationMutation = {},
         AddonActivationLookup addonActivationLookup = {});
+    TestHttpServer(
+        ApiRouter& apiRouter,
+        HumanAccountGrantAdministrationService::AddonGrantEligibility
+            addonGrantEligibility,
+        AddonActivationMutation addonActivationMutation,
+        AddonActivationLookup addonActivationLookup);
     ~TestHttpServer() override;
 
     HttpServerResponse handleRequest(
@@ -88,6 +100,7 @@ public:
 
 private:
     ApiRouter& apiRouter_;
+    std::shared_ptr<DeviceLiveEventHub> deviceEventHub_;
     AddonActivationMutation addonActivationMutation_;
     AddonActivationLookup addonActivationLookup_;
     std::unique_ptr<Database> securityDatabase_;
@@ -121,6 +134,8 @@ private:
         humanAccountGrantAdministrationService_;
     std::unique_ptr<DeviceGrantAdministrationService>
         deviceGrantAdministrationService_;
+    std::unique_ptr<DevicePlaybackAccountBindingService>
+        devicePlaybackAccountBindingService_;
     std::unique_ptr<DeviceLifecycleAdministrationService>
         deviceLifecycleAdministrationService_;
     std::unique_ptr<DeviceCredentialRotationService>

@@ -1,0 +1,136 @@
+From: VDR-Suite S1 native SearchTimer guarded deletion
+Subject: [PATCH 6/6] epgsearch: generation/revision-guarded DELETE with retained readers
+Upstream-base: 0118b4129c3601c04c7483f2fd04b604d4a2a980
+Apply-after: 0001-0005 in filename order
+
+DELETE compares native generation and revision under the same epgsearch
+SearchExts owner mutex as the list unlink and config Save(). No numeric-ID-only
+fallback and no deletion of any VDR timer. On successful persistence, remove
+legacy bookkeeping for that search ID. A failed Save is outcome_unknown: the
+removed rule stays absent from the running list and no retry is attempted.
+
+Existing OSD menus and the search timer thread can retain cSearchExt pointers
+after their list owner's mutex is dropped. Detach the deleted rule WITHOUT
+freeing it; keep it in a private retired list until plugin shutdown to avoid
+use-after-free. Check list membership before automatic deletion of a possibly
+retired pointer. The retained object costs memory until plugin unload; this
+is deliberate until all legacy reader lifetimes can be redesigned.
+
+This is a partial native CAS service, not a declaration that all legacy
+mutations, persistence failure cases or client integration are accepted.
+The Public-v1 mutation routes MUST remain disabled.
+
+diff --git a/services.h b/services.h
+--- a/services.h
++++ b/services.h
+@@ -183,5 +183,27 @@
+     std::string confirmedGeneration;
+     std::string resultingRevision;
+ };
+ 
++// Versioned native DELETE, never a numeric-ID-only fallback.
++// Callers must treat an uncertain safe-file close as outcome_unknown.
++enum eEpgsearchNativeDeleteCasStatus {
++    endcsUnavailable = 0,
++    endcsApplied,
++    endcsNotFound,
++    endcsStaleGeneration,
++    endcsStaleRevision,
++    endcsUnpersistedChange,
++    endcsOutcomeUnknown
++};
++
++struct Epgsearch_searchtimer_delete_cas_v1_0 {
++    int nativeId;
++    std::string expectedGeneration;
++    std::string expectedRevision;
++    eEpgsearchNativeDeleteCasStatus status;
++    bool atomicCompareAndWrite;
++    bool noWriteAttested;
++    std::string confirmedDeletedGeneration;
++};
++
+ // Data structures for service "Epgsearch-services-v1.0"
+diff --git a/epgsearch.c b/epgsearch.c
+--- a/epgsearch.c
++++ b/epgsearch.c
+@@ -76,4 +76,7 @@
+ char *ConfigDir = NULL;
+ bool reloadMenuConf = false;
+ int updateForced = 0;
++// Removed rules may still be referenced by OSD and legacy reader paths.
++// Retire instead of freeing until the plugin has shut down.
++static cList<cSearchExt> retiredNativeCasSearches;
+ bool isUTF8 = false;
+@@ -225,3 +225,55 @@
+ bool cPluginEpgsearch::Service(const char *Id, void *Data)
+ {
++    if (strcmp(Id, "Epgsearch-searchtimer-delete-cas-v1.0") == 0) {
++        if (Data == NULL)
++            return true;
++        Epgsearch_searchtimer_delete_cas_v1_0 *out =
++            (Epgsearch_searchtimer_delete_cas_v1_0 *)Data;
++        out->status = endcsUnavailable;
++        out->atomicCompareAndWrite = false;
++        out->noWriteAttested = false;
++        out->confirmedDeletedGeneration.clear();
++        {
++            cMutexLock SearchExtsLock(&SearchExts);
++            cSearchExt *rule = SearchExts.GetSearchFromID(out->nativeId);
++            out->atomicCompareAndWrite = true;
++            if (!rule) {
++                out->status = endcsNotFound;
++                out->noWriteAttested = true;
++            } else if (!rule->nativeGenerationDurable ||
++                       !rule->nativeRevisionDurable) {
++                out->status = endcsUnavailable;
++                out->noWriteAttested = true;
++            } else if (rule->nativeGeneration != out->expectedGeneration) {
++                out->status = endcsStaleGeneration;
++                out->noWriteAttested = true;
++            } else if (rule->nativeRevision != out->expectedRevision) {
++                out->status = endcsStaleRevision;
++                out->noWriteAttested = true;
++            } else if (rule->lastPersistedText != rule->ToText()) {
++                out->status = endcsUnpersistedChange;
++                out->noWriteAttested = true;
++            } else {
++                const int deletedId = rule->ID;
++                const std::string deletedGeneration = rule->nativeGeneration;
++
++                // OSD menus and other epgsearch readers cache raw rule pointers
++                // after dropping their lock. Unlink, but never free the object
++                // while those readers may still access it.
++                SearchExts.Del(rule, false);
++                retiredNativeCasSearches.Add(rule);
++                if (!SearchExts.Save()) {
++                    // A failed safe-file close may already have committed.
++                    // Do not resurrect this rule or retry its deletion here.
++                    out->status = endcsOutcomeUnknown;
++                } else {
++                    RecsDone.RemoveSearchID(deletedId);
++                    TimersDone.RemoveEntriesOfSearch(deletedId);
++                    out->status = endcsApplied;
++                    out->confirmedDeletedGeneration = deletedGeneration;
++                }
++            }
++        }
++        return true;
++    }
+     if (strcmp(Id, "Epgsearch-searchtimer-update-cas-v1.0") == 0) {
+diff --git a/epgsearchext.c b/epgsearchext.c
+--- a/epgsearchext.c
++++ b/epgsearchext.c
+@@ -1728,5 +1728,9 @@
+     if (delSearch) {
+-        int DelID = SearchExt->ID;
+-        LogFile.Log(1, "auto deleting search '%s' (ID: %d)", SearchExt->search, DelID);
+-        cMutexLock SearchExtsLock(&SearchExts);
++        cMutexLock SearchExtsLock(&SearchExts);
++        // A native CAS DELETE may have detached this still-live object.
++        // Never Del() a stale pointer that is no longer in SearchExts.
++        if (!SearchExts.Exists(SearchExt))
++            return false;
++        int DelID = SearchExt->ID;
++        LogFile.Log(1, "auto deleting search '%s' (ID: %d)", SearchExt->search, DelID);
+         SearchExts.Del(SearchExt);

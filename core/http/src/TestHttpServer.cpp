@@ -1,15 +1,20 @@
 #include "TestHttpServer.h"
 
 #include "ApiRouter.h"
+#include "DeviceLiveEventHub.h"
 #include "BrowserSessionCsrfRecoveryService.h"
 #include "ContinueWatchingSecurityRequest.h"
 #include "FirstAdminClaimHttpService.h"
 #include "SecurityConfiguration.h"
+#include "RestQueryParameters.h"
 #include "SeriesArtworkSettingsSecurityRequest.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdlib>
 #include <fstream>
+#include <regex>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -31,6 +36,50 @@ std::string pathWithoutQuery(const std::string& target)
     return query == std::string::npos
         ? target
         : target.substr(0, query);
+}
+
+// P1: exact admin path. Never treat pairing approval as an Account owner.
+bool devicePlaybackAccountPath(const std::string& path, std::string& deviceId)
+{
+    const std::string prefix = "/api/v1/devices/";
+    const std::string suffix = "/playback-account";
+    deviceId.clear();
+    if (path.compare(0, prefix.size(), prefix) != 0 ||
+        path.size() <= prefix.size() + suffix.size() ||
+        path.compare(path.size() - suffix.size(), suffix.size(), suffix) != 0)
+        return false;
+    deviceId = path.substr(prefix.size(),
+        path.size() - prefix.size() - suffix.size());
+    return !deviceId.empty() && deviceId.size() <= 128U &&
+        std::all_of(deviceId.begin(),deviceId.end(),[](unsigned char c) {
+            return std::isalnum(c) || c == '-' || c == '_' || c == '.';
+        });
+}
+
+// Refuse unknown/duplicate fields and JSON type coercion. Binding mutation
+// is deliberately tiny, uses no native identity or privileged client claim.
+bool parsePlaybackAccountBinding(const std::string& body,
+                                 std::string& accountId,
+                                 std::int64_t& expectedRevision)
+{
+    if (body.size() > 512U) return false;
+    static const std::regex first(
+        R"p1(^\s*\{\s*"accountId"\s*:\s*"([A-Za-z0-9_.-]{0,128})"\s*,\s*"expectedRevision"\s*:\s*(0|[1-9][0-9]{0,18})\s*\}\s*$)p1");
+    static const std::regex second(
+        R"p1(^\s*\{\s*"expectedRevision"\s*:\s*(0|[1-9][0-9]{0,18})\s*,\s*"accountId"\s*:\s*"([A-Za-z0-9_.-]{0,128})"\s*\}\s*$)p1");
+    std::smatch match;
+    bool reversed = false;
+    if (!std::regex_match(body,match,first)) {
+        if (!std::regex_match(body,match,second)) return false;
+        reversed = true;
+    }
+    accountId = match[reversed ? 2 : 1].str();
+    try {
+        expectedRevision = std::stoll(match[reversed ? 1 : 2].str());
+    } catch (...) {
+        return false;
+    }
+    return expectedRevision >= 0;
 }
 
 bool sameHeaderName(
@@ -178,7 +227,19 @@ TestHttpServer::TestHttpServer(
         addonGrantEligibility,
     AddonActivationMutation addonActivationMutation,
     AddonActivationLookup addonActivationLookup)
+    : TestHttpServer(apiRouter, nullptr, std::move(addonGrantEligibility),
+                     std::move(addonActivationMutation),
+                     std::move(addonActivationLookup)) {}
+
+TestHttpServer::TestHttpServer(
+    ApiRouter& apiRouter,
+    std::shared_ptr<DeviceLiveEventHub> eventHub,
+    HumanAccountGrantAdministrationService::AddonGrantEligibility
+        addonGrantEligibility,
+    AddonActivationMutation addonActivationMutation,
+    AddonActivationLookup addonActivationLookup)
     : apiRouter_(apiRouter),
+      deviceEventHub_(std::move(eventHub)),
       addonActivationMutation_(std::move(addonActivationMutation)),
       addonActivationLookup_(std::move(addonActivationLookup)),
       securityDatabase_(std::make_unique<Database>())
@@ -425,6 +486,14 @@ TestHttpServer::TestHttpServer(
             *deviceCredentialVerifierRepository_,
             *securityPermissionGrantRepository_,
             *accountabilityEventRepository_);
+
+    devicePlaybackAccountBindingService_ =
+        std::make_unique<DevicePlaybackAccountBindingService>(
+            *securityDatabase_, *securityIdentityRepository_,
+            *humanAccountRepository_, *securityPermissionGrantRepository_,
+            *accountabilityEventRepository_);
+    if (!devicePlaybackAccountBindingService_->ensureSchema())
+        return;
 
     deviceLifecycleAdministrationService_ =
         std::make_unique<DeviceLifecycleAdministrationService>(
@@ -1299,6 +1368,28 @@ TestHttpServer::TestHttpServer(
             return response;
         });
 
+    PublicApiRuntime::instance().registerDeviceCollectionLookup(
+        [this](const PublicDeviceCollectionRequest& request)
+        {
+            PublicDeviceCollectionResult result;
+            if (!securityIdentityRepository_ || request.limit < 1U ||
+                request.limit > 100U) return result;
+            const auto devices = securityIdentityRepository_->listDevices(
+                request.afterDeviceId, request.limit + 1U);
+            if (!devices.has_value()) return result;
+            result.available = true;
+            result.hasMore = devices->size() > request.limit;
+            for (std::size_t i = 0U;
+                 i < devices->size() && i < request.limit; ++i)
+            {
+                const auto& device = (*devices)[i];
+                result.items.push_back(PublicDeviceCollectionItem{
+                    device.deviceId, device.actorId, device.displayName,
+                    device.active, device.revoked});
+            }
+            return result;
+        });
+
     PublicApiRuntime::instance().registerDeviceGrantLookup(
         [this](const std::string& deviceId)
         {
@@ -1783,6 +1874,7 @@ TestHttpServer::~TestHttpServer()
     PublicApiRuntime::instance().resetDeviceLifecycleLookup();
     PublicApiRuntime::instance().resetDeviceGrantMutation();
     PublicApiRuntime::instance().resetDeviceGrantLookup();
+    PublicApiRuntime::instance().resetDeviceCollectionLookup();
     PublicApiRuntime::instance().resetAccountGrantMutation();
     PublicApiRuntime::instance().resetAccountGrantLookup();
     PublicApiRuntime::instance().resetAccountCreate();
@@ -1872,6 +1964,125 @@ HttpServerResponse TestHttpServer::handleRequest(
         return gate.rejection;
     }
 
+    // M2: serve the existing EPG Artwork repository through the same
+    // exact-backend epg.view SecurityHttpGate used for EPG detail.
+    // No new provider, arbitrary path or URL input can reach this callback.
+    const bool isEpgDirectArtwork =
+        pathWithoutQuery(request.path) == "/api/v1/epg/artwork";
+    const bool isEpgPreferredArtwork =
+        pathWithoutQuery(request.path) == "/api/v1/epg/preferred-artwork";
+    if (request.method == "GET" &&
+        (isEpgDirectArtwork || isEpgPreferredArtwork))
+    {
+        const auto queryAt = request.path.find('?');
+        const std::string rawQuery = queryAt == std::string::npos
+            ? std::string() : request.path.substr(queryAt + 1U);
+        const RestQueryParameters query = RestQueryParameters::parse(rawQuery);
+        // RestQueryParameters intentionally collapses duplicates for legacy
+        // callers. Public-v1 artwork must not accept ambiguous identities.
+        std::size_t backendCount = 0U;
+        std::size_t channelCount = 0U;
+        std::size_t eventCount = 0U;
+        bool canonicalQueryKeys = true;
+        for (std::size_t start = 0U; start < rawQuery.size();)
+        {
+            const std::size_t end = rawQuery.find('&', start);
+            const std::string item = rawQuery.substr(start,
+                end == std::string::npos ? std::string::npos : end - start);
+            const std::size_t equals = item.find('=');
+            const std::string key = item.substr(0, equals);
+            if (equals == std::string::npos)
+                canonicalQueryKeys = false;
+            else if (key == "backendId") ++backendCount;
+            else if (key == "channelId") ++channelCount;
+            else if (key == "eventId") ++eventCount;
+            else canonicalQueryKeys = false;
+            if (end == std::string::npos) break;
+            start = end + 1U;
+        }
+        const bool exactQuery = canonicalQueryKeys &&
+            backendCount == 1U && channelCount == 1U && eventCount == 1U;
+        const std::string backend = query.get("backendId");
+        const std::string channel = query.get("channelId");
+        const std::string event = query.get("eventId");
+        const auto validIdentity = [](const std::string& value) {
+            return !value.empty() && value.size() <= 256U &&
+                std::all_of(value.begin(), value.end(),
+                    [](unsigned char ch) {
+                        return (ch >= 'A' && ch <= 'Z') ||
+                               (ch >= 'a' && ch <= 'z') ||
+                               (ch >= '0' && ch <= '9') ||
+                               ch == '-' || ch == '_' || ch == '.' ||
+                               ch == ':';
+                    });
+        };
+        ApiResponse response;
+        if (!exactQuery ||
+            gate.authorizedBackendIds.size() != 1U ||
+            backend != gate.authorizedBackendIds.front() ||
+            !validIdentity(channel) || !validIdentity(event))
+        {
+            response.statusCode = 400;
+            response.contentType = "application/json";
+            response.body = "{\"error\":\"invalid_epg_artwork_scope\"}";
+        }
+        else
+        {
+            response = isEpgPreferredArtwork
+                ? apiRouter_.getEpgPreferredArtwork(backend, channel, event)
+                : apiRouter_.getEpgArtwork(backend, channel, event);
+            if (response.statusCode == 200 &&
+                response.contentType != "image/png" &&
+                response.contentType != "image/jpeg" &&
+                response.contentType != "image/webp")
+            {
+                response.statusCode = 503;
+                response.contentType = "application/json";
+                response.body = "{\"error\":\"invalid_epg_artwork_type\"}";
+            }
+        }
+        response.headers["Cache-Control"] = response.statusCode == 200
+            ? "private, max-age=300" : "no-store";
+        response.headers["X-Content-Type-Options"] = "nosniff";
+        return finalizeResponse(gate.context,
+            mapApiResponse(response.statusCode, response.contentType,
+                response.body, response.headers));
+    }
+
+    if (request.method == "GET" &&
+        pathWithoutQuery(request.path) == "/api/v1/events")
+    {
+        if (!gate.deviceAuthenticated ||
+            gate.authorizedBackendIds.size() != 1U ||
+            gate.deviceEventDomains.empty() || !deviceEventHub_)
+        {
+            HttpServerResponse unavailable;
+            unavailable.statusCode = 503;
+            unavailable.headers["Content-Type"] = "application/json";
+            unavailable.headers["Cache-Control"] = "no-store";
+            unavailable.body = "{\"error\":\"device_event_stream_unavailable\"}";
+            return finalizeResponse(gate.context, std::move(unavailable));
+        }
+        HttpServerResponse response;
+        response.deviceEventSubscription = deviceEventHub_->subscribe(
+            gate.authorizedBackendIds.front(), gate.deviceEventDomains);
+        if (!response.deviceEventSubscription)
+        {
+            response.statusCode = 503;
+            response.headers["Content-Type"] = "application/json";
+            response.headers["Cache-Control"] = "no-store";
+            response.body = "{\"error\":\"device_event_capacity_exhausted\"}";
+        }
+        else
+        {
+            response.statusCode = 200;
+            response.headers["Content-Type"] = "text/event-stream";
+            response.headers["Cache-Control"] = "no-store";
+            response.headers["X-Accel-Buffering"] = "no";
+        }
+        return finalizeResponse(gate.context, std::move(response));
+    }
+
     if (request.method == "GET" &&
         pathWithoutQuery(request.path) == BrowserSessionCurrentPath)
     {
@@ -1883,8 +2094,78 @@ HttpServerResponse TestHttpServer::handleRequest(
     }
 
     ApiResponse apiResponse;
-
-    if (request.method == "GET")
+    std::string playbackBindingDeviceId;
+    if (devicePlaybackAccountPath(pathWithoutQuery(request.path),
+                                  playbackBindingDeviceId) &&
+        (request.method == "GET" || request.method == "POST"))
+    {
+        apiResponse.contentType = "application/json";
+        apiResponse.headers["Cache-Control"] = "no-store";
+        apiResponse.headers["X-Content-Type-Options"] = "nosniff";
+        if (!devicePlaybackAccountBindingService_) {
+            apiResponse.statusCode = 503;
+            apiResponse.body = R"({"error":{"code":"playback_binding_unavailable"}})";
+        } else if (request.path != pathWithoutQuery(request.path)) {
+            apiResponse.statusCode = 400;
+            apiResponse.body = R"({"error":{"code":"playback_binding_query_forbidden"}})";
+        } else if (request.method == "GET") {
+            if (!request.body.empty()) {
+                apiResponse.statusCode = 400;
+                apiResponse.body = R"({"error":{"code":"playback_binding_get_body_forbidden"}})";
+            } else {
+                const auto found = devicePlaybackAccountBindingService_->read(
+                    playbackBindingDeviceId);
+                using S = DevicePlaybackAccountStatus;
+                apiResponse.statusCode = found.status == S::ok ? 200 :
+                    found.status == S::invalid ? 400 :
+                    found.status == S::notFound ? 404 : 503;
+                if (found.status == S::ok) {
+                    apiResponse.body = "{\"deviceId\":\"" +
+                        found.binding.deviceId + "\",\"accountId\":";
+                    if (found.binding.accountId.empty())
+                        apiResponse.body += "null";
+                    else apiResponse.body += "\"" + found.binding.accountId + "\"";
+                    apiResponse.body += ",\"revision\":" +
+                        std::to_string(found.binding.revision) + "}";
+                } else {
+                    apiResponse.body = R"({"error":{"code":"playback_binding_unavailable_or_missing"}})";
+                }
+            }
+        } else {
+            std::string accountId;
+            std::int64_t expectedRevision = -1;
+            const std::string contentType =
+                requestHeaderValue(request, "Content-Type");
+            if (contentType != "application/json" ||
+                !parsePlaybackAccountBinding(request.body, accountId,
+                                             expectedRevision)) {
+                apiResponse.statusCode = 400;
+                apiResponse.body = R"({"error":{"code":"playback_binding_invalid_payload"}})";
+            } else {
+                const auto updated = devicePlaybackAccountBindingService_->set(
+                    gate.context.actor.actorId,
+                    playbackBindingDeviceId, accountId,
+                    expectedRevision, gate.context.requestId);
+                using S = DevicePlaybackAccountStatus;
+                apiResponse.statusCode = updated.status == S::ok ? 200 :
+                    updated.status == S::invalid ? 400 :
+                    updated.status == S::notFound ? 404 :
+                    updated.status == S::revisionConflict ? 409 : 503;
+                if (updated.status == S::ok) {
+                    apiResponse.body = "{\"deviceId\":\"" +
+                        updated.binding.deviceId + "\",\"accountId\":";
+                    if (updated.binding.accountId.empty())
+                        apiResponse.body += "null";
+                    else apiResponse.body += "\"" + updated.binding.accountId + "\"";
+                    apiResponse.body += ",\"revision\":" +
+                        std::to_string(updated.binding.revision) + "}";
+                } else {
+                    apiResponse.body = R"({"error":{"code":"playback_binding_mutation_rejected"}})";
+                }
+            }
+        }
+    }
+    else if (request.method == "GET")
     {
         if (pathWithoutQuery(request.path) ==
                 "/api/v1/addons/rectools/activation")
@@ -1898,6 +2179,12 @@ HttpServerResponse TestHttpServer::handleRequest(
                 "/api/v1/recording-playback-sessions", 0) == 0)
         {
             apiResponse = apiRouter_.handleDeviceRecordingPlayback(
+                request.path, "", gate.context);
+        }
+        else if (pathWithoutQuery(request.path).rfind(
+                "/api/v1/live-playback-sessions/", 0) == 0)
+        {
+            apiResponse = apiRouter_.handleDeviceLivePlayback(
                 request.path, "", gate.context);
         }
         else
@@ -1924,8 +2211,6 @@ HttpServerResponse TestHttpServer::handleRequest(
         if (pathWithoutQuery(request.path) ==
                 "/api/v1/addons/rectools/activation")
         {
-            // The SecurityHttpGate has already enforced administrator
-            // Browser Session, CSRF and role.admin on this protected route.
             apiResponse = addonActivationMutation_
                 ? addonActivationMutation_(gate.context, request.body)
                 : ApiResponse{503, "application/json",
@@ -1935,6 +2220,12 @@ HttpServerResponse TestHttpServer::handleRequest(
                 "/api/v1/recording-playback-sessions", 0) == 0)
         {
             apiResponse = apiRouter_.handleDeviceRecordingPlayback(
+                request.path, request.body, gate.context);
+        }
+        else if (pathWithoutQuery(request.path).rfind(
+                "/api/v1/live-playback-sessions", 0) == 0)
+        {
+            apiResponse = apiRouter_.handleDeviceLivePlayback(
                 request.path, request.body, gate.context);
         }
         else
@@ -1962,6 +2253,17 @@ HttpServerResponse TestHttpServer::handleRequest(
                     "X-VDR-Suite-Pairing-Token"));
         }
     }
+    else if (request.method == "DELETE")
+    {
+        apiResponse = apiRouter_.handleClientDelete(
+            request.path,
+            gate.context.actor.actorId,
+            gate.context.requestId,
+            gate.context.correlationId,
+            requestHeaderValue(request, "If-Match"),
+            requestHeaderValue(request, "Idempotency-Key"),
+            gate.authorizationDecision.backendId);
+    }
     else
     {
         apiResponse =
@@ -1981,6 +2283,14 @@ HttpServerResponse TestHttpServer::handleRequest(
             outcomeAccountabilityUnavailableResponse(
                 gate.context);
     }
+
+    // Fresh Device-grant/lifecycle/credential mutations revoke all active
+    // subscriptions, forcing a new SecurityHttpGate admission.
+    if (deviceEventHub_ && request.method == "POST" &&
+        apiResponse.statusCode >= 200 && apiResponse.statusCode < 300 &&
+        (pathWithoutQuery(request.path).rfind("/api/v1/devices/", 0) == 0 ||
+         pathWithoutQuery(request.path) == "/api/v1/devices"))
+        deviceEventHub_->disconnectAll();
 
     return finalizeResponse(
         gate.context,

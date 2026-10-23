@@ -136,11 +136,46 @@ for forbidden in [
     if forbidden in source:
         failures.append(f"Slice-22 pre-dispatch service contains forbidden runtime coupling: {forbidden}")
 
+# Phase-64's dormant source guard is superseded only for this exact
+# Phase-69 daemon successor, which uses the already-audited bounded
+# Agent assignment, durable typed result and complete native inventory.
+# No other source manifest may gain this dependency.
+delete_runtime_path = ROOT / "core/daemon/src/NativeTimerDeleteProductiveRuntime.cpp"
+delete_outcome_path = ROOT / "core/daemon/src/NativeTimerDeleteResultOutcomeApplication.cpp"
+delete_runtime = delete_runtime_path.read_text(encoding="utf-8") if delete_runtime_path.is_file() else ""
+delete_outcome = delete_outcome_path.read_text(encoding="utf-8") if delete_outcome_path.is_file() else ""
+delete_successor_valid = all(marker in delete_runtime for marker in (
+    "publicNativeTimerDeletePreflight(",
+    "applyDurableNativeTimerDeleteResult(",
+    "verification.verify(",
+    "completion.complete(",
+    "MutationOperationState::outcomeUnknown",
+    "BackendAgentNativeTimerDeleteAssignmentService& assigner",
+)) and all(marker in delete_outcome for marker in (
+    "backendAgentNativeTimerDeleteParseResultEvidence(",
+    "dispatchService.applyOutcome(",
+    "NativeTimerBindingOwnership::managed",
+    "NativeTimerBindingOwnership::adopted",
+))
+required_runtime_sources = (
+    "NativeTimerDeleteOperationPreparationService.cpp",
+    "NativeTimerDeleteDispatchService.cpp",
+    "NativeTimerDeleteOperationCompletionService.cpp",
+    "NativeTimerDeleteProductiveRuntime.cpp",
+    "NativeTimerDeleteResultOutcomeApplication.cpp",
+)
+
 for source_manifest in (ROOT / "mk").glob("*-sources.mk"):
     text = source_manifest.read_text(encoding="utf-8")
     if "NativeTimerDeleteOperationPreparationService.cpp" in text:
+        if (
+            source_manifest.name == "daemon-sources.mk"
+            and delete_successor_valid
+            and all(src in text for src in required_runtime_sources)
+        ):
+            continue
         failures.append(
-            f"Slice-22 preparation service is unexpectedly wired into runtime sources: {source_manifest.relative_to(ROOT)}"
+            f"Slice-22 preparation service wired outside verified DELETE daemon successor: {source_manifest.relative_to(ROOT)}"
         )
 
 if failures:

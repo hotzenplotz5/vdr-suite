@@ -18,6 +18,7 @@ FILES = {
     "gate": ROOT / "core/security/include/SecurityHttpGate.h",
     "runtime_h": ROOT / "api/rest/include/PublicApiRuntime.h",
     "runtime_cpp": ROOT / "api/rest/src/PublicApiRuntime.cpp",
+    "discovery_cpp": ROOT / "api/rest/src/PublicDiscoveryRoutes.cpp",
     "server_h": ROOT / "core/http/include/TestHttpServer.h",
     "server_cpp": ROOT / "core/http/src/TestHttpServer.cpp",
     "service_test": ROOT / "core/security/tests/test_human_account_session_administration_service.cpp",
@@ -138,7 +139,7 @@ def main():
         "Account Session revoke requires one strong If-Match entity tag.",
         "The Account Session lifecycle changed after it was read.",
     ):
-        require("runtime_cpp", marker)
+        require("discovery_cpp" if marker == "public-api.accounts-session-revoke" else "runtime_cpp", marker)
 
     for name in ("runtime_cpp", "client"):
         for forbidden in (

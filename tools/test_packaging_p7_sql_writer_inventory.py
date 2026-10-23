@@ -35,6 +35,9 @@ EXERCISED = EXERCISED_BY_P7_CPP | frozenset({
     "core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp",
 })
 PENDING = frozenset({
+    # Already present on main, not rehearsed in the historical P7 SQL harness.
+    # Classified explicitly; do not misrepresent it as exercised.
+    "core/security/src/DevicePlaybackAccountBindingService.cpp",
 })
 INDIRECTLY_EXERCISED = frozenset({
     "core/agent/src/BackendRuntimeGeneration.cpp",

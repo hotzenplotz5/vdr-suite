@@ -54,6 +54,7 @@ install-runtime:
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-backend-agent-enroll $(DESTDIR)$(SBINDIR)/vdr-suite-backend-agent-enroll
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-backend-agent-admin $(DESTDIR)$(SBINDIR)/vdr-suite-backend-agent-admin
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-backend-agent-command-admin $(DESTDIR)$(SBINDIR)/vdr-suite-backend-agent-command-admin
+	$(INSTALL) -m 0755 tools/vdr_suite_backend_agent_autostart.py $(DESTDIR)$(SBINDIR)/vdr-suite-backend-agent-autostart
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-first-admin-bootstrap $(DESTDIR)$(SBINDIR)/vdr-suite-first-admin-bootstrap
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-human-account-recover $(DESTDIR)$(SBINDIR)/vdr-suite-human-account-recover
 	$(INSTALL) -d $(DESTDIR)$(SYSCONFDIR)/vdr-suite
@@ -80,6 +81,7 @@ install-runtime:
 	$(INSTALL) -m 0644 web/frontend/api/client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/client-api.js
 	$(INSTALL) -m 0644 web/frontend/api/public-v1-client.js $(DESTDIR)$(DATADIR)/web/frontend/api/public-v1-client.js
 	$(INSTALL) -m 0644 web/frontend/api/account-admin-client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/account-admin-client-api.js
+	$(INSTALL) -m 0644 web/frontend/api/device-admin-client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/device-admin-client-api.js
 	$(INSTALL) -m 0644 web/frontend/api/genre-client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/genre-client-api.js
 	$(INSTALL) -m 0644 web/frontend/platform/bootstrap.js $(DESTDIR)$(DATADIR)/web/frontend/platform/bootstrap.js
 	$(INSTALL) -m 0644 web/frontend/platform/i18n.js $(DESTDIR)$(DATADIR)/web/frontend/platform/i18n.js
@@ -87,6 +89,7 @@ install-runtime:
 	$(INSTALL) -m 0644 web/frontend/platform/deferred-runtime-loader.js $(DESTDIR)$(DATADIR)/web/frontend/platform/deferred-runtime-loader.js
 	$(INSTALL) -m 0644 web/frontend/settings-series-artwork.js $(DESTDIR)$(DATADIR)/web/frontend/settings-series-artwork.js
 	$(INSTALL) -m 0644 web/frontend/settings-account-admin.js $(DESTDIR)$(DATADIR)/web/frontend/settings-account-admin.js
+	$(INSTALL) -m 0644 web/frontend/settings-device-admin.js $(DESTDIR)$(DATADIR)/web/frontend/settings-device-admin.js
 	$(INSTALL) -m 0644 web/frontend/settings-addons.js $(DESTDIR)$(DATADIR)/web/frontend/settings-addons.js
 	$(INSTALL) -m 0644 web/frontend/locales/de.js $(DESTDIR)$(DATADIR)/web/frontend/locales/de.js
 	$(INSTALL) -m 0644 web/frontend/locales/en.js $(DESTDIR)$(DATADIR)/web/frontend/locales/en.js
@@ -153,6 +156,7 @@ install-manpages:
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-backend-agent-enroll.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-backend-agent-enroll.8
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-backend-agent-admin.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-backend-agent-admin.8
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-backend-agent-command-admin.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-backend-agent-command-admin.8
+	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-backend-agent-autostart.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-backend-agent-autostart.8
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-first-admin-bootstrap.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-first-admin-bootstrap.8
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-human-account-recover.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-human-account-recover.8
 	$(INSTALL) -d $(DESTDIR)$(MANDIR)/man5
@@ -179,6 +183,7 @@ test-install-staging:
 	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-backend-agent-enroll
 	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-backend-agent-admin
 	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-backend-agent-command-admin
+	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-backend-agent-autostart
 	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-first-admin-bootstrap
 	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-human-account-recover
 	test -x /tmp/vdr-suite-pkgroot/usr/bin/vdr-suite-dashboard
@@ -203,6 +208,8 @@ test-install-staging:
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/index.html
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/app.js
+	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/device-admin-client-api.js
+	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/settings-device-admin.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/public-v1-client.js
 	cmp -s clients/reference-js/public-v1-client.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/public-v1-client.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/public-v1-client.js

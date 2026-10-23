@@ -121,6 +121,29 @@ for token in [
 if "include mk/phase64-native-timer-absence-readback-verification-tests.mk" not in makefile:
     raise SystemExit("Slice-19 make fragment is not included")
 
+# Phase-69's real native DELETE successor is permitted only as this bounded
+# Control-Plane composition. Unrelated Agent/VDR/HTTP uses remain forbidden.
+runner_path = ROOT / "core/daemon/src/NativeTimerDeleteProductiveRuntime.cpp"
+poller_path = ROOT / "core/daemon/src/DaemonRuntimePolling.cpp"
+runner_text = runner_path.read_text(encoding="utf-8") if runner_path.is_file() else ""
+poller_text = poller_path.read_text(encoding="utf-8") if poller_path.is_file() else ""
+delete_readback_attested = all(marker in runner_text for marker in (
+    "applyDurableNativeTimerDeleteResult(",
+    "readback(outcome.dispatch.expectation)",
+    "verification.verify(", "completion.complete(",
+    "MutationOperationState::outcomeUnknown",
+)) and all(marker in poller_text for marker in (
+    "NativeTimerInventoryCompleteness::complete",
+    "agent->backendGeneration != expectation.backendGeneration",
+))
+allowed_delete_verification_consumers = {
+    Path("core/daemon/include/DaemonRuntime.h"),
+    Path("core/daemon/src/DaemonRuntimeInitialization.cpp"),
+    Path("core/daemon/src/DaemonRuntimePolling.cpp"),
+    Path("core/daemon/include/NativeTimerDeleteProductiveRuntime.h"),
+    Path("core/daemon/src/NativeTimerDeleteProductiveRuntime.cpp"),
+}
+
 for scan_root in [
     ROOT / "apps", ROOT / "api", ROOT / "core" / "agent",
     ROOT / "core" / "daemon", ROOT / "core" / "http",
@@ -138,9 +161,12 @@ for scan_root in [
         if "NativeTimerAbsenceReadbackVerificationService" in path.read_text(
             encoding="utf-8", errors="ignore"
         ):
+            relative = path.relative_to(ROOT)
+            if delete_readback_attested and relative in allowed_delete_verification_consumers:
+                continue
             raise SystemExit(
                 "premature Slice-19 runtime wiring: "
-                + str(path.relative_to(ROOT))
+                + str(relative)
             )
 
 print("Phase-64 native Timer absence readback verification check passed")

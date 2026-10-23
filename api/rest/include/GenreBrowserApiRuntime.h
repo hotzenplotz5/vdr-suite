@@ -57,6 +57,16 @@ public:
     // Safe, read-only access to the same canonical Genre index used by Web.
     // Caller remains responsible for Public-v1 Device authorization and
     // public Recording identity projection.
+    bool epgOverview(
+        const std::string& backendId, const std::string& locale,
+        std::int64_t fromTime, std::int64_t untilTime,
+        GenreEpgBrowseOverview& result) const;
+    bool epgPage(
+        const std::string& backendId, const std::string& contentClass,
+        const std::string& genreId, std::int64_t fromTime,
+        std::int64_t untilTime, int limit, int offset,
+        GenreEpgPage& result) const;
+
     bool recordingOverview(
         const std::string& backendId,
         const std::string& locale,

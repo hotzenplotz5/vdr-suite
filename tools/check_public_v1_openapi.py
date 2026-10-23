@@ -17,6 +17,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 OPENAPI = ROOT / "api/openapi.json"
 RUNTIME = ROOT / "api/rest/src/PublicApiRuntime.cpp"
+RECORDING_ROUTER = ROOT / "api/rest/src/ApiRouter.cpp"
 DEVICE_RUNTIME = ROOT / "core/daemon/src/RecordingMediaHttpRuntime.cpp"
 DEVICE_GATE = ROOT / "core/security/include/SecurityHttpGate.h"
 
@@ -29,10 +30,31 @@ AUDITED = {
     "/api/v1/backends": {"get": "if (path == PublicBackendCollectionPath)"},
     "/api/v1/channels": {"get": "if (path == PublicChannelCollectionPath)"},
     "/api/v1/recordings": {"get": "if (path == PublicRecordingCollectionPath)"},
+    "/api/v1/recordings/{recordingId}": {"get": "if (isRecordingDetailPath)"},
+    "/api/v1/recordings/{recordingId}/artwork": {"get": "if (isRecordingArtworkPath)"},
+    "/api/v1/recordings/{recordingId}/artwork/{artworkId}": {"get": "if (isRecordingArtworkPath)"},
+    "/api/v1/search/recordings": {"get": "if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath)"},
+    "/api/v1/search/epg": {"get": "if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath)"},
     "/api/v1/genres": {"get": "if (path == PublicGenreCollectionPath || path == PublicGenreRecordingPath)"},
     "/api/v1/genres/recordings": {"get": "if (path == PublicGenreCollectionPath || path == PublicGenreRecordingPath)"},
     "/api/v1/epg/now-next": {"get": "if (path == PublicEpgNowNextPath)"},
+    "/api/v1/epg/window": {"get": "if (path == PublicEpgWindowPath)"},
+    "/api/v1/native-timers": {"get": "if (path == PublicNativeTimersPath)"},
+    "/api/v1/native-timers/{timerId}": {
+        "get": "if (publicNativeTimerItemPath(path, nativeTimerId))",
+        "delete": "if (!publicNativeTimerItemPath(path, timerId)) return false;",
+    },
+    "/api/v1/native-timers/{timerId}/modifications": {
+        "post": "if (publicNativeTimerModificationPath(path, modifiedTimerId))",
+    },
+    "/api/v1/epg/timer-intents": {"post": "if (path == PublicEpgTimerIntentPath)"},
     "/api/v1/timer-assignments": {"get": "if (path == PublicTimerAssignmentCollectionPath)"},
+    "/api/v1/search-timers": {"get": "if (path == PublicSearchTimerCollectionPath)", "post": "if (path == PublicSearchTimerCollectionPath)"},
+    "/api/v1/search-timers/{searchTimerId}": {"get": "if (publicSearchTimerDetailPath(path, savedSearchTimerId))"},
+    "/api/v1/search-timers/draft-preview": {"get": "if (path == PublicSearchTimerDraftPreviewPath)"},
+    "/api/v1/search-timers/{searchTimerId}/preview": {"get": "if (publicSearchTimerPreviewPath(path, previewSearchTimerId))"},
+    "/api/v1/search-timers/{searchTimerId}/version": {"get": "if (publicSearchTimerNativeSubresourcePath("},
+    "/api/v1/search-timers/{searchTimerId}/mutations": {"post": "if (publicSearchTimerNativeSubresourcePath("},
     "/api/v1/timer-assignments/{timerAssignmentId}": {
         "get": "if (publicTimerAssignmentPath(",
         "post": "if (publicTimerAssignmentPath(",
@@ -60,6 +82,9 @@ AUDITED = {
     },
     "/api/v1/device-pairings/{pairingRequestId}/credential": {
         "post": 'const std::string issueSuffix = "/credential";',
+    },
+    "/api/v1/devices": {
+        "get": 'if (path == "/api/v1/devices")',
     },
     "/api/v1/devices/{deviceId}/grants": {
         "get": "if (publicDeviceGrantPath(",
@@ -92,16 +117,60 @@ AUDITED = {
     },
 }
 
+# M2 EPG routes live in the already authenticated HTTP server;
+# audit the real image dispatcher and SecurityHttpGate, not a fake API marker.
+EPG_ARTWORK_AUDITED = {
+    "/api/v1/epg/artwork": {
+        "get": 'pathWithoutQuery(request.path) == "/api/v1/epg/artwork"'},
+    "/api/v1/epg/preferred-artwork": {
+        "get": 'pathWithoutQuery(request.path) == "/api/v1/epg/preferred-artwork"'},
+}
+EPG_ARTWORK_HTTP = ROOT / "core/http/src/TestHttpServer.cpp"
+DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED = {
+    "/api/v1/devices/{deviceId}/playback-account": {
+        "get": 'devicePlaybackAccountPath(pathWithoutQuery(request.path)',
+        "post": 'devicePlaybackAccountPath(pathWithoutQuery(request.path)',
+    },
+}
+
 # Versioned Recording playback is registered in the daemon media composition
 # root, rather than PublicApiRuntime. Require an actual route branch AND its
 # SecurityHttpGate Device-only admission marker for every documented method.
 # The GET status and track branches use an empty body to distinguish reads.
+# ApiRouter owns these Public-v1 action handlers, not PublicApiRuntime.
+RECORDING_ACTION_AUDITED = {
+    "/api/v1/recordings/actions/validate": {
+        "post": 'if (path == "/api/v1/recordings/actions/validate")',
+    },
+    "/api/v1/recordings/actions/execute": {
+        "post": 'if (path == "/api/v1/recordings/actions/execute")',
+    },
+}
+
 DEVICE_AUDITED = {
+    "/api/v1/recording-playback-sessions/continue-watching": {
+        "get": ('const std::string continuePath = collection + "/continue-watching";',
+                'isPublicDeviceRecordingSessionRead'),
+    },
+    "/api/v1/recording-playback-sessions/progress": {
+        "get": ('const std::string progressPath = collection + "/progress";',
+                'isPublicDeviceRecordingSessionRead'),
+        "post": ('const std::string progressPath = collection + "/progress";',
+                 'isPublicDeviceRecordingProgressUpdate'),
+    },
+    "/api/v1/recording-playback-sessions/capabilities": {
+        "get": ('const std::string capabilityCollection = collection + "/capabilities";',
+                'isPublicDeviceRecordingSessionRead'),
+    },
     "/api/v1/recording-playback-sessions": {
         "post": ('if (target == collection)', 'isPublicDeviceRecordingSessionCreate'),
     },
     "/api/v1/recording-playback-sessions/{sessionId}": {
         "get": ('target.size() == prefix.size() + 35U &&',
+                'isPublicDeviceRecordingSessionRead'),
+    },
+    "/api/v1/recording-playback-sessions/{sessionId}/trickplay": {
+        "get": ('target.find("/trickplay", prefix.size())',
                 'isPublicDeviceRecordingSessionRead'),
     },
     "/api/v1/recording-playback-sessions/{sessionId}/tracks": {
@@ -115,6 +184,16 @@ DEVICE_AUDITED = {
     "/api/v1/recording-playback-sessions/{sessionId}/stop": {
         "post": ('target.compare(target.size() - 5U, 5U, "/stop")',
                  'isPublicDeviceRecordingSessionStop'),
+    },    "/api/v1/live-playback-sessions": {
+        "post": ('if (target == collection)', 'isPublicDeviceLiveSessionCreate'),
+    },
+    "/api/v1/live-playback-sessions/{sessionId}": {
+        "get": ('const std::string id = target.substr(prefix.size());',
+                'isPublicDeviceLiveSessionRead'),
+    },
+    "/api/v1/live-playback-sessions/{sessionId}/stop": {
+        "post": ('const std::string suffix = "/stop";',
+                 'isPublicDeviceLiveSessionStop'),
     },
 }
 
@@ -130,6 +209,10 @@ NO_ACTOR = {
 }
 
 IF_MATCH = {
+    ("post", "/api/v1/search-timers/{searchTimerId}/mutations"),
+    ("post", "/api/v1/native-timers/{timerId}/modifications"),
+    ("delete", "/api/v1/native-timers/{timerId}"),
+    ("post", "/api/v1/epg/timer-intents"),
     ("post", "/api/v1/timer-assignments/{timerAssignmentId}"),
     ("post", "/api/v1/accounts/{accountId}"),
     ("post", "/api/v1/accounts/{accountId}/grants"),
@@ -143,6 +226,11 @@ IF_MATCH = {
 }
 
 IDEMPOTENCY = {
+    ("post", "/api/v1/native-timers/{timerId}/modifications"),
+    ("delete", "/api/v1/native-timers/{timerId}"),
+    ("post", "/api/v1/epg/timer-intents"),
+    ("post", "/api/v1/search-timers"),
+    ("post", "/api/v1/search-timers/{searchTimerId}/mutations"),
     ("post", "/api/v1/accounts"),
     ("post", "/api/v1/timer-assignments/{timerAssignmentId}"),
 }
@@ -162,17 +250,64 @@ def _walk_refs(value: Any):
             yield from _walk_refs(item)
 
 
+# These names and this order are the actual private POST domain dispatch chain.
+# Do not accept an anchor in an uncalled helper or an unrelated method body.
+POST_DOMAIN_HANDLERS = (
+    "NativeTimerMutation",
+    "DevicePairing",
+    "AccountCredentialSession",
+    "DeviceAdministration",
+    "AccountAdministration",
+    "TimerWorkflow",
+)
+
+
 def _handler_sections(source: str) -> dict[str, str]:
-    bounds = [
-        source.find("bool PublicApiRuntime::tryHandleGet("),
-        source.find("bool PublicApiRuntime::tryHandlePost("),
-        source.find("bool PublicApiRuntime::tryHandleUnsupportedMethod("),
+    get_start = source.find("bool PublicApiRuntime::tryHandleGet(")
+    helper_starts = [
+        source.find(f"bool PublicApiRuntime::tryHandle{name}Post(")
+        for name in POST_DOMAIN_HANDLERS
     ]
-    if any(i < 0 for i in bounds) or not bounds[0] < bounds[1] < bounds[2]:
+    post_start = source.find("bool PublicApiRuntime::tryHandlePost(")
+    delete_start = source.find("bool PublicApiRuntime::tryHandleDelete(")
+    unsupported_start = source.find(
+        "bool PublicApiRuntime::tryHandleUnsupportedMethod("
+    )
+    bounds = [get_start, *helper_starts, post_start,
+              delete_start, unsupported_start]
+    if any(i < 0 for i in bounds) or bounds != sorted(set(bounds)):
         return {}
+
+    # Verify that every helper is reached from the public dispatcher in the
+    # exact original first-match order. Merely finding source text does not
+    # prove a registered route still exists.
+    dispatch = source[post_start:delete_start]
+    expected_calls = [
+        f"if (tryHandle{name}Post(" for name in POST_DOMAIN_HANDLERS
+    ]
+    if dispatch.count("if (tryHandle") != len(expected_calls):
+        return {}
+    positions = [dispatch.find(call) for call in expected_calls]
+    if any(i < 0 for i in positions) or positions != sorted(positions):
+        return {}
+    # Each private handler must return its match result directly to the
+    # public dispatcher, never continue to a later mutation owner.
+    for offset, position in enumerate(positions):
+        following = dispatch[position:]
+        if not re.match(
+            r"if \(tryHandle\w+Post\(.*?\)\)\s*return true;",
+            following, re.DOTALL
+        ):
+            return {}
+        next_position = (positions[offset + 1] if
+                         offset + 1 < len(positions) else len(dispatch))
+        if "return true;" not in dispatch[position:next_position]:
+            return {}
+
     return {
-        "get": " ".join(source[bounds[0]:bounds[1]].split()),
-        "post": " ".join(source[bounds[1]:bounds[2]].split()),
+        "get": " ".join(source[get_start:helper_starts[0]].split()),
+        "post": " ".join(source[helper_starts[0]:delete_start].split()),
+        "delete": " ".join(source[delete_start:unsupported_start].split()),
     }
 
 
@@ -180,6 +315,8 @@ def validate(
     spec: Any, source: str,
     device_source: str | None = None,
     security_source: str | None = None,
+    recording_router_source: str | None = None,
+    epg_artwork_http_source: str | None = None,
 ) -> list[str]:
     """Return all detected contract drift without mutating a file or system."""
     errors: list[str] = []
@@ -187,6 +324,10 @@ def validate(
         device_source = DEVICE_RUNTIME.read_text(encoding="utf-8")
     if security_source is None:
         security_source = DEVICE_GATE.read_text(encoding="utf-8")
+    if recording_router_source is None:
+        recording_router_source = RECORDING_ROUTER.read_text(encoding="utf-8")
+    if epg_artwork_http_source is None:
+        epg_artwork_http_source = EPG_ARTWORK_HTTP.read_text(encoding="utf-8")
     if not isinstance(spec, dict):
         return ["OpenAPI root must be a JSON object"]
 
@@ -202,7 +343,7 @@ def validate(
     paths = spec.get("paths")
     if not isinstance(paths, dict):
         return errors + ["OpenAPI paths must be an object"]
-    expected_paths = set(AUDITED) | set(DEVICE_AUDITED)
+    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED) | set(EPG_ARTWORK_AUDITED) | set(DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED)
     if set(paths) != expected_paths:
         missing = sorted(expected_paths - set(paths))
         extra = sorted(set(paths) - expected_paths)
@@ -211,6 +352,16 @@ def validate(
     section = _handler_sections(source)
     if not section:
         errors.append("cannot isolate actual GET and POST C++ handler bodies")
+    # ADR-0068: the public dispatcher must *reach* the dedicated read owner,
+    # and that owner must still contain the scoped SearchTimer detail branch.
+    owner_start = source.find(
+        "bool PublicApiRuntime::tryHandleSearchTimerAssignmentReadGet("
+    )
+    dispatcher_start = source.find("bool PublicApiRuntime::tryHandleGet(")
+    if (owner_start < 0 or dispatcher_start <= owner_start or
+            'if (publicSearchTimerDetailPath(path, detailSearchTimerId))' not in
+            source[owner_start:dispatcher_start]):
+        errors.append("SearchTimer detail modular read owner missing")
     schemas = spec.get("components", {}).get("schemas", {}) if isinstance(spec.get("components"), dict) else {}
     if not isinstance(schemas, dict):
         schemas = {}
@@ -226,7 +377,10 @@ def validate(
     # Registration plus cleanup are expected: cleanup alone is NOT a live route.
     if device_source.count('apiRouter.setDeviceRecordingPlaybackHandler(') != 2:
         errors.append("Device Recording playback composition handler disappeared")
-    for path, methods in {**AUDITED, **DEVICE_AUDITED}.items():
+    for path, methods in {
+        **AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
+        **EPG_ARTWORK_AUDITED, **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED
+    }.items():
         data = paths.get(path)
         if not isinstance(data, dict):
             errors.append(f"{path}: path object absent")
@@ -237,7 +391,29 @@ def validate(
             errors.append(f"{path}: documented methods changed, expected {sorted(expected)}, got {sorted(current)}")
         for method, marker in methods.items():
             where = f"{method.upper()} {path}"
-            if path in DEVICE_AUDITED:
+            if path in DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED:
+                if marker not in epg_artwork_http_source:
+                    errors.append(f"{where}: HTTP Device Playback account handler disappeared")
+                needed = ("isPublicDevicePlaybackAccountMutation" if method == "post"
+                          else "isPublicDevicePlaybackAccountRead")
+                if needed not in security_source:
+                    errors.append(f"{where}: administrator Browser security gate missing")
+            elif path in EPG_ARTWORK_AUDITED:
+                if marker not in epg_artwork_http_source:
+                    errors.append(
+                        f"{where}: EPG image HTTP route anchor disappeared: {marker}")
+                if path not in security_source or '"epg.view"' not in security_source:
+                    errors.append(
+                        f"{where}: EPG image SecurityHttpGate epg.view admission disappeared")
+            elif path in RECORDING_ACTION_AUDITED:
+                if marker not in recording_router_source:
+                    errors.append(
+                        f"{where}: Recording ApiRouter route handler anchor disappeared: {marker}")
+                if 'isRecordingExecutionAction' not in security_source or (
+                    '/api/v1/recordings/actions/validate' not in security_source):
+                    errors.append(
+                        f"{where}: Recording SecurityHttpGate admission marker disappeared")
+            elif path in DEVICE_AUDITED:
                 device_marker, gate_marker = marker
                 if device_marker not in device_source:
                     errors.append(f"{where}: Device source route handler anchor disappeared: {device_marker}")
@@ -286,7 +462,9 @@ def validate(
                 if path in DEVICE_AUDITED and (
                     not isinstance(ext, dict) or
                     "Device" not in ext.get("authorization", "") or
-                    "media.recording.play" not in ext.get("authorization", "")
+                    (path != "/api/v1/recording-playback-sessions/capabilities" and
+                     ("media.live.play" if "live-playback" in path else
+                     "media.recording.play") not in ext.get("authorization", ""))
                 ):
                     errors.append(f"{where}: Device playback ownership/play grant boundary missing")
             required_headers = [p.get("name") for p in params if isinstance(p, dict) and p.get("in") == "header" and p.get("required") is True]
@@ -316,16 +494,19 @@ def main() -> int:
         runtime = RUNTIME.read_text(encoding="utf-8")
         device_runtime = DEVICE_RUNTIME.read_text(encoding="utf-8")
         device_gate = DEVICE_GATE.read_text(encoding="utf-8")
+        recording_router = RECORDING_ROUTER.read_text(encoding="utf-8")
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         print(f"OPENAPI_DRIFT=FAIL: cannot read source/spec: {exc}", file=sys.stderr)
         return 2
-    errors = validate(spec, runtime, device_runtime, device_gate)
+    errors = validate(
+        spec, runtime, device_runtime, device_gate, recording_router)
     if errors:
         print("OPENAPI_DRIFT=FAIL")
         for message in errors:
             print(f"- {message}")
         return 1
-    paths = {**AUDITED, **DEVICE_AUDITED}
+    paths = {**AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
+             **EPG_ARTWORK_AUDITED}
     print(f"OPENAPI_DRIFT=PASS paths={len(paths)} methods={sum(len(v) for v in paths.values())} scope=audited-partial")
     return 0
 

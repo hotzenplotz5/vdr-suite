@@ -1,4 +1,5 @@
 #include "PublicApiRuntime.h"
+#include "PublicSearchProjection.h"
 
 #include <cassert>
 #include <string>
@@ -120,6 +121,7 @@ int main()
                 leaf.singleRecording =
                     recording("rec_00000000000000000000000000000001");
                 leaf.singleRecording.title = "48 Hrs";
+                leaf.singleRecording.edited = true;
                 page.folders.push_back(leaf);
             }
             else if (request.offset == 2U)
@@ -145,6 +147,7 @@ int main()
     assert(children.body.find("\"kind\":\"recording\"") != std::string::npos);
     assert(children.body.find("\"title\":\"48 Hrs\"") != std::string::npos);
     assert(children.body.find("\"folderId\"") == std::string::npos);
+    assert(children.body.find("\"edited\":true") != std::string::npos);
     assert(children.body.find("\"hasMore\":true") != std::string::npos);
     ApiResponse direct;
     assert(runtime.tryHandleGet(
@@ -223,5 +226,409 @@ int main()
     assert(unauthenticated.statusCode == 401);
 
     runtime.resetRecordingCollectionLookup();
+    runtime.resetSearchLookup();
+    runtime.registerSearchLookup([](const PublicSearchRequest& request) {
+        PublicSearchResult result;
+        result.status = PublicSearchStatus::ok;
+        result.totalCount = 1U;
+        if (request.offset == 0U) {
+            PublicSearchItem item;
+            item.backendId = request.backendId;
+            item.title = "Der Hobbit";
+            if (request.epg) {
+                item.channelId = "S19.2E-1-100";
+                item.eventId = "123";
+                item.startTime = "1791565200";
+                item.endTime = "1791572400";
+            } else {
+                item.recordingId = "rec_0123456789abcdef0123456789abcdef";
+            }
+            result.items.push_back(item);
+        }
+        return result;
+    });
+    ApiResponse searchRecording;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search/recordings?backendId=backend-a&query=hobbit",
+        "actor:tv", "search-rec", "", searchRecording, "", "", {"backend-a"}));
+    assert(searchRecording.statusCode == 200);
+    assert(searchRecording.body.find("\"kind\":\"recording\"") != std::string::npos);
+    assert(searchRecording.body.find("rec_0123456789abcdef0123456789abcdef") != std::string::npos);
+    assert(searchRecording.body.find("backendNativeId") == std::string::npos);
+    assert(searchRecording.headers.at("Cache-Control") == "no-store");
+    ApiResponse searchEpg;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search/epg?backendId=backend-a&query=Hobbit",
+        "actor:tv", "search-epg", "", searchEpg, "", "", {"backend-a"}));
+    assert(searchEpg.statusCode == 200);
+    assert(searchEpg.body.find("\"kind\":\"epg\"") != std::string::npos);
+    for (const std::string& invalid : {
+        "backendId=backend-a&query=%GG",
+        "backendId=backend-a&query=a",
+        "backendId=backend-a&query=Hobbit&limit=31",
+        "backendId=backend-a&query=Hobbit&query=duplicate",
+        "backendId=backend-a&query=Hobbit&offset=1000001"})
+    {
+        ApiResponse response;
+        assert(runtime.tryHandleGet(
+            "/api/v1/search/recordings?" + invalid,
+            "actor:tv", "invalid-search", "", response, "", "", {"backend-a"}));
+        assert(response.statusCode == 400);
+    }
+    ApiResponse deniedSearch;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search/recordings?backendId=backend-a&query=Hobbit",
+        "actor:tv", "wrong-scope", "", deniedSearch, "", "", {"backend-b"}));
+    assert(deniedSearch.statusCode == 400);
+    ApiResponse anonymousSearch;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search/epg?backendId=backend-a&query=Hobbit",
+        "", "anonymous", "", anonymousSearch, "", "", {"backend-a"}));
+    assert(anonymousSearch.statusCode == 401);
+    // HTTP-level parity: transport the same three canonical Web search
+    // records through the actual Public-v1 serializer, without file paths.
+    runtime.registerSearchLookup([](const PublicSearchRequest& request) {
+        GlobalSearchResult web;
+        web.query = request.query;
+        web.backendId = request.backendId;
+        web.recordingTotal = 3;
+        std::vector<VdrRecording> live;
+        for (int i = 0; i != 3; ++i)
+        {
+            GlobalSearchRecording result;
+            result.backendId = request.backendId;
+            result.backendNativeId = "hobbit-" + std::to_string(i);
+            result.title = "Der Hobbit " + std::to_string(i);
+            result.path = "/private/recordings/hobbit";
+            web.recordings.push_back(result);
+            VdrRecording current;
+            current.backendId = request.backendId;
+            current.backendNativeId = result.backendNativeId;
+            current.title = "VDR-native-title";
+            live.push_back(current);
+        }
+        return PublicSearchProjection::project(
+            request, web, live,
+            [](const std::string&, const std::string& native)
+                -> std::optional<std::string>
+            {
+                if (native == "hobbit-0")
+                    return "rec_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+                if (native == "hobbit-1")
+                    return "rec_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+                if (native == "hobbit-2")
+                    return "rec_cccccccccccccccccccccccccccccccc";
+                return std::nullopt;
+            });
+    });
+    ApiResponse parity;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search/recordings?backendId=backend-a&query=Hobbit&limit=30&offset=0",
+        "actor:tv", "web-parity", "", parity, "", "", {"backend-a"}));
+    assert(parity.statusCode == 200);
+    assert(parity.body.find("\"totalCount\":3") != std::string::npos);
+    assert(parity.body.find("\"title\":\"Der Hobbit 0\"") != std::string::npos);
+    assert(parity.body.find("\"title\":\"Der Hobbit 1\"") != std::string::npos);
+    assert(parity.body.find("\"title\":\"Der Hobbit 2\"") != std::string::npos);
+    assert(parity.body.find("VDR-native-title") == std::string::npos);
+    assert(parity.body.find("/private") == std::string::npos);
+    assert(parity.body.find("backendNativeId") == std::string::npos);
+    assert(parity.body.find("\"hasMore\":false") != std::string::npos);
+
+    runtime.registerSearchLookup([](const PublicSearchRequest& request) {
+        GlobalSearchResult web;
+        web.backendId = request.backendId;
+        web.recordingTotal = 2;
+        std::vector<VdrRecording> live;
+        for (int i = 0; i < 2; ++i)
+        {
+            GlobalSearchRecording found;
+            found.backendId = request.backendId;
+            found.backendNativeId = i == 0 ? "cut-1" : "manual-2";
+            found.title = i == 0 ? "Filme~%Der_Hobbit" :
+                "Manueller Hobbit-Titel";
+            found.startTime = "2026-10-15";
+            web.recordings.push_back(found);
+            VdrRecording original;
+            original.backendId = request.backendId;
+            original.backendNativeId = found.backendNativeId;
+            original.title = i == 0 ? found.title : "Filme~Der_Hobbit";
+            original.path = i == 0 ?
+                "/srv/vdr/video/Filme/%Der_Hobbit/2026-10-15.rec" :
+                "/srv/vdr/video/Filme/Der_Hobbit/2026-10-15.rec";
+            live.push_back(original);
+        }
+        return PublicSearchProjection::project(
+            request, web, live,
+            [](const std::string&, const std::string& native)
+                -> std::optional<std::string>
+            {
+                if (native == "cut-1")
+                    return "rec_dddddddddddddddddddddddddddddddd";
+                if (native == "manual-2")
+                    return "rec_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+                return std::nullopt;
+            });
+    });
+    ApiResponse cutSearch;
+    assert(runtime.tryHandleGet(
+        "/api/v1/search/recordings?backendId=backend-a&query=Hobbit",
+        "actor:tv", "cut-search", "", cutSearch, "", "", {"backend-a"}));
+    assert(cutSearch.statusCode == 200);
+    assert(cutSearch.body.find("\"title\":\"Der Hobbit\",\"recordingId\":"
+        "\"rec_dddddddddddddddddddddddddddddddd\",\"edited\":true") !=
+        std::string::npos);
+    assert(cutSearch.body.find("\"title\":\"Manueller Hobbit-Titel\"") !=
+        std::string::npos);
+    assert(cutSearch.body.find("/srv/vdr/video") == std::string::npos);
+
+    // M1 detail: exact public rec_ identity and backend, no native VDR paths
+    // or provider artwork URL. The collection contract remains unchanged.
+    runtime.registerRecordingDetailLookup(
+        [](const PublicRecordingDetailRequest& request) {
+            PublicRecordingDetailResult result;
+            if (request.backendId == "backend-down")
+                return result;
+            if (request.recordingId !=
+                "rec_00000000000000000000000000000001") {
+                result.status = PublicRecordingDetailStatus::notFound;
+                return result;
+            }
+            result.status = PublicRecordingDetailStatus::ok;
+            result.item.recording = recording(
+                "rec_00000000000000000000000000000001");
+            result.item.metadataState = "available";
+            result.item.metadataSource = "restfulapi-scraper-bridge";
+            result.item.contentKind = "series-episode";
+            result.item.subtitle = "VDR: Untertitel";
+            result.item.epgTitle = "EPG";
+            result.item.epgDescription = "EPG description";
+            result.item.providerTitle = "Scraped title";
+            result.item.originalTitle = "Original";
+            result.item.seriesTitle = "Series";
+            result.item.episodeTitle = "Episode";
+            result.item.genreText = "Drama";
+            // A manual Genre assignment may exist without a selected
+            // manual metadata entity.
+            result.item.manualGenreId = "film.drama";
+            result.item.seasonNumber = 3;
+            result.item.episodeNumber = 7;
+            return result;
+        });
+
+    const std::string detailPath =
+        "/api/v1/recordings/rec_00000000000000000000000000000001"
+        "?backendId=backend-a";
+    ApiResponse detail;
+    assert(runtime.tryHandleGet(detailPath, "actor:tv", "meta-detail",
+        "", detail, "", "", {"backend-a"}));
+    assert(detail.statusCode == 200);
+    assert(detail.body.find("\"metadata\":{\"state\":\"available\"") !=
+        std::string::npos);
+    assert(detail.body.find("\"seasonNumber\":3") != std::string::npos);
+    assert(detail.body.find("\"providerTitle\":\"Scraped title\"") !=
+        std::string::npos);
+    assert(detail.body.find("\"episodeNumber\":7") != std::string::npos);
+    assert(detail.body.find("\"manualGenreId\":\"film.drama\"") !=
+        std::string::npos);
+    assert(detail.body.find("\"subtitle\":\"VDR: Untertitel\"") !=
+        std::string::npos);
+    assert(detail.body.find("\"recordingId\":"
+        "\"rec_00000000000000000000000000000001\"") !=
+        std::string::npos);
+    assert(detail.body.find("backendNativeId") == std::string::npos);
+    assert(detail.body.find("recordingPath") == std::string::npos);
+    assert(detail.body.find("/private") == std::string::npos);
+    assert(detail.body.find("poster.jpg") == std::string::npos);
+    assert(detail.headers.at("Cache-Control") == "no-store");
+
+    ApiResponse malformed;
+    assert(runtime.tryHandleGet(
+        "/api/v1/recordings/rec_bad?backendId=backend-a",
+        "actor:tv", "meta-malformed", "", malformed, "", "",
+        {"backend-a"}));
+    assert(malformed.statusCode == 400);
+    ApiResponse duplicateQuery;
+    assert(runtime.tryHandleGet(detailPath + "&backendId=backend-a",
+        "actor:tv", "meta-duplicate", "", duplicateQuery, "", "",
+        {"backend-a"}));
+    assert(duplicateQuery.statusCode == 400);
+    ApiResponse crossBackend;
+    assert(runtime.tryHandleGet(detailPath,
+        "actor:tv", "meta-backend", "", crossBackend, "", "",
+        {"backend-b"}));
+    assert(crossBackend.statusCode == 400);
+    ApiResponse unauthenticatedDetail;
+    assert(runtime.tryHandleGet(detailPath, "", "meta-unauth", "",
+        unauthenticatedDetail, "", "", {"backend-a"}));
+    assert(unauthenticatedDetail.statusCode == 401);
+    ApiResponse missingDetail;
+    assert(runtime.tryHandleGet(
+        "/api/v1/recordings/rec_ffffffffffffffffffffffffffffffff"
+        "?backendId=backend-a", "actor:tv", "meta-not-found", "",
+        missingDetail, "", "", {"backend-a"}));
+    assert(missingDetail.statusCode == 404);
+    ApiResponse unavailableDetail;
+    assert(runtime.tryHandleGet(
+        "/api/v1/recordings/rec_00000000000000000000000000000001"
+        "?backendId=backend-down", "actor:tv", "meta-down", "",
+        unavailableDetail, "", "", {"backend-down"}));
+    assert(unavailableDetail.statusCode == 503);
+
+    runtime.registerRecordingDetailLookup(
+        [](const PublicRecordingDetailRequest&) {
+            PublicRecordingDetailResult invalid;
+            invalid.status = PublicRecordingDetailStatus::ok;
+            invalid.item.recording =
+                recording("rec_00000000000000000000000000000001");
+            invalid.item.recording.backendId = "backend-b";
+            return invalid;
+        });
+    ApiResponse badSource;
+    assert(runtime.tryHandleGet(detailPath, "actor:tv", "meta-bad-source",
+        "", badSource, "", "", {"backend-a"}));
+    assert(badSource.statusCode == 503);
+    runtime.registerRecordingDetailLookup(
+        [](const PublicRecordingDetailRequest&) {
+            PublicRecordingDetailResult selected;
+            selected.status = PublicRecordingDetailStatus::ok;
+            selected.item.recording =
+                recording("rec_00000000000000000000000000000001");
+            selected.item.metadataState = "available";
+            selected.item.metadataSource = "manual";
+            selected.item.contentKind = "series-episode";
+            selected.item.providerTitle = "Manual episode";
+            selected.item.overview = "Manually selected synopsis";
+            selected.item.manualGenreId = "film.documentary";
+            selected.item.seasonNumber = 2;
+            selected.item.episodeNumber = 5;
+            selected.item.manualAssignmentId =
+                "mdasg_" + std::string(32, 'a');
+            selected.item.metadataEntityId =
+                "mdent_" + std::string(32, 'b');
+            selected.item.manualRevision = 4;
+            return selected;
+        });
+    ApiResponse manualDetail;
+    assert(runtime.tryHandleGet(detailPath, "actor:tv", "meta-manual",
+        "", manualDetail, "", "", {"backend-a"}));
+    assert(manualDetail.statusCode == 200);
+    assert(manualDetail.body.find("\"source\":\"manual\"") !=
+        std::string::npos);
+    assert(manualDetail.body.find("\"providerTitle\":\"Manual episode\"") !=
+        std::string::npos);
+    assert(manualDetail.body.find("\"overview\":\"Manually selected synopsis\"") !=
+        std::string::npos);
+    assert(manualDetail.body.find("\"manualRevision\":4") !=
+        std::string::npos);
+    assert(manualDetail.body.find("\"manualGenreId\":\"film.documentary\"") !=
+        std::string::npos);
+    assert(manualDetail.body.find("\"manualAssignmentId\":\"mdasg_") !=
+        std::string::npos);
+    assert(manualDetail.body.find("\"metadataEntityId\":\"mdent_") !=
+        std::string::npos);
+    assert(manualDetail.body.find("resourceKey") == std::string::npos);
+    assert(manualDetail.body.find("externalId") == std::string::npos);
+    assert(manualDetail.body.find("actorRef") == std::string::npos);
+    assert(manualDetail.headers.at("Cache-Control") == "no-store");
+
+    // Fail closed on selected records with malformed provenance rather
+    // than returning arbitrary untrusted strings in the public contract.
+    runtime.registerRecordingDetailLookup(
+        [](const PublicRecordingDetailRequest&) {
+            PublicRecordingDetailResult malformedManual;
+            malformedManual.status = PublicRecordingDetailStatus::ok;
+            malformedManual.item.recording =
+                recording("rec_00000000000000000000000000000001");
+            malformedManual.item.metadataState = "available";
+            malformedManual.item.metadataSource = "manual";
+            malformedManual.item.contentKind = "movie";
+            malformedManual.item.providerTitle = "Invalid assignment";
+            malformedManual.item.manualAssignmentId = "mdasg_bad";
+            malformedManual.item.metadataEntityId =
+                "mdent_" + std::string(32, 'b');
+            malformedManual.item.manualRevision = 4;
+            return malformedManual;
+        });
+    ApiResponse rejectedManual;
+    assert(runtime.tryHandleGet(detailPath, "actor:tv", "meta-invalid-manual",
+        "", rejectedManual, "", "", {"backend-a"}));
+    assert(rejectedManual.statusCode == 503);
+    runtime.resetRecordingDetailLookup();
+
+    // M2: Recording -> scoped artwork reference -> actual binary response.
+    const std::string artworkPath =
+        "/api/v1/recordings/rec_00000000000000000000000000000001/artwork";
+    const std::string opaqueArtworkId(32, 'a');
+    runtime.registerRecordingArtworkLookup(
+        [&opaqueArtworkId](const PublicRecordingArtworkRequest& request) {
+            PublicRecordingArtworkResult out;
+            if (request.backendId == "backend-down")
+                return out;
+            if (request.recordingId !=
+                "rec_00000000000000000000000000000001")
+            {
+                out.status = PublicRecordingArtworkStatus::notFound;
+                return out;
+            }
+            if (!request.artworkId.empty() &&
+                request.artworkId != opaqueArtworkId)
+            {
+                out.status = PublicRecordingArtworkStatus::notFound;
+                return out;
+            }
+            out.status = PublicRecordingArtworkStatus::ok;
+            out.items.push_back({opaqueArtworkId, "poster", 640, 960});
+            if (!request.artworkId.empty())
+            {
+                out.contentType = "image/png";
+                out.content = "PNGbytes";
+            }
+            return out;
+        });
+    ApiResponse artList;
+    assert(runtime.tryHandleGet(artworkPath + "?backendId=backend-a",
+        "actor:tv", "art-list", "", artList, "", "", {"backend-a"}));
+    assert(artList.statusCode == 200);
+    assert(artList.body.find("poster") != std::string::npos);
+    assert(artList.body.find("/artwork/" + opaqueArtworkId +
+        "?backendId=backend-a") != std::string::npos);
+    assert(artList.body.find("recordingPath") == std::string::npos);
+    ApiResponse artBytes;
+    assert(runtime.tryHandleGet(artworkPath + "/" + opaqueArtworkId +
+        "?backendId=backend-a", "actor:tv", "art-bytes", "",
+        artBytes, "", "", {"backend-a"}));
+    assert(artBytes.statusCode == 200);
+    assert(artBytes.contentType == "image/png");
+    assert(artBytes.body == "PNGbytes");
+    assert(artBytes.headers.at("Cache-Control") == "private, max-age=300");
+    assert(artBytes.headers.at("X-Content-Type-Options") == "nosniff");
+    ApiResponse artWrongBackend;
+    assert(runtime.tryHandleGet(artworkPath + "?backendId=backend-a",
+        "actor:tv", "art-cross", "", artWrongBackend, "", "",
+        {"backend-b"}));
+    assert(artWrongBackend.statusCode == 400);
+    ApiResponse artAnonymous;
+    assert(runtime.tryHandleGet(artworkPath + "?backendId=backend-a",
+        "", "art-anon", "", artAnonymous, "", "", {"backend-a"}));
+    assert(artAnonymous.statusCode == 401);
+    ApiResponse artMissing;
+    assert(runtime.tryHandleGet(artworkPath + "/" + std::string(32, 'b') +
+        "?backendId=backend-a", "actor:tv", "art-missing", "",
+        artMissing, "", "", {"backend-a"}));
+    assert(artMissing.statusCode == 404);
+    ApiResponse artBadId;
+    assert(runtime.tryHandleGet(artworkPath + "/%2e%2e?backendId=backend-a",
+        "actor:tv", "art-bad", "", artBadId, "", "", {"backend-a"}));
+    assert(artBadId.statusCode == 400);
+    // An empty asset segment must not alias the collection route and emit
+    // broken /artwork//<id> URLs.
+    ApiResponse artEmptyAsset;
+    assert(runtime.tryHandleGet(artworkPath + "/?backendId=backend-a",
+        "actor:tv", "art-empty", "", artEmptyAsset, "", "",
+        {"backend-a"}));
+    assert(artEmptyAsset.statusCode == 400);
+    runtime.resetRecordingArtworkLookup();
+    runtime.resetSearchLookup();
     return 0;
 }

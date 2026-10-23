@@ -1,0 +1,35 @@
+# ADR-0068 — Single-branch Public GET responsibility extraction
+
+This is the historical single-branch implementation/review log. **ADR-0068 source closeout is now merged and CI accepted; no new hardware/runtime acceptance is claimed.**
+
+- Single branch: `work/adr0068-router-modularization-20261022` (created directly from `main` `c4fa7285384da8f0bac6d922993914bba296cfd3`).
+- All changes remain on that branch in sequential fast-forward commits. **No branch may be created from this branch. No PR stack.** One draft PR is used for batched CI and later reviewed/merged only after the entire approved checkpoint is ready.
+- Before these changes, `PublicApiRuntime::tryHandleGet` was approximately 2,181 lines. After domain GET delegation, the central method is approximately 347 lines.
+- Byte-for-byte transplanted GET blocks: NativeTimer collection/item; SearchTimer draft preview, item preview and collection plus TimerAssignment collection/item; Recording collection, Recording/EPG search and Genre; Device Pairing collection, admin item and pairing-token polling; Account credential/session, Account/Device lifecycle/grants, Account item and Account collection.
+- Byte-for-byte transplanted callback lifecycle: NativeTimer collection/detail and SearchTimer/TimerAssignment reads in `PublicTimerReadLookupRuntime.cpp`; Recording/Search/Genre reads in `PublicBrowseReadLookupRuntime.cpp`. The rest of the callback lifecycle remains on the existing runtime and is **not** silently marked extracted.
+- Earlier merged ADR-0068 boundaries remain unchanged: Discovery, Backend, Channel, EPG read and the `ApiRouter` Recording action boundary.
+- Actual branch dispatchers still check every original route-path expression in the original order. Helpers run on `*this` and retain the original parsing, authorization inputs, mutexes, lookup functions, cursor ordering, API status/error/headers, ETag/If-None-Match and fallback behavior. The established `SecurityHttpGate`, legacy API, timer/recording mutation executors, identities, databases and daemon startup/shutdown wiring have **not** changed.
+- The two new helper source files are compiled by `REST_PUBLIC_API_SRC` for both daemon and standalone tests. Dedicated native Timer 200/304 headers and TimerAssignment/SearchTimer 200 headers are regression-asserted; the existing security, HTTP and contract tests cover the other GET branches.
+- The exact original bodies were source-compared after the sixth implementation commit and all six inspected blocks matched, byte-for-byte. This is static source parity evidence, **not** a substitute for C++ compilation and CI.
+
+**Historical remaining scope at that implementation checkpoint (subsequently completed in PR #517):** POST/DELETE domain-dispatch segmentation where safe; callback/admission lifecycle ownership of Account and Device; final Public-v1/legacy route, method, security and contract matrices; relevant source/CI validation at the final single-branch head. E1 is not started. No productive yaVDR install or R2/R3 hardware replay.
+
+## Subsequent POST and callback ownership checkpoint (2026-10-22)
+
+- Existing branch/PR continued without branch stacking; sequential fast-forward commits after `f62d691`.
+- Domain POST delegation introduced in `9b4ebf8`: six private POST methods in original match order, central dispatcher reduced from 2,666 to approximately 81 lines. No route body change; no extra mutation owner.
+- OpenAPI route source guard strengthened for delegated method bodies and first-match order in `d032d5f`, with missing/reordered delegation negative tests.
+- Callback lifecycle extracted to `PublicIdentityAdmissionLifecycle.cpp` and included by `REST_PUBLIC_API_SRC` in `768f9e2`, preserving byte-exact callback bodies. NativeTimer DELETE remains the only Public-v1 DELETE handled here.
+- Older OpenAPI and P2 architecture path guards re-pointed/fixed in `21d6ac5`; the older CI snapshots from moving source lines are not release evidence. Full CI at the **final** head is still required.
+- [Audited Public-v1 method/Legacy isolation matrix](adr-0068-public-legacy-contract-reconciliation.md) documents the OpenAPI partial inventory and the unmodified `ApiRouter` legacy POST families.
+
+**Historical outstanding status (now resolved for ADR-0068):** final-head CI, source/test/security guards and careful merge were completed; E1 was blocked at the time of writing. No yaVDR modification was part of this source checkpoint.
+
+## ADR-0068 closeout — merged and source-CI accepted (2026-10-22)
+
+- Exactly one source branch `work/adr0068-router-modularization-20261022` and [PR #517](https://github.com/hotzenplotz5/vdr-suite/pull/517); final PR head [`867f43b67e88f6b9c904db5b98e99ce1b79ff784`](https://github.com/hotzenplotz5/vdr-suite/commit/867f43b67e88f6b9c904db5b98e99ce1b79ff784) merged at 2026-10-22 06:28 UTC as [`6c05493ad53c82e19fef4a2bc70e09bc1603e0c8`](https://github.com/hotzenplotz5/vdr-suite/commit/6c05493ad53c82e19fef4a2bc70e09bc1603e0c8) on `main`.
+- **Exact PR-head CI: all four SUCCESS.** [VDR-Suite CI #39732810337](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39732810337), [Recording R2 Candidate #39732810313](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39732810313), [R2 Public-v1 Recording + Genre #39732810379](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39732810379), [VIDAA Device tracks/index/SRT #39732810321](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39732810321).
+- **Exact merge-head CI: all four SUCCESS.** [VDR-Suite CI #39734109317](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39734109317), [Recording R2 Candidate #39734109278](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39734109278), [R2 Public-v1 Recording + Genre #39734109337](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39734109337), [VIDAA Device tracks/index/SRT #39734109258](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39734109258).
+- Domain GET dispatch, ordered six-domain POST dispatch, separated callback/admission lifecycle, OpenAPI/source guard updates and [Public-v1/legacy route-contract reconciliation](adr-0068-public-legacy-contract-reconciliation.md) are **source-merged without intended behavior change**. Existing security gates, identity owners, response contracts and legacy route ownership remain authoritative.
+- **Limits:** the route reconciliation documents **60 previously audited OpenAPI method/path entries**, not a proof of complete Public-v1 route or schema coverage. Source equivalence plus CI are **not** a claim of installed yaVDR daemon, runtime deployment, full contract conformance, new hardware acceptance, or blanket client acceptance. The historical R2/R3 acceptance is distinct and must not be repeated automatically.
+- **Next:** independently authorized E1 extends existing EPG-cache-window retrieval via bounded deterministic continuation on the single new branch `work/public-v1-e1-epg-window-20261022`. E1 is not part of the ADR-0068 refactor and does not start Phase 70; E2/M1/M2/S1/P1 remain outside E1.

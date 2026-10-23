@@ -19,13 +19,16 @@ class OpenApiDriftTests(unittest.TestCase):
         cls.source = (ROOT / "api/rest/src/PublicApiRuntime.cpp").read_text(encoding="utf-8")
         cls.device_source = (ROOT / "core/daemon/src/RecordingMediaHttpRuntime.cpp").read_text(encoding="utf-8")
         cls.security_source = (ROOT / "core/security/include/SecurityHttpGate.h").read_text(encoding="utf-8")
+        cls.recording_router = (ROOT / "api/rest/src/ApiRouter.cpp").read_text(encoding="utf-8")
 
-    def errors_for(self, document=None, source=None, device_source=None, security_source=None):
+    def errors_for(self, document=None, source=None, device_source=None,
+                   security_source=None, recording_router=None):
         return guard.validate(
             self.document if document is None else document,
             self.source if source is None else source,
             self.device_source if device_source is None else device_source,
             self.security_source if security_source is None else security_source,
+            self.recording_router if recording_router is None else recording_router,
         )
 
     def assert_rejected(self, document=None, source=None, reason="", device_source=None, security_source=None):
@@ -53,16 +56,73 @@ class OpenApiDriftTests(unittest.TestCase):
         )
         self.assert_rejected(source=source, reason="source route handler anchor disappeared")
 
+    def test_missing_post_domain_delegate_rejected(self):
+        source = self.source.replace(
+            "if (tryHandleDevicePairingPost(",
+            "if (obsoleteDevicePairingPost(",
+            1,
+        )
+        self.assert_rejected(
+            source=source, reason="cannot isolate actual GET and POST"
+        )
+
+    def test_reordered_post_domain_delegates_rejected(self):
+        start = self.source.index("bool PublicApiRuntime::tryHandlePost(")
+        end = self.source.index("bool PublicApiRuntime::tryHandleDelete(", start)
+        dispatch = self.source[start:end]
+        first = "if (tryHandleDevicePairingPost("
+        second = "if (tryHandleNativeTimerMutationPost("
+        self.assertIn(first, dispatch)
+        self.assertIn(second, dispatch)
+        altered = dispatch.replace(first, "if (TEMP_SWAP(", 1)
+        altered = altered.replace(second, first, 1)
+        altered = altered.replace("if (TEMP_SWAP(", second, 1)
+        self.assert_rejected(
+            source=self.source[:start] + altered + self.source[end:],
+            reason="cannot isolate actual GET and POST",
+        )
+
+    def test_recording_action_route_is_audited(self):
+        changed = copy.deepcopy(self.document)
+        del changed["paths"]["/api/v1/recordings/actions/execute"]
+        self.assert_rejected(changed, reason="audited path inventory changed")
+
+    def test_recording_action_router_anchor_is_audited(self):
+        modified = self.recording_router.replace(
+            'if (path == "/api/v1/recordings/actions/execute")',
+            'if (path == "/api/v1/obsolete/actions/execute")',
+            1,
+        )
+        errors = self.errors_for(recording_router=modified)
+        self.assertTrue(any(
+            "Recording ApiRouter route handler anchor disappeared" in error
+            for error in errors
+        ), errors)
+
+    def test_recording_action_wrong_permission_scope(self):
+        changed = copy.deepcopy(self.document)
+        changed["paths"]["/api/v1/recordings/actions/validate"]["post"][
+            "x-vdr-suite-authentication"]["actorRequired"] = False
+        self.assert_rejected(changed, reason="actorRequired does not match")
+
     def test_missing_recording_browse_route(self):
         changed = copy.deepcopy(self.document)
         del changed["paths"]["/api/v1/recordings"]
         self.assert_rejected(changed, reason="audited path inventory changed")
 
     def test_missing_epg_handler(self):
-        changed_source = self.source.replace(
-            "if (path == PublicEpgNowNextPath)",
-            "if (path == ObsoleteEpgNowNextPath)",
-            1,
+        # ADR-0068 keeps audited route markers in tryHandleGet while the
+        # actual EPG body lives in the private tryHandleEpgReadGet helper.
+        # Mutate the dispatcher, not the identical marker in that helper.
+        start = self.source.index("bool PublicApiRuntime::tryHandleGet(")
+        end = self.source.index("bool PublicApiRuntime::tryHandlePost(", start)
+        dispatch = self.source[start:end]
+        marker = "if (path == PublicEpgNowNextPath)"
+        self.assertIn(marker, dispatch)
+        changed_source = (
+            self.source[:start] +
+            dispatch.replace(marker, "if (path == ObsoleteEpgNowNextPath)", 1) +
+            self.source[end:]
         )
         self.assert_rejected(source=changed_source, reason="source route handler anchor disappeared")
 
@@ -138,6 +198,17 @@ class OpenApiDriftTests(unittest.TestCase):
         changed = copy.deepcopy(self.document)
         del changed["paths"]["/api/v1/recording-playback-sessions/{sessionId}/subtitles"]["post"]["requestBody"]
         self.assert_rejected(changed, reason="required POST body missing")
+
+    def test_trickplay_missing_route_is_rejected(self):
+        changed = copy.deepcopy(self.document)
+        del changed["paths"]["/api/v1/recording-playback-sessions/{sessionId}/trickplay"]
+        self.assert_rejected(changed, reason="audited path inventory changed")
+
+    def test_trickplay_missing_device_gate_is_rejected(self):
+        altered = self.security_source.replace("isPublicDeviceRecordingSessionRead",
+                                               "unmappedDeviceRead")
+        self.assert_rejected(security_source=altered,
+                             reason="Device SecurityHttpGate admission marker")
 
     def test_partial_coverage_cannot_claim_complete(self):
         changed = copy.deepcopy(self.document)

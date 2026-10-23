@@ -55,6 +55,27 @@ int main()
         "test-credential",
         "test-credential"));
 
+    // Human browser device must never appear in the paired Service Device list.
+    assert(provisioning.ensureTechnicalIdentity(
+        "tv-service-b", ActorType::Service, "VIDAA actor B",
+        "tv-b", "Hisense Schlafzimmer", "tv-cred-b", "device"));
+    assert(provisioning.ensureTechnicalIdentity(
+        "tv-service-a", ActorType::Service, "VIDAA actor A",
+        "tv-a", "Hisense Wohnzimmer", "tv-cred-a", "device"));
+    const auto firstPage = repository.listDevices("", 1U);
+    assert(firstPage && firstPage->size() == 1U);
+    assert((*firstPage)[0].deviceId == "tv-a");
+    assert((*firstPage)[0].displayName == "Hisense Wohnzimmer");
+    const auto secondPage = repository.listDevices("tv-a", 1U);
+    assert(secondPage && secondPage->size() == 1U);
+    assert((*secondPage)[0].deviceId == "tv-b");
+    assert(!repository.listDevices("", 0U));
+    assert(!repository.listDevices("", 102U));
+    assert(repository.revokeDevice("tv-a"));
+    const auto revoked = repository.listDevices("", 5U);
+    assert(revoked && revoked->size() == 2U);
+    assert((*revoked)[0].revoked);
+
     const auto actor = repository.findActor("test-user");
     assert(actor.has_value());
     assert(actor->type == ActorType::User);

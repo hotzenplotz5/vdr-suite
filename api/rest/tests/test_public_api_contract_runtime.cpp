@@ -19,6 +19,13 @@ int main()
         correlationId,
         authenticatedRoot));
     assert(authenticatedRoot.statusCode == 200);
+    ApiResponse plainRoot;
+    assert(runtime.tryHandleGet("/api/v1", "actor-test", requestId,
+        correlationId, plainRoot));
+    assert(plainRoot.statusCode == authenticatedRoot.statusCode);
+    assert(plainRoot.contentType == authenticatedRoot.contentType);
+    assert(plainRoot.headers == authenticatedRoot.headers);
+    assert(plainRoot.body == authenticatedRoot.body);
     assert(authenticatedRoot.contentType == "application/json; charset=utf-8");
     assert(authenticatedRoot.headers.at("Cache-Control") == "no-store");
     assert(authenticatedRoot.headers.at("X-Content-Type-Options") == "nosniff");
@@ -77,6 +84,13 @@ int main()
         correlationId,
         capabilities));
     assert(capabilities.statusCode == 200);
+    ApiResponse queriedCapabilities;
+    assert(runtime.tryHandleGet("/api/v1/capabilities?ignored=true",
+        "actor-test", requestId, correlationId, queriedCapabilities));
+    assert(queriedCapabilities.statusCode == capabilities.statusCode);
+    assert(queriedCapabilities.contentType == capabilities.contentType);
+    assert(queriedCapabilities.headers == capabilities.headers);
+    assert(queriedCapabilities.body == capabilities.body);
     assert(capabilities.headers.at("X-Request-ID") == requestId);
     assert(capabilities.body.find(
         "\"id\":\"public-api.contract-root\"") != std::string::npos);
@@ -97,6 +111,19 @@ int main()
     assert(capabilities.body.find(
         "{\"id\":\"public-api.recordings-read\",\"version\":1,\"availability\":\"unavailable\"}") !=
         std::string::npos);
+
+    assert(capabilities.body.find(
+        "{\"id\":\"public-api.epg-event-detail-read\",\"version\":1,\"availability\":\"unavailable\"}") !=
+        std::string::npos);
+    runtime.registerEpgEventDetailLookup(
+        [](const PublicEpgEventDetailRequest&) { return PublicEpgEventDetailResult{}; });
+    ApiResponse availableEpgEvent;
+    assert(runtime.tryHandleGet("/api/v1/capabilities", "actor-test",
+        "epg-detail-capability", "", availableEpgEvent));
+    assert(availableEpgEvent.body.find(
+        "{\"id\":\"public-api.epg-event-detail-read\",\"version\":1,\"availability\":\"available\"}") !=
+        std::string::npos);
+    runtime.resetEpgEventDetailLookup();
 
     runtime.registerRecordingCollectionLookup(
         [](const PublicRecordingCollectionRequest&)

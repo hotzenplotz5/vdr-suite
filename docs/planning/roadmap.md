@@ -44,6 +44,22 @@ A roadmap entry is never automatic permission to implement the next possible dif
 
 ---
 
+## Post-69 Public API v1 Recording and router modularization order (decision 2026-10-21)
+
+**Binding sequence:** `R1 → R2 → R3 → behavior-preserving Public API router modularization checkpoint → E1 → E2 → M1 → M2 → S1 → P1`. This is the post-69 Public-v1 workstream ordering; it **does not renumber or start Phase 70**.
+
+- **R1:** Existing Suite-owned `rec_` identity via current Recording resolver, safe validation/dry-run, no live writes.
+- **R2:** Public-v1 RENAME/DELETE with backend-authoritative revision checks, validated write, verified readback, identity lifecycle, public errors and existing security.
+- **R3:** Public-v1 MOVE with logical folder identity, verified change, persistent public Recording-ID rebind and no blind retry.
+- **Checkpoint after R3, before E1:** Apply [ADR-0068](../adr/ADR-0068-public-api-router-modularization-checkpoint.md) to separate the existing `ApiRouter`/`PublicApiRuntime` domains without changing functionality. **No new API methods/routes, JSON schemas, permissions, identities or domain logic; no large router refactor during R1–R3.**
+- **Then:** E1 full available EPG-cache horizon via bounded deterministic continuation; E2 EPG/TimerIntent; M1 read-only metadata; M2 artwork; S1 SearchTimer mutations; P1 Resume/device playback integration.
+
+The post-R3 checkpoint is **closed**: [PR #517](https://github.com/hotzenplotz5/vdr-suite/pull/517) merged as [`6c05493ad`](https://github.com/hotzenplotz5/vdr-suite/commit/6c05493ad53c82e19fef4a2bc70e09bc1603e0c8), with all four required CI tracks successful on the final PR head and merge head. This establishes source-refactor acceptance only; it does not imply installation or hardware acceptance. **Historical note:** E1 was the next slice at this checkpoint; it is no longer the current next action. E1–P1 source work has subsequently been merged. Phase 70 remains not started. Progress belongs in [CURRENT](../CURRENT.md) and the [ADR-0068 implementation record](../development/adr-0068-single-branch-read-dispatch-progress.md); details remain in the [Public-v1 coverage roadmap](public-v1-coverage-roadmap.md) and [Recording source audit](../development/public-v1-source-audit-20261021.md).
+
+---
+
+**Public API v1 current integration checkpoint (2026-10-23):** R1/R2/R3, ADR-0068 (#517), E1 (#519), E2, M1, M2, S1 and P1 ([#524](https://github.com/hotzenplotz5/vdr-suite/pull/524), merge `052350714f5b5904a969158925cb05d8f39aed78`) have passed through their source sequence. The single [Unified Acceptance Runner](https://github.com/hotzenplotz5/vdr-suite/pull/526) is merged at `096a04ad0e6a4eb2555292929d1373df549780bc`. **Next: Public API v1 Integrationsabschluss**, not another invented slice: inspect productive wiring, source/contract parity and fail-closed releases, then prepare a single identified candidate for the [central real-VDR matrix](../development/public-v1-final-hardware-acceptance.md). Source merge and historical CI are not combined real-yaVDR/Browser↔Device/VIDAA acceptance. The SearchTimer CREATE RESTfulAPI/non-atomic-native-CAS limitation requires an explicit release-scope decision. The four historical `outcome_unknown` operations remain read-only evidence and must not be re-run. PR #525 MLD stays draft and independent. **Phase 70: NOT STARTED.**
+
 ## Current phase position
 
 ```text

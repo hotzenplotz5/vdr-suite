@@ -65,7 +65,7 @@ require(SOURCE, [
     "ensureNativeTimerDeleteAssignmentSchema",
     "idx_backend_agent_timer_delete_operation",
     "trg_backend_agent_timer_delete_dormant_capability",
-    "DELETE FROM backend_agent_command_capabilities",
+    "DROP TRIGGER IF EXISTS ",
     "selectLocalProvider",
     "backendAgentNativeTimerDeleteCanonicalFingerprintValid(",
     "backendAgentNativeTimerDeleteFingerprintToken(",
@@ -100,6 +100,8 @@ require(TEST, [
     'supportedCommandTypes = {"vdr.timer.delete"}',
     "blockedDelivery",
     'assert(!commands.hasCapability(',
+    'replayAfterAdvertisement',
+    'assert(replayAfterAdvertisement.accepted',
     '"vdr.timer.delete"',
     "native_timer_delete_assignment_replayed",
     "native_timer_delete_provider_selection_stale",
@@ -187,15 +189,30 @@ if agent_sources.count("core/agent/src/BackendAgentNativeTimerDelete.cpp") != 1:
     failures.append("Slice-29 Agent state owner must wire the Timer-delete domain validator exactly once")
 if "AGENT_COMMAND_STATE_SRC :=" not in agent_sources:
     failures.append("Slice-29 Agent state owner command-state source set is missing")
+delete_runner_path = ROOT / "core/daemon/src/NativeTimerDeleteProductiveRuntime.cpp"
+delete_runner = delete_runner_path.read_text(encoding="utf-8") if delete_runner_path.is_file() else ""
+delete_successor_valid = all(marker in delete_runner for marker in (
+    "publicNativeTimerDeletePreflight(",
+    "BackendAgentNativeTimerDeleteAssignmentService& assigner",
+    "applyDurableNativeTimerDeleteResult(",
+    "verification.verify(",
+    "completion.complete(",
+))
 for source_manifest in (ROOT / "mk").glob("*-sources.mk"):
     text = source_manifest.read_text(encoding="utf-8")
-    if "BackendAgentNativeTimerDeleteAssignment.cpp" in text:
+    wired_assignment = "BackendAgentNativeTimerDeleteAssignment.cpp" in text
+    wired_contract = "BackendAgentNativeTimerDelete.cpp" in text
+    if source_manifest.name == "daemon-sources.mk" and delete_successor_valid:
+        # The later daemon's explicit Agent assignment and typed evidence
+        # owner are the sole permitted successors to the Phase-64 contract.
+        continue
+    if wired_assignment:
         failures.append(
-            f"Slice-25 assignment unexpectedly wired into runtime sources: {source_manifest.relative_to(ROOT)}"
+            f"Timer-delete assignment wired without accepted daemon successor: {source_manifest.relative_to(ROOT)}"
         )
-    if "BackendAgentNativeTimerDelete.cpp" in text and source_manifest != AGENT_SOURCES:
+    if wired_contract and source_manifest != AGENT_SOURCES:
         failures.append(
-            f"Slice-24 Timer-delete contract unexpectedly wired outside the bounded Agent state owner: {source_manifest.relative_to(ROOT)}"
+            f"Timer-delete contract wired outside its authorized successor: {source_manifest.relative_to(ROOT)}"
         )
 
 if failures:

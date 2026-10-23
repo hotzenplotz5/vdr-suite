@@ -13,6 +13,7 @@ FILES = {
     "service_cpp": ROOT / "core/security/src/HumanAccountCreationService.cpp",
     "runtime_h": ROOT / "api/rest/include/PublicApiRuntime.h",
     "runtime_cpp": ROOT / "api/rest/src/PublicApiRuntime.cpp",
+    "discovery_cpp": ROOT / "api/rest/src/PublicDiscoveryRoutes.cpp",
     "auth": ROOT / "core/security/include/AuthorizationService.h",
     "gate": ROOT / "core/security/include/SecurityHttpGate.h",
     "server_h": ROOT / "core/http/include/TestHttpServer.h",
@@ -147,7 +148,7 @@ def main():
         "createRequest.password.clear()",
         '"GET, POST"',
     ):
-        require("runtime_cpp", marker)
+        require("discovery_cpp" if marker == "public-api.accounts-create" else "runtime_cpp", marker)
 
     for forbidden in (
         "sqlite3",

@@ -158,6 +158,7 @@ function flush(count = 20) {
 }
 
 const suiteWrites = [];
+let progressRevision = 0;
 const mediaRequests = [];
 let hlsSequence = 0;
 const document = {
@@ -199,7 +200,18 @@ const window = {
   },
   fetch(requestPath, options) {
     if (requestPath === '/api/media/continue-watching' || requestPath === '/api/media/recently-watched') {
-      suiteWrites.push({path: requestPath, body: JSON.parse(options.body)});
+      const body = JSON.parse(options.body);
+      suiteWrites.push({path: requestPath, body});
+      if (body.operation === 'revision')
+        return Promise.resolve({ok: true, status: 200,
+          json: async () => ({revision: progressRevision})});
+      if (body.expectedRevision !== undefined) {
+        if (body.expectedRevision !== progressRevision)
+          return Promise.resolve({ok: false, status: 409});
+        progressRevision += 1;
+        return Promise.resolve({ok: true, status: 200,
+          json: async () => ({ok: true, revision: progressRevision})});
+      }
       return Promise.resolve({ok: true});
     }
     return Promise.resolve({ok: true});

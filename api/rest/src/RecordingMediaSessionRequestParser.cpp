@@ -303,6 +303,40 @@ bool parseCodecs(
     return true;
 }
 
+bool optionalProfileField(
+    const std::string& body,
+    RecordingMediaSessionRequest& request)
+{
+    if (body.size() > 65536U) return false;
+    std::string object;
+    std::size_t ignoredPosition = 0;
+    if (!locateValue(body, "capabilityProfile", ignoredPosition)) {
+        // Never require this new opt-in field for legacy Device requests.
+        return true;
+    }
+    if (!readObjectField(body, "capabilityProfile", object) ||
+        object.size() > 512U) return false;
+    request.deviceMediaProfileRequested = true;
+    if (!readStringField(object, "appVersion", request.mediaAppVersion) ||
+        !readStringField(object, "firmwareVersion", request.mediaFirmwareVersion) ||
+        !readStringField(object, "playerVersion", request.mediaPlayerVersion) ||
+        !readStringField(object, "engine", request.mediaPlayerEngine)) return false;
+    auto valid = [](const std::string& value, std::size_t limit) {
+        if (value.empty() || value.size() > limit) return false;
+        for (unsigned char c : value) {
+            if (!std::isalnum(c) && c != '-' && c != '_' &&
+                c != '.' && c != ':') return false;
+        }
+        return true;
+    };
+    return valid(request.mediaAppVersion, 96U) &&
+        valid(request.mediaFirmwareVersion, 96U) &&
+        valid(request.mediaPlayerVersion, 96U) &&
+        (request.mediaPlayerEngine == "mse" ||
+         request.mediaPlayerEngine == "native" ||
+         request.mediaPlayerEngine == "external");
+}
+
 RecordingMediaSessionRequest invalid(const std::string& reasonCode)
 {
     RecordingMediaSessionRequest result;
@@ -375,6 +409,9 @@ RecordingMediaSessionRequest RecordingMediaSessionRequestParser::parse(
         request.capabilities.maxAudioChannels > MaximumTypedAudioChannels) {
         return invalid("invalid_media_capabilities");
     }
+
+    if (!optionalProfileField(body, request))
+        return invalid("invalid_device_media_profile");
 
     request.valid = true;
     return request;

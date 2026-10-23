@@ -15,6 +15,7 @@ def require(condition: bool, message: str) -> None:
 repo = read("core/security/src/DevicePairingRequestRepository.cpp")
 service = read("core/security/src/DevicePairingRequestService.cpp")
 public = read("api/rest/src/PublicApiRuntime.cpp")
+discovery = read("api/rest/src/PublicDiscoveryRoutes.cpp")
 gate = read("core/security/include/SecurityHttpGate.h")
 authorization = read("core/security/include/AuthorizationService.h")
 server = read("core/http/src/TestHttpServer.cpp")
@@ -78,7 +79,8 @@ for token in (
     "revision_conflict",
     "operation_conflict",
 ):
-    require(token in public, "MU.10B Public-v1 guard missing: " + token)
+    owner = discovery if token == "public-api.device-pairing-administration" else public
+    require(token in owner, "MU.10B Public-v1 guard missing: " + token)
 
 require(
     "actor->type != ActorType::User" in server and
