@@ -440,12 +440,14 @@ int main()
              "/run/../etc/control.sock",
              "/run//control.sock",
              "relative/control.sock",
-             "/run/mld/control.sock/",
-             ""})
+             "/run/mld/control.sock/"})
     {
         setenv("VDR_SUITE_CONTROL_SOCKET_PATH", unsafe, 1);
         assert(suiteBridgeControlSocketPathFromEnvironment().empty());
     }
+    setenv("VDR_SUITE_CONTROL_SOCKET_PATH", "", 1);
+    assert(suiteBridgeControlSocketPathFromEnvironment() ==
+           "/run/vdr/vdr-suite-control/control.sock");
     unsetenv("VDR_SUITE_CONTROL_SOCKET_PATH");
 
     const std::string livePath =
