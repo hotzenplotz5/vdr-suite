@@ -2,6 +2,10 @@
 # Media Tools first-time installation on an already enrolled yaVDR.
 set -Eeuo pipefail
 stop() { printf 'MEDIA_TOOLS_INSTALL=STOP %s\n' "$*" >&2; exit 1; }
+if [ "$#" -eq 1 ] && { [ "$1" = "--help" ] || [ "$1" = "-h" ]; }; then
+  echo 'Usage: install_media_tools.sh EXPECTED_COMMIT REVIEWED_HANDLER_SHA256 BACKEND_ID SOURCE_ROOT VIDEO_ROOT'
+  exit 0
+fi
 if [ "$#" -ne 5 ]; then
   echo 'Usage: install_media_tools.sh EXPECTED_COMMIT REVIEWED_HANDLER_SHA256 BACKEND_ID SOURCE_ROOT VIDEO_ROOT' >&2
   exit 2
