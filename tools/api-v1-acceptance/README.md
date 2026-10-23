@@ -19,7 +19,7 @@ Offline (kein Daemon erforderlich):
 
 Als vorhandener Administrator: `--profile readonly --admin-user vdr-suite --expected-daemon-commit <vollständiger-SHA>`. Der Runner liest das Passwort verdeckt am Root-Terminal ein; es wird weder gespeichert noch protokolliert. Er verwendet eine kurzlebige Browser-Session. **Nur** der fest verdrahtete Session-Login und Session-Logout verwenden POST (Security-Session-Persistenz); sämtliche VDR-/Public-v1-Acceptance-Requests bleiben GET. Keine neuen Konten, Geräte, Grants, Timer oder Aufnahmen. Ein Admin ist kein Device: Device-eigene Playback/Resume-Gates bleiben BLOCKED. Negative Authentifizierungstests senden bewusst keinen Session-Cookie.
 
-Der Standard-Origin ist http://127.0.0.1:18080; der Backend ist default. Über CLI --origin und --backend überschreibbar. HTTP nur auf Loopback, HTTPS für entfernte Origins. Außer ausdrücklich gewähltem Session-Login und -Logout ausschließlich serielle GETs, Timeout 8 Sekunden, JSON maximal 1 MiB, Artwork maximal 256 KiB; keine Redirects. Es gibt **keine produktive VDR-Mutationsfunktion**, keine POST-dry-runs, keine MediaSessions, keine automatischen Retries oder Dienstneustarts.
+Der Standard-Origin ist http://127.0.0.1:18080; der Backend ist default. Über CLI --origin und --backend überschreibbar. HTTP nur auf Loopback, HTTPS für entfernte Origins. Außer ausdrücklich gewähltem Session-Login und -Logout ausschließlich serielle GETs, Timeout 8 Sekunden, JSON maximal 1 MiB, Artwork maximal 16 MiB (Serverlimit VdrRecordingArtworkService); keine Redirects. Es gibt **keine produktive VDR-Mutationsfunktion**, keine POST-dry-runs, keine MediaSessions, keine automatischen Retries oder Dienstneustarts.
 
 ## Authentifizierung und private Konfiguration
 
@@ -45,6 +45,8 @@ Das Ausgabeverzeichnis ist ~/vdr-suite-api-v1-results/ mit 0700. Dateien: last-s
 PASS = nachgewiesen, FAIL = tatsächliche Abweichung, SKIP = bewusst nicht ausgeführt, BLOCKED = Voraussetzung fehlt. Gesamt PASS nur wenn alle Pflichtprüfungen des gewählten Profils PASS; FAIL bei Fehlern, INCOMPLETE bei Blockern. Exitcodes: 0 PASS; 1 FAIL; 2 INCOMPLETE; 3 CONFIG_ERROR.
 
 Der installierte Daemon wird ausschließlich mit dem expliziten vollständigen Zielcommit `--expected-daemon-commit` bzw. `expectedDaemonCommit` aus der privaten Konfiguration verglichen, nicht mit dem Runner-HEAD. Ein echter Mismatch ergibt FAIL und sperrt alle abhängigen Hardware-GETs (BLOCKED); fehlender oder nicht beweisbarer Build-Nachweis ergibt BLOCKED. VDR-/SuiteBridge-/Agent-Version und Binäridentität bleiben getrennt zu prüfen.
+
+**Real-yaVDR Admin-Lauf 2026-10-23 (vor der 16-MiB-Korrektur):** 25 PASS, 1 FAIL, 7 SKIP, 21 BLOCKED. Ein vorhandenes Recording-Artwork überschritt das willkürliche frühere 256-KiB-Testlimit, während der kanonische Artwork-Dienst Bilder bis 16 MiB akzeptiert; der vermeintliche Artwork-Defekt ist durch den Runner-Bug noch **nicht** als Serverfehler belegt. Browser Admin kann Channels, EPG und Recording GET prüfen; einzelne `timers.view`- und `searchtimers.view`-Routen lieferten HTTP 403 unter dem bestehenden Account und bleiben als Berechtigungsgrenzen BLOCKED, nicht künstlich PASS. Negative Invalid-ID-Prüfungen laufen nun gegen die vorhandene authentifizierte Identität statt fälschlich ein Device zu verlangen. Device-only Routen bleiben Device-only.
 
 ## Abdeckung und noch offene Real-Hardware-Gates
 

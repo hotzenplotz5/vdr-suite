@@ -502,6 +502,77 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(statuses["recording.collection"],"BLOCKED")
             self.assertEqual(a.persist(),"INCOMPLETE")
 
+    def test_artwork_accepts_server_supported_1mib_jpeg(self):
+        from runner import MAX_IMAGE
+        self.assertEqual(MAX_IMAGE, 16*1024*1024)
+        client = HttpClient("http://127.0.0.1:18080")
+        data = b"\\xff\\xd8\\xff" + b"x"*(1024*1024)
+        class FakeReply:
+            status = 200
+            headers = {"Content-Type":"image/jpeg"}
+            def __enter__(self): return self
+            def __exit__(self,*x): return False
+            def read(self,n):
+                assert n == MAX_IMAGE+1
+                return data[:n]
+        class FakeOpener:
+            def open(self,request,timeout):
+                assert request.get_method() == "GET"
+                return FakeReply()
+        client.opener = FakeOpener()
+        result, _ = client.expect("/api/v1/recordings/rec_"+"a"*32+
+                                  "/artwork/"+"b"*32+"?backendId=default",binary=True)
+        self.assertEqual(result["bytes_read"],len(data))
+        self.assertEqual(result["image_type"],"image/jpeg")
+
+    def test_artwork_larger_than_server_limit_rejected_bounded(self):
+        from runner import MAX_IMAGE
+        client = HttpClient("http://127.0.0.1:18080")
+        class FakeReply:
+            status = 200
+            headers = {"Content-Type":"image/jpeg","X-Request-ID":"req-test"}
+            def __enter__(self): return self
+            def __exit__(self,*args): return False
+            def read(self,n):
+                assert n == MAX_IMAGE+1
+                return b"x"*n
+        class FakeOpener:
+            def open(self,request,timeout): return FakeReply()
+        client.opener = FakeOpener()
+        with self.assertRaises(Problem) as p:
+            client.expect("/api/v1/recordings/rec_"+"a"*32+
+                          "/artwork/"+"b"*32+"?backendId=default",binary=True)
+        self.assertEqual(p.exception.kind,"response_too_large")
+        self.assertEqual(p.exception.actual,200)
+
+    def test_negative_epg_and_recordings_accept_authenticated_admin(self):
+        from cases import status_negative
+        with tempfile.TemporaryDirectory() as out:
+            args = argparse.Namespace(profile="readonly",backend="default",
+                origin="http://127.0.0.1:18080",output_dir=Path(out),
+                approval_file=None,expected_daemon_commit="a"*40,
+                admin_user="vdr-suite")
+            a = Acceptance(args,{})
+            a.client.browser_cookie = "vdr_suite_session=abcdefgh"
+            with patch.object(a.client,"get",return_value=(400,{},{})) as get:
+                status_negative(a,"/api/v1/recordings/rec_bad?backendId=default",(400,))
+                status_negative(a,"/api/v1/epg/window?bad=1",(400,))
+                self.assertEqual(get.call_count,2)
+
+    def test_negative_searchtimer_403_is_blocked_not_invalid_id_pass(self):
+        from cases import status_negative
+        with tempfile.TemporaryDirectory() as out:
+            args = argparse.Namespace(profile="readonly",backend="default",
+                origin="http://127.0.0.1:18080",output_dir=Path(out),
+                approval_file=None,expected_daemon_commit="a"*40,
+                admin_user="vdr-suite")
+            a = Acceptance(args,{})
+            a.client.browser_cookie = "vdr_suite_session=abcdefgh"
+            with patch.object(a.client,"get",return_value=(403,{},{})):
+                with self.assertRaises(Blocked) as e:
+                    status_negative(a,"/api/v1/search-timers/st_bad?backend=default",(400,))
+            self.assertEqual(e.exception.kind,"permission_denied")
+
 
 if __name__ == "__main__":
     unittest.main()

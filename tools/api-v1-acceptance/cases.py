@@ -658,7 +658,10 @@ def search_recordings(a):
 
 
 def status_negative(a, path, allowed):
-    require_device(a)
+    # EPG/Recording/SearchTimer invalid-ID GETs validate parser behavior
+    # under any authenticated actor. A 403 is a BLOCKED prerequisite, not
+    # evidence that a Device-owned Playback credential is necessary.
+    require_actor(a)
     status, _, _ = a.client.get(path)
     if status in (401, 403, 503):
         kind = ("authentication_failed" if status == 401 else
