@@ -942,6 +942,10 @@
     let lastProgressAt = 0;
     let lastPosition = 0;
     let stableProgressSince = 0;
+    let resumeRecoveryPending = false;
+    let resumeRecoveryInFlight = false;
+    let resumeReplacementId = '';
+    let resumeStopPromise = Promise.resolve(null);
 
     function setStatus(message, error) {
       status.textContent = message;
@@ -977,6 +981,9 @@
       }
       recoveryTimer = null;
       recovering = false;
+      resumeRecoveryPending = false;
+      resumeRecoveryInFlight = false;
+      resumeReplacementId = '';
       clearStallTimer();
     }
 
@@ -1009,6 +1016,13 @@
           recovering || !activeSessionId) return;
       noteFrameProgress();
       if (global.document && global.document.visibilityState === 'hidden') {
+        if (!video.paused && lastProgressAt &&
+            Date.now() - lastProgressAt >= LIVE_STALL_THRESHOLD_MS) {
+          // Stop the stalled native owner, but do not restart workers while
+          // a frozen tab cannot drain MSE. Resume will initiate recovery.
+          failPlayback(new Error('Live-TV im Hintergrund ohne Bildfortschritt.'));
+          return;
+        }
         armStallCheck();
         return;
       }
@@ -1021,8 +1035,21 @@
     }
 
     function resumed() {
-      if (destroyed || sourceMode !== 'broadcast' || !activeSessionId) return;
+      if (destroyed || sourceMode !== 'broadcast') return;
       if (global.document && global.document.visibilityState === 'hidden') return;
+      if (resumeRecoveryPending && !resumeRecoveryInFlight) {
+        resumeRecoveryInFlight = true;
+        const token = recoveryEpoch;
+        Promise.resolve(resumeStopPromise).then(function () {
+          if (destroyed || sourceMode !== 'broadcast' || token !== recoveryEpoch) return;
+          resumeRecoveryPending = false;
+          resumeRecoveryInFlight = false;
+          recovering = false;
+          scheduleRecovery(new Error('Live-TV wird nach Hintergrundpause neu verbunden.'));
+        });
+        return;
+      }
+      if (!activeSessionId) return;
       noteFrameProgress();
       if (!recovering && !playbackFailed) {
         if (Date.now() - lastProgressAt >= LIVE_STALL_THRESHOLD_MS) {
@@ -1123,7 +1150,8 @@
     function scheduleRecovery(error) {
       if (destroyed || sourceMode !== 'broadcast' || playbackFailed ||
           recoveryTimer !== null) return;
-      if (!started || !activeSessionId || !retryableLiveError(error) ||
+      const oldId = activeSessionId || resumeReplacementId;
+      if (!started || !oldId || !retryableLiveError(error) ||
           recoveryAttempts >= LIVE_RECOVERY_BACKOFF_MS.length) {
         terminalPlaybackFailure(error);
         return;
@@ -1131,6 +1159,16 @@
       recovering = true;
       stableProgressSince = 0;
       releaseVideo();
+      if (global.document && global.document.visibilityState === 'hidden') {
+        // The stalled tab cannot make forward progress. Close its native
+        // owner once, then retry only after a real foreground resumption.
+        resumeReplacementId = oldId;
+        resumeRecoveryPending = true;
+        resumeRecoveryInFlight = false;
+        resumeStopPromise = stopActive(false);
+        setStatus('Live-TV im Hintergrund unterbrochen · Wiederaufnahme beim Öffnen des Tabs …', false);
+        return;
+      }
       const token = ++recoveryEpoch;
       const attempt = recoveryAttempts + 1;
       setStatus('Live-TV unterbrochen · Wiederverbindung ' + attempt + '/' +
@@ -1139,7 +1177,7 @@
         recoveryTimer = null;
         if (destroyed || sourceMode !== 'broadcast' || token !== recoveryEpoch) return;
         recoveryAttempts = attempt;
-        openBroadcastSession(activeSessionId, token);
+        openBroadcastSession(activeSessionId || resumeReplacementId, token);
       }, LIVE_RECOVERY_BACKOFF_MS[recoveryAttempts]);
     }
 
@@ -1183,6 +1221,7 @@
         }
         delete stoppedSessions[id];
         activeSessionId = id;
+        resumeReplacementId = '';
         recovering = false;
         const playRequest = connectMediaPath(
           mediaPath,
