@@ -112,6 +112,8 @@ const char* commandText(SuiteBridgeLocalCommand command)
             return "PLUG suitebridge SNAP\r\n";
         case SuiteBridgeLocalCommand::OsdSnapshot:
             return "PLUG suitebridge OSDSNAP\r\n";
+        case SuiteBridgeLocalCommand::VideoDirectory:
+            return "PLUG suitebridge VPATH 1\r\n";
     }
     return nullptr;
 }

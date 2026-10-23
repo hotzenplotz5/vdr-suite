@@ -115,9 +115,7 @@ def check_spec(a):
 def check_source(a):
     if not SHA.fullmatch(a.repo_sha):
         raise Blocked("source SHA cannot be established with git rev-parse HEAD")
-    if a.args.profile != "offline" and a.branch not in (
-            "main", "work/public-v1-unified-acceptance-runner-20261023"):
-        raise Blocked("unexpected checkout branch for real VDR evidence")
+    # Any runner branch or detached checkout is valid. Target SHA is independent.
 
 
 def offline_unit(a):
@@ -240,21 +238,27 @@ def root(a):
 
 
 def runtime_match(a):
-    version = a.context["root"]["serverVersion"]
+    # Never compare the daemon to the test runner's repository HEAD.
+    expected = a.expected_daemon_commit
+    if not expected:
+        a.evidence = "NOT_VERIFIED (daemon target not configured)"
+        raise Blocked("expected daemon target commit missing; set --expected-daemon-commit")
+    d = a.context.get("root")
+    version = d.get("serverVersion") if isinstance(d, dict) else None
     if not isinstance(version, str):
-        raise Blocked("runtime did not expose a build identity")
-    # Repository builds explicitly default to git-<short SHA>;
-    # package-version overrides are not enough for final provenance.
-    if not version.startswith("git-") or len(version[4:]) < 7:
-        a.evidence = "NOT_VERIFIED (package release identity; source equivalence unknown)"
-        raise Blocked("daemon build identity is not a Git SHA; verify installed binary/package")
+        a.evidence = "NOT_VERIFIED (runtime build identity absent)"
+        raise Blocked("runtime did not expose a Git build identity")
+    if not re.fullmatch(r"git-[0-9a-f]{7,40}", version):
+        a.evidence = "NOT_VERIFIED (non-Git runtime identity)"
+        raise Blocked("daemon build identity is not a verifiable Git SHA")
     gitpart = version[4:]
-    if not re.fullmatch("[0-9a-f]{7,40}", gitpart):
-        raise Blocked("invalid git build identity")
-    if not a.repo_sha.startswith(gitpart):
-        a.evidence = "MISMATCH"
-        raise Blocked("installed daemon and source checkout have DIFFERENT commits")
-    a.evidence = "MATCHED_GIT_BUILD_ID (" + gitpart + ")"
+    if not expected.startswith(gitpart):
+        a.evidence = "MISMATCH (expected git-" + expected[:12] + ", reported " + version + ")"
+        raise Problem("daemon_version_mismatch",
+                      "expected git-" + expected[:12] + " but daemon reports " + version,
+                      path=V1, shape="daemon build matches explicitly selected target")
+    a.evidence = "MATCHED_DAEMON_TARGET_GIT_BUILD_ID (" + gitpart + ")"
+    a.context["runtime_verified"] = True
 
 
 def discovery(a):
@@ -710,6 +714,8 @@ def run_cases(a):
             return a.record(ident, area, "SKIP",
                             "offline profile intentionally does not contact any daemon",
                             required=False)
+        if ident not in ("discovery.root", "preflight.source-runtime"):
+            requires = ("runtime_verified",) + tuple(requires)
         return a.check(ident, area, task, requires=requires, required=required)
 
     hardware("discovery.root", "DISCOVERY", lambda: root(a))
@@ -792,9 +798,10 @@ def run_cases(a):
         ("timer.intent-create", "TIMER WRITE"), ("timer.native-mutations", "TIMER WRITE"),
         ("searchtimer.mutations", "SEARCHTIMER"), ("recording.actions", "RECORDINGS"),
         ("security.credential-and-grant-mutations", "SECURITY")):
-        a.record(ident, area, "SKIP",
-                 "profile forbids productive writes; no HTTP mutation attempted",
-                 required=False)
+        locked = a.args.profile == "controlled"
+        a.record(ident, area, "BLOCKED" if locked else "SKIP",
+                 "productive writes not authorized or executed; mutation dispatcher locked",
+                 required=locked)
     if a.args.profile == "controlled":
         hardware("controlled.approval", "INTEGRATION", lambda: controlled_gate(a))
         for name in ("recording.actions", "timer.intent", "native-timer.mutations",

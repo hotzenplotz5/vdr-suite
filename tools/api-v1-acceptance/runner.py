@@ -319,6 +319,11 @@ class Acceptance:
         self.args, self.cfg = args, cfg
         self.repo_sha = shell_git("rev-parse", "HEAD")
         self.branch = shell_git("branch", "--show-current")
+        # Runner Git HEAD is not the installed daemon Git identity.
+        self.expected_daemon_commit = (getattr(args, "expected_daemon_commit", None)
+                                       or cfg.get("expectedDaemonCommit"))
+        if self.expected_daemon_commit is not None and not SHA.fullmatch(self.expected_daemon_commit):
+            raise ConfigError("expected daemon commit must be an exact 40-character Git SHA")
         self.client = HttpClient(args.origin or cfg.get("origin", DEFAULT_ORIGIN), cfg)
         self.backend = args.backend or cfg.get("backend", "default")
         if not BACKEND.fullmatch(self.backend):
@@ -444,10 +449,11 @@ class Acceptance:
             "VDR-SUITE PUBLIC API V1 ACCEPTANCE",
             "==================================",
             "Date: " + self.started,
-            "Source commit: " + (self.repo_sha or "unknown"),
+            "Runner source commit: " + (self.repo_sha or "unknown"),
+            "Expected daemon commit: " + (self.expected_daemon_commit or "NOT_CONFIGURED"),
             "Source branch: " + (self.branch or "unknown"),
             "Installed daemon: " + self.runtime_version,
-            "Source/runtime verification: " + self.evidence,
+            "Daemon target verification: " + self.evidence,
             "Backend: " + self.backend,
             "Profile: " + self.args.profile, "",
         ]
@@ -475,7 +481,9 @@ class Acceptance:
                                 " operation_id=" + str(r["operationId"]), ""])
         errors = "\n".join(error_lines) + ("\n" if error_lines else "")
         bundle = {"schemaVersion": 1, "date": self.started, "sourceCommit": self.repo_sha,
-                  "sourceBranch": self.branch, "installedDaemon": self.runtime_version,
+                  "sourceBranch": self.branch,
+                  "expectedDaemonCommit": self.expected_daemon_commit,
+                  "installedDaemon": self.runtime_version,
                   "runtimeEvidence": self.evidence, "profile": self.args.profile,
                   "backend": self.backend, "acceptanceChecklist": self.sources,
                   "counts": counts, "overall": overall, "tests": self.results,
@@ -486,8 +494,7 @@ class Acceptance:
                                                  x["status"], x["reason"])) for x in self.results) + "\n"}
         for name, content in files.items():
             self._write(self.run_dir / name, content)
-            if name != "full.log":
-                self._write(self.output / ("last-" + name), content)
+            self._write(self.output / ("last-" + name), content)
         return overall
 
 
@@ -498,6 +505,8 @@ def arguments(argv=None):
     p.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     p.add_argument("--origin", help="override origin; HTTP is loopback-only")
     p.add_argument("--backend", help="authorized Public-v1 backend ID")
+    p.add_argument("--expected-daemon-commit",
+                   help="exact target daemon Git SHA, never inferred from runner checkout")
     p.add_argument("--output-dir", type=Path, default=DEFAULT_RESULTS)
     p.add_argument("--approval-file", type=Path,
                    help="hardware-only operator approval manifest (never triggers writes here)")

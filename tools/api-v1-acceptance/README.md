@@ -4,8 +4,8 @@ Die **einzige verbindliche Hardware-Abnahmecheckliste** ist [public-v1-final-har
 
 ## yaVDR: Standardlauf ohne Schreibzugriffe
 
-    cd ~/vdr-suite
-    python3 tools/run_api_v1_acceptance.py
+    # From an isolated PR #526 checkout, not the production main checkout:
+    python3 tools/run_api_v1_acceptance.py --profile readonly --expected-daemon-commit 68f6d05f0ed6dbd6691776910e17b29e0b779554
     cat ~/vdr-suite-api-v1-results/last-summary.txt
 
 Fehler lesen:
@@ -27,6 +27,7 @@ Externe Datei: ~/.config/vdr-suite/api-v1-acceptance.json. JSON-Objekt, Dateirec
 |---|---|
 | device.credentialId und device.credentialSecret | Vorhandenes gepaartes Device-Credential |
 | origin, backend | Optionaler Origin / genehmigter Backend |
+| expectedDaemonCommit | Vollständiger 40-stelliger Git-Commit des installierten Daemons, unabhängig vom Runner-Branch |
 | deniedBackend | Nachweislich nicht berechtigter Backend für Negative-Test |
 | existingOperationId | Bereits vorhandene eigene öffentliche `op_`-ID für autorisierten Operation-GET; niemals neu erzeugen |
 | mediaProfile.appVersion, mediaProfile.firmwareVersion, mediaProfile.playerVersion, mediaProfile.engine | Tatsächliches Device/Player-Profil |
@@ -35,11 +36,11 @@ Das bestehende Public-v1-Auth-Schema ist VDR-Suite-Device (opaque ID und Secret)
 
 ## Output und Exitcodes
 
-Das Ausgabeverzeichnis ist ~/vdr-suite-api-v1-results/ mit 0700. Dateien: last-summary.txt, last-errors.log, last-results.json sowie runs/UTC-TIMESTAMP/{summary.txt,errors.log,results.json,full.log} (0600). Nach jedem einzelnen Testfall wird atomar ein Snapshot persistiert; auch ein Abbruch bewahrt frühere Ergebnisse. Query-Werte, öffentliche Objekt-IDs, Media-URLs und Zugangsdaten werden nicht in Protokolle übernommen. Fehlerdaten enthalten sichere Routenstruktur, Kategorie, erwarteten/aktuellen HTTP-Status, erwartete Struktur und gegebenenfalls bereinigte Correlation-/Operation-ID.
+Das Ausgabeverzeichnis ist ~/vdr-suite-api-v1-results/ mit 0700. Dateien: last-summary.txt, last-errors.log, last-results.json, last-full.log sowie runs/UTC-TIMESTAMP/{summary.txt,errors.log,results.json,full.log} (0600). Nach jedem einzelnen Testfall wird atomar ein Snapshot persistiert; auch ein Abbruch bewahrt frühere Ergebnisse. Query-Werte, öffentliche Objekt-IDs, Media-URLs und Zugangsdaten werden nicht in Protokolle übernommen. Fehlerdaten enthalten sichere Routenstruktur, Kategorie, erwarteten/aktuellen HTTP-Status, erwartete Struktur und gegebenenfalls bereinigte Correlation-/Operation-ID.
 
 PASS = nachgewiesen, FAIL = tatsächliche Abweichung, SKIP = bewusst nicht ausgeführt, BLOCKED = Voraussetzung fehlt. Gesamt PASS nur wenn alle Pflichtprüfungen des gewählten Profils PASS; FAIL bei Fehlern, INCOMPLETE bei Blockern. Exitcodes: 0 PASS; 1 FAIL; 2 INCOMPLETE; 3 CONFIG_ERROR.
 
-Die installierte Build-Version wird gegen Git-HEAD geprüft, wenn serverVersion den Git-SHA-Prefix enthält. Abweichende oder nicht beweisbare Paketbuild-Identitäten blockieren die vollständige Abnahme; die VDR-/SuiteBridge-/Agent-Version und Binäridentität müssen zusätzlich im zentralen Hardwareprotokoll geprüft werden.
+Der installierte Daemon wird ausschließlich mit dem expliziten vollständigen Zielcommit `--expected-daemon-commit` bzw. `expectedDaemonCommit` aus der privaten Konfiguration verglichen, nicht mit dem Runner-HEAD. Ein echter Mismatch ergibt FAIL und sperrt alle abhängigen Hardware-GETs (BLOCKED); fehlender oder nicht beweisbarer Build-Nachweis ergibt BLOCKED. VDR-/SuiteBridge-/Agent-Version und Binäridentität bleiben getrennt zu prüfen.
 
 ## Abdeckung und noch offene Real-Hardware-Gates
 

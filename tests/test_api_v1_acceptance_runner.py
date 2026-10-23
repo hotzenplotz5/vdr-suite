@@ -234,6 +234,108 @@ class RunnerTests(unittest.TestCase):
         self.assertTrue(REQUIRED_ROUTES.issubset(spec["paths"]))
         self.assertIn("/api/v1/recording-playback-sessions/progress", spec["paths"])
 
+    def _version_a(self, out, expected=None, profile="readonly"):
+        args = argparse.Namespace(profile=profile, backend="default",
+            origin="http://127.0.0.1:18080", output_dir=Path(out),
+            approval_file=None, expected_daemon_commit=expected)
+        return Acceptance(args, {})
+
+    def test_runner_branch_sha_independent_from_daemon(self):
+        from cases import runtime_match
+        target = "68f6d05f0ed6dbd6691776910e17b29e0b779554"
+        with tempfile.TemporaryDirectory() as out:
+            a = self._version_a(out, target)
+            a.repo_sha = "b" * 40
+            a.context["root"] = {"serverVersion": "git-68f6d05f0ed6"}
+            runtime_match(a)
+            self.assertTrue(a.context["runtime_verified"])
+            a.record("preflight.source-runtime", "INTEGRATION", "PASS")
+            result = json.loads((Path(out)/"last-results.json").read_text())
+            self.assertEqual(result["sourceCommit"], "b"*40)
+            self.assertEqual(result["expectedDaemonCommit"], target)
+            self.assertTrue((Path(out)/"last-full.log").exists())
+
+    def test_actual_daemon_mismatch_fails(self):
+        from cases import runtime_match
+        with tempfile.TemporaryDirectory() as out:
+            a = self._version_a(out, "68f6d05f0ed6dbd6691776910e17b29e0b779554")
+            a.context["root"] = {"serverVersion": "git-715b781206a2"}
+            with self.assertRaises(Problem) as err:
+                runtime_match(a)
+            self.assertEqual(err.exception.kind, "daemon_version_mismatch")
+            self.assertIn("MISMATCH", a.evidence)
+            self.assertNotIn("runtime_verified", a.context)
+
+    def test_missing_target_blocks_and_bad_sha_is_config_error(self):
+        from cases import runtime_match
+        with tempfile.TemporaryDirectory() as out:
+            a = self._version_a(out)
+            a.context["root"] = {"serverVersion": "git-68f6d05f0ed6"}
+            with self.assertRaises(Blocked):
+                runtime_match(a)
+            with self.assertRaises(ConfigError):
+                self._version_a(out, "68f6d05f0ed6")
+
+    def test_non_git_daemon_version_blocks(self):
+        from cases import runtime_match
+        with tempfile.TemporaryDirectory() as out:
+            a = self._version_a(out, "68f6d05f0ed6dbd6691776910e17b29e0b779554")
+            a.context["root"] = {"serverVersion": "release-1.2"}
+            with self.assertRaises(Blocked):
+                runtime_match(a)
+
+    def test_mismatch_suppresses_all_other_live_requests(self):
+        from cases import run_cases
+        with tempfile.TemporaryDirectory() as out:
+            a = self._version_a(out, "68f6d05f0ed6dbd6691776910e17b29e0b779554")
+            def fake_root(x):
+                x.context["root"] = {"serverVersion":"git-715b781206a2"}
+                x.runtime_version = "git-715b781206a2"
+            def fake_spec(x):
+                x.context["spec"] = True
+            with patch("cases.root", side_effect=fake_root), \
+                 patch("cases.check_spec", side_effect=fake_spec), \
+                 patch("cases.check_source"), patch("cases.source_contract_tests"), \
+                 patch("cases.offline_unit"), patch("cases.controlled_contracts_offline"), \
+                 patch.object(a.client,"get",side_effect=AssertionError("unexpected backend GET")):
+                run_cases(a)
+            state = {x["id"]:x["status"] for x in a.results}
+            self.assertEqual(state["preflight.source-runtime"], "FAIL")
+            self.assertEqual(state["backends.authorized"], "BLOCKED")
+            self.assertEqual(state["security.invalid-credential"], "BLOCKED")
+            self.assertEqual(state["recording.collection"], "BLOCKED")
+            self.assertEqual(a.persist(), "FAIL")
+
+    def test_controlled_writes_stay_blocked(self):
+        from cases import run_cases
+        with tempfile.TemporaryDirectory() as out:
+            a = self._version_a(out, profile="controlled")
+            with patch("cases.root", side_effect=Blocked("no daemon")), \
+                 patch("cases.check_source"), patch("cases.check_spec"), \
+                 patch("cases.source_contract_tests"), patch("cases.offline_unit"), \
+                 patch("cases.controlled_contracts_offline"), \
+                 patch.object(a.client,"get",side_effect=AssertionError("unexpected HTTP")):
+                run_cases(a)
+            state = {x["id"]:x["status"] for x in a.results}
+            self.assertEqual(state["controlled.approval"], "BLOCKED")
+            self.assertEqual(state["timer.intent-create"], "BLOCKED")
+            self.assertEqual(state["resume.progress-write"], "BLOCKED")
+            self.assertEqual(a.persist(), "INCOMPLETE")
+
+    def test_timeout_error_is_redacted(self):
+        import urllib.error
+        client = HttpClient("http://127.0.0.1:18080")
+        class FakeOpener:
+            def open(self, request, timeout):
+                raise urllib.error.URLError("credentialSecret=unsafe")
+        client.opener = FakeOpener()
+        with self.assertRaises(Blocked) as err:
+            client.expect("/api/v1")
+        self.assertNotIn("unsafe", err.exception.detail)
+
+    def test_schema_rejects_bool_as_integer(self):
+        self.assertFalse(validate(True, {"type":"integer"}, {}))
+
 
 if __name__ == "__main__":
     unittest.main()
