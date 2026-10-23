@@ -15,7 +15,7 @@ import time
 from inspect_device_auth_audit import AuditBlocked, daemon_database_path, open_ro
 
 REQUIRED = {
-    "mutation_operations": ("operation_id","backend_id","state"),
+    "mutation_operations": ("operation_id","backend_id","state","resource_type"),
     "backend_agent_command_reservations": ("operation_id","backend_id","command_id"),
     "backend_agent_commands": ("operation_id","backend_id","command_id","state"),
     "backend_agent_command_receipts": ("command_id",),
@@ -23,6 +23,20 @@ REQUIRED = {
         "command_id","result_category","verification_state","dispatch_state"),
 }
 BUDGET=6.0
+RESOURCES=("TimerAssignment","NativeTimerBinding","SearchTimer")
+COMMAND_STATES=("assigned","received","completed","expired","waiting_reconciliation")
+DISPATCH_STATES=("not_started","starting","accepted_by_executor","effect_reported")
+VERIFY_STATES=("verified","outcome_unknown")
+RESULT_STATES=("rejected","outcome_unknown","succeeded")
+
+
+def safe_class(label, known, *, absent):
+    # Never print arbitrary source/resource/diagnostic text from SQLite.
+    if label is None:
+        return absent
+    return label if isinstance(label,str) and label in known else "other"
+
+
 
 
 def inspect(conn, backend="default"):
@@ -82,6 +96,49 @@ def inspect(conn, backend="default"):
         if not results or len(results)!=8 or any(
             not isinstance(x,int) or x<0 for x in results):
             raise AuditBlocked("invalid bounded command evidence aggregate")
+        # Group *only* existing unknown Operation chains, including chains
+        # without an Agent Command or without a Result. Fixed allowlisted
+        # labels prevent resource names / untrusted result strings from
+        # escaping to terminal or public issue logs. DISTINCT prevents a
+        # duplicated command/attempt from inflating an operation count.
+        groups=list(conn.execute("""
+            SELECT
+              CASE
+                WHEN o.resource_type IN
+                   ('TimerAssignment','NativeTimerBinding','SearchTimer')
+                THEN o.resource_type ELSE 'other' END,
+              CASE
+                WHEN c.command_id IS NULL THEN 'no_command'
+                WHEN c.state IN ('assigned','received','completed',
+                    'expired','waiting_reconciliation') THEN c.state
+                ELSE 'other' END,
+              CASE
+                WHEN x.command_id IS NULL THEN 'no_result'
+                WHEN x.dispatch_state IN ('not_started','starting',
+                    'accepted_by_executor','effect_reported')
+                  THEN x.dispatch_state ELSE 'other' END,
+              CASE
+                WHEN x.command_id IS NULL THEN 'no_result'
+                WHEN x.verification_state IN ('verified','outcome_unknown')
+                  THEN x.verification_state ELSE 'other' END,
+              CASE
+                WHEN x.command_id IS NULL THEN 'no_result'
+                WHEN x.result_category IN
+                    ('rejected','outcome_unknown','succeeded')
+                  THEN x.result_category ELSE 'other' END,
+              COUNT(DISTINCT o.operation_id)
+            FROM mutation_operations o
+            LEFT JOIN backend_agent_commands c
+              ON c.backend_id=o.backend_id AND c.operation_id=o.operation_id
+            LEFT JOIN backend_agent_command_results x
+              ON x.command_id=c.command_id
+            WHERE o.backend_id=? AND o.state='outcome_unknown'
+            GROUP BY 1,2,3,4,5 ORDER BY 1,2,3,4,5
+        """,(backend,)))
+        if (len(groups)>int(results[0])*10+1 or any(
+              len(row)!=6 or not isinstance(row[5],int) or row[5]<0
+              for row in groups)):
+            raise AuditBlocked("invalid bounded command group evidence")
     except sqlite3.Error as error:
         raise AuditBlocked("read-only command evidence query failed or exceeded budget ("
                            +type(error).__name__+")") from error
@@ -101,6 +158,23 @@ def inspect(conn, backend="default"):
     print("DATABASE_ACCESS: READ_ONLY")
     for name,value in zip(names,results):
         print(name+":",value)
+    print("=== OUTCOME_UNKNOWN_COMMAND_CHAIN_BY_RESOURCE ===")
+    for resource, command, dispatch, verification, result, count in groups:
+        # SQL CASE values are hardcoded above, but retain a second check
+        # against unexpected types/source differences before publication.
+        fields=(
+            safe_class(resource,RESOURCES,absent="other"),
+            safe_class(command,COMMAND_STATES,absent="no_command")
+              if command!="no_command" else "no_command",
+            safe_class(dispatch,DISPATCH_STATES,absent="no_result")
+              if dispatch!="no_result" else "no_result",
+            safe_class(verification,VERIFY_STATES,absent="no_result")
+              if verification!="no_result" else "no_result",
+            safe_class(result,RESULT_STATES,absent="no_result")
+              if result!="no_result" else "no_result",
+        )
+        print("CHAIN resource={} command={} dispatch={} verification={} result={} operation_count={}".format(*fields,count))
+    print("CHAIN_GROUP_COUNTS_MAY_OVERLAP_IF_MULTIPLE_COMMANDS: TRUE")
     print("COUNT_UNIT: DISTINCT_OPERATION")
     print("MISSING_COMMAND_EVIDENCE_IS_NOT_PROOF_OF_NO_DISPATCH: TRUE")
     print("RESULT_EVIDENCE_IS_NOT_NATIVE_READBACK: TRUE")

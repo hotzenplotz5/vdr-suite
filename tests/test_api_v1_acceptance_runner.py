@@ -941,16 +941,16 @@ class RunnerTests(unittest.TestCase):
         import io
         from contextlib import redirect_stdout
         db=sqlite3.connect(":memory:")
-        db.execute("CREATE TABLE mutation_operations (operation_id TEXT,backend_id TEXT,state TEXT)")
+        db.execute("CREATE TABLE mutation_operations (operation_id TEXT,backend_id TEXT,state TEXT,resource_type TEXT)")
         db.execute("CREATE TABLE backend_agent_command_reservations (operation_id TEXT,backend_id TEXT,command_id TEXT)")
         db.execute("CREATE TABLE backend_agent_commands (operation_id TEXT,backend_id TEXT,command_id TEXT,state TEXT)")
         db.execute("CREATE TABLE backend_agent_command_receipts (command_id TEXT)")
         db.execute("CREATE TABLE backend_agent_command_results (command_id TEXT,result_category TEXT,verification_state TEXT,dispatch_state TEXT)")
-        db.executemany("INSERT INTO mutation_operations VALUES (?,?,?)",[
-            ("secret_op1","default","outcome_unknown"),
-            ("secret_op2","default","outcome_unknown"),
-            ("secret_op3","default","succeeded"),
-            ("secret_op4","other","outcome_unknown")])
+        db.executemany("INSERT INTO mutation_operations VALUES (?,?,?,?)",[
+            ("secret_op1","default","outcome_unknown","SearchTimer"),
+            ("secret_op2","default","outcome_unknown","TimerAssignment"),
+            ("secret_op3","default","succeeded","TimerAssignment"),
+            ("secret_op4","other","outcome_unknown","sensitive_other")])
         db.execute("INSERT INTO backend_agent_command_reservations VALUES (?,?,?)",
                    ("secret_op1","default","secret_command"))
         db.executemany("INSERT INTO backend_agent_commands VALUES (?,?,?,?)",[
@@ -973,6 +973,9 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(result["WITH_UNKNOWN_COMMAND_RESULT"],1)
         self.assertEqual(result["WITH_ACCEPTED_BY_EXECUTOR_RESULT"],1)
         self.assertIn("MISSING_COMMAND_EVIDENCE_IS_NOT_PROOF_OF_NO_DISPATCH",out.getvalue())
+        self.assertIn("CHAIN resource=TimerAssignment command=no_command dispatch=no_result",out.getvalue())
+        self.assertIn("CHAIN resource=SearchTimer command=waiting_reconciliation dispatch=accepted_by_executor",out.getvalue())
+        self.assertIn("CHAIN_GROUP_COUNTS_MAY_OVERLAP_IF_MULTIPLE_COMMANDS: TRUE",out.getvalue())
         for secret in ("secret_op","secret_command"):
             self.assertNotIn(secret,out.getvalue())
         db.close()
@@ -984,6 +987,33 @@ class RunnerTests(unittest.TestCase):
         db=sqlite3.connect(":memory:")
         with self.assertRaises(AuditBlocked):
             inspect(db)
+        db.close()
+
+    def test_unknown_chain_classifier_does_not_print_untrusted_result_labels(self):
+        from inspect_unknown_operation_delivery import inspect
+        import sqlite3
+        import io
+        from contextlib import redirect_stdout
+        db=sqlite3.connect(":memory:")
+        db.execute("CREATE TABLE mutation_operations (operation_id TEXT,backend_id TEXT,state TEXT,resource_type TEXT)")
+        db.execute("CREATE TABLE backend_agent_command_reservations (operation_id TEXT,backend_id TEXT,command_id TEXT)")
+        db.execute("CREATE TABLE backend_agent_commands (operation_id TEXT,backend_id TEXT,command_id TEXT,state TEXT)")
+        db.execute("CREATE TABLE backend_agent_command_receipts (command_id TEXT)")
+        db.execute("CREATE TABLE backend_agent_command_results (command_id TEXT,result_category TEXT,verification_state TEXT,dispatch_state TEXT)")
+        db.execute("INSERT INTO mutation_operations VALUES (?,?,?,?)",
+                   ("secret-id","default","outcome_unknown","PRIVATE_RESOURCE_NAME"))
+        db.execute("INSERT INTO backend_agent_commands VALUES (?,?,?,?)",
+                   ("secret-id","default","private-command-id","SENSITIVE-COMMAND"))
+        db.execute("INSERT INTO backend_agent_command_results VALUES (?,?,?,?)",
+                   ("private-command-id","SENSITIVE-RESULT","SENSITIVE-VERIFY","SENSITIVE-DISPATCH"))
+        capture=io.StringIO()
+        with redirect_stdout(capture):
+            values=inspect(db)
+        output=capture.getvalue()
+        self.assertEqual(values["OUTCOME_UNKNOWN_OPERATIONS"],1)
+        self.assertIn("CHAIN resource=other command=other dispatch=other verification=other result=other",output)
+        for secret in ("secret-id","private-command-id","PRIVATE_RESOURCE_NAME","SENSITIVE-"):
+            self.assertNotIn(secret,output)
         db.close()
 
 
