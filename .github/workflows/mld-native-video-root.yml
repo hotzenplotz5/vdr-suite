@@ -15,6 +15,7 @@ on:
       - "vdr-plugin-suite-bridge/suitebridge_svdrp.cpp"
       - "mk/agent-tests.mk"
       - "tools/check_suitebridge_video_directory_wiring.py"
+      - "tools/check_suite_bridge_svdrp_transport_boundary.py"
   workflow_dispatch:
 
 permissions:
@@ -33,7 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          make test-suite-bridge-video-directory-discovery test-suite-bridge-svdrp-transport 2>&1 | tee mld-native-root-test.log
+          make test-suite-bridge-video-directory-discovery test-suite-bridge-svdrp-transport test-suite-bridge-svdrp-transport-boundary 2>&1 | tee mld-native-root-test.log
           echo 'MLD_NATIVE_VDR_ROOT_SOURCE=PASS'
       - name: Upload validation log
         if: always()
