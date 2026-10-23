@@ -9,6 +9,7 @@ DAEMON_SRC += \
 
 test-public-v1-recording-progress-client:
 	node clients/reference-js/tests/test_public_v1_recording_progress_client.js
+	node clients/reference-js/tests/test_public_v1_recording_resume_session_client.js
 
 .PHONY: test-continue-watching test-continue-watching-security-request test-phase66-continue-watching-frontend install-phase66-continue-watching-assets test-phase66-continue-watching-install-staging
 
