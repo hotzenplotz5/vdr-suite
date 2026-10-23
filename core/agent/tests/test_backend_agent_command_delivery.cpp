@@ -331,9 +331,15 @@ int main()
     BackendAccessPolicy backendAccess;
     vdrsuite::addons::AddonActivationIntentRepository activation(db);
     assert(activation.ensureSchema());
+    // The independent Core-approved handler digest is mandatory at every
+    // reservation/receipt. This fixture starts with an exact approved pin.
+    std::string approvedDigest(64, 'a');
     vdrsuite::addons::MediaImportOperationFence coreFence(
         operations, identities, mediaGrants, agents, commands,
-        backendRegistry, backendAccess, activation);
+        backendRegistry, backendAccess, activation,
+        [&approvedDigest](const std::string& backendId, std::int64_t) {
+            return backendId == "default" ? approvedDigest : std::string{};
+        });
     BackendAgentCommandPollRequest importPoll = poll;
     importPoll.supportedCommandTypes = {"probe.noop", "addon.media.import"};
     assert(service.poll(
@@ -373,10 +379,17 @@ int main()
     trusted.versionCompatible = true;
     trusted.handlerRegistered = true;
     trusted.handlerHealthy = true;
+    trusted.approvedHandlerSha256 = approvedDigest;
     auto access = backendAccess.canWriteToBackend(backendRegistry, "default");
     const auto activated = activation.update(
         admin, {"rectools", "default", true, 0}, access, trusted);
     assert(activated.status == vdrsuite::addons::IntentStatus::ok);
+    // Same Agent/intent but a changed independently approved handler is
+    // never authorized by the old persisted desired-enable state.
+    approvedDigest = std::string(64, 'b');
+    assert(!coreFence.check(media, mediaReceipt, 118, fenceReason) &&
+           fenceReason == "media_import_provider_untrusted");
+    approvedDigest = std::string(64, 'a');
     assert(coreFence.check(media, mediaReceipt, 118, fenceReason));
     assert(fenceReason == "media_import_operation_and_grant_verified");
     assert(coreFence.effectiveMediaImportCapability(
