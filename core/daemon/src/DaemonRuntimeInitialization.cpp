@@ -754,11 +754,23 @@ bool DaemonRuntime::initialize()
         RestfulApiRecordingActionBackendConfig recordingActionConfig;
         recordingActionConfig.backendId = backendRuntimeContext->backendId;
         recordingActionConfig.basePath = "";
-        recordingActionConfig.videoDirectory = "/srv/vdr/video";
+        // The packaged yaVDR fallback remains for existing installations.
+        // A declared backend-root map is authoritative: missing/invalid
+        // entries must disable native recording writes, not silently write
+        // to another distribution's recording directory.
+        const auto& recordingRoots = config_.recordingVideoRoots();
+        const auto rootIt = recordingRoots.find(backendRuntimeContext->backendId);
+        const bool explicitlyConfigured = config_.recordingVideoRootsSpecified();
+        const bool configuredRootAvailable = rootIt != recordingRoots.end();
+        recordingActionConfig.videoDirectory = configuredRootAvailable
+            ? rootIt->second
+            : (explicitlyConfigured ? std::string() : "/srv/vdr/video");
         recordingActionConfig.apiMode =
             RestfulApiRecordingActionApiMode::SafeMutation;
-        recordingActionConfig.allowExecution = true;
-        recordingActionConfig.readOnly = false;
+        recordingActionConfig.allowExecution =
+            !explicitlyConfigured || configuredRootAvailable;
+        recordingActionConfig.readOnly =
+            explicitlyConfigured && !configuredRootAvailable;
 
         recordingActionBackendExecutorAdapterRegistry_->registerAdapter(
             std::make_shared<RestfulApiRecordingActionBackendExecutorAdapter>(
