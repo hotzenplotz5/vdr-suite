@@ -116,6 +116,10 @@ public:
         const auto it = bools_.find(key);
         return it == bools_.end() ? fallback : it->second;
     }
+    bool hasNumber(const std::string& key) const
+    {
+        return numbers_.count(key) != 0U;
+    }
     long long numberValue(const std::string& key, long long fallback = 0) const
     {
         const auto it = numbers_.find(key);
@@ -341,6 +345,7 @@ std::string serializeContinueWatching(
             << "\",\"subtitle\":\"" << jsonEscape(projectedSubtitle)
             << "\",\"posterUrl\":\"" << jsonEscape(projectedPoster)
             << "\",\"resumePositionSeconds\":" << item.resumePositionSeconds
+            << ",\"progressRevision\":" << item.revision
             << ",\"durationKnown\":" << (item.recording.durationKnown ? "true" : "false")
             << ",\"durationSeconds\":" << (item.recording.durationKnown ? item.recording.durationSeconds : 0)
             << ",\"lastActivityAt\":\"" << jsonEscape(item.lastActivityAt)
@@ -792,6 +797,56 @@ bool ContinueWatchingApiRuntime::tryHandlePost(
     const std::string operationId = parser.stringValue("operationId");
     if (recordingId.empty() || operationId.empty()) {
         response = errorResponse(400, "continue_watching_recording_operation_required");
+        return true;
+    }
+
+    // P1 opt-in CAS. The legacy protocol remains backwards-compatible;
+    // the current Browser frontend opts in, so a late Browser pause/stop
+    // cannot blindly overwrite a newer linked Device playback checkpoint.
+    if (parser.hasNumber("expectedRevision")) {
+        const long long expected=parser.numberValue("expectedRevision",-1);
+        if (expected<0) {
+            response=errorResponse(400,"continue_watching_revision_invalid");
+            return true;
+        }
+        ContinueWatchingMutationResult updated;
+        if (operation=="progress") {
+            const long long position=parser.numberValue("positionSeconds",-1);
+            if (position<0 || position>INT_MAX) {
+                response=errorResponse(400,"continue_watching_position_invalid");
+                return true;
+            }
+            updated=service_->recordProgressConditional(
+                actorRef,backendId,recordingId,static_cast<int>(position),
+                parser.boolValue("resumeSupported",false),operationId,expected);
+        } else if (operation=="clear") {
+            updated=service_->clearConditional(
+                actorRef,backendId,recordingId,operationId,expected);
+        } else {
+            response=errorResponse(400,"continue_watching_operation_invalid");
+            return true;
+        }
+        using Status=ContinueWatchingMutationStatus;
+        if(updated.status==Status::conflict) {
+            response=errorResponse(409,"continue_watching_revision_conflict");
+            response.body="{\"error\":{\"code\":\"continue_watching_revision_conflict\"},"
+                "\"currentRevision\":"+std::to_string(updated.revision)+"}";
+            return true;
+        }
+        if(updated.status==Status::invalid) {
+            response=errorResponse(400,"continue_watching_invalid_request");
+            return true;
+        }
+        if(updated.status==Status::unavailable) {
+            response=errorResponse(503,"continue_watching_write_failed");
+            return true;
+        }
+        response.statusCode=200;
+        response.contentType="application/json";
+        response.headers["Cache-Control"]="no-store";
+        response.body="{\"ok\":true,\"revision\":"+
+            std::to_string(updated.revision)+
+            ",\"replayed\":"+(updated.status==Status::replayed?"true":"false")+"}";
         return true;
     }
 
