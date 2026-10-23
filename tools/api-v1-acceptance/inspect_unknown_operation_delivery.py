@@ -15,12 +15,12 @@ import time
 from inspect_device_auth_audit import AuditBlocked, daemon_database_path, open_ro
 
 REQUIRED = {
-    "mutation_operations": ("operation_id","backend_id","state","resource_type","action_family"),
+    "mutation_operations": ("operation_id","backend_id","state","resource_type","action_family","result_reference"),
     "backend_agent_command_reservations": ("operation_id","backend_id","command_id"),
     "backend_agent_commands": ("operation_id","backend_id","command_id","state","command_type"),
     "backend_agent_command_receipts": ("command_id",),
     "backend_agent_command_results": (
-        "command_id","result_category","verification_state","dispatch_state","error_category"),
+        "command_id","result_category","verification_state","dispatch_state","error_category","result_evidence"),
 }
 BUDGET=6.0
 RESOURCES=("TimerAssignment","NativeTimerBinding","SearchTimer")
@@ -171,6 +171,50 @@ def inspect(conn, backend="default"):
               len(row)!=9 or not isinstance(row[8],int) or row[8]<0
               for row in groups)):
             raise AuditBlocked("invalid bounded command group evidence")
+        # Diagnose ONLY eligibility evidence for the narrow source fix:
+        # an exact old quarantine marker and a typed nonempty Agent result
+        # attached to the very same original toggle Operation. It is not a
+        # proof that the evidence is cryptographically/canonically valid or
+        # that the original bound timer is still unchanged.
+        toggle = conn.execute("""
+            SELECT COUNT(*),
+              COALESCE(SUM(CASE WHEN
+                o.result_reference='native-timer-modify:missing-result-evidence'
+                THEN 1 ELSE 0 END),0),
+              COALESCE(SUM(CASE WHEN EXISTS (
+                 SELECT 1 FROM backend_agent_commands c
+                 JOIN backend_agent_command_results r
+                    ON r.command_id=c.command_id
+                 WHERE c.backend_id=o.backend_id
+                   AND c.operation_id=o.operation_id
+                   AND c.command_type='vdr.timer.toggle'
+                   AND r.result_evidence<>''
+                   AND r.dispatch_state='not_started'
+                   AND r.verification_state='verified'
+                   AND r.result_category='rejected'
+              ) THEN 1 ELSE 0 END),0),
+              COALESCE(SUM(CASE WHEN
+                o.result_reference='native-timer-modify:missing-result-evidence'
+                AND EXISTS (
+                  SELECT 1 FROM backend_agent_commands c
+                  JOIN backend_agent_command_results r
+                    ON r.command_id=c.command_id
+                  WHERE c.backend_id=o.backend_id
+                    AND c.operation_id=o.operation_id
+                    AND c.command_type='vdr.timer.toggle'
+                    AND r.result_evidence<>''
+                    AND r.dispatch_state='not_started'
+                    AND r.verification_state='verified'
+                    AND r.result_category='rejected'
+                ) THEN 1 ELSE 0 END),0)
+            FROM mutation_operations o
+            WHERE o.backend_id=? AND o.state='outcome_unknown'
+              AND o.resource_type='NativeTimerBinding'
+              AND o.action_family='timer.toggle'
+        """,(backend,)).fetchone()
+        if not toggle or len(toggle)!=4 or any(
+            not isinstance(x,int) or x<0 for x in toggle):
+            raise AuditBlocked("invalid read-only quarantine evidence count")
     except sqlite3.Error as error:
         raise AuditBlocked("read-only command evidence query failed or exceeded budget ("
                            +type(error).__name__+")") from error
@@ -211,6 +255,17 @@ def inspect(conn, backend="default"):
               if error!="no_result" else "no_result",
         )
         print("CHAIN resource={} command={} dispatch={} verification={} result={} action={} command_type={} error={} operation_count={}".format(*fields,count))
+    print("=== NATIVE_TOGGLE_VERIFIED_REJECTION_CANDIDACY ===")
+    for name,count in zip((
+        "UNKNOWN_NATIVE_TOGGLE_OPERATIONS",
+        "WITH_EXACT_EVIDENCE_FREE_QUARANTINE_MARKER",
+        "WITH_NONEMPTY_TYPED_AGENT_NO_EFFECT_RESULT",
+        "WITH_BOTH_SAME_OPERATION",
+    ),toggle):
+        print(name+":",count)
+    print("NONEMPTY_EVIDENCE_IS_NOT_VALIDATED_AGENT_EVIDENCE: TRUE")
+    print("UNCHANGED_BINDING_NOT_PROVEN_BY_THIS_QUERY: TRUE")
+    print("RECOVERY_OR_STATE_CHANGE_PERFORMED: FALSE")
     print("CHAIN_GROUP_COUNTS_MAY_OVERLAP_IF_MULTIPLE_COMMANDS: TRUE")
     print("COUNT_UNIT: DISTINCT_OPERATION")
     print("MISSING_COMMAND_EVIDENCE_IS_NOT_PROOF_OF_NO_DISPATCH: TRUE")
