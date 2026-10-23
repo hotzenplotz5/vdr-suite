@@ -119,6 +119,17 @@ bool MediaImportOperationFence::actorBackendAllowed(
         !intent.intent.desiredEnabled || intent.intent.revision <= 0)
         return denied(reason, "media_import_activation_disabled");
 
+    // A prior SQLite desired-enable row is never transferable across an
+    // Agent enrollment, instance restart or backend generation change.
+    // Unbound pre-migration intents have empty identity/generation and deny.
+    const auto activeAgent = agents_.findAgentForBackend(backendId);
+    if (!activeAgent || activeAgent->revoked || activeAgent->incompatible ||
+        intent.intent.backendGeneration == 0 ||
+        intent.intent.backendGeneration != activeAgent->backendGeneration ||
+        intent.intent.agentId != activeAgent->agentId ||
+        intent.intent.agentInstanceId != activeAgent->agentInstanceId)
+        return denied(reason, "media_import_activation_agent_stale");
+
     reason = "media_import_actor_backend_authorized";
     return true;
 }
