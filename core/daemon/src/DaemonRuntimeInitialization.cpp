@@ -2497,8 +2497,42 @@ bool DaemonRuntime::initialize()
                                      0, false, revision, key, true);
         });
 
+    // Grant eligibility uses live Agent capabilities but does not require
+    // the actor grant being created. The execution fence checks that grant.
+    auto addonGrantEligibility = [this](
+        const std::string& permission, const std::string& backendId) -> bool
+    {
+        if ((permission != "addons.media.import" &&
+             permission != "addons.media.shrink") ||
+            backendId.empty() || backendId == "*" ||
+            !backendRegistryService_ || !backendAccessPolicy_ ||
+            !backendAgentRepository_ || !backendAgentCommandRepository_)
+            return false;
+        const auto access = backendAccessPolicy_->canWriteToBackend(
+            *backendRegistryService_, backendId);
+        if (!access.backendFound || !access.allowed || access.readOnly)
+            return false;
+        const auto agent = backendAgentRepository_->findAgentForBackend(backendId);
+        const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        if (!agent || agent->backendId != backendId || agent->revoked ||
+            agent->incompatible || agent->agentId.empty() ||
+            agent->agentInstanceId.empty() || agent->backendGeneration == 0 ||
+            agent->leaseExpiresAt < now)
+            return false;
+        const auto has = [&](const std::string& type) {
+            return backendAgentCommandRepository_->hasCapability(
+                backendId, agent->agentId, agent->agentInstanceId,
+                agent->backendGeneration, type);
+        };
+        if (permission == "addons.media.import")
+            return has("addon.media.import");
+        return has(vdrsuite::mediatools::kMediaShrinkStageCommandType) &&
+               has(vdrsuite::mediatools::kMediaShrinkPublishCommandType);
+    };
     auto clientHttpServer = std::make_unique<RecordingArtworkHttpServer>(
-        std::make_unique<TestHttpServer>(*apiRouter_),
+        std::make_unique<TestHttpServer>(
+            *apiRouter_, std::move(addonGrantEligibility)),
         *vdrRecordingCacheRepository_,
         config_.recordingArtworkRoots());
     auto agentHttpServer = std::make_unique<BackendAgentHttpServer>(

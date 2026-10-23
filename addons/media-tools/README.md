@@ -10,10 +10,11 @@ Manifest and metadata-only packaging remain under `modules/rectools/`.
 
 Suite Core owns accounts, grants, command reservation, durable operations,
 backend generation, capability discovery and recording reconciliation.
-Media Tools owns only the import/check/shrink implementation. Import is
-first. Media Check now has a source-level local-backend API v1 and Recording
-Hero integration, but is not installed or activated as a production add-on.
-Shrink is not available yet.
+Media Tools owns only import, strictly read-only check and non-destructive
+HEVC shrink. All three have source-level components. The HEVC Agent, Public
+API v1 and Recording Hero are wired in source, but complete local integration,
+installation and real yaVDR acceptance remain unverified. No repair functionality
+is included or permitted (see `modules/rectools/AGENTS.md`).
 
 The add-on includes the pinned descriptor executor and protected Core/Agent
 command/results path. The production Agent executable has a **strictly explicit**
@@ -148,7 +149,7 @@ It advances only after canonical `succeeded` readback, never after an
 ambiguous Agent result, and stops if its bounded status polling ends. This
 is a foreground browser feature, **not** an unattended daemon scheduler.
 
-### HEVC shrink: offline review workflow only
+### HEVC shrink: standalone engine and source-integrated workflow
 
 `make addon-media-shrink test-addon-media-shrink` builds the real C++
 converter and its isolated source-preservation tests. A backend-local
@@ -166,20 +167,18 @@ is preserved by stream copy; incompatible audio is encoded to AAC (and
 night mode deliberately uses AAC). FFprobe duration/codec, smaller output
 size and VDR index must pass before review. Publication rechecks the
 source identity, the staged metadata/subtitle bytes and retained HEVC
-space savings before an atomic no-replace rename. The review/publish binaries remain outside
-the standard daemon and Agent mutation/API composition.
+space savings before an atomic no-replace rename. The standalone CLI is
+not the public mutation path; Core, Agent and API now compose the stage/publish
+workflow in source. Productive end-to-end acceptance is still outstanding.
 
-The new `MediaShrinkOperationSelection.h` is a **non-executing**
-path-free request shape for the eventual Core/API-v1 bridge. It only
-checks opaque `rec_...` recording IDs, `shk_...` review IDs and supported
-options; it neither resolves identifiers nor grants permissions, creates
-candidates or enables a route. Core must independently bind a candidate
-to the actor/backend/source operation, persist its lifecycle and require
-separate authorization for staging and publication. Browser filesystem
-paths remain forbidden. Its invalid-shape regressions run in the existing
-`test-addon-media-shrink` target. No new media mutation is exposed.
+`MediaShrinkOperationSelection.h` validates path-free API/Agent payloads
+with opaque `rec_...` and `shk_...` identities; it does not itself authorize
+or execute writes. The current daemon now reserves canonical Core Operations
+and forwards authorized Stage/Publish to an explicitly opted-in Agent.
+Browser filesystem paths remain forbidden. The isolated invalid-shape
+regressions run in `test-addon-media-shrink`.
 
-### HEVC read-only API v1 and durable Core review lifecycle
+### HEVC API v1 and durable Core review lifecycle
 
 The Recording Hero exposes **HEVC-Vorprüfung** only when an explicitly
 configured local backend video root and current snapshot are available.
@@ -189,15 +188,14 @@ and is reused through the original frontend symlink.
 opaque `rec_...` identifier; it resolves the path server-side and calls
 `inspectShrink` **read-only**. The security gate requires an authenticated
 actor, backend-specific `media.recording.play`, CSRF and accountability.
-`GET .../capabilities/media-shrink` exposes `planningAvailable` but
-deliberately reports `available:false`: no shrink write action is enabled.
+`GET .../capabilities/media-shrink` returns a read-only planning flag
+and an effective write-availability flag, which may only be true with a
+live Agent capability and current authorization/activation. Stage and Publish
+use distinct explicit authenticated POST routes and durable Operations.
 `GET /api/v1/backends/{backendId}/media-shrink-reviews/{reviewId}`
-reads a persisted `shk_...` candidate's `staged`, `publishing` or
-`published` status. Every read rechecks the effective backend-specific
-`media.recording.play` grant, audits the decision and reads only the
-requesting actor's own Core review row. No staging path, agent credential or
-source fingerprint is returned; the response says `publishAvailable:false`
-until the separately authorized publishing pipeline is implemented.
+reads the actor-bound candidate state. Each read rechecks the backend-scoped
+recording-read grant; only an authorized current review can allow Publish.
+No native filesystem path or Agent secret is returned.
 
 Core `MediaShrinkReviewRepository` stores an actor/backend-scoped review
 binding in the **existing SQLite authority**, not a second job queue.
@@ -219,10 +217,11 @@ without a trusted Agent executor. Tests cover forged paths, malformed
 options, stale backend generations, request/operation mismatches and
 terminal publication replay.
 
-The existing durable Agent command inbox can now invoke an explicitly
-injected `IMediaShrinkAgentExecutor` for stage or publish; the shipped
-binary deliberately **injects none**. Command availability is derived
-from the executor's live reviewed trust decision, not the manifest or
+The existing durable Agent command inbox invokes an explicitly injected
+`IMediaShrinkAgentExecutor` for stage or publish. The shipped Agent offers
+`--enable-media-shrink --media-shrink-state-dir ABSOLUTE` as an explicit
+opt-in, not an always-on capability. Availability comes from current
+reviewed handler trust and authorization, not the manifest or
 `COMMAND_TYPES`. The Agent persists a `starting` crash fence before
 calling an executor. A recovered attempt is reported as
 `outcome_unknown/reconcile_only`, never rerun. Even a returned opaque
@@ -231,11 +230,13 @@ must independently validate the correct operation and readback. The
 Agent runtime regression uses a synthetic executor and makes no media
 changes.
 
-**Not productive execution yet:** there is no Agent-authorized stage/publish
-handler, opaque candidate-to-file binding, dedicated effective shrink grant,
-or recording-cache reconciliation for publication. The UI only performs
-the read-only plan. This checkpoint changes no live recordings and does not
-enable the addon manifest.
+**Not yet end-to-end accepted:** an opted-in Agent executor, opaque
+candidate binding, exact backend-scoped `addons.media.shrink` grant, Core
+Stage/Publish Operations, browser controls and publish recording-cache
+reconciliation exist in the current source. Their complete runtime path,
+including actual grant eligibility in HTTP composition, needs local proof.
+The addon manifest remains disabled; no production VDR recordings have
+been modified in this workstream.
 
 ### Administrator-opted unattended imports (source integration)
 
