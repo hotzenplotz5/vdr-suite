@@ -776,6 +776,53 @@ class RunnerTests(unittest.TestCase):
         self.assertIn("2026-10-23T16:00:00+00:00",result.getvalue())
         c.close()
 
+    def test_existing_fixture_inventory_bounded_counts_only(self):
+        from inspect_existing_fixtures import inventory
+        import sqlite3
+        import io
+        from contextlib import redirect_stdout
+        conn=sqlite3.connect(":memory:")
+        conn.execute("CREATE TABLE timer_assignments (timer_assignment_id TEXT, backend_id TEXT, state TEXT, secret TEXT)")
+        conn.execute("CREATE TABLE mutation_operations (operation_id TEXT, backend_id TEXT, state TEXT, secret TEXT)")
+        conn.execute("CREATE TABLE native_timer_bindings (native_timer_binding_id TEXT, backend_id TEXT, ownership TEXT, secret TEXT)")
+        conn.executemany("INSERT INTO timer_assignments VALUES (?,?,?,?)", [
+            ("assign-private","default","bound","SENSITIVE"),
+            ("assign-other","other","selected","SENSITIVE")])
+        conn.execute("INSERT INTO mutation_operations VALUES (?,?,?,?)",
+                     ("op-private","default","succeeded","SENSITIVE"))
+        conn.execute("INSERT INTO native_timer_bindings VALUES (?,?,?,?)",
+                     ("native-private","default","managed","SENSITIVE"))
+        output=io.StringIO()
+        with redirect_stdout(output):
+            inventory(conn,"default")
+        text=output.getvalue()
+        self.assertIn("TIMER_ASSIGNMENTS: 1 existing",text)
+        self.assertIn("MUTATION_OPERATIONS: 1 existing",text)
+        self.assertIn("NATIVE_TIMER_BINDINGS: 1 existing",text)
+        self.assertIn("HTTP_AUTHORIZATION_AND_NATIVE_READBACK: NOT_VERIFIED",text)
+        self.assertNotIn("SENSITIVE",text)
+        self.assertNotIn("assign-private",text)
+        self.assertNotIn("op-private",text)
+        self.assertNotIn("assign-other",text)
+        conn.close()
+
+    def test_existing_fixture_inventory_absent_schema_is_explicit(self):
+        from inspect_existing_fixtures import inventory
+        from inspect_device_auth_audit import AuditBlocked
+        import sqlite3
+        import io
+        from contextlib import redirect_stdout
+        conn=sqlite3.connect(":memory:")
+        output=io.StringIO()
+        with redirect_stdout(output):
+            inventory(conn)
+        self.assertIn("TIMER_ASSIGNMENTS: SCHEMA_NOT_INSTALLED",output.getvalue())
+        self.assertIn("MUTATION_OPERATIONS: SCHEMA_NOT_INSTALLED",output.getvalue())
+        self.assertIn("NATIVE_TIMER_BINDINGS: SCHEMA_NOT_INSTALLED",output.getvalue())
+        with self.assertRaises(AuditBlocked):
+            inventory(conn,"../invalid")
+        conn.close()
+
 
 if __name__ == "__main__":
     unittest.main()
