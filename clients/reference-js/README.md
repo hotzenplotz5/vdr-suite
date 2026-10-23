@@ -101,3 +101,9 @@ never send a Device Credential to create a Human-Account link. An empty
 A paired Device without an explicit link continues under its separate Service
 actor. The server never trusts account IDs supplied by a Device while reading
 or updating recording progress.
+
+The bundled browser Continue Watching implementation remains on its
+CSRF-protected established endpoint; it does not call private routes from
+Public-v1 reference clients. It now uses a revision handshake at playback
+owner creation and versioned checkpoints. HTTP 409 intentionally blocks an
+older player from replaying a stale position.
