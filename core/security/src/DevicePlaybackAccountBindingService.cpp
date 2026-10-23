@@ -11,6 +11,7 @@
 #include <sqlite3.h>
 #include <sys/random.h>
 #include <algorithm>
+#include <cerrno>
 #include <array>
 #include <cctype>
 #include <ctime>
