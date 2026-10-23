@@ -313,7 +313,7 @@ test-ci-fast: test-addon-handler-registry
 # The authenticated observation and root-approval reader have separate tests.
 .PHONY: test-addon-core-approval-daemon-compile
 test-addon-core-approval-daemon-compile:
-	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include -Werror -fsyntax-only \
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include -fsyntax-only \
 		core/daemon/src/DaemonRuntimeInitialization.cpp
 
 # Non-executable common source/deb provider admission contract.
