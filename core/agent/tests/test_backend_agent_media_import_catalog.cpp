@@ -28,6 +28,31 @@ int main()
     assert(catalog.observedInstallation(
         live, "backend", 100, origin, version, sha256));
     assert(origin == "manual" && version == "0.1.0" && sha256 == approvedSha);
+    using namespace vdrsuite::addons;
+    RootApprovalResult coreApproval{
+        RootApprovalStatus::approved, InstallOrigin::manual, "0.1.0", approvedSha};
+    assert(catalog.matchesIndependentCoreApproval(
+        live, "backend", 100, coreApproval));
+    coreApproval.status = RootApprovalStatus::revoked;
+    assert(!catalog.matchesIndependentCoreApproval(
+        live, "backend", 100, coreApproval));
+    coreApproval.status = RootApprovalStatus::approved;
+    coreApproval.sha256 = std::string(64, 'b');
+    assert(!catalog.matchesIndependentCoreApproval(
+        live, "backend", 100, coreApproval));
+    coreApproval.sha256 = approvedSha;
+    coreApproval.origin = InstallOrigin::debian;
+    assert(!catalog.matchesIndependentCoreApproval(
+        live, "backend", 100, coreApproval));
+    coreApproval.origin = InstallOrigin::manual;
+    coreApproval.version = "0.2.0";
+    assert(!catalog.matchesIndependentCoreApproval(
+        live, "backend", 100, coreApproval));
+    coreApproval.version = "0.1.0";
+    assert(!catalog.matchesIndependentCoreApproval(
+        live, "other-backend", 100, coreApproval));
+    assert(!catalog.matchesIndependentCoreApproval(
+        live, "backend", 191, coreApproval));
     assert(!catalog.observedInstallation(
         live, "backend", 191, origin, version, sha256));
     assert(!catalog.publish(actor, live, "backend", "instance", 7,
@@ -46,10 +71,14 @@ int main()
     actor.actor.actorId = "actor-agent";
     live.agentInstanceId = "restarted";
     assert(!catalog.list(live, "backend", 140, items));
+    assert(!catalog.matchesIndependentCoreApproval(
+        live, "backend", 140, coreApproval));
     assert(catalog.publish(actor, live, "backend", "restarted", 7,
         {"source_00000000003"}, 140));
     live.backendGeneration = 8;
     assert(!catalog.list(live, "backend", 145, items));
+    assert(!catalog.matchesIndependentCoreApproval(
+        live, "backend", 145, coreApproval));
     assert(!catalog.publish(actor, live, "backend", "restarted", 7,
         {"source_00000000003"}, 145));
     assert(catalog.publish(actor, live, "backend", "restarted", 8,

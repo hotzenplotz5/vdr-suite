@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BackendAgentLifecycle.h"
+#include "AddonRootApproval.h"
 #include "SecurityIdentity.h"
 
 #include <algorithm>
@@ -110,6 +111,29 @@ public:
         version = current.handlerVersion;
         sha256 = current.handlerSha256;
         return true;
+    }
+
+
+    // Core must supply its OWN independently verified root-admin approval.
+    // Neither Agent metadata nor a matching self-reported digest is authority.
+    // This read-only check does not enable an add-on or authorize dispatch.
+    bool matchesIndependentCoreApproval(
+        const BackendAgentRecord& live,
+        const std::string& backendId,
+        std::int64_t now,
+        const vdrsuite::addons::RootApprovalResult& coreApproval) const
+    {
+        using vdrsuite::addons::InstallOrigin;
+        if (!coreApproval.approved() ||
+            (coreApproval.origin != InstallOrigin::manual &&
+             coreApproval.origin != InstallOrigin::debian)) return false;
+        std::string origin, version, sha256;
+        if (!observedInstallation(live, backendId, now, origin, version, sha256))
+            return false;
+        return origin == (coreApproval.origin == InstallOrigin::manual
+                              ? "manual" : "debian") &&
+            version == coreApproval.version &&
+            sha256 == coreApproval.sha256;
     }
 
 private:

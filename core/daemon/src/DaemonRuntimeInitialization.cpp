@@ -7,6 +7,7 @@
 #include "BackendAgentMediaShrinkAssignment.h"
 #include "BackendAgentMediaImportAssignment.h"
 #include "MediaShrinkAuthorityCodec.h"
+#include "AddonRootApproval.h"
 
 #include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
 #include "ManualRecordingMetadataApiRuntime.h"
@@ -439,8 +440,15 @@ bool DaemonRuntime::initialize()
                 return result;
             }
             const auto live = backendAgentRepository_->findAgentForBackend(backendId);
-            if (!live || !mediaImportCatalog_->list(
-                    *live, backendId, now, result.ids))
+            if (!live) return result;
+            // Independent Core-host approval is the EXPECTED digest.
+            // A remote Agent observation cannot approve itself; Core never
+            // inspects the remote handler via its own local filesystem.
+            const auto coreApproval =
+                vdrsuite::addons::readRootMediaToolsApproval("/");
+            if (!mediaImportCatalog_->matchesIndependentCoreApproval(
+                    *live, backendId, now, coreApproval) ||
+                !mediaImportCatalog_->list(*live, backendId, now, result.ids))
                 return result;
             result.status = API::MediaImportSourceStatus::ok;
             return result;
