@@ -1049,8 +1049,47 @@ class RunnerTests(unittest.TestCase):
         self.assertIn("WITH_EXACT_EVIDENCE_FREE_QUARANTINE_MARKER: 2",output)
         self.assertIn("WITH_NONEMPTY_TYPED_AGENT_NO_EFFECT_RESULT: 2",output)
         self.assertIn("WITH_BOTH_SAME_OPERATION: 1",output)
+        self.assertIn("EXACT_MARKER_UNKNOWN_TOGGLE_OPERATIONS: 2",output)
+        self.assertIn("WITH_GENERIC_VERIFIED_REJECTION_BUT_EMPTY_OR_NULL_EVIDENCE: 1",output)
+        self.assertIn("WITH_ANY_NONEMPTY_AGENT_RESULT_EVIDENCE: 1",output)
+        self.assertIn("TYPED_REJECTION_RECOVERY_GATE: CANDIDATE_ONLY",output)
         self.assertIn("RECOVERY_OR_STATE_CHANGE_PERFORMED: FALSE",output)
         self.assertNotIn("PRIVATE_EVIDENCE",output)
+        db.close()
+
+
+    def test_legacy_generic_rejection_without_typed_evidence_is_blocked(self):
+        from inspect_unknown_operation_delivery import inspect
+        import sqlite3
+        import io
+        from contextlib import redirect_stdout
+        db=sqlite3.connect(":memory:")
+        db.execute("CREATE TABLE mutation_operations (operation_id TEXT,backend_id TEXT,state TEXT,resource_type TEXT,action_family TEXT,result_reference TEXT)")
+        db.execute("CREATE TABLE backend_agent_command_reservations (operation_id TEXT,backend_id TEXT,command_id TEXT)")
+        db.execute("CREATE TABLE backend_agent_commands (operation_id TEXT,backend_id TEXT,command_id TEXT,state TEXT,command_type TEXT)")
+        db.execute("CREATE TABLE backend_agent_command_receipts (command_id TEXT)")
+        db.execute("CREATE TABLE backend_agent_command_results (command_id TEXT,result_category TEXT,verification_state TEXT,dispatch_state TEXT,error_category TEXT,result_evidence TEXT)")
+        db.execute("INSERT INTO mutation_operations VALUES (?,?,?,?,?,?)",(
+          "PRIVATE_OPERATION","default","outcome_unknown","NativeTimerBinding",
+          "timer.toggle","native-timer-modify:missing-result-evidence"))
+        db.execute("INSERT INTO backend_agent_commands VALUES (?,?,?,?,?)",(
+          "PRIVATE_OPERATION","default","PRIVATE_COMMAND","completed","vdr.timer.toggle"))
+        db.execute("INSERT INTO backend_agent_command_results VALUES (?,?,?,?,?,?)",(
+          "PRIVATE_COMMAND","rejected","verified","not_started","fenced",None))
+        output=io.StringIO()
+        with redirect_stdout(output):
+            values=inspect(db)
+        self.assertEqual(values["OUTCOME_UNKNOWN_OPERATIONS"],1)
+        rendered=output.getvalue()
+        self.assertIn("WITH_EXACT_EVIDENCE_FREE_QUARANTINE_MARKER: 1",rendered)
+        self.assertIn("WITH_NONEMPTY_TYPED_AGENT_NO_EFFECT_RESULT: 0",rendered)
+        self.assertIn("WITH_BOTH_SAME_OPERATION: 0",rendered)
+        self.assertIn("EXACT_MARKER_UNKNOWN_TOGGLE_OPERATIONS: 1",rendered)
+        self.assertIn("WITH_GENERIC_VERIFIED_REJECTION_BUT_EMPTY_OR_NULL_EVIDENCE: 1",rendered)
+        self.assertIn("WITH_ANY_NONEMPTY_AGENT_RESULT_EVIDENCE: 0",rendered)
+        self.assertIn("TYPED_REJECTION_RECOVERY_GATE: BLOCKED",rendered)
+        self.assertNotIn("PRIVATE_OPERATION",rendered)
+        self.assertNotIn("PRIVATE_COMMAND",rendered)
         db.close()
 
 
