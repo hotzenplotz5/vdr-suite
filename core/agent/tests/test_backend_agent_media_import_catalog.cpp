@@ -17,11 +17,23 @@ int main()
     live.leaseExpiresAt = 300;
     std::vector<std::string> items;
     assert(!catalog.list(live, "backend", 100, items));
+    const std::string approvedSha(64, 'a');
     assert(catalog.publish(actor, live, "backend", "instance", 7,
-        {"source_00000000002", "source_00000000001"}, 100));
+        {"source_00000000002", "source_00000000001"}, 100,
+        "manual", "0.1.0", approvedSha));
     assert(catalog.list(live, "backend", 100, items));
     assert(items == (std::vector<std::string>{"source_00000000001",
                                              "source_00000000002"}));
+    std::string origin, version, sha256;
+    assert(catalog.observedInstallation(
+        live, "backend", 100, origin, version, sha256));
+    assert(origin == "manual" && version == "0.1.0" && sha256 == approvedSha);
+    assert(!catalog.observedInstallation(
+        live, "backend", 191, origin, version, sha256));
+    assert(!catalog.publish(actor, live, "backend", "instance", 7,
+        {}, 120, "manual", "0.1.0", "invalid-sha256"));
+    assert(!catalog.publish(actor, live, "backend", "instance", 7,
+        {}, 120, "other", "0.1.0", approvedSha));
     assert(!catalog.list(live, "backend", 191, items));
     assert(items.empty());
     assert(!catalog.publish(actor, live, "backend", "instance", 7,

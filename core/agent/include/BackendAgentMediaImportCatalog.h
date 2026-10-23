@@ -24,7 +24,10 @@ public:
                  const std::string& instanceId,
                  std::uint64_t generation,
                  const std::vector<std::string>& ids,
-                 std::int64_t now)
+                 std::int64_t now,
+                 const std::string& handlerOrigin = {},
+                 const std::string& handlerVersion = {},
+                 const std::string& handlerSha256 = {})
     {
         if (!actor.authenticated() || actor.actor.type != ActorType::Agent ||
             live.actorId != actor.actor.actorId ||
@@ -34,6 +37,16 @@ public:
             live.revoked || live.incompatible || live.leaseExpiresAt < now ||
             now <= 0 || ids.size() > 32U || backendId.empty() ||
             instanceId.empty()) return false;
+        const bool absent = handlerOrigin.empty() &&
+            handlerVersion.empty() && handlerSha256.empty();
+        const bool validDigest = handlerSha256.size() == 64U &&
+            std::all_of(handlerSha256.begin(), handlerSha256.end(),
+                [](unsigned char c) {
+                    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+                });
+        if (!absent &&
+            ((handlerOrigin != "manual" && handlerOrigin != "debian") ||
+             handlerVersion != "0.1.0" || !validDigest)) return false;
         std::vector<std::string> sorted = ids;
         for (const auto& id : sorted)
             if (!validSourceId(id)) return false;
@@ -43,7 +56,7 @@ public:
         std::lock_guard<std::mutex> guard(mutex_);
         snapshots_[backendId] = Snapshot{
             live.agentId, live.actorId, instanceId, generation, now,
-            std::move(sorted)};
+            std::move(sorted), handlerOrigin, handlerVersion, handlerSha256};
         return true;
     }
 
@@ -71,6 +84,34 @@ public:
         return true;
     }
 
+    // An authenticated Agent observation bound to its live lease. This is
+    // not independent Core authorization, and never activates a handler.
+    bool observedInstallation(const BackendAgentRecord& live,
+                              const std::string& backendId,
+                              std::int64_t now,
+                              std::string& origin,
+                              std::string& version,
+                              std::string& sha256) const
+    {
+        origin.clear(); version.clear(); sha256.clear();
+        if (now <= 0 || live.backendId != backendId || live.revoked ||
+            live.incompatible || live.leaseExpiresAt < now) return false;
+        std::lock_guard<std::mutex> guard(mutex_);
+        const auto found = snapshots_.find(backendId);
+        if (found == snapshots_.end()) return false;
+        const auto& current = found->second;
+        if (current.agentId != live.agentId ||
+            current.actorId != live.actorId ||
+            current.instanceId != live.agentInstanceId ||
+            current.generation != live.backendGeneration ||
+            current.capturedAt > now || now - current.capturedAt > 90 ||
+            current.handlerSha256.empty()) return false;
+        origin = current.handlerOrigin;
+        version = current.handlerVersion;
+        sha256 = current.handlerSha256;
+        return true;
+    }
+
 private:
     static bool validSourceId(const std::string& id)
     {
@@ -87,6 +128,9 @@ private:
         std::uint64_t generation;
         std::int64_t capturedAt;
         std::vector<std::string> ids;
+        std::string handlerOrigin;
+        std::string handlerVersion;
+        std::string handlerSha256;
     };
     mutable std::mutex mutex_;
     std::map<std::string, Snapshot> snapshots_;

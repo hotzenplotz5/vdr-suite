@@ -618,17 +618,22 @@ HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
     if (!mediaImportCatalog_)
         return errorResponse(503, "media_import_catalog_unavailable");
     std::string backendId, instanceId;
+    std::string handlerOrigin, handlerVersion, handlerSha256;
     std::uint64_t generation = 0;
     std::vector<std::string> sourceIds;
     if (!jsonString(request.body, "backendId", backendId) ||
         !jsonString(request.body, "agentInstanceId", instanceId) ||
         !jsonUnsigned(request.body, "backendGeneration", generation) ||
-        !jsonStringArray(request.body, "sourceIds", sourceIds))
+        !jsonStringArray(request.body, "sourceIds", sourceIds) ||
+        !jsonString(request.body, "handlerOrigin", handlerOrigin) ||
+        !jsonString(request.body, "handlerVersion", handlerVersion) ||
+        !jsonString(request.body, "handlerSha256", handlerSha256))
         return errorResponse(400, "invalid_media_import_sources_observation");
     const auto live = repository_.findAgentForBackend(backendId);
     if (!live || !mediaImportCatalog_->publish(
             context, *live, backendId, instanceId, generation,
-            sourceIds, unixNow()))
+            sourceIds, unixNow(),
+            handlerOrigin, handlerVersion, handlerSha256))
         return errorResponse(409, "media_import_sources_agent_fenced");
     return jsonResponse(200, "{\"outcome\":\"accepted\"}");
 }

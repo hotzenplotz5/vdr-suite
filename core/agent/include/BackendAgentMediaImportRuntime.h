@@ -22,6 +22,8 @@ public:
         IBackendAgentControlPlaneTransport& transport,
         CurrentContext currentContext);
     bool available() override;
+    bool verifiedInstallation(
+        vdrsuite::mediatools::MediaToolsInstallationEvidence& out) override;
     bool listTrustedSourceIds(std::vector<std::string>& out) override;
     bool authorize(const BackendAgentCommandAssignment& assignment,
                    const std::string& backendId,

@@ -33,6 +33,14 @@ inline bool parseMediaImportSelection(const std::string& payload, std::string& s
     return true;
 }
 
+// Read-only observation from the fixed root-admin approval + pinned binary.
+// It never authorizes execution or substitutes for a live Core grant.
+struct MediaToolsInstallationEvidence {
+    std::string origin;
+    std::string version;
+    std::string sha256;
+};
+
 enum class MediaImportAgentOutcome {
     rejected,  // Proven no effect
     submitted, // Handler accepted; recording still needs reconciliation
@@ -47,6 +55,8 @@ class IMediaImportAgentExecutor {
 public:
     virtual ~IMediaImportAgentExecutor() = default;
     virtual bool available() = 0;
+    virtual bool verifiedInstallation(MediaToolsInstallationEvidence& out)
+    { out = {}; return false; }
     // Default deny; only explicit trusted Agent composition may enumerate.
     virtual bool listTrustedSourceIds(std::vector<std::string>& out)
     { out.clear(); return false; }

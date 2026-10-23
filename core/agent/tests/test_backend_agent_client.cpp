@@ -947,6 +947,9 @@ public:
     int authorizations = 0;
     int listings = 0;
     bool available() override { return true; }
+    bool verifiedInstallation(
+        vdrsuite::mediatools::MediaToolsInstallationEvidence& out) override
+    { out = {"manual", "0.1.0", std::string(64, 'a')}; return true; }
     bool listTrustedSourceIds(std::vector<std::string>& ids) override
     {
         ++listings;
@@ -1059,6 +1062,8 @@ void test_media_import_actual_agent_runtime_no_double_dispatch()
     assert(transport.bodies[4].find("\"source_00000000001\"") !=
         std::string::npos);
     assert(transport.bodies[4].find("/media/input") == std::string::npos);
+    assert(transport.bodies[4].find("\"handlerVersion\":\"0.1.0\"") !=
+        std::string::npos);
     assert(transport.paths[5] == "/api/agent/v1/commands/poll");
     assert(transport.paths[6] == "/api/agent/v1/commands/receipt");
     assert(transport.paths[7] == "/api/agent/v1/commands/result");

@@ -2054,8 +2054,12 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
     std::string& reasonCode)
 {
     if (!config_.mediaImportExecutor) return true;
+    vdrsuite::mediatools::MediaToolsInstallationEvidence installed;
+    if (!config_.mediaImportExecutor->verifiedInstallation(installed))
+        installed = {};
     std::vector<std::string> ids;
-    if (!config_.mediaImportExecutor->listTrustedSourceIds(ids))
+    if (installed.sha256.empty() ||
+        !config_.mediaImportExecutor->listTrustedSourceIds(ids))
         ids.clear(); // Withdrawal/unreadable ledger always removes listings.
     if (ids.size() > 32U) ids.clear();
     for (const auto& id : ids)
@@ -2077,7 +2081,10 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
         if (index != 0U) body << ',';
         body << '"' << ids[index] << '"';
     }
-    body << "]}";
+    body << "],\"handlerOrigin\":\"" << jsonEscape(installed.origin)
+         << "\",\"handlerVersion\":\"" << jsonEscape(installed.version)
+         << "\",\"handlerSha256\":\"" << jsonEscape(installed.sha256)
+         << "\"}";
     const auto response = transport_.postAuthenticated(
         state_.agentId, state_.credentialSecret,
         "/api/agent/v1/observations/media-import-sources", body.str());

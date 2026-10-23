@@ -31,6 +31,33 @@ bool BackendAgentMediaImportRuntime::available()
     } catch (...) { return false; }
 }
 
+bool BackendAgentMediaImportRuntime::verifiedInstallation(
+    vdrsuite::mediatools::MediaToolsInstallationEvidence& out)
+{
+    out = {};
+    try {
+        if (!currentContext_) return false;
+        const auto context = currentContext_();
+        if (context.backendId != backendId_ || context.agentId.empty() ||
+            context.agentInstanceId.empty() || context.backendGeneration == 0 ||
+            context.credentialSecret.empty()) return false;
+        auto lock = vdrsuite::mediatools::MediaToolsImportRunLock::tryAcquire(
+            trustedRoot_,
+            vdrsuite::mediatools::MediaToolsImportRunLock::Mode::sharedExecution);
+        if (!lock) return false;
+        const auto snapshot = vdrsuite::addons::inspectMediaToolsInstallSnapshot(
+            trustedRoot_);
+        if (!snapshot.bytesVerified()) return false;
+        using vdrsuite::addons::InstallOrigin;
+        if (snapshot.origin != InstallOrigin::manual &&
+            snapshot.origin != InstallOrigin::debian) return false;
+        out.origin = snapshot.origin == InstallOrigin::manual ? "manual" : "debian";
+        out.version = snapshot.approvedVersion;
+        out.sha256 = snapshot.approvedSha256;
+        return true;
+    } catch (...) { return false; }
+}
+
 bool BackendAgentMediaImportRuntime::listTrustedSourceIds(
     std::vector<std::string>& out)
 {

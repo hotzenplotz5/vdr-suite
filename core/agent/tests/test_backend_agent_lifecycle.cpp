@@ -1028,7 +1028,9 @@ void test_http_protocol_and_redaction()
     sources.headers = connect.headers;
     sources.body =
         "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
-        "\"backendGeneration\":1,\"sourceIds\":[\"source_00000000001\"]}";
+        "\"backendGeneration\":1,\"sourceIds\":[\"source_00000000001\"],"
+        "\"handlerOrigin\":\"manual\",\"handlerVersion\":\"0.1.0\","
+        "\"handlerSha256\":\"" + std::string(64, 'a') + "\"}";
     const auto sourceObserved = server.handleRequest(sources);
     assert(sourceObserved.statusCode == 200);
     std::vector<std::string> ids;
@@ -1039,7 +1041,9 @@ void test_http_protocol_and_redaction()
     assert(ids == (std::vector<std::string>{"source_00000000001"}));
     sources.body =
         "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
-        "\"backendGeneration\":2,\"sourceIds\":[\"source_00000000002\"]}";
+        "\"backendGeneration\":2,\"sourceIds\":[\"source_00000000002\"],"
+        "\"handlerOrigin\":\"manual\",\"handlerVersion\":\"0.1.0\","
+        "\"handlerSha256\":\"" + std::string(64, 'a') + "\"}";
     assert(server.handleRequest(sources).statusCode == 409);
     sources.headers.erase("Authorization");
     assert(server.handleRequest(sources).statusCode == 401);
