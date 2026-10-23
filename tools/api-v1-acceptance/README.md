@@ -52,6 +52,6 @@ Die zentrale Hardwarematrix erfordert zusätzlich Human-/Admin-/Browser-CSRF- un
 
     python3 tools/run_api_v1_acceptance.py --profile controlled --approval-file /path/to/private-approval.json
 
-Das Approval-Manifest muss restriktive Rechte 0600 haben und den exakten sourceCommit, backend, targetHost, approvedFixtureIds, backupEvidence sowie rollbackEvidence enthalten. **Diese Datei entsperrt derzeit keinen produktiven HTTP-Write.** Kontrollierte Tests bleiben explizit BLOCKED, bis ein separat geprüfter Mutationsdispatcher sowie deine konkrete Freigabe mit neuen, eindeutig identifizierten Fixtures vorliegen. Keine historischen Hardware-Testobjekte wiederverwenden und keine pauschale Bereinigung durchführen.
+Das Approval-Manifest muss restriktive Rechte 0600 haben und den exakten **Daemon-Zielcommit** als sourceCommit (nicht Runner-HEAD), backend, targetHost, approvedFixtureIds, backupEvidence sowie rollbackEvidence enthalten. **Diese Datei entsperrt derzeit keinen produktiven HTTP-Write.** Kontrollierte Tests bleiben explizit BLOCKED, bis ein separat geprüfter Mutationsdispatcher sowie deine konkrete Freigabe mit neuen, eindeutig identifizierten Fixtures vorliegen. Keine historischen Hardware-Testobjekte wiederverwenden und keine pauschale Bereinigung durchführen.
 
 Der CI-Workflow public-api-v1-acceptance.yml führt die Offline-Matrix ohne Hardware und ohne Credentials aus.

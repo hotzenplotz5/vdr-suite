@@ -336,6 +336,24 @@ class RunnerTests(unittest.TestCase):
     def test_schema_rejects_bool_as_integer(self):
         self.assertFalse(validate(True, {"type":"integer"}, {}))
 
+    def test_controlled_manifest_binds_target_not_runner_sha(self):
+        from cases import controlled_gate
+        target = "68f6d05f0ed6dbd6691776910e17b29e0b779554"
+        with tempfile.TemporaryDirectory() as out:
+            a = self._version_a(out, target, profile="controlled")
+            a.repo_sha = "b" * 40
+            approval = Path(out) / "approval.json"
+            approval.write_text(json.dumps({
+                "sourceCommit":target, "backend":"default",
+                "targetHost":"http://127.0.0.1:18080",
+                "approvedFixtureIds":["test-fixture"], "backupEvidence":"none",
+                "rollbackEvidence":"none"}))
+            approval.chmod(0o600)
+            a.args.approval_file = approval
+            with self.assertRaises(Blocked) as e:
+                controlled_gate(a)
+            self.assertIn("mutation execution intentionally locked", e.exception.detail)
+
 
 if __name__ == "__main__":
     unittest.main()

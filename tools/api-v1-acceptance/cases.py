@@ -694,8 +694,16 @@ def controlled_gate(a):
                 "backupEvidence", "rollbackEvidence")
     if any(not payload.get(k) for k in required):
         raise Blocked("controlled approval manifest missing provenance/fixture/backup/rollback")
-    if payload["sourceCommit"] != a.repo_sha or payload["backend"] != a.backend:
-        raise Blocked("controlled approval does not bind this exact source/backend")
+    if (not a.expected_daemon_commit
+            or payload["sourceCommit"] != a.expected_daemon_commit
+            or payload["backend"] != a.backend):
+        raise Blocked("controlled approval does not bind the selected daemon target/backend")
+    if payload["targetHost"] != a.client.origin:
+        raise Blocked("controlled approval does not bind the selected daemon origin")
+    fixtures = payload["approvedFixtureIds"]
+    if not isinstance(fixtures, list) or not fixtures or not all(
+            isinstance(item, str) and item for item in fixtures):
+        raise Blocked("controlled approvedFixtureIds must contain explicitly selected fixtures")
     raise Blocked("mutation execution intentionally locked: no explicit operator "
                   "authorization has been granted for a real hardware write run")
 
