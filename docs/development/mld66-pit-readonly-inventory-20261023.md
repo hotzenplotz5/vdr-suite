@@ -39,6 +39,10 @@
 
 Pit subsequently confirmed read-only `PLUG suitebridge VPATH 1` on VDR 2.8.3, receiving `900 /data/tv`. He also reported another five-second `/recordings.json` timeout and recurring VDR restarts with an unspecified dump during MLD package-rebuild work. These are **separate findings**; the new success does not resolve RESTfulAPI or process stability. See [VPATH/HTTP/crash evidence](mld66-pit-vpath-http-crash-evidence-20261023.md) and the [bounded, opt-in probe](../../tools/mld66-readonly-http-probe.sh). Do not benchmark recordings while VDR is unstable.
 
+## RESTfulAPI recipe identity and 30-second result (Pit, 2026-10-23)
+
+Pit now confirms RESTfulAPI `SRC_URI` points to `yavdr/vdr-plugin-restfulapi` `master` and `SRCREV=79f9bd26370a08d6c5186c19cefa300c569045ea`. A full `/recordings.json` timed out after **30.002754 seconds** with HTTP 000 and 0 response bytes, while `/info.json` returned HTTP 200 in **0.001798 seconds**. The exact *declared* source revision is now known; final installed ELF/patch provenance is still unverified. A source audit at this revision identifies a recording-read lock covering list traversal and per-recording JSON metadata / filesystem / scraper processing, not yet an established hang cause. When VDR is stable, the opt-in `--recordings-html-sample` mode can distinguish shared VDR list/lock latency from JSON enrichment. See [detailed analysis](mld66-pit-vpath-http-crash-evidence-20261023.md).
+
 ## Acceptance status
 
 **MLD.1A** runtime inventory and SuiteBridge read-only `CAPS` response: **reported PASS**. **MLD.1B** standalone native Suite build/install: **NOT TESTED**. RESTfulAPI recording reads: **FAIL at 5s**. `/change-state` after update: **OPEN**. Native write acceptance, FFmpeg-backed features, network isolation and independent non-root Suite services: **OPEN**.
