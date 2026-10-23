@@ -103,6 +103,7 @@ CI_FAST_TESTS := \
 	test-phase-map-coverage \
 	test-github-update-safety-handoff \
 	test-recording-mutation-safety-policy \
+	test-restfulapi-safe-move-workflow \
 	test-restfulapi-recording-trash-contract \
 	test-systemd-unit-contract
 
