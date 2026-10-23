@@ -37,6 +37,13 @@ public:
                const BackendAgentCommandReceipt& receipt,
                std::int64_t now, std::string& reason) const;
 
+    // Persist the Agent's exact durable outcome in the canonical Operation.
+    // Execution result is NEVER proof of an independently verified candidate
+    // or native VDR Recording; success requires separate reconciliation.
+    bool applyResult(const BackendAgentCommandAssignment& assignment,
+                     const BackendAgentCommandResult& result,
+                     std::int64_t now, std::string& reason) const;
+
     // Real Core actor/backend/action permission preflight before reserving
     // an immutable stage/publish Operation. An authorized caller must ALSO
     // independently resolve the current recording/review and its source
