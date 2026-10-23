@@ -32,8 +32,11 @@ Verified in source on the pinned main baseline
 - MSE now distinguishes continuous Live EOF from legitimate completed
   recording/HbbTV media EOF. Live EOF enters an owner recovery path.
 - A browser owner uses a 20-second no-frame-progress liveness threshold with
-  five-second checks. Background tab checks defer while hidden; reactivation
-  allows a grace check. Paused playback is not classified as stalled.
+  five-second checks. A hidden tab whose video time stops progressing
+  closes its native owner instead of creating replacement workers or growing
+  its MSE buffer indefinitely; an explicit foreground resume starts a fenced
+  replacement after the best-effort STOP. Ordinary resume gets a grace check.
+  Paused playback is not classified as stalled.
   JavaScript throttling can delay these checks; it cannot be prevented.
 - Unexpected Live failures use at most three delayed retries (1/2/4 seconds)
   and preserve server-owned `replacesSessionId` STOP-old-before-OPEN-new
