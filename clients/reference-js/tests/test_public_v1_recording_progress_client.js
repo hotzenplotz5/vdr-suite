@@ -27,7 +27,10 @@ const client = createClient({
     assert.strictEqual(body.recordingId, recordingId);
     assert.strictEqual(body.backendId, 'default');
     assert.deepStrictEqual(Object.keys(body).sort(),
-      ['backendId','expectedRevision','operationId','positionSeconds','recordingId'].sort());
+      (body.positionSeconds > 0
+        ? ['backendId','expectedRevision','operationId','positionSeconds','recordingId','sessionId']
+        : ['backendId','expectedRevision','operationId','positionSeconds','recordingId']).sort());
+    if (body.positionSeconds > 0) assert.strictEqual(body.sessionId, 'owned-session');
     if (body.expectedRevision !== currentRevision) {
       return {ok: false, status: 409, text: async () => JSON.stringify({
         error: {code: 'recording_progress_revision_conflict'},
@@ -50,14 +53,14 @@ const identity = {backendId: 'default', recordingId};
   assert.strictEqual(state.revision, 0);
 
   const written = await client.updateRecordingProgress({
-    ...identity, positionSeconds: 2100, expectedRevision: 0,
+    ...identity, positionSeconds: 2100, expectedRevision: 0, sessionId: 'owned-session',
     operationId: 'confirmed-session-1'
   });
   assert.strictEqual(written.revision, 1);
   state = await client.getRecordingProgress(identity);
   assert.strictEqual(state.positionSeconds, 2100);
   await assert.rejects(client.updateRecordingProgress({
-    ...identity, positionSeconds: 110, expectedRevision: 0,
+    ...identity, positionSeconds: 110, expectedRevision: 0, sessionId: 'owned-session',
     operationId: 'delayed-session'
   }), error => error.status === 409);
   assert.strictEqual((await client.getRecordingProgress(identity)).positionSeconds, 2100);
