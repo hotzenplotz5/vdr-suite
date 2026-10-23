@@ -72,8 +72,19 @@ struct FakeProcess final : ProcessRunner {
                     return {0, incompatibleAudio ? "opus\n" : "aac\n"};
                 return {0, isOutput ? "hevc\nhevc\n" : "h264\nh264\n"};
             }
-            if (contains("format=duration"))
-                return {0, isOutput && badDuration ? "10.0\n" : "60.0\n"};
+            if (contains("format=duration")) {
+                if (isOutput && badDuration) return {0, "10.0\n"};
+                const fs::path inspected(args.back());
+                // Multiple VDR segments each describe part of the 60-second
+                // concatenated source, not a complete 60-second recording.
+                if (inspected.filename() == "00001.ts" &&
+                    !isOutput &&
+                    fs::exists(inspected.parent_path() / "00002.ts"))
+                    return {0, "30.0\n"};
+                if (inspected.filename() == "00002.ts")
+                    return {0, "30.0\n"};
+                return {0, "60.0\n"};
+            }
             if (contains("stream=height"))
                 return {0, badHeight ? "1080\n720\n" : "1080\n1080\n"};
             throw std::runtime_error("unexpected FFprobe request");
@@ -479,6 +490,32 @@ int main() {
             << evidence.substr(0, offset + marker.size()) << "10.0\n";
         reject([&] { publishShrinkCandidate(plan, candidate, runner); });
         assert(fs::exists(fixture.recording / "00001.ts") &&
+               !fs::exists(fixture.video / "Sample_HEVC"));
+        ++checks;
+    }
+    {
+        Fixture fixture;
+        std::ofstream(fixture.recording / "00002.ts", std::ios::binary)
+            << std::string(32768, 'X');
+        FakeProcess runner;
+        const auto plan = inspectShrink(fixture.video, fixture.relative());
+        const auto candidate = stageShrink(plan, runner,
+            [](const ShrinkPlan&) {});
+        // A forged numeric duration is invalid even when a candidate is
+        // shortened to MATCH that forged duration after Stage.
+        const auto markerPath = candidate / ".shrink-review";
+        std::ifstream input(markerPath, std::ios::binary);
+        const std::string content(std::istreambuf_iterator<char>{input},
+                                  std::istreambuf_iterator<char>{});
+        const std::string marker = "DURATION/1\n";
+        const auto offset = content.find(marker);
+        assert(offset != std::string::npos);
+        std::ofstream(markerPath, std::ios::binary | std::ios::trunc)
+            << content.substr(0, offset + marker.size()) << "10.0\n";
+        runner.badDuration = true;
+        reject([&] { publishShrinkCandidate(plan, candidate, runner); });
+        assert(fs::exists(fixture.recording / "00001.ts") &&
+               fs::exists(fixture.recording / "00002.ts") &&
                !fs::exists(fixture.video / "Sample_HEVC"));
         ++checks;
     }

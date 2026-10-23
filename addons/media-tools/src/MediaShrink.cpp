@@ -778,14 +778,22 @@ std::uint64_t verifyShrinkCandidate(const ShrinkPlan& plan,
     // Single-segment sources have an independent, read-only duration
     // reference at publication. Do not regress that check now that a
     // composite original duration is also carried for multi-segment input.
-    if (checked.segments.size() == 1) {
-        const double liveOriginalDuration = probeDuration(runner,
+    double liveOriginalDuration = 0;
+    // Never rely ONLY on a stored private-stage duration, which may be
+    // accidentally damaged or edited while the Agent was offline. Each
+    // original segment is re-probed read-only on the current source snapshot.
+    // The plan bounds this loop to at most 256 numbered TS files.
+    for (const auto& segment : checked.segments) {
+        const double part = probeDuration(runner,
             checked.videoRoot / checked.relativeRecording /
-            checked.segments.front().filename);
-        demand(std::fabs(liveOriginalDuration - originalDuration) <=
-               std::max(4.0, liveOriginalDuration * 0.02),
-               "staged HEVC source duration disagrees with live source");
+            segment.filename);
+        demand(std::isfinite(liveOriginalDuration + part),
+               "source duration sum overflow");
+        liveOriginalDuration += part;
     }
+    demand(std::fabs(liveOriginalDuration - originalDuration) <=
+           std::max(4.0, liveOriginalDuration * 0.02),
+           "staged HEVC source duration disagrees with live source");
     demand(nonempty(candidate / "00001.ts") &&
            nonempty(candidate / "index") && nonempty(candidate / "info"),
            "unverified HEVC candidate files");
