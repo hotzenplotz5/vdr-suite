@@ -23,6 +23,16 @@ AdmissionPreview AddonAdmissionReadService::previewMediaImport(
     if (intent.status != IntentStatus::ok)
         return {{false, AccessReason::activationStateUnavailable}, 0, false};
 
+    if (intent.intent.desiredEnabled &&
+        (intent.intent.backendGeneration == 0 ||
+         intent.intent.backendGeneration != verified.backendGeneration ||
+         intent.intent.agentId.empty() ||
+         intent.intent.agentId != verified.agentId ||
+         intent.intent.agentInstanceId.empty() ||
+         intent.intent.agentInstanceId != verified.agentInstanceId))
+        return {{false, AccessReason::activationStateUnavailable},
+                intent.intent.revision, false};
+
     verified.administratorEnabled = intent.intent.desiredEnabled;
     const AccessDecision final = canUseMediaImport(actor, backend, verified);
     return {final, intent.intent.revision, false};
