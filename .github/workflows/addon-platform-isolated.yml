@@ -52,6 +52,8 @@ on:
       - 'tools/addons/**'
       - 'mk/addons.mk'
       - 'web/frontend/settings-account-admin.js'
+      - 'web/frontend/settings-addons.js'
+      - 'web/frontend/tests/test_media_tools_admin_settings.js'
       - 'web/frontend/api/account-admin-client-api.js'
       - 'web/frontend/tests/test_mu9e_grant_mutation_ui.js'
       - 'web/frontend/api/public-v1-client.js'
@@ -161,6 +163,8 @@ jobs:
         run: |
           echo "TESTED_SHA=$(git rev-parse HEAD)"
           make test-ci-frontend
+          node --check web/frontend/settings-addons.js
+          node web/frontend/tests/test_media_tools_admin_settings.js
 
   frontend-install-staging:
     runs-on: ubuntu-latest
