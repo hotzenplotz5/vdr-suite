@@ -65,6 +65,9 @@ RuntimeEvidence independentEvidence()
     e.moduleId = "rectools";
     e.packageName = "vdr-suite-addon-media-tools";
     e.backendId = "backend-a";
+    e.agentId = "agent-a";
+    e.agentInstanceId = "instance-a";
+    e.backendGeneration = 19;
     e.installed = true;
     e.manifestValid = true;
     e.packageTrusted = true;
