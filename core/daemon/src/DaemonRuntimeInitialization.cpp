@@ -6,6 +6,7 @@
 #include "DaemonMediaShrinkAdmissionAuthority.h"
 #include "BackendAgentMediaShrinkAssignment.h"
 #include "BackendAgentMediaImportAssignment.h"
+#include "MediaShrinkAuthorityCodec.h"
 
 #include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
 #include "ManualRecordingMetadataApiRuntime.h"
@@ -2333,7 +2334,7 @@ bool DaemonRuntime::initialize()
         std::make_unique<TestHttpServer>(*apiRouter_),
         *vdrRecordingCacheRepository_,
         config_.recordingArtworkRoots());
-    httpServer_ = std::make_unique<BackendAgentHttpServer>(
+    auto agentHttpServer = std::make_unique<BackendAgentHttpServer>(
         std::move(clientHttpServer),
         *backendAgentLifecycleService_,
         *backendAgentCommandDeliveryService_,
@@ -2341,6 +2342,85 @@ bool DaemonRuntime::initialize()
         *backendAgentCredentialVerifierRepository_,
         *backendAgentIdentityRepository_,
         mediaImportCatalog_.get());
+    agentHttpServer->setMediaShrinkAuthorityLookup(
+        [this](const RequestSecurityContext& context,
+               const BackendAgentCommandReceipt& receipt) -> std::string
+        {
+            using namespace vdrsuite::mediatools;
+            using State = vdrsuite::operations::MutationOperationState;
+            if (context.actor.type != ActorType::Agent ||
+                !backendAgentCommandRepository_ ||
+                !backendAgentRepository_ || !mutationOperationRepository_ ||
+                !mediaShrinkOperationFence_ ||
+                !mediaShrinkReviewRepository_ || !mediaShrinkPlanRuntime_)
+                return {};
+            const auto assignment =
+                backendAgentCommandRepository_->findAssignment(
+                    receipt.commandId);
+            if (!assignment ||
+                (assignment->commandType != kMediaShrinkStageCommandType &&
+                 assignment->commandType != kMediaShrinkPublishCommandType) ||
+                receipt.backendId != assignment->backendId ||
+                receipt.agentId != assignment->agentId ||
+                receipt.agentInstanceId != assignment->agentInstanceId ||
+                receipt.backendGeneration != assignment->backendGeneration)
+                return {};
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            const auto agent = backendAgentRepository_->findAgentForBackend(
+                assignment->backendId);
+            if (!agent || agent->revoked || agent->incompatible ||
+                agent->actorId != context.actor.actorId ||
+                agent->agentId != assignment->agentId ||
+                agent->agentInstanceId != assignment->agentInstanceId ||
+                agent->backendGeneration != assignment->backendGeneration ||
+                agent->leaseExpiresAt < now)
+                return {};
+            std::string reason;
+            if (!mediaShrinkOperationFence_->check(
+                    *assignment, receipt, now, reason))
+                return {};
+            const auto selected = mutationOperationRepository_->findById(
+                assignment->operationId);
+            if (!selected.ok() ||
+                selected.operation.state != State::dispatching ||
+                selected.operation.backendId != assignment->backendId ||
+                selected.operation.backendGeneration !=
+                    assignment->backendGeneration)
+                return {};
+            const auto& op = selected.operation;
+            const bool stage = assignment->commandType ==
+                kMediaShrinkStageCommandType;
+            std::string recordingId = op.resourceId;
+            if (!stage) {
+                const auto review = mediaShrinkReviewRepository_->find(
+                    op.actorId, op.backendId, op.resourceId);
+                if (!review.ok() ||
+                    review.review.state != "publishing" ||
+                    review.review.publishOperationId != op.operationId ||
+                    review.review.backendGeneration !=
+                        op.backendGeneration ||
+                    review.review.sourceFingerprint !=
+                        op.expectedResourceFingerprint)
+                    return {};
+                recordingId = review.review.recordingId;
+            }
+            const auto paths = mediaShrinkPlanRuntime_->trustedSourcePaths(
+                op.backendId, recordingId,
+                op.expectedResourceFingerprint);
+            if (!paths) return {};
+            LocalMediaShrinkAuthority authority;
+            authority.actorId = op.actorId;
+            authority.backendId = op.backendId;
+            authority.operationId = op.operationId;
+            authority.recordingId = recordingId;
+            authority.sourceFingerprint = op.expectedResourceFingerprint;
+            authority.backendGeneration = op.backendGeneration;
+            authority.videoRoot = paths->videoRoot;
+            authority.relativeRecording = paths->relativeRecording;
+            return authoritywire::serialize(authority);
+        });
+    httpServer_ = std::move(agentHttpServer);
 
     auto lastVdrPoll = std::chrono::steady_clock::now();
 
