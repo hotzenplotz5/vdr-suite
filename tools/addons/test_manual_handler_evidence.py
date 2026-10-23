@@ -70,6 +70,11 @@ class ManualHandlerEvidenceTests(unittest.TestCase):
         finally:
             companion.unlink()
 
+    def test_fifo_handler_fails_closed_without_waiting_for_writer(self):
+        self.handler.unlink()
+        os.mkfifo(self.handler, 0o600)
+        self.assertEqual(self.evidence()["reason"], "unsafe-handler-file")
+
     def test_non_rectools_has_no_handler(self):
         self.assertEqual(examine(self.root, "image", self.digest)["reason"],
                          "no-reviewed-manual-handler")

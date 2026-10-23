@@ -210,6 +210,15 @@ class RootOwnedApprovalAcceptance(unittest.TestCase):
                                self.document["sha256"], "manual"),
                          self.approval)
 
+    def test_admin_issuer_does_not_block_on_fifo_handler(self):
+        self.approval.unlink()
+        self.handler.unlink()
+        os.mkfifo(self.handler, 0o600)
+        with self.assertRaisesRegex(IssueError, "binary-unsafe-handler-file"):
+            issue(self.root, "rectools", "0.1.0",
+                  self.document["sha256"], "manual")
+        self.assertFalse(self.approval.exists())
+
     def test_admin_issuer_rejects_unapproved_digest(self):
         self.approval.unlink()
         with self.assertRaises(IssueError):

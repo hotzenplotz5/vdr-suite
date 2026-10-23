@@ -50,7 +50,8 @@ def examine(root: Path, module: str, expected_sha256: str) -> dict:
             return deny("unsafe-handler-parent")
 
         fd = os.open(HANDLER.rsplit("/", 1)[-1],
-                     os.O_RDONLY | os.O_NOFOLLOW, dir_fd=held)
+                     os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK |
+                     os.O_CLOEXEC, dir_fd=held)
         with os.fdopen(fd, "rb") as source:
             first = os.fstat(source.fileno())
             if not stat.S_ISREG(first.st_mode):
