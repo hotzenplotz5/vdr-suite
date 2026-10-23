@@ -22,6 +22,7 @@ struct PublicRecordingProgressRequest
     std::string backendId;
     std::string recordingId;
     std::string operationId;
+    std::string sessionId; // active owned Device Session for nonzero progress
     int positionSeconds = -1;
     std::int64_t expectedRevision = -1;
     bool valid = false;
