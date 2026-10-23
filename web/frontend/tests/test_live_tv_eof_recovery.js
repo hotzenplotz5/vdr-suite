@@ -203,12 +203,15 @@ function dispatch(name, event) {(listeners[name] || []).slice().forEach(fn => fn
     request.replacesSessionId === 'live-3').length, 3);
   assert.ok(failed.element.children[1].textContent.includes('Live-TV beendet'));
   assert.strictEqual(pendingTimers.size, 0, 'retries must be bounded');
+  assert.strictEqual(await failed.start(), 'live-4',
+    'a new explicit user start may retry after exhausted automatic recovery');
+  await flush();
   failed.destroy();
 
   const hidden = window.VdrSuiteRecordings2Playback.createLivePanel(
     {id: 'C-1-1051-10301'}, 'default', {}
   );
-  assert.strictEqual(await hidden.start(), 'live-4');
+  assert.strictEqual(await hidden.start(), 'live-5');
   await flush();
   const before = sessionSequence;
   document.visibilityState = 'hidden';
@@ -218,7 +221,7 @@ function dispatch(name, event) {(listeners[name] || []).slice().forEach(fn => fn
     'background suspension must not be mistaken for a permanent STOP');
   assert.ok(hidden.element.children[1].textContent.includes('Wiederaufnahme'));
   assert.strictEqual(requests.filter(request => request.operation === 'stop' &&
-    request.sessionId === 'live-4').length, 1,
+    request.sessionId === 'live-5').length, 1,
     'a stalled hidden tab releases its native session before retrying');
   document.visibilityState = 'visible';
   dispatch('visibilitychange');
@@ -228,7 +231,7 @@ function dispatch(name, event) {(listeners[name] || []).slice().forEach(fn => fn
   assert.strictEqual(sessionSequence, before + 1,
     'foreground resume creates exactly one replacement session');
   assert.strictEqual(requests.filter(request => !request.operation).slice(-1)[0].replacesSessionId,
-    'live-4', 'resume must use server-fenced STOP-old-before-OPEN-new');
+    'live-5', 'resume must use server-fenced STOP-old-before-OPEN-new');
   hidden.destroy();
 
   const aborted = window.VdrSuiteRecordings2Playback.createLivePanel(
