@@ -212,6 +212,30 @@ int main()
     assert(executor.execute(a) == MediaImportAgentOutcome::rejected);
     assert(grants.checks >= 2);
 
+    // The installed executable may be altered IN PLACE after its descriptor
+    // was pinned. The initial SHA-256 cannot authorize these new bytes.
+    assert(executor.authorize(a, "backend", 19));
+    {
+        std::fstream file(fixture.binary,
+            std::ios::in | std::ios::out | std::ios::binary);
+        assert(static_cast<bool>(file));
+        char initial = 0;
+        file.get(initial);
+        assert(static_cast<bool>(file));
+        file.seekp(0);
+        file.put(static_cast<char>(initial ^ 0x01));
+        file.flush();
+        assert(static_cast<bool>(file));
+        assert(executor.execute(a) == MediaImportAgentOutcome::rejected);
+        file.seekp(0);
+        file.put(initial);
+        file.flush();
+        assert(static_cast<bool>(file));
+    }
+    assert(executor.available());
+    assert(executor.authorize(a, "backend", 19));
+    assert(executor.execute(a) == MediaImportAgentOutcome::submitted);
+
     fs::remove(fixture.runLock);
     assert(!executor.available());
     assert(executor.authorize(a, "backend", 19));
