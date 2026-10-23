@@ -103,6 +103,8 @@ bool MediaShrinkOperationFence::applyResult(
         op.actionFamily !=
             (stage ? "media.shrink.stage" : "media.shrink.publish") ||
         op.resourceType != (stage ? "Recording" : "MediaShrinkReview") ||
+        assignment.verificationPolicy !=
+            (stage ? "readback_required" : "reconciliation_required") ||
         op.resourceId != (stage ? selection.recordingId : selection.reviewId) ||
         op.expectedResourceFingerprint.empty())
         return deny(reason, "media_shrink_result_operation_conflict");
@@ -146,6 +148,17 @@ bool MediaShrinkOperationFence::applyResult(
         "agent.media.shrink:" + assignment.commandId;
     if (op.state == target && op.resultReference == reference) {
         reason = "media_shrink_result_already_applied";
+        return true;
+    }
+    if (op.state == State::succeeded &&
+        target == State::outcomeUnknown &&
+        result.dispatchState == "accepted_by_executor" &&
+        (stage ? op.resultReference == result.resultEvidence :
+                 vdrsuite::mediatools::shrinkOpaqueId(
+                     op.resultReference, "rec_"))) {
+        // An ACK lost after independent reconciliation cannot roll a
+        // verified operation backward or strand the Agent on result replay.
+        reason = "media_shrink_result_already_reconciled";
         return true;
     }
     if (op.state != State::dispatching)
