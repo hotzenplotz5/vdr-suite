@@ -104,8 +104,12 @@ int main() {
         return std::string(std::istreambuf_iterator<char>(file),
                            std::istreambuf_iterator<char>());
     }();
+    const fs::path relative = fs::path("Example") / recording.filename();
+    const std::string fingerprint =
+        shrinkSourceFingerprint(inspectShrink(root, relative));
     LocalMediaShrinkReviewStore store(state);
     Process process;
+    bool incorrectFingerprint = false;
     bool available = true;
     bool allowed = true;
     unsigned authorizeCalls = 0;
@@ -118,8 +122,8 @@ int main() {
             if (!allowed) return std::nullopt;
             return LocalMediaShrinkAuthority{
                 "actor-a", "backend-a", a.operationId, kRecording,
-                "source-fingerprint", 7, root,
-                fs::path("Example") / recording.filename()
+                incorrectFingerprint ? "forged_snapshot" : fingerprint,
+                7, root, relative
             };
         },
         [&]() -> ProcessRunner& { return process; });
@@ -133,6 +137,11 @@ int main() {
     auto forged = stage;
     forged.payload += ",\"path\":\"/etc/passwd\"";
     assert(!executor.authorize(forged, "backend-a", 7));
+    incorrectFingerprint = true;
+    assert(executor.authorize(stage, "backend-a", 7));
+    assert(executor.execute(stage) == MediaShrinkAgentOutcome::rejected);
+    assert(process.transcodes == 0);
+    incorrectFingerprint = false;
     assert(executor.authorize(stage, "backend-a", 7));
     allowed = false;
     assert(executor.execute(stage) == MediaShrinkAgentOutcome::rejected);
