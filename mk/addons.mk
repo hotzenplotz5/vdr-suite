@@ -113,6 +113,20 @@ test-addon-media-shrink-core-review:
 
 test-ci-fast: test-addon-media-shrink-core-review
 
+# Validate the structural HEVC command boundary before any Agent runtime is
+# allowed to consider this command type. No filesystem or command execution.
+.PHONY: test-addon-media-shrink-command-fence
+test-addon-media-shrink-command-fence:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror \
+		-I addons/media-tools/include -I core/addons/include \
+		-I core/agent/include -I core/operations/include \
+		core/addons/tests/test_media_shrink_command_fence.cpp \
+		-o "$(BUILD_DIR)/addons/test_media_shrink_command_fence"
+	"$(BUILD_DIR)/addons/test_media_shrink_command_fence"
+
+test-ci-fast: test-addon-media-shrink-command-fence
+
 # M2: read-only TS and FFmpeg engine, exercised via standalone CLI and
 # Suite API v1 integration on disposable fixtures; never touch real recordings.
 .PHONY: addon-media-check test-addon-media-check
