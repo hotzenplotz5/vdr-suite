@@ -156,6 +156,16 @@ is a foreground browser feature, **not** an unattended daemon scheduler.
 
 ### HEVC shrink: standalone engine and source-integrated workflow
 
+In the opted-in production Backend Agent, the HEVC executor is wrapped by
+`ProtectedMediaShrinkAgentExecutor`: each stage or publish must acquire the
+same fixed, root-controlled Media Tools shared execution lock as Import,
+and `NativeProcessRunner` preserves the borrowed lock FD across its ffmpeg/vdr
+`execv` children. The lock is held across the complete HEVC operation, not
+only individual subprocess calls, so an Agent crash while an FFmpeg child is
+still executing does not falsely release the package-maintenance lock.
+This does not authorize installation, enable an add-on or grant permissions.
+
+
 `make addon-media-shrink test-addon-media-shrink` builds the real C++
 converter and its isolated source-preservation tests. A backend-local
 administrator can inspect `vdr-suite-media-shrink plan VIDEO_ROOT RELATIVE.rec`

@@ -47,8 +47,12 @@ public:
     explicit NativeProcessRunner(
         std::chrono::seconds maximum = std::chrono::seconds(540));
     ProcessResult run(const std::vector<std::string>& argv, bool captureOutput) override;
+    // Used only by the backend Agent's scoped Media Tools maintenance guard.
+    // -1 clears the binding. The Runner never owns or closes the descriptor.
+    void bindMaintenanceLockFd(int fd) noexcept { maintenanceLockFd_ = fd; }
 private:
     std::chrono::seconds maximum_;
+    int maintenanceLockFd_ = -1;
 };
 
 // FFprobe on MPEG-TS can repeat one stream under stream/program entries.

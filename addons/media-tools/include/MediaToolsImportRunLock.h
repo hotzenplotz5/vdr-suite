@@ -54,6 +54,11 @@ public:
         return fd_ >= 0 && mode_ == Mode::exclusiveMaintenance;
     }
 
+    // A borrowed descriptor, valid only while THIS kernel-lock owner lives.
+    // The approved Agent may bind it to its fixed NativeProcessRunner;
+    // untrusted module requests never supply or choose it.
+    int borrowedDescriptorForChild() const noexcept { return fd_; }
+
     static std::optional<MediaToolsImportRunLock> tryAcquire(
         const std::string& trustedRoot, Mode mode)
     {

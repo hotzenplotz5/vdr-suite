@@ -640,6 +640,16 @@ ProcessResult NativeProcessRunner::run(const std::vector<std::string>& args,
         throw std::runtime_error("fork failed");
     }
     if (pid == 0) {
+        // Keep the exact protected shared maintenance lock across execv.
+        // If the Agent crashes while ffmpeg is still running, the kernel
+        // lock must remain held by that child until it terminates.
+        if (maintenanceLockFd_ >= 0) {
+            const int flags = ::fcntl(maintenanceLockFd_, F_GETFD);
+            if (flags < 0 ||
+                ::fcntl(maintenanceLockFd_, F_SETFD,
+                        flags & ~FD_CLOEXEC) != 0)
+                ::_exit(127);
+        }
         // The child remains in the Agent handler's process group: the
         // canonical Agent deadline can terminate it even if this parent dies.
         const int nullfd = ::open("/dev/null", O_RDWR | O_CLOEXEC);

@@ -5,6 +5,7 @@
 #include "BackendAgentMediaImportRuntime.h"
 #include "BackendAgentMediaShrinkAuthorization.h"
 #include "LocalMediaShrinkAgentExecutor.h"
+#include "ProtectedMediaShrinkAgentExecutor.h"
 #include "AddonInstallSnapshot.h"
 #include "MediaShrinkAgentCommand.h"
 #include "MediaToolsAgentExecutor.h"
@@ -370,6 +371,8 @@ int main(int argc, char** argv)
         shrinkRunner;
     std::unique_ptr<vdrsuite::mediatools::LocalMediaShrinkAgentExecutor>
         shrinkExecutor;
+    std::unique_ptr<vdrsuite::mediatools::ProtectedMediaShrinkAgentExecutor>
+        protectedShrinkExecutor;
     if (enableMediaShrink)
     {
         namespace fs = std::filesystem;
@@ -428,7 +431,12 @@ int main(int argc, char** argv)
                 [&]() -> vdrsuite::mediatools::ProcessRunner& {
                     return *shrinkRunner;
                 });
-        config.mediaShrinkExecutor = shrinkExecutor.get();
+        // The real Agent never injects the naked C++ shrink executor:
+        // the protective lock spans every stage/publish child process.
+        protectedShrinkExecutor = std::make_unique<
+            vdrsuite::mediatools::ProtectedMediaShrinkAgentExecutor>(
+                *shrinkExecutor, *shrinkRunner, "/");
+        config.mediaShrinkExecutor = protectedShrinkExecutor.get();
         for (const auto* type : {
                 vdrsuite::mediatools::kMediaShrinkStageCommandType,
                 vdrsuite::mediatools::kMediaShrinkPublishCommandType})
