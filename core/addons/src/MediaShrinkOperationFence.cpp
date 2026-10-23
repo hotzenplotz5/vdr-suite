@@ -48,6 +48,118 @@ MediaShrinkOperationFence::MediaShrinkOperationFence(
       backendRegistry_(backendRegistry), backendAccess_(backendAccess),
       activationIntents_(activationIntents), reviews_(reviews) {}
 
+bool MediaShrinkOperationFence::applyResult(
+    const BackendAgentCommandAssignment& assignment,
+    const BackendAgentCommandResult& result,
+    std::int64_t now, std::string& reason) const
+{
+    using State = vdrsuite::operations::MutationOperationState;
+    using Policy = vdrsuite::operations::MutationOperationVerificationPolicy;
+    reason.clear();
+    const bool stage = assignment.commandType ==
+        vdrsuite::mediatools::kMediaShrinkStageCommandType;
+    const bool publish = assignment.commandType ==
+        vdrsuite::mediatools::kMediaShrinkPublishCommandType;
+    if (now <= 0 || (!stage && !publish) ||
+        !backendAgentCommandValidAssignment(assignment) ||
+        !backendAgentCommandValidResult(result) ||
+        result.commandId != assignment.commandId ||
+        result.jobId != assignment.jobId ||
+        result.attemptId != assignment.attemptId ||
+        result.claimEpoch != assignment.claimEpoch ||
+        result.backendId != assignment.backendId ||
+        result.agentId != assignment.agentId ||
+        result.agentInstanceId != assignment.agentInstanceId ||
+        result.backendGeneration != assignment.backendGeneration ||
+        result.requestFingerprint != assignment.requestFingerprint ||
+        result.completedAt < assignment.assignedAt ||
+        result.completedAt > now)
+        return deny(reason, "media_shrink_result_fence_invalid");
+
+    // The command journal has already committed this exact result. Replays
+    // may only repeat the same immutable journal entry.
+    const auto recorded = commands_.resultForCommand(assignment.commandId);
+    if (!recorded ||
+        backendAgentCommandResultIdentity(*recorded) !=
+            backendAgentCommandResultIdentity(result))
+        return deny(reason, "media_shrink_result_not_durable");
+    const auto selected = operations_.findById(assignment.operationId);
+    if (!selected.ok())
+        return deny(reason, "media_shrink_result_operation_missing");
+    const auto& op = selected.operation;
+    const auto payload = operations_.findPayloadByOperationId(op.operationId);
+    vdrsuite::mediatools::MediaShrinkAgentSelection selection;
+    if (!payload.ok() ||
+        payload.payload.payloadVersion != 1 ||
+        payload.payload.payloadType != assignment.commandType ||
+        payload.payload.payload != assignment.payload ||
+        !vdrsuite::mediatools::parseMediaShrinkAgentSelection(
+            assignment.commandType, assignment.payload, selection) ||
+        op.backendId != assignment.backendId ||
+        op.backendGeneration != assignment.backendGeneration ||
+        op.operationId != assignment.operationId ||
+        op.verificationPolicy !=
+            (stage ? Policy::readbackRequired : Policy::reconciliationRequired) ||
+        op.actionFamily !=
+            (stage ? "media.shrink.stage" : "media.shrink.publish") ||
+        op.resourceType != (stage ? "Recording" : "MediaShrinkReview") ||
+        op.resourceId != (stage ? selection.recordingId : selection.reviewId) ||
+        op.expectedResourceFingerprint.empty())
+        return deny(reason, "media_shrink_result_operation_conflict");
+
+    const bool hasEvidence = !result.resultEvidence.empty();
+    if (hasEvidence &&
+        (!vdrsuite::mediatools::shrinkOpaqueId(
+             result.resultEvidence, "shk_") ||
+         (publish && result.resultEvidence != selection.reviewId)))
+        return deny(reason, "media_shrink_result_evidence_invalid");
+
+    State target = State::outcomeUnknown;
+    if (result.resultCategory == "outcome_unknown" &&
+        result.verificationState == "outcome_unknown" &&
+        result.retryClassification == "reconcile_only" &&
+        ((result.dispatchState == "accepted_by_executor" && hasEvidence) ||
+         (result.dispatchState == "starting" && !hasEvidence)))
+        target = State::outcomeUnknown;
+    else if (result.resultCategory == "rejected" &&
+             result.verificationState == "outcome_unknown" &&
+             result.retryClassification == "none" &&
+             !hasEvidence &&
+             result.dispatchState == "not_started" &&
+             (result.errorCategory == "expired" ||
+              result.errorCategory == "fenced"))
+        target = State::failedBeforeDispatch;
+    else if (result.resultCategory == "rejected" &&
+             result.verificationState == "outcome_unknown" &&
+             result.retryClassification == "none" &&
+             !hasEvidence &&
+             result.dispatchState == "starting" &&
+             result.errorCategory == "fenced")
+        target = State::failedVerified;
+    else
+        return deny(reason, "media_shrink_result_requires_reconciliation");
+
+    // No result is allowed to promote the canonical operation to succeeded:
+    // Stage requires a separately validated private review; Publish requires
+    // independent VDR Recording reconciliation and a new rec_ identity.
+    const std::string reference =
+        "agent.media.shrink:" + assignment.commandId;
+    if (op.state == target && op.resultReference == reference) {
+        reason = "media_shrink_result_already_applied";
+        return true;
+    }
+    if (op.state != State::dispatching)
+        return deny(reason, "media_shrink_result_state_conflict");
+    const auto applied = operations_.transition(
+        op.operationId, op.operationRevision, State::dispatching,
+        target, reference, now);
+    if (applied.ok()) {
+        reason = "media_shrink_result_applied_unverified";
+        return true;
+    }
+    return deny(reason, "media_shrink_result_transition_failed");
+}
+
 bool MediaShrinkOperationFence::effectiveCapability(
     const std::string& actorId, const std::string& backendId,
     const std::string& commandType, std::int64_t now,
