@@ -579,6 +579,18 @@ PublicRecordingProgressRequest ContinueWatchingApiRuntime::parsePublicProgressRe
     return result;
 }
 
+std::vector<ContinueWatchingItem> ContinueWatchingApiRuntime::publicCandidates(
+    const std::string& actorId, const std::string& backendId) const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!service_ || actorId.empty() || backendId.empty())
+        return {};
+    // Existing Service resolves current Recording truth, prunes missing
+    // entries and retains actor/backend isolation. Public projection and
+    // per-recording admission remain in the Device HTTP owner.
+    return service_->list(actorId, backendId);
+}
+
 ApiResponse ContinueWatchingApiRuntime::publicProgressGet(
     const std::string& actorId,
     const VdrRecording& admittedRecording,
