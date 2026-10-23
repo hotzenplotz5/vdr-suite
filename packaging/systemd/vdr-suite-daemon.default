@@ -16,6 +16,17 @@ VDR_SUITE_SUITE_BRIDGE_BACKEND_ID=default
 VDR_SUITE_SUITE_BRIDGE_HOST=127.0.0.1
 VDR_SUITE_SUITE_BRIDGE_PORT=6419
 
+# Optional private Unix socket. The VDR process hosting SuiteBridge and its
+# local clients must use the same absolute path under /run. The parent directory
+# must be prepared by the distribution, with restricted ownership/mode.
+# VDR_SUITE_CONTROL_SOCKET_PATH=/run/vdr/vdr-suite-control/control.sock
+
+# Optional authoritative per-backend VDR recording roots for native mutations.
+# Set the ACTUAL VDR video directory for every writable backend. Once provided,
+# a missing/invalid entry blocks writes instead of falling back to yaVDR paths.
+# Do not enable until the installed backend's path has been verified.
+# VDR_SUITE_RECORDING_VIDEO_ROOTS=default=/your/actual/vdr/video
+
 # Bounded transport and observation timings in milliseconds.
 VDR_SUITE_SUITE_BRIDGE_CONNECT_TIMEOUT_MS=1000
 VDR_SUITE_SUITE_BRIDGE_IO_TIMEOUT_MS=1000
