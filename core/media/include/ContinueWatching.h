@@ -51,6 +51,7 @@ struct ContinueWatchingItem
     ContinueWatchingRecordingTruth recording;
     int resumePositionSeconds = 0;
     std::string lastActivityAt;
+    std::int64_t revision = 0;
 };
 
 class ContinueWatchingRepository
@@ -114,6 +115,20 @@ public:
         const std::string& backendId,
         const std::string& recordingId,
         const std::string& operationId = std::string());
+    ContinueWatchingMutationResult recordProgressConditional(
+        const std::string& actorId,
+        const std::string& backendId,
+        const std::string& recordingId,
+        int positionSeconds,
+        bool resumeSupported,
+        const std::string& operationId,
+        std::int64_t expectedRevision);
+    ContinueWatchingMutationResult clearConditional(
+        const std::string& actorId,
+        const std::string& backendId,
+        const std::string& recordingId,
+        const std::string& operationId,
+        std::int64_t expectedRevision);
     std::vector<ContinueWatchingItem> list(
         const std::string& actorId,
         const std::string& backendId);
