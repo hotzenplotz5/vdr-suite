@@ -438,6 +438,8 @@ public:
                         publicAccountGrantSuffix.size()))
                     .find('/') == std::string::npos &&
             !publicAccountGrantAccountId.empty();
+        const bool isPublicDeviceCollectionRead =
+            request.method == "GET" && path == "/api/v1/devices";
         const std::string publicDeviceGrantPrefix = "/api/v1/devices/";
         const std::string publicDeviceGrantSuffix = "/grants";
         const bool isPublicDeviceGrantResource =
@@ -953,6 +955,7 @@ public:
             (path == "/api/v1" ||
              path == "/api/v1/capabilities" ||
              isPublicBackendCollection ||
+             path == "/api/v1/devices" ||
              isPublicChannelCollection ||
              isPublicEpgNowNext ||
              isPublicRecordingDetail ||
@@ -1234,7 +1237,7 @@ public:
             return gate;
         }
 
-        if (isPublicDeviceGrantRead)
+        if (isPublicDeviceGrantRead || isPublicDeviceCollectionRead)
         {
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);

@@ -9307,6 +9307,103 @@
           }
         }
       }
+    },
+    "/api/v1/devices": {
+      "get": {
+        "tags": [
+          "Device administration"
+        ],
+        "operationId": "listRegisteredDevices",
+        "summary": "List registered Service Devices for authorized administrators",
+        "description": "Separate from Human Account browser sessions and from pending pairing requests. Requires devices.grants.view@*. The source is persisted security_devices joined to Service Actors; returns no credential material. Keyset pagination sorted by Device ID. Revoked devices remain visible but cannot receive grants.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "devices.grants.view@*"
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^dv1_[A-Za-z0-9_.-]{1,128}$"
+            },
+            "description": "Keyset cursor returned as page.nextCursor."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bounded secret-free Service Device collection",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisteredDeviceCollection"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query or cursor",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Global devices.grants.view denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Device repository unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -12031,6 +12128,77 @@
             }
           }
         ]
+      },
+      "RegisteredDeviceCollection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "page"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "deviceId",
+                "actorId",
+                "displayName",
+                "active",
+                "revoked"
+              ],
+              "properties": {
+                "deviceId": {
+                  "type": "string"
+                },
+                "actorId": {
+                  "type": "string"
+                },
+                "displayName": {
+                  "type": "string"
+                },
+                "active": {
+                  "type": "boolean"
+                },
+                "revoked": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "page": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "limit",
+              "hasMore",
+              "nextCursor"
+            ],
+            "properties": {
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "hasMore": {
+                "type": "boolean"
+              },
+              "nextCursor": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        }
       }
     }
   },
