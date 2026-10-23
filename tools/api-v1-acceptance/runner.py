@@ -138,6 +138,18 @@ def load_config(path):
         raise ConfigError("credential configuration cannot be read as JSON") from e
     if not isinstance(cfg, dict):
         raise ConfigError("configuration JSON must contain an object")
+    # Explicitly selected legacy one-time credential receipts use a flat
+    # {credentialId, credentialSecret} object. Accept only complete pairs,
+    # normalize in memory, and never rewrite the original on disk.
+    flat = "credentialId" in cfg or "credentialSecret" in cfg
+    if flat:
+        if "device" in cfg:
+            raise ConfigError("ambiguous nested and flat device credential configuration")
+        if not all(isinstance(cfg.get(k), str) and cfg[k] for k in
+                   ("credentialId", "credentialSecret")):
+            raise ConfigError("flat device credential receipt requires both fields")
+        cfg = {"device": {"credentialId": cfg["credentialId"],
+                          "credentialSecret": cfg["credentialSecret"]}}
     if "device" in cfg:
         d = cfg["device"]
         if not isinstance(d, dict) or not all(

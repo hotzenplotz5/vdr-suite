@@ -32,6 +32,8 @@ Externe Datei: ~/.config/vdr-suite/api-v1-acceptance.json. JSON-Objekt, Dateirec
 | existingOperationId | Bereits vorhandene eigene öffentliche `op_`-ID für autorisierten Operation-GET; niemals neu erzeugen |
 | mediaProfile.appVersion, mediaProfile.firmwareVersion, mediaProfile.playerVersion, mediaProfile.engine | Tatsächliches Device/Player-Profil |
 
+Alternativ nimmt `--config /pfad/zur/bestehenden-credential-datei.json` eine ausdrücklich ausgewählte, private **flache** Device-Receipt mit `credentialId` und `credentialSecret` entgegen. Dieses Altformat kam bei früheren Hardware-Tests zum Einsatz (historischer Pfad: `/run/vdr-suite-api-v1-hqoedm30.json`). Die Datei wird **nur gelesen**, niemals kopiert oder geändert. Eine fehlende oder ungültige Receipt wird nicht automatisch durch Pairing ersetzt. Keine ungefragte Credentialsuche.
+
 Das bestehende Public-v1-Auth-Schema ist VDR-Suite-Device (opaque ID und Secret). Credentials gehören nie in Git, Shell-Befehle oder Logs. Fehlende Device-Grants, andere Benutzer/Accounts oder Administrator-Identitäten werden nicht automatisch eingerichtet; Tests dafür bleiben BLOCKED. Nur ein echter gekoppelter Device mit Backend-Grants kann devicegebundene Leseverträge erfolgreich prüfen.
 
 ## Output und Exitcodes

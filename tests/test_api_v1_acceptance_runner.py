@@ -39,6 +39,35 @@ class RunnerTests(unittest.TestCase):
             config.chmod(0o600)
             self.assertIn("device", load_config(config))
 
+    def test_legacy_flat_credential_receipt_is_private_and_normalized(self):
+        with tempfile.TemporaryDirectory() as p:
+            path = Path(p) / "receipt.json"
+            path.write_text(json.dumps({"credentialId": "device-id",
+                                        "credentialSecret": "opaque-secret-value"}))
+            path.chmod(0o600)
+            cfg = load_config(path)
+            self.assertEqual(cfg["device"]["credentialId"], "device-id")
+            self.assertEqual(cfg["device"]["credentialSecret"], "opaque-secret-value")
+            self.assertNotIn("credentialId", cfg)
+            self.assertEqual(json.loads(path.read_text())["credentialId"], "device-id")
+            self.assertEqual(path.stat().st_mode & 0o077, 0)
+
+    def test_legacy_flat_credential_receipt_rejects_unsafe_or_partial(self):
+        with tempfile.TemporaryDirectory() as p:
+            path = Path(p) / "receipt.json"
+            path.write_text(json.dumps({"credentialId": "id", "credentialSecret": "secret"}))
+            path.chmod(0o644)
+            with self.assertRaises(ConfigError):
+                load_config(path)
+            path.chmod(0o600)
+            path.write_text(json.dumps({"credentialId": "id"}))
+            with self.assertRaises(ConfigError):
+                load_config(path)
+            path.write_text(json.dumps({"device":{"credentialId":"id","credentialSecret":"secret"},
+                                        "credentialId":"id","credentialSecret":"secret"}))
+            with self.assertRaises(ConfigError):
+                load_config(path)
+
     def test_no_credential_in_paths(self):
         path = "/api/v1/recordings/rec_" + "a" * 32 + "?token=secret&backendId=private"
         sanitized = safe_path(path)
