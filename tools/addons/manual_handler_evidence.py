@@ -59,6 +59,10 @@ def examine(root: Path, module: str, expected_sha256: str) -> dict:
                 return deny("handler-not-executable")
             if first.st_uid != 0 or first.st_mode & 0o022:
                 return deny("unsafe-handler-ownership")
+            # Match the native C++ descriptor policy: a hardlinked handler
+            # cannot become an independently trusted immutable executable.
+            if first.st_nlink != 1:
+                return deny("unsafe-handler-link-count")
             if not 0 < first.st_size <= MAX_BYTES:
                 return deny("invalid-handler-size")
             digest = hashlib.sha256()

@@ -192,6 +192,24 @@ class RootOwnedApprovalAcceptance(unittest.TestCase):
                                self.document["sha256"], "manual"),
                          self.approval)
 
+    def test_admin_issuer_rejects_hardlinked_handler(self):
+        self.approval.unlink()
+        linked = self.handler.parent / "other-hardlink"
+        os.link(self.handler, linked)
+        try:
+            with self.assertRaisesRegex(
+                    IssueError, "binary-unsafe-handler-link-count"):
+                issue(self.root, "rectools", "0.1.0",
+                      self.document["sha256"], "manual")
+            self.assertFalse(self.approval.exists())
+        finally:
+            linked.unlink()
+        # Restoring exactly one link allows the same independently approved
+        # bytes without a package install or implicit activation.
+        self.assertEqual(issue(self.root, "rectools", "0.1.0",
+                               self.document["sha256"], "manual"),
+                         self.approval)
+
     def test_admin_issuer_rejects_unapproved_digest(self):
         self.approval.unlink()
         with self.assertRaises(IssueError):

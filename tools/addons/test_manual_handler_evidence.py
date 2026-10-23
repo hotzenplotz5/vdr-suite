@@ -61,6 +61,15 @@ class ManualHandlerEvidenceTests(unittest.TestCase):
         result = self.evidence()
         self.assertIn(result["reason"], ("handler-not-executable", "unsafe-handler-parent"))
 
+    def test_hardlinked_handler_cannot_be_verified(self):
+        companion = self.handler.parent / "unexpected-hardlink"
+        os.link(self.handler, companion)
+        try:
+            self.assertEqual(self.evidence()["reason"],
+                             "unsafe-handler-link-count")
+        finally:
+            companion.unlink()
+
     def test_non_rectools_has_no_handler(self):
         self.assertEqual(examine(self.root, "image", self.digest)["reason"],
                          "no-reviewed-manual-handler")
