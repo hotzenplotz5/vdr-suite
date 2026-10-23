@@ -1,0 +1,254 @@
+From: VDR-Suite S1 native SearchTimer identity
+Subject: [PATCH 2/2] epgsearch: persist native rule generations and expose locked observation
+Upstream-base: 0118b4129c3601c04c7483f2fd04b604d4a2a980
+Depends-on: 0001-searchtimer-owner-lock-legacy-writers.patch
+
+The existing epgsearch.conf colon-delimited rule format stays unchanged.
+Persist an immutable random sg_<32 lowercase hex> generation in a comment
+before each native search rule. Old plugins ignore the comments. On upgrade
+after an old plugin resaved the file, a new generation is minted rather than
+reusing an old ID. Missing/duplicate/invalid metadata is never attested as
+durable. Native generation is not inherited from templates or rule copies.
+
+The read-only Epgsearch-searchtimer-observe-v1.0 cPlugin::Service returns
+the native generation and rule snapshot under the epgsearch list lock.
+This is NOT native CAS; there is no revision or conditional write yet.
+DO NOT enable Public-v1 UPDATE/ACTIVATE/DEACTIVATE/DELETE from this patch.
+
+Requires native plugin compile/tests and an explicit packaging gate.
+No live yaVDR changes, no upstream changes, and no change to main.
+
+diff --git a/epgsearchext.h b/epgsearchext.h
+--- a/epgsearchext.h
++++ b/epgsearchext.h
+@@ -119,6 +119,9 @@
+     // items follow the sequence of epgsearch.conf(5), but arrange
+     // dependent items next to each other
+     int      ID;
++    // Native identity is not the reusable numeric epgsearch ID.
++    std::string nativeGeneration;
++    bool nativeGenerationDurable;
+     char     search[MaxFileName];
+     int      useTime;
+     int      startTime;
+diff --git a/epgsearchext.c b/epgsearchext.c
+--- a/epgsearchext.c
++++ b/epgsearchext.c
+@@ -22,6 +22,9 @@
+ */
+ 
+ #include <vector>
++#include <set>
++#include <stdio.h>
++#include <string.h>
+ #include "epgsearchext.h"
+ #include "epgsearchcfg.h"
+ #include "epgsearchcats.h"
+@@ -42,11 +45,46 @@
+ cSearchExts SearchExts;
+ cSearchExts SearchTemplates;
+ 
++// An opt-in metadata comment; the legacy 59-field rule stays unchanged.
++static const char nativeGenerationMarker[] = "#vdr-suite-generation:";
++
++static bool ValidNativeGeneration(const std::string& value)
++{
++    if (value.size() != 35 || value.compare(0, 3, "sg_") != 0)
++        return false;
++    for (size_t i = 3; i < value.size(); ++i)
++        if ((value[i] < '0' || value[i] > '9') &&
++            (value[i] < 'a' || value[i] > 'f'))
++            return false;
++    return true;
++}
++
++static bool RandomNativeGeneration(std::string& out)
++{
++    unsigned char bytes[16];
++    FILE *entropy = fopen("/dev/urandom", "rb");
++    if (!entropy)
++        return false;
++    bool ok = fread(bytes, 1, sizeof(bytes), entropy) == sizeof(bytes);
++    if (fclose(entropy) != 0)
++        ok = false;
++    if (!ok)
++        return false;
++    static const char alphabet[] = "0123456789abcdef";
++    out = "sg_";
++    for (size_t i = 0; i < sizeof(bytes); ++i) {
++        out += alphabet[bytes[i] >> 4];
++        out += alphabet[bytes[i] & 15];
++    }
++    return true;
++}
++
+ // -- cSearchExt -----------------------------------------------------------------
+ cSearchExt::cSearchExt(void)
+ {
+     buffer = NULL;
+     ID = -1;
++    nativeGenerationDurable = false;
+     *search = 0;
+     useTime = false;
+     startTime = 0000;
+@@ -1467,24 +1505,56 @@
+         if (f) {
+             int line = 0;
+             char buffer[MAXPARSEBUFFER];
++            std::string pendingGeneration;
++            std::set<std::string> seenGenerations;
+             result = true;
+             while (fgets(buffer, sizeof(buffer), f) != NULL) {
+                 line++;
++                if (this == &SearchExts &&
++                    strncmp(buffer, nativeGenerationMarker,
++                            sizeof(nativeGenerationMarker) - 1) == 0) {
++                    char *value = buffer + sizeof(nativeGenerationMarker) - 1;
++                    stripspace(value);
++                    pendingGeneration = ValidNativeGeneration(value) ?
++                        std::string(value) : std::string();
++                    if (pendingGeneration.empty())
++                        LogFile.eSysLog("invalid native generation in '%s', line %d",
++                                         fileName, line);
++                    continue;
++                }
+                 char *p = strchr(buffer, '#');
+                 if (p == buffer) *p = 0;
+ 
+                 stripspace(buffer);
+                 if (!isempty(buffer)) {
+                     cSearchExt* search = new cSearchExt;
+-                    if (search->Parse(buffer))
++                    if (search->Parse(buffer)) {
++                        if (this == &SearchExts && !pendingGeneration.empty()) {
++                            bool duplicate =
++                                !seenGenerations.insert(pendingGeneration).second;
++                            for (cSearchExt *old = First(); old; old = Next(old))
++                                if (old->nativeGeneration == pendingGeneration) {
++                                    // An imported collision invalidates both identities.
++                                    old->nativeGeneration.clear();
++                                    old->nativeGenerationDurable = false;
++                                    duplicate = true;
++                                }
++                            if (!duplicate) {
++                                search->nativeGeneration = pendingGeneration;
++                                search->nativeGenerationDurable = true;
++                            } else
++                                LogFile.eSysLog("duplicate native generation in '%s', line %d",
++                                                fileName, line);
++                        }
+                         Add(search);
+-                    else {
++                    } else {
+                         LogFile.eSysLog("error in '%s', line %d\n", fileName, line);
+                         delete search;
+                         result = false;
+                         // break;   continue with the rest
+                     }
+                 }
++                pendingGeneration.clear();
+             }
+             fclose(f);
+         } else {
+@@ -1528,9 +1596,42 @@
+     cMutexLock SearchExtsLock(this);
+     bool result = true;
+     cSearchExt *l = (cSearchExt *)this->First();
++    if (this == &SearchExts) {
++        std::set<std::string> assigned;
++        // Entropy failure occurs before opening the atomic safe-file writer.
++        for (; l; l = Next(l)) {
++            if (!ValidNativeGeneration(l->nativeGeneration) ||
++                assigned.count(l->nativeGeneration)) {
++                l->nativeGeneration.clear();
++                l->nativeGenerationDurable = false;
++                bool generated = false;
++                for (int attempt = 0; attempt < 8; ++attempt) {
++                    std::string fresh;
++                    if (!RandomNativeGeneration(fresh))
++                        return false;
++                    if (assigned.insert(fresh).second) {
++                        l->nativeGeneration = fresh;
++                        generated = true;
++                        break;
++                    }
++                }
++                if (!generated)
++                    return false;
++            } else
++                assigned.insert(l->nativeGeneration);
++            l->nativeGenerationDurable = false;
++        }
++    }
++    l = (cSearchExt *)this->First();
+     cSafeFile f(fileName);
+     if (f.Open()) {
+         while (l) {
++            if (this == &SearchExts &&
++                fprintf(f, "%s%s\n", nativeGenerationMarker,
++                        l->nativeGeneration.c_str()) < 0) {
++                result = false;
++                break;
++            }
+             if (!l->Save(f)) {
+                 result = false;
+                 break;
+@@ -1541,6 +1642,9 @@
+             result = false;
+     } else
+         result = false;
++    if (result && this == &SearchExts)
++        for (l = First(); l; l = Next(l))
++            l->nativeGenerationDurable = true;
+     return result;
+ }
+ 
+diff --git a/services.h b/services.h
+--- a/services.h
++++ b/services.h
+@@ -121,6 +121,15 @@
+     bool success;               // result
+ };
+ 
++// Read-only, epgsearch-lock-consistent rule observation. NOT native CAS.
++struct Epgsearch_searchtimer_observe_v1_0 {
++    int nativeId;              // input
++    bool found;                // output
++    bool generationPersisted;  // output
++    std::string generation;    // sg_ + 32 lowercase hex digits
++    std::string settings;      // existing 59-field epgsearch rule format
++};
++
+ // Data structures for service "Epgsearch-services-v1.0"
+ class cServiceHandler
+ {
+diff --git a/epgsearch.c b/epgsearch.c
+--- a/epgsearch.c
++++ b/epgsearch.c
+@@ -222,6 +222,26 @@
+ 
+ bool cPluginEpgsearch::Service(const char *Id, void *Data)
+ {
++    if (strcmp(Id, "Epgsearch-searchtimer-observe-v1.0") == 0) {
++        if (Data == NULL)
++            return true;
++        Epgsearch_searchtimer_observe_v1_0 *out =
++            (Epgsearch_searchtimer_observe_v1_0 *)Data;
++        out->found = false;
++        out->generationPersisted = false;
++        out->generation.clear();
++        out->settings.clear();
++        cMutexLock SearchExtsLock(&SearchExts);
++        cSearchExt *search = SearchExts.GetSearchFromID(out->nativeId);
++        if (search) {
++            out->found = true;
++            out->generationPersisted = search->nativeGenerationDurable;
++            if (search->nativeGenerationDurable)
++                out->generation = search->nativeGeneration;
++            out->settings = search->ToText();
++        }
++        return true;
++    }
+     if (strcmp(Id, "MainMenuHooksPatch-v1.0::osSchedule") == 0 && EPGSearchConfig.ReplaceOrgSchedule != 0) {
+         if (Data == NULL)
+             return true;

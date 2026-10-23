@@ -30,6 +30,9 @@ AUDITED = {
     "/api/v1/backends": {"get": "if (path == PublicBackendCollectionPath)"},
     "/api/v1/channels": {"get": "if (path == PublicChannelCollectionPath)"},
     "/api/v1/recordings": {"get": "if (path == PublicRecordingCollectionPath)"},
+    "/api/v1/recordings/{recordingId}": {"get": "if (isRecordingDetailPath)"},
+    "/api/v1/recordings/{recordingId}/artwork": {"get": "if (isRecordingArtworkPath)"},
+    "/api/v1/recordings/{recordingId}/artwork/{artworkId}": {"get": "if (isRecordingArtworkPath)"},
     "/api/v1/search/recordings": {"get": "if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath)"},
     "/api/v1/search/epg": {"get": "if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath)"},
     "/api/v1/genres": {"get": "if (path == PublicGenreCollectionPath || path == PublicGenreRecordingPath)"},
@@ -49,6 +52,8 @@ AUDITED = {
     "/api/v1/search-timers": {"get": "if (path == PublicSearchTimerCollectionPath)", "post": "if (path == PublicSearchTimerCollectionPath)"},
     "/api/v1/search-timers/draft-preview": {"get": "if (path == PublicSearchTimerDraftPreviewPath)"},
     "/api/v1/search-timers/{searchTimerId}/preview": {"get": "if (publicSearchTimerPreviewPath(path, previewSearchTimerId))"},
+    "/api/v1/search-timers/{searchTimerId}/version": {"get": "if (publicSearchTimerNativeSubresourcePath("},
+    "/api/v1/search-timers/{searchTimerId}/mutations": {"post": "if (publicSearchTimerNativeSubresourcePath("},
     "/api/v1/timer-assignments/{timerAssignmentId}": {
         "get": "if (publicTimerAssignmentPath(",
         "post": "if (publicTimerAssignmentPath(",
@@ -110,6 +115,16 @@ AUDITED = {
         "post": "if (publicAccountSessionItemPath(",
     },
 }
+
+# M2 EPG routes live in the already authenticated HTTP server;
+# audit the real image dispatcher and SecurityHttpGate, not a fake API marker.
+EPG_ARTWORK_AUDITED = {
+    "/api/v1/epg/artwork": {
+        "get": 'pathWithoutQuery(request.path) == "/api/v1/epg/artwork"'},
+    "/api/v1/epg/preferred-artwork": {
+        "get": 'pathWithoutQuery(request.path) == "/api/v1/epg/preferred-artwork"'},
+}
+EPG_ARTWORK_HTTP = ROOT / "core/http/src/TestHttpServer.cpp"
 
 # Versioned Recording playback is registered in the daemon media composition
 # root, rather than PublicApiRuntime. Require an actual route branch AND its
@@ -177,6 +192,7 @@ NO_ACTOR = {
 }
 
 IF_MATCH = {
+    ("post", "/api/v1/search-timers/{searchTimerId}/mutations"),
     ("post", "/api/v1/native-timers/{timerId}/modifications"),
     ("delete", "/api/v1/native-timers/{timerId}"),
     ("post", "/api/v1/epg/timer-intents"),
@@ -197,6 +213,7 @@ IDEMPOTENCY = {
     ("delete", "/api/v1/native-timers/{timerId}"),
     ("post", "/api/v1/epg/timer-intents"),
     ("post", "/api/v1/search-timers"),
+    ("post", "/api/v1/search-timers/{searchTimerId}/mutations"),
     ("post", "/api/v1/accounts"),
     ("post", "/api/v1/timer-assignments/{timerAssignmentId}"),
 }
@@ -216,19 +233,64 @@ def _walk_refs(value: Any):
             yield from _walk_refs(item)
 
 
+# These names and this order are the actual private POST domain dispatch chain.
+# Do not accept an anchor in an uncalled helper or an unrelated method body.
+POST_DOMAIN_HANDLERS = (
+    "NativeTimerMutation",
+    "DevicePairing",
+    "AccountCredentialSession",
+    "DeviceAdministration",
+    "AccountAdministration",
+    "TimerWorkflow",
+)
+
+
 def _handler_sections(source: str) -> dict[str, str]:
-    bounds = [
-        source.find("bool PublicApiRuntime::tryHandleGet("),
-        source.find("bool PublicApiRuntime::tryHandlePost("),
-        source.find("bool PublicApiRuntime::tryHandleDelete("),
-        source.find("bool PublicApiRuntime::tryHandleUnsupportedMethod("),
+    get_start = source.find("bool PublicApiRuntime::tryHandleGet(")
+    helper_starts = [
+        source.find(f"bool PublicApiRuntime::tryHandle{name}Post(")
+        for name in POST_DOMAIN_HANDLERS
     ]
-    if any(i < 0 for i in bounds) or not bounds[0] < bounds[1] < bounds[2] < bounds[3]:
+    post_start = source.find("bool PublicApiRuntime::tryHandlePost(")
+    delete_start = source.find("bool PublicApiRuntime::tryHandleDelete(")
+    unsupported_start = source.find(
+        "bool PublicApiRuntime::tryHandleUnsupportedMethod("
+    )
+    bounds = [get_start, *helper_starts, post_start,
+              delete_start, unsupported_start]
+    if any(i < 0 for i in bounds) or bounds != sorted(set(bounds)):
         return {}
+
+    # Verify that every helper is reached from the public dispatcher in the
+    # exact original first-match order. Merely finding source text does not
+    # prove a registered route still exists.
+    dispatch = source[post_start:delete_start]
+    expected_calls = [
+        f"if (tryHandle{name}Post(" for name in POST_DOMAIN_HANDLERS
+    ]
+    if dispatch.count("if (tryHandle") != len(expected_calls):
+        return {}
+    positions = [dispatch.find(call) for call in expected_calls]
+    if any(i < 0 for i in positions) or positions != sorted(positions):
+        return {}
+    # Each private handler must return its match result directly to the
+    # public dispatcher, never continue to a later mutation owner.
+    for offset, position in enumerate(positions):
+        following = dispatch[position:]
+        if not re.match(
+            r"if \(tryHandle\w+Post\(.*?\)\)\s*return true;",
+            following, re.DOTALL
+        ):
+            return {}
+        next_position = (positions[offset + 1] if
+                         offset + 1 < len(positions) else len(dispatch))
+        if "return true;" not in dispatch[position:next_position]:
+            return {}
+
     return {
-        "get": " ".join(source[bounds[0]:bounds[1]].split()),
-        "post": " ".join(source[bounds[1]:bounds[2]].split()),
-        "delete": " ".join(source[bounds[2]:bounds[3]].split()),
+        "get": " ".join(source[get_start:helper_starts[0]].split()),
+        "post": " ".join(source[helper_starts[0]:delete_start].split()),
+        "delete": " ".join(source[delete_start:unsupported_start].split()),
     }
 
 
@@ -237,6 +299,7 @@ def validate(
     device_source: str | None = None,
     security_source: str | None = None,
     recording_router_source: str | None = None,
+    epg_artwork_http_source: str | None = None,
 ) -> list[str]:
     """Return all detected contract drift without mutating a file or system."""
     errors: list[str] = []
@@ -246,6 +309,8 @@ def validate(
         security_source = DEVICE_GATE.read_text(encoding="utf-8")
     if recording_router_source is None:
         recording_router_source = RECORDING_ROUTER.read_text(encoding="utf-8")
+    if epg_artwork_http_source is None:
+        epg_artwork_http_source = EPG_ARTWORK_HTTP.read_text(encoding="utf-8")
     if not isinstance(spec, dict):
         return ["OpenAPI root must be a JSON object"]
 
@@ -261,7 +326,7 @@ def validate(
     paths = spec.get("paths")
     if not isinstance(paths, dict):
         return errors + ["OpenAPI paths must be an object"]
-    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED)
+    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED) | set(EPG_ARTWORK_AUDITED)
     if set(paths) != expected_paths:
         missing = sorted(expected_paths - set(paths))
         extra = sorted(set(paths) - expected_paths)
@@ -286,7 +351,8 @@ def validate(
     if device_source.count('apiRouter.setDeviceRecordingPlaybackHandler(') != 2:
         errors.append("Device Recording playback composition handler disappeared")
     for path, methods in {
-        **AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED
+        **AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
+        **EPG_ARTWORK_AUDITED
     }.items():
         data = paths.get(path)
         if not isinstance(data, dict):
@@ -298,7 +364,14 @@ def validate(
             errors.append(f"{path}: documented methods changed, expected {sorted(expected)}, got {sorted(current)}")
         for method, marker in methods.items():
             where = f"{method.upper()} {path}"
-            if path in RECORDING_ACTION_AUDITED:
+            if path in EPG_ARTWORK_AUDITED:
+                if marker not in epg_artwork_http_source:
+                    errors.append(
+                        f"{where}: EPG image HTTP route anchor disappeared: {marker}")
+                if path not in security_source or '"epg.view"' not in security_source:
+                    errors.append(
+                        f"{where}: EPG image SecurityHttpGate epg.view admission disappeared")
+            elif path in RECORDING_ACTION_AUDITED:
                 if marker not in recording_router_source:
                     errors.append(
                         f"{where}: Recording ApiRouter route handler anchor disappeared: {marker}")
@@ -398,7 +471,8 @@ def main() -> int:
         for message in errors:
             print(f"- {message}")
         return 1
-    paths = {**AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED}
+    paths = {**AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
+             **EPG_ARTWORK_AUDITED}
     print(f"OPENAPI_DRIFT=PASS paths={len(paths)} methods={sum(len(v) for v in paths.values())} scope=audited-partial")
     return 0
 

@@ -70,7 +70,7 @@ for group in LEGACY_ALIAS_GROUPS:
     )
     require(same_branch, f'{group["id"]} is no longer a proven same-handler alias pair')
 
-public_runtime = read("api/rest/src/PublicApiRuntime.cpp")
+public_runtime = read("api/rest/src/PublicDiscoveryRoutes.cpp")
 require(r'\"deprecatedAliases\":[]' in public_runtime, "public capabilities must keep deprecatedAliases empty")
 
 client_api = read("web/frontend/api/client-api.js")

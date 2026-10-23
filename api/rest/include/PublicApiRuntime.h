@@ -136,7 +136,9 @@ struct PublicSearchTimerCreateRequest
     std::string idempotencyKey;
     std::string name;
     std::string query;
-    bool active = true;
+    // Safe creation staging: public-v1 rules are created inactive only.
+    // Activation requires a separately fenced, future mutation workflow.
+    bool active = false;
     int mode = 0;
     int tolerance = 0;
     bool compareTitle = true;
@@ -147,6 +149,48 @@ struct PublicSearchTimerCreateResult
 {
     PublicSearchTimerCreateStatus status =
         PublicSearchTimerCreateStatus::unavailable;
+    PublicOperationResource operation;
+};
+
+enum class PublicSearchTimerNativeAction
+{
+    update, activate, deactivate, remove
+};
+enum class PublicSearchTimerNativeVersionStatus
+{
+    ok, notFound, unavailable
+};
+struct PublicSearchTimerNativeVersionRequest
+{
+    std::string backendId;
+    std::string publicSearchTimerId;
+};
+struct PublicSearchTimerNativeVersionResult
+{
+    PublicSearchTimerNativeVersionStatus status =
+        PublicSearchTimerNativeVersionStatus::unavailable;
+    std::string revision;
+};
+enum class PublicSearchTimerNativeMutationStatus
+{
+    accepted, replayed, invalid, conflict, notFound, unavailable
+};
+struct PublicSearchTimerNativeMutationRequest
+{
+    PublicSearchTimerNativeAction action =
+        PublicSearchTimerNativeAction::update;
+    std::string actorRef;
+    std::string backendId;
+    std::string publicSearchTimerId;
+    std::string ifMatch;
+    std::string idempotencyKey;
+    std::string query;
+    bool confirmed = false;
+};
+struct PublicSearchTimerNativeMutationResult
+{
+    PublicSearchTimerNativeMutationStatus status =
+        PublicSearchTimerNativeMutationStatus::unavailable;
     PublicOperationResource operation;
 };
 
@@ -238,6 +282,73 @@ struct PublicRecordingCollectionResult
     std::vector<PublicRecordingFolderItem> folders;
     std::size_t totalEntries = 0U;
     bool hasMore = false;
+};
+
+// M1: one public rec_ detail under an exact recordings.view backend grant.
+// The daemon owns the cache and public-ID resolution; HTTP never receives
+// a native Recording path or any provider artwork cache reference.
+struct PublicRecordingDetailRequest
+{
+    std::string backendId;
+    std::string recordingId;
+};
+
+enum class PublicRecordingDetailStatus { ok, invalid, notFound, unavailable };
+
+struct PublicRecordingDetailItem
+{
+    PublicRecordingCollectionItem recording;
+    std::string metadataState;
+    std::string metadataSource;
+    std::string contentKind;
+    std::string epgTitle;
+    std::string subtitle;
+    std::string epgDescription;
+    std::string providerTitle;
+    std::string overview;
+    std::string originalTitle;
+    std::string tagline;
+    std::string seriesTitle;
+    std::string episodeTitle;
+    std::string genreText;
+    std::string manualGenreId;
+    std::string releaseDate;
+    int seasonNumber = 0;
+    int episodeNumber = 0;
+    int providerRuntimeMinutes = 0;
+    std::string manualAssignmentId;
+    std::string metadataEntityId;
+    int manualRevision = 0;
+};
+
+struct PublicRecordingDetailResult
+{
+    PublicRecordingDetailStatus status = PublicRecordingDetailStatus::unavailable;
+    PublicRecordingDetailItem item;
+};
+
+// M2: Read-only Recording artwork, projected from the existing cache.
+// Public consumers never see native paths, provider IDs or credentials.
+struct PublicRecordingArtworkRequest
+{
+    std::string backendId;
+    std::string recordingId;
+    std::string artworkId; // empty for list, opaque asset ID for image bytes
+};
+enum class PublicRecordingArtworkStatus { ok, invalid, notFound, unavailable };
+struct PublicRecordingArtworkItem
+{
+    std::string artworkId;
+    std::string kind;
+    int width = 0;
+    int height = 0;
+};
+struct PublicRecordingArtworkResult
+{
+    PublicRecordingArtworkStatus status = PublicRecordingArtworkStatus::unavailable;
+    std::vector<PublicRecordingArtworkItem> items;
+    std::string contentType;
+    std::string content;
 };
 
 enum class PublicSearchStatus { ok, unavailable };
@@ -418,6 +529,9 @@ struct PublicEpgWindowRequest
     std::string fromTime;
     std::string untilTime;
     std::size_t limit = 192U;
+    // Private cache keyset, decoded from a scope- and window-bound cursor.
+    std::string afterStartTime;
+    std::string afterCacheEventId;
 };
 
 struct PublicEpgWindowResult
@@ -425,6 +539,9 @@ struct PublicEpgWindowResult
     PublicEpgNowNextStatus status = PublicEpgNowNextStatus::unavailable;
     std::vector<PublicEpgNowNextItem> events;
     bool hasMore = false;
+    // These values identify the last cache row, not a native source EventID.
+    std::string nextStartTime;
+    std::string nextCacheEventId;
 };
 
 // Read-only, exact source-provenanced EPG airing; no Timer CREATE authority.
@@ -1241,6 +1358,13 @@ public:
         std::function<PublicSearchTimerCreateResult(
             const PublicSearchTimerCreateRequest& request)>;
 
+    using SearchTimerNativeVersionLookup =
+        std::function<PublicSearchTimerNativeVersionResult(
+            const PublicSearchTimerNativeVersionRequest&)>;
+    using SearchTimerNativeMutation =
+        std::function<PublicSearchTimerNativeMutationResult(
+            const PublicSearchTimerNativeMutationRequest&)>;
+
     using SearchTimerPreviewLookup =
         std::function<PublicSearchTimerPreviewResult(
             const PublicSearchTimerPreviewRequest& request)>;
@@ -1248,6 +1372,14 @@ public:
     using RecordingCollectionLookup =
         std::function<PublicRecordingCollectionResult(
             const PublicRecordingCollectionRequest& request)>;
+
+    using RecordingDetailLookup =
+        std::function<PublicRecordingDetailResult(
+            const PublicRecordingDetailRequest&)>;
+
+    using RecordingArtworkLookup =
+        std::function<PublicRecordingArtworkResult(
+            const PublicRecordingArtworkRequest&)>;
 
     using SearchLookup =
         std::function<PublicSearchResult(const PublicSearchRequest&)>;
@@ -1427,6 +1559,12 @@ public:
     void registerSearchTimerCreate(SearchTimerCreate handler);
     void resetSearchTimerCreate();
 
+    void registerSearchTimerNativeVersionLookup(
+        SearchTimerNativeVersionLookup lookup);
+    void resetSearchTimerNativeVersionLookup();
+    void registerSearchTimerNativeMutation(SearchTimerNativeMutation handler);
+    void resetSearchTimerNativeMutation();
+
     void registerSearchTimerPreviewLookup(SearchTimerPreviewLookup lookup);
     void resetSearchTimerPreviewLookup();
     PublicSearchTimerPreviewResult lookupSearchTimerPreview(
@@ -1437,6 +1575,16 @@ public:
     bool recordingCollectionLookupConfigured() const;
     PublicRecordingCollectionResult lookupRecordingCollection(
         const PublicRecordingCollectionRequest& request) const;
+
+    void registerRecordingDetailLookup(RecordingDetailLookup lookup);
+    void resetRecordingDetailLookup();
+    PublicRecordingDetailResult lookupRecordingDetail(
+        const PublicRecordingDetailRequest& request) const;
+
+    void registerRecordingArtworkLookup(RecordingArtworkLookup lookup);
+    void resetRecordingArtworkLookup();
+    PublicRecordingArtworkResult lookupRecordingArtwork(
+        const PublicRecordingArtworkRequest& request) const;
 
     void registerSearchLookup(SearchLookup lookup);
     void resetSearchLookup();
@@ -1662,6 +1810,154 @@ public:
 private:
     PublicApiRuntime() = default;
 
+    // ADR-0068: mutation route ownership only. Auth, callback admission,
+    // revisions, idempotency and response construction remain unchanged.
+    bool tryHandleNativeTimerMutationPost(
+        const std::string& requestTarget,
+        const std::string& requestId,
+        const std::string& correlationId,
+        ApiResponse& response,
+        const std::string& body,
+        const std::string& actorRef,
+        const std::string& ifMatch,
+        const std::string& idempotencyKey,
+        const std::string& contentType,
+        const std::string& authorizedBackendId) const;
+
+    bool tryHandleDevicePairingPost(
+        const std::string& requestTarget,
+        const std::string& requestId,
+        const std::string& correlationId,
+        ApiResponse& response,
+        const std::string& body,
+        const std::string& actorRef,
+        const std::string& ifMatch,
+        const std::string& idempotencyKey,
+        const std::string& contentType,
+        const std::string& pairingToken) const;
+
+    bool tryHandleAccountCredentialSessionPost(
+        const std::string& requestTarget,
+        const std::string& requestId,
+        const std::string& correlationId,
+        ApiResponse& response,
+        const std::string& body,
+        const std::string& actorRef,
+        const std::string& ifMatch,
+        const std::string& contentType) const;
+
+    bool tryHandleDeviceAdministrationPost(
+        const std::string& requestTarget,
+        const std::string& requestId,
+        const std::string& correlationId,
+        ApiResponse& response,
+        const std::string& body,
+        const std::string& actorRef,
+        const std::string& ifMatch,
+        const std::string& idempotencyKey,
+        const std::string& contentType) const;
+
+    bool tryHandleAccountAdministrationPost(
+        const std::string& requestTarget,
+        const std::string& requestId,
+        const std::string& correlationId,
+        ApiResponse& response,
+        const std::string& body,
+        const std::string& actorRef,
+        const std::string& ifMatch,
+        const std::string& idempotencyKey,
+        const std::string& contentType) const;
+
+    bool tryHandleTimerWorkflowPost(
+        const std::string& requestTarget,
+        const std::string& requestId,
+        const std::string& correlationId,
+        ApiResponse& response,
+        const std::string& body,
+        const std::string& actorRef,
+        const std::string& ifMatch,
+        const std::string& idempotencyKey,
+        const std::string& contentType,
+        const std::string& authorizedBackendId) const;
+
+    // Human Account / Device administration GET on the established
+    // identity runtime, with unchanged revisions and Problem Details.
+    bool tryHandleIdentityAdministrationReadGet(
+        const std::string& requestTarget,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::string& ifNoneMatch,
+        ApiResponse& response) const;
+
+    // Pairing collection and item reads preserve human/pairing-token gates.
+    bool tryHandleDevicePairingReadGet(
+        const std::string& requestTarget,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::string& pairingToken,
+        ApiResponse& response) const;
+
+    // Recording, EPG/Recording search and Genre read responses use the
+    // established runtime lookup callbacks.
+    bool tryHandleBrowseReadGet(
+        const std::string& requestTarget,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::vector<std::string>& authorizedBackendIds,
+        ApiResponse& response) const;
+
+    // SearchTimer draft/resource previews, collection and TimerAssignment
+    // collection/item GET share the existing runtime callback authorities.
+    bool tryHandleSearchTimerAssignmentReadGet(
+        const std::string& requestTarget,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::string& ifNoneMatch,
+        const std::string& authorizedBackendId,
+        ApiResponse& response) const;
+
+    // Original NativeTimer collection/item GET contract; no new timer owner.
+    bool tryHandleNativeTimerReadGet(
+        const std::string& requestTarget,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::string& ifNoneMatch,
+        const std::vector<std::string>& authorizedBackendIds,
+        ApiResponse& response) const;
+
+    // EPG Event, Window, Now/Next read-only orchestration on this runtime.
+    bool tryHandleEpgReadGet(
+        const std::string& requestTarget,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::string& ifNoneMatch,
+        const std::vector<std::string>& authorizedBackendIds,
+        ApiResponse& response) const;
+
+    // The Channel GET path retains its existing parse, scope and cursor logic.
+    bool tryHandleChannelCollectionGet(
+        const std::string& requestTarget,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::vector<std::string>& authorizedBackendIds,
+        ApiResponse& response) const;
+
+    // Backend read admission and paging remain on this runtime instance.
+    bool tryHandleBackendCollectionGet(
+        const std::string& requestTarget,
+        const std::string& actorRef,
+        const std::string& requestId,
+        const std::string& correlationId,
+        const std::vector<std::string>& authorizedBackendIds,
+        ApiResponse& response) const;
+
     PublicOperationLookupResult lookupOperation(
         const std::string& operationId,
         const std::string& actorRef) const;
@@ -1681,11 +1977,22 @@ private:
     mutable std::mutex searchTimerCreateMutex_;
     SearchTimerCreate searchTimerCreate_;
 
+    mutable std::mutex searchTimerNativeVersionMutex_;
+    SearchTimerNativeVersionLookup searchTimerNativeVersion_;
+    mutable std::mutex searchTimerNativeMutationMutex_;
+    SearchTimerNativeMutation searchTimerNativeMutation_;
+
     mutable std::mutex searchTimerPreviewLookupMutex_;
     SearchTimerPreviewLookup searchTimerPreviewLookup_;
 
     mutable std::mutex recordingCollectionLookupMutex_;
     RecordingCollectionLookup recordingCollectionLookup_;
+
+    mutable std::mutex recordingDetailLookupMutex_;
+    RecordingDetailLookup recordingDetailLookup_;
+
+    mutable std::mutex recordingArtworkLookupMutex_;
+    RecordingArtworkLookup recordingArtworkLookup_;
 
     mutable std::mutex searchLookupMutex_;
     SearchLookup searchLookup_;

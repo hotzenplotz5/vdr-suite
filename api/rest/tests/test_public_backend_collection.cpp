@@ -87,6 +87,25 @@ int main()
     assert(root.body.find(
         "\"backends\":\"/api/v1/backends\"") != std::string::npos);
 
+    ApiResponse anonymousBackend;
+    assert(runtime.tryHandleGet(
+        "/api/v1/backends", "", "backend-anonymous", "",
+        anonymousBackend, "", "",
+        std::vector<std::string>{"backend-a"}));
+    assert(anonymousBackend.statusCode == 401);
+    assert(anonymousBackend.contentType == "application/problem+json");
+    assert(anonymousBackend.body.find(
+        "\"code\":\"unauthorized\"") != std::string::npos);
+
+    ApiResponse duplicatedScopes;
+    assert(runtime.tryHandleGet(
+        "/api/v1/backends", "actor:test", "backend-scope-duplicates", "",
+        duplicatedScopes, "", "",
+        std::vector<std::string>{"backend-a", "backend-a"}));
+    assert(duplicatedScopes.statusCode == 400);
+    assert(duplicatedScopes.body.find(
+        "\"code\":\"invalid_request\"") != std::string::npos);
+
     ApiResponse capabilities;
     assert(runtime.tryHandleGet(
         "/api/v1/capabilities",

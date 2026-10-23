@@ -78,7 +78,19 @@ public:
         const std::string& channelId,
         const std::string& fromTime,
         const std::string& untilTime,
-        int eventLimit) const;
+        int eventLimit,
+        const std::string& afterStartTime = {},
+        const std::string& afterEventId = {}) const;
+
+    // Cursor anchors use the internal cache key, irrespective of native-ID
+    // provenance. A deleted or moved anchor is stale, not an empty page.
+    bool hasWindowCursorAnchorForBackend(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& fromTime,
+        const std::string& untilTime,
+        const std::string& startTime,
+        const std::string& cacheEventId) const;
 
     bool deleteExpiredForBackend(
         const std::string& backendId,

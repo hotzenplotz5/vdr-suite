@@ -14,6 +14,7 @@ FILES = {
     "gate": ROOT / "core/security/include/SecurityHttpGate.h",
     "runtime_h": ROOT / "api/rest/include/PublicApiRuntime.h",
     "runtime_cpp": ROOT / "api/rest/src/PublicApiRuntime.cpp",
+    "discovery_cpp": ROOT / "api/rest/src/PublicDiscoveryRoutes.cpp",
     "api_test": ROOT / "api/rest/tests/test_public_account_grants.cpp",
     "security_test": ROOT / "core/security/tests/test_public_account_grants_security.cpp",
     "server_h": ROOT / "core/http/include/TestHttpServer.h",
@@ -164,7 +165,7 @@ def main():
         "The final usable administrator cannot lose role.admin@*.",
         '"GET, POST"',
     ):
-        require("runtime_cpp", marker)
+        require("discovery_cpp" if marker == "public-api.accounts-grants-administration" else "runtime_cpp", marker)
 
     for forbidden in (
         "sqlite3",

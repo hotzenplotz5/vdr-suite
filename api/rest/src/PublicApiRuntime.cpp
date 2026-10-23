@@ -1,4 +1,5 @@
 #include "PublicApiRuntime.h"
+#include "PublicDiscoveryRoutes.h"
 
 #include "PublicProblemDetails.h"
 #include "PublicResourcePreconditions.h"
@@ -116,6 +117,8 @@ constexpr const char* PublicEpgNowNextPath =
     "/api/v1/epg/now-next";
 constexpr const char* PublicEpgWindowPath =
     "/api/v1/epg/window";
+constexpr const char* PublicEpgWindowCursorPrefix = "ew1_";
+constexpr const char* PublicEpgWindowCursorVersion = "epg-window/1|";
 constexpr const char* PublicNativeTimersPath =
     "/api/v1/native-timers";
 constexpr std::size_t PublicChannelDefaultLimit = 50U;
@@ -1325,15 +1328,17 @@ struct PublicEpgWindowQuery
     std::string fromTime;
     std::string untilTime;
     std::size_t limit = 192U;
+    std::string cursor;
 };
 
 bool parsePublicEpgWindowQuery(
     const std::string& target, PublicEpgWindowQuery& query)
 {
     const std::string raw = requestQueryString(target);
-    if (raw.empty() || raw.size() > 720U) return false;
+    if (raw.empty() || raw.size() > 5000U) return false;
     bool backendSeen = false, channelSeen = false;
     bool fromSeen = false, untilSeen = false, limitSeen = false;
+    bool cursorSeen = false;
     std::size_t position = 0U;
     while (position < raw.size())
     {
@@ -1368,6 +1373,12 @@ bool parsePublicEpgWindowQuery(
             if (!decimalSize(value, query.limit) ||
                 query.limit == 0U || query.limit > 192U) return false;
         }
+        else if (key == "cursor" && !cursorSeen)
+        {
+            cursorSeen = true;
+            if (value.empty() || value.size() > 4200U) return false;
+            query.cursor = value;
+        }
         else return false;
         if (end == std::string::npos) break;
         position = end + 1U;
@@ -1397,7 +1408,9 @@ bool parsePublicEpgWindowQuery(
     {
         const auto from = std::stoll(query.fromTime);
         const auto until = std::stoll(query.untilTime);
-        return until > from && until - from <= 43200LL;
+        // E1: bound response size via limit and an ordered keyset, not
+        // artificially by a 12-hour time horizon.
+        return until > from;
     }
     catch (...) { return false; }
 }
@@ -2005,6 +2018,62 @@ PublicChannelCursorDecodeStatus decodePublicChannelCursor(
         return PublicChannelCursorDecodeStatus::scopeMismatch;
 
     return PublicChannelCursorDecodeStatus::ok;
+}
+
+std::string publicEpgWindowCursor(
+    const PublicEpgWindowQuery& query,
+    const PublicEpgWindowResult& result)
+{
+    if (!result.hasMore || result.nextStartTime.empty() ||
+        result.nextCacheEventId.empty() ||
+        // Legacy cache-only IDs include channel, time and title. A 512-byte
+        // cap could make a legitimate continuation fail despite a small page.
+        result.nextCacheEventId.size() > 1500U) return {};
+    std::string payload(PublicEpgWindowCursorVersion);
+    appendCursorField(payload, query.backendId);
+    appendCursorField(payload, query.channelId);
+    appendCursorField(payload, query.fromTime);
+    appendCursorField(payload, query.untilTime);
+    appendCursorField(payload, result.nextStartTime);
+    appendCursorField(payload, result.nextCacheEventId);
+    return std::string(PublicEpgWindowCursorPrefix) + hexEncode(payload);
+}
+
+bool decodePublicEpgWindowCursor(
+    const PublicEpgWindowQuery& query,
+    std::string& afterStartTime,
+    std::string& afterEventId)
+{
+    const std::string prefix(PublicEpgWindowCursorPrefix);
+    if (query.cursor.size() <= prefix.size() ||
+        query.cursor.compare(0U, prefix.size(), prefix) != 0)
+        return false;
+    std::string payload;
+    if (!hexDecode(query.cursor.substr(prefix.size()), payload))
+        return false;
+    const std::string version(PublicEpgWindowCursorVersion);
+    if (payload.compare(0U, version.size(), version) != 0)
+        return false;
+    std::size_t position = version.size();
+    std::string backendId, channelId, fromTime, untilTime;
+    if (!readCursorField(payload, position, backendId) ||
+        !readCursorField(payload, position, channelId) ||
+        !readCursorField(payload, position, fromTime) ||
+        !readCursorField(payload, position, untilTime) ||
+        !readCursorField(payload, position, afterStartTime) ||
+        !readCursorField(payload, position, afterEventId) ||
+        position != payload.size() ||
+        backendId != query.backendId || channelId != query.channelId ||
+        fromTime != query.fromTime || untilTime != query.untilTime ||
+        afterStartTime.size() < 10U || afterStartTime.size() > 12U ||
+        !std::all_of(afterStartTime.begin(), afterStartTime.end(),
+            [](unsigned char ch) { return ch >= '0' && ch <= '9'; }) ||
+        // Overlapping events can start before fromTime yet end inside
+        // the requested window; they remain valid continuation anchors.
+        afterStartTime >= query.untilTime ||
+        afterEventId.empty() || afterEventId.size() > 1500U)
+        return false;
+    return true;
 }
 
 enum class PublicRecordingCursorDecodeStatus
@@ -2769,6 +2838,76 @@ bool parsePublicNativeTimerModifyBody(
     return true;
 }
 
+bool publicSearchTimerNativeSubresourcePath(
+    const std::string& path, const char* suffix, std::string& id)
+{
+    const std::string prefix(PublicSearchTimerResourcePrefix);
+    const std::string tail(suffix);
+    if (path.size() != prefix.size() + 35U + tail.size() ||
+        path.compare(0U, prefix.size(), prefix) != 0 ||
+        path.compare(path.size() - tail.size(), tail.size(), tail) != 0)
+        return false;
+    id = path.substr(prefix.size(), 35U);
+    return validPublicSearchTimerId(id);
+}
+
+bool parsePublicSearchTimerNativeMutationBody(
+    const std::string& input, PublicSearchTimerNativeMutationRequest& out)
+{
+    std::size_t pos = 0U;
+    std::vector<std::string> seen;
+    std::string action;
+    skipAccountMutationWhitespace(input, pos);
+    if (pos >= input.size() || input[pos++] != '{') return false;
+    while (true)
+    {
+        skipAccountMutationWhitespace(input, pos);
+        if (pos < input.size() && input[pos] == '}') { ++pos; break; }
+        std::string key;
+        if (!parseAccountMutationJsonString(input, pos, key) ||
+            std::find(seen.begin(), seen.end(), key) != seen.end())
+            return false;
+        seen.push_back(key);
+        skipAccountMutationWhitespace(input, pos);
+        if (pos >= input.size() || input[pos++] != ':') return false;
+        skipAccountMutationWhitespace(input, pos);
+        if (key == "action" || key == "query")
+        {
+            std::string val;
+            if (!parseAccountMutationJsonString(input, pos, val)) return false;
+            if (key == "action") action = std::move(val);
+            else out.query = std::move(val);
+        }
+        else if (key == "confirmed")
+        {
+            if (input.compare(pos, 4U, "true") != 0) return false;
+            pos += 4U;
+            out.confirmed = true;
+        }
+        else return false;
+        skipAccountMutationWhitespace(input, pos);
+        if (pos >= input.size()) return false;
+        if (input[pos] == '}') { ++pos; break; }
+        if (input[pos++] != ',') return false;
+    }
+    skipAccountMutationWhitespace(input, pos);
+    if (pos != input.size() || !out.confirmed ||
+        std::find(seen.begin(), seen.end(), "action") == seen.end())
+        return false;
+    if (action == "update")
+        out.action = PublicSearchTimerNativeAction::update;
+    else if (action == "activate")
+        out.action = PublicSearchTimerNativeAction::activate;
+    else if (action == "deactivate")
+        out.action = PublicSearchTimerNativeAction::deactivate;
+    else if (action == "delete")
+        out.action = PublicSearchTimerNativeAction::remove;
+    else return false;
+    return out.action == PublicSearchTimerNativeAction::update
+        ? !out.query.empty() && out.query.size() <= 200U
+        : out.query.empty();
+}
+
 bool parsePublicSearchTimerCreateBody(
     const std::string& input, PublicSearchTimerCreateRequest& out)
 {
@@ -2828,14 +2967,14 @@ bool parsePublicSearchTimerCreateBody(
     }
     skipAccountMutationWhitespace(input,pos);
     if (pos != input.size()) return false;
-    for (const char* required : {"name","query","mode","compareTitle",
-         "compareSubtitle","compareSummary","confirmed"})
+    for (const char* required : {"name","query","active","mode",
+         "compareTitle","compareSubtitle","compareSummary","confirmed"})
         if (std::find(seen.begin(),seen.end(),required) == seen.end())
             return false;
     // epgsearch /searchtimers represents the rule name by its "search"
     // field. Its backend readback maps name = query; a different title
     // cannot round-trip or be verified as a successful native CREATE.
-    return out.name == out.query &&
+    return !out.active && out.name == out.query &&
         !out.name.empty() && out.name.size() <= 240U &&
         out.query.size() >= 2U && out.query.size() <= 240U &&
         (out.mode == 0 || out.mode == 1 || out.mode == 2 ||
@@ -3602,27 +3741,6 @@ ApiResponse publicTimerCreateProblem(
         correlationId);
 }
 
-ApiResponse contractRoot(
-    const bool authenticated,
-    const std::string& requestId,
-    const std::string& correlationId)
-{
-    return jsonResponse(
-        std::string("{\"apiVersion\":\"v1\",\"serverVersion\":\"")
-        + VdrSuiteServerBuildIdentity::ServerVersion
-        + "\",\"supportedApiMajors\":[\"v1\"],"
-          "\"compatibilityPolicy\":{\"version\":1,"
-          "\"responseEvolution\":\"additive\","
-          "\"breakingChanges\":\"new-major\","
-          "\"unknownRequestFields\":\"reject\","
-          "\"legacyUnversioned\":\"transition\"},"
-          "\"authentication\":{\"authenticated\":"
-        + (authenticated ? "true" : "false")
-        + "},\"links\":{\"self\":\"/api/v1\",\"capabilities\":\"/api/v1/capabilities\",\"backends\":\"/api/v1/backends\",\"accounts\":\"/api/v1/accounts\",\"devicePairings\":\"/api/v1/device-pairings\"}}",
-        requestId,
-        correlationId);
-}
-
 std::string publicDevicePairingJson(
     const PublicDevicePairingResource& resource,
     const std::string& self)
@@ -3836,139 +3954,6 @@ ApiResponse publicDevicePairingCreatedResponse(
     response.statusCode = 201;
     response.headers["Location"] = self;
     return response;
-}
-
-ApiResponse platformCapabilities(
-    const bool operationReadAvailable,
-    const bool timerAssignmentReadAvailable,
-    const bool timerCreateAdmissionAvailable,
-    const bool searchTimerCollectionAvailable,
-    const bool backendCollectionAvailable,
-    const bool recordingCollectionAvailable,
-    const bool genreCollectionAvailable,
-    const bool epgGenreAvailable,
-    const bool epgNowNextAvailable,
-    const bool epgWindowAvailable,
-    const bool epgEventDetailAvailable,
-    const bool nativeTimersAvailable,
-    const bool searchAvailable,
-    const bool accountCollectionAvailable,
-    const bool accountMutationAvailable,
-    const bool accountCreateAvailable,
-    const bool accountGrantAdministrationAvailable,
-    const bool deviceGrantAdministrationAvailable,
-    const bool deviceLifecycleAdministrationAvailable,
-    const bool deviceCredentialRotationAvailable,
-    const bool accountSecurityMetadataAvailable,
-    const bool accountCredentialRevokeAvailable,
-    const bool accountSessionRevokeAvailable,
-    const bool devicePairingBootstrapAvailable,
-    const bool devicePairingAdministrationAvailable,
-    const bool deviceCredentialIssueAvailable,
-    const std::string& requestId,
-    const std::string& correlationId)
-{
-    return jsonResponse(
-        "{\"apiVersion\":\"v1\",\"capabilities\":["
-        "{\"id\":\"public-api.contract-root\",\"version\":1,\"availability\":\"available\"},"
-        "{\"id\":\"public-api.durable-operations-read\",\"version\":1,\"availability\":\"" +
-        std::string(operationReadAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.timer-assignments-read\",\"version\":1,\"availability\":\"" +
-        std::string(timerAssignmentReadAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.search-timers-read\",\"version\":1,\"availability\":\"" +
-        std::string(searchTimerCollectionAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.timer-create-admission\",\"version\":1,\"availability\":\"" +
-        std::string(timerCreateAdmissionAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.backends-read\",\"version\":1,\"availability\":\"" +
-        std::string(backendCollectionAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.recordings-read\",\"version\":1,\"availability\":\"" +
-        std::string(recordingCollectionAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.recordings-browse\",\"version\":1,\"availability\":\"" +
-        std::string(recordingCollectionAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.recording-genres-read\",\"version\":1,\"availability\":\"" +
-        std::string(genreCollectionAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.epg-genres-read\",\"version\":1,\"availability\":\"" +
-        std::string(epgGenreAvailable ? "available" : "unavailable") +
-        "\"}," 
-        "{\"id\":\"public-api.recording-search\",\"version\":1,\"availability\":\"" +
-        std::string(searchAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.epg-search\",\"version\":1,\"availability\":\"" +
-        std::string(searchAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.epg-now-next-read\",\"version\":1,\"availability\":\"" +
-        std::string(epgNowNextAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.epg-window-read\",\"version\":1,\"availability\":\"" +
-        std::string(epgWindowAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.epg-event-detail-read\",\"version\":1,\"availability\":\"" +
-        std::string(epgEventDetailAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.native-timers-read\",\"version\":1,\"availability\":\"" +
-        std::string(nativeTimersAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.accounts-read\",\"version\":1,\"availability\":\"" +
-        std::string(accountCollectionAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.accounts-lifecycle-mutation\",\"version\":1,\"availability\":\"" +
-        std::string(accountMutationAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.accounts-create\",\"version\":1,\"availability\":\"" +
-        std::string(accountCreateAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.accounts-grants-administration\",\"version\":1,\"availability\":\"" +
-        std::string(accountGrantAdministrationAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.devices-grants-administration\",\"version\":1,\"availability\":\"" +
-        std::string(deviceGrantAdministrationAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.devices-lifecycle-administration\",\"version\":1,\"availability\":\"" +
-        std::string(deviceLifecycleAdministrationAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.devices-credential-rotation\",\"version\":1,\"availability\":\"" +
-        std::string(deviceCredentialRotationAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.accounts-credential-session-metadata\",\"version\":1,\"availability\":\"" +
-        std::string(accountSecurityMetadataAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.accounts-credential-revoke\",\"version\":1,\"availability\":\"" +
-        std::string(accountCredentialRevokeAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.accounts-session-revoke\",\"version\":1,\"availability\":\"" +
-        std::string(accountSessionRevokeAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.device-pairing-bootstrap\",\"version\":1,\"availability\":\"" +
-        std::string(devicePairingBootstrapAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.device-pairing-administration\",\"version\":1,\"availability\":\"" +
-        std::string(devicePairingAdministrationAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.device-credential-issuance\",\"version\":1,\"availability\":\"" +
-        std::string(deviceCredentialIssueAvailable ? "available" : "unavailable") +
-        "\"},"
-        "{\"id\":\"public-api.compatibility-policy\",\"version\":1,\"availability\":\"available\"},"
-        "{\"id\":\"public-api.deprecation-metadata\",\"version\":1,\"availability\":\"available\"}"
-        "],\"compatibility\":{\"policyVersion\":1,"
-        "\"supportedApiMajors\":[\"v1\"],"
-        "\"responseEvolution\":\"additive\","
-        "\"breakingChanges\":\"new-major\","
-        "\"unknownRequestFields\":\"reject\","
-        "\"legacyUnversioned\":\"transition\","
-        "\"lifecycle\":[\"supported\",\"deprecated\",\"sunset-announced\",\"removed\"],"
-        "\"deprecationHeaders\":[\"Deprecation\",\"Sunset\",\"Link\"],"
-        "\"deprecatedAliases\":[]},"
-        "\"links\":{\"self\":\"/api/v1/capabilities\",\"root\":\"/api/v1\"}}",
-        requestId,
-        correlationId);
 }
 
 ApiResponse publicOperationResponse(
@@ -5304,164 +5289,6 @@ bool PublicApiRuntime::operationLookupConfigured() const
     return static_cast<bool>(operationLookup_);
 }
 
-void PublicApiRuntime::registerTimerAssignmentLookup(
-    TimerAssignmentLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(
-        timerAssignmentLookupMutex_);
-    timerAssignmentLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetTimerAssignmentLookup()
-{
-    std::lock_guard<std::mutex> lock(
-        timerAssignmentLookupMutex_);
-    timerAssignmentLookup_ = TimerAssignmentLookup{};
-}
-
-bool PublicApiRuntime::timerAssignmentLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        timerAssignmentLookupMutex_);
-    return static_cast<bool>(timerAssignmentLookup_);
-}
-
-void PublicApiRuntime::registerDevicePairingCreate(
-    DevicePairingCreate create)
-{
-    std::lock_guard<std::mutex> lock(
-        devicePairingCreateMutex_);
-    devicePairingCreate_ = std::move(create);
-}
-
-void PublicApiRuntime::resetDevicePairingCreate()
-{
-    std::lock_guard<std::mutex> lock(
-        devicePairingCreateMutex_);
-    devicePairingCreate_ = {};
-}
-
-bool PublicApiRuntime::devicePairingCreateConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        devicePairingCreateMutex_);
-    return static_cast<bool>(devicePairingCreate_);
-}
-
-void PublicApiRuntime::registerDevicePairingLookup(
-    DevicePairingLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(
-        devicePairingLookupMutex_);
-    devicePairingLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetDevicePairingLookup()
-{
-    std::lock_guard<std::mutex> lock(
-        devicePairingLookupMutex_);
-    devicePairingLookup_ = {};
-}
-
-bool PublicApiRuntime::devicePairingLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        devicePairingLookupMutex_);
-    return static_cast<bool>(devicePairingLookup_);
-}
-
-void PublicApiRuntime::registerDeviceCredentialIssue(
-    DeviceCredentialIssue issue)
-{
-    std::lock_guard<std::mutex> lock(deviceCredentialIssueMutex_);
-    deviceCredentialIssue_ = std::move(issue);
-}
-
-void PublicApiRuntime::resetDeviceCredentialIssue()
-{
-    std::lock_guard<std::mutex> lock(deviceCredentialIssueMutex_);
-    deviceCredentialIssue_ = {};
-}
-
-bool PublicApiRuntime::deviceCredentialIssueConfigured() const
-{
-    std::lock_guard<std::mutex> lock(deviceCredentialIssueMutex_);
-    return static_cast<bool>(deviceCredentialIssue_);
-}
-
-void PublicApiRuntime::registerDevicePairingAdministrationCollectionLookup(
-    DevicePairingAdministrationCollectionLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(
-        devicePairingAdministrationCollectionLookupMutex_);
-    devicePairingAdministrationCollectionLookup_ =
-        std::move(lookup);
-}
-
-void PublicApiRuntime::resetDevicePairingAdministrationCollectionLookup()
-{
-    std::lock_guard<std::mutex> lock(
-        devicePairingAdministrationCollectionLookupMutex_);
-    devicePairingAdministrationCollectionLookup_ = {};
-}
-
-bool PublicApiRuntime::
-devicePairingAdministrationCollectionLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        devicePairingAdministrationCollectionLookupMutex_);
-    return static_cast<bool>(
-        devicePairingAdministrationCollectionLookup_);
-}
-
-void PublicApiRuntime::registerDevicePairingAdministrationLookup(
-    DevicePairingAdministrationLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(
-        devicePairingAdministrationLookupMutex_);
-    devicePairingAdministrationLookup_ =
-        std::move(lookup);
-}
-
-void PublicApiRuntime::resetDevicePairingAdministrationLookup()
-{
-    std::lock_guard<std::mutex> lock(
-        devicePairingAdministrationLookupMutex_);
-    devicePairingAdministrationLookup_ = {};
-}
-
-bool PublicApiRuntime::
-devicePairingAdministrationLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        devicePairingAdministrationLookupMutex_);
-    return static_cast<bool>(
-        devicePairingAdministrationLookup_);
-}
-
-void PublicApiRuntime::registerDevicePairingDecision(
-    DevicePairingDecision decision)
-{
-    std::lock_guard<std::mutex> lock(
-        devicePairingDecisionMutex_);
-    devicePairingDecision_ =
-        std::move(decision);
-}
-
-void PublicApiRuntime::resetDevicePairingDecision()
-{
-    std::lock_guard<std::mutex> lock(
-        devicePairingDecisionMutex_);
-    devicePairingDecision_ = {};
-}
-
-bool PublicApiRuntime::devicePairingDecisionConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        devicePairingDecisionMutex_);
-    return static_cast<bool>(devicePairingDecision_);
-}
-
 void PublicApiRuntime::registerEpgTimerIntentObservationLookup(
     EpgTimerIntentObservationLookup callback)
 {
@@ -5525,70 +5352,30 @@ bool PublicApiRuntime::timerCreateAdmissionConfigured() const
     return static_cast<bool>(timerCreateAdmission_);
 }
 
-void PublicApiRuntime::registerTimerAssignmentCollectionLookup(
-    TimerAssignmentCollectionLookup lookup)
+void PublicApiRuntime::registerSearchTimerNativeVersionLookup(
+    SearchTimerNativeVersionLookup lookup)
 {
-    std::lock_guard<std::mutex> lock(
-        timerAssignmentCollectionLookupMutex_);
-    timerAssignmentCollectionLookup_ = std::move(lookup);
+    std::lock_guard<std::mutex> lock(searchTimerNativeVersionMutex_);
+    searchTimerNativeVersion_ = std::move(lookup);
 }
 
-void PublicApiRuntime::resetTimerAssignmentCollectionLookup()
+void PublicApiRuntime::resetSearchTimerNativeVersionLookup()
 {
-    std::lock_guard<std::mutex> lock(
-        timerAssignmentCollectionLookupMutex_);
-    timerAssignmentCollectionLookup_ = {};
+    std::lock_guard<std::mutex> lock(searchTimerNativeVersionMutex_);
+    searchTimerNativeVersion_ = {};
 }
 
-bool PublicApiRuntime::timerAssignmentCollectionLookupConfigured() const
+void PublicApiRuntime::registerSearchTimerNativeMutation(
+    SearchTimerNativeMutation handler)
 {
-    std::lock_guard<std::mutex> lock(
-        timerAssignmentCollectionLookupMutex_);
-    return static_cast<bool>(timerAssignmentCollectionLookup_);
+    std::lock_guard<std::mutex> lock(searchTimerNativeMutationMutex_);
+    searchTimerNativeMutation_ = std::move(handler);
 }
 
-PublicTimerAssignmentCollectionResult
-PublicApiRuntime::lookupTimerAssignmentCollection(
-    const PublicTimerAssignmentCollectionRequest& request) const
+void PublicApiRuntime::resetSearchTimerNativeMutation()
 {
-    TimerAssignmentCollectionLookup lookup;
-    {
-        std::lock_guard<std::mutex> lock(
-            timerAssignmentCollectionLookupMutex_);
-        lookup = timerAssignmentCollectionLookup_;
-    }
-    if (!lookup) return {};
-    return lookup(request);
-}
-
-void PublicApiRuntime::registerSearchTimerCollectionLookup(
-    SearchTimerCollectionLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(searchTimerCollectionLookupMutex_);
-    searchTimerCollectionLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetSearchTimerCollectionLookup()
-{
-    std::lock_guard<std::mutex> lock(searchTimerCollectionLookupMutex_);
-    searchTimerCollectionLookup_ = {};
-}
-
-bool PublicApiRuntime::searchTimerCollectionLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(searchTimerCollectionLookupMutex_);
-    return static_cast<bool>(searchTimerCollectionLookup_);
-}
-
-PublicSearchTimerCollectionResult PublicApiRuntime::lookupSearchTimerCollection(
-    const PublicSearchTimerCollectionRequest& request) const
-{
-    SearchTimerCollectionLookup callback;
-    {
-        std::lock_guard<std::mutex> lock(searchTimerCollectionLookupMutex_);
-        callback = searchTimerCollectionLookup_;
-    }
-    return callback ? callback(request) : PublicSearchTimerCollectionResult{};
+    std::lock_guard<std::mutex> lock(searchTimerNativeMutationMutex_);
+    searchTimerNativeMutation_ = {};
 }
 
 void PublicApiRuntime::registerSearchTimerCreate(SearchTimerCreate handler)
@@ -5600,768 +5387,6 @@ void PublicApiRuntime::resetSearchTimerCreate()
 {
     std::lock_guard<std::mutex> lock(searchTimerCreateMutex_);
     searchTimerCreate_ = {};
-}
-
-void PublicApiRuntime::registerSearchTimerPreviewLookup(
-    SearchTimerPreviewLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(searchTimerPreviewLookupMutex_);
-    searchTimerPreviewLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetSearchTimerPreviewLookup()
-{
-    std::lock_guard<std::mutex> lock(searchTimerPreviewLookupMutex_);
-    searchTimerPreviewLookup_ = {};
-}
-
-PublicSearchTimerPreviewResult PublicApiRuntime::lookupSearchTimerPreview(
-    const PublicSearchTimerPreviewRequest& request) const
-{
-    SearchTimerPreviewLookup callback;
-    {
-        std::lock_guard<std::mutex> lock(searchTimerPreviewLookupMutex_);
-        callback = searchTimerPreviewLookup_;
-    }
-    return callback ? callback(request) : PublicSearchTimerPreviewResult{};
-}
-
-void PublicApiRuntime::registerBackendCollectionLookup(
-    BackendCollectionLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(
-        backendCollectionLookupMutex_);
-    backendCollectionLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetBackendCollectionLookup()
-{
-    std::lock_guard<std::mutex> lock(
-        backendCollectionLookupMutex_);
-    backendCollectionLookup_ = {};
-}
-
-bool PublicApiRuntime::backendCollectionLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        backendCollectionLookupMutex_);
-    return static_cast<bool>(backendCollectionLookup_);
-}
-
-PublicBackendCollectionResult
-PublicApiRuntime::lookupBackendCollection(
-    const PublicBackendCollectionRequest& request) const
-{
-    BackendCollectionLookup lookup;
-    {
-        std::lock_guard<std::mutex> lock(
-            backendCollectionLookupMutex_);
-        lookup = backendCollectionLookup_;
-    }
-    if (!lookup) return {};
-    return lookup(request);
-}
-
-void PublicApiRuntime::registerAccountCollectionLookup(
-    AccountCollectionLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(
-        accountCollectionLookupMutex_);
-    accountCollectionLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetAccountCollectionLookup()
-{
-    std::lock_guard<std::mutex> lock(
-        accountCollectionLookupMutex_);
-    accountCollectionLookup_ = {};
-}
-
-bool PublicApiRuntime::accountCollectionLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        accountCollectionLookupMutex_);
-    return static_cast<bool>(accountCollectionLookup_);
-}
-
-PublicAccountCollectionResult
-PublicApiRuntime::lookupAccountCollection(
-    const PublicAccountCollectionRequest& request) const
-{
-    AccountCollectionLookup lookup;
-    {
-        std::lock_guard<std::mutex> lock(
-            accountCollectionLookupMutex_);
-        lookup = accountCollectionLookup_;
-    }
-    if (!lookup) return {};
-    return lookup(request);
-}
-
-void PublicApiRuntime::registerAccountLookup(
-    AccountLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(
-        accountLookupMutex_);
-    accountLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetAccountLookup()
-{
-    std::lock_guard<std::mutex> lock(
-        accountLookupMutex_);
-    accountLookup_ = {};
-}
-
-bool PublicApiRuntime::accountLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        accountLookupMutex_);
-    return static_cast<bool>(accountLookup_);
-}
-
-PublicAccountLookupResult
-PublicApiRuntime::lookupAccount(
-    const std::string& accountId) const
-{
-    AccountLookup lookup;
-    {
-        std::lock_guard<std::mutex> lock(
-            accountLookupMutex_);
-        lookup = accountLookup_;
-    }
-    if (!lookup) return {};
-    return lookup(accountId);
-}
-
-void PublicApiRuntime::registerAccountMutation(
-    AccountMutation mutation)
-{
-    std::lock_guard<std::mutex> lock(
-        accountMutationMutex_);
-    accountMutation_ = std::move(mutation);
-}
-
-void PublicApiRuntime::resetAccountMutation()
-{
-    std::lock_guard<std::mutex> lock(
-        accountMutationMutex_);
-    accountMutation_ = {};
-}
-
-bool PublicApiRuntime::accountMutationConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        accountMutationMutex_);
-    return static_cast<bool>(accountMutation_);
-}
-
-void PublicApiRuntime::registerAccountCreate(
-    AccountCreate create)
-{
-    std::lock_guard<std::mutex> lock(
-        accountCreateMutex_);
-    accountCreate_ = std::move(create);
-}
-
-void PublicApiRuntime::resetAccountCreate()
-{
-    std::lock_guard<std::mutex> lock(
-        accountCreateMutex_);
-    accountCreate_ = {};
-}
-
-bool PublicApiRuntime::accountCreateConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        accountCreateMutex_);
-    return static_cast<bool>(accountCreate_);
-}
-
-void PublicApiRuntime::registerDeviceLifecycleLookup(
-    DeviceLifecycleLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(deviceLifecycleLookupMutex_);
-    deviceLifecycleLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetDeviceLifecycleLookup()
-{
-    std::lock_guard<std::mutex> lock(deviceLifecycleLookupMutex_);
-    deviceLifecycleLookup_ = {};
-}
-
-void PublicApiRuntime::registerDeviceLifecycleMutation(
-    DeviceLifecycleMutation mutation)
-{
-    std::lock_guard<std::mutex> lock(deviceLifecycleMutationMutex_);
-    deviceLifecycleMutation_ = std::move(mutation);
-}
-
-void PublicApiRuntime::resetDeviceLifecycleMutation()
-{
-    std::lock_guard<std::mutex> lock(deviceLifecycleMutationMutex_);
-    deviceLifecycleMutation_ = {};
-}
-
-bool PublicApiRuntime::deviceLifecycleAdministrationConfigured() const
-{
-    std::lock_guard<std::mutex> a(deviceLifecycleLookupMutex_);
-    std::lock_guard<std::mutex> b(deviceLifecycleMutationMutex_);
-    return static_cast<bool>(deviceLifecycleLookup_) &&
-           static_cast<bool>(deviceLifecycleMutation_);
-}
-
-void PublicApiRuntime::registerDeviceCredentialRotation(
-    DeviceCredentialRotation rotate)
-{
-    std::lock_guard<std::mutex> lock(deviceCredentialRotationMutex_);
-    deviceCredentialRotation_ = std::move(rotate);
-}
-
-void PublicApiRuntime::resetDeviceCredentialRotation()
-{
-    std::lock_guard<std::mutex> lock(deviceCredentialRotationMutex_);
-    deviceCredentialRotation_ = {};
-}
-
-bool PublicApiRuntime::deviceCredentialRotationConfigured() const
-{
-    std::lock_guard<std::mutex> lock(deviceCredentialRotationMutex_);
-    return static_cast<bool>(deviceCredentialRotation_);
-}
-
-void PublicApiRuntime::registerDeviceCollectionLookup(
-    DeviceCollectionLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(deviceCollectionLookupMutex_);
-    deviceCollectionLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetDeviceCollectionLookup()
-{
-    std::lock_guard<std::mutex> lock(deviceCollectionLookupMutex_);
-    deviceCollectionLookup_ = {};
-}
-
-void PublicApiRuntime::registerDeviceGrantLookup(
-    DeviceGrantLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(deviceGrantLookupMutex_);
-    deviceGrantLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetDeviceGrantLookup()
-{
-    std::lock_guard<std::mutex> lock(deviceGrantLookupMutex_);
-    deviceGrantLookup_ = {};
-}
-
-void PublicApiRuntime::registerDeviceGrantMutation(
-    DeviceGrantMutation mutation)
-{
-    std::lock_guard<std::mutex> lock(deviceGrantMutationMutex_);
-    deviceGrantMutation_ = std::move(mutation);
-}
-
-void PublicApiRuntime::resetDeviceGrantMutation()
-{
-    std::lock_guard<std::mutex> lock(deviceGrantMutationMutex_);
-    deviceGrantMutation_ = {};
-}
-
-bool PublicApiRuntime::deviceGrantAdministrationConfigured() const
-{
-    std::lock_guard<std::mutex> lookupLock(deviceGrantLookupMutex_);
-    std::lock_guard<std::mutex> mutationLock(deviceGrantMutationMutex_);
-    return static_cast<bool>(deviceGrantLookup_) &&
-           static_cast<bool>(deviceGrantMutation_);
-}
-
-void PublicApiRuntime::registerAccountGrantLookup(
-    AccountGrantLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(
-        accountGrantLookupMutex_);
-    accountGrantLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetAccountGrantLookup()
-{
-    std::lock_guard<std::mutex> lock(
-        accountGrantLookupMutex_);
-    accountGrantLookup_ = {};
-}
-
-bool PublicApiRuntime::accountGrantLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        accountGrantLookupMutex_);
-    return static_cast<bool>(accountGrantLookup_);
-}
-
-void PublicApiRuntime::registerAccountGrantMutation(
-    AccountGrantMutation mutation)
-{
-    std::lock_guard<std::mutex> lock(
-        accountGrantMutationMutex_);
-    accountGrantMutation_ = std::move(mutation);
-}
-
-void PublicApiRuntime::resetAccountGrantMutation()
-{
-    std::lock_guard<std::mutex> lock(
-        accountGrantMutationMutex_);
-    accountGrantMutation_ = {};
-}
-
-bool PublicApiRuntime::accountGrantMutationConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        accountGrantMutationMutex_);
-    return static_cast<bool>(accountGrantMutation_);
-}
-
-void PublicApiRuntime::registerAccountCredentialLookup(
-    AccountCredentialLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(
-        accountCredentialLookupMutex_);
-    accountCredentialLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetAccountCredentialLookup()
-{
-    std::lock_guard<std::mutex> lock(
-        accountCredentialLookupMutex_);
-    accountCredentialLookup_ = {};
-}
-
-bool PublicApiRuntime::accountCredentialLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        accountCredentialLookupMutex_);
-    return static_cast<bool>(accountCredentialLookup_);
-}
-
-void PublicApiRuntime::registerAccountCredentialItemLookup(
-    AccountCredentialItemLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(
-        accountCredentialItemLookupMutex_);
-    accountCredentialItemLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetAccountCredentialItemLookup()
-{
-    std::lock_guard<std::mutex> lock(
-        accountCredentialItemLookupMutex_);
-    accountCredentialItemLookup_ = {};
-}
-
-bool PublicApiRuntime::accountCredentialItemLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        accountCredentialItemLookupMutex_);
-    return static_cast<bool>(accountCredentialItemLookup_);
-}
-
-void PublicApiRuntime::registerAccountCredentialMutation(
-    AccountCredentialMutation mutation)
-{
-    std::lock_guard<std::mutex> lock(
-        accountCredentialMutationMutex_);
-    accountCredentialMutation_ = std::move(mutation);
-}
-
-void PublicApiRuntime::resetAccountCredentialMutation()
-{
-    std::lock_guard<std::mutex> lock(
-        accountCredentialMutationMutex_);
-    accountCredentialMutation_ = {};
-}
-
-bool PublicApiRuntime::accountCredentialMutationConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        accountCredentialMutationMutex_);
-    return static_cast<bool>(accountCredentialMutation_);
-}
-
-void PublicApiRuntime::registerAccountSessionLookup(
-    AccountSessionLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(
-        accountSessionLookupMutex_);
-    accountSessionLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetAccountSessionLookup()
-{
-    std::lock_guard<std::mutex> lock(
-        accountSessionLookupMutex_);
-    accountSessionLookup_ = {};
-}
-
-bool PublicApiRuntime::accountSessionLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        accountSessionLookupMutex_);
-    return static_cast<bool>(accountSessionLookup_);
-}
-
-void PublicApiRuntime::registerAccountSessionItemLookup(
-    AccountSessionItemLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(
-        accountSessionItemLookupMutex_);
-    accountSessionItemLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetAccountSessionItemLookup()
-{
-    std::lock_guard<std::mutex> lock(
-        accountSessionItemLookupMutex_);
-    accountSessionItemLookup_ = {};
-}
-
-bool PublicApiRuntime::accountSessionItemLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        accountSessionItemLookupMutex_);
-    return static_cast<bool>(accountSessionItemLookup_);
-}
-
-void PublicApiRuntime::registerAccountSessionMutation(
-    AccountSessionMutation mutation)
-{
-    std::lock_guard<std::mutex> lock(
-        accountSessionMutationMutex_);
-    accountSessionMutation_ = std::move(mutation);
-}
-
-void PublicApiRuntime::resetAccountSessionMutation()
-{
-    std::lock_guard<std::mutex> lock(
-        accountSessionMutationMutex_);
-    accountSessionMutation_ = {};
-}
-
-bool PublicApiRuntime::accountSessionMutationConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        accountSessionMutationMutex_);
-    return static_cast<bool>(accountSessionMutation_);
-}
-
-void PublicApiRuntime::registerRecordingCollectionLookup(
-    RecordingCollectionLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(recordingCollectionLookupMutex_);
-    recordingCollectionLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetRecordingCollectionLookup()
-{
-    std::lock_guard<std::mutex> lock(recordingCollectionLookupMutex_);
-    recordingCollectionLookup_ = {};
-}
-
-bool PublicApiRuntime::recordingCollectionLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(recordingCollectionLookupMutex_);
-    return static_cast<bool>(recordingCollectionLookup_);
-}
-
-PublicRecordingCollectionResult PublicApiRuntime::lookupRecordingCollection(
-    const PublicRecordingCollectionRequest& request) const
-{
-    RecordingCollectionLookup lookup;
-    {
-        std::lock_guard<std::mutex> lock(recordingCollectionLookupMutex_);
-        lookup = recordingCollectionLookup_;
-    }
-    if (!lookup) return {};
-    return lookup(request);
-}
-
-
-void PublicApiRuntime::registerSearchLookup(SearchLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(searchLookupMutex_);
-    searchLookup_ = std::move(lookup);
-}
-void PublicApiRuntime::resetSearchLookup()
-{
-    std::lock_guard<std::mutex> lock(searchLookupMutex_);
-    searchLookup_ = {};
-}
-bool PublicApiRuntime::searchLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(searchLookupMutex_);
-    return static_cast<bool>(searchLookup_);
-}
-PublicSearchResult PublicApiRuntime::lookupSearch(
-    const PublicSearchRequest& request) const
-{
-    SearchLookup lookup;
-    {
-        std::lock_guard<std::mutex> lock(searchLookupMutex_);
-        lookup = searchLookup_;
-    }
-    return lookup ? lookup(request) : PublicSearchResult{};
-}
-
-void PublicApiRuntime::registerEpgGenreLookup(EpgGenreLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(epgGenreLookupMutex_);
-    epgGenreLookup_ = std::move(lookup);
-}
-void PublicApiRuntime::resetEpgGenreLookup()
-{
-    std::lock_guard<std::mutex> lock(epgGenreLookupMutex_);
-    epgGenreLookup_ = {};
-}
-bool PublicApiRuntime::epgGenreLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(epgGenreLookupMutex_);
-    return static_cast<bool>(epgGenreLookup_);
-}
-PublicEpgGenreResult PublicApiRuntime::lookupEpgGenre(
-    const PublicEpgGenreRequest& request) const
-{
-    EpgGenreLookup lookup;
-    {
-        std::lock_guard<std::mutex> lock(epgGenreLookupMutex_);
-        lookup = epgGenreLookup_;
-    }
-    return lookup ? lookup(request) : PublicEpgGenreResult{};
-}
-
-void PublicApiRuntime::registerGenreCollectionLookup(
-    GenreCollectionLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(genreCollectionLookupMutex_);
-    genreCollectionLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetGenreCollectionLookup()
-{
-    std::lock_guard<std::mutex> lock(genreCollectionLookupMutex_);
-    genreCollectionLookup_ = {};
-}
-
-bool PublicApiRuntime::genreCollectionLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(genreCollectionLookupMutex_);
-    return static_cast<bool>(genreCollectionLookup_);
-}
-
-PublicGenreCollectionResult PublicApiRuntime::lookupGenreCollection(
-    const PublicGenreCollectionRequest& request) const
-{
-    GenreCollectionLookup lookup;
-    {
-        std::lock_guard<std::mutex> lock(genreCollectionLookupMutex_);
-        lookup = genreCollectionLookup_;
-    }
-    return lookup ? lookup(request) : PublicGenreCollectionResult{};
-}
-
-void PublicApiRuntime::registerEpgNowNextLookup(
-    EpgNowNextLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(epgNowNextLookupMutex_);
-    epgNowNextLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetEpgNowNextLookup()
-{
-    std::lock_guard<std::mutex> lock(epgNowNextLookupMutex_);
-    epgNowNextLookup_ = {};
-}
-
-bool PublicApiRuntime::epgNowNextLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(epgNowNextLookupMutex_);
-    return static_cast<bool>(epgNowNextLookup_);
-}
-
-PublicEpgNowNextResult PublicApiRuntime::lookupEpgNowNext(
-    const PublicEpgNowNextRequest& request) const
-{
-    EpgNowNextLookup lookup;
-    {
-        std::lock_guard<std::mutex> lock(epgNowNextLookupMutex_);
-        lookup = epgNowNextLookup_;
-    }
-    return lookup ? lookup(request) : PublicEpgNowNextResult{};
-}
-
-void PublicApiRuntime::registerEpgWindowLookup(
-    EpgWindowLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(epgWindowLookupMutex_);
-    epgWindowLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetEpgWindowLookup()
-{
-    std::lock_guard<std::mutex> lock(epgWindowLookupMutex_);
-    epgWindowLookup_ = {};
-}
-
-bool PublicApiRuntime::epgWindowLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(epgWindowLookupMutex_);
-    return static_cast<bool>(epgWindowLookup_);
-}
-
-PublicEpgWindowResult PublicApiRuntime::lookupEpgWindow(
-    const PublicEpgWindowRequest& request) const
-{
-    EpgWindowLookup lookup;
-    {
-        std::lock_guard<std::mutex> lock(epgWindowLookupMutex_);
-        lookup = epgWindowLookup_;
-    }
-    return lookup ? lookup(request) : PublicEpgWindowResult{};
-}
-
-void PublicApiRuntime::registerEpgEventDetailLookup(EpgEventDetailLookup callback)
-{
-    std::lock_guard<std::mutex> lock(epgEventDetailMutex_);
-    epgEventDetailLookup_ = std::move(callback);
-}
-void PublicApiRuntime::resetEpgEventDetailLookup()
-{
-    std::lock_guard<std::mutex> lock(epgEventDetailMutex_);
-    epgEventDetailLookup_ = {};
-}
-bool PublicApiRuntime::epgEventDetailLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(epgEventDetailMutex_);
-    return static_cast<bool>(epgEventDetailLookup_);
-}
-PublicEpgEventDetailResult PublicApiRuntime::lookupEpgEventDetail(
-    const PublicEpgEventDetailRequest& request) const
-{
-    EpgEventDetailLookup callback;
-    {
-        std::lock_guard<std::mutex> lock(epgEventDetailMutex_);
-        callback = epgEventDetailLookup_;
-    }
-    return callback ? callback(request) : PublicEpgEventDetailResult{};
-}
-
-void PublicApiRuntime::registerNativeTimersLookup(
-    NativeTimersLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(nativeTimersLookupMutex_);
-    nativeTimersLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetNativeTimersLookup()
-{
-    std::lock_guard<std::mutex> lock(nativeTimersLookupMutex_);
-    nativeTimersLookup_ = {};
-}
-
-bool PublicApiRuntime::nativeTimersLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(nativeTimersLookupMutex_);
-    return static_cast<bool>(nativeTimersLookup_);
-}
-
-PublicNativeTimersResult PublicApiRuntime::lookupNativeTimers(
-    const PublicNativeTimersRequest& request) const
-{
-    NativeTimersLookup lookup;
-    {
-        std::lock_guard<std::mutex> lock(nativeTimersLookupMutex_);
-        lookup = nativeTimersLookup_;
-    }
-    return lookup ? lookup(request) : PublicNativeTimersResult{};
-}
-
-void PublicApiRuntime::registerNativeTimerDetailLookup(NativeTimerDetailLookup cb)
-{
-    std::lock_guard<std::mutex> lock(nativeTimerDetailMutex_);
-    nativeTimerDetailLookup_ = std::move(cb);
-}
-
-void PublicApiRuntime::resetNativeTimerDetailLookup()
-{
-    std::lock_guard<std::mutex> lock(nativeTimerDetailMutex_);
-    nativeTimerDetailLookup_ = {};
-}
-
-PublicNativeTimerDetailResult PublicApiRuntime::lookupNativeTimerDetail(
-    const PublicNativeTimerDetailRequest& request) const
-{
-    NativeTimerDetailLookup cb;
-    {
-        std::lock_guard<std::mutex> lock(nativeTimerDetailMutex_);
-        cb = nativeTimerDetailLookup_;
-    }
-    return cb ? cb(request) : PublicNativeTimerDetailResult{};
-}
-
-void PublicApiRuntime::registerChannelCollectionLookup(
-    ChannelCollectionLookup lookup)
-{
-    std::lock_guard<std::mutex> lock(
-        channelCollectionLookupMutex_);
-    channelCollectionLookup_ = std::move(lookup);
-}
-
-void PublicApiRuntime::resetChannelCollectionLookup()
-{
-    std::lock_guard<std::mutex> lock(
-        channelCollectionLookupMutex_);
-    channelCollectionLookup_ = {};
-}
-
-bool PublicApiRuntime::channelCollectionLookupConfigured() const
-{
-    std::lock_guard<std::mutex> lock(
-        channelCollectionLookupMutex_);
-    return static_cast<bool>(channelCollectionLookup_);
-}
-
-PublicChannelCollectionResult
-PublicApiRuntime::lookupChannelCollection(
-    const PublicChannelCollectionRequest& request) const
-{
-    ChannelCollectionLookup lookup;
-    {
-        std::lock_guard<std::mutex> lock(
-            channelCollectionLookupMutex_);
-        lookup = channelCollectionLookup_;
-    }
-    if (!lookup) return {};
-    return lookup(request);
-}
-
-PublicTimerAssignmentLookupResult
-PublicApiRuntime::lookupTimerAssignment(
-    const std::string& timerAssignmentId,
-    const std::string& backendId) const
-{
-    TimerAssignmentLookup lookup;
-
-    {
-        std::lock_guard<std::mutex> lock(
-            timerAssignmentLookupMutex_);
-        lookup = timerAssignmentLookup_;
-    }
-
-    if (!lookup)
-    {
-        return {};
-    }
-
-    return lookup(timerAssignmentId, backendId);
 }
 
 PublicOperationLookupResult PublicApiRuntime::lookupOperation(
@@ -6384,69 +5409,2030 @@ PublicOperationLookupResult PublicApiRuntime::lookupOperation(
     return lookup(operationId, actorRef);
 }
 
-bool PublicApiRuntime::tryHandleGet(
+bool PublicApiRuntime::tryHandleBackendCollectionGet(
     const std::string& requestTarget,
     const std::string& actorRef,
     const std::string& requestId,
     const std::string& correlationId,
-    ApiResponse& response,
-    const std::string& ifNoneMatch,
-    const std::string& authorizedBackendId,
     const std::vector<std::string>& authorizedBackendIds,
-    const std::string& pairingToken) const
+    ApiResponse& response) const
 {
     const std::string path = requestPath(requestTarget);
-
-    if (path == "/api/v1")
+    if (path == PublicBackendCollectionPath)
     {
-        response = contractRoot(
-            !actorRef.empty(),
-            requestId,
-            correlationId);
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        std::vector<std::string> normalizedScopes =
+            authorizedBackendIds;
+        std::sort(normalizedScopes.begin(), normalizedScopes.end());
+        if (std::adjacent_find(
+                normalizedScopes.begin(),
+                normalizedScopes.end()) != normalizedScopes.end())
+        {
+            response = invalidRequestProblem(
+                path,
+                "Duplicate authorized backend scopes are not allowed.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        PublicBackendCollectionQuery query;
+        if (!parsePublicBackendCollectionQuery(
+                requestTarget,
+                query))
+        {
+            response = invalidRequestProblem(
+                path,
+                "The Backend collection query is invalid.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        const std::string authorizationScope =
+            normalizedPublicBackendAuthorizationScope(
+                normalizedScopes);
+
+        std::string afterBackendId;
+        if (!query.cursor.empty())
+        {
+            const PublicBackendCursorDecodeStatus cursorStatus =
+                decodePublicBackendCursor(
+                    query.cursor,
+                    authorizationScope,
+                    afterBackendId);
+            if (cursorStatus ==
+                PublicBackendCursorDecodeStatus::scopeMismatch)
+            {
+                response = cursorExpiredProblem(
+                    path, requestId, correlationId);
+                return true;
+            }
+            if (cursorStatus !=
+                PublicBackendCursorDecodeStatus::ok)
+            {
+                response = invalidRequestProblem(
+                    path,
+                    "The collection cursor is invalid for this authorization scope.",
+                    requestId,
+                    correlationId);
+                return true;
+            }
+        }
+
+        PublicBackendCollectionRequest request;
+        request.authorizedBackendIds = normalizedScopes;
+        request.afterBackendId = afterBackendId;
+        request.limit = query.limit;
+
+        const PublicBackendCollectionResult page =
+            lookupBackendCollection(request);
+
+        switch (page.status)
+        {
+            case PublicBackendCollectionStatus::ok:
+            {
+                if (page.backends.size() > query.limit ||
+                    (page.hasMore &&
+                     page.backends.size() != query.limit))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+
+                const bool wildcard =
+                    std::binary_search(
+                        normalizedScopes.begin(),
+                        normalizedScopes.end(),
+                        std::string("*"));
+                std::string previousBackend = afterBackendId;
+                for (const PublicBackendCollectionItem& backend :
+                     page.backends)
+                {
+                    const bool authorized =
+                        wildcard ||
+                        std::binary_search(
+                            normalizedScopes.begin(),
+                            normalizedScopes.end(),
+                            backend.backendId);
+                    if (backend.backendId.empty() ||
+                        backend.name.empty() ||
+                        !authorized ||
+                        (!previousBackend.empty() &&
+                         backend.backendId <= previousBackend))
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    previousBackend = backend.backendId;
+                }
+
+                response = publicBackendCollectionResponse(
+                    page,
+                    query,
+                    authorizationScope,
+                    requestId,
+                    correlationId);
+                return true;
+            }
+
+            case PublicBackendCollectionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleChannelCollectionGet(
+    const std::string& requestTarget,
+    const std::string& actorRef,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::vector<std::string>& authorizedBackendIds,
+    ApiResponse& response) const
+{
+    const std::string path = requestPath(requestTarget);
+    if (path == PublicChannelCollectionPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        if (authorizedBackendIds.empty() ||
+            authorizedBackendIds.size() > PublicChannelMaximumSources)
+        {
+            response = invalidRequestProblem(
+                path,
+                "One or more authorized backendId scopes are required.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        std::vector<std::string> normalizedBackends = authorizedBackendIds;
+        std::sort(normalizedBackends.begin(), normalizedBackends.end());
+        if (std::adjacent_find(
+                normalizedBackends.begin(),
+                normalizedBackends.end()) != normalizedBackends.end())
+        {
+            response = invalidRequestProblem(
+                path,
+                "Duplicate backendId scopes are not allowed.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        PublicChannelCollectionQuery query;
+        if (!parsePublicChannelCollectionQuery(requestTarget, query) ||
+            query.backendCount != normalizedBackends.size())
+        {
+            response = invalidRequestProblem(
+                path,
+                "The Channel collection query is invalid.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        const std::string backendScope =
+            normalizedPublicChannelBackendScope(normalizedBackends);
+        std::string afterBackendId;
+        std::string afterChannelId;
+        if (!query.cursor.empty())
+        {
+            const PublicChannelCursorDecodeStatus cursorStatus =
+                decodePublicChannelCursor(
+                    query.cursor,
+                    backendScope,
+                    afterBackendId,
+                    afterChannelId);
+            if (cursorStatus == PublicChannelCursorDecodeStatus::scopeMismatch)
+            {
+                response = cursorExpiredProblem(
+                    path, requestId, correlationId);
+                return true;
+            }
+            if (cursorStatus != PublicChannelCursorDecodeStatus::ok)
+            {
+                response = invalidRequestProblem(
+                    path,
+                    "The collection cursor is invalid for this ordering.",
+                    requestId,
+                    correlationId);
+                return true;
+            }
+        }
+
+        PublicChannelCollectionRequest request;
+        request.backendIds = normalizedBackends;
+        request.afterBackendId = afterBackendId;
+        request.afterChannelId = afterChannelId;
+        request.relativeToChannelId = query.relativeToChannelId;
+        request.direction = query.direction;
+        request.limit = query.limit;
+
+        const PublicChannelCollectionResult page =
+            lookupChannelCollection(request);
+
+        switch (page.status)
+        {
+            case PublicChannelCollectionStatus::ok:
+            {
+                if (page.channels.size() > query.limit ||
+                    (page.hasMore &&
+                     page.channels.size() != query.limit) ||
+                    page.sources.size() != normalizedBackends.size())
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+
+                if (!query.relativeToChannelId.empty() &&
+                    (page.channels.size() != 1U || page.hasMore ||
+                     page.channels.front().channelId ==
+                         query.relativeToChannelId ||
+                     page.channels.front().channelNumber <= 0))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                bool usefulSource = false;
+                for (std::size_t index = 0U;
+                     index < page.sources.size();
+                     ++index)
+                {
+                    const PublicChannelCollectionSource& source =
+                        page.sources[index];
+                    const bool validState =
+                        source.state == "ok" ||
+                        source.state == "unavailable";
+                    const bool validCode =
+                        (source.state == "ok" && source.code.empty()) ||
+                        (source.state == "unavailable" &&
+                         source.code == "backend_unavailable");
+                    if (source.backendId != normalizedBackends[index] ||
+                        !validState ||
+                        !validCode)
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    usefulSource =
+                        usefulSource || source.state == "ok";
+                }
+                if (!usefulSource)
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+
+                std::string previousBackend = afterBackendId;
+                std::string previousChannel = afterChannelId;
+                for (const PublicChannelCollectionItem& channel :
+                     page.channels)
+                {
+                    if (channel.backendId.empty() ||
+                        channel.channelId.empty() ||
+                        !std::binary_search(
+                            normalizedBackends.begin(),
+                            normalizedBackends.end(),
+                            channel.backendId) ||
+                        (!previousBackend.empty() &&
+                         (channel.backendId < previousBackend ||
+                          (channel.backendId == previousBackend &&
+                           channel.channelId <= previousChannel))))
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    previousBackend = channel.backendId;
+                    previousChannel = channel.channelId;
+                }
+
+                response = publicChannelCollectionResponse(
+                    page,
+                    query,
+                    normalizedBackends,
+                    backendScope,
+                    requestId,
+                    correlationId);
+                return true;
+            }
+
+            case PublicChannelCollectionStatus::invalid:
+                response = invalidRequestProblem(
+                    path,
+                    "The Channel collection request is invalid.",
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicChannelCollectionStatus::notFound:
+                response = notFoundProblem(
+                    path, requestId, correlationId);
+                return true;
+
+            case PublicChannelCollectionStatus::allSourcesUnavailable:
+                response = backendUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+
+            case PublicChannelCollectionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleEpgReadGet(
+    const std::string& requestTarget,
+    const std::string& actorRef,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::string& ifNoneMatch,
+    const std::vector<std::string>& authorizedBackendIds,
+    ApiResponse& response) const
+{
+    const std::string path = requestPath(requestTarget);
+    if (path == PublicEpgEventDetailPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicEpgEventDetailQuery q;
+        if (!parsePublicEpgEventDetailQuery(requestTarget, q) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != q.backendId)
+        {
+            response = invalidRequestProblem(path,
+                "Exact authorized EPG backend/channel/native event required.",
+                requestId, correlationId);
+            return true;
+        }
+        const auto found = lookupEpgEventDetail(
+            {q.backendId, q.channelId, q.eventId});
+        if (found.status == PublicEpgNowNextStatus::notFound)
+        {
+            response = notFoundProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (found.status != PublicEpgNowNextStatus::ok ||
+            found.backendId != q.backendId ||
+            found.channelId != q.channelId ||
+            found.eventId != q.eventId ||
+            found.title.empty() || found.title.size() > 512U ||
+            found.subtitle.size() > 512U ||
+            found.description.size() > 1536U ||
+            found.startTime.empty() || found.startTime.size() > 20U ||
+            found.endTime.empty() || found.endTime.size() > 20U ||
+            found.durationSeconds < 0 || found.resourceRevision.empty() ||
+            found.resourceRevision.size() > 90U)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        const std::string tag = vdrsuite::http::publicStrongEntityTag(
+            found.resourceRevision);
+        const auto condition = vdrsuite::http::publicEvaluateIfNoneMatch(
+            ifNoneMatch, tag);
+        if (condition == vdrsuite::http::PublicEntityTagConditionResult::malformed)
+        {
+            response = invalidRequestProblem(path, "Invalid If-None-Match.",
+                requestId, correlationId);
+            return true;
+        }
+        if (condition == vdrsuite::http::PublicEntityTagConditionResult::matched)
+        {
+            response.statusCode = 304;
+            response.contentType = "application/json; charset=utf-8";
+            addPublicSuccessHeaders(response, requestId, correlationId);
+        }
+        else
+        {
+            std::string body = "{\"backendId\":\"" + jsonEscape(found.backendId) +
+                "\",\"channelId\":\"" + jsonEscape(found.channelId) +
+                "\",\"eventId\":\"" + jsonEscape(found.eventId) +
+                "\",\"title\":\"" + jsonEscape(found.title) +
+                "\",\"subtitle\":\"" + jsonEscape(found.subtitle) +
+                "\",\"description\":\"" + jsonEscape(found.description) +
+                "\",\"startTime\":\"" + jsonEscape(found.startTime) +
+                "\",\"endTime\":\"" + jsonEscape(found.endTime) +
+                "\",\"durationSeconds\":" +
+                std::to_string(found.durationSeconds) + "}";
+            response = jsonResponse(body, requestId, correlationId);
+        }
+        response.headers["ETag"] = tag;
+        response.headers["Cache-Control"] = "no-store";
         return true;
     }
 
-    if (path == "/api/v1/capabilities")
+    if (path == PublicEpgWindowPath)
     {
-        response = platformCapabilities(
-            operationLookupConfigured(),
-            timerAssignmentLookupConfigured(),
-            timerCreateAdmissionConfigured(),
-            searchTimerCollectionLookupConfigured(),
-            backendCollectionLookupConfigured(),
-            recordingCollectionLookupConfigured(),
-            genreCollectionLookupConfigured(),
-            epgGenreLookupConfigured(),
-            epgNowNextLookupConfigured(),
-            epgWindowLookupConfigured(),
-            epgEventDetailLookupConfigured(),
-            nativeTimersLookupConfigured(),
-            searchLookupConfigured(),
-            accountCollectionLookupConfigured(),
-            accountMutationConfigured(),
-            accountCreateConfigured(),
-            accountGrantLookupConfigured() &&
-                accountGrantMutationConfigured(),
-            deviceGrantAdministrationConfigured(),
-            deviceLifecycleAdministrationConfigured(),
-            deviceCredentialRotationConfigured(),
-            accountCredentialLookupConfigured() &&
-                accountSessionLookupConfigured(),
-            accountCredentialItemLookupConfigured() &&
-                accountCredentialMutationConfigured(),
-            accountSessionItemLookupConfigured() &&
-                accountSessionMutationConfigured(),
-            devicePairingCreateConfigured() &&
-                devicePairingLookupConfigured(),
-            devicePairingAdministrationCollectionLookupConfigured() &&
-                devicePairingAdministrationLookupConfigured() &&
-                devicePairingDecisionConfigured(),
-            deviceCredentialIssueConfigured(),
-            requestId,
-            correlationId);
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicEpgWindowQuery query;
+        if (!parsePublicEpgWindowQuery(requestTarget, query) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != query.backendId)
+        {
+            response = invalidRequestProblem(path,
+                "One authorized backendId, channelId and valid EPG time range are required.",
+                requestId, correlationId);
+            return true;
+        }
+        std::string afterStartTime, afterCacheEventId;
+        if (!query.cursor.empty() &&
+            !decodePublicEpgWindowCursor(
+                query, afterStartTime, afterCacheEventId))
+        {
+            response = invalidRequestProblem(path,
+                "The EPG window cursor is invalid or its scope changed.",
+                requestId, correlationId);
+            return true;
+        }
+        const PublicEpgWindowRequest request{
+            query.backendId, query.channelId, query.fromTime,
+            query.untilTime, query.limit, afterStartTime, afterCacheEventId
+        };
+        const PublicEpgWindowResult found = lookupEpgWindow(request);
+        switch (found.status)
+        {
+            case PublicEpgNowNextStatus::ok:
+            {
+                if (found.events.size() > query.limit)
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                std::string body = "{\"backendId\":\"" +
+                    jsonEscape(query.backendId) + "\",\"channelId\":\"" +
+                    jsonEscape(query.channelId) + "\",\"items\":[";
+                for (std::size_t i = 0U; i < found.events.size(); ++i)
+                {
+                    const auto& event = found.events[i];
+                    if (event.channelId != query.channelId ||
+                        event.title.empty() || event.startTime.empty() ||
+                        event.endTime.empty() || event.durationSeconds < 0)
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    if (i > 0U) body += ",";
+                    body += "{\"channelId\":\"" +
+                        jsonEscape(event.channelId) + "\",\"title\":\"" +
+                        jsonEscape(event.title) + "\",\"subtitle\":\"" +
+                        jsonEscape(event.subtitle) + "\",\"startTime\":\"" +
+                        jsonEscape(event.startTime) + "\",\"endTime\":\"" +
+                        jsonEscape(event.endTime) + "\",\"durationSeconds\":" +
+                        std::to_string(event.durationSeconds);
+                    if (!event.eventId.empty() &&
+                        event.eventId.size() <= 160U)
+                        body += ",\"eventId\":\"" +
+                            jsonEscape(event.eventId) + "\"";
+                    body += "}";
+                }
+                const std::string nextCursor =
+                    publicEpgWindowCursor(query, found);
+                if (found.hasMore && nextCursor.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                body += "],\"page\":{\"limit\":" +
+                    std::to_string(query.limit) +
+                    ",\"hasMore\":" + (found.hasMore ? "true" : "false") +
+                    ",\"nextCursor\":" +
+                    (nextCursor.empty() ? std::string("null") :
+                        "\"" + jsonEscape(nextCursor) + "\"") +
+                    "},\"meta\":{\"partial\":false}}";
+                response = jsonResponse(body, requestId, correlationId);
+                return true;
+            }
+            case PublicEpgNowNextStatus::invalid:
+                response = invalidRequestProblem(path,
+                    "Invalid EPG window request.",
+                    requestId, correlationId);
+                return true;
+            case PublicEpgNowNextStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicEpgNowNextStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    if (path == PublicEpgNowNextPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        PublicEpgNowNextQuery query;
+        if (!parsePublicEpgNowNextQuery(requestTarget, query) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != query.backendId)
+        {
+            response = invalidRequestProblem(
+                path, "An authorized backendId, channelId and fromTime are required.",
+                requestId, correlationId);
+            return true;
+        }
+        const PublicEpgNowNextRequest request{
+            query.backendId, query.channelId, query.fromTime, query.limit
+        };
+        const PublicEpgNowNextResult found = lookupEpgNowNext(request);
+        switch (found.status)
+        {
+            case PublicEpgNowNextStatus::ok:
+            {
+                if (found.events.size() > query.limit)
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                std::string body = "{\"backendId\":\"" +
+                    jsonEscape(query.backendId) + "\",\"channelId\":\"" +
+                    jsonEscape(query.channelId) + "\",\"items\":[";
+                for (std::size_t index = 0U; index < found.events.size(); ++index)
+                {
+                    const PublicEpgNowNextItem& event = found.events[index];
+                    if (event.channelId != query.channelId ||
+                        event.title.empty() ||
+                        event.startTime.empty() || event.endTime.empty() ||
+                        event.durationSeconds < 0)
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    if (index > 0U) body += ",";
+                    body += "{\"channelId\":\"" +
+                        jsonEscape(event.channelId) + "\",\"title\":\"" +
+                        jsonEscape(event.title) + "\",\"subtitle\":\"" +
+                        jsonEscape(event.subtitle) + "\",\"startTime\":\"" +
+                        jsonEscape(event.startTime) + "\",\"endTime\":\"" +
+                        jsonEscape(event.endTime) + "\",\"durationSeconds\":" +
+                        std::to_string(event.durationSeconds) + "}";
+                }
+                body += "],\"page\":{\"limit\":" +
+                    std::to_string(query.limit) +
+                    ",\"hasMore\":false},\"meta\":{\"partial\":false}}";
+                response = jsonResponse(body, requestId, correlationId);
+                return true;
+            }
+            case PublicEpgNowNextStatus::invalid:
+                response = invalidRequestProblem(
+                    path, "Invalid EPG request.",
+                    requestId, correlationId);
+                return true;
+            case PublicEpgNowNextStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicEpgNowNextStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleNativeTimerReadGet(
+    const std::string& requestTarget,
+    const std::string& actorRef,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::string& ifNoneMatch,
+    const std::vector<std::string>& authorizedBackendIds,
+    ApiResponse& response) const
+{
+    const std::string path = requestPath(requestTarget);
+    std::string nativeTimerId;
+    if (publicNativeTimerItemPath(path, nativeTimerId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (authorizedBackendIds.size() != 1U ||
+            requestQueryString(requestTarget) !=
+                "backendId=" + authorizedBackendIds.front())
+        {
+            response = invalidRequestProblem(path,
+                "Exactly one authorized backendId required.",
+                requestId, correlationId);
+            return true;
+        }
+
+        const auto found = lookupNativeTimerDetail(
+            {authorizedBackendIds.front(), nativeTimerId});
+        if (found.status == PublicNativeTimerDetailStatus::notFound)
+        {
+            response = notFoundProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (found.status != PublicNativeTimerDetailStatus::ok ||
+            found.backendId != authorizedBackendIds.front() ||
+            found.timer.id != nativeTimerId ||
+            found.timer.channelId.size() > 512U ||
+            found.timer.title.size() > 2048U ||
+            found.resourceRevision.size() > 512U ||
+            (found.ownership != "unbound" && found.ownership != "managed" &&
+             found.ownership != "adopted" && found.ownership != "external") ||
+            (found.bindingState != "binding_required" &&
+             found.bindingState != "verified" &&
+             found.bindingState != "adoption_required") ||
+            (found.resourceRevision.empty() !=
+                (found.bindingState == "binding_required")))
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        const std::string tag = found.resourceRevision.empty()
+            ? std::string()
+            : vdrsuite::http::publicStrongEntityTag(found.resourceRevision);
+        if (!ifNoneMatch.empty())
+        {
+            if (tag.empty())
+            {
+                response = invalidRequestProblem(path,
+                    "Unbound Timer has no ETag.", requestId, correlationId);
+                return true;
+            }
+            const auto condition =
+                vdrsuite::http::publicEvaluateIfNoneMatch(ifNoneMatch, tag);
+            if (condition ==
+                vdrsuite::http::PublicEntityTagConditionResult::malformed)
+            {
+                response = invalidRequestProblem(path,
+                    "Invalid If-None-Match.", requestId, correlationId);
+                return true;
+            }
+            if (condition ==
+                vdrsuite::http::PublicEntityTagConditionResult::matched)
+            {
+                response.statusCode = 304;
+                response.contentType = "application/json; charset=utf-8";
+                addPublicSuccessHeaders(response, requestId, correlationId);
+                response.headers["ETag"] = tag;
+                return true;
+            }
+        }
+        const auto& t = found.timer;
+        response = jsonResponse(
+            "{\"backendId\":\"" + jsonEscape(found.backendId) +
+            "\",\"timerId\":\"" + jsonEscape(t.id) +
+            "\",\"channelId\":\"" + jsonEscape(t.channelId) +
+            "\",\"channelName\":\"" + jsonEscape(t.channelName) +
+            "\",\"title\":\"" + jsonEscape(t.title) +
+            "\",\"day\":\"" + jsonEscape(t.day) +
+            "\",\"weekdays\":\"" + jsonEscape(t.weekdays) +
+            "\",\"startTime\":\"" + jsonEscape(t.startTime) +
+            "\",\"endTime\":\"" + jsonEscape(t.endTime) +
+            "\",\"enabled\":" + (t.enabled ? "true" : "false") +
+            ",\"recording\":" + (t.recording ? "true" : "false") +
+            ",\"pending\":" + (t.pending ? "true" : "false") +
+            ",\"ownership\":\"" + jsonEscape(found.ownership) +
+            "\",\"bindingState\":\"" + jsonEscape(found.bindingState) +
+            "\",\"links\":{\"self\":\"" + jsonEscape(requestTarget) + "\"}}",
+            requestId, correlationId);
+        if (!tag.empty()) response.headers["ETag"] = tag;
         return true;
     }
 
+    if (path == PublicNativeTimersPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicNativeTimersQuery query;
+        if (!parsePublicNativeTimersQuery(requestTarget, query) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != query.backendId)
+        {
+            response = invalidRequestProblem(path,
+                "One authorized backendId and bounded page are required.",
+                requestId, correlationId);
+            return true;
+        }
+        const PublicNativeTimersResult result = lookupNativeTimers(
+            {query.backendId, query.offset, query.limit});
+        if (result.status == PublicNativeTimersStatus::invalid)
+        {
+            response = invalidRequestProblem(path,
+                "Invalid native timer snapshot query.",
+                requestId, correlationId);
+            return true;
+        }
+        if (result.status != PublicNativeTimersStatus::ok ||
+            result.timers.size() > query.limit)
+        {
+            response = serviceUnavailableProblem(path,requestId,correlationId);
+            return true;
+        }
+        std::string body = "{\"backendId\":\"" +
+            jsonEscape(query.backendId) + "\",\"items\":[";
+        for (std::size_t i = 0U; i < result.timers.size(); ++i)
+        {
+            const auto& t = result.timers[i];
+            if (t.id.empty() || t.id.size() > 512U ||
+                t.title.size() > 2048U || t.channelId.size() > 512U)
+            {
+                response = serviceUnavailableProblem(
+                    path,requestId,correlationId);
+                return true;
+            }
+            if (i != 0U) body += ",";
+            body += "{\"timerId\":\"" + jsonEscape(t.id) +
+                "\",\"channelId\":\"" + jsonEscape(t.channelId) +
+                "\",\"channelName\":\"" + jsonEscape(t.channelName) +
+                "\",\"title\":\"" + jsonEscape(t.title) +
+                "\",\"day\":\"" + jsonEscape(t.day) +
+                "\",\"weekdays\":\"" + jsonEscape(t.weekdays) +
+                "\",\"startTime\":\"" + jsonEscape(t.startTime) +
+                "\",\"endTime\":\"" + jsonEscape(t.endTime) +
+                "\",\"enabled\":" + (t.enabled ? "true" : "false") +
+                ",\"recording\":" + (t.recording ? "true" : "false") +
+                ",\"pending\":" + (t.pending ? "true" : "false") + "}";
+        }
+        body += "],\"page\":{\"limit\":" +
+            std::to_string(query.limit) + ",\"offset\":" +
+            std::to_string(query.offset) + ",\"hasMore\":" +
+            (result.hasMore ? "true" : "false") +
+            ",\"nextOffset\":" +
+            (result.hasMore ?
+                std::to_string(query.offset + result.timers.size()) :
+                "null") + "},\"meta\":{\"partial\":false}}";
+        response = jsonResponse(body,requestId,correlationId);
+        return true;
+    }
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleSearchTimerAssignmentReadGet(
+    const std::string& requestTarget,
+    const std::string& actorRef,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::string& ifNoneMatch,
+    const std::string& authorizedBackendId,
+    ApiResponse& response) const
+{
+    const std::string path = requestPath(requestTarget);
+    std::string versionSearchId;
+    if (publicSearchTimerNativeSubresourcePath(
+            path, "/version", versionSearchId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (authorizedBackendId.empty() ||
+            requestTarget != path + "?backend=" + authorizedBackendId)
+        {
+            response = invalidRequestProblem(path,
+                "Exactly one authorized backend is required.",
+                requestId, correlationId);
+            return true;
+        }
+        SearchTimerNativeVersionLookup lookup;
+        {
+            std::lock_guard<std::mutex> lock(searchTimerNativeVersionMutex_);
+            lookup = searchTimerNativeVersion_;
+        }
+        if (!lookup)
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        PublicSearchTimerNativeVersionRequest request;
+        request.backendId = authorizedBackendId;
+        request.publicSearchTimerId = versionSearchId;
+        const auto observed = lookup(request);
+        if (observed.status == PublicSearchTimerNativeVersionStatus::notFound)
+            response = notFoundProblem(path, requestId, correlationId);
+        else if (observed.status != PublicSearchTimerNativeVersionStatus::ok ||
+                 observed.revision.size() != 35U ||
+                 observed.revision.compare(0U, 3U, "sr_") != 0)
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+        else
+        {
+            response = jsonResponse(
+                "{\"searchTimerId\":\"" + jsonEscape(versionSearchId) +
+                "\",\"backendId\":\"" + jsonEscape(authorizedBackendId) +
+                "\",\"revision\":\"" + jsonEscape(observed.revision) +
+                "\"}", requestId, correlationId);
+            response.headers["ETag"] = "\"" + observed.revision + "\"";
+            response.headers["Cache-Control"] = "no-store";
+        }
+        return true;
+    }
+    if (path == PublicSearchTimerDraftPreviewPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicSearchTimerPreviewRequest draft;
+        if (!parsePublicSearchTimerDraftPreviewQuery(
+                requestTarget, authorizedBackendId, draft))
+        {
+            response = invalidRequestProblem(path,
+                "Unsupported or invalid SearchTimer draft preview options.",
+                requestId, correlationId);
+            return true;
+        }
+        const auto preview = lookupSearchTimerPreview(draft);
+        if (preview.status != PublicSearchTimerPreviewStatus::ok ||
+            preview.backendId != authorizedBackendId ||
+            !preview.searchTimerId.empty() ||
+            preview.totalCount < 0 ||
+            preview.items.size() > draft.limit ||
+            static_cast<std::size_t>(preview.totalCount) <
+                preview.items.size())
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        std::string body = "{\"backendId\":\"" +
+            jsonEscape(preview.backendId) +
+            "\",\"totalCount\":" + std::to_string(preview.totalCount) +
+            ",\"items\":[";
+        for (std::size_t i = 0U; i < preview.items.size(); ++i)
+        {
+            const auto& event = preview.items[i];
+            if (event.title.empty() || event.title.size() > 1024U ||
+                event.subtitle.size() > 2048U ||
+                event.channelId.size() > 256U ||
+                event.startTime.size() > 64U ||
+                event.endTime.size() > 64U)
+            {
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+            }
+            if (i) body += ",";
+            body += "{\"title\":\"" + jsonEscape(event.title) +
+                "\",\"subtitle\":\"" + jsonEscape(event.subtitle) +
+                "\",\"channelId\":\"" + jsonEscape(event.channelId) +
+                "\",\"startTime\":\"" + jsonEscape(event.startTime) +
+                "\",\"endTime\":\"" + jsonEscape(event.endTime) + "\"}";
+        }
+        body += "],\"meta\":{\"partial\":false,\"epgInput\":\"ready\","
+            "\"evaluation\":\"epg-match-only\"}}";
+        response = jsonResponse(body, requestId, correlationId);
+        return true;
+    }
+
+    std::string previewSearchTimerId;
+    if (publicSearchTimerPreviewPath(path, previewSearchTimerId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (!validPublicSearchTimerId(previewSearchTimerId) ||
+            authorizedBackendId.empty())
+        {
+            response = invalidRequestProblem(path,
+                "A valid SearchTimer and authorized backend are required.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicSearchTimerCollectionQuery query;
+        if (!parsePublicSearchTimerCollectionQuery(
+                requestTarget, authorizedBackendId, query) ||
+            !query.cursor.empty())
+        {
+            response = invalidRequestProblem(path,
+                "Invalid SearchTimer preview query.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicSearchTimerPreviewRequest request;
+        request.backendId = authorizedBackendId;
+        request.searchTimerId = previewSearchTimerId;
+        request.limit = query.limit;
+        const auto preview = lookupSearchTimerPreview(request);
+        if (preview.status == PublicSearchTimerPreviewStatus::notFound)
+        {
+            response = notFoundProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (preview.status != PublicSearchTimerPreviewStatus::ok ||
+            preview.backendId != authorizedBackendId ||
+            preview.searchTimerId != previewSearchTimerId ||
+            preview.totalCount < 0 ||
+            preview.items.size() > query.limit ||
+            static_cast<std::size_t>(preview.totalCount) <
+                preview.items.size())
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        std::string body = "{\"backendId\":\"" +
+            jsonEscape(preview.backendId) +
+            "\",\"searchTimerId\":\"" +
+            jsonEscape(preview.searchTimerId) +
+            "\",\"totalCount\":" + std::to_string(preview.totalCount) +
+            ",\"items\":[";
+        for (std::size_t i = 0U; i < preview.items.size(); ++i)
+        {
+            const auto& event = preview.items[i];
+            if (event.title.empty() || event.title.size() > 1024U ||
+                event.subtitle.size() > 2048U ||
+                event.channelId.size() > 256U ||
+                event.startTime.size() > 64U ||
+                event.endTime.size() > 64U)
+            {
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+            }
+            if (i) body += ",";
+            body += "{\"title\":\"" + jsonEscape(event.title) +
+                "\",\"subtitle\":\"" + jsonEscape(event.subtitle) +
+                "\",\"channelId\":\"" + jsonEscape(event.channelId) +
+                "\",\"startTime\":\"" + jsonEscape(event.startTime) +
+                "\",\"endTime\":\"" + jsonEscape(event.endTime) + "\"}";
+        }
+        body += "],\"meta\":{\"partial\":false,\"epgInput\":\"ready\"}}";
+        response = jsonResponse(body, requestId, correlationId);
+        return true;
+    }
+
+    if (path == PublicSearchTimerCollectionPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (authorizedBackendId.empty())
+        {
+            response = invalidRequestProblem(path,
+                "An authorized backend scope is required.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicSearchTimerCollectionQuery query;
+        if (!parsePublicSearchTimerCollectionQuery(
+                requestTarget, authorizedBackendId, query))
+        {
+            response = invalidRequestProblem(path,
+                "The SearchTimer collection query is invalid.",
+                requestId, correlationId);
+            return true;
+        }
+        std::string afterId;
+        if (!query.cursor.empty() &&
+            !decodePublicSearchTimerCursor(
+                query.cursor, authorizedBackendId, afterId))
+        {
+            response = invalidRequestProblem(path,
+                "The SearchTimer cursor is invalid for this backend.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicSearchTimerCollectionRequest request;
+        request.backendId = authorizedBackendId;
+        request.afterSearchTimerId = afterId;
+        request.limit = query.limit;
+        const PublicSearchTimerCollectionResult page =
+            lookupSearchTimerCollection(request);
+        switch (page.status)
+        {
+            case PublicSearchTimerCollectionStatus::ok:
+            {
+                if (page.items.size() > query.limit ||
+                    (page.hasMore && page.items.size() != query.limit))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                std::string previous = afterId;
+                for (const auto& item : page.items)
+                {
+                    if (!validPublicSearchTimerId(item.searchTimerId) ||
+                        item.backendId != authorizedBackendId ||
+                        (!previous.empty() && item.searchTimerId <= previous) ||
+                        item.name.empty() || item.query.empty() ||
+                        item.name.size() > 1024U || item.query.size() > 1024U ||
+                        (item.state != "active" && item.state != "inactive" &&
+                            item.state != "unknown"))
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    previous = item.searchTimerId;
+                }
+                response = publicSearchTimerCollectionResponse(
+                    page, query, authorizedBackendId, requestId, correlationId);
+                return true;
+            }
+            case PublicSearchTimerCollectionStatus::invalid:
+                response = invalidRequestProblem(path,
+                    "The SearchTimer request is invalid.",
+                    requestId, correlationId);
+                return true;
+            case PublicSearchTimerCollectionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    if (path == PublicTimerAssignmentCollectionPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        if (authorizedBackendId.empty())
+        {
+            response = invalidRequestProblem(
+                path,
+                "An authorized backend scope is required.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        PublicTimerAssignmentCollectionQuery query;
+        if (!parsePublicTimerAssignmentCollectionQuery(
+                requestTarget, query))
+        {
+            response = invalidRequestProblem(
+                path,
+                "The TimerAssignment collection query is invalid.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        std::string afterTimerAssignmentId;
+        if (!query.cursor.empty() &&
+            !decodePublicTimerAssignmentCursor(
+                query.cursor,
+                authorizedBackendId,
+                afterTimerAssignmentId))
+        {
+            response = invalidRequestProblem(
+                path,
+                "The collection cursor is invalid for this backend or ordering.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        PublicTimerAssignmentCollectionRequest request;
+        request.backendId = authorizedBackendId;
+        request.afterTimerAssignmentId = afterTimerAssignmentId;
+        request.limit = query.limit;
+
+        const PublicTimerAssignmentCollectionResult page =
+            lookupTimerAssignmentCollection(request);
+
+        switch (page.status)
+        {
+            case PublicTimerAssignmentCollectionStatus::ok:
+            {
+                if (page.assignments.size() > query.limit ||
+                    (page.hasMore &&
+                     page.assignments.size() != query.limit))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+
+                std::string previous = afterTimerAssignmentId;
+                for (const PublicTimerAssignmentCollectionItem&
+                     assignment : page.assignments)
+                {
+                    if (assignment.timerAssignmentId.empty() ||
+                        assignment.backendId != authorizedBackendId ||
+                        (!previous.empty() &&
+                         assignment.timerAssignmentId <= previous))
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    if (assignment.plannedPresent &&
+                        (assignment.plannedTitle.size() > 1024U ||
+                         assignment.plannedDay.size() > 160U ||
+                         assignment.plannedWeekdays.size() != 7U ||
+                         assignment.plannedStartTime.empty() ||
+                         assignment.plannedStartTime.size() > 4U ||
+                         assignment.plannedEndTime.empty() ||
+                         assignment.plannedEndTime.size() > 4U))
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    previous = assignment.timerAssignmentId;
+                }
+
+                response =
+                    publicTimerAssignmentCollectionResponse(
+                        page,
+                        query,
+                        authorizedBackendId,
+                        requestId,
+                        correlationId);
+                return true;
+            }
+
+            case PublicTimerAssignmentCollectionStatus::invalid:
+                response = invalidRequestProblem(
+                    path,
+                    "The TimerAssignment collection request is invalid.",
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerAssignmentCollectionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    std::string timerAssignmentId;
+
+    if (publicTimerAssignmentPath(
+            path,
+            timerAssignmentId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(
+                path,
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        if (authorizedBackendId.empty())
+        {
+            response = invalidRequestProblem(
+                path,
+                "An authorized backend scope is required.",
+                requestId,
+                correlationId);
+            return true;
+        }
+
+        const PublicTimerAssignmentLookupResult found =
+            lookupTimerAssignment(
+                timerAssignmentId,
+                authorizedBackendId);
+
+        switch (found.status)
+        {
+            case PublicTimerAssignmentLookupStatus::ok:
+                if (found.assignment.timerAssignmentId !=
+                        timerAssignmentId ||
+                    found.assignment.backendId !=
+                        authorizedBackendId ||
+                    found.assignment.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path,
+                        requestId,
+                        correlationId);
+                }
+                else
+                {
+                    response =
+                        publicTimerAssignmentResponse(
+                            found.assignment,
+                            path,
+                            requestId,
+                            correlationId,
+                            ifNoneMatch);
+                }
+                return true;
+
+            case PublicTimerAssignmentLookupStatus::invalid:
+                response = invalidRequestProblem(
+                    path,
+                    "The TimerAssignment identifier is invalid.",
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerAssignmentLookupStatus::notFound:
+                response = notFoundProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+
+            case PublicTimerAssignmentLookupStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path,
+                    requestId,
+                    correlationId);
+                return true;
+        }
+    }
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleBrowseReadGet(
+    const std::string& requestTarget,
+    const std::string& actorRef,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::vector<std::string>& authorizedBackendIds,
+    ApiResponse& response) const
+{
+    const std::string path = requestPath(requestTarget);
+    // M2: Backend-scoped image metadata and actual bytes, behind the
+    // same recordings.view gate as Recording detail.
+    const std::string artworkPrefix =
+        std::string(PublicRecordingCollectionPath) + "/";
+    const std::size_t artworkMarker =
+        path.find("/artwork", artworkPrefix.size());
+    if (path.compare(0U, artworkPrefix.size(), artworkPrefix) == 0 &&
+        artworkMarker != std::string::npos &&
+        (artworkMarker + 8U == path.size() ||
+         (artworkMarker + 8U < path.size() &&
+          path[artworkMarker + 8U] == '/')))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        const std::string recordingId = path.substr(
+            artworkPrefix.size(), artworkMarker - artworkPrefix.size());
+        const std::string artworkId = artworkMarker + 8U == path.size()
+            ? std::string()
+            : path.substr(artworkMarker + 9U);
+        const auto validHexId = [](const std::string& id,
+                                    const std::string& prefix) {
+            return id.size() == prefix.size() + 32U &&
+                id.compare(0U, prefix.size(), prefix) == 0 &&
+                std::all_of(id.begin() + prefix.size(), id.end(),
+                    [](unsigned char c) {
+                        return (c >= '0' && c <= '9') ||
+                               (c >= 'a' && c <= 'f');
+                    });
+        };
+        if (!validHexId(recordingId, "rec_") ||
+            (artworkMarker + 8U < path.size() && artworkId.empty()) ||
+            (!artworkId.empty() && !validHexId(artworkId, "")) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front().empty() ||
+            authorizedBackendIds.front() == "*" ||
+            requestQueryString(requestTarget) !=
+                "backendId=" + authorizedBackendIds.front())
+        {
+            response = invalidRequestProblem(path,
+                "Valid Recording/artwork IDs and one authorized backendId "
+                "are required.", requestId, correlationId);
+            return true;
+        }
+        const auto found = lookupRecordingArtwork(
+            {authorizedBackendIds.front(), recordingId, artworkId});
+        switch (found.status)
+        {
+            case PublicRecordingArtworkStatus::invalid:
+                response = invalidRequestProblem(path,
+                    "Invalid Recording artwork request.",
+                    requestId, correlationId);
+                return true;
+            case PublicRecordingArtworkStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicRecordingArtworkStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+            case PublicRecordingArtworkStatus::ok:
+                break;
+        }
+        if (!artworkId.empty())
+        {
+            if ((found.contentType != "image/jpeg" &&
+                 found.contentType != "image/png" &&
+                 found.contentType != "image/webp") ||
+                found.content.empty())
+            {
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+            }
+            response.statusCode = 200;
+            response.contentType = found.contentType;
+            response.body = found.content;
+            response.headers["Cache-Control"] = "private, max-age=300";
+            response.headers["X-Content-Type-Options"] = "nosniff";
+            return true;
+        }
+        if (found.items.size() > 64U)
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        std::string body = "{\"recordingId\":\"" +
+            jsonEscape(recordingId) + "\",\"backendId\":\"" +
+            jsonEscape(authorizedBackendIds.front()) +
+            "\",\"items\":[";
+        bool first = true;
+        for (const auto& artwork : found.items)
+        {
+            if (!validHexId(artwork.artworkId, "") ||
+                (artwork.kind != "poster" && artwork.kind != "fanart" &&
+                 artwork.kind != "still" && artwork.kind != "banner") ||
+                artwork.width < 0 || artwork.height < 0)
+            {
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+            }
+            if (!first) body += ",";
+            first = false;
+            body += "{\"artworkId\":\"" + artwork.artworkId +
+                "\",\"kind\":\"" + artwork.kind +
+                "\",\"url\":\"" + path + "/" + artwork.artworkId +
+                "?backendId=" + jsonEscape(authorizedBackendIds.front()) + "\"";
+            if (artwork.width > 0 && artwork.height > 0)
+                body += ",\"width\":" + std::to_string(artwork.width) +
+                    ",\"height\":" + std::to_string(artwork.height);
+            body += "}";
+        }
+        body += "]}";
+        response = jsonResponse(body, requestId, correlationId);
+        response.headers["Cache-Control"] = "no-store";
+        return true;
+    }
+
+    // M1: one backend-scoped public rec_ detail, with no native path or
+    // provider-specific artwork URL exposed. Reuse the Recording grant gate,
+    // the daemon's existing rec_ resolver and the warmed Recording cache.
+    const std::string recordingPrefix =
+        std::string(PublicRecordingCollectionPath) + "/";
+    if (path.size() > recordingPrefix.size() &&
+        path.compare(0U, recordingPrefix.size(), recordingPrefix) == 0 &&
+        path.find('/', recordingPrefix.size()) == std::string::npos)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        const std::string recordingId = path.substr(recordingPrefix.size());
+        const bool validId = recordingId.size() == 36U &&
+            recordingId.compare(0U, 4U, "rec_") == 0 &&
+            std::all_of(recordingId.begin() + 4, recordingId.end(),
+                [](unsigned char c) {
+                    return (c >= '0' && c <= '9') ||
+                           (c >= 'a' && c <= 'f');
+                });
+        if (!validId || authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front().empty() ||
+            authorizedBackendIds.front() == "*" ||
+            requestQueryString(requestTarget) !=
+                "backendId=" + authorizedBackendIds.front())
+        {
+            response = invalidRequestProblem(path,
+                "A valid public Recording ID and one authorized backendId "
+                "query parameter are required.", requestId, correlationId);
+            return true;
+        }
+
+        const auto found = lookupRecordingDetail(
+            {authorizedBackendIds.front(), recordingId});
+        switch (found.status)
+        {
+            case PublicRecordingDetailStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicRecordingDetailStatus::invalid:
+                response = invalidRequestProblem(path,
+                    "The Recording detail request is invalid.",
+                    requestId, correlationId);
+                return true;
+            case PublicRecordingDetailStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+            case PublicRecordingDetailStatus::ok:
+                break;
+        }
+
+        const auto& item = found.item;
+        const auto& recording = item.recording;
+        const auto validMetadataId = [](const std::string& id,
+            const std::string& prefix) {
+            return id.size() == prefix.size() + 32U &&
+                id.compare(0, prefix.size(), prefix) == 0 &&
+                std::all_of(id.begin() + prefix.size(), id.end(),
+                    [](unsigned char c) {
+                        return (c >= '0' && c <= '9') ||
+                               (c >= 'a' && c <= 'f');
+                    });
+        };
+        const bool validManualSource =
+            item.metadataSource == "manual"
+                ? (item.metadataState == "available" &&
+                   validMetadataId(item.manualAssignmentId, "mdasg_") &&
+                   validMetadataId(item.metadataEntityId, "mdent_") &&
+                   item.manualRevision > 0)
+                : (item.manualAssignmentId.empty() &&
+                   item.metadataEntityId.empty() &&
+                   item.manualRevision == 0);
+        const bool validResponse =
+            recording.backendId == authorizedBackendIds.front() &&
+            recording.recordingId == recordingId &&
+            !recording.title.empty() &&
+            recording.durationSeconds >= 0 &&
+            recording.sizeMb >= 0 &&
+            recording.description.size() <= 2048U &&
+            (item.metadataState == "absent" ||
+             item.metadataState == "partial" ||
+             item.metadataState == "available") &&
+            (item.metadataSource == "none" ||
+             item.metadataSource == "restfulapi-scraper-bridge" ||
+             item.metadataSource == "manual") &&
+            validManualSource &&
+            (item.contentKind == "unknown" ||
+             item.contentKind == "movie" ||
+             item.contentKind == "series" ||
+             item.contentKind == "series-episode") &&
+            item.epgTitle.size() <= 1024U &&
+            item.subtitle.size() <= 1024U &&
+            item.epgDescription.size() <= 4096U &&
+            item.providerTitle.size() <= 1024U &&
+            item.overview.size() <= 4096U &&
+            item.originalTitle.size() <= 1024U &&
+            item.tagline.size() <= 1024U &&
+            item.seriesTitle.size() <= 1024U &&
+            item.episodeTitle.size() <= 1024U &&
+            item.genreText.size() <= 1024U &&
+            item.manualGenreId.size() <= 128U &&
+            std::none_of(item.manualGenreId.begin(),
+                item.manualGenreId.end(), [](unsigned char c) {
+                    return c < 0x20U || c == 0x7fU;
+                }) &&
+            item.releaseDate.size() <= 32U &&
+            item.seasonNumber >= 0 && item.episodeNumber >= 0 &&
+            item.providerRuntimeMinutes >= 0;
+        if (!validResponse)
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+
+        std::string body =
+            "{\"recordingId\":\"" + jsonEscape(recording.recordingId) +
+            "\",\"backendId\":\"" + jsonEscape(recording.backendId) +
+            "\",\"title\":\"" + jsonEscape(recording.title) +
+            "\",\"recordedAt\":\"" + jsonEscape(recording.recordedAt) +
+            "\",\"durationSeconds\":" +
+                std::to_string(recording.durationSeconds) +
+            ",\"durationKnown\":" +
+                std::string(recording.durationKnown ? "true" : "false") +
+            ",\"edited\":" +
+                std::string(recording.edited ? "true" : "false") +
+            ",\"description\":\"" + jsonEscape(recording.description) +
+            "\",\"sizeMb\":" + std::to_string(recording.sizeMb) +
+            ",\"metadata\":{\"state\":\"" + item.metadataState +
+            "\",\"source\":\"" + item.metadataSource +
+            "\",\"contentKind\":\"" + item.contentKind + "\"";
+        const auto appendText = [&body](
+            const char* key, const std::string& value) {
+            if (!value.empty())
+                body += ",\"" + std::string(key) + "\":\"" +
+                    jsonEscape(value) + "\"";
+        };
+        appendText("epgTitle", item.epgTitle);
+        appendText("subtitle", item.subtitle);
+        appendText("epgDescription", item.epgDescription);
+        appendText("providerTitle", item.providerTitle);
+        appendText("overview", item.overview);
+        appendText("originalTitle", item.originalTitle);
+        appendText("tagline", item.tagline);
+        appendText("seriesTitle", item.seriesTitle);
+        appendText("episodeTitle", item.episodeTitle);
+        appendText("genreText", item.genreText);
+        appendText("manualGenreId", item.manualGenreId);
+        appendText("releaseDate", item.releaseDate);
+        if (item.seasonNumber > 0)
+            body += ",\"seasonNumber\":" +
+                std::to_string(item.seasonNumber);
+        if (item.episodeNumber > 0)
+            body += ",\"episodeNumber\":" +
+                std::to_string(item.episodeNumber);
+        if (item.providerRuntimeMinutes > 0)
+            body += ",\"providerRuntimeMinutes\":" +
+                std::to_string(item.providerRuntimeMinutes);
+        if (item.metadataSource == "manual")
+        {
+            body += ",\"manualAssignmentId\":\"" +
+                jsonEscape(item.manualAssignmentId) +
+                "\",\"metadataEntityId\":\"" +
+                jsonEscape(item.metadataEntityId) +
+                "\",\"manualRevision\":" +
+                std::to_string(item.manualRevision);
+        }
+        body += "}}";
+        response = jsonResponse(body, requestId, correlationId);
+        response.headers["Cache-Control"] = "no-store";
+        return true;
+    }
+
+    if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicSearchQuery query;
+        if (!parsePublicSearchQuery(requestTarget, query) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != query.backendId)
+        {
+            response = invalidRequestProblem(path,
+                "Search request or authorized backend scope is invalid.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicSearchRequest request;
+        request.backendId = query.backendId;
+        request.query = query.query;
+        request.epg = path == PublicSearchEpgPath;
+        request.limit = query.limit;
+        request.offset = query.offset;
+        const auto result = lookupSearch(request);
+        if (result.status != PublicSearchStatus::ok ||
+            result.items.size() > request.limit ||
+            result.totalCount < request.offset ||
+            result.items.size() > result.totalCount - request.offset ||
+            result.hasMore !=
+                (request.offset + result.items.size() < result.totalCount))
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        std::string body = "{\"items\":[";
+        for (std::size_t i = 0U; i < result.items.size(); ++i)
+        {
+            const auto& item = result.items[i];
+            const bool valid = item.backendId == request.backendId &&
+                !item.title.empty() &&
+                (request.epg ?
+                    (!item.channelId.empty() && !item.eventId.empty() &&
+                     !item.startTime.empty() && !item.endTime.empty() &&
+                     item.recordingId.empty()) :
+                    (item.channelId.empty() &&
+                     item.recordingId.size() == 36U &&
+                     item.recordingId.rfind("rec_", 0U) == 0U &&
+                     std::all_of(item.recordingId.begin() + 4,
+                         item.recordingId.end(), [](char ch) {
+                             return (ch >= '0' && ch <= '9') ||
+                                    (ch >= 'a' && ch <= 'f');
+                         })));
+            if (!valid)
+            {
+                response = serviceUnavailableProblem(path, requestId, correlationId);
+                return true;
+            }
+            if (i != 0U) body += ",";
+            body += "{\"kind\":\"";
+            body += request.epg ? "epg" : "recording";
+            body += "\",\"backendId\":\"" + jsonEscape(item.backendId) +
+                "\",\"title\":\"" + jsonEscape(item.title) + "\"";
+            if (request.epg)
+                body += ",\"channelId\":\"" + jsonEscape(item.channelId) +
+                    "\",\"eventId\":\"" + jsonEscape(item.eventId) +
+                    "\",\"startTime\":\"" + jsonEscape(item.startTime) +
+                    "\",\"endTime\":\"" + jsonEscape(item.endTime) +
+                    "\",\"subtitle\":\"" + jsonEscape(item.subtitle) + "\"";
+            else
+                body += ",\"recordingId\":\"" + jsonEscape(item.recordingId) +
+                    "\",\"edited\":" + (item.edited ? "true" : "false");
+            body += "}";
+        }
+        body += "],\"page\":{\"offset\":" +
+            std::to_string(request.offset) + ",\"limit\":" +
+            std::to_string(request.limit) + ",\"totalCount\":" +
+            std::to_string(result.totalCount) + ",\"hasMore\":" +
+            std::string(result.hasMore ? "true" : "false") + "}}";
+        response = jsonResponse(body, requestId, correlationId);
+        response.headers["Cache-Control"] = "no-store";
+        return true;
+    }
+
+    if (path == PublicRecordingCollectionPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+
+        PublicRecordingCollectionQuery query;
+        if (!parsePublicRecordingCollectionQuery(requestTarget, query) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != query.backendId)
+        {
+            response = invalidRequestProblem(
+                path, "Recording collection backend scope is invalid.",
+                requestId, correlationId);
+            return true;
+        }
+
+        std::string afterRecordingId;
+        if (!query.cursor.empty())
+        {
+            const auto cursorStatus = decodePublicRecordingCursor(
+                query.cursor, query.backendId, afterRecordingId);
+            if (cursorStatus == PublicRecordingCursorDecodeStatus::scopeMismatch)
+            {
+                response = cursorExpiredProblem(
+                    path, requestId, correlationId);
+                return true;
+            }
+            if (cursorStatus != PublicRecordingCursorDecodeStatus::ok)
+            {
+                response = invalidRequestProblem(
+                    path, "The Recording cursor is invalid.",
+                    requestId, correlationId);
+                return true;
+            }
+        }
+
+        PublicRecordingCollectionRequest read;
+        read.backendId = query.backendId;
+        read.afterRecordingId = afterRecordingId;
+        read.limit = query.limit;
+        read.browseFolders = query.browseFolders;
+        read.folderId = query.folderId;
+        read.offset = query.offset;
+        const auto page = lookupRecordingCollection(read);
+
+        switch (page.status)
+        {
+            case PublicRecordingCollectionStatus::ok:
+            {
+                if (query.browseFolders)
+                {
+                    const std::size_t count =
+                        page.folders.size() + page.recordings.size();
+                    if (count > query.limit ||
+                        page.totalEntries < query.offset ||
+                        count > page.totalEntries - query.offset ||
+                        page.hasMore !=
+                            (query.offset + count < page.totalEntries))
+                    {
+                        std::cerr << "Public-v1 Recording browse unavailable: "
+                                     "page shape/pagination invariant failed"
+                                  << std::endl;
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    for (const auto& folder : page.folders)
+                    {
+                        if (folder.singleRecordingLeaf)
+                        {
+                            const auto& item = folder.singleRecording;
+                            if (item.backendId != query.backendId ||
+                                item.recordingId.size() != 36U ||
+                                item.recordingId.rfind("rec_", 0U) != 0U ||
+                                item.title.empty() ||
+                                item.durationSeconds < 0 ||
+                                item.sizeMb < 0 ||
+                                item.description.size() > 2048U)
+                            {
+                                std::cerr << "Public-v1 Recording browse unavailable: "
+                                             "single-recording leaf response invalid"
+                                          << std::endl;
+                                response = serviceUnavailableProblem(
+                                    path, requestId, correlationId);
+                                return true;
+                            }
+                        }
+                        else if (folder.folderId.size() != 37U ||
+                                 folder.folderId.rfind("fld1_", 0U) != 0U ||
+                                 folder.name.empty() ||
+                                 folder.recordingCount < 0)
+                        {
+                            std::cerr << "Public-v1 Recording browse unavailable: "
+                                         "folder response invalid"
+                                      << std::endl;
+                            response = serviceUnavailableProblem(
+                                path, requestId, correlationId);
+                            return true;
+                        }
+                    }
+                    for (const auto& recording : page.recordings)
+                    {
+                        if (recording.backendId != query.backendId ||
+                            recording.recordingId.size() != 36U ||
+                            recording.recordingId.rfind("rec_", 0U) != 0U ||
+                            recording.title.empty() ||
+                            recording.durationSeconds < 0 ||
+                            recording.sizeMb < 0 ||
+                            recording.description.size() > 2048U)
+                        {
+                            std::cerr << "Public-v1 Recording browse unavailable: "
+                                         "recording response invalid"
+                                      << std::endl;
+                            response = serviceUnavailableProblem(
+                                path, requestId, correlationId);
+                            return true;
+                        }
+                    }
+                    response = publicRecordingBrowseResponse(
+                        page, query, requestId, correlationId);
+                    return true;
+                }
+                if (page.recordings.size() > query.limit ||
+                    (page.hasMore && page.recordings.size() != query.limit))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+
+                std::string previous = afterRecordingId;
+                for (const auto& recording : page.recordings)
+                {
+                    if (recording.backendId != query.backendId ||
+                        recording.recordingId.empty() ||
+                        recording.recordingId.size() != 36U ||
+                        recording.recordingId.rfind("rec_", 0U) != 0U ||
+                        !std::all_of(
+                            recording.recordingId.begin() + 4,
+                            recording.recordingId.end(),
+                            [](char ch) {
+                                return (ch >= '0' && ch <= '9') ||
+                                       (ch >= 'a' && ch <= 'f');
+                            }) ||
+                        recording.title.empty() ||
+                        recording.durationSeconds < 0 ||
+                        recording.sizeMb < 0 ||
+                        recording.description.size() > 2048U ||
+                        (!previous.empty() &&
+                         recording.recordingId <= previous))
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                    previous = recording.recordingId;
+                }
+                response = publicRecordingCollectionResponse(
+                    page, query, requestId, correlationId);
+                return true;
+            }
+            case PublicRecordingCollectionStatus::invalid:
+                response = invalidRequestProblem(
+                    path, "The Recording collection request is invalid.",
+                    requestId, correlationId);
+                return true;
+            case PublicRecordingCollectionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    if (path == PublicEpgGenrePath ||
+        path == PublicEpgGenreEventsPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        const bool events = path == PublicEpgGenreEventsPath;
+        PublicEpgGenreQuery query;
+        if (!parsePublicEpgGenreQuery(requestTarget, events, query) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != query.backendId)
+        {
+            response = invalidRequestProblem(
+                path, "EPG Genre collection backend scope is invalid.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicEpgGenreRequest request;
+        request.backendId = query.backendId;
+        request.contentClass = query.contentClass;
+        request.genreId = query.genreId;
+        request.locale = query.locale;
+        request.limit = query.limit;
+        request.offset = query.offset;
+        request.events = events;
+        const auto result = lookupEpgGenre(request);
+        if (result.status != PublicEpgGenreStatus::ok)
+        {
+            response = result.status == PublicEpgGenreStatus::invalid ?
+                invalidRequestProblem(
+                    path, "EPG Genre request is invalid.", requestId, correlationId) :
+                serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        const std::size_t count = events ?
+            result.events.size() : result.genres.size();
+        if (count > query.limit || result.totalCount < query.offset ||
+            count > result.totalCount - query.offset ||
+            (events && !result.genres.empty()) ||
+            (!events && !result.events.empty()))
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        for (const auto& item : result.genres)
+        {
+            if (item.genreId.empty() || item.label.empty() ||
+                (item.contentClass != "movie" &&
+                 item.contentClass != "series" &&
+                 item.contentClass != "documentary" &&
+                 item.contentClass != "sports"))
+            {
+                response = serviceUnavailableProblem(path, requestId, correlationId);
+                return true;
+            }
+        }
+        for (const auto& item : result.events)
+        {
+            if (item.backendId != query.backendId ||
+                item.channelId.empty() || item.eventId.empty() ||
+                item.title.empty() || item.startTime.empty() ||
+                item.endTime.empty())
+            {
+                response = serviceUnavailableProblem(path, requestId, correlationId);
+                return true;
+            }
+        }
+        response = publicEpgGenreResponse(
+            result, query, requestId, correlationId);
+        return true;
+    }
+
+    if (path == PublicGenreCollectionPath ||
+        path == PublicGenreRecordingPath)
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicGenreCollectionQuery query;
+        const bool recordings = path == PublicGenreRecordingPath;
+        if (!parsePublicGenreCollectionQuery(requestTarget, recordings, query) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front() != query.backendId)
+        {
+            response = invalidRequestProblem(
+                path, "Genre collection backend scope is invalid.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicGenreCollectionRequest read;
+        read.backendId = query.backendId;
+        read.genreId = query.genreId;
+        read.locale = query.locale;
+        read.limit = query.limit;
+        read.offset = query.offset;
+        read.recordings = recordings;
+        const auto page = lookupGenreCollection(read);
+        switch (page.status)
+        {
+            case PublicGenreCollectionStatus::ok:
+            {
+                const std::size_t count = recordings ?
+                    page.recordings.size() : page.genres.size();
+                if (count > query.limit ||
+                    page.totalCount < query.offset ||
+                    count > page.totalCount - query.offset ||
+                    (recordings && !page.genres.empty()) ||
+                    (!recordings && !page.recordings.empty()))
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                for (const auto& item : page.recordings)
+                {
+                    if (item.backendId != query.backendId ||
+                        item.recordingId.size() != 36U ||
+                        item.recordingId.rfind("rec_", 0U) != 0U ||
+                        !std::all_of(item.recordingId.begin() + 4,
+                            item.recordingId.end(), [](char ch) {
+                                return (ch >= '0' && ch <= '9') ||
+                                    (ch >= 'a' && ch <= 'f');
+                            }) ||
+                        item.title.empty() || item.durationSeconds < 0)
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                }
+                for (const auto& item : page.genres)
+                {
+                    if (item.genreId.empty() || item.label.empty() ||
+                        item.genreId.size() > 128U)
+                    {
+                        response = serviceUnavailableProblem(
+                            path, requestId, correlationId);
+                        return true;
+                    }
+                }
+                response = publicGenreCollectionResponse(
+                    page, query, requestId, correlationId);
+                return true;
+            }
+            case PublicGenreCollectionStatus::invalid:
+                response = invalidRequestProblem(
+                    path, "Invalid Genre collection request.",
+                    requestId, correlationId);
+                return true;
+            case PublicGenreCollectionStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+        }
+    }
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleDevicePairingReadGet(
+    const std::string& requestTarget,
+    const std::string& actorRef,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::string& pairingToken,
+    ApiResponse& response) const
+{
+    const std::string path = requestPath(requestTarget);
     if (path == PublicDevicePairingCollectionPath)
     {
         if (actorRef.empty())
@@ -6808,69 +7794,18 @@ bool PublicApiRuntime::tryHandleGet(
         }
     }
 
-    std::string operationId;
-    if (publicOperationPath(path, operationId))
-    {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(
-                path,
-                requestId,
-                correlationId);
-            return true;
-        }
+    return false;
+}
 
-        const PublicOperationLookupResult found =
-            lookupOperation(operationId, actorRef);
-
-        switch (found.status)
-        {
-            case PublicOperationLookupStatus::ok:
-                if (found.operation.operationId != operationId ||
-                    found.operation.state.empty() ||
-                    found.operation.backendId.empty() ||
-                    found.operation.resourceRevision.empty())
-                {
-                    response = serviceUnavailableProblem(
-                        path,
-                        requestId,
-                        correlationId);
-                }
-                else
-                {
-                    response = publicOperationResponse(
-                        found.operation,
-                        path,
-                        requestId,
-                        correlationId,
-                        ifNoneMatch);
-                }
-                return true;
-
-            case PublicOperationLookupStatus::invalid:
-                response = invalidRequestProblem(
-                    path,
-                    "The operation identifier is invalid.",
-                    requestId,
-                    correlationId);
-                return true;
-
-            case PublicOperationLookupStatus::notFound:
-                response = notFoundProblem(
-                    path,
-                    requestId,
-                    correlationId);
-                return true;
-
-            case PublicOperationLookupStatus::unavailable:
-                response = serviceUnavailableProblem(
-                    path,
-                    requestId,
-                    correlationId);
-                return true;
-        }
-    }
-
+bool PublicApiRuntime::tryHandleIdentityAdministrationReadGet(
+    const std::string& requestTarget,
+    const std::string& actorRef,
+    const std::string& requestId,
+    const std::string& correlationId,
+    const std::string& ifNoneMatch,
+    ApiResponse& response) const
+{
+    const std::string path = requestPath(requestTarget);
     std::string accountId;
     std::string credentialId;
     std::string sessionId;
@@ -7485,139 +8420,6 @@ bool PublicApiRuntime::tryHandleGet(
         }
     }
 
-    if (path == PublicBackendCollectionPath)
-    {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(
-                path, requestId, correlationId);
-            return true;
-        }
-
-        std::vector<std::string> normalizedScopes =
-            authorizedBackendIds;
-        std::sort(normalizedScopes.begin(), normalizedScopes.end());
-        if (std::adjacent_find(
-                normalizedScopes.begin(),
-                normalizedScopes.end()) != normalizedScopes.end())
-        {
-            response = invalidRequestProblem(
-                path,
-                "Duplicate authorized backend scopes are not allowed.",
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        PublicBackendCollectionQuery query;
-        if (!parsePublicBackendCollectionQuery(
-                requestTarget,
-                query))
-        {
-            response = invalidRequestProblem(
-                path,
-                "The Backend collection query is invalid.",
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        const std::string authorizationScope =
-            normalizedPublicBackendAuthorizationScope(
-                normalizedScopes);
-
-        std::string afterBackendId;
-        if (!query.cursor.empty())
-        {
-            const PublicBackendCursorDecodeStatus cursorStatus =
-                decodePublicBackendCursor(
-                    query.cursor,
-                    authorizationScope,
-                    afterBackendId);
-            if (cursorStatus ==
-                PublicBackendCursorDecodeStatus::scopeMismatch)
-            {
-                response = cursorExpiredProblem(
-                    path, requestId, correlationId);
-                return true;
-            }
-            if (cursorStatus !=
-                PublicBackendCursorDecodeStatus::ok)
-            {
-                response = invalidRequestProblem(
-                    path,
-                    "The collection cursor is invalid for this authorization scope.",
-                    requestId,
-                    correlationId);
-                return true;
-            }
-        }
-
-        PublicBackendCollectionRequest request;
-        request.authorizedBackendIds = normalizedScopes;
-        request.afterBackendId = afterBackendId;
-        request.limit = query.limit;
-
-        const PublicBackendCollectionResult page =
-            lookupBackendCollection(request);
-
-        switch (page.status)
-        {
-            case PublicBackendCollectionStatus::ok:
-            {
-                if (page.backends.size() > query.limit ||
-                    (page.hasMore &&
-                     page.backends.size() != query.limit))
-                {
-                    response = serviceUnavailableProblem(
-                        path, requestId, correlationId);
-                    return true;
-                }
-
-                const bool wildcard =
-                    std::binary_search(
-                        normalizedScopes.begin(),
-                        normalizedScopes.end(),
-                        std::string("*"));
-                std::string previousBackend = afterBackendId;
-                for (const PublicBackendCollectionItem& backend :
-                     page.backends)
-                {
-                    const bool authorized =
-                        wildcard ||
-                        std::binary_search(
-                            normalizedScopes.begin(),
-                            normalizedScopes.end(),
-                            backend.backendId);
-                    if (backend.backendId.empty() ||
-                        backend.name.empty() ||
-                        !authorized ||
-                        (!previousBackend.empty() &&
-                         backend.backendId <= previousBackend))
-                    {
-                        response = serviceUnavailableProblem(
-                            path, requestId, correlationId);
-                        return true;
-                    }
-                    previousBackend = backend.backendId;
-                }
-
-                response = publicBackendCollectionResponse(
-                    page,
-                    query,
-                    authorizationScope,
-                    requestId,
-                    correlationId);
-                return true;
-            }
-
-            case PublicBackendCollectionStatus::unavailable:
-                response = serviceUnavailableProblem(
-                    path, requestId, correlationId);
-                return true;
-        }
-    }
-
     if (path == PublicAccountCollectionPath)
     {
         if (actorRef.empty())
@@ -7707,1369 +8509,61 @@ bool PublicApiRuntime::tryHandleGet(
     }
 
 
-    if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath)
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleGet(
+    const std::string& requestTarget,
+    const std::string& actorRef,
+    const std::string& requestId,
+    const std::string& correlationId,
+    ApiResponse& response,
+    const std::string& ifNoneMatch,
+    const std::string& authorizedBackendId,
+    const std::vector<std::string>& authorizedBackendIds,
+    const std::string& pairingToken) const
+{
+    const std::string path = requestPath(requestTarget);
+
+    if (path == "/api/v1")
     {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(path, requestId, correlationId);
-            return true;
-        }
-        PublicSearchQuery query;
-        if (!parsePublicSearchQuery(requestTarget, query) ||
-            authorizedBackendIds.size() != 1U ||
-            authorizedBackendIds.front() != query.backendId)
-        {
-            response = invalidRequestProblem(path,
-                "Search request or authorized backend scope is invalid.",
-                requestId, correlationId);
-            return true;
-        }
-        PublicSearchRequest request;
-        request.backendId = query.backendId;
-        request.query = query.query;
-        request.epg = path == PublicSearchEpgPath;
-        request.limit = query.limit;
-        request.offset = query.offset;
-        const auto result = lookupSearch(request);
-        if (result.status != PublicSearchStatus::ok ||
-            result.items.size() > request.limit ||
-            result.totalCount < request.offset ||
-            result.items.size() > result.totalCount - request.offset ||
-            result.hasMore !=
-                (request.offset + result.items.size() < result.totalCount))
-        {
-            response = serviceUnavailableProblem(path, requestId, correlationId);
-            return true;
-        }
-        std::string body = "{\"items\":[";
-        for (std::size_t i = 0U; i < result.items.size(); ++i)
-        {
-            const auto& item = result.items[i];
-            const bool valid = item.backendId == request.backendId &&
-                !item.title.empty() &&
-                (request.epg ?
-                    (!item.channelId.empty() && !item.eventId.empty() &&
-                     !item.startTime.empty() && !item.endTime.empty() &&
-                     item.recordingId.empty()) :
-                    (item.channelId.empty() &&
-                     item.recordingId.size() == 36U &&
-                     item.recordingId.rfind("rec_", 0U) == 0U &&
-                     std::all_of(item.recordingId.begin() + 4,
-                         item.recordingId.end(), [](char ch) {
-                             return (ch >= '0' && ch <= '9') ||
-                                    (ch >= 'a' && ch <= 'f');
-                         })));
-            if (!valid)
-            {
-                response = serviceUnavailableProblem(path, requestId, correlationId);
-                return true;
-            }
-            if (i != 0U) body += ",";
-            body += "{\"kind\":\"";
-            body += request.epg ? "epg" : "recording";
-            body += "\",\"backendId\":\"" + jsonEscape(item.backendId) +
-                "\",\"title\":\"" + jsonEscape(item.title) + "\"";
-            if (request.epg)
-                body += ",\"channelId\":\"" + jsonEscape(item.channelId) +
-                    "\",\"eventId\":\"" + jsonEscape(item.eventId) +
-                    "\",\"startTime\":\"" + jsonEscape(item.startTime) +
-                    "\",\"endTime\":\"" + jsonEscape(item.endTime) +
-                    "\",\"subtitle\":\"" + jsonEscape(item.subtitle) + "\"";
-            else
-                body += ",\"recordingId\":\"" + jsonEscape(item.recordingId) +
-                    "\",\"edited\":" + (item.edited ? "true" : "false");
-            body += "}";
-        }
-        body += "],\"page\":{\"offset\":" +
-            std::to_string(request.offset) + ",\"limit\":" +
-            std::to_string(request.limit) + ",\"totalCount\":" +
-            std::to_string(result.totalCount) + ",\"hasMore\":" +
-            std::string(result.hasMore ? "true" : "false") + "}}";
-        response = jsonResponse(body, requestId, correlationId);
-        response.headers["Cache-Control"] = "no-store";
-        return true;
-    }
-
-    if (path == PublicRecordingCollectionPath)
-    {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(path, requestId, correlationId);
-            return true;
-        }
-
-        PublicRecordingCollectionQuery query;
-        if (!parsePublicRecordingCollectionQuery(requestTarget, query) ||
-            authorizedBackendIds.size() != 1U ||
-            authorizedBackendIds.front() != query.backendId)
-        {
-            response = invalidRequestProblem(
-                path, "Recording collection backend scope is invalid.",
-                requestId, correlationId);
-            return true;
-        }
-
-        std::string afterRecordingId;
-        if (!query.cursor.empty())
-        {
-            const auto cursorStatus = decodePublicRecordingCursor(
-                query.cursor, query.backendId, afterRecordingId);
-            if (cursorStatus == PublicRecordingCursorDecodeStatus::scopeMismatch)
-            {
-                response = cursorExpiredProblem(
-                    path, requestId, correlationId);
-                return true;
-            }
-            if (cursorStatus != PublicRecordingCursorDecodeStatus::ok)
-            {
-                response = invalidRequestProblem(
-                    path, "The Recording cursor is invalid.",
-                    requestId, correlationId);
-                return true;
-            }
-        }
-
-        PublicRecordingCollectionRequest read;
-        read.backendId = query.backendId;
-        read.afterRecordingId = afterRecordingId;
-        read.limit = query.limit;
-        read.browseFolders = query.browseFolders;
-        read.folderId = query.folderId;
-        read.offset = query.offset;
-        const auto page = lookupRecordingCollection(read);
-
-        switch (page.status)
-        {
-            case PublicRecordingCollectionStatus::ok:
-            {
-                if (query.browseFolders)
-                {
-                    const std::size_t count =
-                        page.folders.size() + page.recordings.size();
-                    if (count > query.limit ||
-                        page.totalEntries < query.offset ||
-                        count > page.totalEntries - query.offset ||
-                        page.hasMore !=
-                            (query.offset + count < page.totalEntries))
-                    {
-                        std::cerr << "Public-v1 Recording browse unavailable: "
-                                     "page shape/pagination invariant failed"
-                                  << std::endl;
-                        response = serviceUnavailableProblem(
-                            path, requestId, correlationId);
-                        return true;
-                    }
-                    for (const auto& folder : page.folders)
-                    {
-                        if (folder.singleRecordingLeaf)
-                        {
-                            const auto& item = folder.singleRecording;
-                            if (item.backendId != query.backendId ||
-                                item.recordingId.size() != 36U ||
-                                item.recordingId.rfind("rec_", 0U) != 0U ||
-                                item.title.empty() ||
-                                item.durationSeconds < 0 ||
-                                item.sizeMb < 0 ||
-                                item.description.size() > 2048U)
-                            {
-                                std::cerr << "Public-v1 Recording browse unavailable: "
-                                             "single-recording leaf response invalid"
-                                          << std::endl;
-                                response = serviceUnavailableProblem(
-                                    path, requestId, correlationId);
-                                return true;
-                            }
-                        }
-                        else if (folder.folderId.size() != 37U ||
-                                 folder.folderId.rfind("fld1_", 0U) != 0U ||
-                                 folder.name.empty() ||
-                                 folder.recordingCount < 0)
-                        {
-                            std::cerr << "Public-v1 Recording browse unavailable: "
-                                         "folder response invalid"
-                                      << std::endl;
-                            response = serviceUnavailableProblem(
-                                path, requestId, correlationId);
-                            return true;
-                        }
-                    }
-                    for (const auto& recording : page.recordings)
-                    {
-                        if (recording.backendId != query.backendId ||
-                            recording.recordingId.size() != 36U ||
-                            recording.recordingId.rfind("rec_", 0U) != 0U ||
-                            recording.title.empty() ||
-                            recording.durationSeconds < 0 ||
-                            recording.sizeMb < 0 ||
-                            recording.description.size() > 2048U)
-                        {
-                            std::cerr << "Public-v1 Recording browse unavailable: "
-                                         "recording response invalid"
-                                      << std::endl;
-                            response = serviceUnavailableProblem(
-                                path, requestId, correlationId);
-                            return true;
-                        }
-                    }
-                    response = publicRecordingBrowseResponse(
-                        page, query, requestId, correlationId);
-                    return true;
-                }
-                if (page.recordings.size() > query.limit ||
-                    (page.hasMore && page.recordings.size() != query.limit))
-                {
-                    response = serviceUnavailableProblem(
-                        path, requestId, correlationId);
-                    return true;
-                }
-
-                std::string previous = afterRecordingId;
-                for (const auto& recording : page.recordings)
-                {
-                    if (recording.backendId != query.backendId ||
-                        recording.recordingId.empty() ||
-                        recording.recordingId.size() != 36U ||
-                        recording.recordingId.rfind("rec_", 0U) != 0U ||
-                        !std::all_of(
-                            recording.recordingId.begin() + 4,
-                            recording.recordingId.end(),
-                            [](char ch) {
-                                return (ch >= '0' && ch <= '9') ||
-                                       (ch >= 'a' && ch <= 'f');
-                            }) ||
-                        recording.title.empty() ||
-                        recording.durationSeconds < 0 ||
-                        recording.sizeMb < 0 ||
-                        recording.description.size() > 2048U ||
-                        (!previous.empty() &&
-                         recording.recordingId <= previous))
-                    {
-                        response = serviceUnavailableProblem(
-                            path, requestId, correlationId);
-                        return true;
-                    }
-                    previous = recording.recordingId;
-                }
-                response = publicRecordingCollectionResponse(
-                    page, query, requestId, correlationId);
-                return true;
-            }
-            case PublicRecordingCollectionStatus::invalid:
-                response = invalidRequestProblem(
-                    path, "The Recording collection request is invalid.",
-                    requestId, correlationId);
-                return true;
-            case PublicRecordingCollectionStatus::unavailable:
-                response = serviceUnavailableProblem(
-                    path, requestId, correlationId);
-                return true;
-        }
-    }
-
-    if (path == PublicEpgGenrePath ||
-        path == PublicEpgGenreEventsPath)
-    {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(path, requestId, correlationId);
-            return true;
-        }
-        const bool events = path == PublicEpgGenreEventsPath;
-        PublicEpgGenreQuery query;
-        if (!parsePublicEpgGenreQuery(requestTarget, events, query) ||
-            authorizedBackendIds.size() != 1U ||
-            authorizedBackendIds.front() != query.backendId)
-        {
-            response = invalidRequestProblem(
-                path, "EPG Genre collection backend scope is invalid.",
-                requestId, correlationId);
-            return true;
-        }
-        PublicEpgGenreRequest request;
-        request.backendId = query.backendId;
-        request.contentClass = query.contentClass;
-        request.genreId = query.genreId;
-        request.locale = query.locale;
-        request.limit = query.limit;
-        request.offset = query.offset;
-        request.events = events;
-        const auto result = lookupEpgGenre(request);
-        if (result.status != PublicEpgGenreStatus::ok)
-        {
-            response = result.status == PublicEpgGenreStatus::invalid ?
-                invalidRequestProblem(
-                    path, "EPG Genre request is invalid.", requestId, correlationId) :
-                serviceUnavailableProblem(path, requestId, correlationId);
-            return true;
-        }
-        const std::size_t count = events ?
-            result.events.size() : result.genres.size();
-        if (count > query.limit || result.totalCount < query.offset ||
-            count > result.totalCount - query.offset ||
-            (events && !result.genres.empty()) ||
-            (!events && !result.events.empty()))
-        {
-            response = serviceUnavailableProblem(path, requestId, correlationId);
-            return true;
-        }
-        for (const auto& item : result.genres)
-        {
-            if (item.genreId.empty() || item.label.empty() ||
-                (item.contentClass != "movie" &&
-                 item.contentClass != "series" &&
-                 item.contentClass != "documentary" &&
-                 item.contentClass != "sports"))
-            {
-                response = serviceUnavailableProblem(path, requestId, correlationId);
-                return true;
-            }
-        }
-        for (const auto& item : result.events)
-        {
-            if (item.backendId != query.backendId ||
-                item.channelId.empty() || item.eventId.empty() ||
-                item.title.empty() || item.startTime.empty() ||
-                item.endTime.empty())
-            {
-                response = serviceUnavailableProblem(path, requestId, correlationId);
-                return true;
-            }
-        }
-        response = publicEpgGenreResponse(
-            result, query, requestId, correlationId);
-        return true;
-    }
-
-    if (path == PublicGenreCollectionPath ||
-        path == PublicGenreRecordingPath)
-    {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(path, requestId, correlationId);
-            return true;
-        }
-        PublicGenreCollectionQuery query;
-        const bool recordings = path == PublicGenreRecordingPath;
-        if (!parsePublicGenreCollectionQuery(requestTarget, recordings, query) ||
-            authorizedBackendIds.size() != 1U ||
-            authorizedBackendIds.front() != query.backendId)
-        {
-            response = invalidRequestProblem(
-                path, "Genre collection backend scope is invalid.",
-                requestId, correlationId);
-            return true;
-        }
-        PublicGenreCollectionRequest read;
-        read.backendId = query.backendId;
-        read.genreId = query.genreId;
-        read.locale = query.locale;
-        read.limit = query.limit;
-        read.offset = query.offset;
-        read.recordings = recordings;
-        const auto page = lookupGenreCollection(read);
-        switch (page.status)
-        {
-            case PublicGenreCollectionStatus::ok:
-            {
-                const std::size_t count = recordings ?
-                    page.recordings.size() : page.genres.size();
-                if (count > query.limit ||
-                    page.totalCount < query.offset ||
-                    count > page.totalCount - query.offset ||
-                    (recordings && !page.genres.empty()) ||
-                    (!recordings && !page.recordings.empty()))
-                {
-                    response = serviceUnavailableProblem(
-                        path, requestId, correlationId);
-                    return true;
-                }
-                for (const auto& item : page.recordings)
-                {
-                    if (item.backendId != query.backendId ||
-                        item.recordingId.size() != 36U ||
-                        item.recordingId.rfind("rec_", 0U) != 0U ||
-                        !std::all_of(item.recordingId.begin() + 4,
-                            item.recordingId.end(), [](char ch) {
-                                return (ch >= '0' && ch <= '9') ||
-                                    (ch >= 'a' && ch <= 'f');
-                            }) ||
-                        item.title.empty() || item.durationSeconds < 0)
-                    {
-                        response = serviceUnavailableProblem(
-                            path, requestId, correlationId);
-                        return true;
-                    }
-                }
-                for (const auto& item : page.genres)
-                {
-                    if (item.genreId.empty() || item.label.empty() ||
-                        item.genreId.size() > 128U)
-                    {
-                        response = serviceUnavailableProblem(
-                            path, requestId, correlationId);
-                        return true;
-                    }
-                }
-                response = publicGenreCollectionResponse(
-                    page, query, requestId, correlationId);
-                return true;
-            }
-            case PublicGenreCollectionStatus::invalid:
-                response = invalidRequestProblem(
-                    path, "Invalid Genre collection request.",
-                    requestId, correlationId);
-                return true;
-            case PublicGenreCollectionStatus::unavailable:
-                response = serviceUnavailableProblem(
-                    path, requestId, correlationId);
-                return true;
-        }
-    }
-
-    std::string nativeTimerId;
-    if (publicNativeTimerItemPath(path, nativeTimerId))
-    {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(path, requestId, correlationId);
-            return true;
-        }
-        if (authorizedBackendIds.size() != 1U ||
-            requestQueryString(requestTarget) !=
-                "backendId=" + authorizedBackendIds.front())
-        {
-            response = invalidRequestProblem(path,
-                "Exactly one authorized backendId required.",
-                requestId, correlationId);
-            return true;
-        }
-
-        const auto found = lookupNativeTimerDetail(
-            {authorizedBackendIds.front(), nativeTimerId});
-        if (found.status == PublicNativeTimerDetailStatus::notFound)
-        {
-            response = notFoundProblem(path, requestId, correlationId);
-            return true;
-        }
-        if (found.status != PublicNativeTimerDetailStatus::ok ||
-            found.backendId != authorizedBackendIds.front() ||
-            found.timer.id != nativeTimerId ||
-            found.timer.channelId.size() > 512U ||
-            found.timer.title.size() > 2048U ||
-            found.resourceRevision.size() > 512U ||
-            (found.ownership != "unbound" && found.ownership != "managed" &&
-             found.ownership != "adopted" && found.ownership != "external") ||
-            (found.bindingState != "binding_required" &&
-             found.bindingState != "verified" &&
-             found.bindingState != "adoption_required") ||
-            (found.resourceRevision.empty() !=
-                (found.bindingState == "binding_required")))
-        {
-            response = serviceUnavailableProblem(path, requestId, correlationId);
-            return true;
-        }
-        const std::string tag = found.resourceRevision.empty()
-            ? std::string()
-            : vdrsuite::http::publicStrongEntityTag(found.resourceRevision);
-        if (!ifNoneMatch.empty())
-        {
-            if (tag.empty())
-            {
-                response = invalidRequestProblem(path,
-                    "Unbound Timer has no ETag.", requestId, correlationId);
-                return true;
-            }
-            const auto condition =
-                vdrsuite::http::publicEvaluateIfNoneMatch(ifNoneMatch, tag);
-            if (condition ==
-                vdrsuite::http::PublicEntityTagConditionResult::malformed)
-            {
-                response = invalidRequestProblem(path,
-                    "Invalid If-None-Match.", requestId, correlationId);
-                return true;
-            }
-            if (condition ==
-                vdrsuite::http::PublicEntityTagConditionResult::matched)
-            {
-                response.statusCode = 304;
-                response.contentType = "application/json; charset=utf-8";
-                addPublicSuccessHeaders(response, requestId, correlationId);
-                response.headers["ETag"] = tag;
-                return true;
-            }
-        }
-        const auto& t = found.timer;
         response = jsonResponse(
-            "{\"backendId\":\"" + jsonEscape(found.backendId) +
-            "\",\"timerId\":\"" + jsonEscape(t.id) +
-            "\",\"channelId\":\"" + jsonEscape(t.channelId) +
-            "\",\"channelName\":\"" + jsonEscape(t.channelName) +
-            "\",\"title\":\"" + jsonEscape(t.title) +
-            "\",\"day\":\"" + jsonEscape(t.day) +
-            "\",\"weekdays\":\"" + jsonEscape(t.weekdays) +
-            "\",\"startTime\":\"" + jsonEscape(t.startTime) +
-            "\",\"endTime\":\"" + jsonEscape(t.endTime) +
-            "\",\"enabled\":" + (t.enabled ? "true" : "false") +
-            ",\"recording\":" + (t.recording ? "true" : "false") +
-            ",\"pending\":" + (t.pending ? "true" : "false") +
-            ",\"ownership\":\"" + jsonEscape(found.ownership) +
-            "\",\"bindingState\":\"" + jsonEscape(found.bindingState) +
-            "\",\"links\":{\"self\":\"" + jsonEscape(requestTarget) + "\"}}",
+            vdrsuite::public_api::discoveryGetBody(
+                *this, path, !actorRef.empty()),
             requestId, correlationId);
-        if (!tag.empty()) response.headers["ETag"] = tag;
         return true;
     }
 
-    if (path == PublicNativeTimersPath)
+    if (path == "/api/v1/capabilities")
     {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(path, requestId, correlationId);
-            return true;
-        }
-        PublicNativeTimersQuery query;
-        if (!parsePublicNativeTimersQuery(requestTarget, query) ||
-            authorizedBackendIds.size() != 1U ||
-            authorizedBackendIds.front() != query.backendId)
-        {
-            response = invalidRequestProblem(path,
-                "One authorized backendId and bounded page are required.",
-                requestId, correlationId);
-            return true;
-        }
-        const PublicNativeTimersResult result = lookupNativeTimers(
-            {query.backendId, query.offset, query.limit});
-        if (result.status == PublicNativeTimersStatus::invalid)
-        {
-            response = invalidRequestProblem(path,
-                "Invalid native timer snapshot query.",
-                requestId, correlationId);
-            return true;
-        }
-        if (result.status != PublicNativeTimersStatus::ok ||
-            result.timers.size() > query.limit)
-        {
-            response = serviceUnavailableProblem(path,requestId,correlationId);
-            return true;
-        }
-        std::string body = "{\"backendId\":\"" +
-            jsonEscape(query.backendId) + "\",\"items\":[";
-        for (std::size_t i = 0U; i < result.timers.size(); ++i)
-        {
-            const auto& t = result.timers[i];
-            if (t.id.empty() || t.id.size() > 512U ||
-                t.title.size() > 2048U || t.channelId.size() > 512U)
-            {
-                response = serviceUnavailableProblem(
-                    path,requestId,correlationId);
-                return true;
-            }
-            if (i != 0U) body += ",";
-            body += "{\"timerId\":\"" + jsonEscape(t.id) +
-                "\",\"channelId\":\"" + jsonEscape(t.channelId) +
-                "\",\"channelName\":\"" + jsonEscape(t.channelName) +
-                "\",\"title\":\"" + jsonEscape(t.title) +
-                "\",\"day\":\"" + jsonEscape(t.day) +
-                "\",\"weekdays\":\"" + jsonEscape(t.weekdays) +
-                "\",\"startTime\":\"" + jsonEscape(t.startTime) +
-                "\",\"endTime\":\"" + jsonEscape(t.endTime) +
-                "\",\"enabled\":" + (t.enabled ? "true" : "false") +
-                ",\"recording\":" + (t.recording ? "true" : "false") +
-                ",\"pending\":" + (t.pending ? "true" : "false") + "}";
-        }
-        body += "],\"page\":{\"limit\":" +
-            std::to_string(query.limit) + ",\"offset\":" +
-            std::to_string(query.offset) + ",\"hasMore\":" +
-            (result.hasMore ? "true" : "false") +
-            ",\"nextOffset\":" +
-            (result.hasMore ?
-                std::to_string(query.offset + result.timers.size()) :
-                "null") + "},\"meta\":{\"partial\":false}}";
-        response = jsonResponse(body,requestId,correlationId);
+        response = jsonResponse(
+            vdrsuite::public_api::discoveryGetBody(
+                *this, path, !actorRef.empty()),
+            requestId, correlationId);
         return true;
     }
 
-    if (path == PublicEpgEventDetailPath)
+    if (path == PublicDevicePairingCollectionPath)
     {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(path, requestId, correlationId);
+        if (tryHandleDevicePairingReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                pairingToken, response))
             return true;
-        }
-        PublicEpgEventDetailQuery q;
-        if (!parsePublicEpgEventDetailQuery(requestTarget, q) ||
-            authorizedBackendIds.size() != 1U ||
-            authorizedBackendIds.front() != q.backendId)
-        {
-            response = invalidRequestProblem(path,
-                "Exact authorized EPG backend/channel/native event required.",
-                requestId, correlationId);
-            return true;
-        }
-        const auto found = lookupEpgEventDetail(
-            {q.backendId, q.channelId, q.eventId});
-        if (found.status == PublicEpgNowNextStatus::notFound)
-        {
-            response = notFoundProblem(path, requestId, correlationId);
-            return true;
-        }
-        if (found.status != PublicEpgNowNextStatus::ok ||
-            found.backendId != q.backendId ||
-            found.channelId != q.channelId ||
-            found.eventId != q.eventId ||
-            found.title.empty() || found.title.size() > 512U ||
-            found.subtitle.size() > 512U ||
-            found.description.size() > 1536U ||
-            found.startTime.empty() || found.startTime.size() > 20U ||
-            found.endTime.empty() || found.endTime.size() > 20U ||
-            found.durationSeconds < 0 || found.resourceRevision.empty() ||
-            found.resourceRevision.size() > 90U)
-        {
-            response = serviceUnavailableProblem(path, requestId, correlationId);
-            return true;
-        }
-        const std::string tag = vdrsuite::http::publicStrongEntityTag(
-            found.resourceRevision);
-        const auto condition = vdrsuite::http::publicEvaluateIfNoneMatch(
-            ifNoneMatch, tag);
-        if (condition == vdrsuite::http::PublicEntityTagConditionResult::malformed)
-        {
-            response = invalidRequestProblem(path, "Invalid If-None-Match.",
-                requestId, correlationId);
-            return true;
-        }
-        if (condition == vdrsuite::http::PublicEntityTagConditionResult::matched)
-        {
-            response.statusCode = 304;
-            response.contentType = "application/json; charset=utf-8";
-            addPublicSuccessHeaders(response, requestId, correlationId);
-        }
-        else
-        {
-            std::string body = "{\"backendId\":\"" + jsonEscape(found.backendId) +
-                "\",\"channelId\":\"" + jsonEscape(found.channelId) +
-                "\",\"eventId\":\"" + jsonEscape(found.eventId) +
-                "\",\"title\":\"" + jsonEscape(found.title) +
-                "\",\"subtitle\":\"" + jsonEscape(found.subtitle) +
-                "\",\"description\":\"" + jsonEscape(found.description) +
-                "\",\"startTime\":\"" + jsonEscape(found.startTime) +
-                "\",\"endTime\":\"" + jsonEscape(found.endTime) +
-                "\",\"durationSeconds\":" +
-                std::to_string(found.durationSeconds) + "}";
-            response = jsonResponse(body, requestId, correlationId);
-        }
-        response.headers["ETag"] = tag;
-        response.headers["Cache-Control"] = "no-store";
-        return true;
     }
 
-    if (path == PublicEpgWindowPath)
-    {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(path, requestId, correlationId);
-            return true;
-        }
-        PublicEpgWindowQuery query;
-        if (!parsePublicEpgWindowQuery(requestTarget, query) ||
-            authorizedBackendIds.size() != 1U ||
-            authorizedBackendIds.front() != query.backendId)
-        {
-            response = invalidRequestProblem(path,
-                "One authorized backendId, channelId and bounded 12-hour time window are required.",
-                requestId, correlationId);
-            return true;
-        }
-        const PublicEpgWindowRequest request{
-            query.backendId, query.channelId, query.fromTime,
-            query.untilTime, query.limit
-        };
-        const PublicEpgWindowResult found = lookupEpgWindow(request);
-        switch (found.status)
-        {
-            case PublicEpgNowNextStatus::ok:
-            {
-                if (found.events.size() > query.limit)
-                {
-                    response = serviceUnavailableProblem(
-                        path, requestId, correlationId);
-                    return true;
-                }
-                std::string body = "{\"backendId\":\"" +
-                    jsonEscape(query.backendId) + "\",\"channelId\":\"" +
-                    jsonEscape(query.channelId) + "\",\"items\":[";
-                for (std::size_t i = 0U; i < found.events.size(); ++i)
-                {
-                    const auto& event = found.events[i];
-                    if (event.channelId != query.channelId ||
-                        event.title.empty() || event.startTime.empty() ||
-                        event.endTime.empty() || event.durationSeconds < 0)
-                    {
-                        response = serviceUnavailableProblem(
-                            path, requestId, correlationId);
-                        return true;
-                    }
-                    if (i > 0U) body += ",";
-                    body += "{\"channelId\":\"" +
-                        jsonEscape(event.channelId) + "\",\"title\":\"" +
-                        jsonEscape(event.title) + "\",\"subtitle\":\"" +
-                        jsonEscape(event.subtitle) + "\",\"startTime\":\"" +
-                        jsonEscape(event.startTime) + "\",\"endTime\":\"" +
-                        jsonEscape(event.endTime) + "\",\"durationSeconds\":" +
-                        std::to_string(event.durationSeconds);
-                    if (!event.eventId.empty() &&
-                        event.eventId.size() <= 160U)
-                        body += ",\"eventId\":\"" +
-                            jsonEscape(event.eventId) + "\"";
-                    body += "}";
-                }
-                body += "],\"page\":{\"limit\":" +
-                    std::to_string(query.limit) +
-                    ",\"hasMore\":" + (found.hasMore ? "true" : "false") +
-                    "},\"meta\":{\"partial\":false}}";
-                response = jsonResponse(body, requestId, correlationId);
-                return true;
-            }
-            case PublicEpgNowNextStatus::invalid:
-                response = invalidRequestProblem(path,
-                    "Invalid EPG window request.",
-                    requestId, correlationId);
-                return true;
-            case PublicEpgNowNextStatus::notFound:
-                response = notFoundProblem(path, requestId, correlationId);
-                return true;
-            case PublicEpgNowNextStatus::unavailable:
-                response = serviceUnavailableProblem(
-                    path, requestId, correlationId);
-                return true;
-        }
-    }
-
-    if (path == PublicEpgNowNextPath)
-    {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(
-                path, requestId, correlationId);
-            return true;
-        }
-        PublicEpgNowNextQuery query;
-        if (!parsePublicEpgNowNextQuery(requestTarget, query) ||
-            authorizedBackendIds.size() != 1U ||
-            authorizedBackendIds.front() != query.backendId)
-        {
-            response = invalidRequestProblem(
-                path, "An authorized backendId, channelId and fromTime are required.",
-                requestId, correlationId);
-            return true;
-        }
-        const PublicEpgNowNextRequest request{
-            query.backendId, query.channelId, query.fromTime, query.limit
-        };
-        const PublicEpgNowNextResult found = lookupEpgNowNext(request);
-        switch (found.status)
-        {
-            case PublicEpgNowNextStatus::ok:
-            {
-                if (found.events.size() > query.limit)
-                {
-                    response = serviceUnavailableProblem(
-                        path, requestId, correlationId);
-                    return true;
-                }
-                std::string body = "{\"backendId\":\"" +
-                    jsonEscape(query.backendId) + "\",\"channelId\":\"" +
-                    jsonEscape(query.channelId) + "\",\"items\":[";
-                for (std::size_t index = 0U; index < found.events.size(); ++index)
-                {
-                    const PublicEpgNowNextItem& event = found.events[index];
-                    if (event.channelId != query.channelId ||
-                        event.title.empty() ||
-                        event.startTime.empty() || event.endTime.empty() ||
-                        event.durationSeconds < 0)
-                    {
-                        response = serviceUnavailableProblem(
-                            path, requestId, correlationId);
-                        return true;
-                    }
-                    if (index > 0U) body += ",";
-                    body += "{\"channelId\":\"" +
-                        jsonEscape(event.channelId) + "\",\"title\":\"" +
-                        jsonEscape(event.title) + "\",\"subtitle\":\"" +
-                        jsonEscape(event.subtitle) + "\",\"startTime\":\"" +
-                        jsonEscape(event.startTime) + "\",\"endTime\":\"" +
-                        jsonEscape(event.endTime) + "\",\"durationSeconds\":" +
-                        std::to_string(event.durationSeconds) + "}";
-                }
-                body += "],\"page\":{\"limit\":" +
-                    std::to_string(query.limit) +
-                    ",\"hasMore\":false},\"meta\":{\"partial\":false}}";
-                response = jsonResponse(body, requestId, correlationId);
-                return true;
-            }
-            case PublicEpgNowNextStatus::invalid:
-                response = invalidRequestProblem(
-                    path, "Invalid EPG request.",
-                    requestId, correlationId);
-                return true;
-            case PublicEpgNowNextStatus::notFound:
-                response = notFoundProblem(path, requestId, correlationId);
-                return true;
-            case PublicEpgNowNextStatus::unavailable:
-                response = serviceUnavailableProblem(
-                    path, requestId, correlationId);
-                return true;
-        }
-    }
-
-    if (path == PublicChannelCollectionPath)
-    {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(
-                path, requestId, correlationId);
-            return true;
-        }
-
-        if (authorizedBackendIds.empty() ||
-            authorizedBackendIds.size() > PublicChannelMaximumSources)
-        {
-            response = invalidRequestProblem(
-                path,
-                "One or more authorized backendId scopes are required.",
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        std::vector<std::string> normalizedBackends = authorizedBackendIds;
-        std::sort(normalizedBackends.begin(), normalizedBackends.end());
-        if (std::adjacent_find(
-                normalizedBackends.begin(),
-                normalizedBackends.end()) != normalizedBackends.end())
-        {
-            response = invalidRequestProblem(
-                path,
-                "Duplicate backendId scopes are not allowed.",
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        PublicChannelCollectionQuery query;
-        if (!parsePublicChannelCollectionQuery(requestTarget, query) ||
-            query.backendCount != normalizedBackends.size())
-        {
-            response = invalidRequestProblem(
-                path,
-                "The Channel collection query is invalid.",
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        const std::string backendScope =
-            normalizedPublicChannelBackendScope(normalizedBackends);
-        std::string afterBackendId;
-        std::string afterChannelId;
-        if (!query.cursor.empty())
-        {
-            const PublicChannelCursorDecodeStatus cursorStatus =
-                decodePublicChannelCursor(
-                    query.cursor,
-                    backendScope,
-                    afterBackendId,
-                    afterChannelId);
-            if (cursorStatus == PublicChannelCursorDecodeStatus::scopeMismatch)
-            {
-                response = cursorExpiredProblem(
-                    path, requestId, correlationId);
-                return true;
-            }
-            if (cursorStatus != PublicChannelCursorDecodeStatus::ok)
-            {
-                response = invalidRequestProblem(
-                    path,
-                    "The collection cursor is invalid for this ordering.",
-                    requestId,
-                    correlationId);
-                return true;
-            }
-        }
-
-        PublicChannelCollectionRequest request;
-        request.backendIds = normalizedBackends;
-        request.afterBackendId = afterBackendId;
-        request.afterChannelId = afterChannelId;
-        request.relativeToChannelId = query.relativeToChannelId;
-        request.direction = query.direction;
-        request.limit = query.limit;
-
-        const PublicChannelCollectionResult page =
-            lookupChannelCollection(request);
-
-        switch (page.status)
-        {
-            case PublicChannelCollectionStatus::ok:
-            {
-                if (page.channels.size() > query.limit ||
-                    (page.hasMore &&
-                     page.channels.size() != query.limit) ||
-                    page.sources.size() != normalizedBackends.size())
-                {
-                    response = serviceUnavailableProblem(
-                        path, requestId, correlationId);
-                    return true;
-                }
-
-                if (!query.relativeToChannelId.empty() &&
-                    (page.channels.size() != 1U || page.hasMore ||
-                     page.channels.front().channelId ==
-                         query.relativeToChannelId ||
-                     page.channels.front().channelNumber <= 0))
-                {
-                    response = serviceUnavailableProblem(
-                        path, requestId, correlationId);
-                    return true;
-                }
-                bool usefulSource = false;
-                for (std::size_t index = 0U;
-                     index < page.sources.size();
-                     ++index)
-                {
-                    const PublicChannelCollectionSource& source =
-                        page.sources[index];
-                    const bool validState =
-                        source.state == "ok" ||
-                        source.state == "unavailable";
-                    const bool validCode =
-                        (source.state == "ok" && source.code.empty()) ||
-                        (source.state == "unavailable" &&
-                         source.code == "backend_unavailable");
-                    if (source.backendId != normalizedBackends[index] ||
-                        !validState ||
-                        !validCode)
-                    {
-                        response = serviceUnavailableProblem(
-                            path, requestId, correlationId);
-                        return true;
-                    }
-                    usefulSource =
-                        usefulSource || source.state == "ok";
-                }
-                if (!usefulSource)
-                {
-                    response = serviceUnavailableProblem(
-                        path, requestId, correlationId);
-                    return true;
-                }
-
-                std::string previousBackend = afterBackendId;
-                std::string previousChannel = afterChannelId;
-                for (const PublicChannelCollectionItem& channel :
-                     page.channels)
-                {
-                    if (channel.backendId.empty() ||
-                        channel.channelId.empty() ||
-                        !std::binary_search(
-                            normalizedBackends.begin(),
-                            normalizedBackends.end(),
-                            channel.backendId) ||
-                        (!previousBackend.empty() &&
-                         (channel.backendId < previousBackend ||
-                          (channel.backendId == previousBackend &&
-                           channel.channelId <= previousChannel))))
-                    {
-                        response = serviceUnavailableProblem(
-                            path, requestId, correlationId);
-                        return true;
-                    }
-                    previousBackend = channel.backendId;
-                    previousChannel = channel.channelId;
-                }
-
-                response = publicChannelCollectionResponse(
-                    page,
-                    query,
-                    normalizedBackends,
-                    backendScope,
-                    requestId,
-                    correlationId);
-                return true;
-            }
-
-            case PublicChannelCollectionStatus::invalid:
-                response = invalidRequestProblem(
-                    path,
-                    "The Channel collection request is invalid.",
-                    requestId,
-                    correlationId);
-                return true;
-
-            case PublicChannelCollectionStatus::notFound:
-                response = notFoundProblem(
-                    path, requestId, correlationId);
-                return true;
-
-            case PublicChannelCollectionStatus::allSourcesUnavailable:
-                response = backendUnavailableProblem(
-                    path, requestId, correlationId);
-                return true;
-
-            case PublicChannelCollectionStatus::unavailable:
-                response = serviceUnavailableProblem(
-                    path, requestId, correlationId);
-                return true;
-        }
-    }
-
-    if (path == PublicSearchTimerDraftPreviewPath)
-    {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(path, requestId, correlationId);
-            return true;
-        }
-        PublicSearchTimerPreviewRequest draft;
-        if (!parsePublicSearchTimerDraftPreviewQuery(
-                requestTarget, authorizedBackendId, draft))
-        {
-            response = invalidRequestProblem(path,
-                "Unsupported or invalid SearchTimer draft preview options.",
-                requestId, correlationId);
-            return true;
-        }
-        const auto preview = lookupSearchTimerPreview(draft);
-        if (preview.status != PublicSearchTimerPreviewStatus::ok ||
-            preview.backendId != authorizedBackendId ||
-            !preview.searchTimerId.empty() ||
-            preview.totalCount < 0 ||
-            preview.items.size() > draft.limit ||
-            static_cast<std::size_t>(preview.totalCount) <
-                preview.items.size())
-        {
-            response = serviceUnavailableProblem(
-                path, requestId, correlationId);
-            return true;
-        }
-        std::string body = "{\"backendId\":\"" +
-            jsonEscape(preview.backendId) +
-            "\",\"totalCount\":" + std::to_string(preview.totalCount) +
-            ",\"items\":[";
-        for (std::size_t i = 0U; i < preview.items.size(); ++i)
-        {
-            const auto& event = preview.items[i];
-            if (event.title.empty() || event.title.size() > 1024U ||
-                event.subtitle.size() > 2048U ||
-                event.channelId.size() > 256U ||
-                event.startTime.size() > 64U ||
-                event.endTime.size() > 64U)
-            {
-                response = serviceUnavailableProblem(
-                    path, requestId, correlationId);
-                return true;
-            }
-            if (i) body += ",";
-            body += "{\"title\":\"" + jsonEscape(event.title) +
-                "\",\"subtitle\":\"" + jsonEscape(event.subtitle) +
-                "\",\"channelId\":\"" + jsonEscape(event.channelId) +
-                "\",\"startTime\":\"" + jsonEscape(event.startTime) +
-                "\",\"endTime\":\"" + jsonEscape(event.endTime) + "\"}";
-        }
-        body += "],\"meta\":{\"partial\":false,\"epgInput\":\"ready\","
-            "\"evaluation\":\"epg-match-only\"}}";
-        response = jsonResponse(body, requestId, correlationId);
-        return true;
-    }
-
-    std::string previewSearchTimerId;
-    if (publicSearchTimerPreviewPath(path, previewSearchTimerId))
-    {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(path, requestId, correlationId);
-            return true;
-        }
-        if (!validPublicSearchTimerId(previewSearchTimerId) ||
-            authorizedBackendId.empty())
-        {
-            response = invalidRequestProblem(path,
-                "A valid SearchTimer and authorized backend are required.",
-                requestId, correlationId);
-            return true;
-        }
-        PublicSearchTimerCollectionQuery query;
-        if (!parsePublicSearchTimerCollectionQuery(
-                requestTarget, authorizedBackendId, query) ||
-            !query.cursor.empty())
-        {
-            response = invalidRequestProblem(path,
-                "Invalid SearchTimer preview query.",
-                requestId, correlationId);
-            return true;
-        }
-        PublicSearchTimerPreviewRequest request;
-        request.backendId = authorizedBackendId;
-        request.searchTimerId = previewSearchTimerId;
-        request.limit = query.limit;
-        const auto preview = lookupSearchTimerPreview(request);
-        if (preview.status == PublicSearchTimerPreviewStatus::notFound)
-        {
-            response = notFoundProblem(path, requestId, correlationId);
-            return true;
-        }
-        if (preview.status != PublicSearchTimerPreviewStatus::ok ||
-            preview.backendId != authorizedBackendId ||
-            preview.searchTimerId != previewSearchTimerId ||
-            preview.totalCount < 0 ||
-            preview.items.size() > query.limit ||
-            static_cast<std::size_t>(preview.totalCount) <
-                preview.items.size())
-        {
-            response = serviceUnavailableProblem(
-                path, requestId, correlationId);
-            return true;
-        }
-        std::string body = "{\"backendId\":\"" +
-            jsonEscape(preview.backendId) +
-            "\",\"searchTimerId\":\"" +
-            jsonEscape(preview.searchTimerId) +
-            "\",\"totalCount\":" + std::to_string(preview.totalCount) +
-            ",\"items\":[";
-        for (std::size_t i = 0U; i < preview.items.size(); ++i)
-        {
-            const auto& event = preview.items[i];
-            if (event.title.empty() || event.title.size() > 1024U ||
-                event.subtitle.size() > 2048U ||
-                event.channelId.size() > 256U ||
-                event.startTime.size() > 64U ||
-                event.endTime.size() > 64U)
-            {
-                response = serviceUnavailableProblem(
-                    path, requestId, correlationId);
-                return true;
-            }
-            if (i) body += ",";
-            body += "{\"title\":\"" + jsonEscape(event.title) +
-                "\",\"subtitle\":\"" + jsonEscape(event.subtitle) +
-                "\",\"channelId\":\"" + jsonEscape(event.channelId) +
-                "\",\"startTime\":\"" + jsonEscape(event.startTime) +
-                "\",\"endTime\":\"" + jsonEscape(event.endTime) + "\"}";
-        }
-        body += "],\"meta\":{\"partial\":false,\"epgInput\":\"ready\"}}";
-        response = jsonResponse(body, requestId, correlationId);
-        return true;
-    }
-
-    if (path == PublicSearchTimerCollectionPath)
-    {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(path, requestId, correlationId);
-            return true;
-        }
-        if (authorizedBackendId.empty())
-        {
-            response = invalidRequestProblem(path,
-                "An authorized backend scope is required.",
-                requestId, correlationId);
-            return true;
-        }
-        PublicSearchTimerCollectionQuery query;
-        if (!parsePublicSearchTimerCollectionQuery(
-                requestTarget, authorizedBackendId, query))
-        {
-            response = invalidRequestProblem(path,
-                "The SearchTimer collection query is invalid.",
-                requestId, correlationId);
-            return true;
-        }
-        std::string afterId;
-        if (!query.cursor.empty() &&
-            !decodePublicSearchTimerCursor(
-                query.cursor, authorizedBackendId, afterId))
-        {
-            response = invalidRequestProblem(path,
-                "The SearchTimer cursor is invalid for this backend.",
-                requestId, correlationId);
-            return true;
-        }
-        PublicSearchTimerCollectionRequest request;
-        request.backendId = authorizedBackendId;
-        request.afterSearchTimerId = afterId;
-        request.limit = query.limit;
-        const PublicSearchTimerCollectionResult page =
-            lookupSearchTimerCollection(request);
-        switch (page.status)
-        {
-            case PublicSearchTimerCollectionStatus::ok:
-            {
-                if (page.items.size() > query.limit ||
-                    (page.hasMore && page.items.size() != query.limit))
-                {
-                    response = serviceUnavailableProblem(
-                        path, requestId, correlationId);
-                    return true;
-                }
-                std::string previous = afterId;
-                for (const auto& item : page.items)
-                {
-                    if (!validPublicSearchTimerId(item.searchTimerId) ||
-                        item.backendId != authorizedBackendId ||
-                        (!previous.empty() && item.searchTimerId <= previous) ||
-                        item.name.empty() || item.query.empty() ||
-                        item.name.size() > 1024U || item.query.size() > 1024U ||
-                        (item.state != "active" && item.state != "inactive" &&
-                            item.state != "unknown"))
-                    {
-                        response = serviceUnavailableProblem(
-                            path, requestId, correlationId);
-                        return true;
-                    }
-                    previous = item.searchTimerId;
-                }
-                response = publicSearchTimerCollectionResponse(
-                    page, query, authorizedBackendId, requestId, correlationId);
-                return true;
-            }
-            case PublicSearchTimerCollectionStatus::invalid:
-                response = invalidRequestProblem(path,
-                    "The SearchTimer request is invalid.",
-                    requestId, correlationId);
-                return true;
-            case PublicSearchTimerCollectionStatus::unavailable:
-                response = serviceUnavailableProblem(
-                    path, requestId, correlationId);
-                return true;
-        }
-    }
-
-    if (path == PublicTimerAssignmentCollectionPath)
-    {
-        if (actorRef.empty())
-        {
-            response = unauthorizedProblem(
-                path, requestId, correlationId);
-            return true;
-        }
-
-        if (authorizedBackendId.empty())
-        {
-            response = invalidRequestProblem(
-                path,
-                "An authorized backend scope is required.",
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        PublicTimerAssignmentCollectionQuery query;
-        if (!parsePublicTimerAssignmentCollectionQuery(
-                requestTarget, query))
-        {
-            response = invalidRequestProblem(
-                path,
-                "The TimerAssignment collection query is invalid.",
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        std::string afterTimerAssignmentId;
-        if (!query.cursor.empty() &&
-            !decodePublicTimerAssignmentCursor(
-                query.cursor,
-                authorizedBackendId,
-                afterTimerAssignmentId))
-        {
-            response = invalidRequestProblem(
-                path,
-                "The collection cursor is invalid for this backend or ordering.",
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        PublicTimerAssignmentCollectionRequest request;
-        request.backendId = authorizedBackendId;
-        request.afterTimerAssignmentId = afterTimerAssignmentId;
-        request.limit = query.limit;
-
-        const PublicTimerAssignmentCollectionResult page =
-            lookupTimerAssignmentCollection(request);
-
-        switch (page.status)
-        {
-            case PublicTimerAssignmentCollectionStatus::ok:
-            {
-                if (page.assignments.size() > query.limit ||
-                    (page.hasMore &&
-                     page.assignments.size() != query.limit))
-                {
-                    response = serviceUnavailableProblem(
-                        path, requestId, correlationId);
-                    return true;
-                }
-
-                std::string previous = afterTimerAssignmentId;
-                for (const PublicTimerAssignmentCollectionItem&
-                     assignment : page.assignments)
-                {
-                    if (assignment.timerAssignmentId.empty() ||
-                        assignment.backendId != authorizedBackendId ||
-                        (!previous.empty() &&
-                         assignment.timerAssignmentId <= previous))
-                    {
-                        response = serviceUnavailableProblem(
-                            path, requestId, correlationId);
-                        return true;
-                    }
-                    if (assignment.plannedPresent &&
-                        (assignment.plannedTitle.size() > 1024U ||
-                         assignment.plannedDay.size() > 160U ||
-                         assignment.plannedWeekdays.size() != 7U ||
-                         assignment.plannedStartTime.empty() ||
-                         assignment.plannedStartTime.size() > 4U ||
-                         assignment.plannedEndTime.empty() ||
-                         assignment.plannedEndTime.size() > 4U))
-                    {
-                        response = serviceUnavailableProblem(
-                            path, requestId, correlationId);
-                        return true;
-                    }
-                    previous = assignment.timerAssignmentId;
-                }
-
-                response =
-                    publicTimerAssignmentCollectionResponse(
-                        page,
-                        query,
-                        authorizedBackendId,
-                        requestId,
-                        correlationId);
-                return true;
-            }
-
-            case PublicTimerAssignmentCollectionStatus::invalid:
-                response = invalidRequestProblem(
-                    path,
-                    "The TimerAssignment collection request is invalid.",
-                    requestId,
-                    correlationId);
-                return true;
-
-            case PublicTimerAssignmentCollectionStatus::unavailable:
-                response = serviceUnavailableProblem(
-                    path, requestId, correlationId);
-                return true;
-        }
-    }
-
-    std::string timerAssignmentId;
-
-    if (publicTimerAssignmentPath(
+    std::string pairingRequestId;
+    if (publicDevicePairingPath(
             path,
-            timerAssignmentId))
+            pairingRequestId))
+    {
+        if (tryHandleDevicePairingReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                pairingToken, response))
+            return true;
+    }
+
+    std::string operationId;
+    if (publicOperationPath(path, operationId))
     {
         if (actorRef.empty())
         {
@@ -9080,29 +8574,16 @@ bool PublicApiRuntime::tryHandleGet(
             return true;
         }
 
-        if (authorizedBackendId.empty())
-        {
-            response = invalidRequestProblem(
-                path,
-                "An authorized backend scope is required.",
-                requestId,
-                correlationId);
-            return true;
-        }
-
-        const PublicTimerAssignmentLookupResult found =
-            lookupTimerAssignment(
-                timerAssignmentId,
-                authorizedBackendId);
+        const PublicOperationLookupResult found =
+            lookupOperation(operationId, actorRef);
 
         switch (found.status)
         {
-            case PublicTimerAssignmentLookupStatus::ok:
-                if (found.assignment.timerAssignmentId !=
-                        timerAssignmentId ||
-                    found.assignment.backendId !=
-                        authorizedBackendId ||
-                    found.assignment.resourceRevision.empty())
+            case PublicOperationLookupStatus::ok:
+                if (found.operation.operationId != operationId ||
+                    found.operation.state.empty() ||
+                    found.operation.backendId.empty() ||
+                    found.operation.resourceRevision.empty())
                 {
                     response = serviceUnavailableProblem(
                         path,
@@ -9111,38 +8592,304 @@ bool PublicApiRuntime::tryHandleGet(
                 }
                 else
                 {
-                    response =
-                        publicTimerAssignmentResponse(
-                            found.assignment,
-                            path,
-                            requestId,
-                            correlationId,
-                            ifNoneMatch);
+                    response = publicOperationResponse(
+                        found.operation,
+                        path,
+                        requestId,
+                        correlationId,
+                        ifNoneMatch);
                 }
                 return true;
 
-            case PublicTimerAssignmentLookupStatus::invalid:
+            case PublicOperationLookupStatus::invalid:
                 response = invalidRequestProblem(
                     path,
-                    "The TimerAssignment identifier is invalid.",
+                    "The operation identifier is invalid.",
                     requestId,
                     correlationId);
                 return true;
 
-            case PublicTimerAssignmentLookupStatus::notFound:
+            case PublicOperationLookupStatus::notFound:
                 response = notFoundProblem(
                     path,
                     requestId,
                     correlationId);
                 return true;
 
-            case PublicTimerAssignmentLookupStatus::unavailable:
+            case PublicOperationLookupStatus::unavailable:
                 response = serviceUnavailableProblem(
                     path,
                     requestId,
                     correlationId);
                 return true;
         }
+    }
+
+    std::string accountId;
+    std::string credentialId;
+    std::string sessionId;
+
+    if (publicAccountCredentialItemPath(
+            path, accountId, credentialId))
+    {
+        if (tryHandleIdentityAdministrationReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, response))
+            return true;
+    }
+
+    if (publicAccountSessionItemPath(
+            path, accountId, sessionId))
+    {
+        if (tryHandleIdentityAdministrationReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, response))
+            return true;
+    }
+
+    if (publicAccountCredentialPath(path, accountId))
+    {
+        if (tryHandleIdentityAdministrationReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, response))
+            return true;
+    }
+
+    if (publicAccountSessionPath(path, accountId))
+    {
+        if (tryHandleIdentityAdministrationReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, response))
+            return true;
+    }
+
+    std::string lifecycleDeviceId;
+    std::string lifecycleCredentialId;
+    if (publicDeviceLifecyclePath(
+            path, lifecycleDeviceId, lifecycleCredentialId))
+    {
+        if (tryHandleIdentityAdministrationReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, response))
+            return true;
+    }
+
+    if (path == "/api/v1/devices")
+    {
+        if (tryHandleIdentityAdministrationReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, response))
+            return true;
+    }
+
+    std::string deviceGrantDeviceId;
+    if (publicDeviceGrantPath(path, deviceGrantDeviceId))
+    {
+        if (tryHandleIdentityAdministrationReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, response))
+            return true;
+    }
+
+    if (publicAccountGrantPath(path, accountId))
+    {
+        if (tryHandleIdentityAdministrationReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, response))
+            return true;
+    }
+
+    if (publicAccountPath(path, accountId))
+    {
+        if (tryHandleIdentityAdministrationReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, response))
+            return true;
+    }
+
+    if (path == PublicBackendCollectionPath)
+    {
+        if (tryHandleBackendCollectionGet(
+                requestTarget, actorRef, requestId, correlationId,
+                authorizedBackendIds, response))
+            return true;
+    }
+
+    if (path == PublicAccountCollectionPath)
+    {
+        if (tryHandleIdentityAdministrationReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, response))
+            return true;
+    }
+
+    if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath)
+    {
+        if (tryHandleBrowseReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                authorizedBackendIds, response))
+            return true;
+    }
+
+    const std::string recordingDetailPrefix =
+        std::string(PublicRecordingCollectionPath) + "/";
+    const bool isRecordingDetailPath =
+        path.size() > recordingDetailPrefix.size() &&
+        path.compare(0U, recordingDetailPrefix.size(),
+            recordingDetailPrefix) == 0 &&
+        path.find('/', recordingDetailPrefix.size()) == std::string::npos;
+    const std::size_t artworkMarker =
+        path.find("/artwork", recordingDetailPrefix.size());
+    const bool isRecordingArtworkPath =
+        path.compare(0U, recordingDetailPrefix.size(),
+            recordingDetailPrefix) == 0 &&
+        artworkMarker != std::string::npos &&
+        (artworkMarker + 8U == path.size() ||
+         (artworkMarker + 8U < path.size() &&
+          path[artworkMarker + 8U] == '/'));
+    if (isRecordingArtworkPath)
+    {
+        if (tryHandleBrowseReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                authorizedBackendIds, response))
+            return true;
+    }
+    if (isRecordingDetailPath)
+    {
+        if (tryHandleBrowseReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                authorizedBackendIds, response))
+            return true;
+    }
+
+    // Preserve the independently audited Public-v1 collection branch.
+    if (path == PublicRecordingCollectionPath)
+    {
+        if (tryHandleBrowseReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                authorizedBackendIds, response))
+            return true;
+    }
+
+    if (path == PublicEpgGenrePath ||
+        path == PublicEpgGenreEventsPath)
+    {
+        if (tryHandleBrowseReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                authorizedBackendIds, response))
+            return true;
+    }
+
+    if (path == PublicGenreCollectionPath ||
+        path == PublicGenreRecordingPath)
+    {
+        if (tryHandleBrowseReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                authorizedBackendIds, response))
+            return true;
+    }
+
+    std::string nativeTimerId;
+    if (publicNativeTimerItemPath(path, nativeTimerId))
+    {
+        if (tryHandleNativeTimerReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendIds, response))
+            return true;
+    }
+
+    if (path == PublicNativeTimersPath)
+    {
+        if (tryHandleNativeTimerReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendIds, response))
+            return true;
+    }
+
+    if (path == PublicEpgEventDetailPath)
+    {
+        if (tryHandleEpgReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendIds, response))
+            return true;
+    }
+
+    if (path == PublicEpgWindowPath)
+    {
+        if (tryHandleEpgReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendIds, response))
+            return true;
+    }
+
+    if (path == PublicEpgNowNextPath)
+    {
+        if (tryHandleEpgReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendIds, response))
+            return true;
+    }
+
+    if (path == PublicChannelCollectionPath)
+    {
+        if (tryHandleChannelCollectionGet(
+                requestTarget, actorRef, requestId, correlationId,
+                authorizedBackendIds, response))
+            return true;
+    }
+
+    std::string versionSearchTimerId;
+    if (publicSearchTimerNativeSubresourcePath(
+            path, "/version", versionSearchTimerId))
+    {
+        if (tryHandleSearchTimerAssignmentReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendId, response))
+            return true;
+    }
+
+    if (path == PublicSearchTimerDraftPreviewPath)
+    {
+        if (tryHandleSearchTimerAssignmentReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendId, response))
+            return true;
+    }
+
+    std::string previewSearchTimerId;
+    if (publicSearchTimerPreviewPath(path, previewSearchTimerId))
+    {
+        if (tryHandleSearchTimerAssignmentReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendId, response))
+            return true;
+    }
+
+    if (path == PublicSearchTimerCollectionPath)
+    {
+        if (tryHandleSearchTimerAssignmentReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendId, response))
+            return true;
+    }
+
+    if (path == PublicTimerAssignmentCollectionPath)
+    {
+        if (tryHandleSearchTimerAssignmentReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendId, response))
+            return true;
+    }
+
+    std::string timerAssignmentId;
+    if (publicTimerAssignmentPath(
+            path,
+            timerAssignmentId))
+    {
+        if (tryHandleSearchTimerAssignmentReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendId, response))
+            return true;
     }
 
     if (path == PublicEpgTimerIntentPath)
@@ -9162,7 +8909,7 @@ bool PublicApiRuntime::tryHandleGet(
     return false;
 }
 
-bool PublicApiRuntime::tryHandlePost(
+bool PublicApiRuntime::tryHandleNativeTimerMutationPost(
     const std::string& requestTarget,
     const std::string& requestId,
     const std::string& correlationId,
@@ -9172,17 +8919,9 @@ bool PublicApiRuntime::tryHandlePost(
     const std::string& ifMatch,
     const std::string& idempotencyKey,
     const std::string& contentType,
-    const std::string& authorizedBackendId,
-    const std::string& pairingToken) const
+    const std::string& authorizedBackendId) const
 {
     const std::string path = requestPath(requestTarget);
-    std::string operationId;
-    std::string timerAssignmentId;
-    std::string accountId;
-    std::string credentialId;
-    std::string sessionId;
-    std::string pairingRequestId;
-
     std::string modifiedTimerId;
     if (publicNativeTimerModificationPath(path, modifiedTimerId))
     {
@@ -9302,6 +9041,25 @@ bool PublicApiRuntime::tryHandlePost(
         response = serviceUnavailableProblem(path, requestId, correlationId);
         return true;
     }
+
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleDevicePairingPost(
+    const std::string& requestTarget,
+    const std::string& requestId,
+    const std::string& correlationId,
+    ApiResponse& response,
+    const std::string& body,
+    const std::string& actorRef,
+    const std::string& ifMatch,
+    const std::string& idempotencyKey,
+    const std::string& contentType,
+    const std::string& pairingToken) const
+{
+    const std::string path = requestPath(requestTarget);
+    std::string pairingRequestId;
 
     const std::string issueSuffix = "/credential";
     const std::string pairingPrefix(PublicDevicePairingPrefix);
@@ -9796,6 +9554,25 @@ bool PublicApiRuntime::tryHandlePost(
         }
     }
 
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleAccountCredentialSessionPost(
+    const std::string& requestTarget,
+    const std::string& requestId,
+    const std::string& correlationId,
+    ApiResponse& response,
+    const std::string& body,
+    const std::string& actorRef,
+    const std::string& ifMatch,
+    const std::string& contentType) const
+{
+    const std::string path = requestPath(requestTarget);
+    std::string accountId;
+    std::string credentialId;
+    std::string sessionId;
+
     if (publicAccountCredentialItemPath(
             path, accountId, credentialId))
     {
@@ -10207,6 +9984,22 @@ bool PublicApiRuntime::tryHandlePost(
         return true;
     }
 
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleDeviceAdministrationPost(
+    const std::string& requestTarget,
+    const std::string& requestId,
+    const std::string& correlationId,
+    ApiResponse& response,
+    const std::string& body,
+    const std::string& actorRef,
+    const std::string& ifMatch,
+    const std::string& idempotencyKey,
+    const std::string& contentType) const
+{
+    const std::string path = requestPath(requestTarget);
     std::string rotationDeviceId;
     std::string rotationPreviousId;
     if (publicDeviceCredentialRotationPath(
@@ -10570,6 +10363,24 @@ bool PublicApiRuntime::tryHandlePost(
                 return true;
         }
     }
+
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleAccountAdministrationPost(
+    const std::string& requestTarget,
+    const std::string& requestId,
+    const std::string& correlationId,
+    ApiResponse& response,
+    const std::string& body,
+    const std::string& actorRef,
+    const std::string& ifMatch,
+    const std::string& idempotencyKey,
+    const std::string& contentType) const
+{
+    const std::string path = requestPath(requestTarget);
+    std::string accountId;
 
     if (publicAccountGrantPath(path, accountId))
     {
@@ -11173,6 +10984,134 @@ bool PublicApiRuntime::tryHandlePost(
                     correlationId);
                 return true;
         }
+    }
+
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandleTimerWorkflowPost(
+    const std::string& requestTarget,
+    const std::string& requestId,
+    const std::string& correlationId,
+    ApiResponse& response,
+    const std::string& body,
+    const std::string& actorRef,
+    const std::string& ifMatch,
+    const std::string& idempotencyKey,
+    const std::string& contentType,
+    const std::string& authorizedBackendId) const
+{
+    const std::string path = requestPath(requestTarget);
+    std::string timerAssignmentId;
+    std::string mutationSearchId;
+    if (publicSearchTimerNativeSubresourcePath(
+            path, "/mutations", mutationSearchId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (authorizedBackendId.empty() ||
+            requestTarget != path + "?backend=" + authorizedBackendId)
+        {
+            response = invalidRequestProblem(path,
+                "Exactly one authorized backend is required.",
+                requestId, correlationId);
+            return true;
+        }
+        if (!applicationJsonContentType(contentType))
+        {
+            response = problemResponse(415, "unsupported_media_type",
+                "Unsupported media type", "JSON required.",
+                path, requestId, correlationId);
+            return true;
+        }
+        if (body.empty() || body.size() > 1024U ||
+            !JsonSyntaxValidator(body).valid())
+        {
+            response = invalidRequestProblem(path,
+                "Invalid SearchTimer mutation JSON.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicSearchTimerNativeMutationRequest request;
+        if (!parsePublicSearchTimerNativeMutationBody(body, request))
+        {
+            response = problemResponse(422, "validation_error",
+                "Validation failed", "Invalid guarded SearchTimer mutation.",
+                path, requestId, correlationId);
+            return true;
+        }
+        if (!publicIdempotencyKeyValid(idempotencyKey) ||
+            ifMatch.size() != 37U || ifMatch.front() != '"' ||
+            ifMatch.back() != '"' ||
+            ifMatch.compare(1U, 3U, "sr_") != 0)
+        {
+            response = invalidRequestProblem(path,
+                "Valid Idempotency-Key and quoted native revision If-Match required.",
+                requestId, correlationId);
+            return true;
+        }
+        request.actorRef = actorRef;
+        request.backendId = authorizedBackendId;
+        request.publicSearchTimerId = mutationSearchId;
+        request.idempotencyKey = idempotencyKey;
+        request.ifMatch = ifMatch.substr(1U, ifMatch.size() - 2U);
+        SearchTimerNativeMutation handler;
+        {
+            std::lock_guard<std::mutex> lock(searchTimerNativeMutationMutex_);
+            handler = searchTimerNativeMutation_;
+        }
+        if (!handler)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        const auto outcome = handler(request);
+        switch (outcome.status)
+        {
+            case PublicSearchTimerNativeMutationStatus::accepted:
+            case PublicSearchTimerNativeMutationStatus::replayed:
+            {
+                const auto& op = outcome.operation;
+                if (op.operationId.empty() || op.state.empty() ||
+                    op.backendId != authorizedBackendId ||
+                    op.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                const std::string operationPath =
+                    std::string(PublicOperationPrefix) + op.operationId;
+                response = publicOperationResponse(
+                    op, operationPath, requestId, correlationId, "");
+                response.statusCode = 202;
+                response.headers["Location"] = operationPath;
+                response.headers["Cache-Control"] = "no-store";
+                return true;
+            }
+            case PublicSearchTimerNativeMutationStatus::invalid:
+                response = problemResponse(422, "validation_error",
+                    "Validation failed", "Guarded mutation invalid.",
+                    path, requestId, correlationId);
+                return true;
+            case PublicSearchTimerNativeMutationStatus::conflict:
+                response = problemResponse(409, "version_conflict",
+                    "Conflict", "Native revision or mutation conflict.",
+                    path, requestId, correlationId);
+                return true;
+            case PublicSearchTimerNativeMutationStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicSearchTimerNativeMutationStatus::unavailable:
+                response = serviceUnavailableProblem(path, requestId, correlationId);
+                return true;
+        }
+        response = serviceUnavailableProblem(path, requestId, correlationId);
+        return true;
     }
 
     if (path == PublicSearchTimerCollectionPath)
@@ -11790,6 +11729,52 @@ bool PublicApiRuntime::tryHandlePost(
         }
     }
 
+
+    return false;
+}
+
+bool PublicApiRuntime::tryHandlePost(
+    const std::string& requestTarget,
+    const std::string& requestId,
+    const std::string& correlationId,
+    ApiResponse& response,
+    const std::string& body,
+    const std::string& actorRef,
+    const std::string& ifMatch,
+    const std::string& idempotencyKey,
+    const std::string& contentType,
+    const std::string& authorizedBackendId,
+    const std::string& pairingToken) const
+{
+    const std::string path = requestPath(requestTarget);
+    std::string operationId;
+    std::string timerAssignmentId;
+
+    // Preserve the original first-match precedence across public POST routes.
+    if (tryHandleNativeTimerMutationPost(
+            requestTarget, requestId, correlationId, response, body, actorRef, ifMatch, idempotencyKey, contentType, authorizedBackendId))
+        return true;
+
+    if (tryHandleDevicePairingPost(
+            requestTarget, requestId, correlationId, response, body, actorRef, ifMatch, idempotencyKey, contentType, pairingToken))
+        return true;
+
+    if (tryHandleAccountCredentialSessionPost(
+            requestTarget, requestId, correlationId, response, body, actorRef, ifMatch, contentType))
+        return true;
+
+    if (tryHandleDeviceAdministrationPost(
+            requestTarget, requestId, correlationId, response, body, actorRef, ifMatch, idempotencyKey, contentType))
+        return true;
+
+    if (tryHandleAccountAdministrationPost(
+            requestTarget, requestId, correlationId, response, body, actorRef, ifMatch, idempotencyKey, contentType))
+        return true;
+
+    if (tryHandleTimerWorkflowPost(
+            requestTarget, requestId, correlationId, response, body, actorRef, ifMatch, idempotencyKey, contentType, authorizedBackendId))
+        return true;
+
     if (path == "/api/v1/devices")
     {
         response = methodNotAllowedProblem(path, requestId,
@@ -11835,32 +11820,6 @@ bool PublicApiRuntime::tryHandlePost(
     }
 
     return false;
-}
-
-void PublicApiRuntime::registerNativeTimerModifyAdmission(
-    NativeTimerModifyAdmission admission)
-{
-    std::lock_guard<std::mutex> lock(nativeTimerModifyMutex_);
-    nativeTimerModifyAdmission_ = std::move(admission);
-}
-
-void PublicApiRuntime::resetNativeTimerModifyAdmission()
-{
-    std::lock_guard<std::mutex> lock(nativeTimerModifyMutex_);
-    nativeTimerModifyAdmission_ = {};
-}
-
-void PublicApiRuntime::registerNativeTimerDeleteAdmission(
-    NativeTimerDeleteAdmission admission)
-{
-    std::lock_guard<std::mutex> lock(nativeTimerDeleteMutex_);
-    nativeTimerDeleteAdmission_ = std::move(admission);
-}
-
-void PublicApiRuntime::resetNativeTimerDeleteAdmission()
-{
-    std::lock_guard<std::mutex> lock(nativeTimerDeleteMutex_);
-    nativeTimerDeleteAdmission_ = {};
 }
 
 bool PublicApiRuntime::tryHandleDelete(

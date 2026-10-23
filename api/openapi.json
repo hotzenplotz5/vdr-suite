@@ -83,12 +83,12 @@
           "EPG"
         ],
         "operationId": "getPublicEpgWindow",
-        "summary": "Read bounded cached EPG events for a backend and channel",
+        "summary": "Page the full available cached EPG window for one backend/channel",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "epg.view@backendId OR media.live.play@backendId; exact backend scope"
         },
-        "description": "12-hour maximum per request, up to 192 real events. Device/backend auth: epg.view OR media.live.play on the same backend. No live provider fallback or fabricated programmes. A successful response may have hasMore=true; clients must not represent truncated pages as complete.",
+        "description": "A bounded 1–192 events per page from the existing cache over any valid requested time range, including multiple days. page.nextCursor continues strictly after the last cache key for the SAME backend, channel, fromTime and untilTime; page.hasMore=false finishes the traversal. Native eventId is exposed only with source provenance. A stale/deleted anchor or malformed/different-scope cursor is rejected; refreshes during traversal may require restarting from page one for a consistent snapshot. Device/backend auth: epg.view OR media.live.play on the same backend. No provider fallback or fabricated programmes. Legacy 12-hour calls remain valid.",
         "parameters": [
           {
             "name": "backendId",
@@ -127,7 +127,7 @@
             "name": "untilTime",
             "in": "query",
             "required": true,
-            "description": "Exclusive Unix seconds; strictly later than fromTime, at most 43200 seconds",
+            "description": "Exclusive Unix seconds; strictly later than fromTime. Result size remains bounded by limit regardless of range.",
             "schema": {
               "type": "string",
               "pattern": "^[1-9][0-9]{9,11}$"
@@ -144,11 +144,22 @@
               "maximum": 192,
               "default": 192
             }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque ew1_ continuation from page.nextCursor; bound to backendId, channelId, fromTime and untilTime. Do not alter or reuse with another window.",
+            "schema": {
+              "type": "string",
+              "minLength": 5,
+              "maxLength": 4200
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Backend-scoped events, page {limit,hasMore}, meta {partial:false}",
+            "description": "Backend-scoped events and page {limit,hasMore,nextCursor}; null nextCursor at the last page, meta {partial:false}",
             "content": {
               "application/json": {
                 "schema": {
@@ -158,7 +169,7 @@
             }
           },
           "400": {
-            "description": "Invalid or duplicate arguments or wrong backend scope"
+            "description": "Invalid/duplicate arguments, wrong backend scope, or malformed/stale/mismatched EPG cursor"
           },
           "401": {
             "description": "Unauthenticated"
@@ -182,10 +193,10 @@
         ],
         "operationId": "createEpgTimerIntent",
         "summary": "Admit a one-shot TimerIntent for an exact EPG airing",
-        "description": "Device-only, exact backend timers.create authorization. The server independently resolves the EPG event, matches the source-provenanced strong ETag and verifies native identity, backend generation, expiration and independent backend write policy. This API is fail-closed (503) until the durable observation and submit services are installed. 202 means a durable operation was accepted/replayed, not that a native VDR timer exists. It is NOT POST /timer-assignments/{id}; no SearchTimer and no caller-controlled schedule. Never silently retry unknown outcomes.",
+        "description": "A paired Device needs an exact timers.create@backendId grant. An authenticated administrator Browser Session with matching role.admin@backendId (or role.admin@*) and valid CSRF may also use this route; an ordinary Human with only timers.create cannot. The server independently resolves the native EPG event and strong ETag, verifies backend generation, native CLOCK/preview evidence and the independent backend write policy. Unavailable or unverified evidence fails closed (503). HTTP 202 means durable Operation accepted/replayed, not native timer success. This is not TimerAssignment POST or SearchTimer CREATE. Never blindly retry unknown outcomes.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
-          "authorization": "Verified paired Device credential with exact timers.create@backendId grant; Browser sessions are not allowed; independent backend write-policy check"
+          "authorization": "Verified paired Device credential with exact timers.create@backendId grant OR authenticated administrator Browser Session with role.admin@backendId (or role.admin@*) and CSRF; independent backend write-policy check"
         },
         "parameters": [
           {
@@ -284,7 +295,7 @@
             "description": "Unauthenticated actor"
           },
           "403": {
-            "description": "Device credential/grant missing or backend write policy denies"
+            "description": "Missing Device credential/grant, browser administrator authority or CSRF, or backend write-policy denial"
           },
           "404": {
             "description": "No matching authoritative EPG event"
@@ -979,7 +990,7 @@
         ],
         "operationId": "createSearchTimer",
         "summary": "Create one backend SearchTimer from a paired Device",
-        "description": "A verified Device with independent searchtimers.create@backend grant may submit one confirmed, durable and idempotent SearchTimer CREATE. Backend must be online and writable with live Agent generation. One-shot provider dispatch and exact native-ID readback; HTTP 202 is an Operation, never a promise of recording. An ambiguous result must not be automatically retried. The native RESTfulAPI mapping uses the search text as the rule name; name must equal query or HTTP 422.",
+        "description": "A verified Device with independent searchtimers.create@backend grant may submit one confirmed, durable and idempotent SearchTimer CREATE, but only with explicitly inactive state (active=false). Missing active or active=true returns HTTP 422; Separate guarded mutations use /api/v1/search-timers/{searchTimerId}/mutations, with independent grants and native generation/revision CAS. Backend must be online and writable with live Agent generation. One-shot provider dispatch and exact native-ID readback; HTTP 202 is an Operation, never a promise of recording. An ambiguous result must not be automatically retried. The native RESTfulAPI mapping uses the search text as the rule name; name must equal query or HTTP 422.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "verified Device and exact searchtimers.create@backend; no Browser/legacy fallback"
@@ -1015,6 +1026,7 @@
                 "required": [
                   "name",
                   "query",
+                  "active",
                   "confirmed",
                   "mode",
                   "compareTitle",
@@ -1036,8 +1048,8 @@
                     "const": true
                   },
                   "active": {
-                    "type": "boolean",
-                    "default": true
+                    "const": false,
+                    "description": "Explicit inactive staging only. Activation requires a separate, confirmed /api/v1/search-timers/{searchTimerId}/mutations request, a strong native revision If-Match, the searchtimers.execute Device/backend grant, and compatible generation-fenced epgsearch CAS. An unpatched provider fails closed."
                   },
                   "mode": {
                     "type": "integer",
@@ -5651,6 +5663,312 @@
         }
       }
     },
+    "/api/v1/recordings/{recordingId}": {
+      "get": {
+        "tags": [
+          "Recording browse"
+        ],
+        "operationId": "getPublicRecordingDetail",
+        "summary": "Read existing VDR/EPG/scraper metadata for an authorized public Recording",
+        "description": "M1 read-only detail reuses the durable rec_ identity and warmed backend-scoped Recording cache. Requires recordings.view@backendId on one backend. Absent or partial metadata is explicit. No VDR native path, scraper ID, external URL or artwork. Cache-Control: no-store; no detail ETag before an authoritative metadata revision exists.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "recordings.view@backendId; exact backend, no legacy fallback",
+          "securitySchemeDocumentation": "Same deployed credentials and permission checks as GET /api/v1/recordings."
+        },
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^rec_[0-9a-f]{32}$"
+            },
+            "description": "Suite-owned rec_ identity, never a native path"
+          },
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            },
+            "description": "Exactly one authorized backendId; no other query parameters"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recording detail and metadata availability",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicRecordingDetail"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid rec_ ID or backend query"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Recordings grant denied"
+          },
+          "404": {
+            "description": "Recording ID absent or retired"
+          },
+          "503": {
+            "description": "Backend/cache unavailable or inconsistent metadata projection"
+          }
+        }
+      }
+    },
+    "/api/v1/recordings/{recordingId}/artwork": {
+      "get": {
+        "tags": [
+          "Recording browse"
+        ],
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^rec_[0-9a-f]{32}$"
+            },
+            "description": "Suite-owned rec_ identity, never a native path"
+          },
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            },
+            "description": "Exactly one authorized backendId; no other query parameters"
+          }
+        ],
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "recordings.view@backendId; exact backend, no legacy fallback",
+          "securitySchemeDocumentation": "Same deployed credentials and permission checks as GET /api/v1/recordings."
+        },
+        "operationId": "getPublicRecordingArtwork",
+        "summary": "List cached artwork for a public Recording",
+        "description": "M2 read-only metadata: same rec_ identity, backend-scoped recordings.view and Recording artwork cache as the Web frontend. Returns empty items on missing cache artwork, never native filesystem references. Cache-Control: no-store.",
+        "responses": {
+          "200": {
+            "description": "Cached artwork references, possibly empty",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "recordingId",
+                    "backendId",
+                    "items"
+                  ],
+                  "properties": {
+                    "recordingId": {
+                      "type": "string",
+                      "pattern": "^rec_[0-9a-f]{32}$"
+                    },
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "maxItems": 64,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "artworkId",
+                          "kind",
+                          "url"
+                        ],
+                        "properties": {
+                          "artworkId": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{32}$"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "poster",
+                              "fanart",
+                              "banner",
+                              "still"
+                            ]
+                          },
+                          "url": {
+                            "type": "string",
+                            "description": "Relative authenticated Public-v1 image URL; does not contain credentials"
+                          },
+                          "width": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "height": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid rec_ ID, artwork ID or backend query"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Recording read grant denied"
+          },
+          "404": {
+            "description": "Recording or image not found"
+          },
+          "503": {
+            "description": "Backend, recording cache or artwork service unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/recordings/{recordingId}/artwork/{artworkId}": {
+      "get": {
+        "tags": [
+          "Recording browse"
+        ],
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^rec_[0-9a-f]{32}$"
+            },
+            "description": "Suite-owned rec_ identity, never a native path"
+          },
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            },
+            "description": "Exactly one authorized backendId; no other query parameters"
+          },
+          {
+            "name": "artworkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            },
+            "description": "Opaque Recording artwork ID, not a local filename or provider ID"
+          }
+        ],
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "recordings.view@backendId; exact backend, no legacy fallback",
+          "securitySchemeDocumentation": "Same deployed credentials and permission checks as GET /api/v1/recordings."
+        },
+        "operationId": "getPublicRecordingArtworkImage",
+        "summary": "Deliver binary artwork for a public Recording",
+        "description": "M2 read-only byte delivery. Authenticated and exact backend-bound recordings.view; shared VdrRecordingArtworkService verifies canonical allowed root, file size, bytes and MIME. No remote fetch, image resizing or token in URLs. Private max-age=300, nosniff.",
+        "responses": {
+          "200": {
+            "description": "Actual PNG/JPEG/WebP artwork bytes",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, max-age=300"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid rec_ ID, artwork ID or backend query"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Recording read grant denied"
+          },
+          "404": {
+            "description": "Recording or image not found"
+          },
+          "503": {
+            "description": "Backend, recording cache or artwork service unavailable"
+          }
+        }
+      }
+    },
     "/api/v1/recordings": {
       "get": {
         "tags": [
@@ -8572,6 +8890,424 @@
         }
       }
     },
+    "/api/v1/epg/artwork": {
+      "get": {
+        "tags": [
+          "EPG"
+        ],
+        "operationId": "getPublicEpgArtworkImage",
+        "summary": "Read cached EPG event artwork bytes through the existing EPG repository",
+        "description": "M2 read-only binary delivery. Requires exactly one backendId, authenticated epg.view@backendId, channelId and eventId. Uses the existing EPG Artwork Controller and file-access policy. No public path or URL input and no new scraper or image cache. This is the direct EPG image; TVScraper preferred/series fallback metadata images remain a separate authenticated legacy route.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "epg.view@backendId; no media.live.play-only access"
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          },
+          {
+            "name": "channelId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          {
+            "name": "eventId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Actual EPG image bytes",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, max-age=300"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid channel/event/backend identity or scope"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "No epg.view grant or image path disallowed"
+          },
+          "404": {
+            "description": "Event artwork missing"
+          },
+          "503": {
+            "description": "EPG Artwork owner or backend unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/epg/preferred-artwork": {
+      "get": {
+        "tags": [
+          "EPG"
+        ],
+        "operationId": "getPublicEpgPreferredArtworkImage",
+        "summary": "Serve preferred TVScraper or existing persisted EPG series fallback artwork",
+        "description": "M2 read-only alias for the existing EpgCacheController::getMetadataImage(backendId,channelId,eventId,preferred,0). It selects cached TVScraper preferred artwork and, if eligible, the managed series fallback via the existing controller only. No additional provider lookup or public path argument. Requires epg.view on the exact authorized backend.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "epg.view@backendId; no media.live.play-only access"
+        },
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          },
+          {
+            "name": "channelId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          {
+            "name": "eventId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Actual EPG image bytes",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, max-age=300"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid channel/event/backend identity or scope"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "No epg.view grant or image path disallowed"
+          },
+          "404": {
+            "description": "Event artwork missing"
+          },
+          "503": {
+            "description": "EPG Artwork owner or backend unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/search-timers/{searchTimerId}/version": {
+      "get": {
+        "tags": [
+          "SearchTimers"
+        ],
+        "operationId": "getSearchTimerNativeVersion",
+        "summary": "Read a backend-scoped SearchTimer mutation revision",
+        "description": "Read-only exact active public SearchTimer binding plus in-process native epgsearch observation. Returns opaque version as strong ETag; no numeric native ID or generation is exposed. Requires Device searchtimers.view@backend. The underlying generation and revision must be persistently attested.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "verified Device, exact searchtimers.view@backend"
+        },
+        "parameters": [
+          {
+            "name": "searchTimerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^st_[0-9a-f]{32}$"
+            }
+          },
+          {
+            "name": "backend",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current durable search rule revision",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "searchTimerId",
+                    "backendId",
+                    "revision"
+                  ],
+                  "properties": {
+                    "searchTimerId": {
+                      "type": "string",
+                      "pattern": "^st_[0-9a-f]{32}$"
+                    },
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "string",
+                      "pattern": "^sr_[0-9a-f]{32}$"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid backend query"
+          },
+          "401": {
+            "description": "Missing Device credential"
+          },
+          "403": {
+            "description": "No exact SearchTimer view grant"
+          },
+          "404": {
+            "description": "No active public SearchTimer binding"
+          },
+          "503": {
+            "description": "Native epgsearch observation unavailable or not durable"
+          }
+        }
+      }
+    },
+    "/api/v1/search-timers/{searchTimerId}/mutations": {
+      "post": {
+        "tags": [
+          "SearchTimers"
+        ],
+        "operationId": "mutateSearchTimerCAS",
+        "summary": "Durable native CAS UPDATE, ACTIVATE, DEACTIVATE or DELETE of one SearchTimer",
+        "description": "One explicit confirmed Device action, never a legacy SVDRP/RESTfulAPI write. Requires exact backend Device grant: searchtimers.modify for update/deactivate, searchtimers.execute for activate, searchtimers.delete for delete. If-Match is the quoted opaque revision from GET /version. Numeric native ID and generation are derived only from the server-owned active identity mapping plus native observe-v1.1. The server reserves an immutable Operation and dispatches at most once. Applied results close only after a separate authoritative native readback. No blind retry of outcome_unknown. UPDATE is restricted to an inactive rule and preserves all other epgsearch settings. Operator must review EPG preview before activating.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "verified Device plus exact searchtimers.modify/execute/delete@backend grant according to action"
+        },
+        "parameters": [
+          {
+            "name": "searchTimerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^st_[0-9a-f]{32}$"
+            }
+          },
+          {
+            "name": "backend",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,128}$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\"sr_[0-9a-f]{32}\"$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "action",
+                  "confirmed"
+                ],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "update",
+                      "activate",
+                      "deactivate",
+                      "delete"
+                    ]
+                  },
+                  "confirmed": {
+                    "const": true
+                  },
+                  "query": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "Only for update; inactive native rule, colon/control characters refused."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Durable Operation accepted or idempotently replayed; consult Operation state for succeeded, failed_verified or outcome_unknown",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DurableOperation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed query, If-Match or Idempotency-Key"
+          },
+          "401": {
+            "description": "Missing verified Device credential"
+          },
+          "403": {
+            "description": "Action-specific backend grant denied"
+          },
+          "404": {
+            "description": "Public SearchTimer ID retired/not found"
+          },
+          "409": {
+            "description": "Stale revision or request conflict"
+          },
+          "415": {
+            "description": "Unsupported content type"
+          },
+          "422": {
+            "description": "Invalid mutation, active update or unsupported query"
+          },
+          "503": {
+            "description": "Backend/Agent/native service unavailable; unsafe mutation never dispatched"
+          }
+        }
+      }
+    },
     "/api/v1/devices": {
       "get": {
         "tags": [
@@ -10154,6 +10890,136 @@
             "type": "boolean"
           }
         }
+      },
+      "PublicRecordingMetadataDetail": {
+        "type": "object",
+        "required": [
+          "state",
+          "source",
+          "contentKind"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "absent",
+              "partial",
+              "available"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "none",
+              "restfulapi-scraper-bridge",
+              "manual"
+            ]
+          },
+          "contentKind": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "movie",
+              "series",
+              "series-episode"
+            ]
+          },
+          "epgTitle": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "subtitle": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "epgDescription": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "providerTitle": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Optional selected manual or scraped title; does not override the Recording display title."
+          },
+          "overview": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "originalTitle": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "tagline": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "seriesTitle": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "episodeTitle": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "genreText": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "manualGenreId": {
+            "type": "string",
+            "maxLength": 128,
+            "description": "Optional canonical Genre ID explicitly selected in the existing Web Genre index; independent of a manual metadata assignment."
+          },
+          "releaseDate": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "seasonNumber": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "episodeNumber": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "providerRuntimeMinutes": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "manualAssignmentId": {
+            "type": "string",
+            "pattern": "^mdasg_[0-9a-f]{32}$",
+            "description": "Only when source=manual: existing selected assignment identity, not an external provider ID."
+          },
+          "metadataEntityId": {
+            "type": "string",
+            "pattern": "^mdent_[0-9a-f]{32}$",
+            "description": "Only when source=manual: existing Suite metadata entity identity."
+          },
+          "manualRevision": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Only when source=manual: persisted selected assignment revision."
+          }
+        }
+      },
+      "PublicRecordingDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PublicRecordingItem"
+          },
+          {
+            "type": "object",
+            "required": [
+              "metadata"
+            ],
+            "properties": {
+              "metadata": {
+                "$ref": "#/components/schemas/PublicRecordingMetadataDetail"
+              }
+            }
+          }
+        ]
       },
       "PublicRecordingItem": {
         "type": "object",

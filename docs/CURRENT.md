@@ -1,5 +1,14 @@
 # VDR-Suite Current State
 
+> **Public API v1 final acceptance:** Implementation comes first; real-yaVDR
+> verification happens **once, at the end**, against one exact integration
+> commit. The central [Public-v1 real-VDR acceptance checklist](development/public-v1-final-hardware-acceptance.md)
+> covers every Public-v1 domain and its security/rollback cases. Prior
+> domain-specific test records remain historical evidence, **not** permission
+> to repeat destructive hardware scenarios or claim the new combined build
+> accepted. Do not create parallel S1/test-slice checklists.
+
+
 ## Public-v1 Recording R2/R3 — REAL yaVDR acceptance CLOSED (2026-10-21)
 
 **Exact source and installed daemon:** `13e63d277deb5c9e0230f757a8c5733f6e7b0cbb`. Installed/running SHA-256 matched `aca41b516e59375cca0cfb8d3e0c63043d1cb71d90df0282cf4b73d3b48a82f5`, service active. At this exact source SHA all four GitHub workflow runs passed (R2 Recording + Genre #165, Recording R2 Candidate #124, VDR-Suite CI #10597, VIDAA Device tracks/index/SRT #146).
@@ -10,9 +19,37 @@
 
 **Safety boundary:** This closes only the bounded real-host R2/R3 actions, not crash-durable idempotency, arbitrary productive Recording deletion, or another client's runtime acceptance. Unknown outcomes after real mutation calls remain fail-closed: no blind retries.
 
-## Next Public-v1 execution checkpoint — ADR-0068 router modularization
+## Post-R3 Public-v1 execution checkpoint — ADR-0068 router modularization CLOSED (2026-10-22)
 
-The binding [ADR-0068](adr/ADR-0068-public-api-router-modularization-checkpoint.md) / [Strict Roadmap](planning/roadmap.md) sequence is R1 → R2 → R3 → **behavior-preserving `ApiRouter` / `PublicApiRuntime` responsibility extraction** → E1 → E2 → M1 → M2 → S1 → P1. Now that the bounded R2/R3 hardware proof is complete, the next task is a post-R3 route/contract inventory and the *smallest* modularization that changes **no** URLs, methods, schemas, response statuses/headers, security/grants/CSRF, ETags, identities, executors, database, legacy routes or domain semantics. Phase 70 remains not started. Device/Multiuser, MLD and Addon branches are independent.
+The binding [ADR-0068](adr/ADR-0068-public-api-router-modularization-checkpoint.md) / [Strict Roadmap](planning/roadmap.md) sequence remains R1 → R2 → R3 → **behavior-preserving `ApiRouter` / `PublicApiRuntime` modularization** → E1 → E2 → M1 → M2 → S1 → P1. The bounded R2/R3 hardware proof is complete and is **not** to be repeated for this source refactor.
+
+The ADR-0068 source implementation is assembled through **one branch / [PR #517](https://github.com/hotzenplotz5/vdr-suite/pull/517)**: GET domain dispatch, ordered POST domain dispatch, callback lifecycle separation, source-guard adaptation and a [Public-v1/Legacy method contract reconciliation](development/adr-0068-public-legacy-contract-reconciliation.md). The original route bodies, callback slots, security gates, headers, permissions, identity, persistence, executor and legacy routes have no intended functional change. See the [single-branch implementation record](development/adr-0068-single-branch-read-dispatch-progress.md) for exact provenance and outstanding gates.
+
+**Checkpoint accepted:** PR #517 is merged as `6c05493ad53c82e19fef4a2bc70e09bc1603e0c8`; four CI tracks passed at both the final PR head and merge head. See the exact run links and scope limits below. The separate E1 task follows this documentation closeout; it does **not** reopen Phase 69 or start Phase 70. Device/Multiuser, MLD and Addon workstreams remain independent.
+
+## ADR-0068 closeout — merged and source-CI accepted (2026-10-22)
+
+- Exactly one source branch `work/adr0068-router-modularization-20261022` and [PR #517](https://github.com/hotzenplotz5/vdr-suite/pull/517); final PR head [`867f43b67e88f6b9c904db5b98e99ce1b79ff784`](https://github.com/hotzenplotz5/vdr-suite/commit/867f43b67e88f6b9c904db5b98e99ce1b79ff784) merged at 2026-10-22 06:28 UTC as [`6c05493ad53c82e19fef4a2bc70e09bc1603e0c8`](https://github.com/hotzenplotz5/vdr-suite/commit/6c05493ad53c82e19fef4a2bc70e09bc1603e0c8) on `main`.
+- **Exact PR-head CI: all four SUCCESS.** [VDR-Suite CI #39732810337](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39732810337), [Recording R2 Candidate #39732810313](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39732810313), [R2 Public-v1 Recording + Genre #39732810379](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39732810379), [VIDAA Device tracks/index/SRT #39732810321](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39732810321).
+- **Exact merge-head CI: all four SUCCESS.** [VDR-Suite CI #39734109317](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39734109317), [Recording R2 Candidate #39734109278](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39734109278), [R2 Public-v1 Recording + Genre #39734109337](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39734109337), [VIDAA Device tracks/index/SRT #39734109258](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39734109258).
+- Domain GET dispatch, ordered six-domain POST dispatch, separated callback/admission lifecycle, OpenAPI/source guard updates and [Public-v1/legacy route-contract reconciliation](development/adr-0068-public-legacy-contract-reconciliation.md) are **source-merged without intended behavior change**. Existing security gates, identity owners, response contracts and legacy route ownership remain authoritative.
+- **Limits:** the route reconciliation documents **60 previously audited OpenAPI method/path entries**, not a proof of complete Public-v1 route or schema coverage. Source equivalence plus CI are **not** a claim of installed yaVDR daemon, runtime deployment, full contract conformance, new hardware acceptance, or blanket client acceptance. The historical R2/R3 acceptance is distinct and must not be repeated automatically.
+- **Next:** independently authorized E1 extends existing EPG-cache-window retrieval via bounded deterministic continuation on the single new branch `work/public-v1-e1-epg-window-20261022`. E1 is not part of the ADR-0068 refactor and does not start Phase 70; E2/M1/M2/S1/P1 remain outside E1.
+
+## Public API v1 E1 — source merged, post-merge CI passed (2026-10-22)
+
+- **Only E1 branch / PR:** `work/public-v1-e1-epg-window-20261022`, [PR #519](https://github.com/hotzenplotz5/vdr-suite/pull/519), based directly on `main` at [`6c05493ad53c82e19fef4a2bc70e09bc1603e0c8`](https://github.com/hotzenplotz5/vdr-suite/commit/6c05493ad53c82e19fef4a2bc70e09bc1603e0c8). **Source candidate:** [`508448f8b2e89c980987b1d14ab788f655e0757a`](https://github.com/hotzenplotz5/vdr-suite/commit/508448f8b2e89c980987b1d14ab788f655e0757a).
+- **All four exact-product-head GitHub workflows succeeded:** [VDR-Suite CI #39740219807](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39740219807), [Recording R2 Candidate #39740219731](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39740219731), [R2 Public-v1 Recording + Genre #39740219724](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39740219724), [VIDAA Device tracks/index/SRT #39740219759](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39740219759). Ten individual check runs were successful. A subsequent documentation-only commit may preserve this product evidence without requiring another daemon build.
+- **Scope delivered in source:** `GET /api/v1/epg/window` retains a maximum of 192 events per response but can traverse a larger requested interval through deterministic `ew1_` cache-keyset continuation. It uses the existing EPG repository only, preserves actual native-EventID provenance, rejects invalid/stale cross-scope cursors, and retains single-backend authorization. Focused HTTP, SQLite repository and SecurityHttpGate tests plus [the client contract guide](../api/public-epg-window-pagination.md) cover old 12-hour callers, multi-day pages, equal starts, legacy cache-only identities and error paths.
+- **Non-goals and remaining gates:** No timer writes, provider switch/fallback, new EPG backend cache, installation, MLD/VIDAA deployment or production yaVDR hardware/TV acceptance. E1 was **merged** in [PR #519](https://github.com/hotzenplotz5/vdr-suite/pull/519) at [`ea7acfec7dd1b1f20aa49a479e3ca4a48bab0418`](https://github.com/hotzenplotz5/vdr-suite/commit/ea7acfec7dd1b1f20aa49a479e3ca4a48bab0418). All four post-merge workflows passed: [VDR-Suite CI #39746706005](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39746706005), [Recording R2 Candidate #39746705850](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39746705850), [R2 Public-v1 Recording + Genre #39746705884](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39746705884), [VIDAA Device tracks/index/SRT #39746705799](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39746705799). Deployment remains separately gated. E2/M1/M2/S1/P1 and Phase 70 are not opened by this source candidate.
+
+## Public API v1 E2 — source closeout, bounded native CREATE hardware PASS (2026-10-22)
+
+- **Source FERTIG:** The native one-shot EPG → TimerIntent path from PR #500 is on `main`. Confirmed `registerEpgTimerIntentSubmit` runtime composition, exact event identity/ETag, backend-scoped actor/write authorization, VDR-local native CLOCK plus read-only NTPREVIEW, atomic Intent/Assignment/Operation and scoped durable replay, Agent CREATE and native readback. Public HTTP and security tests, atomic transaction regressions, productive-runtime guards and existing CI cover these paths; no new E2 product implementation is required.
+- **Contract corrected:** `SecurityHttpGate` already allows either an explicitly authorized paired Device with exact `timers.create@backendId`, or an authenticated Browser administrator with `role.admin` on the selected backend (or `*`) and CSRF; ordinary Human `timers.create` alone is insufficient. The OpenAPI/EPG contract previously said Device-only despite the tested administrator branch. E2 documentation now reflects the implemented policy; no privileges were added.
+- **Real hardware FERTIG for one bounded case:** On 2026-10-19 the installed `git-f7e341ad6b97` daemon created precisely one *Tagesschau* timer for 2026-10-20 via Public-v1 Device CREATE and observed `succeeded` plus native readback. No repeat test or second timer required.
+- **Additional real/operational acceptance OPEN:** Backend Agent autostart was disabled; reboot availability, resulting recording/playback, browser-admin live flow, unresolved native `outcome_unknown` recovery and varied devices/tuners/backends remain unverified. Never conflate these with a proven source defect or allow blind retries.
+- **Outside E2:** Hisense app/remote UI acceptance, SearchTimer, MODIFY/DELETE, general multi-backend planner, recurring/encrypted overlap scenarios. E2 source closeout does not approve installation, service restart or timer mutation. Full evidence: [API EPG TimerIntent contract](../api/epg-timer-intents.md).
 
 ## Operational status authority
 
@@ -203,7 +240,7 @@ protected public DELETE regression.
 
 
 
-**Active integration is the existing backend branch** `work/public-v1-vidaa-unified-20261018`, open Draft [PR #500](https://github.com/hotzenplotz5/vdr-suite/pull/500), **not** the earlier standalone Slice-2 branch named in the historical sections below. The independent client source branch is `work/vidaa-epg-timer-operation-readback-20261017`. Do not create successor branches, merge this draft to `main`, or deploy on yaVDR without the usual separate gates.
+**Historical consolidation:** Backend [PR #500](https://github.com/hotzenplotz5/vdr-suite/pull/500) merged into `main` as [`ba083044ad661cbd8d979b5dc66b9eb3c3857f98`](https://github.com/hotzenplotz5/vdr-suite/commit/ba083044ad661cbd8d979b5dc66b9eb3c3857f98) on 2026-10-21. The independent VIDAA source branch `work/vidaa-epg-timer-operation-readback-20261017` has separate client/release gates. This merge does not mean the current `main` daemon is installed on yaVDR or the Hisense UI is accepted.
 
 ### Real public-v1 one-shot Timer CREATE acceptance (2026-10-19; current evidence)
 
@@ -248,8 +285,8 @@ accepted Operation across EPG navigation in the app session, distinguishes
 [exact-head CI #1412](https://github.com/hotzenplotz5/vdr-suite-vidaa/actions/runs/39277372021)
 passed at `b6720d3ab67f86ffc055898c7ca24f568bfb1bc9`.
 **Hisense deployment and functional TV acceptance are still PENDING.**
-PR #500 is still a Draft pending its own complete integration and merge
-gates. The live daemon's source ID is not the present PR head.
+PR #500 was merged on 2026-10-21. The installed daemon's recorded source ID
+`git-f7e341ad6b97` is not a proof of the later merged `main` head.
 
 ### Native DELETE absence verification now covered by successor guards (2026-10-19)
 

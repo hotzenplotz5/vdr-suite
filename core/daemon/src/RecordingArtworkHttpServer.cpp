@@ -60,9 +60,20 @@ RecordingArtworkHttpServer::RecordingArtworkHttpServer(
     : delegate_(std::move(delegate)),
       epgArtworkProvider_(
           dynamic_cast<IEpgArtworkHttpProvider*>(delegate_.get())),
-      artworkService_(
-          repository,
-          std::move(artworkRootsByBackend)),
+      artworkService_(std::make_shared<VdrRecordingArtworkService>(
+          repository, std::move(artworkRootsByBackend))),
+      previews_(std::move(previewDirectory))
+{
+}
+
+RecordingArtworkHttpServer::RecordingArtworkHttpServer(
+    std::unique_ptr<IHttpServer> delegate,
+    std::shared_ptr<VdrRecordingArtworkService> artworkService,
+    std::string previewDirectory)
+    : delegate_(std::move(delegate)),
+      epgArtworkProvider_(
+          dynamic_cast<IEpgArtworkHttpProvider*>(delegate_.get())),
+      artworkService_(std::move(artworkService)),
       previews_(std::move(previewDirectory))
 {
 }
@@ -75,7 +86,7 @@ HttpServerResponse RecordingArtworkHttpServer::handleRequest(
     const std::string path = requestPath(request.path);
     const RestQueryParameters query = RestQueryParameters::parse(requestQueryString(request.path));
     if (request.method == "GET" && delegated.statusCode != 401 && delegated.statusCode != 403 &&
-        (metadataImagePath(path) || artworkService_.handlesPath(path)) &&
+        (metadataImagePath(path) || artworkService_->handlesPath(path)) &&
         query.has("variant") && query.get("variant") != "home")
     {
         HttpServerResponse invalid;
@@ -132,13 +143,13 @@ HttpServerResponse RecordingArtworkHttpServer::handleRequest(
         return response;
     }
 
-    if (!artworkService_.handlesPath(request.path))
+    if (!artworkService_->handlesPath(request.path))
     {
         return delegated;
     }
 
     const VdrRecordingArtworkAsset asset =
-        artworkService_.loadPath(path);
+        artworkService_->loadPath(path);
 
     HttpServerResponse response;
     response.headers["X-Content-Type-Options"] = "nosniff";

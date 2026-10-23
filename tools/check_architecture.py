@@ -86,6 +86,9 @@ SQLITE_ALLOWED_CONTRACT_TESTS = {
     "core/vdr/tests/test_epg_artwork_repository.cpp",
     "core/vdr/tests/test_epg_event_repository.cpp",
     "core/vdr/tests/test_global_search_repository.cpp",
+    # Disposable SQLite lifecycle fixture: explicit transactional rollback,
+    # legacy migration and cross-backend identity contract.
+    "core/vdr/tests/test_public_search_timer_identity_lifecycle.cpp",
     "core/vdr/tests/test_vdr_recording_native_person_search_service.cpp",
 }
 

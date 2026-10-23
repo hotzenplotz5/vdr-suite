@@ -74,6 +74,28 @@ int main() {
         {makeRecord("",moved)}));
     expect(resolver.resolve("backend-a",*publicId),
         PublicRecordingPlaybackTargetStatus::notFound);
+    // M1: an authorized metadata read is possible for legacy cache entries
+    // even without a playable media-service ID or native source title.
+    auto readOnly = resolver.resolveForRead("backend-a", *publicId);
+    expect(readOnly, PublicRecordingPlaybackTargetStatus::ready);
+    assert(readOnly.recording.id.empty());
+    assert(readOnly.recording.backendNativeId == moved);
+    assert(readOnly.recording.backendId == "backend-a");
+    assert(cache.replaceRecordingsForBackend("backend-a",
+        {makeRecord("", moved)}));
+    VdrRecording titleless = makeRecord("", moved);
+    titleless.title.clear();
+    assert(cache.replaceRecordingsForBackend("backend-a", {titleless}));
+    expect(resolver.resolve("backend-a", *publicId),
+        PublicRecordingPlaybackTargetStatus::notFound);
+    readOnly = resolver.resolveForRead("backend-a", *publicId);
+    expect(readOnly, PublicRecordingPlaybackTargetStatus::ready);
+    assert(readOnly.recording.title.empty());
+    expect(resolver.resolveForRead("backend-b", *publicId),
+        PublicRecordingPlaybackTargetStatus::notFound);
+    expect(resolver.resolveForRead("backend-a", "rec_invalid"),
+        PublicRecordingPlaybackTargetStatus::invalidRequest);
+
     // Verified post-mutation provider readback, not an HTTP success alone,
     // establishes which native identity receives the existing public rec_.
     VdrRecording before = makeRecord("media-record-88",

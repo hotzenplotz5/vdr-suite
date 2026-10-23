@@ -7,6 +7,10 @@ DAEMON_SRC := \
         core/vdr/src/SearchTimerCreateOperationPayload.cpp \
         core/vdr/src/SearchTimerCreateAdmissionService.cpp \
         core/vdr/src/SearchTimerCreateDispatchService.cpp \
+        core/vdr/src/SearchTimerNativeCasContract.cpp \
+        core/vdr/src/SearchTimerNativeCasAdmissionService.cpp \
+        core/vdr/src/SearchTimerNativeCasDispatchService.cpp \
+        core/daemon/src/SearchTimerNativeCasLocalProvider.cpp \
         core/timers/src/TimerIntent.cpp \
         core/timers/src/TimerIntentRepository.cpp \
         core/timers/src/TimerAssignment.cpp \
@@ -160,6 +164,7 @@ DAEMON_SRC := \
         core/vdr/src/RestfulApiVdrTimerActionExecutorAdapter.cpp \
         api/rest/src/VdrTimerActionRequestParser.cpp \
         api/rest/src/ApiRouter.cpp \
+        api/rest/src/ApiRouterPublicRecordingActions.cpp \
         core/http/src/BasicHttpClient.cpp \
         core/http/src/SimpleHttpListener.cpp \
         core/http/src/BrowserSessionCsrfRecoveryService.cpp \
@@ -237,6 +242,8 @@ DAEMON_SRC := \
 
 DAEMON_SRC += $(SECURITY_SRC)
 DAEMON_SRC += $(AGENT_CONTROL_PLANE_SRC)
+# Both the local Agent transport and SuiteBridge handshake are included via
+# AGENT_SRC in the daemon link command; do not link them a second time here.
 DAEMON_SRC += $(METADATA_PLATFORM_SRC)
 DAEMON_SRC += $(MANUAL_RECORDING_METADATA_SRC)
 DAEMON_SRC += core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp

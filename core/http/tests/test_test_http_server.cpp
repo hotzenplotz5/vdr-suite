@@ -365,6 +365,27 @@ int main()
 
     TestHttpServer server(router);
 
+    // Public-v1 M2: HTTP route must reject duplicate/encoded-alias EPG
+    // identities rather than accepting RestQueryParameters' last value.
+    // All examples retain the same authorized backend and valid image IDs.
+    for (const std::string& target : {
+        std::string("/api/v1/epg/artwork?backendId=default&channelId=S19.2E-1-100&eventId=42&channelId=other"),
+        std::string("/api/v1/epg/preferred-artwork?backendId=default&channelId=S19.2E-1-100&eventId=42&eventId=43"),
+        std::string("/api/v1/epg/preferred-artwork?backendId=default&channelId=S19.2E-1-100&eventId=42&%65ventId=43"),
+        std::string("/api/v1/epg/artwork?backendId=default&channelId=S19.2E-1-100&eventId=42&unknown=1")
+    })
+    {
+        HttpServerRequest artworkRequest;
+        artworkRequest.method = "GET";
+        artworkRequest.path = target;
+        authorize(artworkRequest);
+        const HttpServerResponse artworkResponse =
+            server.handleRequest(artworkRequest);
+        assertJsonResponse(artworkResponse, 400);
+        assert(artworkResponse.body.find("invalid_epg_artwork_scope") !=
+            std::string::npos);
+    }
+
     HttpServerRequest anonymousFrontendRequest;
     anonymousFrontendRequest.method = "GET";
     anonymousFrontendRequest.path = "/";

@@ -146,6 +146,37 @@ int main()
     const std::vector<std::string> scopes = {
         "backend-a", "backend-b", "backend-c"};
 
+    // Preserve negative security/provenance behavior at the route boundary.
+    ApiResponse anonymous;
+    assert(runtime.tryHandleGet(
+        "/api/v1/channels?backendId=backend-a",
+        "", "channel-anonymous", "channel-correlation",
+        anonymous, "", "", std::vector<std::string>{"backend-a"}));
+    assert(anonymous.statusCode == 401);
+    assert(anonymous.contentType == "application/problem+json");
+    assert(anonymous.body.find("\"code\":\"unauthorized\"") !=
+        std::string::npos);
+    assert(anonymous.headers.at("X-Request-ID") == "channel-anonymous");
+
+    ApiResponse missingScope;
+    assert(runtime.tryHandleGet(
+        "/api/v1/channels?backendId=backend-a",
+        "actor:test", "channel-no-grant", "",
+        missingScope, "", "", {}));
+    assert(missingScope.statusCode == 400);
+    assert(missingScope.body.find("\"code\":\"invalid_request\"") !=
+        std::string::npos);
+
+    ApiResponse duplicateScope;
+    assert(runtime.tryHandleGet(
+        "/api/v1/channels?backendId=backend-a&backendId=backend-a",
+        "actor:test", "channel-duplicate-grant", "",
+        duplicateScope, "", "",
+        std::vector<std::string>{"backend-a", "backend-a"}));
+    assert(duplicateScope.statusCode == 400);
+    assert(duplicateScope.body.find("\"code\":\"invalid_request\"") !=
+        std::string::npos);
+
     ApiResponse first;
     assert(runtime.tryHandleGet(
         "/api/v1/channels?backendId=backend-c&backendId=backend-a&backendId=backend-b&limit=2",
@@ -168,6 +199,9 @@ int main()
     assert(first.body.find("\"hasMore\":true") !=
         std::string::npos);
     assert(first.headers.at("Cache-Control") == "no-store");
+    assert(first.headers.at("X-Request-ID") == "phase69d-channel-first");
+    assert(first.headers.at("X-Correlation-ID") ==
+        "phase69d-channel-correlation");
     assert(first.headers.find("ETag") == first.headers.end());
 
     const std::string cursor = nextCursor(first.body);

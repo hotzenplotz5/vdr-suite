@@ -720,9 +720,28 @@ public:
         const bool isPublicAccountSessionMutation =
             isPost &&
             isPublicAccountSessionItemResource;
+        const std::string publicRecordingItemPrefix =
+            "/api/v1/recordings/";
+        const bool isPublicRecordingDetail =
+            path.compare(0U, publicRecordingItemPrefix.size(),
+                publicRecordingItemPrefix) == 0 &&
+            path.size() > publicRecordingItemPrefix.size() &&
+            path.find('/', publicRecordingItemPrefix.size()) ==
+                std::string::npos;
+        const std::size_t artworkSlash =
+            path.find("/artwork", publicRecordingItemPrefix.size());
+        const bool isPublicRecordingArtwork =
+            path.compare(0U, publicRecordingItemPrefix.size(),
+                publicRecordingItemPrefix) == 0 &&
+            artworkSlash != std::string::npos &&
+            (artworkSlash + 8U == path.size() ||
+             (artworkSlash + 8U < path.size() &&
+              path[artworkSlash + 8U] == '/'));
         const bool isPublicRecordingRead =
             request.method == "GET" &&
             (path == "/api/v1/recordings" ||
+             isPublicRecordingDetail ||
+             isPublicRecordingArtwork ||
              path == "/api/v1/genres" ||
              path == "/api/v1/genres/recordings" ||
              path == "/api/v1/search/recordings");
@@ -734,6 +753,8 @@ public:
             path == "/api/v1/epg/now-next" ||
             path == "/api/v1/epg/window" ||
             path == "/api/v1/epg/event" ||
+            path == "/api/v1/epg/artwork" ||
+            path == "/api/v1/epg/preferred-artwork" ||
             path == "/api/v1/search/epg";
         const std::string nativeTimerItemPrefix = "/api/v1/native-timers/";
         const bool isPublicNativeTimerItem =
@@ -823,11 +844,66 @@ public:
                 ? jsonStringValue(request.body, "backendId") : std::string();
         const bool isPublicSearchTimerCreate =
             isPost && path == publicSearchTimerCollection;
+        // Public-v1 mutations are protected independently of legacy
+        // SearchTimer routes. Only canonical public IDs may select a rule.
+        const std::string searchMutationPrefix =
+            "/api/v1/search-timers/";
+        const bool searchMutationUnderPrefix =
+            path.compare(0U, searchMutationPrefix.size(),
+                searchMutationPrefix) == 0;
+        const std::string searchMutationRest = searchMutationUnderPrefix
+            ? path.substr(searchMutationPrefix.size()) : std::string();
+        const bool searchMutationItem =
+            searchMutationRest.size() == 35U &&
+            searchMutationRest.compare(0U, 3U, "st_") == 0 &&
+            std::all_of(searchMutationRest.begin() + 3,
+                searchMutationRest.end(), [](unsigned char c) {
+                    return (c >= '0' && c <= '9') ||
+                        (c >= 'a' && c <= 'f');
+                });
+        const bool searchMutationActivate =
+            searchMutationRest.size() == 44U &&
+            searchMutationRest.compare(35U, 9U, "/activate") == 0;
+        const bool searchMutationDeactivate =
+            searchMutationRest.size() == 46U &&
+            searchMutationRest.compare(35U, 11U, "/deactivate") == 0;
+        const bool searchMutationActionItem =
+            searchMutationRest.size() >= 35U &&
+            searchMutationRest.compare(0U, 3U, "st_") == 0 &&
+            std::all_of(searchMutationRest.begin() + 3,
+                searchMutationRest.begin() + 35, [](unsigned char c) {
+                    return (c >= '0' && c <= '9') ||
+                        (c >= 'a' && c <= 'f');
+                });
+        const bool searchMutationEndpoint =
+            searchMutationActionItem &&
+            searchMutationRest.size() == 45U &&
+            searchMutationRest.compare(35U, 10U, "/mutations") == 0;
+        const bool searchVersionEndpoint =
+            searchMutationActionItem &&
+            searchMutationRest.size() == 43U &&
+            searchMutationRest.compare(35U, 8U, "/version") == 0;
+        const bool isPublicSearchTimerMutation =
+            ((request.method == "PATCH" || request.method == "DELETE") &&
+                searchMutationItem) ||
+            (isPost && searchMutationActionItem &&
+                (searchMutationActivate || searchMutationDeactivate ||
+                 searchMutationEndpoint));
+        const std::string searchMutationAction =
+            searchMutationEndpoint
+                ? jsonStringValue(request.body, "action") : std::string();
+        const std::string searchMutationPermission =
+            request.method == "DELETE" ||
+            searchMutationAction == "delete" ? "searchtimers.delete" :
+            searchMutationActivate ||
+            searchMutationAction == "activate" ? "searchtimers.execute" :
+            "searchtimers.modify";
         const bool isPublicSearchTimerRead =
             request.method == "GET" &&
             (path == publicSearchTimerCollection ||
                 isPublicSearchTimerPreviewResource ||
-                isPublicSearchTimerDraftPreview);
+                isPublicSearchTimerDraftPreview ||
+                searchVersionEndpoint);
         const std::string publicSearchTimerBackendId =
             queryStringValue(request.path, "backend");
         const std::string publicTimerAssignmentCollection =
@@ -882,6 +958,8 @@ public:
              path == "/api/v1/devices" ||
              isPublicChannelCollection ||
              isPublicEpgNowNext ||
+             isPublicRecordingDetail ||
+             isPublicRecordingArtwork ||
              path == "/api/v1/native-timers" ||
              isPublicNativeTimerItem ||
              path == "/api/v1/events" ||
@@ -890,6 +968,7 @@ public:
               !isPublicSearchTimerCreate) ||
              isPublicSearchTimerPreviewResource ||
              isPublicSearchTimerDraftPreview ||
+             searchVersionEndpoint ||
              isPublicOperationResource ||
              isPublicAccountCredentialResource ||
              isPublicAccountSessionResource);
@@ -917,6 +996,7 @@ public:
             isPublicTimerAssignmentCreate ||
             isPublicEpgTimerIntentCreate ||
             isPublicSearchTimerCreate ||
+            isPublicSearchTimerMutation ||
             isPublicDeviceRecordingSessionCreate ||
             isPublicDeviceLiveSessionCreate ||
             isPublicDeviceLiveSessionStop ||
@@ -2368,6 +2448,62 @@ public:
                     "Exact backend SearchTimer CREATE grant required", "");
             }
         }
+        if (isPublicSearchTimerMutation)
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            if (!gate.deviceAuthenticated ||
+                gate.context.actor.type != ActorType::Service ||
+                !gate.context.device || !gate.context.credential ||
+                gate.context.session.has_value())
+            {
+                AuthorizationDecision denial;
+                denial.permission = searchMutationPermission;
+                denial.backendId = publicSearchTimerBackendId;
+                denial.action = searchMutationPermission;
+                denial.reasonCode = "device_credential_required";
+                return rejectWithAudit(gate, denial, 403,
+                    "Verified Device credential required", "");
+            }
+            const bool validBackend =
+                !publicSearchTimerBackendId.empty() &&
+                publicSearchTimerBackendId.size() <= 128U &&
+                publicSearchTimerBackendId != "." &&
+                publicSearchTimerBackendId != ".." &&
+                publicSearchTimerBackendId != "*" &&
+                std::all_of(publicSearchTimerBackendId.begin(),
+                    publicSearchTimerBackendId.end(), [](unsigned char c) {
+                        return std::isalnum(c) || c == '.' ||
+                            c == '_' || c == '-';
+                    });
+            if (!validBackend)
+            {
+                AuthorizationDecision denial;
+                denial.permission = searchMutationPermission;
+                denial.backendId = publicSearchTimerBackendId;
+                denial.action = searchMutationPermission;
+                denial.reasonCode = "invalid_backend_scope";
+                return rejectWithAudit(gate, denial, 400,
+                    "Invalid mutation backend", "");
+            }
+            const bool exactGrant = std::any_of(gate.context.grants.begin(),
+                gate.context.grants.end(),
+                [&publicSearchTimerBackendId, &searchMutationPermission](
+                    const PermissionGrant& grant) {
+                    return grant.permission == searchMutationPermission &&
+                        grant.backendId == publicSearchTimerBackendId;
+                });
+            if (!exactGrant)
+            {
+                AuthorizationDecision denial;
+                denial.permission = searchMutationPermission;
+                denial.backendId = publicSearchTimerBackendId;
+                denial.action = searchMutationPermission;
+                denial.reasonCode = "permission_denied";
+                return rejectWithAudit(gate, denial, 403,
+                    "Exact backend SearchTimer mutation grant required", "");
+            }
+        }
         if ((isPublicDeviceRecordingSessionCreate ||
              isPublicDeviceRecordingSessionStop ||
              isPublicDeviceLiveSessionCreate ||
@@ -2607,6 +2743,12 @@ public:
         {
             requestToAuthorize.permission = "searchtimers.create";
             requestToAuthorize.action = "searchtimers.create";
+            requestToAuthorize.backendId = publicSearchTimerBackendId;
+        }
+        else if (isPublicSearchTimerMutation)
+        {
+            requestToAuthorize.permission = searchMutationPermission;
+            requestToAuthorize.action = searchMutationPermission;
             requestToAuthorize.backendId = publicSearchTimerBackendId;
         }
         else if (isPublicEpgTimerIntentCreate)

@@ -824,9 +824,14 @@ std::vector<VdrEvent> EpgEventRepository::findWindowForBackend(
     const std::string& channelId,
     const std::string& fromTime,
     const std::string& untilTime,
-    int eventLimit) const
+    int eventLimit,
+    const std::string& afterStartTime,
+    const std::string& afterEventId) const
 {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
+
+    // Fail closed when a caller only supplies half a cache row key.
+    if (afterStartTime.empty() != afterEventId.empty()) return {};
 
     sqlite3_stmt* stmt = nullptr;
 
@@ -855,6 +860,14 @@ std::vector<VdrEvent> EpgEventRepository::findWindowForBackend(
     if (hasUntil)
     {
         sql += "AND start_time < ? ";
+    }
+
+    if (!afterStartTime.empty())
+    {
+        // Identical starting times are disambiguated by the *cache* event
+        // key, even when that ID lacks native EventID provenance.
+        sql += "AND (start_time > ? OR "
+               "(start_time = ? AND event_id > ?)) ";
     }
 
     sql += "ORDER BY start_time ASC, channel_id ASC, event_id ASC ";
@@ -890,6 +903,13 @@ std::vector<VdrEvent> EpgEventRepository::findWindowForBackend(
         bindText(stmt, bindIndex++, untilTime);
     }
 
+    if (!afterStartTime.empty())
+    {
+        bindText(stmt, bindIndex++, afterStartTime);
+        bindText(stmt, bindIndex++, afterStartTime);
+        bindText(stmt, bindIndex++, afterEventId);
+    }
+
     if (hasLimit)
     {
         sqlite3_bind_int(stmt, bindIndex++, eventLimit);
@@ -900,6 +920,37 @@ std::vector<VdrEvent> EpgEventRepository::findWindowForBackend(
     sqlite3_finalize(stmt);
 
     return events;
+}
+
+bool EpgEventRepository::hasWindowCursorAnchorForBackend(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& fromTime,
+    const std::string& untilTime,
+    const std::string& startTime,
+    const std::string& cacheEventId) const
+{
+    if (channelId.empty() || startTime.empty() || cacheEventId.empty())
+        return false;
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "SELECT 1 FROM epg_events WHERE backend_id=? AND channel_id=? "
+        "AND event_id=? AND start_time=? AND end_time>? "
+        "AND start_time<? LIMIT 1;";
+    if (sqlite3_prepare_v2(database_.handle(), sql, -1, &stmt, nullptr)
+        != SQLITE_OK)
+        return false;
+    int index = 1;
+    bindText(stmt, index++, normalizeBackendId(backendId));
+    bindText(stmt, index++, channelId);
+    bindText(stmt, index++, cacheEventId);
+    bindText(stmt, index++, startTime);
+    bindText(stmt, index++, fromTime);
+    bindText(stmt, index++, untilTime);
+    const bool found = sqlite3_step(stmt) == SQLITE_ROW;
+    sqlite3_finalize(stmt);
+    return found;
 }
 
 bool EpgEventRepository::deleteExpiredForBackend(
