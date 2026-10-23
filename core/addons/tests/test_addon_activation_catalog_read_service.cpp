@@ -49,7 +49,7 @@ int main()
     auto admin = globalAdmin();
     assert(service.read(admin, "backend-a").status == CatalogReadStatus::unavailable);
     assert(intents.ensureSchema());
-    assert(db.execute(
+    assert(fixture.db.execute(
         "CREATE TABLE addon_media_import_maintenance ("
         "module_id TEXT PRIMARY KEY CHECK(module_id='rectools'),"
         "frozen INTEGER NOT NULL CHECK(frozen IN(0,1)),"
