@@ -37,6 +37,10 @@ inline bool shrinkOpaqueId(const std::string& value, const char* prefix) {
 inline ShrinkSelectionStatus inspectOpaqueShrinkSelection(
     const OpaqueShrinkSelection& request)
 {
+    if (request.action != ShrinkRequestAction::plan &&
+        request.action != ShrinkRequestAction::stage &&
+        request.action != ShrinkRequestAction::publish)
+        return ShrinkSelectionStatus::invalidOptions;
     if (!shrinkOpaqueId(request.recordingId, "rec_"))
         return ShrinkSelectionStatus::invalidRecordingId;
     if (request.action == ShrinkRequestAction::publish) {
