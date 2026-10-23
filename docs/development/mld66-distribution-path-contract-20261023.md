@@ -2,6 +2,28 @@
 
 **Implementation branch:** `work/mld66-platform-integration`; work-in-progress candidate following Pit's pinned `SRCREV 9a28cd77a74c85516fc9147cc84bdb1b66edfdf5`. These new code changes are **not** present in Pit's pinned MLD build until he explicitly updates the recipe's `SRCREV`.
 
+## MLD maintainer runtime paths (2026-10-23)
+
+Pit reports a VDR configuration root at `/etc/vdr/` and a
+`channels.conf` symlink to the user's selected channel list. His
+recording/video root is `/data/tv`, a **user-selected mount/share**
+which may be backed by a different local partition/disk or a NAS.
+**Never treat `/data/tv` as universal for every MLD installation.**
+Recording-sidecar files such as `tvscraper.json`, `poster.jpg`,
+`fanart.jpg`, `marks` and `info` were observed inside his
+individual `.rec` directory and should be preserved. Exact TVScraper
+plugin cache/config/resource roots remain unverified because Pit's
+referenced screenshot/attachment was not available in the conversation.
+
+See [Pit filesystem evidence](mld66-pit-filesystem-evidence-20261023.md).
+
+**Preferred long-term solution:** a versioned read-only SuiteBridge
+discovery of VDR's authoritative `cVideoDirectory::Name()`, followed
+by VDR-native mutation operations. The daemon cannot call the in-process
+VDR function itself. The current explicit per-backend recording root
+configuration is an **interim opt-in**, not evidence that automatic
+discovery is already implemented. Ubuntu/yaVDR must remain zero-config.
+
 ## Mandatory compatibility invariant
 
 A clean Ubuntu/yaVDR installation and an existing upgraded Ubuntu/yaVDR
