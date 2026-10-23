@@ -4,6 +4,19 @@
 
 **Distributionspfade / Ubuntu-compatibility:** The [opt-in path contract](../development/mld66-distribution-path-contract-20261023.md) now preserves every existing Ubuntu/yaVDR default **without requiring any new configuration**. MLD may override backend recording roots, private SuiteBridge Unix sockets and local EPG artwork allowlists explicitly. Source work and tests are in this topic branch; real MLD build/runtime verification is pending. Pit's earlier pinned `SRCREV` does not include these new source changes.
 
+**Pit's latest host layout (2026-10-23):** `/etc/vdr/` with
+`channels.conf` as a symlink to a selected channel list, and `/data/tv`
+as the currently selected recording mount/share. The mount may be local or
+NAS-backed and is user-configurable, **not a general MLD default**.
+Pit showed a `.rec` directory containing VDR data as well as
+`tvscraper.json`, `poster.jpg` and `fanart.jpg`. The optional Agent
+direct-file channel reader now accepts symlink targets resolving to a regular
+file. Plugin cache/resource directory attachment has not been inspected.
+[Read maintainer-reported filesystem evidence](../development/mld66-pit-filesystem-evidence-20261023.md).
+For the ultimate distribution-independent implementation prefer read-only
+SuiteBridge discovery of VDR's `cVideoDirectory::Name()` and VDR-owned
+recording mutations; automatic root discovery is **not yet implemented**.
+
 **Dedicated branch:** `work/mld66-platform-integration`
 **Branch baseline:** `main` at `01b74e30ec1a09ee68986059f508284564ef67e1` (2026-10-19).
 **Explicit exception:** The project owner authorized a *separate branch* for MLD on 2026-10-19. This is one topic branch originating at current `main`, **not** a stack based on the ongoing API-v1, Timer, codec, Multiuser or VIDAA branches. Retain it for this bounded integration; do not merge, close a PR or delete the branch without explicit approval. Follow [branch lifecycle](../development/branch-pull-request-lifecycle.md).
