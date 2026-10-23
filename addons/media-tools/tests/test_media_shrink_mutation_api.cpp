@@ -63,6 +63,36 @@ int main() {
     assert(post(stageUrl, stage, "actor1", "outside").statusCode == 403);
     assert(staged == 1 && published == 1);
     api.registerMutationHandlers({}, {});
+    const std::string operation = "op_0123456789abcdef0123456789abcdef";
+    const std::string operationUrl =
+        base + "/media-shrink-operations/" + operation;
+    auto get = [&](const std::string& url,
+                   const std::string& actor = "actor1",
+                   const std::string& backend = "backend1") {
+        ApiResponse result;
+        assert(api.tryHandleGet(url, actor, backend, {}, result));
+        return result;
+    };
+    assert(get(operationUrl).statusCode == 503);
+    assert(get(operationUrl, "").statusCode == 401);
+    assert(get(operationUrl, "actor1", "outside").statusCode == 404);
+    assert(get(operationUrl + "?unsafe=/etc/passwd").statusCode == 400);
+    assert(get(base + "/media-shrink-operations/not-an-id").statusCode == 404);
+    int reads = 0;
+    api.registerHandlers({}, {}, {},
+        [&](const std::string& actor, const std::string& backend,
+            const std::string& id) {
+            assert(actor == "actor1" && backend == "backend1" &&
+                   id == operation);
+            ++reads;
+            return MediaShrinkPlanApiRuntime::json(
+                200, R"({"action":"stage","state":"dispatching"})");
+        });
+    assert(get(operationUrl).statusCode == 200);
+    assert(reads == 1);
+    assert(get(operationUrl, "actor1", "outside").statusCode == 404);
+    assert(reads == 1);
+    api.registerHandlers({}, {});
     std::cout << "MEDIA_SHRINK_V1_MUTATION_API=PASS "
-              << "BACKEND_SCOPE=PASS FAIL_CLOSED=YES\n";
+              << "BACKEND_SCOPE=PASS OPERATION_READ=PASS FAIL_CLOSED=YES\n";
 }
