@@ -175,12 +175,23 @@ IntentResult AddonActivationIntentRepository::readInTransaction(
             const auto boundRevision = sqlite3_column_int64(binding.get(), 0);
             const auto boundGeneration = sqlite3_column_int64(binding.get(), 1);
             const auto* id = sqlite3_column_text(binding.get(), 2);
+            const auto idBytes = sqlite3_column_bytes(binding.get(), 2);
             const auto* instance = sqlite3_column_text(binding.get(), 3);
+            const auto instanceBytes = sqlite3_column_bytes(binding.get(), 3);
             if (boundRevision == revision && boundGeneration > 0 &&
-                id != nullptr && instance != nullptr) {
-                const std::string agent(reinterpret_cast<const char*>(id));
+                sqlite3_column_type(binding.get(), 0) == SQLITE_INTEGER &&
+                sqlite3_column_type(binding.get(), 1) == SQLITE_INTEGER &&
+                id != nullptr && idBytes > 0 && idBytes <= 128 &&
+                instance != nullptr &&
+                instanceBytes > 0 && instanceBytes <= 128) {
+                // Never truncate at an embedded NUL: a forged TEXT value
+                // must not pass as a valid Agent identity prefix.
+                const std::string agent(
+                    reinterpret_cast<const char*>(id),
+                    static_cast<std::size_t>(idBytes));
                 const std::string epoch(
-                    reinterpret_cast<const char*>(instance));
+                    reinterpret_cast<const char*>(instance),
+                    static_cast<std::size_t>(instanceBytes));
                 if (safeToken(agent, 128) && agent != "*" &&
                     safeToken(epoch, 128) && epoch != "*" &&
                     sqlite3_step(binding.get()) == SQLITE_DONE) {
