@@ -7,9 +7,6 @@
 #include <filesystem>
 #include <vector>
 #include <unistd.h>
-#include <filesystem>
-#include <vector>
-#include <unistd.h>
 #include <iostream>
 #include <string>
 using namespace vdrsuite::operations;
@@ -127,45 +124,6 @@ int main()
         3, "op-publish").status == MediaShrinkReviewStatus::conflict);
     assert(reviews.completePublication("actor-b","backend-a",reviewId,
         3).status == MediaShrinkReviewStatus::notFound);
-    // SQLite is the same durable authority across service/daemon restarts.
-    const auto pattern = (std::filesystem::temp_directory_path() /
-        "vdr-suite-shrink-review-XXXXXX").string();
-    std::vector<char> filename(pattern.begin(), pattern.end());
-    filename.push_back('\0');
-    const int handle = ::mkstemp(filename.data());
-    assert(handle >= 0);
-    ::close(handle);
-    const std::string dbFile(filename.data());
-    {
-        Database persistent;
-        assert(persistent.open(dbFile));
-        MutationOperationRepository durableOperations(persistent);
-        assert(durableOperations.ensureSchema());
-        MediaShrinkReviewRepository durableReviews(persistent, durableOperations);
-        assert(durableReviews.ensureSchema());
-        const auto op = operation("op-stage-restart", "media.shrink.stage",
-            "Recording", recordingId, "revision_1",
-            MutationOperationVerificationPolicy::readbackRequired);
-        assert(durableOperations.reserve(op).ok());
-        succeed(durableOperations, "op-stage-restart", reviewId);
-        assert(durableReviews.registerStaged(reviewId,
-            "op-stage-restart").ok());
-    }
-    {
-        Database reopened;
-        assert(reopened.open(dbFile));
-        MutationOperationRepository durableOperations(reopened);
-        assert(durableOperations.ensureSchema());
-        MediaShrinkReviewRepository durableReviews(reopened, durableOperations);
-        assert(durableReviews.ensureSchema());
-        const auto restored = durableReviews.find(
-            "actor-a", "backend-a", reviewId);
-        assert(restored.ok() && restored.review.stageOperationId ==
-            "op-stage-restart" && restored.review.state == "staged");
-        assert(durableReviews.registerStaged(reviewId,
-            "op-stage-restart").status == MediaShrinkReviewStatus::replayed);
-    }
-    assert(std::filesystem::remove(dbFile));
     // Restart recovery: review and its publication claim survive process
     // lifetime. Only canonical Core operations can promote either phase.
     std::string pattern = (std::filesystem::temp_directory_path() /
