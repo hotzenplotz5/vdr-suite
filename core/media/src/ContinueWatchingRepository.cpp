@@ -170,13 +170,16 @@ ContinueWatchingMutationResult ContinueWatchingRepository::updateConditional(
     auto lease = database_.acquireTransactionLease();
     sqlite3_stmt* lookup = nullptr;
     const char* selectSql =
-        "SELECT backend_native_id, position_seconds, last_operation_id, revision "
+        "SELECT recording_id, backend_native_id, position_seconds, last_operation_id, revision "
         "FROM continue_watching_state "
-        "WHERE actor_id=?1 AND backend_id=?2 AND recording_id=?3;";
+        "WHERE actor_id=?1 AND backend_id=?2 "
+        "AND (recording_id=?3 OR backend_native_id=?4) "
+        "ORDER BY CASE WHEN recording_id=?3 THEN 0 ELSE 1 END LIMIT 1;";
     if (sqlite3_prepare_v2(database_.handle(), selectSql, -1, &lookup, nullptr) != SQLITE_OK)
         return {Status::unavailable, 0};
     const bool bound = bindText(lookup, 1, actorId) &&
-        bindText(lookup, 2, backendId) && bindText(lookup, 3, recordingId);
+        bindText(lookup, 2, backendId) && bindText(lookup, 3, recordingId) &&
+        bindText(lookup, 4, backendNativeId);
     if (!bound) {
         sqlite3_finalize(lookup);
         return {Status::unavailable, 0};
@@ -187,10 +190,11 @@ ContinueWatchingMutationResult ContinueWatchingRepository::updateConditional(
         return {Status::unavailable, 0};
     }
     const bool exists = step == SQLITE_ROW;
-    const std::string existingNative = exists ? columnText(lookup, 0) : "";
-    const int oldPosition = exists ? sqlite3_column_int(lookup, 1) : 0;
-    const std::string oldOperation = exists ? columnText(lookup, 2) : "";
-    const std::int64_t revision = exists ? sqlite3_column_int64(lookup, 3) : 0;
+    const std::string existingRecording = exists ? columnText(lookup, 0) : "";
+    const std::string existingNative = exists ? columnText(lookup, 1) : "";
+    const int oldPosition = exists ? sqlite3_column_int(lookup, 2) : 0;
+    const std::string oldOperation = exists ? columnText(lookup, 3) : "";
+    const std::int64_t revision = exists ? sqlite3_column_int64(lookup, 4) : 0;
     sqlite3_finalize(lookup);
 
     // A changed native identity is not evidence of the same Recording.
@@ -209,10 +213,10 @@ ContinueWatchingMutationResult ContinueWatchingRepository::updateConditional(
         "last_activity_at,last_operation_id,revision) "
         "VALUES(?1,?2,?3,?4,?5,strftime('%Y-%m-%dT%H:%M:%fZ','now'),?6,1);";
     const char* updateSql =
-        "UPDATE continue_watching_state SET position_seconds=?5,"
+        "UPDATE continue_watching_state SET recording_id=?3,position_seconds=?5,"
         "last_activity_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),"
         "last_operation_id=?6,revision=revision+1 "
-        "WHERE actor_id=?1 AND backend_id=?2 AND recording_id=?3 "
+        "WHERE actor_id=?1 AND backend_id=?2 AND recording_id=?8 "
         "AND backend_native_id=?4 AND revision=?7;";
     if (sqlite3_prepare_v2(database_.handle(), exists ? updateSql : insertSql,
                            -1, &write, nullptr) != SQLITE_OK)
@@ -223,7 +227,8 @@ ContinueWatchingMutationResult ContinueWatchingRepository::updateConditional(
         sqlite3_bind_int(write, 5, positionSeconds) == SQLITE_OK &&
         bindText(write, 6, operationId);
     if (exists) writeBound = writeBound &&
-        sqlite3_bind_int64(write, 7, expectedRevision) == SQLITE_OK;
+        sqlite3_bind_int64(write, 7, expectedRevision) == SQLITE_OK &&
+        bindText(write, 8, existingRecording);
     const bool ok = writeBound && sqlite3_step(write) == SQLITE_DONE &&
         sqlite3_changes(database_.handle()) == 1;
     sqlite3_finalize(write);
