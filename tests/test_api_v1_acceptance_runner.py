@@ -573,6 +573,31 @@ class RunnerTests(unittest.TestCase):
                     status_negative(a,"/api/v1/search-timers/st_bad?backend=default",(400,))
             self.assertEqual(e.exception.kind,"permission_denied")
 
+    def test_admin_searchtimer_requires_device_without_attempted_get(self):
+        from cases import searchtimers, draft_preview, searchtimer_bad_public_id
+        with tempfile.TemporaryDirectory() as out:
+            args = argparse.Namespace(profile="readonly",backend="default",
+                origin="http://127.0.0.1:18080",output_dir=Path(out),
+                approval_file=None,expected_daemon_commit="a"*40,
+                admin_user="vdr-suite")
+            a = Acceptance(args,{})
+            a.client.browser_cookie = "vdr_suite_session=abcdefgh"
+            with patch.object(a.client,"get",side_effect=AssertionError("forbidden Device GET")):
+                for check in (searchtimers,draft_preview,searchtimer_bad_public_id):
+                    with self.assertRaises(Blocked) as result:
+                        check(a)
+                    self.assertIn("Device credential",result.exception.detail)
+
+    def test_domain_pass_precedes_intentionally_skipped_write(self):
+        with tempfile.TemporaryDirectory() as out:
+            a = self._version_a(out)
+            a.record("recording.collection","RECORDINGS","PASS")
+            a.record("recording.actions","RECORDINGS","SKIP",required=False)
+            self.assertEqual(a.persist(),"PASS")
+            summary = (Path(out)/"last-summary.txt").read_text()
+            self.assertIn("RECORDINGS        PASS",summary)
+            self.assertNotIn("RECORDINGS        SKIP",summary)
+
 
 if __name__ == "__main__":
     unittest.main()

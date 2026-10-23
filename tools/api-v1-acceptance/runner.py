@@ -535,10 +535,12 @@ class Acceptance:
         status_by_area = {}
         for area in AREAS:
             values = [t["status"] for t in self.results if t["area"] == area]
+            # An intentionally skipped write case cannot conceal a
+            # verified read-only PASS in the same domain (RECORDINGS).
             status_by_area[area] = ("FAIL" if "FAIL" in values else
                                     "BLOCKED" if "BLOCKED" in values else
-                                    "SKIP" if "SKIP" in values else
-                                    "PASS" if values else "SKIP")
+                                    "PASS" if "PASS" in values else
+                                    "SKIP")
         summary = [
             "VDR-SUITE PUBLIC API V1 ACCEPTANCE",
             "==================================",
