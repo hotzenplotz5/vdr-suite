@@ -31,6 +31,7 @@ struct ActivationIntent {
     std::string agentId;
     std::string agentInstanceId;
     std::string approvedHandlerSha256;
+};
 
 struct IntentResult {
     IntentStatus status = IntentStatus::unavailable;
