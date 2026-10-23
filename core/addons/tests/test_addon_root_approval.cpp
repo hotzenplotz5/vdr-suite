@@ -83,6 +83,18 @@ int main()
     assert(approval.origin == InstallOrigin::manual);
     assert(approval.version == "0.1.0");
     assert(approval.sha256 == Digest);
+    // An Agent-local global approval is NEVER a Core backend-specific grant.
+    assert(readRootMediaToolsApproval(fixture.root.string(), "backend-a").status ==
+           RootApprovalStatus::missing);
+    const auto scoped = fixture.approval.parent_path() / "rectools.backend-a.json";
+    fs::copy_file(fixture.approval, scoped);
+    assert(readRootMediaToolsApproval(fixture.root.string(), "backend-a").approved());
+    assert(readRootMediaToolsApproval(fixture.root.string(), "backend-b").status ==
+           RootApprovalStatus::missing);
+    assert(readRootMediaToolsApproval(fixture.root.string(), "../escape").status ==
+           RootApprovalStatus::invalidRoot);
+    fs::remove(scoped);
+    assert(!readRootMediaToolsApproval(fixture.root.string(), "backend-a").approved());
     auto binary = inspectPinnedMediaToolsHandler(fixture.root.string(),
                                                   approval.sha256);
     assert(binary.verified());

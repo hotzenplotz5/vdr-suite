@@ -24,6 +24,9 @@ struct RootApprovalResult {
 // Reads ONLY <root>/etc/vdr-suite/addon-approvals/rectools.json.
 // Accepts the exact canonical format emitted by admin_approval_issuer.py,
 // with independently verified root ownership, safe modes and file identity.
-RootApprovalResult readRootMediaToolsApproval(const std::string& root);
+// Backend scope is mandatory for Core authority; empty scope is for the
+// existing backend-local installation approval, never a Core fallback.
+RootApprovalResult readRootMediaToolsApproval(
+    const std::string& root, const std::string& backendId = {});
 
 } // namespace vdrsuite::addons

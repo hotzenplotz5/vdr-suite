@@ -119,6 +119,30 @@ class RootOwnedApprovalAcceptance(unittest.TestCase):
         self.assertEqual(json.loads(self.approval.read_text())["origin"], "debian")
         self.assertFalse(self.handler.exists())
 
+    def test_backend_scoped_core_approval_is_isolated(self):
+        self.approval.unlink()
+        self.handler.unlink()
+        first = self.approval.with_name("rectools.backend-a.json")
+        second = self.approval.with_name("rectools.backend-b.json")
+        self.assertEqual(issue(self.root, "rectools", "0.1.0",
+                               self.document["sha256"], "manual",
+                               core_expected_only=True, backend_id="backend-a"), first)
+        self.assertFalse(self.approval.exists())
+        self.assertFalse(second.exists())
+        self.assertEqual(issue(self.root, "rectools", "0.1.0", "b" * 64, "debian",
+                               core_expected_only=True, backend_id="backend-b"), second)
+        self.assertEqual(rotate(self.root, "rectools", "0.1.0",
+                                self.document["sha256"], "c" * 64, "manual",
+                                core_expected_only=True, backend_id="backend-a"), first)
+        self.assertEqual(revoke(self.root, "rectools", backend_id="backend-a"), first)
+        self.assertEqual(json.loads(second.read_text())["state"], "approved")
+        with self.assertRaisesRegex(IssueError, "invalid-backend-id"):
+            issue(self.root, "rectools", "0.1.0", "a" * 64, "manual",
+                  core_expected_only=True, backend_id="../etc")
+        with self.assertRaisesRegex(IssueError, "backend-id-requires-core"):
+            issue(self.root, "rectools", "0.1.0", "a" * 64, "manual",
+                  backend_id="backend-c")
+
     def test_rotation_requires_exact_old_hash_and_independent_new_bytes(self):
         old = self.document["sha256"]
         self.handler.write_bytes(b"reviewed replacement fixture bytes\n")

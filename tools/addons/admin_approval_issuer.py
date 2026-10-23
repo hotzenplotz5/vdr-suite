@@ -23,6 +23,15 @@ from manual_handler_evidence import examine as examine_binary
 
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
 _VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
+_BACKEND_ID = re.compile(r"[a-zA-Z0-9_.-]{1,128}\Z")
+
+def approval_path(backend_id: str = "") -> str:
+    if not backend_id:
+        return APPROVAL_PATH
+    if not _BACKEND_ID.fullmatch(backend_id) or backend_id in (".", ".."):
+        raise IssueError("invalid-backend-id")
+    return APPROVAL_PATH.rsplit("/", 1)[0] + "/rectools." + backend_id + ".json"
+
 
 
 class IssueError(ValueError):
@@ -31,7 +40,11 @@ class IssueError(ValueError):
 
 def issue(root: Path, module: str, version: str, approved_sha256: str,
           origin: str, allow_live_root: bool = False,
-          core_expected_only: bool = False) -> Path:
+          core_expected_only: bool = False,
+          backend_id: str = "") -> Path:
+    approval = approval_path(backend_id)
+    if backend_id and not core_expected_only:
+        raise IssueError("backend-id-requires-core-expected-only")
     if os.geteuid() != 0:
         raise IssueError("root-administrator-required")
     if not root.is_absolute() or "." in root.parts or ".." in root.parts:
@@ -78,7 +91,7 @@ def issue(root: Path, module: str, version: str, approved_sha256: str,
     held = os.open("/", flags)
     temporary = ""
     try:
-        for part in (*root.parts[1:], *APPROVAL_PATH.split("/")[:-1]):
+        for part in (*root.parts[1:], *approval.split("/")[:-1]):
             info = os.fstat(held)
             if (not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or
                     info.st_mode & 0o022):
@@ -128,13 +141,13 @@ def issue(root: Path, module: str, version: str, approved_sha256: str,
                 os.fsync(file.fileno())
             # Hardlink publication is atomic and refuses to overwrite an
             # already published approval. No implicit update or downgrade.
-            os.link(temporary, APPROVAL_PATH.rsplit("/", 1)[-1],
+            os.link(temporary, approval.rsplit("/", 1)[-1],
                     src_dir_fd=held, dst_dir_fd=held, follow_symlinks=False)
             os.fsync(held)
         finally:
             os.unlink(temporary, dir_fd=held)
             temporary = ""
-        return root / APPROVAL_PATH
+        return root / approval
     except OSError as exc:
         raise IssueError("approval-install-failed") from exc
     finally:
@@ -151,13 +164,17 @@ def issue(root: Path, module: str, version: str, approved_sha256: str,
 def rotate(root: Path, module: str, version: str, expected_sha256: str,
            approved_sha256: str, origin: str,
            allow_live_root: bool = False,
-           core_expected_only: bool = False) -> Path:
+           core_expected_only: bool = False,
+           backend_id: str = "") -> Path:
     """CAS-rotate an existing *active* root approval, never resurrect a revoke.
 
     Upgrades to a different handler interface version or install origin must
     be separately reviewed, not inferred from a new package's self-report.
     An approval does not activate Media Tools or prove Debian provenance.
     """
+    approval = approval_path(backend_id)
+    if backend_id and not core_expected_only:
+        raise IssueError("backend-id-requires-core-expected-only")
     if os.geteuid() != 0:
         raise IssueError("root-administrator-required")
     if not root.is_absolute() or "." in root.parts or ".." in root.parts:
@@ -195,7 +212,7 @@ def rotate(root: Path, module: str, version: str, expected_sha256: str,
     held = os.open("/", flags)
     temporary = ""
     try:
-        for part in (*root.parts[1:], *APPROVAL_PATH.split("/")[:-1]):
+        for part in (*root.parts[1:], *approval.split("/")[:-1]):
             parent = os.fstat(held)
             if (not stat.S_ISDIR(parent.st_mode) or parent.st_uid != 0 or
                     parent.st_mode & 0o022):
@@ -209,7 +226,7 @@ def rotate(root: Path, module: str, version: str, expected_sha256: str,
             raise IssueError("unsafe-approval-parent")
         # This also serializes rotations with issue/revoke by this issuer.
         fcntl.flock(held, fcntl.LOCK_EX)
-        name = APPROVAL_PATH.rsplit("/", 1)[-1]
+        name = approval.rsplit("/", 1)[-1]
         fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
                      dir_fd=held)
         with os.fdopen(fd, "rb") as source:
@@ -286,7 +303,7 @@ def rotate(root: Path, module: str, version: str, expected_sha256: str,
             if temporary:
                 os.unlink(temporary, dir_fd=held)
                 temporary = ""
-        return root / APPROVAL_PATH
+        return root / approval
     except (OSError, ValueError, UnicodeError, TypeError) as exc:
         if isinstance(exc, IssueError):
             raise
@@ -300,8 +317,10 @@ def rotate(root: Path, module: str, version: str, expected_sha256: str,
         os.close(held)
 
 
-def revoke(root: Path, module: str, allow_live_root: bool = False) -> Path:
+def revoke(root: Path, module: str, allow_live_root: bool = False,
+           backend_id: str = "") -> Path:
     """Atomically mark an existing admin approval revoked, even if binary is gone."""
+    approval = approval_path(backend_id)
     if os.geteuid() != 0:
         raise IssueError("root-administrator-required")
     if not root.is_absolute() or "." in root.parts or ".." in root.parts:
@@ -315,7 +334,7 @@ def revoke(root: Path, module: str, allow_live_root: bool = False) -> Path:
     held = os.open("/", flags)
     temporary = ""
     try:
-        for part in (*root.parts[1:], *APPROVAL_PATH.split("/")[:-1]):
+        for part in (*root.parts[1:], *approval.split("/")[:-1]):
             parent = os.fstat(held)
             if (not stat.S_ISDIR(parent.st_mode) or parent.st_uid != 0 or
                     parent.st_mode & 0o022):
@@ -328,7 +347,7 @@ def revoke(root: Path, module: str, allow_live_root: bool = False) -> Path:
                 parent.st_mode & 0o022):
             raise IssueError("unsafe-approval-parent")
         fcntl.flock(held, fcntl.LOCK_EX)
-        name = APPROVAL_PATH.rsplit("/", 1)[-1]
+        name = approval.rsplit("/", 1)[-1]
         fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW |
                      os.O_NONBLOCK | os.O_CLOEXEC, dir_fd=held)
         with os.fdopen(fd, "rb") as source:
@@ -374,7 +393,7 @@ def revoke(root: Path, module: str, allow_live_root: bool = False) -> Path:
             raise IssueError("invalid-approval-record")
 
         if document["state"] == "revoked":
-            return root / APPROVAL_PATH
+            return root / approval
 
         document["state"] = "revoked"
         payload = (json.dumps(document, sort_keys=True, separators=(",", ":")) + "\n").encode()
@@ -402,7 +421,7 @@ def revoke(root: Path, module: str, allow_live_root: bool = False) -> Path:
             if temporary:
                 os.unlink(temporary, dir_fd=held)
                 temporary = ""
-        return root / APPROVAL_PATH
+        return root / approval
     except (OSError, ValueError, UnicodeError, TypeError) as exc:
         if isinstance(exc, IssueError):
             raise
@@ -430,6 +449,8 @@ def main(argv=None) -> int:
                         help="Explicit operator approval to write on / (never used in tests)")
     parser.add_argument("--core-expected-only", action="store_true",
                         help="Core-host independently approved expected digest for remote backends; no local handler inspection")
+    parser.add_argument("--backend-id", default="",
+                        help="Exact Core-approved backend; issue/rotate require --core-expected-only")
     args = parser.parse_args(argv)
     if args.core_expected_only and args.command == "revoke":
         parser.error("--core-expected-only applies only to issue/rotate")
@@ -437,16 +458,17 @@ def main(argv=None) -> int:
         if args.command == "issue":
             location = issue(Path(args.root), args.module, args.version,
                              args.approved_sha256, args.origin, args.allow_live_root,
-                             args.core_expected_only)
+                             args.core_expected_only, args.backend_id)
             print("ADDON_ADMIN_APPROVAL_ISSUED=" + str(location))
         elif args.command == "rotate":
             location = rotate(Path(args.root), args.module, args.version,
                               args.expected_sha256, args.approved_sha256,
                               args.origin, args.allow_live_root,
-                              args.core_expected_only)
+                              args.core_expected_only, args.backend_id)
             print("ADDON_ADMIN_APPROVAL_ROTATED=" + str(location))
         else:
-            location = revoke(Path(args.root), args.module, args.allow_live_root)
+            location = revoke(Path(args.root), args.module,
+                              args.allow_live_root, args.backend_id)
             print("ADDON_ADMIN_APPROVAL_REVOKED=" + str(location))
         return 0
     except (IssueError, OSError) as exc:

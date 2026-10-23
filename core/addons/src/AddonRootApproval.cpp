@@ -103,6 +103,17 @@ bool validVersion(const std::string& value)
     return parts == 3;
 }
 
+bool validBackendId(const std::string& backendId)
+{
+    if (backendId.empty() || backendId.size() > 128 ||
+        backendId == "." || backendId == "..") return false;
+    for (const unsigned char c : backendId)
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+              (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.'))
+            return false;
+    return true;
+}
+
 bool validDigest(const std::string& digest)
 {
     if (digest.size() != 64) return false;
@@ -143,8 +154,13 @@ bool parseCanonical(const std::string& data, RootApprovalResult& result)
 }
 } // namespace
 
-RootApprovalResult readRootMediaToolsApproval(const std::string& root)
+RootApprovalResult readRootMediaToolsApproval(
+    const std::string& root, const std::string& backendId)
 {
+    if (!backendId.empty() && !validBackendId(backendId))
+        return {RootApprovalStatus::invalidRoot, InstallOrigin::absent, {}, {}};
+    const std::string approvalName = backendId.empty()
+        ? "rectools.json" : "rectools." + backendId + ".json";
     std::vector<std::string> parts;
     if (!components(root, parts))
         return {RootApprovalStatus::invalidRoot, InstallOrigin::absent, {}, {}};
@@ -164,7 +180,7 @@ RootApprovalResult readRootMediaToolsApproval(const std::string& root)
     }
     if (!safeDirectory(current.value))
         return {RootApprovalStatus::unsafeDirectory, InstallOrigin::absent, {}, {}};
-    Fd record(::openat(current.value, "rectools.json",
+    Fd record(::openat(current.value, approvalName.c_str(),
                        O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC));
     if (record.value < 0)
         return {RootApprovalStatus::missing, InstallOrigin::absent, {}, {}};

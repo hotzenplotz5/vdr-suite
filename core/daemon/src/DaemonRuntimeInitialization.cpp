@@ -445,7 +445,7 @@ bool DaemonRuntime::initialize()
             // A remote Agent observation cannot approve itself; Core never
             // inspects the remote handler via its own local filesystem.
             const auto coreApproval =
-                vdrsuite::addons::readRootMediaToolsApproval("/");
+                vdrsuite::addons::readRootMediaToolsApproval("/", backendId);
             if (!mediaImportCatalog_->matchesIndependentCoreApproval(
                     *live, backendId, now, coreApproval) ||
                 !mediaImportCatalog_->list(*live, backendId, now, result.ids))
