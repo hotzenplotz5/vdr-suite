@@ -492,6 +492,8 @@ class RunnerTests(unittest.TestCase):
                  patch("cases.check_source"), patch("cases.check_spec"), \
                  patch("cases.source_contract_tests"), patch("cases.offline_unit"), \
                  patch("cases.controlled_contracts_offline"), \
+                 patch("cases.discovery"), patch("cases.missing_auth"), \
+                 patch("cases.invalid_auth"), \
                  patch.object(a.client,"get",side_effect=AssertionError("unexpected GET")):
                 run_cases(a)
             statuses = {x["id"]:x["status"] for x in a.results}
