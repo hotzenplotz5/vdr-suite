@@ -1014,6 +1014,92 @@
     }
 
 
+    function recordingPlaybackSessionId(input) {
+      if (!input || typeof input !== 'object' ||
+          typeof input.sessionId !== 'string' ||
+          !/^ms_[0-9a-f]{32}$/.test(input.sessionId))
+        throw new Error('Canonical Device recording sessionId required');
+      return input.sessionId;
+    }
+
+    function startDeviceRecordingPlayback(input) {
+      const identity = recordingProgressIdentity(input);
+      const capabilities = input.capabilities;
+      const protocols = new Set(['hls', 'progressive']);
+      const containers = new Set(['mpeg-ts', 'fmp4', 'mp4']);
+      const codecs = new Set(['h264','h265','hevc','mpeg2video','aac',
+        'ac3','eac3','mpeg-audio','mp2','mp3']);
+      const supported = (name, allowed, nonempty) =>
+        Array.isArray(capabilities[name]) &&
+        (!nonempty || capabilities[name].length > 0) &&
+        capabilities[name].every(x => typeof x === 'string' && allowed.has(x));
+      if (!capabilities || typeof capabilities !== 'object' ||
+          !supported('protocols', protocols, true) ||
+          !supported('containers', containers, true) ||
+          !supported('videoCodecs', codecs, false) ||
+          !supported('audioCodecs', codecs, false) ||
+          typeof capabilities.supportsByteRanges !== 'boolean' ||
+          !Number.isInteger(capabilities.maxVideoWidth) ||
+          capabilities.maxVideoWidth < 0 || capabilities.maxVideoWidth > 16384 ||
+          !Number.isInteger(capabilities.maxVideoHeight) ||
+          capabilities.maxVideoHeight < 0 || capabilities.maxVideoHeight > 16384 ||
+          !Number.isInteger(capabilities.maxAudioChannels) ||
+          capabilities.maxAudioChannels < 0 || capabilities.maxAudioChannels > 32)
+        throw new Error('Explicit, measured Device codec and protocol capabilities required');
+      const body = {...identity, capabilities};
+      if (input.startPositionSeconds !== undefined) {
+        if (!Number.isInteger(input.startPositionSeconds) ||
+            input.startPositionSeconds < 0 ||
+            input.startPositionSeconds > 2147483647)
+          throw new Error('Invalid index-backed startPositionSeconds');
+        body.startPositionSeconds = input.startPositionSeconds;
+      }
+      if (input.capabilityProfile !== undefined) {
+        if (!input.capabilityProfile ||
+            typeof input.capabilityProfile !== 'object' ||
+            Array.isArray(input.capabilityProfile))
+          throw new Error('Invalid verified Device capability profile');
+        body.capabilityProfile = input.capabilityProfile;
+      }
+      const path = '/api/v1/recording-playback-sessions';
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST',
+        headers: Object.assign({Accept: 'application/json'}, defaultHeaders,
+          copyHeaders(input.headers), {'Content-Type':'application/json'}),
+        credentials: input.credentials !== undefined ? input.credentials : normalized.credentials,
+        signal: input.signal, body: JSON.stringify(body)
+      }).then(response => parseJsonBody(response).then(data => {
+        if (!response.ok)
+          throw new VdrSuitePublicClientError(path, response.status, data, response);
+        return data;
+      }));
+    }
+
+    function deviceSessionRead(input) {
+      const sessionId = recordingPlaybackSessionId(input);
+      return request('/api/v1/recording-playback-sessions/' + sessionId, input);
+    }
+
+    function deviceSessionStop(input) {
+      const sessionId = recordingPlaybackSessionId(input);
+      if (typeof input.backendId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(input.backendId))
+        throw new Error('Exact backendId required');
+      const path = '/api/v1/recording-playback-sessions/' + sessionId + '/stop';
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST',
+        headers: Object.assign({Accept: 'application/json'}, defaultHeaders,
+          copyHeaders(input.headers), {'Content-Type':'application/json'}),
+        credentials: input.credentials !== undefined ? input.credentials : normalized.credentials,
+        signal: input.signal,
+        body: JSON.stringify({operation:'stop',backendId:input.backendId,sessionId})
+      }).then(response => parseJsonBody(response).then(data => {
+        if (!response.ok)
+          throw new VdrSuitePublicClientError(path, response.status, data, response);
+        return data;
+      }));
+    }
+
     function recordingProgressIdentity(input) {
       if (!input || typeof input !== 'object' ||
           typeof input.backendId !== 'string' ||
@@ -1320,6 +1406,15 @@
           {active: false},
           normalizedOptions
         );
+      },
+      createRecordingPlaybackSession(options) {
+        return startDeviceRecordingPlayback(options);
+      },
+      getRecordingPlaybackSession(options) {
+        return deviceSessionRead(options);
+      },
+      stopRecordingPlaybackSession(options) {
+        return deviceSessionStop(options);
       },
       getContinueWatching(options) {
         return listDeviceContinueWatching(options);
