@@ -35,6 +35,10 @@
 4. Report effective RESTfulAPI plugin listen options (`--ip`), whether access to `8002` from LAN is required, and permitted SVDRP clients from sanitized ACL configuration; do not paste secrets or unrestricted config. Agree on non-root daemon/Agent ownership.
 5. Supply current MLD RESTfulAPI git `SRCREV` and recipe patches, native Suite recipe metadata, and VDR plugin ABI from the build sysroot. No ad hoc chmod/chown, service restart, mutation, or test host installation requested.
 
+## Later maintainer report on 2026-10-23
+
+Pit subsequently confirmed read-only `PLUG suitebridge VPATH 1` on VDR 2.8.3, receiving `900 /data/tv`. He also reported another five-second `/recordings.json` timeout and recurring VDR restarts with an unspecified dump during MLD package-rebuild work. These are **separate findings**; the new success does not resolve RESTfulAPI or process stability. See [VPATH/HTTP/crash evidence](mld66-pit-vpath-http-crash-evidence-20261023.md) and the [bounded, opt-in probe](../../tools/mld66-readonly-http-probe.sh). Do not benchmark recordings while VDR is unstable.
+
 ## Acceptance status
 
 **MLD.1A** runtime inventory and SuiteBridge read-only `CAPS` response: **reported PASS**. **MLD.1B** standalone native Suite build/install: **NOT TESTED**. RESTfulAPI recording reads: **FAIL at 5s**. `/change-state` after update: **OPEN**. Native write acceptance, FFmpeg-backed features, network isolation and independent non-root Suite services: **OPEN**.
