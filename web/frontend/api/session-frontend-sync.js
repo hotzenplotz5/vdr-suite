@@ -1092,23 +1092,53 @@
       return playRequest;
     }
 
-    function failPlayback(error) {
-      if (destroyed || playbackFailed || sourceMode !== 'broadcast') return;
+    function terminalPlaybackFailure(error) {
+      cancelRecovery();
       playbackFailed = true;
-      if (continuousTransport) {
-        continuousTransport.destroy();
-        continuousTransport = null;
-      }
+      started = false;
+      releaseVideo();
       stopActive(false);
-      setStatus(
-        error && error.message
-          ? error.message
-          : 'Browser konnte den Live-Stream nicht wiedergeben.',
-        true
-      );
+      setStatus(error && error.message
+        ? 'Live-TV beendet: ' + error.message
+        : 'Live-TV konnte nicht wiedergegeben werden.', true);
     }
 
-    function openBroadcastSession(replacesSessionId) {
+    function retryableLiveError(error) {
+      if (error && error.name === 'NotSupportedError') return false;
+      const statusCode = Number(error && (error.status || error.statusCode));
+      if ([400, 401, 403, 404].indexOf(statusCode) !== -1) return false;
+      const message = text(error && error.message);
+      return !/unauthorized|forbidden|permission|revoked|not_owned|invalid_|unsupported/i.test(message);
+    }
+
+    function scheduleRecovery(error) {
+      if (destroyed || sourceMode !== 'broadcast' || playbackFailed ||
+          recoveryTimer !== null) return;
+      if (!started || !activeSessionId || !retryableLiveError(error) ||
+          recoveryAttempts >= LIVE_RECOVERY_BACKOFF_MS.length) {
+        terminalPlaybackFailure(error);
+        return;
+      }
+      recovering = true;
+      releaseVideo();
+      const token = ++recoveryEpoch;
+      const attempt = recoveryAttempts + 1;
+      setStatus('Live-TV unterbrochen · Wiederverbindung ' + attempt + '/' +
+        LIVE_RECOVERY_BACKOFF_MS.length + ' …', false);
+      recoveryTimer = global.setTimeout(function () {
+        recoveryTimer = null;
+        if (destroyed || sourceMode !== 'broadcast' || token !== recoveryEpoch) return;
+        recoveryAttempts = attempt;
+        openBroadcastSession(activeSessionId, token);
+      }, LIVE_RECOVERY_BACKOFF_MS[recoveryAttempts]);
+    }
+
+    function failPlayback(error) {
+      if (destroyed || playbackFailed || sourceMode !== 'broadcast' || recovering) return;
+      scheduleRecovery(error);
+    }
+
+    function openBroadcastSession(replacesSessionId, recoveryToken) {
       if (destroyed) return Promise.resolve('');
       sourceMode = 'broadcast';
       playbackFailed = false;
@@ -1130,13 +1160,20 @@
           );
         }
 
-        if (destroyed || sourceMode !== 'broadcast') {
+        if (destroyed || sourceMode !== 'broadcast' ||
+            (recoveryToken && recoveryToken !== recoveryEpoch)) {
           stopBroadcastSession(id, false);
           return '';
         }
 
+        // Server-side replacesSessionId stops the old worker before opening
+        // the new one. Do not STOP the old id after a successful replacement.
+        if (activeSessionId && activeSessionId !== id) {
+          stoppedSessions[activeSessionId] = true;
+        }
         delete stoppedSessions[id];
         activeSessionId = id;
+        recovering = false;
         const playRequest = connectMediaPath(
           mediaPath,
           'Direktstream',
@@ -1144,9 +1181,14 @@
           function (error) { failPlayback(error); },
           false
         );
+        lastPosition = Math.max(0, Number(video.currentTime) || 0);
+        lastProgressAt = Date.now();
+        armStallCheck();
+        const playGeneration = transportGeneration;
 
         if (playRequest && typeof playRequest.catch === 'function') {
           playRequest.catch(function (error) {
+            if (destroyed || playGeneration !== transportGeneration) return;
             if (error && error.name === 'NotSupportedError') {
               failPlayback(error);
               return;
@@ -1161,9 +1203,14 @@
         }
         return id;
       }).catch(function (error) {
-        if (!destroyed && sourceMode === 'broadcast') {
-          started = false;
-          failPlayback(error);
+        if (!destroyed && sourceMode === 'broadcast' &&
+            (!recoveryToken || recoveryToken === recoveryEpoch)) {
+          if (recoveryToken) {
+            recovering = false;
+            scheduleRecovery(error);
+          } else {
+            terminalPlaybackFailure(error);
+          }
         }
         return '';
       });
