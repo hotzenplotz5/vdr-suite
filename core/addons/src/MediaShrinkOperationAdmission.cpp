@@ -210,10 +210,24 @@ MediaShrinkAdmissionResult MediaShrinkOperationAdmissionService::publish(
     const auto review = reviews_.find(req.actorId, req.backendId, req.reviewId);
     if (review.status == MediaShrinkReviewStatus::notFound)
         return out(Status::reviewConflict);
-    if (!review.ok() || review.review.state != "staged" ||
-        review.review.revision != req.expectedRevision ||
-        !fingerprint(review.review.sourceFingerprint))
+    if (!review.ok() || !fingerprint(review.review.sourceFingerprint))
         return out(Status::reviewConflict);
+    const bool fresh = review.review.state == "staged" &&
+        review.review.revision == req.expectedRevision;
+    const bool claimed = (review.review.state == "publishing" &&
+        review.review.revision == req.expectedRevision + 1) ||
+        (review.review.state == "published" &&
+        review.review.revision == req.expectedRevision + 2);
+    if (!fresh && !claimed) return out(Status::reviewConflict);
+    if (claimed) {
+        // No second publish operation, even after an unknown outcome.
+        const auto original = operations_.findByIdempotencyScope(
+            req.actorId, req.backendId, "MediaShrinkReview", req.reviewId,
+            "media.shrink.publish", req.idempotencyKey);
+        if (!original.ok() ||
+            original.operation.operationId != review.review.publishOperationId)
+            return out(Status::reviewConflict);
+    }
     std::uint64_t generation = 0;
     if (!authority_.allowPublish(req.actorId, req.backendId, req.reviewId,
                                  review.review.sourceFingerprint, req.now,
@@ -242,6 +256,12 @@ MediaShrinkAdmissionResult MediaShrinkOperationAdmissionService::publish(
         vdrsuite::mediatools::kMediaShrinkPublishCommandType, serialized);
     if (result.status != Status::accepted &&
         result.status != Status::replayed) return result;
+    if (claimed) {
+        // Idempotent observation only; never reassign or re-execute.
+        return result.status == Status::replayed &&
+               result.operation.operationId == review.review.publishOperationId
+            ? result : out(Status::reviewConflict);
+    }
     // Reserve first, then exact CAS claim: a failed claim leaves an inert
     // accepted Core operation, never an independently executable command.
     // Crash/replay of an already claimed review returns the same operation.
