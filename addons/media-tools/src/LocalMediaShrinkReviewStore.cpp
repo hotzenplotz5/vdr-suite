@@ -191,6 +191,38 @@ LocalMediaShrinkReviewStore::LocalMediaShrinkReviewStore(fs::path privateDirecto
     require(safeDirectory(directory_), "unsafe Agent shrink review directory");
 }
 
+bool LocalMediaShrinkReviewStore::claimStageOnce(
+    const std::string& operationId, const std::string& actorId,
+    const std::string& backendId, const std::string& recordingId,
+    const std::string& sourceFingerprint, std::uint64_t backendGeneration) {
+    if (!identifier(operationId) || !identifier(actorId) ||
+        !identifier(backendId) ||
+        !shrinkOpaqueId(recordingId, "rec_") ||
+        sourceFingerprint.empty() || sourceFingerprint.size() > 512 ||
+        sourceFingerprint.find_first_of("\r\n") != std::string::npos ||
+        backendGeneration == 0 ||
+        backendGeneration >
+            static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) ||
+        !safeDirectory(directory_)) return false;
+    std::string bytes = "VDR-SUITE-LOCAL-SHRINK-STAGE/1\n";
+    for (const auto& value : {
+            operationId, actorId, backendId, recordingId,
+            sourceFingerprint, std::to_string(backendGeneration)})
+        field(bytes, value);
+    if (bytes.size() > 8192) return false;
+    Fd dir(::open(directory_.c_str(),
+                  O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
+    if (dir.fd < 0) return false;
+    // This file is never removed when the Agent crashes or FFmpeg fails.
+    // Repeated claims are unknown outcomes to be reconciled by Core.
+    const auto name = std::string("stage-") + operationId;
+    Fd output(::openat(dir.fd, name.c_str(),
+        O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600));
+    if (output.fd < 0) return false;
+    return writeFully(output.fd, bytes) && ::fsync(output.fd) == 0 &&
+           ::fsync(dir.fd) == 0;
+}
+
 std::string LocalMediaShrinkReviewStore::registerCandidate(
     const LocalMediaShrinkReview& incoming) {
     require(safeDirectory(directory_), "Agent shrink review directory changed");
