@@ -29,11 +29,25 @@ public:
         const auto current =
             sources_.trustedSourceFingerprint(backend, recordingId);
         if (!current || *current != sourceFingerprint) return false;
+        // Never stage a private candidate while the same Agent generation
+        // has no authorized publication executor. Stage and Publish still
+        // have separate Core operations and independently checked grants.
         std::string reason;
-        return fence_.effectiveCapability(
-            actor, backend,
-            vdrsuite::mediatools::kMediaShrinkStageCommandType,
-            now, generation, reason);
+        if (!fence_.effectiveCapability(
+                actor, backend,
+                vdrsuite::mediatools::kMediaShrinkStageCommandType,
+                now, generation, reason))
+            return false;
+        std::uint64_t publishGeneration = 0;
+        if (!fence_.effectiveCapability(
+                actor, backend,
+                vdrsuite::mediatools::kMediaShrinkPublishCommandType,
+                now, publishGeneration, reason) ||
+            publishGeneration != generation) {
+            generation = 0;
+            return false;
+        }
+        return true;
     }
 
     bool allowPublish(const std::string& actor, const std::string& backend,

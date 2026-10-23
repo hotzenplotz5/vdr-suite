@@ -2236,11 +2236,20 @@ bool DaemonRuntime::initialize()
             std::string reason;
             const auto now = std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count();
-            const bool enabled = mediaShrinkOperationFence_ &&
+            // Do not advertise stage readiness without a publish path
+            // on the same live backend generation.
+            const bool stageEnabled = mediaShrinkOperationFence_ &&
                 mediaShrinkOperationFence_->effectiveCapability(
                     actor, backend,
                     vdrsuite::mediatools::kMediaShrinkStageCommandType,
                     now, generation, reason);
+            std::uint64_t publishGeneration = 0;
+            const bool enabled = stageEnabled &&
+                mediaShrinkOperationFence_->effectiveCapability(
+                    actor, backend,
+                    vdrsuite::mediatools::kMediaShrinkPublishCommandType,
+                    now, publishGeneration, reason) &&
+                generation == publishGeneration;
             return mediaShrinkPlanRuntime_->plan(
                 actor, backend, recording, enabled);
         },
@@ -2250,11 +2259,20 @@ bool DaemonRuntime::initialize()
             std::string reason;
             const auto now = std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count();
-            const bool enabled = mediaShrinkOperationFence_ &&
+            // Do not advertise stage readiness without a publish path
+            // on the same live backend generation.
+            const bool stageEnabled = mediaShrinkOperationFence_ &&
                 mediaShrinkOperationFence_->effectiveCapability(
                     actor, backend,
                     vdrsuite::mediatools::kMediaShrinkStageCommandType,
                     now, generation, reason);
+            std::uint64_t publishGeneration = 0;
+            const bool enabled = stageEnabled &&
+                mediaShrinkOperationFence_->effectiveCapability(
+                    actor, backend,
+                    vdrsuite::mediatools::kMediaShrinkPublishCommandType,
+                    now, publishGeneration, reason) &&
+                generation == publishGeneration;
             return mediaShrinkPlanRuntime_->capability(backend, enabled);
         },
         [this](const std::string& actor, const std::string& backend,
