@@ -64,9 +64,9 @@ bool parsePlaybackAccountBinding(const std::string& body,
 {
     if (body.size() > 512U) return false;
     static const std::regex first(
-        R"(^\s*\{\s*"accountId"\s*:\s*"([A-Za-z0-9_.-]{0,128})"\s*,\s*"expectedRevision"\s*:\s*(0|[1-9][0-9]{0,18})\s*\}\s*$)");
+        R"p1(^\s*\{\s*"accountId"\s*:\s*"([A-Za-z0-9_.-]{0,128})"\s*,\s*"expectedRevision"\s*:\s*(0|[1-9][0-9]{0,18})\s*\}\s*$)p1");
     static const std::regex second(
-        R"(^\s*\{\s*"expectedRevision"\s*:\s*(0|[1-9][0-9]{0,18})\s*,\s*"accountId"\s*:\s*"([A-Za-z0-9_.-]{0,128})"\s*\}\s*$)");
+        R"p1(^\s*\{\s*"expectedRevision"\s*:\s*(0|[1-9][0-9]{0,18})\s*,\s*"accountId"\s*:\s*"([A-Za-z0-9_.-]{0,128})"\s*\}\s*$)p1");
     std::smatch match;
     bool reversed = false;
     if (!std::regex_match(body,match,first)) {
