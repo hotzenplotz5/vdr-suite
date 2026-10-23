@@ -81,10 +81,15 @@ class Generation : public ISearchTimerBackendGenerationAuthority
 {
 public:
     std::optional<std::uint64_t> live = 9U;
+    mutable int probes = 0;
+    int unavailableFromProbe = 0;
     std::optional<std::uint64_t> currentGeneration(
         const std::string& backend) const override
     {
         assert(backend == "default");
+        ++probes;
+        if (unavailableFromProbe > 0 && probes >= unavailableFromProbe)
+            return std::nullopt;
         return live;
     }
 };
@@ -254,6 +259,41 @@ void assertBackendRestartCannotDispatch()
     assert(missing.source.reads == 0);
 }
 
+void assertLeaseExpiryCannotBeMaskedByRequestTimestamp()
+{
+    // A lease can expire during a slow, complete provider inventory
+    // even when its backend generation does not change.
+    Rig expiresDuringInventory;
+    expiresDuringInventory.generation.unavailableFromProbe = 2;
+    const auto beforePost = expiresDuringInventory.dispatch.dispatchOnce(
+        expiresDuringInventory.request(), expiresDuringInventory.executor,
+        expiresDuringInventory.source);
+    assert(beforePost.status == SearchTimerCreateDispatchStatus::unavailable);
+    assert(expiresDuringInventory.executor.creates == 0);
+    assert(expiresDuringInventory.source.reads == 1);
+    assert(expiresDuringInventory.storage.findById(
+        expiresDuringInventory.id).operation.state ==
+            MutationOperationState::accepted);
+
+    // Once a POST is sent, lost authority is unknown, never success.
+    Rig expiresDuringReadback;
+    expiresDuringReadback.generation.unavailableFromProbe = 3;
+    const auto afterPost = expiresDuringReadback.dispatch.dispatchOnce(
+        expiresDuringReadback.request(), expiresDuringReadback.executor,
+        expiresDuringReadback.source);
+    assert(afterPost.status == SearchTimerCreateDispatchStatus::outcomeUnknown);
+    assert(expiresDuringReadback.executor.creates == 1);
+    assert(expiresDuringReadback.source.reads == 2);
+    assert(expiresDuringReadback.storage.findById(
+        expiresDuringReadback.id).operation.state ==
+            MutationOperationState::outcomeUnknown);
+    assert(expiresDuringReadback.dispatch.dispatchOnce(
+        expiresDuringReadback.request(), expiresDuringReadback.executor,
+        expiresDuringReadback.source).status ==
+            SearchTimerCreateDispatchStatus::conflict);
+    assert(expiresDuringReadback.executor.creates == 1);
+}
+
 void assertHistoricalActivePayloadNeverDispatches()
 {
     Rig old(true);
@@ -365,6 +405,7 @@ int main()
     assertHappyPathAndNoRetry();
     assertGuards();
     assertBackendRestartCannotDispatch();
+    assertLeaseExpiryCannotBeMaskedByRequestTimestamp();
     assertHistoricalActivePayloadNeverDispatches();
     assertAmbiguousOutcomeNeverRetries();
     assertReadbackAndPreexistingIdentity();
