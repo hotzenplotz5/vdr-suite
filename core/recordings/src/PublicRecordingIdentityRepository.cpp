@@ -175,18 +175,53 @@ bool PublicRecordingIdentityRepository::rebindAfterVerifiedMove(
         previousNativeId == nextNativeId) return false;
     auto lease = database_.acquireTransactionLease();
 
+    // A verified Recording MOVE must migrate the existing Continue Watching
+    // native binding atomically with its canonical public identity. Otherwise
+    // the next read would treat a valid position as a deleted Recording and
+    // clear it. The optional table belongs to the existing Suite database;
+    // no new progress owner or SQLite store is created.
+    if (!database_.execute("SAVEPOINT public_recording_identity_move;"))
+        return false;
+    const auto rollback = [this]() {
+        database_.execute("ROLLBACK TO public_recording_identity_move;");
+        database_.execute("RELEASE public_recording_identity_move;");
+        return false;
+    };
+
     sqlite3_stmt* statement = nullptr;
     constexpr const char* sql =
         "UPDATE OR IGNORE public_recording_identity "
         "SET native_id=?3 WHERE backend_id=?1 AND native_id=?2;";
     if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr)
-        != SQLITE_OK) return false;
+        != SQLITE_OK)
+        return rollback();
 
-    const bool success = bind(statement, 1, backendId) &&
+    const bool rebound = bind(statement, 1, backendId) &&
         bind(statement, 2, previousNativeId) &&
         bind(statement, 3, nextNativeId) &&
         sqlite3_step(statement) == SQLITE_DONE &&
         sqlite3_changes(database_.handle()) == 1;
     sqlite3_finalize(statement);
-    return success;
+    if (!rebound)
+        return rollback();
+
+    if (database_.tableExists("continue_watching_state"))
+    {
+        constexpr const char* progressSql =
+            "UPDATE continue_watching_state SET backend_native_id=?3 "
+            "WHERE backend_id=?1 AND backend_native_id=?2;";
+        if (sqlite3_prepare_v2(database_.handle(), progressSql, -1,
+                               &statement, nullptr) != SQLITE_OK)
+            return rollback();
+        const bool migrated = bind(statement, 1, backendId) &&
+            bind(statement, 2, previousNativeId) &&
+            bind(statement, 3, nextNativeId) &&
+            sqlite3_step(statement) == SQLITE_DONE;
+        sqlite3_finalize(statement);
+        if (!migrated)
+            return rollback();
+    }
+    // A path move is not a playback checkpoint: position, activity timestamp,
+    // operationId and CAS revision must remain unchanged for every actor.
+    return database_.execute("RELEASE public_recording_identity_move;");
 }

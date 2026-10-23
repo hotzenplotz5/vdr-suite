@@ -1,10 +1,15 @@
 #include "RecordingMediaHttpRuntime.h"
 
 #include "ApiRouter.h"
+#include "AuthorizationService.h"
+#include "DevicePlaybackAccountBindingService.h"
+#include "HumanAccountRepository.h"
+#include "AccountabilityEventRepository.h"
 #include "BackendAgentCommandDelivery.h"
 #include "BackendAgentLifecycle.h"
 #include "BackendAgentLiveProviderRuntime.h"
 #include "Database.h"
+#include "ContinueWatchingApiRuntime.h"
 #include "DeviceMediaProfileRepository.h"
 #include "DeviceMediaProfileQuery.h"
 #include "IHttpServer.h"
@@ -42,6 +47,8 @@
 #include "VdrRecordingQueryService.h"
 #include "VdrRecordingDuration.h"
 
+#include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <iostream>
 #include <mutex>
@@ -145,6 +152,17 @@ int runRecordingMediaHttpRuntime(
         });
     PublicDevicePlaybackRegistry deviceSessions(
         mediaSessionRepository, securityIdentities, securityGrants);
+    HumanAccountRepository playbackAccounts(database);
+    AccountabilityEventRepository playbackAudit(database);
+    DevicePlaybackAccountBindingService playbackBinding(
+        database, securityIdentities, playbackAccounts, securityGrants,
+        playbackAudit);
+    if (!playbackAccounts.ensureSchema() ||
+        !playbackAudit.ensureSchema() ||
+        !playbackBinding.ensureSchema()) {
+        std::cerr << "Device Playback account identity unavailable" << std::endl;
+        return 1;
+    }
 
     MediaAccessGrantAuthenticator mediaAccessGrantAuthenticator(
         mediaSessionRepository,
@@ -202,6 +220,174 @@ int runRecordingMediaHttpRuntime(
                     "\",\"verifiedPathCount\":" +
                     std::to_string(stored->verifiedPaths.size()) + "}";
                 return status;
+            }
+            // P1: extend the EXISTING Device playback owner. Every read and
+            // mutation resolves the current public rec_ identity through the
+            // same admission/grant/backend gates as MediaSession CREATE.
+            // Without an explicit Human<->Device binding, the Service actor
+            // receives only its OWN progress, never a guessed Human account.
+            const std::string continuePath = collection + "/continue-watching";
+            if (target.rfind(continuePath, 0) == 0) {
+                // Only exact GET path+query; POST bodies must not access
+                // this read surface or silently turn into a write.
+                if (!body.empty() ||
+                    target.rfind(continuePath + "?backendId=", 0) != 0)
+                    return error(400, "continue_watching_request_invalid");
+                const std::string backendId =
+                    target.substr((continuePath + "?backendId=").size());
+                if (backendId.empty() || backendId.size() > 128U ||
+                    backendId == "." || backendId == ".." ||
+                    !std::all_of(backendId.begin(), backendId.end(),
+                        [](unsigned char ch) {
+                            return std::isalnum(ch) || ch == '.' ||
+                                ch == '_' || ch == '-';
+                        }))
+                    return error(400, "continue_watching_backend_invalid");
+                if (!verifiedDevice.authenticated() ||
+                    verifiedDevice.actor.type != ActorType::Service ||
+                    !verifiedDevice.device || !verifiedDevice.credential ||
+                    verifiedDevice.session ||
+                    verifiedDevice.permissionGrantResolution !=
+                        PermissionGrantResolutionState::Resolved)
+                    return error(403, "device_identity_required");
+                const auto grant = AuthorizationService().authorize(
+                    verifiedDevice, {"media.recording.play", backendId,
+                                     "media.recording.play"});
+                if (!grant.allowed)
+                    return error(403, "forbidden");
+                // Fence an in-flight Device/Account revocation or reassignment
+                // across owner resolution AND the final ContinueWatching read.
+                // SQLite lease is recursive for all existing domain repositories.
+                auto scopeLease = database.acquireTransactionLease();
+                if (recordingCache.statusForBackend(backendId).state != "ready")
+                    return error(503, "recording_backend_unavailable");
+                const auto actor = playbackBinding.resolve(
+                    verifiedDevice, backendId);
+                if (actor.status == DevicePlaybackActorStatus::forbidden)
+                    return error(403, "recording_progress_context_forbidden");
+                if (actor.status == DevicePlaybackActorStatus::unavailable)
+                    return error(503, "recording_progress_context_unavailable");
+                const auto entries =
+                    ContinueWatchingApiRuntime::instance().publicCandidates(
+                        actor.actorId, backendId);
+                ApiResponse response;
+                response.statusCode = 200;
+                response.contentType = "application/json";
+                response.headers["Cache-Control"] = "no-store";
+                response.headers["X-Content-Type-Options"] = "nosniff";
+                response.body = "{\"backendId\":\"" + backendId +
+                    "\",\"items\":[";
+                std::size_t included = 0;
+                for (const auto& item : entries) {
+                    if (included >= 50) break;
+                    // Stable public rec_ lookup is read-only and must refer
+                    // to today's exact native backend Recording. Re-run the
+                    // admission on each item before any client-visible data.
+                    const auto publicId = recordingIdentities.find(
+                        backendId, item.recording.backendNativeId);
+                    if (!publicId) continue;
+                    const auto admitted = admission.admit(
+                        verifiedDevice, backendId, *publicId);
+                    if (admitted.status !=
+                            PublicRecordingDevicePlaybackAdmissionStatus::ready ||
+                        admitted.recording.backendNativeId !=
+                            item.recording.backendNativeId)
+                        continue;
+                    if (included++ != 0) response.body += ",";
+                    response.body += "{\"recordingId\":\"" + *publicId +
+                        "\",\"positionSeconds\":" +
+                        std::to_string(item.resumePositionSeconds) +
+                        ",\"durationSeconds\":";
+                    if (item.recording.durationKnown &&
+                        item.recording.durationSeconds > 0)
+                        response.body +=
+                            std::to_string(item.recording.durationSeconds);
+                    else response.body += "null";
+                    response.body +=
+                        ",\"resumeSupport\":\"profile_dependent\"}";
+                }
+                response.body += "],\"limit\":50}";
+                return response;
+            }
+            const std::string progressPath = collection + "/progress";
+            if (target == progressPath ||
+                target.rfind(progressPath + "?", 0) == 0) {
+                std::string backendId;
+                std::string publicRecordingId;
+                PublicRecordingProgressRequest progress;
+                if (body.empty()) {
+                    const std::size_t question = target.find('?');
+                    if (question == std::string::npos)
+                        return error(400, "recording_progress_query_required");
+                    const std::string query = target.substr(question + 1U);
+                    unsigned count = 0U;
+                    for (std::size_t start = 0; start < query.size();) {
+                        const auto end = query.find('&', start);
+                        const auto pair = query.substr(start,
+                            end == std::string::npos ? std::string::npos : end - start);
+                        const auto equals = pair.find('=');
+                        if (equals == std::string::npos || ++count > 2U)
+                            return error(400, "recording_progress_query_invalid");
+                        const std::string key = pair.substr(0, equals);
+                        const std::string value = pair.substr(equals + 1U);
+                        if (key == "backendId" && backendId.empty())
+                            backendId = value;
+                        else if (key == "recordingId" && publicRecordingId.empty())
+                            publicRecordingId = value;
+                        else return error(400, "recording_progress_query_invalid");
+                        if (end == std::string::npos) break;
+                        start = end + 1U;
+                    }
+                    if (count != 2U || backendId.empty() || publicRecordingId.empty())
+                        return error(400, "recording_progress_query_invalid");
+                } else {
+                    if (target != progressPath)
+                        return error(400, "recording_progress_query_invalid");
+                    progress = ContinueWatchingApiRuntime::parsePublicProgressRequest(body);
+                    if (!progress.valid)
+                        return error(400, "recording_progress_payload_invalid");
+                    backendId = progress.backendId;
+                    publicRecordingId = progress.recordingId;
+                }
+                // The live grant/identity binding and accepted revision
+                // are one bounded SQL critical section: no race with Browser
+                // administration unlink, account deactivation or grant revoke.
+                auto progressLease = database.acquireTransactionLease();
+                const auto allowed = admission.admit(
+                    verifiedDevice, backendId, publicRecordingId);
+                using Status = PublicRecordingDevicePlaybackAdmissionStatus;
+                if (allowed.status == Status::unauthenticated)
+                    return error(401, "unauthorized");
+                if (allowed.status == Status::forbidden)
+                    return error(403, "forbidden");
+                if (allowed.status == Status::invalidRequest)
+                    return error(400, "invalid_recording_id");
+                if (allowed.status == Status::notFound)
+                    return error(404, "recording_not_found");
+                if (allowed.status != Status::ready)
+                    return error(503, "recording_backend_unavailable");
+                // A nonzero position must be evidence from an owned, still
+                // active Recording MediaSession for this exact Recording.
+                // Session elapsed wall time is NEVER treated as a position.
+                if (!body.empty() && progress.positionSeconds > 0) {
+                    const auto owned = deviceSessions.describeOwned(
+                        progress.sessionId, verifiedDevice);
+                    if (!owned || owned->backendId != backendId ||
+                        owned->resourceId != allowed.recording.id)
+                        return error(409, "recording_progress_session_not_owned");
+                }
+                const auto playbackActor = playbackBinding.resolve(
+                    verifiedDevice, backendId);
+                if (playbackActor.status == DevicePlaybackActorStatus::forbidden)
+                    return error(403, "recording_progress_context_forbidden");
+                if (playbackActor.status == DevicePlaybackActorStatus::unavailable)
+                    return error(503, "recording_progress_context_unavailable");
+                const std::string actorId = playbackActor.actorId;
+                return body.empty()
+                    ? ContinueWatchingApiRuntime::instance().publicProgressGet(
+                        actorId, allowed.recording, publicRecordingId)
+                    : ContinueWatchingApiRuntime::instance().publicProgressUpdate(
+                        actorId, allowed.recording, publicRecordingId, progress);
             }
             if (target == collection) {
                 const auto request = RecordingMediaSessionRequestParser().parse(body);

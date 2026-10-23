@@ -1013,6 +1013,187 @@
       });
     }
 
+
+    function playbackAccountAdminPath(input) {
+      if (!input || typeof input.deviceId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(input.deviceId))
+        throw new Error('Exact Device ID required');
+      return '/api/v1/devices/' + input.deviceId + '/playback-account';
+    }
+
+    function setPlaybackAccountForDevice(input) {
+      const path = playbackAccountAdminPath(input);
+      if (typeof input.accountId !== 'string' ||
+          !/^[A-Za-z0-9._-]{0,128}$/.test(input.accountId) ||
+          !Number.isSafeInteger(input.expectedRevision) ||
+          input.expectedRevision < 0)
+        throw new Error('Explicit accountId and current binding revision required');
+      const headers = Object.assign({Accept: 'application/json'}, defaultHeaders,
+        copyHeaders(input.headers), {'Content-Type':'application/json'});
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method:'POST', headers,
+        credentials:input.credentials !== undefined ? input.credentials : normalized.credentials,
+        signal:input.signal,
+        body:JSON.stringify({accountId:input.accountId,
+          expectedRevision:input.expectedRevision})
+      }).then(response => parseJsonBody(response).then(data => {
+        if (!response.ok)
+          throw new VdrSuitePublicClientError(path,response.status,data,response);
+        return data;
+      }));
+    }
+
+    function recordingPlaybackSessionId(input) {
+      if (!input || typeof input !== 'object' ||
+          typeof input.sessionId !== 'string' ||
+          !/^ms_[0-9a-f]{32}$/.test(input.sessionId))
+        throw new Error('Canonical Device recording sessionId required');
+      return input.sessionId;
+    }
+
+    function startDeviceRecordingPlayback(input) {
+      const identity = recordingProgressIdentity(input);
+      const capabilities = input.capabilities;
+      const protocols = new Set(['hls', 'progressive']);
+      const containers = new Set(['mpeg-ts', 'fmp4', 'mp4']);
+      const codecs = new Set(['h264','h265','hevc','mpeg2video','aac',
+        'ac3','eac3','mpeg-audio','mp2','mp3']);
+      const supported = (name, allowed, nonempty) =>
+        Array.isArray(capabilities[name]) &&
+        (!nonempty || capabilities[name].length > 0) &&
+        capabilities[name].every(x => typeof x === 'string' && allowed.has(x));
+      if (!capabilities || typeof capabilities !== 'object' ||
+          !supported('protocols', protocols, true) ||
+          !supported('containers', containers, true) ||
+          !supported('videoCodecs', codecs, false) ||
+          !supported('audioCodecs', codecs, false) ||
+          typeof capabilities.supportsByteRanges !== 'boolean' ||
+          !Number.isInteger(capabilities.maxVideoWidth) ||
+          capabilities.maxVideoWidth < 0 || capabilities.maxVideoWidth > 16384 ||
+          !Number.isInteger(capabilities.maxVideoHeight) ||
+          capabilities.maxVideoHeight < 0 || capabilities.maxVideoHeight > 16384 ||
+          !Number.isInteger(capabilities.maxAudioChannels) ||
+          capabilities.maxAudioChannels < 0 || capabilities.maxAudioChannels > 32)
+        throw new Error('Explicit, measured Device codec and protocol capabilities required');
+      const body = {...identity, capabilities};
+      if (input.startPositionSeconds !== undefined) {
+        if (!Number.isInteger(input.startPositionSeconds) ||
+            input.startPositionSeconds < 0 ||
+            input.startPositionSeconds > 2147483647)
+          throw new Error('Invalid index-backed startPositionSeconds');
+        body.startPositionSeconds = input.startPositionSeconds;
+      }
+      if (input.capabilityProfile !== undefined) {
+        if (!input.capabilityProfile ||
+            typeof input.capabilityProfile !== 'object' ||
+            Array.isArray(input.capabilityProfile))
+          throw new Error('Invalid verified Device capability profile');
+        body.capabilityProfile = input.capabilityProfile;
+      }
+      const path = '/api/v1/recording-playback-sessions';
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST',
+        headers: Object.assign({Accept: 'application/json'}, defaultHeaders,
+          copyHeaders(input.headers), {'Content-Type':'application/json'}),
+        credentials: input.credentials !== undefined ? input.credentials : normalized.credentials,
+        signal: input.signal, body: JSON.stringify(body)
+      }).then(response => parseJsonBody(response).then(data => {
+        if (!response.ok)
+          throw new VdrSuitePublicClientError(path, response.status, data, response);
+        return data;
+      }));
+    }
+
+    function deviceSessionRead(input) {
+      const sessionId = recordingPlaybackSessionId(input);
+      return request('/api/v1/recording-playback-sessions/' + sessionId, input);
+    }
+
+    function deviceSessionStop(input) {
+      const sessionId = recordingPlaybackSessionId(input);
+      if (typeof input.backendId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(input.backendId))
+        throw new Error('Exact backendId required');
+      const path = '/api/v1/recording-playback-sessions/' + sessionId + '/stop';
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST',
+        headers: Object.assign({Accept: 'application/json'}, defaultHeaders,
+          copyHeaders(input.headers), {'Content-Type':'application/json'}),
+        credentials: input.credentials !== undefined ? input.credentials : normalized.credentials,
+        signal: input.signal,
+        body: JSON.stringify({operation:'stop',backendId:input.backendId,sessionId})
+      }).then(response => parseJsonBody(response).then(data => {
+        if (!response.ok)
+          throw new VdrSuitePublicClientError(path, response.status, data, response);
+        return data;
+      }));
+    }
+
+    function recordingProgressIdentity(input) {
+      if (!input || typeof input !== 'object' ||
+          typeof input.backendId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(input.backendId) ||
+          input.backendId === '.' || input.backendId === '..' ||
+          typeof input.recordingId !== 'string' ||
+          !/^rec_[0-9a-f]{32}$/.test(input.recordingId))
+        throw new Error('Public recording progress requires backendId and canonical rec_ ID');
+      return {backendId: input.backendId, recordingId: input.recordingId};
+    }
+
+    function listDeviceContinueWatching(input) {
+      if (!input || typeof input.backendId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(input.backendId) ||
+          input.backendId === '.' || input.backendId === '..')
+        throw new Error('Continue Watching requires exact backendId');
+      return request('/api/v1/recording-playback-sessions/continue-watching?backendId=' +
+        encodeURIComponent(input.backendId), input);
+    }
+
+    function readRecordingProgress(input) {
+      const identity = recordingProgressIdentity(input);
+      return request('/api/v1/recording-playback-sessions/progress?backendId=' +
+        encodeURIComponent(identity.backendId) + '&recordingId=' +
+        encodeURIComponent(identity.recordingId), input);
+    }
+
+    function saveRecordingProgress(input) {
+      const identity = recordingProgressIdentity(input);
+      if (!Number.isSafeInteger(input.expectedRevision) ||
+          input.expectedRevision < 0 ||
+          !Number.isInteger(input.positionSeconds) ||
+          input.positionSeconds < 0 || input.positionSeconds > 2147483647 ||
+          typeof input.operationId !== 'string' ||
+          !/^[!-~]{1,128}$/.test(input.operationId) ||
+          (input.positionSeconds > 0 &&
+            (typeof input.sessionId !== 'string' ||
+             !/^[!-~]{1,128}$/.test(input.sessionId))))
+        throw new Error('Confirmed position, current revision and operationId required');
+      const path = '/api/v1/recording-playback-sessions/progress';
+      const headers = Object.assign({Accept: 'application/json'}, defaultHeaders,
+        copyHeaders(input.headers), {'Content-Type': 'application/json'});
+      const payload = Object.assign({}, identity, {
+        positionSeconds: input.positionSeconds,
+        expectedRevision: input.expectedRevision,
+        operationId: input.operationId
+      });
+      if (input.sessionId !== undefined) payload.sessionId = input.sessionId;
+      // No automatic resubmission: on 409 re-read the current revision and let the
+      // client decide whether it really observed a newer playback position.
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST', headers: headers,
+        credentials: input.credentials !== undefined ? input.credentials : normalized.credentials,
+        signal: input.signal,
+        body: JSON.stringify(payload)
+      }).then(function (response) {
+        return parseJsonBody(response).then(function (data) {
+          if (!response.ok) {
+            throw new VdrSuitePublicClientError(path, response.status, data, response);
+          }
+          return data;
+        });
+      });
+    }
+
     return Object.freeze({
       getApiRoot(options) {
         return request('/api/v1', options);
@@ -1254,6 +1435,34 @@
           {active: false},
           normalizedOptions
         );
+      },
+      getDevicePlaybackAccount(options) {
+        return request(playbackAccountAdminPath(options), options);
+      },
+      setDevicePlaybackAccount(options) {
+        return setPlaybackAccountForDevice(options);
+      },
+      createRecordingPlaybackSession(options) {
+        return startDeviceRecordingPlayback(options);
+      },
+      getRecordingPlaybackSession(options) {
+        return deviceSessionRead(options);
+      },
+      stopRecordingPlaybackSession(options) {
+        return deviceSessionStop(options);
+      },
+      getContinueWatching(options) {
+        return listDeviceContinueWatching(options);
+      },
+      getRecordingProgress(options) {
+        return readRecordingProgress(options);
+      },
+      updateRecordingProgress(options) {
+        return saveRecordingProgress(options);
+      },
+      clearRecordingProgress(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return saveRecordingProgress(Object.assign({}, input, {positionSeconds: 0}));
       },
       getRecordings(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};

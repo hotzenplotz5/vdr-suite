@@ -2,6 +2,7 @@
 #include "Database.h"
 
 #include <cassert>
+#include <sqlite3.h>
 #include <cstdlib>
 #include <unistd.h>
 #include <string>
@@ -41,6 +42,37 @@ int main()
     assert(repository.findNativeForPublicId("backend-a", *otherRecording) ==
         std::optional<std::string>("/vdr/b"));
 
+    // Existing Continue Watching state must follow a verified public-ID
+    // rebind for *every* actor, without resetting the progress CAS revision.
+    assert(database.execute(
+        "CREATE TABLE continue_watching_state ("
+        "actor_id TEXT, backend_id TEXT, recording_id TEXT, "
+        "backend_native_id TEXT, position_seconds INTEGER, revision INTEGER);"));
+    assert(database.execute(
+        "INSERT INTO continue_watching_state VALUES "
+        "('actor-one','backend-a','r1','/vdr/a',123,7),"
+        "('actor-two','backend-a','r1','/vdr/a',456,2),"
+        "('actor-other','backend-b','r1','/vdr/a',800,9);"));
+    const auto progressRowCount = [&](const std::string& backend,
+                                      const std::string& native) {
+        sqlite3_stmt* statement = nullptr;
+        const char* sql =
+            "SELECT COUNT(*) FROM continue_watching_state "
+            "WHERE backend_id=?1 AND backend_native_id=?2;";
+        assert(sqlite3_prepare_v2(database.handle(),sql,-1,&statement,nullptr)
+               == SQLITE_OK);
+        assert(sqlite3_bind_text(statement,1,backend.c_str(),-1,SQLITE_TRANSIENT)
+               == SQLITE_OK);
+        assert(sqlite3_bind_text(statement,2,native.c_str(),-1,SQLITE_TRANSIENT)
+               == SQLITE_OK);
+        assert(sqlite3_step(statement) == SQLITE_ROW);
+        const int count = sqlite3_column_int(statement,0);
+        sqlite3_finalize(statement);
+        return count;
+    };
+    assert(progressRowCount("backend-a", "/vdr/a") == 2);
+    assert(progressRowCount("backend-b", "/vdr/a") == 1);
+
     // Collision: a second existing binding must not be overwritten by a move.
     assert(!repository.rebindAfterVerifiedMove("backend-a", "/vdr/a", "/vdr/b"));
     assert(repository.find("backend-a", "/vdr/a") == a);
@@ -48,6 +80,18 @@ int main()
     // Move is explicit, never inferred from matching title or fingerprints.
     assert(repository.rebindAfterVerifiedMove("backend-a", "/vdr/a", "/new/a"));
     assert(repository.find("backend-a", "/new/a") == a);
+    assert(progressRowCount("backend-a", "/new/a") == 2);
+    assert(progressRowCount("backend-a", "/vdr/a") == 0);
+    assert(progressRowCount("backend-b", "/vdr/a") == 1);
+    sqlite3_stmt* check = nullptr;
+    assert(sqlite3_prepare_v2(database.handle(),
+        "SELECT position_seconds,revision FROM continue_watching_state "
+        "WHERE actor_id='actor-one';",-1,&check,nullptr) == SQLITE_OK);
+    assert(sqlite3_step(check) == SQLITE_ROW);
+    assert(sqlite3_column_int(check,0) == 123);
+    assert(sqlite3_column_int(check,1) == 7);
+    sqlite3_finalize(check);
+
     assert(repository.findNativeForPublicId("backend-a", *a) ==
         std::optional<std::string>("/new/a"));
     assert(!repository.find("backend-a", "/vdr/a").has_value());
@@ -94,6 +138,20 @@ int main()
             std::optional<std::string>("/persistent/recording"));
     }
     assert(unlink(path) == 0);
+
+    // Persistence failures roll back the public-ID rebind as well. Do not
+    // publish a moved identity with partially migrated progress.
+    Database damaged;
+    assert(damaged.open(":memory:"));
+    PublicRecordingIdentityRepository damagedIds(damaged);
+    assert(damagedIds.ensureSchema());
+    const auto beforeMove = damagedIds.resolveOrCreate("backend-d", "/before");
+    assert(beforeMove);
+    assert(damaged.execute(
+        "CREATE TABLE continue_watching_state (actor_id TEXT);"));
+    assert(!damagedIds.rebindAfterVerifiedMove("backend-d", "/before", "/after"));
+    assert(damagedIds.find("backend-d", "/before") == beforeMove);
+    assert(!damagedIds.find("backend-d", "/after"));
 
     return 0;
 }

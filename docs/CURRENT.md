@@ -1,5 +1,7 @@
 # VDR-Suite Current State
 
+> **P1 Source candidate (23.10.2026; branch `work/public-v1-p1-resume-device-playback-20261023`, not yet merged):** Existing Continue Watching persistence has a revision-based CAS candidate and the established Device Recording playback authority now exposes a **Device-actor-private** progress GET/POST plus a bounded, per-entry-revalidated Continue Watching GET collection. The P1 branch now contains an explicit administrator Browser Session + CSRF + CAS association API for an active Human Account; Pairing alone does **not** link a Human Account. The Device and Account playback grants are intersected on every progress request. Source validation and Real-VDR acceptance are still pending, so Browser→Device / Device→Device Human-Account sharing is **not** proven or released. The new public route is not a replacement for the existing browser Continue Watching flow. Unit, production-composition, CI and Real-VDR evidence must be tracked separately; no live install/restart performed, no Phase 70 kickoff. See `api/device-recording-playback.md`.
+
 > **Public API v1 final acceptance:** Implementation comes first; real-yaVDR
 > verification happens **once, at the end**, against one exact integration
 > commit. The central [Public-v1 real-VDR acceptance checklist](development/public-v1-final-hardware-acceptance.md)
@@ -1064,3 +1066,11 @@ Exact old candidate SHAs, CI runs and once-open follow-up notes remain valid in 
 MU.10 live authority/gap audit and bounded implementation candidate:
 [MU.10 Device/App Pairing Architecture and Gap Audit](development/post-phase69-mu10-device-app-pairing-audit.md) and
 [MU.10A Device Pairing Bootstrap](development/post-phase69-mu10a-device-pairing-bootstrap.md).
+
+> **P1 Browser CAS source candidate:** Bundled Web frontend sends an actor/
+> Recording-scoped revision read and uses the existing Continue Watching
+> SQLite CAS fence for its own playback checkpoints. Conflicting updates are
+> blocked for the old playback owner. Older nonversioned third-party legacy
+> consumers remain migration compatibility and are not included in the shared
+> race-free P1 acceptance claim. Real Web→Device and Device→Web playback
+> must still be verified on yaVDR after separate authorization.

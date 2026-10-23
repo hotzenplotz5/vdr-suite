@@ -126,6 +126,12 @@ EPG_ARTWORK_AUDITED = {
         "get": 'pathWithoutQuery(request.path) == "/api/v1/epg/preferred-artwork"'},
 }
 EPG_ARTWORK_HTTP = ROOT / "core/http/src/TestHttpServer.cpp"
+DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED = {
+    "/api/v1/devices/{deviceId}/playback-account": {
+        "get": 'devicePlaybackAccountPath(pathWithoutQuery(request.path)',
+        "post": 'devicePlaybackAccountPath(pathWithoutQuery(request.path)',
+    },
+}
 
 # Versioned Recording playback is registered in the daemon media composition
 # root, rather than PublicApiRuntime. Require an actual route branch AND its
@@ -142,6 +148,16 @@ RECORDING_ACTION_AUDITED = {
 }
 
 DEVICE_AUDITED = {
+    "/api/v1/recording-playback-sessions/continue-watching": {
+        "get": ('const std::string continuePath = collection + "/continue-watching";',
+                'isPublicDeviceRecordingSessionRead'),
+    },
+    "/api/v1/recording-playback-sessions/progress": {
+        "get": ('const std::string progressPath = collection + "/progress";',
+                'isPublicDeviceRecordingSessionRead'),
+        "post": ('const std::string progressPath = collection + "/progress";',
+                 'isPublicDeviceRecordingProgressUpdate'),
+    },
     "/api/v1/recording-playback-sessions/capabilities": {
         "get": ('const std::string capabilityCollection = collection + "/capabilities";',
                 'isPublicDeviceRecordingSessionRead'),
@@ -327,7 +343,7 @@ def validate(
     paths = spec.get("paths")
     if not isinstance(paths, dict):
         return errors + ["OpenAPI paths must be an object"]
-    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED) | set(EPG_ARTWORK_AUDITED)
+    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED) | set(EPG_ARTWORK_AUDITED) | set(DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED)
     if set(paths) != expected_paths:
         missing = sorted(expected_paths - set(paths))
         extra = sorted(set(paths) - expected_paths)
@@ -363,7 +379,7 @@ def validate(
         errors.append("Device Recording playback composition handler disappeared")
     for path, methods in {
         **AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
-        **EPG_ARTWORK_AUDITED
+        **EPG_ARTWORK_AUDITED, **DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED
     }.items():
         data = paths.get(path)
         if not isinstance(data, dict):
@@ -375,7 +391,14 @@ def validate(
             errors.append(f"{path}: documented methods changed, expected {sorted(expected)}, got {sorted(current)}")
         for method, marker in methods.items():
             where = f"{method.upper()} {path}"
-            if path in EPG_ARTWORK_AUDITED:
+            if path in DEVICE_PLAYBACK_ACCOUNT_ADMIN_AUDITED:
+                if marker not in epg_artwork_http_source:
+                    errors.append(f"{where}: HTTP Device Playback account handler disappeared")
+                needed = ("isPublicDevicePlaybackAccountMutation" if method == "post"
+                          else "isPublicDevicePlaybackAccountRead")
+                if needed not in security_source:
+                    errors.append(f"{where}: administrator Browser security gate missing")
+            elif path in EPG_ARTWORK_AUDITED:
                 if marker not in epg_artwork_http_source:
                     errors.append(
                         f"{where}: EPG image HTTP route anchor disappeared: {marker}")

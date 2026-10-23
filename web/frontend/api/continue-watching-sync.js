@@ -50,6 +50,82 @@
   function postHistory(body) {
     return postTo(HISTORY_ENDPOINT, body, 'recently watched sync failed');
   }
+
+  // Browser and Device checkpoints must share the SQLite CAS fence. Acquire
+  // the baseline once for this playback owner, not immediately before every
+  // position update (that would let a stale session overwrite a newer TV).
+  function loadRevision(state, backendId, currentRecordingId) {
+    if (state.loading) return state.loading;
+    const fetcher = global.fetch || fetch;
+    state.loading = fetcher(CONTINUE_ENDPOINT, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
+      body: JSON.stringify({
+        operation: 'revision', backendId, recordingId: currentRecordingId
+      })
+    }).then(function (response) {
+      if (!response || !response.ok || typeof response.json !== 'function') {
+        throw new Error('Resume revision unavailable');
+      }
+      return response.json();
+    }).then(function (data) {
+      if (!data || !Number.isSafeInteger(data.revision) || data.revision < 0) {
+        throw new Error('Invalid resume revision');
+      }
+      state.revision = data.revision;
+      return data.revision;
+    }).catch(function () {
+      state.blocked = true;
+      return null;
+    });
+    return state.loading;
+  }
+
+  function enqueueVersioned(body, state) {
+    const operation = mutationQueue.catch(function () {}).then(function () {
+      return loadRevision(state, body.backendId, body.recordingId);
+    }).then(function () {
+      if (state.blocked || !Number.isSafeInteger(state.revision)) return false;
+      const fetcher = global.fetch || fetch;
+      const request = Object.assign({}, body, {expectedRevision: state.revision});
+      return fetcher(CONTINUE_ENDPOINT, {
+        method: 'POST', credentials: 'same-origin',
+        headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
+        body: JSON.stringify(request)
+      }).then(function (response) {
+        if (!response || response.status === 409) {
+          // Never take a new revision and silently resubmit a stale position.
+          state.blocked = true;
+          return false;
+        }
+        if (!response.ok || typeof response.json !== 'function') {
+          state.blocked = true;
+          return false;
+        }
+        return response.json().then(function (data) {
+          if (!data || data.ok !== true ||
+              !Number.isSafeInteger(data.revision) ||
+              data.revision !== state.revision + 1 &&
+              data.revision !== state.revision) {
+            state.blocked = true;
+            return false;
+          }
+          state.revision = data.revision;
+          return true;
+        }, function () {
+          state.blocked = true;
+          return false;
+        });
+      }, function () {
+        state.blocked = true;
+        return false;
+      });
+    });
+    mutationQueue = operation.catch(function () {});
+    return operation;
+  }
+
   function enqueue(body) {
     const operation = mutationQueue.catch(function () {}).then(function () { return post(body); });
     mutationQueue = operation.catch(function () {});
@@ -69,12 +145,12 @@
   function clearCurrent(backendId, currentRecordingId) {
     const id = text(currentRecordingId);
     if (!id) return Promise.resolve(false);
-    return enqueue({
-      operation: 'clear',
-      backendId: text(backendId) || 'default',
-      recordingId: id,
-      operationId: nextOperationId('clear')
-    }).then(function () { return true; }, function () { return false; });
+    const scope = text(backendId) || 'default';
+    const state = {revision: null, loading: null, blocked: false};
+    return enqueueVersioned({
+      operation: 'clear', backendId: scope,
+      recordingId: id, operationId: nextOperationId('clear')
+    }, state).then(function (success) { return success === true; }, function () { return false; });
   }
   function rememberOpen(recording, options) {
     const settings = options && typeof options === 'object' ? options : {};
@@ -183,6 +259,9 @@
     let unsubscribeLifecycle = null;
     let mediaObserver = null;
     const boundMedia = [];
+    const revisionState = {revision: null, loading: null, blocked: false};
+    // Do not emit a progress read for a prewarmed session that has not
+    // entered actual playback; acquire the baseline on active admission.
 
     function snapshotActive(snapshot) {
       const state = snapshot && text(snapshot.state);
@@ -209,12 +288,12 @@
       const complete = forceClear || (duration > 0 && position >= duration);
       if (!complete && (!position || !canResume() || position === lastPosition)) return Promise.resolve(false);
       lastPosition = position;
-      return enqueue(complete ? {
+      return enqueueVersioned(complete ? {
         operation: 'clear', backendId, recordingId: recordingId(recording), operationId: nextOperationId('clear')
       } : {
         operation: 'progress', backendId, recordingId: recordingId(recording), positionSeconds: position,
         resumeSupported: true, operationId: nextOperationId('progress')
-      }).then(function () { return true; }, function () { return false; });
+      }, revisionState).then(function (success) { return success === true; }, function () { return false; });
     }
     function syncHistory(ended, allowInactive) {
       if (disposed && !ended) return Promise.resolve(false);
@@ -311,6 +390,7 @@
         if (historyObserved) syncHistory(false, true);
       }
       if (active) {
+        loadRevision(revisionState, backendId, recordingId(recording));
         ensureInitialHistory();
         ensureSampling();
       } else stopSampling();
@@ -382,6 +462,8 @@
       post,
       postHistory,
       enqueue,
+      enqueueVersioned,
+      loadRevision,
       enqueueHistory,
       flushPending,
       clearCurrent

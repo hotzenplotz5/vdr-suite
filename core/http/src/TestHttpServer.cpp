@@ -13,6 +13,8 @@
 #include <cctype>
 #include <cstdlib>
 #include <fstream>
+#include <regex>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -34,6 +36,50 @@ std::string pathWithoutQuery(const std::string& target)
     return query == std::string::npos
         ? target
         : target.substr(0, query);
+}
+
+// P1: exact admin path. Never treat pairing approval as an Account owner.
+bool devicePlaybackAccountPath(const std::string& path, std::string& deviceId)
+{
+    const std::string prefix = "/api/v1/devices/";
+    const std::string suffix = "/playback-account";
+    deviceId.clear();
+    if (path.compare(0, prefix.size(), prefix) != 0 ||
+        path.size() <= prefix.size() + suffix.size() ||
+        path.compare(path.size() - suffix.size(), suffix.size(), suffix) != 0)
+        return false;
+    deviceId = path.substr(prefix.size(),
+        path.size() - prefix.size() - suffix.size());
+    return !deviceId.empty() && deviceId.size() <= 128U &&
+        std::all_of(deviceId.begin(),deviceId.end(),[](unsigned char c) {
+            return std::isalnum(c) || c == '-' || c == '_' || c == '.';
+        });
+}
+
+// Refuse unknown/duplicate fields and JSON type coercion. Binding mutation
+// is deliberately tiny, uses no native identity or privileged client claim.
+bool parsePlaybackAccountBinding(const std::string& body,
+                                 std::string& accountId,
+                                 std::int64_t& expectedRevision)
+{
+    if (body.size() > 512U) return false;
+    static const std::regex first(
+        R"p1(^\s*\{\s*"accountId"\s*:\s*"([A-Za-z0-9_.-]{0,128})"\s*,\s*"expectedRevision"\s*:\s*(0|[1-9][0-9]{0,18})\s*\}\s*$)p1");
+    static const std::regex second(
+        R"p1(^\s*\{\s*"expectedRevision"\s*:\s*(0|[1-9][0-9]{0,18})\s*,\s*"accountId"\s*:\s*"([A-Za-z0-9_.-]{0,128})"\s*\}\s*$)p1");
+    std::smatch match;
+    bool reversed = false;
+    if (!std::regex_match(body,match,first)) {
+        if (!std::regex_match(body,match,second)) return false;
+        reversed = true;
+    }
+    accountId = match[reversed ? 2 : 1].str();
+    try {
+        expectedRevision = std::stoll(match[reversed ? 1 : 2].str());
+    } catch (...) {
+        return false;
+    }
+    return expectedRevision >= 0;
 }
 
 bool sameHeaderName(
@@ -420,6 +466,14 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter,
             *deviceCredentialVerifierRepository_,
             *securityPermissionGrantRepository_,
             *accountabilityEventRepository_);
+
+    devicePlaybackAccountBindingService_ =
+        std::make_unique<DevicePlaybackAccountBindingService>(
+            *securityDatabase_, *securityIdentityRepository_,
+            *humanAccountRepository_, *securityPermissionGrantRepository_,
+            *accountabilityEventRepository_);
+    if (!devicePlaybackAccountBindingService_->ensureSchema())
+        return;
 
     deviceLifecycleAdministrationService_ =
         std::make_unique<DeviceLifecycleAdministrationService>(
@@ -2020,8 +2074,78 @@ HttpServerResponse TestHttpServer::handleRequest(
     }
 
     ApiResponse apiResponse;
-
-    if (request.method == "GET")
+    std::string playbackBindingDeviceId;
+    if (devicePlaybackAccountPath(pathWithoutQuery(request.path),
+                                  playbackBindingDeviceId) &&
+        (request.method == "GET" || request.method == "POST"))
+    {
+        apiResponse.contentType = "application/json";
+        apiResponse.headers["Cache-Control"] = "no-store";
+        apiResponse.headers["X-Content-Type-Options"] = "nosniff";
+        if (!devicePlaybackAccountBindingService_) {
+            apiResponse.statusCode = 503;
+            apiResponse.body = R"({"error":{"code":"playback_binding_unavailable"}})";
+        } else if (request.path != pathWithoutQuery(request.path)) {
+            apiResponse.statusCode = 400;
+            apiResponse.body = R"({"error":{"code":"playback_binding_query_forbidden"}})";
+        } else if (request.method == "GET") {
+            if (!request.body.empty()) {
+                apiResponse.statusCode = 400;
+                apiResponse.body = R"({"error":{"code":"playback_binding_get_body_forbidden"}})";
+            } else {
+                const auto found = devicePlaybackAccountBindingService_->read(
+                    playbackBindingDeviceId);
+                using S = DevicePlaybackAccountStatus;
+                apiResponse.statusCode = found.status == S::ok ? 200 :
+                    found.status == S::invalid ? 400 :
+                    found.status == S::notFound ? 404 : 503;
+                if (found.status == S::ok) {
+                    apiResponse.body = "{\"deviceId\":\"" +
+                        found.binding.deviceId + "\",\"accountId\":";
+                    if (found.binding.accountId.empty())
+                        apiResponse.body += "null";
+                    else apiResponse.body += "\"" + found.binding.accountId + "\"";
+                    apiResponse.body += ",\"revision\":" +
+                        std::to_string(found.binding.revision) + "}";
+                } else {
+                    apiResponse.body = R"({"error":{"code":"playback_binding_unavailable_or_missing"}})";
+                }
+            }
+        } else {
+            std::string accountId;
+            std::int64_t expectedRevision = -1;
+            const std::string contentType =
+                requestHeaderValue(request, "Content-Type");
+            if (contentType != "application/json" ||
+                !parsePlaybackAccountBinding(request.body, accountId,
+                                             expectedRevision)) {
+                apiResponse.statusCode = 400;
+                apiResponse.body = R"({"error":{"code":"playback_binding_invalid_payload"}})";
+            } else {
+                const auto updated = devicePlaybackAccountBindingService_->set(
+                    gate.context.actor.actorId,
+                    playbackBindingDeviceId, accountId,
+                    expectedRevision, gate.context.requestId);
+                using S = DevicePlaybackAccountStatus;
+                apiResponse.statusCode = updated.status == S::ok ? 200 :
+                    updated.status == S::invalid ? 400 :
+                    updated.status == S::notFound ? 404 :
+                    updated.status == S::revisionConflict ? 409 : 503;
+                if (updated.status == S::ok) {
+                    apiResponse.body = "{\"deviceId\":\"" +
+                        updated.binding.deviceId + "\",\"accountId\":";
+                    if (updated.binding.accountId.empty())
+                        apiResponse.body += "null";
+                    else apiResponse.body += "\"" + updated.binding.accountId + "\"";
+                    apiResponse.body += ",\"revision\":" +
+                        std::to_string(updated.binding.revision) + "}";
+                } else {
+                    apiResponse.body = R"({"error":{"code":"playback_binding_mutation_rejected"}})";
+                }
+            }
+        }
+    }
+    else if (request.method == "GET")
     {
         if (pathWithoutQuery(request.path).rfind(
                 "/api/v1/recording-playback-sessions", 0) == 0)

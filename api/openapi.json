@@ -3735,6 +3735,189 @@
         }
       }
     },
+    "/api/v1/devices/{deviceId}/playback-account": {
+      "get": {
+        "tags": [
+          "Device administration"
+        ],
+        "operationId": "getDevicePlaybackAccountBinding",
+        "summary": "Read explicit Device-to-Human playback association",
+        "description": "Only administrator Browser Sessions, audited by the existing SecurityHttpGate. No Device credential, password or playback history is returned. An absent association has revision zero and accountId null.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Browser Human administrator with devices.grants.view@* on GET or devices.grants.modify@* on POST. POST additionally requires current Browser Session CSRF proof. Device credentials/automatic Pairing approval cannot associate Human Account playback."
+        },
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current explicit association and CAS revision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "deviceId",
+                    "accountId",
+                    "revision"
+                  ],
+                  "properties": {
+                    "deviceId": {
+                      "type": "string"
+                    },
+                    "accountId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Explicitly assigned Human Account, never inferred from approver."
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid body, revision, Device ID or unexpected fields."
+          },
+          "401": {
+            "description": "No authenticated Browser Session."
+          },
+          "403": {
+            "description": "Not a Browser administrator or missing permission / CSRF."
+          },
+          "404": {
+            "description": "Device or account absent, revoked, or inactive."
+          },
+          "409": {
+            "description": "Stale Device-to-Account binding revision."
+          },
+          "503": {
+            "description": "Persistent identity, security or accountability unavailable."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Device administration"
+        ],
+        "operationId": "setDevicePlaybackAccountBinding",
+        "summary": "Assign or explicitly unlink a playback Account from a paired Device",
+        "description": "Administrator browser-only CSRF-protected mutation, audited atomically. Pairing approval never implies an account. Device receives only intersection of its live play grant, the selected active Human Account's live play grant, and exact Recording admission. Revoke and grant changes are checked on every progress call.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Browser Human administrator with devices.grants.view@* on GET or devices.grants.modify@* on POST. POST additionally requires current Browser Session CSRF proof. Device credentials/automatic Pairing approval cannot associate Human Account playback."
+        },
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "accountId",
+                  "expectedRevision"
+                ],
+                "properties": {
+                  "accountId": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "description": "Explicit Human Account ID; empty string unlinks the Device and preserves a revision tombstone."
+                  },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Explicit assignment committed with new revision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "deviceId",
+                    "accountId",
+                    "revision"
+                  ],
+                  "properties": {
+                    "deviceId": {
+                      "type": "string"
+                    },
+                    "accountId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Explicitly assigned Human Account, never inferred from approver."
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid body, revision, Device ID or unexpected fields."
+          },
+          "401": {
+            "description": "No authenticated Browser Session."
+          },
+          "403": {
+            "description": "Not a Browser administrator or missing permission / CSRF."
+          },
+          "404": {
+            "description": "Device or account absent, revoked, or inactive."
+          },
+          "409": {
+            "description": "Stale Device-to-Account binding revision."
+          },
+          "503": {
+            "description": "Persistent identity, security or accountability unavailable."
+          }
+        }
+      }
+    },
     "/api/v1/devices/{deviceId}/grants": {
       "get": {
         "tags": [
@@ -7011,6 +7194,359 @@
         }
       }
     },
+    "/api/v1/recording-playback-sessions/continue-watching": {
+      "get": {
+        "tags": [
+          "Device Recording playback"
+        ],
+        "operationId": "listDeviceContinueWatching",
+        "summary": "List currently valid playback positions for the authenticated Device Service actor",
+        "description": "Only Device-actor-private Continue Watching entries; max 50. Each item requires current backend media.recording.play grant and exact public Recording identity admission. Human Account sharing requires an explicit future identity link. No native recording paths, guessed resume profile, or cached metadata.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified Device Credential and media.recording.play@backendId grant, per-entry current rec_ identity admission."
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "backendId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Up to 50 valid current positions; no-state returns empty items.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "backendId",
+                    "items",
+                    "limit"
+                  ],
+                  "properties": {
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "integer",
+                      "const": 50
+                    },
+                    "items": {
+                      "type": "array",
+                      "maxItems": 50,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "recordingId",
+                          "positionSeconds",
+                          "durationSeconds",
+                          "resumeSupport"
+                        ],
+                        "properties": {
+                          "recordingId": {
+                            "type": "string",
+                            "pattern": "^rec_[0-9a-f]{32}$"
+                          },
+                          "positionSeconds": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "durationSeconds": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "resumeSupport": {
+                            "type": "string",
+                            "const": "profile_dependent"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid exact backend."
+          },
+          "401": {
+            "description": "Missing Device proof."
+          },
+          "403": {
+            "description": "Missing live Device backend playback grant."
+          },
+          "503": {
+            "description": "Recording backend or progress owner unavailable."
+          }
+        }
+      }
+    },
+    "/api/v1/recording-playback-sessions/progress": {
+      "get": {
+        "tags": [
+          "Device Recording playback"
+        ],
+        "operationId": "getDeviceRecordingProgress",
+        "summary": "Read the current Device actor's persistent playback position",
+        "description": "Existing ContinueWatching SQLite owner; no native recording identifiers or playback credential in result. A Device's actor is not implicitly an account or another Device. MediaSession profile decides actual start-at support.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified current Device credential, media.recording.play@backendId and current public rec_ identity. Own Service-actor progress only; not a Human Account binding."
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "backendId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "recordingId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^rec_[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scoped progress or no progress; the position is not automatically played.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "backendId",
+                    "recordingId",
+                    "hasProgress",
+                    "positionSeconds",
+                    "revision"
+                  ],
+                  "properties": {
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "recordingId": {
+                      "type": "string",
+                      "pattern": "^rec_[0-9a-f]{32}$"
+                    },
+                    "hasProgress": {
+                      "type": "boolean"
+                    },
+                    "positionSeconds": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 0
+                    },
+                    "durationSeconds": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "minimum": 1
+                    },
+                    "resumeSupport": {
+                      "type": "string",
+                      "enum": [
+                        "profile_dependent"
+                      ]
+                    },
+                    "replayed": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Authentication, exact Device permission, current recording, revision or backend unavailable."
+          },
+          "401": {
+            "description": "Authentication, exact Device permission, current recording, revision or backend unavailable."
+          },
+          "403": {
+            "description": "Authentication, exact Device permission, current recording, revision or backend unavailable."
+          },
+          "404": {
+            "description": "Authentication, exact Device permission, current recording, revision or backend unavailable."
+          },
+          "503": {
+            "description": "Authentication, exact Device permission, current recording, revision or backend unavailable."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Device Recording playback"
+        ],
+        "operationId": "updateDeviceRecordingProgress",
+        "summary": "Commit confirmed playback progress with optimistic revision",
+        "description": "Device credential and exact backend play grant required. For nonzero progress the caller supplies an active owned sessionId, measured playback position and last observed revision. Position zero clears the resume cursor while retaining its revision fence. A position at or beyond verified duration is treated as completed; no playback is inferred from session lifetime. 409 requires a fresh GET; never blind retry. One request per deliberate checkpoint, pause or stop, not per frame.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified current Device credential, media.recording.play@backendId and current public rec_ identity. Own Service-actor progress only; not a Human Account binding."
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "backendId",
+                  "recordingId",
+                  "operationId",
+                  "positionSeconds",
+                  "expectedRevision"
+                ],
+                "properties": {
+                  "backendId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9._-]{1,128}$"
+                  },
+                  "recordingId": {
+                    "type": "string",
+                    "pattern": "^rec_[0-9a-f]{32}$"
+                  },
+                  "operationId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "sessionId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "Required for nonzero progress: still-ready session owned by this exact Device and public Recording. Omit for explicit zero reset."
+                  },
+                  "positionSeconds": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483647
+                  },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Applied or exact replay.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "backendId",
+                    "recordingId",
+                    "hasProgress",
+                    "positionSeconds",
+                    "revision"
+                  ],
+                  "properties": {
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "recordingId": {
+                      "type": "string",
+                      "pattern": "^rec_[0-9a-f]{32}$"
+                    },
+                    "hasProgress": {
+                      "type": "boolean"
+                    },
+                    "positionSeconds": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 0
+                    },
+                    "durationSeconds": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "minimum": 1
+                    },
+                    "resumeSupport": {
+                      "type": "string",
+                      "enum": [
+                        "profile_dependent"
+                      ]
+                    },
+                    "replayed": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Authentication, exact Device permission, current recording, revision or backend unavailable."
+          },
+          "401": {
+            "description": "Authentication, exact Device permission, current recording, revision or backend unavailable."
+          },
+          "403": {
+            "description": "Authentication, exact Device permission, current recording, revision or backend unavailable."
+          },
+          "404": {
+            "description": "Authentication, exact Device permission, current recording, revision or backend unavailable."
+          },
+          "409": {
+            "description": "Stale expectedRevision or incompatible operation replay.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object"
+                    },
+                    "currentRevision": {
+                      "type": "integer",
+                      "format": "int64"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication, exact Device permission, current recording, revision or backend unavailable."
+          }
+        }
+      }
+    },
     "/api/v1/recording-playback-sessions": {
       "post": {
         "tags": [
@@ -7018,7 +7554,7 @@
         ],
         "operationId": "createDeviceRecordingPlaybackSession",
         "summary": "Create an owned Device Recording media session",
-        "description": "Post-Phase-69 source-merged R2, not original accepted 69.F; no installed yaVDR/Hisense evidence. Requires verified Device credential and backend media.recording.play grant. Never fall back to browser-private /api/media/sessions. Every session GET checks active Device/owner; no persistent resume-position API. Only accepts an authorized completed public rec_ identity and explicit client codec/container capabilities; 201 issues scoped media cookie and safe mediaPath. Video/sound/seek availability depends on actual device and source.",
+        "description": "Post-Phase-69 source-merged R2, not original accepted 69.F; no installed yaVDR/Hisense evidence. Requires verified Device credential and backend media.recording.play grant. Never fall back to browser-private /api/media/sessions. Every session GET checks active Device/owner; P1 device-actor-scoped progress GET/POST exists separately; no Human Account mapping or automatic start-at. Only accepts an authorized completed public rec_ identity and explicit client codec/container capabilities; 201 issues scoped media cookie and safe mediaPath. Video/sound/seek availability depends on actual device and source.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "Verified VDR-Suite Device credential; active, owned Device session; media.recording.play@backendId for create/mutations (read rechecks current Device credential, session ownership and backend playback grant in the owner registry). Browser session, Basic authentication, or recordings.view alone do not authorize this API.",
@@ -7094,6 +7630,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Explicit resume startPositionSeconds outside the verified recording duration."
           },
           "503": {
             "description": "Backend/owner/metadata/media preparation unavailable.",
@@ -11658,6 +12197,12 @@
           },
           "capabilities": {
             "$ref": "#/components/schemas/DeviceRecordingCapabilities"
+          },
+          "startPositionSeconds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647,
+            "description": "Optional explicit resume attempt; a positive position is only accepted for index-backed HLS playback with verified source duration and suitable profile; never an automatic playback start."
           },
           "capabilityProfile": {
             "$ref": "#/components/schemas/DevicePlayerProfileKey"

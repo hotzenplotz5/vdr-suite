@@ -26,6 +26,7 @@ SECURITY_SERVICE_SRC := \
 	core/security/src/BrowserSessionRetentionService.cpp \
 	core/security/src/DevicePairingRequestService.cpp \
 	core/security/src/DeviceGrantAdministrationService.cpp \
+	core/security/src/DevicePlaybackAccountBindingService.cpp \
 	core/security/src/DeviceLifecycleAdministrationService.cpp \
 	core/security/src/DeviceCredentialRotationService.cpp \
 	core/security/src/FirstAdminBootstrapIssuanceService.cpp \
@@ -130,6 +131,27 @@ test-security-device-authentication:
 		-o $(BUILD_DIR)/test_device_credential_authentication
 	$(BUILD_DIR)/test_device_credential_authentication
 
+
+.PHONY: test-p1-device-playback-account-binding
+test-p1-device-playback-account-binding:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_REPOSITORY_SRC) \
+		core/security/src/DevicePlaybackAccountBindingService.cpp \
+		core/security/tests/test_device_playback_account_binding_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_device_playback_account_binding
+	$(BUILD_DIR)/test_device_playback_account_binding
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_p1_playback_account_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_p1_playback_account_security
+	$(BUILD_DIR)/test_p1_playback_account_security
+
+test-ci-fast: test-p1-device-playback-account-binding
+test-vdr: test-p1-device-playback-account-binding
 
 test-security-device-grant-administration:
 	$(BUILD_CXX) $(CXXFLAGS) \

@@ -15,6 +15,7 @@
 #include "DeviceCredentialVerifierRepository.h"
 #include "DeviceCredentialAuthenticator.h"
 #include "DeviceGrantAdministrationService.h"
+#include "DevicePlaybackAccountBindingService.h"
 #include "DeviceLifecycleAdministrationService.h"
 #include "DeviceCredentialRotationService.h"
 #include "DevicePairingRequestService.h"
@@ -114,6 +115,8 @@ private:
         humanAccountGrantAdministrationService_;
     std::unique_ptr<DeviceGrantAdministrationService>
         deviceGrantAdministrationService_;
+    std::unique_ptr<DevicePlaybackAccountBindingService>
+        devicePlaybackAccountBindingService_;
     std::unique_ptr<DeviceLifecycleAdministrationService>
         deviceLifecycleAdministrationService_;
     std::unique_ptr<DeviceCredentialRotationService>
