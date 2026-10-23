@@ -1,10 +1,20 @@
 # Public API v1 – einmalige End-to-End-Abnahme am realen VDR
 
-**Status: VORBEREITET – NICHT AUSGEFÜHRT.**
+**Status: VORBEREITET – EINZELNE HISTORISCHE READ-ONLY-/HARDWARE-TEILNACHWEISE VORHANDEN; GEMEINSAME ENDABNAHME NICHT AUSGEFÜHRT.**
 
 **Verbindliche Arbeitsregel (22.10.2026):** Erst die gesamte API-v1-Implementierung vollständig integrieren, dann **eine gemeinsame, nachvollziehbare Endabnahme am echten VDR**. Keine separaten, wiederholten Hardware-Slices je API-Funktion. Automatische Source-CI bei Commits ersetzt die Endabnahme nicht. Eine neue Änderung nach Abnahme erfordert nur die betroffenen Regressionen und die zentralen Pflichtprüfungen, nicht einen Neustart der gesamten Entwicklung.
 
 Diese Checkliste ist der **einzige operative Hardware-Abnahmeplan** für API v1. Bestehende fachliche ADRs, OpenAPI und `docs/CURRENT.md` bleiben Vertrags- bzw. Statusquellen; bei Abweichung den offenen Punkt hier notieren, keine zweite parallele Checkliste anlegen.
+
+## Integration-Checkpoint auf `main` (23.10.2026; keine Endabnahme)
+
+| Prüfebene | Nachweis / Status | Grenze und nächste Prüfung |
+| --- | --- | --- |
+| Quellcode integriert | R1–R3, ADR-0068 (#517), E1 (#519), E2, M1, M2, S1, P1 [#524](https://github.com/hotzenplotz5/vdr-suite/pull/524) merged at `052350714f5b5904a969158925cb05d8f39aed78`; Unified Acceptance Runner [#526](https://github.com/hotzenplotz5/vdr-suite/pull/526) merged at `096a04ad0e6a4eb2555292929d1373df549780bc` | Keine Behauptung einer durchgehenden produktiven Runtime- oder installierten Release-Kette ohne Code-Inventur |
+| Produktivpfad verdrahtet | PR #526 beschreibt die bestehende native SearchTimer UPDATE/ACTIVATE/DEACTIVATE/DELETE-Kette, TimerIntent/Assignment atomare Aufnahme/Agent-/native Readback-Kette sowie P1-Source-Komponenten | Am gemeinsamen HEAD anhand Runtime-Komposition, SecurityHttpGate, Grants, Agent/SuiteBridge, Browser/Device/JS und OpenAPI einzeln nachprüfen; SearchTimer CREATE nutzt weiterhin RESTfulAPI, **keine** native epgsearch-CAS-CREATE-Garantie |
+| Tests / CI | PR #526 nennt die erfolgreichen exakten PR-Head-Läufe [VDR-Suite CI #40008988460](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40008988460) und [Unified Runner #40008988457](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40008988457); SearchTimer CREATE Regression explizit **mock only**. | Ergebnisse gelten für den jeweiligen getesteten HEAD, nicht als automatisch erneute Tests am dokumentationsaktualisierten `main` oder reale Gerätetests; exakte Integrations-SHA-Nachweise vor Release ermitteln |
+| Reales yaVDR | Die untenstehenden bestehenden GET-/Security-/SQLite-Read-only-Teilnachweise gelten mit ihrer jeweiligen installierten Build-Identität; ein früher eng begrenzter EPG/Recording-Hardwarefall ist separat historisch akzeptiert | Kein Deployment des gemeinsamen Kandidaten nachgewiesen; 30 PASS / 7 SKIP / 17 BLOCKED der älteren GET-Probe bleiben unberührt; vier `outcome_unknown`-Operationen nicht erneut ausführen |
+| Offen/blockiert | Finaler einheitlicher Release-Kandidat, Browser↔Device/VIDAA-Playback, vollständige echte Operationen/Readbacks, sichere SearchTimer CREATE Freigabegrenze, Agent-Boot/Recovery | Keine produktiven Mutationen, kein Neustart, keine DB-Reparatur ohne eigene Freigabe; diese **eine** Matrix bleibt maßgeblich |
 
 ## 0. Vorbedingung: Der Implementierungsumfang ist geschlossen
 
@@ -13,7 +23,7 @@ Alle Kästchen dieses Abschnitts müssen vor dem ersten realen VDR-Mutationstest
 - [ ] Sämtliche für die API-v1-Freigabe vorgesehenen Implementierungen sind im gemeinsamen Integration-HEAD enthalten und durch **eine** API-v1-Versionsmatrix abgedeckt (keine schwebenden konkurrierenden Branch-Versionen).
 - [ ] OpenAPI, Referenz-JS-Client, Auth-/Grant-Modell, Daemon-Komposition, Provider-/Agent-Transport und tatsächlich installierte Paketinhalte entsprechen demselben Git-Commit.
 - [ ] Source-CI, Build der nativen Plugins und Release-/Packaging-CI sind grün für **genau** diesen HEAD; kein älterer erfolgreicher Lauf als Ersatz.
-- [ ] Native Suchregel-Schreiboperationen verfügen über echten epgsearch-lock-atomaren Generations-/Revisionsvergleich, persistierte Metadaten und vollständige readback-verifizierte Operationen; kein SVDRP-/RESTfulAPI-Write-Fallback.
+- [ ] Native Suchregel-Schreiboperationen UPDATE/ACTIVATE/DEACTIVATE/DELETE verfügen über epgsearch-lock-atomaren Generations-/Revisionsvergleich, persistierte Metadaten und readback-verifizierte Operationen; kein unsicherer Write-Fallback. **Abweichung bewusst offen:** inaktives SearchTimer CREATE nutzt RESTfulAPI als einmaligen Provider-Write; die Generation-/Readback-Gates machen CREATE nicht nativ atomar. Vor API-v1-Freigabe ausdrücklich entscheiden: native CAS-CREATE als Pflicht umsetzen oder CREATE aus der freigegebenen atomaren API-v1-Scope ausschließen und Einschränkung konsistent in OpenAPI/Release-Notizen festhalten.
 - [ ] Backend-Anbindung funktioniert durchgängig: Public-v1-Route → Device-/Browser-Gate → Backend-Grant → dauerhaft reservierter Operation-Datensatz → Agent-/SuiteBridge-Transport → native epgsearch-`Service()` → authoritative readback → Operation-Abschluss. **Keine** vorbereitete Mock-Provider-Schnittstelle wird als produktiv verdrahtete Implementierung gewertet.
 - [ ] Echte Provider-Capability wird nur bei kompatiblem epgsearch/SuiteBridge aktiviert. Ist sie nicht nachweisbar, sind UPDATE, Aktivieren, Deaktivieren und Löschen explizit geschlossen (Fehler statt unsicherem Fallback).
 - [ ] Ein einziger Release-Kandidat, ein Change-Log und eine Rückfallstrategie stehen fest. Keine Änderung an produktiven Daten vor dokumentierter Backup-Entscheidung.

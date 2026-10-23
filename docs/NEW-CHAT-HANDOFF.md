@@ -8,8 +8,7 @@ This is the canonical operational entry point for every new VDR-Suite chat.
 
 For the completed Public-v1 Recording R1/R2/R3 scope, read the
 [2026-10-21 real-yaVDR closeout](development/public-v1-recording-r2r3-hardware-acceptance-20261021.md).
-The next Public-v1 work is **ADR-0068's behavior-preserving router
-modularization checkpoint**, not a rerun of the deleted Brisant fixture.
+The ADR-0068 router checkpoint and R1–P1 source sequence are **already completed/merged**. P1 PR #524 was merged at `052350714f5b5904a969158925cb05d8f39aed78`; the Public API v1 Unified Acceptance Runner PR #526 was merged at `096a04ad0e6a4eb2555292929d1373df549780bc`. **Current next action: Public API v1 Integrationsabschluss** against actual runtime composition and the [one central hardware matrix](development/public-v1-final-hardware-acceptance.md), not a new slice or repeated Brisant fixture. A source-merged runner is not accepted real-VDR hardware evidence. The SearchTimer CREATE RESTfulAPI/non-native-CAS restriction and Browser↔Device/VIDAA playback remain open; historical `outcome_unknown` writes must not be repeated.
 Actual branch/PR and deployed state must still be checked live; other Device,
 Multiuser, MLD and Addon workstreams remain separate.
 
