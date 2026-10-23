@@ -25,6 +25,11 @@ struct ActivationIntent {
     std::string backendId;
     bool desiredEnabled = false;
     std::int64_t revision = 0; // absent == 0, first explicit update == 1
+    // Zero/empty for disabled or legacy/unbound intents. The operation
+    // fences MUST compare all three fields to a current authenticated Agent.
+    std::uint64_t backendGeneration = 0;
+    std::string agentId;
+    std::string agentInstanceId;
 };
 
 struct IntentResult {
