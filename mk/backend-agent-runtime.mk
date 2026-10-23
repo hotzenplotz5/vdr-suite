@@ -21,6 +21,10 @@ backend-agent:
 		addons/media-tools/src/PinnedMediaImportAgentExecutor.cpp \
 		core/agent/src/BackendAgentMediaImportAuthorization.cpp \
 		core/agent/src/BackendAgentMediaImportRuntime.cpp \
+		addons/media-tools/src/MediaShrink.cpp \
+		addons/media-tools/src/LocalMediaShrinkReviewStore.cpp \
+		addons/media-tools/src/LocalMediaShrinkAgentExecutor.cpp \
+		core/agent/src/BackendAgentMediaShrinkAuthorization.cpp \
 		apps/agent/main.cpp \
 		$(LDFLAGS) $(shell pkg-config --libs libcurl) -lcrypto \
 		-o $(BUILD_DIR)/vdr-suite-backend-agent
