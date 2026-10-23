@@ -115,7 +115,9 @@ jobs:
           echo "MEDIA_TOOLS_INSTALLER_FAIL_CLOSED=PASS"
           # Read-only merge rehearsal in the disposable Actions checkout.
           # Print actual conflicts rather than hiding them behind a status flag.
-          git fetch --quiet --no-tags --unshallow origin || true
+          if test "$(git rev-parse --is-shallow-repository)" = true; then
+            git fetch --quiet --no-tags --unshallow origin
+          fi
           git fetch --quiet --no-tags origin main:refs/remotes/origin/main
           git config user.name 'VDR Suite CI'
           git config user.email 'ci@vdr-suite.invalid'
