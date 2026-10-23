@@ -29,18 +29,21 @@ public:
         : roots_(std::move(roots)), resolve_(std::move(resolve)),
           available_(std::move(available)), reviews_(reviews) {}
 
-    ApiResponse capability(const std::string& backend) const {
+    ApiResponse capability(const std::string& backend,
+                           bool authorizedStage = false) const {
         const bool ready = roots_.count(backend) && available_ &&
                            available_(backend);
-        // "available" must remain false: no stage/publish mutation is enabled.
         return MediaShrinkPlanApiRuntime::json(200,
             "{\"backendId\":\"" + backend +
-            "\",\"capability\":\"addons.media.shrink\",\"available\":false,"
-            "\"planningAvailable\":" + (ready ? "true" : "false") + "}");
+            "\",\"capability\":\"addons.media.shrink\",\"available\":" +
+            (ready && authorizedStage ? "true" : "false") + ",\"
+            "\"planningAvailable\":" + (ready ? "true" : "false") +
+            ",\"encoders\":[\"software\"]}");
     }
 
     ApiResponse plan(const std::string& /*actor*/, const std::string& backend,
-                     const std::string& recordingId) const {
+                     const std::string& recordingId,
+                     bool authorizedStage = false) const {
         const auto root = roots_.find(backend);
         if (root == roots_.end() || !available_ || !available_(backend))
             return MediaShrinkPlanApiRuntime::problem(503,
@@ -74,7 +77,8 @@ public:
             return MediaShrinkPlanApiRuntime::json(200,
                 "{\"backendId\":\"" + backend +
                 "\",\"recordingId\":\"" + recordingId +
-                "\",\"readOnly\":true,\"stageAvailable\":false,"
+                "\",\"readOnly\":true,\"stageAvailable\":" +
+                (authorizedStage ? "true" : "false") + ",\"
                 "\"originalPreserved\":true,\"sourceBytes\":" +
                 std::to_string(inspected.totalBytes) +
                 ",\"segments\":" +
@@ -234,7 +238,8 @@ public:
 
     ApiResponse reviewStatus(const std::string& actor,
                              const std::string& backend,
-                             const std::string& reviewId) const {
+                             const std::string& reviewId,
+                             bool authorizedPublish = false) const {
         if (!reviews_) return MediaShrinkPlanApiRuntime::problem(
             503, "Media Shrink review unavailable.");
         const auto result = reviews_->find(actor, backend, reviewId);
@@ -259,7 +264,8 @@ public:
             "\",\"recordingId\":\"" + review.recordingId +
             "\",\"state\":\"" + review.state +
             "\",\"revision\":" + std::to_string(review.revision) +
-            ",\"readOnly\":true,\"publishAvailable\":false,"
+            ",\"readOnly\":true,\"publishAvailable\":" +
+            ((authorizedPublish && review.state == "staged") ? "true" : "false") + ",\"
             "\"publishedRecordingId\":\"" +
             review.publishedRecordingId + "\"}");
     }
