@@ -49,6 +49,8 @@ bundled browser's richer pre-v1 routes are equivalent.
 
 ## P1 Device recording progress — source candidate
 
+The client also offers `getContinueWatching({backendId, headers})`: a bounded list of public rec_ IDs, confirmed positions and nullable durations. Both GET variants require an authenticated Device with the exact play grant.
+
 A currently verified Device with `media.recording.play@backendId` may use
 `getRecordingProgress({backendId, recordingId, headers})` and
 `updateRecordingProgress({backendId, recordingId, operationId,
