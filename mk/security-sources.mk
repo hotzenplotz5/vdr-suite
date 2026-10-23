@@ -26,6 +26,7 @@ SECURITY_SERVICE_SRC := \
 	core/security/src/BrowserSessionRetentionService.cpp \
 	core/security/src/DevicePairingRequestService.cpp \
 	core/security/src/DeviceGrantAdministrationService.cpp \
+	core/security/src/DevicePlaybackAccountBindingService.cpp \
 	core/security/src/DeviceLifecycleAdministrationService.cpp \
 	core/security/src/DeviceCredentialRotationService.cpp \
 	core/security/src/FirstAdminBootstrapIssuanceService.cpp \
