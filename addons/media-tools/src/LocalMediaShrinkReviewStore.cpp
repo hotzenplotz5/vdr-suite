@@ -239,6 +239,14 @@ std::string LocalMediaShrinkReviewStore::registerCandidate(
     require(writeFully(output.fd, bytes) && ::fsync(output.fd) == 0 &&
             ::fsync(dir.fd) == 0,
             "cannot durably register HEVC candidate");
+    // The private candidate carries a path-free binding readable by the
+    // independent Core verification. Failure is always ambiguous, never
+    // an excuse to transcode or publish twice.
+    writeShrinkReviewBinding(review.candidateDirectory, ShrinkReviewBinding{
+        review.reviewId, review.stageOperationId, review.actorId,
+        review.backendId, review.recordingId,
+        review.sourceFingerprint, review.backendGeneration
+    });
     return review.reviewId;
 }
 
@@ -274,6 +282,15 @@ std::optional<LocalMediaShrinkReview> LocalMediaShrinkReviewStore::find(
         return std::nullopt;
     auto e = deserialize(bytes);
     if (!e || e->reviewId != reviewId) return std::nullopt;
+    const auto bound = readShrinkReviewBinding(e->candidateDirectory);
+    if (!bound || bound->reviewId != e->reviewId ||
+        bound->stageOperationId != e->stageOperationId ||
+        bound->actorId != e->actorId ||
+        bound->backendId != e->backendId ||
+        bound->recordingId != e->recordingId ||
+        bound->backendGeneration != e->backendGeneration ||
+        bound->sourceFingerprint != e->sourceFingerprint)
+        return std::nullopt;
     return e;
 }
 
