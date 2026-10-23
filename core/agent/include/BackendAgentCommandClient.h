@@ -24,7 +24,10 @@ class ISuiteBridgeLegacyOsdInputTransport;
 inline IBackendAgentRecordingCutTransport* RecordingCutDefaultTransport = nullptr;
 }
 
-namespace vdrsuite::mediatools { class IMediaImportAgentExecutor; }
+namespace vdrsuite::mediatools {
+class IMediaImportAgentExecutor;
+class IMediaShrinkAgentExecutor;
+}
 
 struct BackendAgentCommandClientConfig
 {
@@ -38,6 +41,7 @@ struct BackendAgentCommandClientConfig
     vdrsuite::agent::IBackendAgentRecordingCutTransport* recordingCutTransport =
         vdrsuite::agent::RecordingCutDefaultTransport;
     vdrsuite::mediatools::IMediaImportAgentExecutor* mediaImportExecutor = nullptr;
+    vdrsuite::mediatools::IMediaShrinkAgentExecutor* mediaShrinkExecutor = nullptr;
 };
 
 struct BackendAgentCommandAvailabilitySnapshot
