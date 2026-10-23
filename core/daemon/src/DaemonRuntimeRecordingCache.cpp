@@ -4,6 +4,8 @@
 #include "GenreBrowserApiRuntime.h"
 #include "VdrRecordingCacheRepository.h"
 #include "VdrRecordingDuration.h"
+#include "MediaShrinkAgentCommand.h"
+#include <filesystem>
 
 #include <chrono>
 #include <cstdint>
@@ -334,6 +336,128 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                         std::cout << "Media Import readback verified: backend="
                                   << backendRuntimeContext->backendId
                                   << ", operations=" << verified << std::endl;
+                }
+                // The existing native Recording refresh is the independent
+                // evidence for a completed HEVC Publish. A private candidate,
+                // an Agent result and a new VDR Recording are three different
+                // states; only a genuinely refreshed provider inventory can
+                // complete the Core operation.
+                if (ready && mutationOperationRepository_ &&
+                    backendAgentCommandRepository_ &&
+                    mediaShrinkReviewRepository_ &&
+                    mediaShrinkPlanRuntime_ && publicRecordingIdentities_) {
+                    using State = vdrsuite::operations::MutationOperationState;
+                    const auto pending =
+                        mutationOperationRepository_->listByActionFamilyAndStates(
+                            "media.shrink.publish", {State::outcomeUnknown}, 128);
+                    if (pending.ok()) {
+                        const auto nativeRecordings =
+                            vdrRecordingCacheRepository_->findAllForBackend(
+                                backendRuntimeContext->backendId);
+                        for (const auto& op : pending.operations) {
+                            if (op.backendId != backendRuntimeContext->backendId ||
+                                op.resourceType != "MediaShrinkReview" ||
+                                !vdrsuite::mediatools::shrinkOpaqueId(
+                                    op.resourceId, "shk_") ||
+                                op.resultReference.rfind("agent.media.shrink:", 0) != 0)
+                                continue;
+                            const auto commandId = op.resultReference.substr(19);
+                            const auto assignment =
+                                backendAgentCommandRepository_->findAssignment(
+                                    commandId);
+                            const auto result =
+                                backendAgentCommandRepository_->resultForCommand(
+                                    commandId);
+                            if (!assignment || !result ||
+                                assignment->operationId != op.operationId ||
+                                assignment->backendId != op.backendId ||
+                                assignment->backendGeneration != op.backendGeneration ||
+                                assignment->commandType !=
+                                    vdrsuite::mediatools::kMediaShrinkPublishCommandType ||
+                                result->commandId != assignment->commandId ||
+                                result->resultCategory != "outcome_unknown" ||
+                                result->dispatchState != "accepted_by_executor" ||
+                                result->resultEvidence != op.resourceId)
+                                continue;
+                            const auto review = mediaShrinkReviewRepository_->find(
+                                op.actorId, op.backendId, op.resourceId);
+                            if (!review.ok() || review.review.state != "publishing" ||
+                                review.review.revision != 2 ||
+                                review.review.publishOperationId != op.operationId ||
+                                review.review.backendGeneration !=
+                                    op.backendGeneration ||
+                                review.review.sourceFingerprint !=
+                                    op.expectedResourceFingerprint)
+                                continue;
+                            const auto source = mediaShrinkPlanRuntime_->
+                                trustedSourcePaths(op.backendId,
+                                    review.review.recordingId,
+                                    op.expectedResourceFingerprint);
+                            if (!source) continue;
+                            // Mirror the native No-Replace target from
+                            // publishShrinkCandidate, never an Agent path.
+                            namespace fs = std::filesystem;
+                            const fs::path publishedRelative =
+                                fs::path(source->relativeRecording.parent_path()
+                                    .string() + "_HEVC") /
+                                source->relativeRecording.filename();
+                            const fs::path publishedNative =
+                                source->videoRoot / publishedRelative;
+                            std::string matchedNative;
+                            unsigned matches = 0;
+                            for (const auto& recording : nativeRecordings) {
+                                if (recording.backendId == op.backendId &&
+                                    fs::path(recording.path) == publishedNative &&
+                                    !recording.backendNativeId.empty() &&
+                                    !recording.title.empty()) {
+                                    ++matches;
+                                    matchedNative = recording.backendNativeId;
+                                }
+                            }
+                            if (matches != 1) continue;
+                            try {
+                                const auto published = vdrsuite::mediatools::
+                                    inspectShrink(source->videoRoot,
+                                                  publishedRelative);
+                                if (published.segments.empty()) continue;
+                                vdrsuite::mediatools::NativeProcessRunner probe(
+                                    std::chrono::seconds(120));
+                                const auto codec = probe.run({
+                                    "/usr/bin/ffprobe", "-v", "error",
+                                    "-select_streams", "v:0",
+                                    "-show_entries", "stream=codec_name",
+                                    "-of", "default=nw=1:nk=1",
+                                    (publishedNative / "00001.ts").string()
+                                }, true);
+                                if (codec.exitCode != 0 ||
+                                    (codec.output != "hevc\n" &&
+                                     codec.output != "hevc\r\n"))
+                                    continue;
+                                const auto publicId = publicRecordingIdentities_->
+                                    resolveOrCreate(op.backendId, matchedNative);
+                                if (!publicId ||
+                                    !vdrsuite::mediatools::shrinkOpaqueId(
+                                        *publicId, "rec_"))
+                                    continue;
+                                const auto transition =
+                                    mutationOperationRepository_->transition(
+                                        op.operationId, op.operationRevision,
+                                        op.state, State::succeeded,
+                                        *publicId, recordingMetadataEpochSeconds());
+                                if (!transition.ok()) continue;
+                                const auto completed =
+                                    mediaShrinkReviewRepository_->completePublication(
+                                        op.actorId, op.backendId,
+                                        op.resourceId, 2);
+                                if (completed.ok())
+                                    std::cout << "HEVC Publish reconciled: backend="
+                                              << op.backendId << std::endl;
+                            } catch (...) {
+                                // Keep outcomeUnknown for later independent
+                                // readback; never re-dispatch the mutation.
+                            }
+                        }
+                    }
                 }
                 recordingCacheRefreshQueue_.completed(backendRuntimeContext->backendId);
 
