@@ -126,6 +126,19 @@ int main()
         3, "op-publish").status == MediaShrinkReviewStatus::conflict);
     assert(reviews.completePublication("actor-b","backend-a",reviewId,
         3).status == MediaShrinkReviewStatus::notFound);
+    // Corrupted persisted rows fail closed; they cannot regain their
+    // published/available status merely because the opaque ID still matches.
+    assert(database.execute(
+        "UPDATE addon_media_shrink_reviews SET state='staged' "
+        "WHERE review_id='shk_0123456789abcdef0123456789abcdef';"));
+    assert(reviews.find("actor-a","backend-a",reviewId).status ==
+           MediaShrinkReviewStatus::unavailable);
+    assert(database.execute(
+        "UPDATE addon_media_shrink_reviews SET state='published',"
+        "published_recording_id='../../untrusted' "
+        "WHERE review_id='shk_0123456789abcdef0123456789abcdef';"));
+    assert(reviews.find("actor-a","backend-a",reviewId).status ==
+           MediaShrinkReviewStatus::unavailable);
     // Restart recovery: review and its publication claim survive process
     // lifetime. Only canonical Core operations can promote either phase.
     std::string pattern = (std::filesystem::temp_directory_path() /
