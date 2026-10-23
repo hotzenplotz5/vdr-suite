@@ -248,6 +248,7 @@ expected_fixed_requests = {
     '"PLUG suitebridge CAPS 1\\r\\n"',
     '"PLUG suitebridge SNAP\\r\\n"',
     '"PLUG suitebridge OSDSNAP\\r\\n"',
+    '"PLUG suitebridge VPATH 1\\r\\n"',
 }
 
 observed_fixed_requests = {
@@ -258,7 +259,7 @@ observed_fixed_requests = {
 
 if observed_fixed_requests != expected_fixed_requests:
     errors.append(
-        "typed Suite Bridge transport must retain exactly the three fixed local core requests"
+        "typed Suite Bridge transport must retain exactly four allowlisted local core requests"
     )
 
 if source_text.count('"PLUG suitebridge ARTW "') != 1:

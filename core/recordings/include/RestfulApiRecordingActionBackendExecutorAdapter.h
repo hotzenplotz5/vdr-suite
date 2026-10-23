@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
 #include <map>
 #include <string>
 #include <utility>
@@ -313,6 +314,66 @@ private:
                 "backendNativeId is required for "
                 "safe recording action");
             return false;
+        }
+
+        // An explicit per-backend recording root is a safety boundary,
+        // not merely a preferred destination. Reject paths from a different
+        // backend/root before invoking even a native preview endpoint.
+        if (config_.videoDirectoryExplicit &&
+            config_.apiMode == RestfulApiRecordingActionApiMode::SafeMutation)
+        {
+            const std::filesystem::path root =
+                std::filesystem::path(config_.videoDirectory).lexically_normal();
+            const std::filesystem::path source =
+                parameter(payload.parameters, "backendNativeId");
+            bool inside = root.is_absolute() && root != root.root_path() &&
+                source.is_absolute() && source.lexically_normal() == source;
+            if (inside)
+            {
+                auto sourcePart = source.begin();
+                for (auto rootPart = root.begin(); rootPart != root.end();
+                     ++rootPart, ++sourcePart)
+                {
+                    if (sourcePart == source.end() || *sourcePart != *rootPart)
+                    {
+                        inside = false;
+                        break;
+                    }
+                }
+                inside = inside && source != root;
+            }
+            if (!inside)
+            {
+                result.success = false;
+                result.message = "restfulapi backend executor payload invalid";
+                result.errors.push_back(
+                    "backendNativeId is outside configured recording video root");
+                return false;
+            }
+            if (payload.type == RecordingActionType::Move)
+            {
+                const std::string requestedTarget =
+                    parameter(payload.parameters, "targetPath");
+                const std::filesystem::path target(requestedTarget);
+                bool safeTarget = !requestedTarget.empty() &&
+                    requestedTarget.find_first_of("\r\n") == std::string::npos;
+                for (const auto& part : target)
+                {
+                    if (part == "." || part == "..")
+                    {
+                        safeTarget = false;
+                        break;
+                    }
+                }
+                if (!safeTarget)
+                {
+                    result.success = false;
+                    result.message = "restfulapi backend executor payload invalid";
+                    result.errors.push_back(
+                        "targetPath is not a safe relative recording folder");
+                    return false;
+                }
+            }
         }
 
         return true;
