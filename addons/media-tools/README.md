@@ -43,19 +43,28 @@ and maintenance lock, and enables both protected import and HEVC stage/publish
 in the local backend-agent service override. It restarts only the Suite daemon
 and Backend Agent, never VDR or recording mutations.
 
-The command takes **five positional arguments**, in order: the **exact
-already CI-tested commit SHA**, an **independently reviewed handler SHA-256**
-(not simply copied from the binary being installed), the configured backend ID,
-a canonical absolute read-accessible source directory, and a canonical
-absolute writable VDR video directory. Execute it as a regular account with
-sudo privileges, from a clean checkout of
-`work/addon-platform-registry-lifecycle`. Example shape:
+The operator first prepares a sealed build and obtains the exact handler
+digest for independent review. The **second invocation** installs that
+same preserved build without recompiling it; neither the printed digest nor
+a caller-provided manifest becomes administrative authority on its own. The
+final invocation requires a separately reviewed SHA-256 and the preparation
+work directory. Both invocations run as a normal user with sudo privileges,
+from a clean checkout of `work/addon-platform-registry-lifecycle`:
 
 ```bash
 bash tools/addons/install_media_tools.sh \
-  "$TESTED_COMMIT_SHA" "$INDEPENDENTLY_APPROVED_HANDLER_SHA256" \
+  "$TESTED_COMMIT_SHA" --prepare \
   "$BACKEND_ID" "$SOURCE_ROOT" "$VIDEO_ROOT"
+
+# Review the printed WORKDIR and REVIEW_HANDLER_SHA256 independently.
+bash tools/addons/install_media_tools.sh \
+  "$TESTED_COMMIT_SHA" "$INDEPENDENTLY_APPROVED_HANDLER_SHA256" \
+  "$BACKEND_ID" "$SOURCE_ROOT" "$VIDEO_ROOT" "$PREPARED_WORKDIR"
 ```
+
+The five-argument form still supports a separately prebuilt/reviewed digest,
+but the optional sixth argument is the preferred way to reuse the preparation
+without a second compilation.
 
 **Main integration gate:** the installer fetches current `main` and refuses
 any checkout that does not contain its exact commit, even if the add-on branch
