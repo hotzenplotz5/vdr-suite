@@ -1045,6 +1045,16 @@ void BackendAgentCommandDeliveryService::setMediaImportResultApply(
 {
     mediaImportResultApply_ = std::move(apply);
 }
+void BackendAgentCommandDeliveryService::setMediaShrinkReceiptFenceCheck(
+    MediaShrinkReceiptFenceCheck check)
+{
+    mediaShrinkReceiptFenceCheck_ = std::move(check);
+}
+void BackendAgentCommandDeliveryService::setMediaShrinkResultApply(
+    MediaShrinkResultApply apply)
+{
+    mediaShrinkResultApply_ = std::move(apply);
+}
 
 BackendAgentCommandReceiptResult BackendAgentCommandDeliveryService::receipt(
     const RequestSecurityContext& context,
@@ -1107,6 +1117,42 @@ BackendAgentCommandReceiptResult BackendAgentCommandDeliveryService::receipt(
             }
             result.reasonCode =
                 reason.empty() ? "media_import_server_fenced" : reason;
+            return result;
+        }
+    }
+    const bool mediaShrink = assignment.has_value() &&
+        (assignment->commandType == "addon.media.shrink.stage" ||
+         assignment->commandType == "addon.media.shrink.publish");
+    if (mediaShrink)
+    {
+        // Advertised capabilities do not prove permission. Stage/publish
+        // must both pass the reviewed canonical Core receipt fence.
+        bool granted = false;
+        if (mediaShrinkReceiptFenceCheck_)
+        {
+            try
+            {
+                granted = mediaShrinkReceiptFenceCheck_(
+                    *assignment, receipt, reason);
+            }
+            catch (...) { reason = "media_shrink_server_fence_failed"; }
+        }
+        else
+            reason = "media_shrink_server_fence_unavailable";
+        if (!granted)
+        {
+            if (!appendEvent(
+                    context, "addon.media.shrink.rejected",
+                    receipt.backendId, assignment->operationId,
+                    assignment->commandType, "deny",
+                    reason.empty() ? "media_shrink_server_fenced" : reason,
+                    "rejected", now))
+            {
+                result.reasonCode = "command_accountability_unavailable";
+                return result;
+            }
+            result.reasonCode = reason.empty()
+                ? "media_shrink_server_fenced" : reason;
             return result;
         }
     }
@@ -1242,6 +1288,34 @@ BackendAgentCommandResultAck BackendAgentCommandDeliveryService::result(
             result.dropResponse = false;
             result.reasonCode = applyReason.empty()
                 ? "media_import_result_apply_failed" : applyReason;
+            return result;
+        }
+    }
+
+    if (result.accepted && assignment.has_value() &&
+        (assignment->commandType == "addon.media.shrink.stage" ||
+         assignment->commandType == "addon.media.shrink.publish"))
+    {
+        bool applied = false;
+        std::string applyReason;
+        if (mediaShrinkResultApply_)
+        {
+            try
+            {
+                applied = mediaShrinkResultApply_(
+                    *assignment, value, applyReason);
+            }
+            catch (...) { applyReason = "media_shrink_result_apply_exception"; }
+        }
+        else
+            applyReason = "media_shrink_result_apply_unavailable";
+        if (!applied)
+        {
+            result.accepted = false;
+            result.replayed = false;
+            result.dropResponse = false;
+            result.reasonCode = applyReason.empty()
+                ? "media_shrink_result_apply_failed" : applyReason;
             return result;
         }
     }
