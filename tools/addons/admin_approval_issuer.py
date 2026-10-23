@@ -41,6 +41,11 @@ def issue(root: Path, module: str, version: str, approved_sha256: str,
         raise IssueError("no-reviewed-handler")
     if not isinstance(version, str) or not _VERSION.fullmatch(version):
         raise IssueError("invalid-version")
+    # The first issue and every later rotation must obey the SAME fixed,
+    # Core-reviewed handler protocol version. Valid semver alone is not
+    # permission to register a new executable interface.
+    if version != "0.1.0":
+        raise IssueError("unreviewed-handler-version")
     if not isinstance(approved_sha256, str) or not _SHA.fullmatch(approved_sha256):
         raise IssueError("invalid-approved-digest")
     if origin not in ("manual", "debian"):

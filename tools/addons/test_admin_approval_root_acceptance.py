@@ -180,6 +180,18 @@ class RootOwnedApprovalAcceptance(unittest.TestCase):
                    replacement, "manual")
         self.assertEqual(self.approval.read_bytes(), before)
 
+    def test_admin_issuer_refuses_unreviewed_first_version(self):
+        self.approval.unlink()
+        with self.assertRaisesRegex(IssueError, "unreviewed-handler-version"):
+            issue(self.root, "rectools", "0.2.0",
+                  self.document["sha256"], "manual")
+        self.assertFalse(self.approval.exists())
+        # The reviewed version still works with independently approved
+        # binary bytes, no package metadata auto-activation or overwrite.
+        self.assertEqual(issue(self.root, "rectools", "0.1.0",
+                               self.document["sha256"], "manual"),
+                         self.approval)
+
     def test_admin_issuer_rejects_unapproved_digest(self):
         self.approval.unlink()
         with self.assertRaises(IssueError):
