@@ -3,6 +3,7 @@
 #include "BackendAgentCommandJson.h"
 #include "BackendAgentCommandStateStore.h"
 #include "MediaShrinkAgentCommand.h"
+#include "MediaShrinkAuthorityCodec.h"
 
 #include <chrono>
 #include <utility>
@@ -82,4 +83,50 @@ bool ReceiptRevalidatingMediaShrinkAuthorization::granted(
             R"({"outcome":"replayed","reasonCode":"command_receipt_replayed"})";
     } catch (...) { return false; }
 }
+std::optional<vdrsuite::mediatools::LocalMediaShrinkAuthority>
+ReceiptRevalidatingMediaShrinkAuthorization::authority(
+    const BackendAgentCommandAssignment& assignment)
+{
+    if (!granted(assignment) || !context_) return std::nullopt;
+    try {
+        // State can change between the preliminary permission replay and
+        // authority issuance. Require the same protected, unconsumed receipt.
+        const auto ctx = context_();
+        if (ctx.backendId != assignment.backendId ||
+            ctx.agentId != assignment.agentId ||
+            ctx.agentInstanceId != assignment.agentInstanceId ||
+            ctx.backendGeneration != assignment.backendGeneration ||
+            ctx.credentialSecret.empty())
+            return std::nullopt;
+        commandstate::LocalState state;
+        std::string reason;
+        if (!commandstate::load(statePath_, state, reason) ||
+            !state.receiptAcknowledged || state.resultPresent ||
+            !exactCommand(assignment, state.assignment) ||
+            !exactReceipt(assignment, state.receipt))
+            return std::nullopt;
+        const auto result = transport_.postAuthenticated(
+            ctx.agentId, ctx.credentialSecret,
+            "/api/agent/v1/media-shrink/authority",
+            serializeBackendAgentCommandReceiptJson(state.receipt));
+        if (!result.transportSucceeded || result.statusCode != 200)
+            return std::nullopt;
+        const auto authority =
+            vdrsuite::mediatools::authoritywire::parse(result.body);
+        if (!authority ||
+            authority->backendId != assignment.backendId ||
+            authority->operationId != assignment.operationId ||
+            authority->backendGeneration != assignment.backendGeneration)
+            return std::nullopt;
+        vdrsuite::mediatools::MediaShrinkAgentSelection selection;
+        if (!vdrsuite::mediatools::parseMediaShrinkAgentSelection(
+                assignment.commandType, assignment.payload, selection) ||
+            (selection.action ==
+                vdrsuite::mediatools::ShrinkRequestAction::stage &&
+             authority->recordingId != selection.recordingId))
+            return std::nullopt;
+        return authority;
+    } catch (...) { return std::nullopt; }
+}
+
 } // namespace vdrsuite::agent
