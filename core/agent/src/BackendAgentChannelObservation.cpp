@@ -370,7 +370,9 @@ bool readBackendAgentChannelsConfSnapshot(
         return false;
     }
     struct stat status{};
-    if (lstat(path.c_str(), &status) != 0)
+    // A VDR installation may choose channels.conf via a maintained symlink.
+    // Inspect the resolved target, but still accept regular files only.
+    if (stat(path.c_str(), &status) != 0)
     {
         reasonCode = "channels_conf_unavailable";
         return false;
