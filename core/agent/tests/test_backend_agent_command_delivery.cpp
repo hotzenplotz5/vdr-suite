@@ -165,6 +165,9 @@ int main()
     assert(!backendAgentCommandValidAssignment(shrink));
     shrink = media;
     shrink.commandId = "cmd_shrink_publish_shape";
+    // Do not reserve the Media Import fixture's unique job/attempt/epoch.
+    shrink.jobId = "job_shrink_publish_shape";
+    shrink.attemptId = "att_shrink_publish_shape";
     shrink.commandType = "addon.media.shrink.publish";
     shrink.payload =
         "{\"reviewId\":\"shk_0123456789abcdef0123456789abcdef\","
