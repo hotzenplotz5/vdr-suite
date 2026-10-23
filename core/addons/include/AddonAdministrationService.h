@@ -18,9 +18,10 @@ struct AdministrationAuditContext {
 
 // Internal-only administrative intent coordinator. Reuses Suite's existing
 // persistent activation-intent owner and append-only accountability owner.
-// No HTTP entrypoint, package install or handler execution.
-// Enable-time backend and provider facts must come from a trusted Core
-// callback; caller-supplied optimistic evidence cannot activate a module.
+// The authenticated daemon administration HTTP adapter invokes this
+// coordinator, which never parses requests, installs packages or executes
+// a handler. Enable-time provider facts come from trusted Core callbacks,
+// never caller-supplied optimistic evidence.
 class AddonAdministrationService {
 public:
     struct TrustedActivationSnapshot {

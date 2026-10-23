@@ -316,7 +316,8 @@ test-addon-core-approval-daemon-compile:
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include -fsyntax-only \
 		core/daemon/src/DaemonRuntimeInitialization.cpp \
 		core/addons/media-tools/src/MediaImportOperationFence.cpp \
-		core/addons/media-tools/src/MediaShrinkOperationFence.cpp
+		core/addons/media-tools/src/MediaShrinkOperationFence.cpp \
+		core/http/src/TestHttpServer.cpp
 
 # Secure, strictly bounded administration wire contract.
 .PHONY: test-addon-activation-http-payload

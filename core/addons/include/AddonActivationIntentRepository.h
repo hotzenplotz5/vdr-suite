@@ -50,9 +50,10 @@ struct IntentMutation {
 };
 
 // Core-internal, synchronous, isolated SQLite desired-state owner.
-// No code loading, job dispatch, package installations or real activation.
-// Callers must supply canonical resolved actor and backend evidence. This
-// component cannot be called from public HTTP routes.
+// No code loading, job dispatch or package installations. The authenticated
+// daemon administration facade calls this repository through audited CAS,
+// with current Core-derived trusted provider evidence.
+// Caller-supplied runtime evidence is never activation authority.
 class AddonActivationIntentRepository {
 public:
     explicit AddonActivationIntentRepository(Database& database)
