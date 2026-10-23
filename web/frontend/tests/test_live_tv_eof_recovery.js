@@ -164,8 +164,13 @@ function dispatch(name, event) {(listeners[name] || []).slice().forEach(fn => fn
     'server replaces old worker; browser must not STOP it after replacement');
   assert.ok(readers[0].cancelled, 'old stream reader must be cancelled');
 
+  // A short burst of decoded frames is not enough to reset the budget:
+  // repeated one-second crashes must not cause an infinite restart storm.
+  video.currentTime = 1;
+  video.dispatch('timeupdate');
   eof(readers[1]);
   await flush();
+  assert.ok(Array.from(pendingTimers.values()).some(timer => timer.delay === 2000));
   playback.destroy();
   runPendingTimers();
   await flush();
