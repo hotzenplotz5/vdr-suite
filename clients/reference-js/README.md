@@ -89,3 +89,15 @@ Use \`getRecordingPlaybackSession({sessionId,headers})\` and
 \`stopRecordingPlaybackSession({sessionId,backendId,headers})\`; the latter
 uses the current owned-device STOP contract. Media grant delivery remains
 the existing guarded gateway, never private /api/media routes.
+
+### Admin-assigned playback ownership
+
+The reference client offers `getDevicePlaybackAccount({deviceId,headers})`
+and `setDevicePlaybackAccount({deviceId,accountId,expectedRevision,headers})`.
+These are strictly **Browser-administrator** operations. Supply the Browser
+Session and CSRF header through the existing credentials and header settings;
+never send a Device Credential to create a Human-Account link. An empty
+`accountId` explicitly unlinks the device with an incremented revision.
+A paired Device without an explicit link continues under its separate Service
+actor. The server never trusts account IDs supplied by a Device while reading
+or updating recording progress.
