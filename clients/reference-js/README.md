@@ -46,3 +46,28 @@ retry or route fallback.
 The implementation exists to make the public contract executable for future TV,
 mobile, desktop, Kodi and automation clients without pretending that the
 bundled browser's richer pre-v1 routes are equivalent.
+
+## P1 Device recording progress — source candidate
+
+A currently verified Device with `media.recording.play@backendId` may use
+`getRecordingProgress({backendId, recordingId, headers})` and
+`updateRecordingProgress({backendId, recordingId, operationId,
+positionSeconds, expectedRevision, headers})`. Use
+`clearRecordingProgress({backendId, recordingId, operationId,
+expectedRevision, headers})` to commit a zero-position reset.
+
+The recording ID is an opaque public `rec_` identity; it is never a VDR path.
+Read `revision` before the first write; send its current value as
+`expectedRevision` on subsequent checkpoints, pause and stop. On 409, re-read
+and resolve the conflict from the client's observed playback, **not** by
+blind retry. Persist only measured playback positions, not elapsed session time.
+Resume playback by explicitly creating the existing Device Recording
+MediaSession with `startPositionSeconds` *only if the chosen profile actually
+supports it*. Session CREATE is not automatically invoked by these helpers.
+
+Device pairing does not bind its Service Actor to a Human Account. Consequently
+this initial projection is **Device-actor-private**, not cross-account or
+cross-Device shared history; it cannot read a Browser Human Account's saved
+Continue Watching position. Device credentials are provided by the caller,
+never synthesized by the library. The browser uses its original CSRF-protected
+legacy route unchanged; the new route does not accept a browser session.
