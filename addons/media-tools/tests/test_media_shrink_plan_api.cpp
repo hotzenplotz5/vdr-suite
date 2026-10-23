@@ -101,7 +101,8 @@ int main() {
             const std::string& id) {
             return runtime.plan(actor, backend, id);
         },
-        [&](const std::string& backend) {
+        [&](const std::string& actor, const std::string& backend) {
+            assert(!actor.empty());
             return runtime.capability(backend);
         },
         [&](const std::string& actor, const std::string& backend,
