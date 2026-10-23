@@ -131,6 +131,20 @@ int main(int argc, char** argv)
         return 78;
     }
 
+    // The agent's explicit configuration has priority over the private
+    // process environment shared by the daemon and the VDR plugin.
+    vdrsuite::agent::SuiteBridgeLocalControlTransportConfig localControlConfig;
+    if (!config.suiteBridgeControlSocketPath.empty())
+    {
+        localControlConfig.socketPath = config.suiteBridgeControlSocketPath;
+    }
+    if (!vdrsuite::agent::validSuiteBridgeControlSocketPath(
+            localControlConfig.socketPath))
+    {
+        std::cerr << "Backend Agent control socket path rejected" << std::endl;
+        return 78;
+    }
+
     // Native recording mutations are activated by the binary only when the
     // configured SuiteBridge endpoint is present. Keeping them out of the
     // user-editable COMMAND_TYPES allowlist preserves the established config
@@ -223,7 +237,8 @@ int main(int argc, char** argv)
                 osdConfig);
         osdLocalControlTransport =
             std::make_unique<
-                vdrsuite::agent::SuiteBridgeLocalControlTransport>();
+                vdrsuite::agent::SuiteBridgeLocalControlTransport>(
+                    localControlConfig);
         osdReadTransport =
             std::make_unique<
                 vdrsuite::agent::SuiteBridgePrioritizedLocalTransport>(
@@ -282,7 +297,8 @@ int main(int argc, char** argv)
             std::make_unique<vdrsuite::agent::SuiteBridgeSvdrpTransport>(
                 transportConfig);
         nativeLocalControlTransport =
-            std::make_unique<vdrsuite::agent::SuiteBridgeLocalControlTransport>();
+            std::make_unique<vdrsuite::agent::SuiteBridgeLocalControlTransport>(
+                localControlConfig);
         nativeTransport =
             std::make_unique<
                 vdrsuite::agent::SuiteBridgePrioritizedNativeProbeTransport>(
