@@ -1220,9 +1220,12 @@
     }
 
     function pageHide(event) {
-      // pagehide with persisted=true is BFCache, not a permanent close.
+      // BFCache suspension is not a permanent tab close.
       if (event && event.persisted) return;
-      if (!destroyed && sourceMode === 'broadcast') stopActive(true);
+      if (destroyed) return;
+      cancelRecovery();
+      if (sourceMode === 'broadcast') stopActive(true);
+      destroy();
     }
 
     function startPlayback() {
@@ -1233,6 +1236,7 @@
     }
 
     function switchToExternalStream(mediaPath, options) {
+      cancelRecovery();
       const settings =
         options && typeof options === 'object' ? options : {};
       const path = publicLiveMediaPath(mediaPath);
@@ -1284,6 +1288,7 @@
     }
 
     function restoreBroadcastStream() {
+      cancelRecovery();
       sourceSwitchPromise = Promise.resolve(sourceSwitchPromise)
         .catch(function () { return false; })
         .then(function () {
@@ -1329,15 +1334,22 @@
 
     function destroy() {
       if (destroyed) return;
+      cancelRecovery();
       destroyed = true;
       if (typeof global.removeEventListener === 'function') {
         global.removeEventListener('pagehide', pageHide);
+        global.removeEventListener('pageshow', resumed);
+        global.removeEventListener('resume', resumed);
+      }
+      if (global.document && typeof global.document.removeEventListener === 'function') {
+        global.document.removeEventListener('visibilitychange', resumed);
       }
       if (sourceMode === 'broadcast') stopActive(false);
       releaseVideo();
     }
 
     function relinquishForReplacement() {
+      cancelRecovery();
       if (!started || destroyed) {
         destroy();
         return Promise.resolve('');
@@ -1357,6 +1369,11 @@
           destroyed = true;
           if (typeof global.removeEventListener === 'function') {
             global.removeEventListener('pagehide', pageHide);
+            global.removeEventListener('pageshow', resumed);
+            global.removeEventListener('resume', resumed);
+          }
+          if (global.document && typeof global.document.removeEventListener === 'function') {
+            global.document.removeEventListener('visibilitychange', resumed);
           }
           if (id) {
             stoppedSessions[id] = true;
@@ -1368,7 +1385,11 @@
     }
 
     video.addEventListener('playing', function () {
-      if (destroyed || playbackFailed) return;
+      if (destroyed || playbackFailed || recovering) return;
+      if (sourceMode === 'broadcast') {
+        noteFrameProgress();
+        armStallCheck();
+      }
       setStatus(
         sourceMode === 'external'
           ? 'HbbTV-Medium läuft.'
@@ -1377,7 +1398,7 @@
       );
     });
     video.addEventListener('waiting', function () {
-      if (destroyed || playbackFailed) return;
+      if (destroyed || playbackFailed || recovering) return;
       setStatus(
         sourceMode === 'external'
           ? 'HbbTV-Medium wartet auf Daten …'
@@ -1386,7 +1407,7 @@
       );
     });
     video.addEventListener('error', function () {
-      if (destroyed || playbackFailed) return;
+      if (destroyed || playbackFailed || recovering) return;
       const mediaError = video.error;
       const detail =
         mediaError && mediaError.message ? ': ' + mediaError.message : '';
@@ -1405,8 +1426,21 @@
       );
     });
 
+    video.addEventListener('timeupdate', noteFrameProgress);
+    video.addEventListener('stalled', function () {
+      if (sourceMode === 'broadcast') armStallCheck();
+    });
+    video.addEventListener('pause', function () {
+      if (destroyed || playbackFailed || sourceMode !== 'broadcast' || recovering) return;
+      setStatus('Live-TV pausiert.', false);
+    });
     if (typeof global.addEventListener === 'function') {
       global.addEventListener('pagehide', pageHide);
+      global.addEventListener('pageshow', resumed);
+      global.addEventListener('resume', resumed);
+    }
+    if (global.document && typeof global.document.addEventListener === 'function') {
+      global.document.addEventListener('visibilitychange', resumed);
     }
 
     return Object.freeze({
