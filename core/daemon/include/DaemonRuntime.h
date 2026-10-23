@@ -200,6 +200,13 @@ private:
     void startRecordingCacheWarmupWorker();
     void stopRecordingCacheWarmupWorker();
     void runRecordingCacheWarmupWorker();
+    // Unverified Agent receipts are not success. Only a subsequent,
+    // Core-owned local filesystem readback can bind a durable HEVC review.
+    bool tryReconcileMediaShrinkStage(
+        const BackendAgentCommandAssignment& assignment,
+        const BackendAgentCommandResult& result,
+        std::int64_t now);
+
     void refreshRecordingCacheForAllBackends(
         const std::string& reason, const std::string& backendId = "");
     void publishCompletedRecordingRefreshes();
