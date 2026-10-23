@@ -140,6 +140,7 @@ int main()
     trusted.agentId = "maintenance-agent";
     trusted.agentInstanceId = "maintenance-instance";
     trusted.backendGeneration = 19;
+    trusted.approvedHandlerSha256 = std::string(64, 'a');
     trusted.installed = trusted.manifestValid = trusted.packageTrusted = true;
     trusted.versionCompatible = trusted.handlerRegistered =
         trusted.handlerHealthy = true;
