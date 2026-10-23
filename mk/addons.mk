@@ -79,6 +79,20 @@ test-addon-media-shrink:
 		-o "$(BUILD_DIR)/addons/test_media_shrink"
 	"$(BUILD_DIR)/addons/test_media_shrink"
 
+# Protected Agent-local opaque review binding and durable one-shot publish
+# start fence. Synthetic directories only; never VDR production data.
+.PHONY: test-addon-media-shrink-local-review
+test-addon-media-shrink-local-review:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror \
+		-I addons/media-tools/include \
+		addons/media-tools/src/LocalMediaShrinkReviewStore.cpp \
+		addons/media-tools/tests/test_local_media_shrink_review_store.cpp \
+		-o "$(BUILD_DIR)/addons/test_local_media_shrink_review_store"
+	"$(BUILD_DIR)/addons/test_local_media_shrink_review_store"
+
+test-ci-fast: test-addon-media-shrink-local-review
+
 .PHONY: test-addon-media-shrink-plan-api
 test-addon-media-shrink-plan-api:
 	mkdir -p "$(BUILD_DIR)/addons"
