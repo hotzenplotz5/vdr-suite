@@ -102,3 +102,17 @@ The established Browser Continue Watching owner is not replaced.
 The source-only candidate has not passed the full CI and production integration
 gate as of this documentation edit. No installed yaVDR, real VDR or VIDAA
 acceptance may be inferred from it.
+
+
+### Public-v1 client start-at linkage
+
+An explicit Device Playback CREATE may include
+\`startPositionSeconds\` in the established
+\`POST /api/v1/recording-playback-sessions\` request. The caller must
+pass its real capabilities and request start-at voluntarily. The existing
+MediaSession controller checks current VDR indexing, profile, source growth
+and duration. Only index-ready HLS playback currently accepts a positive
+start position; unsupported/nonready configurations receive 409 and a
+position past the verified duration receives 422. A progress checkpoint
+does not automatically create a media session and a media session does
+not automatically update confirmed playback progress.
