@@ -597,8 +597,9 @@ ApiResponse ContinueWatchingApiRuntime::publicProgressGet(
     std::int64_t revision = 0;
     int position = 0;
     for (const auto& state : states) {
-        if (state.recordingId == admittedRecording.id &&
-            state.backendNativeId == admittedRecording.backendNativeId) {
+        if (state.backendNativeId == admittedRecording.backendNativeId) {
+            // Recording list/index ID may change while native identity stays.
+            // Do not lose the revision fence on a canonical rec_ rebind.
             revision = state.revision;
             position = state.positionSeconds;
             break;
