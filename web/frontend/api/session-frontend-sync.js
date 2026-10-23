@@ -118,6 +118,7 @@
   const RECORDING_LIVENESS_PROBE_PATH = '/api/vdr/health';
   const LIVE_STALL_CHECK_MS = 5000;
   const LIVE_STALL_THRESHOLD_MS = 20000;
+  const LIVE_RECOVERY_STABLE_MS = 60000;
   const LIVE_RECOVERY_BACKOFF_MS = [1000, 2000, 4000];
 
   function text(value) {
@@ -940,6 +941,7 @@
     let stallTimer = null;
     let lastProgressAt = 0;
     let lastPosition = 0;
+    let stableProgressSince = 0;
 
     function setStatus(message, error) {
       status.textContent = message;
@@ -979,11 +981,18 @@
     }
 
     function noteFrameProgress() {
+      if (destroyed || sourceMode !== 'broadcast' || recovering ||
+          playbackFailed || !activeSessionId) return;
       const position = Number(video.currentTime);
       if (Number.isFinite(position) && position > lastPosition + 0.25) {
         lastPosition = position;
         lastProgressAt = Date.now();
-        recoveryAttempts = 0;
+        if (!stableProgressSince) stableProgressSince = lastProgressAt;
+        // A single decoded frame must not erase the retry budget, otherwise
+        // an FFmpeg worker that fails every second creates a restart storm.
+        if (lastProgressAt - stableProgressSince >= LIVE_RECOVERY_STABLE_MS) {
+          recoveryAttempts = 0;
+        }
       }
     }
 
@@ -1120,6 +1129,7 @@
         return;
       }
       recovering = true;
+      stableProgressSince = 0;
       releaseVideo();
       const token = ++recoveryEpoch;
       const attempt = recoveryAttempts + 1;
@@ -1183,6 +1193,7 @@
         );
         lastPosition = Math.max(0, Number(video.currentTime) || 0);
         lastProgressAt = Date.now();
+        stableProgressSince = 0;
         armStallCheck();
         const playGeneration = transportGeneration;
 
