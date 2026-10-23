@@ -4,13 +4,14 @@
 set -eu
 
 usage() {
-    echo 'Usage: sh tools/mld66-readonly-http-probe.sh --metadata|--recordings-sample' >&2
+    echo 'Usage: sh tools/mld66-readonly-http-probe.sh --metadata|--recordings-html-sample|--recordings-sample' >&2
     exit 2
 }
 
 [ "$#" -eq 1 ] || usage
 case "$1" in
     --metadata) mode=metadata ;;
+    --recordings-html-sample) mode=recordings-html-sample ;;
     --recordings-sample) mode=recordings-sample ;;
     *) usage ;;
 esac
@@ -44,6 +45,12 @@ case "$mode" in
     metadata)
         probe info info.json 5
         probe change-state change-state.json 5
+        ;;
+    recordings-html-sample)
+        # Light HTML serialization of one recording: isolate the shared
+        # VDR recording lock/list path from expensive JSON enrichment.
+        # Only one request, no retry or full-list fallback.
+        probe recordings-html-sample 'recordings.html?start=0&limit=1' 10
         ;;
     recordings-sample)
         # Explicit opt-in: even limit=1 can require a full VDR list scan.
