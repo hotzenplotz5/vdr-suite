@@ -149,6 +149,32 @@ int main()
     media.deadline = 500;
     media.requestFingerprint = backendAgentCommandFingerprint(media);
     assert(backendAgentCommandValidAssignment(media));
+    // The shared Agent wire format knows stage/publish without granting any
+    // execution authority. Only canonical path-free payloads are valid.
+    auto shrink = media;
+    shrink.commandId = "cmd_shrink_shape";
+    shrink.commandType = "addon.media.shrink.stage";
+    shrink.payload =
+        "{\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"encoder\":\"software\",\"maxHeight\":720,\"nightMode\":false}";
+    shrink.verificationPolicy = "readback_required";
+    shrink.requestFingerprint = backendAgentCommandFingerprint(shrink);
+    assert(backendAgentCommandValidAssignment(shrink));
+    shrink.payload += "/tmp/evil";
+    shrink.requestFingerprint = backendAgentCommandFingerprint(shrink);
+    assert(!backendAgentCommandValidAssignment(shrink));
+    shrink = media;
+    shrink.commandId = "cmd_shrink_publish_shape";
+    shrink.commandType = "addon.media.shrink.publish";
+    shrink.payload =
+        "{\"reviewId\":\"shk_0123456789abcdef0123456789abcdef\","
+        "\"revision\":1}";
+    shrink.verificationPolicy = "reconciliation_required";
+    shrink.requestFingerprint = backendAgentCommandFingerprint(shrink);
+    assert(backendAgentCommandValidAssignment(shrink));
+    shrink.verificationPolicy = "readback_required";
+    shrink.requestFingerprint = backendAgentCommandFingerprint(shrink);
+    assert(!backendAgentCommandValidAssignment(shrink));
     assert(commands.insertAssignment(media));
     auto mediaReceipt = receipt;
     mediaReceipt.commandId = media.commandId;
