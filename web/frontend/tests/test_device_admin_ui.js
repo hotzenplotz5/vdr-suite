@@ -101,7 +101,9 @@ async function run() {
           actorId: 'actor_a',
           items: [],
           supportedPermissions: [
-            'channels.view', 'searchtimers.create', 'timers.create'
+            'channels.view', 'searchtimers.create', 'timers.create',
+            'timers.modify', 'timers.delete',
+            'searchtimers.modify', 'searchtimers.execute', 'searchtimers.delete'
           ]
         }
       });
@@ -140,6 +142,15 @@ async function run() {
   assert(named(page, 'p', 'Device-ID: device_a'));
   const selects = descendants(page).filter(el => el.tagName === 'SELECT');
   assert.strictEqual(selects.length, 2);
+  const grantable = selects[0].options.map(el => el.value);
+  for (const permission of [
+    'timers.modify', 'timers.delete', 'searchtimers.modify',
+    'searchtimers.execute', 'searchtimers.delete'
+  ]) {
+    assert(grantable.includes(permission),
+      'Server-supported Device grant missing from UI: ' + permission);
+  }
+  assert(!grantable.includes('role.admin'));
   selects[0].value = 'searchtimers.create';
   selects[1].value = 'default';
   const grant = named(page, 'button', 'Zugriff hinzufügen');

@@ -90,19 +90,24 @@ GET /api/v1/devices/{deviceId}/grants
 
 Requires global `devices.grants.view@*`. The returned representation contains `deviceId`, the Device's dedicated Service `actorId`, normalized `items` tuples, and `supportedPermissions`. A strong opaque Device grant-set ETag is returned. `If-None-Match` may yield bodyless 304. The grant-set ETag is **not** the Device, Credential or Human Account revision.
 
-The supported grant permissions currently are exactly:
+The supported Device grants are the following reviewed permissions:
 
 - `channels.view`
 - `recordings.view` (read-only Public-v1 recording search)
 - `epg.view` (read-only Public-v1 EPG search and Now/Next)
 - `timers.view`
-- `timers.create` (one EPG-selected native Timer intent, explicit backend only; available as a grant before productive admission is wired)
+- `timers.create` (EPG-selected native Timer intent)
+- `timers.modify` (modify/toggle one authorized native Timer)
+- `timers.delete` (delete one authorized native Timer)
 - `searchtimers.view` (SearchTimer list and preview, independently of EPG read)
-- `searchtimers.create` (CREATE only on an explicit backend, never `*`)
+- `searchtimers.create` (inactive SearchTimer CREATE; RESTfulAPI one-shot, not epgsearch-native atomic CAS)
+- `searchtimers.modify` (native generation-fenced SearchTimer update/deactivation)
+- `searchtimers.execute` (explicit SearchTimer activation)
+- `searchtimers.delete` (native generation-fenced SearchTimer deletion)
 - `media.live.play`
 - `media.recording.play`
 
-No `role.admin`, `role.read-only`, `accounts.*`, `remote.control` or arbitrary strings are allowed here. Grant `backendId` is an explicit product Backend identity or the configured wildcard `*`, **except** `timers.create` and `searchtimers.create`, both of which require an exact concrete backend.
+No `role.admin`, `role.read-only`, `accounts.*`, `remote.control` or arbitrary strings are allowed here. Grant `backendId` is an explicit product Backend identity or the configured wildcard `*`, **except** `timers.create`, `timers.modify`, `timers.delete`, `searchtimers.create`, `searchtimers.modify`, `searchtimers.execute` and `searchtimers.delete`, which require an exact concrete backend. Grant availability is not proof of currently connected backend capability or real-hardware acceptance.
 
 ## 4. Ensure or revoke one grant
 

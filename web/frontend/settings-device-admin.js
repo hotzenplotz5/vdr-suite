@@ -6,8 +6,13 @@
     'epg.view': 'EPG ansehen',
     'timers.view': 'Aufnahmetimer ansehen',
     'timers.create': 'Einzelaufnahmen programmieren',
+    'timers.modify': 'Aufnahmetimer bearbeiten',
+    'timers.delete': 'Aufnahmetimer löschen',
     'searchtimers.view': 'Suchtimer ansehen',
     'searchtimers.create': 'Suchtimer anlegen',
+    'searchtimers.modify': 'Suchtimer bearbeiten',
+    'searchtimers.execute': 'Suchtimer aktivieren',
+    'searchtimers.delete': 'Suchtimer löschen',
     'media.live.play': 'Live-TV wiedergeben',
     'media.recording.play': 'Aufnahmen wiedergeben'
   });
