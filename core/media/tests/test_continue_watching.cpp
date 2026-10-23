@@ -179,6 +179,40 @@ int main()
     assert(legacyService.list("legacy", "default").empty());
     assert(legacyRepository.findForActorBackend("legacy", "default").empty());
 
+    // The bundled Browser and an explicitly linked Device now share this
+    // same underlying Human Actor key, CAS fence and persistent revision.
+    // No second resume store or implicit Device->Human identity translation.
+    const auto browserCommit=service.recordProgressConditional(
+        "account-owner", "default", "r2", 125, true,
+        "browser-confirmed", 0);
+    assert(browserCommit.status==ContinueWatchingMutationStatus::applied);
+    assert(browserCommit.revision==1);
+    const auto deviceRead=repository.findForActorBackend(
+        "account-owner", "default");
+    assert(deviceRead.size()==1 && deviceRead[0].positionSeconds==125);
+    assert(deviceRead[0].revision==1);
+    const auto tvCommit=repository.updateConditional(
+        "account-owner", "default", "r2", "/recordings/r2.rec",
+        500, "device-confirmed", 1);
+    assert(tvCommit.status==ContinueWatchingMutationStatus::applied);
+    assert(tvCommit.revision==2);
+    assert(service.recordProgressConditional(
+        "account-owner", "default", "r2", 160, true,
+        "browser-delayed", 1).status==
+        ContinueWatchingMutationStatus::conflict);
+    auto combined=service.list("account-owner","default");
+    assert(combined.size()==1);
+    assert(combined[0].resumePositionSeconds==500);
+    assert(combined[0].revision==2);
+    const auto cleared=service.clearConditional(
+        "account-owner","default","r2","browser-restart",2);
+    assert(cleared.status==ContinueWatchingMutationStatus::applied);
+    assert(cleared.revision==3);
+    assert(service.list("account-owner","default").empty());
+    assert(repository.updateConditional(
+        "account-owner","default","r2","/recordings/r2.rec",
+        520,"late-tv",2).status==ContinueWatchingMutationStatus::conflict);
+
     // Public-v1 optimistic updates: delayed concurrent sessions may not
     // overwrite newer acknowledged progress or resurrect a reset position.
     const auto first = repository.updateConditional(
