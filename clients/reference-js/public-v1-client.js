@@ -1025,6 +1025,15 @@
       return {backendId: input.backendId, recordingId: input.recordingId};
     }
 
+    function listDeviceContinueWatching(input) {
+      if (!input || typeof input.backendId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(input.backendId) ||
+          input.backendId === '.' || input.backendId === '..')
+        throw new Error('Continue Watching requires exact backendId');
+      return request('/api/v1/recording-playback-sessions/continue-watching?backendId=' +
+        encodeURIComponent(input.backendId), input);
+    }
+
     function readRecordingProgress(input) {
       const identity = recordingProgressIdentity(input);
       return request('/api/v1/recording-playback-sessions/progress?backendId=' +
@@ -1311,6 +1320,9 @@
           {active: false},
           normalizedOptions
         );
+      },
+      getContinueWatching(options) {
+        return listDeviceContinueWatching(options);
       },
       getRecordingProgress(options) {
         return readRecordingProgress(options);
