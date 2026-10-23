@@ -49,6 +49,69 @@ to be queued or in progress. Continue independent approved work while it runs
 and re-read the run before any response termination. Never report a stale
 non-terminal CI snapshot as though it were the end of the workstream.
 
+## Product boundaries and real-VDR acceptance (2026-10-22)
+
+**Binding rule:** Isolated test success, a passing CI matrix, a compilable
+daemon, and an installed package are different evidence levels. None of them
+alone proves that a capability works against the operator's real VDR.
+
+**Keep architecture bounded:**
+
+- Use one production owner for each API operation, domain action, persistence
+  mutation, backend dispatch and readback. Route through the existing ownership
+  chain; never implement a second parallel or test-only productive path just
+  to make an isolated test green.
+- Extend an existing module when its responsibility already includes the new
+  behavior. Split/create a module only for a clear independent responsibility,
+  lifecycle, dependency boundary or reuse requirement. Do not split solely to
+  manufacture another test target, slice or Make include.
+- Respect the documented source-group boundaries in
+  `docs/development/phase-56.21-build-boundary-map.md`. Keep mocks, smoke
+  helpers and test HTTP servers out of the production composition; keep
+  transport parsing out of reusable domain/core code.
+- Prefer completing one vertical production flow over adding successive
+  wrappers, adapters and new slices around an unfinished flow. Any newly
+  introduced layer must name the production dependency/boundary it protects.
+
+**Require meaningful end-to-end evidence:**
+
+- An API capability is implementation-complete only when the *real production
+  path* is connected where applicable: public route -> authentication and
+  authorization -> controller -> domain service -> durable state -> backend
+  adapter/command -> VDR outcome/readback -> public response, including the
+  frontend/client path for client-visible capabilities. Mark nonapplicable
+  stages explicitly rather than inventing them.
+- Focused unit and contract tests catch regressions while coding, but do not
+  multiply near-identical unit tests or mock-only test binaries as a
+  replacement for the productive composition test. Add at least one test
+  covering the actual production route/composition for each changed API flow.
+- Track evidence separately as `UNIT/CONTRACT`, `PRODUCTION-INTEGRATION`,
+  `CI`, and `REAL-VDR`. Never collapse these into one `GREEN` or
+  `DONE` claim. A missing or failed level remains clearly
+  `NOT_VERIFIED` or `FAILED`, not implicitly passed.
+- Maintain one cumulative API-v1 acceptance checklist (by actual route and
+  capability) covering authentication/grants, valid and invalid requests,
+  expected state mutation, persistence, backend command and readback,
+  externally observable result, and failure/rollback paths as applicable.
+  Close the implementation scope before requesting the operator's **final
+  real-VDR API-v1 acceptance run**. Do not claim real-VDR acceptance from
+  simulations, CI mocks, a helper's `--help`, or an HTTP 200 alone.
+- Live-VDR acceptance must operate on a verified installed code candidate,
+  with explicit preflight, safe read-only probes first, and separate operator
+  authorization for any destructive or scheduling mutations. The real-VDR
+  checklist is the final acceptance authority, not permission to bypass
+  targeted safe tests for changed code beforehand.
+
+**Limit test/build overhead:**
+
+- Reuse accepted unchanged test evidence and verified build artifacts.
+  Run focused tests on changed code during implementation and full required CI
+  once at the final merge boundary under the existing CI rules.
+- Do not run packaging, full regression, entire daemon builds or hosted-CI
+  waits per tiny slice unless that exact changed surface requires it. Do not
+  keep producing new slices solely because earlier tests were green while the
+  user-visible workflow remains unfinished.
+
 ## GitHub-first execution
 
 Use GitHub-first execution whenever the connected GitHub tools can perform the
