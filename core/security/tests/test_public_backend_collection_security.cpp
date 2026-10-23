@@ -278,6 +278,24 @@ int main()
         anonymous.path = request.path;
         anonymous.body = request.body;
         assert(fixture.gate.evaluate(anonymous).rejection.statusCode == 401);
+        HttpServerRequest read = browserGet(fixture);
+        read.path = "/api/v1/backends/backend-a/media-shrink-reviews/"
+            "shk_0123456789abcdef0123456789abcdef";
+        const auto review = fixture.gate.evaluate(read);
+        assert(review.allowed && !review.protectedMutation);
+        assert(review.authorizationDecision.permission == "media.recording.play");
+        assert(review.authorizationDecision.action ==
+               "media.recording.shrink.review.read");
+        assert(review.authorizationDecision.backendId == "backend-a");
+        read.path = "/api/v1/backends/backend-b/media-shrink-reviews/"
+            "shk_0123456789abcdef0123456789abcdef";
+        assert(fixture.gate.evaluate(read).rejection.statusCode == 403);
+        HttpServerRequest anonymousRead;
+        anonymousRead.method = "GET";
+        anonymousRead.path =
+            "/api/v1/backends/backend-a/media-shrink-reviews/"
+            "shk_0123456789abcdef0123456789abcdef";
+        assert(fixture.gate.evaluate(anonymousRead).rejection.statusCode == 401);
     }
     {
         SecurityHttpGateBrowserTestFixture fixture;
