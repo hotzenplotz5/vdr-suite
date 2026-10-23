@@ -4,6 +4,7 @@
 #include "BackendAgentCommandDelivery.h"
 #include "IHttpServer.h"
 
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -25,6 +26,12 @@ public:
 
     HttpServerResponse handleRequest(
         const HttpServerRequest& request) const override;
+
+    // Private authenticated Agent-only resolution. Callbacks must recheck the
+    // live Core actor grant, command receipt, generation, operation and source.
+    using MediaShrinkAuthorityLookup = std::function<std::string(
+        const RequestSecurityContext&, const BackendAgentCommandReceipt&)>;
+    void setMediaShrinkAuthorityLookup(MediaShrinkAuthorityLookup lookup);
 
 private:
     RequestSecurityContext authenticateAgent(
@@ -56,6 +63,9 @@ private:
     HttpServerResponse handleCommandPoll(const HttpServerRequest& request, const RequestSecurityContext& context) const;
     HttpServerResponse handleCommandReceipt(const HttpServerRequest& request, const RequestSecurityContext& context) const;
     HttpServerResponse handleCommandResult(const HttpServerRequest& request, const RequestSecurityContext& context) const;
+    HttpServerResponse handleMediaShrinkAuthority(
+        const HttpServerRequest& request,
+        const RequestSecurityContext& context) const;
 
     std::unique_ptr<IHttpServer> clientServer_;
     BackendAgentLifecycleService& lifecycleService_;
@@ -64,4 +74,5 @@ private:
     CredentialVerifierRepository& credentialVerifierRepository_;
     SecurityIdentityRepository& identityRepository_;
     BackendAgentMediaImportCatalog* mediaImportCatalog_ = nullptr;
+    MediaShrinkAuthorityLookup mediaShrinkAuthorityLookup_;
 };
