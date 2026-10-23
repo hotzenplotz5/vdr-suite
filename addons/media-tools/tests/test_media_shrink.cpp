@@ -566,5 +566,26 @@ int main() {
                !fs::exists(fixture.video / "Sample_HEVC"));
         ++checks;
     }
+    {
+        Fixture fixture;
+        // A delimiter in a recording name must never create extra inputs
+        // in the FFmpeg concat: URL used for the read-only duration check.
+        std::ofstream(fixture.recording / "00002.ts", std::ios::binary)
+            << std::string(32768, 'X');
+        const fs::path unsafe = fixture.video / "Sample|injected";
+        fs::rename(fixture.recording.parent_path(), unsafe);
+        const auto relative = fs::path("Sample|injected") /
+            fixture.recording.filename();
+        const auto plan = inspectShrink(fixture.video, relative);
+        FakeProcess runner;
+        const auto candidate = stageShrink(plan, runner,
+            [](const ShrinkPlan&) {});
+        reject([&] { verifyShrinkCandidate(plan, candidate, runner); });
+        reject([&] { publishShrinkCandidate(plan, candidate, runner); });
+        assert(fs::exists(candidate / "00001.ts") &&
+               fs::exists(unsafe / fixture.recording.filename() / "00001.ts") &&
+               fs::exists(unsafe / fixture.recording.filename() / "00002.ts"));
+        ++checks;
+    }
     std::cout << "MEDIA_SHRINK_CPP_TEST=PASS checks=" << checks << "\n";
 }
