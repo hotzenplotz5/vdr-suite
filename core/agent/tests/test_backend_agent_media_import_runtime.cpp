@@ -340,6 +340,22 @@ int main() {
     assert(runtime.takeRecordingEvidence().empty());
     assert(fs::is_empty(f.video));
 
+    // A valid permit becomes invalid if the server advances backend
+    // generation AFTER authorization but BEFORE actual pinned execution.
+    assert(runtime.authorize(a,"backend",19));
+    current.backendGeneration=20;
+    assert(runtime.execute(a)==vdrsuite::mediatools::MediaImportAgentOutcome::rejected);
+    current.backendGeneration=19;
+    assert(runtime.execute(a)==vdrsuite::mediatools::MediaImportAgentOutcome::rejected);
+
+    // An Agent restart changes its instance identity without changing
+    // the stored command or the locally pinned handler descriptor.
+    assert(runtime.authorize(a,"backend",19));
+    current.agentInstanceId="replacement";
+    assert(runtime.execute(a)==vdrsuite::mediatools::MediaImportAgentOutcome::rejected);
+    current.agentInstanceId="instance";
+    assert(runtime.execute(a)==vdrsuite::mediatools::MediaImportAgentOutcome::rejected);
+
     current.backendGeneration=20;
     assert(!runtime.available() || !runtime.authorize(a,"backend",19));
     current.backendGeneration=19;
