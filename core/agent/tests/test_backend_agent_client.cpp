@@ -1,5 +1,7 @@
 #include "BackendAgentClient.h"
 #include "BackendAgentCommandJson.h"
+#include "BackendAgentCommandClient.h"
+#include "MediaShrinkAgentCommand.h"
 #include "MediaToolsAgentExecutor.h"
 #include "BackendAgentChannelObservation.h"
 #include "BackendAgentChannelObservationJson.h"
@@ -1143,6 +1145,20 @@ void test_heartbeat_wait_is_interruptible()
 
     removeTree(root);
 }
+void test_shrink_requires_explicit_trusted_executor()
+{
+    BackendAgentCommandClientConfig config;
+    config.commandTypes = {
+        vdrsuite::mediatools::kMediaShrinkStageCommandType,
+        vdrsuite::mediatools::kMediaShrinkPublishCommandType
+    };
+    const auto availability =
+        discoverBackendAgentCommandAvailability(config);
+    // Manifest/config alone cannot advertise an uninstalled or unreviewed
+    // media mutation, even though the wire parser understands its shape.
+    assert(availability.commandTypes.empty());
+}
+
 }
 
 int main()
@@ -1158,6 +1174,7 @@ int main()
     test_permissions_and_bounded_backoff();
     test_low_latency_command_poll_between_heartbeats();
     test_media_import_actual_agent_runtime_no_double_dispatch();
+    test_shrink_requires_explicit_trusted_executor();
     test_heartbeat_wait_is_interruptible();
     std::cout << "test_backend_agent_client passed" << std::endl;
     return 0;
