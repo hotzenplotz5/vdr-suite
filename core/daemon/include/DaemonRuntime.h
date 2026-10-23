@@ -164,6 +164,7 @@
 #include "VdrSnapshotBuilder.h"
 #include "SimpleHttpListener.h"
 #include "MediaImportOperationFence.h"
+#include "MediaShrinkOperationFence.h"
 #include "BackendAgentMediaImportCatalog.h"
 #include "AddonActivationIntentRepository.h"
 #include "SecurityPermissionGrantRepository.h"
@@ -286,6 +287,7 @@ private:
     std::unique_ptr<vdrsuite::addons::AddonActivationIntentRepository>
         mediaImportActivationIntents_;
     std::unique_ptr<vdrsuite::addons::MediaImportOperationFence> mediaImportOperationFence_;
+    std::unique_ptr<vdrsuite::addons::MediaShrinkOperationFence> mediaShrinkOperationFence_;
     std::unique_ptr<BackendAgentMediaImportCatalog> mediaImportCatalog_;
     std::unique_ptr<BackendAccessPolicy> backendAccessPolicy_;
     std::unique_ptr<BackendRegistryJsonSerializer> backendRegistryJsonSerializer_;
