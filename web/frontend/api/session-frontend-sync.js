@@ -116,6 +116,11 @@
   const RECORDING_POST_START_WAITING_LIVENESS_MS = 8000;
   const RECORDING_LIVENESS_PROBE_TIMEOUT_MS = 3000;
   const RECORDING_LIVENESS_PROBE_PATH = '/api/vdr/health';
+  const LIVE_STALL_CHECK_MS = 5000;
+  const LIVE_STOP_SETTLE_MS = 5000;
+  const LIVE_STALL_THRESHOLD_MS = 20000;
+  const LIVE_RECOVERY_STABLE_MS = 60000;
+  const LIVE_RECOVERY_BACKOFF_MS = [1000, 2000, 4000];
 
   function text(value) {
     return value === undefined || value === null ? '' : String(value);
@@ -506,7 +511,8 @@
     mediaPath,
     onFailure,
     autoPlay,
-    forwardBufferBackpressure
+    forwardBufferBackpressure,
+    isLiveBroadcast
   ) {
     if (!supportsContinuousFmp4Mse()) return null;
 
@@ -586,7 +592,11 @@
     }
 
     function fail(error) {
-      if (destroyed || (error && error.name === 'AbortError')) return;
+      if (destroyed) return;
+      // Only ignore an AbortError caused by our own teardown. A browser
+      // transport can also abort unexpectedly and must report lost Live TV.
+      if (error && error.name === 'AbortError' &&
+          abortController.signal && abortController.signal.aborted) return;
       if (typeof onFailure === 'function') onFailure(error);
     }
 
@@ -642,6 +652,13 @@
       }).then(function (result) {
         if (destroyed || !result) return;
         if (result.done) {
+          // Broadcast Live-TV has no natural EOF. Ending MSE without signalling
+          // failure leaves its last frame frozen and the status falsely "läuft".
+          // Completed recordings and finite HbbTV media still end normally.
+          if (isLiveBroadcast) {
+            fail(new Error('Live-TV-Verbindung unerwartet beendet (HTTP-Stream EOF).'));
+            return;
+          }
           return appendAvailableMedia().then(function () {
             if (mediaSource.readyState === 'open' && sourceBuffer && !sourceBuffer.updating) {
               try { mediaSource.endOfStream(); } catch (error) {}
@@ -673,8 +690,12 @@
         signal: abortController.signal
       }).then(function (response) {
         if (!response || !response.ok) {
-          throw new Error('Kontinuierlicher fMP4-Stream konnte nicht geladen werden (' +
+          const error = new Error('Kontinuierlicher fMP4-Stream konnte nicht geladen werden (' +
             (response ? response.status : 'network') + ').');
+          // Preserve the structured transport response for fail-closed
+          // recovery: never retry revoked/unauthorized 401/403 streams.
+          error.status = response ? Number(response.status) || 0 : 0;
+          throw error;
         }
         if (!response.body || typeof response.body.getReader !== 'function') {
           throw new Error('Browser stellt für den kontinuierlichen fMP4-Stream keinen Streaming-Reader bereit.');
@@ -921,6 +942,19 @@
     let sourceSwitchPromise = Promise.resolve(true);
     let sourceMode = 'broadcast';
     const stoppedSessions = Object.create(null);
+    let transportGeneration = 0;
+    let recoveryEpoch = 0;
+    let recoveryAttempts = 0;
+    let recoveryTimer = null;
+    let recovering = false;
+    let stallTimer = null;
+    let lastProgressAt = 0;
+    let lastPosition = 0;
+    let stableProgressSince = 0;
+    let resumeRecoveryPending = false;
+    let resumeRecoveryInFlight = false;
+    let resumeReplacementId = '';
+    let resumeStopPromise = Promise.resolve(null);
 
     function setStatus(message, error) {
       status.textContent = message;
@@ -942,7 +976,118 @@
       return stopBroadcastSession(activeSessionId, keepalive);
     }
 
+    function clearStallTimer() {
+      if (stallTimer !== null && typeof global.clearTimeout === 'function') {
+        global.clearTimeout(stallTimer);
+      }
+      stallTimer = null;
+    }
+
+    function cancelRecovery() {
+      recoveryEpoch += 1;
+      if (recoveryTimer !== null && typeof global.clearTimeout === 'function') {
+        global.clearTimeout(recoveryTimer);
+      }
+      recoveryTimer = null;
+      recovering = false;
+      resumeRecoveryPending = false;
+      resumeRecoveryInFlight = false;
+      resumeReplacementId = '';
+      clearStallTimer();
+    }
+
+    function noteFrameProgress() {
+      if (destroyed || sourceMode !== 'broadcast' || recovering ||
+          playbackFailed || !activeSessionId) return;
+      const position = Number(video.currentTime);
+      if (Number.isFinite(position) && position > lastPosition + 0.25) {
+        lastPosition = position;
+        lastProgressAt = Date.now();
+        if (!stableProgressSince) stableProgressSince = lastProgressAt;
+        // A single decoded frame must not erase the retry budget, otherwise
+        // an FFmpeg worker that fails every second creates a restart storm.
+        if (lastProgressAt - stableProgressSince >= LIVE_RECOVERY_STABLE_MS) {
+          recoveryAttempts = 0;
+        }
+      }
+    }
+
+    function armStallCheck(delay) {
+      clearStallTimer();
+      if (destroyed || sourceMode !== 'broadcast' || playbackFailed ||
+          recovering || !activeSessionId || typeof global.setTimeout !== 'function') return;
+      stallTimer = global.setTimeout(checkLiveProgress, delay || LIVE_STALL_CHECK_MS);
+    }
+
+    function checkLiveProgress() {
+      stallTimer = null;
+      if (destroyed || sourceMode !== 'broadcast' || playbackFailed ||
+          recovering || !activeSessionId) return;
+      noteFrameProgress();
+      if (global.document && global.document.visibilityState === 'hidden') {
+        if (!video.paused && lastProgressAt &&
+            Date.now() - lastProgressAt >= LIVE_STALL_THRESHOLD_MS) {
+          // Stop the stalled native owner, but do not restart workers while
+          // a frozen tab cannot drain MSE. Resume will initiate recovery.
+          failPlayback(new Error('Live-TV im Hintergrund ohne Bildfortschritt.'));
+          return;
+        }
+        armStallCheck();
+        return;
+      }
+      if (!video.paused && lastProgressAt &&
+          Date.now() - lastProgressAt >= LIVE_STALL_THRESHOLD_MS) {
+        failPlayback(new Error('Live-TV-Bild steht seit mindestens 20 Sekunden still.'));
+        return;
+      }
+      armStallCheck();
+    }
+
+    function waitForBoundedStop(stopPromise) {
+      // A lost control response must not keep a foreground resume pending
+      // forever. The eventual new-session request still server-fences A.
+      return new Promise(function (resolve) {
+        let settled = false;
+        const timer = global.setTimeout(done, LIVE_STOP_SETTLE_MS);
+        function done() {
+          if (settled) return;
+          settled = true;
+          if (typeof global.clearTimeout === 'function') global.clearTimeout(timer);
+          resolve();
+        }
+        Promise.resolve(stopPromise).then(done, done);
+      });
+    }
+
+    function resumed() {
+      if (destroyed || sourceMode !== 'broadcast') return;
+      if (global.document && global.document.visibilityState === 'hidden') return;
+      if (resumeRecoveryPending && !resumeRecoveryInFlight) {
+        resumeRecoveryInFlight = true;
+        const token = recoveryEpoch;
+        waitForBoundedStop(resumeStopPromise).then(function () {
+          if (destroyed || sourceMode !== 'broadcast' || token !== recoveryEpoch) return;
+          resumeRecoveryPending = false;
+          resumeRecoveryInFlight = false;
+          recovering = false;
+          scheduleRecovery(new Error('Live-TV wird nach Hintergrundpause neu verbunden.'));
+        });
+        return;
+      }
+      if (!activeSessionId) return;
+      noteFrameProgress();
+      if (!recovering && !playbackFailed) {
+        if (Date.now() - lastProgressAt >= LIVE_STALL_THRESHOLD_MS) {
+          // A background page can be suspended. Allow one grace check.
+          lastProgressAt = Date.now() - LIVE_STALL_THRESHOLD_MS + LIVE_STALL_CHECK_MS;
+        }
+        armStallCheck();
+      }
+    }
+
     function releaseVideo() {
+      transportGeneration += 1;
+      clearStallTimer();
       if (continuousTransport) {
         continuousTransport.destroy();
         continuousTransport = null;
@@ -973,12 +1118,18 @@
     ) {
       releaseVideo();
       const shouldAutoPlay = autoPlay !== false;
+      const generation = transportGeneration;
+      const guardedFailure = function (error) {
+        if (!destroyed && generation === transportGeneration &&
+            typeof onFailure === 'function') onFailure(error);
+      };
       continuousTransport = createContinuousFmp4Mse(
         video,
         mediaPath,
-        onFailure,
+        guardedFailure,
         shouldAutoPlay,
-        forwardBufferBackpressure
+        forwardBufferBackpressure,
+        sourceMode === 'broadcast'
       );
 
       let playRequest = null;
@@ -1002,23 +1153,65 @@
       return playRequest;
     }
 
-    function failPlayback(error) {
-      if (destroyed || playbackFailed || sourceMode !== 'broadcast') return;
+    function terminalPlaybackFailure(error) {
+      cancelRecovery();
       playbackFailed = true;
-      if (continuousTransport) {
-        continuousTransport.destroy();
-        continuousTransport = null;
-      }
+      started = false;
+      releaseVideo();
       stopActive(false);
-      setStatus(
-        error && error.message
-          ? error.message
-          : 'Browser konnte den Live-Stream nicht wiedergeben.',
-        true
-      );
+      setStatus(error && error.message
+        ? 'Live-TV beendet: ' + error.message
+        : 'Live-TV konnte nicht wiedergegeben werden.', true);
     }
 
-    function openBroadcastSession(replacesSessionId) {
+    function retryableLiveError(error) {
+      if (error && error.name === 'NotSupportedError') return false;
+      const statusCode = Number(error && (error.status || error.statusCode));
+      if ([400, 401, 403, 404].indexOf(statusCode) !== -1) return false;
+      const message = text(error && error.message);
+      return !/unauthorized|forbidden|permission|revoked|not_owned|invalid_|unsupported/i.test(message);
+    }
+
+    function scheduleRecovery(error) {
+      if (destroyed || sourceMode !== 'broadcast' || playbackFailed ||
+          recoveryTimer !== null) return;
+      const oldId = activeSessionId || resumeReplacementId;
+      if (!started || !oldId || !retryableLiveError(error) ||
+          recoveryAttempts >= LIVE_RECOVERY_BACKOFF_MS.length) {
+        terminalPlaybackFailure(error);
+        return;
+      }
+      recovering = true;
+      stableProgressSince = 0;
+      releaseVideo();
+      if (global.document && global.document.visibilityState === 'hidden') {
+        // The stalled tab cannot make forward progress. Close its native
+        // owner once, then retry only after a real foreground resumption.
+        resumeReplacementId = oldId;
+        resumeRecoveryPending = true;
+        resumeRecoveryInFlight = false;
+        resumeStopPromise = stopActive(false);
+        setStatus('Live-TV im Hintergrund unterbrochen · Wiederaufnahme beim Öffnen des Tabs …', false);
+        return;
+      }
+      const token = ++recoveryEpoch;
+      const attempt = recoveryAttempts + 1;
+      setStatus('Live-TV unterbrochen · Wiederverbindung ' + attempt + '/' +
+        LIVE_RECOVERY_BACKOFF_MS.length + ' …', false);
+      recoveryTimer = global.setTimeout(function () {
+        recoveryTimer = null;
+        if (destroyed || sourceMode !== 'broadcast' || token !== recoveryEpoch) return;
+        recoveryAttempts = attempt;
+        openBroadcastSession(activeSessionId || resumeReplacementId, token);
+      }, LIVE_RECOVERY_BACKOFF_MS[recoveryAttempts]);
+    }
+
+    function failPlayback(error) {
+      if (destroyed || playbackFailed || sourceMode !== 'broadcast' || recovering) return;
+      scheduleRecovery(error);
+    }
+
+    function openBroadcastSession(replacesSessionId, recoveryToken) {
       if (destroyed) return Promise.resolve('');
       sourceMode = 'broadcast';
       playbackFailed = false;
@@ -1040,13 +1233,21 @@
           );
         }
 
-        if (destroyed || sourceMode !== 'broadcast') {
+        if (destroyed || sourceMode !== 'broadcast' ||
+            (recoveryToken && recoveryToken !== recoveryEpoch)) {
           stopBroadcastSession(id, false);
           return '';
         }
 
+        // Server-side replacesSessionId stops the old worker before opening
+        // the new one. Do not STOP the old id after a successful replacement.
+        if (activeSessionId && activeSessionId !== id) {
+          stoppedSessions[activeSessionId] = true;
+        }
         delete stoppedSessions[id];
         activeSessionId = id;
+        resumeReplacementId = '';
+        recovering = false;
         const playRequest = connectMediaPath(
           mediaPath,
           'Direktstream',
@@ -1054,9 +1255,15 @@
           function (error) { failPlayback(error); },
           false
         );
+        lastPosition = Math.max(0, Number(video.currentTime) || 0);
+        lastProgressAt = Date.now();
+        stableProgressSince = 0;
+        armStallCheck();
+        const playGeneration = transportGeneration;
 
         if (playRequest && typeof playRequest.catch === 'function') {
           playRequest.catch(function (error) {
+            if (destroyed || playGeneration !== transportGeneration) return;
             if (error && error.name === 'NotSupportedError') {
               failPlayback(error);
               return;
@@ -1071,9 +1278,14 @@
         }
         return id;
       }).catch(function (error) {
-        if (!destroyed && sourceMode === 'broadcast') {
-          started = false;
-          failPlayback(error);
+        if (!destroyed && sourceMode === 'broadcast' &&
+            (!recoveryToken || recoveryToken === recoveryEpoch)) {
+          if (recoveryToken) {
+            recovering = false;
+            scheduleRecovery(error);
+          } else {
+            terminalPlaybackFailure(error);
+          }
         }
         return '';
       });
@@ -1082,18 +1294,29 @@
       return promise;
     }
 
-    function pageHide() {
-      if (!destroyed && sourceMode === 'broadcast') stopActive(true);
+    function pageHide(event) {
+      // BFCache suspension is not a permanent tab close.
+      if (event && event.persisted) return;
+      if (destroyed) return;
+      cancelRecovery();
+      if (sourceMode === 'broadcast') stopActive(true);
+      destroy();
     }
 
     function startPlayback() {
       if (destroyed) return Promise.resolve('');
       if (started) return sessionCreationPromise;
+      // A fresh explicit user start has a fresh retry budget; automatic
+      // recovery never takes this path.
+      cancelRecovery();
+      recoveryAttempts = 0;
+      stableProgressSince = 0;
       started = true;
       return openBroadcastSession(replacement);
     }
 
     function switchToExternalStream(mediaPath, options) {
+      cancelRecovery();
       const settings =
         options && typeof options === 'object' ? options : {};
       const path = publicLiveMediaPath(mediaPath);
@@ -1145,6 +1368,7 @@
     }
 
     function restoreBroadcastStream() {
+      cancelRecovery();
       sourceSwitchPromise = Promise.resolve(sourceSwitchPromise)
         .catch(function () { return false; })
         .then(function () {
@@ -1155,6 +1379,8 @@
           releaseVideo();
           sourceMode = 'broadcast';
           playbackFailed = false;
+          recoveryAttempts = 0;
+          stableProgressSince = 0;
           return openBroadcastSession('');
         });
       return sourceSwitchPromise;
@@ -1190,15 +1416,22 @@
 
     function destroy() {
       if (destroyed) return;
+      cancelRecovery();
       destroyed = true;
       if (typeof global.removeEventListener === 'function') {
         global.removeEventListener('pagehide', pageHide);
+        global.removeEventListener('pageshow', resumed);
+        global.removeEventListener('resume', resumed);
+      }
+      if (global.document && typeof global.document.removeEventListener === 'function') {
+        global.document.removeEventListener('visibilitychange', resumed);
       }
       if (sourceMode === 'broadcast') stopActive(false);
       releaseVideo();
     }
 
     function relinquishForReplacement() {
+      cancelRecovery();
       if (!started || destroyed) {
         destroy();
         return Promise.resolve('');
@@ -1218,6 +1451,11 @@
           destroyed = true;
           if (typeof global.removeEventListener === 'function') {
             global.removeEventListener('pagehide', pageHide);
+            global.removeEventListener('pageshow', resumed);
+            global.removeEventListener('resume', resumed);
+          }
+          if (global.document && typeof global.document.removeEventListener === 'function') {
+            global.document.removeEventListener('visibilitychange', resumed);
           }
           if (id) {
             stoppedSessions[id] = true;
@@ -1229,7 +1467,16 @@
     }
 
     video.addEventListener('playing', function () {
-      if (destroyed || playbackFailed) return;
+      if (destroyed || playbackFailed || recovering) return;
+      if (sourceMode === 'broadcast') {
+        // A deliberate pause may last longer than the stall threshold.
+        // Restart the observation window when playback resumes.
+        if (Date.now() - lastProgressAt >= LIVE_STALL_THRESHOLD_MS) {
+          lastProgressAt = Date.now();
+        }
+        noteFrameProgress();
+        armStallCheck();
+      }
       setStatus(
         sourceMode === 'external'
           ? 'HbbTV-Medium läuft.'
@@ -1238,7 +1485,7 @@
       );
     });
     video.addEventListener('waiting', function () {
-      if (destroyed || playbackFailed) return;
+      if (destroyed || playbackFailed || recovering) return;
       setStatus(
         sourceMode === 'external'
           ? 'HbbTV-Medium wartet auf Daten …'
@@ -1246,8 +1493,15 @@
         false
       );
     });
+    // Retain PR #289's protection: HTMLMediaElement.ended must never
+    // implicitly STOP a Live session. For non-MSE fallback it is nonetheless
+    // evidence of an unexpected broadcast end and belongs in fenced recovery.
+    video.addEventListener('ended', function () {
+      if (destroyed || playbackFailed || recovering || sourceMode !== 'broadcast') return;
+      failPlayback(new Error('Live-TV-Wiedergabe wurde unerwartet beendet.'));
+    });
     video.addEventListener('error', function () {
-      if (destroyed || playbackFailed) return;
+      if (destroyed || playbackFailed || recovering) return;
       const mediaError = video.error;
       const detail =
         mediaError && mediaError.message ? ': ' + mediaError.message : '';
@@ -1266,8 +1520,21 @@
       );
     });
 
+    video.addEventListener('timeupdate', noteFrameProgress);
+    video.addEventListener('stalled', function () {
+      if (sourceMode === 'broadcast') armStallCheck();
+    });
+    video.addEventListener('pause', function () {
+      if (destroyed || playbackFailed || sourceMode !== 'broadcast' || recovering) return;
+      setStatus('Live-TV pausiert.', false);
+    });
     if (typeof global.addEventListener === 'function') {
       global.addEventListener('pagehide', pageHide);
+      global.addEventListener('pageshow', resumed);
+      global.addEventListener('resume', resumed);
+    }
+    if (global.document && typeof global.document.addEventListener === 'function') {
+      global.document.addEventListener('visibilitychange', resumed);
     }
 
     return Object.freeze({
