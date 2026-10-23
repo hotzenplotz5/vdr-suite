@@ -197,6 +197,48 @@ int main() {
     }
     {
         Fixture fixture;
+        FakeProcess runner;
+        const auto first = inspectShrink(fixture.video, fixture.relative());
+        const auto firstStage = stageShrink(first, runner,
+            [](const ShrinkPlan&) {});
+        const auto firstPublished = publishShrinkCandidate(
+            first, firstStage, runner);
+        const auto sibling = fixture.video / "Sample" /
+            "2026-10-22.11.00.1-0.rec";
+        fs::create_directory(sibling);
+        std::ofstream(sibling / "00001.ts", std::ios::binary)
+            << std::string(32768, 'X');
+        std::ofstream(sibling / "info") << "T Sibling\n";
+        std::ofstream(sibling / "index") << "native-index";
+        const auto second = inspectShrink(fixture.video,
+            fs::path("Sample") / sibling.filename());
+        const auto secondStage = stageShrink(second, runner,
+            [](const ShrinkPlan&) {});
+        const auto secondPublished = publishShrinkCandidate(
+            second, secondStage, runner);
+        assert(firstPublished.parent_path() == secondPublished.parent_path());
+        assert(fs::exists(firstPublished / "00001.ts"));
+        assert(fs::exists(secondPublished / "00001.ts"));
+        assert(fs::exists(fixture.recording / "00001.ts"));
+        assert(fs::exists(sibling / "00001.ts"));
+        reject([&] { publishShrinkCandidate(second, secondStage, runner); });
+        ++checks;
+    }
+    {
+        Fixture fixture;
+        FakeProcess runner;
+        const auto plan = inspectShrink(fixture.video, fixture.relative());
+        const auto stage = stageShrink(plan, runner,
+            [](const ShrinkPlan&) {});
+        fs::create_symlink(fixture.recording.parent_path(),
+                           fixture.video / "Sample_HEVC");
+        reject([&] { publishShrinkCandidate(plan, stage, runner); });
+        assert(fs::exists(stage / "00001.ts"));
+        assert(fs::exists(fixture.recording / "00001.ts"));
+        ++checks;
+    }
+    {
+        Fixture fixture;
         const auto plan = inspectShrink(fixture.video, fixture.relative());
         FakeProcess runner;
         runner.rejectHardware = true;

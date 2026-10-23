@@ -840,19 +840,41 @@ fs::path publishShrinkCandidate(const ShrinkPlan& plan,
     demand(!title.empty(), "shrink recording requires a title directory");
     const auto destinationParent =
         checked.videoRoot / (title.string() + "_HEVC");
-    demand(!fs::exists(destinationParent), "shrink target title already exists");
-    demand(fs::create_directory(destinationParent),
-           "cannot create new HEVC title directory");
-    demand(::chmod(destinationParent.c_str(), 0700) == 0,
-           "cannot protect unpublished HEVC title");
+    // Multiple recordings may share one title. Reuse an existing HEVC
+    // sibling title only if it is an actual VDR-owned directory. A symlink,
+    // writable-by-others parent or preexisting target never gets replaced.
+    std::error_code directoryError;
+    const bool createdTitle = fs::create_directory(
+        destinationParent, directoryError);
+    demand(!directoryError ||
+           directoryError == std::errc::file_exists,
+           "cannot create HEVC title directory");
+    Descriptor titleFd(::open(destinationParent.c_str(),
+        O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+    struct stat titleStat{};
+    demand(titleFd.fd >= 0 && ::fstat(titleFd.fd, &titleStat) == 0 &&
+           S_ISDIR(titleStat.st_mode),
+           "unsafe HEVC title directory");
+    if (createdTitle) {
+        demand(::fchmod(titleFd.fd, 0700) == 0,
+               "cannot protect unpublished HEVC title");
+    } else {
+        demand(titleStat.st_uid == originalDirectory.st_uid &&
+               titleStat.st_gid == originalDirectory.st_gid &&
+               (titleStat.st_mode & 0022) == 0,
+               "existing HEVC title has unsafe ownership or permissions");
+    }
     const auto destination = destinationParent / checked.relativeRecording.filename();
-    // Commit privately and never replace anything. New files remain hidden
-    // under the 0700 title until VDR ownership and readable modes are set.
+    // Pin the destination directory descriptor through the no-replace move.
+    // On an existing title, the candidate remains private until finalized.
+    const std::string leaf = checked.relativeRecording.filename().string();
     const long moved = ::syscall(SYS_renameat2, AT_FDCWD, candidate.c_str(),
-                                 AT_FDCWD, destination.c_str(), RENAME_NOREPLACE);
+                                 titleFd.fd, leaf.c_str(), RENAME_NOREPLACE);
     if (moved != 0) {
-        std::error_code error;
-        fs::remove(destinationParent, error);
+        if (createdTitle) {
+            std::error_code error;
+            fs::remove(destinationParent, error);
+        }
         throw std::runtime_error("cannot publish HEVC without overwrite");
     }
     bool ready = true;
@@ -871,16 +893,19 @@ fs::path publishShrinkCandidate(const ShrinkPlan& plan,
             ::chown(destination.c_str(), originalDirectory.st_uid,
                     originalDirectory.st_gid) == 0 &&
             ::chmod(destination.c_str(), 0755) == 0 &&
-            ::chown(destinationParent.c_str(), originalDirectory.st_uid,
-                    originalDirectory.st_gid) == 0 &&
-            ::chmod(destinationParent.c_str(), 0755) == 0;
+            (!createdTitle ||
+                 (::fchown(titleFd.fd, originalDirectory.st_uid,
+                            originalDirectory.st_gid) == 0 &&
+                  ::fchmod(titleFd.fd, 0755) == 0));
     if (!ready) {
         // A permissions failure is never "success". Keep the original
         // recording untouched and return a private candidate if possible.
         (void)::syscall(SYS_renameat2, AT_FDCWD, destination.c_str(),
                         AT_FDCWD, candidate.c_str(), RENAME_NOREPLACE);
-        std::error_code error;
-        fs::remove(destinationParent, error);
+        if (createdTitle) {
+            std::error_code error;
+            fs::remove(destinationParent, error);
+        }
         throw std::runtime_error("HEVC candidate cannot be exposed to VDR");
     }
     // The private candidate parent should now be empty; a non-empty or
