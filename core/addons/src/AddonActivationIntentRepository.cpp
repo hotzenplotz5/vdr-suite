@@ -256,6 +256,16 @@ IntentResult AddonActivationIntentRepository::updateInternal(
     if (current.intent.revision != mutation.expectedRevision)
         return outcome(IntentStatus::revisionConflict, mutation.moduleId, mutation.backendId);
 
+    // An already persisted exact state at the caller's CURRENT revision is
+    // a no-op. Do not increment the revision or append another audit event.
+    // Revision 0 is special: an explicit first disable must still create a
+    // durable disabled row (and its audit record) for removal/maintenance.
+    // Stale revisions always conflict, even when the boolean happens to
+    // match, so an intervening enable/disable cannot be mistaken for replay.
+    if (current.intent.revision > 0 &&
+        current.intent.desiredEnabled == mutation.desiredEnabled)
+        return current;
+
     // No variable SQL and no blind-upsert: the CAS is serialized inside the
     // same BEGIN IMMEDIATE transaction as the authoritative read.
     Statement write(database_.handle(),

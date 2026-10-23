@@ -86,10 +86,18 @@ int main()
     assert(foreignAudit.listAll().empty());
     otherDatabase.close();
 
-    // Duplicate audit ID must make the whole new mutation fail: no rev2.
+    // Reaffirming a current, persisted disabled state is idempotent:
+    // there is no new revision and no second audit event.
     auto duplicate = service.setDesiredState(
         actor, {"rectools", "backend-a", false, 1}, {}, {}, context);
-    assert(duplicate.status == IntentStatus::unavailable);
+    assert(duplicate.status == IntentStatus::ok &&
+           duplicate.intent.revision == 1);
+    // A distinct mutation reusing an existing audit ID MUST still fail
+    // atomically, without persisting a new desired-state record.
+    auto duplicateDifferentMutation = service.setDesiredState(
+        actor, {"image", "backend-a", false, 0}, {}, {}, context);
+    assert(duplicateDifferentMutation.status == IntentStatus::unavailable);
+    assert(intents.read(actor, "image", "backend-a").intent.revision == 0);
     auto read = intents.read(actor, "rectools", "backend-a");
     assert(read.status == IntentStatus::ok && read.intent.revision == 1);
     assert(audit.listAll().size() == 1);

@@ -126,6 +126,12 @@ int main()
     assert(committed.intent.desiredEnabled && committed.intent.revision == 1);
     ++checks;
 
+    // A current-revision repeated intent is a durable no-op, not a second
+    // update. A stale revision is still a conflict even if the bit matches.
+    auto replay = store.update(actor, {"rectools", "backend-a", true, 1}, b, evidence);
+    assert(replay.status == IntentStatus::ok &&
+           replay.intent.desiredEnabled && replay.intent.revision == 1);
+    ++checks;
     auto stale = store.update(actor, enable, b, evidence);
     assert(stale.status == IntentStatus::revisionConflict);
     ++checks;
@@ -242,6 +248,15 @@ int main()
     assert(sqlite3_finalize(auditCount) == SQLITE_OK);
     ++checks;
 
+    // The auditing callback must not run on an exact state no-op. This also
+    // proves retries cannot manufacture new accounting events.
+    int noOpAuditCalls = 0;
+    auto auditReplay = store.updateAudited(
+        actor, {"rectools", "backend-audit", false, 1}, {}, {},
+        [&] { ++noOpAuditCalls; return false; });
+    assert(auditReplay.status == IntentStatus::ok &&
+           auditReplay.intent.revision == 1 && noOpAuditCalls == 0);
+    ++checks;
     auto rejectedBlankAudit = store.updateAudited(
         actor, {"rectools", "backend-audit", false, 1}, {}, {}, {});
     assert(rejectedBlankAudit.status == IntentStatus::unavailable);
