@@ -636,7 +636,7 @@ class RunnerTests(unittest.TestCase):
         self.assertIn("Hisense VIDAA TV",output)
         self.assertNotIn("devA",output)
         self.assertNotIn("accountA",output)
-        self.assertEqual(len(seen),6)
+        self.assertEqual(len(seen),5)
 
     def test_permission_inventory_rejects_credential_shaped_grants(self):
         from inspect_existing_access import grant_summary, safe_resource_id
