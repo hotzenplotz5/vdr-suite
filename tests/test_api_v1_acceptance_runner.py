@@ -506,7 +506,7 @@ class RunnerTests(unittest.TestCase):
         from runner import MAX_IMAGE
         self.assertEqual(MAX_IMAGE, 16*1024*1024)
         client = HttpClient("http://127.0.0.1:18080")
-        data = b"\\xff\\xd8\\xff" + b"x"*(1024*1024)
+        data = bytes((255, 216, 255)) + b"x"*(1024*1024)
         class FakeReply:
             status = 200
             headers = {"Content-Type":"image/jpeg"}
