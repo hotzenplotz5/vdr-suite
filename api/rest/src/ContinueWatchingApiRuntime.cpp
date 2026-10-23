@@ -96,11 +96,12 @@ public:
 
     bool exactPublicProgressFields() const
     {
-        return strings_.size() == 3U && numbers_.size() == 2U &&
-            bools_.empty() &&
+        return (strings_.size() == 3U || strings_.size() == 4U) &&
+            numbers_.size() == 2U && bools_.empty() &&
             strings_.count("backendId") == 1U &&
             strings_.count("recordingId") == 1U &&
             strings_.count("operationId") == 1U &&
+            (strings_.size() == 3U || strings_.count("sessionId") == 1U) &&
             numbers_.count("positionSeconds") == 1U &&
             numbers_.count("expectedRevision") == 1U;
     }
@@ -557,13 +558,19 @@ PublicRecordingProgressRequest ContinueWatchingApiRuntime::parsePublicProgressRe
     result.backendId = parser.stringValue("backendId");
     result.recordingId = parser.stringValue("recordingId");
     result.operationId = parser.stringValue("operationId");
+    result.sessionId = parser.stringValue("sessionId");
     const long long position = parser.numberValue("positionSeconds", -1);
     const long long revision = parser.numberValue("expectedRevision", -1);
     if (result.backendId.empty() || result.recordingId.empty() ||
         result.operationId.empty() || result.operationId.size() > 128U ||
-        position < 0 || position > INT_MAX || revision < 0)
+        position < 0 || position > INT_MAX || revision < 0 ||
+        (position > 0 && result.sessionId.empty()) ||
+        result.sessionId.size() > 128U)
         return result;
     for (unsigned char ch : result.operationId) {
+        if (ch < 0x21U || ch > 0x7eU) return result;
+    }
+    for (unsigned char ch : result.sessionId) {
         if (ch < 0x21U || ch > 0x7eU) return result;
     }
     result.positionSeconds = static_cast<int>(position);
