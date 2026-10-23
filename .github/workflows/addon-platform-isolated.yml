@@ -102,6 +102,7 @@ jobs:
           set -Eeuo pipefail
           echo "TESTED_SHA=$(git rev-parse HEAD)"
           make test-addon-media-import-catalog
+          make test-addon-activation-http-payload
           make build-addon-root-approval-test
           make test-addon-core-approval-daemon-compile
           sudo env TMPDIR=/root "$(pwd)/.build/addons/test_addon_root_approval"

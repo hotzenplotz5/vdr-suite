@@ -6,6 +6,7 @@ DAEMON_SRC := \
         core/addons/src/AddonAccessPolicy.cpp \
         core/addons/src/AddonRootApproval.cpp \
         core/addons/src/AddonActivationIntentRepository.cpp \
+        core/addons/src/AddonAdministrationService.cpp \
         core/addons/media-tools/src/MediaImportOperationFence.cpp \
         core/addons/media-tools/src/MediaShrinkOperationFence.cpp \
         core/addons/media-tools/src/MediaShrinkOperationAdmission.cpp \

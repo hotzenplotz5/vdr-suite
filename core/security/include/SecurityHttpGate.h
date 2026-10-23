@@ -108,6 +108,8 @@ public:
             path.rfind("/api/", 0) == 0 &&
             !gate.publicApiV1 &&
             path != "/api/security/browser-sessions/current";
+        const bool isAddonActivationMutation =
+            isPost && path == "/api/v1/addons/rectools/activation";
         const bool isRemoteAction = isPost && path == "/api/vdr/remote/actions";
         const bool isTimerCreateAction = isPost && path == "/api/vdr/timers/actions/create";
         const bool isTimerUpdateAction = isPost && path == "/api/vdr/timers/actions/update";
@@ -954,7 +956,7 @@ public:
              path == "/api/searchtimers/plan" ||
              path == "/api/vdr/searchtimers/plan");
         const bool isProtectedMutation =
-            isRemoteAction || isTimerCreateAction ||
+            isAddonActivationMutation || isRemoteAction || isTimerCreateAction ||
             isPublicDevicePairingDecision ||
             isPublicAccountCreate ||
             isPublicAccountMutation ||
@@ -1861,6 +1863,21 @@ public:
         }
         // Credential issuance to an existing Device is administrator-browser
         // only even if a Service Actor somehow obtained an administrative grant.
+        if (isAddonActivationMutation &&
+            (!gate.browserAuthenticated ||
+             gate.context.actor.type != ActorType::User ||
+             !gate.context.session.has_value()))
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            AuthorizationDecision denial;
+            denial.permission = "role.admin";
+            denial.action = "addons.intent.update";
+            denial.backendId = "*";
+            denial.reasonCode = "browser_session_required";
+            return rejectWithAudit(gate, denial, 403,
+                "A verified administrator Browser Session is required", "");
+        }
         if (isPublicDeviceCredentialRotation && !gate.browserAuthenticated)
         {
             if (!gate.context.authenticated())
@@ -1880,7 +1897,13 @@ public:
         bool recordingActionSupported = true;
         bool publicAccountMutationSupported = true;
 
-        if (isPublicDevicePairingDecision)
+        if (isAddonActivationMutation)
+        {
+            requestToAuthorize.backendId = "*";
+            requestToAuthorize.permission = "role.admin";
+            requestToAuthorize.action = "addons.intent.update";
+        }
+        else if (isPublicDevicePairingDecision)
         {
             requestToAuthorize.backendId = "*";
             requestToAuthorize.permission =

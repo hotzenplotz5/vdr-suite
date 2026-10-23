@@ -8,6 +8,14 @@
 #include "BackendAgentMediaImportAssignment.h"
 #include "MediaShrinkAuthorityCodec.h"
 #include "AddonRootApproval.h"
+#include "AddonAdministrationService.h"
+#include "AddonActivationHttpPayload.h"
+
+#include <openssl/rand.h>
+#include <array>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 
 #include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
 #include "ManualRecordingMetadataApiRuntime.h"
@@ -2573,9 +2581,117 @@ bool DaemonRuntime::initialize()
         return has(vdrsuite::mediatools::kMediaShrinkStageCommandType) &&
                has(vdrsuite::mediatools::kMediaShrinkPublishCommandType);
     };
+    // The ONLY writable activation path: authenticated browser administrator
+    // -> SecurityHttpGate/CSRF -> trusted Core live callback -> audited CAS.
+    // No user-supplied RuntimeEvidence and no automatic installation/exec.
+    auto addonActivationMutation = [this](
+        const RequestSecurityContext& actor, const std::string& body)
+        -> ApiResponse
+    {
+        const auto problem = [](int status, const char* code) {
+            ApiResponse response;
+            response.statusCode = status;
+            response.contentType = "application/json";
+            response.body = std::string("{\"error\":\"") + code + "\"}";
+            return response;
+        };
+        using namespace vdrsuite::addons;
+        ActivationHttpMutation parsed;
+        if (!parseActivationHttpMutation(body, parsed))
+            return problem(422, "invalid_activation_request");
+        if (!mediaImportActivationIntents_ ||
+            !backendAgentAccountabilityRepository_ ||
+            !backendAgentRepository_ ||
+            !backendAgentCommandRepository_ ||
+            !backendRegistryService_ || !backendAccessPolicy_)
+            return problem(503, "activation_unavailable");
+        // The service independently requires a global administrator; caller
+        // evidence is ignored for enables. A disable never requires a live
+        // provider and remains available after revocation/removal.
+        AddonAdministrationService service(
+            *mediaImportActivationIntents_, *backendAgentAccountabilityRepository_,
+            [this](const std::string& moduleId, const std::string& backendId)
+              -> std::optional<AddonAdministrationService::TrustedActivationSnapshot>
+            {
+                if (moduleId != "rectools") return std::nullopt;
+                const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count();
+                if (!trustedMediaToolsProvider(backendId, now))
+                    return std::nullopt;
+                const auto agent = backendAgentRepository_->findAgentForBackend(
+                    backendId);
+                if (!agent || agent->leaseExpiresAt < now ||
+                    !backendAgentCommandRepository_->hasCapability(
+                        backendId, agent->agentId, agent->agentInstanceId,
+                        agent->backendGeneration, "addon.media.import"))
+                    return std::nullopt;
+                const auto access = backendAccessPolicy_->canWriteToBackend(
+                    *backendRegistryService_, backendId);
+                if (!access.backendFound || !access.allowed || access.readOnly)
+                    return std::nullopt;
+                RuntimeEvidence evidence;
+                evidence.moduleId = moduleId;
+                evidence.packageName = "vdr-suite-addon-media-tools";
+                evidence.backendId = backendId;
+                evidence.agentId = agent->agentId;
+                evidence.agentInstanceId = agent->agentInstanceId;
+                evidence.backendGeneration = agent->backendGeneration;
+                // These are TRUE only after independent administrator digest
+                // and authenticated Agent-local manifest/binary verification.
+                evidence.installed = true;
+                evidence.manifestValid = true;
+                evidence.packageTrusted = true;
+                evidence.versionCompatible = true;
+                evidence.handlerRegistered = true;
+                evidence.handlerHealthy = true;
+                return AddonAdministrationService::TrustedActivationSnapshot{
+                    access, evidence};
+            });
+        std::array<unsigned char, 16> entropy{};
+        if (RAND_bytes(entropy.data(), static_cast<int>(entropy.size())) != 1)
+            return problem(503, "audit_id_unavailable");
+        std::ostringstream auditId;
+        auditId << "addon-intent-";
+        for (const unsigned char b : entropy)
+            auditId << std::hex << std::setw(2) << std::setfill('0')
+                    << static_cast<unsigned>(b);
+        const std::time_t clockNow = std::time(nullptr);
+        std::tm utc{};
+        if (clockNow <= 0 || !gmtime_r(&clockNow, &utc))
+            return problem(503, "audit_clock_unavailable");
+        char stamp[32]{};
+        if (std::strftime(stamp, sizeof(stamp), "%Y-%m-%dT%H:%M:%SZ", &utc) != 20)
+            return problem(503, "audit_clock_unavailable");
+        const auto result = service.setDesiredState(
+            actor, {"rectools", parsed.backendId, parsed.enabled,
+                    parsed.expectedRevision}, {}, {},
+            {auditId.str(), stamp});
+        int code = 503;
+        switch (result.status) {
+            case IntentStatus::ok: code = 200; break;
+            case IntentStatus::invalid: code = 422; break;
+            case IntentStatus::forbidden: code = 403; break;
+            case IntentStatus::ineligible: code = 409; break;
+            case IntentStatus::revisionConflict: code = 409; break;
+            case IntentStatus::unavailable: code = 503; break;
+        }
+        if (code != 200) return problem(code,
+            result.status == IntentStatus::revisionConflict
+                ? "revision_conflict" : (result.status == IntentStatus::ineligible
+                    ? "provider_not_eligible" : "activation_denied"));
+        ApiResponse response;
+        response.statusCode = 200;
+        response.contentType = "application/json";
+        response.body = std::string("{\"moduleId\":\"rectools\",\"backendId\":\"") +
+            parsed.backendId + "\",\"desiredEnabled\":" +
+            (result.intent.desiredEnabled ? "true" : "false") +
+            ",\"revision\":" + std::to_string(result.intent.revision) + "}";
+        return response;
+    };
     auto clientHttpServer = std::make_unique<RecordingArtworkHttpServer>(
         std::make_unique<TestHttpServer>(
-            *apiRouter_, std::move(addonGrantEligibility)),
+            *apiRouter_, std::move(addonGrantEligibility),
+            std::move(addonActivationMutation)),
         *vdrRecordingCacheRepository_,
         config_.recordingArtworkRoots());
     auto agentHttpServer = std::make_unique<BackendAgentHttpServer>(

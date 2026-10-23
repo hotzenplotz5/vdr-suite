@@ -175,8 +175,10 @@ std::string securityDatabasePath()
 TestHttpServer::TestHttpServer(
     ApiRouter& apiRouter,
     HumanAccountGrantAdministrationService::AddonGrantEligibility
-        addonGrantEligibility)
+        addonGrantEligibility,
+    AddonActivationMutation addonActivationMutation)
     : apiRouter_(apiRouter),
+      addonActivationMutation_(std::move(addonActivationMutation)),
       securityDatabase_(std::make_unique<Database>())
 {
     if (!securityDatabase_->open(
@@ -1909,7 +1911,17 @@ HttpServerResponse TestHttpServer::handleRequest(
     }
     else if (request.method == "POST")
     {
-        if (pathWithoutQuery(request.path).rfind(
+        if (pathWithoutQuery(request.path) ==
+                "/api/v1/addons/rectools/activation")
+        {
+            // The SecurityHttpGate has already enforced administrator
+            // Browser Session, CSRF and role.admin on this protected route.
+            apiResponse = addonActivationMutation_
+                ? addonActivationMutation_(gate.context, request.body)
+                : ApiResponse{503, "application/json",
+                      "{\"error\":\"addon_activation_unavailable\"}"};
+        }
+        else if (pathWithoutQuery(request.path).rfind(
                 "/api/v1/recording-playback-sessions", 0) == 0)
         {
             apiResponse = apiRouter_.handleDeviceRecordingPlayback(

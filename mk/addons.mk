@@ -318,6 +318,16 @@ test-addon-core-approval-daemon-compile:
 		core/addons/media-tools/src/MediaImportOperationFence.cpp \
 		core/addons/media-tools/src/MediaShrinkOperationFence.cpp
 
+# Secure, strictly bounded administration wire contract.
+.PHONY: test-addon-activation-http-payload
+test-addon-activation-http-payload:
+	$(BUILD_CXX) $(CXXFLAGS) -Werror \
+		core/addons/tests/test_addon_activation_http_payload.cpp \
+		-o "$(BUILD_DIR)/test_addon_activation_http_payload"
+	"$(BUILD_DIR)/test_addon_activation_http_payload"
+
+test-ci-fast: test-addon-activation-http-payload
+
 # Non-executable common source/deb provider admission contract.
 .PHONY: test-addon-provider-admission
 test-addon-provider-admission:
