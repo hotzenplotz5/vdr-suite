@@ -17,15 +17,20 @@ public:
                                             const std::string&,
                                             const std::string&)>;
     using Capability = std::function<ApiResponse(const std::string&)>;
+    using ReviewStatus = std::function<ApiResponse(const std::string&,
+                                                   const std::string&,
+                                                   const std::string&)>;
 
     static MediaShrinkPlanApiRuntime& instance() {
         static MediaShrinkPlanApiRuntime runtime;
         return runtime;
     }
-    void registerHandlers(Plan plan, Capability capability) {
+    void registerHandlers(Plan plan, Capability capability,
+                          ReviewStatus reviewStatus = {}) {
         std::lock_guard<std::mutex> lock(mutex_);
         plan_ = std::move(plan);
         capability_ = std::move(capability);
+        reviewStatus_ = std::move(reviewStatus);
     }
 
     bool tryHandleGet(const std::string& target,
@@ -34,8 +39,12 @@ public:
                       const std::vector<std::string>& authorizedBackends,
                       ApiResponse& response) const {
         std::string backend, suffix;
-        if (!parse(target, backend, suffix) ||
-            suffix != "/capabilities/media-shrink") return false;
+        if (!parse(target, backend, suffix)) return false;
+        const bool capabilityRequest = suffix == "/capabilities/media-shrink";
+        const std::string reviewPrefix = "/media-shrink-reviews/";
+        const bool reviewRequest =
+            suffix.compare(0, reviewPrefix.size(), reviewPrefix) == 0;
+        if (!capabilityRequest && !reviewRequest) return false;
         if (target.find('?') != std::string::npos) {
             response = problem(400, "Query parameters are not accepted.");
             return true;
@@ -46,6 +55,27 @@ public:
         }
         if (!scoped(backend, authorizedBackend, authorizedBackends)) {
             response = problem(404, "Resource not found.");
+            return true;
+        }
+        if (reviewRequest) {
+            const std::string reviewId = suffix.substr(reviewPrefix.size());
+            if (reviewId.size() != 36 ||
+                reviewId.compare(0, 4, "shk_") != 0 ||
+                !std::all_of(reviewId.begin() + 4, reviewId.end(),
+                    [](unsigned char ch) {
+                        return (ch >= '0' && ch <= '9') ||
+                               (ch >= 'a' && ch <= 'f');
+                    })) {
+                response = problem(404, "Resource not found.");
+                return true;
+            }
+            ReviewStatus read;
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                read = reviewStatus_;
+            }
+            response = read ? read(actor, backend, reviewId)
+                            : problem(503, "Media Shrink review unavailable.");
             return true;
         }
         Capability capability;
@@ -115,6 +145,7 @@ private:
     mutable std::mutex mutex_;
     Plan plan_;
     Capability capability_;
+    ReviewStatus reviewStatus_;
 
     static bool scoped(const std::string& backend, const std::string& one,
                        const std::vector<std::string>& many) {
