@@ -40,7 +40,7 @@ The table below separates completed foundations from separately gated or future 
 | Native Recording marks/cutting | Completed non-numbered capability | VDR remains canonical marks/cutter authority. |
 | Teletext / HbbTV | Completed numbered domain | Phase 67 / ADR-0054 / Phase-67 closeout. |
 | Legacy OSD compatibility | Completed numbered domain | Phase 68 / ADR-0047 / Phase-68 closeout. |
-| Stable public API/SDK | Completed numbered domain; source coverage integrated, final acceptance pending | Phase 69 foundation; post-69 R1–P1 source sequence merged (P1 #524), Unified Acceptance Runner #526 merged. Public API v1 Integrationsabschluss and exact-candidate real-yaVDR/VIDAA acceptance remain open; see [central matrix](development/public-v1-final-hardware-acceptance.md). |
+| Stable public API/SDK | Completed numbered domain | Phase 69 foundation; post-69 R1–P1 source sequence merged (P1 #524), Unified Acceptance Runner #526 merged. Public API v1 Integrationsabschluss and exact-candidate real-yaVDR/VIDAA acceptance remain open; see [central matrix](development/public-v1-final-hardware-acceptance.md). |
 | Additive Account and Device Recording R2 APIs | Separately gated expansion | Later Account contracts and Recording R2/Device source must be tracked independently; merged code does not imply hardware or external-client acceptance. |
 | Recommendation/content graph | Later vision, NOT STARTED | Phase 70. |
 
