@@ -3,6 +3,26 @@
 These rules apply to all automated assistants and agent-driven repository work.
 They supplement the technical, security and phase-specific contracts in `docs/`.
 
+## No hallucinated facts, user mandates, or blockers
+
+**Hard rule:** Never invent or imply user instructions, approvals, prohibitions,
+repository requirements, CI outcomes, tested behavior, repository paths, or
+technical blockers. Separate **user instruction**, **actual repository rule**,
+**verified source/tool result**, and **assistant recommendation/inference**.
+If a rule was written by an assistant, do not attribute it to the user;
+quote its actual wording and path before invoking it as a constraint. An
+assistant-authored rule is not evidence that the user requested that rule.
+
+Check the actual file or tool result before making factual claims. If a fact
+cannot be verified, say **unverified**, not "confirmed"; if a conclusion is
+inferred, label it an inference and its supporting observations. Do not
+reinterpret a recommendation, pending test, or incidental discovery as a
+mandatory stop gate. A queued, running, slow or unavailable CI job alone is
+not a reason to stop already authorized independent analysis, implementation
+or local tests. Continue bounded independent work without overstating its
+validation, and explicitly report what is still untested. Never fabricate
+successful builds, validations, deployments, or approvals.
+
 ## Non-negotiable scope, simplicity, and verification gates
 
 **Priority:** These gates constrain every workstream, including the top-level
@@ -24,15 +44,16 @@ these gates.
    protocols, cross-cutting abstractions and broad refactors require BOTH
    evidence that the existing design cannot meet the agreed acceptance
    criterion AND the user's explicit authorization **before** implementation.
-4. **Validate code before calling it done or stacking commits.** For C++,
-   backend or runtime-contract edits, compile the exact changed candidate and
-   run the smallest relevant functional/regression tests before considering a
-   code commit complete or proceeding with more product-code commits. A
-   successful GitHub write, queued CI run or unit-only mock is not build or
-   integration proof. If required validation is unavailable, do not keep
-   producing speculative code commits: diagnose the exact blocker, continue
-   only independent approved work, and report what remains unverified. For
-   docs-only edits use proportionate documentation checks.
+4. **Validate before declaring completion.** For C++, backend or
+   runtime-contract changes, compile the exact candidate and run relevant
+   functional/regression tests before claiming it works. State precisely
+   which SHA was tested and which checks remain pending; never equate a
+   pushed commit or queued CI with a passing build. A running or blocked CI
+   job does NOT prohibit preparing and implementing the next already
+   authorized slice in parallel. Keep work bounded, check compatibility,
+   and test each candidate when tooling is available. Do not claim that an
+   assistant-authored sequencing preference is a user requirement. Docs-only
+   edits need proportionate documentation checks.
 5. **No chain reaction of adjacent work.** Discovering an issue during a fix
    does not add it to the authorized task. Note it concisely. Only a proven
    defect blocking the current acceptance or a verified urgent security issue
