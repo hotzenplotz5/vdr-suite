@@ -304,9 +304,28 @@ int main()
     importActor.grants.push_back({"role.read-only", "backend-a"});
     assert(service.authorize(importActor, importRequest).reasonCode == "role_read_only");
 
+    // HEVC is an independent explicit per-backend grant, never inherited
+    // from general admin, import or wildcard privileges.
+    const auto shrinkRequest =
+        permissionRequest("addons.media.shrink", "backend-a");
+    assert(!service.authorize(adminRole, shrinkRequest).allowed);
+    assert(!service.authorize(wildcard, shrinkRequest).allowed);
+    RequestSecurityContext shrinkActor = authenticatedContext();
+    shrinkActor.grants.push_back({"addons.media.import", "backend-a"});
+    assert(!service.authorize(shrinkActor, shrinkRequest).allowed);
+    shrinkActor.grants.push_back({"addons.media.shrink", "*"});
+    assert(!service.authorize(shrinkActor, shrinkRequest).allowed);
+    shrinkActor.grants.push_back({"addons.media.shrink", "backend-other"});
+    assert(!service.authorize(shrinkActor, shrinkRequest).allowed);
+    shrinkActor.grants.push_back({"addons.media.shrink", "backend-a"});
+    assert(service.authorize(shrinkActor, shrinkRequest).allowed);
+    shrinkActor.grants.push_back({"role.read-only", "backend-a"});
+    assert(service.authorize(shrinkActor, shrinkRequest).reasonCode ==
+           "role_read_only");
+
     // Future and unknown add-on grants are not activated by raw DB rows,
     // administrator roles or wildcard grants.
-    for (const auto* future : {"addons.media.check", "addons.media.shrink",
+    for (const auto* future : {"addons.media.check",
                                "addons.unknown.run"}) {
         const auto request = permissionRequest(future, "backend-a");
         assert(!service.authorize(adminRole, request).allowed);
