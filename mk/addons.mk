@@ -95,6 +95,24 @@ test-ci-fast: test-addon-media-shrink-plan-api
 
 test-ci-fast: test-addon-media-shrink
 
+# Staged HEVC review identity is bound to canonical ADR-0042 Operations.
+# This never dispatches a worker or touches installed VDR recordings.
+.PHONY: test-addon-media-shrink-core-review
+test-addon-media-shrink-core-review:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
+		-I core/sqlite/include -I core/operations/include \
+		-I core/addons/include \
+		core/sqlite/src/Database.cpp \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/addons/src/MediaShrinkReviewRepository.cpp \
+		core/addons/tests/test_media_shrink_review_repository.cpp \
+		-lsqlite3 -o "$(BUILD_DIR)/addons/test_media_shrink_review_repository"
+	"$(BUILD_DIR)/addons/test_media_shrink_review_repository"
+
+test-ci-fast: test-addon-media-shrink-core-review
+
 # M2: read-only TS and FFmpeg engine, exercised via standalone CLI and
 # Suite API v1 integration on disposable fixtures; never touch real recordings.
 .PHONY: addon-media-check test-addon-media-check
