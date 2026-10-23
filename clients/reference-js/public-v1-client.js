@@ -1013,6 +1013,59 @@
       });
     }
 
+
+    function recordingProgressIdentity(input) {
+      if (!input || typeof input !== 'object' ||
+          typeof input.backendId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(input.backendId) ||
+          input.backendId === '.' || input.backendId === '..' ||
+          typeof input.recordingId !== 'string' ||
+          !/^rec_[0-9a-f]{32}$/.test(input.recordingId))
+        throw new Error('Public recording progress requires backendId and canonical rec_ ID');
+      return {backendId: input.backendId, recordingId: input.recordingId};
+    }
+
+    function readRecordingProgress(input) {
+      const identity = recordingProgressIdentity(input);
+      return request('/api/v1/recording-playback-sessions/progress?backendId=' +
+        encodeURIComponent(identity.backendId) + '&recordingId=' +
+        encodeURIComponent(identity.recordingId), input);
+    }
+
+    function saveRecordingProgress(input) {
+      const identity = recordingProgressIdentity(input);
+      if (!Number.isSafeInteger(input.expectedRevision) ||
+          input.expectedRevision < 0 ||
+          !Number.isInteger(input.positionSeconds) ||
+          input.positionSeconds < 0 || input.positionSeconds > 2147483647 ||
+          typeof input.operationId !== 'string' ||
+          !/^[!-~]{1,128}$/.test(input.operationId))
+        throw new Error('Confirmed position, current revision and operationId required');
+      const path = '/api/v1/recording-playback-sessions/progress';
+      const headers = Object.assign({Accept: 'application/json'}, defaultHeaders,
+        copyHeaders(input.headers), {'Content-Type': 'application/json'});
+      const payload = Object.assign({}, identity, {
+        positionSeconds: input.positionSeconds,
+        expectedRevision: input.expectedRevision,
+        operationId: input.operationId
+      });
+      // No automatic retry: on 409 re-read the current revision and let the
+      // client decide whether it really observed a newer playback position.
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST', headers: headers,
+        credentials: input.credentials !== undefined ? input.credentials : normalized.credentials,
+        signal: input.signal,
+        body: JSON.stringify(payload)
+      }).then(function (response) {
+        return parseJsonBody(response).then(function (data) {
+          if (!response.ok) {
+            throw new VdrSuitePublicClientError(path, response.status, data, response);
+          }
+          return data;
+        });
+      });
+    }
+
     return Object.freeze({
       getApiRoot(options) {
         return request('/api/v1', options);
@@ -1254,6 +1307,16 @@
           {active: false},
           normalizedOptions
         );
+      },
+      getRecordingProgress(options) {
+        return readRecordingProgress(options);
+      },
+      updateRecordingProgress(options) {
+        return saveRecordingProgress(options);
+      },
+      clearRecordingProgress(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return saveRecordingProgress(Object.assign({}, input, {positionSeconds: 0}));
       },
       getRecordings(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
