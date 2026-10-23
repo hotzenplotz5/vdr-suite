@@ -161,6 +161,8 @@ MediaShrinkAgentOutcome LocalMediaShrinkAgentExecutor::execute(
         if (selection.action == ShrinkRequestAction::stage) {
             const auto plan = inspectShrink(
                 fresh->videoRoot, fresh->relativeRecording, options(selection));
+            if (shrinkSourceFingerprint(plan) != fresh->sourceFingerprint)
+                return MediaShrinkAgentOutcome::rejected;
             const auto candidate = stageShrink(plan, runner, requireShrinkCapacity);
             LocalMediaShrinkReview local;
             local.actorId = fresh->actorId;
@@ -183,12 +185,16 @@ MediaShrinkAgentOutcome LocalMediaShrinkAgentExecutor::execute(
                 local->videoRoot != fresh->videoRoot ||
                 local->relativeRecording != fresh->relativeRecording)
                 return MediaShrinkAgentOutcome::rejected;
+            // Validate the source snapshot BEFORE the irreversible claim.
+            // A source or sidecar change cannot authorize stale publication.
+            const auto plan = inspectShrink(local->videoRoot,
+                                             local->relativeRecording);
+            if (shrinkSourceFingerprint(plan) != fresh->sourceFingerprint)
+                return MediaShrinkAgentOutcome::rejected;
             // A durable irreversible start fence prevents double publication
             // after any crash, timeout or uncertain Agent result.
             if (!reviews_.claimOnce(selection.reviewId, fresh->operationId))
                 return MediaShrinkAgentOutcome::unknown;
-            const auto plan = inspectShrink(local->videoRoot,
-                                             local->relativeRecording);
             (void)publishShrinkCandidate(plan, local->candidateDirectory, runner);
             reviewId_ = selection.reviewId;
         }
