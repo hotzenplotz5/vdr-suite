@@ -302,10 +302,10 @@ bool samePayload(
 }
 
 // The global Media Tools maintenance gate is read in the SAME write
-// transaction as admission. A separately checked UI/HTTP flag cannot protect
-// against a competing process reserving an operation between the two reads.
+// transaction as admission for Import and HEVC Stage/Publish. A separately
+// checked UI/HTTP flag cannot protect against concurrent reservations.
 enum class AdmissionGate { permitted, frozen, unavailable };
-AdmissionGate mediaImportAdmissionGate(Database& database)
+AdmissionGate mediaToolsAdmissionGate(Database& database)
 {
     sqlite3_stmt* statement = nullptr;
     if (sqlite3_prepare_v2(database.handle(),
@@ -454,9 +454,11 @@ MutationOperationRepositoryResult reserveInCurrentTransactionInternal(
             MutationOperationRepositoryStatus::idempotencyConflict, existing);
     }
 
-    if (operation.actionFamily == "media.import")
+    if (operation.actionFamily == "media.import" ||
+        operation.actionFamily == "media.shrink.stage" ||
+        operation.actionFamily == "media.shrink.publish")
     {
-        const AdmissionGate gate = mediaImportAdmissionGate(database);
+        const AdmissionGate gate = mediaToolsAdmissionGate(database);
         if (gate == AdmissionGate::frozen)
             return statusResult(MutationOperationRepositoryStatus::maintenanceBlocked);
         if (gate != AdmissionGate::permitted)

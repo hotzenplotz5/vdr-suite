@@ -1,4 +1,5 @@
 #include "MediaShrinkOperationFence.h"
+#include "AddonMediaImportMaintenanceRead.h"
 
 #include "AddonActivationIntentRepository.h"
 #include "AddonPermissionCatalog.h"
@@ -188,6 +189,13 @@ bool MediaShrinkOperationFence::effectiveCapability(
     if (now <= 0 || actorId.empty() || backendId.empty() ||
         backendId == "*" || (!stage && !publish))
         return deny(reason, "media_shrink_invalid_admission");
+    // Effective capability disappears under the global maintenance freeze.
+    // Unavailable SQLite/schema must deny, not be interpreted as unfrozen.
+    auto* maintenanceDatabase =
+        const_cast<Database*>(operations_.databaseIdentity());
+    if (!maintenanceDatabase ||
+        !mediaToolsAdmissionUnfrozen(*maintenanceDatabase))
+        return deny(reason, "media_shrink_maintenance_frozen");
 
     // The exact Agent executable capability and its current lease are
     // mandatory. An unregistered or disabled add-on cannot authorize work.
@@ -244,6 +252,13 @@ bool MediaShrinkOperationFence::check(
         !exactReceipt(assignment, receipt) || receipt.receivedAt > now ||
         assignment.deadline <= now)
         return deny(reason, "media_shrink_invalid_receipt");
+    // The command receipt is the final mutation gate: a reserved or queued
+    // HEVC command may not start after an administrator freezes Media Tools.
+    auto* maintenanceDatabase =
+        const_cast<Database*>(operations_.databaseIdentity());
+    if (!maintenanceDatabase ||
+        !mediaToolsAdmissionUnfrozen(*maintenanceDatabase))
+        return deny(reason, "media_shrink_maintenance_frozen");
 
     // Reserved command and current local Agent advertisement MUST agree with
     // the one live lease/generation. No stale Agent result can activate work.

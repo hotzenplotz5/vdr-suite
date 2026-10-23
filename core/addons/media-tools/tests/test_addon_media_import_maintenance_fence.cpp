@@ -40,10 +40,14 @@ MutationOperation operation(const std::string& id,
     op.actorId = "actor-a";
     op.backendId = backend;
     op.backendGeneration = 19;
-    op.resourceType = action == "media.import" ?
-        "MediaImportSource" : "NativeTimerBinding";
-    op.resourceId = action == "media.import" ?
-        "source-opaque-1234567890" : "native-timer-1";
+    op.resourceType = action == "media.import" ? "MediaImportSource" :
+        action == "media.shrink.stage" ? "Recording" :
+        action == "media.shrink.publish" ? "MediaShrinkReview" :
+        "NativeTimerBinding";
+    op.resourceId = action == "media.import" ? "source-opaque-1234567890" :
+        action == "media.shrink.stage" ? "rec_0123456789abcdef0123456789abcdef" :
+        action == "media.shrink.publish" ? "shk_0123456789abcdef0123456789abcdef" :
+        "native-timer-1";
     op.expectedRevision = "1";
     op.actionFamily = action;
     op.requestFingerprint = "fingerprint-" + id;
@@ -97,6 +101,12 @@ void checkAcrossConnections()
         const auto blocked = operation("external", "media.import", "backend-b");
         assert(repo2.reserveWithPayload(blocked, payload(blocked)).status ==
                MutationOperationRepositoryStatus::maintenanceBlocked);
+        for (const char* action : {"media.shrink.stage", "media.shrink.publish"}) {
+            const auto denied = operation(std::string("external-") + action,
+                                          action, "backend-b");
+            assert(repo2.reserve(denied).status ==
+                   MutationOperationRepositoryStatus::maintenanceBlocked);
+        }
         assert(!mediaImportAdmissionUnfrozen(db2));
         assert(gate.setFrozen(actor, false, 1,
                {"event-external-unfreeze", "2026-10-22T07:03:00Z"}).status ==
@@ -164,6 +174,15 @@ int main()
     const auto otherBackend = operation("third", "media.import", "backend-b");
     assert(operations.reserveWithPayload(otherBackend, payload(otherBackend)).status ==
            MutationOperationRepositoryStatus::maintenanceBlocked);
+    // Both HEVC write actions are fenced by the SAME global freeze.
+    for (const char* action : {"media.shrink.stage", "media.shrink.publish"}) {
+        const auto denied = operation(std::string("frozen-") + action,
+                                      action, "backend-b");
+        assert(operations.reserve(denied).status ==
+               MutationOperationRepositoryStatus::maintenanceBlocked);
+        assert(operations.findById(denied.operationId).status ==
+               MutationOperationRepositoryStatus::notFound);
+    }
     assert(operations.findById(second.operationId).status ==
            MutationOperationRepositoryStatus::notFound);
     assert(operations.findPayloadByOperationId(second.operationId).status ==
@@ -194,6 +213,13 @@ int main()
     assert(audit.listAll().size() == 2 &&
            audit.listAll()[1].action == "addons.maintenance.unfreeze");
     assert(operations.reserveWithPayload(second, payload(second)).ok());
+    // Unfreezing the durable gate permits new Stage/Publish reservations
+    // again; it does not silently activate a provider or actor grant.
+    for (const char* action : {"media.shrink.stage", "media.shrink.publish"}) {
+        const auto admitted = operation(std::string("unfrozen-") + action,
+                                        action, "backend-b");
+        assert(operations.reserve(admitted).ok());
+    }
 
     // Different database owners must never be confused for one atomic store.
     Database unrelated;

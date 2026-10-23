@@ -10,7 +10,7 @@ namespace vdrsuite::addons {
 // Called by the server's final command receipt/capability revalidation.
 // The canonical operation insertion still owns the atomic check inside its
 // BEGIN IMMEDIATE transaction. This does not itself authorize a job.
-inline bool mediaImportAdmissionUnfrozen(Database& database)
+inline bool mediaToolsAdmissionUnfrozen(Database& database)
 {
     if (!database.isOpen()) return false;
     auto lease = database.acquireTransactionLease();
@@ -28,6 +28,12 @@ inline bool mediaImportAdmissionUnfrozen(Database& database)
         allowed = sqlite3_step(statement) == SQLITE_DONE;
     sqlite3_finalize(statement);
     return allowed;
+}
+
+// Compatibility name for existing Import receipt checks.
+inline bool mediaImportAdmissionUnfrozen(Database& database)
+{
+    return mediaToolsAdmissionUnfrozen(database);
 }
 
 } // namespace vdrsuite::addons
