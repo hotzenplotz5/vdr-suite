@@ -14,6 +14,7 @@
 #include "MutationOperationRepository.h"
 #include "SecurityIdentityRepository.h"
 #include "SecurityPermissionGrantRepository.h"
+#include <utility>
 
 namespace vdrsuite::addons {
 namespace {
@@ -43,11 +44,13 @@ MediaShrinkOperationFence::MediaShrinkOperationFence(
     BackendRegistryService& backendRegistry,
     BackendAccessPolicy& backendAccess,
     const AddonActivationIntentRepository& activationIntents,
-    MediaShrinkReviewRepository& reviews)
+    MediaShrinkReviewRepository& reviews,
+    std::function<bool(const std::string&, std::int64_t)> trustedProviderCheck)
     : operations_(operations), identities_(identities), grants_(grants),
       agents_(agents), commands_(commands),
       backendRegistry_(backendRegistry), backendAccess_(backendAccess),
-      activationIntents_(activationIntents), reviews_(reviews) {}
+      activationIntents_(activationIntents), reviews_(reviews),
+      trustedProviderCheck_(std::move(trustedProviderCheck)) {}
 
 bool MediaShrinkOperationFence::applyResult(
     const BackendAgentCommandAssignment& assignment,
@@ -245,6 +248,9 @@ bool MediaShrinkOperationFence::effectiveCapability(
         activation.intent.backendGeneration == 0)
         return deny(reason, "media_shrink_activation_agent_stale");
 
+    if (!trustedProviderCheck_ ||
+        !trustedProviderCheck_(backendId, now))
+        return deny(reason, "media_shrink_provider_untrusted");
     generation = agent->backendGeneration;
     reason = "media_shrink_core_admission_authorized";
     return true;
@@ -328,6 +334,12 @@ bool MediaShrinkOperationFence::check(
     if (activation.status != IntentStatus::ok ||
         !activation.intent.desiredEnabled || activation.intent.revision <= 0)
         return deny(reason, "media_shrink_activation_disabled");
+
+    // A successful command reservation is not a durable execution grant.
+    // Re-evaluate the exact Core-approved backend provider at receipt.
+    if (!trustedProviderCheck_ ||
+        !trustedProviderCheck_(assignment.backendId, now))
+        return deny(reason, "media_shrink_provider_untrusted");
 
     if (assignment.commandType ==
         vdrsuite::mediatools::kMediaShrinkPublishCommandType)

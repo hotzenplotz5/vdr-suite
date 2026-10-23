@@ -4,6 +4,7 @@
 #include "VdrRecordingCacheRepository.h"
 
 #include <vector>
+#include <functional>
 
 #include <cstdint>
 #include <string>
@@ -35,7 +36,8 @@ public:
         BackendAgentCommandRepository& commands,
         BackendRegistryService& backendRegistry,
         BackendAccessPolicy& backendAccess,
-        const AddonActivationIntentRepository& activationIntents);
+        const AddonActivationIntentRepository& activationIntents,
+        std::function<bool(const std::string&, std::int64_t)> trustedProviderCheck);
 
     bool check(const BackendAgentCommandAssignment& assignment,
                const BackendAgentCommandReceipt& receipt,
@@ -76,7 +78,7 @@ private:
                    std::string& reason) const;
     bool actorBackendAllowed(const std::string& actorId,
                              const std::string& backendId,
-                             std::string& reason) const;
+                             std::int64_t now, std::string& reason) const;
 
     vdrsuite::operations::MutationOperationRepository& operations_;
     SecurityIdentityRepository& identities_;
@@ -86,6 +88,7 @@ private:
     BackendRegistryService& backendRegistry_;
     BackendAccessPolicy& backendAccess_;
     const AddonActivationIntentRepository& activationIntents_;
+    std::function<bool(const std::string&, std::int64_t)> trustedProviderCheck_;
 };
 
 } // namespace vdrsuite::addons

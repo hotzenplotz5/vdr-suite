@@ -31,6 +31,20 @@
 #include <utility>
 #include <vector>
 
+bool DaemonRuntime::trustedMediaToolsProvider(
+    const std::string& backendId, std::int64_t now) const
+{
+    if (now <= 0 || backendId.empty() || !backendAgentRepository_ ||
+        !mediaImportCatalog_)
+        return false;
+    const auto agent = backendAgentRepository_->findAgentForBackend(backendId);
+    if (!agent) return false;
+    const auto approval =
+        vdrsuite::addons::readRootMediaToolsApproval("/", backendId);
+    return mediaImportCatalog_->matchesIndependentCoreApproval(
+        *agent, backendId, now, approval);
+}
+
 bool DaemonRuntime::tryReconcileMediaShrinkStage(
     const BackendAgentCommandAssignment& assignment,
     const BackendAgentCommandResult& result,
@@ -372,14 +386,20 @@ bool DaemonRuntime::initialize()
             *mutationOperationRepository_, *backendAgentIdentityRepository_,
             *mediaImportGrantRepository_, *backendAgentRepository_,
             *backendAgentCommandRepository_, *backendRegistryService_,
-            *backendAccessPolicy_, *mediaImportActivationIntents_);
+            *backendAccessPolicy_, *mediaImportActivationIntents_,
+            [this](const std::string& backendId, std::int64_t now) {
+                return trustedMediaToolsProvider(backendId, now);
+            });
     mediaShrinkOperationFence_ =
         std::make_unique<vdrsuite::addons::MediaShrinkOperationFence>(
             *mutationOperationRepository_, *backendAgentIdentityRepository_,
             *mediaImportGrantRepository_, *backendAgentRepository_,
             *backendAgentCommandRepository_, *backendRegistryService_,
             *backendAccessPolicy_, *mediaImportActivationIntents_,
-            *mediaShrinkReviewRepository_);
+            *mediaShrinkReviewRepository_,
+            [this](const std::string& backendId, std::int64_t now) {
+                return trustedMediaToolsProvider(backendId, now);
+            });
     backendAgentCommandDeliveryService_->setMediaShrinkReceiptFenceCheck(
         [this](const BackendAgentCommandAssignment& assignment,
                const BackendAgentCommandReceipt& receipt,
@@ -444,10 +464,7 @@ bool DaemonRuntime::initialize()
             // Independent Core-host approval is the EXPECTED digest.
             // A remote Agent observation cannot approve itself; Core never
             // inspects the remote handler via its own local filesystem.
-            const auto coreApproval =
-                vdrsuite::addons::readRootMediaToolsApproval("/", backendId);
-            if (!mediaImportCatalog_->matchesIndependentCoreApproval(
-                    *live, backendId, now, coreApproval) ||
+            if (!trustedMediaToolsProvider(backendId, now) ||
                 !mediaImportCatalog_->list(*live, backendId, now, result.ids))
                 return result;
             result.status = API::MediaImportSourceStatus::ok;

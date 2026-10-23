@@ -193,6 +193,10 @@ private:
     void pollScheduledMediaImport();
     PublicMediaImportAdmissionResult admitMediaImport(
         const PublicMediaImportAdmissionRequest& request);
+    // Core-owned backend-specific approval + live authenticated Agent digest.
+    // Fail closed on missing/revoked root approval or stale observation.
+    bool trustedMediaToolsProvider(const std::string& backendId,
+                                   std::int64_t now) const;
     void startEpgCacheWarmupWorker();
     void stopEpgCacheWarmupWorker();
     void runEpgCacheWarmupWorker();

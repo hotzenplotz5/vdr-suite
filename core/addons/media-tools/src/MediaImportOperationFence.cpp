@@ -47,11 +47,13 @@ MediaImportOperationFence::MediaImportOperationFence(
     BackendAgentCommandRepository& commands,
     BackendRegistryService& backendRegistry,
     BackendAccessPolicy& backendAccess,
-    const AddonActivationIntentRepository& activationIntents)
+    const AddonActivationIntentRepository& activationIntents,
+    std::function<bool(const std::string&, std::int64_t)> trustedProviderCheck)
     : operations_(operations), identities_(identities), grants_(grants),
       agents_(agents), commands_(commands),
       backendRegistry_(backendRegistry), backendAccess_(backendAccess),
-      activationIntents_(activationIntents)
+      activationIntents_(activationIntents),
+      trustedProviderCheck_(std::move(trustedProviderCheck))
 {
 }
 
@@ -76,7 +78,7 @@ bool MediaImportOperationFence::checkCandidate(
 
 bool MediaImportOperationFence::actorBackendAllowed(
     const std::string& actorId, const std::string& backendId,
-    std::string& reason) const
+    std::int64_t now, std::string& reason) const
 {
     // Shared by authenticated API discovery and immutable operation dispatch.
     const auto actor = identities_.findActor(actorId);
@@ -130,6 +132,12 @@ bool MediaImportOperationFence::actorBackendAllowed(
         intent.intent.agentInstanceId != activeAgent->agentInstanceId)
         return denied(reason, "media_import_activation_agent_stale");
 
+    // Runtime-owned, independent Core approval MUST still match the
+    // authenticated backend observation at each discovery/reservation/receipt.
+    if (!trustedProviderCheck_ ||
+        !trustedProviderCheck_(backendId, now))
+        return denied(reason, "media_import_provider_untrusted");
+
     reason = "media_import_actor_backend_authorized";
     return true;
 }
@@ -151,7 +159,7 @@ bool MediaImportOperationFence::effectiveMediaImportCapability(
             agent->backendGeneration,
             vdrsuite::mediatools::kMediaImportCommandType))
         return denied(reason, "media_import_capability_agent_unavailable");
-    if (!actorBackendAllowed(actorId, backendId, reason)) return false;
+    if (!actorBackendAllowed(actorId, backendId, now, reason)) return false;
     reason = "media_import_effective_capability_available";
     return true;
 }
@@ -220,7 +228,7 @@ bool MediaImportOperationFence::checkCore(
         payload.payload.payloadFingerprint.empty())
         return denied(reason, "media_import_payload_conflict");
 
-    if (!actorBackendAllowed(op.actorId, assignment.backendId, reason))
+    if (!actorBackendAllowed(op.actorId, assignment.backendId, now, reason))
         return false;
 
     reason = "media_import_operation_and_grant_verified";
