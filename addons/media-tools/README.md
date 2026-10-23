@@ -159,10 +159,15 @@ is a foreground browser feature, **not** an unattended daemon scheduler.
 At HEVC Stage, the protected candidate marker records the validated source
 fingerprint **and the exact concatenated TS duration** used to verify encoding.
 The independent Publish verifier now checks both the staged duration and a
-read-only re-probe of the original source TS segments, for single- and
-multi-segment recordings. It fails closed on missing/invalid marker data,
-a shortened HEVC candidate or forged duration evidence. No second source concatenation or
-recording write is required to read back the duration.
+read-only re-probe of the original source TS byte stream, for single- and
+multi-segment recordings. Multi-part VDR TS files are exposed through
+FFprobe's read-only `concat:` protocol using their verified absolute
+segment paths. Individual per-file duration values are **not** added:
+TS timestamps may jump at file boundaries. A missing, stale, manipulated or
+unsafe source/duration marker and shortened HEVC candidates fail closed.
+This check creates no new TS snapshot and never writes the source recording.
+The isolated regressions cover a valid timestamp discontinuity, a changed
+combined source duration and a concat-protocol delimiter in the recording path.
 
 
 In the opted-in production Backend Agent, the HEVC executor is wrapped by
@@ -313,7 +318,12 @@ scaffold with empty executable, permission and capability declarations.
 Source/manual installations and eventual Debian packages use this same fixed
 path; neither dpkg presence nor the manifest itself grants authorization.
 The combined snapshot revalidates administrator approval after hashing, and
-the pinned Agent executor revalidates the installed manifest at dispatch.
+the pinned Agent executor revalidates the installed manifest and approval at
+dispatch. It also re-hashes the **same pinned ELF descriptor** immediately
+before `fexecve`, after acquiring the inherited shared maintenance lock;
+neither a pathname reopen nor an authorization-time digest cache suffices.
+Synthetic descriptor and executor tests reject in-place post-authorization
+binary changes; these are not a production backend acceptance test.
 The recognized handler interface is fixed at reviewed version `0.1.0`;
 a newer installed binary/manifest does not gain execution compatibility by
 self-reporting a matching version to an approval. A privileged,
@@ -595,7 +605,9 @@ install-snapshot and root-ledger adapters, the new Core receipt-replay
 authorization adapter and the Add-on pinned-fd executor. Its synthetic
 handler is a copied `/bin/true` ELF; no VDR recordings are touched.
 Negative cases include default missing executor, revocation, stale backend
-generation, writable inventory and a modified source before execution.
+generation, changed Agent instance between authorize/execute, writable
+inventory, in-place handler byte tampering and a modified source before
+execution.
 
 ### A6.4 contiguous real-Agent synthetic lifecycle
 
