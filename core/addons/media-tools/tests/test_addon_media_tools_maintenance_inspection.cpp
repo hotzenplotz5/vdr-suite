@@ -351,8 +351,15 @@ int main() {
     evidence.installed=evidence.manifestValid=evidence.packageTrusted=true;
     evidence.versionCompatible=evidence.handlerRegistered=
         evidence.handlerHealthy=true;
+    // A new enable is forbidden once the freeze exists. Emulate a legacy
+    // pre-existing enabled row in isolated SQLite to prove that maintenance
+    // inspection independently notices and rejects that unsafe state.
     assert(intents.update(actor, {"rectools","backend-b",true,0},
-                          writable,evidence).status == IntentStatus::ok);
+                          writable,evidence).status == IntentStatus::ineligible);
+    assert(db.execute(
+        "INSERT INTO addon_activation_intents(module_id,backend_id,"
+        "desired_enabled,revision,updated_by_actor_id) "
+        "VALUES ('rectools','backend-b',1,1,'pre-freeze-admin');"));
     assert(inspect().reason == R::activationStillEnabled);
     assert(intents.update(actor, {"rectools","backend-b",false,1},
                           {},{}).status == IntentStatus::ok);

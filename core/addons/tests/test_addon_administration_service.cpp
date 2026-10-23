@@ -58,6 +58,12 @@ int main()
     AddonAdministrationService service(intents, audit);
     assert(intents.ensureSchema());
     assert(audit.ensureSchema());
+    assert(f.db.execute(
+        "CREATE TABLE addon_media_import_maintenance ("
+        "module_id TEXT PRIMARY KEY CHECK(module_id='rectools'),"
+        "frozen INTEGER NOT NULL CHECK(frozen IN(0,1)),"
+        "revision INTEGER NOT NULL CHECK(revision>0),"
+        "updated_by_actor_id TEXT NOT NULL);"));
 
     auto actor = adminActor();
     const AdministrationAuditContext context{"event-1", "2026-10-20T10:00:00Z"};
@@ -183,13 +189,23 @@ int main()
     assert(enabled.status == IntentStatus::ok &&
            enabled.intent.desiredEnabled && enabled.intent.revision == 2);
     assert(trustedReads == 1 && audit.listAll().size() == 2);
+    assert(f.db.execute(
+        "INSERT INTO addon_media_import_maintenance "
+        "VALUES ('rectools',1,1,'maintenance-admin');"));
+    // Even a valid, independently injected provider cannot reaffirm enable
+    // while the module is frozen; existing enabled state is not a bypass.
+    assert(trusted.setDesiredState(
+        actor, {"rectools", "backend-a", true, 2}, {}, {},
+        {"event-frozen", "2026-10-20T10:10:00Z"}).status == IntentStatus::ineligible);
+    assert(audit.listAll().size() == 2);
     const auto disabledAgain = trusted.setDesiredState(
         actor, {"rectools", "backend-a", false, 2}, {}, {},
         {"event-disabled", "2026-10-20T10:11:00Z"});
     assert(disabledAgain.status == IntentStatus::ok &&
            !disabledAgain.intent.desiredEnabled &&
            disabledAgain.intent.revision == 3);
-    assert(trustedReads == 1 && audit.listAll().size() == 3);
+    assert(trustedReads == 2 && audit.listAll().size() == 3);
+    assert(f.db.execute("DELETE FROM addon_media_import_maintenance;"));
 
     AddonAdministrationService noProvider(intents, audit,
         [](const std::string&, const std::string&)

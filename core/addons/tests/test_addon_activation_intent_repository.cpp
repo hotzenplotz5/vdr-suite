@@ -85,6 +85,16 @@ int main()
 
     assert(store.ensureSchema());
     assert(store.ensureSchema());
+    // Without the canonical operations maintenance schema, enable MUST
+    // fail closed; no missing-table shortcut may grant an administrator wish.
+    assert(store.update(actor, {"rectools","backend-a",true,0},
+                        b, evidence).status == IntentStatus::unavailable);
+    assert(f.database.execute(
+        "CREATE TABLE addon_media_import_maintenance ("
+        "module_id TEXT PRIMARY KEY CHECK(module_id='rectools'),"
+        "frozen INTEGER NOT NULL CHECK(frozen IN(0,1)),"
+        "revision INTEGER NOT NULL CHECK(revision>0),"
+        "updated_by_actor_id TEXT NOT NULL);"));
     read = store.read(actor, "rectools", "backend-a");
     assert(read.status == IntentStatus::ok && read.intent.revision == 0 &&
            !read.intent.desiredEnabled);
@@ -131,6 +141,14 @@ int main()
     auto replay = store.update(actor, {"rectools", "backend-a", true, 1}, b, evidence);
     assert(replay.status == IntentStatus::ok &&
            replay.intent.desiredEnabled && replay.intent.revision == 1);
+    ++checks;
+    assert(f.database.execute(
+        "INSERT INTO addon_media_import_maintenance "
+        "VALUES ('rectools',1,1,'maintenance-admin');"));
+    assert(store.update(actor, {"rectools","backend-a",true,1},
+                        b, evidence).status == IntentStatus::ineligible);
+    assert(store.read(actor,"rectools","backend-a").intent.revision == 1);
+    assert(f.database.execute("DELETE FROM addon_media_import_maintenance;"));
     ++checks;
     auto stale = store.update(actor, enable, b, evidence);
     assert(stale.status == IntentStatus::revisionConflict);

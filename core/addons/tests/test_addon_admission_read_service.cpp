@@ -95,6 +95,12 @@ int main()
     ++checks;
 
     assert(intents.ensureSchema());
+    assert(fixture.db.execute(
+        "CREATE TABLE addon_media_import_maintenance ("
+        "module_id TEXT PRIMARY KEY CHECK(module_id='rectools'),"
+        "frozen INTEGER NOT NULL CHECK(frozen IN(0,1)),"
+        "revision INTEGER NOT NULL CHECK(revision>0),"
+        "updated_by_actor_id TEXT NOT NULL);"));
     preview = service.previewMediaImport(a, b, e);
     assert(!preview.policy.allowed && preview.policy.reason == AccessReason::disabled &&
            preview.observedIntentRevision == 0 && !preview.executable);

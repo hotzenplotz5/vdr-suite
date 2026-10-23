@@ -45,6 +45,33 @@ private:
     sqlite3_stmt* statement_ = nullptr;
 };
 
+
+enum class MaintenanceActivationGate { unfrozen, frozen, unavailable };
+
+MaintenanceActivationGate activationMaintenanceGate(Database& db)
+{
+    // Read under the caller's BEGIN IMMEDIATE transaction: a concurrent
+    // freeze/ownership transition and an admin desired-enable write cannot
+    // cross without serializing. The missing table is NOT "unfrozen".
+    Statement query(db.handle(),
+        "SELECT frozen,revision FROM addon_media_import_maintenance "
+        "WHERE module_id='rectools';");
+    if (!query.get()) return MaintenanceActivationGate::unavailable;
+    const int first = sqlite3_step(query.get());
+    if (first == SQLITE_DONE) return MaintenanceActivationGate::unfrozen;
+    if (first != SQLITE_ROW ||
+        sqlite3_column_type(query.get(), 0) != SQLITE_INTEGER ||
+        sqlite3_column_type(query.get(), 1) != SQLITE_INTEGER)
+        return MaintenanceActivationGate::unavailable;
+    const int frozen = sqlite3_column_int(query.get(), 0);
+    const auto revision = sqlite3_column_int64(query.get(), 1);
+    if ((frozen != 0 && frozen != 1) || revision <= 0 ||
+        sqlite3_step(query.get()) != SQLITE_DONE)
+        return MaintenanceActivationGate::unavailable;
+    return frozen ? MaintenanceActivationGate::frozen :
+                    MaintenanceActivationGate::unfrozen;
+}
+
 class Transaction {
 public:
     explicit Transaction(Database& db)
@@ -255,6 +282,17 @@ IntentResult AddonActivationIntentRepository::updateInternal(
         return current;
     if (current.intent.revision != mutation.expectedRevision)
         return outcome(IntentStatus::revisionConflict, mutation.moduleId, mutation.backendId);
+
+    if (mutation.desiredEnabled) {
+        // A package freeze owns the WHOLE Media Tools activation boundary,
+        // not just new Import/HEVC reservations. Disabling still works
+        // during maintenance, even with missing handler or backend facts.
+        const auto gate = activationMaintenanceGate(database_);
+        if (gate == MaintenanceActivationGate::frozen)
+            return outcome(IntentStatus::ineligible, mutation.moduleId, mutation.backendId);
+        if (gate != MaintenanceActivationGate::unfrozen)
+            return outcome(IntentStatus::unavailable, mutation.moduleId, mutation.backendId);
+    }
 
     // An already persisted exact state at the caller's CURRENT revision is
     // a no-op. Do not increment the revision or append another audit event.
