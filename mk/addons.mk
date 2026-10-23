@@ -82,13 +82,18 @@ test-addon-media-shrink:
 .PHONY: test-addon-media-shrink-plan-api
 test-addon-media-shrink-plan-api:
 	mkdir -p "$(BUILD_DIR)/addons"
-	$(CXX) -std=c++17 -Wall -Wextra -Werror \
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
 		-I addons/media-tools/include -I api/rest/include \
-		-I core/daemon/include \
+		-I core/daemon/include -I core/addons/include \
+		-I core/sqlite/include -I core/operations/include \
+		core/sqlite/src/Database.cpp \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/addons/src/MediaShrinkReviewRepository.cpp \
 		addons/media-tools/src/MediaImport.cpp \
 		addons/media-tools/src/MediaShrink.cpp \
 		addons/media-tools/tests/test_media_shrink_plan_api.cpp \
-		-o "$(BUILD_DIR)/addons/test_media_shrink_plan_api"
+		-lsqlite3 -o "$(BUILD_DIR)/addons/test_media_shrink_plan_api"
 	"$(BUILD_DIR)/addons/test_media_shrink_plan_api"
 
 test-ci-fast: test-addon-media-shrink-plan-api
