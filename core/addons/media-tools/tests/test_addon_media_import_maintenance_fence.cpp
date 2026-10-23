@@ -221,6 +221,21 @@ int main()
         assert(operations.reserve(admitted).ok());
     }
 
+    // Corrupted persisted freeze state must not be treated as a valid
+    // administrative unfreeze by Import or HEVC, even if frozen==0.
+    assert(db.execute("PRAGMA ignore_check_constraints=ON;"));
+    assert(db.execute("UPDATE addon_media_import_maintenance SET revision=0 "
+                      "WHERE module_id='rectools';"));
+    assert(!mediaToolsAdmissionUnfrozen(db));
+    assert(operations.reserve(operation("invalid-import", "media.import")).status ==
+           MutationOperationRepositoryStatus::storageError);
+    assert(operations.reserve(operation("invalid-shrink", "media.shrink.stage")).status ==
+           MutationOperationRepositoryStatus::storageError);
+    assert(db.execute("UPDATE addon_media_import_maintenance SET revision=2 "
+                      "WHERE module_id='rectools';"));
+    assert(db.execute("PRAGMA ignore_check_constraints=OFF;"));
+    assert(mediaToolsAdmissionUnfrozen(db));
+
     // Different database owners must never be confused for one atomic store.
     Database unrelated;
     assert(unrelated.open(":memory:"));

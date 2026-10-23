@@ -309,7 +309,7 @@ AdmissionGate mediaToolsAdmissionGate(Database& database)
 {
     sqlite3_stmt* statement = nullptr;
     if (sqlite3_prepare_v2(database.handle(),
-            "SELECT frozen FROM addon_media_import_maintenance "
+            "SELECT frozen,revision FROM addon_media_import_maintenance "
             "WHERE module_id='rectools';", -1, &statement, nullptr) != SQLITE_OK)
         return AdmissionGate::unavailable;
     const int step = sqlite3_step(statement);
@@ -319,8 +319,13 @@ AdmissionGate mediaToolsAdmissionGate(Database& database)
     else if (step == SQLITE_ROW)
     {
         const int frozen = sqlite3_column_int(statement, 0);
+        const auto revision = sqlite3_column_int64(statement, 1);
+        const bool wellFormed =
+            sqlite3_column_type(statement, 0) == SQLITE_INTEGER &&
+            sqlite3_column_type(statement, 1) == SQLITE_INTEGER &&
+            (frozen == 0 || frozen == 1) && revision > 0;
         const int tail = sqlite3_step(statement);
-        if (tail == SQLITE_DONE && (frozen == 0 || frozen == 1))
+        if (tail == SQLITE_DONE && wellFormed)
             result = frozen ? AdmissionGate::frozen : AdmissionGate::permitted;
     }
     sqlite3_finalize(statement);
