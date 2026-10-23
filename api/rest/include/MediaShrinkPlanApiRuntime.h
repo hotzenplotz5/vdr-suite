@@ -21,6 +21,7 @@ public:
     using ReviewStatus = std::function<ApiResponse(const std::string&,
                                                    const std::string&,
                                                    const std::string&)>;
+    using OperationStatus = ReviewStatus;
     using Stage = std::function<ApiResponse(
         const std::string&, const std::string&, const std::string&,
         const std::string&, unsigned, bool, const std::string&)>;
@@ -33,11 +34,13 @@ public:
         return runtime;
     }
     void registerHandlers(Plan plan, Capability capability,
-                          ReviewStatus reviewStatus = {}) {
+                          ReviewStatus reviewStatus = {},
+                          OperationStatus operationStatus = {}) {
         std::lock_guard<std::mutex> lock(mutex_);
         plan_ = std::move(plan);
         capability_ = std::move(capability);
         reviewStatus_ = std::move(reviewStatus);
+        operationStatus_ = std::move(operationStatus);
     }
 
     // Core provides these only after a trusted live permission/Agent
@@ -59,7 +62,11 @@ public:
         const std::string reviewPrefix = "/media-shrink-reviews/";
         const bool reviewRequest =
             suffix.compare(0, reviewPrefix.size(), reviewPrefix) == 0;
-        if (!capabilityRequest && !reviewRequest) return false;
+        const std::string operationPrefix = "/media-shrink-operations/";
+        const bool operationRequest =
+            suffix.compare(0, operationPrefix.size(), operationPrefix) == 0;
+        if (!capabilityRequest && !reviewRequest && !operationRequest)
+            return false;
         if (target.find('?') != std::string::npos) {
             response = problem(400, "Query parameters are not accepted.");
             return true;
@@ -70,6 +77,27 @@ public:
         }
         if (!scoped(backend, authorizedBackend, authorizedBackends)) {
             response = problem(404, "Resource not found.");
+            return true;
+        }
+        if (operationRequest) {
+            const std::string operationId = suffix.substr(operationPrefix.size());
+            if (operationId.size() != 35 ||
+                operationId.compare(0, 3, "op_") != 0 ||
+                !std::all_of(operationId.begin() + 3, operationId.end(),
+                    [](unsigned char ch) {
+                        return (ch >= '0' && ch <= '9') ||
+                               (ch >= 'a' && ch <= 'f');
+                    })) {
+                response = problem(404, "Resource not found.");
+                return true;
+            }
+            OperationStatus read;
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                read = operationStatus_;
+            }
+            response = read ? read(actor, backend, operationId)
+                            : problem(503, "Media Shrink operation unavailable.");
             return true;
         }
         if (reviewRequest) {
@@ -221,6 +249,7 @@ private:
     Plan plan_;
     Capability capability_;
     ReviewStatus reviewStatus_;
+    OperationStatus operationStatus_;
     Stage stage_;
     Publish publish_;
 
