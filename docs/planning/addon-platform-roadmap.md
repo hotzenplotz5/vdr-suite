@@ -96,7 +96,12 @@ A revoked record cannot be rotated back to approved, and reinstalling the
 old executable cannot resurrect a revoked approval. This is an isolated
 operator lifecycle primitive, **not** a package maintainer hook or automatic
 upgrade. Approval and metadata are re-read after binary hashing; the pinned
-executor also checks them again immediately before dispatch. The Agent\'s Import executor now re-hashes the **already pinned open file descriptor** under the shared maintenance lock just before executing it, rejecting in-place binary modifications after authorization without reopening the executable pathname. Targeted isolated regression tests cover altered bytes and descriptor identity; their current GitHub results have not been used as an acceptance gate.
+executor also checks them again immediately before dispatch. The
+Agent's Import executor now re-hashes the **already pinned open file
+descriptor** under the shared maintenance lock just before executing it,
+rejecting in-place binary modifications after authorization without reopening
+the executable pathname. Targeted isolated regression tests cover altered
+bytes and descriptor identity; no host acceptance is claimed.
 Root-owned, nonroot-Agent and synthetic command lifecycle tests use
 disposable fixture installations. This is the same installation contract for
 source/manual staging and future Debian packaging, **not** permission or a
