@@ -334,6 +334,107 @@ void verifyUncertainNoEffectReconcilesExactlyOnce(
         .observedState.title == binding.observedState.title);
 }
 
+void verifyLateVerifiedRejectionAfterEvidenceFreeQuarantine(
+    MutationOperationRepository& operations,
+    NativeTimerBindingRepository& bindings)
+{
+    const auto originalBinding = createBinding(bindings, "quarantine-fenced");
+    const auto payload = payloadFor(
+        originalBinding, NativeTimerModifyKind::toggle);
+    const auto operation =
+        reserve(operations, payload, "quarantine-fenced", 600);
+    NativeTimerModifyDispatchService dispatch(operations, bindings);
+    NativeTimerModifyDispatchClaimRequest request;
+    request.operationId = operation.operationId;
+    request.expectedOperationRevision = operation.operationRevision;
+    const auto claimed = dispatch.claim(request, 605);
+    assert(claimed.ok());
+
+    // Legacy evidence-free Agent result was quarantined before the durable
+    // later, typed rejection became available.
+    const auto quarantined = operations.transition(
+        operation.operationId, claimed.operation.operationRevision,
+        MutationOperationState::dispatching,
+        MutationOperationState::outcomeUnknown,
+        "native-timer-modify:missing-result-evidence", 625);
+    assert(quarantined.ok());
+
+    NativeTimerModifyExecutorOutcome rejected;
+    rejected.category =
+        NativeTimerModifyExecutorOutcomeCategory::rejectedWithoutEffect;
+    rejected.dispatchStartedAt = 0; // certified no-effect pre-dispatch result
+    rejected.completedAt = 620;
+    rejected.evidenceReference = "suitebridge:ntmod:verified-reject";
+
+    // A wrong original claim revision cannot settle the quarantine.
+    auto wrongClaim = claimed.claim;
+    wrongClaim.operationRevision = operation.operationRevision;
+    assert(dispatch.applyOutcome(wrongClaim, rejected).status ==
+        NativeTimerModifyDispatchOutcomeStatus::operationStateConflict);
+
+    // A possible-effect Agent result must remain uncertain and MUST NOT
+    // turn the operation into a final success or failed_verified.
+    NativeTimerModifyExecutorOutcome uncertain = rejected;
+    uncertain.category =
+        NativeTimerModifyExecutorOutcomeCategory::outcomeUnknown;
+    uncertain.dispatchStartedAt = 610;
+    assert(dispatch.applyOutcome(claimed.claim, uncertain).status ==
+        NativeTimerModifyDispatchOutcomeStatus::operationStateConflict);
+    assert(operations.findById(operation.operationId).operation.state ==
+        MutationOperationState::outcomeUnknown);
+
+    const auto resolved = dispatch.applyOutcome(claimed.claim, rejected);
+    assert(resolved.status == NativeTimerModifyDispatchOutcomeStatus::applied);
+    assert(resolved.operation.state == MutationOperationState::failedVerified);
+    assert(resolved.operation.resultReference == rejected.evidenceReference);
+    assert(resolved.operation.updatedAt == 625); // no timestamp rollback
+    assert(!resolved.expectationPresent);
+    assert(dispatch.applyOutcome(claimed.claim, rejected).status ==
+        NativeTimerModifyDispatchOutcomeStatus::alreadyApplied);
+
+    // No native mutation was invoked: the persisted binding is unchanged.
+    const auto foundBinding =
+        bindings.findById(originalBinding.nativeTimerBindingId);
+    assert(foundBinding.ok());
+    assert(foundBinding.binding.bindingRevision ==
+        originalBinding.bindingRevision);
+    assert(foundBinding.binding.observedFingerprint ==
+        originalBinding.observedFingerprint);
+}
+
+void verifyUnprovenQuarantineCannotResolve(
+    MutationOperationRepository& operations,
+    NativeTimerBindingRepository& bindings)
+{
+    const auto binding = createBinding(bindings, "unknown-not-quarantine");
+    const auto payload = payloadFor(
+        binding, NativeTimerModifyKind::toggle);
+    const auto op =
+        reserve(operations, payload, "unknown-not-quarantine", 700);
+    NativeTimerModifyDispatchService dispatch(operations, bindings);
+    NativeTimerModifyDispatchClaimRequest request;
+    request.operationId = op.operationId;
+    request.expectedOperationRevision = op.operationRevision;
+    const auto claimed = dispatch.claim(request, 705);
+    assert(claimed.ok());
+    const auto unknown = operations.transition(
+        op.operationId, claimed.operation.operationRevision,
+        MutationOperationState::dispatching,
+        MutationOperationState::outcomeUnknown,
+        "native:transport-uncertain", 710);
+    assert(unknown.ok());
+
+    NativeTimerModifyExecutorOutcome rejected;
+    rejected.category =
+        NativeTimerModifyExecutorOutcomeCategory::rejectedWithoutEffect;
+    rejected.completedAt = 715;
+    rejected.evidenceReference = "suitebridge:ntmod:rejected";
+    assert(dispatch.applyOutcome(claimed.claim, rejected).status ==
+        NativeTimerModifyDispatchOutcomeStatus::operationStateConflict);
+    assert(operations.findById(op.operationId).operation.state ==
+        MutationOperationState::outcomeUnknown);
+}
+
 void verifyEventIdOnlyDriftNoEffectFence()
 {
     // A previous RESTfulAPI null event_id was accidentally read as the
@@ -414,6 +515,8 @@ int main()
     verifyRejectedWithoutEffect(operations, bindings);
     verifyEvidenceFreeLegacyQuarantine(operations, bindings);
     verifyUncertainNoEffectReconcilesExactlyOnce(operations, bindings);
+    verifyLateVerifiedRejectionAfterEvidenceFreeQuarantine(operations, bindings);
+    verifyUnprovenQuarantineCannotResolve(operations, bindings);
     verifyEventIdOnlyDriftNoEffectFence();
     verifyPendingBacklogBeyondFirstPage(operations, bindings);
 
