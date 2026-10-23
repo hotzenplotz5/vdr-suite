@@ -13,6 +13,8 @@
 #include <cctype>
 #include <cstdlib>
 #include <fstream>
+#include <regex>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -420,6 +422,14 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter,
             *deviceCredentialVerifierRepository_,
             *securityPermissionGrantRepository_,
             *accountabilityEventRepository_);
+
+    devicePlaybackAccountBindingService_ =
+        std::make_unique<DevicePlaybackAccountBindingService>(
+            *securityDatabase_, *securityIdentityRepository_,
+            *humanAccountRepository_, *securityPermissionGrantRepository_,
+            *accountabilityEventRepository_);
+    if (!devicePlaybackAccountBindingService_->ensureSchema())
+        return;
 
     deviceLifecycleAdministrationService_ =
         std::make_unique<DeviceLifecycleAdministrationService>(
