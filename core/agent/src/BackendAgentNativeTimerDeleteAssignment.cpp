@@ -7,32 +7,10 @@
 #include "BackendAgentNativeTimerDeletePayload.h"
 #include "Database.h"
 
-#include <sqlite3.h>
-
-#include <optional>
 #include <string>
 
 namespace
 {
-bool bindText(sqlite3_stmt* statement, int index, const std::string& value)
-{
-    return sqlite3_bind_text(
-               statement, index, value.c_str(), -1, SQLITE_TRANSIENT) == SQLITE_OK;
-}
-
-bool bindInt(sqlite3_stmt* statement, int index, std::int64_t value)
-{
-    return sqlite3_bind_int64(statement, index, value) == SQLITE_OK;
-}
-
-std::string text(sqlite3_stmt* statement, int column)
-{
-    const unsigned char* value = sqlite3_column_text(statement, column);
-    return value
-        ? std::string(reinterpret_cast<const char*>(value))
-        : std::string();
-}
-
 bool requestValid(
     const RequestSecurityContext& context,
     const vdrsuite::agent::BackendAgentNativeTimerDeleteAssignmentRequest& request,
